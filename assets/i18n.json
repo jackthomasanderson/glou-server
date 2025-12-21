@@ -2,12 +2,12 @@
   "fr": {
     "app": {
       "title": "Glou",
-      "subtitle": "Gestion de Cave à Vin",
+      "subtitle": "Gestion de Collection",
       "version": "v1.0.0"
     },
     "nav": {
       "dashboard": "Tableau de bord",
-      "wines": "Mes Vins",
+      "wines": "Ma Collection",
       "toDrink": "À Boire Maintenant",
       "caves": "Caves",
       "journal": "Journal",
@@ -15,14 +15,14 @@
     },
     "dashboard": {
       "title": "Vue d'ensemble",
-      "totalWines": "Vins Total",
+      "totalWines": "Bouteilles Total",
       "bottles": "Bouteilles",
       "toDrink": "À boire maintenant",
       "caves": "Caves"
     },
     "wines": {
-      "title": "Mes Vins",
-      "add": "Ajouter un vin",
+      "title": "Ma Collection",
+      "add": "Ajouter une bouteille",
       "search": "Rechercher...",
       "type": "Type",
       "vintage": "Millésime",

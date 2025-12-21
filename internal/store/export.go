@@ -131,10 +131,14 @@ func (s *Store) ExportCavesCSV(ctx context.Context, w io.Writer) error {
 	}
 
 	for _, cave := range caves {
+		model := ""
+		if cave.Model != nil {
+			model = *cave.Model
+		}
 		row := []string{
 			fmt.Sprintf("%d", cave.ID),
 			cave.Name,
-			cave.Model,
+			model,
 			fmt.Sprintf("%d", cave.Capacity),
 			fmt.Sprintf("%d", cave.Current),
 			cave.CreatedAt.Format(time.RFC3339),
@@ -204,9 +208,9 @@ func (s *Store) ImportJSON(ctx context.Context, data []byte) error {
 	caveMap := make(map[int64]int64) // old ID -> new ID
 	for _, cave := range importData.Caves {
 		result, err := tx.ExecContext(ctx,
-			`INSERT INTO caves (name, model, capacity, current, created_at) 
-			 VALUES (?, ?, ?, ?, ?)`,
-			cave.Name, cave.Model, cave.Capacity, cave.Current, cave.CreatedAt,
+			`INSERT INTO caves (name, model, location, capacity, current, created_at) 
+			 VALUES (?, ?, ?, ?, ?, ?)`,
+			cave.Name, cave.Model, cave.Location, cave.Capacity, cave.Current, cave.CreatedAt,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to import cave: %w", err)

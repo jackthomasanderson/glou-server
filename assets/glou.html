@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glou 2025 - Gestion Professionnelle de Cave à Vin</title>
+    <title>Glou 2025 - Gestion Professionnelle de Collection</title>
     <style>
         :root {
             --primary: #667eea;
@@ -44,7 +44,7 @@
         /* Navbar */
         .navbar {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            padding: 1rem;
+            padding: 0.5rem 1rem;
             box-shadow: 0 4px 20px rgba(0,0,0,0.15);
             position: sticky;
             top: 0;
@@ -59,15 +59,16 @@
         }
 
         .navbar h1 {
-            font-size: 1.5rem;
+            font-size: 1.1rem;
             color: white;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-            margin-bottom: 3px;
+            margin-bottom: 0px;
         }
 
         .navbar p {
             color: rgba(255,255,255,0.9);
-            font-size: 0.8rem;
+            font-size: 0.7rem;
+            display: none;
         }
 
         .navbar-actions {
@@ -114,28 +115,41 @@
 
         .tab-btn {
             padding: 0.75rem 1.5rem;
-            background: transparent;
+            background: #f0f0f0;
             border: none;
+            border-bottom: 3px solid transparent;
             cursor: pointer;
             font-size: 1rem;
             color: var(--text-light);
-            opacity: 0.6;
-            transition: opacity 0.3s;
+            transition: all 0.3s;
             white-space: nowrap;
+            border-radius: 8px 8px 0 0;
+            font-weight: 500;
         }
 
         body.dark-mode .tab-btn {
+            background: #333333;
             color: var(--text-dark);
         }
 
         .tab-btn.active {
-            opacity: 1;
-            border-bottom: 3px solid var(--primary);
-            margin-bottom: -2px;
+            background: white;
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+        }
+
+        body.dark-mode .tab-btn.active {
+            background: #2d2d2d;
+            color: var(--primary);
         }
 
         .tab-btn:hover {
-            opacity: 0.8;
+            background: #e0e0e0;
+        }
+
+        body.dark-mode .tab-btn:hover {
+            background: #404040;
         }
 
         /* Tabs Content */
@@ -547,7 +561,7 @@
     <nav class="navbar">
         <div class="navbar-content">
             <h1>🍷 Glou</h1>
-            <p>Gestion intelligente de cave à vin</p>
+            <p>Gestion intelligente de collection</p>
         </div>
         <div class="navbar-actions">
             <button class="dark-mode-toggle" onclick="toggleDarkMode()">🌙</button>
@@ -559,7 +573,7 @@
         <!-- Tabs Navigation -->
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('dashboard', event)">📊 Dashboard</button>
-            <button class="tab-btn" onclick="switchTab('wines', event)">🍾 Mes Vins</button>
+            <button class="tab-btn" onclick="switchTab('wines', event)">🍾 Ma Collection</button>
             <button class="tab-btn" onclick="switchTab('to-drink', event)">🎯 À Boire</button>
             <button class="tab-btn" onclick="switchTab('caves', event)">🏺 Caves</button>
             <button class="tab-btn" onclick="switchTab('journal', event)">📖 Journal</button>
@@ -574,7 +588,7 @@
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="number" id="wineCount">0</div>
-                    <div class="label">Vins en cave</div>
+                    <div class="label">Bouteilles Total</div>
                 </div>
                 <div class="stat-card">
                     <div class="number" id="bottleCount">0</div>
@@ -606,14 +620,14 @@
             </div>
         </div>
 
-        <!-- Mes Vins -->
+        <!-- Ma Collection -->
         <div id="wines" class="tabs-content">
-            <div class="page-title">Mes Vins</div>
+            <div class="page-title">Ma Collection</div>
             <p class="page-subtitle">Gérez votre collection</p>
 
             <div class="content">
                 <div class="card">
-                    <h2>➕ Ajouter un vin</h2>
+                    <h2>➕ Ajouter une bouteille</h2>
                     
                     <!-- Enrichment Section - Mobile Responsive -->
                     <div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 1rem; margin-bottom: 1.5rem; border-radius: 8px;">
@@ -676,7 +690,7 @@
 
                     <form id="addWineForm">
                         <div class="form-group">
-                            <label for="name">Nom du vin *</label>
+                            <label for="name">Nom de la bouteille *</label>
                             <input type="text" id="name" required placeholder="ex: Château Margaux">
                         </div>
                         <div class="form-group">
@@ -731,7 +745,7 @@
                 </div>
 
                 <div class="card">
-                    <h2>🍷 Collection de vins</h2>
+                    <h2>🍷 Ma Collection</h2>
                     <div id="winesList" class="wines-grid">
                         <div class="empty-state">Chargement...</div>
                     </div>
@@ -748,7 +762,7 @@
                 <div class="card" style="grid-column: 1 / -1;">
                     <div class="urgent-badge">⏰ Bouteilles à consommer en priorité</div>
                     <div id="winesToDrink" class="wines-grid">
-                        <div class="empty-state">✓ Aucun vin en apogée actuellement</div>
+                        <div class="empty-state">✓ Aucune bouteille en apogée actuellement</div>
                     </div>
                 </div>
             </div>
@@ -756,7 +770,7 @@
 
         <!-- Caves -->
         <div id="caves" class="tabs-content">
-            <div class="page-title">Caves à Vin</div>
+            <div class="page-title">Collections</div>
             <p class="page-subtitle">Gérez vos emplacements</p>
 
             <div class="content">
@@ -799,9 +813,9 @@
                     <h2>📝 Enregistrer une sortie</h2>
                     <form id="journalForm">
                         <div class="form-group">
-                            <label for="journalWineId">Vin *</label>
+                            <label for="journalWineId">Bouteille *</label>
                             <select id="journalWineId" required>
-                                <option value="">Sélectionner un vin...</option>
+                                <option value="">Sélectionner une bouteille...</option>
                             </select>
                         </div>
                         <div class="form-group">

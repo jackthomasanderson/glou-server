@@ -2,7 +2,7 @@ package domain
 
 import "time"
 
-// Wine représente une bouteille de vin dans la cave
+// Wine représente une bouteille de boisson dans la collection
 type Wine struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`     // Nom du vin (ex: Château Margaux)
@@ -34,11 +34,12 @@ type Cell struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// Cave représente une cave à vin
+// Cave représente une cave de collection de boissons
 type Cave struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`     // Nom de la cave
-	Model     string    `json:"model"`    // Modèle (ex: La Sommelière)
+	Model     *string   `json:"model"`    // Modèle (ex: La Sommelière) - optionnel
+	Location  string    `json:"location"` // Localisation (ex: Maison principale, Maison de vacances)
 	Capacity  int       `json:"capacity"` // Capacité totale
 	Current   int       `json:"current"`  // Bouteilles actuelles
 	CreatedAt time.Time `json:"created_at"`

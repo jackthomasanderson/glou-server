@@ -52,7 +52,8 @@ func (s *Store) initSchema() error {
 	CREATE TABLE IF NOT EXISTS caves (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
-		model TEXT NOT NULL,
+		model TEXT,
+		location TEXT NOT NULL DEFAULT 'Principale',
 		capacity INTEGER NOT NULL DEFAULT 100,
 		current INTEGER NOT NULL DEFAULT 0,
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -485,8 +486,8 @@ func (s *Store) GetConsumptionHistory(ctx context.Context, wineID int64) ([]*dom
 
 // CreateCave crée une nouvelle cave
 func (s *Store) CreateCave(ctx context.Context, cave *domain.Cave) (int64, error) {
-	query := `INSERT INTO caves (name, model, capacity) VALUES (?, ?, ?)`
-	result, err := s.Db.ExecContext(ctx, query, cave.Name, cave.Model, cave.Capacity)
+	query := `INSERT INTO caves (name, model, location, capacity) VALUES (?, ?, ?, ?)`
+	result, err := s.Db.ExecContext(ctx, query, cave.Name, cave.Model, cave.Location, cave.Capacity)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create cave: %w", err)
 	}
@@ -495,7 +496,7 @@ func (s *Store) CreateCave(ctx context.Context, cave *domain.Cave) (int64, error
 
 // GetCaves récupère toutes les caves
 func (s *Store) GetCaves(ctx context.Context) ([]*domain.Cave, error) {
-	query := `SELECT id, name, model, capacity, current, created_at FROM caves ORDER BY created_at DESC`
+	query := `SELECT id, name, model, location, capacity, current, created_at FROM caves ORDER BY created_at DESC`
 	rows, err := s.Db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query caves: %w", err)
@@ -505,7 +506,7 @@ func (s *Store) GetCaves(ctx context.Context) ([]*domain.Cave, error) {
 	caves := make([]*domain.Cave, 0)
 	for rows.Next() {
 		cave := &domain.Cave{}
-		err := rows.Scan(&cave.ID, &cave.Name, &cave.Model, &cave.Capacity, &cave.Current, &cave.CreatedAt)
+		err := rows.Scan(&cave.ID, &cave.Name, &cave.Model, &cave.Location, &cave.Capacity, &cave.Current, &cave.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan cave: %w", err)
 		}

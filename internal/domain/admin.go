@@ -7,7 +7,7 @@ type Settings struct {
 	ID int64 `json:"id"`
 
 	// Branding
-	AppTitle     string `json:"app_title"`     // Titre de l'appli (ex: "Ma Cave à Vin")
+	AppTitle     string `json:"app_title"`     // Titre de l'appli (ex: "Ma Collection")
 	AppSlogan    string `json:"app_slogan"`    // Slogan
 	LogoURL      string `json:"logo_url"`      // URL du logo
 	FaviconURL   string `json:"favicon_url"`   // URL du favicon

@@ -26,6 +26,9 @@ import {
   AttachMoney as AttachMoneyIcon,
   MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
+import { RegionalHeatmapCard } from '../components/RegionalHeatmapCard';
+import { WineMapHeatmap } from '../components/WineMapHeatmap';
+import { HelpIcon } from '../components/HelpIcon';
 
 /**
  * KPI Widget Component
@@ -76,16 +79,23 @@ export const KPIWidget = ({
             marginBottom: 2,
           }}
         >
-          <Typography
-            variant="h6"
-            sx={{
-              // Design Token: titleMedium
-              color: theme.palette.onSurface,
-              fontWeight: 500,
-            }}
-          >
-            {title}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography
+              variant="h6"
+              sx={{
+                // Design Token: titleMedium
+                color: theme.palette.onSurface,
+                fontWeight: 500,
+              }}
+            >
+              {title}
+            </Typography>
+            <HelpIcon 
+              title={title}
+              description={`Cet indicateur mesure ${title.toLowerCase()}. Comparez les variations mois après mois pour suivre les tendances de votre collection.`}
+              sx={{ fontSize: '0.9rem' }}
+            />
+          </Box>
           <Box
             sx={{
               // Design Token: primaryContainer with opacity tint
@@ -220,19 +230,25 @@ export const SaasDataTable = ({
       {title && (
         <>
           <CardContent sx={{ paddingBottom: 0 }}>
-            <Typography
-              variant="h5"
-              sx={{
-                // Design Token: titleMedium for card headers
-                color: theme.palette.onSurface,
-                fontWeight: 500,
-                marginBottom: 2,
-              }}
-            >
-              {title}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography
+                variant="h5"
+                sx={{
+                  // Design Token: titleMedium for card headers
+                  color: theme.palette.onSurface,
+                  fontWeight: 500,
+                }}
+              >
+                {title}
+              </Typography>
+              <HelpIcon 
+                title={title}
+                description="Tableau de bord montrant un aperçu détaillé. Cliquez sur les en-têtes pour trier les données."
+                sx={{ fontSize: '0.9rem' }}
+              />
+            </Box>
           </CardContent>
-          <Divider sx={{ borderColor: theme.palette.divider }} />
+          <Divider sx={{ borderColor: theme.palette.divider, marginTop: 1 }} />
         </>
       )}
 
@@ -513,68 +529,20 @@ export const DashboardScreen = () => {
           />
         </Box>
 
-        {/* Additional Stats Cards */}
+        {/* Regional Heatmap and Additional Stats */}
         <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-            <Card
-              sx={{
-                backgroundColor: theme.palette.surfaceMedium,
-                borderRadius: '12px',
-                border: `1px solid ${theme.palette.divider}`,
-              }}
-            >
-              <CardContent>
-                <Typography variant="h6" sx={{ marginBottom: 2 }}>
-                  Top Regions
-                </Typography>
-                <Stack spacing={1.5}>
-                  {[
-                    { region: 'North America', sales: '3,245', percent: 38 },
-                    { region: 'Europe', sales: '2,890', percent: 34 },
-                    { region: 'Asia Pacific', sales: '1,890', percent: 22 },
-                    { region: 'Other', sales: '391', percent: 6 },
-                  ].map((item, idx) => (
-                    <Box key={idx}>
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          marginBottom: 0.5,
-                        }}
-                      >
-                        <Typography variant="body2">
-                          {item.region}
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {item.sales}
-                        </Typography>
-                      </Box>
-                      <Box
-                        sx={{
-                          height: '6px',
-                          backgroundColor: theme.palette.surfaceLight,
-                          borderRadius: '3px',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            height: '100%',
-                            width: `${item.percent}%`,
-                            backgroundColor: theme.palette.primary.main,
-                            borderRadius: '3px',
-                            transition: 'width 0.3s ease-in-out',
-                          }}
-                        />
-                      </Box>
-                    </Box>
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
+          {/* Regional Heatmap Grid View */}
+          <Grid item xs={12}>
+            <RegionalHeatmapCard />
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          {/* Interactive Map Heatmap */}
+          <Grid item xs={12}>
+            <WineMapHeatmap />
+          </Grid>
+
+          {/* Recent Activity Card */}
+          <Grid item xs={12} md={12}>
             <Card
               sx={{
                 backgroundColor: theme.palette.surfaceMedium,
