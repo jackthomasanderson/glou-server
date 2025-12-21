@@ -317,119 +317,7 @@
             100% { transform: rotate(360deg); }
         }
 
-        .password-strength-bar {
-            height: 6px;
-            background: #e0e0e0;
-            border-radius: 3px;
-            overflow: hidden;
-            margin-bottom: 8px;
-        }
 
-        .password-strength-fill {
-            height: 100%;
-            transition: all 0.3s;
-            border-radius: 3px;
-        }
-
-        .password-strength-text {
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .strength-very-weak .password-strength-fill {
-            width: 20%;
-            background: #d32f2f;
-        }
-
-        .strength-very-weak .password-strength-text {
-            color: #d32f2f;
-        }
-
-        .strength-weak .password-strength-fill {
-            width: 40%;
-            background: #f44336;
-        }
-
-        .strength-weak .password-strength-text {
-            color: #f44336;
-        }
-
-        .strength-medium .password-strength-fill {
-            width: 60%;
-            background: #ff9800;
-        }
-
-        .strength-medium .password-strength-text {
-            color: #ff9800;
-        }
-
-        .strength-strong .password-strength-fill {
-            width: 80%;
-            background: #8bc34a;
-        }
-
-        .strength-strong .password-strength-text {
-            color: #8bc34a;
-        }
-
-        .strength-very-strong .password-strength-fill {
-            width: 100%;
-            background: #4caf50;
-        }
-
-        .strength-very-strong .password-strength-text {
-            color: #4caf50;
-        }
-
-        .password-warning {
-            background: #fff3cd;
-            border-left: 4px solid #ff9800;
-            padding: 12px;
-            margin-top: 10px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            color: #856404;
-            display: none;
-        }
-
-        .password-warning.show {
-            display: block;
-        }
-
-        .password-requirements {
-            font-size: 0.85rem;
-            margin-top: 8px;
-        }
-
-        .requirement {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin: 4px 0;
-            color: #999;
-        }
-
-        .requirement.recommended {
-            color: #ff9800;
-            font-weight: 500;
-        }
-
-        .requirement.met {
-            color: #4caf50;
-        }
-
-        .requirement.met::before {
-            content: '✓';
-            font-weight: bold;
-        }
-
-        .requirement.recommended::before {
-            content: '⚠';
-        }
-
-        .requirement.unmet::before {
-            content: '○';
-        }
     </style>
 </head>
 <body>
@@ -485,16 +373,14 @@
                     <div class="form-group">
                         <label for="password" data-i18n="password">Password *</label>
                         <input type="password" id="password" required data-i18n-placeholder="passwordPlaceholder">
-                        <small style="display: block; margin-top: 8px; line-height: 1.5; color: #666;">
-                            <strong style="color: #ff9800;">⚠️</strong> <span data-i18n="passwordRequirements">Password requirements:</span>
-                        </small>
-                        <div id="password-strength" style="margin-top: 10px;"></div>
                     </div>
 
                     <div class="form-group">
                         <label for="password-confirm" data-i18n="confirmPassword">Confirm Password *</label>
                         <input type="password" id="password-confirm" required data-i18n-placeholder="confirmPasswordPlaceholder">
                     </div>
+                    
+                    <p style="color: #999; font-size: 0.85rem; margin-top: 20px; font-style: italic;" data-i18n="requiredFieldsNote">* Required fields</p>
                 </div>
 
                 <!-- Étape 2: Personnalisation -->
@@ -1085,17 +971,9 @@
                 passwordPlaceholder: 'Secure password',
                 confirmPassword: 'Confirm Password *',
                 confirmPasswordPlaceholder: 'Confirm your password',
-                passwordStrengthVeryWeak: 'Very Weak',
-                passwordStrengthWeak: 'Weak',
-                passwordStrengthMedium: 'Medium',
-                passwordStrengthStrong: 'Strong',
-                passwordStrengthVeryStrong: 'Very Strong',
-                passwordRequirements: 'Password requirements:',
-                passwordReq8chars: 'At least 8 characters',
-                passwordReqUppercase: 'At least one uppercase letter',
-                passwordReqLowercase: 'At least one lowercase letter',
-                passwordReqNumber: 'At least one number',
+
                 passwordReqSpecial: 'At least one special character (recommended)',
+                requiredFieldsNote: '* Required fields',
                 
                 // Step 2 - Customization
                 customizationTitle: 'Customize Your Glou',
@@ -1210,17 +1088,8 @@
                 passwordPlaceholder: 'Mot de passe sécurisé',
                 confirmPassword: 'Confirmer le mot de passe *',
                 confirmPasswordPlaceholder: 'Confirmez votre mot de passe',
-                passwordStrengthVeryWeak: 'Très Faible',
-                passwordStrengthWeak: 'Faible',
-                passwordStrengthMedium: 'Moyen',
-                passwordStrengthStrong: 'Fort',
-                passwordStrengthVeryStrong: 'Très Fort',
-                passwordRequirements: 'Exigences du mot de passe :',
-                passwordReq8chars: 'Au moins 8 caractères',
-                passwordReqUppercase: 'Au moins une lettre majuscule',
-                passwordReqLowercase: 'Au moins une lettre minuscule',
-                passwordReqNumber: 'Au moins un chiffre',
-                passwordReqSpecial: 'Au moins un caractère spécial (recommandé)',
+
+                requiredFieldsNote: '* Champs obligatoires',
                 
                 // Step 2 - Customization
                 customizationTitle: 'Personnalisez votre Glou',
