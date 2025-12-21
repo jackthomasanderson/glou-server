@@ -137,16 +137,20 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Logo URL</label>
+                            <label>Logo & Favicon</label>
                             <input type="url" id="logoURL" placeholder="/assets/logo.png">
                             <img id="logoPreview" class="logo-preview" style="display:none;">
+                            <small>Cette image sera utilisée comme logo ET comme favicon</small>
                         </div>
                         <button type="button" onclick="document.getElementById('logoUpload').click()">Upload Logo</button>
                         <input type="file" id="logoUpload" style="display:none;" accept="image/*" onchange="uploadLogo(event)">
 
                         <div class="form-group">
-                            <label>Favicon URL</label>
-                            <input type="url" id="faviconURL" placeholder="/assets/favicon.ico">
+                            <label>Langue / Language</label>
+                            <select id="brandingLanguage">
+                                <option value="en">English</option>
+                                <option value="fr">Français</option>
+                            </select>
                         </div>
 
                         <div class="button-group">
@@ -312,14 +316,6 @@
                             <small>Default: 1048576 (1 MB)</small>
                         </div>
 
-                        <div class="form-group">
-                            <label>Default Language</label>
-                            <select id="language">
-                                <option value="en">English</option>
-                                <option value="fr">Français</option>
-                            </select>
-                        </div>
-
                         <div class="button-group">
                             <button type="submit">Save Advanced</button>
                         </div>
@@ -340,6 +336,124 @@
 
     <script src="/assets/i18n.js"></script>
     <script>
+        // Traductions pour l'interface admin
+        const i18n = {
+            en: {
+                adminPanel: 'Admin Panel',
+                dashboard: 'Dashboard',
+                branding: 'Branding',
+                appearance: 'Appearance',
+                network: 'Network',
+                features: 'Features',
+                advanced: 'Advanced',
+                users: 'Users',
+                backToApp: 'Back to App',
+                exitAdmin: 'Exit Admin',
+                brandingSettings: 'Branding Settings',
+                appearanceSettings: 'Appearance Settings',
+                networkSettings: 'Network Settings',
+                featuresSettings: 'Features Settings',
+                advancedSettings: 'Advanced Settings',
+                userManagement: 'User Management',
+                saveBranding: 'Save Branding',
+                saveAppearance: 'Save Appearance',
+                saveNetwork: 'Save Network',
+                saveFeatures: 'Save Features',
+                saveAdvanced: 'Save Advanced',
+                applicationTitle: 'Application Title',
+                slogan: 'Slogan',
+                supportEmail: 'Support Email',
+                logoAndFavicon: 'Logo & Favicon',
+                logoDescription: 'This image will be used as logo AND favicon',
+                uploadLogo: 'Upload Logo',
+                language: 'Language',
+                primaryColor: 'Primary Color',
+                secondaryColor: 'Secondary Color',
+                accentColor: 'Accent Color',
+                darkModeDefault: 'Dark Mode by Default',
+                publicDomain: 'Public Domain',
+                publicProtocol: 'Public Protocol',
+                proxyMode: 'Proxy Mode',
+                sessionTimeout: 'Session Timeout',
+                maxRequestBodySize: 'Max Request Body Size',
+                settingsSaved: '✓ Settings saved successfully!',
+                settingsFailed: '✗ Failed to save settings',
+                logoUpdated: 'Logo and Favicon updated!',
+                totalWines: 'Total Wines',
+                cellars: 'Cellars',
+                activeAlerts: 'Active Alerts',
+                systemOk: 'System OK'
+            },
+            fr: {
+                adminPanel: 'Panneau Admin',
+                dashboard: 'Tableau de bord',
+                branding: 'Image de marque',
+                appearance: 'Apparence',
+                network: 'Réseau',
+                features: 'Fonctionnalités',
+                advanced: 'Avancé',
+                users: 'Utilisateurs',
+                backToApp: 'Retour à l\'app',
+                exitAdmin: 'Quitter Admin',
+                brandingSettings: 'Paramètres d\'image de marque',
+                appearanceSettings: 'Paramètres d\'apparence',
+                networkSettings: 'Paramètres réseau',
+                featuresSettings: 'Paramètres des fonctionnalités',
+                advancedSettings: 'Paramètres avancés',
+                userManagement: 'Gestion des utilisateurs',
+                saveBranding: 'Enregistrer l\'image de marque',
+                saveAppearance: 'Enregistrer l\'apparence',
+                saveNetwork: 'Enregistrer le réseau',
+                saveFeatures: 'Enregistrer les fonctionnalités',
+                saveAdvanced: 'Enregistrer les paramètres avancés',
+                applicationTitle: 'Titre de l\'application',
+                slogan: 'Slogan',
+                supportEmail: 'Email de support',
+                logoAndFavicon: 'Logo & Favicon',
+                logoDescription: 'Cette image sera utilisée comme logo ET comme favicon',
+                uploadLogo: 'Télécharger le logo',
+                language: 'Langue',
+                primaryColor: 'Couleur primaire',
+                secondaryColor: 'Couleur secondaire',
+                accentColor: 'Couleur d\'accentuation',
+                darkModeDefault: 'Mode sombre par défaut',
+                publicDomain: 'Domaine public',
+                publicProtocol: 'Protocole public',
+                proxyMode: 'Mode proxy',
+                sessionTimeout: 'Délai d\'expiration de session',
+                maxRequestBodySize: 'Taille max du corps de requête',
+                settingsSaved: '✓ Paramètres enregistrés avec succès !',
+                settingsFailed: '✗ Échec de l\'enregistrement des paramètres',
+                logoUpdated: 'Logo et Favicon mis à jour !',
+                totalWines: 'Total de vins',
+                cellars: 'Caves',
+                activeAlerts: 'Alertes actives',
+                systemOk: 'Système OK'
+            }
+        };
+
+        let currentLang = 'en';
+
+        function t(key) {
+            return i18n[currentLang][key] || key;
+        }
+
+        function updateUILanguage() {
+            // Titre et menu
+            document.querySelector('.sidebar h2').textContent = t('adminPanel');
+            document.querySelectorAll('.sidebar-menu a').forEach((link, idx) => {
+                const keys = ['dashboard', 'branding', 'appearance', 'network', 'features', 'advanced', 'users'];
+                if (idx < keys.length) {
+                    const emoji = link.textContent.split(' ')[0];
+                    link.textContent = emoji + ' ' + t(keys[idx]);
+                } else if (idx === keys.length) {
+                    link.textContent = '← ' + t('backToApp');
+                }
+            });
+            // Bouton Exit Admin
+            document.querySelector('.header button').textContent = t('exitAdmin');
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadSettings();
@@ -373,11 +487,15 @@
                 const res = await fetch('/api/admin/settings');
                 const settings = await res.json();
                 
+                // Définir la langue et mettre à jour l'UI
+                currentLang = settings.language || 'en';
+                updateUILanguage();
+                
                 document.getElementById('appTitle').value = settings.app_title || '';
                 document.getElementById('appSlogan').value = settings.app_slogan || '';
                 document.getElementById('supportEmail').value = settings.support_email || '';
                 document.getElementById('logoURL').value = settings.logo_url || '';
-                document.getElementById('faviconURL').value = settings.favicon_url || '';
+                document.getElementById('brandingLanguage').value = settings.language || 'en';
                 document.getElementById('themeColor').value = settings.theme_color || '#007bff';
                 document.getElementById('secondaryColor').value = settings.secondary_color || '#6c757d';
                 document.getElementById('accentColor').value = settings.accent_color || '#28a745';
@@ -392,7 +510,6 @@
                 document.getElementById('requireApproval').checked = settings.require_approval || false;
                 document.getElementById('rowsPerPage').value = settings.rows_per_page || 10;
                 document.getElementById('dateFormat').value = settings.date_format || 'YYYY-MM-DD';
-                document.getElementById('language').value = settings.language || 'en';
                 document.getElementById('sessionTimeout').value = settings.session_timeout || 1440;
                 document.getElementById('maxRequestBodySize').value = settings.max_request_body_size || 1048576;
                 
@@ -431,12 +548,14 @@
 
         async function saveBranding(e) {
             e.preventDefault();
+            const logoUrl = document.getElementById('logoURL').value;
             const settings = {
                 app_title: document.getElementById('appTitle').value,
                 app_slogan: document.getElementById('appSlogan').value,
                 support_email: document.getElementById('supportEmail').value,
-                logo_url: document.getElementById('logoURL').value,
-                favicon_url: document.getElementById('faviconURL').value
+                logo_url: logoUrl,
+                favicon_url: logoUrl,
+                language: document.getElementById('brandingLanguage').value
             };
             await saveSettings(settings);
         }
@@ -480,8 +599,7 @@
             e.preventDefault();
             const settings = {
                 session_timeout: parseInt(document.getElementById('sessionTimeout').value),
-                max_request_body_size: parseInt(document.getElementById('maxRequestBodySize').value),
-                language: document.getElementById('language').value
+                max_request_body_size: parseInt(document.getElementById('maxRequestBodySize').value)
             };
             await saveSettings(settings);
         }
@@ -494,14 +612,14 @@
                     body: JSON.stringify(settings)
                 });
                 if (res.ok) {
-                    alert('✓ Settings saved successfully!');
+                    alert(t('settingsSaved'));
                     loadSettings();
                 } else {
-                    alert('✗ Failed to save settings');
+                    alert(t('settingsFailed'));
                 }
             } catch (err) {
                 console.error('Error:', err);
-                alert('✗ Error saving settings');
+                alert(t('settingsFailed'));
             }
         }
 
@@ -522,6 +640,8 @@
                     document.getElementById('logoURL').value = data.logo_url;
                     document.getElementById('logoPreview').src = data.logo_url;
                     document.getElementById('logoPreview').style.display = 'block';
+                    // Le logo et le favicon utilisent la même image
+                    alert(t('logoUpdated'));
                 }
             } catch (err) {
                 console.error('Upload error:', err);

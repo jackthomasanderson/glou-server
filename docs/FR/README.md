@@ -1,12 +1,12 @@
 # 📚 Documentation Glou - Français
 
-**[← Retour au menu](../README.md)**
+**[Retour au menu principal](../README.md)**
 
 ---
 
-## 🚀 Démarrage rapide (5 min)
-Lancez Glou en 5 minutes
-- [Démarrage rapide](01_DEMARRAGE.md)
+## 🚀 Démarrage rapide
+Lancez Glou en 5 minutes !
+- [Démarrage rapide](01-getting-started/FR_DEMARRAGE_RAPIDE.md) - Installation et premiers pas
 
 ## 👤 Guide utilisateur
 Pour les utilisateurs qui veulent gérer leur cave
