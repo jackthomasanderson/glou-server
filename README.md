@@ -1,6 +1,8 @@
 # glou-server
 
-![Logo](assets/logo.png)
+<p align="center">
+    <img src="assets/logo.png" alt="Logo glou-server" width="250" />
+</p>
 
 **Gestionnaire de cave moderne, self-hosted et 100 % open-source.**
 
