@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/romain/glou-server/internal/domain"
+	"github.com/romain/glou-server/internal/notifier"
 )
 
 // LoginRequest représente une requête de connexion
@@ -412,7 +414,7 @@ L'équipe Glou
 
 	// Envoyer via le service de notification SMTP
 	if s.notifierManager != nil {
-		notification := &domain.Notification{
+		notification := &notifier.Notification{
 			Title:   subject,
 			Message: message,
 			Type:    "password_reset",

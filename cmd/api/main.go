@@ -16,6 +16,7 @@ import (
 
 	"github.com/romain/glou-server/internal/crypto"
 	"github.com/romain/glou-server/internal/domain"
+	"github.com/romain/glou-server/internal/notifier"
 	"github.com/romain/glou-server/internal/store"
 )
 
@@ -94,10 +95,11 @@ func (s *Server) checkCellarExists(ctx context.Context) (bool, error) {
 
 // Server encapsule les dépendances du serveur HTTP
 type Server struct {
-	store   *store.Store
-	router  *http.ServeMux
-	config  *Config
-	limiter *RateLimiter
+	store           *store.Store
+	router          *http.ServeMux
+	config          *Config
+	limiter         *RateLimiter
+	notifierManager *notifier.NotifierManager
 }
 
 // corsMiddleware sécurisé avec vérification d'origine

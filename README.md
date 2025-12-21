@@ -4,7 +4,7 @@
 
 Manage your wine, spirit, and beer collection effortlessly. Track bottles, know when to drink them, and get smart alerts—all self-hosted and secure.
 
-**🚀 [Quick Start Guide](QUICK_START.md)** | **📖 [Commands Cheatsheet](COMMANDS_CHEATSHEET.md)** | **📱 [Android App](https://github.com/jackthomasanderson/glou-android)**
+**🚀 [Quick Start](QUICK_START.md)** | **📖 [Commands](COMMANDS_CHEATSHEET.md)** | **📱 [Android App](https://github.com/jackthomasanderson/glou-android)** | **📚 [Documentation](documentation/)**
 
 **Status:** ✅ Production Ready (v1.0.0) | Tests: ✅ Passing | Build: ✅ Successful
 

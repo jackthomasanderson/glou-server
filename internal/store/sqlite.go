@@ -143,6 +143,7 @@ func (s *Store) initSchema() error {
 		language TEXT DEFAULT 'en',
 		max_request_body_size INTEGER DEFAULT 1048576,
 		session_timeout INTEGER DEFAULT 1440,
+		smtp_configured INTEGER DEFAULT 0,
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
