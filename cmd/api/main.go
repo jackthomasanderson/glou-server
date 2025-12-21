@@ -138,6 +138,7 @@ func (s *Server) setupRoutes() {
 	// Setup Wizard - Routes sans authentification
 	s.router.HandleFunc("GET /setup", s.handleSetupWizard)
 	s.router.HandleFunc("GET /api/setup/check", s.handleCheckSetup)
+	s.router.HandleFunc("GET /api/setup/smtp-config", s.handleCheckSMTPConfig)
 	s.router.HandleFunc("POST /api/setup/complete", s.handleCompleteSetup)
 
 	// Authentication - Routes publiques
@@ -225,8 +226,8 @@ func (s *Server) setupRoutes() {
 	// Servir les assets statiques
 	s.router.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 
-	// Servir l'interface web pour toutes les routes non-API
-	s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(s.authRequiredMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	// Servir l'interface web pour toutes les routes non-API (avec vérification setup)
+	s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(authRequired(func(w http.ResponseWriter, r *http.Request) {
 		// Servir glou.html pour toutes les routes frontend
 		http.ServeFile(w, r, "assets/glou.html")
 	})))

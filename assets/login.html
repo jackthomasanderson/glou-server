@@ -285,7 +285,7 @@
                 <button type="submit" class="submit-btn" id="login-btn">Se connecter</button>
             </form>
 
-            <div class="forgot-password">
+            <div class="forgot-password" id="forgot-password-link" style="display: none;">
                 <a href="#" onclick="showForgotPassword(); return false;">Mot de passe oublié ?</a>
             </div>
         </div>
@@ -567,6 +567,30 @@
             strengthBar.style.backgroundColor = color;
             strengthText.textContent = text;
             strengthText.style.color = color;
+        });
+
+        // Vérifier la configuration SMTP au chargement de la page
+        async function checkSMTPConfiguration() {
+            try {
+                const response = await fetch('/api/setup/smtp-config');
+                const data = await response.json();
+                
+                // Afficher le lien "Mot de passe oublié" seulement si SMTP est configuré
+                if (data.smtp_configured) {
+                    document.getElementById('forgot-password-link').style.display = 'block';
+                } else {
+                    document.getElementById('forgot-password-link').style.display = 'none';
+                }
+            } catch (error) {
+                console.log('Erreur lors de la vérification de la configuration SMTP:', error);
+                // En cas d'erreur, on cache le lien par sécurité
+                document.getElementById('forgot-password-link').style.display = 'none';
+            }
+        }
+
+        // Initialiser la page
+        window.addEventListener('DOMContentLoaded', () => {
+            checkSMTPConfiguration();
         });
     </script>
 </body>
