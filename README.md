@@ -6,16 +6,18 @@ Manage your wine collection effortlessly. Track bottles, know when to drink them
 
 **Companion:** [Android App](https://github.com/jackthomasanderson/glou-android) · [Docs](.docs/)
 
+**Status:** ✅ Production Ready (v1.0.0) | Tests: ✅ Passing | Build: ✅ Successful
+
 ---
 
 ## Why Glou?
 
 - 🏠 **Self-hosted** - Your data stays on your server
 - 📱 **Mobile-ready** - Web interface + native Android app
-- 🔐 **Secure** - Production-grade security built-in
+- 🔐 **Secure** - Production-grade security, input validation, secure transactions
 - 🌍 **Bilingual** - English & French, auto-detect language
 - ⚡ **Fast** - No cloud delays, instant local access
-- 🔔 **Smart Alerts** - Notifications via Gotify or email when wines reach apogee
+- 🔔 **Smart Alerts** - Automatic notifications via Gotify or email when wines reach apogee
 - 📊 **Full Export** - CSV, JSON backups - your data, always accessible
 - 🔄 **Easy Migration** - Move servers without losing data
 - 📝 **Activity Logging** - Complete audit trail of all changes
@@ -94,10 +96,13 @@ Then open: **http://localhost:8080/**
 ✅ **Production Ready** (v1.0.0)  
 ✅ Full-featured wine management  
 ✅ 30+ REST API endpoints  
-✅ Secure & optimized  
+✅ Secure & optimized with validation layer  
 ✅ Data export/import (CSV, JSON)  
 ✅ Activity logging & audit trail  
 ✅ Barcode scanning support  
+✅ Thread-safe background services (AlertGenerator)  
+✅ Atomic database transactions  
+✅ **All critical fixes implemented and tested** (see [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md))  
 
 ---
 
@@ -109,11 +114,13 @@ MIT
 
 # 🍷 Glou - Gestion de Cave Simplifiée
 
-## Français
+**English** (au-dessus) | **Français**
 
 Gérez votre collection de vins sans effort. Suivez les bouteilles, savez quand les boire et recevez des alertes intelligentes—tout auto-hébergé et sécurisé.
 
 **Compagnon:** [App Android](https://github.com/jackthomasanderson/glou-android) · [Docs](.docs/)
+
+**Status:** ✅ Prêt Production (v1.0.0) | Tests: ✅ Validés | Build: ✅ Succès
 
 ---
 
@@ -121,22 +128,14 @@ Gérez votre collection de vins sans effort. Suivez les bouteilles, savez quand 
 
 - 🏠 **Auto-hébergé** - Vos données restent sur votre serveur
 - 📱 **Mobile-prêt** - Interface web + app Android native
-- 🔐 **Sécurisé** - Sécurité production intégrée
+- 🔐 **Sécurisé** - Sécurité production, validation, transactions sécurisées
 - 🌍 **Bilingue** - Anglais & Français, auto-détecte
 - ⚡ **Rapide** - Pas de nuage, accès local instantané
-- 🔔 **Alertes Intelligentes** - Notifications via Gotify ou email quand l'apogée est atteinte
-
----
-
-### Ça Marche Comment?
-
-```
-1. Ajoutez vos vins      → Lieu, date achat, fenêtre apogée
-2. Définissez apogée     → Min/max à boire (auto-calculé)
-3. Recevez alertes       → Notifié 6 mois avant pic, quand le boire
-4. Enregistrez dégust.   → Notes avec notes de dégustation
-5. Voyez le tableau de b.→ Stats, capacité, prochains à boire
-```
+- 🔔 **Alertes Intelligentes** - Notifications automatiques via Gotify ou email
+- 📊 **Export Complet** - CSV, JSON pour sauvegarde
+- 🔄 **Migration Facile** - Changez de serveur sans perte
+- 📝 **Audit Complet** - Historique complet des modifications
+- 📱 **Scan Code-barres** - Remplissage automatique des données vin
 
 ---
 
@@ -159,135 +158,47 @@ Puis ouvrir: **http://localhost:8080/**
 1. Créez une **Cave** - votre lieu de stockage
 2. Ajoutez des **Cellules** (étagères) à votre cave
 3. Ajoutez votre premier **Vin** - nom, millésime, dates apogée
-4. Consultez le **Tableau de bord** - votre collection en un coup d'œil
-5. Paramétrez les **Alertes** - soyez notifié quand le boire
+4. Consultez le **Tableau de bord** - votre collection d'un coup d'œil
+5. Paramétrez les **Alertes** - soyez notifié au moment de boire
 
 ---
 
-### Fonctionnalités Principales
+### Fonctionnalités
 
 | Fonctionnalité | Description |
 |---|---|
 | 🍾 **Inventaire Vins** | Suivi complet avec millésime, lieu, dates apogée |
 | 🗄️ **Multiples Caves** | Organisez les vins dans différents lieux |
 | 📅 **Suivi Apogée** | Savez précisément quand chaque vin est au meilleur |
-| 🔔 **Alertes Intelligentes** | Auto-alertes via Gotify ou mail, 6 mois avant pic, quand prêt |
+| 🔍 **Recherche & Filtres** | Trouvez vos vins rapidement |
+| 🔔 **Alertes Intelligentes** | Notifications automatiques 6 mois avant pic |
 | 📔 **Journal Dégustation** | Enregistrez conso, notes, impressions |
 | 📊 **Tableau de Bord** | Stats rapides, capacité, prochains à boire |
+| 💾 **Export Complet** | CSV/JSON pour backup et analyse |
+| 🔄 **Migration Facile** | Zéro perte de données |
+| 📝 **Audit Trail** | Qui a changé quoi, quand |
 | 🌙 **Mode Sombre** | Visualisation confortable jour et nuit |
-| 🇬🇧🇫🇷 **Bilingue** | Bascule fluide Anglais/Français |
+| 🇬🇧🇫🇷 **Bilingue** | Bascule fluide FR/EN |
 
 ---
 
 ### Documentation
 
-- **Pour Utilisateurs:** [FAQ](.docs/FAQ.md), [Configuration Notifications](.docs/NOTIFICATIONS_SETUP.md), Guide de démarrage
-- **Pour Admins:** [Guide Admin](.docs/ADMIN_GUIDE.md) - Configurez domaine, marque, couleurs, reverse proxy
-- **Pour Développeurs:** Documentation complète dans `.docs/`
-- **API Users:** [Référence API](.docs/API_REFERENCE.md)
+- **Utilisateurs:** [FAQ](.docs/FAQ.md), [Enrichissement Vins](.docs/ENRICHMENT.md), [Notifications](.docs/NOTIFICATIONS_SETUP.md), [Codes-barres](.docs/BARCODE_GUIDE.md)
+- **Administrateurs:** [Guide Admin](.docs/ADMIN_GUIDE.md) - Domaine, marque, couleurs, reverse proxy. **[Sauvegarde & Restauration](.docs/BACKUP_RESTORE_GUIDE.md)**. **[Migration de Données](.docs/DATA_MIGRATION_GUIDE.md)**
+- **Développeurs:** Documentation complète dans `.docs/`
+- **API:** [Référence API Complète](.docs/API_REFERENCE_COMPLETE.md) avec exemples curl
 
 ---
 
 ### Status
 
 ✅ **Prêt Production** (v1.0.0)  
-✅ Gestion de cave complète  
-✅ 25+ endpoints API REST  
-✅ Sécurisé & optimisé
-
----
-
-### Licence
-
-MIT
-
----
-
-## 🛠 For Developers
-
-### Tech Stack
-
-- **Backend:** Go 1.24
-- **Frontend:** HTML5 + Vanilla JS + CSS3
-- **Database:** SQLite (pure Go)
-- **i18n:** JSON-based translations
-- **Deployment:** Docker + Nginx
-
-### Project Structure
-
-```
-glou-server/
-├── cmd/api/           # Server & HTTP handlers
-├── internal/
-│   ├── domain/        # Business logic & models
-│   └── store/         # SQLite persistence
-├── assets/            # Web UI & translations
-└── .docs/             # Full documentation
-```
-
-### API
-
-30+ endpoints for wine, cave, alert, and journal management.  
-See [Complete API Reference](.docs/API_REFERENCE_COMPLETE.md) with curl examples.
-
-### Contributing
-
-See `.docs/BEST_PRACTICES.md` and `.docs/COMMIT_CHECKLIST.md`.
-
----
-
-## Français
-
-**Gestion de cave à vin complète** - Auto-hébergée, sécurisée, prête pour la production.
-
-Suivi complet des vins avec alertes intelligentes, historique de dégustation, exports CSV/JSON, migration facile.
-
-### Démarrage Rapide
-
-```bash
-# Build
-go build -o api ./cmd/api
-
-# Lancer
-./api
-
-# Ouvrir: http://localhost:8080/
-```
-
-Ou avec Docker:
-```bash
-docker-compose up -d
-# Ouvrir: http://localhost:8080/
-```
-
-### Fonctionnalités
-
-✅ Gestion d'inventaire de vins complet  
-✅ Multiples caves avec suivi de capacité  
-✅ Suivi des dates d'apogée  
-✅ Alertes intelligentes (Gotify, email)  
-✅ Journal de dégustation avec notes & notation  
-✅ Tableau de bord & statistiques  
-✅ **Scan de code-barres** pour remplissage auto  
-✅ **Export complet** (CSV, JSON) pour backup  
-✅ **Migration facile** entre serveurs  
-✅ **Historique d'activité** complet (audit trail)  
-✅ Mode sombre  
-✅ Interface bilingue (FR/EN)  
-
-### Documentation
-
-- **Utilisateurs:** [FAQ](.docs/FAQ.md), [Guide Enrichissement](.docs/ENRICHMENT.md), [Configuration Notifications](.docs/NOTIFICATIONS_SETUP.md)
-- **Administrateurs:** [Guide Admin](.docs/ADMIN_GUIDE.md), **[Sauvegarde & Restauration](.docs/BACKUP_RESTORE_GUIDE.md)**, **[Migration de Données](.docs/DATA_MIGRATION_GUIDE.md)**
-- **Développeurs:** [Référence API Complète](.docs/API_REFERENCE_COMPLETE.md) avec exemples curl  
-✅ Mode sombre  
-✅ Interface bilingue  
-✅ Sécurité production  
-
-### Documentation
-
-Voir `.docs/` pour la documentation complète (locale, non commitée).
-
-### Status
-
-✅ **Prêt pour la production** (v1.0.0)
+✅ Gestion cave complète  
+✅ 30+ endpoints API REST  
+✅ Sécurisé & optimisé avec validation  
+✅ Exports CSV/JSON  
+✅ Historique complet & audit trail  
+✅ Services thread-safe (AlertGenerator)  
+✅ Transactions atomiques  
+✅ **Tous les bugs critiques fixés et testés** (voir [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md))

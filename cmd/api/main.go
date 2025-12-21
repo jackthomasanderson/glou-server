@@ -18,6 +18,70 @@ import (
 	"github.com/romain/glou-server/internal/store"
 )
 
+// Valid wine types
+var validWineTypes = map[string]bool{
+	"Red":       true,
+	"White":     true,
+	"Rosé":      true,
+	"Sparkling": true,
+}
+
+// Valid alert types
+var validAlertTypes = map[string]bool{
+	"low_stock":      true,
+	"apogee_reached": true,
+	"apogee_ended":   true,
+}
+
+// ValidateWine validates wine data before storage
+func ValidateWine(wine *domain.Wine) error {
+	if wine.Name == "" {
+		return errors.New("wine name is required")
+	}
+	if len(wine.Name) > 255 {
+		return errors.New("wine name too long (max 255 characters)")
+	}
+	if wine.Region == "" {
+		return errors.New("wine region is required")
+	}
+	if wine.Vintage < 1900 || wine.Vintage > time.Now().Year() {
+		return fmt.Errorf("invalid vintage: must be between 1900 and %d", time.Now().Year())
+	}
+	if !validWineTypes[wine.WineType] {
+		return fmt.Errorf("invalid wine type: must be Red, White, Rosé, or Sparkling")
+	}
+	if wine.Quantity < 0 {
+		return errors.New("quantity cannot be negative")
+	}
+	if wine.Rating != nil && (*wine.Rating < 0 || *wine.Rating > 5) {
+		return errors.New("rating must be between 0 and 5")
+	}
+	if wine.AlcoholLevel != nil && (*wine.AlcoholLevel < 0 || *wine.AlcoholLevel > 20) {
+		return errors.New("alcohol level must be between 0 and 20")
+	}
+	if wine.Price != nil && *wine.Price < 0 {
+		return errors.New("price cannot be negative")
+	}
+	if wine.MinApogeeDate != nil && wine.MaxApogeeDate != nil && wine.MinApogeeDate.After(*wine.MaxApogeeDate) {
+		return errors.New("min apogee date must be before max apogee date")
+	}
+	return nil
+}
+
+// ValidateAlert validates alert data before storage
+func ValidateAlert(alert *domain.Alert) error {
+	if alert.WineID <= 0 {
+		return errors.New("wine ID is required")
+	}
+	if !validAlertTypes[alert.AlertType] {
+		return fmt.Errorf("invalid alert type: must be low_stock, apogee_reached, or apogee_ended")
+	}
+	if alert.Status != "active" && alert.Status != "dismissed" {
+		return fmt.Errorf("invalid alert status: must be active or dismissed")
+	}
+	return nil
+}
+
 // Server encapsule les dépendances du serveur HTTP
 type Server struct {
 	store   *store.Store
