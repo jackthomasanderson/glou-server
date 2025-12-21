@@ -1,5 +1,7 @@
 # glou-server
 
+![Logo](assets/logo.png)
+
 **Gestionnaire de cave moderne, self-hosted et 100 % open-source.**
 
 Glou simplifie la gestion de vos bouteilles (vins, bières, spiritueux) grâce à une interface **Material You** soignée et une **ajout rapide par scan**.
