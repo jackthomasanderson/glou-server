@@ -1,0 +1,55 @@
+# Goreleaser configuration for building and publishing glou-server binaries
+# Replace `owner` and `name` under `release.github` with your GitHub org/user and repository name.
+project_name: glou-server
+description: "Self-hosted wine cellar manager"
+license: MIT
+homepage: "https://github.com/romain/glou-server"
+builds:
+  - id: glou
+    main: ./cmd/api
+    binary: glou-server
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+archives:
+  - format: tar.gz
+    format_overrides:
+      - when: os=windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+checksum:
+  name_template: 'checksums.txt'
+release:
+  github:
+    owner: romain
+    name: glou-server
+changelog:
+  use: git
+  filters:
+    exclude:
+      - '^docs?:'
+snapshot:
+  name_template: 'snapshot_{{ .Tag }}'
+
+brews:
+  - name: glou-server
+    github:
+      owner: romain
+      name: glou-server
+    description: "Self-hosted wine cellar manager"
+    homepage: "https://github.com/romain/glou-server"
+    license: MIT
+    folder: Formula
+
+dockers:
+  - image_templates:
+      - "ghcr.io/romain/glou-server:{{ .Version }}"
+    latest: true
