@@ -317,6 +317,140 @@
             100% { transform: rotate(360deg); }
         }
 
+        .password-strength-bar {
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .password-strength-fill {
+            height: 100%;
+            transition: all 0.3s;
+            border-radius: 3px;
+        }
+
+        .password-strength-text {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .strength-very-weak .password-strength-fill {
+            width: 20%;
+            background: #d32f2f;
+        }
+
+        .strength-very-weak .password-strength-text {
+            color: #d32f2f;
+        }
+
+        .strength-weak .password-strength-fill {
+            width: 40%;
+            background: #f44336;
+        }
+
+        .strength-weak .password-strength-text {
+            color: #f44336;
+        }
+
+        .strength-medium .password-strength-fill {
+            width: 60%;
+            background: #ff9800;
+        }
+
+        .strength-medium .password-strength-text {
+            color: #ff9800;
+        }
+
+        .strength-strong .password-strength-fill {
+            width: 80%;
+            background: #8bc34a;
+        }
+
+        .strength-strong .password-strength-text {
+            color: #8bc34a;
+        }
+
+        .strength-very-strong .password-strength-fill {
+            width: 100%;
+            background: #4caf50;
+        }
+
+        .strength-very-strong .password-strength-text {
+            color: #4caf50;
+        }
+
+        .password-requirements {
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 4px 0;
+            color: #999;
+        }
+
+        .requirement.recommended {
+            color: #ff9800;
+            font-weight: 500;
+        }
+
+        .requirement.met {
+            color: #4caf50;
+        }
+
+        .requirement.met::before {
+            content: '✓';
+            font-weight: bold;
+        }
+
+        .requirement.recommended::before {
+            content: '⚠';
+        }
+
+        .requirement.unmet::before {
+            content: '○';
+        }
+
+        .password-requirements {
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 4px 0;
+            color: #999;
+        }
+
+        .requirement.recommended {
+            color: #ff9800;
+            font-weight: 500;
+        }
+
+        .requirement.met {
+            color: #4caf50;
+        }
+
+        .requirement.met::before {
+            content: '✓';
+            font-weight: bold;
+        }
+
+        .requirement.recommended::before {
+            content: '⚠';
+        }
+
+        .requirement.unmet::before {
+            content: '○';
+        }
+
 
     </style>
 </head>
@@ -373,6 +507,7 @@
                     <div class="form-group">
                         <label for="password" data-i18n="password">Password *</label>
                         <input type="password" id="password" required data-i18n-placeholder="passwordPlaceholder">
+                        <div id="password-strength" style="margin-top: 10px;"></div>
                     </div>
 
                     <div class="form-group">
@@ -664,24 +799,17 @@
             sloganInput.value = 'Beverage Management System';
         }
 
-        // Validation du mot de passe en temps réel
+        // Jauge de robustesse du mot de passe (version allégée)
         const passwordInput = document.getElementById('password');
-        const passwordWarning = document.createElement('div');
-        passwordWarning.className = 'password-warning';
-        passwordWarning.id = 'password-warning';
-        passwordInput.parentElement.appendChild(passwordWarning);
-
         passwordInput.addEventListener('input', (e) => {
             updatePasswordStrength(e.target.value);
         });
 
         function updatePasswordStrength(password) {
             const strengthDiv = document.getElementById('password-strength');
-            const warningDiv = document.getElementById('password-warning');
             
             if (!password) {
                 strengthDiv.innerHTML = '';
-                warningDiv.classList.remove('show');
                 return;
             }
 
@@ -697,62 +825,60 @@
             const typeCount = [checks.lower, checks.upper, checks.digit, checks.special].filter(Boolean).length;
             
             let strength = 'very-weak';
-            let strengthText = 'Très faible';
-            let showWarning = false;
-            let warningText = '';
+            let strengthText = currentLanguage === 'fr' ? 'Très faible' : 'Very Weak';
             
             if (typeCount >= 4 && checks.length12) {
                 strength = 'very-strong';
-                strengthText = 'Excellent';
+                strengthText = currentLanguage === 'fr' ? 'Excellent' : 'Excellent';
             } else if (typeCount >= 3 && checks.length12) {
                 strength = 'strong';
-                strengthText = 'Fort';
+                strengthText = currentLanguage === 'fr' ? 'Fort' : 'Strong';
             } else if (typeCount >= 3 && checks.length8) {
                 strength = 'medium';
-                strengthText = 'Moyen';
-                showWarning = true;
-                warningText = '⚠️ Nous vous recommandons fortement d\'utiliser au moins 12 caractères pour une sécurité optimale.';
+                strengthText = currentLanguage === 'fr' ? 'Moyen' : 'Medium';
             } else if (typeCount >= 2 || checks.length8) {
                 strength = 'weak';
-                strengthText = 'Faible';
-                showWarning = true;
-                warningText = '⚠️ Ce mot de passe est faible. Pour une meilleure sécurité, utilisez 12+ caractères avec majuscules, minuscules, chiffres et caractères spéciaux.';
-            } else {
-                strength = 'very-weak';
-                strengthText = 'Très faible';
-                showWarning = true;
-                warningText = '⚠️ Ce mot de passe est très faible. Nous vous recommandons fortement d\'utiliser au moins 8 caractères et différents types de caractères.';
+                strengthText = currentLanguage === 'fr' ? 'Faible' : 'Weak';
             }
 
-            const recommendedItems = [];
-            if (!checks.length12) recommendedItems.push('12+ caractères');
-            if (typeCount < 3) recommendedItems.push('3+ types de caractères');
-            if (typeCount < 4) recommendedItems.push('caractères spéciaux');
+            // Affichage de la jauge uniquement (sans liste d’exigences)
+            // Création des labels selon la langue
+            const labels = currentLanguage === 'fr' ? {
+                chars8: '8+ caractères (recommandé)',
+                chars12: '12+ caractères (fortement recommandé)',
+                types3: 'Au moins 3 types de caractères',
+                lower: 'Lettres minuscules',
+                upper: 'Lettres majuscules',
+                digit: 'Chiffres',
+                special: 'Caractères spéciaux'
+            } : {
+                chars8: '8+ characters (recommended)',
+                chars12: '12+ characters (strongly recommended)',
+                types3: 'At least 3 character types',
+                lower: 'Lowercase letters',
+                upper: 'Uppercase letters', 
+                digit: 'Numbers',
+                special: 'Special characters'
+            };
 
+            // Affichage complet avec liste des critères (SANS titre)
             strengthDiv.innerHTML = `
                 <div class="password-strength-bar">
                     <div class="password-strength-fill"></div>
                 </div>
                 <div class="password-strength-text">${strengthText}</div>
                 <div class="password-requirements">
-                    <div class="requirement ${checks.length8 ? 'met' : 'recommended'}">8+ caractères (recommandé)</div>
-                    <div class="requirement ${checks.length12 ? 'met' : 'recommended'}">12+ caractères (fortement recommandé)</div>
-                    <div class="requirement ${typeCount >= 3 ? 'met' : 'recommended'}">Au moins 3 types de caractères</div>
-                    <div class="requirement ${checks.lower ? 'met' : 'unmet'}">Lettres minuscules</div>
-                    <div class="requirement ${checks.upper ? 'met' : 'unmet'}">Lettres majuscules</div>
-                    <div class="requirement ${checks.digit ? 'met' : 'unmet'}">Chiffres</div>
-                    <div class="requirement ${checks.special ? 'met' : 'unmet'}">Caractères spéciaux</div>
+                    <div class="requirement ${checks.length8 ? 'met' : 'recommended'}">${labels.chars8}</div>
+                    <div class="requirement ${checks.length12 ? 'met' : 'recommended'}">${labels.chars12}</div>
+                    <div class="requirement ${typeCount >= 3 ? 'met' : 'recommended'}">${labels.types3}</div>
+                    <div class="requirement ${checks.lower ? 'met' : 'unmet'}">${labels.lower}</div>
+                    <div class="requirement ${checks.upper ? 'met' : 'unmet'}">${labels.upper}</div>
+                    <div class="requirement ${checks.digit ? 'met' : 'unmet'}">${labels.digit}</div>
+                    <div class="requirement ${checks.special ? 'met' : 'unmet'}">${labels.special}</div>
                 </div>
             `;
             
             strengthDiv.className = `strength-${strength}`;
-
-            if (showWarning) {
-                warningDiv.textContent = warningText;
-                warningDiv.classList.add('show');
-            } else {
-                warningDiv.classList.remove('show');
-            }
         }
 
         // Navigation
@@ -812,46 +938,6 @@
 
             // Masquer les erreurs
             document.getElementById('error-message').style.display = 'none';
-        }
-
-        function validateStep(step) {
-            const errorMsg = document.getElementById('error-message');
-
-            if (step === 1) {
-                const username = document.getElementById('username').value;
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                const passwordConfirm = document.getElementById('password-confirm').value;
-
-                if (!username || username.length < 3) {
-                    showError('Le nom d\'utilisateur doit contenir au moins 3 caractères');
-                    return false;
-                }
-
-                if (!email || !email.includes('@')) {
-                    showError('Veuillez entrer une adresse email valide');
-                    return false;
-                }
-
-                if (!password) {
-                    showError('Le mot de passe est requis');
-                    return false;
-                }
-
-                if (password !== passwordConfirm) {
-                    showError('Les mots de passe ne correspondent pas');
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        function showError(message) {
-            const errorMsg = document.getElementById('error-message');
-            errorMsg.textContent = message;
-            errorMsg.style.display = 'block';
-            errorMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         function updateSummary() {
