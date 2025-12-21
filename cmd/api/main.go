@@ -82,6 +82,15 @@ func ValidateAlert(alert *domain.Alert) error {
 	return nil
 }
 
+// checkCellarExists vérifie qu'au moins une cave existe
+func (s *Server) checkCellarExists(ctx context.Context) (bool, error) {
+	caves, err := s.store.GetCaves(ctx)
+	if err != nil {
+		return false, err
+	}
+	return len(caves) > 0, nil
+}
+
 // Server encapsule les dépendances du serveur HTTP
 type Server struct {
 	store   *store.Store
@@ -213,6 +222,17 @@ func (s *Server) handleGetWines(w http.ResponseWriter, r *http.Request) {
 
 // handleCreateWine ajoute un nouveau vin
 func (s *Server) handleCreateWine(w http.ResponseWriter, r *http.Request) {
+	// Vérifier qu'au moins une cave existe
+	hasCellar, err := s.checkCellarExists(r.Context())
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "Failed to check cellars", err)
+		return
+	}
+	if !hasCellar {
+		s.respondError(w, http.StatusBadRequest, "You must create at least one cellar before adding wines", nil)
+		return
+	}
+
 	var wine domain.Wine
 	if err := json.NewDecoder(r.Body).Decode(&wine); err != nil {
 		s.respondError(w, http.StatusBadRequest, "Invalid request body", err)
@@ -444,9 +464,14 @@ func (s *Server) handleCreateCave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if cave.Name == "" || cave.Model == "" {
-		s.respondError(w, http.StatusBadRequest, "Missing required fields: name, model", nil)
+	if cave.Name == "" {
+		s.respondError(w, http.StatusBadRequest, "Missing required fields: name", nil)
 		return
+	}
+
+	// Définir une localisation par défaut si non fournie
+	if cave.Location == "" {
+		cave.Location = "Principale"
 	}
 
 	id, err := s.store.CreateCave(r.Context(), &cave)
@@ -506,6 +531,17 @@ func (s *Server) handleCreateCell(w http.ResponseWriter, r *http.Request) {
 
 // handleGetAlerts retourne les alertes actives
 func (s *Server) handleGetAlerts(w http.ResponseWriter, r *http.Request) {
+	// Vérifier qu'au moins une cave existe
+	hasCellar, err := s.checkCellarExists(r.Context())
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "Failed to check cellars", err)
+		return
+	}
+	if !hasCellar {
+		s.respondError(w, http.StatusBadRequest, "You must create at least one cellar before viewing alerts", nil)
+		return
+	}
+
 	alerts, err := s.store.GetAlerts(r.Context())
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, "Failed to fetch alerts", err)
@@ -518,6 +554,17 @@ func (s *Server) handleGetAlerts(w http.ResponseWriter, r *http.Request) {
 
 // handleCreateAlert crée une alerte
 func (s *Server) handleCreateAlert(w http.ResponseWriter, r *http.Request) {
+	// Vérifier qu'au moins une cave existe
+	hasCellar, err := s.checkCellarExists(r.Context())
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "Failed to check cellars", err)
+		return
+	}
+	if !hasCellar {
+		s.respondError(w, http.StatusBadRequest, "You must create at least one cellar before creating alerts", nil)
+		return
+	}
+
 	var alert domain.Alert
 	if err := json.NewDecoder(r.Body).Decode(&alert); err != nil {
 		s.respondError(w, http.StatusBadRequest, "Invalid request body", err)
@@ -573,6 +620,17 @@ func (s *Server) handleDismissAlert(w http.ResponseWriter, r *http.Request) {
 
 // handleGetConsumptionHistory retourne l'historique de dégustation
 func (s *Server) handleGetConsumptionHistory(w http.ResponseWriter, r *http.Request) {
+	// Vérifier qu'au moins une cave existe
+	hasCellar, err := s.checkCellarExists(r.Context())
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "Failed to check cellars", err)
+		return
+	}
+	if !hasCellar {
+		s.respondError(w, http.StatusBadRequest, "You must create at least one cellar before viewing history", nil)
+		return
+	}
+
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -592,6 +650,17 @@ func (s *Server) handleGetConsumptionHistory(w http.ResponseWriter, r *http.Requ
 
 // handleRecordConsumption enregistre une dégustation
 func (s *Server) handleRecordConsumption(w http.ResponseWriter, r *http.Request) {
+	// Vérifier qu'au moins une cave existe
+	hasCellar, err := s.checkCellarExists(r.Context())
+	if err != nil {
+		s.respondError(w, http.StatusInternalServerError, "Failed to check cellars", err)
+		return
+	}
+	if !hasCellar {
+		s.respondError(w, http.StatusBadRequest, "You must create at least one cellar before recording consumption", nil)
+		return
+	}
+
 	var consumption domain.ConsumptionHistory
 	if err := json.NewDecoder(r.Body).Decode(&consumption); err != nil {
 		s.respondError(w, http.StatusBadRequest, "Invalid request body", err)

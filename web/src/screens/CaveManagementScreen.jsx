@@ -20,6 +20,7 @@ import {
   Delete as DeleteIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
+import { HelpIcon, HelpLabel } from '../components/HelpIcon';
 
 /**
  * CaveManagementScreen - Manage wine storage locations (caves and cells)
@@ -66,13 +67,13 @@ const CaveManagementScreen = () => {
   }, []);
 
   const handleAddCave = () => {
-    setFormData({ name: '', description: '' });
+    setFormData({ name: '', model: '', location: 'Principale' });
     setSelectedCave(null);
     setOpenCaveDialog(true);
   };
 
   const handleEditCave = (cave) => {
-    setFormData({ name: cave.name, description: cave.description });
+    setFormData({ name: cave.name, model: cave.model || '', location: cave.location || 'Principale' });
     setSelectedCave(cave);
     setOpenCaveDialog(true);
   };
@@ -87,7 +88,7 @@ const CaveManagementScreen = () => {
       // Update existing cave
       setCaves(caves.map(cave =>
         cave.id === selectedCave.id
-          ? { ...cave, name: formData.name, description: formData.description }
+          ? { ...cave, name: formData.name, model: formData.model, location: formData.location }
           : cave
       ));
     } else {
@@ -95,7 +96,8 @@ const CaveManagementScreen = () => {
       const newCave = {
         id: Math.max(...caves.map(c => c.id), 0) + 1,
         name: formData.name,
-        description: formData.description,
+        model: formData.model || null,
+        location: formData.location || 'Principale',
         temperature: 12,
         humidity: 70,
         cells: [],
@@ -158,9 +160,15 @@ const CaveManagementScreen = () => {
           mb: 3,
         }}
       >
-        <Typography variant="h5" sx={{ color: theme.palette.onSurface }}>
-          Gestion des caves
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h5" sx={{ color: theme.palette.onSurface }}>
+            Gestion des caves
+          </Typography>
+          <HelpIcon 
+            title="Gestion des caves"
+            description="Créez et organisez vos caves de stockage. Chaque cave peut contenir plusieurs cellules pour une meilleure organisation de votre collection."
+          />
+        </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -208,8 +216,16 @@ const CaveManagementScreen = () => {
                       variant="body2"
                       sx={{ color: theme.palette.onSurfaceVariant }}
                     >
-                      {cave.description}
+                      📍 {cave.location}
                     </Typography>
+                    {cave.model && (
+                      <Typography
+                        variant="body2"
+                        sx={{ color: theme.palette.onSurfaceVariant }}
+                      >
+                        Modèle: {cave.model}
+                      </Typography>
+                    )}
                   </Box>
                   <Stack direction="row" spacing={0.5}>
                     <IconButton
@@ -235,22 +251,30 @@ const CaveManagementScreen = () => {
                     label={`${cave.temperature}°C`}
                     size="small"
                     variant="outlined"
+                    title="Température actuelle de la cave"
                   />
                   <Chip
                     label={`${cave.humidity}% humidité`}
                     size="small"
                     variant="outlined"
+                    title="Humidité actuelle de la cave"
                   />
                 </Stack>
 
                 {/* Cells Grid */}
                 <Box sx={{ mb: 2 }}>
-                  <Typography
-                    variant="subtitle2"
-                    sx={{ color: theme.palette.onSurfaceVariant, mb: 1 }}
-                  >
-                    Celliers ({cave.cells.length})
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ color: theme.palette.onSurfaceVariant }}
+                    >
+                      Celliers ({cave.cells.length})
+                    </Typography>
+                    <HelpIcon 
+                      title="Celliers"
+                      description="Chaque cellier correspond à une zone de rangement ou une étagère dans votre cave."
+                    />
+                  </Box>
                   {cave.cells.length > 0 ? (
                     <Grid container spacing={1}>
                       {cave.cells.map((cell) => (
@@ -342,26 +366,52 @@ const CaveManagementScreen = () => {
       {/* Cave Dialog */}
       <Dialog open={openCaveDialog} onClose={() => setOpenCaveDialog(false)}>
         <Box sx={{ p: 3, minWidth: 400 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            {selectedCave ? 'Modifier la cave' : 'Nouvelle cave'}
-          </Typography>
-          <TextField
-            fullWidth
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Typography variant="h6">
+              {selectedCave ? 'Modifier la cave' : 'Nouvelle cave'}
+            </Typography>
+            <HelpIcon 
+              title="Ajouter une cave"
+              description="Une collection est un espace de stockage pour vos boissons. Elle peut contenir plusieurs cellules de rangement."
+            />
+          </Box>
+          <HelpLabel 
             label="Nom de la cave"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            size="small"
-            sx={{ mb: 2 }}
+            helpTitle="Nom de la cave"
+            helpDescription="Donnez un nom identifiant votre cave. Exemple: Cave du rez-de-chaussée, Cave climatisée."
           />
           <TextField
             fullWidth
-            label="Description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            multiline
-            rows={3}
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             size="small"
-            sx={{ mb: 2 }}
+            sx={{ mb: 2, mt: 1 }}
+          />
+          <HelpLabel 
+            label="Localisation"
+            helpTitle="Localisation"
+            helpDescription="Indiquez où se trouve cette cave. Utile si vous avez plusieurs caves à différents endroits."
+          />
+          <TextField
+            fullWidth
+            value={formData.location}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            placeholder="ex: Maison principale, Maison de vacances, Étranger"
+            size="small"
+            sx={{ mb: 2, mt: 1 }}
+          />
+          <HelpLabel 
+            label="Modèle de cave"
+            helpTitle="Modèle (optionnel)"
+            helpDescription="Spécifiez le modèle ou la marque si c'est une cave climatisée."
+          />
+          <TextField
+            fullWidth
+            value={formData.model}
+            onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+            placeholder="ex: La Sommelière, Climadiff"
+            size="small"
+            sx={{ mb: 2, mt: 1 }}
           />
           <Stack direction="row" spacing={1} justifyContent="flex-end">
             <Button
@@ -385,6 +435,7 @@ const CaveManagementScreen = () => {
         open={openCellDialog}
         onClose={() => setOpenCellDialog(false)}
         onSave={handleSaveCell}
+        theme={theme}
       />
     </Box>
   );
@@ -393,7 +444,7 @@ const CaveManagementScreen = () => {
 /**
  * Dialog to add a new cell
  */
-const CellDialog = ({ open, onClose, onSave }) => {
+const CellDialog = ({ open, onClose, onSave, theme }) => {
   const [row, setRow] = useState('');
   const [column, setColumn] = useState('');
 
@@ -408,27 +459,41 @@ const CellDialog = ({ open, onClose, onSave }) => {
   return (
     <Dialog open={open} onClose={onClose}>
       <Box sx={{ p: 3, minWidth: 400 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Nouveau cellier
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Typography variant="h6">
+            Nouveau cellier
+          </Typography>
+          <HelpIcon 
+            title="Ajouter un cellier"
+            description="Un cellier est une section de rangement au sein d'une cave. Utilisez une lettre pour la rangée et un numéro pour la colonne."
+          />
+        </Box>
+        <HelpLabel 
+          label="Rangée"
+          helpTitle="Rangée"
+          helpDescription="Entrez la lettre de la rangée. Exemple: A, B, C, etc."
+        />
         <TextField
           fullWidth
-          label="Rangée"
           value={row}
           onChange={(e) => setRow(e.target.value)}
           placeholder="ex: A"
           size="small"
-          sx={{ mb: 2 }}
+          sx={{ mb: 2, mt: 1 }}
+        />
+        <HelpLabel 
+          label="Colonne"
+          helpTitle="Colonne"
+          helpDescription="Entrez le numéro de la colonne. Exemple: 1, 2, 3, etc."
         />
         <TextField
           fullWidth
-          label="Colonne"
           value={column}
           onChange={(e) => setColumn(e.target.value)}
           placeholder="ex: 1"
           type="number"
           size="small"
-          sx={{ mb: 2 }}
+          sx={{ mb: 2, mt: 1 }}
         />
         <Stack direction="row" spacing={1} justifyContent="flex-end">
           <Button variant="outlined" onClick={onClose}>
@@ -438,6 +503,10 @@ const CellDialog = ({ open, onClose, onSave }) => {
             Créer
           </Button>
         </Stack>
+      </Box>
+    </Dialog>
+  );
+};
       </Box>
     </Dialog>
   );

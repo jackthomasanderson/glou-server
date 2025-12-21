@@ -13,6 +13,7 @@ import {
 import {
   Close as CloseIcon,
 } from '@mui/icons-material';
+import { HelpIcon, HelpLabel } from '../components/HelpIcon';
 
 /**
  * Wine Edit Form - Form to update an existing wine
@@ -100,9 +101,15 @@ export const WineEditForm = ({ wine, onClose, onSave }) => {
           mb: 3,
         }}
       >
-        <Typography variant="h6" sx={{ color: theme.palette.onSurface }}>
-          Modifier une bouteille
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="h6" sx={{ color: theme.palette.onSurface }}>
+            Modifier une bouteille
+          </Typography>
+          <HelpIcon 
+            title="Modifier une bouteille"
+            description="Mettez à jour les informations de ce vin. Les modifications seront sauvegardées immédiatement."
+          />
+        </Box>
         <Button
           size="small"
           onClick={onClose}
@@ -125,76 +132,104 @@ export const WineEditForm = ({ wine, onClose, onSave }) => {
         <Grid container spacing={2}>
           {/* Required Fields Section */}
           <Grid item xs={12}>
-            <Typography
-              variant="subtitle2"
-              sx={{
-                color: theme.palette.onSurfaceVariant,
-                mb: 1,
-              }}
-            >
-              Informations obligatoires
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  color: theme.palette.onSurfaceVariant,
+                }}
+              >
+                Informations obligatoires
+              </Typography>
+              <HelpIcon 
+                title="Champs obligatoires"
+                description="Ces champs doivent être remplis pour enregistrer les modifications."
+              />
+            </Box>
           </Grid>
 
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="Nom de la bouteille"
+              helpTitle="Nom de la bouteille"
+              helpDescription="Entrez le nom complet de la bouteille."
+            />
             <TextField
               fullWidth
-              label="Nom du vin *"
+              placeholder="ex: Château Margaux"
               name="name"
               value={formData.name || ''}
               onChange={handleChange}
-              placeholder="ex: Château Margaux"
               size="small"
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="Producteur"
+              helpTitle="Producteur / Domaine"
+              helpDescription="Nom du producteur ou du fabricant."
+            />
             <TextField
               fullWidth
-              label="Producteur"
+              placeholder="ex: Château Margaux SA"
               name="producer"
               value={formData.producer || ''}
               onChange={handleChange}
-              placeholder="ex: Château Margaux SA"
               size="small"
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="Région / Appellation"
+              helpTitle="Région d'origine"
+              helpDescription="Région ou origine du produit."
+            />
             <TextField
               fullWidth
-              label="Région / Appellation *"
+              placeholder="ex: Bordeaux"
               name="region"
               value={formData.region || ''}
               onChange={handleChange}
-              placeholder="ex: Bordeaux"
               size="small"
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           <Grid item xs={12} sm={3}>
+            <HelpLabel 
+              label="Millésime"
+              helpTitle="Année du millésime"
+              helpDescription="L'année de récolte de la bouteille."
+            />
             <TextField
               fullWidth
-              label="Millésime *"
-              name="vintage"
               type="number"
               value={formData.vintage || ''}
               onChange={handleChange}
               inputProps={{ min: 1900, max: new Date().getFullYear() }}
               size="small"
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           <Grid item xs={12} sm={3}>
+            <HelpLabel 
+              label="Type"
+              helpTitle="Type de boisson"
+              helpDescription="Catégorie: Rouge, Blanc, Rosé ou Pétillant."
+            />
             <TextField
               fullWidth
               select
-              label="Type *"
-              name="type"
               value={formData.type || ''}
               onChange={handleChange}
               SelectProps={{ native: true }}
               size="small"
+              sx={{ mt: 1 }}
             >
               <option value="">Sélectionner...</option>
               {wineTypes.map((type) => (
@@ -207,165 +242,213 @@ export const WineEditForm = ({ wine, onClose, onSave }) => {
 
           {/* Stock Section */}
           <Grid item xs={12}>
-            <Typography
-              variant="subtitle2"
-              sx={{
-                color: theme.palette.onSurfaceVariant,
-                mb: 1,
-                mt: 1,
-              }}
-            >
-              Stock & Localisation
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  color: theme.palette.onSurfaceVariant,
+                }}
+              >
+                Stock & Localisation
+              </Typography>
+              <HelpIcon 
+                title="Stock et localisation"
+                description="Suivez la quantité disponible et les bouteilles consommées."
+              />
+            </Box>
           </Grid>
 
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="Quantité"
+              helpTitle="Nombre de bouteilles"
+              helpDescription="Nombre de bouteilles actuellement disponibles."
+            />
             <TextField
               fullWidth
-              label="Quantité"
-              name="quantity"
               type="number"
               value={formData.quantity || 0}
               onChange={handleChange}
               inputProps={{ min: 0 }}
               size="small"
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="Consommées"
+              helpTitle="Bouteilles consommées"
+              helpDescription="Nombre de bouteilles qui ont été dégustées ou vendues."
+            />
             <TextField
               fullWidth
-              label="Consommées"
-              name="consumed"
               type="number"
               value={formData.consumed || 0}
               onChange={handleChange}
               inputProps={{ min: 0 }}
               size="small"
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           {/* Characteristics Section */}
           <Grid item xs={12}>
-            <Typography
-              variant="subtitle2"
-              sx={{
-                color: theme.palette.onSurfaceVariant,
-                mb: 1,
-                mt: 1,
-              }}
-            >
-              Caractéristiques
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  color: theme.palette.onSurfaceVariant,
+                }}
+              >
+                Caractéristiques
+              </Typography>
+              <HelpIcon 
+                title="Caractéristiques du produit"
+                description="Informations supplémentaires pour qualifier et évaluer le vin."
+              />
+            </Box>
           </Grid>
 
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="Degré alcoolique"
+              helpTitle="Alcool %"
+              helpDescription="Pourcentage d'alcool, généralement entre 7% et 15%."
+            />
             <TextField
               fullWidth
-              label="Degré alcoolique"
-              name="alcohol_level"
               type="number"
               value={formData.alcohol_level || ''}
               onChange={handleChange}
               inputProps={{ min: 0, max: 20, step: 0.5 }}
               size="small"
               helperText="Entre 0 et 20%"
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="Prix d'achat (€)"
+              helpTitle="Prix d'acquisition"
+              helpDescription="Montant payé pour l'achat de cette bouteille."
+            />
             <TextField
               fullWidth
-              label="Prix d'achat (€)"
-              name="price"
               type="number"
               value={formData.price || ''}
               onChange={handleChange}
               inputProps={{ min: 0 }}
               size="small"
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="Note de dégustation"
+              helpTitle="Évaluation personnelle"
+              helpDescription="Votre note personnelle sur 5 étoiles."
+            />
             <TextField
               fullWidth
-              label="Note"
-              name="rating"
               type="number"
               value={formData.rating || ''}
               onChange={handleChange}
               inputProps={{ min: 0, max: 5, step: 0.5 }}
               size="small"
               helperText="Entre 0 et 5"
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           {/* Apogee Section */}
           <Grid item xs={12}>
-            <Typography
-              variant="subtitle2"
-              sx={{
-                color: theme.palette.onSurfaceVariant,
-                mb: 1,
-                mt: 1,
-              }}
-            >
-              Fenêtre d'apogée
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  color: theme.palette.onSurfaceVariant,
+                }}
+              >
+                Fenêtre d'apogée
+              </Typography>
+              <HelpIcon 
+                title="Fenêtre d'apogée"
+                description="Période optimale pour déguster ce vin. L'application vous avertira lorsque le vin atteindra ou dépassera son apogée."
+              />
+            </Box>
           </Grid>
 
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="À boire à partir du"
+              helpTitle="Date minimale d'apogée"
+              helpDescription="Date à partir de laquelle le produit sera à boire."
+            />
             <TextField
               fullWidth
-              label="À boire à partir du"
-              name="min_apogee_date"
               type="date"
               value={formData.min_apogee_date ? formData.min_apogee_date.split('T')[0] : ''}
               onChange={handleChange}
               size="small"
               InputLabelProps={{ shrink: true }}
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="À boire jusqu'au"
+              helpTitle="Date maximale d'apogée"
+              helpDescription="Date limite pour déguster le vin à son meilleur."
+            />
             <TextField
               fullWidth
-              label="À boire jusqu'au"
-              name="max_apogee_date"
               type="date"
               value={formData.max_apogee_date ? formData.max_apogee_date.split('T')[0] : ''}
               onChange={handleChange}
               size="small"
               InputLabelProps={{ shrink: true }}
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           {/* Consumption Date */}
           <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="Date dernière dégustation"
+              helpTitle="Dernière dégustation"
+              helpDescription="Date de votre dernière dégustation de cette bouteille."
+            />
             <TextField
               fullWidth
-              label="Date dernière dégustation"
-              name="consumption_date"
               type="date"
               value={formData.consumption_date ? formData.consumption_date.split('T')[0] : ''}
               onChange={handleChange}
               size="small"
               InputLabelProps={{ shrink: true }}
+              sx={{ mt: 1 }}
             />
           </Grid>
 
           {/* Comments */}
           <Grid item xs={12}>
+            <HelpLabel 
+              label="Commentaires & Notes"
+              helpTitle="Notes de dégustation"
+              helpDescription="Notez vos impressions, goûts détectés, recommandations d'accords mets-vins, etc."
+            />
             <TextField
               fullWidth
-              label="Commentaires & Notes"
-              name="comments"
               value={formData.comments || ''}
               onChange={handleChange}
               multiline
               rows={3}
               placeholder="Impressions de dégustation, recommandations, etc."
               size="small"
+              sx={{ mt: 1 }}
             />
           </Grid>
 

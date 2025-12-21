@@ -96,7 +96,7 @@ export const WineListScreen = () => {
       >
         <Box>
           <Typography variant="h4" sx={{ color: theme.palette.onSurface, mb: 1 }}>
-            🍾 Mes Vins
+            🍾 Ma Collection
           </Typography>
           <Typography variant="bodySmall" sx={{ color: theme.palette.onSurfaceVariant }}>
             {wines.length} bouteille{wines.length !== 1 ? 's' : ''} en cave

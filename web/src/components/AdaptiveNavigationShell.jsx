@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Box,
   AppBar,
@@ -29,6 +30,11 @@ import {
   Settings as SettingsIcon,
   Notifications as NotificationsIcon,
   AccountCircle as AccountCircleIcon,
+  Wine as WineIcon,
+  Inventory as CaveIcon,
+  History as HistoryIcon,
+  Notifications as AlertsIcon,
+  Admin as AdminIcon,
 } from '@mui/icons-material';
 
 /**
@@ -43,18 +49,37 @@ import {
  * - onSurfaceVariant: Unselected item colors
  * - outlineVariant: Dividers and borders
  */
-export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange }) => {
+export const AdaptiveNavigationShell = ({ children }) => {
   const theme = useTheme();
+  const location = useLocation();
   const isCompact = useMediaQuery(theme.breakpoints.down('sm')); // < 600px
   const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md')); // 600px - 960px
   const isLarge = useMediaQuery(theme.breakpoints.up('md')); // > 960px
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
-  // Navigation items
+  // Get current page from path
+  const currentPage = useMemo(() => {
+    const path = location.pathname;
+    if (path.startsWith('/analytics')) return 'analytics';
+    if (path.startsWith('/alerts')) return 'alerts';
+    if (path.startsWith('/admin')) return 'admin';
+    if (path.startsWith('/user')) return 'user';
+    if (path.startsWith('/cave')) return 'cave';
+    if (path.startsWith('/wines')) return 'wines';
+    if (path.startsWith('/tasting-history')) return 'tasting-history';
+    return 'dashboard';
+  }, [location.pathname]);
+
+  // Navigation items with routes
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
-    { id: 'analytics', label: 'Analytics', icon: <AnalyticsIcon /> },
-    { id: 'settings', label: 'Settings', icon: <SettingsIcon /> },
+    { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
+    { id: 'analytics', label: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
+    { id: 'alerts', label: 'Alertes', icon: <AlertsIcon />, path: '/alerts' },
+    { id: 'wines', label: 'Bouteilles', icon: <WineIcon />, path: '/wines' },
+    { id: 'cave', label: 'Cave', icon: <CaveIcon />, path: '/cave' },
+    { id: 'tasting-history', label: 'Historique', icon: <HistoryIcon />, path: '/tasting-history' },
+    { id: 'admin', label: 'Admin', icon: <AdminIcon />, path: '/admin' },
+    { id: 'user', label: 'Profil', icon: <AccountCircleIcon />, path: '/user' },
   ];
 
   // Mobile: Bottom Navigation Bar
@@ -65,12 +90,12 @@ export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange })
         <AppBar position="static" elevation={0}>
           <Toolbar>
             <Typography variant="h6" sx={{ flexGrow: 1 }}>
-              Glou Analytics
+              Glou
             </Typography>
             <IconButton color="inherit" size="small">
               <NotificationsIcon />
             </IconButton>
-            <IconButton color="inherit" size="small">
+            <IconButton color="inherit" size="small" component={Link} to="/user">
               <AccountCircleIcon />
             </IconButton>
           </Toolbar>
@@ -88,14 +113,15 @@ export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange })
             borderTop: `1px solid ${theme.palette.divider}`,
           }}
         >
-          {navItems.map((item) => (
+          {navItems.slice(0, 5).map((item) => (
             <NavigationBarAction
               key={item.id}
               icon={item.icon}
               label={item.label}
               showLabel={true}
               selected={currentPage === item.id}
-              onClick={() => onPageChange(item.id)}
+              component={Link}
+              to={item.path}
               sx={{
                 color:
                   currentPage === item.id
@@ -103,6 +129,10 @@ export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange })
                     : theme.palette.action.disabled,
                 '&.Mui-selected': {
                   color: theme.palette.primary.main,
+                },
+                textDecoration: 'none',
+                '&:hover': {
+                  textDecoration: 'none',
                 },
               }}
             />
@@ -128,21 +158,38 @@ export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange })
             paddingY: 2,
           }}
         >
-          {navItems.map((item) => (
-            <RailAction
+          {navItems.slice(0, 6).map((item) => (
+            <Box
               key={item.id}
-              icon={item.icon}
-              label={item.label}
-              selected={currentPage === item.id}
-              onClick={() => onPageChange(item.id)}
+              component={Link}
+              to={item.path}
               sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textDecoration: 'none',
+                padding: 1.5,
+                borderRadius: '12px',
+                marginY: 1,
                 color:
                   currentPage === item.id
                     ? theme.palette.primary.main
                     : theme.palette.action.disabled,
-                marginY: 1,
+                backgroundColor:
+                  currentPage === item.id
+                    ? `${theme.palette.primary.main}20`
+                    : 'transparent',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  backgroundColor: `${theme.palette.primary.main}10`,
+                },
               }}
-            />
+            >
+              {item.icon}
+              <Typography variant="caption" sx={{ marginTop: 0.5 }}>
+                {item.label.substring(0, 3)}
+              </Typography>
+            </Box>
           ))}
         </Box>
 
@@ -152,12 +199,12 @@ export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange })
           <AppBar position="static" elevation={0}>
             <Toolbar>
               <Typography variant="h6" sx={{ flexGrow: 1 }}>
-                Glou Analytics
+                Glou
               </Typography>
               <IconButton color="inherit" size="small">
                 <NotificationsIcon />
               </IconButton>
-              <IconButton color="inherit" size="small">
+              <IconButton color="inherit" size="small" component={Link} to="/user">
                 <AccountCircleIcon />
               </IconButton>
             </Toolbar>
@@ -199,7 +246,7 @@ export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange })
                 fontWeight: 600,
               }}
             >
-              Glou Analytics
+              Glou
             </Typography>
           </Box>
           <Divider sx={{ borderColor: theme.palette.divider }} />
@@ -211,7 +258,8 @@ export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange })
                 key={item.id}
                 button
                 selected={currentPage === item.id}
-                onClick={() => onPageChange(item.id)}
+                component={Link}
+                to={item.path}
                 sx={{
                   marginX: 1,
                   marginY: 0.5,
@@ -224,6 +272,7 @@ export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange })
                     currentPage === item.id
                       ? theme.palette.onPrimary
                       : theme.palette.onSurfaceVariant,
+                  textDecoration: 'none',
                   '&:hover': {
                     backgroundColor:
                       currentPage === item.id
@@ -261,7 +310,7 @@ export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange })
                 Dashboard
               </Typography>
               <TextField
-                placeholder="Search..."
+                placeholder="Rechercher..."
                 variant="outlined"
                 size="small"
                 InputProps={{
@@ -279,7 +328,7 @@ export const AdaptiveNavigationShell = ({ children, currentPage, onPageChange })
               <IconButton color="inherit">
                 <NotificationsIcon />
               </IconButton>
-              <IconButton color="inherit">
+              <IconButton color="inherit" component={Link} to="/user">
                 <AccountCircleIcon />
               </IconButton>
             </Toolbar>

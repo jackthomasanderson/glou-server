@@ -1,8 +1,8 @@
-# 🍷 Glou - Wine Management Made Simple
+# 🍷 Glou - Smart Beverage Collection Management
 
 **English** | [Français](#français)
 
-Manage your wine collection effortlessly. Track bottles, know when to drink them, and get smart alerts—all self-hosted and secure.
+Manage your wine, spirit, and beer collection effortlessly. Track bottles, know when to drink them, and get smart alerts—all self-hosted and secure.
 
 **Companion:** [Android App](https://github.com/jackthomasanderson/glou-android) · [Docs](.docs/)
 
@@ -112,11 +112,11 @@ MIT
 
 ---
 
-# 🍷 Glou - Gestion de Cave Simplifiée
+# 🍷 Glou - Gestion de Collection Simplifiée
 
 **English** (au-dessus) | **Français**
 
-Gérez votre collection de vins sans effort. Suivez les bouteilles, savez quand les boire et recevez des alertes intelligentes—tout auto-hébergé et sécurisé.
+Gérez votre collection de vins, spiritueux et bières sans effort. Suivez les bouteilles, savez quand les boire et recevez des alertes intelligentes—tout auto-hébergé et sécurisé.
 
 **Compagnon:** [App Android](https://github.com/jackthomasanderson/glou-android) · [Docs](.docs/)
 
@@ -155,9 +155,9 @@ docker-compose up -d
 Puis ouvrir: **http://localhost:8080/**
 
 #### Premiers pas
-1. Créez une **Cave** - votre lieu de stockage
-2. Ajoutez des **Cellules** (étagères) à votre cave
-3. Ajoutez votre premier **Vin** - nom, millésime, dates apogée
+1. Créez une **Collection** - votre lieu de stockage
+2. Ajoutez des **Cellules** (étagères) à votre collection
+3. Ajoutez votre première **Bouteille** - nom, millésime, dates apogée
 4. Consultez le **Tableau de bord** - votre collection d'un coup d'œil
 5. Paramétrez les **Alertes** - soyez notifié au moment de boire
 
@@ -168,7 +168,7 @@ Puis ouvrir: **http://localhost:8080/**
 | Fonctionnalité | Description |
 |---|---|
 | 🍾 **Inventaire Vins** | Suivi complet avec millésime, lieu, dates apogée |
-| 🗄️ **Multiples Caves** | Organisez les vins dans différents lieux |
+| 📄 **Multiples Collections** | Organisez les boissons dans différents lieux |
 | 📅 **Suivi Apogée** | Savez précisément quand chaque vin est au meilleur |
 | 🔍 **Recherche & Filtres** | Trouvez vos vins rapidement |
 | 🔔 **Alertes Intelligentes** | Notifications automatiques 6 mois avant pic |
@@ -194,7 +194,7 @@ Puis ouvrir: **http://localhost:8080/**
 ### Status
 
 ✅ **Prêt Production** (v1.0.0)  
-✅ Gestion cave complète  
+✅ Gestion collection complète  
 ✅ 30+ endpoints API REST  
 ✅ Sécurisé & optimisé avec validation  
 ✅ Exports CSV/JSON  
