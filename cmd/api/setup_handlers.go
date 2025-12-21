@@ -74,6 +74,25 @@ func (s *Server) handleCheckSetup(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// handleCheckSMTPConfig vérifie si SMTP est configuré
+func (s *Server) handleCheckSMTPConfig(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Récupérer les paramètres
+	settings, err := s.store.GetSettings(ctx)
+	if err != nil {
+		http.Error(w, "Failed to get settings", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"smtp_configured": settings.SMTPConfigured,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 // handleSetupWizard affiche la page du wizard
 func (s *Server) handleSetupWizard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

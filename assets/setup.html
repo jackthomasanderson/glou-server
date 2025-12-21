@@ -509,7 +509,7 @@
 
                     <div class="form-group">
                         <label for="app-slogan" data-i18n="appSlogan">Slogan</label>
-                        <input type="text" id="app-slogan" data-i18n-placeholder="appSloganPlaceholder" value="Wine Management System">
+                        <input type="text" id="app-slogan" data-i18n-placeholder="appSloganPlaceholder" value="">
                     </div>
 
                     <div class="form-group">
@@ -967,7 +967,7 @@
             document.getElementById('summary-username').textContent = document.getElementById('username').value;
             document.getElementById('summary-email').textContent = document.getElementById('email').value;
             document.getElementById('summary-title').textContent = document.getElementById('app-title').value || 'Glou';
-            document.getElementById('summary-slogan').textContent = document.getElementById('app-slogan').value || 'Wine Management System';
+            document.getElementById('summary-slogan').textContent = document.getElementById('app-slogan').value || t('appSloganPlaceholder');
             
             const lang = document.getElementById('language').value;
             document.getElementById('summary-language').textContent = lang === 'fr' ? 'Français' : 'English';
@@ -1308,6 +1308,7 @@
         // Détecter la langue du navigateur
         function detectLanguage() {
             const browserLang = navigator.language || navigator.userLanguage;
+            console.log('Langue détectée du navigateur:', browserLang);
             return browserLang.startsWith('fr') ? 'fr' : 'en';
         }
 
@@ -1352,6 +1353,18 @@
         window.addEventListener('DOMContentLoaded', () => {
             // Détecter et définir la langue
             currentLanguage = detectLanguage();
+            console.log('Langue choisie:', currentLanguage);
+            
+            // Initialiser les valeurs par défaut selon la langue
+            const sloganInput = document.getElementById('app-slogan');
+            if (currentLanguage === 'fr') {
+                sloganInput.value = 'Système de gestion de cave';
+                console.log('Slogan français appliqué:', sloganInput.value);
+            } else {
+                sloganInput.value = 'Wine Management System';
+                console.log('Slogan anglais appliqué:', sloganInput.value);
+            }
+            
             updateContent();
 
             fetch('/api/setup/check')
