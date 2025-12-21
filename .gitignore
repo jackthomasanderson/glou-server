@@ -20,6 +20,20 @@ profile.cov
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.db-journal
+glou.db
+
+# Binaries
+api.exe
+glou-server
+
 # Go workspace file
 go.work
 go.work.sum
@@ -30,3 +44,5 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+# Documentation (local, for agent/personal use)
+/.docs/

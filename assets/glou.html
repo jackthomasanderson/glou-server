@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glou 2025 - Gestion Professionnelle de Cave à Vin</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #764ba2;
+            --bg-light: #f5f5f7;
+            --bg-dark: #1a1a1a;
+            --surface-light: #ffffff;
+            --surface-dark: #2d2d2d;
+            --text-light: #333333;
+            --text-dark: #e0e0e0;
+            --border-light: #e0e0e0;
+            --border-dark: #3d3d3d;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-light);
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body.dark-mode {
+            background-color: var(--bg-dark);
+            color: var(--text-dark);
+        }
+
+        /* Navbar */
+        .navbar {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            padding: 1rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar-content {
+            flex: 1;
+        }
+
+        .navbar h1 {
+            font-size: 1.5rem;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            margin-bottom: 3px;
+        }
+
+        .navbar p {
+            color: rgba(255,255,255,0.9);
+            font-size: 0.8rem;
+        }
+
+        .navbar-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .dark-mode-toggle {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+
+        .dark-mode-toggle:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            overflow-x: auto;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-light);
+        }
+
+        body.dark-mode .tabs {
+            border-bottom-color: var(--border-dark);
+        }
+
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--text-light);
+            opacity: 0.6;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+
+        body.dark-mode .tab-btn {
+            color: var(--text-dark);
+        }
+
+        .tab-btn.active {
+            opacity: 1;
+            border-bottom: 3px solid var(--primary);
+            margin-bottom: -2px;
+        }
+
+        .tab-btn:hover {
+            opacity: 0.8;
+        }
+
+        /* Tabs Content */
+        .tabs-content {
+            display: none;
+        }
+
+        .tabs-content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Page Title */
+        .page-title {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+
+        body.dark-mode .page-title {
+            color: var(--text-dark);
+        }
+
+        .page-subtitle {
+            font-size: 0.95rem;
+            opacity: 0.7;
+            margin-bottom: 2rem;
+        }
+
+        /* Grid responsive */
+        .content {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+            margin-top: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            .content {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .content {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface-light);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: box-shadow 0.3s;
+        }
+
+        body.dark-mode .card {
+            background: var(--surface-dark);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+
+        body.dark-mode .card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+
+        .card h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--primary);
+            color: var(--text-light);
+        }
+
+        body.dark-mode .card h2 {
+            color: var(--text-dark);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (min-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .stats-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        .stat-card {
+            background: var(--surface-light);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        body.dark-mode .stat-card {
+            background: var(--surface-dark);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .stat-card .number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .label {
+            font-size: 0.95rem;
+            opacity: 0.7;
+        }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            background: var(--surface-light);
+            color: var(--text-light);
+            transition: border-color 0.3s, background 0.3s;
+        }
+
+        body.dark-mode .form-group input,
+        body.dark-mode .form-group select,
+        body.dark-mode .form-group textarea {
+            border-color: var(--border-dark);
+            background: var(--surface-dark);
+            color: var(--text-dark);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        /* Buttons */
+        button {
+            padding: 0.75rem 1.5rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background 0.3s, transform 0.1s;
+        }
+
+        button:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: var(--border-light);
+            color: var(--text-light);
+        }
+
+        body.dark-mode button.secondary {
+            background: var(--border-dark);
+            color: var(--text-dark);
+        }
+
+        button.secondary:hover {
+            background: #d0d0d0;
+        }
+
+        body.dark-mode button.secondary:hover {
+            background: #4d4d4d;
+        }
+
+        /* Wine Grid */
+        .wines-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .wines-grid {
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            }
+        }
+
+        .wine-card {
+            background: var(--surface-light);
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            display: flex;
+            flex-direction: column;
+        }
+
+        body.dark-mode .wine-card {
+            background: var(--surface-dark);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .wine-card h3 {
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        .wine-info {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 1rem;
+            flex-grow: 1;
+        }
+
+        .wine-type-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--info);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .wine-type-badge.red {
+            background: #8b0000;
+        }
+
+        .wine-type-badge.white {
+            background: #d4af37;
+            color: #333;
+        }
+
+        .wine-type-badge.rose {
+            background: #ff69b4;
+        }
+
+        .wine-type-badge.sparkling {
+            background: #ffd700;
+            color: #333;
+        }
+
+        .wine-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+
+        .wine-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        /* Status Messages */
+        .status {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .status.show {
+            display: block;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        body.dark-mode .status.success {
+            background: #1e4620;
+            color: #86efac;
+            border-color: #22c55e;
+        }
+
+        body.dark-mode .status.error {
+            background: #4f1f1f;
+            color: #fca5a5;
+            border-color: #ef4444;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            opacity: 0.6;
+        }
+
+        /* To Drink Now Badge */
+        .urgent-badge {
+            background: var(--danger);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 767px) {
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+            }
+
+            .navbar h1 {
+                font-size: 1.25rem;
+            }
+
+            .tabs {
+                gap: 0;
+                border-bottom: none;
+                margin-bottom: 1.5rem;
+                overflow-x: auto;
+            }
+
+            .tab-btn {
+                flex: 1;
+                padding: 0.6rem 0.8rem;
+                border-bottom: 3px solid transparent;
+                font-size: 0.9rem;
+                white-space: nowrap;
+            }
+
+            .tab-btn.active {
+                border-bottom-color: var(--primary);
+            }
+
+            .content {
+                gap: 1rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            .card h2 {
+                font-size: 1.1rem;
+            }
+
+            button {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.95rem;
+            }
+        }
+
+        .full-width {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="navbar-content">
+            <h1>🍷 Glou</h1>
+            <p>Gestion intelligente de cave à vin</p>
+        </div>
+        <div class="navbar-actions">
+            <button class="dark-mode-toggle" onclick="toggleDarkMode()">🌙</button>
+        </div>
+    </nav>
+
+    <!-- Conteneur principal -->
+    <div class="container">
+        <!-- Tabs Navigation -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('dashboard', event)">📊 Dashboard</button>
+            <button class="tab-btn" onclick="switchTab('wines', event)">🍾 Mes Vins</button>
+            <button class="tab-btn" onclick="switchTab('to-drink', event)">🎯 À Boire</button>
+            <button class="tab-btn" onclick="switchTab('caves', event)">🏺 Caves</button>
+            <button class="tab-btn" onclick="switchTab('journal', event)">📖 Journal</button>
+            <button class="tab-btn" onclick="switchTab('alerts', event)">🔔 Alertes</button>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="tabs-content active">
+            <div class="page-title">Dashboard</div>
+            <p class="page-subtitle">Vue d'ensemble de votre cave</p>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="number" id="wineCount">0</div>
+                    <div class="label">Vins en cave</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="bottleCount">0</div>
+                    <div class="label">Bouteilles</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="apogeeCount">0</div>
+                    <div class="label">À boire maintenant</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number" id="caveCount">0</div>
+                    <div class="label">Caves</div>
+                </div>
+            </div>
+
+            <div class="content">
+                <div class="card">
+                    <h2>🎯 À boire en priorité</h2>
+                    <div id="priorityWines" class="wines-grid">
+                        <div class="empty-state">Chargement...</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2>⚠️ Alertes actives</h2>
+                    <div id="dashboardAlerts">
+                        <div class="empty-state">✓ Aucune alerte</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mes Vins -->
+        <div id="wines" class="tabs-content">
+            <div class="page-title">Mes Vins</div>
+            <p class="page-subtitle">Gérez votre collection</p>
+
+            <div class="content">
+                <div class="card">
+                    <h2>➕ Ajouter un vin</h2>
+                    
+                    <!-- Enrichment Section - Mobile Responsive -->
+                    <div style="background: #f0f4ff; border-left: 4px solid #667eea; padding: 1rem; margin-bottom: 1.5rem; border-radius: 8px;">
+                        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">⚡ Enrichir automatiquement</h3>
+                        <p style="font-size: 0.85rem; margin-bottom: 1rem; opacity: 0.8;">Scannez l'étiquette ou le code-barres</p>
+                        
+                        <!-- Tabs for enrichment methods -->
+                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; border-bottom: 2px solid rgba(102, 126, 234, 0.2); flex-wrap: wrap;">
+                            <button type="button" id="scannerTab" class="enrichment-tab active" style="padding: 0.5rem 1rem; background: none; border: none; cursor: pointer; font-weight: 500; color: #667eea; border-bottom: 3px solid #667eea; margin-bottom: -2px;">📱 Scanner</button>
+                            <button type="button" id="codeTab" class="enrichment-tab" style="padding: 0.5rem 1rem; background: none; border: none; cursor: pointer; font-weight: 500; color: #999; border-bottom: 3px solid transparent; margin-bottom: -2px;">📊 Code</button>
+                            <button type="button" id="nameTab" class="enrichment-tab" style="padding: 0.5rem 1rem; background: none; border: none; cursor: pointer; font-weight: 500; color: #999; border-bottom: 3px solid transparent; margin-bottom: -2px;">🔍 Nom</button>
+                        </div>
+
+                        <!-- Scanner Tab (Camera) -->
+                        <div id="scannerPanel" class="enrichment-panel" style="display: block;">
+                            <div style="text-align: center; margin-bottom: 1rem;">
+                                <button type="button" id="startCameraBtn" class="btn" style="padding: 0.75rem 1.5rem; font-size: 1rem; width: 100%; max-width: 300px;">📷 Démarrer caméra</button>
+                            </div>
+                            <div id="cameraContainer" style="display: none; text-align: center; margin-bottom: 1rem;">
+                                <video id="videoPreview" style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 2px solid #667eea;"></video>
+                                <canvas id="cameraCanvas" style="display: none;"></canvas>
+                                <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
+                                    <button type="button" id="capturePhotoBtn" class="btn" style="padding: 0.5rem 1rem;">📸 Capturer</button>
+                                    <button type="button" id="stopCameraBtn" class="btn" style="padding: 0.5rem 1rem; background: #ef4444;">🛑 Arrêter</button>
+                                </div>
+                            </div>
+                            <div id="photoPreview" style="display: none; text-align: center; margin-bottom: 1rem;">
+                                <img id="previewImage" style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 2px solid #667eea;">
+                                <div style="margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
+                                    <button type="button" id="analyzePhotoBtn" class="btn" style="padding: 0.5rem 1rem;">🔍 Analyser</button>
+                                    <button type="button" id="retakPhotoBtn" class="btn" style="padding: 0.5rem 1rem; background: #f59e0b;">📷 Reprendre</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Code Tab (Barcode) -->
+                        <div id="codePanel" class="enrichment-panel" style="display: none;">
+                            <div class="form-group" style="margin: 0;">
+                                <label for="enrichBarcode">Code EAN / Barcode</label>
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                    <input type="text" id="enrichBarcode" placeholder="Scannez ou tapez le code barres" style="flex: 1; min-width: 200px;">
+                                    <button type="button" id="enrichBarcodeBtn" class="btn" style="padding: 0.5rem 1rem; white-space: nowrap;">📊 Chercher</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Name Tab (Search) -->
+                        <div id="namePanel" class="enrichment-panel" style="display: none;">
+                            <div class="form-group" style="margin: 0;">
+                                <label for="enrichWineName">Chercher par nom</label>
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                    <input type="text" id="enrichWineName" placeholder="ex: Bordeaux, Château Margaux" style="flex: 1; min-width: 200px;">
+                                    <button type="button" id="enrichNameBtn" class="btn" style="padding: 0.5rem 1rem; white-space: nowrap;">🔍 Chercher</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="enrichStatus" class="status" style="margin-top: 0.75rem; font-size: 0.85rem;"></div>
+                    </div>
+
+                    <form id="addWineForm">
+                        <div class="form-group">
+                            <label for="name">Nom du vin *</label>
+                            <input type="text" id="name" required placeholder="ex: Château Margaux">
+                        </div>
+                        <div class="form-group">
+                            <label for="producer">Producteur</label>
+                            <input type="text" id="producer" placeholder="ex: Domaine Leflaive">
+                        </div>
+                        <div class="form-group">
+                            <label for="region">Région *</label>
+                            <input type="text" id="region" required placeholder="ex: Bordeaux">
+                        </div>
+                        <div class="form-group">
+                            <label for="type">Type *</label>
+                            <select id="type" required>
+                                <option value="">Sélectionner...</option>
+                                <option value="Red">🔴 Rouge</option>
+                                <option value="White">⚪ Blanc</option>
+                                <option value="Rosé">🌸 Rosé</option>
+                                <option value="Sparkling">✨ Pétillant</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="vintage">Millésime *</label>
+                            <input type="number" id="vintage" required placeholder="ex: 2015">
+                        </div>
+                        <div class="form-group">
+                            <label for="quantity">Quantité de bouteilles</label>
+                            <input type="number" id="quantity" value="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="alcohol">Degré alcoolique (%)</label>
+                            <input type="number" id="alcohol" step="0.1" placeholder="ex: 13.5">
+                        </div>
+                        <div class="form-group">
+                            <label for="price">Prix d'achat (€)</label>
+                            <input type="number" id="price" step="0.01" placeholder="ex: 50.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="minApogee">Apogée min (date)</label>
+                            <input type="date" id="minApogee">
+                        </div>
+                        <div class="form-group">
+                            <label for="maxApogee">Apogée max (date)</label>
+                            <input type="date" id="maxApogee">
+                        </div>
+                        <div class="form-group">
+                            <label for="comments">Commentaires/Notes</label>
+                            <textarea id="comments" rows="3" placeholder="Notes de dégustation..."></textarea>
+                        </div>
+                        <div id="addWineStatus" class="status"></div>
+                        <button type="submit" class="full-width">✓ Ajouter le vin</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h2>🍷 Collection de vins</h2>
+                    <div id="winesList" class="wines-grid">
+                        <div class="empty-state">Chargement...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- À Boire Maintenant -->
+        <div id="to-drink" class="tabs-content">
+            <div class="page-title">À Boire Maintenant</div>
+            <p class="page-subtitle">Vins en apogée • Zéro gâchis 🎯</p>
+
+            <div class="content">
+                <div class="card" style="grid-column: 1 / -1;">
+                    <div class="urgent-badge">⏰ Bouteilles à consommer en priorité</div>
+                    <div id="winesToDrink" class="wines-grid">
+                        <div class="empty-state">✓ Aucun vin en apogée actuellement</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Caves -->
+        <div id="caves" class="tabs-content">
+            <div class="page-title">Caves à Vin</div>
+            <p class="page-subtitle">Gérez vos emplacements</p>
+
+            <div class="content">
+                <div class="card">
+                    <h2>➕ Ajouter une cave</h2>
+                    <form id="addCaveForm">
+                        <div class="form-group">
+                            <label for="caveName">Nom de la cave *</label>
+                            <input type="text" id="caveName" required placeholder="ex: Salon">
+                        </div>
+                        <div class="form-group">
+                            <label for="caveModel">Modèle *</label>
+                            <input type="text" id="caveModel" required placeholder="ex: La Sommelière LS52">
+                        </div>
+                        <div class="form-group">
+                            <label for="caveCapacity">Capacité (bouteilles)</label>
+                            <input type="number" id="caveCapacity" value="100" min="1">
+                        </div>
+                        <div id="addCaveStatus" class="status"></div>
+                        <button type="submit" class="full-width">✓ Ajouter la cave</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h2>🏺 Mes caves</h2>
+                    <div id="cavesList" class="wines-grid">
+                        <div class="empty-state">Aucune cave actuellement</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Journal de Bord -->
+        <div id="journal" class="tabs-content">
+            <div class="page-title">Journal de Bord</div>
+            <p class="page-subtitle">Traçabilité complète • Toutes les raisons</p>
+
+            <div class="content">
+                <div class="card">
+                    <h2>📝 Enregistrer une sortie</h2>
+                    <form id="journalForm">
+                        <div class="form-group">
+                            <label for="journalWineId">Vin *</label>
+                            <select id="journalWineId" required>
+                                <option value="">Sélectionner un vin...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="journalQuantity">Quantité de bouteilles</label>
+                            <input type="number" id="journalQuantity" value="1" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="journalReason">Raison *</label>
+                            <select id="journalReason" required>
+                                <option value="">Sélectionner...</option>
+                                <option value="vente">💰 Vente</option>
+                                <option value="dégustation">🍷 Dégustation</option>
+                                <option value="cadeau">🎁 Cadeau</option>
+                                <option value="perte">❌ Perte/Casse</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="journalRating">Notation (si dégustation)</label>
+                            <select id="journalRating">
+                                <option value="">Aucune</option>
+                                <option value="1">⭐ 1 - Médiocre</option>
+                                <option value="2">⭐⭐ 2 - Acceptable</option>
+                                <option value="3">⭐⭐⭐ 3 - Bon</option>
+                                <option value="4">⭐⭐⭐⭐ 4 - Très bon</option>
+                                <option value="5">⭐⭐⭐⭐⭐ 5 - Excellent</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="journalComment">Commentaire</label>
+                            <textarea id="journalComment" rows="3" placeholder="Notes de dégustation..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="journalDate">Date</label>
+                            <input type="date" id="journalDate">
+                        </div>
+                        <div id="journalStatus" class="status"></div>
+                        <button type="submit" class="full-width">✓ Enregistrer</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h2>📖 Historique</h2>
+                    <div id="historyList" style="max-height: 600px; overflow-y: auto;">
+                        <div class="empty-state">Aucun mouvement enregistré</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alertes -->
+        <div id="alerts" class="tabs-content">
+            <div class="page-title">Gestion des Alertes</div>
+            <p class="page-subtitle">Stock faible • Apogée atteinte • Apogée dépassée</p>
+
+            <div class="content">
+                <div class="card" style="grid-column: 1 / -1;">
+                    <h2>🔔 Alertes actives</h2>
+                    <div id="alertsList" class="wines-grid">
+                        <div class="empty-state">✓ Aucune alerte - Tout est en ordre!</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+        let wines = [], caves = [], alerts = [];
+
+        // Dark mode
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+        }
+
+        // Charger les préférences au chargement
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+            }
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('journalDate').value = today;
+            initializeApp();
+        });
+
+        function switchTab(tab, event) {
+            document.querySelectorAll('.tabs-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab).classList.add('active');
+            if (event) event.target.classList.add('active');
+
+            if (tab === 'dashboard') loadDashboard();
+            else if (tab === 'wines') loadWines();
+            else if (tab === 'to-drink') loadWinesToDrinkNow();
+            else if (tab === 'caves') loadCaves();
+            else if (tab === 'journal') loadJournal();
+            else if (tab === 'alerts') loadAlerts();
+        }
+
+        async function initializeApp() {
+            await loadDashboard();
+            document.getElementById('addWineForm').addEventListener('submit', handleAddWine);
+            document.getElementById('addCaveForm').addEventListener('submit', handleAddCave);
+            document.getElementById('journalForm').addEventListener('submit', handleJournal);
+        }
+
+        async function loadDashboard() {
+            await loadWines();
+            await loadCaves();
+            await loadAlerts();
+            await loadWinesToDrinkNow();
+
+            let totalBottles = wines.reduce((sum, w) => sum + w.quantity, 0);
+            document.getElementById('wineCount').textContent = wines.length;
+            document.getElementById('bottleCount').textContent = totalBottles;
+            document.getElementById('caveCount').textContent = caves.length;
+
+            // Count wines to drink now
+            const today = new Date();
+            const todrink = wines.filter(w => w.quantity > 0 && w.min_apogee_date && 
+                new Date(w.min_apogee_date) <= today && 
+                (!w.max_apogee_date || new Date(w.max_apogee_date) >= today));
+            document.getElementById('apogeeCount').textContent = todrink.length;
+
+            // Display priority wines
+            const priorityHtml = todrink.slice(0, 3).map(w => `
+                <div class="wine-card">
+                    <strong>${w.name}</strong>
+                    <small>${w.region} ${w.vintage}</small>
+                    <div style="margin-top: 0.5rem; font-size: 0.85rem;">
+                        ${w.quantity} bouteille(s)
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('priorityWines').innerHTML = priorityHtml || '<div class="empty-state">✓ Aucun vin en apogée</div>';
+
+            // Display alerts
+            const alertsHtml = alerts.slice(0, 3).map(a => {
+                const wine = wines.find(w => w.id === a.wine_id);
+                return `<div style="padding: 0.5rem; border-left: 3px solid #ef4444;"><strong>${wine?.name}</strong><br><small>${a.alert_type}</small></div>`;
+            }).join('');
+            document.getElementById('dashboardAlerts').innerHTML = alertsHtml || '<div class="empty-state">✓ Aucune alerte</div>';
+        }
+
+        async function loadWines() {
+            const response = await fetch(`${API_BASE}/wines`);
+            wines = await response.json() || [];
+
+            const winesHtml = wines.map(w => {
+                const typeColor = w.type === 'Red' ? 'red' : w.type === 'White' ? 'white' : w.type === 'Rosé' ? 'rose' : 'sparkling';
+                const typeEmoji = w.type === 'Red' ? '🔴' : w.type === 'White' ? '⚪' : w.type === 'Rosé' ? '🌸' : '✨';
+                return `
+                    <div class="wine-card">
+                        <span class="wine-type-badge ${typeColor}">${typeEmoji} ${w.type}</span>
+                        <h3>${w.name}</h3>
+                        <div class="wine-info">
+                            <strong>${w.region}</strong> ${w.vintage}<br>
+                            Producteur: ${w.producer || '-'}<br>
+                            Quantité: <strong>${w.quantity}</strong> bouteille(s)
+                            ${w.rating ? '<br>Note: ' + w.rating + '/5' : ''}
+                        </div>
+                        <div class="wine-actions">
+                            <button onclick="deleteWine(${w.id})" class="secondary">Consommer</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('winesList').innerHTML = winesHtml || '<div class="empty-state">Aucun vin</div>';
+
+            // Mettre à jour le select du journal
+            const journalSelect = document.getElementById('journalWineId');
+            journalSelect.innerHTML = '<option value="">Sélectionner un vin...</option>' +
+                wines.filter(w => w.quantity > 0).map(w => `<option value="${w.id}">${w.name} (${w.quantity})</option>`).join('');
+        }
+
+        async function loadWinesToDrinkNow() {
+            const today = new Date();
+            const todrink = wines.filter(w => w.quantity > 0 && w.min_apogee_date && 
+                new Date(w.min_apogee_date) <= today && 
+                (!w.max_apogee_date || new Date(w.max_apogee_date) >= today));
+
+            const html = todrink.map(w => {
+                const typeColor = w.type === 'Red' ? 'red' : w.type === 'White' ? 'white' : w.type === 'Rosé' ? 'rose' : 'sparkling';
+                const typeEmoji = w.type === 'Red' ? '🔴' : w.type === 'White' ? '⚪' : w.type === 'Rosé' ? '🌸' : '✨';
+                return `
+                    <div class="wine-card" style="border: 2px solid #ef4444;">
+                        <span class="wine-type-badge ${typeColor}">${typeEmoji} ${w.type}</span>
+                        <h3>${w.name}</h3>
+                        <div class="wine-info">
+                            <strong>${w.region}</strong> ${w.vintage}<br>
+                            Quantité: <strong>${w.quantity}</strong> bouteille(s)<br>
+                            À consommer avant: ${new Date(w.max_apogee_date || w.min_apogee_date).toLocaleDateString()}
+                        </div>
+                        <button onclick="drinkWine(${w.id})" style="width: 100%; margin-top: 1rem;">✓ Consommer</button>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('winesToDrink').innerHTML = html || '<div class="empty-state">✓ Aucun vin en apogée actuellement</div>';
+        }
+
+        async function loadCaves() {
+            const response = await fetch(`${API_BASE}/caves`);
+            caves = await response.json() || [];
+
+            const cavesHtml = caves.map(c => `
+                <div class="wine-card">
+                    <h3>${c.name}</h3>
+                    <div class="wine-info">
+                        <strong>Modèle:</strong> ${c.model}<br>
+                        <strong>Capacité:</strong> ${c.current}/${c.capacity}<br>
+                        <strong>Remplissage:</strong> ${Math.round(c.current/c.capacity*100)}%
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('cavesList').innerHTML = cavesHtml || '<div class="empty-state">Aucune cave</div>';
+        }
+
+        async function loadJournal() {
+            // Récupère les historiques de tous les vins
+            let allHistory = [];
+            for (const wine of wines) {
+                const response = await fetch(`${API_BASE}/wines/${wine.id}/history`);
+                const history = await response.json() || [];
+                allHistory = [...allHistory, ...history.map(h => ({...h, wineName: wine.name}))];
+            }
+            allHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            const historyHtml = allHistory.map(h => `
+                <div style="padding: 0.75rem; border-bottom: 1px solid var(--border-light);">
+                    <strong>${h.wineName}</strong><br>
+                    <small>${new Date(h.date).toLocaleDateString('fr-FR')} • ${h.quantity} bouteille(s) • ${h.reason || 'N/A'} ${h.rating ? '• ⭐' + h.rating : ''}</small>
+                    ${h.comment ? '<div style="font-size: 0.85rem; opacity: 0.7; margin-top: 0.25rem;">' + h.comment + '</div>' : ''}
+                </div>
+            `).join('');
+
+            document.getElementById('historyList').innerHTML = historyHtml || '<div class="empty-state">Aucun mouvement</div>';
+        }
+
+        async function loadAlerts() {
+            const response = await fetch(`${API_BASE}/alerts`);
+            alerts = await response.json() || [];
+
+            const alertsHtml = alerts.map(a => {
+                const wine = wines.find(w => w.id === a.wine_id);
+                return `
+                    <div class="wine-card" style="border-left: 3px solid #ef4444;">
+                        <strong>${wine?.name}</strong>
+                        <small style="color: #ef4444;">${a.alert_type}</small>
+                        <div style="margin-top: 1rem;">
+                            <button onclick="dismissAlert(${a.id})" class="secondary full-width">✓ Fermer</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('alertsList').innerHTML = alertsHtml || '<div class="empty-state">✓ Aucune alerte</div>';
+        }
+
+        async function handleAddWine(e) {
+            e.preventDefault();
+            const wine = {
+                name: document.getElementById('name').value,
+                producer: document.getElementById('producer').value,
+                region: document.getElementById('region').value,
+                vintage: parseInt(document.getElementById('vintage').value),
+                type: document.getElementById('type').value,
+                quantity: parseInt(document.getElementById('quantity').value),
+                alcohol_level: parseFloat(document.getElementById('alcohol').value) || null,
+                price: parseFloat(document.getElementById('price').value) || null,
+                min_apogee_date: document.getElementById('minApogee').value || null,
+                max_apogee_date: document.getElementById('maxApogee').value || null,
+                comments: document.getElementById('comments').value
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/wines`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(wine)
+                });
+
+                if (!response.ok) throw new Error('Erreur');
+                showStatus('addWineStatus', '✓ Vin ajouté!', 'success');
+                document.getElementById('addWineForm').reset();
+                setTimeout(() => { loadWines(); loadDashboard(); }, 500);
+            } catch (error) {
+                showStatus('addWineStatus', '✗ Erreur', 'error');
+            }
+        }
+
+        async function handleAddCave(e) {
+            e.preventDefault();
+            const cave = {
+                name: document.getElementById('caveName').value,
+                model: document.getElementById('caveModel').value,
+                capacity: parseInt(document.getElementById('caveCapacity').value)
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/caves`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cave)
+                });
+
+                if (!response.ok) throw new Error('Erreur');
+                showStatus('addCaveStatus', '✓ Cave ajoutée!', 'success');
+                document.getElementById('addCaveForm').reset();
+                setTimeout(() => { loadCaves(); loadDashboard(); }, 500);
+            } catch (error) {
+                showStatus('addCaveStatus', '✗ Erreur', 'error');
+            }
+        }
+
+        async function handleJournal(e) {
+            e.preventDefault();
+            const consumption = {
+                wine_id: parseInt(document.getElementById('journalWineId').value),
+                quantity: parseInt(document.getElementById('journalQuantity').value),
+                rating: document.getElementById('journalRating').value ? parseFloat(document.getElementById('journalRating').value) : null,
+                comment: document.getElementById('journalComment').value,
+                reason: document.getElementById('journalReason').value,
+                date: document.getElementById('journalDate').value
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/consumption`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(consumption)
+                });
+
+                if (!response.ok) throw new Error('Erreur');
+                showStatus('journalStatus', '✓ Enregistré!', 'success');
+                document.getElementById('journalForm').reset();
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('journalDate').value = today;
+                setTimeout(() => { loadWines(); loadJournal(); loadDashboard(); }, 500);
+            } catch (error) {
+                showStatus('journalStatus', '✗ Erreur', 'error');
+            }
+        }
+
+        async function deleteWine(id) {
+            if (confirm('Consommer cette bouteille?')) {
+                const response = await fetch(`${API_BASE}/wines/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    loadWines();
+                    loadDashboard();
+                }
+            }
+        }
+
+        async function drinkWine(id) {
+            switchTab('journal', null);
+            document.getElementById('journalWineId').value = id;
+            document.getElementById('journalReason').value = 'dégustation';
+        }
+
+        async function dismissAlert(id) {
+            const response = await fetch(`${API_BASE}/alerts/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                loadAlerts();
+                loadDashboard();
+            }
+        }
+
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status show ${type}`;
+            setTimeout(() => element.classList.remove('show'), 4000);
+        }
+
+        // ===== ENRICHMENT FUNCTIONS =====
+        async function enrichByBarcode() {
+            const barcode = document.getElementById('enrichBarcode').value.trim();
+            if (!barcode) {
+                showStatus('enrichStatus', '⚠️ Veuillez saisir un code barres', 'warning');
+                return;
+            }
+
+            showStatus('enrichStatus', '⏳ Recherche...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/enrich/barcode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ barcode })
+                });
+
+                if (!response.ok) {
+                    showStatus('enrichStatus', '❌ Produit introuvable', 'error');
+                    return;
+                }
+
+                const data = await response.json();
+                fillWineForm(data);
+                showStatus('enrichStatus', '✓ Données récupérées!', 'success');
+                document.getElementById('enrichBarcode').value = '';
+            } catch (error) {
+                showStatus('enrichStatus', '❌ Erreur de recherche', 'error');
+            }
+        }
+
+        async function enrichByName() {
+            const name = document.getElementById('enrichWineName').value.trim();
+            if (!name) {
+                showStatus('enrichStatus', '⚠️ Veuillez saisir un nom', 'warning');
+                return;
+            }
+
+            showStatus('enrichStatus', '⏳ Recherche...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/enrich/name`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+
+                if (!response.ok) {
+                    showStatus('enrichStatus', '❌ Aucun résultat trouvé', 'error');
+                    return;
+                }
+
+                const data = await response.json();
+                fillWineForm(data);
+                showStatus('enrichStatus', '✓ Données récupérées!', 'success');
+                document.getElementById('enrichWineName').value = '';
+            } catch (error) {
+                showStatus('enrichStatus', '❌ Erreur de recherche', 'error');
+            }
+        }
+
+        async function enrichSpirit() {
+            const name = document.getElementById('enrichWineName').value.trim();
+            if (!name) {
+                showStatus('enrichStatus', '⚠️ Veuillez saisir un nom', 'warning');
+                return;
+            }
+
+            showStatus('enrichStatus', '⏳ Recherche...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/enrich/spirit`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+
+                if (!response.ok) {
+                    showStatus('enrichStatus', '❌ Spiritueux introuvable', 'error');
+                    return;
+                }
+
+                const data = await response.json();
+                fillWineForm(data);
+                showStatus('enrichStatus', '✓ Données récupérées!', 'success');
+                document.getElementById('enrichWineName').value = '';
+            } catch (error) {
+                showStatus('enrichStatus', '❌ Erreur de recherche', 'error');
+            }
+        }
+
+        function fillWineForm(data) {
+            // Map enriched data to form fields
+            if (data.name) document.getElementById('name').value = data.name;
+            if (data.producer) document.getElementById('producer').value = data.producer;
+            if (data.region) document.getElementById('region').value = data.region;
+            if (data.type) {
+                const typeMap = {
+                    'red': 'Red', 'rouge': 'Red', 'white': 'White', 'blanc': 'White',
+                    'rose': 'Rosé', 'rosé': 'Rosé', 'sparkling': 'Sparkling', 'pétillant': 'Sparkling',
+                    'beer': 'Beer', 'bière': 'Beer', 'spirit': 'Spirit', 'spiritueux': 'Spirit'
+                };
+                const typeKey = data.type.toLowerCase();
+                if (typeMap[typeKey]) {
+                    document.getElementById('type').value = typeMap[typeKey];
+                }
+            }
+            if (data.vintage > 0) document.getElementById('vintage').value = data.vintage;
+            if (data.alcoholLevel > 0) document.getElementById('alcohol').value = data.alcoholLevel.toFixed(1);
+            if (data.price > 0) document.getElementById('price').value = data.price.toFixed(2);
+            if (data.description) document.getElementById('comments').value = data.description;
+
+            // Scroll to form
+            document.getElementById('name').focus();
+        }
+
+        // ===== MOBILE CAMERA & SCANNER FUNCTIONS =====
+        let currentStream = null;
+        let currentPhoto = null;
+
+        // Switch enrichment tabs
+        function switchEnrichmentTab(tabName) {
+            document.querySelectorAll('.enrichment-panel').forEach(p => p.style.display = 'none');
+            document.querySelectorAll('.enrichment-tab').forEach(t => {
+                t.style.color = '#999';
+                t.style.borderBottomColor = 'transparent';
+            });
+
+            if (tabName === 'scanner') {
+                document.getElementById('scannerPanel').style.display = 'block';
+                document.getElementById('scannerTab').style.color = '#667eea';
+                document.getElementById('scannerTab').style.borderBottomColor = '#667eea';
+            } else if (tabName === 'code') {
+                document.getElementById('codePanel').style.display = 'block';
+                document.getElementById('codeTab').style.color = '#667eea';
+                document.getElementById('codeTab').style.borderBottomColor = '#667eea';
+            } else if (tabName === 'name') {
+                document.getElementById('namePanel').style.display = 'block';
+                document.getElementById('nameTab').style.color = '#667eea';
+                document.getElementById('nameTab').style.borderBottomColor = '#667eea';
+            }
+        }
+
+        // Start camera
+        async function startCamera() {
+            try {
+                const constraints = {
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                };
+                
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                const video = document.getElementById('videoPreview');
+                video.srcObject = currentStream;
+                
+                document.getElementById('startCameraBtn').style.display = 'none';
+                document.getElementById('cameraContainer').style.display = 'block';
+                
+                showStatus('enrichStatus', '📷 Caméra prête - Capturez l\'étiquette', 'info');
+            } catch (error) {
+                showStatus('enrichStatus', '❌ Caméra non disponible', 'error');
+                console.error('Camera error:', error);
+            }
+        }
+
+        // Capture photo
+        function capturePhoto() {
+            const video = document.getElementById('videoPreview');
+            const canvas = document.getElementById('cameraCanvas');
+            const context = canvas.getContext('2d');
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0);
+            
+            currentPhoto = canvas.toDataURL('image/jpeg', 0.8);
+            document.getElementById('previewImage').src = currentPhoto;
+            
+            document.getElementById('cameraContainer').style.display = 'none';
+            document.getElementById('photoPreview').style.display = 'block';
+            
+            showStatus('enrichStatus', '📸 Photo capturée - Analysez l\'étiquette', 'info');
+        }
+
+        // Retake photo
+        function retakePhoto() {
+            document.getElementById('photoPreview').style.display = 'none';
+            document.getElementById('cameraContainer').style.display = 'block';
+            document.getElementById('cameraCanvas').width = 0;
+            currentPhoto = null;
+        }
+
+        // Stop camera
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+            }
+            document.getElementById('cameraContainer').style.display = 'none';
+            document.getElementById('photoPreview').style.display = 'none';
+            document.getElementById('startCameraBtn').style.display = 'block';
+            showStatus('enrichStatus', '⏹️ Caméra arrêtée', 'info');
+        }
+
+        // Analyze photo (recognize bottle label or barcode)
+        async function analyzePhoto() {
+            if (!currentPhoto) return;
+            
+            showStatus('enrichStatus', '🔍 Analyse de l\'étiquette...', 'info');
+            
+            try {
+                // Try to extract barcode from image
+                const barcodeResult = await scanBarcodeFromImage(currentPhoto);
+                
+                if (barcodeResult && barcodeResult.barcode) {
+                    // If barcode found, use it
+                    document.getElementById('enrichBarcode').value = barcodeResult.barcode;
+                    await enrichByBarcode();
+                    stopCamera();
+                    return;
+                }
+                
+                // Otherwise, try visual recognition
+                const wineResult = await recognizeWineLabel(currentPhoto);
+                
+                if (wineResult) {
+                    fillWineForm(wineResult);
+                    showStatus('enrichStatus', '✓ Bouteille reconnue!', 'success');
+                    stopCamera();
+                } else {
+                    showStatus('enrichStatus', '⚠️ Impossible de reconnaître la bouteille', 'warning');
+                }
+            } catch (error) {
+                showStatus('enrichStatus', '❌ Erreur d\'analyse', 'error');
+                console.error('Analysis error:', error);
+            }
+        }
+
+        // Try to scan barcode from image
+        async function scanBarcodeFromImage(imageData) {
+            try {
+                // Send image to server for barcode detection
+                const response = await fetch(`${API_BASE}/enrich/image-barcode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                
+                if (response.ok) {
+                    return await response.json();
+                }
+                return null;
+            } catch (error) {
+                console.error('Barcode scan error:', error);
+                return null;
+            }
+        }
+
+        // Recognize wine from label image
+        async function recognizeWineLabel(imageData) {
+            try {
+                // Send image to server for visual recognition
+                const response = await fetch(`${API_BASE}/enrich/image-recognize`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageData })
+                });
+                
+                if (response.ok) {
+                    return await response.json();
+                }
+                return null;
+            } catch (error) {
+                console.error('Recognition error:', error);
+                return null;
+            }
+        }
+
+        // Attach tab switchers
+        document.addEventListener('DOMContentLoaded', function() {
+            const enrichBarcodeBtn = document.getElementById('enrichBarcodeBtn');
+            const enrichNameBtn = document.getElementById('enrichNameBtn');
+            
+            if (enrichBarcodeBtn) {
+                enrichBarcodeBtn.addEventListener('click', enrichByBarcode);
+            }
+            if (enrichNameBtn) {
+                enrichNameBtn.addEventListener('click', enrichByName);
+            }
+
+            // Tab switching
+            document.getElementById('scannerTab').addEventListener('click', () => switchEnrichmentTab('scanner'));
+            document.getElementById('codeTab').addEventListener('click', () => switchEnrichmentTab('code'));
+            document.getElementById('nameTab').addEventListener('click', () => switchEnrichmentTab('name'));
+
+            // Camera controls
+            document.getElementById('startCameraBtn').addEventListener('click', startCamera);
+            document.getElementById('capturePhotoBtn').addEventListener('click', capturePhoto);
+            document.getElementById('stopCameraBtn').addEventListener('click', stopCamera);
+            document.getElementById('retakPhotoBtn').addEventListener('click', retakePhoto);
+            document.getElementById('analyzePhotoBtn').addEventListener('click', analyzePhoto);
+
+            // Allow Enter key on barcode field
+            const enrichBarcode = document.getElementById('enrichBarcode');
+            if (enrichBarcode) {
+                enrichBarcode.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') enrichByBarcode();
+                });
+            }
+
+            // Allow Enter key on name field
+            const enrichWineName = document.getElementById('enrichWineName');
+            if (enrichWineName) {
+                enrichWineName.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') enrichByName();
+                });
+            }
+        });
+    </script>
+</body>
+</html>
