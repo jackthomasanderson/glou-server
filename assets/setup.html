@@ -316,6 +316,120 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .password-strength-bar {
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .password-strength-fill {
+            height: 100%;
+            transition: all 0.3s;
+            border-radius: 3px;
+        }
+
+        .password-strength-text {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .strength-very-weak .password-strength-fill {
+            width: 20%;
+            background: #d32f2f;
+        }
+
+        .strength-very-weak .password-strength-text {
+            color: #d32f2f;
+        }
+
+        .strength-weak .password-strength-fill {
+            width: 40%;
+            background: #f44336;
+        }
+
+        .strength-weak .password-strength-text {
+            color: #f44336;
+        }
+
+        .strength-medium .password-strength-fill {
+            width: 60%;
+            background: #ff9800;
+        }
+
+        .strength-medium .password-strength-text {
+            color: #ff9800;
+        }
+
+        .strength-strong .password-strength-fill {
+            width: 80%;
+            background: #8bc34a;
+        }
+
+        .strength-strong .password-strength-text {
+            color: #8bc34a;
+        }
+
+        .strength-very-strong .password-strength-fill {
+            width: 100%;
+            background: #4caf50;
+        }
+
+        .strength-very-strong .password-strength-text {
+            color: #4caf50;
+        }
+
+        .password-warning {
+            background: #fff3cd;
+            border-left: 4px solid #ff9800;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #856404;
+            display: none;
+        }
+
+        .password-warning.show {
+            display: block;
+        }
+
+        .password-requirements {
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 4px 0;
+            color: #999;
+        }
+
+        .requirement.recommended {
+            color: #ff9800;
+            font-weight: 500;
+        }
+
+        .requirement.met {
+            color: #4caf50;
+        }
+
+        .requirement.met::before {
+            content: '✓';
+            font-weight: bold;
+        }
+
+        .requirement.recommended::before {
+            content: '⚠';
+        }
+
+        .requirement.unmet::before {
+            content: '○';
+        }
     </style>
 </head>
 <body>
@@ -366,13 +480,17 @@
 
                     <div class="form-group">
                         <label for="password">Mot de passe *</label>
-                        <input type="password" id="password" required minlength="8" placeholder="••••••••">
-                        <small>Au moins 8 caractères</small>
+                        <input type="password" id="password" required minlength="8" placeholder="••••••••••••">
+                        <small style="display: block; margin-top: 8px; line-height: 1.5; color: #666;">
+                            Minimum 8 caractères requis<br>
+                            <strong style="color: #ff9800;">⚠️ Fortement recommandé :</strong> 12+ caractères avec majuscules, minuscules, chiffres et caractères spéciaux
+                        </small>
+                        <div id="password-strength" style="margin-top: 10px;"></div>
                     </div>
 
                     <div class="form-group">
                         <label for="password-confirm">Confirmer le mot de passe *</label>
-                        <input type="password" id="password-confirm" required minlength="8" placeholder="••••••••">
+                        <input type="password" id="password-confirm" required minlength="8" placeholder="••••••••••••">
                     </div>
                 </div>
 
@@ -542,6 +660,101 @@
         setupColorSync('theme-color', 'theme-color-text');
         setupColorSync('secondary-color', 'secondary-color-text');
         setupColorSync('accent-color', 'accent-color-text');
+
+        // Validation du mot de passe en temps réel
+        const passwordInput = document.getElementById('password');
+        const passwordWarning = document.createElement('div');
+        passwordWarning.className = 'password-warning';
+        passwordWarning.id = 'password-warning';
+        passwordInput.parentElement.appendChild(passwordWarning);
+
+        passwordInput.addEventListener('input', (e) => {
+            updatePasswordStrength(e.target.value);
+        });
+
+        function updatePasswordStrength(password) {
+            const strengthDiv = document.getElementById('password-strength');
+            const warningDiv = document.getElementById('password-warning');
+            
+            if (!password) {
+                strengthDiv.innerHTML = '';
+                warningDiv.classList.remove('show');
+                return;
+            }
+
+            const checks = {
+                length8: password.length >= 8,
+                length12: password.length >= 12,
+                lower: /[a-z]/.test(password),
+                upper: /[A-Z]/.test(password),
+                digit: /[0-9]/.test(password),
+                special: /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`"\\]/.test(password)
+            };
+
+            const typeCount = [checks.lower, checks.upper, checks.digit, checks.special].filter(Boolean).length;
+            
+            let strength = 'very-weak';
+            let strengthText = 'Très faible';
+            let showWarning = false;
+            let warningText = '';
+            
+            if (checks.length8) {
+                if (typeCount >= 4 && checks.length12) {
+                    strength = 'very-strong';
+                    strengthText = 'Excellent';
+                } else if (typeCount >= 3 && checks.length12) {
+                    strength = 'strong';
+                    strengthText = 'Fort';
+                } else if (typeCount >= 3) {
+                    strength = 'medium';
+                    strengthText = 'Moyen';
+                    showWarning = true;
+                    warningText = '⚠️ Nous vous recommandons fortement d\'utiliser au moins 12 caractères pour une sécurité optimale.';
+                } else if (typeCount >= 2) {
+                    strength = 'weak';
+                    strengthText = 'Faible';
+                    showWarning = true;
+                    warningText = '⚠️ Ce mot de passe est faible. Pour une meilleure sécurité, utilisez 12+ caractères avec majuscules, minuscules, chiffres et caractères spéciaux.';
+                } else {
+                    strength = 'very-weak';
+                    strengthText = 'Très faible';
+                    showWarning = true;
+                    warningText = '⚠️ Ce mot de passe est très faible. Ajoutez différents types de caractères.';
+                }
+            } else {
+                strengthText = 'Trop court';
+            }
+
+            const recommendedItems = [];
+            if (!checks.length12) recommendedItems.push('12+ caractères');
+            if (typeCount < 3) recommendedItems.push('3+ types de caractères');
+            if (typeCount < 4) recommendedItems.push('caractères spéciaux');
+
+            strengthDiv.innerHTML = `
+                <div class="password-strength-bar">
+                    <div class="password-strength-fill"></div>
+                </div>
+                <div class="password-strength-text">${strengthText}</div>
+                <div class="password-requirements">
+                    <div class="requirement ${checks.length8 ? 'met' : 'unmet'}">Minimum 8 caractères (requis)</div>
+                    <div class="requirement ${checks.length12 ? 'met' : 'recommended'}">12+ caractères (recommandé)</div>
+                    <div class="requirement ${typeCount >= 3 ? 'met' : 'recommended'}">Au moins 3 types de caractères (recommandé)</div>
+                    <div class="requirement ${checks.lower ? 'met' : 'unmet'}">Lettres minuscules</div>
+                    <div class="requirement ${checks.upper ? 'met' : 'unmet'}">Lettres majuscules</div>
+                    <div class="requirement ${checks.digit ? 'met' : 'unmet'}">Chiffres</div>
+                    <div class="requirement ${checks.special ? 'met' : 'unmet'}">Caractères spéciaux</div>
+                </div>
+            `;
+            
+            strengthDiv.className = `strength-${strength}`;
+
+            if (showWarning) {
+                warningDiv.textContent = warningText;
+                warningDiv.classList.add('show');
+            } else {
+                warningDiv.classList.remove('show');
+            }
+        }
 
         // Navigation
         document.getElementById('btn-next').addEventListener('click', () => {
