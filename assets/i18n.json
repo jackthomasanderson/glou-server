@@ -1,0 +1,198 @@
+{
+  "fr": {
+    "app": {
+      "title": "Glou",
+      "subtitle": "Gestion de Cave à Vin",
+      "version": "v1.0.0"
+    },
+    "nav": {
+      "dashboard": "Tableau de bord",
+      "wines": "Mes Vins",
+      "toDrink": "À Boire Maintenant",
+      "caves": "Caves",
+      "journal": "Journal",
+      "alerts": "Alertes"
+    },
+    "dashboard": {
+      "title": "Vue d'ensemble",
+      "totalWines": "Vins Total",
+      "bottles": "Bouteilles",
+      "toDrink": "À boire maintenant",
+      "caves": "Caves"
+    },
+    "wines": {
+      "title": "Mes Vins",
+      "add": "Ajouter un vin",
+      "search": "Rechercher...",
+      "type": "Type",
+      "vintage": "Millésime",
+      "appellation": "Appellation",
+      "producer": "Producteur",
+      "quantity": "Quantité",
+      "rating": "Note",
+      "price": "Prix",
+      "minApogee": "Apogée minimale",
+      "maxApogee": "Apogée maximale",
+      "comments": "Commentaires",
+      "create": "Créer",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "cancel": "Annuler",
+      "success": "Vin créé avec succès",
+      "error": "Erreur lors de la création",
+      "types": {
+        "rouge": "Rouge",
+        "blanc": "Blanc",
+        "rosé": "Rosé",
+        "pétillant": "Pétillant"
+      }
+    },
+    "caves": {
+      "title": "Caves",
+      "add": "Ajouter une cave",
+      "name": "Nom",
+      "location": "Localisation",
+      "capacity": "Capacité",
+      "temperature": "Température",
+      "humidity": "Humidité",
+      "used": "Utilisé",
+      "available": "Disponible"
+    },
+    "journal": {
+      "title": "Journal de Bord",
+      "record": "Enregistrer une consommation",
+      "wine": "Vin",
+      "date": "Date",
+      "reason": "Raison",
+      "tastingNotes": "Notes de dégustation",
+      "rating": "Note",
+      "reasons": {
+        "tasting": "Dégustation",
+        "sale": "Vente",
+        "gift": "Cadeau",
+        "loss": "Perte"
+      }
+    },
+    "alerts": {
+      "title": "Alertes",
+      "apogeeApproaching": "Apogée approchante",
+      "pastApogee": "Après apogée",
+      "temperatureAlert": "Alerte température",
+      "humidityAlert": "Alerte humidité",
+      "capacityAlert": "Capacité pleine",
+      "acknowledge": "Reconnaître",
+      "delete": "Supprimer"
+    },
+    "common": {
+      "loading": "Chargement...",
+      "save": "Enregistrer",
+      "close": "Fermer",
+      "yes": "Oui",
+      "no": "Non",
+      "confirm": "Confirmer",
+      "delete": "Supprimer",
+      "edit": "Modifier",
+      "back": "Retour",
+      "next": "Suivant",
+      "prev": "Précédent"
+    }
+  },
+  "en": {
+    "app": {
+      "title": "Glou",
+      "subtitle": "Wine Cellar Management",
+      "version": "v1.0.0"
+    },
+    "nav": {
+      "dashboard": "Dashboard",
+      "wines": "My Wines",
+      "toDrink": "Drink Now",
+      "caves": "Cellars",
+      "journal": "Journal",
+      "alerts": "Alerts"
+    },
+    "dashboard": {
+      "title": "Overview",
+      "totalWines": "Total Wines",
+      "bottles": "Bottles",
+      "toDrink": "Ready to drink",
+      "caves": "Cellars"
+    },
+    "wines": {
+      "title": "My Wines",
+      "add": "Add Wine",
+      "search": "Search...",
+      "type": "Type",
+      "vintage": "Vintage",
+      "appellation": "Appellation",
+      "producer": "Producer",
+      "quantity": "Quantity",
+      "rating": "Rating",
+      "price": "Price",
+      "minApogee": "Min Apogee",
+      "maxApogee": "Max Apogee",
+      "comments": "Comments",
+      "create": "Create",
+      "edit": "Edit",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "success": "Wine created successfully",
+      "error": "Error creating wine",
+      "types": {
+        "rouge": "Red",
+        "blanc": "White",
+        "rosé": "Rosé",
+        "pétillant": "Sparkling"
+      }
+    },
+    "caves": {
+      "title": "Cellars",
+      "add": "Add Cellar",
+      "name": "Name",
+      "location": "Location",
+      "capacity": "Capacity",
+      "temperature": "Temperature",
+      "humidity": "Humidity",
+      "used": "Used",
+      "available": "Available"
+    },
+    "journal": {
+      "title": "Tasting Journal",
+      "record": "Record Consumption",
+      "wine": "Wine",
+      "date": "Date",
+      "reason": "Reason",
+      "tastingNotes": "Tasting Notes",
+      "rating": "Rating",
+      "reasons": {
+        "tasting": "Tasting",
+        "sale": "Sale",
+        "gift": "Gift",
+        "loss": "Loss"
+      }
+    },
+    "alerts": {
+      "title": "Alerts",
+      "apogeeApproaching": "Apogee Approaching",
+      "pastApogee": "Past Apogee",
+      "temperatureAlert": "Temperature Alert",
+      "humidityAlert": "Humidity Alert",
+      "capacityAlert": "Capacity Full",
+      "acknowledge": "Acknowledge",
+      "delete": "Delete"
+    },
+    "common": {
+      "loading": "Loading...",
+      "save": "Save",
+      "close": "Close",
+      "yes": "Yes",
+      "no": "No",
+      "confirm": "Confirm",
+      "delete": "Delete",
+      "edit": "Edit",
+      "back": "Back",
+      "next": "Next",
+      "prev": "Previous"
+    }
+  }
+}
