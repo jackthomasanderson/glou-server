@@ -138,6 +138,13 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /api/setup/check", s.handleCheckSetup)
 	s.router.HandleFunc("POST /api/setup/complete", s.handleCompleteSetup)
 
+	// Authentication - Routes publiques
+	s.router.HandleFunc("POST /api/auth/login", applySecurityMiddlewares(s.handleLogin))
+	s.router.HandleFunc("POST /api/auth/register", applySecurityMiddlewares(s.handleRegister))
+	s.router.HandleFunc("POST /api/auth/forgot-password", applySecurityMiddlewares(s.handleForgotPassword))
+	s.router.HandleFunc("POST /api/auth/reset-password", applySecurityMiddlewares(s.handleResetPassword))
+	s.router.HandleFunc("GET /api/auth/status", applySecurityMiddlewares(s.handleCheckAuthStatus))
+
 	// Wines
 	s.router.HandleFunc("GET /wines", applySecurityMiddlewares(s.handleGetWines))
 	s.router.HandleFunc("POST /wines", applySecurityMiddlewares(s.handleCreateWine))

@@ -184,11 +184,23 @@ func (s *Store) initSchema() error {
 		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS password_reset_tokens (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		token TEXT NOT NULL UNIQUE,
+		expires_at DATETIME NOT NULL,
+		used INTEGER NOT NULL DEFAULT 0,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	);
+
 	CREATE INDEX IF NOT EXISTS idx_activity_log_entity ON activity_log(entity_type, entity_id);
 	CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 	CREATE INDEX IF NOT EXISTS idx_encrypted_credentials_service ON encrypted_credentials(service_name);
+	CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(token);
+	CREATE INDEX IF NOT EXISTS idx_password_reset_expires ON password_reset_tokens(expires_at);
 	`
 
 	if _, err := s.Db.Exec(schema); err != nil {

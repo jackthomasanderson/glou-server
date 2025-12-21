@@ -55,9 +55,23 @@
         .color-picker-group { display: flex; gap: 20px; align-items: center; }
         .color-preview { width: 60px; height: 60px; border-radius: 4px; border: 1px solid #bdc3c7; }
         .maintenance-banner { background: #f39c12; color: white; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+        
+        /* Toast notifications */
+        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 300px; display: flex; align-items: center; gap: 12px; animation: slideIn 0.3s ease-out; }
+        .toast.success { border-left: 4px solid #27ae60; }
+        .toast.error { border-left: 4px solid #e74c3c; }
+        .toast.info { border-left: 4px solid #3498db; }
+        .toast-icon { font-size: 20px; }
+        .toast-message { flex: 1; font-size: 14px; color: #2c3e50; }
+        .toast-close { cursor: pointer; color: #7f8c8d; font-size: 18px; line-height: 1; }
+        .toast-close:hover { color: #2c3e50; }
+        @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(400px); opacity: 0; } }
     </style>
 </head>
 <body>
+    <div class="toast-container" id="toast-container"></div>
     <div class="admin-container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -437,6 +451,32 @@
             return i18n[currentLang][key] || key;
         }
 
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '✓',
+                error: '✗',
+                info: 'ℹ'
+            };
+            
+            toast.innerHTML = `
+                <span class="toast-icon">${icons[type] || icons.info}</span>
+                <span class="toast-message">${message}</span>
+                <span class="toast-close" onclick="this.parentElement.remove()">×</span>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Auto-remove after 4 seconds
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
         function updateUILanguage() {
             try {
                 // Titre et menu
@@ -460,6 +500,43 @@
                 if (exitBtn) {
                     exitBtn.textContent = t('exitAdmin');
                 }
+                
+                // Mettre à jour les titres de section
+                const sectionTitles = {
+                    'branding .settings-group h3': 'brandingSettings',
+                    'appearance .settings-group h3': 'appearanceSettings',
+                    'network .settings-group h3': 'networkSettings',
+                    'features .settings-group h3': 'featuresSettings',
+                    'advanced .settings-group h3': 'advancedSettings'
+                };
+                
+                Object.keys(sectionTitles).forEach(selector => {
+                    const el = document.querySelector(`#${selector}`);
+                    if (el) el.textContent = t(sectionTitles[selector]);
+                });
+                
+                // Mettre à jour les boutons
+                document.querySelectorAll('button[type=\"submit\"]').forEach(btn => {
+                    const form = btn.closest('form');
+                    if (!form) return;
+                    
+                    if (form.onsubmit && form.onsubmit.toString().includes('saveBranding')) {
+                        btn.textContent = t('saveBranding');
+                    } else if (form.onsubmit && form.onsubmit.toString().includes('saveAppearance')) {
+                        btn.textContent = t('saveAppearance');
+                    } else if (form.onsubmit && form.onsubmit.toString().includes('saveNetwork')) {
+                        btn.textContent = t('saveNetwork');
+                    } else if (form.onsubmit && form.onsubmit.toString().includes('saveFeatures')) {
+                        btn.textContent = t('saveFeatures');
+                    } else if (form.onsubmit && form.onsubmit.toString().includes('saveAdvanced')) {
+                        btn.textContent = t('saveAdvanced');
+                    }
+                });
+                
+                // Labels statiques
+                const uploadBtn = document.querySelector('button[onclick*=\"logoUpload\"]');
+                if (uploadBtn) uploadBtn.textContent = t('uploadLogo');
+                
             } catch (err) {
                 console.error('Error updating UI language:', err);
             }
@@ -627,14 +704,14 @@
                     body: JSON.stringify(settings)
                 });
                 if (res.ok) {
-                    alert(t('settingsSaved'));
+                    showToast(t('settingsSaved'), 'success');
                     loadSettings();
                 } else {
-                    alert(t('settingsFailed'));
+                    showToast(t('settingsFailed'), 'error');
                 }
             } catch (err) {
                 console.error('Error:', err);
-                alert(t('settingsFailed'));
+                showToast(t('settingsFailed'), 'error');
             }
         }
 
@@ -656,7 +733,7 @@
                     document.getElementById('logoPreview').src = data.logo_url;
                     document.getElementById('logoPreview').style.display = 'block';
                     // Le logo et le favicon utilisent la même image
-                    alert(t('logoUpdated'));
+                    showToast(t('logoUpdated'), 'success');
                 }
             } catch (err) {
                 console.error('Upload error:', err);
