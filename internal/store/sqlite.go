@@ -163,8 +163,10 @@ func (s *Store) initSchema() error {
 // CreateWine insère un nouveau vin et retourne son ID
 func (s *Store) CreateWine(ctx context.Context, wine *domain.Wine) (int64, error) {
 	query := `
-	INSERT INTO wines (name, region, vintage, type, quantity, cell_id, created_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?)
+	INSERT INTO wines (name, region, vintage, type, quantity, cell_id, producer, 
+		alcohol_level, price, rating, comments, consumed, min_apogee_date, 
+		max_apogee_date, consumption_date, created_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := s.Db.ExecContext(ctx, query,
@@ -174,6 +176,15 @@ func (s *Store) CreateWine(ctx context.Context, wine *domain.Wine) (int64, error
 		wine.WineType,
 		wine.Quantity,
 		wine.CellID,
+		wine.Producer,
+		wine.AlcoholLevel,
+		wine.Price,
+		wine.Rating,
+		wine.Comments,
+		wine.Consumed,
+		wine.MinApogeeDate,
+		wine.MaxApogeeDate,
+		wine.ConsumptionDate,
 		time.Now(),
 	)
 	if err != nil {
@@ -191,7 +202,9 @@ func (s *Store) CreateWine(ctx context.Context, wine *domain.Wine) (int64, error
 // GetWines retourne la liste de tous les vins
 func (s *Store) GetWines(ctx context.Context) ([]*domain.Wine, error) {
 	query := `
-	SELECT id, name, region, vintage, type, quantity, cell_id, created_at
+	SELECT id, name, region, vintage, type, quantity, cell_id, producer, 
+	       alcohol_level, price, rating, comments, consumed, min_apogee_date, 
+	       max_apogee_date, consumption_date, created_at
 	FROM wines
 	ORDER BY created_at DESC
 	`
@@ -213,6 +226,15 @@ func (s *Store) GetWines(ctx context.Context) ([]*domain.Wine, error) {
 			&wine.WineType,
 			&wine.Quantity,
 			&wine.CellID,
+			&wine.Producer,
+			&wine.AlcoholLevel,
+			&wine.Price,
+			&wine.Rating,
+			&wine.Comments,
+			&wine.Consumed,
+			&wine.MinApogeeDate,
+			&wine.MaxApogeeDate,
+			&wine.ConsumptionDate,
 			&wine.CreatedAt,
 		)
 		if err != nil {
@@ -231,7 +253,9 @@ func (s *Store) GetWines(ctx context.Context) ([]*domain.Wine, error) {
 // GetWineByID retourne un vin par son ID
 func (s *Store) GetWineByID(ctx context.Context, id int64) (*domain.Wine, error) {
 	query := `
-	SELECT id, name, region, vintage, type, quantity, cell_id, created_at
+	SELECT id, name, region, vintage, type, quantity, cell_id, producer, 
+	       alcohol_level, price, rating, comments, consumed, min_apogee_date, 
+	       max_apogee_date, consumption_date, created_at
 	FROM wines
 	WHERE id = ?
 	`
@@ -245,6 +269,15 @@ func (s *Store) GetWineByID(ctx context.Context, id int64) (*domain.Wine, error)
 		&wine.WineType,
 		&wine.Quantity,
 		&wine.CellID,
+		&wine.Producer,
+		&wine.AlcoholLevel,
+		&wine.Price,
+		&wine.Rating,
+		&wine.Comments,
+		&wine.Consumed,
+		&wine.MinApogeeDate,
+		&wine.MaxApogeeDate,
+		&wine.ConsumptionDate,
 		&wine.CreatedAt,
 	)
 
