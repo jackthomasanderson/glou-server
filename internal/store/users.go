@@ -194,3 +194,98 @@ func (s *Store) VerifyPassword(ctx context.Context, username, password string) (
 	err = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(password))
 	return err == nil, nil
 }
+
+// CreatePasswordResetToken crée un token de réinitialisation de mot de passe
+func (s *Store) CreatePasswordResetToken(ctx context.Context, userID int64, token string, expiresAt time.Time) error {
+	query := `
+	INSERT INTO password_reset_tokens (user_id, token, expires_at, created_at)
+	VALUES (?, ?, ?, ?)
+	`
+
+	now := time.Now()
+	_, err := s.Db.ExecContext(ctx, query, userID, token, expiresAt, now)
+	if err != nil {
+		return fmt.Errorf("failed to create password reset token: %w", err)
+	}
+
+	return nil
+}
+
+// GetPasswordResetToken récupère un token de réinitialisation
+func (s *Store) GetPasswordResetToken(ctx context.Context, token string) (*domain.PasswordResetToken, error) {
+	query := `
+	SELECT id, user_id, token, expires_at, used, created_at
+	FROM password_reset_tokens
+	WHERE token = ?
+	LIMIT 1
+	`
+
+	row := s.Db.QueryRowContext(ctx, query, token)
+
+	resetToken := &domain.PasswordResetToken{}
+	var used int
+	err := row.Scan(&resetToken.ID, &resetToken.UserID, &resetToken.Token, &resetToken.ExpiresAt, &used, &resetToken.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get password reset token: %w", err)
+	}
+
+	resetToken.Used = used == 1
+
+	return resetToken, nil
+}
+
+// MarkPasswordResetTokenUsed marque un token comme utilisé
+func (s *Store) MarkPasswordResetTokenUsed(ctx context.Context, tokenID int64) error {
+	query := `
+	UPDATE password_reset_tokens 
+	SET used = 1 
+	WHERE id = ?
+	`
+
+	_, err := s.Db.ExecContext(ctx, query, tokenID)
+	if err != nil {
+		return fmt.Errorf("failed to mark token as used: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateUserPassword met à jour le mot de passe d'un utilisateur
+func (s *Store) UpdateUserPassword(ctx context.Context, userID int64, newPassword string) error {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	query := `
+	UPDATE users 
+	SET password_hash = ?, updated_at = ?
+	WHERE id = ?
+	`
+
+	now := time.Now()
+	_, err = s.Db.ExecContext(ctx, query, string(hashedPassword), now, userID)
+	if err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
+	}
+
+	return nil
+}
+
+// CleanupExpiredTokens supprime les tokens expirés
+func (s *Store) CleanupExpiredTokens(ctx context.Context) error {
+	query := `
+	DELETE FROM password_reset_tokens
+	WHERE expires_at < ? OR used = 1
+	`
+
+	_, err := s.Db.ExecContext(ctx, query, time.Now())
+	if err != nil {
+		return fmt.Errorf("failed to cleanup expired tokens: %w", err)
+	}
+
+	return nil
+}

@@ -30,6 +30,9 @@ profile.cov
 *.db-journal
 glou.db
 
+# Logs
+*.log
+
 # Binaries
 api.exe
 glou-server

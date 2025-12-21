@@ -40,6 +40,9 @@ type Settings struct {
 	MaxRequestBodySize int64 `json:"max_request_body_size"` // Max upload
 	SessionTimeout     int   `json:"session_timeout"`       // Minutes
 
+	// SMTP Configuration
+	SMTPConfigured bool `json:"smtp_configured"` // SMTP est-il configuré?
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -51,6 +54,16 @@ type User struct {
 	Email     string    `json:"email"`
 	Role      string    `json:"role"` // "admin", "user"
 	IsActive  bool      `json:"is_active"`
+
+// PasswordResetToken représente un token de réinitialisation de mot de passe
+type PasswordResetToken struct {
+	ID        int64     `json:"id"`
+	UserID    int64     `json:"user_id"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Used      bool      `json:"used"`
+	CreatedAt time.Time `json:"created_at"`
+}
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
