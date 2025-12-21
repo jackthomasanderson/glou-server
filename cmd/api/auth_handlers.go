@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/romain/glou-server/internal/domain"
 	"github.com/romain/glou-server/internal/notifier"
 )
 

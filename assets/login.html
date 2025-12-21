@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Glou</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #764ba2;
+            --bg-light: #f5f5f7;
+            --surface-light: #ffffff;
+            --text-light: #333333;
+            --border-light: #e0e0e0;
+            --success: #10b981;
+            --danger: #ef4444;
+            --info: #3b82f6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .auth-container {
+            background: var(--surface-light);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 450px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--border-light);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #666;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            font-weight: 600;
+        }
+
+        .form-container {
+            display: none;
+        }
+
+        .form-container.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-light);
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid var(--border-light);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .form-group .error {
+            color: var(--danger);
+            font-size: 0.85rem;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .form-group.has-error input {
+            border-color: var(--danger);
+        }
+
+        .form-group.has-error .error {
+            display: block;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .forgot-password {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .forgot-password a {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .forgot-password a:hover {
+            text-decoration: underline;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid var(--success);
+        }
+
+        .alert.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid var(--danger);
+        }
+
+        .alert.info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid var(--info);
+        }
+
+        .password-strength {
+            margin-top: 10px;
+        }
+
+        .strength-bar {
+            height: 5px;
+            background: var(--border-light);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .strength-bar-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s, background-color 0.3s;
+        }
+
+        .strength-text {
+            font-size: 0.85rem;
+            margin-top: 5px;
+            color: #666;
+        }
+
+        .smtp-warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            color: #92400e;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .smtp-warning.show {
+            display: block;
+        }
+
+        @media (max-width: 480px) {
+            .auth-container {
+                padding: 30px 20px;
+            }
+
+            .logo h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="logo">
+            <h1>🍷 Glou</h1>
+            <p>Wine Management System</p>
+        </div>
+
+        <div class="alert" id="alertBox"></div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="login">Connexion</button>
+            <button class="tab" data-tab="register">Inscription</button>
+        </div>
+
+        <!-- Formulaire de connexion -->
+        <div class="form-container active" id="login-form">
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="login-username">Nom d'utilisateur</label>
+                    <input type="text" id="login-username" required>
+                    <div class="error">Nom d'utilisateur requis</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="login-password">Mot de passe</label>
+                    <input type="password" id="login-password" required>
+                    <div class="error">Mot de passe requis</div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="login-btn">Se connecter</button>
+            </form>
+
+            <div class="forgot-password">
+                <a href="#" onclick="showForgotPassword(); return false;">Mot de passe oublié ?</a>
+            </div>
+        </div>
+
+        <!-- Formulaire d'inscription -->
+        <div class="form-container" id="register-form">
+            <div class="smtp-warning" id="smtp-warning">
+                ⚠️ L'inscription nécessite une configuration SMTP pour l'envoi d'emails.
+            </div>
+
+            <form onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="register-username">Nom d'utilisateur</label>
+                    <input type="text" id="register-username" required minlength="3" maxlength="50">
+                    <div class="error">Le nom d'utilisateur doit contenir entre 3 et 50 caractères</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="register-email">Email</label>
+                    <input type="email" id="register-email" required>
+                    <div class="error">Email valide requis</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="register-password">Mot de passe</label>
+                    <input type="password" id="register-password" required minlength="8">
+                    <div class="error">Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre</div>
+                    <div class="password-strength">
+                        <div class="strength-bar">
+                            <div class="strength-bar-fill" id="strength-bar"></div>
+                        </div>
+                        <div class="strength-text" id="strength-text"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="register-password-confirm">Confirmer le mot de passe</label>
+                    <input type="password" id="register-password-confirm" required>
+                    <div class="error">Les mots de passe ne correspondent pas</div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="register-btn">S'inscrire</button>
+            </form>
+        </div>
+
+        <!-- Formulaire mot de passe oublié -->
+        <div class="form-container" id="forgot-password-form">
+            <div class="smtp-warning show">
+                ℹ️ Un email de réinitialisation sera envoyé à l'adresse indiquée.
+            </div>
+
+            <form onsubmit="handleForgotPassword(event)">
+                <div class="form-group">
+                    <label for="forgot-email">Email</label>
+                    <input type="email" id="forgot-email" required>
+                    <div class="error">Email valide requis</div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="forgot-btn">Envoyer le lien</button>
+            </form>
+
+            <div class="forgot-password">
+                <a href="#" onclick="showLogin(); return false;">Retour à la connexion</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Gestion des onglets
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                // Mettre à jour les onglets actifs
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Mettre à jour les formulaires actifs
+                document.querySelectorAll('.form-container').forEach(f => f.classList.remove('active'));
+                document.getElementById(`${tabName}-form`).classList.add('active');
+
+                // Masquer les alertes
+                hideAlert();
+            });
+        });
+
+        // Vérifier la configuration lors du chargement
+        async function checkSettings() {
+            try {
+                const response = await fetch('/api/admin/settings');
+                const settings = await response.json();
+                
+                // Vérifier si l'inscription est activée
+                if (!settings.allow_registration) {
+                    document.querySelector('[data-tab="register"]').style.display = 'none';
+                }
+
+                // Vérifier si SMTP est configuré pour afficher les avertissements
+                if (!settings.smtp_configured) {
+                    document.getElementById('smtp-warning').classList.add('show');
+                }
+            } catch (error) {
+                console.error('Failed to check settings:', error);
+            }
+        }
+
+        checkSettings();
+
+        // Gestion de la connexion
+        async function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            const btn = document.getElementById('login-btn');
+
+            btn.disabled = true;
+            btn.textContent = 'Connexion...';
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('Connexion réussie ! Redirection...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 1000);
+                } else {
+                    showAlert(data.message || 'Identifiants invalides', 'error');
+                }
+            } catch (error) {
+                showAlert('Erreur de connexion au serveur', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Se connecter';
+            }
+        }
+
+        // Gestion de l'inscription
+        async function handleRegister(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('register-username').value;
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            const passwordConfirm = document.getElementById('register-password-confirm').value;
+            const btn = document.getElementById('register-btn');
+
+            // Vérifier que les mots de passe correspondent
+            if (password !== passwordConfirm) {
+                showAlert('Les mots de passe ne correspondent pas', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Inscription...';
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('Inscription réussie ! Vous pouvez maintenant vous connecter.', 'success');
+                    setTimeout(() => {
+                        showLogin();
+                        document.getElementById('login-username').value = username;
+                    }, 2000);
+                } else {
+                    showAlert(data.message || 'Erreur lors de l\'inscription', 'error');
+                }
+            } catch (error) {
+                showAlert('Erreur de connexion au serveur', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'S\'inscrire';
+            }
+        }
+
+        // Gestion du mot de passe oublié
+        async function handleForgotPassword(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('forgot-email').value;
+            const btn = document.getElementById('forgot-btn');
+
+            btn.disabled = true;
+            btn.textContent = 'Envoi...';
+
+            try {
+                const response = await fetch('/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showAlert('Si cet email existe, un lien de réinitialisation a été envoyé.', 'success');
+                    setTimeout(() => showLogin(), 3000);
+                } else {
+                    showAlert(data.message || 'Erreur lors de l\'envoi de l\'email', 'error');
+                }
+            } catch (error) {
+                showAlert('Erreur de connexion au serveur', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Envoyer le lien';
+            }
+        }
+
+        // Afficher les formulaires
+        function showLogin() {
+            document.querySelectorAll('.form-container').forEach(f => f.classList.remove('active'));
+            document.getElementById('login-form').classList.add('active');
+            hideAlert();
+        }
+
+        function showForgotPassword() {
+            document.querySelectorAll('.form-container').forEach(f => f.classList.remove('active'));
+            document.getElementById('forgot-password-form').classList.add('active');
+            hideAlert();
+        }
+
+        // Afficher/masquer les alertes
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.textContent = message;
+            alertBox.className = `alert ${type} show`;
+        }
+
+        function hideAlert() {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.classList.remove('show');
+        }
+
+        // Vérifier la force du mot de passe
+        document.getElementById('register-password')?.addEventListener('input', (e) => {
+            const password = e.target.value;
+            const strengthBar = document.getElementById('strength-bar');
+            const strengthText = document.getElementById('strength-text');
+
+            let strength = 0;
+            let text = '';
+            let color = '';
+
+            if (password.length >= 8) strength++;
+            if (password.length >= 12) strength++;
+            if (/[a-z]/.test(password)) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^a-zA-Z0-9]/.test(password)) strength++;
+
+            const percentage = (strength / 6) * 100;
+
+            if (strength <= 2) {
+                text = 'Faible';
+                color = '#ef4444';
+            } else if (strength <= 4) {
+                text = 'Moyen';
+                color = '#f59e0b';
+            } else {
+                text = 'Fort';
+                color = '#10b981';
+            }
+
+            strengthBar.style.width = `${percentage}%`;
+            strengthBar.style.backgroundColor = color;
+            strengthText.textContent = text;
+            strengthText.style.color = color;
+        });
+    </script>
+</body>
+</html>
