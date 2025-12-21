@@ -4,9 +4,22 @@
 
 Manage your wine, spirit, and beer collection effortlessly. Track bottles, know when to drink them, and get smart alerts—all self-hosted and secure.
 
-**Companion:** [Android App](https://github.com/jackthomasanderson/glou-android) · [Docs](.docs/)
+**🚀 [Quick Start Guide](QUICK_START.md)** | **📖 [Commands Cheatsheet](COMMANDS_CHEATSHEET.md)** | **📱 [Android App](https://github.com/jackthomasanderson/glou-android)**
 
 **Status:** ✅ Production Ready (v1.0.0) | Tests: ✅ Passing | Build: ✅ Successful
+
+---
+
+## ⚡ Quick Start (3 steps)
+
+1. **Install Node.js** (if not installed): Download from https://nodejs.org/
+2. **Run build script:**
+   ```powershell
+   .\build-and-run.ps1
+   ```
+3. **Open browser:** http://localhost:8080
+
+📚 **Detailed instructions:** See [QUICK_START.md](QUICK_START.md)
 
 ---
 

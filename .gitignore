@@ -41,6 +41,11 @@ go.work.sum
 # env file
 .env
 
+# Frontend build output
+web/dist/
+web/node_modules/
+web/.vite/
+
 # Editor/IDE
 # .idea/
 # .vscode/

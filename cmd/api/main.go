@@ -132,6 +132,11 @@ func (s *Server) setupRoutes() {
 						s.corsMiddleware(next)))))
 	}
 
+	// Setup Wizard - Routes sans authentification
+	s.router.HandleFunc("GET /setup", s.handleSetupWizard)
+	s.router.HandleFunc("GET /api/setup/check", s.handleCheckSetup)
+	s.router.HandleFunc("POST /api/setup/complete", s.handleCompleteSetup)
+
 	// Wines
 	s.router.HandleFunc("GET /wines", applySecurityMiddlewares(s.handleGetWines))
 	s.router.HandleFunc("POST /wines", applySecurityMiddlewares(s.handleCreateWine))
@@ -195,17 +200,16 @@ func (s *Server) setupRoutes() {
 	// Health check
 	s.router.HandleFunc("GET /health", applySecurityMiddlewares(s.handleHealth))
 
-	// Servir l'interface web à la racine
-	s.router.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		http.ServeFile(w, r, "assets/glou.html")
-	})
+	// Servir les assets statiques de l'application React
+	// Les fichiers buildés sont dans web/dist/assets
+	s.router.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("web/dist/assets"))))
 
-	// Servir les assets statiques
-	s.router.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+	// Servir l'interface web React pour toutes les routes non-API
+	// Cela permet à React Router d'avoir des URLs propres comme /dashboard, /wines, etc.
+	s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		// Servir index.html pour toutes les routes frontend
+		http.ServeFile(w, r, "web/dist/index.html")
+	}))
 }
 
 // handleGetWines retourne la liste de tous les vins

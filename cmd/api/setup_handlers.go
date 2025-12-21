@@ -1,0 +1,242 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
+)
+
+// SetupRequest représente la requête de configuration initiale
+type SetupRequest struct {
+	// Admin user
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+
+	// Branding
+	AppTitle   string `json:"app_title"`
+	AppSlogan  string `json:"app_slogan"`
+	LogoURL    string `json:"logo_url"`
+	FaviconURL string `json:"favicon_url"`
+
+	// Colors
+	ThemeColor     string `json:"theme_color"`
+	SecondaryColor string `json:"secondary_color"`
+	AccentColor    string `json:"accent_color"`
+
+	// Network
+	PublicDomain   string `json:"public_domain"`
+	PublicProtocol string `json:"public_protocol"`
+	ProxyMode      bool   `json:"proxy_mode"`
+
+	// Other settings
+	Language string `json:"language"`
+}
+
+// handleCheckSetup vérifie si le setup est déjà complété
+func (s *Server) handleCheckSetup(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Vérifier si le setup est déjà complété
+	isComplete, err := s.store.IsSetupComplete(ctx)
+	if err != nil {
+		http.Error(w, "Failed to check setup status", http.StatusInternalServerError)
+		return
+	}
+
+	// Vérifier si un admin existe
+	hasAdmin, err := s.store.HasAdminUser(ctx)
+	if err != nil {
+		http.Error(w, "Failed to check admin user", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"setup_complete": isComplete,
+		"has_admin":      hasAdmin,
+		"needs_setup":    !isComplete || !hasAdmin,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleSetupWizard affiche la page du wizard
+func (s *Server) handleSetupWizard(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Vérifier si le setup est déjà complété
+	isComplete, err := s.store.IsSetupComplete(ctx)
+	if err != nil {
+		http.Error(w, "Failed to check setup status", http.StatusInternalServerError)
+		return
+	}
+
+	if isComplete {
+		// Rediriger vers la page principale
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	// Servir la page du wizard
+	http.ServeFile(w, r, "assets/setup.html")
+}
+
+// handleCompleteSetup traite la soumission du wizard de configuration
+func (s *Server) handleCompleteSetup(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Vérifier si le setup est déjà complété
+	isComplete, err := s.store.IsSetupComplete(ctx)
+	if err != nil {
+		http.Error(w, "Failed to check setup status", http.StatusInternalServerError)
+		return
+	}
+
+	if isComplete {
+		http.Error(w, "Setup already completed", http.StatusBadRequest)
+		return
+	}
+
+	// Décoder la requête
+	var req SetupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Valider les champs obligatoires
+	if err := validateSetupRequest(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Créer l'utilisateur admin
+	_, err = s.store.CreateUser(ctx, req.Username, req.Email, req.Password, "admin")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create admin user: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Mettre à jour les paramètres
+	settings, err := s.store.GetSettings(ctx)
+	if err != nil {
+		http.Error(w, "Failed to get settings", http.StatusInternalServerError)
+		return
+	}
+
+	// Appliquer les paramètres du wizard
+	if req.AppTitle != "" {
+		settings.AppTitle = req.AppTitle
+	}
+	if req.AppSlogan != "" {
+		settings.AppSlogan = req.AppSlogan
+	}
+	if req.LogoURL != "" {
+		settings.LogoURL = req.LogoURL
+	}
+	if req.FaviconURL != "" {
+		settings.FaviconURL = req.FaviconURL
+	}
+	if req.ThemeColor != "" {
+		settings.ThemeColor = req.ThemeColor
+	}
+	if req.SecondaryColor != "" {
+		settings.SecondaryColor = req.SecondaryColor
+	}
+	if req.AccentColor != "" {
+		settings.AccentColor = req.AccentColor
+	}
+	if req.PublicDomain != "" {
+		settings.PublicDomain = req.PublicDomain
+	}
+	if req.PublicProtocol != "" {
+		settings.PublicProtocol = req.PublicProtocol
+	}
+	settings.ProxyMode = req.ProxyMode
+	if req.Language != "" {
+		settings.Language = req.Language
+	}
+
+	// Sauvegarder les paramètres
+	if err := s.store.UpdateSettings(ctx, settings); err != nil {
+		http.Error(w, "Failed to update settings", http.StatusInternalServerError)
+		return
+	}
+
+	// Marquer le setup comme complété
+	if err := s.store.MarkSetupComplete(ctx); err != nil {
+		http.Error(w, "Failed to mark setup complete", http.StatusInternalServerError)
+		return
+	}
+
+	// Retourner une réponse de succès
+	response := map[string]interface{}{
+		"status":  "success",
+		"message": "Setup completed successfully",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// validateSetupRequest valide les données de la requête de setup
+func validateSetupRequest(req *SetupRequest) error {
+	// Validation de l'utilisateur
+	if req.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+	if len(req.Username) < 3 {
+		return fmt.Errorf("username must be at least 3 characters")
+	}
+	if req.Email == "" {
+		return fmt.Errorf("email is required")
+	}
+	if !strings.Contains(req.Email, "@") {
+		return fmt.Errorf("invalid email format")
+	}
+	if req.Password == "" {
+		return fmt.Errorf("password is required")
+	}
+	if len(req.Password) < 8 {
+		return fmt.Errorf("password must be at least 8 characters")
+	}
+
+	// Validation des couleurs (format hexadécimal)
+	if req.ThemeColor != "" && !isValidHexColor(req.ThemeColor) {
+		return fmt.Errorf("invalid theme color format")
+	}
+	if req.SecondaryColor != "" && !isValidHexColor(req.SecondaryColor) {
+		return fmt.Errorf("invalid secondary color format")
+	}
+	if req.AccentColor != "" && !isValidHexColor(req.AccentColor) {
+		return fmt.Errorf("invalid accent color format")
+	}
+
+	// Validation du protocole
+	if req.PublicProtocol != "" && req.PublicProtocol != "http" && req.PublicProtocol != "https" {
+		return fmt.Errorf("public protocol must be http or https")
+	}
+
+	// Validation de la langue
+	if req.Language != "" && req.Language != "en" && req.Language != "fr" {
+		return fmt.Errorf("language must be en or fr")
+	}
+
+	return nil
+}
+
+// isValidHexColor vérifie si une chaîne est une couleur hexadécimale valide
+func isValidHexColor(color string) bool {
+	if len(color) != 7 || color[0] != '#' {
+		return false
+	}
+	for i := 1; i < len(color); i++ {
+		c := color[i]
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+	return true
+}
