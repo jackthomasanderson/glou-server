@@ -27,7 +27,8 @@ Manage your wine, spirit, and beer collection effortlessly. Track bottles, know 
 
 - 🏠 **Self-hosted** - Your data stays on your server
 - 📱 **Mobile-ready** - Web interface + native Android app
-- 🔐 **Secure** - Production-grade security, input validation, secure transactions
+- 🔐 **Secure** - ANSSI-compliant encryption (AES-256-GCM), bcrypt passwords, secure transactions
+- 🛡️ **Privacy-first** - Sensitive data encrypted at rest, RGPD-compliant
 - 🌍 **Bilingual** - English & French, auto-detect language
 - ⚡ **Fast** - No cloud delays, instant local access
 - 🔔 **Smart Alerts** - Automatic notifications via Gotify or email when wines reach apogee
@@ -99,6 +100,7 @@ Then open: **http://localhost:8080/**
 
 - **For Users:** [FAQ](.docs/FAQ.md), [Wine Enrichment](.docs/ENRICHMENT.md), [Notifications Setup](.docs/NOTIFICATIONS_SETUP.md), [Barcode Guide](.docs/BARCODE_GUIDE.md)
 - **For Admins:** [Admin Panel Guide](.docs/ADMIN_GUIDE.md) - Configure domain, branding, colors, reverse proxy. **[Backup & Restore](.docs/BACKUP_RESTORE_GUIDE.md)** - Complete backup strategies. **[Data Migration](.docs/DATA_MIGRATION_GUIDE.md)** - Move servers easily.
+- **Security:** **[🔐 ANSSI Security Guide](SECURITE_ANSSI.md)** - Complete security documentation. **[Encryption Guide](CHIFFREMENT.md)** - Data encryption implementation.
 - **For Developers:** Full documentation in `.docs/` folder
 - **API Users:** **[Complete API Reference with Examples](.docs/API_REFERENCE_COMPLETE.md)** - All endpoints + curl examples
 
@@ -141,7 +143,8 @@ Gérez votre collection de vins, spiritueux et bières sans effort. Suivez les b
 
 - 🏠 **Auto-hébergé** - Vos données restent sur votre serveur
 - 📱 **Mobile-prêt** - Interface web + app Android native
-- 🔐 **Sécurisé** - Sécurité production, validation, transactions sécurisées
+- 🔐 **Sécurisé** - Chiffrement conforme ANSSI (AES-256-GCM), mots de passe bcrypt
+- 🛡️ **Confidentialité** - Données sensibles chiffrées au repos, conforme RGPD
 - 🌍 **Bilingue** - Anglais & Français, auto-détecte
 - ⚡ **Rapide** - Pas de nuage, accès local instantané
 - 🔔 **Alertes Intelligentes** - Notifications automatiques via Gotify ou email

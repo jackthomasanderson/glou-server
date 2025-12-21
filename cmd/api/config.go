@@ -25,6 +25,10 @@ type Config struct {
 	// Logging
 	LogLevel string
 
+	// Encryption (Recommandations ANSSI)
+	EncryptionPassphrase string // Phrase de chiffrement (min 32 caractères)
+	EncryptionSalt       string // Salt pour dérivation de clé
+
 	// Notifications
 	GotifyURL    string
 	GotifyToken  string
@@ -40,11 +44,16 @@ type Config struct {
 // LoadConfig charge la configuration depuis les variables d'environnement
 func LoadConfig() *Config {
 	config := &Config{
-		Port:               getEnv("PORT", "8080"),
-		DBPath:             getEnv("DB_PATH", "./glou.db"),
-		AllowedOrigins:     parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:8080")),
-		RateLimitRequests:  getEnvInt("RATE_LIMIT_REQUESTS", 100),
-		RateLimitWindow:    time.Duration(getEnvInt("RATE_LIMIT_WINDOW_SECONDS", 60)) * time.Second,
+		Port:              getEnv("PORT", "8080"),
+		DBPath:            getEnv("DB_PATH", "./glou.db"),
+		AllowedOrigins:    parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:8080")),
+		RateLimitRequests: getEnvInt("RATE_LIMIT_REQUESTS", 100),
+		RateLimitWindow:   time.Duration(getEnvInt("RATE_LIMIT_WINDOW_SECONDS", 60)) * time.Second,
+
+		// Encryption (Recommandations ANSSI)
+		EncryptionPassphrase: getEnv("ENCRYPTION_PASSPHRASE", ""),
+		EncryptionSalt:       getEnv("ENCRYPTION_SALT", "glou-server-default-salt-change-me"),
+
 		Timeout:            time.Duration(getEnvInt("REQUEST_TIMEOUT_SECONDS", 30)) * time.Second,
 		MaxRequestBodySize: int64(getEnvInt("MAX_REQUEST_BODY_SIZE", 1048576)), // 1MB default
 		LogLevel:           getEnv("LOG_LEVEL", "info"),
@@ -122,6 +131,13 @@ func (c *Config) Validate() error {
 	}
 	if c.LogLevel != "debug" && c.LogLevel != "info" && c.LogLevel != "warn" && c.LogLevel != "error" {
 		return fmt.Errorf("LOG_LEVEL invalide: %s", c.LogLevel)
+	}
+	// Validation ANSSI : passphrase de chiffrement obligatoire en production
+	if c.Environment == "production" && c.EncryptionPassphrase == "" {
+		return fmt.Errorf("ENCRYPTION_PASSPHRASE required in production (ANSSI requirement)")
+	}
+	if c.EncryptionPassphrase != "" && len(c.EncryptionPassphrase) < 32 {
+		return fmt.Errorf("ENCRYPTION_PASSPHRASE must be at least 32 characters (ANSSI requirement)")
 	}
 	return nil
 }

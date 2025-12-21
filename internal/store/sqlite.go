@@ -6,13 +6,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/romain/glou-server/internal/crypto"
 	"github.com/romain/glou-server/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
 // Store gère l'accès à la base de données SQLite
 type Store struct {
-	Db *sql.DB
+	Db                *sql.DB
+	EncryptionService *crypto.EncryptionService // Service de chiffrement ANSSI
 }
 
 // New initialise et retourne un Store
@@ -36,6 +38,11 @@ func New(dbPath string) (*Store, error) {
 	}
 
 	return store, nil
+}
+
+// SetEncryptionService configure le service de chiffrement
+func (s *Store) SetEncryptionService(encService *crypto.EncryptionService) {
+	s.EncryptionService = encService
 }
 
 // Close ferme la connexion à la base de données
@@ -168,10 +175,20 @@ func (s *Store) initSchema() error {
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS encrypted_credentials (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		service_name TEXT NOT NULL UNIQUE,
+		credential_type TEXT NOT NULL,
+		encrypted_value TEXT NOT NULL,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
 	CREATE INDEX IF NOT EXISTS idx_activity_log_entity ON activity_log(entity_type, entity_id);
 	CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+	CREATE INDEX IF NOT EXISTS idx_encrypted_credentials_service ON encrypted_credentials(service_name);
 	`
 
 	if _, err := s.Db.Exec(schema); err != nil {

@@ -18,7 +18,7 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 )
 
-require golang.org/x/crypto v0.46.0 // indirect
+require golang.org/x/crypto v0.46.0
 
 // Indirect dependencies will be managed automatically
 // Note: All dependencies use latest stable versions (as of Dec 2024)
