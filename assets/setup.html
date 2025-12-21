@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" id="html-root">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glou - Configuration initiale</title>
+    <title>Glou - Initial Setup</title>
     <style>
         * {
             margin: 0;
@@ -435,19 +435,19 @@
 <body>
     <div class="wizard-container">
         <div class="wizard-header">
-            <h1>🍷 Bienvenue sur Glou</h1>
-            <p>Configuration initiale en 5 étapes</p>
+            <h1 data-i18n="welcome">🍷 Welcome to Glou</h1>
+            <p data-i18n="subtitle">Initial setup in 5 steps</p>
         </div>
 
         <div class="wizard-body">
             <div class="step-indicator">
                 <div class="step active" data-step="1">
                     <div class="step-circle">1</div>
-                    <div class="step-label">Compte Admin</div>
+                    <div class="step-label" data-i18n="step1">Admin Account</div>
                 </div>
                 <div class="step" data-step="2">
                     <div class="step-circle">2</div>
-                    <div class="step-label">Personnalisation</div>
+                    <div class="step-label" data-i18n="step2">Customization</div>
                 </div>
                 <div class="step" data-step="3">
                     <div class="step-circle">3</div>
@@ -601,8 +601,17 @@
 
                     <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
                         <h3 style="margin-bottom: 15px; font-size: 1.1rem;">✉️ SMTP (Email)</h3>
-                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Configuration du serveur d'emails sortants</p>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">
+                            Configuration du serveur d'emails sortants pour les notifications d'alertes 
+                            et la fonction "mot de passe oublié".
+                        </p>
                         
+                        <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid #ffc107;">
+                            <p style="margin: 0; color: #856404; font-size: 0.85rem;">
+                                ⚠️ <strong>Important :</strong> La fonction "mot de passe oublié" ne sera disponible 
+                                que si le serveur SMTP est configuré.
+                            </p>
+                        </div>
                         <div class="form-group">
                             <label for="smtp-host">Serveur SMTP</label>
                             <input type="text" id="smtp-host" placeholder="smtp.gmail.com">
