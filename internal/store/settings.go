@@ -104,22 +104,48 @@ func (s *Store) UpdateSettings(ctx context.Context, settings *domain.Settings) e
 	UPDATE settings SET
 		app_title = ?, app_slogan = ?, logo_url = ?, favicon_url = ?, support_email = ?,
 		theme_color = ?, secondary_color = ?, accent_color = ?, dark_mode_default = ?,
-		public_domain = ?, public_protocol = ?, proxy_mosmtp_configured = ?, updated_at = ?
+		public_domain = ?, public_protocol = ?, proxy_mode = ?, proxy_headers = ?,
+		allow_registration = ?, require_approval = ?, enable_notifications = ?, maintenance_mode = ?,
+		rows_per_page = ?, date_format = ?, language = ?, max_request_body_size = ?, session_timeout = ?,
+		smtp_configured = ?, updated_at = ?
 	WHERE id = ?
 	`
 
 	_, err := s.Db.ExecContext(ctx, query,
-		settings.AppTitle, settings.AppSlogan, settings.LogoURL, settings.FaviconURL,
-		settings.SupportEmail, settings.ThemeColor, settings.SecondaryColor, settings.AccentColor,
-		settings.DarkModeDefault, settings.PublicDomain, settings.PublicProtocol, settings.ProxyMode,
-		settings.ProxyHeaders, settings.AllowRegistration, settings.RequireApproval,
-		settings.EnableNotifications, settings.MaintenanceMode, settings.RowsPerPage,
-		settings.DateFormat, settings.Language, settings.MaxRequestBodySize, settings.SessionTimeout,
-		settings.SMTPConfigured, settings.ProxyHeaders, settings.AllowRegistration, settings.RequireApproval,
-		settings.EnableNotifications, settings.MaintenanceMode, settings.RowsPerPage,
-		settings.DateFormat, settings.Language, settings.MaxRequestBodySize, settings.SessionTimeout,
-		time.Now(), settings.ID,
+		settings.AppTitle,
+		settings.AppSlogan,
+		settings.LogoURL,
+		settings.FaviconURL,
+		settings.SupportEmail,
+		settings.ThemeColor,
+		settings.SecondaryColor,
+		settings.AccentColor,
+		settings.DarkModeDefault,
+		settings.PublicDomain,
+		settings.PublicProtocol,
+		settings.ProxyMode,
+		settings.ProxyHeaders,
+		settings.AllowRegistration,
+		settings.RequireApproval,
+		settings.EnableNotifications,
+		settings.MaintenanceMode,
+		settings.RowsPerPage,
+		settings.DateFormat,
+		settings.Language,
+		settings.MaxRequestBodySize,
+		settings.SessionTimeout,
+		boolToInt(settings.SMTPConfigured),
+		time.Now(),
+		settings.ID,
 	)
 
 	return err
+}
+
+// boolToInt converts bool to int for SQLite storage
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
