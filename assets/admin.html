@@ -65,13 +65,13 @@
                 <h2>Admin Panel</h2>
             </div>
             <ul class="sidebar-menu">
-                <li><a href="#" onclick="switchSection('dashboard')" class="menu-item active" data-section="dashboard">📊 Dashboard</a></li>
-                <li><a href="#" onclick="switchSection('branding')" class="menu-item" data-section="branding">🎨 Branding</a></li>
-                <li><a href="#" onclick="switchSection('appearance')" class="menu-item" data-section="appearance">🎭 Appearance</a></li>
-                <li><a href="#" onclick="switchSection('network')" class="menu-item" data-section="network">🌐 Network</a></li>
-                <li><a href="#" onclick="switchSection('features')" class="menu-item" data-section="features">⚙️ Features</a></li>
-                <li><a href="#" onclick="switchSection('advanced')" class="menu-item" data-section="advanced">🔧 Advanced</a></li>
-                <li><a href="#" onclick="switchSection('users')" class="menu-item" data-section="users">👥 Users</a></li>
+                <li><a href="#" onclick="switchSection('dashboard', event)" class="menu-item active" data-section="dashboard">📊 Dashboard</a></li>
+                <li><a href="#" onclick="switchSection('branding', event)" class="menu-item" data-section="branding">🎨 Branding</a></li>
+                <li><a href="#" onclick="switchSection('appearance', event)" class="menu-item" data-section="appearance">🎭 Appearance</a></li>
+                <li><a href="#" onclick="switchSection('network', event)" class="menu-item" data-section="network">🌐 Network</a></li>
+                <li><a href="#" onclick="switchSection('features', event)" class="menu-item" data-section="features">⚙️ Features</a></li>
+                <li><a href="#" onclick="switchSection('advanced', event)" class="menu-item" data-section="advanced">🔧 Advanced</a></li>
+                <li><a href="#" onclick="switchSection('users', event)" class="menu-item" data-section="users">👥 Users</a></li>
                 <li><a href="/" style="margin-top: 20px; background: #27ae60;">← Back to App</a></li>
             </ul>
         </aside>
@@ -334,7 +334,6 @@
         </div>
     </div>
 
-    <script src="/assets/i18n.js"></script>
     <script>
         // Traductions pour l'interface admin
         const i18n = {
@@ -439,19 +438,31 @@
         }
 
         function updateUILanguage() {
-            // Titre et menu
-            document.querySelector('.sidebar h2').textContent = t('adminPanel');
-            document.querySelectorAll('.sidebar-menu a').forEach((link, idx) => {
-                const keys = ['dashboard', 'branding', 'appearance', 'network', 'features', 'advanced', 'users'];
-                if (idx < keys.length) {
-                    const emoji = link.textContent.split(' ')[0];
-                    link.textContent = emoji + ' ' + t(keys[idx]);
-                } else if (idx === keys.length) {
-                    link.textContent = '← ' + t('backToApp');
+            try {
+                // Titre et menu
+                const sidebarTitle = document.querySelector('.sidebar h2');
+                if (sidebarTitle) {
+                    sidebarTitle.textContent = t('adminPanel');
                 }
-            });
-            // Bouton Exit Admin
-            document.querySelector('.header button').textContent = t('exitAdmin');
+                
+                document.querySelectorAll('.sidebar-menu a').forEach((link, idx) => {
+                    const keys = ['dashboard', 'branding', 'appearance', 'network', 'features', 'advanced', 'users'];
+                    if (idx < keys.length) {
+                        const emoji = link.textContent.split(' ')[0];
+                        link.textContent = emoji + ' ' + t(keys[idx]);
+                    } else if (idx === keys.length) {
+                        link.textContent = '← ' + t('backToApp');
+                    }
+                });
+                
+                // Bouton Exit Admin
+                const exitBtn = document.querySelector('.header button');
+                if (exitBtn) {
+                    exitBtn.textContent = t('exitAdmin');
+                }
+            } catch (err) {
+                console.error('Error updating UI language:', err);
+            }
         }
 
         // Initialize
@@ -461,25 +472,29 @@
             setupColorPickers();
         });
 
-        function switchSection(sectionId) {
+        function switchSection(sectionId, event) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.getElementById(sectionId).classList.add('active');
             
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
             
             const titles = {
-                dashboard: '📊 Dashboard',
-                branding: '🎨 Branding',
-                appearance: '🎭 Appearance',
-                network: '🌐 Network',
-                features: '⚙️ Features',
-                advanced: '🔧 Advanced',
-                users: '👥 Users'
+                dashboard: t('dashboard'),
+                branding: t('branding'),
+                appearance: t('appearance'),
+                network: t('network'),
+                features: t('features'),
+                advanced: t('advanced'),
+                users: t('users')
             };
-            document.getElementById('section-title').textContent = titles[sectionId] || 'Admin';
+            document.getElementById('section-title').textContent = '📊 ' + (titles[sectionId] || 'Admin');
             
-            event.preventDefault();
+            if (event) {
+                event.preventDefault();
+            }
         }
 
         async function loadSettings() {
