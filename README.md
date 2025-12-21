@@ -1,3 +1,4 @@
+<a id="english"></a>
 # 🍷 Glou - Smart Beverage Collection Management
 
 **English** | [Français](#français)
@@ -126,9 +127,10 @@ MIT
 
 ---
 
+<a id="français"></a>
 # 🍷 Glou - Gestion de Collection Simplifiée
 
-**English** (au-dessus) | **Français**
+**[English](#english)** | **Français**
 
 Gérez votre collection de vins, spiritueux et bières sans effort. Suivez les bouteilles, savez quand les boire et recevez des alertes intelligentes—tout auto-hébergé et sécurisé.
 
