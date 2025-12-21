@@ -257,9 +257,9 @@ go build ./cmd/api
 ## 📚 Documentation complète
 
 - [Guide de démarrage rapide](QUICK_START.md)
-- [Documentation Frontend](web/README.md)
-- [Documentation API](docs/EN/04-api/API_REFERENCE_COMPLETE.md)
-- [Guide utilisateur](HEATMAP_USER_GUIDE.md)
+- [Documentation Frontend](../web/README.md)
+- [Documentation API](../README.md#english)
+- [Guide utilisateur](USER_GUIDE.md)
 
 ---
 

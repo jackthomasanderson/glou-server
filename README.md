@@ -1,4 +1,4 @@
-<a id="english"></a>
+<a id="english" name="english"></a>
 # 🍷 Glou - Smart Beverage Collection Management
 
 **English** | [Français](#français)
@@ -127,7 +127,7 @@ MIT
 
 ---
 
-<a id="français"></a>
+<a id="français" name="français"></a>
 # 🍷 Glou - Gestion de Collection Simplifiée
 
 **[English](#english)** | **Français**
