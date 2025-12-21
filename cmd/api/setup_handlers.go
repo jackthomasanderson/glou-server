@@ -199,8 +199,10 @@ func validateSetupRequest(req *SetupRequest) error {
 	if req.Password == "" {
 		return fmt.Errorf("password is required")
 	}
+	
+	// Validation minimale du mot de passe (8 caractères minimum)
 	if len(req.Password) < 8 {
-		return fmt.Errorf("password must be at least 8 characters")
+		return fmt.Errorf("le mot de passe doit contenir au moins 8 caractères")
 	}
 
 	// Validation des couleurs (format hexadécimal)
@@ -239,4 +241,56 @@ func isValidHexColor(color string) bool {
 		}
 	}
 	return true
+}
+
+// checkPasswordStrength évalue la force du mot de passe et retourne un score
+// 0 = très faible, 1 = faible, 2 = moyen, 3 = fort, 4 = très fort
+func checkPasswordStrength(password string) int {
+	score := 0
+	
+	// Longueur
+	if len(password) >= 8 {
+		score++
+	}
+	if len(password) >= 12 {
+		score++
+	}
+	
+	// Types de caractères
+	var hasLower, hasUpper, hasDigit, hasSpecial bool
+	for _, char := range password {
+		switch {
+		case char >= 'a' && char <= 'z':
+			hasLower = true
+		case char >= 'A' && char <= 'Z':
+			hasUpper = true
+		case char >= '0' && char <= '9':
+			hasDigit = true
+		case strings.ContainsRune("!@#$%^&*()_+-=[]{}|;:',.<>?/~`\\\"", char):
+			hasSpecial = true
+		}
+	}
+	
+	typeCount := 0
+	if hasLower {
+		typeCount++
+	}
+	if hasUpper {
+		typeCount++
+	}
+	if hasDigit {
+		typeCount++
+	}
+	if hasSpecial {
+		typeCount++
+	}
+	
+	if typeCount >= 2 {
+		score++
+	}
+	if typeCount >= 3 {
+		score++
+	}
+	
+	return score
 }
