@@ -98,11 +98,11 @@ Then open: **http://localhost:8080/**
 
 ## Documentation
 
-- **For Users:** [FAQ](.docs/FAQ.md), [Wine Enrichment](.docs/ENRICHMENT.md), [Notifications Setup](.docs/NOTIFICATIONS_SETUP.md), [Barcode Guide](.docs/BARCODE_GUIDE.md)
-- **For Admins:** [Admin Panel Guide](.docs/ADMIN_GUIDE.md) - Configure domain, branding, colors, reverse proxy. **[Backup & Restore](.docs/BACKUP_RESTORE_GUIDE.md)** - Complete backup strategies. **[Data Migration](.docs/DATA_MIGRATION_GUIDE.md)** - Move servers easily.
+- **For Users:** [FAQ](docs/EN/02-user/FAQ.md), [Wine Enrichment](docs/EN/05-enrichment/ENRICHMENT.md), [Notifications Setup](docs/EN/02-user/NOTIFICATIONS_SETUP.md), [Barcode Guide](docs/EN/05-enrichment/BARCODE_GUIDE.md)
+- **For Admins:** [Admin Panel Guide](docs/EN/06-legacy/ADMIN_GUIDE.md) - Configure domain, branding, colors, reverse proxy. **[Backup & Restore](docs/EN/03-admin/BACKUP_RESTORE_GUIDE.md)** - Complete backup strategies. **[Data Migration](docs/EN/03-admin/DATA_MIGRATION_GUIDE.md)** - Move servers easily.
 - **Security:** **[🔐 ANSSI Security Guide](SECURITE_ANSSI.md)** - Complete security documentation. **[Encryption Guide](CHIFFREMENT.md)** - Data encryption implementation.
 - **For Developers:** Full documentation in `.docs/` folder
-- **API Users:** **[Complete API Reference with Examples](.docs/API_REFERENCE_COMPLETE.md)** - All endpoints + curl examples
+- **API Users:** **[Complete API Reference with Examples](docs/EN/04-api/API_REFERENCE_COMPLETE.md)** - All endpoints + curl examples
 
 ---
 
@@ -133,7 +133,7 @@ MIT
 
 Gérez votre collection de vins, spiritueux et bières sans effort. Suivez les bouteilles, savez quand les boire et recevez des alertes intelligentes—tout auto-hébergé et sécurisé.
 
-**Compagnon:** [App Android](https://github.com/jackthomasanderson/glou-android) · [Docs](.docs/)
+**Compagnon:** [App Android](https://github.com/jackthomasanderson/glou-android) · [Docs](docs/)
 
 **Status:** ✅ Prêt Production (v1.0.0) | Tests: ✅ Validés | Build: ✅ Succès
 
@@ -200,10 +200,10 @@ Puis ouvrir: **http://localhost:8080/**
 
 ### Documentation
 
-- **Utilisateurs:** [FAQ](.docs/FAQ.md), [Enrichissement Vins](.docs/ENRICHMENT.md), [Notifications](.docs/NOTIFICATIONS_SETUP.md), [Codes-barres](.docs/BARCODE_GUIDE.md)
-- **Administrateurs:** [Guide Admin](.docs/ADMIN_GUIDE.md) - Domaine, marque, couleurs, reverse proxy. **[Sauvegarde & Restauration](.docs/BACKUP_RESTORE_GUIDE.md)**. **[Migration de Données](.docs/DATA_MIGRATION_GUIDE.md)**
+- **Utilisateurs:** [FAQ](docs/FR/02-user/FAQ.md), [Enrichissement Vins](docs/FR/05-enrichment/ENRICHMENT.md), [Notifications](docs/FR/02-user/NOTIFICATIONS_SETUP.md), [Codes-barres](docs/FR/05-enrichment/BARCODE_GUIDE.md)
+- **Administrateurs:** [Guide Admin](docs/FR/06-legacy/ADMIN_GUIDE.md) - Domaine, marque, couleurs, reverse proxy. **[Sauvegarde & Restauration](docs/FR/03-admin/BACKUP_RESTORE_GUIDE.md)**. **[Migration de Données](docs/FR/03-admin/DATA_MIGRATION_GUIDE.md)**
 - **Développeurs:** Documentation complète dans `.docs/`
-- **API:** [Référence API Complète](.docs/API_REFERENCE_COMPLETE.md) avec exemples curl
+- **API:** [Référence API Complète](docs/FR/04-api/API_REFERENCE_COMPLETE.md) avec exemples curl
 
 ---
 

@@ -1,12 +1,12 @@
 # 📚 Glou Documentation - English
 
-**[← Back to menu](../README.md)**
+**[Back to main menu](../README.md)**
 
 ---
 
-## 🚀 Quick Start (5 min)
-Get Glou running in 5 minutes
-- [Quick Start](01_QUICK_START.md)
+## 🚀 Quick Start
+Get Glou running in 5 minutes!
+- [Quick Start](01-getting-started/EN_QUICK_START.md) - Installation and first steps
 
 ## 👤 User Guide
 For users who want to manage their wine cellar
