@@ -121,6 +121,36 @@ Then open: **http://localhost:8080/**
 
 ---
 
+## CI & Publication
+
+- **CI workflows**: `CI and Release` builds and tests on PRs and tags, `docker.yml` builds/pushes images to GHCR on tag release.
+- **Goreleaser**: configuration in `.goreleaser.yml` builds cross-platform binaries, Homebrew formula and Docker images.
+
+Required secrets for automated publication (set in GitHub repo Settings → Secrets):
+
+- `GITHUB_TOKEN` (provided automatically by Actions) — used by goreleaser and workflows.
+- `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE` (optional) — to sign releases and artifacts.
+- `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` — only for Android CI (see android README).
+
+Quick release steps (local):
+
+```bash
+# bump version, tag and push
+git tag v0.0.1
+git push origin --tags
+
+# locally run goreleaser to produce artifacts (install goreleaser first)
+goreleaser release --rm-dist
+```
+
+Notes:
+- Replace owner/repo in `.goreleaser.yml` if different from `romain/glou-server`.
+- For Homebrew publishing goreleaser will create a `Formula` folder with a formula; configure a tap if you want automatic publishing to a dedicated Homebrew tap.
+- Docker images are pushed to `ghcr.io/OWNER/REPO` by the `docker.yml` workflow on tag push.
+
+
+---
+
 ## License
 
 MIT
