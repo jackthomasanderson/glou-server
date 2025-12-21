@@ -902,6 +902,19 @@
         });
 
         function switchTab(tab, event) {
+            // Vérifier si des caves existent pour les onglets restreints
+            const restrictedTabs = ['wines', 'to-drink', 'journal', 'alerts'];
+            if (restrictedTabs.includes(tab) && caves.length === 0) {
+                alert('⚠️ Vous devez d\'abord créer une cave!\n\nVeuillez aller à l\'onglet "Caves" pour en créer une.');
+                // Rediriger vers l'onglet Caves
+                document.querySelectorAll('.tabs-content').forEach(el => el.classList.remove('active'));
+                document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+                document.getElementById('caves').classList.add('active');
+                document.querySelector('[onclick="switchTab(\'caves\', event)"]').classList.add('active');
+                loadCaves();
+                return;
+            }
+
             document.querySelectorAll('.tabs-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
             document.getElementById(tab).classList.add('active');
@@ -920,6 +933,28 @@
             document.getElementById('addWineForm').addEventListener('submit', handleAddWine);
             document.getElementById('addCaveForm').addEventListener('submit', handleAddCave);
             document.getElementById('journalForm').addEventListener('submit', handleJournal);
+            updateTabStates();
+        }
+
+        function updateTabStates() {
+            // Désactiver/activer les onglets restreints basés sur l'existence de caves
+            const restrictedTabNames = ['wines', 'to-drink', 'journal', 'alerts'];
+            const isNoCaves = caves.length === 0;
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                const tabName = btn.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+                if (tabName && restrictedTabNames.includes(tabName)) {
+                    if (isNoCaves) {
+                        btn.style.opacity = '0.5';
+                        btn.style.cursor = 'not-allowed';
+                        btn.title = 'Créez d\'abord une cave';
+                    } else {
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                        btn.title = '';
+                    }
+                }
+            });
         }
 
         async function loadDashboard() {
@@ -1034,6 +1069,7 @@
             `).join('');
 
             document.getElementById('cavesList').innerHTML = cavesHtml || '<div class="empty-state">Aucune cave</div>';
+            updateTabStates();
         }
 
         async function loadJournal() {
