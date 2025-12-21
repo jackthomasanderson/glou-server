@@ -141,65 +141,77 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("POST /api/setup/complete", s.handleCompleteSetup)
 
 	// Authentication - Routes publiques
+	s.router.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "assets/login.html")
+	})
+	s.router.HandleFunc("GET /reset-password", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "assets/reset-password.html")
+	})
 	s.router.HandleFunc("POST /api/auth/login", applySecurityMiddlewares(s.handleLogin))
+	s.router.HandleFunc("POST /api/auth/logout", applySecurityMiddlewares(s.handleLogout))
 	s.router.HandleFunc("POST /api/auth/register", applySecurityMiddlewares(s.handleRegister))
 	s.router.HandleFunc("POST /api/auth/forgot-password", applySecurityMiddlewares(s.handleForgotPassword))
 	s.router.HandleFunc("POST /api/auth/reset-password", applySecurityMiddlewares(s.handleResetPassword))
 	s.router.HandleFunc("GET /api/auth/status", applySecurityMiddlewares(s.handleCheckAuthStatus))
 
-	// Wines
-	s.router.HandleFunc("GET /wines", applySecurityMiddlewares(s.handleGetWines))
-	s.router.HandleFunc("POST /wines", applySecurityMiddlewares(s.handleCreateWine))
-	s.router.HandleFunc("GET /wines/search", applySecurityMiddlewares(s.handleSearchWines))
-	s.router.HandleFunc("GET /wines/{id}", applySecurityMiddlewares(s.handleGetWineByID))
-	s.router.HandleFunc("DELETE /wines/{id}", applySecurityMiddlewares(s.handleDeleteWine))
-	s.router.HandleFunc("PUT /wines/{id}", applySecurityMiddlewares(s.handleUpdateWine))
+	// Middleware d'authentification pour les routes protégées
+	authRequired := func(next http.HandlerFunc) http.HandlerFunc {
+		return applySecurityMiddlewares(s.authRequiredMiddleware(next))
+	}
 
-	// Caves
-	s.router.HandleFunc("GET /caves", applySecurityMiddlewares(s.handleGetCaves))
-	s.router.HandleFunc("POST /caves", applySecurityMiddlewares(s.handleCreateCave))
+	// Wines - Protégées par authentification
+	s.router.HandleFunc("GET /wines", authRequired(s.handleGetWines))
+	s.router.HandleFunc("POST /wines", authRequired(s.handleCreateWine))
+	s.router.HandleFunc("GET /wines/search", authRequired(s.handleSearchWines))
+	s.router.HandleFunc("GET /wines/{id}", authRequired(s.handleGetWineByID))
+	s.router.HandleFunc("DELETE /wines/{id}", authRequired(s.handleDeleteWine))
+	s.router.HandleFunc("PUT /wines/{id}", authRequired(s.handleUpdateWine))
 
-	// Cells
-	s.router.HandleFunc("GET /caves/{caveID}/cells", applySecurityMiddlewares(s.handleGetCells))
-	s.router.HandleFunc("POST /cells", applySecurityMiddlewares(s.handleCreateCell))
+	// Caves - Protégées par authentification
+	s.router.HandleFunc("GET /caves", authRequired(s.handleGetCaves))
+	s.router.HandleFunc("POST /caves", authRequired(s.handleCreateCave))
 
-	// Alertes
-	s.router.HandleFunc("GET /alerts", applySecurityMiddlewares(s.handleGetAlerts))
-	s.router.HandleFunc("POST /alerts", applySecurityMiddlewares(s.handleCreateAlert))
-	s.router.HandleFunc("DELETE /alerts/{id}", applySecurityMiddlewares(s.handleDismissAlert))
+	// Cells - Protégées par authentification
+	s.router.HandleFunc("GET /caves/{caveID}/cells", authRequired(s.handleGetCells))
+	s.router.HandleFunc("POST /cells", authRequired(s.handleCreateCell))
 
-	// Historique dégustation
-	s.router.HandleFunc("GET /wines/{id}/history", applySecurityMiddlewares(s.handleGetConsumptionHistory))
-	s.router.HandleFunc("POST /consumption", applySecurityMiddlewares(s.handleRecordConsumption))
+	// Alertes - Protégées par authentification
+	s.router.HandleFunc("GET /alerts", authRequired(s.handleGetAlerts))
+	s.router.HandleFunc("POST /alerts", authRequired(s.handleCreateAlert))
+	s.router.HandleFunc("DELETE /alerts/{id}", authRequired(s.handleDismissAlert))
 
-	// Data Export/Import
-	s.router.HandleFunc("GET /api/export/json", applySecurityMiddlewares(s.handleExportJSON))
-	s.router.HandleFunc("GET /api/export/wines-csv", applySecurityMiddlewares(s.handleExportWinesCSV))
-	s.router.HandleFunc("GET /api/export/caves-csv", applySecurityMiddlewares(s.handleExportCavesCSV))
-	s.router.HandleFunc("GET /api/export/tasting-history-csv", applySecurityMiddlewares(s.handleExportTastingHistoryCSV))
-	s.router.HandleFunc("POST /api/import/json", applySecurityMiddlewares(s.handleImportJSON))
+	// Historique dégustation - Protégé par authentification
+	s.router.HandleFunc("GET /wines/{id}/history", authRequired(s.handleGetConsumptionHistory))
+	s.router.HandleFunc("POST /consumption", authRequired(s.handleRecordConsumption))
 
-	// Activity Log
-	s.router.HandleFunc("GET /api/admin/activity-log", applySecurityMiddlewares(s.handleGetActivityLog))
-	s.router.HandleFunc("GET /api/admin/activity-log/{type}/{id}", applySecurityMiddlewares(s.handleGetEntityActivityLog))
+	// Data Export/Import - Protégé par authentification
+	s.router.HandleFunc("GET /api/export/json", authRequired(s.handleExportJSON))
+	s.router.HandleFunc("GET /api/export/wines-csv", authRequired(s.handleExportWinesCSV))
+	s.router.HandleFunc("GET /api/export/caves-csv", authRequired(s.handleExportCavesCSV))
+	s.router.HandleFunc("GET /api/export/tasting-history-csv", authRequired(s.handleExportTastingHistoryCSV))
+	s.router.HandleFunc("POST /api/import/json", authRequired(s.handleImportJSON))
 
-	// Admin Panel
-	s.router.HandleFunc("GET /admin", applySecurityMiddlewares(s.handleAdminDashboard))
-	s.router.HandleFunc("GET /api/admin/settings", applySecurityMiddlewares(s.handleGetSettings))
-	s.router.HandleFunc("PUT /api/admin/settings", applySecurityMiddlewares(s.handleUpdateSettings))
-	s.router.HandleFunc("POST /api/admin/upload-logo", applySecurityMiddlewares(s.handleUploadLogo))
-	s.router.HandleFunc("GET /api/admin/stats", applySecurityMiddlewares(s.handleAdminStats))
-	s.router.HandleFunc("GET /api/admin/users", applySecurityMiddlewares(s.handleGetUsers))
+	// Activity Log - Protégé par authentification
+	s.router.HandleFunc("GET /api/admin/activity-log", authRequired(s.handleGetActivityLog))
+	s.router.HandleFunc("GET /api/admin/activity-log/{type}/{id}", authRequired(s.handleGetEntityActivityLog))
 
-	// Enrichment - Wine data enrichment from external APIs
-	s.router.HandleFunc("POST /api/enrich/barcode", applySecurityMiddlewares(handleEnrichByBarcode))
-	s.router.HandleFunc("POST /api/enrich/name", applySecurityMiddlewares(handleEnrichByName))
-	s.router.HandleFunc("POST /api/enrich/spirit", applySecurityMiddlewares(handleEnrichSpirit))
-	s.router.HandleFunc("POST /api/enrich/bulk", applySecurityMiddlewares(handleBulkEnrich))
+	// Admin Panel - Protégé par authentification
+	s.router.HandleFunc("GET /admin", authRequired(s.handleAdminDashboard))
+	s.router.HandleFunc("GET /api/admin/settings", authRequired(s.handleGetSettings))
+	s.router.HandleFunc("PUT /api/admin/settings", authRequired(s.handleUpdateSettings))
+	s.router.HandleFunc("POST /api/admin/upload-logo", authRequired(s.handleUploadLogo))
+	s.router.HandleFunc("GET /api/admin/stats", authRequired(s.handleAdminStats))
+	s.router.HandleFunc("GET /api/admin/users", authRequired(s.handleGetUsers))
 
-	// Enrichment - Image recognition (mobile camera)
-	s.router.HandleFunc("POST /api/enrich/image-barcode", applySecurityMiddlewares(handleEnrichImageBarcode))
-	s.router.HandleFunc("POST /api/enrich/image-recognize", applySecurityMiddlewares(handleEnrichImageRecognize))
+	// Enrichment - Protégé par authentification
+	s.router.HandleFunc("POST /api/enrich/barcode", authRequired(handleEnrichByBarcode))
+	s.router.HandleFunc("POST /api/enrich/name", authRequired(handleEnrichByName))
+	s.router.HandleFunc("POST /api/enrich/spirit", authRequired(handleEnrichSpirit))
+	s.router.HandleFunc("POST /api/enrich/bulk", authRequired(handleBulkEnrich))
+
+	// Enrichment - Image recognition (mobile camera) - Protégé par authentification
+	s.router.HandleFunc("POST /api/enrich/image-barcode", authRequired(handleEnrichImageBarcode))
+	s.router.HandleFunc("POST /api/enrich/image-recognize", authRequired(handleEnrichImageRecognize))
 
 	// OPTIONS
 	s.router.HandleFunc("OPTIONS /wines", applySecurityMiddlewares(s.handleOptions))
@@ -214,10 +226,10 @@ func (s *Server) setupRoutes() {
 	s.router.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 
 	// Servir l'interface web pour toutes les routes non-API
-	s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(s.authRequiredMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		// Servir glou.html pour toutes les routes frontend
 		http.ServeFile(w, r, "assets/glou.html")
-	}))
+	})))
 }
 
 // handleGetWines retourne la liste de tous les vins

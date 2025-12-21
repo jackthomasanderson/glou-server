@@ -77,7 +77,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Créer une session/token JWT
+	// Créer une session
+	s.setSession(w, user.ID, user.Username)
+
+	// Retourner les informations utilisateur
 	response := map[string]interface{}{
 		"status": "success",
 		"user": map[string]interface{}{
@@ -300,9 +303,25 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 
 // handleCheckAuthStatus vérifie si l'utilisateur est authentifié
 func (s *Server) handleCheckAuthStatus(w http.ResponseWriter, r *http.Request) {
-	// TODO: Implémenter la vérification de session/JWT
+	// Vérifier si un cookie de session existe
+	cookie, err := r.Cookie("glou_session")
+	authenticated := err == nil && cookie.Value != ""
+
 	response := map[string]interface{}{
-		"authenticated": false,
+		"authenticated": authenticated,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleLogout déconnecte l'utilisateur
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	s.clearSession(w)
+
+	response := map[string]interface{}{
+		"status":  "success",
+		"message": "Logged out successfully",
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -54,6 +54,9 @@ type User struct {
 	Email     string    `json:"email"`
 	Role      string    `json:"role"` // "admin", "user"
 	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
 
 // PasswordResetToken représente un token de réinitialisation de mot de passe
 type PasswordResetToken struct {
@@ -63,7 +66,4 @@ type PasswordResetToken struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	Used      bool      `json:"used"`
 	CreatedAt time.Time `json:"created_at"`
-}
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
 }
