@@ -586,81 +586,100 @@ func (s *Store) UpdateAlert(ctx context.Context, alertID int64, status string) e
 	return nil
 }
 
-// SearchWines recherche des vins avec filtres
-func (s *Store) SearchWines(ctx context.Context, filters map[string]interface{}) ([]*domain.Wine, error) {
-	query := `
-	SELECT id, name, region, vintage, type, quantity, cell_id, producer, alcohol_level, price, rating, comments, consumed, min_apogee_date, max_apogee_date, consumption_date, created_at
-	FROM wines
-	WHERE 1=1
-	`
-	args := []interface{}{}
+// GenerateAlerts crée automatiquement des alertes basées sur les conditions des vins
+// - Alerte low_stock si quantité < 2 (ou seuil configurable)
+// - Alerte apogee_reached si date d'aujourd'hui >= min_apogee_date
+// - Alerte apogee_ended si date d'aujourd'hui > max_apogee_date
+func (s *Store) GenerateAlerts(ctx context.Context) error {
+	today := time.Now()
+	lowStockThreshold := 2
 
-	if name, ok := filters["name"]; ok && name != "" {
-		query += " AND name LIKE ?"
-		args = append(args, "%"+name.(string)+"%")
-	}
-
-	if producer, ok := filters["producer"]; ok && producer != "" {
-		query += " AND producer LIKE ?"
-		args = append(args, "%"+producer.(string)+"%")
-	}
-
-	if region, ok := filters["region"]; ok && region != "" {
-		query += " AND region LIKE ?"
-		args = append(args, "%"+region.(string)+"%")
-	}
-
-	if wineType, ok := filters["type"]; ok && wineType != "" {
-		query += " AND type = ?"
-		args = append(args, wineType)
-	}
-
-	if minVintage, ok := filters["min_vintage"]; ok {
-		query += " AND vintage >= ?"
-		args = append(args, minVintage)
-	}
-
-	if maxVintage, ok := filters["max_vintage"]; ok {
-		query += " AND vintage <= ?"
-		args = append(args, maxVintage)
-	}
-
-	if minPrice, ok := filters["min_price"]; ok {
-		query += " AND price >= ?"
-		args = append(args, minPrice)
-	}
-
-	if maxPrice, ok := filters["max_price"]; ok {
-		query += " AND price <= ?"
-		args = append(args, maxPrice)
-	}
-
-	if minRating, ok := filters["min_rating"]; ok {
-		query += " AND rating >= ?"
-		args = append(args, minRating)
-	}
-
-	query += " ORDER BY created_at DESC"
-
-	rows, err := s.Db.QueryContext(ctx, query, args...)
+	// Récupérer tous les vins
+	wines, err := s.GetWines(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to search wines: %w", err)
+		return fmt.Errorf("failed to get wines: %w", err)
+	}
+
+	for _, wine := range wines {
+		// Vérifier si une alerte existe déjà pour ce vin
+		existingAlerts, err := s.GetAlertsByWineID(ctx, wine.ID)
+		if err != nil {
+			return fmt.Errorf("failed to get alerts for wine %d: %w", wine.ID, err)
+		}
+
+		existingAlertTypes := make(map[string]bool)
+		for _, alert := range existingAlerts {
+			if alert.Status == "active" {
+				existingAlertTypes[alert.AlertType] = true
+			}
+		}
+
+		// Alerte low_stock
+		if wine.Quantity < lowStockThreshold && !existingAlertTypes["low_stock"] {
+			alert := &domain.Alert{
+				WineID:    wine.ID,
+				AlertType: "low_stock",
+				Status:    "active",
+				CreatedAt: time.Now(),
+			}
+			_, err := s.CreateAlert(ctx, alert)
+			if err != nil {
+				return fmt.Errorf("failed to create low_stock alert for wine %d: %w", wine.ID, err)
+			}
+		}
+
+		// Alerte apogee_reached
+		if wine.MinApogeeDate != nil && !wine.MinApogeeDate.After(today) && !existingAlertTypes["apogee_reached"] {
+			alert := &domain.Alert{
+				WineID:    wine.ID,
+				AlertType: "apogee_reached",
+				Status:    "active",
+				CreatedAt: time.Now(),
+			}
+			_, err := s.CreateAlert(ctx, alert)
+			if err != nil {
+				return fmt.Errorf("failed to create apogee_reached alert for wine %d: %w", wine.ID, err)
+			}
+		}
+
+		// Alerte apogee_ended
+		if wine.MaxApogeeDate != nil && wine.MaxApogeeDate.Before(today) && !existingAlertTypes["apogee_ended"] {
+			alert := &domain.Alert{
+				WineID:    wine.ID,
+				AlertType: "apogee_ended",
+				Status:    "active",
+				CreatedAt: time.Now(),
+			}
+			_, err := s.CreateAlert(ctx, alert)
+			if err != nil {
+				return fmt.Errorf("failed to create apogee_ended alert for wine %d: %w", wine.ID, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// GetAlertsByWineID récupère toutes les alertes pour un vin donné
+func (s *Store) GetAlertsByWineID(ctx context.Context, wineID int64) ([]*domain.Alert, error) {
+	query := `SELECT id, wine_id, alert_type, status, created_at FROM alerts WHERE wine_id = ?`
+	rows, err := s.Db.QueryContext(ctx, query, wineID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query alerts: %w", err)
 	}
 	defer rows.Close()
 
-	wines := make([]*domain.Wine, 0)
+	var alerts []*domain.Alert
 	for rows.Next() {
-		wine := &domain.Wine{}
-		err := rows.Scan(
-			&wine.ID, &wine.Name, &wine.Region, &wine.Vintage, &wine.WineType, &wine.Quantity, &wine.CellID,
-			&wine.Producer, &wine.AlcoholLevel, &wine.Price, &wine.Rating, &wine.Comments, &wine.Consumed,
-			&wine.MinApogeeDate, &wine.MaxApogeeDate, &wine.ConsumptionDate, &wine.CreatedAt,
-		)
+		var alert domain.Alert
+		var createdAtStr string
+		err := rows.Scan(&alert.ID, &alert.WineID, &alert.AlertType, &alert.Status, &createdAtStr)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan wine: %w", err)
+			return nil, fmt.Errorf("failed to scan alert: %w", err)
 		}
-		wines = append(wines, wine)
+		alert.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAtStr)
+		alerts = append(alerts, &alert)
 	}
 
-	return wines, rows.Err()
+	return alerts, rows.Err()
 }

@@ -300,12 +300,34 @@ func (s *Server) handleUpdateWine(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wine.ID = id
-	query := `UPDATE wines SET name=?, region=?, vintage=?, type=?, rating=?, comments=?, price=?, producer=?, alcohol_level=?, min_apogee_date=?, max_apogee_date=? WHERE id=?`
-	_, err = s.store.Db.ExecContext(r.Context(), query,
-		wine.Name, wine.Region, wine.Vintage, wine.WineType, wine.Rating, wine.Comments,
-		wine.Price, wine.Producer, wine.AlcoholLevel, wine.MinApogeeDate, wine.MaxApogeeDate, id,
-	)
-	if err != nil {
+
+	// Validation basique
+	if wine.Name == "" || wine.Region == "" || wine.Vintage == 0 || wine.WineType == "" {
+		s.respondError(w, http.StatusBadRequest, "Missing required fields: name, region, vintage, type", nil)
+		return
+	}
+
+	// Validation des dates d'apogée
+	if wine.MinApogeeDate != nil && wine.MaxApogeeDate != nil {
+		if wine.MinApogeeDate.After(*wine.MaxApogeeDate) {
+			s.respondError(w, http.StatusBadRequest, "min_apogee_date must be before max_apogee_date", nil)
+			return
+		}
+	}
+
+	// Validation du rating
+	if wine.Rating != nil && (*wine.Rating < 0 || *wine.Rating > 5) {
+		s.respondError(w, http.StatusBadRequest, "rating must be between 0 and 5", nil)
+		return
+	}
+
+	// Validation de l'alcool
+	if wine.AlcoholLevel != nil && (*wine.AlcoholLevel < 0 || *wine.AlcoholLevel > 20) {
+		s.respondError(w, http.StatusBadRequest, "alcohol_level must be between 0 and 20", nil)
+		return
+	}
+
+	if err := s.store.UpdateWine(r.Context(), &wine); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "Failed to update wine", err)
 		return
 	}
@@ -438,7 +460,23 @@ func (s *Server) handleCreateAlert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := s.store.AddAlert(r.Context(), &alert)
+	if alert.WineID == 0 || alert.AlertType == "" {
+		s.respondError(w, http.StatusBadRequest, "Missing required fields: wine_id, alert_type", nil)
+		return
+	}
+
+	// Valider le type d'alerte
+	validTypes := map[string]bool{"low_stock": true, "apogee_reached": true, "apogee_ended": true}
+	if !validTypes[alert.AlertType] {
+		s.respondError(w, http.StatusBadRequest, "Invalid alert_type", nil)
+		return
+	}
+
+	if alert.Status == "" {
+		alert.Status = "active"
+	}
+
+	id, err := s.store.CreateAlert(r.Context(), &alert)
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, "Failed to create alert", err)
 		return
@@ -529,6 +567,13 @@ func main() {
 		log.Fatalf("Failed to initialize store: %v", err)
 	}
 	defer s.Close()
+
+	// Démarrer la génération automatique d'alertes (toutes les heures)
+	alertGenerator := store.NewAlertGenerator(s)
+	alertGenerator.Start(1 * time.Hour)
+	defer alertGenerator.Stop()
+
+	log.Println("Alert generator started (interval: 1 hour)")
 
 	// Créer et démarrer le serveur avec configuration de sécurité
 	server := NewServer(s, config)
