@@ -104,9 +104,9 @@ go build ./cmd/api
 
 ## 📚 Documentation complète
 
-- [Documentation EN](docs/EN/README.md)
-- [Documentation FR](docs/FR/README.md)
-- [Frontend README](web/README.md) - Détails sur l'application React
+- [Documentation EN](../README.md#english)
+- [Documentation FR](../README.md#français)
+- [Frontend README](../web/README.md) - Détails sur l'application React
 
 ## 🎨 Architecture
 
