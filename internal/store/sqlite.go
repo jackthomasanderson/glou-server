@@ -150,8 +150,28 @@ func (s *Store) initSchema() error {
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
 
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT NOT NULL UNIQUE,
+		email TEXT NOT NULL UNIQUE,
+		password_hash TEXT NOT NULL,
+		role TEXT NOT NULL DEFAULT 'user',
+		is_active INTEGER NOT NULL DEFAULT 1,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS setup_wizard (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		completed INTEGER NOT NULL DEFAULT 0,
+		completed_at DATETIME,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
 	CREATE INDEX IF NOT EXISTS idx_activity_log_entity ON activity_log(entity_type, entity_id);
 	CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 	`
 
 	if _, err := s.Db.Exec(schema); err != nil {

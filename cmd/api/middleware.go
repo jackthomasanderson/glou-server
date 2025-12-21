@@ -165,3 +165,32 @@ func getClientIP(r *http.Request) string {
 	// RemoteAddr
 	return r.RemoteAddr
 }
+
+// setupCheckMiddleware vérifie si le setup initial est complété
+// et redirige vers /setup si nécessaire
+func (s *Server) setupCheckMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Ignorer les routes de setup et assets
+		path := r.URL.Path
+		if path == "/setup" || path == "/api/setup/check" || path == "/api/setup/complete" {
+			next(w, r)
+			return
+		}
+
+		// Vérifier si le setup est complété
+		isComplete, err := s.store.IsSetupComplete(r.Context())
+		if err != nil {
+			log.Printf("Error checking setup status: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if !isComplete {
+			// Rediriger vers le wizard
+			http.Redirect(w, r, "/setup", http.StatusSeeOther)
+			return
+		}
+
+		next(w, r)
+	}
+}

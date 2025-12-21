@@ -779,15 +779,25 @@
                     <form id="addCaveForm">
                         <div class="form-group">
                             <label for="caveName">Nom de la cave *</label>
-                            <input type="text" id="caveName" required placeholder="ex: Salon">
+                            <input type="text" id="caveName" required placeholder="ex: Salon, Cuisine, Cave">
                         </div>
                         <div class="form-group">
-                            <label for="caveModel">Modèle *</label>
-                            <input type="text" id="caveModel" required placeholder="ex: La Sommelière LS52">
+                            <label for="caveModel">Modèle</label>
+                            <input type="text" id="caveModel" placeholder="ex: La Sommelière LS52">
+                        </div>
+                        <div class="form-group">
+                            <label for="caveAddress">Adresse postale 🌍</label>
+                            <div style="position: relative;">
+                                <input type="text" id="caveAddress" placeholder="Tapez une adresse (Paris, Tokyo, New York...)" autocomplete="off">
+                                <div id="addressSuggestions" style="position: absolute; top: 100%; left: 0; right: 0; background: var(--surface-light); border: 1px solid var(--border-light); max-height: 250px; overflow-y: auto; display: none; z-index: 1000; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
+                            </div>
+                            <div id="addressDebug" style="font-size: 0.8rem; color: #999; margin-top: 0.5rem;">
+                                💡 Tapez au moins 3 caractères pour voir les suggestions
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="caveCapacity">Capacité (bouteilles)</label>
-                            <input type="number" id="caveCapacity" value="100" min="1">
+                            <input type="number" id="caveCapacity" value="50" min="1">
                         </div>
                         <div id="addCaveStatus" class="status"></div>
                         <button type="submit" class="full-width">✓ Ajouter la cave</button>
@@ -934,6 +944,122 @@
             document.getElementById('addCaveForm').addEventListener('submit', handleAddCave);
             document.getElementById('journalForm').addEventListener('submit', handleJournal);
             updateTabStates();
+            setupAddressAutocomplete();
+        }
+
+        function setupAddressAutocomplete() {
+            const input = document.getElementById('caveAddress');
+            const suggestionsBox = document.getElementById('addressSuggestions');
+            const debugBox = document.getElementById('addressDebug');
+            let debounceTimer;
+
+            if (!input || !suggestionsBox) {
+                console.error('Elements not found!');
+                return;
+            }
+
+            debugBox.textContent = '✅ Auto-complétion chargée et prête';
+            debugBox.style.color = '#10b981';
+
+            input.addEventListener('input', function() {
+                clearTimeout(debounceTimer);
+                const query = this.value.trim();
+
+                if (query.length < 3) {
+                    suggestionsBox.style.display = 'none';
+                    debugBox.textContent = query.length > 0 ? `⌨️ ${query.length}/3 caractères minimum` : '💡 Tapez au moins 3 caractères';
+                    debugBox.style.color = '#999';
+                    return;
+                }
+
+                debugBox.textContent = '🔍 Recherche en cours...';
+                debugBox.style.color = '#667eea';
+
+                debounceTimer = setTimeout(async () => {
+                    try {
+                        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8`;
+                        console.log('Fetching:', url);
+                        
+                        const response = await fetch(url);
+                        const data = await response.json();
+                        
+                        console.log('Response:', data);
+                        
+                        if (data.features && data.features.length > 0) {
+                            debugBox.textContent = `✅ ${data.features.length} résultat(s) trouvé(s)`;
+                            debugBox.style.color = '#10b981';
+                            displaySuggestions(data.features, query);
+                        } else {
+                            debugBox.textContent = '❌ Aucun résultat trouvé';
+                            debugBox.style.color = '#f59e0b';
+                            suggestionsBox.innerHTML = '<div style="padding: 1rem; color: #999; text-align: center;">🔍 Aucune adresse trouvée</div>';
+                            suggestionsBox.style.display = 'block';
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        debugBox.textContent = '⚠️ Erreur de connexion: ' + error.message;
+                        debugBox.style.color = '#ef4444';
+                        suggestionsBox.innerHTML = '<div style="padding: 1rem; color: #ef4444; text-align: center;">⚠️ Erreur de connexion</div>';
+                        suggestionsBox.style.display = 'block';
+                    }
+                }, 400);
+            });
+
+            function displaySuggestions(features, query) {
+                const html = features.map((feature, idx) => {
+                    const props = feature.properties;
+                    const name = props.name || '';
+                    const city = props.city || '';
+                    const state = props.state || '';
+                    const country = props.country || '';
+                    
+                    let displayText = name;
+                    if (city && city !== name) displayText += `, ${city}`;
+                    if (state) displayText += `, ${state}`;
+                    if (country) displayText += `, ${country}`;
+                    
+                    return `
+                        <div class="address-item" data-idx="${idx}" style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: all 0.2s;">
+                            <div style="font-weight: 500; color: var(--text-light);">📍 ${displayText}</div>
+                            ${props.street ? `<div style="font-size: 0.85rem; color: #999; margin-top: 0.25rem;">${props.street}</div>` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+                suggestionsBox.innerHTML = html;
+                suggestionsBox.style.display = 'block';
+
+                // Attacher les événements
+                document.querySelectorAll('.address-item').forEach((item, idx) => {
+                    item.addEventListener('mouseenter', function() {
+                        this.style.background = '#f0f0ff';
+                    });
+                    item.addEventListener('mouseleave', function() {
+                        this.style.background = 'transparent';
+                    });
+                    item.addEventListener('click', function() {
+                        const feature = features[idx];
+                        const props = feature.properties;
+                        
+                        let address = props.name || '';
+                        if (props.city && props.city !== props.name) address += `, ${props.city}`;
+                        if (props.state) address += `, ${props.state}`;
+                        if (props.country) address += `, ${props.country}`;
+                        
+                        input.value = address;
+                        suggestionsBox.style.display = 'none';
+                        debugBox.textContent = '✅ Adresse sélectionnée';
+                        debugBox.style.color = '#10b981';
+                    });
+                });
+            }
+
+            // Fermer quand on clique ailleurs
+            document.addEventListener('click', function(e) {
+                if (!input.contains(e.target) && !suggestionsBox.contains(e.target)) {
+                    suggestionsBox.style.display = 'none';
+                }
+            });
         }
 
         function updateTabStates() {
@@ -1061,7 +1187,8 @@
                 <div class="wine-card">
                     <h3>${c.name}</h3>
                     <div class="wine-info">
-                        <strong>Modèle:</strong> ${c.model}<br>
+                        ${c.model ? '<strong>Modèle:</strong> ' + c.model + '<br>' : ''}
+                        ${c.location ? '<strong>Adresse:</strong> ' + c.location + '<br>' : ''}
                         <strong>Capacité:</strong> ${c.current}/${c.capacity}<br>
                         <strong>Remplissage:</strong> ${Math.round(c.current/c.capacity*100)}%
                     </div>
@@ -1149,7 +1276,8 @@
             e.preventDefault();
             const cave = {
                 name: document.getElementById('caveName').value,
-                model: document.getElementById('caveModel').value,
+                model: document.getElementById('caveModel').value || '',
+                location: document.getElementById('caveAddress').value || '',
                 capacity: parseInt(document.getElementById('caveCapacity').value)
             };
 
@@ -1163,6 +1291,7 @@
                 if (!response.ok) throw new Error('Erreur');
                 showStatus('addCaveStatus', '✓ Cave ajoutée!', 'success');
                 document.getElementById('addCaveForm').reset();
+                document.getElementById('caveCapacity').value = '50';
                 setTimeout(() => { loadCaves(); loadDashboard(); }, 500);
             } catch (error) {
                 showStatus('addCaveStatus', '✗ Erreur', 'error');
