@@ -422,25 +422,43 @@ func (s *Store) DismissAlert(ctx context.Context, alertID int64) error {
 	return err
 }
 
-// RecordConsumption enregistre une dégustation
+// RecordConsumption enregistre une dégustation avec transaction
 func (s *Store) RecordConsumption(ctx context.Context, consumption *domain.ConsumptionHistory) (int64, error) {
+	// Begin transaction
+	tx, err := s.Db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Insert consumption record
 	query := `
 	INSERT INTO consumption_history (wine_id, quantity, rating, comment, reason, date)
 	VALUES (?, ?, ?, ?, ?, ?)
 	`
-	result, err := s.Db.ExecContext(ctx, query, consumption.WineID, consumption.Quantity, consumption.Rating, consumption.Comment, consumption.Reason, consumption.Date)
+	result, err := tx.ExecContext(ctx, query, consumption.WineID, consumption.Quantity, consumption.Rating, consumption.Comment, consumption.Reason, consumption.Date)
 	if err != nil {
 		return 0, fmt.Errorf("failed to record consumption: %w", err)
 	}
 
-	// Décrémenter la quantité du vin
+	consumptionID, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get consumption id: %w", err)
+	}
+
+	// Update wine quantity (within same transaction)
 	updateQuery := `UPDATE wines SET quantity = quantity - ?, consumed = consumed + ? WHERE id = ?`
-	_, err = s.Db.ExecContext(ctx, updateQuery, consumption.Quantity, consumption.Quantity, consumption.WineID)
+	_, err = tx.ExecContext(ctx, updateQuery, consumption.Quantity, consumption.Quantity, consumption.WineID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to update wine quantity: %w", err)
 	}
 
-	return result.LastInsertId()
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return consumptionID, nil
 }
 
 // GetConsumptionHistory récupère l'historique de dégustation d'un vin
@@ -704,14 +722,12 @@ func (s *Store) GetAlertsByWineID(ctx context.Context, wineID int64) ([]*domain.
 
 	var alerts []*domain.Alert
 	for rows.Next() {
-		var alert domain.Alert
-		var createdAtStr string
-		err := rows.Scan(&alert.ID, &alert.WineID, &alert.AlertType, &alert.Status, &createdAtStr)
+		alert := &domain.Alert{}
+		err := rows.Scan(&alert.ID, &alert.WineID, &alert.AlertType, &alert.Status, &alert.CreatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan alert: %w", err)
 		}
-		alert.CreatedAt, _ = time.Parse("2006-01-02 15:04:05", createdAtStr)
-		alerts = append(alerts, &alert)
+		alerts = append(alerts, alert)
 	}
 
 	return alerts, rows.Err()
