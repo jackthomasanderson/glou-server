@@ -451,15 +451,15 @@
                 </div>
                 <div class="step" data-step="3">
                     <div class="step-circle">3</div>
-                    <div class="step-label">Réseau</div>
+                    <div class="step-label" data-i18n="step3">Network</div>
                 </div>
                 <div class="step" data-step="4">
                     <div class="step-circle">4</div>
-                    <div class="step-label">Notifications</div>
+                    <div class="step-label" data-i18n="step4">Notifications</div>
                 </div>
                 <div class="step" data-step="5">
                     <div class="step-circle">5</div>
-                    <div class="step-label">Confirmation</div>
+                    <div class="step-label" data-i18n="step5">Summary</div>
                 </div>
             </div>
 
@@ -468,69 +468,69 @@
             <div class="wizard-content">
                 <!-- Étape 1: Compte Admin -->
                 <div class="step-content active" data-step="1">
-                    <h2>Créer le compte administrateur</h2>
-                    <p style="color: #666; margin-bottom: 25px;">Ce compte vous permettra de gérer votre application Glou.</p>
+                    <h2 data-i18n="adminAccountTitle">Create Administrator Account</h2>
+                    <p style="color: #666; margin-bottom: 25px;" data-i18n="adminAccountSubtitle">This account will have full access to Glou</p>
 
                     <div class="form-group">
-                        <label for="username">Nom d'utilisateur *</label>
-                        <input type="text" id="username" required minlength="3" placeholder="admin">
-                        <small>Au moins 3 caractères</small>
+                        <label for="username" data-i18n="username">Username</label> *
+                        <input type="text" id="username" required minlength="3" data-i18n-placeholder="usernamePlaceholder">
+                        <small data-i18n="errorUsernameLength">Username must contain at least 3 characters</small>
                     </div>
 
                     <div class="form-group">
-                        <label for="email">Email *</label>
-                        <input type="email" id="email" required placeholder="admin@example.com">
+                        <label for="email" data-i18n="email">Email Address</label> *
+                        <input type="email" id="email" required data-i18n-placeholder="emailPlaceholder">
                     </div>
 
                     <div class="form-group">
-                        <label for="password">Mot de passe *</label>
-                        <input type="password" id="password" required placeholder="••••••••••••">
+                        <label for="password" data-i18n="password">Password</label> *
+                        <input type="password" id="password" required data-i18n-placeholder="passwordPlaceholder">
                         <small style="display: block; margin-top: 8px; line-height: 1.5; color: #666;">
-                            <strong style="color: #ff9800;">⚠️ Fortement recommandé :</strong> 12+ caractères avec majuscules, minuscules, chiffres et caractères spéciaux
+                            <strong style="color: #ff9800;">⚠️</strong> <span data-i18n="passwordRequirements">Password requirements:</span>
                         </small>
                         <div id="password-strength" style="margin-top: 10px;"></div>
                     </div>
 
                     <div class="form-group">
-                        <label for="password-confirm">Confirmer le mot de passe *</label>
-                        <input type="password" id="password-confirm" required placeholder="••••••••••••">
+                        <label for="password-confirm" data-i18n="confirmPassword">Confirm Password</label> *
+                        <input type="password" id="password-confirm" required data-i18n-placeholder="confirmPasswordPlaceholder">
                     </div>
                 </div>
 
                 <!-- Étape 2: Personnalisation -->
                 <div class="step-content" data-step="2">
-                    <h2>Personnalisation de l'interface</h2>
-                    <p style="color: #666; margin-bottom: 25px;">Personnalisez l'apparence de votre application.</p>
+                    <h2 data-i18n="customizationTitle">Customize Your Glou</h2>
+                    <p style="color: #666; margin-bottom: 25px;" data-i18n="customizationSubtitle">Personalize the appearance and information</p>
 
                     <div class="form-group">
-                        <label for="app-title">Titre de l'application</label>
-                        <input type="text" id="app-title" placeholder="Glou" value="Glou">
+                        <label for="app-title" data-i18n="appTitle">Application Title</label>
+                        <input type="text" id="app-title" data-i18n-placeholder="appTitlePlaceholder" value="Glou">
                     </div>
 
                     <div class="form-group">
-                        <label for="app-slogan">Slogan</label>
-                        <input type="text" id="app-slogan" placeholder="Wine Management System" value="Wine Management System">
+                        <label for="app-slogan" data-i18n="appSlogan">Slogan</label>
+                        <input type="text" id="app-slogan" data-i18n-placeholder="appSloganPlaceholder" value="Wine Management System">
                     </div>
 
                     <div class="form-group">
-                        <label>Couleurs du thème</label>
+                        <label data-i18n="themeColors">Theme Colors</label>
                         <div class="color-picker-group">
                             <div>
-                                <small>Couleur principale</small>
+                                <small data-i18n="primaryColor">Primary Color</small>
                                 <div class="color-input-wrapper">
                                     <input type="color" id="theme-color" value="#667eea">
                                     <input type="text" id="theme-color-text" value="#667eea" pattern="^#[0-9A-Fa-f]{6}$">
                                 </div>
                             </div>
                             <div>
-                                <small>Couleur secondaire</small>
+                                <small data-i18n="secondaryColor">Secondary Color</small>
                                 <div class="color-input-wrapper">
                                     <input type="color" id="secondary-color" value="#6c757d">
                                     <input type="text" id="secondary-color-text" value="#6c757d" pattern="^#[0-9A-Fa-f]{6}$">
                                 </div>
                             </div>
                             <div>
-                                <small>Couleur d'accent</small>
+                                <small data-i18n="accentColor">Accent Color</small>
                                 <div class="color-input-wrapper">
                                     <input type="color" id="accent-color" value="#28a745">
                                     <input type="text" id="accent-color-text" value="#28a745" pattern="^#[0-9A-Fa-f]{6}$">
@@ -540,28 +540,28 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="language">Langue de l'interface utilisateur</label>
+                        <label for="language" data-i18n="language">Default Language</label>
                         <select id="language">
-                            <option value="fr">Français</option>
-                            <option value="en">English</option>
+                            <option value="fr" data-i18n="languageFr">French</option>
+                            <option value="en" data-i18n="languageEn">English</option>
                         </select>
-                        <small>Définit la langue de l'interface de l'application</small>
+                        <small data-i18n="languageHelp">Sets the language of the application interface</small>
                     </div>
                 </div>
 
                 <!-- Étape 3: Réseau -->
                 <div class="step-content" data-step="3">
-                    <h2>Configuration réseau</h2>
-                    <p style="color: #666; margin-bottom: 25px;">Paramétrez l'accès à votre application.</p>
+                    <h2 data-i18n="networkTitle">Network Configuration</h2>
+                    <p style="color: #666; margin-bottom: 25px;" data-i18n="networkSubtitle">Configure access and reverse proxy settings</p>
 
                     <div class="form-group">
-                        <label for="public-domain">Domaine public (optionnel)</label>
-                        <input type="text" id="public-domain" placeholder="glou.example.com">
-                        <small>Le domaine depuis lequel votre application sera accessible</small>
+                        <label for="public-domain" data-i18n="publicDomain">Public Domain (optional)</label>
+                        <input type="text" id="public-domain" data-i18n-placeholder="publicDomainPlaceholder">
+                        <small data-i18n="publicDomainHelp">The domain from which your application will be accessible</small>
                     </div>
 
                     <div class="form-group">
-                        <label for="public-protocol">Protocole</label>
+                        <label for="public-protocol" data-i18n="publicProtocol">Protocol</label>
                         <select id="public-protocol">
                             <option value="http">HTTP</option>
                             <option value="https">HTTPS</option>
@@ -571,165 +571,163 @@
                     <div class="form-group">
                         <div class="checkbox-group">
                             <input type="checkbox" id="proxy-mode">
-                            <label for="proxy-mode" style="margin-bottom: 0;">Application derrière un reverse proxy</label>
+                            <label for="proxy-mode" style="margin-bottom: 0;" data-i18n="reverseProxy">Behind Reverse Proxy</label>
                         </div>
-                        <small>Activez cette option si vous utilisez nginx, Apache, Traefik ou un autre reverse proxy</small>
+                        <small data-i18n="reverseProxyHelp">Check if Glou is behind a reverse proxy (nginx, Apache, etc.)</small>
                     </div>
                 </div>
 
                 <!-- Étape 4: Notifications (optionnel) -->
                 <div class="step-content" data-step="4">
-                    <h2>Notifications (optionnel)</h2>
-                    <p style="color: #666; margin-bottom: 25px;">Configurez les notifications pour recevoir des alertes. Cette étape est facultative.</p>
+                    <h2 data-i18n="notificationsTitle">Notifications (optional)</h2>
+                    <p style="color: #666; margin-bottom: 25px;" data-i18n="notificationsSubtitle">Configure alert services. This step is optional.</p>
 
                     <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
-                        <h3 style="margin-bottom: 15px; font-size: 1.1rem;">🔔 Gotify</h3>
-                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Service de notifications push auto-hébergé</p>
+                        <h3 style="margin-bottom: 15px; font-size: 1.1rem;" data-i18n="gotifyTitle">📱 Gotify (Push Notifications)</h3>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;" data-i18n="gotifySubtitle">Real-time notifications on your devices</p>
                         
                         <div class="form-group">
-                            <label for="gotify-url">URL Gotify</label>
+                            <label for="gotify-url" data-i18n="gotifyUrl">Gotify Server URL</label>
                             <input type="url" id="gotify-url" placeholder="https://gotify.example.com">
-                            <small>L'URL de votre serveur Gotify</small>
+                            <small data-i18n="gotifyUrlHelp">The URL of your Gotify server</small>
                         </div>
 
                         <div class="form-group">
-                            <label for="gotify-token">Token Gotify</label>
+                            <label for="gotify-token" data-i18n="gotifyToken">Gotify Token</label>
                             <input type="text" id="gotify-token" placeholder="AbCdEf123456">
-                            <small>Le token d'application Gotify</small>
+                            <small data-i18n="gotifyTokenHelp">The Gotify application token</small>
                         </div>
                     </div>
 
                     <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
-                        <h3 style="margin-bottom: 15px; font-size: 1.1rem;">✉️ SMTP (Email)</h3>
-                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">
-                            Configuration du serveur d'emails sortants pour les notifications d'alertes 
-                            et la fonction "mot de passe oublié".
+                        <h3 style="margin-bottom: 15px; font-size: 1.1rem;" data-i18n="smtpTitle">✉️ SMTP (Email)</h3>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;" data-i18n="smtpSubtitle">
+                            Email server configuration for outgoing notifications and forgot password feature.
                         </p>
                         
                         <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid #ffc107;">
-                            <p style="margin: 0; color: #856404; font-size: 0.85rem;">
-                                ⚠️ <strong>Important :</strong> La fonction "mot de passe oublié" ne sera disponible 
-                                que si le serveur SMTP est configuré.
+                            <p style="margin: 0; color: #856404; font-size: 0.85rem;" data-i18n="smtpWarning">
+                                ⚠️ <strong>Important:</strong> The "forgot password" feature will only be available if the SMTP server is configured.
                             </p>
                         </div>
                         <div class="form-group">
-                            <label for="smtp-host">Serveur SMTP</label>
-                            <input type="text" id="smtp-host" placeholder="smtp.gmail.com">
+                            <label for="smtp-host" data-i18n="smtpHost">SMTP Server</label>
+                            <input type="text" id="smtp-host" data-i18n-placeholder="smtpHostPlaceholder">
                         </div>
 
                         <div class="form-group">
-                            <label for="smtp-port">Port SMTP</label>
+                            <label for="smtp-port" data-i18n="smtpPort">SMTP Port</label>
                             <input type="number" id="smtp-port" placeholder="587" value="587">
-                            <small>Ports courants : 587 (TLS), 465 (SSL), 25 (non sécurisé)</small>
+                            <small data-i18n="smtpPortHelp">Common ports: 587 (TLS), 465 (SSL), 25 (unsecured)</small>
                         </div>
 
                         <div class="form-group">
-                            <label for="smtp-username">Nom d'utilisateur</label>
-                            <input type="text" id="smtp-username" placeholder="user@example.com">
+                            <label for="smtp-username" data-i18n="smtpUsername">Username</label>
+                            <input type="text" id="smtp-username" data-i18n-placeholder="smtpUsernameExample">
                         </div>
 
                         <div class="form-group">
-                            <label for="smtp-password">Mot de passe</label>
+                            <label for="smtp-password" data-i18n="smtpPassword">Password</label>
                             <input type="password" id="smtp-password" placeholder="••••••••">
                         </div>
 
                         <div class="form-group">
-                            <label for="smtp-from">Adresse expéditeur</label>
-                            <input type="email" id="smtp-from" placeholder="noreply@example.com">
+                            <label for="smtp-from" data-i18n="smtpFrom">Sender Address</label>
+                            <input type="email" id="smtp-from" data-i18n-placeholder="smtpFromExample">
                         </div>
 
                         <div class="form-group">
-                            <label for="smtp-to">Adresse destinataire</label>
-                            <input type="email" id="smtp-to" placeholder="admin@example.com">
-                            <small>L'adresse qui recevra les notifications</small>
+                            <label for="smtp-to" data-i18n="smtpTo">Recipient Address</label>
+                            <input type="email" id="smtp-to" data-i18n-placeholder="smtpToExample">
+                            <small data-i18n="smtpToHelp">The address that will receive notifications</small>
                         </div>
 
                         <div class="form-group">
                             <div class="checkbox-group">
                                 <input type="checkbox" id="smtp-use-tls" checked>
-                                <label for="smtp-use-tls" style="margin-bottom: 0;">Utiliser TLS/STARTTLS</label>
+                                <label for="smtp-use-tls" style="margin-bottom: 0;" data-i18n="smtpTls">Use TLS/STARTTLS</label>
                             </div>
-                            <small>Recommandé pour la sécurité</small>
+                            <small data-i18n="smtpTlsHelp">Recommended for security</small>
                         </div>
                     </div>
 
                     <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #2196f3;">
-                        <p style="margin: 0; color: #1565c0; font-size: 0.9rem;">
-                            💡 <strong>Info :</strong> Vous pouvez passer cette étape et configurer les notifications plus tard dans les paramètres.
+                        <p style="margin: 0; color: #1565c0; font-size: 0.9rem;" data-i18n="notificationsOptional">
+                            💡 Info: You can skip this step and configure notifications later in settings.
                         </p>
                     </div>
                 </div>
 
                 <!-- Étape 5: Confirmation -->
                 <div class="step-content" data-step="5">
-                    <h2>Résumé de la configuration</h2>
-                    <p style="color: #666; margin-bottom: 25px;">Vérifiez les informations avant de finaliser.</p>
+                    <h2 data-i18n="summaryTitle">Configuration Summary</h2>
+                    <p style="color: #666; margin-bottom: 25px;" data-i18n="summarySubtitle">Review information before finalizing.</p>
 
                     <div class="summary-section">
-                        <h3>👤 Administrateur</h3>
+                        <h3 data-i18n="summaryAdmin">👤 Administrator</h3>
                         <div class="summary-item">
-                            <span class="summary-label">Nom d'utilisateur:</span>
+                            <span class="summary-label" data-i18n="summaryUsername">Username:</span>
                             <span class="summary-value" id="summary-username">-</span>
                         </div>
                         <div class="summary-item">
-                            <span class="summary-label">Email:</span>
+                            <span class="summary-label" data-i18n="summaryEmail">Email:</span>
                             <span class="summary-value" id="summary-email">-</span>
                         </div>
                     </div>
 
                     <div class="summary-section">
-                        <h3>🎨 Personnalisation</h3>
+                        <h3 data-i18n="summaryCustomization">🎨 Customization</h3>
                         <div class="summary-item">
-                            <span class="summary-label">Titre:</span>
+                            <span class="summary-label" data-i18n="summaryTitle_">Title:</span>
                             <span class="summary-value" id="summary-title">-</span>
                         </div>
                         <div class="summary-item">
-                            <span class="summary-label">Slogan:</span>
+                            <span class="summary-label" data-i18n="summarySlogan">Slogan:</span>
                             <span class="summary-value" id="summary-slogan">-</span>
                         </div>
                         <div class="summary-item">
-                            <span class="summary-label">Langue:</span>
+                            <span class="summary-label" data-i18n="summaryLanguage">Language:</span>
                             <span class="summary-value" id="summary-language">-</span>
                         </div>
                     </div>
 
                     <div class="summary-section">
-                        <h3>🌐 Réseau</h3>
+                        <h3 data-i18n="summaryNetwork">🌐 Network</h3>
                         <div class="summary-item">
-                            <span class="summary-label">Domaine:</span>
+                            <span class="summary-label" data-i18n="summaryDomain">Domain:</span>
                             <span class="summary-value" id="summary-domain">-</span>
                         </div>
                         <div class="summary-item">
-                            <span class="summary-label">Protocole:</span>
+                            <span class="summary-label" data-i18n="summaryProtocol">Protocol:</span>
                             <span class="summary-value" id="summary-protocol">-</span>
                         </div>
                         <div class="summary-item">
-                            <span class="summary-label">Reverse proxy:</span>
+                            <span class="summary-label" data-i18n="summaryProxy">Reverse proxy:</span>
                             <span class="summary-value" id="summary-proxy">-</span>
                         </div>
                     </div>
                     <div class="summary-section">
-                        <h3>🔔 Notifications</h3>
+                        <h3 data-i18n="summaryNotifications">🔔 Notifications</h3>
                         <div class="summary-item">
-                            <span class="summary-label">Gotify:</span>
+                            <span class="summary-label" data-i18n="summaryGotify">Gotify:</span>
                             <span class="summary-value" id="summary-gotify">-</span>
                         </div>
                         <div class="summary-item">
-                            <span class="summary-label">SMTP:</span>
+                            <span class="summary-label" data-i18n="summarySmtp">SMTP:</span>
                             <span class="summary-value" id="summary-smtp">-</span>
                         </div>
                     </div>
                     <div class="loading" id="loading">
                         <div class="spinner"></div>
-                        <p>Configuration en cours...</p>
+                        <p data-i18n="loading">Configuration in progress...</p>
                     </div>
                 </div>
             </div>
 
             <div class="wizard-actions">
-                <button class="btn btn-secondary" id="btn-prev" style="display: none;">Précédent</button>
+                <button class="btn btn-secondary" id="btn-prev" style="display: none;" data-i18n="previous">Previous</button>
                 <div style="flex: 1;"></div>
-                <button class="btn btn-primary" id="btn-next">Suivant</button>
+                <button class="btn btn-primary" id="btn-next" data-i18n="next">Next</button>
             </div>
         </div>
     </div>
@@ -1051,8 +1049,303 @@
             });
         }
 
+        // Système d'internationalisation
+        const translations = {
+            en: {
+                // Meta
+                title: 'Glou - Initial Setup',
+                welcome: '🍷 Welcome to Glou',
+                subtitle: 'Initial setup in 5 steps',
+                
+                // Steps
+                step1: 'Admin Account',
+                step2: 'Customization',
+                step3: 'Network',
+                step4: 'Notifications',
+                step5: 'Summary',
+                
+                // Buttons
+                previous: 'Previous',
+                next: 'Next',
+                finish: 'Finish',
+                
+                // Step 1 - Admin Account
+                adminAccountTitle: 'Create Administrator Account',
+                adminAccountSubtitle: 'This account will have full access to Glou',
+                username: 'Username',
+                usernamePlaceholder: 'admin',
+                email: 'Email Address',
+                emailPlaceholder: 'admin@example.com',
+                password: 'Password',
+                passwordPlaceholder: 'Secure password',
+                confirmPassword: 'Confirm Password',
+                confirmPasswordPlaceholder: 'Confirm your password',
+                passwordStrengthVeryWeak: 'Very Weak',
+                passwordStrengthWeak: 'Weak',
+                passwordStrengthMedium: 'Medium',
+                passwordStrengthStrong: 'Strong',
+                passwordStrengthVeryStrong: 'Very Strong',
+                passwordRequirements: 'Password requirements:',
+                passwordReq8chars: 'At least 8 characters',
+                passwordReqUppercase: 'At least one uppercase letter',
+                passwordReqLowercase: 'At least one lowercase letter',
+                passwordReqNumber: 'At least one number',
+                passwordReqSpecial: 'At least one special character (recommended)',
+                
+                // Step 2 - Customization
+                customizationTitle: 'Customize Your Glou',
+                customizationSubtitle: 'Personalize the appearance and information',
+                appTitle: 'Application Title',
+                appTitlePlaceholder: 'My Wine Collection',
+                appSlogan: 'Slogan',
+                appSloganPlaceholder: 'Wine Management System',
+                themeColors: 'Theme Colors',
+                primaryColor: 'Primary Color',
+                secondaryColor: 'Secondary Color',
+                accentColor: 'Accent Color',
+                language: 'Default Language',
+                languageFr: 'French',
+                languageEn: 'English',
+                
+                // Step 3 - Network
+                networkTitle: 'Network Configuration',
+                networkSubtitle: 'Configure access and reverse proxy settings',
+                publicDomain: 'Public Domain',
+                publicDomainPlaceholder: 'glou.example.com',
+                publicProtocol: 'Protocol',
+                reverseProxy: 'Behind Reverse Proxy',
+                reverseProxyHelp: 'Check if Glou is behind a reverse proxy (nginx, Apache, etc.)',
+                
+                // Step 4 - Notifications
+                notificationsTitle: 'Notifications',
+                notificationsSubtitle: 'Configure alert services (optional)',
+                notificationsOptional: '💡 Info: You can skip this step and configure notifications later in settings.',
+                gotifyTitle: '📱 Gotify (Push Notifications)',
+                gotifySubtitle: 'Real-time notifications on your devices',
+                gotifyUrl: 'Gotify Server URL',
+                gotifyToken: 'Application Token',
+                smtpTitle: '✉️ SMTP (Email)',
+                smtpSubtitle: 'Email server configuration for outgoing notifications and forgot password feature.',
+                smtpWarning: '⚠️ Important: The "forgot password" feature will only be available if the SMTP server is configured.',
+                smtpHost: 'SMTP Server',
+                smtpHostPlaceholder: 'smtp.gmail.com',
+                smtpPort: 'SMTP Port',
+                smtpPortHelp: 'Common ports: 587 (TLS), 465 (SSL), 25 (unsecured)',
+                smtpUsername: 'Username',
+                smtpUsernameExample: 'user@example.com',
+                smtpPassword: 'Password',
+                smtpFrom: 'Sender Address',
+                smtpFromExample: 'noreply@example.com',
+                smtpTo: 'Recipient Address',
+                smtpToExample: 'admin@example.com',
+                smtpToHelp: 'The address that will receive notifications',
+                smtpTls: 'Use TLS/STARTTLS',
+                smtpTlsHelp: 'Recommended for security',
+                
+                // Step 5 - Summary
+                summaryTitle: 'Configuration Summary',
+                summarySubtitle: 'Review information before finalizing.',
+                summaryAdmin: '👤 Administrator',
+                summaryCustomization: '🎨 Customization',
+                summaryNetwork: '🌐 Network',
+                summaryNotifications: '🔔 Notifications',
+                summaryUsername: 'Username:',
+                summaryEmail: 'Email:',
+                summaryTitle_: 'Title:',
+                summarySlogan: 'Slogan:',
+                summaryLanguage: 'Language:',
+                summaryDomain: 'Domain:',
+                summaryProtocol: 'Protocol:',
+                summaryProxy: 'Reverse proxy:',
+                summaryGotify: 'Gotify:',
+                summarySmtp: 'SMTP:',
+                configured: 'Configured',
+                notConfigured: 'Not configured',
+                yes: 'Yes',
+                no: 'No',
+                
+                // Messages
+                loading: 'Configuration in progress...',
+                errorUsernameLength: 'Username must contain at least 3 characters',
+                errorEmailInvalid: 'Please enter a valid email address',
+                errorPasswordRequired: 'Password is required',
+                errorPasswordMismatch: 'Passwords do not match',
+                errorSetup: 'Setup error: ',
+            },
+            fr: {
+                // Meta
+                title: 'Glou - Configuration initiale',
+                welcome: '🍷 Bienvenue sur Glou',
+                subtitle: 'Configuration initiale en 5 étapes',
+                
+                // Steps
+                step1: 'Compte Admin',
+                step2: 'Personnalisation',
+                step3: 'Réseau',
+                step4: 'Notifications',
+                step5: 'Résumé',
+                
+                // Buttons
+                previous: 'Précédent',
+                next: 'Suivant',
+                finish: 'Terminer',
+                
+                // Step 1 - Admin Account
+                adminAccountTitle: 'Créer un Compte Administrateur',
+                adminAccountSubtitle: 'Ce compte aura un accès complet à Glou',
+                username: 'Nom d\'utilisateur',
+                usernamePlaceholder: 'admin',
+                email: 'Adresse email',
+                emailPlaceholder: 'admin@example.com',
+                password: 'Mot de passe',
+                passwordPlaceholder: 'Mot de passe sécurisé',
+                confirmPassword: 'Confirmer le mot de passe',
+                confirmPasswordPlaceholder: 'Confirmez votre mot de passe',
+                passwordStrengthVeryWeak: 'Très Faible',
+                passwordStrengthWeak: 'Faible',
+                passwordStrengthMedium: 'Moyen',
+                passwordStrengthStrong: 'Fort',
+                passwordStrengthVeryStrong: 'Très Fort',
+                passwordRequirements: 'Exigences du mot de passe :',
+                passwordReq8chars: 'Au moins 8 caractères',
+                passwordReqUppercase: 'Au moins une lettre majuscule',
+                passwordReqLowercase: 'Au moins une lettre minuscule',
+                passwordReqNumber: 'Au moins un chiffre',
+                passwordReqSpecial: 'Au moins un caractère spécial (recommandé)',
+                
+                // Step 2 - Customization
+                customizationTitle: 'Personnalisez votre Glou',
+                customizationSubtitle: 'Personnalisez l\'apparence et les informations',
+                appTitle: 'Titre de l\'Application',
+                appTitlePlaceholder: 'Ma Collection de Vins',
+                appSlogan: 'Slogan',
+                appSloganPlaceholder: 'Système de Gestion de Vins',
+                themeColors: 'Couleurs du Thème',
+                primaryColor: 'Couleur Primaire',
+                secondaryColor: 'Couleur Secondaire',
+                accentColor: 'Couleur d\'Accent',
+                language: 'Langue par Défaut',
+                languageFr: 'Français',
+                languageEn: 'Anglais',
+                
+                // Step 3 - Network
+                networkTitle: 'Configuration Réseau',
+                networkSubtitle: 'Configurez l\'accès et les paramètres de reverse proxy',
+                publicDomain: 'Domaine Public',
+                publicDomainPlaceholder: 'glou.example.com',
+                publicProtocol: 'Protocole',
+                reverseProxy: 'Derrière un Reverse Proxy',
+                reverseProxyHelp: 'Cochez si Glou est derrière un reverse proxy (nginx, Apache, etc.)',
+                
+                // Step 4 - Notifications
+                notificationsTitle: 'Notifications',
+                notificationsSubtitle: 'Configurez les services d\'alerte (optionnel)',
+                notificationsOptional: '💡 Info : Vous pouvez passer cette étape et configurer les notifications plus tard dans les paramètres.',
+                gotifyTitle: '📱 Gotify (Notifications Push)',
+                gotifySubtitle: 'Notifications en temps réel sur vos appareils',
+                gotifyUrl: 'URL du Serveur Gotify',
+                gotifyToken: 'Token d\'Application',
+                smtpTitle: '✉️ SMTP (Email)',
+                smtpSubtitle: 'Configuration du serveur d\'emails sortants pour les notifications d\'alertes et la fonction "mot de passe oublié".',
+                smtpWarning: '⚠️ Important : La fonction "mot de passe oublié" ne sera disponible que si le serveur SMTP est configuré.',
+                smtpHost: 'Serveur SMTP',
+                smtpHostPlaceholder: 'smtp.gmail.com',
+                smtpPort: 'Port SMTP',
+                smtpPortHelp: 'Ports courants : 587 (TLS), 465 (SSL), 25 (non sécurisé)',
+                smtpUsername: 'Nom d\'utilisateur',
+                smtpUsernameExample: 'user@example.com',
+                smtpPassword: 'Mot de passe',
+                smtpFrom: 'Adresse Expéditeur',
+                smtpFromExample: 'noreply@example.com',
+                smtpTo: 'Adresse Destinataire',
+                smtpToExample: 'admin@example.com',
+                smtpToHelp: 'L\'adresse qui recevra les notifications',
+                smtpTls: 'Utiliser TLS/STARTTLS',
+                smtpTlsHelp: 'Recommandé pour la sécurité',
+                
+                // Step 5 - Summary
+                summaryTitle: 'Résumé de la Configuration',
+                summarySubtitle: 'Vérifiez les informations avant de finaliser.',
+                summaryAdmin: '👤 Administrateur',
+                summaryCustomization: '🎨 Personnalisation',
+                summaryNetwork: '🌐 Réseau',
+                summaryNotifications: '🔔 Notifications',
+                summaryUsername: 'Nom d\'utilisateur :',
+                summaryEmail: 'Email :',
+                summaryTitle_: 'Titre :',
+                summarySlogan: 'Slogan :',
+                summaryLanguage: 'Langue :',
+                summaryDomain: 'Domaine :',
+                summaryProtocol: 'Protocole :',
+                summaryProxy: 'Reverse proxy :',
+                summaryGotify: 'Gotify :',
+                summarySmtp: 'SMTP :',
+                configured: 'Configuré',
+                notConfigured: 'Non configuré',
+                yes: 'Oui',
+                no: 'Non',
+                
+                // Messages
+                loading: 'Configuration en cours...',
+                errorUsernameLength: 'Le nom d\'utilisateur doit contenir au moins 3 caractères',
+                errorEmailInvalid: 'Veuillez entrer une adresse email valide',
+                errorPasswordRequired: 'Le mot de passe est requis',
+                errorPasswordMismatch: 'Les mots de passe ne correspondent pas',
+                errorSetup: 'Erreur lors de la configuration : ',
+            }
+        };
+
+        let currentLanguage = 'en';
+
+        // Détecter la langue du navigateur
+        function detectLanguage() {
+            const browserLang = navigator.language || navigator.userLanguage;
+            return browserLang.startsWith('fr') ? 'fr' : 'en';
+        }
+
+        // Fonction de traduction
+        function t(key) {
+            return translations[currentLanguage][key] || translations['en'][key] || key;
+        }
+
+        // Mettre à jour le contenu avec les traductions
+        function updateContent() {
+            // Mettre à jour le titre de la page
+            document.title = t('title');
+            document.getElementById('html-root').lang = currentLanguage;
+
+            // Mettre à jour tous les éléments avec data-i18n
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                element.textContent = t(key);
+            });
+
+            // Mettre à jour les placeholders
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+                const key = element.getAttribute('data-i18n-placeholder');
+                element.placeholder = t(key);
+            });
+
+            // Mettre à jour les boutons
+            updateButtons();
+        }
+
+        function updateButtons() {
+            const btnPrev = document.getElementById('btn-prev');
+            const btnNext = document.getElementById('btn-next');
+            
+            if (btnPrev) btnPrev.textContent = t('previous');
+            if (btnNext) {
+                btnNext.textContent = currentStep === totalSteps ? t('finish') : t('next');
+            }
+        }
+
         // Vérifier au chargement si le setup est nécessaire
         window.addEventListener('DOMContentLoaded', () => {
+            // Détecter et définir la langue
+            currentLanguage = detectLanguage();
+            updateContent();
+
             fetch('/api/setup/check')
                 .then(response => response.json())
                 .then(data => {
@@ -1064,6 +1357,132 @@
                     console.error('Error checking setup status:', error);
                 });
         });
+
+        function validateStep(step) {
+            const errorMsg = document.getElementById('error-message');
+
+            if (step === 1) {
+                const username = document.getElementById('username').value;
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const passwordConfirm = document.getElementById('password-confirm').value;
+
+                if (!username || username.length < 3) {
+                    showError(t('errorUsernameLength'));
+                    return false;
+                }
+
+                if (!email || !email.includes('@')) {
+                    showError(t('errorEmailInvalid'));
+                    return false;
+                }
+
+                if (!password) {
+                    showError(t('errorPasswordRequired'));
+                    return false;
+                }
+
+                if (password !== passwordConfirm) {
+                    showError(t('errorPasswordMismatch'));
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function showError(message) {
+            const errorMsg = document.getElementById('error-message');
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            errorMsg.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function updateSummary() {
+            document.getElementById('summary-username').textContent = document.getElementById('username').value;
+            document.getElementById('summary-email').textContent = document.getElementById('email').value;
+            document.getElementById('summary-title').textContent = document.getElementById('app-title').value || 'Glou';
+            document.getElementById('summary-slogan').textContent = document.getElementById('app-slogan').value || t('appSloganPlaceholder');
+            
+            const lang = document.getElementById('language').value;
+            document.getElementById('summary-language').textContent = lang === 'fr' ? t('languageFr') : t('languageEn');
+            
+            const domain = document.getElementById('public-domain').value;
+            document.getElementById('summary-domain').textContent = domain || t('notConfigured');
+            
+            document.getElementById('summary-protocol').textContent = document.getElementById('public-protocol').value.toUpperCase();
+            document.getElementById('summary-proxy').textContent = document.getElementById('proxy-mode').checked ? t('yes') : t('no');
+            
+            // Notifications
+            const gotifyUrl = document.getElementById('gotify-url').value;
+            document.getElementById('summary-gotify').textContent = gotifyUrl ? t('configured') : t('notConfigured');
+            
+            const smtpHost = document.getElementById('smtp-host').value;
+            document.getElementById('summary-smtp').textContent = smtpHost ? t('configured') : t('notConfigured');
+        }
+
+        function submitSetup() {
+            const loading = document.getElementById('loading');
+            const btnNext = document.getElementById('btn-next');
+            const btnPrev = document.getElementById('btn-prev');
+
+            loading.classList.add('active');
+            btnNext.disabled = true;
+            btnPrev.disabled = true;
+
+            const data = {
+                username: document.getElementById('username').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+                app_title: document.getElementById('app-title').value,
+                app_slogan: document.getElementById('app-slogan').value,
+                theme_color: document.getElementById('theme-color').value,
+                secondary_color: document.getElementById('secondary-color').value,
+                accent_color: document.getElementById('accent-color').value,
+                language: document.getElementById('language').value,
+                public_domain: document.getElementById('public-domain').value,
+                public_protocol: document.getElementById('public-protocol').value,
+                proxy_mode: document.getElementById('proxy-mode').checked,
+                // Notifications (optionnel)
+                gotify_url: document.getElementById('gotify-url').value,
+                gotify_token: document.getElementById('gotify-token').value,
+                smtp_host: document.getElementById('smtp-host').value,
+                smtp_port: parseInt(document.getElementById('smtp-port').value) || 587,
+                smtp_username: document.getElementById('smtp-username').value,
+                smtp_password: document.getElementById('smtp-password').value,
+                smtp_from: document.getElementById('smtp-from').value,
+                smtp_to: document.getElementById('smtp-to').value,
+                smtp_use_tls: document.getElementById('smtp-use-tls').checked
+            };
+
+            fetch('/api/setup/complete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(text || t('errorSetup'));
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Succès - rediriger vers la page principale
+                setTimeout(() => {
+                    window.location.href = '/assets/glou.html';
+                }, 1000);
+            })
+            .catch(error => {
+                loading.classList.remove('active');
+                btnNext.disabled = false;
+                btnPrev.disabled = false;
+                showError(t('errorSetup') + error.message);
+            });
+        }
     </script>
 </body>
 </html>

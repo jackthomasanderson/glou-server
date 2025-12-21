@@ -4,7 +4,7 @@
 
 Manage your wine, spirit, and beer collection effortlessly. Track bottles, know when to drink them, and get smart alerts—all self-hosted and secure.
 
-**🚀 [Quick Start](QUICK_START.md)** | **📖 [Commands](COMMANDS_CHEATSHEET.md)** | **📱 [Android App](https://github.com/jackthomasanderson/glou-android)** | **📚 [Documentation](documentation/)**
+**🚀 [Quick Start](docs/QUICK_START.md)** | **📖 [Commands](docs/COMMANDS_CHEATSHEET.md)** | **📱 [Android App](https://github.com/jackthomasanderson/glou-android)** | **🔐 [Security](docs/SECURITY.md)** | **🛠️ [Development](docs/DEVELOPMENT.md)**
 
 **Status:** ✅ Production Ready (v1.0.0) | Tests: ✅ Passing | Build: ✅ Successful
 
@@ -19,7 +19,7 @@ Manage your wine, spirit, and beer collection effortlessly. Track bottles, know 
    ```
 3. **Open browser:** http://localhost:8080
 
-📚 **Detailed instructions:** See [QUICK_START.md](QUICK_START.md)
+📚 **Detailed instructions:** See [docs/QUICK_START.md](docs/QUICK_START.md)
 
 ---
 
@@ -98,11 +98,11 @@ Then open: **http://localhost:8080/**
 
 ## Documentation
 
-- **For Users:** [FAQ](docs/EN/02-user/FAQ.md), [Wine Enrichment](docs/EN/05-enrichment/ENRICHMENT.md), [Notifications Setup](docs/EN/02-user/NOTIFICATIONS_SETUP.md), [Barcode Guide](docs/EN/05-enrichment/BARCODE_GUIDE.md)
-- **For Admins:** [Admin Panel Guide](docs/EN/06-legacy/ADMIN_GUIDE.md) - Configure domain, branding, colors, reverse proxy. **[Backup & Restore](docs/EN/03-admin/BACKUP_RESTORE_GUIDE.md)** - Complete backup strategies. **[Data Migration](docs/EN/03-admin/DATA_MIGRATION_GUIDE.md)** - Move servers easily.
-- **Security:** **[🔐 ANSSI Security Guide](SECURITE_ANSSI.md)** - Complete security documentation. **[Encryption Guide](CHIFFREMENT.md)** - Data encryption implementation.
-- **For Developers:** Full documentation in `.docs/` folder
-- **API Users:** **[Complete API Reference with Examples](docs/EN/04-api/API_REFERENCE_COMPLETE.md)** - All endpoints + curl examples
+- **[🚀 Quick Start](docs/QUICK_START.md)** - Get up and running in 2 minutes.
+- **[📖 Commands Cheatsheet](docs/COMMANDS_CHEATSHEET.md)** - Essential commands for development and maintenance.
+- **[🔐 Security & Encryption](docs/SECURITY.md)** - ANSSI-compliant security implementation details.
+- **[🛠️ Development Guide](docs/DEVELOPMENT.md)** - Technical overview for developers and testing procedures.
+- **[📊 User Guide](docs/USER_GUIDE.md)** - How to use the dashboard and heatmap features.
 
 ---
 
@@ -117,7 +117,6 @@ Then open: **http://localhost:8080/**
 ✅ Barcode scanning support  
 ✅ Thread-safe background services (AlertGenerator)  
 ✅ Atomic database transactions  
-✅ **All critical fixes implemented and tested** (see [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md))  
 
 ---
 
@@ -133,7 +132,7 @@ MIT
 
 Gérez votre collection de vins, spiritueux et bières sans effort. Suivez les bouteilles, savez quand les boire et recevez des alertes intelligentes—tout auto-hébergé et sécurisé.
 
-**Compagnon:** [App Android](https://github.com/jackthomasanderson/glou-android) · [Docs](docs/)
+**🚀 [Démarrage Rapide](docs/QUICK_START.md)** | **📖 [Commandes](docs/COMMANDS_CHEATSHEET.md)** | **📱 [App Android](https://github.com/jackthomasanderson/glou-android)** | **🔐 [Sécurité](docs/SECURITY.md)**
 
 **Status:** ✅ Prêt Production (v1.0.0) | Tests: ✅ Validés | Build: ✅ Succès
 
@@ -200,10 +199,11 @@ Puis ouvrir: **http://localhost:8080/**
 
 ### Documentation
 
-- **Utilisateurs:** [FAQ](docs/FR/02-user/FAQ.md), [Enrichissement Vins](docs/FR/05-enrichment/ENRICHMENT.md), [Notifications](docs/FR/02-user/NOTIFICATIONS_SETUP.md), [Codes-barres](docs/FR/05-enrichment/BARCODE_GUIDE.md)
-- **Administrateurs:** [Guide Admin](docs/FR/06-legacy/ADMIN_GUIDE.md) - Domaine, marque, couleurs, reverse proxy. **[Sauvegarde & Restauration](docs/FR/03-admin/BACKUP_RESTORE_GUIDE.md)**. **[Migration de Données](docs/FR/03-admin/DATA_MIGRATION_GUIDE.md)**
-- **Développeurs:** Documentation complète dans `.docs/`
-- **API:** [Référence API Complète](docs/FR/04-api/API_REFERENCE_COMPLETE.md) avec exemples curl
+- **[🚀 Démarrage Rapide](docs/QUICK_START.md)**
+- **[📖 Aide-mémoire Commandes](docs/COMMANDS_CHEATSHEET.md)**
+- **[🔐 Sécurité & Chiffrement](docs/SECURITY.md)**
+- **[🛠️ Guide de Développement](docs/DEVELOPMENT.md)**
+- **[📊 Guide Utilisateur](docs/USER_GUIDE.md)**
 
 ---
 
@@ -217,4 +217,4 @@ Puis ouvrir: **http://localhost:8080/**
 ✅ Historique complet & audit trail  
 ✅ Services thread-safe (AlertGenerator)  
 ✅ Transactions atomiques  
-✅ **Tous les bugs critiques fixés et testés** (voir [IMPLEMENTATION_SUMMARY.md](./IMPLEMENTATION_SUMMARY.md))
+
