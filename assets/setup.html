@@ -763,14 +763,19 @@
         languageSelect.addEventListener('change', (e) => {
             const currentSlogan = sloganInput.value;
             // Ne changer que si c'est encore le slogan par défaut
-            if (currentSlogan === 'Wine Management System' || currentSlogan === 'Système de gestion de cave') {
-                sloganInput.value = e.target.value === 'fr' ? 'Système de gestion de cave' : 'Wine Management System';
+            if (currentSlogan === 'Beverage Management System' || currentSlogan === 'Système de gestion de boissons' || currentSlogan === '') {
+                sloganInput.value = e.target.value === 'fr' ? 'Système de gestion de boissons' : 'Beverage Management System';
             }
+            // Mettre à jour la langue et le contenu
+            currentLanguage = e.target.value;
+            updateContent();
         });
         
         // Initialiser le slogan selon la langue par défaut
         if (languageSelect.value === 'fr') {
-            sloganInput.value = 'Système de gestion de cave';
+            sloganInput.value = 'Système de gestion de boissons';
+        } else {
+            sloganInput.value = 'Beverage Management System';
         }
 
         // Validation du mot de passe en temps réel
@@ -1096,9 +1101,9 @@
                 customizationTitle: 'Customize Your Glou',
                 customizationSubtitle: 'Personalize the appearance and information',
                 appTitle: 'Application Title',
-                appTitlePlaceholder: 'My Wine Collection',
+                appTitlePlaceholder: 'My Beverage Collection',
                 appSlogan: 'Slogan',
-                appSloganPlaceholder: 'Wine Management System',
+                appSloganPlaceholder: 'Beverage Management System',
                 themeColors: 'Theme Colors',
                 primaryColor: 'Primary Color',
                 secondaryColor: 'Secondary Color',
@@ -1355,17 +1360,20 @@
             currentLanguage = detectLanguage();
             console.log('Langue choisie:', currentLanguage);
             
-            // Initialiser les valeurs par défaut selon la langue
-            const sloganInput = document.getElementById('app-slogan');
-            if (currentLanguage === 'fr') {
-                sloganInput.value = 'Système de gestion de cave';
-                console.log('Slogan français appliqué:', sloganInput.value);
-            } else {
-                sloganInput.value = 'Wine Management System';
-                console.log('Slogan anglais appliqué:', sloganInput.value);
-            }
-            
+            // IMPORTANT: Mettre à jour le contenu AVANT d'initialiser les valeurs
             updateContent();
+            
+            // Initialiser les valeurs par défaut selon la langue APRES updateContent
+            setTimeout(() => {
+                const sloganInput = document.getElementById('app-slogan');
+                if (currentLanguage === 'fr') {
+                    sloganInput.value = 'Système de gestion de boissons';
+                    console.log('Slogan français appliqué:', sloganInput.value);
+                } else {
+                    sloganInput.value = 'Beverage Management System';
+                    console.log('Slogan anglais appliqué:', sloganInput.value);
+                }
+            }, 100);
 
             fetch('/api/setup/check')
                 .then(response => response.json())
