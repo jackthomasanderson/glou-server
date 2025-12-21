@@ -436,7 +436,7 @@
     <div class="wizard-container">
         <div class="wizard-header">
             <h1>🍷 Bienvenue sur Glou</h1>
-            <p>Configuration initiale en 4 étapes</p>
+            <p>Configuration initiale en 5 étapes</p>
         </div>
 
         <div class="wizard-body">
@@ -455,6 +455,10 @@
                 </div>
                 <div class="step" data-step="4">
                     <div class="step-circle">4</div>
+                    <div class="step-label">Notifications</div>
+                </div>
+                <div class="step" data-step="5">
+                    <div class="step-circle">5</div>
                     <div class="step-label">Confirmation</div>
                 </div>
             </div>
@@ -480,9 +484,8 @@
 
                     <div class="form-group">
                         <label for="password">Mot de passe *</label>
-                        <input type="password" id="password" required minlength="8" placeholder="••••••••••••">
+                        <input type="password" id="password" required placeholder="••••••••••••">
                         <small style="display: block; margin-top: 8px; line-height: 1.5; color: #666;">
-                            Minimum 8 caractères requis<br>
                             <strong style="color: #ff9800;">⚠️ Fortement recommandé :</strong> 12+ caractères avec majuscules, minuscules, chiffres et caractères spéciaux
                         </small>
                         <div id="password-strength" style="margin-top: 10px;"></div>
@@ -490,7 +493,7 @@
 
                     <div class="form-group">
                         <label for="password-confirm">Confirmer le mot de passe *</label>
-                        <input type="password" id="password-confirm" required minlength="8" placeholder="••••••••••••">
+                        <input type="password" id="password-confirm" required placeholder="••••••••••••">
                     </div>
                 </div>
 
@@ -537,11 +540,12 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="language">Langue par défaut</label>
+                        <label for="language">Langue de l'interface utilisateur</label>
                         <select id="language">
                             <option value="fr">Français</option>
                             <option value="en">English</option>
                         </select>
+                        <small>Définit la langue de l'interface de l'application</small>
                     </div>
                 </div>
 
@@ -573,8 +577,82 @@
                     </div>
                 </div>
 
-                <!-- Étape 4: Confirmation -->
+                <!-- Étape 4: Notifications (optionnel) -->
                 <div class="step-content" data-step="4">
+                    <h2>Notifications (optionnel)</h2>
+                    <p style="color: #666; margin-bottom: 25px;">Configurez les notifications pour recevoir des alertes. Cette étape est facultative.</p>
+
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                        <h3 style="margin-bottom: 15px; font-size: 1.1rem;">🔔 Gotify</h3>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Service de notifications push auto-hébergé</p>
+                        
+                        <div class="form-group">
+                            <label for="gotify-url">URL Gotify</label>
+                            <input type="url" id="gotify-url" placeholder="https://gotify.example.com">
+                            <small>L'URL de votre serveur Gotify</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="gotify-token">Token Gotify</label>
+                            <input type="text" id="gotify-token" placeholder="AbCdEf123456">
+                            <small>Le token d'application Gotify</small>
+                        </div>
+                    </div>
+
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                        <h3 style="margin-bottom: 15px; font-size: 1.1rem;">✉️ SMTP (Email)</h3>
+                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">Configuration du serveur d'emails sortants</p>
+                        
+                        <div class="form-group">
+                            <label for="smtp-host">Serveur SMTP</label>
+                            <input type="text" id="smtp-host" placeholder="smtp.gmail.com">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smtp-port">Port SMTP</label>
+                            <input type="number" id="smtp-port" placeholder="587" value="587">
+                            <small>Ports courants : 587 (TLS), 465 (SSL), 25 (non sécurisé)</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smtp-username">Nom d'utilisateur</label>
+                            <input type="text" id="smtp-username" placeholder="user@example.com">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smtp-password">Mot de passe</label>
+                            <input type="password" id="smtp-password" placeholder="••••••••">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smtp-from">Adresse expéditeur</label>
+                            <input type="email" id="smtp-from" placeholder="noreply@example.com">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="smtp-to">Adresse destinataire</label>
+                            <input type="email" id="smtp-to" placeholder="admin@example.com">
+                            <small>L'adresse qui recevra les notifications</small>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="smtp-use-tls" checked>
+                                <label for="smtp-use-tls" style="margin-bottom: 0;">Utiliser TLS/STARTTLS</label>
+                            </div>
+                            <small>Recommandé pour la sécurité</small>
+                        </div>
+                    </div>
+
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #2196f3;">
+                        <p style="margin: 0; color: #1565c0; font-size: 0.9rem;">
+                            💡 <strong>Info :</strong> Vous pouvez passer cette étape et configurer les notifications plus tard dans les paramètres.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Étape 5: Confirmation -->
+                <div class="step-content" data-step="5">
                     <h2>Résumé de la configuration</h2>
                     <p style="color: #666; margin-bottom: 25px;">Vérifiez les informations avant de finaliser.</p>
 
@@ -621,7 +699,17 @@
                             <span class="summary-value" id="summary-proxy">-</span>
                         </div>
                     </div>
-
+                    <div class="summary-section">
+                        <h3>🔔 Notifications</h3>
+                        <div class="summary-item">
+                            <span class="summary-label">Gotify:</span>
+                            <span class="summary-value" id="summary-gotify">-</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">SMTP:</span>
+                            <span class="summary-value" id="summary-smtp">-</span>
+                        </div>
+                    </div>
                     <div class="loading" id="loading">
                         <div class="spinner"></div>
                         <p>Configuration en cours...</p>
@@ -639,7 +727,7 @@
 
     <script>
         let currentStep = 1;
-        const totalSteps = 4;
+        const totalSteps = 5;
 
         // Synchronisation des color pickers
         function setupColorSync(colorId, textId) {
@@ -660,6 +748,23 @@
         setupColorSync('theme-color', 'theme-color-text');
         setupColorSync('secondary-color', 'secondary-color-text');
         setupColorSync('accent-color', 'accent-color-text');
+
+        // Mise à jour du slogan par défaut selon la langue
+        const languageSelect = document.getElementById('language');
+        const sloganInput = document.getElementById('app-slogan');
+        
+        languageSelect.addEventListener('change', (e) => {
+            const currentSlogan = sloganInput.value;
+            // Ne changer que si c'est encore le slogan par défaut
+            if (currentSlogan === 'Wine Management System' || currentSlogan === 'Système de gestion de cave') {
+                sloganInput.value = e.target.value === 'fr' ? 'Système de gestion de cave' : 'Wine Management System';
+            }
+        });
+        
+        // Initialiser le slogan selon la langue par défaut
+        if (languageSelect.value === 'fr') {
+            sloganInput.value = 'Système de gestion de cave';
+        }
 
         // Validation du mot de passe en temps réel
         const passwordInput = document.getElementById('password');
@@ -698,31 +803,27 @@
             let showWarning = false;
             let warningText = '';
             
-            if (checks.length8) {
-                if (typeCount >= 4 && checks.length12) {
-                    strength = 'very-strong';
-                    strengthText = 'Excellent';
-                } else if (typeCount >= 3 && checks.length12) {
-                    strength = 'strong';
-                    strengthText = 'Fort';
-                } else if (typeCount >= 3) {
-                    strength = 'medium';
-                    strengthText = 'Moyen';
-                    showWarning = true;
-                    warningText = '⚠️ Nous vous recommandons fortement d\'utiliser au moins 12 caractères pour une sécurité optimale.';
-                } else if (typeCount >= 2) {
-                    strength = 'weak';
-                    strengthText = 'Faible';
-                    showWarning = true;
-                    warningText = '⚠️ Ce mot de passe est faible. Pour une meilleure sécurité, utilisez 12+ caractères avec majuscules, minuscules, chiffres et caractères spéciaux.';
-                } else {
-                    strength = 'very-weak';
-                    strengthText = 'Très faible';
-                    showWarning = true;
-                    warningText = '⚠️ Ce mot de passe est très faible. Ajoutez différents types de caractères.';
-                }
+            if (typeCount >= 4 && checks.length12) {
+                strength = 'very-strong';
+                strengthText = 'Excellent';
+            } else if (typeCount >= 3 && checks.length12) {
+                strength = 'strong';
+                strengthText = 'Fort';
+            } else if (typeCount >= 3 && checks.length8) {
+                strength = 'medium';
+                strengthText = 'Moyen';
+                showWarning = true;
+                warningText = '⚠️ Nous vous recommandons fortement d\'utiliser au moins 12 caractères pour une sécurité optimale.';
+            } else if (typeCount >= 2 || checks.length8) {
+                strength = 'weak';
+                strengthText = 'Faible';
+                showWarning = true;
+                warningText = '⚠️ Ce mot de passe est faible. Pour une meilleure sécurité, utilisez 12+ caractères avec majuscules, minuscules, chiffres et caractères spéciaux.';
             } else {
-                strengthText = 'Trop court';
+                strength = 'very-weak';
+                strengthText = 'Très faible';
+                showWarning = true;
+                warningText = '⚠️ Ce mot de passe est très faible. Nous vous recommandons fortement d\'utiliser au moins 8 caractères et différents types de caractères.';
             }
 
             const recommendedItems = [];
@@ -736,9 +837,9 @@
                 </div>
                 <div class="password-strength-text">${strengthText}</div>
                 <div class="password-requirements">
-                    <div class="requirement ${checks.length8 ? 'met' : 'unmet'}">Minimum 8 caractères (requis)</div>
-                    <div class="requirement ${checks.length12 ? 'met' : 'recommended'}">12+ caractères (recommandé)</div>
-                    <div class="requirement ${typeCount >= 3 ? 'met' : 'recommended'}">Au moins 3 types de caractères (recommandé)</div>
+                    <div class="requirement ${checks.length8 ? 'met' : 'recommended'}">8+ caractères (recommandé)</div>
+                    <div class="requirement ${checks.length12 ? 'met' : 'recommended'}">12+ caractères (fortement recommandé)</div>
+                    <div class="requirement ${typeCount >= 3 ? 'met' : 'recommended'}">Au moins 3 types de caractères</div>
                     <div class="requirement ${checks.lower ? 'met' : 'unmet'}">Lettres minuscules</div>
                     <div class="requirement ${checks.upper ? 'met' : 'unmet'}">Lettres majuscules</div>
                     <div class="requirement ${checks.digit ? 'met' : 'unmet'}">Chiffres</div>
@@ -834,8 +935,8 @@
                     return false;
                 }
 
-                if (!password || password.length < 8) {
-                    showError('Le mot de passe doit contenir au moins 8 caractères');
+                if (!password) {
+                    showError('Le mot de passe est requis');
                     return false;
                 }
 
@@ -869,6 +970,13 @@
             
             document.getElementById('summary-protocol').textContent = document.getElementById('public-protocol').value.toUpperCase();
             document.getElementById('summary-proxy').textContent = document.getElementById('proxy-mode').checked ? 'Oui' : 'Non';
+            
+            // Notifications
+            const gotifyUrl = document.getElementById('gotify-url').value;
+            document.getElementById('summary-gotify').textContent = gotifyUrl ? 'Configuré' : 'Non configuré';
+            
+            const smtpHost = document.getElementById('smtp-host').value;
+            document.getElementById('summary-smtp').textContent = smtpHost ? 'Configuré' : 'Non configuré';
         }
 
         function submitSetup() {
@@ -892,7 +1000,17 @@
                 language: document.getElementById('language').value,
                 public_domain: document.getElementById('public-domain').value,
                 public_protocol: document.getElementById('public-protocol').value,
-                proxy_mode: document.getElementById('proxy-mode').checked
+                proxy_mode: document.getElementById('proxy-mode').checked,
+                // Notifications (optionnel)
+                gotify_url: document.getElementById('gotify-url').value,
+                gotify_token: document.getElementById('gotify-token').value,
+                smtp_host: document.getElementById('smtp-host').value,
+                smtp_port: parseInt(document.getElementById('smtp-port').value) || 587,
+                smtp_username: document.getElementById('smtp-username').value,
+                smtp_password: document.getElementById('smtp-password').value,
+                smtp_from: document.getElementById('smtp-from').value,
+                smtp_to: document.getElementById('smtp-to').value,
+                smtp_use_tls: document.getElementById('smtp-use-tls').checked
             };
 
             fetch('/api/setup/complete', {
@@ -913,7 +1031,7 @@
             .then(data => {
                 // Succès - rediriger vers la page principale
                 setTimeout(() => {
-                    window.location.href = '/';
+                    window.location.href = '/assets/glou.html';
                 }, 1000);
             })
             .catch(error => {
@@ -930,7 +1048,7 @@
                 .then(response => response.json())
                 .then(data => {
                     if (!data.needs_setup) {
-                        window.location.href = '/';
+                        window.location.href = '/assets/glou.html';
                     }
                 })
                 .catch(error => {

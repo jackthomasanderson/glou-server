@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -29,6 +30,17 @@ type SetupRequest struct {
 	PublicDomain   string `json:"public_domain"`
 	PublicProtocol string `json:"public_protocol"`
 	ProxyMode      bool   `json:"proxy_mode"`
+
+	// Notifications (optionnel)
+	GotifyURL    string `json:"gotify_url"`
+	GotifyToken  string `json:"gotify_token"`
+	SMTPHost     string `json:"smtp_host"`
+	SMTPPort     int    `json:"smtp_port"`
+	SMTPUsername string `json:"smtp_username"`
+	SMTPPassword string `json:"smtp_password"`
+	SMTPFrom     string `json:"smtp_from"`
+	SMTPTo       string `json:"smtp_to"`
+	SMTPUseTLS   bool   `json:"smtp_use_tls"`
 
 	// Other settings
 	Language string `json:"language"`
@@ -165,6 +177,15 @@ func (s *Server) handleCompleteSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Sauvegarder les paramètres de notifications dans les variables d'environnement
+	// (pour l'instant, on les enregistre dans un fichier .env.notifications)
+	if req.GotifyURL != "" || req.SMTPHost != "" {
+		if err := saveNotificationSettings(&req); err != nil {
+			// Ne pas bloquer le setup si la sauvegarde des notifications échoue
+			fmt.Printf("Warning: Failed to save notification settings: %v\n", err)
+		}
+	}
+
 	// Marquer le setup comme complété
 	if err := s.store.MarkSetupComplete(ctx); err != nil {
 		http.Error(w, "Failed to mark setup complete", http.StatusInternalServerError)
@@ -199,13 +220,8 @@ func validateSetupRequest(req *SetupRequest) error {
 	if req.Password == "" {
 		return fmt.Errorf("password is required")
 	}
-	
-	// Validation minimale du mot de passe (8 caractères minimum)
-	if len(req.Password) < 8 {
-		return fmt.Errorf("le mot de passe doit contenir au moins 8 caractères")
-	}
 
-	// Validation des couleurs (format hexadécimal)
+	// Validation des couleurs du thème
 	if req.ThemeColor != "" && !isValidHexColor(req.ThemeColor) {
 		return fmt.Errorf("invalid theme color format")
 	}
@@ -247,7 +263,7 @@ func isValidHexColor(color string) bool {
 // 0 = très faible, 1 = faible, 2 = moyen, 3 = fort, 4 = très fort
 func checkPasswordStrength(password string) int {
 	score := 0
-	
+
 	// Longueur
 	if len(password) >= 8 {
 		score++
@@ -255,7 +271,7 @@ func checkPasswordStrength(password string) int {
 	if len(password) >= 12 {
 		score++
 	}
-	
+
 	// Types de caractères
 	var hasLower, hasUpper, hasDigit, hasSpecial bool
 	for _, char := range password {
@@ -270,7 +286,7 @@ func checkPasswordStrength(password string) int {
 			hasSpecial = true
 		}
 	}
-	
+
 	typeCount := 0
 	if hasLower {
 		typeCount++
@@ -284,13 +300,50 @@ func checkPasswordStrength(password string) int {
 	if hasSpecial {
 		typeCount++
 	}
-	
+
 	if typeCount >= 2 {
 		score++
 	}
 	if typeCount >= 3 {
 		score++
 	}
-	
+
 	return score
+}
+
+// saveNotificationSettings sauvegarde les paramètres de notifications dans un fichier
+func saveNotificationSettings(req *SetupRequest) error {
+	content := "# Configuration des notifications - Générée par le wizard de configuration\n"
+	content += "# Pour appliquer ces paramètres, définissez ces variables d'environnement ou utilisez ce fichier avec votre système de déploiement\n\n"
+
+	if req.GotifyURL != "" {
+		content += "# Gotify\n"
+		content += fmt.Sprintf("GOTIFY_URL=%s\n", req.GotifyURL)
+		if req.GotifyToken != "" {
+			content += fmt.Sprintf("GOTIFY_TOKEN=%s\n", req.GotifyToken)
+		}
+		content += "\n"
+	}
+
+	if req.SMTPHost != "" {
+		content += "# SMTP\n"
+		content += fmt.Sprintf("SMTP_HOST=%s\n", req.SMTPHost)
+		content += fmt.Sprintf("SMTP_PORT=%d\n", req.SMTPPort)
+		if req.SMTPUsername != "" {
+			content += fmt.Sprintf("SMTP_USERNAME=%s\n", req.SMTPUsername)
+		}
+		if req.SMTPPassword != "" {
+			content += fmt.Sprintf("SMTP_PASSWORD=%s\n", req.SMTPPassword)
+		}
+		if req.SMTPFrom != "" {
+			content += fmt.Sprintf("SMTP_FROM=%s\n", req.SMTPFrom)
+		}
+		if req.SMTPTo != "" {
+			content += fmt.Sprintf("SMTP_TO=%s\n", req.SMTPTo)
+		}
+		content += fmt.Sprintf("SMTP_USE_TLS=%t\n", req.SMTPUseTLS)
+	}
+
+	// Écrire dans un fichier .env.notifications
+	return os.WriteFile(".env.notifications", []byte(content), 0600)
 }

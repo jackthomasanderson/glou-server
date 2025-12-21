@@ -92,6 +92,28 @@
             background: rgba(255,255,255,0.3);
         }
 
+        .admin-btn {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.7;
+        }
+
+        .admin-btn:hover {
+            background: rgba(255,255,255,0.25);
+            opacity: 1;
+            transform: translateY(-1px);
+        }
+
         /* Container */
         .container {
             max-width: 1200px;
@@ -564,6 +586,10 @@
             <p>Gestion intelligente de collection</p>
         </div>
         <div class="navbar-actions">
+            <a href="/assets/admin.html" class="admin-btn" title="Administration">
+                <span>⚙️</span>
+                <span style="font-size: 0.85rem;">Admin</span>
+            </a>
             <button class="dark-mode-toggle" onclick="toggleDarkMode()">🌙</button>
         </div>
     </nav>

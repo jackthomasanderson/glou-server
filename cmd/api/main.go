@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/romain/glou-server/internal/crypto"
 	"github.com/romain/glou-server/internal/domain"
 	"github.com/romain/glou-server/internal/store"
 )
@@ -200,15 +201,13 @@ func (s *Server) setupRoutes() {
 	// Health check
 	s.router.HandleFunc("GET /health", applySecurityMiddlewares(s.handleHealth))
 
-	// Servir les assets statiques de l'application React
-	// Les fichiers buildés sont dans web/dist/assets
-	s.router.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("web/dist/assets"))))
+	// Servir les assets statiques
+	s.router.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 
-	// Servir l'interface web React pour toutes les routes non-API
-	// Cela permet à React Router d'avoir des URLs propres comme /dashboard, /wines, etc.
+	// Servir l'interface web pour toutes les routes non-API
 	s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		// Servir index.html pour toutes les routes frontend
-		http.ServeFile(w, r, "web/dist/index.html")
+		// Servir glou.html pour toutes les routes frontend
+		http.ServeFile(w, r, "assets/glou.html")
 	}))
 }
 
@@ -704,6 +703,20 @@ func main() {
 		log.Fatalf("Failed to initialize store: %v", err)
 	}
 	defer s.Close()
+
+	// Initialiser le service de chiffrement conforme ANSSI
+	if config.EncryptionPassphrase != "" {
+		encService, err := crypto.NewEncryptionService(config.EncryptionPassphrase, config.EncryptionSalt)
+		if err != nil {
+			log.Fatalf("Failed to initialize encryption service: %v", err)
+		}
+		s.SetEncryptionService(encService)
+		log.Println("Encryption service initialized (ANSSI AES-256-GCM)")
+	} else if config.Environment == "production" {
+		log.Fatalf("Encryption passphrase required in production (ANSSI requirement)")
+	} else {
+		log.Println("WARNING: Encryption disabled (only for development)")
+	}
 
 	// Démarrer la génération automatique d'alertes (toutes les heures)
 	alertGenerator := store.NewAlertGenerator(s)
