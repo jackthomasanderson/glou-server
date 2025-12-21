@@ -179,11 +179,22 @@ func (s *Server) handleCompleteSetup(w http.ResponseWriter, r *http.Request) {
 
 	// Sauvegarder les paramètres de notifications dans les variables d'environnement
 	// (pour l'instant, on les enregistre dans un fichier .env.notifications)
+	smtpConfigured := false
 	if req.GotifyURL != "" || req.SMTPHost != "" {
 		if err := saveNotificationSettings(&req); err != nil {
 			// Ne pas bloquer le setup si la sauvegarde des notifications échoue
 			fmt.Printf("Warning: Failed to save notification settings: %v\n", err)
 		}
+		// Marquer SMTP comme configuré si les paramètres sont fournis
+		if req.SMTPHost != "" && req.SMTPFrom != "" {
+			smtpConfigured = true
+		}
+	}
+
+	// Mettre à jour le flag SMTP configuré dans les settings
+	settings.SMTPConfigured = smtpConfigured
+	if err := s.store.UpdateSettings(ctx, settings); err != nil {
+		fmt.Printf("Warning: Failed to update SMTP configured flag: %v\n", err)
 	}
 
 	// Marquer le setup comme complété
