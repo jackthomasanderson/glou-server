@@ -81,10 +81,11 @@ go build -o api ./cmd/api
 - [Development Guide](docs/EN/DEVELOPMENT.md)
 
 ### 🇫🇷 Français
-- [Guide de démarrage rapide](docs/EN/QUICK_START.md) (EN)
+- [Guide de démarrage rapide](docs/FR/QUICK_START.md)
 - [Guide Utilisateur](docs/FR/USER_GUIDE.md)
-- [Sécurité](docs/EN/SECURITY.md) (EN)
-- [Développement](docs/EN/DEVELOPMENT.md) (EN)
+- [Aide-mémoire Commandes](docs/FR/COMMANDS_CHEATSHEET.md)
+- [Sécurité](docs/FR/SECURITY.md)
+- [Développement](docs/FR/DEVELOPMENT.md)
 
 ---
 

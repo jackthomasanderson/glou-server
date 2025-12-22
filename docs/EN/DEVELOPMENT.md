@@ -1,18 +1,19 @@
-# 🛠️ Guide de Développement & Tests
+# 🛠️ Development & Testing Guide
 
-## 🔐 Système d'Authentification
+## 🔐 Authentication System
 
-Le système d'authentification protège l'ensemble du serveur.
+The authentication system protects the entire server.
 
-### Fonctionnalités
-- **Sessions** : Basées sur des cookies sécurisés.
-- **Inscription** : Validation stricte des mots de passe (8+ chars, Maj, Min, Chiffre).
-- **Réinitialisation** : Système de tokens sécurisés par email (nécessite SMTP).
+### Features
+- **Sessions**: Based on secure cookies.
+- **Registration**: Strict password validation (8+ chars, Upper, Lower, Digit).
+- **Reset**: Secure token system via email (requires SMTP).
 
 ## QA
 
-Procédures de test locales et scripts de test ont été supprimés du dépôt principal. Utilisez l'intégration continue (CI) ou des environnements de staging pour exécuter des suites de test et des scénarios manuels.
-## 🏗️ Architecture Frontend
-Le frontend est une application React servie par le binaire Go.
-- **Build** : `npm run build` dans le dossier `web/`.
-- **Dev** : `npm run dev` avec proxy vers le backend Go (port 8080).
+Local test procedures and test scripts have been removed from the main repository. Use Continuous Integration (CI) or staging environments to run test suites and manual scenarios.
+
+## 🏗️ Frontend Architecture
+The frontend is a React application served by the Go binary.
+- **Build**: `npm run build` in the `web/` folder.
+- **Dev**: `npm run dev` with proxy to the Go backend (port 8080).

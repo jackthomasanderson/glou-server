@@ -9,7 +9,7 @@
 
 Gérez votre collection de vins, spiritueux et bières sans effort. Suivez vos bouteilles, sachez exactement quand les boire et recevez des alertes intelligentes — le tout auto-hébergé et sécurisé.
 
-**🚀 [Démarrage Rapide](../EN/QUICK_START.md)** | **📖 [Guide Utilisateur](USER_GUIDE.md)** | **📱 [App Android](https://github.com/jackthomasanderson/glou-android)** | **🔐 [Sécurité](../EN/SECURITY.md)**
+**🚀 [Démarrage Rapide](QUICK_START.md)** | **📖 [Guide Utilisateur](USER_GUIDE.md)** | **📱 [App Android](https://github.com/jackthomasanderson/glou-android)** | **🔐 [Sécurité](SECURITY.md)**
 
 ---
 
@@ -75,17 +75,17 @@ go build -o api ./cmd/api
 
 ## 📖 Documentation
 
-- [Démarrage Rapide](../EN/QUICK_START.md) (EN) - Instructions d'installation détaillées.
+- [Guide de Démarrage Rapide](QUICK_START.md) - Instructions d'installation détaillées.
 - [Guide Utilisateur](USER_GUIDE.md) - Comment utiliser les heatmaps et gérer votre collection.
-- [Aide-mémoire Commandes](../EN/COMMANDS_CHEATSHEET.md) (EN) - Outils CLI pour la gestion des utilisateurs.
-- [Sécurité](../EN/SECURITY.md) (EN) - Détails sur la protection de vos données.
-- [Guide de Développement](../EN/DEVELOPMENT.md) (EN) - Comment contribuer à Glou.
+- [Aide-mémoire Commandes](COMMANDS_CHEATSHEET.md) - Outils CLI pour la gestion des utilisateurs.
+- [Sécurité](SECURITY.md) - Détails sur la protection de vos données.
+- [Guide de Développement](DEVELOPMENT.md) - Comment contribuer à Glou.
 
 ---
 
 ## 🤝 Contribuer
 
-Les contributions sont les bienvenues ! Qu'il s'agisse d'un rapport de bug, d'une nouvelle fonctionnalité ou d'une traduction, n'hésitez pas à ouvrir une issue ou une pull request. Voir [DEVELOPMENT.md](../EN/DEVELOPMENT.md) pour plus de détails.
+Les contributions sont les bienvenues ! Qu'il s'agisse d'un rapport de bug, d'une nouvelle fonctionnalité ou d'une traduction, n'hésitez pas à ouvrir une issue ou une pull request. Voir [DEVELOPMENT.md](DEVELOPMENT.md) pour plus de détails.
 
 ## 📄 Licence
 
@@ -94,9 +94,6 @@ Ce projet est sous licence **MIT** - voir le fichier [../../LICENSE](../../LICEN
 ---
 
 *Glou est développé avec ❤️ pour les passionnés de vin qui tiennent à leur vie privée.*
-
-
-## Démarrage rapide (2 minutes)
 
 Option 1 — Local :
 
