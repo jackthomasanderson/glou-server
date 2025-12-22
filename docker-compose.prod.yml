@@ -1,8 +1,6 @@
-version: "3.8"
-
 services:
   glou-server:
-    image: ghcr.io/${GITHUB_REPOSITORY:-romain/glou-server}:alpha
+    image: ghcr.io/glou-server:latest
     container_name: glou-server
     restart: unless-stopped
     
