@@ -1,6 +1,6 @@
 module github.com/romain/glou-server
 
-go 1.24.0
+go 1.23
 
 require (
 	golang.org/x/crypto v0.24.0
