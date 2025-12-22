@@ -43,6 +43,9 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Audit
+	s.store.LogActivity(ctx, "admin", 0, "update_settings", map[string]string{"by": r.Context().Value(SessionUserKey).(string)}, s.getClientIP(r))
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
@@ -67,6 +70,9 @@ func (s *Server) handleUploadLogo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"logo_url": logoURL})
+
+	// Audit
+	s.store.LogActivity(r.Context(), "admin", 0, "upload_logo", map[string]string{"file": handler.Filename, "by": r.Context().Value(SessionUserKey).(string)}, s.getClientIP(r))
 }
 
 // handleGetUsers récupère la liste des utilisateurs (pour futur)

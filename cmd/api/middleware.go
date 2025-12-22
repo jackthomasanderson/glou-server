@@ -22,10 +22,26 @@ type ipLimit struct {
 
 // NewRateLimiter crée un nouveau rate limiter
 func NewRateLimiter(config *Config) *RateLimiter {
-	return &RateLimiter{
+	rl := &RateLimiter{
 		config: config,
 		ips:    make(map[string]*ipLimit),
 	}
+	// Nettoyage périodique des IP anciennes
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			rl.mu.Lock()
+			now := time.Now()
+			for ip, lim := range rl.ips {
+				if now.After(lim.resetTime.Add(rl.config.RateLimitWindow)) {
+					delete(rl.ips, ip)
+				}
+			}
+			rl.mu.Unlock()
+		}
+	}()
+	return rl
 }
 
 // Allow vérifie si une requête est autorisée
@@ -195,6 +211,22 @@ func (s *Server) setupCheckMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
+		next(w, r)
+	}
+}
+
+// csrfProtectionMiddleware vérifie le token CSRF pour les requêtes mutatrices
+func (s *Server) csrfProtectionMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost, http.MethodPut, http.MethodDelete:
+			headerToken := r.Header.Get("X-CSRF-Token")
+			csrfCookie, err := r.Cookie("glou_csrf")
+			if err != nil || headerToken == "" || csrfCookie.Value == "" || headerToken != csrfCookie.Value {
+				s.respondError(w, http.StatusForbidden, "CSRF token invalid or missing", nil)
+				return
+			}
+		}
 		next(w, r)
 	}
 }

@@ -43,14 +43,22 @@ In a world of cloud-only apps, **Glou** puts you back in control of your cellar 
 - [Security Overview](SECURITY.md)
 - [Development Guide](DEVELOPMENT.md)
 
----
 
 ## 🚀 Quick Start (2 minutes)
 
 ### Option 1: Docker (Recommended)
+### Option 1: Docker (Recommended)
 ```bash
-docker-compose up -d
+# Set required secrets
+export SESSION_SECRET=$(openssl rand -base64 48)
+export ENCRYPTION_PASSPHRASE=$(openssl rand -base64 48)
+export ENCRYPTION_SALT=$(openssl rand -hex 16)
+
+# Start
+docker compose up -d
 ```
+
+Compose file is provided at the project root (`docker-compose.yml`). It mounts a volume for persistent `glou.db` and supports Gotify/SMTP configuration via environment variables.
 
 ### Option 2: Local Development
 ```bash
