@@ -69,7 +69,7 @@ glou-server.exe
 ```
 
 ### Option 3: Build from Source
-Ensure you have [Go 1.24+](https://go.dev/) installed.
+Ensure you have [Go 1.23+](https://go.dev/) installed.
 
 ```bash
 # Build the API

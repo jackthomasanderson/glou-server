@@ -4,7 +4,7 @@ Application professionnelle de gestion de cave à vin avec interface web moderne
 
 ## 📋 Prérequis
 
-1. **Go 1.24+** - Pour le serveur backend
+1. **Go 1.23+** - Pour le serveur backend
 2. **Node.js 18+** - Pour l'interface React (télécharger depuis https://nodejs.org/)
 
 ## 🚀 Installation en 3 étapes

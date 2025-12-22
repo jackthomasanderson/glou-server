@@ -195,7 +195,7 @@ Idéal pour tester rapidement sans Docker.
 Pour les développeurs ou si vous voulez personnaliser.
 
 ### Prérequis
-- Go 1.24+ ([télécharger](https://go.dev/dl/))
+- Go 1.23+ ([télécharger](https://go.dev/dl/))
 - Git
 
 ### Étapes

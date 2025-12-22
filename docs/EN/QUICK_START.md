@@ -4,7 +4,7 @@ Professional wine cellar management application with a modern web interface.
 
 ## 📋 Prerequisites
 
-1. **Go 1.24+** - For the backend server
+1. **Go 1.23+** - For the backend server
 2. **Node.js 18+** - For the React interface (download from https://nodejs.org/)
 
 ## 🚀 Installation in 3 Steps
