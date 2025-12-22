@@ -1,5 +1,12 @@
 # Script de déploiement Glou Server pour Windows
-# Usage: .\deploy-windows.ps1
+# Usage:
+#   Interactif: .\deploy-windows.ps1
+#   Automatique: .\deploy-windows.ps1 -Mode prod -NonInteractive
+
+param(
+    [string]$Mode = "",
+    [switch]$NonInteractive
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -28,16 +35,20 @@ if (-not (Test-Path ".env")) {
     if (Test-Path ".env.example") {
         Copy-Item ".env.example" ".env"
         Write-Host ""
-        Write-Host "  IMPORTANT: Éditez le fichier .env avec vos valeurs !" -ForegroundColor Red
-        Write-Host "  Notamment:" -ForegroundColor Yellow
-        Write-Host "    - ENCRYPTION_PASSPHRASE (minimum 32 caractères)" -ForegroundColor Yellow
-        Write-Host "    - ENCRYPTION_SALT" -ForegroundColor Yellow
-        Write-Host "    - SESSION_SECRET" -ForegroundColor Yellow
-        Write-Host ""
-        Write-Host "  Voulez-vous éditer le fichier maintenant ? (O/N)" -ForegroundColor Cyan
-        $response = Read-Host
-        if ($response -eq "O" -or $response -eq "o") {
-            notepad .env
+        if (-not $NonInteractive) {
+            Write-Host "  IMPORTANT: Éditez le fichier .env avec vos valeurs !" -ForegroundColor Red
+            Write-Host "  Notamment:" -ForegroundColor Yellow
+            Write-Host "    - ENCRYPTION_PASSPHRASE (minimum 32 caractères)" -ForegroundColor Yellow
+            Write-Host "    - ENCRYPTION_SALT" -ForegroundColor Yellow
+            Write-Host "    - SESSION_SECRET" -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "  Voulez-vous éditer le fichier maintenant ? (O/N)" -ForegroundColor Cyan
+            $response = Read-Host
+            if ($response -eq "O" -or $response -eq "o") {
+                notepad .env
+            }
+        } else {
+            Write-Host "  (auto) Fichier .env créé à partir de .env.example" -ForegroundColor Green
         }
         Write-Host ""
     } else {
@@ -78,21 +89,33 @@ Write-Host ""
 
 # Choix du mode de déploiement
 Write-Host "[5/6] Choix du mode de déploiement" -ForegroundColor Yellow
-Write-Host "  1) Production (docker-compose.prod.yml) - Image depuis GitHub" -ForegroundColor Cyan
-Write-Host "  2) Development (docker-compose.yml) - Build local" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  Votre choix (1 ou 2) ?" -ForegroundColor Yellow
-$choice = Read-Host
-
 $composeFile = "docker-compose.yml"
-if ($choice -eq "1") {
+if ($Mode -eq "prod") {
     $composeFile = "docker-compose.prod.yml"
-    Write-Host "  → Mode Production sélectionné" -ForegroundColor Green
-} elseif ($choice -eq "2") {
+    Write-Host "  → Mode Production sélectionné (paramètre)" -ForegroundColor Green
+} elseif ($Mode -eq "dev") {
     $composeFile = "docker-compose.yml"
-    Write-Host "  → Mode Development sélectionné" -ForegroundColor Green
+    Write-Host "  → Mode Development sélectionné (paramètre)" -ForegroundColor Green
 } else {
-    Write-Host "  Choix invalide, utilisation de docker-compose.yml" -ForegroundColor Yellow
+    if ($NonInteractive) {
+        $composeFile = "docker-compose.prod.yml"
+        Write-Host "  → Mode Production sélectionné (auto)" -ForegroundColor Green
+    } else {
+        Write-Host "  1) Production (docker-compose.prod.yml) - Image depuis GitHub" -ForegroundColor Cyan
+        Write-Host "  2) Development (docker-compose.yml) - Build local" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Votre choix (1 ou 2) ?" -ForegroundColor Yellow
+        $choice = Read-Host
+        if ($choice -eq "1") {
+            $composeFile = "docker-compose.prod.yml"
+            Write-Host "  → Mode Production sélectionné" -ForegroundColor Green
+        } elseif ($choice -eq "2") {
+            $composeFile = "docker-compose.yml"
+            Write-Host "  → Mode Development sélectionné" -ForegroundColor Green
+        } else {
+            Write-Host "  Choix invalide, utilisation de docker-compose.yml" -ForegroundColor Yellow
+        }
+    }
 }
 Write-Host ""
 
@@ -141,10 +164,12 @@ try {
         if ($serverReady) {
             Write-Host "  ✓ Serveur opérationnel et prêt !" -ForegroundColor Green
             Write-Host ""
-            Write-Host "  Ouvrir dans le navigateur ? (O/N)" -ForegroundColor Cyan
-            $openBrowser = Read-Host
-            if ($openBrowser -eq "O" -or $openBrowser -eq "o") {
-                Start-Process "http://localhost:8080"
+            if (-not $NonInteractive) {
+                Write-Host "  Ouvrir dans le navigateur ? (O/N)" -ForegroundColor Cyan
+                $openBrowser = Read-Host
+                if ($openBrowser -eq "O" -or $openBrowser -eq "o") {
+                    Start-Process "http://localhost:8080"
+                }
             }
         } else {
             Write-Host "  ⚠ Le serveur met du temps à démarrer..." -ForegroundColor Yellow
