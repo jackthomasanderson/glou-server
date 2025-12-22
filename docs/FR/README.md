@@ -1,8 +1,8 @@
 # 🍷 Glou - Gestion de Collection Simplifiée
 
-[![Version Go](https://img.shields.io/github/go-mod/go-version/romain/glou-server)](https://go.dev/)
+[![Version Go](https://img.shields.io/badge/Go-1.22-blue)](https://go.dev/)
 [![Docker](https://img.shields.io/badge/docker-prêt-blue.svg)](https://www.docker.com/)
-[![Licence](https://img.shields.io/github/license/romain/glou-server)](LICENSE)
+[![Licence](https://img.shields.io/badge/Licence-MIT-green)](LICENSE)
 [![Statut](https://img.shields.io/badge/statut-alpha-yellow)](https://github.com/romain/glou-server/releases)
 
 **[English](../EN/README.md)** | **[Français]**
