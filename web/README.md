@@ -1,52 +1,64 @@
-# Glou Web Application
+# 🌐 Glou Web Application
 
-Application web React avec Material UI pour la gestion de cave à vin.
+The modern, responsive web interface for the Glou wine cellar management system. Built with React, Vite, and Material UI.
 
-## Prérequis
-
-- **Node.js 18+** (télécharger depuis https://nodejs.org/)
-- **npm** (inclus avec Node.js)
-
-## Installation
-
-### 1. Installer Node.js
-
-Si ce n'est pas déjà fait :
-1. Téléchargez Node.js LTS depuis https://nodejs.org/
-2. Installez-le avec les options par défaut
-3. Redémarrez votre terminal/PowerShell
-4. Vérifiez l'installation :
-   ```powershell
-   node --version
-   npm --version
-   ```
-
-# Glou Web Application
-
-English | Français
-
-This repository contains the React frontend for Glou. Choose your language below:
-
-- **English**: this file (web/README.md)
-- **Français**: see `web/README.fr.md`
+**[English]** | **[Français](README.fr.md)**
 
 ---
 
-## Quick Start (English)
+## 🚀 Quick Start
 
-Prerequisites
-
+### Prerequisites
 - **Node.js 18+**
-- **npm**
+- **npm 9+**
 
-Install dependencies:
-
-```powershell
-cd c:\Users\Romain\Documents\_dev\glou-server\glou-server\web
+### Installation
+```bash
+# Install dependencies
 npm install
 ```
 
-Development:
+### Development
+```bash
+# Start the development server
+npm run dev
+```
+The application will be available at `http://localhost:5173`. By default, it expects the API to be running at `http://localhost:8080`.
+
+### Production Build
+```bash
+# Build for production
+npm run build
+```
+The optimized assets will be generated in the `dist/` folder.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [React 18](https://reactjs.org/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Data Fetching**: [React Query](https://tanstack.com/query/v3)
+- **Styling**: [Material UI](https://mui.com/)
+- **Charts**: [Chart.js](https://www.chartjs.org/) with `react-chartjs-2`
+- **Routing**: [React Router 6](https://reactrouter.com/)
+
+---
+
+## 📁 Project Structure
+
+- `src/components/`: Reusable UI components (Heatmaps, Cards, etc.)
+- `src/hooks/`: Custom React hooks for data fetching and logic.
+- `src/screens/`: Main application pages (Dashboard, Inventory, Settings).
+- `src/store/`: Zustand store for global state management.
+- `src/theme/`: Material UI theme configuration.
+
+---
+
+## 🤝 Contributing
+
+Please refer to the main [Development Guide](../docs/DEVELOPMENT.md) for contribution instructions.
 
 ```powershell
 npm run dev

@@ -1,25 +1,64 @@
-# Glou Application Web
+# 🌐 Glou Application Web
 
-Application web React avec Material UI pour la gestion de cave à vin.
+L'interface web moderne et responsive pour le système de gestion de cave à vin Glou. Développée avec React, Vite et Material UI.
 
-## Prérequis
+**[English](README.md)** | **[Français]**
 
-- **Node.js 18+** (télécharger depuis https://nodejs.org/)
-- **npm** (inclus avec Node.js)
+---
 
-## Installation
+## 🚀 Démarrage Rapide
 
-### 1. Installer Node.js
+### Prérequis
+- **Node.js 18+**
+- **npm 9+**
 
-Si ce n'est pas déjà fait :
-1. Téléchargez Node.js LTS depuis https://nodejs.org/
-2. Installez-le avec les options par défaut
-3. Redémarrez votre terminal/PowerShell
-4. Vérifiez l'installation :
-   ```powershell
-   node --version
-   npm --version
-   ```
+### Installation
+```bash
+# Installer les dépendances
+npm install
+```
+
+### Développement
+```bash
+# Lancer le serveur de développement
+npm run dev
+```
+L'application sera disponible sur `http://localhost:5173`. Par défaut, elle s'attend à ce que l'API tourne sur `http://localhost:8080`.
+
+### Build de Production
+```bash
+# Créer la version de production
+npm run build
+```
+Les fichiers optimisés seront générés dans le dossier `dist/`.
+
+---
+
+## 🛠️ Stack Technique
+
+- **Framework** : [React 18](https://reactjs.org/)
+- **Outil de Build** : [Vite](https://vitejs.dev/)
+- **Gestion d'État** : [Zustand](https://github.com/pmndrs/zustand)
+- **Récupération de Données** : [React Query](https://tanstack.com/query/v3)
+- **Styling** : [Material UI](https://mui.com/)
+- **Graphiques** : [Chart.js](https://www.chartjs.org/) avec `react-chartjs-2`
+- **Routage** : [React Router 6](https://reactrouter.com/)
+
+---
+
+## 📁 Structure du Projet
+
+- `src/components/` : Composants UI réutilisables (Heatmaps, Cartes, etc.)
+- `src/hooks/` : Hooks React personnalisés pour la logique et les appels API.
+- `src/screens/` : Pages principales de l'application (Tableau de bord, Inventaire, Paramètres).
+- `src/store/` : Store Zustand pour la gestion de l'état global.
+- `src/theme/` : Configuration du thème Material UI.
+
+---
+
+## 🤝 Contribuer
+
+Veuillez vous référer au [Guide de Développement](../docs/DEVELOPMENT.md) principal pour les instructions de contribution.
 
 ### 2. Installer les dépendances
 
