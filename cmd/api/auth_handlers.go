@@ -303,14 +303,9 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 
 // handleCheckAuthStatus vérifie si l'utilisateur est authentifié
 func (s *Server) handleCheckAuthStatus(w http.ResponseWriter, r *http.Request) {
-	// Vérifier et valider le cookie de session
+	// Vérifier si un cookie de session existe
 	cookie, err := r.Cookie("glou_session")
-	authenticated := false
-	if err == nil && cookie.Value != "" {
-		if _, _, _, ok := s.validateSessionToken(cookie.Value); ok {
-			authenticated = true
-		}
-	}
+	authenticated := err == nil && cookie.Value != ""
 
 	response := map[string]interface{}{
 		"authenticated": authenticated,
