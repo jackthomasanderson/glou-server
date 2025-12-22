@@ -35,34 +35,8 @@ const CaveManagementScreen = () => {
   const [selectedCave, setSelectedCave] = useState(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
 
-  // Initialize with mock data
+  // No local mock data in production; keep initial state empty and clear loading
   useEffect(() => {
-    const mockCaves = [
-      {
-        id: 1,
-        name: 'Cave du Rez-de-chaussée',
-        description: 'Température 12°C, humidité 70%',
-        temperature: 12,
-        humidity: 70,
-        cells: [
-          { id: 1, row: 'A', column: 1, wines: 4 },
-          { id: 2, row: 'A', column: 2, wines: 2 },
-          { id: 3, row: 'B', column: 1, wines: 6 },
-        ],
-      },
-      {
-        id: 2,
-        name: 'Cave climatisée',
-        description: 'Système de refroidissement actif',
-        temperature: 10,
-        humidity: 75,
-        cells: [
-          { id: 4, row: 'A', column: 1, wines: 8 },
-          { id: 5, row: 'A', column: 2, wines: 5 },
-        ],
-      },
-    ];
-    setCaves(mockCaves);
     setLoading(false);
   }, []);
 

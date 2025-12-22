@@ -104,8 +104,8 @@ go build ./cmd/api
 
 ## 📚 Documentation complète
 
-- [Documentation EN](../README.md#english)
-- [Documentation FR](../README.md#français)
+- [Documentation EN](../README.en.md)
+- [Documentation FR](../README.fr.md)
 - [Frontend README](../web/README.md) - Détails sur l'application React
 
 ## 🎨 Architecture
@@ -172,8 +172,8 @@ cd ..
 
 Pour plus d'informations :
 
-- Vérifiez les [notes de version](CHANGELOG.md)
-- Lisez le [guide utilisateur](HEATMAP_USER_GUIDE.md)
+- Vérifiez les notes de version dans le dépôt (Releases)
+- Lisez le [guide utilisateur](USER_GUIDE.md)
 
 ## 🎯 Fonctionnalités principales
 

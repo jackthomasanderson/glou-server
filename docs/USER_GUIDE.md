@@ -286,3 +286,47 @@ A: It helps you understand what types of wines dominate in each region (e.g., Bo
 ---
 
 Enjoy exploring your wine collection's geographic distribution! 🍷🗺️
+
+---
+
+## Developer Notes: Component README (merged)
+
+The following developer-facing notes were consolidated from `web/src/components/HEATMAP_README.md` to keep component usage documentation alongside the user guide.
+
+### Component Overview
+This feature adds interactive heatmap visualizations to the Glou Dashboard to display wine bottle distribution across French wine regions. It helps you understand:
+
+- **Geographic concentration**: Which regions have the most bottles in stock
+- **Wine type distribution**: Compare Bordeaux reds vs Rhône varieties per region
+- **Regional patterns**: Identify gaps in your collection
+
+### Components
+
+1. `RegionalHeatmapCard` (`/web/src/components/RegionalHeatmapCard.jsx`) — Grid-based heatmap displaying all regions as tiles.
+	 - Color intensity represents bottle quantity (darker = more bottles)
+	 - Click any region to see detailed wine type breakdown
+	 - Shows percentage distribution of wine types per region
+	 - Responsive grid layout
+
+2. `WineMapHeatmap` (`/web/src/components/WineMapHeatmap.jsx`) — Interactive SVG map displaying French wine regions.
+	 - Color gradient from light red (few bottles) to dark red (many bottles)
+	 - Click regions to see detailed breakdown in a dialog
+	 - Region descriptions for each wine area
+	 - Legend showing intensity levels
+
+### API dependency
+Both components fetch data from the existing `GET /wines` endpoint. Each wine object must include: `id`, `name`, `region`, `type`, `quantity`.
+
+### Integration snippet
+```jsx
+<Grid container spacing={2}>
+	<Grid item xs={12}>
+		<RegionalHeatmapCard />
+	</Grid>
+	<Grid item xs={12}>
+		<WineMapHeatmap />
+	</Grid>
+</Grid>
+```
+
+For troubleshooting and future enhancement ideas, see the sections above in this guide.

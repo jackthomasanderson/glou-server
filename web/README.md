@@ -21,78 +21,57 @@ Si ce n'est pas déjà fait :
    npm --version
    ```
 
-### 2. Installer les dépendances
+# Glou Web Application
+
+English | Français
+
+This repository contains the React frontend for Glou. Choose your language below:
+
+- **English**: this file (web/README.md)
+- **Français**: see `web/README.fr.md`
+
+---
+
+## Quick Start (English)
+
+Prerequisites
+
+- **Node.js 18+**
+- **npm**
+
+Install dependencies:
 
 ```powershell
 cd c:\Users\Romain\Documents\_dev\glou-server\glou-server\web
 npm install
 ```
 
-Cette commande va télécharger toutes les dépendances nécessaires (React, Material-UI, etc.)
-
-## Build de production
-
-Pour créer la version optimisée de l'application :
-
-```powershell
-cd c:\Users\Romain\Documents\_dev\glou-server\glou-server\web
-npm run build
-```
-
-Cette commande crée un dossier `dist/` contenant :
-- `index.html` - Point d'entrée de l'application
-- `assets/` - JavaScript et CSS optimisés
-
-Le serveur Go est configuré pour servir automatiquement ces fichiers.
-
-## Développement
-
-Pour développer avec rechargement automatique :
+Development:
 
 ```powershell
 npm run dev
 ```
 
-L'application sera accessible sur http://localhost:3000 avec proxy automatique vers l'API Go.
-
-## Structure
-
-```
-web/
-├── index.html          # Point d'entrée HTML
-├── vite.config.js      # Configuration Vite
-├── package.json        # Dépendances npm
-├── src/
-│   ├── index.jsx       # Point d'entrée React
-│   ├── App.jsx         # Composant principal avec routage
-│   ├── components/     # Composants réutilisables
-│   ├── screens/        # Pages de l'application
-│   ├── services/       # Services API
-│   ├── hooks/          # React hooks personnalisés
-│   └── theme/          # Configuration Material-UI
-└── dist/               # Build de production (généré)
-```
-
-## Déploiement
-
-Après `npm run build`, le serveur Go sert automatiquement l'application depuis `web/dist/`.
-
-Pour démarrer le serveur :
+Build production:
 
 ```powershell
-cd c:\Users\Romain\Documents\_dev\glou-server\glou-server
-go build ./cmd/api
-.\api.exe
+npm run build
 ```
 
-Accédez à http://localhost:8080
+Preview production build:
 
-## URLs supportées
+```powershell
+npm run preview
+```
 
-L'application supporte les URLs propres avec React Router :
+Notes:
 
-- `/` → Redirige vers `/dashboard`
-- `/dashboard` → Tableau de bord principal
+- The frontend uses Vite and proxies API calls to the Go backend (default port 8080).
+- Ensure the `api` binary is running locally when developing.
+
+---
+
+Pour la version française, voir `web/README.fr.md`.
 - `/analytics` → Analytics avancées
 - `/alerts` → Alertes
 - `/wines` → Liste des vins
@@ -114,6 +93,9 @@ L'application supporte les URLs propres avec React Router :
 - `npm run format` - Formater le code avec Prettier
 - `npm run test` - Lancer les tests
 - `npm run test:coverage` - Tests avec couverture de code
+ - `npm run lint` - Vérifier le code avec ESLint
+ - `npm run lint:fix` - Corriger automatiquement les erreurs
+ - `npm run format` - Formater le code avec Prettier
 
 ## Technologies
 
