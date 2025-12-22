@@ -74,3 +74,35 @@ func (s *SMTPNotifier) Send(ctx context.Context, title, message string) error {
 		return fmt.Errorf("smtp email send timeout")
 	}
 }
+
+// SendTo sends a notification to a specific recipient, overriding default To
+func (s *SMTPNotifier) SendTo(ctx context.Context, to string, title, message string) error {
+	if s.Host == "" || s.From == "" || to == "" {
+		return fmt.Errorf("smtp not configured: missing host, from, or to")
+	}
+
+	headers := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: [Glou] %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n",
+		s.From, to, title)
+	body := fmt.Sprintf("%s\r\n\r\n%s\r\n\r\nGlou Wine Management System", title, message)
+	msg := headers + body
+
+	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	done := make(chan error)
+	go func() {
+		auth := smtp.PlainAuth("", s.Username, s.Password, s.Host)
+		done <- smtp.SendMail(addr, auth, s.From, []string{to}, []byte(msg))
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			return fmt.Errorf("failed to send smtp email: %w", err)
+		}
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("smtp email send timeout")
+	}
+}

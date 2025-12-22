@@ -21,6 +21,7 @@ type Config struct {
 	RateLimitWindow    time.Duration
 	MaxRequestBodySize int64
 	Environment        string
+	TrustProxyHeaders  bool
 
 	// Logging
 	LogLevel string
@@ -28,6 +29,9 @@ type Config struct {
 	// Encryption (Recommandations ANSSI)
 	EncryptionPassphrase string // Phrase de chiffrement (min 32 caractères)
 	EncryptionSalt       string // Salt pour dérivation de clé
+
+	// Sessions
+	SessionSecret string // HMAC secret for signing session tokens (min 32 chars)
 
 	// Notifications
 	GotifyURL    string
@@ -58,6 +62,7 @@ func LoadConfig() *Config {
 		MaxRequestBodySize: int64(getEnvInt("MAX_REQUEST_BODY_SIZE", 1048576)), // 1MB default
 		LogLevel:           getEnv("LOG_LEVEL", "info"),
 		Environment:        getEnv("ENVIRONMENT", "development"),
+		TrustProxyHeaders:  strings.EqualFold(getEnv("TRUST_PROXY_HEADERS", "false"), "true"),
 		// Notifications
 		GotifyURL:    getEnv("GOTIFY_URL", ""),
 		GotifyToken:  getEnv("GOTIFY_TOKEN", ""),
@@ -69,6 +74,13 @@ func LoadConfig() *Config {
 		SMTPTo:       getEnv("SMTP_TO", ""),
 		SMTPUseTLS:   getEnv("SMTP_USE_TLS", "true") == "true",
 	}
+
+	// Sessions: default to encryption passphrase if SESSION_SECRET missing (dev only)
+	sessionSecret := getEnv("SESSION_SECRET", "")
+	if sessionSecret == "" {
+		sessionSecret = config.EncryptionPassphrase
+	}
+	config.SessionSecret = sessionSecret
 
 	return config
 }
@@ -138,6 +150,15 @@ func (c *Config) Validate() error {
 	}
 	if c.EncryptionPassphrase != "" && len(c.EncryptionPassphrase) < 32 {
 		return fmt.Errorf("ENCRYPTION_PASSPHRASE must be at least 32 characters (ANSSI requirement)")
+	}
+	// Session secret required and strong in production
+	if c.Environment == "production" {
+		if c.SessionSecret == "" {
+			return fmt.Errorf("SESSION_SECRET required in production")
+		}
+		if len(c.SessionSecret) < 32 {
+			return fmt.Errorf("SESSION_SECRET must be at least 32 characters")
+		}
 	}
 	return nil
 }

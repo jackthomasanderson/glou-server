@@ -78,7 +78,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Créer une session
-	s.setSession(w, user.ID, user.Username)
+	s.setSession(w, user.ID, user.Username, user.Role)
 
 	// Retourner les informations utilisateur
 	response := map[string]interface{}{
@@ -430,17 +430,14 @@ Cordialement,
 L'équipe Glou
 `, resetURL)
 
-	// Envoyer via le service de notification SMTP
+	// Envoyer via le service de notification SMTP au destinataire spécifique
 	if s.notifierManager != nil {
 		notification := &notifier.Notification{
 			Title:   subject,
 			Message: message,
 			Type:    "password_reset",
 		}
-
-		// Temporairement modifier le destinataire SMTP pour cet email spécifique
-		// TODO: Améliorer l'architecture pour supporter des destinataires dynamiques
-		return s.notifierManager.SendToType(ctx, "smtp", notification)
+		return s.notifierManager.SendToSMTPAddress(ctx, email, notification)
 	}
 
 	return fmt.Errorf("notification service not configured")
