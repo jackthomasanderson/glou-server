@@ -75,3 +75,24 @@ Please refer to the main [Development Guide](../DEVELOPMENT.md) for contribution
 - The frontend uses Vite and proxies API calls to the Go backend (default port 8080).
 - Ensure the `api` binary is running locally when developing.
 - For production, the Go server serves the built assets automatically.
+
+### CSRF for mutating requests
+When authenticated, the server sets a `glou_csrf` cookie. For any POST/PUT/DELETE API call, include the same value in the `X-CSRF-Token` header. Example with `fetch`:
+
+```js
+function getCookie(name) {
+	return document.cookie
+		.split('; ')
+		.find(c => c.startsWith(name + '='))?.split('=')[1];
+}
+
+const csrf = getCookie('glou_csrf');
+await fetch('/wines', {
+	method: 'POST',
+	headers: {
+		'Content-Type': 'application/json',
+		'X-CSRF-Token': csrf
+	},
+	body: JSON.stringify({ name: 'Example', region: 'Bordeaux', vintage: 2020, type: 'Red' })
+});
+```

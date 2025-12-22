@@ -15,6 +15,8 @@ func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.store.LogActivity(r.Context(), "admin", 0, "export_json", map[string]string{"by": r.Context().Value(SessionUserKey).(string)}, s.getClientIP(r))
+
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Disposition", "attachment; filename=glou-export.json")
 	w.Write(data)
@@ -28,6 +30,7 @@ func (s *Server) handleExportWinesCSV(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.ExportWinesCSV(r.Context(), w); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "Failed to export wines", err)
 	}
+	s.store.LogActivity(r.Context(), "admin", 0, "export_wines_csv", map[string]string{"by": r.Context().Value(SessionUserKey).(string)}, s.getClientIP(r))
 }
 
 // handleExportCavesCSV exporte les caves en CSV
@@ -38,6 +41,7 @@ func (s *Server) handleExportCavesCSV(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.ExportCavesCSV(r.Context(), w); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "Failed to export caves", err)
 	}
+	s.store.LogActivity(r.Context(), "admin", 0, "export_caves_csv", map[string]string{"by": r.Context().Value(SessionUserKey).(string)}, s.getClientIP(r))
 }
 
 // handleExportTastingHistoryCSV exporte l'historique en CSV
@@ -48,6 +52,7 @@ func (s *Server) handleExportTastingHistoryCSV(w http.ResponseWriter, r *http.Re
 	if err := s.store.ExportTastingHistoryCSV(r.Context(), w); err != nil {
 		s.respondError(w, http.StatusInternalServerError, "Failed to export tasting history", err)
 	}
+	s.store.LogActivity(r.Context(), "admin", 0, "export_history_csv", map[string]string{"by": r.Context().Value(SessionUserKey).(string)}, s.getClientIP(r))
 }
 
 // handleImportJSON importe les données depuis un JSON
@@ -72,6 +77,8 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.store.LogActivity(r.Context(), "admin", 0, "import_json", map[string]int{"bytes": len(data)}, s.getClientIP(r))
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
@@ -81,13 +88,6 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 
 // handleGetActivityLog récupère le journal d'activités
 func (s *Server) handleGetActivityLog(w http.ResponseWriter, r *http.Request) {
-	// Admin only
-	isAdmin := r.Header.Get("X-Admin") == "true" // Simplification, à adapter selon votre auth
-	if !isAdmin {
-		s.respondError(w, http.StatusForbidden, "Admin access required", nil)
-		return
-	}
-
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 	entityType := r.URL.Query().Get("entity_type")
