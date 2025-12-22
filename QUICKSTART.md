@@ -303,7 +303,7 @@ cp ./data/glou.db ./backup.db
 
 **Docker** :
 ```bash
-docker pull ghcr.io/VOTRE-USERNAME/glou-server:latest
+docker pull ghcr.io/VOTRE-USERNAME/glou-server:alpha
 docker compose -f docker-compose.prod.yml up -d --force-recreate
 ```
 
