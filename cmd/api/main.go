@@ -196,13 +196,14 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /api/admin/activity-log", authRequired(s.handleGetActivityLog))
 	s.router.HandleFunc("GET /api/admin/activity-log/{type}/{id}", authRequired(s.handleGetEntityActivityLog))
 
-	// Admin Panel - Protégé par authentification
-	s.router.HandleFunc("GET /admin", authRequired(s.handleAdminDashboard))
-	s.router.HandleFunc("GET /api/admin/settings", authRequired(s.handleGetSettings))
-	s.router.HandleFunc("PUT /api/admin/settings", authRequired(s.handleUpdateSettings))
-	s.router.HandleFunc("POST /api/admin/upload-logo", authRequired(s.handleUploadLogo))
-	s.router.HandleFunc("GET /api/admin/stats", authRequired(s.handleAdminStats))
-	s.router.HandleFunc("GET /api/admin/users", authRequired(s.handleGetUsers))
+	// Admin Panel - Protégé par authentification + rôle admin
+	adminOnly := func(next http.HandlerFunc) http.HandlerFunc { return authRequired(s.adminRequiredMiddleware(next)) }
+	s.router.HandleFunc("GET /admin", adminOnly(s.handleAdminDashboard))
+	s.router.HandleFunc("GET /api/admin/settings", adminOnly(s.handleGetSettings))
+	s.router.HandleFunc("PUT /api/admin/settings", adminOnly(s.handleUpdateSettings))
+	s.router.HandleFunc("POST /api/admin/upload-logo", adminOnly(s.handleUploadLogo))
+	s.router.HandleFunc("GET /api/admin/stats", adminOnly(s.handleAdminStats))
+	s.router.HandleFunc("GET /api/admin/users", adminOnly(s.handleGetUsers))
 
 	// Enrichment - Protégé par authentification
 	s.router.HandleFunc("POST /api/enrich/barcode", authRequired(handleEnrichByBarcode))
@@ -264,9 +265,9 @@ func (s *Server) handleCreateWine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validation basique
-	if wine.Name == "" || wine.Region == "" || wine.Vintage == 0 || wine.WineType == "" {
-		s.respondError(w, http.StatusBadRequest, "Missing required fields: name, region, vintage, type", nil)
+	// Validation complète
+	if err := ValidateWine(&wine); err != nil {
+		s.respondError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
@@ -410,29 +411,9 @@ func (s *Server) handleUpdateWine(w http.ResponseWriter, r *http.Request) {
 
 	wine.ID = id
 
-	// Validation basique
-	if wine.Name == "" || wine.Region == "" || wine.Vintage == 0 || wine.WineType == "" {
-		s.respondError(w, http.StatusBadRequest, "Missing required fields: name, region, vintage, type", nil)
-		return
-	}
-
-	// Validation des dates d'apogée
-	if wine.MinApogeeDate != nil && wine.MaxApogeeDate != nil {
-		if wine.MinApogeeDate.After(*wine.MaxApogeeDate) {
-			s.respondError(w, http.StatusBadRequest, "min_apogee_date must be before max_apogee_date", nil)
-			return
-		}
-	}
-
-	// Validation du rating
-	if wine.Rating != nil && (*wine.Rating < 0 || *wine.Rating > 5) {
-		s.respondError(w, http.StatusBadRequest, "rating must be between 0 and 5", nil)
-		return
-	}
-
-	// Validation de l'alcool
-	if wine.AlcoholLevel != nil && (*wine.AlcoholLevel < 0 || *wine.AlcoholLevel > 20) {
-		s.respondError(w, http.StatusBadRequest, "alcohol_level must be between 0 and 20", nil)
+	// Validation complète
+	if err := ValidateWine(&wine); err != nil {
+		s.respondError(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
@@ -740,6 +721,15 @@ func main() {
 		log.Println("WARNING: Encryption disabled (only for development)")
 	}
 
+	// Configurer le manager de notifications (Gotify/SMTP)
+	nm := notifier.NewNotifierManager()
+	if config.GotifyURL != "" && config.GotifyToken != "" {
+		nm.AddNotifier(notifier.NewGotifyNotifier(config.GotifyURL, config.GotifyToken))
+	}
+	if config.SMTPHost != "" && config.SMTPFrom != "" {
+		nm.AddNotifier(notifier.NewSMTPNotifier(config.SMTPHost, config.SMTPPort, config.SMTPUsername, config.SMTPPassword, config.SMTPFrom, config.SMTPTo, config.SMTPUseTLS))
+	}
+
 	// Démarrer la génération automatique d'alertes (toutes les heures)
 	alertGenerator := store.NewAlertGenerator(s)
 	alertGenerator.Start(1 * time.Hour)
@@ -749,6 +739,7 @@ func main() {
 
 	// Créer et démarrer le serveur avec configuration de sécurité
 	server := NewServer(s, config)
+	server.notifierManager = nm
 	addr := ":" + config.Port
 	if err := server.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("Server error: %v", err)

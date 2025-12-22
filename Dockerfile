@@ -24,7 +24,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 FROM alpine:3.19
 
 # Installer les certificats CA uniquement
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata wget
 
 # Créer un utilisateur non-root
 RUN addgroup -g 1000 glou && adduser -D -u 1000 -G glou glou
@@ -33,6 +33,7 @@ WORKDIR /app
 
 # Copier l'exécutable depuis le builder
 COPY --from=builder /build/glou-server .
+COPY assets ./assets
 
 # Changer la propriété des fichiers
 RUN chown -R glou:glou /app

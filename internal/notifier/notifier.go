@@ -65,6 +65,20 @@ func (nm *NotifierManager) SendToType(ctx context.Context, notifierType string, 
 	return fmt.Errorf("notifier type %s not found", notifierType)
 }
 
+// SendToSMTPAddress sends an email via SMTP notifier to a specific recipient
+func (nm *NotifierManager) SendToSMTPAddress(ctx context.Context, to string, notification *Notification) error {
+	for _, n := range nm.notifiers {
+		if tn, ok := n.(TypedNotifier); ok {
+			if tn.Type() == "smtp" {
+				if smtpTyped, ok := n.(*SMTPNotifier); ok {
+					return smtpTyped.SendTo(ctx, to, notification.Title, notification.Message)
+				}
+			}
+		}
+	}
+	return fmt.Errorf("smtp notifier not configured")
+}
+
 // TypedNotifier interface for notifiers with type identification
 type TypedNotifier interface {
 	Notifier

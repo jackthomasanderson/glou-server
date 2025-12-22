@@ -58,7 +58,7 @@ func (rl *RateLimiter) Allow(ip string) bool {
 // rateLimitMiddleware applique le rate limiting
 func (s *Server) rateLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ip := getClientIP(r)
+		ip := s.getClientIP(r)
 
 		if !s.limiter.Allow(ip) {
 			log.Printf("[SECURITY] Rate limit exceeded for IP: %s", ip)
@@ -81,6 +81,8 @@ func (s *Server) secureCorMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			w.Header().Set("Access-Control-Max-Age", "3600")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Add("Vary", "Origin")
 		} else if origin != "" {
 			log.Printf("[SECURITY] Rejected CORS request from unauthorized origin: %s", origin)
 		}
@@ -122,7 +124,7 @@ func (s *Server) bodyLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		r.Body = http.MaxBytesReader(w, r.Body, s.config.MaxRequestBodySize)
 
 		if err := r.ParseForm(); err != nil {
-			log.Printf("[SECURITY] Request body too large from IP: %s", getClientIP(r))
+			log.Printf("[SECURITY] Request body too large from IP: %s", s.getClientIP(r))
 			s.respondError(w, http.StatusRequestEntityTooLarge, "Request body too large", err)
 			return
 		}
@@ -135,7 +137,7 @@ func (s *Server) bodyLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		ip := getClientIP(r)
+		ip := s.getClientIP(r)
 
 		// Log la requête
 		if s.config.LogLevel == "debug" {
@@ -150,16 +152,18 @@ func (s *Server) loggingMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// getClientIP extrait l'adresse IP du client
-func getClientIP(r *http.Request) string {
-	// X-Forwarded-For (si derrière un proxy)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
-	}
+// getClientIP extrait l'adresse IP du client avec prise en compte du proxy si autorisé
+func (s *Server) getClientIP(r *http.Request) string {
+	if s.config.TrustProxyHeaders {
+		// X-Forwarded-For (si derrière un proxy)
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			return xff
+		}
 
-	// X-Real-IP
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+		// X-Real-IP
+		if xri := r.Header.Get("X-Real-IP"); xri != "" {
+			return xri
+		}
 	}
 
 	// RemoteAddr
