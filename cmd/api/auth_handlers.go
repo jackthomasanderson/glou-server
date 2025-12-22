@@ -304,12 +304,34 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 
 // handleCheckAuthStatus vérifie si l'utilisateur est authentifié
 func (s *Server) handleCheckAuthStatus(w http.ResponseWriter, r *http.Request) {
-	// Vérifier si un cookie de session existe
+	// Vérifier et valider le cookie de session
 	cookie, err := r.Cookie("glou_session")
-	authenticated := err == nil && cookie.Value != ""
+	var (
+		authenticated bool
+		userID        int64
+		username      string
+		role          string
+	)
+
+	if err == nil && cookie.Value != "" {
+		if uid, uname, rrole, valid := s.validateSessionToken(cookie.Value); valid {
+			authenticated = true
+			userID = uid
+			username = uname
+			role = rrole
+		}
+	}
 
 	response := map[string]interface{}{
 		"authenticated": authenticated,
+	}
+
+	if authenticated {
+		response["user"] = map[string]interface{}{
+			"id":       userID,
+			"username": username,
+			"role":     role,
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
