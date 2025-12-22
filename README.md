@@ -1,123 +1,19 @@
-<a id="english" name="english"></a>
-# 🍷 Glou - Smart Beverage Collection Management
+# Glou documentation index
 
-**English** | [Français](#français)
+This repository now provides separate root READMEs for English and French. Use one of the language-specific README files below.
 
-Manage your wine, spirit, and beer collection effortlessly. Track bottles, know when to drink them, and get smart alerts—all self-hosted and secure.
+- `README.en.md` — English
+- `README.fr.md` — Français
 
-**🚀 [Quick Start](docs/QUICK_START.md)** | **📖 [Commands](docs/COMMANDS_CHEATSHEET.md)** | **📱 [Android App](https://github.com/jackthomasanderson/glou-android)** | **🔐 [Security](docs/SECURITY.md)** | **🛠️ [Development](docs/DEVELOPMENT.md)**
+The canonical documentation (quick start, user guide, security, development) lives in the `docs/` folder and is available in both languages where appropriate.
 
-**Status:** ✅ Production Ready (v1.0.0) | Tests: ✅ Passing | Build: ✅ Successful
+Examples:
 
----
-
-## ⚡ Quick Start (3 steps)
-
-1. **Install Node.js** (if not installed): Download from https://nodejs.org/
-2. **Run build script:**
-   ```powershell
-   .\build-and-run.ps1
-   ```
-3. **Open browser:** http://localhost:8080
-
-📚 **Detailed instructions:** See [docs/QUICK_START.md](docs/QUICK_START.md)
-
----
-
-## Why Glou?
-
-- 🏠 **Self-hosted** - Your data stays on your server
-- 📱 **Mobile-ready** - Web interface + native Android app
-- 🔐 **Secure** - ANSSI-compliant encryption (AES-256-GCM), bcrypt passwords, secure transactions
-- 🛡️ **Privacy-first** - Sensitive data encrypted at rest, RGPD-compliant
-- 🌍 **Bilingual** - English & French, auto-detect language
-- ⚡ **Fast** - No cloud delays, instant local access
-- 🔔 **Smart Alerts** - Automatic notifications via Gotify or email when wines reach apogee
-- 📊 **Full Export** - CSV, JSON backups - your data, always accessible
-- 🔄 **Easy Migration** - Move servers without losing data
-- 📝 **Activity Logging** - Complete audit trail of all changes
-- 📱 **Barcode Scanning** - Auto-populate wine data from barcodes
-
----
-
-## How It Works
-
-```
-1. Add your wines       → Track location, buy date, apogee window
-2. Set apogee dates     → Min/max drinking window (auto-calculated)
-3. Get smart alerts     → Notified 6 months before peak, when to drink now
-4. Record tastings      → Journal entries with ratings & notes
-5. View dashboard       → Statistics, capacity, next wines to drink
-6. Export & backup      → CSV/JSON exports, full data control
-```
-
----
-
-## Getting Started (2 minutes)
-
-### Option 1: Local (no Docker)
-```bash
-go build -o api ./cmd/api
-./api
-```
-Then open: **http://localhost:8080/**
-
-### Option 2: Docker
-```bash
-docker-compose up -d
-```
-Then open: **http://localhost:8080/**
-
-### First Steps
-1. Create a **Cave** (cellar) - your storage location
-2. Add **Cells** (shelves/positions) to your cave
-3. Add your first **Wine** - name, vintage, apogee dates
-4. Check **Dashboard** - see your collection at a glance
-5. Set **Alerts** - get notified when to drink
-
----
-
-## Features at a Glance
-
-| Feature | Description |
-|---------|-------------|
-| 🍾 **Wine Inventory** | Full tracking with vintage, location, apogee dates |
-| 🗄️ **Multiple Cellars** | Organize wines across different storage areas |
-| 📅 **Apogee Tracking** | Know exactly when each wine is at its best |
-| 🔍 **Barcode Scanning** | Scan wine labels to auto-populate details |
-| ⚡ **Auto-Enrichment** | Name search or barcode → auto-fill wine details |
-| 🔔 **Smart Alerts** | Auto-alerts via Gotify or email, 6 months before peak, when wine is ready |
-| 📔 **Tasting Journal** | Record consumption, ratings, tasting notes |
-| 📊 **Dashboard** | Quick stats, capacity, next wines to drink |
-| 💾 **Full Export** | CSV/JSON exports for backup and analysis |
-| 🔄 **Easy Migration** | Move to new server with zero data loss |
-| 📝 **Activity Log** | Complete audit trail of who changed what |
-| 🌙 **Dark Mode** | Comfortable viewing day or night |
-| 🇬🇧🇫🇷 **Bilingual** | Seamless English/French switching |
-
----
-
-## Documentation
-
-- **[🚀 Quick Start](docs/QUICK_START.md)** - Get up and running in 2 minutes.
-- **[📖 Commands Cheatsheet](docs/COMMANDS_CHEATSHEET.md)** - Essential commands for development and maintenance.
-- **[🔐 Security & Encryption](docs/SECURITY.md)** - ANSSI-compliant security implementation details.
-- **[🛠️ Development Guide](docs/DEVELOPMENT.md)** - Technical overview for developers and testing procedures.
-- **[📊 User Guide](docs/USER_GUIDE.md)** - How to use the dashboard and heatmap features.
-
----
-
-## Status
-
-✅ **Production Ready** (v1.0.0)  
-✅ Full-featured wine management  
-✅ 30+ REST API endpoints  
-✅ Secure & optimized with validation layer  
-✅ Data export/import (CSV, JSON)  
-✅ Activity logging & audit trail  
-✅ Barcode scanning support  
-✅ Thread-safe background services (AlertGenerator)  
-✅ Atomic database transactions  
+- `docs/QUICK_START.md`
+- `docs/COMMANDS_CHEATSHEET.md`
+- `docs/USER_GUIDE.md` (EN)
+- `docs/USER_GUIDE.fr.md` (FR)
+- `docs/SECURITY.md`
 
 ---
 

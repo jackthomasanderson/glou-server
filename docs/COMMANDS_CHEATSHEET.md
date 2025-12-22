@@ -256,11 +256,7 @@ go build ./cmd/api
 
 ## 📚 Documentation complète
 
-- [Guide de démarrage rapide](QUICK_START.md)
-- [Documentation Frontend](../web/README.md)
-- [Documentation API](../README.md#english)
-- [Guide utilisateur](USER_GUIDE.md)
-
+ [Documentation EN](../README.en.md)
 ---
 
 **💡 Tip:** Enregistrez cette page en favoris pour un accès rapide !
