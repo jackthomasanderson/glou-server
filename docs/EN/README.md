@@ -58,6 +58,13 @@ go build -o api ./cmd/api
 ./api
 ```
 
+## 💻 Tech Stack
+
+- **Backend**: [Go](https://go.dev/) (Golang) with a pure-Go [SQLite](https://modernc.org/sqlite) driver (no CGO required).
+- **Frontend**: [React](https://reactjs.org/), [Vite](https://vitejs.dev/), [Zustand](https://github.com/pmndrs/zustand) for state management, and [Chart.js](https://www.chartjs.org/) for visualizations.
+- **Security**: AES-256-GCM encryption for sensitive fields, bcrypt for password hashing.
+- **CI/CD**: GitHub Actions with [GoReleaser](https://goreleaser.com/) for cross-platform builds.
+
 ---
 
 ## 🤝 Contributing
