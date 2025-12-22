@@ -59,7 +59,7 @@ jobs:
       - name: Upload binary artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: glou-server-linux-amd64
+          name: glou-server-linux-amd64-main
           path: glou-server
           retention-days: 30
 
