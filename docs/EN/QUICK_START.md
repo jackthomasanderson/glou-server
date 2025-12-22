@@ -101,3 +101,94 @@ After modifying Go code:
 ```powershell
 go build ./cmd/api
 ```
+
+## 📚 Documentation
+
+- [English README](README.md)
+- [French README](../FR/README.md)
+- [Web Application Guide](WEB_README.md) - Details on the React application
+
+## 🎨 Architecture
+
+```
+glou-server/
+├── cmd/api/              # Go HTTP Server
+├── internal/             # Internal Go code
+│   ├── domain/          # Data models
+│   ├── store/           # SQLite database
+│   ├── enricher/        # External APIs
+│   └── notifier/        # Notifications
+├── web/                  # React Application
+│   ├── src/             # React source code
+│   ├── dist/            # Production build (generated)
+│   └── index.html       # Entry point
+└── assets/               # Legacy HTML (obsolete)
+```
+
+## ⚙️ Configuration
+
+The server uses optional environment variables:
+
+```bash
+PORT=8080                    # Server port (default: 8080)
+DB_PATH=./glou.db           # Database path
+ENVIRONMENT=development      # development or production
+ALLOWED_ORIGINS=*           # CORS origins
+```
+
+## 🔄 Update
+
+To update the application:
+
+```powershell
+# Update Go dependencies
+go get -u ./...
+go mod tidy
+
+# Update npm dependencies
+cd web
+npm update
+
+# Rebuild
+cd ..
+.\build-and-run.ps1
+```
+
+## 🐛 Troubleshooting
+
+### "npm is not recognized"
+→ Node.js is not installed or not in the PATH. Install Node.js and restart the terminal.
+
+### "Cannot GET /"
+→ The React application has not been built. Run `cd web && npm run build`
+
+### Port 8080 already in use
+→ Change the port with the environment variable: `$env:PORT=8081; .\api.exe`
+
+### CORS Error
+→ Ensure you are accessing via http://localhost:8080 and not another origin.
+
+## 📞 Support
+
+For more information:
+
+- Check the release notes in the repository (Releases)
+- Read the [User Guide](USER_GUIDE.md)
+
+## 🎯 Key Features
+
+- ✅ Complete wine cellar management
+- ✅ Bottle tracking with exact position
+- ✅ Visual heatmap of wine regions
+- ✅ Low stock and apogee alerts
+- ✅ Tasting history with notes
+- ✅ Automatic enrichment via external APIs
+- ✅ JSON and CSV Export/Import
+- ✅ Adaptive Material Design 3 interface (mobile/tablet/desktop)
+- ✅ Dark/Light mode
+- ✅ Full REST API
+- ✅ Integrated SQLite database
+
+```powershell
+go build ./cmd/api
+```

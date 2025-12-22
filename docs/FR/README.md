@@ -5,7 +5,7 @@
 [![Licence](https://img.shields.io/github/license/romain/glou-server)](LICENSE)
 [![Statut](https://img.shields.io/badge/statut-prêt--production-success)](https://github.com/romain/glou-server)
 
-**[English](../../README.md)** | **[Français]**
+**[English](../EN/README.md)** | **[Français]**
 
 Gérez votre collection de vins, spiritueux et bières sans effort. Suivez vos bouteilles, sachez exactement quand les boire et recevez des alertes intelligentes — le tout auto-hébergé et sécurisé.
 
@@ -77,6 +77,7 @@ go build -o api ./cmd/api
 
 - [Guide de Démarrage Rapide](QUICK_START.md) - Instructions d'installation détaillées.
 - [Guide Utilisateur](USER_GUIDE.md) - Comment utiliser les heatmaps et gérer votre collection.
+- [Guide Application Web](WEB_README.md) - Détails sur l'interface React.
 - [Aide-mémoire Commandes](COMMANDS_CHEATSHEET.md) - Outils CLI pour la gestion des utilisateurs.
 - [Sécurité](SECURITY.md) - Détails sur la protection de vos données.
 - [Guide de Développement](DEVELOPMENT.md) - Comment contribuer à Glou.
@@ -95,7 +96,7 @@ Ce projet est sous licence **MIT** - voir le fichier [../../LICENSE](../../LICEN
 
 *Glou est développé avec ❤️ pour les passionnés de vin qui tiennent à leur vie privée.*
 
-Option 1 — Local :
+
 
 ```bash
 go build -o api ./cmd/api
