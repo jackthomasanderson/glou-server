@@ -5,11 +5,11 @@
 [![Licence](https://img.shields.io/github/license/romain/glou-server)](LICENSE)
 [![Statut](https://img.shields.io/badge/statut-prêt--production-success)](https://github.com/romain/glou-server)
 
-**[English](README.md)** | **[Français]**
+**[English](../../README.md)** | **[Français]**
 
 Gérez votre collection de vins, spiritueux et bières sans effort. Suivez vos bouteilles, sachez exactement quand les boire et recevez des alertes intelligentes — le tout auto-hébergé et sécurisé.
 
-**🚀 [Démarrage Rapide](docs/QUICK_START.md)** | **📖 [Guide Utilisateur](docs/USER_GUIDE.fr.md)** | **📱 [App Android](https://github.com/jackthomasanderson/glou-android)** | **🔐 [Sécurité](docs/SECURITY.md)**
+**🚀 [Démarrage Rapide](../EN/QUICK_START.md)** | **📖 [Guide Utilisateur](USER_GUIDE.md)** | **📱 [App Android](https://github.com/jackthomasanderson/glou-android)** | **🔐 [Sécurité](../EN/SECURITY.md)**
 
 ---
 
@@ -75,21 +75,21 @@ go build -o api ./cmd/api
 
 ## 📖 Documentation
 
-- [Démarrage Rapide](docs/QUICK_START.md) - Instructions d'installation détaillées.
-- [Guide Utilisateur](docs/USER_GUIDE.fr.md) - Comment utiliser les heatmaps et gérer votre collection.
-- [Aide-mémoire Commandes](docs/COMMANDS_CHEATSHEET.md) - Outils CLI pour la gestion des utilisateurs.
-- [Sécurité](docs/SECURITY.md) - Détails sur la protection de vos données.
-- [Guide de Développement](docs/DEVELOPMENT.md) - Comment contribuer à Glou.
+- [Démarrage Rapide](../EN/QUICK_START.md) (EN) - Instructions d'installation détaillées.
+- [Guide Utilisateur](USER_GUIDE.md) - Comment utiliser les heatmaps et gérer votre collection.
+- [Aide-mémoire Commandes](../EN/COMMANDS_CHEATSHEET.md) (EN) - Outils CLI pour la gestion des utilisateurs.
+- [Sécurité](../EN/SECURITY.md) (EN) - Détails sur la protection de vos données.
+- [Guide de Développement](../EN/DEVELOPMENT.md) (EN) - Comment contribuer à Glou.
 
 ---
 
 ## 🤝 Contribuer
 
-Les contributions sont les bienvenues ! Qu'il s'agisse d'un rapport de bug, d'une nouvelle fonctionnalité ou d'une traduction, n'hésitez pas à ouvrir une issue ou une pull request. Voir [DEVELOPMENT.md](docs/DEVELOPMENT.md) pour plus de détails.
+Les contributions sont les bienvenues ! Qu'il s'agisse d'un rapport de bug, d'une nouvelle fonctionnalité ou d'une traduction, n'hésitez pas à ouvrir une issue ou une pull request. Voir [DEVELOPMENT.md](../EN/DEVELOPMENT.md) pour plus de détails.
 
 ## 📄 Licence
 
-Ce projet est sous licence **MIT** - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+Ce projet est sous licence **MIT** - voir le fichier [../../LICENSE](../../LICENSE) pour plus de détails.
 
 ---
 

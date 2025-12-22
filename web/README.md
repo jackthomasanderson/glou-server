@@ -2,7 +2,7 @@
 
 The modern, responsive web interface for the Glou wine cellar management system. Built with React, Vite, and Material UI.
 
-**[English]** | **[Français](README.fr.md)**
+**[English]** | **[Français](../docs/FR/WEB_README.md)**
 
 ---
 
