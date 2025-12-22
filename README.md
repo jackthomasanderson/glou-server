@@ -45,20 +45,41 @@ In a world of cloud-only apps, **Glou** puts you back in control of your cellar 
 The easiest way to get Glou running is with Docker Compose.
 
 ```bash
-docker-compose up -d
+# Quick deployment script
+./deploy-windows.ps1  # Windows
+./deploy-linux.sh     # Linux/Mac
+
+# Or manually
+docker compose -f docker-compose.prod.yml up -d
 ```
+
 Access the web interface at **http://localhost:8080**.
 
-### Option 2: Local Development
+📚 **[Complete Docker Guide](DOCKER.md)** | **[Deployment Guide](DEPLOY.md)**
+
+### Option 2: Standalone Binary
+Download the latest binary from [Releases](https://github.com/romain/glou-server/releases) or GitHub Actions artifacts.
+
+```bash
+# Windows
+glou-server.exe
+
+# Linux/Mac
+./glou-server
+```
+
+### Option 3: Build from Source
 Ensure you have [Go 1.24+](https://go.dev/) installed.
 
 ```bash
 # Build the API
-go build -o api ./cmd/api
+go build -o glou-server ./cmd/api
 
 # Run the server
-./api
+./glou-server
 ```
+
+📚 **[Development Guide](docs/EN/DEVELOPMENT.md)**
 
 ---
 

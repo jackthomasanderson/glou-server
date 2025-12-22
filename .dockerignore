@@ -1,0 +1,47 @@
+# Documentation
+docs/
+README.md
+*.md
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Tests
+*_test.go
+coverage.out
+
+# Dev files
+.env
+.env.local
+*.db
+*.db-shm
+*.db-wal
+
+# Build artifacts
+glou-server
+glou-server.exe
+dist/
+build/
+
+# Node / Frontend (déjà buildé)
+web/node_modules/
+web/.vite/
+web/dist/
+
+# Scripts
+scripts/
+*.ps1
+*.sh
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+data/
