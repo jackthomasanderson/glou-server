@@ -52,7 +52,7 @@ docker-compose up -d
 Accédez à l'interface web sur **http://localhost:8080**.
 
 ### Option 2 : Installation Locale
-Assurez-vous d'avoir [Go 1.24+](https://go.dev/) installé.
+Assurez-vous d'avoir [Go 1.23+](https://go.dev/) installé.
 
 ```bash
 # Compiler l'API
