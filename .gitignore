@@ -20,29 +20,38 @@ profile.cov
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-# Environment variables
+# Environment variables - CRITICAL: Never commit these!
 .env
 .env.local
 .env.*.local
+.env.production
+.env.development
 
-# Database
+# Database files
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
 glou.db
+
+# Data directories
+data/
+backups/
 
 # Logs
 *.log
+logs/
 
 # Binaries
+api
 api.exe
 glou-server
+glou-server.exe
+glou-server-*
 
 # Go workspace file
 go.work
 go.work.sum
-
-# env file
-.env
 
 # Frontend build output
 web/dist/
@@ -50,7 +59,24 @@ web/node_modules/
 web/.vite/
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
 # Documentation (local, for agent/personal use)
 /.docs/
+
+# Docker volumes (if mounted locally)
+/data/
+/backups/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

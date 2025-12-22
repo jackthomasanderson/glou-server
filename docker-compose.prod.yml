@@ -1,0 +1,83 @@
+version: "3.8"
+
+services:
+  glou-server:
+    image: ghcr.io/${GITHUB_REPOSITORY:-romain/glou-server}:latest
+    container_name: glou-server
+    restart: unless-stopped
+    
+    ports:
+      - "8080:8080"
+    
+    environment:
+      # Environnement
+      ENVIRONMENT: production
+      PORT: 8080
+      
+      # Base de données
+      DB_PATH: /data/glou.db
+      
+      # Sécurité - OBLIGATOIRE EN PRODUCTION
+      SESSION_SECRET: ${SESSION_SECRET}
+      ENCRYPTION_PASSPHRASE: ${ENCRYPTION_PASSPHRASE}
+      ENCRYPTION_SALT: ${ENCRYPTION_SALT}
+      
+      # Configuration serveur
+      PUBLIC_PROTOCOL: ${PUBLIC_PROTOCOL:-http}
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-localhost:8080}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8080}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+      
+      # Rate Limiting
+      RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-100}
+      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+      
+      # Timeouts
+      REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-30}
+      MAX_REQUEST_BODY_SIZE: ${MAX_REQUEST_BODY_SIZE:-10485760}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      
+      # Notifications Gotify (optionnel)
+      GOTIFY_URL: ${GOTIFY_URL:-}
+      GOTIFY_TOKEN: ${GOTIFY_TOKEN:-}
+      
+      # Notifications SMTP (optionnel)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TO: ${SMTP_TO:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+    
+    volumes:
+      # Données persistantes
+      - ./data:/data
+      # Si vous voulez des backups automatiques
+      - ./backups:/backups
+    
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    
+    # Ressources (ajustez selon vos besoins)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    
+    # Réseau
+    networks:
+      - glou-network
+
+networks:
+  glou-network:
+    driver: bridge
