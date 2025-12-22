@@ -63,6 +63,18 @@ func (s *Server) setSession(w http.ResponseWriter, userID int64, username string
 		MaxAge:   86400 * 7, // 7 jours
 	}
 	http.SetCookie(w, cookie)
+
+	// Définir le cookie CSRF (non HttpOnly) pour double-submit pattern
+	csrf := &http.Cookie{
+		Name:     "glou_csrf",
+		Value:    s.generateCsrfToken(userID, username, role),
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   s.config.Environment == "production",
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400 * 7,
+	}
+	http.SetCookie(w, csrf)
 }
 
 // clearSession supprime le cookie de session
@@ -76,6 +88,16 @@ func (s *Server) clearSession(w http.ResponseWriter) {
 		Expires:  time.Unix(0, 0),
 	}
 	http.SetCookie(w, cookie)
+
+	// Supprimer cookie CSRF
+	http.SetCookie(w, &http.Cookie{
+		Name:     "glou_csrf",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: false,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+	})
 }
 
 // getUserFromContext récupère l'utilisateur depuis le contexte
@@ -130,6 +152,14 @@ func (s *Server) validateSessionToken(token string) (int64, string, string, bool
 		return 0, "", "", false
 	}
 	return uid, parts[1], parts[2], true
+}
+
+func (s *Server) generateCsrfToken(userID int64, username, role string) string {
+	// Derive CSRF token from session payload with HMAC, but without storing server-side state
+	payload := fmt.Sprintf("%d|%s|%s|%d", userID, username, role, time.Now().Unix())
+	mac := hmac.New(sha256.New, []byte(s.config.SessionSecret))
+	mac.Write([]byte(payload))
+	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 
 // adminRequiredMiddleware vérifie que l'utilisateur est admin

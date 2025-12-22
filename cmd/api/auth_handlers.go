@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -389,6 +390,53 @@ func generateSecureToken(length int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(bytes), nil
+}
+
+// getClientIP extrait l'adresse IP du client en tenant compte des proxys
+// (X-Forwarded-For, X-Real-IP, Forwarded). Fallback sur RemoteAddr.
+func getClientIP(r *http.Request) string {
+	// X-Forwarded-For: ex "ip1, ip2"
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		if len(parts) > 0 {
+			ip := strings.TrimSpace(parts[0])
+			if ip != "" {
+				return ip
+			}
+		}
+	}
+
+	// X-Real-IP
+	if xrip := r.Header.Get("X-Real-IP"); xrip != "" {
+		return strings.TrimSpace(xrip)
+	}
+
+	// Forwarded: ex "for=203.0.113.43;proto=https"
+	if fwd := r.Header.Get("Forwarded"); fwd != "" {
+		segments := strings.Split(fwd, ";")
+		for _, seg := range segments {
+			s := strings.TrimSpace(seg)
+			if strings.HasPrefix(strings.ToLower(s), "for=") {
+				v := strings.Trim(strings.TrimSpace(s[4:]), "\"")
+				if v != "" && v != "_hidden" {
+					host := v
+					if h, _, err := net.SplitHostPort(v); err == nil {
+						host = h
+					}
+					return host
+				}
+			}
+		}
+	}
+
+	// RemoteAddr fallback
+	if r.RemoteAddr != "" {
+		if h, _, err := net.SplitHostPort(r.RemoteAddr); err == nil && h != "" {
+			return h
+		}
+		return r.RemoteAddr
+	}
+	return ""
 }
 
 // sendPasswordResetEmail envoie un email de réinitialisation de mot de passe

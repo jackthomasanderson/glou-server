@@ -9,9 +9,10 @@ import (
 
 // RateLimiter implémente un rate limiter par IP
 type RateLimiter struct {
-	config *Config
-	mu     sync.RWMutex
-	ips    map[string]*ipLimit
+	config      *Config
+	mu          sync.RWMutex
+	ips         map[string]*ipLimit
+	lastCleanup time.Time
 }
 
 type ipLimit struct {
@@ -34,6 +35,15 @@ func (rl *RateLimiter) Allow(ip string) bool {
 	defer rl.mu.Unlock()
 
 	now := time.Now()
+	// Periodic cleanup of stale entries
+	if rl.lastCleanup.IsZero() || now.Sub(rl.lastCleanup) > rl.config.RateLimitWindow {
+		for k, v := range rl.ips {
+			if now.After(v.resetTime) && now.Sub(v.lastAccess) > rl.config.RateLimitWindow {
+				delete(rl.ips, k)
+			}
+		}
+		rl.lastCleanup = now
+	}
 	limit, exists := rl.ips[ip]
 
 	if !exists || now.After(limit.resetTime) {

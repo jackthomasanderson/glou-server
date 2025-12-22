@@ -1,0 +1,27 @@
+version: "3.8"
+services:
+  glou-server:
+    build: .
+    image: glou-server:latest
+    container_name: glou-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ENVIRONMENT: production
+      DB_PATH: /data/glou.db
+      SESSION_SECRET: ${SESSION_SECRET}
+      ENCRYPTION_PASSPHRASE: ${ENCRYPTION_PASSPHRASE}
+      ENCRYPTION_SALT: ${ENCRYPTION_SALT}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_TO: ${SMTP_TO}
+      GOTIFY_URL: ${GOTIFY_URL}
+      GOTIFY_TOKEN: ${GOTIFY_TOKEN}
+    volumes:
+      - ./data:/data
