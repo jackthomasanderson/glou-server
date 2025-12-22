@@ -254,9 +254,10 @@ go build ./cmd/api
 
 ---
 
-## 📚 Documentation complète
+## 📚 Documentation
 
- [Documentation EN](../README.en.md)
+- [README Anglais](../EN/README.md)
+- [README Français](README.md)
 ---
 
 **💡 Tip:** Enregistrez cette page en favoris pour un accès rapide !
