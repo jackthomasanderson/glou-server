@@ -10,6 +10,7 @@ Effortless, self-hosted, and secure management for your wine, spirits, and beer 
 
 - [Quick Start Guide](QUICK_START.md)
 - [User Guide](USER_GUIDE.md)
+- [Web Application Guide](WEB_README.md)
 - [Commands Cheatsheet](COMMANDS_CHEATSHEET.md)
 - [Security Overview](SECURITY.md)
 - [Development Guide](DEVELOPMENT.md)

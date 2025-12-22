@@ -2,7 +2,7 @@
 
 The modern, responsive web interface for the Glou wine cellar management system. Built with React, Vite, and Material UI.
 
-**[English]** | **[Français](../docs/FR/WEB_README.md)**
+**[English]** | **[Français](../FR/WEB_README.md)**
 
 ---
 
@@ -58,11 +58,20 @@ The optimized assets will be generated in the `dist/` folder.
 
 ## 🤝 Contributing
 
-Please refer to the main [Development Guide](../docs/EN/DEVELOPMENT.md) for contribution instructions.
+Please refer to the main [Development Guide](../DEVELOPMENT.md) for contribution instructions.
+
+### Useful Commands
+
+- `npm run dev` - Start development server with HMR
+- `npm run build` - Optimized production build
+- `npm run preview` - Preview production build locally
+- `npm run lint` - Check code with ESLint
+- `npm run format` - Format code with Prettier
 
 ---
 
-## 📖 Documentation
+## Notes
 
-- **[English](../docs/EN/WEB_README.md)**
-- **[Français](../docs/FR/WEB_README.md)**
+- The frontend uses Vite and proxies API calls to the Go backend (default port 8080).
+- Ensure the `api` binary is running locally when developing.
+- For production, the Go server serves the built assets automatically.

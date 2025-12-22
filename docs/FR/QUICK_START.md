@@ -4,7 +4,7 @@ Application professionnelle de gestion de cave à vin avec interface web moderne
 
 ## 📋 Prérequis
 
-1. **Go 1.21+** - Pour le serveur backend
+1. **Go 1.24+** - Pour le serveur backend
 2. **Node.js 18+** - Pour l'interface React (télécharger depuis https://nodejs.org/)
 
 ## 🚀 Installation en 3 étapes
@@ -102,11 +102,11 @@ Après modification du code Go :
 go build ./cmd/api
 ```
 
-## 📚 Documentation complète
+## 📚 Documentation
 
-- [Documentation EN](../README.en.md)
-- [Documentation FR](../README.fr.md)
-- [Frontend README](../web/README.md) - Détails sur l'application React
+- [README Anglais](../EN/README.md)
+- [README Français](README.md)
+- [Guide Application Web](WEB_README.md) - Détails sur l'application React
 
 ## 🎨 Architecture
 
