@@ -19,7 +19,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push
+      - name: Build and push version tag
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -27,4 +27,13 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+
+      - name: Push latest tag (stable only)
+        if: ${{ !contains(github.ref_name, '-') }}
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
             ghcr.io/${{ github.repository }}:latest
