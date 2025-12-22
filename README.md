@@ -3,9 +3,11 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/romain/glou-server)](https://go.dev/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/github/license/romain/glou-server)](LICENSE)
-[![Status](https://img.shields.io/badge/status-production--ready-success)](https://github.com/romain/glou-server)
+[![Status](https://img.shields.io/badge/status-alpha-yellow)](https://github.com/romain/glou-server/releases)
 
 Effortless, self-hosted, and secure management for your wine, spirits, and beer collection. Track your bottles, know exactly when they reach their peak, and receive smart alerts—all while keeping your data private.
+
+⚠️ Project status: Alpha. Interfaces and APIs may change, features are under active development, and breaking changes can occur. Pre-release builds are published for early testing.
 
 **🚀 [English Documentation](docs/EN/README.md)** | **🇫🇷 [Documentation Française](docs/FR/README.md)**
 

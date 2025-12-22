@@ -3,7 +3,7 @@
 [![Version Go](https://img.shields.io/github/go-mod/go-version/romain/glou-server)](https://go.dev/)
 [![Docker](https://img.shields.io/badge/docker-prêt-blue.svg)](https://www.docker.com/)
 [![Licence](https://img.shields.io/github/license/romain/glou-server)](LICENSE)
-[![Statut](https://img.shields.io/badge/statut-prêt--production-success)](https://github.com/romain/glou-server)
+[![Statut](https://img.shields.io/badge/statut-alpha-yellow)](https://github.com/romain/glou-server/releases)
 
 **[English](../EN/README.md)** | **[Français]**
 
@@ -96,6 +96,8 @@ Ce projet est sous licence **MIT** - voir le fichier [../../LICENSE](../../LICEN
 
 *Glou est développé avec ❤️ pour les passionnés de vin qui tiennent à leur vie privée.*
 
+⚠️ Statut du projet : Alpha. Les interfaces et APIs peuvent évoluer, des changements majeurs sont possibles. Les versions publiées sont des pré-releases pour tests.
+
 
 
 ```bash
@@ -112,7 +114,7 @@ docker-compose up -d
 
 ## Statut
 
-Prêt pour la production (v1.0.0)
+Alpha (ex. v0.1.0-alpha)
 
 ---
 

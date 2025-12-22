@@ -1,5 +1,7 @@
 # 🍷 Glou - Smart Beverage Collection Management
 
+Status: Alpha — features and APIs may change; pre-release builds are for testing.
+
 Effortless, self-hosted, and secure management for your wine, spirits, and beer collection. Track your bottles, know exactly when they reach their peak, and receive smart alerts—all while keeping your data private.
 
 **[English]** | **[Français](../FR/README.md)**
