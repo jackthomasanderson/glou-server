@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/hmac"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -64,21 +63,6 @@ func (s *Server) setSession(w http.ResponseWriter, userID int64, username string
 		MaxAge:   86400 * 7, // 7 jours
 	}
 	http.SetCookie(w, cookie)
-
-	// CSRF token cookie (lisible par le client)
-	csrf := make([]byte, 32)
-	if _, err := rand.Read(csrf); err == nil {
-		csrfCookie := &http.Cookie{
-			Name:     "glou_csrf",
-			Value:    base64.StdEncoding.EncodeToString(csrf),
-			Path:     "/",
-			HttpOnly: false,
-			Secure:   s.config.Environment == "production",
-			SameSite: http.SameSiteStrictMode,
-			MaxAge:   86400 * 7,
-		}
-		http.SetCookie(w, csrfCookie)
-	}
 }
 
 // clearSession supprime le cookie de session

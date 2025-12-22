@@ -132,7 +132,8 @@ func (s *Server) setupRoutes() {
 			s.securityHeadersMiddleware(
 				s.bodyLimitMiddleware(
 					s.rateLimitMiddleware(
-						s.corsMiddleware(next)))))
+						s.corsMiddleware(
+							s.csrfMiddleware(next))))))
 	}
 
 	// Setup Wizard - Routes sans authentification
@@ -155,9 +156,9 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("POST /api/auth/reset-password", applySecurityMiddlewares(s.handleResetPassword))
 	s.router.HandleFunc("GET /api/auth/status", applySecurityMiddlewares(s.handleCheckAuthStatus))
 
-	// Middleware d'authentification pour les routes protégées (inclut CSRF pour requêtes mutatrices)
+	// Middleware d'authentification pour les routes protégées
 	authRequired := func(next http.HandlerFunc) http.HandlerFunc {
-		return applySecurityMiddlewares(s.csrfProtectionMiddleware(s.authRequiredMiddleware(next)))
+		return applySecurityMiddlewares(s.authRequiredMiddleware(next))
 	}
 
 	// Wines - Protégées par authentification
@@ -185,16 +186,16 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /wines/{id}/history", authRequired(s.handleGetConsumptionHistory))
 	s.router.HandleFunc("POST /consumption", authRequired(s.handleRecordConsumption))
 
-	// Data Export/Import - Admin only
+	// Data Export/Import - Réservé aux administrateurs
 	s.router.HandleFunc("GET /api/export/json", adminOnly(s.handleExportJSON))
 	s.router.HandleFunc("GET /api/export/wines-csv", adminOnly(s.handleExportWinesCSV))
 	s.router.HandleFunc("GET /api/export/caves-csv", adminOnly(s.handleExportCavesCSV))
 	s.router.HandleFunc("GET /api/export/tasting-history-csv", adminOnly(s.handleExportTastingHistoryCSV))
 	s.router.HandleFunc("POST /api/import/json", adminOnly(s.handleImportJSON))
 
-	// Activity Log - Admin only
-	s.router.HandleFunc("GET /api/admin/activity-log", adminOnly(s.handleGetActivityLog))
-	s.router.HandleFunc("GET /api/admin/activity-log/{type}/{id}", adminOnly(s.handleGetEntityActivityLog))
+	// Activity Log - Protégé par authentification
+	s.router.HandleFunc("GET /api/admin/activity-log", authRequired(s.handleGetActivityLog))
+	s.router.HandleFunc("GET /api/admin/activity-log/{type}/{id}", authRequired(s.handleGetEntityActivityLog))
 
 	// Admin Panel - Protégé par authentification + rôle admin
 	adminOnly := func(next http.HandlerFunc) http.HandlerFunc { return authRequired(s.adminRequiredMiddleware(next)) }
