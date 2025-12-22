@@ -921,6 +921,37 @@
         const API_BASE = 'http://localhost:8080';
         let wines = [], caves = [], alerts = [];
 
+        // CSRF + Fetch helper
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        function getCsrfToken() {
+            return getCookie('glou_csrf');
+        }
+
+        async function apiFetch(url, options = {}) {
+            const opts = { ...options };
+            // Always include credentials to send cookies
+            opts.credentials = 'include';
+            const method = (opts.method || 'GET').toUpperCase();
+            // Attach CSRF token for mutating methods
+            if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+                opts.headers = { ...(opts.headers || {}) };
+                const csrf = getCsrfToken();
+                if (csrf) {
+                    opts.headers['X-CSRF-Token'] = csrf;
+                }
+                if (!opts.headers['Content-Type']) {
+                    opts.headers['Content-Type'] = 'application/json';
+                }
+            }
+            return fetch(url, opts);
+        }
+
         // Dark mode
         function toggleDarkMode() {
             document.body.classList.toggle('dark-mode');
@@ -928,14 +959,29 @@
         }
 
         // Charger les préférences au chargement
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             if (localStorage.getItem('darkMode') === 'true') {
                 document.body.classList.add('dark-mode');
             }
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('journalDate').value = today;
+            await checkAuthStatus();
             initializeApp();
         });
+
+        async function checkAuthStatus() {
+            try {
+                const res = await apiFetch(`${API_BASE}/api/auth/status`);
+                const data = await res.json();
+                const adminBtn = document.querySelector('.admin-btn');
+                if (!data || !data.authenticated || !data.user || data.user.role !== 'admin') {
+                    if (adminBtn) adminBtn.style.display = 'none';
+                }
+            } catch (e) {
+                const adminBtn = document.querySelector('.admin-btn');
+                if (adminBtn) adminBtn.style.display = 'none';
+            }
+        }
 
         function switchTab(tab, event) {
             // Vérifier si des caves existent pour les onglets restreints
@@ -1148,7 +1194,7 @@
         }
 
         async function loadWines() {
-            const response = await fetch(`${API_BASE}/wines`);
+            const response = await apiFetch(`${API_BASE}/wines`);
             wines = await response.json() || [];
 
             const winesHtml = wines.map(w => {
@@ -1206,7 +1252,7 @@
         }
 
         async function loadCaves() {
-            const response = await fetch(`${API_BASE}/caves`);
+            const response = await apiFetch(`${API_BASE}/caves`);
             caves = await response.json() || [];
 
             const cavesHtml = caves.map(c => `
@@ -1229,7 +1275,7 @@
             // Récupère les historiques de tous les vins
             let allHistory = [];
             for (const wine of wines) {
-                const response = await fetch(`${API_BASE}/wines/${wine.id}/history`);
+                const response = await apiFetch(`${API_BASE}/wines/${wine.id}/history`);
                 const history = await response.json() || [];
                 allHistory = [...allHistory, ...history.map(h => ({...h, wineName: wine.name}))];
             }
@@ -1247,7 +1293,7 @@
         }
 
         async function loadAlerts() {
-            const response = await fetch(`${API_BASE}/alerts`);
+            const response = await apiFetch(`${API_BASE}/alerts`);
             alerts = await response.json() || [];
 
             const alertsHtml = alerts.map(a => {
@@ -1283,7 +1329,7 @@
             };
 
             try {
-                const response = await fetch(`${API_BASE}/wines`, {
+                const response = await apiFetch(`${API_BASE}/wines`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(wine)
@@ -1308,7 +1354,7 @@
             };
 
             try {
-                const response = await fetch(`${API_BASE}/caves`, {
+                const response = await apiFetch(`${API_BASE}/caves`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(cave)
@@ -1336,7 +1382,7 @@
             };
 
             try {
-                const response = await fetch(`${API_BASE}/consumption`, {
+                const response = await apiFetch(`${API_BASE}/consumption`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(consumption)
@@ -1355,7 +1401,7 @@
 
         async function deleteWine(id) {
             if (confirm('Consommer cette bouteille?')) {
-                const response = await fetch(`${API_BASE}/wines/${id}`, { method: 'DELETE' });
+                const response = await apiFetch(`${API_BASE}/wines/${id}`, { method: 'DELETE' });
                 if (response.ok) {
                     loadWines();
                     loadDashboard();
@@ -1370,7 +1416,7 @@
         }
 
         async function dismissAlert(id) {
-            const response = await fetch(`${API_BASE}/alerts/${id}`, { method: 'DELETE' });
+            const response = await apiFetch(`${API_BASE}/alerts/${id}`, { method: 'DELETE' });
             if (response.ok) {
                 loadAlerts();
                 loadDashboard();
@@ -1395,7 +1441,7 @@
             showStatus('enrichStatus', '⏳ Recherche...', 'info');
 
             try {
-                const response = await fetch(`${API_BASE}/enrich/barcode`, {
+                const response = await apiFetch(`${API_BASE}/enrich/barcode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ barcode })
@@ -1425,7 +1471,7 @@
             showStatus('enrichStatus', '⏳ Recherche...', 'info');
 
             try {
-                const response = await fetch(`${API_BASE}/enrich/name`, {
+                const response = await apiFetch(`${API_BASE}/enrich/name`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name })
@@ -1455,7 +1501,7 @@
             showStatus('enrichStatus', '⏳ Recherche...', 'info');
 
             try {
-                const response = await fetch(`${API_BASE}/enrich/spirit`, {
+                const response = await apiFetch(`${API_BASE}/enrich/spirit`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name })
@@ -1629,7 +1675,7 @@
         async function scanBarcodeFromImage(imageData) {
             try {
                 // Send image to server for barcode detection
-                const response = await fetch(`${API_BASE}/enrich/image-barcode`, {
+                const response = await apiFetch(`${API_BASE}/enrich/image-barcode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ image: imageData })
@@ -1649,7 +1695,7 @@
         async function recognizeWineLabel(imageData) {
             try {
                 // Send image to server for visual recognition
-                const response = await fetch(`${API_BASE}/enrich/image-recognize`, {
+                const response = await apiFetch(`${API_BASE}/enrich/image-recognize`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ image: imageData })
