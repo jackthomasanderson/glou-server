@@ -101,7 +101,7 @@ Le workflow a été corrigé pour :
 
 ```bash
 # Pull l'image
-docker pull ghcr.io/VOTRE-USERNAME/glou-server:latest
+docker pull ghcr.io/VOTRE-USERNAME/glou-server:alpha
 
 # Lancer avec docker-compose.prod.yml
 docker compose -f docker-compose.prod.yml up -d
@@ -189,7 +189,7 @@ cp ./data/glou.db ./backup.db
 
 ### Docker
 ```bash
-docker pull ghcr.io/VOTRE-USERNAME/glou-server:latest
+docker pull ghcr.io/VOTRE-USERNAME/glou-server:alpha
 docker compose -f docker-compose.prod.yml up -d --force-recreate
 ```
 

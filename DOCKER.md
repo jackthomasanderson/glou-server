@@ -8,9 +8,7 @@ Guide complet pour déployer Glou Server avec Docker en self-hosted.
 
 ### GitHub Container Registry (Recommandé)
 ```bash
-ghcr.io/VOTRE-USERNAME/glou-server:latest      # Dernière version stable
-ghcr.io/VOTRE-USERNAME/glou-server:main        # Branche main
-ghcr.io/VOTRE-USERNAME/glou-server:develop     # Branche develop
+ghcr.io/VOTRE-USERNAME/glou-server:alpha       # Tag unique recommandé
 ```
 
 ### Build local
@@ -195,7 +193,7 @@ docker cp ./restore.db glou-server:/data/glou.db
 docker images
 
 # Pull la dernière version
-docker pull ghcr.io/VOTRE-USERNAME/glou-server:latest
+docker pull ghcr.io/VOTRE-USERNAME/glou-server:alpha
 
 # Build local
 docker build -t glou-server:local .
@@ -234,7 +232,7 @@ docker system prune -a
 docker compose -f docker-compose.prod.yml down
 
 # 2. Pull la dernière image
-docker pull ghcr.io/VOTRE-USERNAME/glou-server:latest
+docker pull ghcr.io/VOTRE-USERNAME/glou-server:alpha
 
 # 3. Recréer le container
 docker compose -f docker-compose.prod.yml up -d --force-recreate
@@ -389,7 +387,7 @@ version: "3.8"
 
 services:
   glou-server:
-    image: ghcr.io/VOTRE-USERNAME/glou-server:latest
+    image: ghcr.io/VOTRE-USERNAME/glou-server:alpha
     container_name: glou-server
     networks:
       - traefik
@@ -465,13 +463,13 @@ Caddy gère automatiquement HTTPS avec Let's Encrypt !
 
 ```bash
 # Avec Docker Scout
-docker scout cves glou-server:latest
+ docker scout cves glou-server:alpha
 
 # Avec Trivy
-trivy image glou-server:latest
+ trivy image glou-server:alpha
 
 # Avec Snyk
-snyk container test glou-server:latest
+ snyk container test glou-server:alpha
 ```
 
 ---

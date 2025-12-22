@@ -115,7 +115,7 @@ Si vous voulez utiliser l'image pré-buildée depuis GitHub Actions :
 # Dans docker-compose.prod.yml, l'image est déjà configurée
 services:
   glou-server:
-    image: ghcr.io/VOTRE-USERNAME/glou-server:latest
+    image: ghcr.io/VOTRE-USERNAME/glou-server:alpha
 ```
 
 **Pull manuel de l'image** :
@@ -124,7 +124,7 @@ services:
 echo $GITHUB_TOKEN | docker login ghcr.io -u VOTRE-USERNAME --password-stdin
 
 # Pull l'image
-docker pull ghcr.io/VOTRE-USERNAME/glou-server:latest
+docker pull ghcr.io/VOTRE-USERNAME/glou-server:alpha
 ```
 
 ---

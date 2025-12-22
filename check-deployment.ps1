@@ -135,9 +135,9 @@ Write-Host ""
 # 8. Vérifier l'image Docker (si elle existe)
 Write-Host "[8/8] Verification de l'image Docker..." -ForegroundColor Yellow
 try {
-    $localImage = docker images -q glou-server:latest 2>$null
+    $localImage = docker images -q glou-server:alpha 2>$null
     if ($localImage) {
-        Show-Result "Image locale glou-server:latest trouvée" $true
+        Show-Result "Image locale glou-server:alpha trouvée" $true
     } else {
         Write-Host "  ℹ Image Docker sera téléchargée/buildée au démarrage" -ForegroundColor Cyan
     }
