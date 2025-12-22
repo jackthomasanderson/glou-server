@@ -3,7 +3,7 @@
 project_name: glou-server
 description: "Self-hosted wine cellar manager"
 license: MIT
-homepage: "https://github.com/romain/glou-server"
+homepage: "https://github.com/jackthomasanderson/glou-server"
 builds:
   - id: glou
     main: ./cmd/api
@@ -29,8 +29,9 @@ checksum:
   name_template: 'checksums.txt'
 release:
   github:
-    owner: romain
+    owner: jackthomasanderson
     name: glou-server
+  prerelease: true
 changelog:
   use: git
   filters:
@@ -42,7 +43,7 @@ snapshot:
 brews:
   - name: glou-server
     github:
-      owner: romain
+      owner: jackthomasanderson
       name: glou-server
     description: "Self-hosted wine cellar manager"
     homepage: "https://github.com/romain/glou-server"
@@ -50,6 +51,6 @@ brews:
     folder: Formula
 
 dockers:
-  - image_templates:
-      - "ghcr.io/romain/glou-server:{{ .Version }}"
+    - image_templates:
+      - "ghcr.io/jackthomasanderson/glou-server:{{ .Version }}"
     latest: true
