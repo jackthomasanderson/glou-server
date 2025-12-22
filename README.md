@@ -5,11 +5,9 @@
 [![License](https://img.shields.io/github/license/romain/glou-server)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production--ready-success)](https://github.com/romain/glou-server)
 
-**[English]** | **[Français](README.fr.md)**
-
 Effortless, self-hosted, and secure management for your wine, spirits, and beer collection. Track your bottles, know exactly when they reach their peak, and receive smart alerts—all while keeping your data private.
 
-**🚀 [Quick Start](docs/QUICK_START.md)** | **📖 [User Guide](docs/USER_GUIDE.md)** | **📱 [Android App](https://github.com/jackthomasanderson/glou-android)** | **🔐 [Security](docs/SECURITY.md)**
+**🚀 [English Documentation](docs/EN/README.md)** | **🇫🇷 [Documentation Française](docs/FR/README.md)**
 
 ---
 
@@ -75,17 +73,24 @@ go build -o api ./cmd/api
 
 ## 📖 Documentation
 
-- [Quick Start Guide](docs/QUICK_START.md) - Detailed installation instructions.
-- [User Guide](docs/USER_GUIDE.md) - How to use the heatmaps and manage your collection.
-- [Commands Cheatsheet](docs/COMMANDS_CHEATSHEET.md) - CLI tools for user management and maintenance.
-- [Security Overview](docs/SECURITY.md) - Details on how we protect your data.
-- [Development Guide](docs/DEVELOPMENT.md) - How to contribute to Glou.
+### 🇬🇧 English
+- [Quick Start Guide](docs/EN/QUICK_START.md)
+- [User Guide](docs/EN/USER_GUIDE.md)
+- [Commands Cheatsheet](docs/EN/COMMANDS_CHEATSHEET.md)
+- [Security Overview](docs/EN/SECURITY.md)
+- [Development Guide](docs/EN/DEVELOPMENT.md)
+
+### 🇫🇷 Français
+- [Guide de démarrage rapide](docs/EN/QUICK_START.md) (EN)
+- [Guide Utilisateur](docs/FR/USER_GUIDE.md)
+- [Sécurité](docs/EN/SECURITY.md) (EN)
+- [Développement](docs/EN/DEVELOPMENT.md) (EN)
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Whether it's a bug report, a new feature, or a translation, please feel free to open an issue or a pull request. See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for more details.
+Contributions are welcome! Whether it's a bug report, a new feature, or a translation, please feel free to open an issue or a pull request. See [DEVELOPMENT.md](docs/EN/DEVELOPMENT.md) for more details.
 
 ## 📄 License
 
