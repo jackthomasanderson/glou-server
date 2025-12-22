@@ -2,7 +2,7 @@ version: "3.8"
 services:
   glou-server:
     build: .
-    image: glou-server:alpha
+    image: ghcr.io/glou-server:latest
     container_name: glou-server
     restart: unless-stopped
     ports:
