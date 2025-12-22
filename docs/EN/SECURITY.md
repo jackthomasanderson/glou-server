@@ -1,56 +1,56 @@
-# 🔐 Sécurité & Chiffrement - Glou Server
+# 🔐 Security & Encryption - Glou Server
 
-Ce document regroupe les mesures de sécurité et les procédures de chiffrement implémentées dans Glou Server, conformément aux recommandations de l'ANSSI.
+This document outlines the security measures and encryption procedures implemented in Glou Server, in accordance with ANSSI recommendations.
 
-## 🛡️ Architecture de Sécurité
+## 🛡️ Security Architecture
 
-Glou Server utilise un système de chiffrement **AES-256-GCM** pour protéger toutes les données sensibles au repos.
+Glou Server uses an **AES-256-GCM** encryption system to protect all sensitive data at rest.
 
-### Spécifications Techniques
-- **Algorithme** : AES-256-GCM (Confidentialité + Authenticité)
-- **Taille de clé** : 256 bits
-- **Dérivation** : PBKDF2 avec 100 000 itérations (SHA-256)
-- **Nonce** : Aléatoire unique (96 bits) par opération
+### Technical Specifications
+- **Algorithm**: AES-256-GCM (Confidentiality + Authenticity)
+- **Key Size**: 256 bits
+- **Derivation**: PBKDF2 with 100,000 iterations (SHA-256)
+- **Nonce**: Unique random (96 bits) per operation
 
 ## ⚙️ Configuration (Production)
 
-Pour activer le chiffrement en production, configurez les variables d'environnement suivantes :
+To enable encryption in production, configure the following environment variables:
 
 ```bash
-# Générer une passphrase (min 32 chars)
+# Generate a passphrase (min 32 chars)
 ENCRYPTION_PASSPHRASE=$(openssl rand -base64 48)
-# Générer un salt unique
+# Generate a unique salt
 ENCRYPTION_SALT=$(openssl rand -hex 16)
 ENVIRONMENT=production
 ```
 
-## 📋 Checklist de Déploiement
+## 📋 Deployment Checklist
 
-### 1. Fichiers & Permissions
-- [ ] `.env` en `chmod 600`
-- [ ] `glou.db` en `chmod 600`
-- [ ] Exécution sous un utilisateur dédié (non-root)
+### 1. Files & Permissions
+- [ ] `.env` set to `chmod 600`
+- [ ] `glou.db` set to `chmod 600`
+- [ ] Execution under a dedicated user (non-root)
 
-### 2. Réseau
-- [ ] HTTPS activé via reverse proxy (Nginx/Caddy)
-- [ ] `PUBLIC_PROTOCOL=https` et `PUBLIC_DOMAIN` configurés
-- [ ] CORS limité aux domaines autorisés
+### 2. Network
+- [ ] HTTPS enabled via reverse proxy (Nginx/Caddy)
+- [ ] `PUBLIC_PROTOCOL=https` and `PUBLIC_DOMAIN` configured
+- [ ] CORS limited to authorized domains
 
-### 3. Mots de Passe
-- [ ] Mot de passe admin fort (≥ 12 caractères)
-- [ ] Credentials SMTP/API stockés via le système de chiffrement
+### 3. Passwords
+- [ ] Strong admin password (≥ 12 characters)
+- [ ] SMTP/API credentials stored via the encryption system
 
-## 🛠️ Utilisation (Développeurs)
+## 🛠️ Usage (Developers)
 
-### Stocker une donnée chiffrée
+### Store Encrypted Data
 ```go
 err := store.StoreEncryptedCredential(ctx, "service_name", "type", "secret_value")
 ```
 
-### Récupérer une donnée déchiffrée
+### Retrieve Decrypted Data
 ```go
 value, err := store.GetDecryptedCredential(ctx, "service_name")
 ```
 
-## 🔄 Mises à jour & Migration
-Le système de chiffrement a été introduit en v1.0.0. Pour les installations existantes, les credentials SMTP et tokens API doivent être ré-enregistrés via l'interface ou le wizard de setup pour être chiffrés.
+## 🔄 Updates & Migration
+The encryption system was introduced in v1.0.0. For existing installations, SMTP credentials and API tokens must be re-registered via the interface or setup wizard to be encrypted.
