@@ -349,6 +349,35 @@
     </div>
 
     <script>
+        // Auth + CSRF helpers
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+
+        function getCsrfToken() {
+            return getCookie('glou_csrf');
+        }
+
+        async function apiFetch(url, options = {}) {
+            const opts = { ...options };
+            opts.credentials = 'include';
+            const method = (opts.method || 'GET').toUpperCase();
+            // Attach CSRF to mutating requests
+            if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+                const csrf = getCsrfToken();
+                opts.headers = { ...(opts.headers || {}) };
+                if (csrf) opts.headers['X-CSRF-Token'] = csrf;
+                // Respect FormData content-type
+                const isFormData = (opts.body && typeof FormData !== 'undefined' && opts.body instanceof FormData);
+                if (!isFormData) {
+                    opts.headers['Content-Type'] = opts.headers['Content-Type'] || 'application/json';
+                }
+            }
+            return fetch(url, opts);
+        }
         // Traductions pour l'interface admin
         const i18n = {
             en: {
@@ -542,8 +571,20 @@
             }
         }
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
+        // Initialize with admin role check
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await apiFetch('/api/auth/status');
+                const data = await res.json();
+                if (!data || !data.authenticated || !data.user || data.user.role !== 'admin') {
+                    // Not admin: return to app
+                    window.location.href = '/';
+                    return;
+                }
+            } catch (e) {
+                window.location.href = '/';
+                return;
+            }
             loadSettings();
             loadStats();
             setupColorPickers();
@@ -576,7 +617,7 @@
 
         async function loadSettings() {
             try {
-                const res = await fetch('/api/admin/settings');
+                const res = await apiFetch('/api/admin/settings');
                 const settings = await res.json();
                 
                 // Définir la langue et mettre à jour l'UI
@@ -616,7 +657,7 @@
 
         async function loadStats() {
             try {
-                const res = await fetch('/api/admin/stats');
+                const res = await apiFetch('/api/admin/stats');
                 const stats = await res.json();
                 document.getElementById('stat-wines').textContent = stats.total_wines || 0;
                 document.getElementById('stat-caves').textContent = stats.total_caves || 0;
@@ -698,7 +739,7 @@
 
         async function saveSettings(settings) {
             try {
-                const res = await fetch('/api/admin/settings', {
+                const res = await apiFetch('/api/admin/settings', {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(settings)
@@ -723,7 +764,7 @@
             formData.append('logo', file);
             
             try {
-                const res = await fetch('/api/admin/upload-logo', {
+                const res = await apiFetch('/api/admin/upload-logo', {
                     method: 'POST',
                     body: formData
                 });
