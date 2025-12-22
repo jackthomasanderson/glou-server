@@ -161,6 +161,11 @@ func (s *Server) setupRoutes() {
 		return applySecurityMiddlewares(s.authRequiredMiddleware(next))
 	}
 
+	// Raccourci pour les routes réservées aux administrateurs
+	adminOnly := func(next http.HandlerFunc) http.HandlerFunc {
+		return authRequired(s.adminRequiredMiddleware(next))
+	}
+
 	// Wines - Protégées par authentification
 	s.router.HandleFunc("GET /wines", authRequired(s.handleGetWines))
 	s.router.HandleFunc("POST /wines", authRequired(s.handleCreateWine))
@@ -198,7 +203,6 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /api/admin/activity-log/{type}/{id}", authRequired(s.handleGetEntityActivityLog))
 
 	// Admin Panel - Protégé par authentification + rôle admin
-	adminOnly := func(next http.HandlerFunc) http.HandlerFunc { return authRequired(s.adminRequiredMiddleware(next)) }
 	s.router.HandleFunc("GET /admin", adminOnly(s.handleAdminDashboard))
 	s.router.HandleFunc("GET /api/admin/settings", adminOnly(s.handleGetSettings))
 	s.router.HandleFunc("PUT /api/admin/settings", adminOnly(s.handleUpdateSettings))
@@ -285,6 +289,9 @@ func (s *Server) handleCreateWine(w http.ResponseWriter, r *http.Request) {
 	wine.ID = id
 	wine.CreatedAt = time.Now()
 
+	// Audit
+	s.store.LogActivity(r.Context(), "wine", wine.ID, "wine_created", map[string]interface{}{"name": wine.Name, "region": wine.Region, "vintage": wine.Vintage}, s.getClientIP(r))
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(wine)
@@ -307,6 +314,9 @@ func (s *Server) handleDeleteWine(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	// Audit
+	s.store.LogActivity(r.Context(), "wine", id, "wine_deleted_or_decremented", map[string]string{"id": idStr}, s.getClientIP(r))
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -423,6 +433,9 @@ func (s *Server) handleUpdateWine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Audit
+	s.store.LogActivity(r.Context(), "wine", wine.ID, "wine_updated", map[string]interface{}{"name": wine.Name, "region": wine.Region, "vintage": wine.Vintage}, s.getClientIP(r))
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(wine)
 }
@@ -490,6 +503,9 @@ func (s *Server) handleCreateCave(w http.ResponseWriter, r *http.Request) {
 	cave.ID = id
 	cave.CreatedAt = time.Now()
 
+	// Audit
+	s.store.LogActivity(r.Context(), "cave", cave.ID, "cave_created", map[string]interface{}{"name": cave.Name, "capacity": cave.Capacity}, s.getClientIP(r))
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(cave)
@@ -530,6 +546,9 @@ func (s *Server) handleCreateCell(w http.ResponseWriter, r *http.Request) {
 
 	cell.ID = id
 	cell.CreatedAt = time.Now()
+
+	// Audit
+	s.store.LogActivity(r.Context(), "cell", cell.ID, "cell_created", map[string]interface{}{"cave_id": cell.CaveID, "location": cell.Location}, s.getClientIP(r))
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -603,6 +622,9 @@ func (s *Server) handleCreateAlert(w http.ResponseWriter, r *http.Request) {
 	alert.ID = id
 	alert.CreatedAt = time.Now()
 
+	// Audit
+	s.store.LogActivity(r.Context(), "alert", alert.ID, "alert_created", map[string]interface{}{"wine_id": alert.WineID, "type": alert.AlertType}, s.getClientIP(r))
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(alert)
@@ -621,6 +643,9 @@ func (s *Server) handleDismissAlert(w http.ResponseWriter, r *http.Request) {
 		s.respondError(w, http.StatusInternalServerError, "Failed to dismiss alert", err)
 		return
 	}
+
+	// Audit
+	s.store.LogActivity(r.Context(), "alert", id, "alert_dismissed", map[string]string{"id": idStr}, s.getClientIP(r))
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -682,6 +707,9 @@ func (s *Server) handleRecordConsumption(w http.ResponseWriter, r *http.Request)
 
 	consumption.ID = id
 	consumption.CreatedAt = time.Now()
+
+	// Audit
+	s.store.LogActivity(r.Context(), "consumption", consumption.ID, "consumption_recorded", map[string]interface{}{"wine_id": consumption.WineID, "qty": consumption.Quantity}, s.getClientIP(r))
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

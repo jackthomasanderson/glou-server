@@ -44,6 +44,9 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Audit
+	s.store.LogActivity(ctx, "settings", settings.ID, "settings_updated", map[string]string{"by": "admin"}, s.getClientIP(r))
+
+	// Audit
 	s.store.LogActivity(ctx, "admin", 0, "update_settings", map[string]string{"by": r.Context().Value(SessionUserKey).(string)}, s.getClientIP(r))
 
 	w.Header().Set("Content-Type", "application/json")
@@ -67,6 +70,9 @@ func (s *Server) handleUploadLogo(w http.ResponseWriter, r *http.Request) {
 	// TODO: Sauvegarder le fichier dans assets/uploads/
 	// Pour maintenant, retourner un chemin fictif
 	logoURL := "/assets/uploads/" + handler.Filename
+
+	// Audit
+	s.store.LogActivity(r.Context(), "branding", 0, "logo_uploaded", map[string]string{"filename": handler.Filename}, s.getClientIP(r))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"logo_url": logoURL})

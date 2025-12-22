@@ -10,7 +10,7 @@ import (
 // handleExportJSON exporte toutes les données en JSON
 func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
 	// Audit log
-	if uid, ok := getUserFromContext(r.Context()); ok {
+	if _, ok := getUserFromContext(r.Context()); ok {
 		s.store.LogActivity(r.Context(), "export", 0, "export_json", map[string]string{"path": "/api/export/json"}, s.getClientIP(r))
 	}
 	data, err := s.store.ExportJSON(r.Context())
@@ -26,7 +26,7 @@ func (s *Server) handleExportJSON(w http.ResponseWriter, r *http.Request) {
 
 // handleExportWinesCSV exporte les vins en CSV
 func (s *Server) handleExportWinesCSV(w http.ResponseWriter, r *http.Request) {
-	if uid, ok := getUserFromContext(r.Context()); ok {
+	if _, ok := getUserFromContext(r.Context()); ok {
 		s.store.LogActivity(r.Context(), "export", 0, "export_wines_csv", map[string]string{"path": "/api/export/wines-csv"}, s.getClientIP(r))
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
@@ -39,7 +39,7 @@ func (s *Server) handleExportWinesCSV(w http.ResponseWriter, r *http.Request) {
 
 // handleExportCavesCSV exporte les caves en CSV
 func (s *Server) handleExportCavesCSV(w http.ResponseWriter, r *http.Request) {
-	if uid, ok := getUserFromContext(r.Context()); ok {
+	if _, ok := getUserFromContext(r.Context()); ok {
 		s.store.LogActivity(r.Context(), "export", 0, "export_caves_csv", map[string]string{"path": "/api/export/caves-csv"}, s.getClientIP(r))
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
@@ -52,7 +52,7 @@ func (s *Server) handleExportCavesCSV(w http.ResponseWriter, r *http.Request) {
 
 // handleExportTastingHistoryCSV exporte l'historique en CSV
 func (s *Server) handleExportTastingHistoryCSV(w http.ResponseWriter, r *http.Request) {
-	if uid, ok := getUserFromContext(r.Context()); ok {
+	if _, ok := getUserFromContext(r.Context()); ok {
 		s.store.LogActivity(r.Context(), "export", 0, "export_tasting_history_csv", map[string]string{"path": "/api/export/tasting-history-csv"}, s.getClientIP(r))
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
@@ -85,7 +85,7 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if uid, ok := getUserFromContext(r.Context()); ok {
+	if _, ok := getUserFromContext(r.Context()); ok {
 		s.store.LogActivity(r.Context(), "import", 0, "import_json", map[string]int{"bytes": len(data)}, s.getClientIP(r))
 	}
 
@@ -98,13 +98,6 @@ func (s *Server) handleImportJSON(w http.ResponseWriter, r *http.Request) {
 
 // handleGetActivityLog récupère le journal d'activités
 func (s *Server) handleGetActivityLog(w http.ResponseWriter, r *http.Request) {
-	// Admin only
-	isAdmin := r.Header.Get("X-Admin") == "true" // Simplification, à adapter selon votre auth
-	if !isAdmin {
-		s.respondError(w, http.StatusForbidden, "Admin access required", nil)
-		return
-	}
-
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
 	entityType := r.URL.Query().Get("entity_type")
