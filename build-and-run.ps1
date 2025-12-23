@@ -90,11 +90,11 @@ Write-Host "  http://localhost:8080" -ForegroundColor Cyan
 Write-Host ""
 
 # Demander si on démarre maintenant
-$response = Read-Host "Démarrer le serveur maintenant? (O/n)"
+$response = Read-Host "Demarrer le serveur maintenant? (O/n)"
 if ($response -eq "" -or $response -eq "O" -or $response -eq "o") {
     Write-Host ""
-    Write-Host "Démarrage du serveur..." -ForegroundColor Yellow
-    Write-Host "Appuyez sur Ctrl+C pour arrêter" -ForegroundColor Gray
+    Write-Host "Demarrage du serveur..." -ForegroundColor Yellow
+    Write-Host "Appuyez sur Ctrl+C pour arreter" -ForegroundColor Gray
     Write-Host ""
     .\api.exe
 }
