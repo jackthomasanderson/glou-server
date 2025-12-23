@@ -7,8 +7,23 @@ Guide complet pour déployer Glou Server avec Docker en self-hosted.
 ## 📦 Images Disponibles
 
 ### GitHub Container Registry (Recommandé)
+
+**Nightly Builds** (depuis `develop`) :
 ```bash
-ghcr.io/VOTRE-USERNAME/glou-server:alpha       # Tag unique recommandé
+ghcr.io/VOTRE-USERNAME/glou-server:nightly-YYYYMMDD-HHMMSS-<commit>-<attempt>
+ghcr.io/VOTRE-USERNAME/glou-server:nightly-YYYYMMDD  # Date simple
+ghcr.io/VOTRE-USERNAME/glou-server:nightly           # Latest nightly
+```
+
+**Releases Stables** :
+```bash
+ghcr.io/VOTRE-USERNAME/glou-server:v1.2.3            # Tag exact
+ghcr.io/VOTRE-USERNAME/glou-server:latest            # Latest release
+```
+
+**Pre-releases / Beta** :
+```bash
+ghcr.io/VOTRE-USERNAME/glou-server:v2.0.0-beta.1     # Beta versioning
 ```
 
 ### Build local

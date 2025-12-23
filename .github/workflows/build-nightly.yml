@@ -53,14 +53,19 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate datetime tag
+        id: datetime
+        run: |
+          echo "tag=$(date -u +'%Y%m%d-%H%M%S')-${{ github.sha }}-${{ github.run_attempt }}" >> $GITHUB_OUTPUT
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=nightly-{{date 'YYYYMMDD'}}
+            type=raw,value=nightly-${{ steps.datetime.outputs.tag }}
             type=raw,value=nightly
+            type=raw,value=nightly-{{date 'YYYYMMDD'}}
           flavor: |
             latest=false
       - name: Build and push Docker image
@@ -75,5 +80,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VERSION=nightly-${{ github.sha }}
+            VERSION=nightly-${{ steps.datetime.outputs.tag }}
             COMMIT=${{ github.sha }}
