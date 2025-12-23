@@ -90,12 +90,50 @@ openssl rand -base64 48
 
 ---
 
-## 📊 Workflow GitHub Actions
+## 📊 Workflow GitHub Actions - Stratégie Hybride
 
-Le workflow a été corrigé pour :
-- ✅ Éviter les conflits d'artifacts (noms uniques)
-- ✅ Builder et pousser l'image Docker vers GitHub Container Registry
-- ✅ Créer des binaires multi-plateformes (Windows, Linux, macOS)
+### 🌙 Nightly Builds (depuis `develop`)
+
+**Trigger** : Push sur `develop` (ou manuel)
+
+**Tags Docker générés** :
+- `nightly-YYYYMMDD-HHMMSS-<commit>-<attempt>` (Timestamp ISO 8601)
+- `nightly-YYYYMMDD` (Date seule)
+- `nightly` (Latest nightly)
+
+**Avantages** :
+- ✅ Identifie immédiatement la date/heure du build
+- ✅ Tri chronologique automatique
+- ✅ Pas de confusion avec les releases stables
+
+**Exemple** :
+```bash
+ghcr.io/username/glou-server:nightly-20251223-143000-a1b2c3d-1
+ghcr.io/username/glou-server:nightly-20251223
+ghcr.io/username/glou-server:nightly  # Latest
+```
+
+### 🚀 Releases (depuis tags `v*.*.*`)
+
+**Trigger** : Push tag `v*` sur `main`
+
+#### Releases Stables (`v1.2.3`)
+```bash
+ghcr.io/username/glou-server:v1.2.3
+ghcr.io/username/glou-server:latest
+```
+
+#### Pre-releases / Beta (`v2.0.0-beta.1`)
+```bash
+ghcr.io/username/glou-server:v2.0.0-beta.1
+# (pas de tag `latest`)
+```
+
+**Workflows associés** :
+- ✅ Build & test complets
+- ✅ Goreleaser : Binaires multi-plateforme (Windows/Linux/macOS)
+- ✅ GitHub Releases : Attachement des binaires
+- ✅ Docker images multi-architectures (amd64, arm64)
 
 ### Utiliser l'Image Docker depuis GitHub
 
