@@ -41,6 +41,93 @@
             color: var(--text-dark);
         }
 
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 1.25rem;
+            right: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            align-items: flex-end;
+            z-index: 2000;
+            pointer-events: none;
+        }
+
+        .toast {
+            min-width: 320px;
+            max-width: 420px;
+            padding: 0.9rem 1rem;
+            border-radius: 12px;
+            background: var(--surface-light);
+            color: var(--text-light);
+            box-shadow: 0 14px 50px rgba(0, 0, 0, 0.18);
+            border: 1px solid var(--border-light);
+            border-left: 6px solid var(--primary);
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            pointer-events: auto;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        body.dark-mode .toast {
+            background: var(--surface-dark);
+            color: var(--text-dark);
+            border-color: var(--border-dark);
+            box-shadow: 0 14px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .toast.success {
+            border-left-color: var(--success);
+        }
+
+        .toast.error {
+            border-left-color: var(--danger);
+        }
+
+        .toast-message {
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .toast-close {
+            background: transparent;
+            border: none;
+            color: inherit;
+            font-size: 1.1rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 8px;
+            opacity: 0.8;
+            transition: opacity 0.15s ease, background-color 0.15s ease;
+        }
+
+        .toast-close:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.06);
+        }
+
+        body.dark-mode .toast-close:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .toast-close:focus-visible {
+            outline: 2px solid var(--border-light);
+            outline-offset: 1px;
+        }
+
+        body.dark-mode .toast-close:focus-visible {
+            outline-color: var(--border-dark);
+        }
+
         /* Navbar */
         .navbar {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
@@ -122,6 +209,41 @@
         }
 
         /* Tabs */
+        .tabs-wrapper {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .tabs-toggle {
+            display: none;
+            width: 100%;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            background: #f0f0f0;
+            border: 1px solid var(--border-light);
+            color: var(--text-light);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.25s, border-color 0.25s, color 0.25s;
+        }
+
+        .tabs-toggle:hover {
+            background: #e5e5e5;
+        }
+
+        body.dark-mode .tabs-toggle {
+            background: #2d2d2d;
+            border-color: var(--border-dark);
+            color: var(--text-dark);
+        }
+
+        .tabs-toggle-icon {
+            font-size: 1.15rem;
+        }
+
         .tabs {
             display: flex;
             gap: 0.5rem;
@@ -182,6 +304,65 @@
         .tabs-content.active {
             display: block;
             animation: fadeIn 0.3s;
+        }
+
+        /* Mobile / Tablet navigation */
+        @media (max-width: 1024px) {
+            .tabs-wrapper {
+                margin-bottom: 1rem;
+            }
+
+            .tabs-toggle {
+                display: flex;
+            }
+
+            .tabs {
+                display: none;
+                position: absolute;
+                top: calc(100% + 0.25rem);
+                left: 0;
+                right: 0;
+                margin-bottom: 0;
+                padding: 0.5rem;
+                border: 1px solid var(--border-light);
+                border-radius: 12px;
+                background: var(--surface-light);
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+                gap: 0.35rem;
+                z-index: 120;
+                flex-direction: column;
+            }
+
+            body.dark-mode .tabs {
+                background: var(--surface-dark);
+                border-color: var(--border-dark);
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+            }
+
+            .tabs-wrapper.mobile-open .tabs {
+                display: flex;
+            }
+
+            .tab-btn {
+                width: 100%;
+                text-align: left;
+                border-radius: 10px;
+                padding: 0.65rem 0.85rem;
+                border-bottom-width: 2px;
+                background: #f6f6f6;
+            }
+
+            body.dark-mode .tab-btn {
+                background: #2f2f2f;
+            }
+
+            .tab-btn.active {
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+            }
+
+            body.dark-mode .tab-btn.active {
+                box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+            }
         }
 
         @keyframes fadeIn {
@@ -598,36 +779,54 @@
     <!-- Conteneur principal -->
     <div class="container">
         <!-- Tabs Navigation -->
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('dashboard', event)">📊 Dashboard</button>
-            <button class="tab-btn" onclick="switchTab('wines', event)">🍾 Ma Collection</button>
-            <button class="tab-btn" onclick="switchTab('to-drink', event)">🎯 À Boire</button>
-            <button class="tab-btn" onclick="switchTab('caves', event)">🏺 Caves</button>
-            <button class="tab-btn" onclick="switchTab('journal', event)">📖 Journal</button>
-            <button class="tab-btn" onclick="switchTab('alerts', event)">🔔 Alertes</button>
+        <div class="tabs-wrapper">
+            <button class="tabs-toggle" id="tabsToggle" aria-expanded="false" aria-controls="tabsNav">
+                <span class="tabs-toggle-label" id="tabsToggleLabel">Navigation</span>
+                <span class="tabs-toggle-icon" aria-hidden="true">☰</span>
+            </button>
+            <div class="tabs" id="tabsNav">
+                <button class="tab-btn active" data-tab="dashboard" onclick="switchTab('dashboard', event)">
+                    📊 <span data-i18n="nav.dashboard">Dashboard</span>
+                </button>
+                <button class="tab-btn" data-tab="wines" onclick="switchTab('wines', event)">
+                    🍾 <span data-i18n="nav.wines">Ma Collection</span>
+                </button>
+                <button class="tab-btn" data-tab="to-drink" onclick="switchTab('to-drink', event)">
+                    🎯 <span data-i18n="nav.toDrink">À Boire</span>
+                </button>
+                <button class="tab-btn" data-tab="caves" onclick="switchTab('caves', event)">
+                    🏺 <span data-i18n="nav.caves">Caves</span>
+                </button>
+                <button class="tab-btn" data-tab="journal" onclick="switchTab('journal', event)">
+                    📖 <span data-i18n="nav.journal">Journal</span>
+                </button>
+                <button class="tab-btn" data-tab="alerts" onclick="switchTab('alerts', event)">
+                    🔔 <span data-i18n="nav.alerts">Alertes</span>
+                </button>
+            </div>
         </div>
 
         <!-- Dashboard -->
         <div id="dashboard" class="tabs-content active">
-            <div class="page-title">Dashboard</div>
-            <p class="page-subtitle">Vue d'ensemble de votre cave</p>
+            <div class="page-title" data-i18n="nav.dashboard">Dashboard</div>
+            <p class="page-subtitle" data-i18n="dashboard.title">Vue d'ensemble de votre cave</p>
 
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="number" id="wineCount">0</div>
-                    <div class="label">Bouteilles Total</div>
+                    <div class="label" data-i18n="dashboard.totalWines">Bouteilles Total</div>
                 </div>
                 <div class="stat-card">
                     <div class="number" id="bottleCount">0</div>
-                    <div class="label">Bouteilles</div>
+                    <div class="label" data-i18n="dashboard.bottles">Bouteilles</div>
                 </div>
                 <div class="stat-card">
                     <div class="number" id="apogeeCount">0</div>
-                    <div class="label">À boire maintenant</div>
+                    <div class="label" data-i18n="dashboard.toDrink">À boire maintenant</div>
                 </div>
                 <div class="stat-card">
                     <div class="number" id="caveCount">0</div>
-                    <div class="label">Caves</div>
+                    <div class="label" data-i18n="dashboard.caves">Caves</div>
                 </div>
             </div>
 
@@ -797,7 +996,7 @@
 
         <!-- Caves -->
         <div id="caves" class="tabs-content">
-            <div class="page-title">Collections</div>
+            <div class="page-title" data-i18n="caves.title">Collections</div>
             <p class="page-subtitle">Gérez vos emplacements</p>
 
             <div class="content">
@@ -918,9 +1117,121 @@
         </div>
     </div>
 
+    <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script src="/assets/i18n.js"></script>
     <script>
         const API_BASE = 'http://localhost:8080';
+        const TAB_ROUTES = {
+            dashboard: '/dashboard',
+            wines: '/wines',
+            'to-drink': '/to-drink',
+            caves: '/cellars',
+            journal: '/journal',
+            alerts: '/alerts'
+        };
+
         let wines = [], caves = [], alerts = [];
+
+        function getTabFromPath(pathname) {
+            const matched = Object.entries(TAB_ROUTES).find(([, path]) => path === pathname);
+            if (matched) return matched[0];
+            if (pathname === '/' || pathname === '/assets/glou.html') return 'dashboard';
+            return 'dashboard';
+        }
+
+        function getTabButton(tab) {
+            return document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+        }
+
+        function getTabsWrapper() {
+            return document.querySelector('.tabs-wrapper');
+        }
+
+        function updateTabsToggleLabel(tab) {
+            const label = document.getElementById('tabsToggleLabel');
+            const btn = getTabButton(tab);
+            if (label) {
+                label.textContent = btn ? btn.textContent.trim() : 'Navigation';
+            }
+        }
+
+        function closeMobileTabs() {
+            const wrapper = getTabsWrapper();
+            const toggle = document.getElementById('tabsToggle');
+            if (wrapper && wrapper.classList.contains('mobile-open')) {
+                wrapper.classList.remove('mobile-open');
+            }
+            if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        }
+
+        function toggleMobileTabs() {
+            const wrapper = getTabsWrapper();
+            const toggle = document.getElementById('tabsToggle');
+            if (!wrapper || !toggle) return;
+            const isOpen = wrapper.classList.toggle('mobile-open');
+            toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }
+
+        function setupMobileTabsToggle() {
+            const toggle = document.getElementById('tabsToggle');
+            const wrapper = getTabsWrapper();
+            if (!toggle || !wrapper) return;
+
+            toggle.addEventListener('click', (event) => {
+                event.stopPropagation();
+                toggleMobileTabs();
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!wrapper.classList.contains('mobile-open')) return;
+                if (wrapper.contains(event.target)) return;
+                closeMobileTabs();
+            });
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth > 1024) closeMobileTabs();
+            });
+        }
+
+        function updateHistoryForTab(tab, { replace = false } = {}) {
+            const path = TAB_ROUTES[tab];
+            if (!path) return;
+            if (window.location.pathname === path && !replace) return;
+            const method = replace ? 'replaceState' : 'pushState';
+            window.history[method]({ tab }, '', path);
+        }
+
+        function showToast(message, type = 'success', options = {}) {
+            const { persistent = false } = options;
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            let dismissed = false;
+
+            toast.innerHTML = `
+                <div class="toast-message">${message}</div>
+                <button class="toast-close" aria-label="Fermer la notification">×</button>
+            `;
+
+            const removeToast = () => {
+                if (dismissed) return;
+                dismissed = true;
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+            };
+
+            toast.querySelector('.toast-close').addEventListener('click', removeToast);
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+
+            if (!persistent) {
+                setTimeout(removeToast, 10000);
+            }
+        }
 
         // CSRF + Fetch helper
         function getCookie(name) {
@@ -967,7 +1278,9 @@
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('journalDate').value = today;
             await checkAuthStatus();
-            initializeApp();
+            setupMobileTabsToggle();
+            const initialTab = getTabFromPath(window.location.pathname);
+            initializeApp(initialTab);
         });
 
         async function checkAuthStatus() {
@@ -984,40 +1297,59 @@
             }
         }
 
-        function switchTab(tab, event) {
+        function switchTab(tab, event, options = {}) {
+            const { skipHistory = false, skipDataLoad = false } = options;
             // Vérifier si des caves existent pour les onglets restreints
             const restrictedTabs = ['wines', 'to-drink', 'journal', 'alerts'];
             if (restrictedTabs.includes(tab) && caves.length === 0) {
-                alert('⚠️ Vous devez d\'abord créer une cave!\n\nVeuillez aller à l\'onglet "Caves" pour en créer une.');
+                showToast('⚠️ Vous devez d\'abord créer une cave !<br>Veuillez aller à l\'onglet "Caves" pour en créer une.', 'error', { persistent: true });
                 // Rediriger vers l'onglet Caves
                 document.querySelectorAll('.tabs-content').forEach(el => el.classList.remove('active'));
                 document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
                 document.getElementById('caves').classList.add('active');
-                document.querySelector('[onclick="switchTab(\'caves\', event)"]').classList.add('active');
+                const cavesBtn = getTabButton('caves');
+                if (cavesBtn) cavesBtn.classList.add('active');
+                updateHistoryForTab('caves');
                 loadCaves();
                 return;
             }
 
             document.querySelectorAll('.tabs-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(tab).classList.add('active');
-            if (event) event.target.classList.add('active');
+            const tabContent = document.getElementById(tab);
+            if (tabContent) tabContent.classList.add('active');
+            const targetBtn = event?.currentTarget || getTabButton(tab);
+            if (targetBtn) targetBtn.classList.add('active');
+            updateTabsToggleLabel(tab);
+            closeMobileTabs();
 
-            if (tab === 'dashboard') loadDashboard();
-            else if (tab === 'wines') loadWines();
-            else if (tab === 'to-drink') loadWinesToDrinkNow();
-            else if (tab === 'caves') loadCaves();
-            else if (tab === 'journal') loadJournal();
-            else if (tab === 'alerts') loadAlerts();
+            if (!skipDataLoad) {
+                if (tab === 'dashboard') loadDashboard();
+                else if (tab === 'wines') loadWines();
+                else if (tab === 'to-drink') loadWinesToDrinkNow();
+                else if (tab === 'caves') loadCaves();
+                else if (tab === 'journal') loadJournal();
+                else if (tab === 'alerts') loadAlerts();
+            }
+
+            if (!skipHistory) updateHistoryForTab(tab);
         }
 
-        async function initializeApp() {
+        async function initializeApp(initialTab = 'dashboard') {
             await loadDashboard();
             document.getElementById('addWineForm').addEventListener('submit', handleAddWine);
             document.getElementById('addCaveForm').addEventListener('submit', handleAddCave);
             document.getElementById('journalForm').addEventListener('submit', handleJournal);
             updateTabStates();
             setupAddressAutocomplete();
+            switchTab(initialTab, null, { skipHistory: true, skipDataLoad: true });
+            updateHistoryForTab(initialTab, { replace: true });
+            window.addEventListener('popstate', handlePopState);
+        }
+
+        function handlePopState() {
+            const tab = getTabFromPath(window.location.pathname);
+            switchTab(tab, null, { skipHistory: true });
         }
 
         function setupAddressAutocomplete() {

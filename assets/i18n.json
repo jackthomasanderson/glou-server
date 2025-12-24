@@ -2,7 +2,7 @@
   "fr": {
     "app": {
       "title": "Glou",
-      "subtitle": "Gestion de Collection",
+      "subtitle": "Gestion de cave : vins, bières et spiritueux",
       "version": "v1.0.0"
     },
     "nav": {
@@ -15,7 +15,7 @@
     },
     "dashboard": {
       "title": "Vue d'ensemble",
-      "totalWines": "Bouteilles Total",
+      "totalWines": "Bouteilles totales",
       "bottles": "Bouteilles",
       "toDrink": "À boire maintenant",
       "caves": "Caves"
@@ -38,7 +38,7 @@
       "edit": "Modifier",
       "delete": "Supprimer",
       "cancel": "Annuler",
-      "success": "Vin créé avec succès",
+      "success": "Entrée créée avec succès",
       "error": "Erreur lors de la création",
       "types": {
         "rouge": "Rouge",
@@ -61,7 +61,7 @@
     "journal": {
       "title": "Journal de Bord",
       "record": "Enregistrer une consommation",
-      "wine": "Vin",
+      "wine": "Bouteille",
       "date": "Date",
       "reason": "Raison",
       "tastingNotes": "Notes de dégustation",
@@ -100,12 +100,12 @@
   "en": {
     "app": {
       "title": "Glou",
-      "subtitle": "Wine Cellar Management",
+      "subtitle": "Cellar management for wine, beer & spirits",
       "version": "v1.0.0"
     },
     "nav": {
       "dashboard": "Dashboard",
-      "wines": "My Wines",
+      "wines": "My Collection",
       "toDrink": "Drink Now",
       "caves": "Cellars",
       "journal": "Journal",
@@ -113,14 +113,14 @@
     },
     "dashboard": {
       "title": "Overview",
-      "totalWines": "Total Wines",
+      "totalWines": "Total Bottles",
       "bottles": "Bottles",
       "toDrink": "Ready to drink",
       "caves": "Cellars"
     },
     "wines": {
-      "title": "My Wines",
-      "add": "Add Wine",
+      "title": "My Collection",
+      "add": "Add Item",
       "search": "Search...",
       "type": "Type",
       "vintage": "Vintage",
@@ -136,8 +136,8 @@
       "edit": "Edit",
       "delete": "Delete",
       "cancel": "Cancel",
-      "success": "Wine created successfully",
-      "error": "Error creating wine",
+      "success": "Entry created successfully",
+      "error": "Error creating entry",
       "types": {
         "rouge": "Red",
         "blanc": "White",
@@ -159,7 +159,7 @@
     "journal": {
       "title": "Tasting Journal",
       "record": "Record Consumption",
-      "wine": "Wine",
+      "wine": "Bottle",
       "date": "Date",
       "reason": "Reason",
       "tastingNotes": "Tasting Notes",

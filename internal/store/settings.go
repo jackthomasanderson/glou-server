@@ -50,7 +50,7 @@ func (s *Store) GetSettings(ctx context.Context) (*domain.Settings, error) {
 func (s *Store) createDefaultSettings(ctx context.Context) (*domain.Settings, error) {
 	settings := &domain.Settings{
 		AppTitle:            "Glou",
-		AppSlogan:           "Wine Management System",
+		AppSlogan:           "Cellar management for wine, beer & spirits",
 		ThemeColor:          "#007bff",
 		SecondaryColor:      "#6c757d",
 		AccentColor:         "#28a745",

@@ -258,7 +258,7 @@
     <div class="auth-container">
         <div class="logo">
             <h1>🍷 Glou</h1>
-            <p>Wine Management System</p>
+            <p id="app-slogan">Gestion de cave : vins, bières et spiritueux</p>
         </div>
 
         <div class="alert" id="alertBox"></div>
@@ -374,10 +374,21 @@
         });
 
         // Vérifier la configuration lors du chargement
+        const defaultSlogans = {
+            fr: 'Gestion de cave : vins, bières et spiritueux',
+            en: 'Cellar management for wine, beer & spirits'
+        };
+
         async function checkSettings() {
             try {
                 const response = await fetch('/api/admin/settings');
                 const settings = await response.json();
+                const language = ['fr', 'en'].includes(settings.language) ? settings.language : (navigator.language.split('-')[0] === 'fr' ? 'fr' : 'en');
+                document.documentElement.lang = language;
+                const sloganEl = document.getElementById('app-slogan');
+                if (sloganEl) {
+                    sloganEl.textContent = settings.app_slogan || defaultSlogans[language];
+                }
                 
                 // Vérifier si l'inscription est activée
                 if (!settings.allow_registration) {

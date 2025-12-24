@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/romain/glou-server/internal/domain"
 	"github.com/romain/glou-server/internal/notifier"
 )
 
@@ -54,8 +55,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Vérifier les credentials
-	valid, err := s.store.VerifyPassword(ctx, req.Username, req.Password)
+	// Normaliser l'identifiant saisi (username ou email)
+	loginInput := strings.TrimSpace(req.Username)
+
+	// Vérifier les credentials (accepte username ou email, insensible à la casse)
+	valid, err := s.store.VerifyPassword(ctx, loginInput, req.Password)
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, "Failed to verify credentials", err)
 		return
@@ -66,8 +70,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Récupérer l'utilisateur
-	user, err := s.store.GetUserByUsername(ctx, req.Username)
+	// Récupérer l'utilisateur (par email ou username, insensible à la casse)
+	var user *domain.User
+	if strings.Contains(loginInput, "@") {
+		user, err = s.store.GetUserByEmail(ctx, loginInput)
+	} else {
+		user, err = s.store.GetUserByUsername(ctx, loginInput)
+	}
 	if err != nil {
 		s.respondError(w, http.StatusInternalServerError, "Failed to get user", err)
 		return
