@@ -25,7 +25,7 @@ export const AlphaBanner = () => {
         boxShadow: '0 -2px 8px rgba(0, 0, 0, 0.1)',
       }}
     >
-      Alpha — Features may change between pre-release builds
+      Alpha — Les fonctionnalités peuvent changer entre les versions de pré-publication
     </Box>
   );
 };

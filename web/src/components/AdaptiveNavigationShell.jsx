@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAppConfig } from '../context/AppConfigContext';
 import {
   Box,
   AppBar,
@@ -52,6 +53,7 @@ import {
 export const AdaptiveNavigationShell = ({ children }) => {
   const theme = useTheme();
   const location = useLocation();
+  const { appName } = useAppConfig();
   const isCompact = useMediaQuery(theme.breakpoints.down('sm')); // < 600px
   const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md')); // 600px - 960px
   const isLarge = useMediaQuery(theme.breakpoints.up('md')); // > 960px
@@ -90,7 +92,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
         <AppBar position="static" elevation={0}>
           <Toolbar>
             <Typography variant="h6" sx={{ flexGrow: 1 }}>
-              Glou
+              {appName}
             </Typography>
             <IconButton color="inherit" size="small">
               <NotificationsIcon />
@@ -102,7 +104,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
         </AppBar>
 
         {/* Content */}
-        <Box sx={{ flex: 1, overflow: 'auto' }}>
+        <Box sx={{ flex: 1, overflow: 'auto', paddingBottom: '40px' }}>
           {children}
         </Box>
 
@@ -199,7 +201,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
           <AppBar position="static" elevation={0}>
             <Toolbar>
               <Typography variant="h6" sx={{ flexGrow: 1 }}>
-                Glou
+                {appName}
               </Typography>
               <IconButton color="inherit" size="small">
                 <NotificationsIcon />
@@ -211,7 +213,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
           </AppBar>
 
           {/* Content */}
-          <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <Box sx={{ flex: 1, overflow: 'auto', paddingBottom: '40px' }}>
             {children}
           </Box>
         </Box>
@@ -246,7 +248,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
                 fontWeight: 600,
               }}
             >
-              Glou
+              {appName}
             </Typography>
           </Box>
           <Divider sx={{ borderColor: theme.palette.divider }} />
@@ -340,6 +342,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
               flex: 1,
               overflow: 'auto',
               backgroundColor: theme.palette.background.default,
+              paddingBottom: '40px',
             }}
           >
             {children}

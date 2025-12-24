@@ -93,7 +93,7 @@
     </style>
 </head>
 <body>
-    <div class="alpha-banner" style="position: fixed; bottom:0; left:0; right:0; z-index:1000; background:#f59e0b; color:#fff; text-align:center; padding:6px; font-weight:600; letter-spacing:0.3px;">Alpha — Features may change between pre-release builds</div>
+    <div class="alpha-banner" style="position: fixed; bottom:0; left:0; right:0; z-index:1000; background:#f59e0b; color:#fff; text-align:center; padding:6px; font-weight:600; letter-spacing:0.3px;">Alpha — Les fonctionnalités peuvent changer entre les versions de pré-publication</div>
     <div class="toast-container" id="toast-container"></div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <div class="admin-container">
@@ -158,15 +158,15 @@
                         <h3>Branding Settings</h3>
                         
                         <div class="form-group">
-                            <label>Application Title</label>
-                            <input type="text" id="appTitle" placeholder="e.g., My Wine Cellar" required>
-                            <small>Display name for your Glou instance</small>
+                            <label>Nom de l'Application / App Name</label>
+                            <input type="text" id="appTitle" placeholder="e.g., Glou, Ma Cave, My Cellar" required>
+                            <small>Nom affiché partout dans l'application (web et mobile)</small>
                         </div>
 
                         <div class="form-group">
-                            <label>Slogan</label>
-                            <input type="text" id="appSlogan" placeholder="e.g., Cellar management for wine, beer & spirits">
-                            <small>Short tagline displayed in header</small>
+                            <label>Description / Description</label>
+                            <input type="text" id="appSlogan" placeholder="e.g., Votre cave dans la poche / Your personal cellar">
+                            <small>Phrase d'accroche affichée avec le nom (web, mobile, page de login)</small>
                         </div>
 
                         <div class="form-group">
@@ -176,12 +176,18 @@
 
                         <div class="form-group">
                             <label>Logo & Favicon</label>
-                            <input type="url" id="logoURL" placeholder="/assets/logo.png">
-                            <img id="logoPreview" class="logo-preview" style="display:none;">
-                            <small>Cette image sera utilisée comme logo ET comme favicon</small>
+                            <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                                <div id="logoPreviewContainer" style="flex: 0 0 auto; text-align: center;">
+                                    <img id="logoPreview" class="logo-preview" style="display:block; max-width: 200px; max-height: 200px; border: 2px solid #e0e0e0; border-radius: 8px; padding: 10px; background: #f8f9fa;">
+                                </div>
+                                <div style="flex: 1; min-width: 200px;">
+                                    <button type="button" onclick="document.getElementById('logoUpload').click()" style="margin-bottom: 10px;">Changer le logo</button>
+                                    <input type="url" id="logoURL" placeholder="/assets/logo.png" style="display: none;">
+                                    <input type="file" id="logoUpload" style="display:none;" accept="image/*" onchange="uploadLogo(event)">
+                                    <small style="display: block; color: #666;">Cette image sera utilisée comme logo ET comme favicon</small>
+                                </div>
+                            </div>
                         </div>
-                        <button type="button" onclick="document.getElementById('logoUpload').click()">Upload Logo</button>
-                        <input type="file" id="logoUpload" style="display:none;" accept="image/*" onchange="uploadLogo(event)">
 
                         <div class="form-group">
                             <label>Langue / Language</label>
@@ -427,7 +433,7 @@
                 saveFeatures: 'Save Features',
                 saveAdvanced: 'Save Advanced',
                 applicationTitle: 'Application Title',
-                slogan: 'Slogan',
+                slogan: 'Description',
                 supportEmail: 'Support Email',
                 logoAndFavicon: 'Logo & Favicon',
                 logoDescription: 'This image will be used as logo AND favicon',
@@ -450,8 +456,8 @@
                 maintenanceMode: 'Maintenance Mode',
                 allowRegistration: 'Allow Registration',
                 requireApproval: 'Require Admin Approval',
-                settingsSaved: '✓ Settings saved successfully!',
-                settingsFailed: '✗ Failed to save settings',
+                settingsSaved: 'Settings saved successfully!',
+                settingsFailed: 'Failed to save settings',
                 logoUpdated: 'Logo and Favicon updated!',
                 totalWines: 'Total Wines',
                 cellars: 'Cellars',
@@ -462,7 +468,7 @@
                 menu: 'Menu',
                 // Descriptions
                 appTitleDesc: 'Display name for your Glou instance',
-                sloganDesc: 'Short tagline displayed in header',
+                sloganDesc: 'Description displayed with the name (web, mobile, login page)',
                 domainDesc: 'Domain users will access this server from',
                 proxyModeDesc: 'Enable if using Nginx, Apache, or HAProxy in front',
                 trustHeadersDesc: 'Trust headers like X-Forwarded-For from proxy',
@@ -501,7 +507,7 @@
                 saveFeatures: 'Enregistrer les fonctionnalités',
                 saveAdvanced: 'Enregistrer les paramètres avancés',
                 applicationTitle: 'Titre de l\'application',
-                slogan: 'Slogan',
+                slogan: 'Description',
                 supportEmail: 'Email de support',
                 logoAndFavicon: 'Logo & Favicon',
                 logoDescription: 'Cette image sera utilisée comme logo ET comme favicon',
@@ -524,8 +530,8 @@
                 maintenanceMode: 'Mode maintenance',
                 allowRegistration: 'Autoriser l\'inscription',
                 requireApproval: 'Requérir l\'approbation admin',
-                settingsSaved: '✓ Paramètres enregistrés avec succès !',
-                settingsFailed: '✗ Échec de l\'enregistrement des paramètres',
+                settingsSaved: 'Paramètres enregistrés avec succès !',
+                settingsFailed: 'Échec de l\'enregistrement des paramètres',
                 logoUpdated: 'Logo et Favicon mis à jour !',
                 totalWines: 'Total de vins',
                 cellars: 'Caves',
@@ -536,7 +542,7 @@
                 menu: 'Menu',
                 // Descriptions
                 appTitleDesc: 'Nom d\'affichage pour votre instance Glou',
-                sloganDesc: 'Courte phrase affichée dans l\'en-tête',
+                sloganDesc: 'Description affichée avec le nom (web, mobile, page de login)',
                 domainDesc: 'Domaine depuis lequel les utilisateurs accèderont à ce serveur',
                 proxyModeDesc: 'Activer si vous utilisez Nginx, Apache ou HAProxy',
                 trustHeadersDesc: 'Faire confiance aux en-têtes comme X-Forwarded-For du proxy',
@@ -551,28 +557,6 @@
                 commonProxySetups: 'Configurations proxy courantes',
                 userMgmtDesc: 'Actuellement en mode mono-utilisateur. Support multi-utilisateurs à venir en Phase 2.',
                 addUser: 'Ajouter un utilisateur'
-            }
-                uploadLogo: 'Télécharger le logo',
-                language: 'Langue',
-                primaryColor: 'Couleur primaire',
-                secondaryColor: 'Couleur secondaire',
-                accentColor: 'Couleur d\'accentuation',
-                darkModeDefault: 'Mode sombre par défaut',
-                publicDomain: 'Domaine public',
-                publicProtocol: 'Protocole public',
-                proxyMode: 'Mode proxy',
-                sessionTimeout: 'Délai d\'expiration de session',
-                maxRequestBodySize: 'Taille max du corps de requête',
-                settingsSaved: '✓ Paramètres enregistrés avec succès !',
-                settingsFailed: '✗ Échec de l\'enregistrement des paramètres',
-                logoUpdated: 'Logo et Favicon mis à jour !',
-                totalWines: 'Total de vins',
-                cellars: 'Caves',
-                activeAlerts: 'Alertes actives',
-                systemOk: 'Système OK',
-                quickSettings: 'Paramètres rapides',
-                quickSettingsDesc: 'Utilisez le menu pour configurer l\'image de marque, le réseau et les fonctionnalités.',
-                menu: 'Menu'
             }
         };
 
@@ -610,7 +594,10 @@
         }
 
         function closeSidebarOnMobile() {
-            setSidebarState(false);
+            // Ne fermer le menu que si on est en mode mobile
+            if (mobileMediaQuery.matches) {
+                setSidebarState(false);
+            }
         }
 
         function setupSidebarToggle() {
@@ -838,14 +825,25 @@
                 return;
             }
             
-            // Détecter la langue du navigateur par défaut
-            const browserLang = navigator.language || navigator.userLanguage;
+            // Initialiser le menu EN PREMIER
+            setupSidebarToggle();
+            
+            // Détecter la langue du navigateur
+            const browserLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+            console.log('Browser language:', browserLang);
+            
+            // Supporter fr, fr-FR, fr-fr, etc.
             if (browserLang.startsWith('fr')) {
                 currentLang = 'fr';
-                updateUILanguage();
+                console.log('Language set to FR');
+            } else {
+                console.log('Language set to EN');
             }
             
-            setupSidebarToggle();
+            // Mettre à jour l'UI immédiatement
+            updateUILanguage();
+            
+            // PUIS charger les settings (sans écraser la langue)
             loadSettings();
             loadStats();
             setupColorPickers();
@@ -883,9 +881,8 @@
                 const res = await apiFetch('/api/admin/settings');
                 const settings = await res.json();
                 
-                // Définir la langue et mettre à jour l'UI
-                currentLang = settings.language || 'en';
-                updateUILanguage();
+                // Charger SEULEMENT les paramètres, pas toucher à la langue
+                // La langue est définie par le navigateur ou les settings serveur séparément
                 
                 document.getElementById('appTitle').value = settings.app_title || '';
                 document.getElementById('appSlogan').value = settings.app_slogan || '';
@@ -1023,6 +1020,20 @@
             const file = e.target.files[0];
             if (!file) return;
             
+            // Valider la taille du fichier (10MB max)
+            const maxSize = 10 * 1024 * 1024;
+            if (file.size > maxSize) {
+                showToast(`File size must be less than 10MB. Current: ${(file.size / 1024 / 1024).toFixed(2)}MB`, 'error');
+                return;
+            }
+            
+            // Valider le type de fichier
+            const validTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/svg+xml', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                showToast('Only image files are allowed (png, jpg, jpeg, gif, svg, webp)', 'error');
+                return;
+            }
+            
             const formData = new FormData();
             formData.append('logo', file);
             
@@ -1031,6 +1042,12 @@
                     method: 'POST',
                     body: formData
                 });
+                
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.error || `Upload failed with status ${res.status}`);
+                }
+                
                 const data = await res.json();
                 if (data.logo_url) {
                     document.getElementById('logoURL').value = data.logo_url;
@@ -1038,9 +1055,12 @@
                     document.getElementById('logoPreview').style.display = 'block';
                     // Le logo et le favicon utilisent la même image
                     showToast(t('logoUpdated'), 'success');
+                } else if (data.error) {
+                    showToast(data.error, 'error');
                 }
             } catch (err) {
                 console.error('Upload error:', err);
+                showToast(`Upload error: ${err.message}`, 'error');
             }
         }
     </script>

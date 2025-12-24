@@ -31,6 +31,7 @@
             justify-content: center;
             align-items: center;
             padding: 20px;
+            padding-bottom: 60px;
         }
 
         .auth-container {
@@ -254,11 +255,11 @@
     </style>
 </head>
 <body>
-    <div class="alpha-banner" style="position: fixed; bottom:0; left:0; right:0; z-index:1000; background:#f59e0b; color:#fff; text-align:center; padding:6px; font-weight:600; letter-spacing:0.3px;">Alpha — Features may change between pre-release builds</div>
+    <div class="alpha-banner" style="position: fixed; bottom:0; left:0; right:0; z-index:1000; background:#f59e0b; color:#fff; text-align:center; padding:6px; font-weight:600; letter-spacing:0.3px;">Alpha — Les fonctionnalités peuvent changer entre les versions de pré-publication</div>
     <div class="auth-container">
         <div class="logo">
             <h1>🍷 Glou</h1>
-            <p id="app-slogan">Gestion de cave : vins, bières et spiritueux</p>
+            <p id="app-slogan">Votre cave dans la poche</p>
         </div>
 
         <div class="alert" id="alertBox"></div>
@@ -375,8 +376,8 @@
 
         // Vérifier la configuration lors du chargement
         const defaultSlogans = {
-            fr: 'Gestion de cave : vins, bières et spiritueux',
-            en: 'Cellar management for wine, beer & spirits'
+            fr: 'Votre cave dans la poche',
+            en: 'Your personal cellar'
         };
 
         async function checkSettings() {
@@ -385,9 +386,23 @@
                 const settings = await response.json();
                 const language = ['fr', 'en'].includes(settings.language) ? settings.language : (navigator.language.split('-')[0] === 'fr' ? 'fr' : 'en');
                 document.documentElement.lang = language;
+                
+                const appTitle = settings.app_title || 'Glou';
+                const appSlogan = settings.app_slogan || defaultSlogans[language];
+                
+                // Mettre à jour le titre de la page
+                document.title = `${appTitle} - ${appSlogan}`;
+                
+                // Mettre à jour le h1
+                const titleEl = document.querySelector('.logo h1');
+                if (titleEl) {
+                    titleEl.textContent = `🍷 ${appTitle}`;
+                }
+                
+                // Mettre à jour le slogan
                 const sloganEl = document.getElementById('app-slogan');
                 if (sloganEl) {
-                    sloganEl.textContent = settings.app_slogan || defaultSlogans[language];
+                    sloganEl.textContent = appSlogan;
                 }
                 
                 // Vérifier si l'inscription est activée

@@ -7,8 +7,8 @@ type Settings struct {
 	ID int64 `json:"id"`
 
 	// Branding
-	AppTitle     string `json:"app_title"`     // Titre de l'appli (ex: "Ma Collection")
-	AppSlogan    string `json:"app_slogan"`    // Slogan
+	AppTitle     string `json:"app_title"`     // Nom de l'app (ex: "Glou" ou "Ma Cave")
+	AppSlogan    string `json:"app_slogan"`    // Slogan (ex: "Votre cave dans la poche")
 	LogoURL      string `json:"logo_url"`      // URL du logo
 	FaviconURL   string `json:"favicon_url"`   // URL du favicon
 	SupportEmail string `json:"support_email"` // Email de support

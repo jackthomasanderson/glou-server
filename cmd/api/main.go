@@ -35,6 +35,46 @@ var validAlertTypes = map[string]bool{
 	"apogee_ended":   true,
 }
 
+// mimeTypeHandler ajoute les bons Content-Type aux fichiers statiques
+// en appelant SetHeader AVANT que FileServer écrive le corps
+type mimeTypeHandler struct {
+	handler http.Handler
+}
+
+func (h *mimeTypeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Déterminer le type MIME basé sur l'extension AVANT que FileServer s'exécute
+	switch {
+	case strings.HasSuffix(r.URL.Path, ".css"):
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	case strings.HasSuffix(r.URL.Path, ".js"):
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	case strings.HasSuffix(r.URL.Path, ".json"):
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	case strings.HasSuffix(r.URL.Path, ".html"):
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	case strings.HasSuffix(r.URL.Path, ".png"):
+		w.Header().Set("Content-Type", "image/png")
+	case strings.HasSuffix(r.URL.Path, ".jpg") || strings.HasSuffix(r.URL.Path, ".jpeg"):
+		w.Header().Set("Content-Type", "image/jpeg")
+	case strings.HasSuffix(r.URL.Path, ".gif"):
+		w.Header().Set("Content-Type", "image/gif")
+	case strings.HasSuffix(r.URL.Path, ".svg"):
+		w.Header().Set("Content-Type", "image/svg+xml")
+	case strings.HasSuffix(r.URL.Path, ".ico"):
+		w.Header().Set("Content-Type", "image/x-icon")
+	case strings.HasSuffix(r.URL.Path, ".woff"):
+		w.Header().Set("Content-Type", "font/woff")
+	case strings.HasSuffix(r.URL.Path, ".woff2"):
+		w.Header().Set("Content-Type", "font/woff2")
+	case strings.HasSuffix(r.URL.Path, ".ttf"):
+		w.Header().Set("Content-Type", "font/ttf")
+	}
+
+	// Servir le fichier - FileServer utilisera maintenant notre Content-Type
+	// plutôt que de détecter text/plain
+	h.handler.ServeHTTP(w, r)
+}
+
 // ValidateWine validates wine data before storage
 func ValidateWine(wine *domain.Wine) error {
 	if wine.Name == "" {
@@ -163,7 +203,7 @@ func (s *Server) setupRoutes() {
 
 	// Raccourci pour les routes réservées aux administrateurs
 	adminOnly := func(next http.HandlerFunc) http.HandlerFunc {
-		return authRequired(s.adminRequiredMiddleware(next))
+		return authRequired(s.setupCheckMiddleware(s.adminRequiredMiddleware(next)))
 	}
 
 	// Wines - Protégées par authentification
@@ -229,8 +269,10 @@ func (s *Server) setupRoutes() {
 	// Health check
 	s.router.HandleFunc("GET /health", applySecurityMiddlewares(s.handleHealth))
 
-	// Servir les assets statiques
-	s.router.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+	// Servir les assets statiques avec les bons types MIME
+	s.router.Handle("GET /assets/", http.StripPrefix("/assets/", &mimeTypeHandler{
+		handler: http.FileServer(http.Dir("assets")),
+	}))
 
 	// Servir l'interface web pour toutes les routes non-API (avec vérification setup)
 	s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(authRequired(func(w http.ResponseWriter, r *http.Request) {
@@ -564,7 +606,9 @@ func (s *Server) handleGetAlerts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !hasCellar {
-		s.respondError(w, http.StatusBadRequest, "You must create at least one cellar before viewing alerts", nil)
+		// Return empty array instead of error when no cellar exists
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]domain.Alert{})
 		return
 	}
 
