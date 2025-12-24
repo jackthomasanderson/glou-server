@@ -53,14 +53,12 @@ snapshot:
   name_template: "{{ incpatch .Version }}-next"
 
 brews:
-  - name: glou-server
-    repository:
+  - repository:
       owner: jackthomasanderson
       name: homebrew-tap
     description: "Self-hosted wine cellar manager"
     homepage: "https://github.com/jackthomasanderson/glou-server"
     license: MIT
-    folder: Formula
 
 dockers:
   - image_templates:
