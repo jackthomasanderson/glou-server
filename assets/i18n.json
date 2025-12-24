@@ -2,7 +2,7 @@
   "fr": {
     "app": {
       "title": "Glou",
-      "subtitle": "Gestion de cave : vins, bières et spiritueux",
+      "subtitle": "Votre cave dans la poche",
       "version": "v1.0.0"
     },
     "nav": {
@@ -100,7 +100,7 @@
   "en": {
     "app": {
       "title": "Glou",
-      "subtitle": "Cellar management for wine, beer & spirits",
+      "subtitle": "Your personal cellar",
       "version": "v1.0.0"
     },
     "nav": {

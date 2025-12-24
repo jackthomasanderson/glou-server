@@ -5,6 +5,7 @@ import appTheme from './theme/appTheme';
 
 // Layouts
 import { AdaptiveNavigationShell } from './components/AdaptiveNavigationShell';
+import { AlphaBanner } from './components/AlphaBanner';
 
 // Screens
 import DashboardScreen from './screens/DashboardScreen';
@@ -41,6 +42,7 @@ function App() {
   return (
     <ThemeProvider theme={appTheme}>
       <CssBaseline />
+      <AlphaBanner />
       <Router>
         <Routes>
           {/* Home redirect */}
