@@ -1,9 +1,11 @@
-# Goreleaser configuration for building and publishing glou-server binaries
-# Replace `owner` and `name` under `release.github` with your GitHub org/user and repository name.
+# GoReleaser v2 configuration for building and publishing glou-server binaries
+version: 2
+
 project_name: glou-server
-description: "Self-hosted wine cellar manager"
-license: MIT
-homepage: "https://github.com/jackthomasanderson/glou-server"
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
 builds:
   - id: glou
     main: ./cmd/api
@@ -17,36 +19,46 @@ builds:
       - arm64
     env:
       - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
 archives:
   - format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
-      - when: os=windows
+      - goos: windows
         format: zip
     files:
       - LICENSE
       - README.md
+
 checksum:
   name_template: 'checksums.txt'
-release:
-  github:
-    owner: jackthomasanderson
-    name: glou-server
-  prerelease: true
+  algorithm: sha256
+
 changelog:
-  use: git
+  sort: asc
+  use: github
   filters:
     exclude:
-      - '^docs?:'
+      - '^docs:'
+      - '^test:'
+      - Merge pull request
+      - Merge branch
+
 snapshot:
-  name_template: 'snapshot_{{ .Tag }}'
+  name_template: "{{ incpatch .Version }}-next"
 
 brews:
   - name: glou-server
-    github:
+    repository:
       owner: jackthomasanderson
-      name: glou-server
+      name: homebrew-tap
     description: "Self-hosted wine cellar manager"
-    homepage: "https://github.com/romain/glou-server"
+    homepage: "https://github.com/jackthomasanderson/glou-server"
     license: MIT
     folder: Formula
 
@@ -54,3 +66,11 @@ dockers:
   - image_templates:
       - "ghcr.io/jackthomasanderson/glou-server:{{ .Version }}"
       - "ghcr.io/jackthomasanderson/glou-server:latest"
+    dockerfile: Dockerfile
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--platform=linux/amd64"
