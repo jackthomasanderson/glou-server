@@ -217,6 +217,7 @@ func (s *Server) setupRoutes() {
 	// Caves - Protégées par authentification
 	s.router.HandleFunc("GET /caves", authRequired(s.handleGetCaves))
 	s.router.HandleFunc("POST /caves", authRequired(s.handleCreateCave))
+	s.router.HandleFunc("PUT /caves/{id}", authRequired(s.handleUpdateCave))
 
 	// Cells - Protégées par authentification
 	s.router.HandleFunc("GET /caves/{caveID}/cells", authRequired(s.handleGetCells))
@@ -550,6 +551,49 @@ func (s *Server) handleCreateCave(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(cave)
+}
+
+// handleUpdateCave met à jour une cave existante
+func (s *Server) handleUpdateCave(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		s.respondError(w, http.StatusBadRequest, "Invalid cave ID", err)
+		return
+	}
+
+	var cave domain.Cave
+	if err := json.NewDecoder(r.Body).Decode(&cave); err != nil {
+		s.respondError(w, http.StatusBadRequest, "Invalid request body", err)
+		return
+	}
+
+	cave.ID = id
+
+	if cave.Name == "" {
+		s.respondError(w, http.StatusBadRequest, "Missing required fields: name", nil)
+		return
+	}
+
+	if cave.Capacity < 0 {
+		s.respondError(w, http.StatusBadRequest, "Capacity cannot be negative", nil)
+		return
+	}
+
+	if err := s.store.UpdateCave(r.Context(), &cave); err != nil {
+		if err.Error() == "cave not found" {
+			s.respondError(w, http.StatusNotFound, "Cave not found", err)
+		} else {
+			s.respondError(w, http.StatusInternalServerError, "Failed to update cave", err)
+		}
+		return
+	}
+
+	// Audit
+	s.store.LogActivity(r.Context(), "cave", cave.ID, "cave_updated", map[string]interface{}{"name": cave.Name, "location": cave.Location, "capacity": cave.Capacity}, s.getClientIP(r))
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(cave)
 }
 

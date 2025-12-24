@@ -532,7 +532,7 @@
         /* Buttons */
         button {
             padding: 0.75rem 1.5rem;
-            background: var(--primary);
+            background: var(--success);
             color: white;
             border: none;
             border-radius: 8px;
@@ -543,7 +543,7 @@
         }
 
         button:hover {
-            background: var(--primary-dark);
+            background: #059669;
             transform: translateY(-1px);
         }
 
@@ -1118,6 +1118,39 @@
         </div>
     </div>
 
+    <!-- Modal d'édition de cave -->
+    <div id="editCaveModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; padding: 1rem;">
+        <div style="background: var(--surface-light); border-radius: 12px; padding: 2rem; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="margin: 0;">✏️ Modifier la cave</h2>
+                <button onclick="closeEditCaveModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">×</button>
+            </div>
+            <form id="editCaveForm">
+                <input type="hidden" id="editCaveId">
+                <div class="form-group">
+                    <label for="editCaveName">Nom de la cave *</label>
+                    <input type="text" id="editCaveName" required placeholder="ex: Salon, Cuisine, Cave">
+                </div>
+                <div class="form-group">
+                    <label for="editCaveModel">Modèle</label>
+                    <input type="text" id="editCaveModel" placeholder="ex: La Sommelière LS52">
+                </div>
+                <div class="form-group">
+                    <label for="editCaveAddress">Adresse postale</label>
+                    <input type="text" id="editCaveAddress" placeholder="Adresse de la cave">
+                </div>
+                <div class="form-group">
+                    <label for="editCaveCapacity">Capacité (bouteilles)</label>
+                    <input type="number" id="editCaveCapacity" min="1" required>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="button" onclick="closeEditCaveModal()" class="secondary" style="flex: 1;">Annuler</button>
+                    <button type="submit" class="full-width" style="flex: 1;">✓ Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
     <script src="/assets/i18n.js"></script>
@@ -1355,6 +1388,7 @@
             await loadDashboard();
             document.getElementById('addWineForm').addEventListener('submit', handleAddWine);
             document.getElementById('addCaveForm').addEventListener('submit', handleAddCave);
+            document.getElementById('editCaveForm').addEventListener('submit', handleEditCave);
             document.getElementById('journalForm').addEventListener('submit', handleJournal);
             updateTabStates();
             setupAddressAutocomplete();
@@ -1613,6 +1647,7 @@
                         <strong>Capacité:</strong> ${c.current}/${c.capacity}<br>
                         <strong>Remplissage:</strong> ${Math.round(c.current/c.capacity*100)}%
                     </div>
+                    <button onclick="openEditCaveModal(${c.id})" class="secondary full-width" style="margin-top: 1rem;">✏️ Modifier</button>
                 </div>
             `).join('');
 
@@ -1722,6 +1757,51 @@
                 setTimeout(() => { loadCaves(); loadDashboard(); }, 500);
             } catch (error) {
                 showStatus('addCaveStatus', '✗ Erreur', 'error');
+            }
+        }
+
+        function openEditCaveModal(caveId) {
+            const cave = caves.find(c => c.id === caveId);
+            if (!cave) return;
+
+            document.getElementById('editCaveId').value = cave.id;
+            document.getElementById('editCaveName').value = cave.name;
+            document.getElementById('editCaveModel').value = cave.model || '';
+            document.getElementById('editCaveAddress').value = cave.location || '';
+            document.getElementById('editCaveCapacity').value = cave.capacity;
+            
+            document.getElementById('editCaveModal').style.display = 'flex';
+        }
+
+        function closeEditCaveModal() {
+            document.getElementById('editCaveModal').style.display = 'none';
+            document.getElementById('editCaveForm').reset();
+        }
+
+        async function handleEditCave(e) {
+            e.preventDefault();
+            const caveId = parseInt(document.getElementById('editCaveId').value);
+            const cave = {
+                name: document.getElementById('editCaveName').value,
+                model: document.getElementById('editCaveModel').value || '',
+                location: document.getElementById('editCaveAddress').value || '',
+                capacity: parseInt(document.getElementById('editCaveCapacity').value)
+            };
+
+            try {
+                const response = await apiFetch(`${API_BASE}/caves/${caveId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cave)
+                });
+
+                if (!response.ok) throw new Error('Erreur lors de la mise à jour');
+                showToast('✓ Cave modifiée avec succès!', 'success');
+                closeEditCaveModal();
+                setTimeout(() => { loadCaves(); loadDashboard(); }, 500);
+            } catch (error) {
+                showToast('✗ Erreur lors de la modification', 'error');
+                console.error('Error updating cave:', error);
             }
         }
 

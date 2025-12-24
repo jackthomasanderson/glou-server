@@ -566,6 +566,26 @@ func (s *Store) GetCaves(ctx context.Context) ([]*domain.Cave, error) {
 	return caves, rows.Err()
 }
 
+// UpdateCave met à jour une cave existante
+func (s *Store) UpdateCave(ctx context.Context, cave *domain.Cave) error {
+	query := `UPDATE caves SET name = ?, model = ?, location = ?, capacity = ? WHERE id = ?`
+	result, err := s.Db.ExecContext(ctx, query, cave.Name, cave.Model, cave.Location, cave.Capacity, cave.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update cave: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("cave not found")
+	}
+
+	return nil
+}
+
 // CreateCell crée un nouvel emplacement
 func (s *Store) CreateCell(ctx context.Context, cell *domain.Cell) (int64, error) {
 	query := `INSERT INTO cells (cave_id, location, capacity) VALUES (?, ?, ?)`
