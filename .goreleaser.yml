@@ -51,6 +51,6 @@ brews:
     folder: Formula
 
 dockers:
-    - image_templates:
+  - image_templates:
       - "ghcr.io/jackthomasanderson/glou-server:{{ .Version }}"
-    latest: true
+      - "ghcr.io/jackthomasanderson/glou-server:latest"
