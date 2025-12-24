@@ -1137,7 +1137,13 @@
                 </div>
                 <div class="form-group">
                     <label for="editCaveAddress">Adresse postale</label>
-                    <input type="text" id="editCaveAddress" placeholder="Adresse de la cave">
+                    <div style="position: relative;">
+                        <input type="text" id="editCaveAddress" placeholder="Adresse de la cave" autocomplete="off">
+                        <div id="editAddressSuggestions" style="position: absolute; top: 100%; left: 0; right: 0; background: var(--surface-light); border: 1px solid var(--border-light); max-height: 250px; overflow-y: auto; display: none; z-index: 1000; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"></div>
+                    </div>
+                    <div id="editAddressDebug" style="font-size: 0.8rem; color: #999; margin-top: 0.5rem;">
+                        💡 Tapez au moins 3 caracteres pour voir les suggestions
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="editCaveCapacity">Capacité (bouteilles)</label>
@@ -1403,76 +1409,86 @@
         }
 
         function setupAddressAutocomplete() {
-            const input = document.getElementById('caveAddress');
-            const suggestionsBox = document.getElementById('addressSuggestions');
-            const debugBox = document.getElementById('addressDebug');
-            let debounceTimer;
-
-            if (!input || !suggestionsBox) {
-                console.error('Elements not found!');
-                return;
-            }
-
-            debugBox.textContent = '✅ Auto-complétion chargée et prête';
-            debugBox.style.color = '#10b981';
-
-            input.addEventListener('input', function() {
-                clearTimeout(debounceTimer);
-                const query = this.value.trim();
-
-                if (query.length < 3) {
-                    suggestionsBox.style.display = 'none';
-                    debugBox.textContent = query.length > 0 ? `⌨️ ${query.length}/3 caractères minimum` : '💡 Tapez au moins 3 caractères';
-                    debugBox.style.color = '#999';
-                    return;
+            const instances = [
+                {
+                    input: document.getElementById('caveAddress'),
+                    suggestions: document.getElementById('addressSuggestions'),
+                    debug: document.getElementById('addressDebug')
+                },
+                {
+                    input: document.getElementById('editCaveAddress'),
+                    suggestions: document.getElementById('editAddressSuggestions'),
+                    debug: document.getElementById('editAddressDebug')
                 }
+            ];
 
-                debugBox.textContent = '🔍 Recherche en cours...';
-                debugBox.style.color = '#667eea';
+            instances.forEach(({ input, suggestions, debug }) => {
+                if (!input || !suggestions || !debug) return;
 
-                debounceTimer = setTimeout(async () => {
-                    try {
-                        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8`;
-                        console.log('Fetching:', url);
-                        
-                        const response = await fetch(url);
-                        const data = await response.json();
-                        
-                        console.log('Response:', data);
-                        
-                        if (data.features && data.features.length > 0) {
-                            debugBox.textContent = `✅ ${data.features.length} résultat(s) trouvé(s)`;
-                            debugBox.style.color = '#10b981';
-                            displaySuggestions(data.features, query);
-                        } else {
-                            debugBox.textContent = '❌ Aucun résultat trouvé';
-                            debugBox.style.color = '#f59e0b';
-                            suggestionsBox.innerHTML = '<div style="padding: 1rem; color: #999; text-align: center;">🔍 Aucune adresse trouvée</div>';
-                            suggestionsBox.style.display = 'block';
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        debugBox.textContent = '⚠️ Erreur de connexion: ' + error.message;
-                        debugBox.style.color = '#ef4444';
-                        suggestionsBox.innerHTML = '<div style="padding: 1rem; color: #ef4444; text-align: center;">⚠️ Erreur de connexion</div>';
-                        suggestionsBox.style.display = 'block';
+                let debounceTimer;
+                debug.textContent = '✅ Auto-completion chargee et prete';
+                debug.style.color = '#10b981';
+
+                input.addEventListener('input', function() {
+                    clearTimeout(debounceTimer);
+                    const query = this.value.trim();
+
+                    if (query.length < 3) {
+                        suggestions.style.display = 'none';
+                        debug.textContent = query.length > 0 ? `⌨️ ${query.length}/3 caracteres minimum` : '💡 Tapez au moins 3 caracteres';
+                        debug.style.color = '#999';
+                        return;
                     }
-                }, 400);
+
+                    debug.textContent = '🔍 Recherche en cours...';
+                    debug.style.color = '#667eea';
+
+                    debounceTimer = setTimeout(async () => {
+                        try {
+                            const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=8`;
+                            const response = await fetch(url);
+                            const data = await response.json();
+
+                            if (data.features && data.features.length > 0) {
+                                debug.textContent = `✅ ${data.features.length} resultat(s) trouve(s)`;
+                                debug.style.color = '#10b981';
+                                displaySuggestions(data.features, { input, suggestions, debug });
+                            } else {
+                                debug.textContent = '❌ Aucun resultat trouve';
+                                debug.style.color = '#f59e0b';
+                                suggestions.innerHTML = '<div style="padding: 1rem; color: #999; text-align: center;">🔍 Aucune adresse trouvee</div>';
+                                suggestions.style.display = 'block';
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                            debug.textContent = '⚠️ Erreur de connexion: ' + error.message;
+                            debug.style.color = '#ef4444';
+                            suggestions.innerHTML = '<div style="padding: 1rem; color: #ef4444; text-align: center;">⚠️ Erreur de connexion</div>';
+                            suggestions.style.display = 'block';
+                        }
+                    }, 400);
+                });
+
+                document.addEventListener('click', function(e) {
+                    if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+                        suggestions.style.display = 'none';
+                    }
+                });
             });
 
-            function displaySuggestions(features, query) {
+            function displaySuggestions(features, { input, suggestions, debug }) {
                 const html = features.map((feature, idx) => {
                     const props = feature.properties;
                     const name = props.name || '';
                     const city = props.city || '';
                     const state = props.state || '';
                     const country = props.country || '';
-                    
+
                     let displayText = name;
                     if (city && city !== name) displayText += `, ${city}`;
                     if (state) displayText += `, ${state}`;
                     if (country) displayText += `, ${country}`;
-                    
+
                     return `
                         <div class="address-item" data-idx="${idx}" style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-light); cursor: pointer; transition: all 0.2s;">
                             <div style="font-weight: 500; color: var(--text-light);">📍 ${displayText}</div>
@@ -1481,11 +1497,10 @@
                     `;
                 }).join('');
 
-                suggestionsBox.innerHTML = html;
-                suggestionsBox.style.display = 'block';
+                suggestions.innerHTML = html;
+                suggestions.style.display = 'block';
 
-                // Attacher les événements
-                document.querySelectorAll('.address-item').forEach((item, idx) => {
+                suggestions.querySelectorAll('.address-item').forEach((item, idx) => {
                     item.addEventListener('mouseenter', function() {
                         this.style.background = '#f0f0ff';
                     });
@@ -1495,26 +1510,19 @@
                     item.addEventListener('click', function() {
                         const feature = features[idx];
                         const props = feature.properties;
-                        
+
                         let address = props.name || '';
                         if (props.city && props.city !== props.name) address += `, ${props.city}`;
                         if (props.state) address += `, ${props.state}`;
                         if (props.country) address += `, ${props.country}`;
-                        
+
                         input.value = address;
-                        suggestionsBox.style.display = 'none';
-                        debugBox.textContent = '✅ Adresse sélectionnée';
-                        debugBox.style.color = '#10b981';
+                        suggestions.style.display = 'none';
+                        debug.textContent = '✅ Adresse selectionnee';
+                        debug.style.color = '#10b981';
                     });
                 });
             }
-
-            // Fermer quand on clique ailleurs
-            document.addEventListener('click', function(e) {
-                if (!input.contains(e.target) && !suggestionsBox.contains(e.target)) {
-                    suggestionsBox.style.display = 'none';
-                }
-            });
         }
 
         function updateTabStates() {
@@ -1776,6 +1784,8 @@
         function closeEditCaveModal() {
             document.getElementById('editCaveModal').style.display = 'none';
             document.getElementById('editCaveForm').reset();
+            const suggestions = document.getElementById('editAddressSuggestions');
+            if (suggestions) suggestions.style.display = 'none';
         }
 
         async function handleEditCave(e) {

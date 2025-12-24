@@ -132,7 +132,28 @@ func (s *Server) securityHeadersMiddleware(next http.HandlerFunc) http.HandlerFu
 // bodyLimitMiddleware limite la taille du corps de la requête
 func (s *Server) bodyLimitMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, s.config.MaxRequestBodySize)
+		maxBody := s.config.MaxRequestBodySize
+
+		// Allow slightly larger body for logo uploads (5MB payload + form overhead)
+		const uploadLogoMax = int64(6 * 1024 * 1024) // ~6MB cap for multipart envelope
+		if r.URL.Path == "/api/admin/upload-logo" && maxBody < uploadLogoMax {
+			maxBody = uploadLogoMax
+		}
+
+		// Quick reject when Content-Length is provided and already exceeds the limit
+		if r.ContentLength > maxBody && r.ContentLength != -1 {
+			log.Printf("[SECURITY] Request body too large (%d > %d) from IP: %s", r.ContentLength, maxBody, s.getClientIP(r))
+			s.respondError(w, http.StatusRequestEntityTooLarge, "Request body too large", nil)
+			return
+		}
+
+		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+
+		// Defer multipart parsing to handlers that set their own limits (e.g., logo upload)
+		if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+			next(w, r)
+			return
+		}
 
 		if err := r.ParseForm(); err != nil {
 			log.Printf("[SECURITY] Request body too large from IP: %s", s.getClientIP(r))

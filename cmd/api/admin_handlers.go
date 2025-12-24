@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"image"
+	_ "image/gif"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"log"
 	"net/http"
@@ -10,6 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/image/draw"
 
 	"github.com/romain/glou-server/internal/domain"
 )
@@ -156,8 +163,11 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleUploadLogo(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[UPLOAD] Starting logo upload handler")
 
+	const maxUploadSize = int64(5 * 1024 * 1024)      // 5MB hard limit
+	const multipartParseLimit = maxUploadSize + 512000 // allow a bit of form overhead
+
 	// Parser le formulaire multipart avec limite de 10MB
-	if err := r.ParseMultipartForm(10 * 1024 * 1024); err != nil {
+	if err := r.ParseMultipartForm(multipartParseLimit); err != nil {
 		log.Printf("[UPLOAD] Failed to parse form: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -178,6 +188,38 @@ func (s *Server) handleUploadLogo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+
+	if handler.Size > maxUploadSize {
+		log.Printf("[UPLOAD] File too large: %d bytes", handler.Size)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "File too large. Maximum 5MB. Recommended: 512x512 under 500KB.",
+		})
+		return
+	}
+
+	// Read file into buffer with explicit cap to enforce the limit even if client omits size
+	dataBuf := &bytes.Buffer{}
+	bytesRead, err := io.Copy(dataBuf, io.LimitReader(file, maxUploadSize+1))
+	if err != nil {
+		log.Printf("[UPLOAD] Failed to read file: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Failed to read file: " + err.Error(),
+		})
+		return
+	}
+	if bytesRead > maxUploadSize {
+		log.Printf("[UPLOAD] File exceeded limit after read: %d bytes", bytesRead)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "File too large. Maximum 5MB. Recommended: 512x512 under 500KB.",
+		})
+		return
+	}
 
 	log.Printf("[UPLOAD] File received: %s (size: %d bytes)", handler.Filename, handler.Size)
 
@@ -233,12 +275,56 @@ func (s *Server) handleUploadLogo(w http.ResponseWriter, r *http.Request) {
 	}
 	defer dst.Close()
 
-	// Copier le fichier avec limite de taille (10MB max)
-	limitedReader := io.LimitReader(file, 10*1024*1024)
-	bytesWritten, err := io.Copy(dst, limitedReader)
+	var dataToWrite []byte
+	dataToWrite = dataBuf.Bytes()
+	wasResized := false
+
+	// Attempt to resize large raster images to keep display snappy
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".gif":
+		img, _, err := image.Decode(bytes.NewReader(dataBuf.Bytes()))
+		if err == nil {
+			maxDim := 512
+			bounds := img.Bounds()
+			width := bounds.Dx()
+			height := bounds.Dy()
+			if width > maxDim || height > maxDim {
+				scale := float64(maxDim) / float64(width)
+				if height > width {
+					scale = float64(maxDim) / float64(height)
+				}
+				newW := int(float64(width) * scale)
+				newH := int(float64(height) * scale)
+				if newW < 1 {
+					newW = 1
+				}
+				if newH < 1 {
+					newH = 1
+				}
+
+				resized := image.NewRGBA(image.Rect(0, 0, newW, newH))
+				draw.CatmullRom.Scale(resized, resized.Bounds(), img, img.Bounds(), draw.Over, nil)
+
+				encoded := &bytes.Buffer{}
+				if ext == ".jpg" || ext == ".jpeg" {
+					if err := encodeJPEG(encoded, resized); err == nil {
+						dataToWrite = encoded.Bytes()
+						wasResized = true
+					}
+				} else {
+					if err := encodePNG(encoded, resized); err == nil {
+						dataToWrite = encoded.Bytes()
+						wasResized = true
+					}
+				}
+			}
+		}
+	}
+
+	bytesWritten, err := dst.Write(dataToWrite)
 	if err != nil {
-		log.Printf("[UPLOAD] Failed to copy file (wrote %d bytes): %v", bytesWritten, err)
-		os.Remove(filePath) // Nettoyer le fichier en cas d'erreur
+		log.Printf("[UPLOAD] Failed to write file (wrote %d bytes): %v", bytesWritten, err)
+		os.Remove(filePath)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{
@@ -247,7 +333,7 @@ func (s *Server) handleUploadLogo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[UPLOAD] File saved successfully: %d bytes written", bytesWritten)
+	log.Printf("[UPLOAD] File saved successfully: %d bytes written (resized=%v)", bytesWritten, wasResized)
 
 	// URL relative du fichier téléchargé
 	logoURL := "/assets/uploads/" + uniqueName
@@ -263,9 +349,23 @@ func (s *Server) handleUploadLogo(w http.ResponseWriter, r *http.Request) {
 	s.store.LogActivity(r.Context(), "branding", 0, "logo_uploaded", map[string]string{"filename": handler.Filename, "saved_as": uniqueName}, s.getClientIP(r))
 	s.store.LogActivity(r.Context(), "admin", 0, "upload_logo", map[string]string{"file": handler.Filename, "by": userId}, s.getClientIP(r))
 
+	response := map[string]string{"logo_url": logoURL}
+	if wasResized {
+		response["notice"] = "Logo resized to max 512px for faster load times"
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"logo_url": logoURL})
+	json.NewEncoder(w).Encode(response)
 	log.Printf("[UPLOAD] Response sent: %s", logoURL)
+}
+
+func encodeJPEG(dst io.Writer, img image.Image) error {
+	// Quality 85 keeps logos small while preserving quality
+	return jpeg.Encode(dst, img, &jpeg.Options{Quality: 85})
+}
+
+func encodePNG(dst io.Writer, img image.Image) error {
+	return png.Encode(dst, img)
 }
 
 // handleGetUsers récupère la liste des utilisateurs (pour futur)
