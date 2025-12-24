@@ -1,13 +1,15 @@
-# 🍷 Glou - Smart Beverage Collection Management
+# 🍷 Glou Server
 
 [![Go Version](https://img.shields.io/badge/Go-1.22-blue)](https://go.dev/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Status](https://img.shields.io/badge/status-alpha-yellow)](https://github.com/romain/glou-server/releases)
+[![Status](https://img.shields.io/badge/status-alpha-yellow)](https://github.com/jackthomasanderson/glou-server/releases)
+
+**Repositories:** [Backend (Go)](https://github.com/jackthomasanderson/glou-server) · [Mobile (Android)](https://github.com/jackthomasanderson/glou-android)
 
 Glou: Your personal cellar.
 
-⚠️ Project status: Alpha. Interfaces and APIs may change, features are under active development, and breaking changes can occur. Pre-release builds are published for early testing.
+⚠️ **Project status: Alpha** — Interfaces and APIs may change, features are under active development, and breaking changes can occur.
 
 **🚀 [English Documentation](docs/EN/README.md)** | **🇫🇷 [Documentation Française](docs/FR/README.md)**
 
@@ -41,56 +43,42 @@ In a world of cloud-only apps, **Glou** puts you back in control of your cellar 
 
 ---
 
-## 🚀 Quick Start (2 minutes)
+## 🚀 Quick Start
 
-### Option 1: Docker (Recommended)
-The easiest way to get Glou running is with Docker Compose.
-
+### Docker (Recommended)
 ```bash
-# Quick deployment script
-./deploy-windows.ps1  # Windows
-./deploy-linux.sh     # Linux/Mac
-
-# Or manually
+# Deploy with Docker Compose
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-Access the web interface at **http://localhost:8080**.
-
-📚 **[Complete Docker Guide](DOCKER.md)** | **[Deployment Guide](DEPLOY.md)**
-
-### Option 2: Standalone Binary
-Download the latest binary from [Releases](https://github.com/romain/glou-server/releases) or GitHub Actions artifacts.
+### Standalone Binary
+Download the latest binary from [Releases](https://github.com/jackthomasanderson/glou-server/releases).
 
 ```bash
-# Windows
-glou-server.exe
-
-# Linux/Mac
-./glou-server
+./glou-server      # Linux/Mac
+glou-server.exe    # Windows
 ```
 
-### Option 3: Build from Source
-Ensure you have [Go 1.23+](https://go.dev/) installed.
+### Build from Source
+Requires [Go 1.22+](https://go.dev/).
 
 ```bash
-# Build the API
 go build -o glou-server ./cmd/api
-
-# Run the server
 ./glou-server
 ```
 
-📚 **[Development Guide](docs/EN/DEVELOPMENT.md)**
+Access at **http://localhost:8080**
+
+📚 **[Complete Setup Guide](docs/EN/QUICK_START.md)**
 
 ---
 
 ## 💻 Tech Stack
 
-- **Backend**: [Go](https://go.dev/) (Golang) with a pure-Go [SQLite](https://modernc.org/sqlite) driver (no CGO required).
-- **Frontend**: [React](https://reactjs.org/), [Vite](https://vitejs.dev/), [Zustand](https://github.com/pmndrs/zustand) for state management, and [Chart.js](https://www.chartjs.org/) for visualizations.
-- **Security**: AES-256-GCM encryption for sensitive fields, bcrypt for password hashing.
-- **CI/CD**: GitHub Actions with [GoReleaser](https://goreleaser.com/) for cross-platform builds.
+- **Backend**: [Go](https://go.dev/) with pure-Go [SQLite](https://modernc.org/sqlite) (no CGO)
+- **Frontend**: [React](https://reactjs.org/), [Vite](https://vitejs.dev/), [Zustand](https://github.com/pmndrs/zustand), [Chart.js](https://www.chartjs.org/)
+- **Security**: AES-256-GCM encryption, bcrypt password hashing
+- **CI/CD**: GitHub Actions with [GoReleaser](https://goreleaser.com/)
 
 ---
 
@@ -114,11 +102,11 @@ go build -o glou-server ./cmd/api
 
 ## 🤝 Contributing
 
-Contributions are welcome! Whether it's a bug report, a new feature, or a translation, please feel free to open an issue or a pull request. See [DEVELOPMENT.md](docs/EN/DEVELOPMENT.md) for more details.
+Contributions are welcome! See [DEVELOPMENT.md](docs/EN/DEVELOPMENT.md) for details.
 
 ## 📄 License
 
-This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file.
 
 ---
 
