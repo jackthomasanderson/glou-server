@@ -1,7 +1,7 @@
 {
   "name": "glou-web",
   "version": "1.0.0",
-  "description": "Glou - Wine Cellar Management Web Application",
+  "description": "Glou: Your personal cellar",
   "type": "module",
   "scripts": {
     "dev": "vite",

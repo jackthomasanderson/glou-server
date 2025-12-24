@@ -6,7 +6,7 @@
     <title>Admin Panel - Glou</title>
     <link rel="stylesheet" href="/assets/style.css">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding-bottom: 40px; }
         .admin-container { display: flex; height: 100vh; position: relative; }
         .sidebar { width: 250px; background: #2c3e50; color: white; overflow-y: auto; }
         .sidebar-menu { list-style: none; padding: 0; margin: 0; }
@@ -88,12 +88,12 @@
             .main-content { width: 100%; }
             .mobile-menu-button { display: inline-flex; align-items: center; gap: 8px; }
             .sidebar-overlay.show { display: block; }
-            .header { position: sticky; top: 0; z-index: 50; }
+            .header { position: sticky; top: 0; z-index: 100; background: white; }
         }
     </style>
 </head>
 <body>
-    <div class="alpha-banner" style="position: sticky; top:0; z-index:1000; background:#f59e0b; color:#fff; text-align:center; padding:6px; font-weight:600; letter-spacing:0.3px;">Alpha — Features may change between pre-release builds</div>
+    <div class="alpha-banner" style="position: fixed; bottom:0; left:0; right:0; z-index:1000; background:#f59e0b; color:#fff; text-align:center; padding:6px; font-weight:600; letter-spacing:0.3px;">Alpha — Features may change between pre-release builds</div>
     <div class="toast-container" id="toast-container"></div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <div class="admin-container">
@@ -110,19 +110,18 @@
                 <li><a href="#" onclick="switchSection('features', event)" class="menu-item" data-section="features">⚙️ Features</a></li>
                 <li><a href="#" onclick="switchSection('advanced', event)" class="menu-item" data-section="advanced">🔧 Advanced</a></li>
                 <li><a href="#" onclick="switchSection('users', event)" class="menu-item" data-section="users">👥 Users</a></li>
-                <li><a href="/" style="margin-top: 20px; background: #27ae60;">← Back to App</a></li>
+                <li><a href="/" id="exitAdminLink" style="margin-top: 20px; background: #e74c3c;">← Quitter Admin</a></li>
             </ul>
         </aside>
 
         <!-- Main Content -->
         <div class="main-content">
             <header class="header">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <button id="menuToggle" class="secondary mobile-menu-button" type="button" aria-expanded="false" aria-controls="sidebar">☰ Menu</button>
-                    <h1 id="section-title">Dashboard</h1>
+                <div>
+                    <h1 id="section-title" style="margin: 0;">Dashboard</h1>
                 </div>
                 <div>
-                    <button onclick="location.href='/'" class="secondary">Exit Admin</button>
+                    <button id="menuToggle" class="secondary mobile-menu-button" type="button" aria-expanded="false" aria-controls="sidebar">☰ Menu</button>
                 </div>
             </header>
 
@@ -438,18 +437,46 @@
                 secondaryColor: 'Secondary Color',
                 accentColor: 'Accent Color',
                 darkModeDefault: 'Dark Mode by Default',
+                dateFormat: 'Date Format',
+                rowsPerPage: 'Rows Per Page',
                 publicDomain: 'Public Domain',
                 publicProtocol: 'Public Protocol',
                 proxyMode: 'Proxy Mode',
+                behindReverseProxy: 'Behind Reverse Proxy',
+                trustXHeaders: 'Trust X-* Headers',
                 sessionTimeout: 'Session Timeout',
                 maxRequestBodySize: 'Max Request Body Size',
+                enableNotifications: 'Enable Notifications',
+                maintenanceMode: 'Maintenance Mode',
+                allowRegistration: 'Allow Registration',
+                requireApproval: 'Require Admin Approval',
                 settingsSaved: '✓ Settings saved successfully!',
                 settingsFailed: '✗ Failed to save settings',
                 logoUpdated: 'Logo and Favicon updated!',
                 totalWines: 'Total Wines',
                 cellars: 'Cellars',
                 activeAlerts: 'Active Alerts',
-                systemOk: 'System OK'
+                systemOk: 'System OK',
+                quickSettings: 'Quick Settings',
+                quickSettingsDesc: 'Use the menu to configure branding, network, and features.',
+                menu: 'Menu',
+                // Descriptions
+                appTitleDesc: 'Display name for your Glou instance',
+                sloganDesc: 'Short tagline displayed in header',
+                domainDesc: 'Domain users will access this server from',
+                proxyModeDesc: 'Enable if using Nginx, Apache, or HAProxy in front',
+                trustHeadersDesc: 'Trust headers like X-Forwarded-For from proxy',
+                notificationsDesc: 'Allow Gotify and SMTP notifications',
+                maintenanceModeDesc: 'Show maintenance page instead of app',
+                registrationDesc: 'Future: Allow new users to register',
+                approvalDesc: 'Approve registrations before access',
+                sessionTimeoutDesc: 'Default: 1440 (24 hours)',
+                maxBodyDesc: 'Default: 1048576 (1 MB)',
+                networkReverseProxy: 'Network & Reverse Proxy',
+                featureFlags: 'Feature Flags',
+                commonProxySetups: 'Common Reverse Proxy Setups',
+                userMgmtDesc: 'Currently running single-user mode. Multi-user support coming in Phase 2.',
+                addUser: 'Add User'
             },
             fr: {
                 adminPanel: 'Panneau Admin',
@@ -484,6 +511,53 @@
                 secondaryColor: 'Couleur secondaire',
                 accentColor: 'Couleur d\'accentuation',
                 darkModeDefault: 'Mode sombre par défaut',
+                dateFormat: 'Format de date',
+                rowsPerPage: 'Lignes par page',
+                publicDomain: 'Domaine public',
+                publicProtocol: 'Protocole public',
+                proxyMode: 'Mode proxy',
+                behindReverseProxy: 'Derrière un proxy inverse',
+                trustXHeaders: 'Faire confiance aux en-têtes X-*',
+                sessionTimeout: 'Délai d\'expiration de session',
+                maxRequestBodySize: 'Taille max du corps de requête',
+                enableNotifications: 'Activer les notifications',
+                maintenanceMode: 'Mode maintenance',
+                allowRegistration: 'Autoriser l\'inscription',
+                requireApproval: 'Requérir l\'approbation admin',
+                settingsSaved: '✓ Paramètres enregistrés avec succès !',
+                settingsFailed: '✗ Échec de l\'enregistrement des paramètres',
+                logoUpdated: 'Logo et Favicon mis à jour !',
+                totalWines: 'Total de vins',
+                cellars: 'Caves',
+                activeAlerts: 'Alertes actives',
+                systemOk: 'Système OK',
+                quickSettings: 'Paramètres rapides',
+                quickSettingsDesc: 'Utilisez le menu pour configurer l\'image de marque, le réseau et les fonctionnalités.',
+                menu: 'Menu',
+                // Descriptions
+                appTitleDesc: 'Nom d\'affichage pour votre instance Glou',
+                sloganDesc: 'Courte phrase affichée dans l\'en-tête',
+                domainDesc: 'Domaine depuis lequel les utilisateurs accèderont à ce serveur',
+                proxyModeDesc: 'Activer si vous utilisez Nginx, Apache ou HAProxy',
+                trustHeadersDesc: 'Faire confiance aux en-têtes comme X-Forwarded-For du proxy',
+                notificationsDesc: 'Autoriser les notifications Gotify et SMTP',
+                maintenanceModeDesc: 'Afficher la page de maintenance au lieu de l\'application',
+                registrationDesc: 'Futur : Autoriser les nouveaux utilisateurs à s\'inscrire',
+                approvalDesc: 'Approuver les inscriptions avant l\'accès',
+                sessionTimeoutDesc: 'Par défaut : 1440 (24 heures)',
+                maxBodyDesc: 'Par défaut : 1048576 (1 Mo)',
+                networkReverseProxy: 'Réseau & Proxy Inverse',
+                featureFlags: 'Indicateurs de fonctionnalités',
+                commonProxySetups: 'Configurations proxy courantes',
+                userMgmtDesc: 'Actuellement en mode mono-utilisateur. Support multi-utilisateurs à venir en Phase 2.',
+                addUser: 'Ajouter un utilisateur'
+            }
+                uploadLogo: 'Télécharger le logo',
+                language: 'Langue',
+                primaryColor: 'Couleur primaire',
+                secondaryColor: 'Couleur secondaire',
+                accentColor: 'Couleur d\'accentuation',
+                darkModeDefault: 'Mode sombre par défaut',
                 publicDomain: 'Domaine public',
                 publicProtocol: 'Protocole public',
                 proxyMode: 'Mode proxy',
@@ -495,7 +569,10 @@
                 totalWines: 'Total de vins',
                 cellars: 'Caves',
                 activeAlerts: 'Alertes actives',
-                systemOk: 'Système OK'
+                systemOk: 'Système OK',
+                quickSettings: 'Paramètres rapides',
+                quickSettingsDesc: 'Utilisez le menu pour configurer l\'image de marque, le réseau et les fonctionnalités.',
+                menu: 'Menu'
             }
         };
 
@@ -591,29 +668,104 @@
                         const emoji = link.textContent.split(' ')[0];
                         link.textContent = emoji + ' ' + t(keys[idx]);
                     } else if (idx === keys.length) {
-                        link.textContent = '← ' + t('backToApp');
+                        link.textContent = '← ' + t('exitAdmin');
                     }
                 });
                 
-                // Bouton Exit Admin
-                const exitBtn = document.querySelector('.header button');
-                if (exitBtn) {
-                    exitBtn.textContent = t('exitAdmin');
+                // Titre de section actif
+                const activeSection = document.querySelector('.menu-item.active');
+                if (activeSection) {
+                    const sectionKey = activeSection.dataset.section;
+                    if (sectionKey) {
+                        const emoji = '📊';
+                        document.getElementById('section-title').textContent = emoji + ' ' + t(sectionKey);
+                    }
                 }
                 
                 // Mettre à jour les titres de section
-                const sectionTitles = {
-                    'branding .settings-group h3': 'brandingSettings',
-                    'appearance .settings-group h3': 'appearanceSettings',
-                    'network .settings-group h3': 'networkSettings',
-                    'features .settings-group h3': 'featuresSettings',
-                    'advanced .settings-group h3': 'advancedSettings'
+                const sectionTitleMap = {
+                    'branding': 'brandingSettings',
+                    'appearance': 'appearanceSettings', 
+                    'network': 'networkReverseProxy',
+                    'features': 'featureFlags',
+                    'advanced': 'advancedSettings',
+                    'users': 'userManagement'
                 };
                 
-                Object.keys(sectionTitles).forEach(selector => {
-                    const el = document.querySelector(`#${selector}`);
-                    if (el) el.textContent = t(sectionTitles[selector]);
+                Object.keys(sectionTitleMap).forEach(sectionId => {
+                    const h3 = document.querySelector(`#${sectionId} .settings-group h3`);
+                    if (h3) h3.textContent = t(sectionTitleMap[sectionId]);
                 });
+                
+                // Traduire les labels des champs de formulaire
+                const labelMap = {
+                    'appTitle': 'applicationTitle',
+                    'appSlogan': 'slogan',
+                    'supportEmail': 'supportEmail',
+                    'logoURL': 'logoAndFavicon',
+                    'brandingLanguage': 'language',
+                    'themeColor': 'primaryColor',
+                    'secondaryColor': 'secondaryColor',
+                    'accentColor': 'accentColor',
+                    'dateFormat': 'dateFormat',
+                    'rowsPerPage': 'rowsPerPage',
+                    'publicDomain': 'publicDomain',
+                    'publicProtocol': 'publicProtocol',
+                    'sessionTimeout': 'sessionTimeout',
+                    'maxRequestBodySize': 'maxRequestBodySize'
+                };
+                
+                Object.keys(labelMap).forEach(id => {
+                    const input = document.getElementById(id);
+                    if (input) {
+                        const label = input.closest('.form-group')?.querySelector('label');
+                        if (label && !label.htmlFor) {
+                            label.textContent = t(labelMap[id]);
+                        }
+                    }
+                });
+                
+                // Traduire les labels des checkboxes
+                const checkboxMap = {
+                    'darkModeDefault': 'darkModeDefault',
+                    'proxyMode': 'behindReverseProxy',
+                    'proxyHeaders': 'trustXHeaders',
+                    'enableNotifications': 'enableNotifications',
+                    'maintenanceMode': 'maintenanceMode',
+                    'allowRegistration': 'allowRegistration',
+                    'requireApproval': 'requireApproval'
+                };
+                
+                Object.keys(checkboxMap).forEach(id => {
+                    const checkbox = document.getElementById(id);
+                    if (checkbox) {
+                        const label = document.querySelector(`label[for=\"${id}\"]`);
+                        if (label) {
+                            label.textContent = t(checkboxMap[id]);
+                        }
+                    }
+                });
+                
+                // Traduire les textes d'aide (small)
+                const brandingSmalls = document.querySelectorAll('#branding small');
+                if (brandingSmalls[0]) brandingSmalls[0].textContent = t('appTitleDesc');
+                if (brandingSmalls[1]) brandingSmalls[1].textContent = t('sloganDesc');
+                if (brandingSmalls[2]) brandingSmalls[2].textContent = t('logoDescription');
+                
+                const networkSmalls = document.querySelectorAll('#network small');
+                if (networkSmalls[0]) networkSmalls[0].textContent = t('domainDesc');
+                if (networkSmalls[1]) networkSmalls[1].textContent = t('proxyModeDesc');
+                if (networkSmalls[2]) networkSmalls[2].textContent = t('trustHeadersDesc');
+                
+                const featuresSmalls = document.querySelectorAll('#features small');
+                if (featuresSmalls[0]) featuresSmalls[0].textContent = t('notificationsDesc');
+                if (featuresSmalls[1]) featuresSmalls[1].textContent = t('maintenanceModeDesc');
+                if (featuresSmalls[2]) featuresSmalls[2].textContent = t('registrationDesc');
+                if (featuresSmalls[3]) featuresSmalls[3].textContent = t('approvalDesc');
+                
+                const advancedSmalls = document.querySelectorAll('#advanced small');
+                if (advancedSmalls[0]) advancedSmalls[0].textContent = t('sessionTimeoutDesc');
+                if (advancedSmalls[1]) advancedSmalls[1].textContent = t('maxBodyDesc');
                 
                 // Mettre à jour les boutons
                 document.querySelectorAll('button[type=\"submit\"]').forEach(btn => {
@@ -637,6 +789,35 @@
                 const uploadBtn = document.querySelector('button[onclick*=\"logoUpload\"]');
                 if (uploadBtn) uploadBtn.textContent = t('uploadLogo');
                 
+                // Section Network - titre secondaire et descriptions proxy
+                const proxySetupsH3 = document.querySelector('#network .settings-group:nth-child(2) h3');
+                if (proxySetupsH3) proxySetupsH3.textContent = t('commonProxySetups');
+                
+                // Section Users
+                const usersDesc = document.querySelector('#users .settings-group p');
+                if (usersDesc) usersDesc.textContent = t('userMgmtDesc');
+                const addUserBtn = document.querySelector('#users button[onclick*=\"Coming soon\"]');
+                if (addUserBtn) addUserBtn.textContent = t('addUser');
+                
+                // Dashboard labels
+                const statLabels = document.querySelectorAll('.stat-label');
+                if (statLabels[0]) statLabels[0].textContent = t('totalWines');
+                if (statLabels[1]) statLabels[1].textContent = t('cellars');
+                if (statLabels[2]) statLabels[2].textContent = t('activeAlerts');
+                if (statLabels[3]) statLabels[3].textContent = t('systemOk');
+                
+                // Quick Settings section
+                const quickSettingsH3 = document.querySelector('#dashboard .settings-group h3');
+                if (quickSettingsH3) quickSettingsH3.textContent = t('quickSettings');
+                const quickSettingsP = document.querySelector('#dashboard .settings-group p');
+                if (quickSettingsP) quickSettingsP.textContent = t('quickSettingsDesc');
+                
+                // Menu button text
+                const menuBtn = document.getElementById('menuToggle');
+                if (menuBtn) {
+                    menuBtn.innerHTML = '☰ ' + t('menu');
+                }
+                
             } catch (err) {
                 console.error('Error updating UI language:', err);
             }
@@ -656,6 +837,14 @@
                 window.location.href = '/';
                 return;
             }
+            
+            // Détecter la langue du navigateur par défaut
+            const browserLang = navigator.language || navigator.userLanguage;
+            if (browserLang.startsWith('fr')) {
+                currentLang = 'fr';
+                updateUILanguage();
+            }
+            
             setupSidebarToggle();
             loadSettings();
             loadStats();
