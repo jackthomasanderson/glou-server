@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Status](https://img.shields.io/badge/status-alpha-yellow)](https://github.com/romain/glou-server/releases)
 
-Effortless, self-hosted, and secure management for your wine, spirits, and beer collection. Track your bottles, know exactly when they reach their peak, and receive smart alerts—all while keeping your data private.
+Glou: Your personal cellar.
 
 ⚠️ Project status: Alpha. Interfaces and APIs may change, features are under active development, and breaking changes can occur. Pre-release builds are published for early testing.
 

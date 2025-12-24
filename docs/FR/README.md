@@ -7,7 +7,7 @@
 
 **[English](../EN/README.md)** | **[Français]**
 
-Gérez votre collection de vins, spiritueux et bières sans effort. Suivez vos bouteilles, sachez exactement quand les boire et recevez des alertes intelligentes — le tout auto-hébergé et sécurisé.
+Glou : Votre cave dans la poche.
 
 **🚀 [Démarrage Rapide](QUICK_START.md)** | **📖 [Guide Utilisateur](USER_GUIDE.md)** | **📱 [App Android](https://github.com/jackthomasanderson/glou-android)** | **🔐 [Sécurité](SECURITY.md)**
 
