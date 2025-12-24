@@ -122,7 +122,7 @@ func (s *Store) initSchema() error {
 	CREATE TABLE IF NOT EXISTS settings (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		app_title TEXT DEFAULT 'Glou',
-		app_slogan TEXT DEFAULT 'Wine Management System',
+		app_slogan TEXT DEFAULT 'Cellar management for wine, beer & spirits',
 		logo_url TEXT,
 		favicon_url TEXT,
 		support_email TEXT,

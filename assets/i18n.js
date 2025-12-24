@@ -9,7 +9,7 @@ class I18n {
     // Initialize: Load translations
     async init() {
         try {
-            const response = await fetch('./i18n.json');
+            const response = await fetch('/assets/i18n.json');
             this.translations = await response.json();
             this.setLanguage(this.currentLang);
         } catch (error) {

@@ -42,7 +42,7 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*domain
 	query := `
 	SELECT id, username, email, role, is_active, created_at, updated_at
 	FROM users
-	WHERE username = ?
+	WHERE LOWER(username) = LOWER(?)
 	LIMIT 1
 	`
 
@@ -68,7 +68,7 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (*domain.User,
 	query := `
 	SELECT id, username, email, role, is_active, created_at, updated_at
 	FROM users
-	WHERE email = ?
+	WHERE LOWER(email) = LOWER(?)
 	LIMIT 1
 	`
 
@@ -174,16 +174,16 @@ func (s *Store) MarkSetupComplete(ctx context.Context) error {
 }
 
 // VerifyPassword vérifie si un mot de passe correspond au hash
-func (s *Store) VerifyPassword(ctx context.Context, username, password string) (bool, error) {
+func (s *Store) VerifyPassword(ctx context.Context, login, password string) (bool, error) {
 	query := `
 	SELECT password_hash 
 	FROM users 
-	WHERE username = ? AND is_active = 1
+	WHERE is_active = 1 AND (LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?))
 	LIMIT 1
 	`
 
 	var passwordHash string
-	err := s.Db.QueryRowContext(ctx, query, username).Scan(&passwordHash)
+	err := s.Db.QueryRowContext(ctx, query, login, login).Scan(&passwordHash)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil

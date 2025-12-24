@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -215,6 +216,12 @@ func (s *Server) csrfMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		// Méthodes sûres ignorées
 		switch r.Method {
 		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			next(w, r)
+			return
+		}
+
+		// Exempter les endpoints d'authentification publique pour permettre la connexion/inscription
+		if strings.HasPrefix(r.URL.Path, "/api/auth/") {
 			next(w, r)
 			return
 		}

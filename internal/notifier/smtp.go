@@ -46,7 +46,7 @@ func (s *SMTPNotifier) Send(ctx context.Context, title, message string) error {
 	headers := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: [Glou] %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n",
 		s.From, s.To, title)
 
-	body := fmt.Sprintf("%s\r\n\r\n%s\r\n\r\nGlou Wine Management System", title, message)
+	body := fmt.Sprintf("%s\r\n\r\n%s\r\n\r\nGlou — Cellar management for wine, beer & spirits", title, message)
 
 	message = headers + body
 
@@ -83,7 +83,7 @@ func (s *SMTPNotifier) SendTo(ctx context.Context, to string, title, message str
 
 	headers := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: [Glou] %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n",
 		s.From, to, title)
-	body := fmt.Sprintf("%s\r\n\r\n%s\r\n\r\nGlou Wine Management System", title, message)
+	body := fmt.Sprintf("%s\r\n\r\n%s\r\n\r\nGlou — Cellar management for wine, beer & spirits", title, message)
 	msg := headers + body
 
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
