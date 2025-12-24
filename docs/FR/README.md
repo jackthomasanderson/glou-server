@@ -3,7 +3,7 @@
 [![Version Go](https://img.shields.io/badge/Go-1.22-blue)](https://go.dev/)
 [![Docker](https://img.shields.io/badge/docker-prêt-blue.svg)](https://www.docker.com/)
 [![Licence](https://img.shields.io/badge/Licence-MIT-green)](LICENSE)
-[![Statut](https://img.shields.io/badge/statut-alpha-yellow)](https://github.com/romain/glou-server/releases)
+[![Statut](https://img.shields.io/badge/statut-alpha-yellow)](https://github.com/jackthomasanderson/glou-server/releases)
 
 **[English](../EN/README.md)** | **[Français]**
 
