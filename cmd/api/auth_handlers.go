@@ -66,6 +66,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !valid {
+		// Délai fixe pour éviter le timing attack
+		time.Sleep(200 * time.Millisecond)
 		s.respondError(w, http.StatusUnauthorized, "Invalid credentials", nil)
 		return
 	}

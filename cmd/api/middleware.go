@@ -122,6 +122,9 @@ func (s *Server) securityHeadersMiddleware(next http.HandlerFunc) http.HandlerFu
 		// Referrer Policy
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 
+		// Content Security Policy (strict)
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
+
 		// Permissions Policy
 		w.Header().Set("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
 

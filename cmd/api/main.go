@@ -86,6 +86,9 @@ func ValidateWine(wine *domain.Wine) error {
 	if wine.Region == "" {
 		return errors.New("wine region is required")
 	}
+	if len(wine.Region) > 255 {
+		return errors.New("wine region too long (max 255 characters)")
+	}
 	if wine.Vintage < 1900 || wine.Vintage > time.Now().Year() {
 		return fmt.Errorf("invalid vintage: must be between 1900 and %d", time.Now().Year())
 	}
@@ -282,6 +285,51 @@ func (s *Server) setupRoutes() {
 	})))
 }
 
+// Start lance le serveur HTTP avec graceful shutdown
+func (s *Server) Start(addr string) error {
+	// Créer le serveur HTTP avec timeouts de sécurité
+	httpServer := &http.Server{
+		Addr:           addr,
+		Handler:        s.router,
+		ReadTimeout:    s.config.Timeout,
+		WriteTimeout:   s.config.Timeout,
+		IdleTimeout:    60 * time.Second,
+		MaxHeaderBytes: 1 << 20, // 1 MB
+	}
+
+	// Canal pour les erreurs du serveur
+	serverErrors := make(chan error, 1)
+
+	// Démarrer le serveur dans une goroutine
+	go func() {
+		log.Printf("Server listening on %s", addr)
+		serverErrors <- httpServer.ListenAndServe()
+	}()
+
+	// Canal pour les signaux d'arrêt
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
+	// Attendre un signal d'arrêt ou une erreur
+	select {
+	case err := <-serverErrors:
+		return fmt.Errorf("server error: %w", err)
+	case sig := <-shutdown:
+		log.Printf("Received signal %v, starting graceful shutdown", sig)
+
+		// Créer un contexte avec timeout pour le shutdown
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		// Arrêter le serveur gracieusement
+		if err := httpServer.Shutdown(ctx); err != nil {
+			return fmt.Errorf("graceful shutdown failed: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // handleGetWines retourne la liste de tous les vins
 func (s *Server) handleGetWines(w http.ResponseWriter, r *http.Request) {
 	wines, err := s.store.GetWines(r.Context())
@@ -384,49 +432,6 @@ func (s *Server) respondError(w http.ResponseWriter, statusCode int, message str
 		"error": message,
 	}
 	json.NewEncoder(w).Encode(response)
-}
-
-// Start démarre le serveur HTTP avec configurations de sécurité
-func (s *Server) Start(addr string) error {
-	httpServer := &http.Server{
-		Addr:         addr,
-		Handler:      s.router,
-		ReadTimeout:  s.config.Timeout,
-		WriteTimeout: s.config.Timeout,
-		IdleTimeout:  120 * time.Second,
-	}
-
-	// Channel pour capturer les erreurs
-	errCh := make(chan error, 1)
-
-	// Démarrer le serveur dans une goroutine
-	go func() {
-		log.Printf("Server started on %s (Environment: %s)", addr, s.config.Environment)
-		errCh <- httpServer.ListenAndServe()
-	}()
-
-	// Attendre un signal de shutdown ou une erreur
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case err := <-errCh:
-		if !errors.Is(err, http.ErrServerClosed) {
-			return err
-		}
-	case sig := <-sigCh:
-		log.Printf("Shutdown signal received: %v", sig)
-
-		// Graceful shutdown avec timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := httpServer.Shutdown(ctx); err != nil {
-			return fmt.Errorf("failed to gracefully shutdown server: %w", err)
-		}
-	}
-
-	return nil
 }
 
 // handleGetWineByID retourne un vin par son ID
