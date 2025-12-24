@@ -164,6 +164,33 @@ func NewServer(s *store.Store, config *Config) *Server {
 	return server
 }
 
+// Start démarre le serveur HTTP
+func (s *Server) Start(addr string) error {
+	log.Printf("Server started on %s (Environment: %s)", addr, s.config.Environment)
+	
+	httpServer := &http.Server{
+		Addr:         addr,
+		Handler:      s.router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	
+	// Gérer les signaux d'arrêt gracieux
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	
+	go func() {
+		<-sigChan
+		log.Println("Shutdown signal received")
+		if err := httpServer.Shutdown(context.Background()); err != nil {
+			log.Printf("Server shutdown error: %v", err)
+		}
+	}()
+	
+	return httpServer.ListenAndServe()
+}
+
 // setupRoutes configure les routes de l'API
 func (s *Server) setupRoutes() {
 	// Appliquer les middlewares de sécurité globaux
