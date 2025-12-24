@@ -60,15 +60,8 @@ brews:
     homepage: "https://github.com/jackthomasanderson/glou-server"
     license: MIT
 
-dockers:
-  - image_templates:
-      - "ghcr.io/jackthomasanderson/glou-server:{{ .Version }}"
-      - "ghcr.io/jackthomasanderson/glou-server:latest"
-    dockerfile: Dockerfile
-    build_flag_templates:
-      - "--pull"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--platform=linux/amd64"
+# Docker builds are handled by the separate docker-release job in GitHub Actions
+# dockers:
+#   - image_templates:
+#       - "ghcr.io/jackthomasanderson/glou-server:{{ .Version }}"
+#       - "ghcr.io/jackthomasanderson/glou-server:latest"
