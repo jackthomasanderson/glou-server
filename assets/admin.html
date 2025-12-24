@@ -436,7 +436,7 @@
                 slogan: 'Description',
                 supportEmail: 'Support Email',
                 logoAndFavicon: 'Logo & Favicon',
-                logoDescription: 'This image will be used as logo AND favicon',
+                logoDescription: 'This image will be used as logo AND favicon. Max: 5MB. Recommended: 512x512 (~500KB).',
                 uploadLogo: 'Upload Logo',
                 language: 'Language',
                 primaryColor: 'Primary Color',
@@ -510,7 +510,7 @@
                 slogan: 'Description',
                 supportEmail: 'Email de support',
                 logoAndFavicon: 'Logo & Favicon',
-                logoDescription: 'Cette image sera utilisée comme logo ET comme favicon',
+                logoDescription: 'Cette image sera utilisée comme logo ET comme favicon. Max : 5MB. Taille recommandée : 512x512 (~500KB).',
                 uploadLogo: 'Télécharger le logo',
                 language: 'Langue',
                 primaryColor: 'Couleur primaire',
@@ -1020,10 +1020,10 @@
             const file = e.target.files[0];
             if (!file) return;
             
-            // Valider la taille du fichier (10MB max)
-            const maxSize = 10 * 1024 * 1024;
+            // Valider la taille du fichier (5MB max)
+            const maxSize = 5 * 1024 * 1024;
             if (file.size > maxSize) {
-                showToast(`File size must be less than 10MB. Current: ${(file.size / 1024 / 1024).toFixed(2)}MB`, 'error');
+                showToast(`File size must be less than 5MB (recommended: 512x512 ~500KB). Current: ${(file.size / 1024 / 1024).toFixed(2)}MB`, 'error');
                 return;
             }
             
@@ -1054,7 +1054,11 @@
                     document.getElementById('logoPreview').src = data.logo_url;
                     document.getElementById('logoPreview').style.display = 'block';
                     // Le logo et le favicon utilisent la même image
-                    showToast(t('logoUpdated'), 'success');
+                    let msg = t('logoUpdated');
+                    if (data.notice) {
+                        msg += ' (' + data.notice + ')';
+                    }
+                    showToast(msg, 'success');
                 } else if (data.error) {
                     showToast(data.error, 'error');
                 }

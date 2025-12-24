@@ -163,7 +163,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleUploadLogo(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[UPLOAD] Starting logo upload handler")
 
-	const maxUploadSize = int64(5 * 1024 * 1024)      // 5MB hard limit
+	const maxUploadSize = int64(5 * 1024 * 1024)       // 5MB hard limit
 	const multipartParseLimit = maxUploadSize + 512000 // allow a bit of form overhead
 
 	// Parser le formulaire multipart avec limite de 10MB
