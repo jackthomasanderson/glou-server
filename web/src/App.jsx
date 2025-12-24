@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import appTheme from './theme/appTheme';
+import { AppConfigProvider } from './context/AppConfigContext';
 
 // Layouts
 import { AdaptiveNavigationShell } from './components/AdaptiveNavigationShell';
@@ -42,11 +43,12 @@ function App() {
   return (
     <ThemeProvider theme={appTheme}>
       <CssBaseline />
-      <AlphaBanner />
-      <Router>
-        <Routes>
-          {/* Home redirect */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <AppConfigProvider>
+        <AlphaBanner />
+        <Router>
+          <Routes>
+            {/* Home redirect */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
           {/* Dashboard and Analytics */}
           <Route path="/dashboard" element={
@@ -131,6 +133,7 @@ function App() {
           } />
         </Routes>
       </Router>
+      </AppConfigProvider>
     </ThemeProvider>
   );
 }

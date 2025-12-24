@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Glou 2025 - Gestion Professionnelle de Collection</title>
+    <title>Glou - Votre cave dans la poche</title>
     <style>
         :root {
             --primary: #667eea;
@@ -34,6 +34,7 @@
             color: var(--text-light);
             line-height: 1.6;
             transition: background-color 0.3s, color 0.3s;
+            padding-bottom: 40px;
         }
 
         body.dark-mode {
@@ -760,7 +761,7 @@
     </style>
 </head>
 <body>
-    <div class="alpha-banner" style="position: fixed; bottom:0; left:0; right:0; z-index:1000; background:#f59e0b; color:#fff; text-align:center; padding:6px; font-weight:600; letter-spacing:0.3px;">Alpha — Features may change between pre-release builds</div>
+    <div class="alpha-banner" style="position: fixed; bottom:0; left:0; right:0; z-index:1000; background:#f59e0b; color:#fff; text-align:center; padding:6px; font-weight:600; letter-spacing:0.3px;">Alpha — Les fonctionnalités peuvent changer entre les versions de pré-publication</div>
     <!-- Navbar -->
     <nav class="navbar">
         <div class="navbar-content">
@@ -1277,11 +1278,26 @@
             }
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('journalDate').value = today;
+            await loadAppSettings();
             await checkAuthStatus();
             setupMobileTabsToggle();
             const initialTab = getTabFromPath(window.location.pathname);
             initializeApp(initialTab);
         });
+
+        async function loadAppSettings() {
+            try {
+                const res = await apiFetch(`${API_BASE}/api/admin/settings`);
+                const settings = await res.json();
+                if (settings) {
+                    const appTitle = settings.app_title || 'Glou';
+                    const appSlogan = settings.app_slogan || 'Votre cave dans la poche';
+                    document.title = `${appTitle} - ${appSlogan}`;
+                }
+            } catch (e) {
+                console.log('Could not load app settings, using defaults');
+            }
+        }
 
         async function checkAuthStatus() {
             try {
@@ -1627,7 +1643,13 @@
 
         async function loadAlerts() {
             const response = await apiFetch(`${API_BASE}/alerts`);
-            alerts = await response.json() || [];
+            if (!response.ok) {
+                console.error('Failed to load alerts:', response.status);
+                alerts = [];
+            } else {
+                const data = await response.json();
+                alerts = Array.isArray(data) ? data : [];
+            }
 
             const alertsHtml = alerts.map(a => {
                 const wine = wines.find(w => w.id === a.wine_id);

@@ -481,9 +481,5 @@ const CellDialog = ({ open, onClose, onSave, theme }) => {
     </Dialog>
   );
 };
-      </Box>
-    </Dialog>
-  );
-};
 
 export default CaveManagementScreen;
