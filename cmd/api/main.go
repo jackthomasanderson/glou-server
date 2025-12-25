@@ -78,6 +78,36 @@ func (h *mimeTypeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handler.ServeHTTP(w, r)
 }
 
+// setContentType fixe le Content-Type sur la réponse si connu
+func setContentType(w http.ResponseWriter, path string) {
+	switch {
+	case strings.HasSuffix(path, ".css"):
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	case strings.HasSuffix(path, ".js"):
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	case strings.HasSuffix(path, ".json"):
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	case strings.HasSuffix(path, ".html"):
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	case strings.HasSuffix(path, ".png"):
+		w.Header().Set("Content-Type", "image/png")
+	case strings.HasSuffix(path, ".jpg"), strings.HasSuffix(path, ".jpeg"):
+		w.Header().Set("Content-Type", "image/jpeg")
+	case strings.HasSuffix(path, ".gif"):
+		w.Header().Set("Content-Type", "image/gif")
+	case strings.HasSuffix(path, ".svg"):
+		w.Header().Set("Content-Type", "image/svg+xml")
+	case strings.HasSuffix(path, ".ico"):
+		w.Header().Set("Content-Type", "image/x-icon")
+	case strings.HasSuffix(path, ".woff"):
+		w.Header().Set("Content-Type", "font/woff")
+	case strings.HasSuffix(path, ".woff2"):
+		w.Header().Set("Content-Type", "font/woff2")
+	case strings.HasSuffix(path, ".ttf"):
+		w.Header().Set("Content-Type", "font/ttf")
+	}
+}
+
 // serveFileIfExists répond avec un fichier s'il est présent sur le disque
 func serveFileIfExists(w http.ResponseWriter, r *http.Request, path string) bool {
 	info, err := os.Stat(path)
@@ -217,13 +247,7 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /api/setup/smtp-config", s.handleCheckSMTPConfig)
 	s.router.HandleFunc("POST /api/setup/complete", s.handleCompleteSetup)
 
-	// Authentication - Routes publiques
-	s.router.HandleFunc("GET /login", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "assets/login.html")
-	})
-	s.router.HandleFunc("GET /reset-password", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "assets/reset-password.html")
-	})
+	// Authentication - Routes publiques (servies par le SPA)
 	s.router.HandleFunc("POST /api/auth/login", applySecurityMiddlewares(s.handleLogin))
 	s.router.HandleFunc("POST /api/auth/logout", applySecurityMiddlewares(s.handleLogout))
 	s.router.HandleFunc("POST /api/auth/register", applySecurityMiddlewares(s.handleRegister))
@@ -319,51 +343,35 @@ func (s *Server) setupRoutes() {
 	// Health check
 	s.router.HandleFunc("GET /health", applySecurityMiddlewares(s.handleHealth))
 
-	// Servir les assets statiques avec les bons types MIME
-	assetsHandler := http.StripPrefix("/assets/", &mimeTypeHandler{
-		handler: http.FileServer(http.Dir("assets")),
-	})
-
+	// Servir le bundle React buildé (même port que l'API) sans utiliser /assets/
 	distDir := "web/dist"
 	distIndex := filepath.Join(distDir, "index.html")
-	if _, err := os.Stat(distIndex); err == nil {
-		distAssetsDir := filepath.Join(distDir, "assets")
 
-		s.router.Handle("GET /assets/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			relPath := strings.TrimPrefix(r.URL.Path, "/assets/")
-			if distPath, ok := safeJoin(distAssetsDir, relPath); ok {
-				if serveFileIfExists(w, r, distPath) {
-					return
-				}
+	serveSPA := func(w http.ResponseWriter, r *http.Request) {
+		if _, err := os.Stat(distIndex); err != nil {
+			s.respondError(w, http.StatusInternalServerError, "Frontend build missing. Run npm run build.", err)
+			return
+		}
+
+		relPath := strings.TrimPrefix(r.URL.Path, "/")
+		if relPath == "" || relPath == "/" {
+			relPath = "index.html"
+		}
+
+		if distPath, ok := safeJoin(distDir, relPath); ok {
+			if info, err := os.Stat(distPath); err == nil && !info.IsDir() {
+				setContentType(w, distPath)
+				http.ServeFile(w, r, distPath)
+				return
 			}
+		}
 
-			assetsHandler.ServeHTTP(w, r)
-		}))
-
-		// Servir le bundle React buildé quand présent (même port que l'API)
-		s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(authRequired(func(w http.ResponseWriter, r *http.Request) {
-			relPath := strings.TrimPrefix(r.URL.Path, "/")
-			if relPath == "" || relPath == "/" {
-				relPath = "index.html"
-			}
-
-			if distPath, ok := safeJoin(distDir, relPath); ok {
-				if serveFileIfExists(w, r, distPath) {
-					return
-				}
-			}
-
-			http.ServeFile(w, r, distIndex)
-		})))
-	} else {
-		s.router.Handle("GET /assets/", assetsHandler)
-
-		// Servir l'interface web pour toutes les routes non-API (avec vérification setup)
-		s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(authRequired(func(w http.ResponseWriter, r *http.Request) {
-			// Servir glou.html pour toutes les routes frontend
-			http.ServeFile(w, r, "assets/glou.html")
-		})))
+		setContentType(w, distIndex)
+		http.ServeFile(w, r, distIndex)
 	}
+
+	// Catch-all SPA (protégé par setup mais pas par auth pour laisser le front gérer la connexion)
+	s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(serveSPA))
 }
 
 // Start lance le serveur HTTP avec graceful shutdown
