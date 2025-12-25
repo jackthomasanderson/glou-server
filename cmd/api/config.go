@@ -50,7 +50,7 @@ func LoadConfig() *Config {
 	config := &Config{
 		Port:              getEnv("PORT", "8080"),
 		DBPath:            getEnv("DB_PATH", "./glou.db"),
-		AllowedOrigins:    parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:8080")),
+		AllowedOrigins:    parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:3002")),
 		RateLimitRequests: getEnvInt("RATE_LIMIT_REQUESTS", 100),
 		RateLimitWindow:   time.Duration(getEnvInt("RATE_LIMIT_WINDOW_SECONDS", 60)) * time.Second,
 
@@ -117,11 +117,13 @@ func parseOrigins(originsStr string) []string {
 
 // IsOriginAllowed vérifie si une origine est autorisée
 func (c *Config) IsOriginAllowed(origin string) bool {
+	// En développement, autoriser localhost et dérivés
 	if c.Environment == "development" {
-		// En développement, autoriser localhost
-		return true
+		// Allow any localhost origin in development
+		return strings.Contains(origin, "localhost") || strings.Contains(origin, "127.0.0.1") || strings.Contains(origin, "::1")
 	}
 
+	// En production, vérifier la liste blanche
 	for _, allowed := range c.AllowedOrigins {
 		if allowed == origin {
 			return true

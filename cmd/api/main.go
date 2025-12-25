@@ -26,6 +26,8 @@ var validWineTypes = map[string]bool{
 	"White":     true,
 	"Rosé":      true,
 	"Sparkling": true,
+	"Beer":      true,
+	"Spirit":    true,
 }
 
 // Valid alert types
@@ -179,6 +181,12 @@ func (s *Server) setupRoutes() {
 							s.csrfMiddleware(next))))))
 	}
 
+	// CORS-only middleware for OPTIONS requests (no CSRF check)
+	applyCorsOnly := func(next http.HandlerFunc) http.HandlerFunc {
+		return s.loggingMiddleware(
+			s.corsMiddleware(next))
+	}
+
 	// Setup Wizard - Routes sans authentification
 	s.router.HandleFunc("GET /setup", s.handleSetupWizard)
 	s.router.HandleFunc("GET /api/setup/check", s.handleCheckSetup)
@@ -213,9 +221,17 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /wines", authRequired(s.handleGetWines))
 	s.router.HandleFunc("POST /wines", authRequired(s.handleCreateWine))
 	s.router.HandleFunc("GET /wines/search", authRequired(s.handleSearchWines))
+	s.router.HandleFunc("GET /wines/drinkable", authRequired(s.handleGetWinesToDrinkNow))
 	s.router.HandleFunc("GET /wines/{id}", authRequired(s.handleGetWineByID))
 	s.router.HandleFunc("DELETE /wines/{id}", authRequired(s.handleDeleteWine))
 	s.router.HandleFunc("PUT /wines/{id}", authRequired(s.handleUpdateWine))
+
+	// Tobacco - Protégées par authentification
+	s.router.HandleFunc("GET /tobacco", authRequired(s.handleGetTobacco))
+	s.router.HandleFunc("POST /tobacco", authRequired(s.handleCreateTobacco))
+	s.router.HandleFunc("GET /tobacco/{id}", authRequired(s.handleGetTobaccoByID))
+	s.router.HandleFunc("PUT /tobacco/{id}", authRequired(s.handleUpdateTobacco))
+	s.router.HandleFunc("DELETE /tobacco/{id}", authRequired(s.handleDeleteTobacco))
 
 	// Caves - Protégées par authentification
 	s.router.HandleFunc("GET /caves", authRequired(s.handleGetCaves))
@@ -230,6 +246,11 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /alerts", authRequired(s.handleGetAlerts))
 	s.router.HandleFunc("POST /alerts", authRequired(s.handleCreateAlert))
 	s.router.HandleFunc("DELETE /alerts/{id}", authRequired(s.handleDismissAlert))
+
+	// Tobacco Alerts - Protégées par authentification
+	s.router.HandleFunc("GET /tobacco-alerts", authRequired(s.handleGetTobaccoAlerts))
+	s.router.HandleFunc("POST /tobacco-alerts/generate", authRequired(s.handleGenerateTobaccoAlerts))
+	s.router.HandleFunc("DELETE /tobacco-alerts/{id}/dismiss", authRequired(s.handleDismissTobaccoAlert))
 
 	// Historique dégustation - Protégé par authentification
 	s.router.HandleFunc("GET /wines/{id}/history", authRequired(s.handleGetConsumptionHistory))
@@ -265,10 +286,11 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("POST /api/enrich/image-recognize", authRequired(handleEnrichImageRecognize))
 
 	// OPTIONS
-	s.router.HandleFunc("OPTIONS /wines", applySecurityMiddlewares(s.handleOptions))
-	s.router.HandleFunc("OPTIONS /wines/{id}", applySecurityMiddlewares(s.handleOptions))
-	s.router.HandleFunc("OPTIONS /caves", applySecurityMiddlewares(s.handleOptions))
-	s.router.HandleFunc("OPTIONS /alerts", applySecurityMiddlewares(s.handleOptions))
+	s.router.HandleFunc("OPTIONS /wines", applyCorsOnly(s.handleOptions))
+	s.router.HandleFunc("OPTIONS /wines/{id}", applyCorsOnly(s.handleOptions))
+	s.router.HandleFunc("OPTIONS /caves", applyCorsOnly(s.handleOptions))
+	s.router.HandleFunc("OPTIONS /alerts", applyCorsOnly(s.handleOptions))
+	s.router.HandleFunc("OPTIONS /api/admin/settings", applyCorsOnly(s.handleOptions))
 
 	// Health check
 	s.router.HandleFunc("GET /health", applySecurityMiddlewares(s.handleHealth))

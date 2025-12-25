@@ -7,8 +7,8 @@ import apiClient from '../services/apiClient';
  */
 const AppConfigContext = createContext({
   appName: 'Glou',
-  appSlogan: 'Your personal cellar',
-  appTitle: 'Glou - Your personal cellar',
+  appSlogan: 'Votre cave personnelle',
+  appTitle: 'Glou - Votre cave personnelle',
   isLoading: false,
   error: null,
   reload: () => {},
@@ -18,7 +18,7 @@ export const useAppConfig = () => useContext(AppConfigContext);
 
 export const AppConfigProvider = ({ children }) => {
   const [appName, setAppName] = useState('Glou');
-  const [appSlogan, setAppSlogan] = useState('Your personal cellar');
+  const [appSlogan, setAppSlogan] = useState('Votre cave personnelle');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 

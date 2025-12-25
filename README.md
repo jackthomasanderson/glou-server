@@ -29,6 +29,31 @@ In a world of cloud-only apps, **Glou** puts you back in control of your cellar 
 
 ---
 
+## 🎯 Recent Update: "Personal & Family Collection" Pivot (v0.2.0)
+
+**Glou has pivoted from a SaaS/Pro dashboard to an intimate Personal Collection app.**
+
+### What's New?
+- 🏠 **Rebranded Interface**: "Ma Cave" (My Collection) instead of Dashboard
+- ⚡ **Quick Actions**: Camera, Barcode Scan, Manual Add - all on one screen
+- 🔔 **Smart Insights**: Ready to Drink, Peak Alerts, Recent Tastings at a glance
+- 🔐 **Discreet Admin**: Advanced Settings tucked away, focused on personal use
+- 🌍 **Full i18n**: French/English throughout
+
+### For Developers
+- 📖 [Collection Pivot Summary](COLLECTION_PIVOT_SUMMARY.md) - Overview of changes
+- 🧪 [Testing Plan](TESTING_COLLECTION_PIVOT.md) - Complete test checklist
+- 📐 [Design Guidelines](GUIDELINES_COLLECTION_IDENTITY.md) - Maintain identity in future features
+- 👨‍💻 [Developer Integration Guide](DEVELOPER_INTEGRATION_GUIDE.md) - How to work with the new codebase
+
+### Backward Compatibility ✅
+- All security features preserved (AES-256-GCM, JWT, RBAC)
+- Backend routes unchanged
+- Database schema compatible
+- Docker deployments unaffected
+
+---
+
 ## 🛠️ Key Features
 
 | Feature | Description |

@@ -25,12 +25,64 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useWines } from '../hooks/useApi';
-import { KPIWidget } from '../components/DashboardScreen';
+
+/**
+ * KPIWidget - Key Performance Indicator card component
+ */
+const KPIWidget = ({
+  title,
+  value,
+  unit = '',
+  changePercentage = '',
+  isPositive = true,
+  icon,
+  accentColor = null,
+}) => {
+  const theme = useTheme();
+  const color = accentColor || theme.palette.primary.main;
+
+  return (
+    <Card
+      sx={{
+        backgroundColor: theme.palette.surfaceMedium,
+        border: `1px solid ${theme.palette.divider}`,
+        borderRadius: '12px',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <CardContent>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant }}>
+            {title}
+          </Typography>
+          {icon && (
+            <Box sx={{ fontSize: '1.5rem', opacity: 0.7 }}>
+              {typeof icon === 'function' ? icon() : icon}
+            </Box>
+          )}
+        </Box>
+        <Typography variant="displaySmall" sx={{ color: theme.palette.onSurface, fontWeight: 600, mb: 1 }}>
+          {value}
+        </Typography>
+        <Typography variant="caption" sx={{ color: theme.palette.onSurfaceVariant }}>
+          {unit}
+        </Typography>
+        {changePercentage && (
+          <Typography variant="caption" sx={{ color: isPositive ? theme.palette.tertiary.main : theme.palette.error, mt: 1, display: 'block' }}>
+            {changePercentage}
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 /**
  * Dashboard Screen - Analytics and statistics
  */
-export const DashboardScreen = () => {
+export const DashboardAnalyticsScreen = () => {
   const theme = useTheme();
   const { wines, loading } = useWines();
 
@@ -136,7 +188,7 @@ export const DashboardScreen = () => {
 
       {/* KPI Row */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KPIWidget
             title="Bouteilles"
             value={stats.totalBottles.toString()}
@@ -148,7 +200,7 @@ export const DashboardScreen = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KPIWidget
             title="Valeur totale"
             value={`${stats.totalValue.toFixed(0)}€`}
@@ -160,7 +212,7 @@ export const DashboardScreen = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KPIWidget
             title="À boire"
             value={stats.drinkableNow.toString()}
@@ -172,7 +224,7 @@ export const DashboardScreen = () => {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KPIWidget
             title="Prix moyen"
             value={`${stats.averagePrice.toFixed(2)}€`}
@@ -188,7 +240,7 @@ export const DashboardScreen = () => {
       {/* Charts Grid */}
       <Grid container spacing={2}>
         {/* Type Distribution Pie Chart */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card
             sx={{
               backgroundColor: theme.palette.surfaceMedium,
@@ -230,7 +282,7 @@ export const DashboardScreen = () => {
         </Grid>
 
         {/* Price Distribution Bar Chart */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card
             sx={{
               backgroundColor: theme.palette.surfaceMedium,
@@ -262,7 +314,7 @@ export const DashboardScreen = () => {
         </Grid>
 
         {/* Region Distribution */}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card
             sx={{
               backgroundColor: theme.palette.surfaceMedium,
@@ -301,4 +353,4 @@ export const DashboardScreen = () => {
   );
 };
 
-export default DashboardScreen;
+export default DashboardAnalyticsScreen;
