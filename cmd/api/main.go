@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -75,6 +76,29 @@ func (h *mimeTypeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Servir le fichier - FileServer utilisera maintenant notre Content-Type
 	// plutôt que de détecter text/plain
 	h.handler.ServeHTTP(w, r)
+}
+
+// serveFileIfExists répond avec un fichier s'il est présent sur le disque
+func serveFileIfExists(w http.ResponseWriter, r *http.Request, path string) bool {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return false
+	}
+	http.ServeFile(w, r, path)
+	return true
+}
+
+// safeJoin empêche les traversées de répertoires en maintenant le chemin sous base
+func safeJoin(base, rel string) (string, bool) {
+	cleanBase := filepath.Clean(base)
+	cleanRel := filepath.Clean(rel)
+	full := filepath.Join(cleanBase, cleanRel)
+
+	if !strings.HasPrefix(full, cleanBase) {
+		return "", false
+	}
+
+	return full, true
 }
 
 // ValidateWine validates wine data before storage
@@ -296,15 +320,50 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /health", applySecurityMiddlewares(s.handleHealth))
 
 	// Servir les assets statiques avec les bons types MIME
-	s.router.Handle("GET /assets/", http.StripPrefix("/assets/", &mimeTypeHandler{
+	assetsHandler := http.StripPrefix("/assets/", &mimeTypeHandler{
 		handler: http.FileServer(http.Dir("assets")),
-	}))
+	})
 
-	// Servir l'interface web pour toutes les routes non-API (avec vérification setup)
-	s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(authRequired(func(w http.ResponseWriter, r *http.Request) {
-		// Servir glou.html pour toutes les routes frontend
-		http.ServeFile(w, r, "assets/glou.html")
-	})))
+	distDir := "web/dist"
+	distIndex := filepath.Join(distDir, "index.html")
+	if _, err := os.Stat(distIndex); err == nil {
+		distAssetsDir := filepath.Join(distDir, "assets")
+
+		s.router.Handle("GET /assets/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			relPath := strings.TrimPrefix(r.URL.Path, "/assets/")
+			if distPath, ok := safeJoin(distAssetsDir, relPath); ok {
+				if serveFileIfExists(w, r, distPath) {
+					return
+				}
+			}
+
+			assetsHandler.ServeHTTP(w, r)
+		}))
+
+		// Servir le bundle React buildé quand présent (même port que l'API)
+		s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(authRequired(func(w http.ResponseWriter, r *http.Request) {
+			relPath := strings.TrimPrefix(r.URL.Path, "/")
+			if relPath == "" || relPath == "/" {
+				relPath = "index.html"
+			}
+
+			if distPath, ok := safeJoin(distDir, relPath); ok {
+				if serveFileIfExists(w, r, distPath) {
+					return
+				}
+			}
+
+			http.ServeFile(w, r, distIndex)
+		})))
+	} else {
+		s.router.Handle("GET /assets/", assetsHandler)
+
+		// Servir l'interface web pour toutes les routes non-API (avec vérification setup)
+		s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(authRequired(func(w http.ResponseWriter, r *http.Request) {
+			// Servir glou.html pour toutes les routes frontend
+			http.ServeFile(w, r, "assets/glou.html")
+		})))
+	}
 }
 
 // Start lance le serveur HTTP avec graceful shutdown

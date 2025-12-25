@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Glou - Initial Setup</title>
     <style>
+        :root {
+            --primary: #722B3D;
+            --primary-soft: #F5D5E3;
+            --secondary: #2D5169;
+            --surface: #FFFBFE;
+            --surface-alt: #F3EEF6;
+            --surface-strong: #ECE6F0;
+            --text: #1C1B1F;
+            --muted: #6B6475;
+            --border: rgba(121, 116, 126, 0.18);
+            --shadow: 0 18px 48px rgba(16, 7, 15, 0.12);
+            --radius-lg: 20px;
+            --radius-md: 12px;
+            --radius-sm: 10px;
+            --success: #2F564B;
+            --warning: #B8A037;
+            --error: #C5241F;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -12,103 +31,126 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background: radial-gradient(circle at 20% 20%, rgba(114, 43, 61, 0.08), transparent 35%),
+                        radial-gradient(circle at 80% 0%, rgba(45, 81, 105, 0.08), transparent 30%),
+                        var(--surface);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
-            padding-bottom: 60px;
+            padding: 28px;
+            color: var(--text);
         }
 
         .wizard-container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 800px;
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow);
+            max-width: 1040px;
             width: 100%;
             overflow: hidden;
+            border: 1px solid var(--border);
         }
 
         .wizard-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
-            padding: 30px;
-            text-align: center;
+            padding: 28px 32px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
         }
 
         .wizard-header h1 {
-            font-size: 2rem;
-            margin-bottom: 10px;
+            font-size: 1.8rem;
+            font-weight: 700;
         }
 
         .wizard-header p {
             opacity: 0.9;
-            font-size: 1.1rem;
+            font-size: 1rem;
         }
 
         .wizard-body {
-            padding: 40px;
+            padding: 32px 36px 36px;
+            background: linear-gradient(180deg, rgba(114, 43, 61, 0.04) 0%, transparent 20%);
         }
 
         .step-indicator {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 40px;
-            position: relative;
-        }
-
-        .step-indicator::before {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: #e0e0e0;
-            z-index: 0;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+            margin-bottom: 32px;
         }
 
         .step {
             position: relative;
             text-align: center;
-            flex: 1;
-            z-index: 1;
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px 10px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+
+        .step::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 10%;
+            right: 10%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            border-radius: 999px;
         }
 
         .step-circle {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             border-radius: 50%;
-            background: #e0e0e0;
-            color: #999;
-            display: flex;
+            background: white;
+            border: 2px solid var(--border);
+            color: var(--muted);
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 10px;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-
-        .step.active .step-circle {
-            background: #667eea;
-            color: white;
-        }
-
-        .step.completed .step-circle {
-            background: #4caf50;
-            color: white;
+            margin-bottom: 8px;
+            font-weight: 700;
         }
 
         .step-label {
             font-size: 0.9rem;
-            color: #666;
+            color: var(--muted);
+            font-weight: 600;
         }
 
-        .step.active .step-label {
-            color: #667eea;
-            font-weight: 600;
+        .step.active, .step.completed {
+            border-color: rgba(114, 43, 61, 0.35);
+            box-shadow: 0 8px 24px rgba(114, 43, 61, 0.12);
+        }
+
+        .step.active::after, .step.completed::after {
+            opacity: 1;
+        }
+
+        .step.active .step-circle {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+
+        .step.completed .step-circle {
+            background: var(--success);
+            color: #fff;
+            border-color: var(--success);
+        }
+
+        .step.active .step-label,
+        .step.completed .step-label {
+            color: var(--primary);
         }
 
         .wizard-content {
@@ -117,136 +159,156 @@
 
         .step-content {
             display: none;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 26px;
+            box-shadow: 0 12px 32px rgba(16, 7, 15, 0.06);
         }
 
         .step-content.active {
             display: block;
-            animation: fadeIn 0.3s;
+            animation: fadeIn 0.25s ease;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: 22px;
         }
 
         .form-group label {
             display: block;
             margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
+            color: var(--text);
+            font-weight: 600;
         }
 
         .form-group input,
         .form-group select {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            padding: 12px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
             font-size: 1rem;
-            transition: border-color 0.3s;
+            background: var(--surface-alt);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
         }
 
         .form-group input:focus,
         .form-group select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: rgba(114, 43, 61, 0.55);
+            box-shadow: 0 0 0 4px rgba(114, 43, 61, 0.14);
+            background: white;
         }
 
         .form-group small {
             display: block;
-            margin-top: 5px;
-            color: #666;
-            font-size: 0.85rem;
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 0.9rem;
         }
 
         .color-picker-group {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 18px;
         }
 
         .color-input-wrapper {
             display: flex;
             align-items: center;
             gap: 10px;
+            background: var(--surface-alt);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px;
         }
 
         .color-input-wrapper input[type="color"] {
-            width: 60px;
-            height: 40px;
+            width: 64px;
+            height: 44px;
             border: none;
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             cursor: pointer;
+            background: transparent;
         }
 
         .color-input-wrapper input[type="text"] {
             flex: 1;
+            background: white;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
         }
 
         .wizard-actions {
             display: flex;
             justify-content: space-between;
-            gap: 15px;
-            margin-top: 40px;
-            padding-top: 30px;
-            border-top: 1px solid #e0e0e0;
+            gap: 12px;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
         }
 
         .btn {
-            padding: 12px 30px;
-            border: none;
-            border-radius: 8px;
+            padding: 12px 28px;
+            border: 1px solid transparent;
+            border-radius: var(--radius-md);
             font-size: 1rem;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s ease;
         }
 
         .btn-primary {
-            background: #667eea;
-            color: white;
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 8px 22px rgba(114, 43, 61, 0.28);
         }
 
         .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 12px 28px rgba(114, 43, 61, 0.32);
         }
 
         .btn-secondary {
-            background: #e0e0e0;
-            color: #666;
+            background: white;
+            color: var(--text);
+            border-color: var(--border);
         }
 
         .btn-secondary:hover {
-            background: #d0d0d0;
+            background: var(--surface-alt);
         }
 
         .btn:disabled {
-            opacity: 0.5;
+            opacity: 0.55;
             cursor: not-allowed;
+            box-shadow: none;
         }
 
         .alert {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            padding: 14px 16px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 18px;
+            border: 1px solid transparent;
         }
 
         .alert-error {
-            background: #ffebee;
-            color: #c62828;
-            border-left: 4px solid #c62828;
+            background: rgba(197, 36, 31, 0.08);
+            color: var(--error);
+            border-color: rgba(197, 36, 31, 0.2);
         }
 
         .alert-success {
-            background: #e8f5e9;
-            color: #2e7d32;
-            border-left: 4px solid #2e7d32;
+            background: rgba(47, 86, 75, 0.08);
+            color: var(--success);
+            border-color: rgba(47, 86, 75, 0.24);
         }
 
         .checkbox-group {
@@ -257,27 +319,28 @@
 
         .checkbox-group input[type="checkbox"] {
             width: auto;
-            height: 20px;
+            height: 18px;
             cursor: pointer;
         }
 
         .summary-section {
-            background: #f5f5f5;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+            background: var(--surface-alt);
+            padding: 18px;
+            border-radius: var(--radius-md);
+            margin-bottom: 18px;
+            border: 1px solid var(--border);
         }
 
         .summary-section h3 {
-            margin-bottom: 15px;
-            color: #333;
+            margin-bottom: 12px;
+            color: var(--text);
         }
 
         .summary-item {
             display: flex;
             justify-content: space-between;
             padding: 8px 0;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px dashed var(--border);
         }
 
         .summary-item:last-child {
@@ -285,18 +348,19 @@
         }
 
         .summary-label {
-            font-weight: 500;
-            color: #666;
+            font-weight: 600;
+            color: var(--muted);
         }
 
         .summary-value {
-            color: #333;
+            color: var(--text);
+            font-weight: 600;
         }
 
         .loading {
             display: none;
             text-align: center;
-            padding: 20px;
+            padding: 18px;
         }
 
         .loading.active {
@@ -305,12 +369,12 @@
 
         .spinner {
             border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border-top: 3px solid var(--primary);
             border-radius: 50%;
             width: 40px;
             height: 40px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
+            margin: 0 auto 12px;
         }
 
         @keyframes spin {
@@ -320,143 +384,67 @@
 
         .password-strength-bar {
             height: 6px;
-            background: #e0e0e0;
-            border-radius: 3px;
+            background: var(--surface-alt);
+            border-radius: 4px;
             overflow: hidden;
             margin-bottom: 8px;
+            border: 1px solid var(--border);
         }
 
         .password-strength-fill {
             height: 100%;
             transition: all 0.3s;
-            border-radius: 3px;
+            border-radius: 4px;
         }
 
         .password-strength-text {
-            font-size: 0.85rem;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .strength-very-weak .password-strength-fill { width: 20%; background: var(--error); }
+        .strength-weak .password-strength-fill { width: 40%; background: #f59e0b; }
+        .strength-medium .password-strength-fill { width: 60%; background: #e2b203; }
+        .strength-strong .password-strength-fill { width: 80%; background: #8bc34a; }
+        .strength-very-strong .password-strength-fill { width: 100%; background: var(--success); }
+
+        .strength-very-weak .password-strength-text { color: var(--error); }
+        .strength-weak .password-strength-text { color: #f59e0b; }
+        .strength-medium .password-strength-text { color: #b99a00; }
+        .strength-strong .password-strength-text { color: #689f38; }
+        .strength-very-strong .password-strength-text { color: var(--success); }
+
+        .password-requirements {
+            font-size: 0.9rem;
+            margin-top: 8px;
+            color: var(--muted);
+        }
+
+        .requirement {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 4px 0;
+            color: var(--muted);
+        }
+
+        .requirement.recommended {
+            color: var(--warning);
             font-weight: 600;
         }
 
-        .strength-very-weak .password-strength-fill {
-            width: 20%;
-            background: #d32f2f;
-        }
-
-        .strength-very-weak .password-strength-text {
-            color: #d32f2f;
-        }
-
-        .strength-weak .password-strength-fill {
-            width: 40%;
-            background: #f44336;
-        }
-
-        .strength-weak .password-strength-text {
-            color: #f44336;
-        }
-
-        .strength-medium .password-strength-fill {
-            width: 60%;
-            background: #ff9800;
-        }
-
-        .strength-medium .password-strength-text {
-            color: #ff9800;
-        }
-
-        .strength-strong .password-strength-fill {
-            width: 80%;
-            background: #8bc34a;
-        }
-
-        .strength-strong .password-strength-text {
-            color: #8bc34a;
-        }
-
-        .strength-very-strong .password-strength-fill {
-            width: 100%;
-            background: #4caf50;
-        }
-
-        .strength-very-strong .password-strength-text {
-            color: #4caf50;
-        }
-
-        .password-requirements {
-            font-size: 0.85rem;
-            margin-top: 8px;
-        }
-
-        .requirement {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin: 4px 0;
-            color: #999;
-        }
-
-        .requirement.recommended {
-            color: #ff9800;
-            font-weight: 500;
-        }
-
         .requirement.met {
-            color: #4caf50;
+            color: var(--success);
+            font-weight: 600;
         }
 
-        .requirement.met::before {
-            content: '✓';
-            font-weight: bold;
-        }
-
-        .requirement.recommended::before {
-            content: '⚠';
-        }
-
-        .requirement.unmet::before {
-            content: '○';
-        }
-
-        .password-requirements {
-            font-size: 0.85rem;
-            margin-top: 8px;
-        }
-
-        .requirement {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            margin: 4px 0;
-            color: #999;
-        }
-
-        .requirement.recommended {
-            color: #ff9800;
-            font-weight: 500;
-        }
-
-        .requirement.met {
-            color: #4caf50;
-        }
-
-        .requirement.met::before {
-            content: '✓';
-            font-weight: bold;
-        }
-
-        .requirement.recommended::before {
-            content: '⚠';
-        }
-
-        .requirement.unmet::before {
-            content: '○';
-        }
-
-
+        .requirement.met::before { content: '✓'; font-weight: bold; }
+        .requirement.recommended::before { content: '⚠'; }
+        .requirement.unmet::before { content: '○'; }
     </style>
 </head>
 <body>
-    <div class="alpha-banner" style="position: fixed; bottom:0; left:0; right:0; z-index:1000; background:#f59e0b; color:#fff; text-align:center; padding:6px; font-weight:600; letter-spacing:0.3px;">Alpha — Les fonctionnalités peuvent changer entre les versions de pré-publication</div>
+    <div class="alpha-banner" style="position: fixed; bottom:0; left:0; right:0; z-index:1000; background:#2D5169; color:#fff; text-align:center; padding:6px; font-weight:600; letter-spacing:0.3px;">Alpha — Les fonctionnalités peuvent changer entre les versions de pré-publication</div>
     <div class="wizard-container">
         <div class="wizard-header">
             <h1 data-i18n="welcome">🍷 Welcome to Glou</h1>
@@ -605,9 +593,9 @@
                     <h2 data-i18n="notificationsTitle">Notifications (optional)</h2>
                     <p style="color: #666; margin-bottom: 25px;" data-i18n="notificationsSubtitle">Configure alert services. This step is optional.</p>
 
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px;">
-                        <h3 style="margin-bottom: 15px; font-size: 1.1rem;" data-i18n="gotifyTitle">📱 Gotify (Push Notifications)</h3>
-                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;" data-i18n="gotifySubtitle">Real-time notifications on your devices</p>
+                    <div style="background: var(--surface-alt); padding: 20px; border-radius: var(--radius-md); margin-bottom: 25px; border:1px solid var(--border);">
+                        <h3 style="margin-bottom: 15px; font-size: 1.05rem;" data-i18n="gotifyTitle">📱 Gotify (Push Notifications)</h3>
+                        <p style="color: var(--muted); font-size: 0.95rem; margin-bottom: 15px;" data-i18n="gotifySubtitle">Real-time notifications on your devices</p>
                         
                         <div class="form-group">
                             <label for="gotify-url" data-i18n="gotifyUrl">Gotify Server URL</label>
@@ -622,14 +610,14 @@
                         </div>
                     </div>
 
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
-                        <h3 style="margin-bottom: 15px; font-size: 1.1rem;" data-i18n="smtpTitle">✉️ SMTP (Email)</h3>
-                        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;" data-i18n="smtpSubtitle">
+                    <div style="background: var(--surface-alt); padding: 20px; border-radius: var(--radius-md); border:1px solid var(--border);">
+                        <h3 style="margin-bottom: 15px; font-size: 1.05rem;" data-i18n="smtpTitle">✉️ SMTP (Email)</h3>
+                        <p style="color: var(--muted); font-size: 0.95rem; margin-bottom: 15px;" data-i18n="smtpSubtitle">
                             Email server configuration for outgoing notifications and forgot password feature.
                         </p>
                         
-                        <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid #ffc107;">
-                            <p style="margin: 0; color: #856404; font-size: 0.85rem;" data-i18n="smtpWarning">
+                        <div style="background: rgba(184, 160, 55, 0.12); padding: 12px; border-radius: var(--radius-sm); margin-bottom: 15px; border-left: 3px solid var(--warning);">
+                            <p style="margin: 0; color: var(--warning); font-size: 0.9rem;" data-i18n="smtpWarning">
                                 ⚠️ <strong>Important:</strong> The "forgot password" feature will only be available if the SMTP server is configured.
                             </p>
                         </div>
@@ -674,8 +662,8 @@
                         </div>
                     </div>
 
-                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #2196f3;">
-                        <p style="margin: 0; color: #1565c0; font-size: 0.9rem;" data-i18n="notificationsOptional">
+                    <div style="background: rgba(45, 81, 105, 0.12); padding: 15px; border-radius: var(--radius-md); margin-top: 20px; border-left: 4px solid var(--secondary);">
+                        <p style="margin: 0; color: var(--secondary); font-size: 0.95rem;" data-i18n="notificationsOptional">
                             💡 Info: You can skip this step and configure notifications later in settings.
                         </p>
                     </div>
