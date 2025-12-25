@@ -47,30 +47,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
-      },
-      '/wines': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      '/caves': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      '/cells': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      '/alerts': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      '/consumption': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      '/health': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
   },

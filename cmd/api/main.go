@@ -281,6 +281,10 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("PUT /tobacco/{id}", authRequired(s.handleUpdateTobacco))
 	s.router.HandleFunc("DELETE /tobacco/{id}", authRequired(s.handleDeleteTobacco))
 
+	// Preflight CORS for tobacco endpoints
+	s.router.HandleFunc("OPTIONS /tobacco", applyCorsOnly(s.handleOptions))
+	s.router.HandleFunc("OPTIONS /tobacco/{id}", applyCorsOnly(s.handleOptions))
+
 	// Caves - Protégées par authentification
 	s.router.HandleFunc("GET /caves", authRequired(s.handleGetCaves))
 	s.router.HandleFunc("POST /caves", authRequired(s.handleCreateCave))
@@ -289,6 +293,9 @@ func (s *Server) setupRoutes() {
 	// Cells - Protégées par authentification
 	s.router.HandleFunc("GET /caves/{caveID}/cells", authRequired(s.handleGetCells))
 	s.router.HandleFunc("POST /cells", authRequired(s.handleCreateCell))
+
+	// Preflight CORS for cells
+	s.router.HandleFunc("OPTIONS /cells", applyCorsOnly(s.handleOptions))
 
 	// Alertes - Protégées par authentification
 	s.router.HandleFunc("GET /alerts", authRequired(s.handleGetAlerts))
@@ -299,6 +306,10 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("GET /tobacco-alerts", authRequired(s.handleGetTobaccoAlerts))
 	s.router.HandleFunc("POST /tobacco-alerts/generate", authRequired(s.handleGenerateTobaccoAlerts))
 	s.router.HandleFunc("DELETE /tobacco-alerts/{id}/dismiss", authRequired(s.handleDismissTobaccoAlert))
+
+	// Preflight CORS for tobacco alerts
+	s.router.HandleFunc("OPTIONS /tobacco-alerts", applyCorsOnly(s.handleOptions))
+	s.router.HandleFunc("OPTIONS /tobacco-alerts/{id}/dismiss", applyCorsOnly(s.handleOptions))
 
 	// Historique dégustation - Protégé par authentification
 	s.router.HandleFunc("GET /wines/{id}/history", authRequired(s.handleGetConsumptionHistory))
@@ -370,8 +381,12 @@ func (s *Server) setupRoutes() {
 		http.ServeFile(w, r, distIndex)
 	}
 
-	// Catch-all SPA (protégé par setup mais pas par auth pour laisser le front gérer la connexion)
-	s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(serveSPA))
+	// Catch-all SPA only in production; in development the frontend runs on a separate dev server
+	if s.config.Environment == "production" {
+		s.router.HandleFunc("GET /{path...}", s.setupCheckMiddleware(serveSPA))
+	} else {
+		s.router.HandleFunc("GET /{path...}", http.NotFound)
+	}
 }
 
 // Start lance le serveur HTTP avec graceful shutdown

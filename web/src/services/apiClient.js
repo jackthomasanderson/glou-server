@@ -3,7 +3,16 @@
  * Handles all HTTP requests with proper error handling and auth
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// Use same-origin /api by default; Vite dev proxy forwards to backend.
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
+// Read a cookie value by name (simple parsing, no decoding needed for CSRF token)
+function getCookie(name) {
+  return document.cookie
+    .split('; ')
+    .map((row) => row.split('='))
+    .find(([key]) => key === name)?.[1];
+}
 
 class ApiClient {
   constructor(baseURL = API_BASE_URL) {
@@ -23,6 +32,15 @@ class ApiClient {
 
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    // Attach CSRF token for state-changing requests when available
+    const upperMethod = method.toUpperCase();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(upperMethod)) {
+      const csrfToken = getCookie('glou_csrf');
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
     }
 
     try {
@@ -126,6 +144,13 @@ class ApiClient {
    */
   async createCave(cave) {
     return this.request('POST', '/caves', cave);
+  }
+
+  /**
+   * Update an existing cave
+   */
+  async updateCave(id, cave) {
+    return this.request('PUT', `/caves/${id}`, cave);
   }
 
   /**
