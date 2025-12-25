@@ -21,6 +21,8 @@ import {
   Close as CloseIcon,
 } from '@mui/icons-material';
 import { HelpIcon, HelpLabel } from '../components/HelpIcon';
+import ProductTypePieChart from '../components/ProductTypePieChart';
+import api from '../services/apiClient';
 
 /**
  * CaveManagementScreen - Manage wine storage locations (caves and cells)
@@ -34,10 +36,22 @@ const CaveManagementScreen = () => {
   const [openCellDialog, setOpenCellDialog] = useState(false);
   const [selectedCave, setSelectedCave] = useState(null);
   const [formData, setFormData] = useState({ name: '', description: '' });
+  const [wines, setWines] = useState([]);
+  const [tobaccos, setTobaccos] = useState([]);
 
-  // No local mock data in production; keep initial state empty and clear loading
   useEffect(() => {
-    setLoading(false);
+    const fetchData = async () => {
+      try {
+        const [w, t] = await Promise.all([api.getWines(), api.getTobacco()]);
+        setWines(w || []);
+        setTobaccos(t || []);
+      } catch (err) {
+        console.error('Failed to fetch data', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
   const handleAddCave = () => {
@@ -74,6 +88,8 @@ const CaveManagementScreen = () => {
         location: formData.location || 'Principale',
         temperature: 12,
         humidity: 70,
+        capacity: 100,
+        current: 0,
         cells: [],
       };
       setCaves([...caves, newCave]);
@@ -84,6 +100,12 @@ const CaveManagementScreen = () => {
   };
 
   const handleDeleteCave = (id) => {
+    const cave = caves.find(c => c.id === id);
+    const occupied = cave ? cave.cells.some(cell => (cell.wines || 0) > 0) : false;
+    if (occupied) {
+      setError('Suppression interdite: la cave contient encore des produits');
+      return;
+    }
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cette cave ?')) {
       setCaves(caves.filter(cave => cave.id !== id));
     }
@@ -219,6 +241,25 @@ const CaveManagementScreen = () => {
                   </Stack>
                 </Box>
 
+                {/* Liquid Gauge */}
+                {(() => {
+                  const total = cave.cells.reduce((sum, cell) => sum + (cell.wines || 0), 0);
+                  const capacity = cave.capacity || 100;
+                  const pct = Math.min(100, Math.round((total / capacity) * 100));
+                  return (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle2" sx={{ color: theme.palette.onSurfaceVariant, mb: 0.5 }}>
+                        Remplissage: {pct}%
+                      </Typography>
+                      <Box sx={{ position: 'relative', height: 24, borderRadius: 12, backgroundColor: theme.palette.surfaceLight, overflow: 'hidden', border: `1px solid ${theme.palette.outline}` }}>
+                        <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(135deg, ${theme.palette.primary.light}, ${theme.palette.primary.main})`, transition: 'width 0.6s ease' }} />
+                        {/* Simple wave overlay */}
+                        <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `radial-gradient(circle at 10px 10px, ${theme.palette.primary.dark}33 10px, transparent 11px)`, opacity: 0.3 }} />
+                      </Box>
+                    </Box>
+                  );
+                })()}
+
                 {/* Conditions */}
                 <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
                   <Chip
@@ -234,6 +275,12 @@ const CaveManagementScreen = () => {
                     title="Humidité actuelle de la cave"
                   />
                 </Stack>
+
+                {/* Distribution Pie Chart */}
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" sx={{ color: theme.palette.onSurfaceVariant, mb: 1 }}>Répartition des produits</Typography>
+                  <ProductTypePieChart wines={wines.filter(w => w.cell_id && caves.find(c => c.cells?.some(cell => cell.id === w.cell_id))?.id === cave.id)} tobaccos={tobaccos.filter(t => t.cave_id === cave.id)} />
+                </Box>
 
                 {/* Cells Grid */}
                 <Box sx={{ mb: 2 }}>

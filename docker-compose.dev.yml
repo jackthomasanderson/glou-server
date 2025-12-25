@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  glou-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: glou-server-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DB_PATH: /data/glou.db
+      SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-change-in-production}
+      ENCRYPTION_PASSPHRASE: ${ENCRYPTION_PASSPHRASE:-dev-encryption-passphrase}
+      ENCRYPTION_SALT: ${ENCRYPTION_SALT:-glou-dev-salt}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TO: ${SMTP_TO:-}
+      GOTIFY_URL: ${GOTIFY_URL:-}
+      GOTIFY_TOKEN: ${GOTIFY_TOKEN:-}
+    volumes:
+      - ./data:/data
+      - ./assets:/app/assets:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - glou-network
+
+networks:
+  glou-network:
+    driver: bridge

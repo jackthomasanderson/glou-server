@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import api from '../services/apiClient';
 import {
   Box,
   Card,
@@ -21,7 +22,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   LocalFireDepartment as FireIcon,
-  Calendar as CalendarIcon,
+  DateRange as CalendarIcon,
   LocalDrink as DrinkIcon,
   Place as PlaceIcon,
   Person as PersonIcon,
@@ -76,16 +77,18 @@ export const WineDetailScreen = ({ wineId, wine: initialWine, onUpdate, onDelete
             {wine.name}
           </Typography>
           <Stack direction="row" spacing={1}>
-            <Chip
-              label={wine.type || 'Type inconnu'}
-              variant="outlined"
-              size="small"
-            />
-            <Chip
-              label={`Millésime ${wine.vintage}`}
-              color="primary"
-              size="small"
-            />
+            <Chip label={wine.type || 'Type inconnu'} variant="outlined" size="small" />
+            <Chip label={`Millésime ${wine.vintage}`} color="primary" size="small" />
+            {(() => {
+              const now = new Date();
+              const min = wine.min_apogee_date ? new Date(wine.min_apogee_date) : null;
+              const max = wine.max_apogee_date ? new Date(wine.max_apogee_date) : null;
+              let label = 'Maturité'; let color = 'default'; let variant = 'outlined';
+              if (min && now < min) { label = 'En garde'; color = 'info'; variant = 'filled'; }
+              else if (min && (!max || (now >= min && now <= max))) { label = 'À boire - Apogée'; color = 'warning'; variant = 'filled'; }
+              else if (max && now > max) { label = 'Déclin'; color = 'error'; variant = 'filled'; }
+              return <Chip label={label} color={color} size="small" variant={variant} />;
+            })()}
           </Stack>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -203,29 +206,29 @@ export const WineDetailScreen = ({ wineId, wine: initialWine, onUpdate, onDelete
               <Stack spacing={2}>
                 {/* Quantity */}
                 <Box>
-                  <Typography
-                    variant="labelMedium"
-                    sx={{ color: theme.palette.onSurfaceVariant }}
-                  >
+                  <Typography variant="labelMedium" sx={{ color: theme.palette.onSurfaceVariant }}>
                     Bouteilles en cave
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mt: 0.5 }}>
-                    <Typography
-                      variant="displaySmall"
-                      sx={{
-                        color: theme.palette.primary.main,
-                        fontWeight: 600,
-                        fontSize: '2rem',
-                      }}
-                    >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                    <Typography variant="displaySmall" sx={{ color: theme.palette.primary.main, fontWeight: 600, fontSize: '2rem' }}>
                       {wine.quantity || 0}
                     </Typography>
-                    <Typography
-                      variant="bodyMedium"
-                      sx={{ color: theme.palette.onSurfaceVariant }}
-                    >
+                    <Typography variant="bodyMedium" sx={{ color: theme.palette.onSurfaceVariant }}>
                       / {wine.consumed || 0} consommées
                     </Typography>
+                    <Button size="small" variant="outlined" onClick={async () => {
+                      await api.deleteWine(wine.id);
+                      const q = Math.max((wine.quantity || 1) - 1, 0);
+                      const updated = { ...wine, quantity: q };
+                      setWine(updated);
+                      if (onUpdate) onUpdate(updated);
+                    }}>-</Button>
+                    <Button size="small" variant="contained" onClick={async () => {
+                      const updated = { ...wine, quantity: (wine.quantity || 0) + 1 };
+                      await api.updateWine(wine.id, updated);
+                      setWine(updated);
+                      if (onUpdate) onUpdate(updated);
+                    }}>+</Button>
                   </Box>
                 </Box>
 

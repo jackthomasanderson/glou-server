@@ -18,6 +18,7 @@ type Wine struct {
 	Rating          *float32   `json:"rating"`           // Notation 0-5
 	Comments        string     `json:"comments"`         // Commentaires/notes de dégustation
 	Price           *float32   `json:"price"`            // Prix d'achat
+	CurrentValue    *float32   `json:"current_value"`    // Valeur actuelle estimée
 	Producer        string     `json:"producer"`         // Producteur
 	AlcoholLevel    *float32   `json:"alcohol_level"`    // Degré alcoolique
 	Consumed        int        `json:"consumed"`         // Nombre consommées

@@ -22,14 +22,23 @@ import {
   Delete as DeleteIcon,
   Warning as WarningIcon,
 } from '@mui/icons-material';
-import { useAlerts } from '../hooks/useApi';
+import { useAlerts, useTobaccoAlerts } from '../hooks/useApi';
 
 /**
- * Alerts Screen - Display and manage wine alerts
+ * Alerts Screen - Display and manage wine and tobacco alerts
  */
 export const AlertsScreen = () => {
   const theme = useTheme();
   const { alerts, loading, error, dismissAlert } = useAlerts();
+  const { 
+    alerts: tobaccoAlerts, 
+    loading: tobaccoLoading, 
+    error: tobaccoError, 
+    dismissAlert: dismissTobaccoAlert,
+    generateAlerts: generateTobaccoAlerts 
+  } = useTobaccoAlerts();
+
+  const totalAlerts = (alerts?.length || 0) + (tobaccoAlerts?.length || 0);
 
   const getAlertColor = (type) => {
     switch (type) {
@@ -65,48 +74,51 @@ export const AlertsScreen = () => {
           🔔 Alertes
         </Typography>
         <Typography variant="bodySmall" sx={{ color: theme.palette.onSurfaceVariant }}>
-          {alerts.length} alerte{alerts.length !== 1 ? 's' : ''} actives
+          {totalAlerts} alerte{totalAlerts !== 1 ? 's' : ''} actives ({alerts?.length || 0} vins, {tobaccoAlerts?.length || 0} tabacs)
         </Typography>
+        <Button
+          variant="outlined"
+          sx={{ mt: 2 }}
+          onClick={async () => {
+            try {
+              await generateTobaccoAlerts();
+            } catch (err) {
+              console.error('Error generating tobacco alerts:', err);
+            }
+          }}
+        >
+          Générer alertes tabac
+        </Button>
       </Box>
 
       {/* Error Message */}
-      {error && (
+      {(error || tobaccoError) && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
+          {error || tobaccoError}
         </Alert>
       )}
 
       {/* Loading State */}
-      {loading && (
+      {(loading || tobaccoLoading) && (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}>
           <CircularProgress />
         </Box>
       )}
 
-      {/* Alerts Table */}
-      {!loading && (
-        <TableContainer
-          component={Card}
-          sx={{
-            backgroundColor: theme.palette.surfaceMedium,
-            border: `1px solid ${theme.palette.divider}`,
-            borderRadius: '12px',
-          }}
-        >
-          {alerts.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <WarningIcon
-                sx={{
-                  fontSize: 48,
-                  color: theme.palette.onSurfaceVariant,
-                  mb: 1,
-                }}
-              />
-              <Typography sx={{ color: theme.palette.onSurfaceVariant }}>
-                Aucune alerte active
-              </Typography>
-            </Box>
-          ) : (
+      {/* Wine Alerts Table */}
+      {!loading && alerts && alerts.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2, color: theme.palette.onSurface }}>
+            Alertes Vins
+          </Typography>
+          <TableContainer
+            component={Card}
+            sx={{
+              backgroundColor: theme.palette.surfaceMedium,
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: '12px',
+            }}
+          >
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: theme.palette.surfaceContainer }}>
@@ -158,8 +170,101 @@ export const AlertsScreen = () => {
                 ))}
               </TableBody>
             </Table>
-          )}
-        </TableContainer>
+          </TableContainer>
+        </Box>
+      )}
+
+      {/* Tobacco Alerts Table */}
+      {!tobaccoLoading && tobaccoAlerts && tobaccoAlerts.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2, color: theme.palette.onSurface }}>
+            Alertes Tabac
+          </Typography>
+          <TableContainer
+            component={Card}
+            sx={{
+              backgroundColor: theme.palette.surfaceMedium,
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: '12px',
+            }}
+          >
+            <Table>
+              <TableHead>
+                <TableRow sx={{ backgroundColor: theme.palette.surfaceContainer }}>
+                  <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Tabac ID</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }} align="right">
+                    Actions
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {tobaccoAlerts.map((alert) => (
+                  <TableRow
+                    key={alert.id}
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: theme.palette.action.hover,
+                      },
+                    }}
+                  >
+                    <TableCell>
+                      <Chip
+                        label="Stock faible"
+                        color="warning"
+                        size="small"
+                        variant="filled"
+                      />
+                    </TableCell>
+                    <TableCell>{alert.tobacco_id}</TableCell>
+                    <TableCell>
+                      {new Date(alert.created_at).toLocaleDateString('fr-FR')}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        startIcon={<DeleteIcon />}
+                        color="error"
+                        onClick={async () => {
+                          if (window.confirm('Fermer cette alerte?')) {
+                            await dismissTobaccoAlert(alert.id);
+                          }
+                        }}
+                      >
+                        Fermer
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
+
+      {/* No Alerts Message */}
+      {!loading && !tobaccoLoading && totalAlerts === 0 && (
+        <Card
+          sx={{
+            backgroundColor: theme.palette.surfaceMedium,
+            border: `1px solid ${theme.palette.divider}`,
+            borderRadius: '12px',
+          }}
+        >
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <WarningIcon
+              sx={{
+                fontSize: 48,
+                color: theme.palette.onSurfaceVariant,
+                mb: 1,
+              }}
+            />
+            <Typography sx={{ color: theme.palette.onSurfaceVariant }}>
+              Aucune alerte active
+            </Typography>
+          </Box>
+        </Card>
       )}
     </Box>
   );

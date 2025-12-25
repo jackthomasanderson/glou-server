@@ -321,3 +321,66 @@ export const useSettings = () => {
     updateSettings,
   };
 };
+
+/**
+ * useTobaccoAlerts - Hook for managing tobacco alerts
+ */
+export const useTobaccoAlerts = () => {
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchAlerts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiClient.getTobaccoAlerts();
+      setAlerts(data || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const generateAlerts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await apiClient.generateTobaccoAlerts();
+      await fetchAlerts(); // Refresh alerts after generation
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchAlerts]);
+
+  const dismissAlert = useCallback(async (id) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await apiClient.dismissTobaccoAlert(id);
+      setAlerts(alerts.filter(a => a.id !== id));
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [alerts]);
+
+  useEffect(() => {
+    fetchAlerts();
+  }, [fetchAlerts]);
+
+  return {
+    alerts,
+    loading,
+    error,
+    fetchAlerts,
+    generateAlerts,
+    dismissAlert,
+  };
+};

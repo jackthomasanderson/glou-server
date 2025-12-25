@@ -3,7 +3,7 @@
  * Handles all HTTP requests with proper error handling and auth
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 class ApiClient {
   constructor(baseURL = API_BASE_URL) {
@@ -30,6 +30,7 @@ class ApiClient {
         method,
         headers,
         body: data ? JSON.stringify(data) : null,
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -164,6 +165,43 @@ class ApiClient {
     return this.request('DELETE', `/alerts/${id}`);
   }
 
+  // ============ TOBACCO ALERTS ============
+
+  /**
+   * Get all tobacco alerts
+   */
+  async getTobaccoAlerts() {
+    return this.request('GET', '/tobacco-alerts');
+  }
+
+  /**
+   * Generate tobacco alerts
+   */
+  async generateTobaccoAlerts() {
+    return this.request('POST', '/tobacco-alerts/generate');
+  }
+
+  /**
+   * Dismiss tobacco alert
+   */
+  async dismissTobaccoAlert(id) {
+    return this.request('DELETE', `/tobacco-alerts/${id}/dismiss`);
+  }
+
+  // ============ ADMIN SETTINGS ============
+
+  /**
+   * Get admin settings
+   */
+  async getAdminSettings() {
+    try {
+      return await this.request('GET', '/api/admin/settings');
+    } catch (err) {
+      // Return null if settings don't exist yet
+      return null;
+    }
+  }
+
   // ============ CONSUMPTION HISTORY ============
 
   /**
@@ -226,6 +264,28 @@ class ApiClient {
    */
   async getActivityLog(limit = 50, offset = 0) {
     return this.request('GET', `/api/admin/activity-log?limit=${limit}&offset=${offset}`);
+  }
+
+  // ============ TOBACCO ============
+
+  async getTobacco() {
+    return this.request('GET', '/tobacco');
+  }
+
+  async getTobaccoById(id) {
+    return this.request('GET', `/tobacco/${id}`);
+  }
+
+  async createTobacco(item) {
+    return this.request('POST', '/tobacco', item);
+  }
+
+  async updateTobacco(id, item) {
+    return this.request('PUT', `/tobacco/${id}`, item);
+  }
+
+  async deleteTobacco(id) {
+    return this.request('DELETE', `/tobacco/${id}`);
   }
 }
 

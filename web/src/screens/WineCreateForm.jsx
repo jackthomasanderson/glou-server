@@ -21,6 +21,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [keepOpen, setKeepOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     producer: '',
@@ -30,6 +31,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
     quantity: 1,
     alcohol_level: 12.5,
     price: 0,
+    current_value: 0,
     rating: 0,
     min_apogee_date: '',
     max_apogee_date: '',
@@ -38,13 +40,28 @@ export const WineCreateForm = ({ onClose, onSave }) => {
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'number' ? parseFloat(value) || 0 : value,
-    }));
+    setFormData(prev => {
+      const next = { ...prev, [name]: type === 'number' ? parseFloat(value) || 0 : value };
+      // Predictive apogee suggestion
+      const v = parseInt(next.vintage || new Date().getFullYear(), 10);
+      const t = next.type;
+      const toISO = (y) => new Date(y, 0, 1).toISOString().slice(0, 10);
+      let start = null, end = null;
+      if (t === 'Red') { start = v + 3; end = v + 10; }
+      else if (t === 'White') { start = v + 2; end = v + 6; }
+      else if (t === 'Rosé') { start = v + 0; end = v + 2; }
+      else if (t === 'Sparkling') { start = v + 3; end = v + 8; }
+      else if (t === 'Beer') { start = v + 0; end = v + 2; }
+      else if (t === 'Spirit') { start = null; end = null; }
+      if (start && end) {
+        next.min_apogee_date = toISO(start);
+        next.max_apogee_date = toISO(end);
+      }
+      return next;
+    });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, addAnother = false) => {
     e.preventDefault();
     setError(null);
 
@@ -87,6 +104,24 @@ export const WineCreateForm = ({ onClose, onSave }) => {
     try {
       setLoading(true);
       await onSave(formData);
+      if (addAnother) {
+        // Keep producer, type, region for series entry
+        setFormData(prev => ({
+          ...prev,
+          name: '',
+          vintage: new Date().getFullYear(),
+          quantity: 1,
+          price: 0,
+          current_value: 0,
+          rating: 0,
+          min_apogee_date: '',
+          max_apogee_date: '',
+          comments: '',
+        }));
+        setError(null);
+      } else if (onClose) {
+        onClose();
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -325,12 +360,40 @@ export const WineCreateForm = ({ onClose, onSave }) => {
             <TextField
               fullWidth
               type="number"
+              name="price"
               value={formData.price}
               onChange={handleChange}
-              inputProps={{ min: 0 }}
+              inputProps={{ min: 0, step: 0.01 }}
               size="small"
               sx={{ mt: 1 }}
             />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <HelpLabel 
+              label="Valeur actuelle (€)"
+              helpTitle="Estimation de valeur"
+              helpDescription="Valeur estimée actuelle de la bouteille pour calculer le ROI."
+            />
+            <TextField
+              fullWidth
+              type="number"
+              name="current_value"
+              value={formData.current_value}
+              onChange={handleChange}
+              inputProps={{ min: 0, step: 0.01 }}
+              size="small"
+              sx={{ mt: 1 }}
+            />
+          </Grid>
+
+          <Grid item xs={12} sm={6}>
+            <Box sx={{ p: 1.5, border: `1px solid ${theme.palette.divider}`, borderRadius: 1, mt: 1 }}>
+              <Typography variant="caption" sx={{ color: theme.palette.onSurfaceVariant }}>ROI (Plus-value):</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: ((formData.current_value || 0) - (formData.price || 0)) >= 0 ? 'green' : 'red' }}>
+                {((formData.current_value || 0) - (formData.price || 0)).toFixed(2)}€
+              </Typography>
+            </Box>
           </Grid>
 
           <Grid item xs={12} sm={6}>
@@ -342,6 +405,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
             <TextField
               fullWidth
               type="number"
+              name="rating"
               value={formData.rating}
               onChange={handleChange}
               inputProps={{ min: 0, max: 5, step: 0.5 }}
@@ -412,6 +476,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
             />
             <TextField
               fullWidth
+              name="comments"
               value={formData.comments}
               onChange={handleChange}
               multiline
@@ -420,6 +485,23 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               size="small"
               sx={{ mt: 1 }}
             />
+          </Grid>
+
+          {/* Photo Upload Placeholder */}
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <Typography variant="subtitle2" sx={{ color: theme.palette.onSurfaceVariant }}>
+                Photo de l'étiquette
+              </Typography>
+              <HelpIcon 
+                title="Photo / Code-barres"
+                description="Téléchargez une photo de l'étiquette ou scannez le code-barres (EAN) pour identification automatique."
+              />
+            </Box>
+            <Button variant="outlined" component="label" size="small" sx={{ mt: 1 }} disabled>
+              📷 Télécharger une photo (prochainement)
+              <input type="file" hidden accept="image/*" />
+            </Button>
           </Grid>
 
           {/* Actions */}
@@ -433,8 +515,15 @@ export const WineCreateForm = ({ onClose, onSave }) => {
                 Annuler
               </Button>
               <Button
+                variant="outlined"
+                onClick={(e) => handleSubmit(e, true)}
+                disabled={loading}
+              >
+                {loading ? 'Création...' : 'Enregistrer et ajouter un autre'}
+              </Button>
+              <Button
                 variant="contained"
-                type="submit"
+                onClick={(e) => handleSubmit(e, false)}
                 disabled={loading}
               >
                 {loading ? 'Création...' : 'Créer'}

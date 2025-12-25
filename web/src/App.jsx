@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { CssBaseline, ThemeProvider } from '@mui/material';
-import appTheme from './theme/appTheme';
+import { lightTheme } from './theme/appTheme';
 import { AppConfigProvider } from './context/AppConfigContext';
 
 // Layouts
@@ -18,9 +18,11 @@ import WineDetailScreen from './screens/WineDetailScreen';
 import WineCreateForm from './screens/WineCreateForm';
 import WineEditForm from './screens/WineEditForm';
 import TastingHistoryScreen from './screens/TastingHistoryScreen';
+import AddHub from './screens/AddHub';
+import TobaccoAddForm from './screens/TobaccoAddForm';
+import AdvancedSettingsScreen from './screens/AdvancedSettingsScreen';
 
-// Create Admin and User placeholder screens (can be created later)
-const AdminScreen = () => <div style={{ padding: '2rem' }}>Admin - À implémenter</div>;
+// Create User placeholder screen
 const UserProfileScreen = () => <div style={{ padding: '2rem' }}>Profil utilisateur - À implémenter</div>;
 
 /**
@@ -41,14 +43,38 @@ const UserProfileScreen = () => <div style={{ padding: '2rem' }}>Profil utilisat
  */
 function App() {
   return (
-    <ThemeProvider theme={appTheme}>
+    <ThemeProvider theme={lightTheme}>
       <CssBaseline />
       <AppConfigProvider>
         <AlphaBanner />
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             {/* Home redirect */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          {/* Add Hub */}
+          <Route path="/add" element={
+            <AdaptiveNavigationShell>
+              <AddHub />
+            </AdaptiveNavigationShell>
+          } />
+
+          {/* Spec routes */}
+          <Route path="/cellars/add" element={
+            <AdaptiveNavigationShell>
+              <CaveManagementScreen />
+            </AdaptiveNavigationShell>
+          } />
+          <Route path="/bottles/add" element={
+            <AdaptiveNavigationShell>
+              <WineCreateForm />
+            </AdaptiveNavigationShell>
+          } />
+          <Route path="/tobacco/add" element={
+            <AdaptiveNavigationShell>
+              <TobaccoAddForm />
+            </AdaptiveNavigationShell>
+          } />
 
           {/* Dashboard and Analytics */}
           <Route path="/dashboard" element={
@@ -70,10 +96,10 @@ function App() {
             </AdaptiveNavigationShell>
           } />
 
-          {/* Admin */}
+          {/* Admin / Advanced Settings */}
           <Route path="/admin" element={
             <AdaptiveNavigationShell>
-              <AdminScreen />
+              <AdvancedSettingsScreen />
             </AdaptiveNavigationShell>
           } />
 

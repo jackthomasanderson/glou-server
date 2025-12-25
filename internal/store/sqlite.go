@@ -87,6 +87,7 @@ func (s *Store) initSchema() error {
 		producer TEXT,
 		alcohol_level REAL,
 		price REAL,
+		current_value REAL,
 		rating REAL,
 		comments TEXT,
 		consumed INTEGER NOT NULL DEFAULT 0,
@@ -105,6 +106,16 @@ func (s *Store) initSchema() error {
 		dismissed_at DATETIME,
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (wine_id) REFERENCES wines(id) ON DELETE CASCADE
+	);
+
+	CREATE TABLE IF NOT EXISTS tobacco_alerts (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		tobacco_id INTEGER NOT NULL,
+		alert_type TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'active',
+		dismissed_at DATETIME,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (tobacco_id) REFERENCES tobaccos(id) ON DELETE CASCADE
 	);
 
 	CREATE TABLE IF NOT EXISTS consumption_history (
@@ -195,6 +206,26 @@ func (s *Store) initSchema() error {
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 	);
 
+	CREATE TABLE IF NOT EXISTS tobaccos (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		brand TEXT,
+		purchase_date DATE,
+		quantity INTEGER NOT NULL DEFAULT 1,
+		purchase_price REAL,
+		current_value REAL,
+		cave_id INTEGER,
+		cell_id INTEGER,
+		notes TEXT,
+		origin_country TEXT,
+		format TEXT,
+		wrapper TEXT,
+		binder TEXT,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (cave_id) REFERENCES caves(id) ON DELETE SET NULL,
+		FOREIGN KEY (cell_id) REFERENCES cells(id) ON DELETE SET NULL
+	);
+
 	CREATE INDEX IF NOT EXISTS idx_activity_log_entity ON activity_log(entity_type, entity_id);
 	CREATE INDEX IF NOT EXISTS idx_activity_log_created ON activity_log(created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
@@ -215,9 +246,9 @@ func (s *Store) initSchema() error {
 func (s *Store) CreateWine(ctx context.Context, wine *domain.Wine) (int64, error) {
 	query := `
 	INSERT INTO wines (name, region, vintage, type, quantity, cell_id, producer, 
-		alcohol_level, price, rating, comments, consumed, min_apogee_date, 
+		alcohol_level, price, current_value, rating, comments, consumed, min_apogee_date, 
 		max_apogee_date, consumption_date, created_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := s.Db.ExecContext(ctx, query,
@@ -230,6 +261,7 @@ func (s *Store) CreateWine(ctx context.Context, wine *domain.Wine) (int64, error
 		wine.Producer,
 		wine.AlcoholLevel,
 		wine.Price,
+		wine.CurrentValue,
 		wine.Rating,
 		wine.Comments,
 		wine.Consumed,
@@ -254,7 +286,7 @@ func (s *Store) CreateWine(ctx context.Context, wine *domain.Wine) (int64, error
 func (s *Store) GetWines(ctx context.Context) ([]*domain.Wine, error) {
 	query := `
 	SELECT id, name, region, vintage, type, quantity, cell_id, producer, 
-	       alcohol_level, price, rating, comments, consumed, min_apogee_date, 
+	       alcohol_level, price, current_value, rating, comments, consumed, min_apogee_date, 
 	       max_apogee_date, consumption_date, created_at
 	FROM wines
 	ORDER BY created_at DESC
@@ -280,6 +312,7 @@ func (s *Store) GetWines(ctx context.Context) ([]*domain.Wine, error) {
 			&wine.Producer,
 			&wine.AlcoholLevel,
 			&wine.Price,
+			&wine.CurrentValue,
 			&wine.Rating,
 			&wine.Comments,
 			&wine.Consumed,
@@ -305,7 +338,7 @@ func (s *Store) GetWines(ctx context.Context) ([]*domain.Wine, error) {
 func (s *Store) GetWineByID(ctx context.Context, id int64) (*domain.Wine, error) {
 	query := `
 	SELECT id, name, region, vintage, type, quantity, cell_id, producer, 
-	       alcohol_level, price, rating, comments, consumed, min_apogee_date, 
+	       alcohol_level, price, current_value, rating, comments, consumed, min_apogee_date, 
 	       max_apogee_date, consumption_date, created_at
 	FROM wines
 	WHERE id = ?
@@ -323,6 +356,7 @@ func (s *Store) GetWineByID(ctx context.Context, id int64) (*domain.Wine, error)
 		&wine.Producer,
 		&wine.AlcoholLevel,
 		&wine.Price,
+		&wine.CurrentValue,
 		&wine.Rating,
 		&wine.Comments,
 		&wine.Consumed,
@@ -389,7 +423,7 @@ func (s *Store) DeleteWine(ctx context.Context, id int64) error {
 
 // SearchWines recherche les vins avec filtres
 func (s *Store) SearchWines(ctx context.Context, filters map[string]interface{}) ([]*domain.Wine, error) {
-	query := `SELECT id, name, region, vintage, type, quantity, cell_id, producer, alcohol_level, price, rating, comments, consumed, min_apogee_date, max_apogee_date, consumption_date, created_at FROM wines WHERE 1=1`
+	query := `SELECT id, name, region, vintage, type, quantity, cell_id, producer, alcohol_level, price, current_value, rating, comments, consumed, min_apogee_date, max_apogee_date, consumption_date, created_at FROM wines WHERE 1=1`
 	var args []interface{}
 
 	if name, ok := filters["name"].(string); ok && name != "" {
@@ -618,11 +652,11 @@ func (s *Store) GetCellsByCave(ctx context.Context, caveID int64) ([]*domain.Cel
 	return cells, rows.Err()
 }
 
-// GetWinesToDrinkNow récupère les vins dont l'apogée commence
+// GetWinesToDrinkNow récupère les vins dont l'apogée commence (prêts à boire)
 func (s *Store) GetWinesToDrinkNow(ctx context.Context) ([]*domain.Wine, error) {
 	today := time.Now()
 	query := `
-	SELECT id, name, region, vintage, type, quantity, cell_id, producer, alcohol_level, price, rating, comments, consumed, min_apogee_date, max_apogee_date, consumption_date, created_at
+	SELECT id, name, region, vintage, type, quantity, cell_id, producer, alcohol_level, price, current_value, rating, comments, consumed, min_apogee_date, max_apogee_date, consumption_date, created_at
 	FROM wines
 	WHERE quantity > 0
 	AND min_apogee_date IS NOT NULL
@@ -641,7 +675,7 @@ func (s *Store) GetWinesToDrinkNow(ctx context.Context) ([]*domain.Wine, error) 
 		wine := &domain.Wine{}
 		err := rows.Scan(
 			&wine.ID, &wine.Name, &wine.Region, &wine.Vintage, &wine.WineType, &wine.Quantity, &wine.CellID,
-			&wine.Producer, &wine.AlcoholLevel, &wine.Price, &wine.Rating, &wine.Comments, &wine.Consumed,
+			&wine.Producer, &wine.AlcoholLevel, &wine.Price, &wine.CurrentValue, &wine.Rating, &wine.Comments, &wine.Consumed,
 			&wine.MinApogeeDate, &wine.MaxApogeeDate, &wine.ConsumptionDate, &wine.CreatedAt,
 		)
 		if err != nil {
@@ -658,14 +692,14 @@ func (s *Store) UpdateWine(ctx context.Context, wine *domain.Wine) error {
 	query := `
 	UPDATE wines 
 	SET name=?, region=?, vintage=?, type=?, quantity=?, cell_id=?, 
-		producer=?, alcohol_level=?, price=?, rating=?, comments=?, 
+		producer=?, alcohol_level=?, price=?, current_value=?, rating=?, comments=?, 
 		consumed=?, min_apogee_date=?, max_apogee_date=?, consumption_date=?
 	WHERE id=?
 	`
 
 	result, err := s.Db.ExecContext(ctx, query,
 		wine.Name, wine.Region, wine.Vintage, wine.WineType, wine.Quantity, wine.CellID,
-		wine.Producer, wine.AlcoholLevel, wine.Price, wine.Rating, wine.Comments,
+		wine.Producer, wine.AlcoholLevel, wine.Price, wine.CurrentValue, wine.Rating, wine.Comments,
 		wine.Consumed, wine.MinApogeeDate, wine.MaxApogeeDate, wine.ConsumptionDate, wine.ID,
 	)
 

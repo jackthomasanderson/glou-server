@@ -6,12 +6,11 @@ import {
   AppBar,
   Toolbar,
   Drawer,
-  NavigationBar,
-  NavigationBarAction,
-  Rail,
-  RailAction,
+  BottomNavigation,
+  BottomNavigationAction,
   List,
   ListItem,
+  ListItemButton,
   ListItemIcon,
   ListItemText,
   Divider,
@@ -31,29 +30,34 @@ import {
   Settings as SettingsIcon,
   Notifications as NotificationsIcon,
   AccountCircle as AccountCircleIcon,
-  Wine as WineIcon,
+  LocalDrink as WineIcon,
   Inventory as CaveIcon,
   History as HistoryIcon,
   Notifications as AlertsIcon,
-  Admin as AdminIcon,
+  AdminPanelSettings as AdminIcon,
 } from '@mui/icons-material';
 
 /**
- * Adaptive Navigation Shell for MD3 SaaS
+ * Adaptive Navigation Shell - Collection Privée
+ * Personal & Family Wine/Tobacco Collection Management
  * - Mobile (< 600px): Bottom Navigation Bar
  * - Tablet (600px - 960px): Navigation Rail
  * - Desktop (> 960px): Permanent Drawer
  * 
- * Design Tokens Used:
- * - surface: Navigation background
- * - primary/onPrimary: Selected item colors
- * - onSurfaceVariant: Unselected item colors
- * - outlineVariant: Dividers and borders
+ * Navigation Structure (Prioritized):
+ * 1. Ma Cave (Home/Dashboard)
+ * 2. Analyse (Heatmaps & Insights)
+ * 3. Mes Dégustations (Tasting History)
+ * 4. Alertes Apogée (Peak drinking alerts)
+ * 5. Gestion Avancée (Admin - Discreet, bottom of menu)
  */
 export const AdaptiveNavigationShell = ({ children }) => {
   const theme = useTheme();
   const location = useLocation();
   const { appName } = useAppConfig();
+  const userLang = (typeof navigator !== 'undefined' && navigator.language) ? navigator.language.toLowerCase() : 'en';
+  const isFr = userLang.startsWith('fr');
+  const t = (fr, en) => (isFr ? fr : en);
   const isCompact = useMediaQuery(theme.breakpoints.down('sm')); // < 600px
   const isMedium = useMediaQuery(theme.breakpoints.between('sm', 'md')); // 600px - 960px
   const isLarge = useMediaQuery(theme.breakpoints.up('md')); // > 960px
@@ -72,16 +76,15 @@ export const AdaptiveNavigationShell = ({ children }) => {
     return 'dashboard';
   }, [location.pathname]);
 
-  // Navigation items with routes
+  // Navigation items with routes - Reorganized for "Collection Privée"
+  // Priority order: Cave -> Analyse -> Dégustations -> Alertes -> Gestion Avancée (at bottom)
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
-    { id: 'analytics', label: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
-    { id: 'alerts', label: 'Alertes', icon: <AlertsIcon />, path: '/alerts' },
-    { id: 'wines', label: 'Bouteilles', icon: <WineIcon />, path: '/wines' },
-    { id: 'cave', label: 'Cave', icon: <CaveIcon />, path: '/cave' },
-    { id: 'tasting-history', label: 'Historique', icon: <HistoryIcon />, path: '/tasting-history' },
-    { id: 'admin', label: 'Admin', icon: <AdminIcon />, path: '/admin' },
-    { id: 'user', label: 'Profil', icon: <AccountCircleIcon />, path: '/user' },
+    { id: 'dashboard', label: t('Ma Cave', 'My Collection'), icon: <CaveIcon />, path: '/dashboard', section: 'primary' },
+    { id: 'analytics', label: t('Analyse', 'Analysis'), icon: <AnalyticsIcon />, path: '/analytics', section: 'primary' },
+    { id: 'tasting-history', label: t('Mes Dégustations', 'Tastings'), icon: <HistoryIcon />, path: '/tasting-history', section: 'primary' },
+    { id: 'alerts', label: t('Apogée', 'Peak Alerts'), icon: <AlertsIcon />, path: '/alerts', section: 'primary' },
+    { id: 'admin', label: t('Gestion Avancée', 'Advanced Settings'), icon: <SettingsIcon />, path: '/admin', section: 'secondary' },
+    { id: 'user', label: t('Mon Profil', 'My Profile'), icon: <AccountCircleIcon />, path: '/user', section: 'secondary' },
   ];
 
   // Mobile: Bottom Navigation Bar
@@ -109,18 +112,27 @@ export const AdaptiveNavigationShell = ({ children }) => {
         </Box>
 
         {/* Bottom Navigation Bar */}
-        <NavigationBar
+        <BottomNavigation
+          value={currentPage}
+          onChange={(event, newValue) => {
+            // Navigation is handled by Link component
+          }}
           sx={{
             backgroundColor: theme.palette.surface,
             borderTop: `1px solid ${theme.palette.divider}`,
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            width: '100%',
           }}
         >
           {navItems.slice(0, 5).map((item) => (
-            <NavigationBarAction
+            <BottomNavigationAction
               key={item.id}
               icon={item.icon}
               label={item.label}
-              showLabel={true}
+              value={item.id}
               selected={currentPage === item.id}
               component={Link}
               to={item.path}
@@ -139,7 +151,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
               }}
             />
           ))}
-        </NavigationBar>
+        </BottomNavigation>
       </Box>
     );
   }
@@ -253,51 +265,104 @@ export const AdaptiveNavigationShell = ({ children }) => {
           </Box>
           <Divider sx={{ borderColor: theme.palette.divider }} />
 
-          {/* Navigation Items */}
-          <List sx={{ paddingY: 2 }}>
-            {navItems.map((item) => (
-              <ListItem
-                key={item.id}
-                button
-                selected={currentPage === item.id}
-                component={Link}
-                to={item.path}
-                sx={{
-                  marginX: 1,
-                  marginY: 0.5,
-                  borderRadius: '8px',
-                  backgroundColor:
-                    currentPage === item.id
-                      ? theme.palette.primary.main
-                      : 'transparent',
-                  color:
-                    currentPage === item.id
-                      ? theme.palette.onPrimary
-                      : theme.palette.onSurfaceVariant,
-                  textDecoration: 'none',
-                  '&:hover': {
+          {/* Navigation Items - Organized by sections */}
+          <List sx={{ paddingY: 2, flex: 1 }}>
+            {/* Primary items */}
+            {navItems.filter(item => item.section === 'primary').map((item) => (
+              <ListItem key={item.id} disablePadding>
+                <ListItemButton
+                  selected={currentPage === item.id}
+                  component={Link}
+                  to={item.path}
+                  sx={{
+                    marginX: 1,
+                    marginY: 0.5,
+                    borderRadius: '8px',
                     backgroundColor:
                       currentPage === item.id
-                        ? theme.palette.primary.dark
-                        : theme.palette.action.hover,
-                  },
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    color: 'inherit',
-                    minWidth: 40,
+                        ? theme.palette.primary.main
+                        : 'transparent',
+                    color:
+                      currentPage === item.id
+                        ? theme.palette.onPrimary
+                        : theme.palette.onSurfaceVariant,
+                    textDecoration: 'none',
+                    '&:hover': {
+                      backgroundColor:
+                        currentPage === item.id
+                          ? theme.palette.primary.dark
+                          : theme.palette.action.hover,
+                    },
                   }}
                 >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.label}
-                  primaryTypographyProps={{
-                    variant: 'body2',
-                    fontWeight: currentPage === item.id ? 500 : 400,
+                  <ListItemIcon
+                    sx={{
+                      color: 'inherit',
+                      minWidth: 40,
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.label}
+                    primaryTypographyProps={{
+                      variant: 'body2',
+                      fontWeight: currentPage === item.id ? 500 : 400,
+                    }}
+                  />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+
+          {/* Divider */}
+          <Divider sx={{ borderColor: theme.palette.divider, marginX: 1 }} />
+
+          {/* Secondary items (Settings, Profile) - at bottom */}
+          <List sx={{ paddingY: 2 }}>
+            {navItems.filter(item => item.section === 'secondary').map((item) => (
+              <ListItem key={item.id} disablePadding>
+                <ListItemButton
+                  selected={currentPage === item.id}
+                  component={Link}
+                  to={item.path}
+                  sx={{
+                    marginX: 1,
+                    marginY: 0.5,
+                    borderRadius: '8px',
+                    backgroundColor:
+                      currentPage === item.id
+                        ? theme.palette.primary.main
+                        : 'transparent',
+                    color:
+                      currentPage === item.id
+                        ? theme.palette.onPrimary
+                        : theme.palette.onSurfaceVariant,
+                    textDecoration: 'none',
+                    '&:hover': {
+                      backgroundColor:
+                        currentPage === item.id
+                          ? theme.palette.primary.dark
+                          : theme.palette.action.hover,
+                    },
                   }}
-                />
+                >
+                  <ListItemIcon
+                    sx={{
+                      color: 'inherit',
+                      minWidth: 40,
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.label}
+                    primaryTypographyProps={{
+                      variant: 'body2',
+                      fontWeight: currentPage === item.id ? 500 : 400,
+                    }}
+                  />
+                </ListItemButton>
               </ListItem>
             ))}
           </List>
