@@ -136,7 +136,7 @@ export const useCaves = () => {
     setError(null);
     try {
       const newCave = await apiClient.createCave(cave);
-      setCaves([newCave, ...caves]);
+      setCaves((prev) => [newCave, ...prev]);
       return newCave;
     } catch (err) {
       setError(err.message);
@@ -144,7 +144,22 @@ export const useCaves = () => {
     } finally {
       setLoading(false);
     }
-  }, [caves]);
+  }, []);
+
+  const updateCave = useCallback(async (id, cave) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await apiClient.updateCave(id, cave);
+      setCaves((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      return updated;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchCaves();
@@ -156,6 +171,7 @@ export const useCaves = () => {
     error,
     fetchCaves,
     createCave,
+    updateCave,
   };
 };
 
