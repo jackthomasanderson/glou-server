@@ -20,6 +20,7 @@ import {
   TextField,
   InputAdornment,
   Typography,
+  alpha,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -40,6 +41,7 @@ import {
 /**
  * Adaptive Navigation Shell - Collection Privée
  * Personal & Family Wine/Tobacco Collection Management
+ * Clean, modern UI with optimized responsive design
  * - Mobile (< 600px): Bottom Navigation Bar
  * - Tablet (600px - 960px): Navigation Rail
  * - Desktop (> 960px): Permanent Drawer
@@ -92,12 +94,12 @@ export const AdaptiveNavigationShell = ({ children }) => {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
         {/* Top App Bar */}
-        <AppBar position="static" elevation={0}>
-          <Toolbar>
-            <Typography variant="h6" sx={{ flexGrow: 1 }}>
+        <AppBar position="static" elevation={0} sx={{ borderBottom: `1px solid ${theme.palette.divider}` }}>
+          <Toolbar sx={{ minHeight: 56 }}>
+            <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 600 }}>
               {appName}
             </Typography>
-            <IconButton color="inherit" size="small">
+            <IconButton color="inherit" size="small" sx={{ marginRight: 1 }}>
               <NotificationsIcon />
             </IconButton>
             <IconButton color="inherit" size="small" component={Link} to="/user">
@@ -119,12 +121,13 @@ export const AdaptiveNavigationShell = ({ children }) => {
           }}
           sx={{
             backgroundColor: theme.palette.surface,
-            borderTop: `1px solid ${theme.palette.divider}`,
+            borderTop: `1px solid ${alpha(theme.palette.onSurface, 0.12)}`,
             position: 'fixed',
             bottom: 0,
             left: 0,
             right: 0,
             width: '100%',
+            boxShadow: `0 -1px 3px ${alpha(theme.palette.onSurface, 0.05)}`,
           }}
         >
           {navItems.slice(0, 5).map((item) => (
@@ -164,12 +167,13 @@ export const AdaptiveNavigationShell = ({ children }) => {
         <Box
           sx={{
             width: 80,
-            backgroundColor: theme.palette.surfaceLight,
-            borderRight: `1px solid ${theme.palette.divider}`,
+            backgroundColor: theme.palette.surface,
+            borderRight: `1px solid ${alpha(theme.palette.onSurface, 0.12)}`,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             paddingY: 2,
+            boxShadow: `1px 0 3px ${alpha(theme.palette.onSurface, 0.05)}`,
           }}
         >
           {navItems.slice(0, 6).map((item) => (
@@ -191,7 +195,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
                     : theme.palette.action.disabled,
                 backgroundColor:
                   currentPage === item.id
-                    ? `${theme.palette.primary.main}20`
+                    ? `${theme.palette.primary.main}15`
                     : 'transparent',
                 transition: 'all 0.3s ease',
                 '&:hover': {
@@ -244,10 +248,11 @@ export const AdaptiveNavigationShell = ({ children }) => {
             width: 256,
             flexShrink: 0,
             '& .MuiDrawer-paper': {
-              backgroundColor: theme.palette.surfaceMedium,
+              backgroundColor: theme.palette.surface,
               width: 256,
               boxSizing: 'border-box',
-              borderRight: `1px solid ${theme.palette.divider}`,
+              borderRight: `1px solid ${alpha(theme.palette.onSurface, 0.12)}`,
+              boxShadow: `1px 0 3px ${alpha(theme.palette.onSurface, 0.05)}`,
             },
           }}
         >
@@ -263,7 +268,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
               {appName}
             </Typography>
           </Box>
-          <Divider sx={{ borderColor: theme.palette.divider }} />
+          <Divider sx={{ borderColor: alpha(theme.palette.onSurface, 0.12), marginX: 1 }} />
 
           {/* Navigation Items - Organized by sections */}
           <List sx={{ paddingY: 2, flex: 1 }}>
@@ -277,21 +282,23 @@ export const AdaptiveNavigationShell = ({ children }) => {
                   sx={{
                     marginX: 1,
                     marginY: 0.5,
-                    borderRadius: '8px',
+                    borderRadius: '10px',
                     backgroundColor:
                       currentPage === item.id
-                        ? theme.palette.primary.main
+                        ? alpha(theme.palette.primary.main, 0.1)
                         : 'transparent',
                     color:
                       currentPage === item.id
-                        ? theme.palette.onPrimary
+                        ? theme.palette.primary.main
                         : theme.palette.onSurfaceVariant,
                     textDecoration: 'none',
+                    border:
+                      currentPage === item.id
+                        ? `1.5px solid ${theme.palette.primary.main}`
+                        : 'none',
+                    fontWeight: currentPage === item.id ? 600 : 500,
                     '&:hover': {
-                      backgroundColor:
-                        currentPage === item.id
-                          ? theme.palette.primary.dark
-                          : theme.palette.action.hover,
+                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
                     },
                   }}
                 >
@@ -307,7 +314,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
                     primary={item.label}
                     primaryTypographyProps={{
                       variant: 'body2',
-                      fontWeight: currentPage === item.id ? 500 : 400,
+                      fontWeight: currentPage === item.id ? 600 : 500,
                     }}
                   />
                 </ListItemButton>
@@ -316,7 +323,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
           </List>
 
           {/* Divider */}
-          <Divider sx={{ borderColor: theme.palette.divider, marginX: 1 }} />
+          <Divider sx={{ borderColor: alpha(theme.palette.onSurface, 0.12), marginX: 1 }} />
 
           {/* Secondary items (Settings, Profile) - at bottom */}
           <List sx={{ paddingY: 2 }}>
@@ -329,21 +336,23 @@ export const AdaptiveNavigationShell = ({ children }) => {
                   sx={{
                     marginX: 1,
                     marginY: 0.5,
-                    borderRadius: '8px',
+                    borderRadius: '10px',
                     backgroundColor:
                       currentPage === item.id
-                        ? theme.palette.primary.main
+                        ? alpha(theme.palette.primary.main, 0.1)
                         : 'transparent',
                     color:
                       currentPage === item.id
-                        ? theme.palette.onPrimary
+                        ? theme.palette.primary.main
                         : theme.palette.onSurfaceVariant,
                     textDecoration: 'none',
+                    border:
+                      currentPage === item.id
+                        ? `1.5px solid ${theme.palette.primary.main}`
+                        : 'none',
+                    fontWeight: currentPage === item.id ? 600 : 500,
                     '&:hover': {
-                      backgroundColor:
-                        currentPage === item.id
-                          ? theme.palette.primary.dark
-                          : theme.palette.action.hover,
+                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
                     },
                   }}
                 >
@@ -359,7 +368,7 @@ export const AdaptiveNavigationShell = ({ children }) => {
                     primary={item.label}
                     primaryTypographyProps={{
                       variant: 'body2',
-                      fontWeight: currentPage === item.id ? 500 : 400,
+                      fontWeight: currentPage === item.id ? 600 : 500,
                     }}
                   />
                 </ListItemButton>

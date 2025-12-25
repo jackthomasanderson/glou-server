@@ -1,79 +1,79 @@
 import { createTheme, ThemeProvider, CssBaseline, alpha } from '@mui/material';
 
 /**
- * Material Design 3 Theme Configuration for React/MUI
- * This theme implements Material You dynamic coloring principles
- * All colors use semantic tokens - NO hardcoded hex values
+ * Clean UI Theme Configuration for React/MUI
+ * Modern, minimalist design with enhanced readability and accessibility
+ * Based on Material Design 3 principles with custom refinements
  */
 
-// Primary seed color - generates dynamic palette
-const SEED_COLOR = '#6750A4'; // Professional purple
+// Premium color palette for wine collection app
+const SEED_COLOR = '#722B3D'; // Deep wine red - thematic for collection
 
 /**
- * Create comprehensive MD3 theme
- * Uses semantic color tokens throughout
+ * Create comprehensive clean UI theme
+ * Uses semantic color tokens with modern aesthetic
  */
 export const createAppTheme = (mode = 'light') => {
   const isDark = mode === 'dark';
 
-  // Define MD3 semantic color tokens based on brightness
+  // Define refined semantic color tokens
   const colorTokens = isDark
     ? {
-        // Dark theme tokens
-        primary: '#D0BCFF',
-        onPrimary: '#381E72',
-        primaryContainer: '#4F378B',
-        onPrimaryContainer: '#EADDFF',
-        secondary: '#CCE5FF',
-        onSecondary: '#003581',
-        secondaryContainer: '#0047A3',
-        onSecondaryContainer: '#E1F0FF',
-        tertiary: '#B6F3FB',
-        onTertiary: '#003A44',
-        tertiaryContainer: '#004D61',
-        onTertiaryContainer: '#D4F5FB',
-        error: '#F9DEDC',
-        onError: '#410E0B',
-        errorContainer: '#601410',
+        // Dark theme tokens - clean and sophisticated
+        primary: '#D8A8B8',
+        onPrimary: '#3E1F2B',
+        primaryContainer: '#562640',
+        onPrimaryContainer: '#F5D5E3',
+        secondary: '#B8D8E8',
+        onSecondary: '#1A3A4D',
+        secondaryContainer: '#2D5169',
+        onSecondaryContainer: '#D4E9FF',
+        tertiary: '#A8D8C8',
+        onTertiary: '#173D35',
+        tertiaryContainer: '#2F564B',
+        onTertiaryContainer: '#C4F5E8',
+        error: '#F5BCBD',
+        onError: '#431411',
+        errorContainer: '#602219',
         onErrorContainer: '#F9DEDC',
-        surface: '#1C1B1F',
-        onSurface: '#E7E1E6',
-        surfaceVariant: '#49454E',
-        onSurfaceVariant: '#CAC7D0',
-        surfaceContainerLowest: '#0F0D13',
-        surfaceContainerLow: '#282C34',
-        surfaceContainer: '#2F2D32',
-        surfaceContainerHigh: '#3A3940',
-        surfaceContainerHighest: '#45424B',
-        outline: '#9E9DA0',
-        outlineVariant: '#49454E',
+        surface: '#0F0E13',
+        onSurface: '#E8E7EB',
+        surfaceVariant: '#4A474E',
+        onSurfaceVariant: '#CCC9D3',
+        surfaceContainerLowest: '#0A0A0E',
+        surfaceContainerLow: '#1A1922',
+        surfaceContainer: '#222028',
+        surfaceContainerHigh: '#2D2C33',
+        surfaceContainerHighest: '#38373E',
+        outline: '#9A979F',
+        outlineVariant: '#4A474E',
         scrim: '#000000',
-        inverseSurface: '#E7E1E6',
-        inverseOnSurface: '#1C1B1F',
-        inversePrimary: '#6750A4',
+        inverseSurface: '#E8E7EB',
+        inverseOnSurface: '#312F37',
+        inversePrimary: '#722B3D',
       }
     : {
-        // Light theme tokens
-        primary: '#6750A4',
+        // Light theme tokens - clean and bright
+        primary: '#722B3D',
         onPrimary: '#FFFFFF',
-        primaryContainer: '#EADDFF',
-        onPrimaryContainer: '#21005D',
-        secondary: '#0047A3',
+        primaryContainer: '#F5D5E3',
+        onPrimaryContainer: '#2C0F1D',
+        secondary: '#2D5169',
         onSecondary: '#FFFFFF',
-        secondaryContainer: '#E1F0FF',
-        onSecondaryContainer: '#001D3B',
-        tertiary: '#006A63',
+        secondaryContainer: '#D4E9FF',
+        onSecondaryContainer: '#0C2139',
+        tertiary: '#2F564B',
         onTertiary: '#FFFFFF',
-        tertiaryContainer: '#B6F3FB',
-        onTertiaryContainer: '#002020',
-        error: '#B3261E',
+        tertiaryContainer: '#B1EFE5',
+        onTertiaryContainer: '#081E1A',
+        error: '#C5241F',
         onError: '#FFFFFF',
         errorContainer: '#F9DEDC',
         onErrorContainer: '#410E0B',
         surface: '#FFFBFE',
         onSurface: '#1C1B1F',
-        surfaceVariant: '#E7E0EC',
-        onSurfaceVariant: '#49454E',
+        surfaceVariant: '#E8E0EC',
+        onSurfaceVariant: '#48454F',
         surfaceContainerLowest: '#FFFFFF',
         surfaceContainerLow: '#F7F2FA',
         surfaceContainer: '#F3EEF6',
@@ -84,7 +84,7 @@ export const createAppTheme = (mode = 'light') => {
         scrim: '#000000',
         inverseSurface: '#313033',
         inverseOnSurface: '#F4EFF4',
-        inversePrimary: '#D0BCFF',
+        inversePrimary: '#F5D5E3',
       };
 
   return createTheme({
@@ -144,6 +144,16 @@ export const createAppTheme = (mode = 'light') => {
       surfaceLight: colorTokens.surfaceContainerLow,
       surfaceMedium: colorTokens.surfaceContainer,
       surfaceDark: colorTokens.surfaceContainerHigh,
+      // Semantic tokens - Material Design 3
+      surface: colorTokens.surface,
+      onSurface: colorTokens.onSurface,
+      surfaceVariant: colorTokens.surfaceVariant,
+      onSurfaceVariant: colorTokens.onSurfaceVariant,
+      surfaceContainer: colorTokens.surfaceContainer,
+      surfaceContainerHigh: colorTokens.surfaceContainerHigh,
+      surfaceContainerLow: colorTokens.surfaceContainerLow,
+      outline: colorTokens.outline,
+      outlineVariant: colorTokens.outlineVariant,
     },
     typography: {
       fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
@@ -169,19 +179,19 @@ export const createAppTheme = (mode = 'light') => {
       // Headline Styles - Page/Section titles
       h1: {
         fontSize: '2rem', // 32px
-        fontWeight: 400,
+        fontWeight: 700,
         lineHeight: 1.25,
         letterSpacing: '0rem',
       },
       h2: {
         fontSize: '1.75rem', // 28px
-        fontWeight: 400,
+        fontWeight: 700,
         lineHeight: 1.29,
         letterSpacing: '0rem',
       },
       h3: {
         fontSize: '1.5rem', // 24px
-        fontWeight: 400,
+        fontWeight: 600,
         lineHeight: 1.33,
         letterSpacing: '0rem',
       },
@@ -244,18 +254,20 @@ export const createAppTheme = (mode = 'light') => {
         styleOverrides: {
           root: {
             textTransform: 'none',
-            fontWeight: 500,
-            borderRadius: '8px',
-            padding: '12px 24px',
+            fontWeight: 600,
+            borderRadius: '12px',
+            padding: '10px 24px',
             transition: 'all 0.2s ease-in-out',
+            boxShadow: 'none',
           },
           // Filled Button (Primary)
           contained: {
             backgroundColor: colorTokens.primary,
             color: colorTokens.onPrimary,
             '&:hover': {
-              backgroundColor: colorTokens.onPrimaryContainer,
-              boxShadow: `0 4px 8px ${alpha(colorTokens.primary, 0.25)}`,
+              backgroundColor: colorTokens.primaryContainer,
+              color: colorTokens.onPrimaryContainer,
+              boxShadow: `0 2px 8px ${alpha(colorTokens.primary, 0.2)}`,
             },
             '&:active': {
               backgroundColor: colorTokens.onPrimaryContainer,
@@ -304,13 +316,14 @@ export const createAppTheme = (mode = 'light') => {
         styleOverrides: {
           root: {
             backgroundColor: colorTokens.surfaceContainer,
-            borderRadius: '12px', // Medium corner radius for standard cards
-            border: `1px solid ${colorTokens.outlineVariant}`,
-            boxShadow: 'none',
+            borderRadius: '16px', // Larger radius for modern look
+            border: `1px solid ${alpha(colorTokens.outline, 0.12)}`,
+            boxShadow: `0 1px 3px ${alpha(colorTokens.onSurface, 0.05)}`,
             transition: 'all 0.3s ease-in-out',
             '&:hover': {
               backgroundColor: colorTokens.surfaceContainerHigh,
-              boxShadow: `0 2px 8px ${alpha(colorTokens.onSurface, 0.08)}`,
+              boxShadow: `0 4px 12px ${alpha(colorTokens.onSurface, 0.1)}`,
+              transform: 'translateY(-2px)',
             },
           },
         },
@@ -335,14 +348,14 @@ export const createAppTheme = (mode = 'light') => {
           head: {
             backgroundColor: colorTokens.surfaceContainerHigh,
             color: colorTokens.onSurface,
-            fontWeight: 500,
+            fontWeight: 600,
             fontSize: '0.875rem',
-            borderBottom: `1px solid ${colorTokens.outlineVariant}`,
-            borderRight: 'none', // NO vertical borders in MD3 tables
+            borderBottom: `1px solid ${alpha(colorTokens.outline, 0.12)}`,
+            borderRight: 'none',
           },
           body: {
-            borderBottom: `1px solid ${colorTokens.outlineVariant}`,
-            borderRight: 'none', // NO vertical borders
+            borderBottom: `1px solid ${alpha(colorTokens.outline, 0.08)}`,
+            borderRight: 'none',
             color: colorTokens.onSurface,
             '&:last-child': {
               paddingRight: '16px',
@@ -366,8 +379,8 @@ export const createAppTheme = (mode = 'light') => {
           root: {
             backgroundColor: colorTokens.surface,
             color: colorTokens.onSurface,
-            boxShadow: `0 1px 3px ${alpha(colorTokens.onSurface, 0.12)}`,
-            borderBottom: `1px solid ${colorTokens.outlineVariant}`,
+            boxShadow: `0 1px 3px ${alpha(colorTokens.onSurface, 0.08)}`,
+            borderBottom: `1px solid ${alpha(colorTokens.outline, 0.12)}`,
           },
           colorPrimary: {
             backgroundColor: colorTokens.surface,
@@ -379,8 +392,8 @@ export const createAppTheme = (mode = 'light') => {
       MuiDrawer: {
         styleOverrides: {
           paper: {
-            backgroundColor: colorTokens.surfaceContainer,
-            borderRight: `1px solid ${colorTokens.outlineVariant}`,
+            backgroundColor: colorTokens.surface,
+            borderRight: `1px solid ${alpha(colorTokens.outline, 0.12)}`,
           },
         },
       },
@@ -393,11 +406,12 @@ export const createAppTheme = (mode = 'light') => {
           root: {
             '& .MuiOutlinedInput-root': {
               backgroundColor: colorTokens.surfaceContainerHigh,
+              borderRadius: '12px',
               '& fieldset': {
-                borderColor: colorTokens.outlineVariant,
+                borderColor: alpha(colorTokens.outline, 0.12),
               },
               '&:hover fieldset': {
-                borderColor: colorTokens.outline,
+                borderColor: alpha(colorTokens.outline, 0.2),
               },
               '&.Mui-focused fieldset': {
                 borderColor: colorTokens.primary,
