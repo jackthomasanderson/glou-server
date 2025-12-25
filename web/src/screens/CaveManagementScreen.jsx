@@ -187,7 +187,7 @@ const CaveManagementScreen = () => {
           <Grid item xs={12} md={6} key={cave.id}>
             <Card
               sx={{
-                border: `1px solid ${theme.palette.outline}`,
+                border: `1px solid ${theme.palette.onSurface}`,
                 backgroundColor: theme.palette.surfaceVariant,
               }}
             >
@@ -234,7 +234,7 @@ const CaveManagementScreen = () => {
                     <IconButton
                       size="small"
                       onClick={() => handleDeleteCave(cave.id)}
-                      sx={{ color: theme.palette.error }}
+                      sx={{ color: theme.palette.error.main }}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -251,7 +251,7 @@ const CaveManagementScreen = () => {
                       <Typography variant="subtitle2" sx={{ color: theme.palette.onSurfaceVariant, mb: 0.5 }}>
                         Remplissage: {pct}%
                       </Typography>
-                      <Box sx={{ position: 'relative', height: 24, borderRadius: 12, backgroundColor: theme.palette.surfaceLight, overflow: 'hidden', border: `1px solid ${theme.palette.outline}` }}>
+                      <Box sx={{ position: 'relative', height: 24, borderRadius: 12, backgroundColor: theme.palette.surfaceLight, overflow: 'hidden', border: `1px solid ${theme.palette.onSurface}` }}>
                         <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `linear-gradient(135deg, ${theme.palette.primary.light}, ${theme.palette.primary.main})`, transition: 'width 0.6s ease' }} />
                         {/* Simple wave overlay */}
                         <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, background: `radial-gradient(circle at 10px 10px, ${theme.palette.primary.dark}33 10px, transparent 11px)`, opacity: 0.3 }} />
@@ -333,7 +333,7 @@ const CaveManagementScreen = () => {
                                 position: 'absolute',
                                 top: 0,
                                 right: 0,
-                                color: theme.palette.error,
+                                color: theme.palette.error.main,
                               }}
                             >
                               <CloseIcon fontSize="small" />

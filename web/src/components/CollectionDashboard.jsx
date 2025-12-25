@@ -27,8 +27,12 @@ import {
 import { Link } from 'react-router-dom';
 
 /**
- * CollectionDashboard - Intimate Personal Collection Dashboard
- * Focused on:
+ * CollectionDashboard - Clean, Modern Personal Collection Dashboard
+ * Enhanced UI with:
+ * - Refined card designs with subtle shadows
+ * - Better visual hierarchy
+ * - Improved typography
+ * - Optimized spacing and layout
  * - Ready to drink alerts
  * - Peak drinking notes
  * - Recent tastings
@@ -63,16 +67,17 @@ export const CollectionDashboard = ({ wines = [], tastings = [], peakAlerts = []
 
       {/* Quick Add Actions */}
       <Card sx={{ 
-        marginBottom: 4, 
-        backgroundColor: alpha(theme.palette.primary.main, 0.08),
-        border: `2px dashed ${theme.palette.primary.main}`,
-        borderRadius: '12px',
+        marginBottom: 4,
+        backgroundColor: alpha(theme.palette.primary.main, 0.06),
+        border: `1.5px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+        borderRadius: '16px',
+        boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.08)}`,
       }}>
-        <CardContent>
-          <Typography variant="h6" sx={{ marginBottom: 2, color: theme.palette.onSurface }}>
+        <CardContent sx={{ paddingY: 3 }}>
+          <Typography variant="h6" sx={{ marginBottom: 2.5, color: theme.palette.onSurface, fontWeight: 600 }}>
             {t('Ajouter à votre collection', 'Add to Collection')}
           </Typography>
-          <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 1 }}>
+          <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap', gap: 2 }}>
             {quickAddOptions.map(option => (
               <Button
                 key={option.id}
@@ -84,11 +89,18 @@ export const CollectionDashboard = ({ wines = [], tastings = [], peakAlerts = []
                   backgroundColor: theme.palette.primary.main,
                   color: theme.palette.onPrimary,
                   textTransform: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '12px',
                   flex: '1 1 auto',
                   minWidth: '140px',
+                  padding: '10px 20px',
+                  fontWeight: 600,
+                  boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.25)}`,
+                  transition: 'all 0.2s ease',
                   '&:hover': {
-                    backgroundColor: theme.palette.primary.dark,
+                    backgroundColor: theme.palette.primaryContainer,
+                    color: theme.palette.onPrimaryContainer,
+                    boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.35)}`,
+                    transform: 'translateY(-2px)',
                   },
                 }}
               >
@@ -104,31 +116,37 @@ export const CollectionDashboard = ({ wines = [], tastings = [], peakAlerts = []
         {/* Ready to Drink - Highlight */}
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ 
-            backgroundColor: theme.palette.surfaceLight,
-            border: `1px solid ${theme.palette.divider}`,
-            borderRadius: '12px',
+            backgroundColor: theme.palette.surface,
+            border: `1px solid ${alpha(theme.palette.onSurface, 0.12)}`,
+            borderRadius: '16px',
             height: '100%',
+            boxShadow: `0 2px 8px ${alpha(theme.palette.onSurface, 0.05)}`,
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: `0 4px 16px ${alpha(theme.palette.onSurface, 0.1)}`,
+              transform: 'translateY(-2px)',
+            },
           }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-                <Typography variant="h6" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
+                <Typography variant="subtitle1" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
                   {t('À boire', 'Ready to Drink')}
                 </Typography>
                 <Box sx={{
-                  backgroundColor: alpha(theme.palette.success.main, 0.2),
-                  borderRadius: '8px',
-                  padding: 1,
+                  backgroundColor: alpha(theme.palette.tertiary.main, 0.15),
+                  borderRadius: '12px',
+                  padding: 1.2,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                  <WineIcon sx={{ color: theme.palette.success.main, fontSize: 24 }} />
+                  <WineIcon sx={{ color: theme.palette.tertiary.main, fontSize: 24 }} />
                 </Box>
               </Box>
-              <Typography variant="displaySmall" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
+              <Typography variant="h3" sx={{ color: theme.palette.onSurface, fontWeight: 700, marginBottom: 1 }}>
                 {readyToDrink.length}
               </Typography>
-              <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant, marginTop: 1 }}>
+              <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant }}>
                 {t('bouteilles prêtes', 'bottles available')}
               </Typography>
             </CardContent>
@@ -138,20 +156,26 @@ export const CollectionDashboard = ({ wines = [], tastings = [], peakAlerts = []
         {/* Peak Alerts */}
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ 
-            backgroundColor: theme.palette.surfaceLight,
-            border: `1px solid ${theme.palette.divider}`,
-            borderRadius: '12px',
+            backgroundColor: theme.palette.surface,
+            border: `1px solid ${alpha(theme.palette.onSurface, 0.12)}`,
+            borderRadius: '16px',
             height: '100%',
+            boxShadow: `0 2px 8px ${alpha(theme.palette.onSurface, 0.05)}`,
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: `0 4px 16px ${alpha(theme.palette.onSurface, 0.1)}`,
+              transform: 'translateY(-2px)',
+            },
           }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-                <Typography variant="h6" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
+                <Typography variant="subtitle1" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
                   {t('À l\'apogée', 'At Peak')}
                 </Typography>
                 <Box sx={{
-                  backgroundColor: alpha(theme.palette.warning.main, 0.2),
-                  borderRadius: '8px',
-                  padding: 1,
+                  backgroundColor: alpha(theme.palette.warning.main, 0.15),
+                  borderRadius: '12px',
+                  padding: 1.2,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -159,10 +183,10 @@ export const CollectionDashboard = ({ wines = [], tastings = [], peakAlerts = []
                   <AlertIcon sx={{ color: theme.palette.warning.main, fontSize: 24 }} />
                 </Box>
               </Box>
-              <Typography variant="displaySmall" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
+              <Typography variant="h3" sx={{ color: theme.palette.onSurface, fontWeight: 700, marginBottom: 1 }}>
                 {peakAlerts.length}
               </Typography>
-              <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant, marginTop: 1 }}>
+              <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant }}>
                 {t('à surveiller', 'to watch')}
               </Typography>
             </CardContent>
@@ -172,20 +196,26 @@ export const CollectionDashboard = ({ wines = [], tastings = [], peakAlerts = []
         {/* Collection Size */}
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ 
-            backgroundColor: theme.palette.surfaceLight,
-            border: `1px solid ${theme.palette.divider}`,
-            borderRadius: '12px',
+            backgroundColor: theme.palette.surface,
+            border: `1px solid ${alpha(theme.palette.onSurface, 0.12)}`,
+            borderRadius: '16px',
             height: '100%',
+            boxShadow: `0 2px 8px ${alpha(theme.palette.onSurface, 0.05)}`,
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: `0 4px 16px ${alpha(theme.palette.onSurface, 0.1)}`,
+              transform: 'translateY(-2px)',
+            },
           }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-                <Typography variant="h6" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
+                <Typography variant="subtitle1" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
                   {t('Inventaire', 'Inventory')}
                 </Typography>
                 <Box sx={{
-                  backgroundColor: alpha(theme.palette.primary.main, 0.2),
-                  borderRadius: '8px',
-                  padding: 1,
+                  backgroundColor: alpha(theme.palette.primary.main, 0.15),
+                  borderRadius: '12px',
+                  padding: 1.2,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -193,10 +223,10 @@ export const CollectionDashboard = ({ wines = [], tastings = [], peakAlerts = []
                   <TrendingUpIcon sx={{ color: theme.palette.primary.main, fontSize: 24 }} />
                 </Box>
               </Box>
-              <Typography variant="displaySmall" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
+              <Typography variant="h3" sx={{ color: theme.palette.onSurface, fontWeight: 700, marginBottom: 1 }}>
                 {wines.length}
               </Typography>
-              <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant, marginTop: 1 }}>
+              <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant }}>
                 {t('bouteilles au total', 'bottles total')}
               </Typography>
             </CardContent>
@@ -206,31 +236,37 @@ export const CollectionDashboard = ({ wines = [], tastings = [], peakAlerts = []
         {/* Recent Tastings */}
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ 
-            backgroundColor: theme.palette.surfaceLight,
-            border: `1px solid ${theme.palette.divider}`,
-            borderRadius: '12px',
+            backgroundColor: theme.palette.surface,
+            border: `1px solid ${alpha(theme.palette.onSurface, 0.12)}`,
+            borderRadius: '16px',
             height: '100%',
+            boxShadow: `0 2px 8px ${alpha(theme.palette.onSurface, 0.05)}`,
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: `0 4px 16px ${alpha(theme.palette.onSurface, 0.1)}`,
+              transform: 'translateY(-2px)',
+            },
           }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
-                <Typography variant="h6" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
+                <Typography variant="subtitle1" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
                   {t('Dégustations', 'Tastings')}
                 </Typography>
                 <Box sx={{
-                  backgroundColor: alpha(theme.palette.tertiary.main, 0.2),
-                  borderRadius: '8px',
-                  padding: 1,
+                  backgroundColor: alpha(theme.palette.secondary.main, 0.15),
+                  borderRadius: '12px',
+                  padding: 1.2,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                  <FavoriteIcon sx={{ color: theme.palette.tertiary.main, fontSize: 24 }} />
+                  <FavoriteIcon sx={{ color: theme.palette.secondary.main, fontSize: 24 }} />
                 </Box>
               </Box>
-              <Typography variant="displaySmall" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
+              <Typography variant="h3" sx={{ color: theme.palette.onSurface, fontWeight: 700, marginBottom: 1 }}>
                 {recentTastings.length}
               </Typography>
-              <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant, marginTop: 1 }}>
+              <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant }}>
                 {t('dégustations récentes', 'recent tastings')}
               </Typography>
             </CardContent>
@@ -274,37 +310,43 @@ export const CollectionDashboard = ({ wines = [], tastings = [], peakAlerts = []
 };
 
 /**
- * WineCardPreview - Quick preview of a wine ready to drink
+ * WineCardPreview - Clean preview of a wine ready to drink
  */
 const WineCardPreview = ({ wine }) => {
   const theme = useTheme();
+  const userLang = typeof navigator !== 'undefined' ? navigator.language.toLowerCase() : 'en';
+  const isFr = userLang.startsWith('fr');
+  const t = (fr, en) => (isFr ? fr : en);
 
   return (
     <Card sx={{
       backgroundColor: theme.palette.surface,
-      border: `1px solid ${theme.palette.divider}`,
-      borderRadius: '12px',
+      border: `1px solid ${alpha(theme.palette.onSurface, 0.12)}`,
+      borderRadius: '16px',
       transition: 'all 0.3s ease',
+      boxShadow: `0 2px 8px ${alpha(theme.palette.onSurface, 0.05)}`,
       '&:hover': {
-        boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.15)}`,
+        boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.15)}`,
+        transform: 'translateY(-2px)',
+        borderColor: alpha(theme.palette.primary.main, 0.3),
       },
     }}>
       <CardContent>
-        <Typography variant="subtitle1" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
+        <Typography variant="h6" sx={{ color: theme.palette.onSurface, fontWeight: 600, marginBottom: 1 }}>
           {wine.name}
         </Typography>
-        <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant, marginTop: 0.5 }}>
+        <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant }}>
           {wine.region} • {wine.vintage}
         </Typography>
         {wine.notes && (
-          <Typography variant="caption" sx={{ color: theme.palette.onSurfaceVariant, marginTop: 1, display: 'block' }}>
+          <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant, marginTop: 1.5, lineHeight: 1.6 }}>
             {wine.notes.substring(0, 60)}...
           </Typography>
         )}
       </CardContent>
-      <CardActions>
-        <Button size="small" component={Link} to={`/wines/${wine.id}`}>
-          Voir les détails
+      <CardActions sx={{ paddingTop: 0 }}>
+        <Button size="small" component={Link} to={`/wines/${wine.id}`} sx={{ fontWeight: 600 }}>
+          {t('Voir les détails', 'View Details')}
         </Button>
       </CardActions>
     </Card>
@@ -312,7 +354,7 @@ const WineCardPreview = ({ wine }) => {
 };
 
 /**
- * TastingCard - Recent tasting entry
+ * TastingCard - Recent tasting entry with improved styling
  */
 const TastingCard = ({ tasting }) => {
   const theme = useTheme();
@@ -320,16 +362,21 @@ const TastingCard = ({ tasting }) => {
   return (
     <Card sx={{
       backgroundColor: theme.palette.surface,
-      border: `1px solid ${theme.palette.divider}`,
-      borderRadius: '12px',
+      border: `1px solid ${alpha(theme.palette.onSurface, 0.12)}`,
+      borderRadius: '16px',
+      transition: 'all 0.3s ease',
+      boxShadow: `0 2px 8px ${alpha(theme.palette.onSurface, 0.05)}`,
+      '&:hover': {
+        boxShadow: `0 4px 16px ${alpha(theme.palette.onSurface, 0.1)}`,
+      },
     }}>
       <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-          <Box>
-            <Typography variant="subtitle1" sx={{ color: theme.palette.onSurface, fontWeight: 600 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 2 }}>
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="h6" sx={{ color: theme.palette.onSurface, fontWeight: 600, marginBottom: 0.5 }}>
               {tasting.wineName}
             </Typography>
-            <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant, marginTop: 0.5 }}>
+            <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant }}>
               {new Date(tasting.date).toLocaleDateString()}
             </Typography>
             {tasting.rating && (
@@ -337,13 +384,16 @@ const TastingCard = ({ tasting }) => {
                 <Chip
                   label={`★ ${tasting.rating}/5`}
                   size="small"
-                  sx={{ backgroundColor: alpha(theme.palette.warning.main, 0.2) }}
+                  sx={{ 
+                    backgroundColor: alpha(theme.palette.warning.main, 0.15),
+                    fontWeight: 600,
+                  }}
                 />
               </Box>
             )}
           </Box>
           {tasting.notes && (
-            <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant, marginLeft: 2 }}>
+            <Typography variant="body2" sx={{ color: theme.palette.onSurfaceVariant, fontStyle: 'italic', flex: 1, textAlign: 'right' }}>
               "{tasting.notes.substring(0, 50)}..."
             </Typography>
           )}

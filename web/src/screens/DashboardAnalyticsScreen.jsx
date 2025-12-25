@@ -70,7 +70,7 @@ const KPIWidget = ({
           {unit}
         </Typography>
         {changePercentage && (
-          <Typography variant="caption" sx={{ color: isPositive ? theme.palette.tertiary.main : theme.palette.error, mt: 1, display: 'block' }}>
+          <Typography variant="caption" sx={{ color: isPositive ? theme.palette.tertiary.main : theme.palette.error.main, mt: 1, display: 'block' }}>
             {changePercentage}
           </Typography>
         )}
