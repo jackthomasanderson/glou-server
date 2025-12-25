@@ -85,13 +85,19 @@ func (s *Store) UpdateTobacco(ctx context.Context, t *domain.Tobacco) error {
 func (s *Store) DeleteTobacco(ctx context.Context, id int64) error {
 	// Fetch current
 	item, err := s.GetTobaccoByID(ctx, id)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	if item.Quantity <= 1 {
 		_, err := s.Db.ExecContext(ctx, `DELETE FROM tobaccos WHERE id = ?`, id)
-		if err != nil { return fmt.Errorf("failed to delete tobacco: %w", err) }
+		if err != nil {
+			return fmt.Errorf("failed to delete tobacco: %w", err)
+		}
 		return nil
 	}
 	_, err = s.Db.ExecContext(ctx, `UPDATE tobaccos SET quantity = quantity - 1 WHERE id = ?`, id)
-	if err != nil { return fmt.Errorf("failed to decrement tobacco: %w", err) }
+	if err != nil {
+		return fmt.Errorf("failed to decrement tobacco: %w", err)
+	}
 	return nil
 }
