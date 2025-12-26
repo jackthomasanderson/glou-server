@@ -154,34 +154,34 @@ export const WineCreateForm = ({ onClose, onSave }) => {
           </Box>
 
           <Grid container spacing={3}>
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <HelpLabel label="Nom de la bouteille" helpTitle="Nom de la bouteille" helpDescription="Entrez le nom complet." />
               <TextField fullWidth placeholder="ex: Château Margaux" name="name" value={formData.name} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
 
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <HelpLabel label="Producteur" helpTitle="Producteur" helpDescription="Nom du producteur." />
               <TextField fullWidth placeholder="ex: Château Margaux SA" name="producer" value={formData.producer} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
 
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <HelpLabel label="Région" helpTitle="Région" helpDescription="Région d'origine." />
               <TextField fullWidth placeholder="ex: Bordeaux" name="region" value={formData.region} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
 
-            <Grid xs={6} md={3}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <HelpLabel label="Millésime" helpTitle="Année" helpDescription="Année de récolte." />
               <TextField fullWidth name="vintage" type="number" value={formData.vintage} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
 
-            <Grid xs={6} md={3}>
+            <Grid size={{ xs: 6, md: 3 }}>
               <HelpLabel label="Type" helpTitle="Type" helpDescription="Catégorie." />
               <TextField fullWidth name="type" select value={formData.type} onChange={handleChange} SelectProps={{ native: true }} size="small" sx={{ mt: 1 }}>
                 {wineTypes.map(t => <option key={t} value={t}>{t}</option>)}
               </TextField>
             </Grid>
 
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <HelpLabel label="Quantité" helpTitle="Quantité" helpDescription="Nombre de bouteilles." />
               <TextField fullWidth name="quantity" type="number" value={formData.quantity} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
@@ -195,22 +195,22 @@ export const WineCreateForm = ({ onClose, onSave }) => {
           </Box>
 
           <Grid container spacing={3}>
-            <Grid xs={12} sm={6} md={4}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <HelpLabel label="Alcool %" helpTitle="Alcool" helpDescription="Pourcentage d'alcool." />
               <TextField fullWidth name="alcohol_level" type="number" value={formData.alcohol_level} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
 
-            <Grid xs={12} sm={6} md={4}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <HelpLabel label="Prix (€)" helpTitle="Prix" helpDescription="Prix d'achat." />
               <TextField fullWidth name="price" type="number" value={formData.price} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
 
-            <Grid xs={12} sm={6} md={4}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }}>
               <HelpLabel label="Valeur (€)" helpTitle="Valeur" helpDescription="Valeur actuelle." />
               <TextField fullWidth name="current_value" type="number" value={formData.current_value} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
 
-            <Grid xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, border: `2px solid ${theme.palette.divider}` }}>
                 <Typography variant="caption">ROI:</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 700, color: ((formData.current_value || 0) - (formData.price || 0)) >= 0 ? 'success.main' : 'error.main', mt: 0.5 }}>
@@ -219,7 +219,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               </Paper>
             </Grid>
 
-            <Grid xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <HelpLabel label="Note" helpTitle="Note" helpDescription="0-5 étoiles." />
               <TextField fullWidth name="rating" type="number" value={formData.rating} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
@@ -233,12 +233,12 @@ export const WineCreateForm = ({ onClose, onSave }) => {
           </Box>
 
           <Grid container spacing={3}>
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <HelpLabel label="À boire à partir du" helpTitle="Min" helpDescription="Date min." />
               <TextField fullWidth name="min_apogee_date" type="date" value={formData.min_apogee_date} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
 
-            <Grid xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <HelpLabel label="À boire jusqu'au" helpTitle="Max" helpDescription="Date max." />
               <TextField fullWidth name="max_apogee_date" type="date" value={formData.max_apogee_date} onChange={handleChange} size="small" sx={{ mt: 1 }} />
             </Grid>
@@ -247,12 +247,12 @@ export const WineCreateForm = ({ onClose, onSave }) => {
 
         <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
           <Grid container spacing={3}>
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <HelpLabel label="Commentaires" helpTitle="Notes" helpDescription="Vos impressions." />
               <TextField fullWidth name="comments" value={formData.comments} onChange={handleChange} multiline rows={4} size="small" sx={{ mt: 1 }} />
             </Grid>
 
-            <Grid xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Divider sx={{ my: 2 }} />
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <Typography variant="subtitle2">Photo</Typography>
