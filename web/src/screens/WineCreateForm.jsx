@@ -134,7 +134,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
   const wineTypes = ['Red', 'White', 'Rosé', 'Sparkling'];
 
   return (
-    <Box sx={{ p: { xs: 2 md= 3 }, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 1200, mx: 'auto' }}>
       {/* Header */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'background.default', borderRadius: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -180,7 +180,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
           </Box>
 
           <Grid container spacing={3}>
-            <Grid item xs= xs: 12 }}>
+            <Grid item xs={12}>
               <HelpLabel 
                 label="Nom de la bouteille"
                 helpTitle="Nom de la bouteille"
@@ -197,7 +197,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs= xs: 12 md= 6 }}>
+            <Grid item xs={12} md={6}>
               <HelpLabel 
                 label="Producteur"
                 helpTitle="Producteur / Domaine"
@@ -214,7 +214,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs= xs: 12 md= 6 }}>
+            <Grid item xs={12} md={6}>
               <HelpLabel 
                 label="Région / Appellation"
                 helpTitle="Région d'origine"
@@ -231,7 +231,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs= xs: 6 md= 3 }}>
+            <Grid item xs={6} md={3}>
               <HelpLabel 
                 label="Millésime"
                 helpTitle="Année du millésime"
@@ -249,7 +249,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs= xs: 6 md= 3 }}>
+            <Grid item xs={6} md={3}>
               <HelpLabel 
                 label="Type"
                 helpTitle="Type de boisson"
@@ -273,7 +273,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               </TextField>
             </Grid>
 
-            <Grid item xs= xs: 12 md= 6 }}>
+            <Grid item xs={12} md={6}>
               <HelpLabel 
                 label="Quantité"
                 helpTitle="Nombre de bouteilles"
@@ -306,7 +306,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
           </Box>
 
           <Grid container spacing={3}>
-            <Grid item xs= xs: 12 sm= 6 md= 4 }}>
+            <Grid item xs={12} sm={6} md={4}>
               <HelpLabel 
                 label="Degré alcoolique (%)"
                 helpTitle="Alcool %"
@@ -325,7 +325,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs= xs: 12 sm= 6 md= 4 }}>
+            <Grid item xs={12} sm={6} md={4}>
               <HelpLabel 
                 label="Prix d'achat (€)"
                 helpTitle="Prix d'acquisition"
@@ -343,7 +343,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs= xs: 12 sm= 6 md= 4 }}>
+            <Grid item xs={12} sm={6} md={4}>
               <HelpLabel 
                 label="Valeur actuelle (€)"
                 helpTitle="Estimation de valeur"
@@ -361,7 +361,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs= xs: 12 sm= 6 }}>
+            <Grid item xs={12} sm={6}>
               <Paper 
                 elevation={0} 
                 sx={{ 
@@ -388,7 +388,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               </Paper>
             </Grid>
 
-            <Grid item xs= xs: 12 sm= 6 }}>
+            <Grid item xs={12} sm={6}>
               <HelpLabel 
                 label="Note de dégustation"
                 helpTitle="Évaluation personnelle"
@@ -422,7 +422,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
           </Box>
 
           <Grid container spacing={3}>
-            <Grid item xs= xs: 12 md= 6 }}>
+            <Grid item xs={12} md={6}>
               <HelpLabel 
                 label="À boire à partir du"
                 helpTitle="Date minimale d'apogée"
@@ -440,7 +440,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs= xs: 12 md= 6 }}>
+            <Grid item xs={12} md={6}>
               <HelpLabel 
                 label="À boire jusqu'au"
                 helpTitle="Date maximale d'apogée"
@@ -463,7 +463,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
         {/* Comments & Photo */}
         <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
           <Grid container spacing={3}>
-            <Grid item xs= xs: 12 }}>
+            <Grid item xs={12}>
               <HelpLabel 
                 label="Commentaires & Notes"
                 helpTitle="Notes de dégustation"
@@ -482,7 +482,7 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               />
             </Grid>
 
-            <Grid item xs= xs: 12 }}>
+            <Grid item xs={12}>
               <Divider sx={{ my: 2 }} />
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ color: theme.palette.onSurfaceVariant, fontWeight: 600 }}>
@@ -503,12 +503,12 @@ export const WineCreateForm = ({ onClose, onSave }) => {
 
         {/* Actions */}
         <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-          <Stack direction={{ xs: 'column' sm= 'row' }} spacing={2} justifyContent="flex-end">
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="flex-end">
             <Button
               variant="outlined"
               onClick={onClose}
               disabled={loading}
-              fullWidth={{ xs: true sm= false }}
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
               Annuler
             </Button>
@@ -516,7 +516,6 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               variant="outlined"
               onClick={(e) => handleSubmit(e, true)}
               disabled={loading}
-              fullWidth={{ xs: true sm= false }}
             >
               {loading ? 'Création...' : 'Enregistrer et ajouter un autre'}
             </Button>
@@ -524,7 +523,6 @@ export const WineCreateForm = ({ onClose, onSave }) => {
               variant="contained"
               onClick={(e) => handleSubmit(e, false)}
               disabled={loading}
-              fullWidth={{ xs: true sm= false }}
             >
               {loading ? 'Création...' : 'Créer'}
             </Button>
