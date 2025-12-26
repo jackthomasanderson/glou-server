@@ -16,14 +16,36 @@ import {
   FormControlLabel,
   useTheme,
   alpha,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Save as SaveIcon,
   Settings as SettingsIcon,
   Security as SecurityIcon,
   CloudUpload as BackupIcon,
+  People as PeopleIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import api from '../services/apiClient';
+import UserManagementScreen from './UserManagementScreen';
+
+/**
+ * TabPanel Component
+ */
+function TabPanel({ children, value, index, ...other }) {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`admin-tabpanel-${index}`}
+      aria-labelledby={`admin-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    </div>
+  );
+}
 
 /**
  * AdvancedSettingsScreen - "Gestion Avancée"
@@ -31,6 +53,8 @@ import api from '../services/apiClient';
  * Rebranded Admin panel for collection management
  * Includes:
  * - Collection configuration
+ * - User management (Admin only)
+ * - Activity logs
  * - Backup & export
  * - Security settings
  * - Data management (Import bottles, Configure enrichment)
@@ -40,6 +64,7 @@ const AdvancedSettingsScreen = () => {
   const userLang = typeof navigator !== 'undefined' ? navigator.language.toLowerCase() : 'en';
   const isFr = userLang.startsWith('fr');
   const t = (fr, en) => (isFr ? fr : en);
+  const [currentTab, setCurrentTab] = useState(0);
 
   const [settings, setSettings] = useState({
     collectionName: 'Ma Cave',
@@ -116,6 +141,18 @@ const AdvancedSettingsScreen = () => {
         </Typography>
       </Box>
 
+      {/* Tabs Navigation */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={currentTab} onChange={(e, newValue) => setCurrentTab(newValue)}>
+          <Tab icon={<SettingsIcon />} label={t('Paramètres', 'Settings')} />
+          <Tab icon={<PeopleIcon />} label={t('Utilisateurs', 'Users')} />
+          <Tab icon={<BackupIcon />} label={t('Sauvegarde', 'Backup')} />
+          <Tab icon={<HistoryIcon />} label={t('Logs', 'Activity Logs')} />
+        </Tabs>
+      </Box>
+
+      {/* Tab 0: Settings */}
+      <TabPanel value={currentTab} index={0}>
       {/* Alerts */}
       {error && (
         <Alert severity="error" sx={{ marginBottom: 2 }}>
@@ -387,9 +424,46 @@ const AdvancedSettingsScreen = () => {
             },
           }}
         >
-          {saving ? t('Enregistrement...', 'Saving...') : t('Enregistrer les modifications', 'Save Changes')}
+          {saving ? t('Sauvegarde...', 'Saving...') : t('Sauvegarder', 'Save Settings')}
         </Button>
       </Box>
+      </TabPanel>
+
+      {/* Tab 1: User Management */}
+      <TabPanel value={currentTab} index={1}>
+        <UserManagementScreen />
+      </TabPanel>
+
+      {/* Tab 2: Backup & Export */}
+      <TabPanel value={currentTab} index={2}>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {t('Les fonctions de sauvegarde automatique sont en cours de développement.', 'Automatic backup features are under development.')}
+        </Alert>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardHeader title={t('Exporter les données', 'Export Data')} />
+              <CardContent>
+                <Stack spacing={2}>
+                  <Button variant="outlined" fullWidth>
+                    {t('Exporter en JSON', 'Export as JSON')}
+                  </Button>
+                  <Button variant="outlined" fullWidth>
+                    {t('Exporter en CSV', 'Export as CSV')}
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </TabPanel>
+
+      {/* Tab 3: Activity Logs */}
+      <TabPanel value={currentTab} index={3}>
+        <Alert severity="info">
+          {t('Les logs d\'activité détaillés seront bientôt disponibles.', 'Detailed activity logs will be available soon.')}
+        </Alert>
+      </TabPanel>
     </Box>
   );
 };

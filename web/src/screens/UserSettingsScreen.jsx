@@ -11,52 +11,70 @@ import {
   Grid,
   Divider,
 } from '@mui/material';
-import { Save as SaveIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Lock as LockIcon } from '@mui/icons-material';
 import api from '../services/apiClient';
 
 /**
  * UserSettingsScreen - Paramètres utilisateur
- * (Écran de base - à implémenter selon besoins)
  */
 export const UserSettingsScreen = () => {
   const [loading, setLoading] = useState(false);
+  const [loadingUser, setLoadingUser] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [formData, setFormData] = useState({
+  const [userData, setUserData] = useState({
     username: '',
     email: '',
+    role: '',
+  });
+  const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      setLoadingUser(true);
+      const user = await api.getCurrentUser();
+      setUserData({
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      });
+    } catch (err) {
+      setError(err.message || 'Erreur lors du chargement des données');
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
+  const handleEmailChange = (e) => {
+    setUserData({
+      ...userData,
+      email: e.target.value,
+    });
+  };
+
+  const handlePasswordChange = (e) => {
+    setPasswordData({
+      ...passwordData,
       [e.target.name]: e.target.value,
     });
   };
 
-  const handleSubmit = async (e) => {
+  const handleUpdateEmail = async (e) => {
     e.preventDefault();
     setError(null);
     setSuccess(false);
 
-    // Validation
-    if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
-      return;
-    }
-
-    if (formData.newPassword && !formData.currentPassword) {
-      setError('Veuillez saisir votre mot de passe actuel pour le modifier');
-      return;
-    }
-
     setLoading(true);
     try {
-      // TODO: Implémenter l'API de mise à jour utilisateur
-      // await api.updateUser(formData);
+      await api.updateUser({ email: userData.email });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
@@ -66,36 +84,88 @@ export const UserSettingsScreen = () => {
     }
   };
 
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+
+    // Validation
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setError('Les mots de passe ne correspondent pas');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      setError('Le nouveau mot de passe doit contenir au moins 8 caractères');
+      return;
+    }
+
+    if (!passwordData.currentPassword) {
+      setError('Veuillez saisir votre mot de passe actuel');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.changePassword(passwordData.currentPassword, passwordData.newPassword);
+      setSuccess(true);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      setError(err.message || 'Erreur lors du changement de mot de passe');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loadingUser) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
       <Typography variant="h4" gutterBottom>
         Paramètres Utilisateur
       </Typography>
 
-      <Alert severity="info" sx={{ mb: 3 }}>
-        Cette section est en cours de développement. Les modifications de profil seront bientôt disponibles.
-      </Alert>
-
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {success && <Alert severity="success" sx={{ mb: 2 }}>Modifications enregistrées avec succès !</Alert>}
 
-      <Card>
+      <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
             Informations du compte
           </Typography>
           
-          <Box component="form" onSubmit={handleSubmit}>
+          <Box component="form" onSubmit={handleUpdateEmail}>
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="Nom d'utilisateur"
                   name="username"
-                  value={formData.username}
-                  onChange={handleChange}
+                  value={userData.username}
                   disabled
                   helperText="Le nom d'utilisateur ne peut pas être modifié"
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Rôle"
+                  name="role"
+                  value={userData.role === 'admin' ? 'Administrateur' : 'Utilisateur'}
+                  disabled
+                  helperText="Votre rôle dans l'application"
                 />
               </Grid>
 
@@ -105,29 +175,45 @@ export const UserSettingsScreen = () => {
                   label="Email"
                   name="email"
                   type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  disabled
-                  helperText="L'email ne peut pas être modifié pour le moment"
+                  value={userData.email}
+                  onChange={handleEmailChange}
+                  required
                 />
               </Grid>
 
               <Grid item xs={12}>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="h6" gutterBottom>
-                  Changer le mot de passe
-                </Typography>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+                  disabled={loading}
+                >
+                  Enregistrer l'email
+                </Button>
               </Grid>
+            </Grid>
+          </Box>
+        </CardContent>
+      </Card>
 
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            <LockIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+            Changer le mot de passe
+          </Typography>
+          
+          <Box component="form" onSubmit={handleChangePassword}>
+            <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
                   label="Mot de passe actuel"
                   name="currentPassword"
                   type="password"
-                  value={formData.currentPassword}
-                  onChange={handleChange}
-                  disabled
+                  value={passwordData.currentPassword}
+                  onChange={handlePasswordChange}
+                  required
                 />
               </Grid>
 
@@ -137,9 +223,10 @@ export const UserSettingsScreen = () => {
                   label="Nouveau mot de passe"
                   name="newPassword"
                   type="password"
-                  value={formData.newPassword}
-                  onChange={handleChange}
-                  disabled
+                  value={passwordData.newPassword}
+                  onChange={handlePasswordChange}
+                  required
+                  helperText="Minimum 8 caractères"
                 />
               </Grid>
 
@@ -149,9 +236,9 @@ export const UserSettingsScreen = () => {
                   label="Confirmer le mot de passe"
                   name="confirmPassword"
                   type="password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  disabled
+                  value={passwordData.confirmPassword}
+                  onChange={handlePasswordChange}
+                  required
                 />
               </Grid>
 
@@ -159,26 +246,15 @@ export const UserSettingsScreen = () => {
                 <Button
                   type="submit"
                   variant="contained"
-                  startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
-                  disabled={loading || true}
-                  fullWidth
+                  color="primary"
+                  startIcon={loading ? <CircularProgress size={20} /> : <LockIcon />}
+                  disabled={loading}
                 >
-                  Enregistrer les modifications (Bientôt disponible)
+                  Changer le mot de passe
                 </Button>
               </Grid>
             </Grid>
           </Box>
-        </CardContent>
-      </Card>
-
-      <Card sx={{ mt: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Préférences
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Les préférences de langue, thème et notifications seront disponibles prochainement.
-          </Typography>
         </CardContent>
       </Card>
     </Box>

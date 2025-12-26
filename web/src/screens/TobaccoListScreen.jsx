@@ -5,12 +5,12 @@ import {
   Button,
   Card,
   CardContent,
-  Grid,
   Chip,
   CircularProgress,
   Alert,
   IconButton,
   Tooltip,
+  Grid,
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -83,7 +83,7 @@ export const TobaccoListScreen = () => {
       ) : (
         <Grid container spacing={2}>
           {tobaccos.map((tobacco) => (
-            <Grid item xs={12} sm={6} md={4} key={tobacco.id}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={tobacco.id}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -137,3 +137,4 @@ export const TobaccoListScreen = () => {
 };
 
 export default TobaccoListScreen;
+
