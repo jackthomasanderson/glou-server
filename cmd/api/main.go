@@ -260,6 +260,9 @@ func (s *Server) setupRoutes() {
 		return applySecurityMiddlewares(s.authRequiredMiddleware(next))
 	}
 
+	// CSRF Token endpoint - Protégé par authentification
+	s.router.HandleFunc("GET /api/csrf", authRequired(s.handleGetCsrf))
+
 	// Raccourci pour les routes réservées aux administrateurs
 	adminOnly := func(next http.HandlerFunc) http.HandlerFunc {
 		return authRequired(s.setupCheckMiddleware(s.adminRequiredMiddleware(next)))
