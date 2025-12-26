@@ -36,6 +36,7 @@ import {
   History as HistoryIcon,
   Notifications as AlertsIcon,
   AdminPanelSettings as AdminIcon,
+  Inventory,
 } from '@mui/icons-material';
 
 /**
@@ -74,18 +75,22 @@ export const AdaptiveNavigationShell = ({ children }) => {
     if (path.startsWith('/user')) return 'user';
     if (path.startsWith('/cave')) return 'cave';
     if (path.startsWith('/wines')) return 'wines';
+    if (path.startsWith('/tobacco')) return 'tobacco';
     if (path.startsWith('/tasting-history')) return 'tasting-history';
     return 'dashboard';
   }, [location.pathname]);
 
   // Navigation items with routes - Reorganized for "Collection Privée"
-  // Priority order: Cave -> Analyse -> Dégustations -> Alertes -> Gestion Avancée (at bottom)
+  // Priority order: Dashboard -> Caves -> Bouteilles -> Tabac -> Analyse -> Dégustations -> Alertes -> Gestion Avancée (at bottom)
   const navItems = [
-    { id: 'dashboard', label: t('Ma Cave', 'My Collection'), icon: <CaveIcon />, path: '/dashboard', section: 'primary' },
+    { id: 'dashboard', label: t('Tableau de bord', 'Dashboard'), icon: <DashboardIcon />, path: '/dashboard', section: 'primary' },
+    { id: 'cave', label: t('Caves', 'Cellars'), icon: <CaveIcon />, path: '/cave', section: 'primary' },
+    { id: 'wines', label: t('Bouteilles', 'Bottles'), icon: <WineIcon />, path: '/wines', section: 'primary' },
+    { id: 'tobacco', label: t('Tabac', 'Tobacco'), icon: <Inventory />, path: '/tobacco', section: 'primary' },
     { id: 'analytics', label: t('Analyse', 'Analysis'), icon: <AnalyticsIcon />, path: '/analytics', section: 'primary' },
     { id: 'tasting-history', label: t('Mes Dégustations', 'Tastings'), icon: <HistoryIcon />, path: '/tasting-history', section: 'primary' },
     { id: 'alerts', label: t('Apogée', 'Peak Alerts'), icon: <AlertsIcon />, path: '/alerts', section: 'primary' },
-    { id: 'admin', label: t('Gestion Avancée', 'Advanced Settings'), icon: <SettingsIcon />, path: '/admin', section: 'secondary' },
+    { id: 'admin', label: t('Gestion Avancée', 'Advanced Settings'), icon: <AdminIcon />, path: '/admin', section: 'secondary' },
     { id: 'user', label: t('Mon Profil', 'My Profile'), icon: <AccountCircleIcon />, path: '/user', section: 'secondary' },
   ];
 

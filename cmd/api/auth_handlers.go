@@ -39,6 +39,29 @@ type ResetPasswordRequest struct {
 	NewPassword string `json:"new_password"`
 }
 
+// handleGetCsrf retourne un cookie CSRF pour les requêtes state-changing
+func (s *Server) handleGetCsrf(w http.ResponseWriter, r *http.Request) {
+	// Le middleware auth a déjà validé la session
+	userID := r.Context().Value(SessionUserIDKey).(int64)
+	username := r.Context().Value(SessionUserKey).(string)
+	role := r.Context().Value(SessionUserRoleKey).(string)
+
+	// Regénérer le token CSRF
+	csrf := &http.Cookie{
+		Name:     "glou_csrf",
+		Value:    s.generateCsrfToken(userID, username, role),
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   s.config.Environment == "production",
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400 * 7,
+	}
+	http.SetCookie(w, csrf)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
 // handleLogin gère la connexion utilisateur
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
