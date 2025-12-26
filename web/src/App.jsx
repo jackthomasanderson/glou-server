@@ -20,10 +20,9 @@ import WineEditForm from './screens/WineEditForm';
 import TastingHistoryScreen from './screens/TastingHistoryScreen';
 import AddHub from './screens/AddHub';
 import TobaccoAddForm from './screens/TobaccoAddForm';
+import TobaccoListScreen from './screens/TobaccoListScreen';
+import UserSettingsScreen from './screens/UserSettingsScreen';
 import AdvancedSettingsScreen from './screens/AdvancedSettingsScreen';
-
-// Create User placeholder screen
-const UserProfileScreen = () => <div style={{ padding: '2rem' }}>Profil utilisateur - À implémenter</div>;
 
 /**
  * Main App component with routing
@@ -33,12 +32,14 @@ const UserProfileScreen = () => <div style={{ padding: '2rem' }}>Profil utilisat
  * - /analytics -> Analytics Dashboard
  * - /alerts -> Alerts Screen
  * - /admin -> Admin Management
- * - /user -> User Profile
+ * - /user -> User Profile (Settings)
  * - /cave -> Cave Management
- * - /wines -> Wine List
+ * - /wines -> Wine List (Bottles)
  * - /wines/:id -> Wine Detail
  * - /wines/create -> Create New Wine
  * - /wines/:id/edit -> Edit Wine
+ * - /tobacco -> Tobacco List
+ * - /tobacco/add -> Add Tobacco
  * - /tasting-history -> Tasting History
  */
 function App() {
@@ -106,7 +107,7 @@ function App() {
           {/* User Profile */}
           <Route path="/user" element={
             <AdaptiveNavigationShell>
-              <UserProfileScreen />
+              <UserSettingsScreen />
             </AdaptiveNavigationShell>
           } />
 
@@ -117,7 +118,7 @@ function App() {
             </AdaptiveNavigationShell>
           } />
 
-          {/* Wine Management */}
+          {/* Wine Management (Bottles) */}
           <Route path="/wines" element={
             <AdaptiveNavigationShell>
               <WineListScreen />
@@ -139,6 +140,13 @@ function App() {
           <Route path="/wines/:id/edit" element={
             <AdaptiveNavigationShell>
               <WineEditForm />
+            </AdaptiveNavigationShell>
+          } />
+
+          {/* Tobacco Management */}
+          <Route path="/tobacco" element={
+            <AdaptiveNavigationShell>
+              <TobaccoListScreen />
             </AdaptiveNavigationShell>
           } />
 
