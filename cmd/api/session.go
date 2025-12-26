@@ -156,7 +156,8 @@ func (s *Server) validateSessionToken(token string) (int64, string, string, bool
 
 func (s *Server) generateCsrfToken(userID int64, username, role string) string {
 	// Derive CSRF token from session payload with HMAC, but without storing server-side state
-	payload := fmt.Sprintf("%d|%s|%s|%d", userID, username, role, time.Now().Unix())
+	// Note: We do NOT include timestamp to ensure token is deterministic for the user session
+	payload := fmt.Sprintf("%d|%s|%s", userID, username, role)
 	mac := hmac.New(sha256.New, []byte(s.config.SessionSecret))
 	mac.Write([]byte(payload))
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
