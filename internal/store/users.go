@@ -89,6 +89,32 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (*domain.User,
 	return user, nil
 }
 
+// GetUserByID retrieves a user by ID
+func (s *Store) GetUserByID(ctx context.Context, userID int64) (*domain.User, error) {
+	query := `
+	SELECT id, username, email, role, is_active, created_at, updated_at
+	FROM users
+	WHERE id = ?
+	LIMIT 1
+	`
+
+	row := s.Db.QueryRowContext(ctx, query, userID)
+
+	user := &domain.User{}
+	var isActive int
+	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.Role, &isActive, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	user.IsActive = isActive == 1
+
+	return user, nil
+}
+
 // GetAllUsers récupère tous les utilisateurs
 func (s *Store) GetAllUsers(ctx context.Context) ([]*domain.User, error) {
 	query := `
@@ -287,5 +313,37 @@ func (s *Store) CleanupExpiredTokens(ctx context.Context) error {
 		return fmt.Errorf("failed to cleanup expired tokens: %w", err)
 	}
 
+	return nil
+}
+
+// UpdatePassword met à jour le mot de passe d'un utilisateur (alias de UpdateUserPassword)
+func (s *Store) UpdatePassword(ctx context.Context, userID int64, newPassword string) error {
+	return s.UpdateUserPassword(ctx, userID, newPassword)
+}
+
+// UpdateUser met à jour les informations d'un utilisateur
+func (s *Store) UpdateUser(ctx context.Context, user *domain.User) error {
+	query := `
+	UPDATE users 
+	SET email = ?, role = ?, is_active = ?, updated_at = ?
+	WHERE id = ?
+	`
+
+	now := time.Now()
+	result, err := s.Db.ExecContext(ctx, query, user.Email, user.Role, user.IsActive, now, user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+
+	user.UpdatedAt = now
 	return nil
 }

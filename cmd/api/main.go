@@ -263,10 +263,23 @@ func (s *Server) setupRoutes() {
 	// CSRF Token endpoint - Protégé par authentification
 	s.router.HandleFunc("GET /api/csrf", authRequired(s.handleGetCsrf))
 
+	// User Management - Protégé par authentification
+	s.router.HandleFunc("GET /api/user/me", authRequired(s.handleGetCurrentUser))
+	s.router.HandleFunc("PUT /api/user/me", authRequired(s.handleUpdateUser))
+	s.router.HandleFunc("POST /api/user/change-password", authRequired(s.handleChangePassword))
+
+	// Geocoding - Protégé par authentification
+	s.router.HandleFunc("GET /api/geocoding/search", authRequired(s.handleGeocodeSearch))
+
 	// Raccourci pour les routes réservées aux administrateurs
 	adminOnly := func(next http.HandlerFunc) http.HandlerFunc {
 		return authRequired(s.setupCheckMiddleware(s.adminRequiredMiddleware(next)))
 	}
+
+	// Admin User Management - Réservé aux administrateurs
+	s.router.HandleFunc("GET /api/admin/users/list", adminOnly(s.handleGetAllUsers))
+	s.router.HandleFunc("PUT /api/admin/users/{id}/role", adminOnly(s.handleUpdateUserRole))
+	s.router.HandleFunc("POST /api/admin/users/{id}/toggle-status", adminOnly(s.handleToggleUserStatus))
 
 	// Wines - Protégées par authentification
 	s.router.HandleFunc("GET /wines", authRequired(s.handleGetWines))

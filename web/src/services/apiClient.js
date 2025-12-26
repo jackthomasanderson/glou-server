@@ -325,6 +325,62 @@ class ApiClient {
     return this.request('GET', `/api/admin/activity-log?limit=${limit}&offset=${offset}`);
   }
 
+  // ============ USER MANAGEMENT ============
+
+  /**
+   * Get current user info
+   */
+  async getCurrentUser() {
+    return this.request('GET', '/api/user/me');
+  }
+
+  /**
+   * Update current user info
+   */
+  async updateUser(data) {
+    return this.request('PUT', '/api/user/me', data);
+  }
+
+  /**
+   * Change password
+   */
+  async changePassword(currentPassword, newPassword) {
+    return this.request('POST', '/api/user/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  }
+
+  /**
+   * Get all users (admin only)
+   */
+  async getAllUsers() {
+    return this.request('GET', '/api/admin/users/list');
+  }
+
+  /**
+   * Update user role (admin only)
+   */
+  async updateUserRole(userId, role) {
+    return this.request('PUT', `/api/admin/users/${userId}/role`, { role });
+  }
+
+  /**
+   * Toggle user status (admin only)
+   */
+  async toggleUserStatus(userId) {
+    return this.request('POST', `/api/admin/users/${userId}/toggle-status`);
+  }
+
+  // ============ GEOCODING ============
+
+  /**
+   * Search for location suggestions
+   */
+  async searchLocations(query) {
+    return this.request('GET', `/api/geocoding/search?q=${encodeURIComponent(query)}`);
+  }
+
   // ============ TOBACCO ============
 
   async getTobacco() {

@@ -13,6 +13,7 @@ type Bottle struct {
 	Region          string     `json:"region"`
 	Vintage         int        `json:"vintage"`
 	BottleType      string     `json:"bottle_type"` // New: Support multiple types (wine, beer, spirit, cigar)
+	WineType        string     `json:"wine_type"`   // Alias for backward compatibility with BottleType
 	Quantity        int        `json:"quantity"`
 	CellID          *int64     `json:"cell_id"`
 	CreatedAt       time.Time  `json:"created_at"`
