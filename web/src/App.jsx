@@ -11,7 +11,7 @@ import { AlphaBanner } from './components/AlphaBanner';
 // Screens
 import DashboardScreen from './screens/DashboardScreen';
 import AlertsScreen from './screens/AlertsScreen';
-import DashboardAnalyticsScreen from './screens/DashboardAnalyticsScreen';
+import AnalyticsScreen from './screens/AnalyticsScreen';
 import CaveManagementScreen from './screens/CaveManagementScreen';
 import WineListScreen from './screens/WineListScreen';
 import WineDetailScreen from './screens/WineDetailScreen';
@@ -85,7 +85,7 @@ function App() {
 
           <Route path="/analytics" element={
             <AdaptiveNavigationShell>
-              <DashboardAnalyticsScreen />
+              <AnalyticsScreen />
             </AdaptiveNavigationShell>
           } />
 

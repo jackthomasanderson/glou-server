@@ -33,13 +33,12 @@ const CaveManagementScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [caveCells, setCaveCells] = useState({});
+  const [caveBottles, setCaveBottles] = useState({});
   const [openCaveDialog, setOpenCaveDialog] = useState(false);
   const [openCellDialog, setOpenCellDialog] = useState(false);
   const [selectedCave, setSelectedCave] = useState(null);
   const [formData, setFormData] = useState({ name: '', model: '', location: 'Principale', capacity: 100 });
   const [saving, setSaving] = useState(false);
-  const [wines, setWines] = useState([]);
-  const [tobaccos, setTobaccos] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -47,17 +46,18 @@ const CaveManagementScreen = () => {
       setError(null);
 
       try {
-        const [caveData, wineData, tobaccoData] = await Promise.all([
-          api.getCaves(),
-          api.getWines(),
-          api.getTobacco(),
-        ]);
-
+        const caveData = await api.getCaves();
         const cavesList = caveData || [];
         setCaves(cavesList);
-        setWines(wineData || []);
-        setTobaccos(tobaccoData || []);
 
+        // Si une seule cave, charger ses bouteilles
+        if (cavesList.length === 1) {
+          const bottleData = await api.getCaveBottles(cavesList[0].id);
+          setCaveBottles({ [cavesList[0].id]: bottleData || [] });
+          setSelectedCave(cavesList[0]);
+        }
+
+        // Charger les cellules pour chaque cave
         if (cavesList.length > 0) {
           const entries = await Promise.all(
             cavesList.map(async (cave) => {

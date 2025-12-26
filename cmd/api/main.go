@@ -290,6 +290,10 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("POST /caves", authRequired(s.handleCreateCave))
 	s.router.HandleFunc("PUT /caves/{id}", authRequired(s.handleUpdateCave))
 
+	// Bottles - Protégées par authentification
+	s.router.HandleFunc("GET /bottles", authRequired(s.handleGetAllBottles))
+	s.router.HandleFunc("GET /caves/{caveID}/bottles", authRequired(s.handleGetCaveBottles))
+
 	// Cells - Protégées par authentification
 	s.router.HandleFunc("GET /caves/{caveID}/cells", authRequired(s.handleGetCells))
 	s.router.HandleFunc("POST /cells", authRequired(s.handleCreateCell))
@@ -614,140 +618,6 @@ func (s *Server) handleSearchWines(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(wines)
-}
-
-// handleGetCaves retourne toutes les caves
-func (s *Server) handleGetCaves(w http.ResponseWriter, r *http.Request) {
-	caves, err := s.store.GetCaves(r.Context())
-	if err != nil {
-		s.respondError(w, http.StatusInternalServerError, "Failed to fetch caves", err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(caves)
-}
-
-// handleCreateCave crée une nouvelle cave
-func (s *Server) handleCreateCave(w http.ResponseWriter, r *http.Request) {
-	var cave domain.Cave
-	if err := json.NewDecoder(r.Body).Decode(&cave); err != nil {
-		s.respondError(w, http.StatusBadRequest, "Invalid request body", err)
-		return
-	}
-
-	if cave.Name == "" {
-		s.respondError(w, http.StatusBadRequest, "Missing required fields: name", nil)
-		return
-	}
-
-	// Définir une localisation par défaut si non fournie
-	if cave.Location == "" {
-		cave.Location = "Principale"
-	}
-
-	id, err := s.store.CreateCave(r.Context(), &cave)
-	if err != nil {
-		s.respondError(w, http.StatusInternalServerError, "Failed to create cave", err)
-		return
-	}
-
-	cave.ID = id
-	cave.CreatedAt = time.Now()
-
-	// Audit
-	s.store.LogActivity(r.Context(), "cave", cave.ID, "cave_created", map[string]interface{}{"name": cave.Name, "capacity": cave.Capacity}, s.getClientIP(r))
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(cave)
-}
-
-// handleUpdateCave met à jour une cave existante
-func (s *Server) handleUpdateCave(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		s.respondError(w, http.StatusBadRequest, "Invalid cave ID", err)
-		return
-	}
-
-	var cave domain.Cave
-	if err := json.NewDecoder(r.Body).Decode(&cave); err != nil {
-		s.respondError(w, http.StatusBadRequest, "Invalid request body", err)
-		return
-	}
-
-	cave.ID = id
-
-	if cave.Name == "" {
-		s.respondError(w, http.StatusBadRequest, "Missing required fields: name", nil)
-		return
-	}
-
-	if cave.Capacity < 0 {
-		s.respondError(w, http.StatusBadRequest, "Capacity cannot be negative", nil)
-		return
-	}
-
-	if err := s.store.UpdateCave(r.Context(), &cave); err != nil {
-		if err.Error() == "cave not found" {
-			s.respondError(w, http.StatusNotFound, "Cave not found", err)
-		} else {
-			s.respondError(w, http.StatusInternalServerError, "Failed to update cave", err)
-		}
-		return
-	}
-
-	// Audit
-	s.store.LogActivity(r.Context(), "cave", cave.ID, "cave_updated", map[string]interface{}{"name": cave.Name, "location": cave.Location, "capacity": cave.Capacity}, s.getClientIP(r))
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cave)
-}
-
-// handleGetCells récupère les emplacements d'une cave
-func (s *Server) handleGetCells(w http.ResponseWriter, r *http.Request) {
-	caveIDStr := r.PathValue("caveID")
-	caveID, err := strconv.ParseInt(caveIDStr, 10, 64)
-	if err != nil {
-		s.respondError(w, http.StatusBadRequest, "Invalid cave ID", err)
-		return
-	}
-
-	cells, err := s.store.GetCellsByCave(r.Context(), caveID)
-	if err != nil {
-		s.respondError(w, http.StatusInternalServerError, "Failed to fetch cells", err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cells)
-}
-
-// handleCreateCell crée un nouvel emplacement
-func (s *Server) handleCreateCell(w http.ResponseWriter, r *http.Request) {
-	var cell domain.Cell
-	if err := json.NewDecoder(r.Body).Decode(&cell); err != nil {
-		s.respondError(w, http.StatusBadRequest, "Invalid request body", err)
-		return
-	}
-
-	id, err := s.store.CreateCell(r.Context(), &cell)
-	if err != nil {
-		s.respondError(w, http.StatusInternalServerError, "Failed to create cell", err)
-		return
-	}
-
-	cell.ID = id
-	cell.CreatedAt = time.Now()
-
-	// Audit
-	s.store.LogActivity(r.Context(), "cell", cell.ID, "cell_created", map[string]interface{}{"cave_id": cell.CaveID, "location": cell.Location}, s.getClientIP(r))
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(cell)
 }
 
 // handleGetAlerts retourne les alertes actives

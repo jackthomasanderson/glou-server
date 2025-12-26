@@ -21,6 +21,17 @@ class ApiClient {
   }
 
   /**
+   * Fetch CSRF token from server
+   */
+  async fetchCsrfToken() {
+    try {
+      await this.request('GET', '/csrf');
+    } catch (error) {
+      console.warn('Failed to fetch CSRF token:', error);
+    }
+  }
+
+  /**
    * Generic request method
    */
   async request(method, endpoint, data = null, options = {}) {
@@ -38,7 +49,14 @@ class ApiClient {
     const upperMethod = method.toUpperCase();
     if (!['GET', 'HEAD', 'OPTIONS'].includes(upperMethod)) {
       const csrfToken = getCookie('glou_csrf');
-      if (csrfToken) {
+      if (!csrfToken) {
+        // Try to fetch CSRF token if missing
+        await this.fetchCsrfToken();
+        const retryToken = getCookie('glou_csrf');
+        if (retryToken) {
+          headers['X-CSRF-Token'] = retryToken;
+        }
+      } else {
         headers['X-CSRF-Token'] = csrfToken;
       }
     }
@@ -165,6 +183,22 @@ class ApiClient {
    */
   async createCell(cell) {
     return this.request('POST', '/cells', cell);
+  }
+
+  // ============ BOTTLES ============
+
+  /**
+   * Get all bottles for current user
+   */
+  async getBottles() {
+    return this.request('GET', '/bottles');
+  }
+
+  /**
+   * Get bottles in a specific cave
+   */
+  async getCaveBottles(caveId) {
+    return this.request('GET', `/caves/${caveId}/bottles`);
   }
 
   // ============ ALERTS ============
