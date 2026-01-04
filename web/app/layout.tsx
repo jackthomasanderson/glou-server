@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, Playfair_Display } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { defaultLocale } from "../lib/i18n/locales";
 
-const displayFont = Playfair_Display({ subsets: ["latin"], variable: "--font-display" });
-const bodyFont = Inter({ subsets: ["latin"], variable: "--font-body" });
+const sansFont = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
 	title: "Glou cellar",
@@ -14,7 +13,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang={defaultLocale} className={`${displayFont.variable} ${bodyFont.variable}`}>
+		<html lang={defaultLocale} className={sansFont.variable}>
 			<body>
 				<Providers initialLocale={defaultLocale}>{children}</Providers>
 			</body>

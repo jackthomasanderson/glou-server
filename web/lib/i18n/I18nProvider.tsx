@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import en from "../../locales/en/common.json";
 import fr from "../../locales/fr/common.json";
 import { defaultLocale, type Locale } from "./locales";
@@ -28,9 +28,45 @@ const resolveKey = (dictionary: Dictionary, key: string) => {
   }, dictionary);
 };
 
-export function I18nProvider({ children, initialLocale = defaultLocale }: { children: React.ReactNode; initialLocale?: Locale }) {
-  const [locale, setLocale] = useState<Locale>(initialLocale);
+const detectBrowserLocale = (): Locale => {
+  if (typeof window === "undefined") return defaultLocale;
+  
+  const stored = localStorage.getItem("glou-locale");
+  if (stored && (stored === "en" || stored === "fr")) {
+    return stored as Locale;
+  }
+
+  const browserLang = navigator.language.toLowerCase();
+  if (browserLang.startsWith("fr")) {
+    return "fr";
+  }
+  
+  return "en";
+};
+
+export function I18nProvider({ children, initialLocale }: { children: React.ReactNode; initialLocale?: Locale }) {
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window === "undefined") return initialLocale || defaultLocale;
+    return detectBrowserLocale();
+  });
+
   const dictionary = useMemo(() => dictionaries[locale] ?? dictionaries[defaultLocale], [locale]);
+
+  const setLocale = (newLocale: Locale) => {
+    setLocaleState(newLocale);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("glou-locale", newLocale);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const detected = detectBrowserLocale();
+      if (detected !== locale) {
+        setLocaleState(detected);
+      }
+    }
+  }, []);
 
   const t = (key: string) => {
     const value = resolveKey(dictionary, key);

@@ -4,10 +4,18 @@
     "subtitle": "Two-step entry with category essentials and optional depth",
     "collection": "Cellar overview"
   },
+  "header": {
+    "language": "Language",
+    "theme": "Theme",
+    "darkMode": "Dark",
+    "lightMode": "Light",
+    "autoMode": "Auto"
+  },
   "sections": {
     "common": "Common essentials",
     "category": "Category essentials",
-    "optional": "Optional details"
+    "optional": "Optional details",
+    "requiredHint": "* Required fields"
   },
   "optionals": {
     "show": "Show optional details",
@@ -34,13 +42,14 @@
     "alertStatus": "Alert state",
     "isOpened": "Opened / Tasted",
     "house": "House",
-    "cuvee": "Cuvée",
-    "vintageOrNM": "Vintage or NM",
-    "vintageOrNV": "Vintage or NV",
+    "name": "Name",
+    "vintageOrNone": "Vintage or without year",
     "style": "Style",
     "distillery": "Distillery",
-    "edition": "Edition / cask",
+    "nameEdition": "Name / Edition",
     "abv": "ABV (%)",
+    "brand": "Brand",
+    "format": "Format",
     "module": "Module",
     "rolledAt": "Rolled in",
     "sealState": "Seal state",

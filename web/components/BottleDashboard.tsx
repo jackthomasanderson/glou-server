@@ -13,7 +13,8 @@ import {
   type WineBottleInput
 } from "../lib/bottles/schema";
 import { useTranslations } from "../lib/i18n/I18nProvider";
-import { type Locale } from "../lib/i18n/locales";
+import { AppHeaderClient } from "./AppHeaderClient";
+import { LocaleSync } from "./LocaleSync";
 
 const queryKey = ["bottles"] as const;
 
@@ -42,8 +43,8 @@ const buildDefaults = (category: BottleCategory): BottleInput => {
         ...baseFields,
         category,
         house: "",
-        cuvee: "",
-        vintageOrNM: "",
+        name: "",
+        vintageOrNone: "",
         style: "",
         dosage: "",
         disgorgement: "",
@@ -56,7 +57,7 @@ const buildDefaults = (category: BottleCategory): BottleInput => {
         ...baseFields,
         category,
         distillery: "",
-        edition: "",
+        nameEdition: "",
         abv: 40,
         ageStatement: "",
         caskType: "",
@@ -69,9 +70,8 @@ const buildDefaults = (category: BottleCategory): BottleInput => {
       return {
         ...baseFields,
         category,
-        module: "",
-        rolledAt: "",
-        sealState: "sealed",
+        brand: "",
+        format: "",
         quantity: 1,
         wrapper: "",
         binder: "",
@@ -86,8 +86,8 @@ const buildDefaults = (category: BottleCategory): BottleInput => {
         ...baseFields,
         category: "wine",
         producer: "",
-        cuvee: "",
-        vintageOrNV: "",
+        name: "",
+        vintageOrNone: "",
         color: "",
         appellation: "",
         grapes: "",
@@ -112,6 +112,11 @@ export function BottleDashboard() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showOptionals, setShowOptionals] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  const showToast = (message: string) => {
+    setFeedback(message);
+    setTimeout(() => setFeedback(null), 3000);
+  };
 
   const { data: bottles = [], isLoading } = useQuery({ queryKey, queryFn: () => fetchBottles(true) });
 
@@ -142,12 +147,12 @@ export function BottleDashboard() {
         deletedAt: null
       };
       queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) => [optimistic, ...current]);
-      setFeedback(t("feedback.optimisticCreate"));
+      showToast(t("feedback.optimisticCreate"));
       return { ...context, tempId } satisfies Context;
     },
     onError: (error, _variables, context) => {
       commonMutateConfig.onError?.(error, _variables, context);
-      setFeedback(t("feedback.saveError"));
+      showToast(t("feedback.saveError"));
     },
     onSuccess: (data, _variables, context) => {
       queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) => {
@@ -165,12 +170,12 @@ export function BottleDashboard() {
       queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) =>
         current.map((item) => (item.id === id ? { ...item, ...payload, updatedAt: new Date().toISOString() } : item))
       );
-      setFeedback(t("feedback.optimisticUpdate"));
+      showToast(t("feedback.optimisticUpdate"));
       return context;
     },
     onError: (error, _variables, context) => {
       commonMutateConfig.onError?.(error, _variables, context);
-      setFeedback(t("feedback.saveError"));
+      showToast(t("feedback.saveError"));
     },
     onSettled: commonMutateConfig.onSettled
   });
@@ -183,12 +188,12 @@ export function BottleDashboard() {
       queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) =>
         current.map((item) => (item.id === id ? { ...item, deletedAt: deletionTime, updatedAt: deletionTime } : item))
       );
-      setFeedback(t("feedback.optimisticDelete"));
+      showToast(t("feedback.optimisticDelete"));
       return context;
     },
     onError: (error, _variables, context) => {
       commonMutateConfig.onError?.(error, _variables, context);
-      setFeedback(t("feedback.deleteError"));
+      showToast(t("feedback.deleteError"));
     },
     onSettled: commonMutateConfig.onSettled
   });
@@ -200,12 +205,12 @@ export function BottleDashboard() {
       queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) =>
         current.map((item) => (item.id === id ? { ...item, deletedAt: null, updatedAt: new Date().toISOString() } : item))
       );
-      setFeedback(t("feedback.optimisticRestore"));
+      showToast(t("feedback.optimisticRestore"));
       return context;
     },
     onError: (error, _variables, context) => {
       commonMutateConfig.onError?.(error, _variables, context);
-      setFeedback(t("feedback.restoreError"));
+      showToast(t("feedback.restoreError"));
     },
     onSettled: commonMutateConfig.onSettled
   });
@@ -257,17 +262,11 @@ export function BottleDashboard() {
         const sparklingForm = form as SparklingInput;
         return (
           <div className="grid">
-            <Field label={t("fields.house")}>
+            <Field label={t("fields.house")} required>
               <input value={sparklingForm.house} onChange={(e) => setForm((prev) => ({ ...prev, house: e.target.value }))} />
             </Field>
-            <Field label={t("fields.cuvee")}>
-              <input value={sparklingForm.cuvee} onChange={(e) => setForm((prev) => ({ ...prev, cuvee: e.target.value }))} />
-            </Field>
-            <Field label={t("fields.vintageOrNM")}>
-              <input value={sparklingForm.vintageOrNM} onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNM: e.target.value }))} />
-            </Field>
-            <Field label={t("fields.style")}>
-              <input value={sparklingForm.style} onChange={(e) => setForm((prev) => ({ ...prev, style: e.target.value }))} />
+            <Field label={t("fields.name")} required>
+              <input value={sparklingForm.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
             </Field>
           </div>
         );
@@ -276,13 +275,13 @@ export function BottleDashboard() {
         const spiritForm = form as SpiritInput;
         return (
           <div className="grid">
-            <Field label={t("fields.distillery")}>
+            <Field label={t("fields.distillery")} required>
               <input value={spiritForm.distillery} onChange={(e) => setForm((prev) => ({ ...prev, distillery: e.target.value }))} />
             </Field>
-            <Field label={t("fields.edition")}>
-              <input value={spiritForm.edition} onChange={(e) => setForm((prev) => ({ ...prev, edition: e.target.value }))} />
+            <Field label={t("fields.nameEdition")} required>
+              <input value={spiritForm.nameEdition} onChange={(e) => setForm((prev) => ({ ...prev, nameEdition: e.target.value }))} />
             </Field>
-            <Field label={t("fields.abv")}>
+            <Field label={t("fields.abv")} required>
               <input
                 type="number"
                 min={20}
@@ -301,22 +300,13 @@ export function BottleDashboard() {
         const cigarForm = form as CigarInput;
         return (
           <div className="grid">
-            <Field label={t("fields.module")}>
-              <input value={cigarForm.module} onChange={(e) => setForm((prev) => ({ ...prev, module: e.target.value }))} />
+            <Field label={t("fields.brand")} required>
+              <input value={cigarForm.brand} onChange={(e) => setForm((prev) => ({ ...prev, brand: e.target.value }))} />
             </Field>
-            <Field label={t("fields.rolledAt")}>
-              <input value={cigarForm.rolledAt} onChange={(e) => setForm((prev) => ({ ...prev, rolledAt: e.target.value }))} />
+            <Field label={t("fields.format")} required>
+              <input value={cigarForm.format} onChange={(e) => setForm((prev) => ({ ...prev, format: e.target.value }))} />
             </Field>
-            <Field label={t("fields.sealState")}>
-              <select
-                value={cigarForm.sealState}
-                onChange={(e) => setForm((prev) => ({ ...prev, sealState: e.target.value as CigarInput["sealState"] }))}
-              >
-                <option value="sealed">{t("sealStates.sealed")}</option>
-                <option value="open">{t("sealStates.open")}</option>
-              </select>
-            </Field>
-            <Field label={t("fields.quantity")}>
+            <Field label={t("fields.quantity")} required>
               <input
                 type="number"
                 min={1}
@@ -332,20 +322,14 @@ export function BottleDashboard() {
         const wineForm = form as WineInput;
         return (
           <div className="grid">
-            <Field label={t("fields.producer")}>
+            <Field label={t("fields.producer")} required>
               <input value={wineForm.producer} onChange={(e) => setForm((prev) => ({ ...prev, producer: e.target.value }))} />
             </Field>
-            <Field label={t("fields.cuvee")}>
-              <input value={wineForm.cuvee} onChange={(e) => setForm((prev) => ({ ...prev, cuvee: e.target.value }))} />
+            <Field label={t("fields.name")} required>
+              <input value={wineForm.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
             </Field>
-            <Field label={t("fields.vintageOrNV")}>
-              <input value={wineForm.vintageOrNV} onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNV: e.target.value }))} />
-            </Field>
-            <Field label={t("fields.color")}>
-              <input value={wineForm.color} onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value }))} />
-            </Field>
-            <Field label={t("fields.appellation")}>
-              <input value={wineForm.appellation} onChange={(e) => setForm((prev) => ({ ...prev, appellation: e.target.value }))} />
+            <Field label={t("fields.vintageOrNone")} required>
+              <input value={wineForm.vintageOrNone} onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNone: e.target.value }))} />
             </Field>
           </div>
         );
@@ -359,6 +343,9 @@ export function BottleDashboard() {
         const sparklingForm = form as SparklingInput;
         return (
           <div className="grid">
+            <Field label={t("fields.vintageOrNone")}>
+              <input value={sparklingForm.vintageOrNone ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNone: e.target.value }))} />
+            </Field>
             <Field label={t("fields.dosage")}>
               <input value={sparklingForm.dosage ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, dosage: e.target.value }))} />
             </Field>
@@ -432,6 +419,12 @@ export function BottleDashboard() {
         const wineForm = form as WineInput;
         return (
           <div className="grid">
+            <Field label={t("fields.color")}>
+              <input value={wineForm.color ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value }))} />
+            </Field>
+            <Field label={t("fields.appellation")}>
+              <input value={wineForm.appellation ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, appellation: e.target.value }))} />
+            </Field>
             <Field label={t("fields.grapes")}>
               <input value={wineForm.grapes ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, grapes: e.target.value }))} />
             </Field>
@@ -497,12 +490,12 @@ export function BottleDashboard() {
 
   return (
     <div className="dashboard">
+      <LocaleSync />
+      <AppHeader />
+      
       <section className="panel">
         <header className="panel__header">
-          <div>
-            <p className="eyebrow">{t("app.subtitle")}</p>
-            <h1>{t("app.title")}</h1>
-          </div>
+          <h2>{t("sections.common")}</h2>
           <div className="actions-inline">
             <button type="button" className="ghost" onClick={resetForm}>
               {t("actions.reset")}
@@ -518,11 +511,12 @@ export function BottleDashboard() {
         <form className="form" onSubmit={handleSubmit}>
           <div className="section">
             <div className="section__title">{t("sections.common")}</div>
+            <p className="section__hint">{t("sections.requiredHint")}</p>
             <div className="grid">
-              <Field label={t("fields.label")}>
+              <Field label={t("fields.label")} required>
                 <input value={form.label} onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))} />
               </Field>
-              <Field label={t("fields.category")}>
+              <Field label={t("fields.category")} required>
                 <select value={form.category} onChange={(e) => handleCategoryChange(e.target.value as BottleCategory)}>
                   <option value="wine">{t("categories.wine")}</option>
                   <option value="sparkling">{t("categories.sparkling")}</option>
@@ -630,7 +624,6 @@ export function BottleDashboard() {
               </button>
             )}
           </div>
-          {feedback && <p className="feedback">{feedback}</p>}
         </form>
       </section>
 
@@ -643,9 +636,20 @@ export function BottleDashboard() {
           <span className="muted">{bottles.filter((b) => !b.deletedAt).length} / {bottles.length}</span>
         </header>
         {isLoading ? (
-          <div className="empty">{t("list.loading")}</div>
+          <div className="empty">
+            <div className="skeleton" style={{ width: "100%", height: "120px" }} />
+            <div className="skeleton" style={{ width: "100%", height: "120px" }} />
+          </div>
         ) : bottles.length === 0 ? (
-          <div className="empty">{t("list.empty")}</div>
+          <div className="empty">
+            <svg className="empty__icon" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M24 8h16v8h-16V8zM20 16h24v40c0 2.2-1.8 4-4 4H24c-2.2 0-4-1.8-4-4V16z" stroke="currentColor" strokeWidth="1.5" fill="none"/>
+              <line x1="28" y1="24" x2="28" y2="48" stroke="currentColor" strokeWidth="1.5"/>
+              <line x1="32" y1="24" x2="32" y2="48" stroke="currentColor" strokeWidth="1.5"/>
+              <line x1="36" y1="24" x2="36" y2="48" stroke="currentColor" strokeWidth="1.5"/>
+            </svg>
+            <p>{t("list.empty")}</p>
+          </div>
         ) : (
           <div className="cards">
             {bottles.map((bottle) => (
@@ -701,11 +705,20 @@ export function BottleDashboard() {
           </div>
         )}
       </section>
+
+      {feedback && <div className="toast">{feedback}</div>}
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
   return (
     <label className="field">
-      <span>{labe
+      <span>
+        {label}
+        {required && <span className="field__required">*</span>}
+      </span>
+      {children}
+    </label>
+  );
+}

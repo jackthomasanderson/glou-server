@@ -4,10 +4,18 @@
     "subtitle": "Saisie en deux temps : tronc commun puis essentiels par catégorie",
     "collection": "Vue cave"
   },
+  "header": {
+    "language": "Langue",
+    "theme": "Thème",
+    "darkMode": "Sombre",
+    "lightMode": "Clair",
+    "autoMode": "Auto"
+  },
   "sections": {
     "common": "Tronc commun",
     "category": "Essentiels par catégorie",
-    "optional": "Compléments optionnels"
+    "optional": "Compléments optionnels",
+    "requiredHint": "* Champs obligatoires"
   },
   "optionals": {
     "show": "Afficher les compléments",
@@ -34,14 +42,14 @@
     "alertStatus": "Etat d'alerte",
     "isOpened": "Entamé / dégusté",
     "house": "Maison",
-    "cuvee": "Cuvée",
-    "vintageOrNM": "Millésime ou NM",
-    "vintageOrNV": "Millésime ou NV",
+    "name": "Nom",
+    "vintageOrNone": "Millésime ou sans année",
     "style": "Type / style",
     "distillery": "Distillerie",
-    "edition": "Édition / fût",
+    "nameEdition": "Nom / Édition",
     "abv": "Degré (%)",
-    "module": "Module",
+    "brand": "Marque",
+    "format": "Format",
     "rolledAt": "Année/période de roulage",
     "sealState": "Etat scellé",
     "quantity": "Quantité",

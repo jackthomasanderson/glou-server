@@ -35,10 +35,10 @@ const commonBottleSchema = z.object({
 const wineBottleSchema = commonBottleSchema.extend({
   category: z.literal("wine"),
   producer: z.string().min(1).max(120),
-  cuvee: z.string().min(1).max(120),
-  vintageOrNV: z.string().min(2).max(12),
-  color: z.string().min(1).max(40),
-  appellation: z.string().min(1).max(120),
+  name: z.string().min(1).max(120),
+  vintageOrNone: z.string().min(2).max(12),
+  color: z.string().min(1).max(40).optional(),
+  appellation: z.string().min(1).max(120).optional(),
   grapes: z.string().max(160).optional(),
   abv: z.number().min(0).max(20).optional(),
   format: z.string().max(40).optional(),
@@ -50,9 +50,9 @@ const wineBottleSchema = commonBottleSchema.extend({
 const sparklingBottleSchema = commonBottleSchema.extend({
   category: z.literal("sparkling"),
   house: z.string().min(1).max(120),
-  cuvee: z.string().min(1).max(120),
-  vintageOrNM: z.string().min(2).max(12),
-  style: z.string().min(1).max(60),
+  name: z.string().min(1).max(120),
+  vintageOrNone: z.string().min(2).max(12).optional(),
+  style: z.string().min(1).max(60).optional(),
   dosage: z.string().max(60).optional(),
   disgorgement: z.string().max(60).optional(),
   pressure: z.string().max(60).optional(),
@@ -63,7 +63,7 @@ const sparklingBottleSchema = commonBottleSchema.extend({
 const spiritBottleSchema = commonBottleSchema.extend({
   category: z.literal("spirit"),
   distillery: z.string().min(1).max(120),
-  edition: z.string().min(1).max(160),
+  nameEdition: z.string().min(1).max(160),
   abv: z.number().min(20).max(80),
   ageStatement: z.string().max(40).optional(),
   caskType: z.string().max(120).optional(),
@@ -75,9 +75,8 @@ const spiritBottleSchema = commonBottleSchema.extend({
 
 const cigarBoxSchema = commonBottleSchema.extend({
   category: z.literal("cigar"),
-  module: z.string().min(1).max(120),
-  rolledAt: z.string().min(2).max(40),
-  sealState: z.enum(["sealed", "open"]),
+  brand: z.string().min(1).max(120),
+  format: z.string().min(1).max(120),
   quantity: z.number().int().min(1).max(200),
   wrapper: z.string().max(80).optional(),
   binder: z.string().max(80).optional(),

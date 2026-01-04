@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { I18nProvider } from "../lib/i18n/I18nProvider";
 import { type Locale } from "../lib/i18n/locales";
 
