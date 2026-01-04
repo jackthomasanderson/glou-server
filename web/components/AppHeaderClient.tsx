@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "../lib/i18n/I18nProvider";
+import { useAuth } from "../lib/auth/AuthContext";
 
 export function AppHeaderClient() {
   const { t, locale, setLocale } = useTranslations();
+  const { user, isAuthenticated, logout } = useAuth();
+  const router = useRouter();
   const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
@@ -19,6 +23,13 @@ export function AppHeaderClient() {
     return null; // Avoid hydration mismatch by rendering nothing on server
   }
 
+  const avatarLabel = user?.username?.trim()?.[0]?.toUpperCase() || "?";
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
+
   return (
     <header className="app-header">
       <div className="app-header__brand">
@@ -26,6 +37,19 @@ export function AppHeaderClient() {
         <p className="eyebrow">{t("app.subtitle")}</p>
       </div>
       <div className="app-header__controls">
+        {isAuthenticated && (
+          <button
+            type="button"
+            className="ghost icon-button"
+            onClick={handleLogout}
+            aria-label={t("auth.logout")}
+            title={t("auth.logout")}
+          >
+            <span className="avatar-badge" aria-hidden="true">
+              {avatarLabel}
+            </span>
+          </button>
+        )}
         <button
           type="button"
           className="ghost icon-button"

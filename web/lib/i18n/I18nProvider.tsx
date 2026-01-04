@@ -21,11 +21,12 @@ const dictionaries: Record<Locale, Dictionary> = {
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
-const resolveKey = (dictionary: Dictionary, key: string) => {
-  return key.split(".").reduce<string | Dictionary>((acc, part) => {
-    if (typeof acc === "string") return acc;
-    return (acc as Record<string, string | Dictionary>)[part] as string | Dictionary;
-  }, dictionary);
+const resolveKey = (dictionary: Dictionary, key: string): unknown => {
+  return key.split(".").reduce<unknown>((acc, part) => {
+    if (!acc || typeof acc !== "object") return undefined;
+    const record = acc as Record<string, unknown>;
+    return record[part];
+  }, dictionary as unknown);
 };
 
 const detectBrowserLocale = (): Locale => {
@@ -46,8 +47,9 @@ const detectBrowserLocale = (): Locale => {
 
 export function I18nProvider({ children, initialLocale }: { children: React.ReactNode; initialLocale?: Locale }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
-    if (typeof window === "undefined") return initialLocale || defaultLocale;
-    return detectBrowserLocale();
+    // Important: keep the very first client render consistent with the server
+    // to avoid React hydration mismatches. We'll sync to detected locale after mount.
+    return initialLocale || defaultLocale;
   });
 
   const dictionary = useMemo(() => dictionaries[locale] ?? dictionaries[defaultLocale], [locale]);
@@ -60,13 +62,11 @@ export function I18nProvider({ children, initialLocale }: { children: React.Reac
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const detected = detectBrowserLocale();
-      if (detected !== locale) {
-        setLocaleState(detected);
-      }
+    const detected = detectBrowserLocale();
+    if (detected !== locale) {
+      setLocaleState(detected);
     }
-  }, []);
+  }, [locale]);
 
   const t = (key: string) => {
     const value = resolveKey(dictionary, key);
@@ -95,4 +95,12 @@ export const useTranslations = () => {
     throw new Error("useTranslations must be used within I18nProvider");
   }
   return ctx;
+};
+
+export const useLocale = () => {
+  const ctx = useContext(I18nContext);
+  if (!ctx) {
+    throw new Error("useLocale must be used within I18nProvider");
+  }
+  return ctx.t;
 };
