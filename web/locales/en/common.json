@@ -18,7 +18,13 @@
     "theme": "Theme",
     "darkMode": "Dark",
     "lightMode": "Light",
-    "autoMode": "Auto"
+    "autoMode": "Auto",
+    "userMenu": {
+      "label": "Account",
+      "profile": "Profile",
+      "security": "Security",
+      "admin": "Admin"
+    }
   },
   "sections": {
     "common": "Common essentials",
@@ -221,7 +227,10 @@
     "activeSessions": "Active sessions",
     "currentSession": "Current session",
     "device": "Device",
+    "deviceNamePrompt": "Device name:",
+    "unknownDevice": "Unknown device",
     "ipAddress": "IP Address",
+    "notAvailable": "N/A",
     "lastActivity": "Last activity",
     "trustDevice": "Trust this device",
     "revokeSession": "Revoke session",
@@ -233,6 +242,7 @@
   },
   "security": {
     "securityTitle": "Security settings",
+    "subtitle": "Manage your account security and active sessions",
     "password": "Password",
     "changePassword": "Change password",
     "currentPassword": "Current password",
@@ -247,6 +257,71 @@
     "confirmAction": "Are you sure?",
     "passwordChangeSuccess": "Password changed successfully",
     "passwordChangeFailed": "Password change failed"
+  },
+  "profile": {
+    "title": "Your profile",
+    "subtitle": "Identity and preferences",
+    "identity": "Identity",
+    "preferences": "Preferences",
+    "displayName": "Display name",
+    "displayNamePlaceholder": "Your name",
+    "avatarUrl": "Avatar URL",
+    "avatarUrlPlaceholder": "https://...",
+    "tagline": "Tagline",
+    "taglinePlaceholder": "Short subtitle",
+    "language": "Language",
+    "languageAuto": "Auto",
+    "theme": "Theme",
+    "accentColor": "Accent color",
+    "save": "Save profile",
+    "saved": "Profile saved"
+  },
+  "roles": {
+    "admin": "Admin",
+    "user": "User"
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Access and branding",
+    "branding": "App branding",
+    "appName": "App name",
+    "appTagline": "App tagline",
+    "logoUrl": "Logo URL",
+    "saveBranding": "Save branding",
+    "brandingSaved": "Branding saved",
+    "users": "Users",
+    "noUsers": "No users",
+    "roleUpdated": "Role updated"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Configure channels and alert categories",
+    "channels": "Channels",
+    "categories": "Categories",
+    "quietHours": "Quiet hours",
+    "enabled": "Enabled",
+    "start": "Start",
+    "end": "End",
+    "webhook": "Webhook",
+    "gotify": "Gotify",
+    "webhookUrl": "Webhook URL",
+    "gotifyUrl": "Gotify URL",
+    "sendTest": "Send test",
+    "testOk": "OK",
+    "testFailed": "Failed",
+    "notAttempted": "Not configured",
+    "channel": {
+      "email": "E-mail",
+      "inApp": "In-app",
+      "webhook": "Webhook",
+      "gotify": "Gotify"
+    },
+    "category": {
+      "peakMaturity": "Peak maturity",
+      "climate": "Humidity / temperature",
+      "plannedConsumption": "Planned consumption",
+      "sharing": "Sharing"
+    }
   },
   "lock": {
     "lockScreen": "Lock screen",

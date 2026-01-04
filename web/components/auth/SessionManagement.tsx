@@ -53,7 +53,7 @@ export function SessionManagement() {
 
   const handleTrustDevice = async (sessionId: string) => {
     try {
-      const deviceName = prompt("Device name:");
+      const deviceName = prompt(t("sessions.deviceNamePrompt"));
       if (deviceName) {
         await authClient.trustDevice(deviceName);
         await loadSessions();
@@ -98,7 +98,7 @@ export function SessionManagement() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="font-medium text-slate-900 dark:text-white">
-                      {session.deviceName || "Unknown Device"}
+                      {session.deviceName || t("sessions.unknownDevice")}
                     </h4>
                     {session.isCurrent && (
                       <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
@@ -112,7 +112,7 @@ export function SessionManagement() {
                     )}
                   </div>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                    {t("sessions.ipAddress")}: {session.ipAddress || "N/A"}
+                    {t("sessions.ipAddress")}: {session.ipAddress || t("sessions.notAvailable")}
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
                     {t("sessions.lastActivity")}: {formatDate(session.lastActivityAt)}

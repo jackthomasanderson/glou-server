@@ -9,6 +9,15 @@
 	--radius: 4px;
 }
 
+html.light {
+	--bg: #fafafa;
+	--surface: #ffffff;
+	--border: #e5e5e5;
+	--danger: #b42318;
+	--text: #0a0a0a;
+	--muted: #525252;
+}
+
 * {
 	box-sizing: border-box;
 }
@@ -88,6 +97,35 @@ a {
 	font-weight: 700;
 	font-size: 12px;
 	letter-spacing: 0.02em;
+}
+
+.user-menu {
+	position: relative;
+	display: inline-flex;
+}
+
+.user-menu__dropdown {
+	position: absolute;
+	right: 0;
+	top: calc(100% + 8px);
+	min-width: 200px;
+	padding: 6px;
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	background: var(--surface);
+	z-index: 50;
+}
+
+.user-menu__item {
+	width: 100%;
+	justify-content: flex-start;
+	padding: 10px 12px;
+}
+
+.user-menu__divider {
+	height: 1px;
+	background: var(--border);
+	margin: 6px 4px;
 }
 
 .icon-button {

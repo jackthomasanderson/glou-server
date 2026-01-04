@@ -2,8 +2,11 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { createAuthRouter } from "./routes/auth.js";
+import { createProfileRouter } from "./routes/profile.js";
+import { createAdminRouter } from "./routes/admin.js";
 import { DatabaseService } from "./services/database.js";
 import { UserService, TwoFAService, SessionService, SecurityEventService } from "./services/auth.js";
+import { AppSettingsService, ProfileService } from "./services/profile.js";
 import { logger } from "./utils/logger.js";
 
 dotenv.config();
@@ -19,6 +22,8 @@ const userService = new UserService(dbService);
 const twoFAService = new TwoFAService(dbService);
 const sessionService = new SessionService(dbService);
 const securityEventService = new SecurityEventService(dbService);
+const profileService = new ProfileService(dbService);
+const appSettingsService = new AppSettingsService(dbService);
 
 // Middleware
 app.use(express.json());
@@ -38,6 +43,13 @@ app.get("/health", (req, res) => {
 app.use(
   "/api/auth",
   createAuthRouter(userService, twoFAService, sessionService, securityEventService)
+);
+
+app.use("/api/profile", createProfileRouter(sessionService, profileService, appSettingsService));
+
+app.use(
+  "/api/admin",
+  createAdminRouter(sessionService, userService, profileService, appSettingsService)
 );
 
 // 404 handler

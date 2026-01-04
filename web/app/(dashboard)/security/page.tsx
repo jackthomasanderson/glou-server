@@ -78,7 +78,7 @@ export default function SecurityPage() {
           {t("security.securityTitle")}
         </h1>
         <p className="text-slate-600 dark:text-slate-400">
-          Manage your account security and active sessions
+          {t("security.subtitle")}
         </p>
       </div>
 

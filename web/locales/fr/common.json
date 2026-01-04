@@ -18,7 +18,13 @@
     "theme": "Thème",
     "darkMode": "Sombre",
     "lightMode": "Clair",
-    "autoMode": "Auto"
+    "autoMode": "Auto",
+    "userMenu": {
+      "label": "Compte",
+      "profile": "Profil",
+      "security": "Sécurité",
+      "admin": "Admin"
+    }
   },
   "sections": {
     "common": "Tronc commun",
@@ -221,7 +227,10 @@
     "activeSessions": "Sessions actives",
     "currentSession": "Session actuelle",
     "device": "Appareil",
+    "deviceNamePrompt": "Nom de l'appareil :",
+    "unknownDevice": "Appareil inconnu",
     "ipAddress": "Adresse IP",
+    "notAvailable": "N/A",
     "lastActivity": "Dernière activité",
     "trustDevice": "Faire confiance à cet appareil",
     "revokeSession": "Révoquer la session",
@@ -233,6 +242,7 @@
   },
   "security": {
     "securityTitle": "Paramètres de sécurité",
+    "subtitle": "Gérez la sécurité de votre compte et les sessions actives",
     "password": "Mot de passe",
     "changePassword": "Changer le mot de passe",
     "currentPassword": "Mot de passe actuel",
@@ -247,6 +257,71 @@
     "confirmAction": "Êtes-vous sûr ?",
     "passwordChangeSuccess": "Mot de passe modifié avec succès",
     "passwordChangeFailed": "Échec du changement de mot de passe"
+  },
+  "profile": {
+    "title": "Votre profil",
+    "subtitle": "Identité et préférences",
+    "identity": "Identité",
+    "preferences": "Préférences",
+    "displayName": "Nom affiché",
+    "displayNamePlaceholder": "Votre nom",
+    "avatarUrl": "URL avatar",
+    "avatarUrlPlaceholder": "https://...",
+    "tagline": "Slogan",
+    "taglinePlaceholder": "Sous-titre court",
+    "language": "Langue",
+    "languageAuto": "Auto",
+    "theme": "Thème",
+    "accentColor": "Couleur d'accent",
+    "save": "Enregistrer le profil",
+    "saved": "Profil enregistré"
+  },
+  "roles": {
+    "admin": "Admin",
+    "user": "Utilisateur"
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Accès et branding",
+    "branding": "Branding de l'app",
+    "appName": "Nom de l'app",
+    "appTagline": "Slogan de l'app",
+    "logoUrl": "URL du logo",
+    "saveBranding": "Enregistrer le branding",
+    "brandingSaved": "Branding enregistré",
+    "users": "Utilisateurs",
+    "noUsers": "Aucun utilisateur",
+    "roleUpdated": "Rôle mis à jour"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Configurez les canaux et les catégories d'alertes",
+    "channels": "Canaux",
+    "categories": "Catégories",
+    "quietHours": "Période silencieuse",
+    "enabled": "Activée",
+    "start": "Début",
+    "end": "Fin",
+    "webhook": "Webhook",
+    "gotify": "Gotify",
+    "webhookUrl": "URL webhook",
+    "gotifyUrl": "URL Gotify",
+    "sendTest": "Envoyer un test",
+    "testOk": "OK",
+    "testFailed": "Échec",
+    "notAttempted": "Non configuré",
+    "channel": {
+      "email": "E-mail",
+      "inApp": "In-app",
+      "webhook": "Webhook",
+      "gotify": "Gotify"
+    },
+    "category": {
+      "peakMaturity": "Apogée",
+      "climate": "Hygrométrie / température",
+      "plannedConsumption": "Consommation planifiée",
+      "sharing": "Partages"
+    }
   },
   "lock": {
     "lockScreen": "Écran de verrouillage",

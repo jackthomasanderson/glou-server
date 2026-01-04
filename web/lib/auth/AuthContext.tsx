@@ -4,6 +4,15 @@ export interface AuthUser {
   id: string;
   username: string;
   email: string;
+  role?: "admin" | "user";
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  tagline?: string | null;
+  preferredLocale?: "en" | "fr" | null;
+  dateTimeFormat?: "system" | "24h" | "12h";
+  temperatureUnit?: "c" | "f";
+  themeMode?: "dark" | "light";
+  accentColor?: string;
   twoFAEnabled: boolean;
   twoFAMethod?: "totp" | "webauthn";
 }
@@ -45,6 +54,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<LoginResult>;
   register: (username: string, email: string, password: string) => Promise<void>;
   verify2FA: (userId: string, code: string, tempToken: string, isRecoveryCode?: boolean) => Promise<LoginSuccessResult>;
+  refreshMe: () => Promise<AuthUser | null>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -92,22 +102,29 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
+  const refreshMe = useCallback(async (): Promise<AuthUser | null> => {
+    try {
+      const response = await fetch("/api/auth/me", { credentials: "include" });
+      if (!response.ok) {
+        dispatch({ type: "CLEAR_AUTH" });
+        return null;
+      }
+
+      const { data } = await response.json();
+      dispatch({ type: "SET_USER", payload: data });
+      return data as AuthUser;
+    } catch {
+      dispatch({ type: "CLEAR_AUTH" });
+      return null;
+    }
+  }, []);
+
   // Initialize auth from session on mount
   useEffect(() => {
     const initializeAuth = async () => {
       dispatch({ type: "SET_LOADING", payload: true });
       try {
-        const response = await fetch("/api/auth/me", {
-          credentials: "include",
-        });
-
-        if (response.ok) {
-          const { data } = await response.json();
-          dispatch({ type: "SET_USER", payload: data });
-          // Session is already stored in httpOnly cookie
-        } else {
-          dispatch({ type: "CLEAR_AUTH" });
-        }
+        await refreshMe();
       } catch (error) {
         dispatch({ type: "CLEAR_AUTH" });
       } finally {
@@ -116,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     initializeAuth();
-  }, []);
+  }, [refreshMe]);
 
   const login = useCallback(async (username: string, password: string) => {
     dispatch({ type: "SET_LOADING", payload: true });
@@ -159,21 +176,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionToken: data.sessionToken,
       };
 
-      const meResponse = await fetch("/api/auth/me", { credentials: "include" });
-      if (!meResponse.ok) {
+      const me = await refreshMe();
+      if (!me?.id) {
         throw new Error("Login succeeded but session initialization failed");
       }
-
-      const me = await readJsonOrText(meResponse);
-      if (!me?.data?.id) {
-        throw new Error("Login succeeded but session initialization failed");
-      }
-
-      dispatch({ type: "SET_USER", payload: me.data });
       dispatch({ type: "SET_SESSION", payload: session });
       dispatch({ type: "SET_LOADING", payload: false });
 
-      const success: LoginSuccessResult = { user: me.data as AuthUser, session };
+      const success: LoginSuccessResult = { user: me, session };
       return success;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed";
@@ -242,21 +252,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionToken: data.sessionToken,
       };
 
-      const meResponse = await fetch("/api/auth/me", { credentials: "include" });
-      if (!meResponse.ok) {
+      const me = await refreshMe();
+      if (!me?.id) {
         throw new Error("2FA verification succeeded but session initialization failed");
       }
-
-      const me = await readJsonOrText(meResponse);
-      if (!me?.data?.id) {
-        throw new Error("2FA verification succeeded but session initialization failed");
-      }
-
-      dispatch({ type: "SET_USER", payload: me.data });
       dispatch({ type: "SET_SESSION", payload: session });
       dispatch({ type: "SET_LOADING", payload: false });
 
-      const success: LoginSuccessResult = { user: me.data as AuthUser, session };
+      const success: LoginSuccessResult = { user: me, session };
       return success;
     } catch (error) {
       const message = error instanceof Error ? error.message : "2FA verification failed";
@@ -292,6 +295,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     verify2FA,
+    refreshMe,
     logout,
     clearError,
   };

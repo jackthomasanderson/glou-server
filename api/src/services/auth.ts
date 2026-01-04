@@ -9,6 +9,12 @@ import { logger } from "../utils/logger.js";
 export class UserService {
   constructor(private db: DatabaseService) {}
 
+  private async hasAnyUser(): Promise<boolean> {
+    const query = `SELECT 1 FROM users LIMIT 1`;
+    const result = await this.db.query(query, []);
+    return result.rows.length > 0;
+  }
+
   /**
    * Create a new user (registration)
    */
@@ -16,14 +22,33 @@ export class UserService {
     const userId = uuidv4();
     const now = new Date();
 
+    const isFirstUser = !(await this.hasAnyUser());
+    const role = isFirstUser ? "admin" : "user";
+
     const query = `
-      INSERT INTO users (id, username, email, password_hash, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, username, email, password_hash as "passwordHash", created_at as "createdAt", updated_at as "updatedAt"
+      INSERT INTO users (id, username, email, password_hash, role, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING
+        id,
+        username,
+        email,
+        role,
+        display_name as "displayName",
+        avatar_url as "avatarUrl",
+        tagline,
+        preferred_locale as "preferredLocale",
+        date_time_format as "dateTimeFormat",
+        temperature_unit as "temperatureUnit",
+        theme_mode as "themeMode",
+        accent_color as "accentColor",
+        notification_settings as "notificationSettings",
+        password_hash as "passwordHash",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
     `;
 
     try {
-      const result = await this.db.query(query, [userId, registration.username, registration.email, passwordHash, now, now]);
+      const result = await this.db.query(query, [userId, registration.username, registration.email, passwordHash, role, now, now]);
       return result.rows[0] as User;
     } catch (error) {
       logger.error({ error, registration }, "Failed to create user");
@@ -36,7 +61,23 @@ export class UserService {
    */
   async getUserByUsername(username: string): Promise<User | null> {
     const query = `
-      SELECT id, username, email, password_hash as "passwordHash", created_at as "createdAt", updated_at as "updatedAt"
+      SELECT
+        id,
+        username,
+        email,
+        role,
+        display_name as "displayName",
+        avatar_url as "avatarUrl",
+        tagline,
+        preferred_locale as "preferredLocale",
+        date_time_format as "dateTimeFormat",
+        temperature_unit as "temperatureUnit",
+        theme_mode as "themeMode",
+        accent_color as "accentColor",
+        notification_settings as "notificationSettings",
+        password_hash as "passwordHash",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
       FROM users
       WHERE username = $1
     `;
@@ -55,7 +96,23 @@ export class UserService {
    */
   async getUserByEmail(email: string): Promise<User | null> {
     const query = `
-      SELECT id, username, email, password_hash as "passwordHash", created_at as "createdAt", updated_at as "updatedAt"
+      SELECT
+        id,
+        username,
+        email,
+        role,
+        display_name as "displayName",
+        avatar_url as "avatarUrl",
+        tagline,
+        preferred_locale as "preferredLocale",
+        date_time_format as "dateTimeFormat",
+        temperature_unit as "temperatureUnit",
+        theme_mode as "themeMode",
+        accent_color as "accentColor",
+        notification_settings as "notificationSettings",
+        password_hash as "passwordHash",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
       FROM users
       WHERE email = $1
     `;
@@ -74,7 +131,23 @@ export class UserService {
    */
   async getUserById(userId: string): Promise<User | null> {
     const query = `
-      SELECT id, username, email, password_hash as "passwordHash", created_at as "createdAt", updated_at as "updatedAt"
+      SELECT
+        id,
+        username,
+        email,
+        role,
+        display_name as "displayName",
+        avatar_url as "avatarUrl",
+        tagline,
+        preferred_locale as "preferredLocale",
+        date_time_format as "dateTimeFormat",
+        temperature_unit as "temperatureUnit",
+        theme_mode as "themeMode",
+        accent_color as "accentColor",
+        notification_settings as "notificationSettings",
+        password_hash as "passwordHash",
+        created_at as "createdAt",
+        updated_at as "updatedAt"
       FROM users
       WHERE id = $1
     `;
