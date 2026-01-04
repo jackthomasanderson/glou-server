@@ -1,0 +1,123 @@
+{
+  "app": {
+    "title": "Cockpit contextuel des bouteilles",
+    "subtitle": "Saisie en deux temps : tronc commun puis essentiels par catégorie",
+    "collection": "Vue cave"
+  },
+  "sections": {
+    "common": "Tronc commun",
+    "category": "Essentiels par catégorie",
+    "optional": "Compléments optionnels"
+  },
+  "optionals": {
+    "show": "Afficher les compléments",
+    "hide": "Masquer les compléments"
+  },
+  "categories": {
+    "wine": "Vin",
+    "sparkling": "Bulles",
+    "spirit": "Spiritueux",
+    "cigar": "Cigare / boîte"
+  },
+  "fields": {
+    "label": "Nom d'affichage",
+    "category": "Catégorie",
+    "location": "Emplacement",
+    "collection": "Collection",
+    "tags": "Tags",
+    "tagsPlaceholder": "cabernet, collectionneur, clayette gauche",
+    "photoUrl": "URL photo",
+    "estimatedValue": "Valeur estimée (€)",
+    "fillLevel": "Niveau",
+    "peakFrom": "Apogée début",
+    "peakTo": "Apogée fin",
+    "alertStatus": "Etat d'alerte",
+    "isOpened": "Entamé / dégusté",
+    "house": "Maison",
+    "cuvee": "Cuvée",
+    "vintageOrNM": "Millésime ou NM",
+    "vintageOrNV": "Millésime ou NV",
+    "style": "Type / style",
+    "distillery": "Distillerie",
+    "edition": "Édition / fût",
+    "abv": "Degré (%)",
+    "module": "Module",
+    "rolledAt": "Année/période de roulage",
+    "sealState": "Etat scellé",
+    "quantity": "Quantité",
+    "producer": "Domaine / producteur",
+    "color": "Couleur",
+    "appellation": "Région / appellation",
+    "dosage": "Dosage",
+    "disgorgement": "Dégorgement",
+    "pressure": "Pression",
+    "baseWine": "Vin de base",
+    "servingTemp": "Température de service",
+    "ageStatement": "Âge déclaré",
+    "caskType": "Type de fût",
+    "batch": "Batch",
+    "additiveNote": "Réduction / sucres ajoutés",
+    "angelShare": "Part des anges",
+    "aromaProfile": "Profil aromatique",
+    "wrapper": "Cape",
+    "binder": "Sous-cape",
+    "filler": "Triplette",
+    "factoryCode": "Factory code",
+    "targetHumidity": "Hygrométrie cible",
+    "humidifier": "Humidificateur",
+    "grapes": "Cépages",
+    "format": "Format",
+    "lotNumber": "Numéro de lot",
+    "carafing": "Carafage"
+  },
+  "actions": {
+    "save": "Enregistrer la bouteille",
+    "update": "Mettre à jour",
+    "reset": "Réinitialiser",
+    "cancelEdit": "Annuler l'édition",
+    "delete": "Suppression logique",
+    "restore": "Restaurer",
+    "undo": "Annuler",
+    "edit": "Modifier",
+    "add": "Ajouter une bouteille"
+  },
+  "feedback": {
+    "optimisticCreate": "Enregistré localement, synchronisation en cours.",
+    "optimisticUpdate": "Mis à jour localement, synchronisation en cours.",
+    "optimisticDelete": "Bouteille archivée. Annuler ?",
+    "optimisticRestore": "Restaurée localement, synchronisation en cours...",
+    "saveError": "Echec de sauvegarde. Vérifier les champs obligatoires.",
+    "deleteError": "Echec de suppression.",
+    "restoreError": "Echec de restauration."
+  },
+  "list": {
+    "title": "Bouteilles",
+    "loading": "Chargement de l'inventaire...",
+    "empty": "Pas encore de bouteille. Ajoutez-en une.",
+    "deleted": "Supprimée",
+    "optimistic": "En attente de synchro",
+    "value": "Valeur estimée",
+    "peak": "Apogée",
+    "location": "Emplacement",
+    "collection": "Collection",
+    "tags": "Tags",
+    "opened": "Entamée",
+    "closed": "Scellée"
+  },
+  "levels": {
+    "full": "Pleine",
+    "threeQuarters": "3/4",
+    "half": "Moitié",
+    "low": "Bas",
+    "empty": "Quasi vide"
+  },
+  "alerts": {
+    "none": "Aucune alerte",
+    "approaching": "Apogée proche",
+    "critical": "Critique"
+  },
+  "sealStates": {
+    "sealed": "Scellée",
+    "open": "Ouverte"
+  }
+}

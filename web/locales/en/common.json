@@ -1,0 +1,123 @@
+{
+  "app": {
+    "title": "Contextual bottle cockpit",
+    "subtitle": "Two-step entry with category essentials and optional depth",
+    "collection": "Cellar overview"
+  },
+  "sections": {
+    "common": "Common essentials",
+    "category": "Category essentials",
+    "optional": "Optional details"
+  },
+  "optionals": {
+    "show": "Show optional details",
+    "hide": "Hide optional details"
+  },
+  "categories": {
+    "wine": "Wine",
+    "sparkling": "Bubbles",
+    "spirit": "Spirit",
+    "cigar": "Cigar / box"
+  },
+  "fields": {
+    "label": "Display name",
+    "category": "Category",
+    "location": "Location",
+    "collection": "Collection",
+    "tags": "Tags",
+    "tagsPlaceholder": "cabernet, collector, left rack",
+    "photoUrl": "Photo URL",
+    "estimatedValue": "Estimated value (€)",
+    "fillLevel": "Fill level",
+    "peakFrom": "Peak start",
+    "peakTo": "Peak end",
+    "alertStatus": "Alert state",
+    "isOpened": "Opened / Tasted",
+    "house": "House",
+    "cuvee": "Cuvée",
+    "vintageOrNM": "Vintage or NM",
+    "vintageOrNV": "Vintage or NV",
+    "style": "Style",
+    "distillery": "Distillery",
+    "edition": "Edition / cask",
+    "abv": "ABV (%)",
+    "module": "Module",
+    "rolledAt": "Rolled in",
+    "sealState": "Seal state",
+    "quantity": "Quantity",
+    "producer": "Producer / domaine",
+    "color": "Color",
+    "appellation": "Appellation / region",
+    "dosage": "Dosage",
+    "disgorgement": "Disgorgement",
+    "pressure": "Pressure",
+    "baseWine": "Base wine",
+    "servingTemp": "Serving temperature",
+    "ageStatement": "Age statement",
+    "caskType": "Cask type",
+    "batch": "Batch",
+    "additiveNote": "Additions",
+    "angelShare": "Angel's share",
+    "aromaProfile": "Aroma profile",
+    "wrapper": "Wrapper",
+    "binder": "Binder",
+    "filler": "Filler",
+    "factoryCode": "Factory code",
+    "targetHumidity": "Target humidity",
+    "humidifier": "Humidifier",
+    "grapes": "Grapes",
+    "format": "Format",
+    "lotNumber": "Lot number",
+    "carafing": "Decanting"
+  },
+  "actions": {
+    "save": "Save bottle",
+    "update": "Update bottle",
+    "reset": "Reset",
+    "cancelEdit": "Cancel edit",
+    "delete": "Soft delete",
+    "restore": "Restore",
+    "undo": "Undo",
+    "edit": "Edit",
+    "add": "Add bottle"
+  },
+  "feedback": {
+    "optimisticCreate": "Saved locally, syncing in background.",
+    "optimisticUpdate": "Updated locally, syncing in background.",
+    "optimisticDelete": "Bottle archived. Undo?",
+    "optimisticRestore": "Restored locally, syncing...",
+    "saveError": "Save failed. Please review required fields.",
+    "deleteError": "Delete failed.",
+    "restoreError": "Restore failed."
+  },
+  "list": {
+    "title": "Bottles",
+    "loading": "Loading inventory...",
+    "empty": "No bottles yet. Add the first one.",
+    "deleted": "Deleted",
+    "optimistic": "Pending sync",
+    "value": "Estimated value",
+    "peak": "Peak maturity",
+    "location": "Location",
+    "collection": "Collection",
+    "tags": "Tags",
+    "opened": "Opened",
+    "closed": "Sealed"
+  },
+  "levels": {
+    "full": "Full",
+    "threeQuarters": "3/4",
+    "half": "Half",
+    "low": "Low",
+    "empty": "Empty"
+  },
+  "alerts": {
+    "none": "No alert",
+    "approaching": "Approaching peak",
+    "critical": "Critical"
+  },
+  "sealStates": {
+    "sealed": "Sealed",
+    "open": "Open"
+  }
+}
