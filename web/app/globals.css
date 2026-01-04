@@ -357,6 +357,28 @@ button:disabled {
 	animation: slideUp 0.3s ease;
 	z-index: 1000;
 	max-width: 90vw;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.toast__action {
+	padding: 6px 12px;
+	border: 1px solid var(--accent);
+	border-radius: var(--radius);
+	background: transparent;
+	color: var(--accent);
+	cursor: pointer;
+	font-size: 13px;
+	font-weight: 500;
+	transition: all 0.2s ease;
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.toast__action:hover {
+	background: var(--accent);
+	color: var(--bg);
 }
 
 @keyframes slideUp {

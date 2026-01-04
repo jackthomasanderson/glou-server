@@ -1,8 +1,17 @@
 {
   "app": {
+    "name": "Glou",
     "title": "Cockpit contextuel des bouteilles",
     "subtitle": "Saisie en deux temps : tronc commun puis essentiels par catégorie",
     "collection": "Vue cave"
+  },
+  "pageTitles": {
+    "dashboard": "Inventaire",
+    "addBottle": "Ajout bouteille",
+    "editBottle": "Édition bouteille",
+    "alerts": "Alertes",
+    "profile": "Profil",
+    "settings": "Paramètres"
   },
   "header": {
     "language": "Langue",
@@ -76,14 +85,23 @@
     "grapes": "Cépages",
     "format": "Format",
     "lotNumber": "Numéro de lot",
-    "carafing": "Carafage"
+    "carafing": "Carafage",
+    "wine": {
+      "name": "Appellation / Cuvée"
+    },
+    "sparkling": {
+      "name": "Appellation / Cuvée"
+    },
+    "spirit": {
+      "nameEdition": "Expression / Ligne"
+    }
   },
   "actions": {
     "save": "Enregistrer la bouteille",
     "update": "Mettre à jour",
     "reset": "Réinitialiser",
     "cancelEdit": "Annuler l'édition",
-    "delete": "Suppression logique",
+    "delete": "Supprimer",
     "restore": "Restaurer",
     "undo": "Annuler",
     "edit": "Modifier",
@@ -92,11 +110,18 @@
   "feedback": {
     "optimisticCreate": "Enregistré localement, synchronisation en cours.",
     "optimisticUpdate": "Mis à jour localement, synchronisation en cours.",
-    "optimisticDelete": "Bouteille archivée. Annuler ?",
+    "optimisticDelete": "Déplacée à la corbeille. Restaurer ?",
     "optimisticRestore": "Restaurée localement, synchronisation en cours...",
     "saveError": "Echec de sauvegarde. Vérifier les champs obligatoires.",
     "deleteError": "Echec de suppression.",
-    "restoreError": "Echec de restauration."
+    "restoreError": "Echec de restauration.",
+    "permanentlyDeleted": "Supprimée définitivement."
+  },
+  "trash": {
+    "title": "Corbeille",
+    "empty": "La corbeille est vide",
+    "expiresIn": "Expire dans",
+    "days": "jours"
   },
   "list": {
     "title": "Bouteilles",

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { bottleStore } from "../lib/bottles/store";
 import { createBottle, deleteBottle, fetchBottles, restoreBottle, updateBottle } from "../lib/bottles/client";
 import {
   type BottleCategory,
@@ -103,6 +104,7 @@ const buildDefaults = (category: BottleCategory): BottleInput => {
 type Context = {
   previous?: BottleRecord[];
   tempId?: string;
+  lastDeletedId?: string;
 };
 
 export function BottleDashboard() {
@@ -112,10 +114,19 @@ export function BottleDashboard() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showOptionals, setShowOptionals] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackAction, setFeedbackAction] = useState<(() => void) | null>(null);
 
-  const showToast = (message: string) => {
+  const showToast = (message: string, action?: () => void) => {
     setFeedback(message);
-    setTimeout(() => setFeedback(null), 3000);
+    setFeedbackAction(() => action || null);
+    setTimeout(() => {
+      setFeedback(null);
+      setFeedbackAction(null);
+    }, 3000);
+  };
+
+  const getDaysUntilDelete = (deletedAt: string | null): number | null => {
+    return bottleStore.getDaysUntilPermanentDelete(deletedAt);
   };
 
   const { data: bottles = [], isLoading } = useQuery({ queryKey, queryFn: () => fetchBottles(true) });
@@ -152,7 +163,8 @@ export function BottleDashboard() {
     },
     onError: (error, _variables, context) => {
       commonMutateConfig.onError?.(error, _variables, context);
-      showToast(t("feedback.saveError"));
+      const errorMessage = error instanceof Error ? error.message : t("feedback.saveError");
+      showToast(errorMessage);
     },
     onSuccess: (data, _variables, context) => {
       queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) => {
@@ -175,7 +187,8 @@ export function BottleDashboard() {
     },
     onError: (error, _variables, context) => {
       commonMutateConfig.onError?.(error, _variables, context);
-      showToast(t("feedback.saveError"));
+      const errorMessage = error instanceof Error ? error.message : t("feedback.saveError");
+      showToast(errorMessage);
     },
     onSettled: commonMutateConfig.onSettled
   });
@@ -188,12 +201,13 @@ export function BottleDashboard() {
       queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) =>
         current.map((item) => (item.id === id ? { ...item, deletedAt: deletionTime, updatedAt: deletionTime } : item))
       );
-      showToast(t("feedback.optimisticDelete"));
-      return context;
+      showToast(t("feedback.optimisticDelete"), () => restoreMutation.mutate(id));
+      return { ...context, lastDeletedId: id } satisfies Context;
     },
     onError: (error, _variables, context) => {
       commonMutateConfig.onError?.(error, _variables, context);
-      showToast(t("feedback.deleteError"));
+      const errorMessage = error instanceof Error ? error.message : t("feedback.deleteError");
+      showToast(errorMessage);
     },
     onSettled: commonMutateConfig.onSettled
   });
@@ -210,7 +224,8 @@ export function BottleDashboard() {
     },
     onError: (error, _variables, context) => {
       commonMutateConfig.onError?.(error, _variables, context);
-      showToast(t("feedback.restoreError"));
+      const errorMessage = error instanceof Error ? error.message : t("feedback.restoreError");
+      showToast(errorMessage);
     },
     onSettled: commonMutateConfig.onSettled
   });
@@ -265,7 +280,7 @@ export function BottleDashboard() {
             <Field label={t("fields.house")} required>
               <input value={sparklingForm.house} onChange={(e) => setForm((prev) => ({ ...prev, house: e.target.value }))} />
             </Field>
-            <Field label={t("fields.name")} required>
+            <Field label={t("fields.sparkling.name")} required>
               <input value={sparklingForm.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
             </Field>
           </div>
@@ -278,7 +293,7 @@ export function BottleDashboard() {
             <Field label={t("fields.distillery")} required>
               <input value={spiritForm.distillery} onChange={(e) => setForm((prev) => ({ ...prev, distillery: e.target.value }))} />
             </Field>
-            <Field label={t("fields.nameEdition")} required>
+            <Field label={t("fields.spirit.nameEdition")} required>
               <input value={spiritForm.nameEdition} onChange={(e) => setForm((prev) => ({ ...prev, nameEdition: e.target.value }))} />
             </Field>
             <Field label={t("fields.abv")} required>
@@ -325,7 +340,7 @@ export function BottleDashboard() {
             <Field label={t("fields.producer")} required>
               <input value={wineForm.producer} onChange={(e) => setForm((prev) => ({ ...prev, producer: e.target.value }))} />
             </Field>
-            <Field label={t("fields.name")} required>
+            <Field label={t("fields.wine.name")} required>
               <input value={wineForm.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
             </Field>
             <Field label={t("fields.vintageOrNone")} required>
@@ -491,7 +506,7 @@ export function BottleDashboard() {
   return (
     <div className="dashboard">
       <LocaleSync />
-      <AppHeader />
+      <AppHeaderClient />
       
       <section className="panel">
         <header className="panel__header">
@@ -681,6 +696,9 @@ export function BottleDashboard() {
                   {bottle.location && <span>{t("list.location")}: {bottle.location}</span>}
                   {bottle.collection && <span>{t("list.collection")}: {bottle.collection}</span>}
                   {bottle.tags && bottle.tags.length > 0 && <span>{t("list.tags")}: {bottle.tags.join(", ")}</span>}
+                  {bottle.deletedAt && (
+                    <span className="muted">{t("trash.expiresIn")}: {getDaysUntilDelete(bottle.deletedAt) || "0"} {t("trash.days")}</span>
+                  )}
                 </div>
 
                 <div className="card__actions">
@@ -706,7 +724,16 @@ export function BottleDashboard() {
         )}
       </section>
 
-      {feedback && <div className="toast">{feedback}</div>}
+      {feedback && (
+        <div className="toast">
+          <span>{feedback}</span>
+          {feedbackAction && (
+            <button type="button" className="toast__action" onClick={() => { feedbackAction(); setFeedback(null); setFeedbackAction(null); }}>
+              {t("actions.undo")}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

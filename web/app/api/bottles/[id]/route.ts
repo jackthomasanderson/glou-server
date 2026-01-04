@@ -21,7 +21,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     return NextResponse.json({ data: updated });
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: "INVALID_PAYLOAD", issues: error.issues }, { status: 400 });
+      const issues = error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("; ");
+      return NextResponse.json({ error: `Validation failed: ${issues}` }, { status: 400 });
     }
     if (error instanceof BottleStoreError) {
       return NextResponse.json({ error: error.message }, { status: 404 });

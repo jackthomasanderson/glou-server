@@ -1,8 +1,17 @@
 {
   "app": {
+    "name": "Glou",
     "title": "Contextual bottle cockpit",
     "subtitle": "Two-step entry with category essentials and optional depth",
     "collection": "Cellar overview"
+  },
+  "pageTitles": {
+    "dashboard": "Inventory",
+    "addBottle": "Add bottle",
+    "editBottle": "Edit bottle",
+    "alerts": "Alerts",
+    "profile": "Profile",
+    "settings": "Settings"
   },
   "header": {
     "language": "Language",
@@ -77,14 +86,23 @@
     "grapes": "Grapes",
     "format": "Format",
     "lotNumber": "Lot number",
-    "carafing": "Decanting"
+    "carafing": "Decanting",
+    "wine": {
+      "name": "Appellation / Cuvée"
+    },
+    "sparkling": {
+      "name": "Appellation / Cuvée"
+    },
+    "spirit": {
+      "nameEdition": "Expression / Line"
+    }
   },
   "actions": {
     "save": "Save bottle",
     "update": "Update bottle",
     "reset": "Reset",
     "cancelEdit": "Cancel edit",
-    "delete": "Soft delete",
+    "delete": "Delete",
     "restore": "Restore",
     "undo": "Undo",
     "edit": "Edit",
@@ -93,11 +111,18 @@
   "feedback": {
     "optimisticCreate": "Saved locally, syncing in background.",
     "optimisticUpdate": "Updated locally, syncing in background.",
-    "optimisticDelete": "Bottle archived. Undo?",
+    "optimisticDelete": "Moved to trash. Restore?",
     "optimisticRestore": "Restored locally, syncing...",
     "saveError": "Save failed. Please review required fields.",
     "deleteError": "Delete failed.",
-    "restoreError": "Restore failed."
+    "restoreError": "Restore failed.",
+    "permanentlyDeleted": "Permanently deleted."
+  },
+  "trash": {
+    "title": "Trash",
+    "empty": "Trash is empty",
+    "expiresIn": "Expires in",
+    "days": "days"
   },
   "list": {
     "title": "Bottles",

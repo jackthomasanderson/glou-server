@@ -1,5 +1,12 @@
 import { bottleInputSchema, type BottleInput, type BottleRecord } from "./schema";
 
+export class BottleStoreError extends Error {
+  constructor(code: string) {
+    super(code);
+    this.name = "BottleStoreError";
+  }
+}
+
 type BottleStoreState = {
   items: BottleRecord[];
 };
@@ -18,11 +25,21 @@ const ensureStore = (): BottleStoreState => {
 
 const nowIso = () => new Date().toISOString();
 
-export class BottleStoreError extends Error {}
+const TRASH_RETENTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+const isTrashExpired = (deletedAt: string | null): boolean => {
+  if (!deletedAt) return false;
+  const now = new Date().getTime();
+  const deletedTime = new Date(deletedAt).getTime();
+  return now - deletedTime > TRASH_RETENTION_MS;
+};
 
 export const bottleStore = {
   list(includeDeleted = false): BottleRecord[] {
     const store = ensureStore();
+    // Clean up expired trash items
+    store.items = store.items.filter((item) => !isTrashExpired(item.deletedAt));
+    
     return store.items
       .filter((item) => includeDeleted || !item.deletedAt)
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -88,5 +105,14 @@ export const bottleStore = {
     };
     store.items[index] = restored;
     return restored;
+  },
+
+  getDaysUntilPermanentDelete(deletedAt: string | null): number | null {
+    if (!deletedAt) return null;
+    const now = new Date().getTime();
+    const deletedTime = new Date(deletedAt).getTime();
+    const timeRemaining = TRASH_RETENTION_MS - (now - deletedTime);
+    if (timeRemaining <= 0) return null;
+    return Math.ceil(timeRemaining / (24 * 60 * 60 * 1000));
   }
 };

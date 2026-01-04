@@ -20,7 +20,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json({ error: "INVALID_PAYLOAD", issues: error.issues }, { status: 400 });
+      const issues = error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("; ");
+      return NextResponse.json({ error: `Validation failed: ${issues}` }, { status: 400 });
     }
     return NextResponse.json({ error: "UNEXPECTED_ERROR" }, { status: 500 });
   }
