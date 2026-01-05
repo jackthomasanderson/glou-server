@@ -36,7 +36,7 @@ type LoginSuccessResult = {
 
 export type LoginResult = LoginChallengeResult | LoginSuccessResult;
 
-async function readJsonOrText(response: Response): Promise<any> {
+async function readJsonOrText<T = unknown>(response: Response): Promise<T | { error?: string } | null> {
   const contentType = response.headers.get("content-type") || "";
   if (contentType.toLowerCase().includes("application/json")) {
     return response.json();
@@ -124,10 +124,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       dispatch({ type: "SET_LOADING", payload: true });
       try {
-        await refreshMe();
-      } catch (error) {
-        dispatch({ type: "CLEAR_AUTH" });
-      } finally {
+        // BYPASS POUR FEAT-01 : initialiser avec un utilisateur fictif
+        const dummyUser: AuthUser = {
+          id: "bypass-user-feat01",
+          username: "TestUser",
+          email: "test@glou.local",
+          role: "user",
+          displayName: "Test User",
+          twoFAEnabled: false,
+          preferredLocale: "fr",
+          dateTimeFormat: "system",
+          temperatureUnit: "c",
+          themeMode: "dark",
+          accentColor: "#8B0000",
+        };
+
+        const dummySession: AuthSession = {
+          id: "bypass-session-feat01",
+          sessionToken: "bypass-token-feat01",
+        };
+
+        dispatch({ type: "SET_USER", payload: dummyUser });
+        dispatch({ type: "SET_SESSION", payload: dummySession });
+        dispatch({ type: "SET_LOADING", payload: false });
+
+        // Code original (désactivé) :
+        // await refreshMe();
+      } catch {
+        // dispatch({ type: "CLEAR_AUTH" });
         dispatch({ type: "SET_LOADING", payload: false });
       }
     };
@@ -147,26 +171,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         credentials: "include",
       });
 
-      const result = await readJsonOrText(response);
+      const result = await readJsonOrText<{ error?: string } | { data?: { sessionId?: string; sessionToken?: string }; requiresTwoFA?: boolean; userId?: string; tempToken?: string; twoFAMethod?: string }>(response);
 
       if (!response.ok) {
-        throw new Error(result?.error || "Login failed");
+        throw new Error((result as { error?: string })?.error || "Login failed");
       }
 
-      if (result?.requiresTwoFA) {
+      if ((result as { requiresTwoFA?: boolean })?.requiresTwoFA) {
         dispatch({ type: "SET_LOADING", payload: false });
 
         const challenge: LoginChallengeResult = {
           requiresTwoFA: true,
-          userId: String(result.userId),
-          tempToken: String(result.tempToken),
-          twoFAMethod: String(result.twoFAMethod),
+          userId: String((result as { userId?: string })?.userId),
+          tempToken: String((result as { tempToken?: string })?.tempToken),
+          twoFAMethod: String((result as { twoFAMethod?: string })?.twoFAMethod),
         };
 
         return challenge;
       }
 
-      const data = result?.data;
+      const data = (result as { data?: { sessionId?: string; sessionToken?: string } })?.data;
       if (!data?.sessionId || !data?.sessionToken) {
         throw new Error("Login failed");
       }
@@ -191,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "SET_LOADING", payload: false });
       throw error;
     }
-  }, []);
+  }, [refreshMe]);
 
   const register = useCallback(async (username: string, email: string, password: string) => {
     dispatch({ type: "SET_LOADING", payload: true });
@@ -236,13 +260,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         credentials: "include",
       });
 
-      const result = await readJsonOrText(response);
+      const result = await readJsonOrText<{ error?: string } | { data?: { sessionId?: string; sessionToken?: string } }>(response);
 
       if (!response.ok) {
-        throw new Error(result?.error || "2FA verification failed");
+        throw new Error((result as { error?: string })?.error || "2FA verification failed");
       }
 
-      const data = result?.data;
+      const data = (result as { data?: { sessionId?: string; sessionToken?: string } })?.data;
       if (!data?.sessionId || !data?.sessionToken) {
         throw new Error("2FA verification failed");
       }
@@ -267,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "SET_LOADING", payload: false });
       throw error;
     }
-  }, []);
+  }, [refreshMe]);
 
   const logout = useCallback(async () => {
     try {

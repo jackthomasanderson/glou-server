@@ -1,6 +1,12 @@
 import { type BottleInput, type BottleRecord } from "./schema";
 
-const headers = { "Content-Type": "application/json" };
+const getAuthHeaders = () => {
+  // Fallback: use test user ID for development
+  return {
+    "Content-Type": "application/json",
+    "x-user-id": "test-user-dev"
+  };
+};
 
 const handleResponse = async (response: Response) => {
   const payload = await response.json().catch(() => ({}));
@@ -12,14 +18,17 @@ const handleResponse = async (response: Response) => {
 };
 
 export async function fetchBottles(includeDeleted = true): Promise<BottleRecord[]> {
-  const res = await fetch(`/api/bottles?includeDeleted=${includeDeleted}`, { cache: "no-store" });
+  const res = await fetch(`/api/bottles?includeDeleted=${includeDeleted}`, {
+    cache: "no-store",
+    headers: getAuthHeaders()
+  });
   return (await handleResponse(res)) as BottleRecord[];
 }
 
 export async function createBottle(input: BottleInput): Promise<BottleRecord> {
   const res = await fetch("/api/bottles", {
     method: "POST",
-    headers,
+    headers: getAuthHeaders(),
     body: JSON.stringify(input)
   });
   return (await handleResponse(res)) as BottleRecord;
@@ -28,18 +37,24 @@ export async function createBottle(input: BottleInput): Promise<BottleRecord> {
 export async function updateBottle(id: string, input: BottleInput): Promise<BottleRecord> {
   const res = await fetch(`/api/bottles/${id}`, {
     method: "PATCH",
-    headers,
+    headers: getAuthHeaders(),
     body: JSON.stringify(input)
   });
   return (await handleResponse(res)) as BottleRecord;
 }
 
 export async function deleteBottle(id: string): Promise<BottleRecord> {
-  const res = await fetch(`/api/bottles/${id}`, { method: "DELETE" });
+  const res = await fetch(`/api/bottles/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeaders()
+  });
   return (await handleResponse(res)) as BottleRecord;
 }
 
 export async function restoreBottle(id: string): Promise<BottleRecord> {
-  const res = await fetch(`/api/bottles/${id}/restore`, { method: "POST" });
+  const res = await fetch(`/api/bottles/${id}/restore`, {
+    method: "POST",
+    headers: getAuthHeaders()
+  });
   return (await handleResponse(res)) as BottleRecord;
 }

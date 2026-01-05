@@ -3,7 +3,6 @@
 import React from "react";
 import { useCaveById, useUpdateCave } from "@/lib/caves/store";
 import { CaveType } from "@/types/caves";
-import { useRouter } from "next/navigation";
 
 interface CaveDetailsProps {
   caveId: string;
@@ -21,7 +20,6 @@ const caveTypeLabels: Record<CaveType, { en: string; fr: string }> = {
 };
 
 export function CaveDetails({ caveId, locale }: CaveDetailsProps) {
-  const router = useRouter();
   const { data: cave, isLoading, error } = useCaveById(caveId);
   const updateMutation = useUpdateCave();
   const [isEditing, setIsEditing] = React.useState(false);

@@ -46,6 +46,15 @@ export const bottleStore = {
   },
 
   create(input: BottleInput): BottleRecord {
+    console.debug("[bottleStore.create] input:", input);
+    if (!input || typeof input !== 'object') {
+      console.error("[bottleStore.create] invalid input type:", typeof input, input);
+      throw new BottleStoreError("INVALID_INPUT");
+    }
+    if (!('category' in input)) {
+      console.error("[bottleStore.create] missing category in:", input);
+      throw new BottleStoreError("MISSING_CATEGORY");
+    }
     const parsed = bottleInputSchema.parse(input);
     const store = ensureStore();
     const now = nowIso();

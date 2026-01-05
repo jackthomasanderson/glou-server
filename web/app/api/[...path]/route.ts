@@ -11,16 +11,21 @@ function getForwardCookieHeader(request: NextRequest): string {
   return all.map((c) => `${c.name}=${c.value}`).join("; ");
 }
 
+type HeadersWithGetSetCookie = {
+  getSetCookie?: () => string[];
+};
+
 function createProxiedResponse(payload: unknown, backendResponse: Response) {
   const next = NextResponse.json(payload, { status: backendResponse.status });
 
   // Forward session cookies (critical for auth)
-  const headersAny = backendResponse.headers as any;
+  const headersAny = backendResponse.headers as unknown as HeadersWithGetSetCookie;
+  const single = backendResponse.headers.get("set-cookie");
   const setCookies: string[] =
     typeof headersAny?.getSetCookie === "function"
-      ? headersAny.getSetCookie()
-      : backendResponse.headers.get("set-cookie")
-        ? [backendResponse.headers.get("set-cookie") as string]
+      ? headersAny.getSetCookie() ?? []
+      : single
+        ? [single]
         : [];
 
   for (const cookie of setCookies) {

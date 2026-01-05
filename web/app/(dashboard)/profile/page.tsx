@@ -19,12 +19,14 @@ import {
   type UserSummary,
 } from "@/lib/profile/client";
 
+type NotificationSettings = NonNullable<Profile["notificationSettings"]>;
+
 const profileKey = ["profile", "me"] as const;
 const usersKey = ["admin", "users"] as const;
 const appSettingsKey = ["app-settings"] as const;
 
 function getNotificationSettings(profile: Profile) {
-  const raw = (profile.notificationSettings ?? {}) as any;
+  const raw = (profile.notificationSettings ?? {}) as Partial<NotificationSettings>;
   return {
     channels: raw.channels ?? {},
     categories: raw.categories ?? {},
@@ -95,7 +97,7 @@ export default function ProfilePage() {
           ...previousProfile,
           ...input,
           notificationSettings:
-            input.notificationSettings ? (input.notificationSettings as any) : previousProfile.notificationSettings,
+            input.notificationSettings ? input.notificationSettings : previousProfile.notificationSettings,
         };
         queryClient.setQueryData(profileKey, nextProfile);
       }
@@ -191,7 +193,7 @@ export default function ProfilePage() {
     );
   }
 
-  const notif = effective ? (effective.notificationSettings as any) : null;
+  const notif = effective ? (effective.notificationSettings as NotificationSettings) : null;
 
   return (
     <div className="dashboard">
@@ -299,7 +301,7 @@ export default function ProfilePage() {
               <label className="field">
                 {t("notifications.webhookUrl")}
                 <input
-                  value={notif?.webhookUrl ?? ""}
+                  value={(notif?.webhookUrl as string) ?? ""}
                   onChange={(e) =>
                     setDraft((d) => ({
                       ...d,
@@ -313,7 +315,7 @@ export default function ProfilePage() {
               <label className="field">
                 {t("notifications.gotifyUrl")}
                 <input
-                  value={notif?.gotifyUrl ?? ""}
+                  value={(notif?.gotifyUrl as string) ?? ""}
                   onChange={(e) =>
                     setDraft((d) => ({
                       ...d,
@@ -331,13 +333,13 @@ export default function ProfilePage() {
                     <label key={channel} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <input
                         type="checkbox"
-                        checked={!!notif?.channels?.[channel]}
+                        checked={!!(notif?.channels as Record<string, unknown>)?.[channel]}
                         onChange={(e) =>
                           setDraft((d) => ({
                             ...d,
                             notificationSettings: {
                               ...notif,
-                              channels: { ...notif.channels, [channel]: e.target.checked },
+                              channels: { ...(notif.channels as Record<string, unknown>), [channel]: e.target.checked },
                             },
                           }))
                         }
@@ -360,13 +362,13 @@ export default function ProfilePage() {
                     <label key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <input
                         type="checkbox"
-                        checked={!!notif?.categories?.[key]}
+                        checked={!!(notif?.categories as Record<string, unknown>)?.[key]}
                         onChange={(e) =>
                           setDraft((d) => ({
                             ...d,
                             notificationSettings: {
                               ...notif,
-                              categories: { ...notif.categories, [key]: e.target.checked },
+                              categories: { ...(notif.categories as Record<string, unknown>), [key]: e.target.checked },
                             },
                           }))
                         }
@@ -383,13 +385,13 @@ export default function ProfilePage() {
                   <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <input
                       type="checkbox"
-                      checked={!!notif?.quietHours?.enabled}
+                      checked={!!(notif?.quietHours as Record<string, unknown>)?.enabled}
                       onChange={(e) =>
                         setDraft((d) => ({
                           ...d,
                           notificationSettings: {
                             ...notif,
-                            quietHours: { ...notif.quietHours, enabled: e.target.checked },
+                            quietHours: { ...(notif.quietHours as Record<string, unknown>), enabled: e.target.checked },
                           },
                         }))
                       }
@@ -401,13 +403,13 @@ export default function ProfilePage() {
                     {t("notifications.start")}
                     <input
                       type="time"
-                      value={notif?.quietHours?.start ?? ""}
+                      value={(notif?.quietHours as Record<string, unknown>)?.start as string ?? ""}
                       onChange={(e) =>
                         setDraft((d) => ({
                           ...d,
                           notificationSettings: {
                             ...notif,
-                            quietHours: { ...notif.quietHours, start: e.target.value },
+                            quietHours: { ...(notif.quietHours as Record<string, unknown>), start: e.target.value },
                           },
                         }))
                       }
@@ -418,13 +420,13 @@ export default function ProfilePage() {
                     {t("notifications.end")}
                     <input
                       type="time"
-                      value={notif?.quietHours?.end ?? ""}
+                      value={(notif?.quietHours as Record<string, unknown>)?.end as string ?? ""}
                       onChange={(e) =>
                         setDraft((d) => ({
                           ...d,
                           notificationSettings: {
                             ...notif,
-                            quietHours: { ...notif.quietHours, end: e.target.value },
+                            quietHours: { ...(notif.quietHours as Record<string, unknown>), end: e.target.value },
                           },
                         }))
                       }
@@ -480,7 +482,17 @@ export default function ProfilePage() {
                   <input
                     value={appSettingsQuery.data?.appName ?? ""}
                     onChange={(e) =>
-                      queryClient.setQueryData(appSettingsKey, (prev: any) => ({ ...prev, appName: e.target.value || null }))
+                      queryClient.setQueryData<AppSettings | undefined>(appSettingsKey, (prev) => {
+                        const base =
+                          prev ??
+                          ({
+                            appName: null,
+                            appTagline: null,
+                            logoUrl: null,
+                            updatedAt: new Date().toISOString(),
+                          } satisfies AppSettings);
+                        return { ...base, appName: e.target.value || null };
+                      })
                     }
                   />
                 </label>
@@ -490,7 +502,17 @@ export default function ProfilePage() {
                   <input
                     value={appSettingsQuery.data?.appTagline ?? ""}
                     onChange={(e) =>
-                      queryClient.setQueryData(appSettingsKey, (prev: any) => ({ ...prev, appTagline: e.target.value || null }))
+                      queryClient.setQueryData<AppSettings | undefined>(appSettingsKey, (prev) => {
+                        const base =
+                          prev ??
+                          ({
+                            appName: null,
+                            appTagline: null,
+                            logoUrl: null,
+                            updatedAt: new Date().toISOString(),
+                          } satisfies AppSettings);
+                        return { ...base, appTagline: e.target.value || null };
+                      })
                     }
                   />
                 </label>
@@ -500,7 +522,17 @@ export default function ProfilePage() {
                   <input
                     value={appSettingsQuery.data?.logoUrl ?? ""}
                     onChange={(e) =>
-                      queryClient.setQueryData(appSettingsKey, (prev: any) => ({ ...prev, logoUrl: e.target.value || null }))
+                      queryClient.setQueryData<AppSettings | undefined>(appSettingsKey, (prev) => {
+                        const base =
+                          prev ??
+                          ({
+                            appName: null,
+                            appTagline: null,
+                            logoUrl: null,
+                            updatedAt: new Date().toISOString(),
+                          } satisfies AppSettings);
+                        return { ...base, logoUrl: e.target.value || null };
+                      })
                     }
                     placeholder="https://..."
                   />
@@ -544,7 +576,7 @@ export default function ProfilePage() {
                         <label className="field" style={{ minWidth: 140 }}>
                           <select
                             value={u.role}
-                            onChange={(e) => updateRoleMutation.mutate({ userId: u.id, role: e.target.value as any })}
+                            onChange={(e) => updateRoleMutation.mutate({ userId: u.id, role: e.target.value as UserSummary["role"] })}
                           >
                             <option value="admin">{t("roles.admin")}</option>
                             <option value="user">{t("roles.user")}</option>

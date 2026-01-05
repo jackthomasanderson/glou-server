@@ -140,7 +140,7 @@ export function TwoFAVerification({ userId, tempToken, method }: TwoFAVerificati
   };
 
   return (
-    <div className="panel auth-card">
+    <div className="panel auth-card" data-method={method}>
       <header className="auth-header">
         <p className="eyebrow">{t("app.name")}</p>
         <h2 className="auth-title">{t("twoFA.title")}</h2>

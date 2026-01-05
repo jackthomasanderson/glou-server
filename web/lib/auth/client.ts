@@ -1,3 +1,16 @@
+import { type AuthUser } from "./AuthContext";
+
+export type SessionSummary = {
+  id: string;
+  deviceName?: string;
+  ipAddress?: string;
+  isTrusted: boolean;
+  lastActivityAt: string;
+  expiresAt: string;
+  createdAt: string;
+  isCurrent: boolean;
+};
+
 /**
  * Auth API client
  */
@@ -126,7 +139,7 @@ export class AuthClient {
     }
   }
 
-  async listSessions(): Promise<any[]> {
+  async listSessions(): Promise<SessionSummary[]> {
     const response = await fetch(`${this.baseUrl}/auth/sessions`, {
       credentials: "include",
     });
@@ -173,7 +186,7 @@ export class AuthClient {
     });
   }
 
-  async getCurrentUser(): Promise<any> {
+  async getCurrentUser(): Promise<AuthUser> {
     const response = await fetch(`${this.baseUrl}/auth/me`, {
       credentials: "include",
     });
@@ -186,7 +199,7 @@ export class AuthClient {
     return data;
   }
 
-  async getSecurityEvents(limit: number = 20): Promise<any[]> {
+  async getSecurityEvents(limit: number = 20): Promise<unknown[]> {
     const response = await fetch(`${this.baseUrl}/auth/security-events?limit=${limit}`, {
       credentials: "include",
     });

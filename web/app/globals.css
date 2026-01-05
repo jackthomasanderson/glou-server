@@ -591,3 +591,23 @@ button:disabled {
 	80%, 90% { transform: rotate(25deg); }
 	100% { transform: rotate(0deg); }
 }
+
+.field__label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.field__hint {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	margin-left: 6px;
+	border: 1px solid var(--border);
+	border-radius: 50%;
+	font-size: 11px;
+	cursor: help;
+	color: var(--muted);
+}

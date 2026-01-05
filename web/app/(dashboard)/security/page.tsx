@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useLocale } from "@/lib/i18n/I18nProvider";
 import { authClient } from "@/lib/auth/client";
@@ -140,7 +141,7 @@ export default function SecurityPage() {
               </p>
               {qrCode && (
                 <div className="bg-white p-4 rounded-lg inline-block">
-                  <img src={qrCode} alt="QR Code" className="w-48 h-48" />
+                  <Image src={qrCode} alt="QR Code" width={192} height={192} className="w-48 h-48" />
                 </div>
               )}
             </div>

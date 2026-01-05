@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "../lib/i18n/I18nProvider";
-import { locales, type Locale } from "../lib/i18n/locales";
+import { type Locale } from "../lib/i18n/locales";
 
 export function AppHeader() {
   const { t, locale, setLocale } = useTranslations();

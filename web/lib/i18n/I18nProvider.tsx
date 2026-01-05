@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import en from "../../locales/en/common.json";
 import fr from "../../locales/fr/common.json";
 import { defaultLocale, type Locale } from "./locales";
@@ -54,12 +54,12 @@ export function I18nProvider({ children, initialLocale }: { children: React.Reac
 
   const dictionary = useMemo(() => dictionaries[locale] ?? dictionaries[defaultLocale], [locale]);
 
-  const setLocale = (newLocale: Locale) => {
+  const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
     if (typeof window !== "undefined") {
       localStorage.setItem("glou-locale", newLocale);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const detected = detectBrowserLocale();
@@ -68,13 +68,13 @@ export function I18nProvider({ children, initialLocale }: { children: React.Reac
     }
   }, [locale]);
 
-  const t = (key: string) => {
+  const t = useCallback((key: string) => {
     const value = resolveKey(dictionary, key);
     if (typeof value === "string") {
       return value;
     }
     return key;
-  };
+  }, [dictionary]);
 
   const value: I18nContextValue = useMemo(
     () => ({
@@ -83,7 +83,7 @@ export function I18nProvider({ children, initialLocale }: { children: React.Reac
       setLocale,
       t
     }),
-    [locale, dictionary]
+    [locale, dictionary, setLocale, t]
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

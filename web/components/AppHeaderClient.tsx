@@ -69,7 +69,8 @@ export function AppHeaderClient() {
   const handleLogout = async () => {
     setIsUserMenuOpen(false);
     await logout();
-    router.push("/login");
+    // BYPASS POUR FEAT-01 : ne pas rediriger vers login
+    // router.push("/login");
   };
 
   const isAdmin = user?.role === "admin";

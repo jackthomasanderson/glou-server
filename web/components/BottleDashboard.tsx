@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { bottleStore } from "../lib/bottles/store";
 import { createBottle, deleteBottle, fetchBottles, restoreBottle, updateBottle } from "../lib/bottles/client";
+import { getDaysUntilPermanentDelete } from "../lib/bottles/trash";
 import {
   type BottleCategory,
   type BottleInput,
@@ -29,7 +29,10 @@ const baseFields = {
   fillLevel: undefined,
   estimatedValue: undefined as number | undefined,
   peakMaturity: undefined as { from?: number; to?: number } | undefined,
-  alertStatus: "none" as BottleInput["alertStatus"]
+  alertStatus: "none" as BottleInput["alertStatus"],
+  tastingNote: "",
+  purchasePlace: "",
+  purchasePrice: undefined as number | undefined
 };
 
 type WineInput = WineBottleInput;
@@ -51,7 +54,9 @@ const buildDefaults = (category: BottleCategory): BottleInput => {
         disgorgement: "",
         pressure: "",
         baseWine: "",
-        servingTemp: ""
+        servingTemp: "",
+        bottlingDate: "",
+        baseYear: undefined
       };
     case "spirit":
       return {
@@ -79,7 +84,8 @@ const buildDefaults = (category: BottleCategory): BottleInput => {
         filler: "",
         factoryCode: "",
         targetHumidity: "",
-        humidifier: ""
+        humidifier: "",
+        manufactureYear: undefined
       };
     case "wine":
     default:
@@ -96,7 +102,8 @@ const buildDefaults = (category: BottleCategory): BottleInput => {
         format: "",
         servingTemp: "",
         lotNumber: "",
-        carafing: ""
+        carafing: "",
+        requiresAeration: false
       };
   }
 };
@@ -122,12 +129,11 @@ export function BottleDashboard() {
     setTimeout(() => {
       setFeedback(null);
       setFeedbackAction(null);
-    }, 3000);
+    }, 6000);
   };
 
-  const getDaysUntilDelete = (deletedAt: string | null): number | null => {
-    return bottleStore.getDaysUntilPermanentDelete(deletedAt);
-  };
+  const getDaysUntilDelete = (deletedAt: string | null): number | null =>
+    getDaysUntilPermanentDelete(deletedAt);
 
   const { data: bottles = [], isLoading } = useQuery({ queryKey, queryFn: () => fetchBottles(true) });
 
@@ -242,7 +248,10 @@ export function BottleDashboard() {
       fillLevel: form.fillLevel,
       estimatedValue: form.estimatedValue,
       peakMaturity: form.peakMaturity,
-      alertStatus: form.alertStatus
+      alertStatus: form.alertStatus,
+      tastingNote: form.tastingNote,
+      purchasePlace: form.purchasePlace,
+      purchasePrice: form.purchasePrice
     };
     setForm({ ...buildDefaults(category), ...preserved, category });
   };
@@ -258,8 +267,11 @@ export function BottleDashboard() {
   };
 
   const startEdit = (record: BottleRecord) => {
-    const { id, createdAt, updatedAt, deletedAt, ...rest } = record;
-    setForm(rest as BottleInput);
+    const { id, createdAt, updatedAt, deletedAt, ...input } = record;
+    void createdAt;
+    void updatedAt;
+    void deletedAt;
+    setForm(input as BottleInput);
     setEditingId(id);
     setShowOptionals(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -277,11 +289,20 @@ export function BottleDashboard() {
         const sparklingForm = form as SparklingInput;
         return (
           <div className="grid">
-            <Field label={t("fields.house")} required>
+            <Field label={t("fields.house")} required hint={t("hints.house")}
+            >
               <input value={sparklingForm.house} onChange={(e) => setForm((prev) => ({ ...prev, house: e.target.value }))} />
             </Field>
-            <Field label={t("fields.sparkling.name")} required>
+            <Field label={t("fields.sparkling.name")} required hint={t("hints.sparklingName")}
+            >
               <input value={sparklingForm.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
+            </Field>
+            <Field label={t("fields.vintageOrNone")} hint={t("hints.vintageOrNone")}
+            >
+              <input
+                value={sparklingForm.vintageOrNone}
+                onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNone: e.target.value }))}
+              />
             </Field>
           </div>
         );
@@ -290,13 +311,16 @@ export function BottleDashboard() {
         const spiritForm = form as SpiritInput;
         return (
           <div className="grid">
-            <Field label={t("fields.distillery")} required>
+            <Field label={t("fields.distillery")} required hint={t("hints.distillery")}
+            >
               <input value={spiritForm.distillery} onChange={(e) => setForm((prev) => ({ ...prev, distillery: e.target.value }))} />
             </Field>
-            <Field label={t("fields.spirit.nameEdition")} required>
+            <Field label={t("fields.spirit.nameEdition")} required hint={t("hints.nameEdition")}
+            >
               <input value={spiritForm.nameEdition} onChange={(e) => setForm((prev) => ({ ...prev, nameEdition: e.target.value }))} />
             </Field>
-            <Field label={t("fields.abv")} required>
+            <Field label={t("fields.abv")} required hint={t("hints.abv")}
+            >
               <input
                 type="number"
                 min={20}
@@ -315,13 +339,16 @@ export function BottleDashboard() {
         const cigarForm = form as CigarInput;
         return (
           <div className="grid">
-            <Field label={t("fields.brand")} required>
+            <Field label={t("fields.brand")} required hint={t("hints.brand")}
+            >
               <input value={cigarForm.brand} onChange={(e) => setForm((prev) => ({ ...prev, brand: e.target.value }))} />
             </Field>
-            <Field label={t("fields.format")} required>
+            <Field label={t("fields.format")} required hint={t("hints.formatCigar")}
+            >
               <input value={cigarForm.format} onChange={(e) => setForm((prev) => ({ ...prev, format: e.target.value }))} />
             </Field>
-            <Field label={t("fields.quantity")} required>
+            <Field label={t("fields.quantity")} required hint={t("hints.quantity")}
+            >
               <input
                 type="number"
                 min={1}
@@ -337,13 +364,16 @@ export function BottleDashboard() {
         const wineForm = form as WineInput;
         return (
           <div className="grid">
-            <Field label={t("fields.producer")} required>
+            <Field label={t("fields.producer")} required hint={t("hints.producer")}
+            >
               <input value={wineForm.producer} onChange={(e) => setForm((prev) => ({ ...prev, producer: e.target.value }))} />
             </Field>
-            <Field label={t("fields.wine.name")} required>
+            <Field label={t("fields.wine.name")} required hint={t("hints.wineName")}
+            >
               <input value={wineForm.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
             </Field>
-            <Field label={t("fields.vintageOrNone")} required>
+            <Field label={t("fields.vintageOrNone")} hint={t("hints.vintageOrNone")}
+            >
               <input value={wineForm.vintageOrNone} onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNone: e.target.value }))} />
             </Field>
           </div>
@@ -358,23 +388,35 @@ export function BottleDashboard() {
         const sparklingForm = form as SparklingInput;
         return (
           <div className="grid">
-            <Field label={t("fields.vintageOrNone")}>
-              <input value={sparklingForm.vintageOrNone ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNone: e.target.value }))} />
+            <Field label={t("fields.style")} hint={t("hints.style")}>
+              <input value={sparklingForm.style ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, style: e.target.value }))} />
             </Field>
-            <Field label={t("fields.dosage")}>
+            <Field label={t("fields.dosage")} hint={t("hints.dosage")}>
               <input value={sparklingForm.dosage ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, dosage: e.target.value }))} />
             </Field>
-            <Field label={t("fields.disgorgement")}>
+            <Field label={t("fields.disgorgement")} hint={t("hints.disgorgement")}>
               <input value={sparklingForm.disgorgement ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, disgorgement: e.target.value }))} />
             </Field>
-            <Field label={t("fields.pressure")}>
+            <Field label={t("fields.pressure")} hint={t("hints.pressure")}>
               <input value={sparklingForm.pressure ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, pressure: e.target.value }))} />
             </Field>
-            <Field label={t("fields.baseWine")}>
+            <Field label={t("fields.baseWine")} hint={t("hints.baseWine")}>
               <input value={sparklingForm.baseWine ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, baseWine: e.target.value }))} />
             </Field>
-            <Field label={t("fields.servingTemp")}>
+            <Field label={t("fields.servingTemp")} hint={t("hints.servingTemp")}>
               <input value={sparklingForm.servingTemp ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, servingTemp: e.target.value }))} />
+            </Field>
+            <Field label={t("fields.bottlingDate")} hint={t("hints.bottlingDate")}>
+              <input value={sparklingForm.bottlingDate ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, bottlingDate: e.target.value }))} />
+            </Field>
+            <Field label={t("fields.baseYear")} hint={t("hints.baseYear")}>
+              <input
+                type="number"
+                min={1900}
+                max={2100}
+                value={sparklingForm.baseYear ?? ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, baseYear: e.target.value ? Number(e.target.value) : undefined }))}
+              />
             </Field>
           </div>
         );
@@ -383,22 +425,22 @@ export function BottleDashboard() {
         const spiritForm = form as SpiritInput;
         return (
           <div className="grid">
-            <Field label={t("fields.ageStatement")}>
+            <Field label={t("fields.ageStatement")} hint={t("hints.ageStatement")}>
               <input value={spiritForm.ageStatement ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, ageStatement: e.target.value }))} />
             </Field>
-            <Field label={t("fields.caskType")}>
+            <Field label={t("fields.caskType")} hint={t("hints.caskType")}>
               <input value={spiritForm.caskType ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, caskType: e.target.value }))} />
             </Field>
-            <Field label={t("fields.batch")}>
+            <Field label={t("fields.batch")} hint={t("hints.batch")}>
               <input value={spiritForm.batch ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, batch: e.target.value }))} />
             </Field>
-            <Field label={t("fields.additiveNote")}>
+            <Field label={t("fields.additiveNote")} hint={t("hints.additiveNote")}>
               <input value={spiritForm.additiveNote ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, additiveNote: e.target.value }))} />
             </Field>
-            <Field label={t("fields.angelShare")}>
+            <Field label={t("fields.angelShare")} hint={t("hints.angelShare")}>
               <input value={spiritForm.angelShare ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, angelShare: e.target.value }))} />
             </Field>
-            <Field label={t("fields.aromaProfile")}>
+            <Field label={t("fields.aromaProfile")} hint={t("hints.aromaProfile")}>
               <input value={spiritForm.aromaProfile ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, aromaProfile: e.target.value }))} />
             </Field>
           </div>
@@ -408,23 +450,32 @@ export function BottleDashboard() {
         const cigarForm = form as CigarInput;
         return (
           <div className="grid">
-            <Field label={t("fields.wrapper")}>
+            <Field label={t("fields.wrapper")} hint={t("hints.wrapper")}>
               <input value={cigarForm.wrapper ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, wrapper: e.target.value }))} />
             </Field>
-            <Field label={t("fields.binder")}>
+            <Field label={t("fields.binder")} hint={t("hints.binder")}>
               <input value={cigarForm.binder ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, binder: e.target.value }))} />
             </Field>
-            <Field label={t("fields.filler")}>
+            <Field label={t("fields.filler")} hint={t("hints.filler")}>
               <input value={cigarForm.filler ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, filler: e.target.value }))} />
             </Field>
-            <Field label={t("fields.factoryCode")}>
+            <Field label={t("fields.factoryCode")} hint={t("hints.factoryCode")}>
               <input value={cigarForm.factoryCode ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, factoryCode: e.target.value }))} />
             </Field>
-            <Field label={t("fields.targetHumidity")}>
+            <Field label={t("fields.targetHumidity")} hint={t("hints.targetHumidity")}>
               <input value={cigarForm.targetHumidity ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, targetHumidity: e.target.value }))} />
             </Field>
-            <Field label={t("fields.humidifier")}>
+            <Field label={t("fields.humidifier")} hint={t("hints.humidifier")}>
               <input value={cigarForm.humidifier ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, humidifier: e.target.value }))} />
+            </Field>
+            <Field label={t("fields.manufactureYear")} hint={t("hints.manufactureYear")}>
+              <input
+                type="number"
+                min={1900}
+                max={2100}
+                value={cigarForm.manufactureYear ?? ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, manufactureYear: e.target.value ? Number(e.target.value) : undefined }))}
+              />
             </Field>
           </div>
         );
@@ -434,16 +485,17 @@ export function BottleDashboard() {
         const wineForm = form as WineInput;
         return (
           <div className="grid">
-            <Field label={t("fields.color")}>
+            <Field label={t("fields.color")} hint={t("hints.color")}>
               <input value={wineForm.color ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value }))} />
             </Field>
-            <Field label={t("fields.appellation")}>
+            <Field label={t("fields.appellation")} hint={t("hints.appellation")}>
               <input value={wineForm.appellation ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, appellation: e.target.value }))} />
             </Field>
-            <Field label={t("fields.grapes")}>
+            <Field label={t("fields.grapes")} hint={t("hints.grapes")}>
               <input value={wineForm.grapes ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, grapes: e.target.value }))} />
             </Field>
-            <Field label={t("fields.abv")}>
+            <Field label={t("fields.abv")} hint={t("hints.abv")}
+            >
               <input
                 type="number"
                 min={0}
@@ -455,17 +507,32 @@ export function BottleDashboard() {
                 }
               />
             </Field>
-            <Field label={t("fields.format")}>
+            <Field label={t("fields.format")} hint={t("hints.formatBottle")}
+            >
               <input value={wineForm.format ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, format: e.target.value }))} />
             </Field>
-            <Field label={t("fields.servingTemp")}>
+            <Field label={t("fields.servingTemp")} hint={t("hints.servingTemp")}
+            >
               <input value={wineForm.servingTemp ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, servingTemp: e.target.value }))} />
             </Field>
-            <Field label={t("fields.lotNumber")}>
+            <Field label={t("fields.lotNumber")} hint={t("hints.lotNumber")}
+            >
               <input value={wineForm.lotNumber ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, lotNumber: e.target.value }))} />
             </Field>
-            <Field label={t("fields.carafing")}>
+            <Field label={t("fields.carafing")} hint={t("hints.carafing")}
+            >
               <input value={wineForm.carafing ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, carafing: e.target.value }))} />
+            </Field>
+            <Field label={t("fields.requiresAeration")} hint={t("hints.requiresAeration")}
+            >
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={wineForm.requiresAeration ?? false}
+                  aria-label={t("fields.requiresAeration")}
+                  onChange={(e) => setForm((prev) => ({ ...prev, requiresAeration: e.target.checked }))}
+                />
+              </label>
             </Field>
           </div>
         );
@@ -491,6 +558,7 @@ export function BottleDashboard() {
 
   const renderFillLevelSelect = () => (
     <select
+      aria-label={t("fields.fillLevel")}
       value={form.fillLevel ?? ""}
       onChange={(e) => setForm((prev) => ({ ...prev, fillLevel: (e.target.value || undefined) as BottleInput["fillLevel"] }))}
     >
@@ -501,6 +569,143 @@ export function BottleDashboard() {
       <option value="low">{t("levels.low")}</option>
       <option value="empty">{t("levels.empty")}</option>
     </select>
+  );
+
+  const renderCommonOptionalFields = () => (
+    <div className="grid">
+      <Field label={t("fields.tags")} hint={t("hints.tags")}>
+        {renderTagInput()}
+      </Field>
+      <Field label={t("fields.photoUrl")} hint={t("hints.photoUrl")}>
+        <input value={form.photoUrl ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, photoUrl: e.target.value }))} />
+      </Field>
+      <Field label={t("fields.estimatedValue")} hint={t("hints.estimatedValue")}>
+        <input
+          type="number"
+          min={0}
+          step={1}
+          value={form.estimatedValue ?? ""}
+          onChange={(e) => setForm((prev) => ({ ...prev, estimatedValue: e.target.value ? Number(e.target.value) : undefined }))}
+        />
+      </Field>
+      <Field label={t("fields.purchasePrice")} hint={t("hints.purchasePrice")}>
+        <input
+          type="number"
+          min={0}
+          step={1}
+          value={form.purchasePrice ?? ""}
+          onChange={(e) => setForm((prev) => ({ ...prev, purchasePrice: e.target.value ? Number(e.target.value) : undefined }))}
+        />
+      </Field>
+      <Field label={t("fields.purchasePlace")} hint={t("hints.purchasePlace")}>
+        <input
+          value={form.purchasePlace ?? ""}
+          onChange={(e) => setForm((prev) => ({ ...prev, purchasePlace: e.target.value }))}
+        />
+      </Field>
+      <Field label={t("fields.tastingNote")} hint={t("hints.tastingNote")}>
+        <textarea
+          value={form.tastingNote ?? ""}
+          onChange={(e) => setForm((prev) => ({ ...prev, tastingNote: e.target.value }))}
+          rows={3}
+        />
+      </Field>
+      <Field label={t("fields.fillLevel")} hint={t("hints.fillLevel")}>{renderFillLevelSelect()}</Field>
+      <Field label={t("fields.isOpened")} hint={t("hints.isOpened")}>
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={form.isOpened ?? false}
+            aria-label={t("fields.isOpened")}
+            onChange={(e) => setForm((prev) => ({ ...prev, isOpened: e.target.checked }))}
+          />
+          <span>{form.isOpened ? t("list.opened") : t("list.closed")}</span>
+        </label>
+      </Field>
+      <Field label={t("fields.peakFrom")} hint={t("hints.peakFrom")}>
+        <input
+          type="number"
+          min={1900}
+          max={2100}
+          value={form.peakMaturity?.from ?? ""}
+          onChange={(e) =>
+            setForm((prev) => ({
+              ...prev,
+              peakMaturity: { ...prev.peakMaturity, from: e.target.value ? Number(e.target.value) : undefined }
+            }))
+          }
+        />
+      </Field>
+      <Field label={t("fields.peakTo")} hint={t("hints.peakTo")}>
+        <input
+          type="number"
+          min={1900}
+          max={2100}
+          value={form.peakMaturity?.to ?? ""}
+          onChange={(e) =>
+            setForm((prev) => ({
+              ...prev,
+              peakMaturity: { ...prev.peakMaturity, to: e.target.value ? Number(e.target.value) : undefined }
+            }))
+          }
+        />
+      </Field>
+      <Field label={t("fields.alertStatus")} hint={t("hints.alertStatus")}>
+        <select
+          value={form.alertStatus ?? "none"}
+          onChange={(e) => setForm((prev) => ({ ...prev, alertStatus: e.target.value as BottleInput["alertStatus"] }))}
+        >
+          <option value="none">{t("alerts.none")}</option>
+          <option value="approaching">{t("alerts.approaching")}</option>
+          <option value="critical">{t("alerts.critical")}</option>
+        </select>
+      </Field>
+    </div>
+  );
+
+  const renderPreviewCard = () => (
+    <article className="card card--muted" aria-label={t("preview.title")}>
+      <div className="card__header">
+        <div>
+          <p className="eyebrow">{t(`categories.${form.category}`)}</p>
+          <h3>{form.label || t("preview.placeholder")}</h3>
+        </div>
+        <div className="pills">
+          {form.isOpened ? <span className="pill info">{t("list.opened")}</span> : null}
+          {form.fillLevel ? <span className="pill">{t(`levels.${form.fillLevel}`)}</span> : null}
+          {form.alertStatus && form.alertStatus !== "none" ? (
+            <span className="pill danger">{t(`alerts.${form.alertStatus}`)}</span>
+          ) : null}
+        </div>
+      </div>
+      <div className="card__meta">
+        {form.category === "wine" && (
+          <span>{(form as WineInput).producer} • {(form as WineInput).name} • {(form as WineInput).vintageOrNone}</span>
+        )}
+        {form.category === "sparkling" && (
+          <span>{(form as SparklingInput).house} • {(form as SparklingInput).name} • {(form as SparklingInput).vintageOrNone}</span>
+        )}
+        {form.category === "spirit" && (
+          <span>{(form as SpiritInput).distillery} • {(form as SpiritInput).nameEdition} • {(form as SpiritInput).abv ?? 0}%</span>
+        )}
+        {form.category === "cigar" && (() => {
+          const cigarInput = form as CigarInput;
+          const parts = [] as string[];
+          if (cigarInput.brand) parts.push(cigarInput.brand);
+          if (cigarInput.format) parts.push(cigarInput.format);
+          if (cigarInput.quantity && (cigarInput.brand || cigarInput.format)) {
+            parts.push(String(cigarInput.quantity));
+          }
+          return parts.length > 0 ? <span>{parts.join(" • ")}</span> : null;
+        })()}
+        {form.estimatedValue !== undefined && <span>{t("list.value")}: €{form.estimatedValue}</span>}
+        {form.purchasePrice !== undefined && <span>{t("list.purchasePrice")}: €{form.purchasePrice}</span>}
+        {form.location && <span>{t("list.location")}: {form.location}</span>}
+        {form.collection && <span>{t("list.collection")}: {form.collection}</span>}
+        {form.tags && form.tags.length > 0 && <span>{t("list.tags")}: {form.tags.join(", ")}</span>}
+        {form.tastingNote && <span>{t("list.tastingNote")}: {form.tastingNote}</span>}
+      </div>
+    </article>
   );
 
   return (
@@ -528,10 +733,12 @@ export function BottleDashboard() {
             <div className="section__title">{t("sections.common")}</div>
             <p className="section__hint">{t("sections.requiredHint")}</p>
             <div className="grid">
-              <Field label={t("fields.label")} required>
+              <Field label={t("fields.label")} required hint={t("hints.label")}
+              >
                 <input value={form.label} onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))} />
               </Field>
-              <Field label={t("fields.category")} required>
+              <Field label={t("fields.category")} required hint={t("hints.category")}
+              >
                 <select value={form.category} onChange={(e) => handleCategoryChange(e.target.value as BottleCategory)}>
                   <option value="wine">{t("categories.wine")}</option>
                   <option value="sparkling">{t("categories.sparkling")}</option>
@@ -539,77 +746,13 @@ export function BottleDashboard() {
                   <option value="cigar">{t("categories.cigar")}</option>
                 </select>
               </Field>
-              <Field label={t("fields.location")}>
+              <Field label={t("fields.location")} hint={t("hints.location")}
+              >
                 <input value={form.location ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, location: e.target.value }))} />
               </Field>
-              <Field label={t("fields.collection")}>
+              <Field label={t("fields.collection")} hint={t("hints.collection")}
+              >
                 <input value={form.collection ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, collection: e.target.value }))} />
-              </Field>
-              <Field label={t("fields.tags")}>
-                {renderTagInput()}
-              </Field>
-              <Field label={t("fields.photoUrl")}>
-                <input value={form.photoUrl ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, photoUrl: e.target.value }))} />
-              </Field>
-              <Field label={t("fields.estimatedValue")}>
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={form.estimatedValue ?? ""}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, estimatedValue: e.target.value ? Number(e.target.value) : undefined }))
-                  }
-                />
-              </Field>
-              <Field label={t("fields.fillLevel")}>{renderFillLevelSelect()}</Field>
-              <Field label={t("fields.peakFrom")}>
-                <input
-                  type="number"
-                  min={1900}
-                  max={2100}
-                  value={form.peakMaturity?.from ?? ""}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      peakMaturity: { ...prev.peakMaturity, from: e.target.value ? Number(e.target.value) : undefined }
-                    }))
-                  }
-                />
-              </Field>
-              <Field label={t("fields.peakTo")}>
-                <input
-                  type="number"
-                  min={1900}
-                  max={2100}
-                  value={form.peakMaturity?.to ?? ""}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      peakMaturity: { ...prev.peakMaturity, to: e.target.value ? Number(e.target.value) : undefined }
-                    }))
-                  }
-                />
-              </Field>
-              <Field label={t("fields.alertStatus")}>
-                <select
-                  value={form.alertStatus ?? "none"}
-                  onChange={(e) => setForm((prev) => ({ ...prev, alertStatus: e.target.value as BottleInput["alertStatus"] }))}
-                >
-                  <option value="none">{t("alerts.none")}</option>
-                  <option value="approaching">{t("alerts.approaching")}</option>
-                  <option value="critical">{t("alerts.critical")}</option>
-                </select>
-              </Field>
-              <Field label={t("fields.isOpened")}>
-                <label className="toggle">
-                  <input
-                    type="checkbox"
-                    checked={form.isOpened ?? false}
-                    onChange={(e) => setForm((prev) => ({ ...prev, isOpened: e.target.checked }))}
-                  />
-                  <span>{form.isOpened ? t("list.opened") : t("list.closed")}</span>
-                </label>
               </Field>
             </div>
           </div>
@@ -622,11 +765,24 @@ export function BottleDashboard() {
           <div className="section optional">
             <div className="section__title with-toggle">
               <span>{t("sections.optional")}</span>
-              <button type="button" className="ghost" onClick={() => setShowOptionals((prev) => !prev)}>
+              <button
+                type="button"
+                className="ghost"
+                aria-expanded={showOptionals}
+                aria-controls="optional-fields"
+                onClick={() => setShowOptionals((prev) => !prev)}
+              >
                 {showOptionals ? t("optionals.hide") : t("optionals.show")}
               </button>
             </div>
-            {showOptionals && optionalFields}
+            {showOptionals && (
+              <div id="optional-fields">
+                <p className="section__hint">{t("sections.common")}</p>
+                {renderCommonOptionalFields()}
+                <p className="section__hint">{t("sections.category")}</p>
+                {optionalFields}
+              </div>
+            )}
           </div>
 
           <div className="form__actions">
@@ -638,6 +794,11 @@ export function BottleDashboard() {
                 {t("actions.cancelEdit")}
               </button>
             )}
+          </div>
+
+          <div className="section">
+            <div className="section__title">{t("preview.title")}</div>
+            {renderPreviewCard()}
           </div>
         </form>
       </section>
@@ -688,6 +849,10 @@ export function BottleDashboard() {
                   {bottle.estimatedValue !== undefined && (
                     <span>{t("list.value")}: €{bottle.estimatedValue}</span>
                   )}
+                  {bottle.purchasePrice !== undefined && (
+                    <span>{t("list.purchasePrice")}: €{bottle.purchasePrice}</span>
+                  )}
+                  {bottle.purchasePlace && <span>{t("list.purchasePlace")}: {bottle.purchasePlace}</span>}
                   {bottle.peakMaturity && (bottle.peakMaturity.from || bottle.peakMaturity.to) && (
                     <span>
                       {t("list.peak")}: {bottle.peakMaturity.from ?? "?"} – {bottle.peakMaturity.to ?? "?"}
@@ -696,6 +861,7 @@ export function BottleDashboard() {
                   {bottle.location && <span>{t("list.location")}: {bottle.location}</span>}
                   {bottle.collection && <span>{t("list.collection")}: {bottle.collection}</span>}
                   {bottle.tags && bottle.tags.length > 0 && <span>{t("list.tags")}: {bottle.tags.join(", ")}</span>}
+                  {bottle.tastingNote && <span>{t("list.tastingNote")}: {bottle.tastingNote}</span>}
                   {bottle.deletedAt && (
                     <span className="muted">{t("trash.expiresIn")}: {getDaysUntilDelete(bottle.deletedAt) || "0"} {t("trash.days")}</span>
                   )}
@@ -725,7 +891,7 @@ export function BottleDashboard() {
       </section>
 
       {feedback && (
-        <div className="toast">
+        <div className="toast" role="status" aria-live="polite">
           <span>{feedback}</span>
           {feedbackAction && (
             <button type="button" className="toast__action" onClick={() => { feedbackAction(); setFeedback(null); setFeedbackAction(null); }}>
@@ -738,12 +904,15 @@ export function BottleDashboard() {
   );
 }
 
-function Field({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
+function Field({ label, children, required, hint }: { label: string; children: React.ReactNode; required?: boolean; hint?: string }) {
   return (
     <label className="field">
-      <span>
+      <span className="field__label">
         {label}
         {required && <span className="field__required">*</span>}
+        {hint ? (
+          <span className="field__hint" aria-label={hint} title={hint}>i</span>
+        ) : null}
       </span>
       {children}
     </label>

@@ -52,7 +52,7 @@ export function SessionManagement() {
     }
   };
 
-  const handleTrustDevice = async (sessionId: string) => {
+  const handleTrustDevice = async () => {
     try {
       const deviceName = prompt(t("sessions.deviceNamePrompt"));
       if (deviceName) {
@@ -130,7 +130,7 @@ export function SessionManagement() {
                 <div className="flex gap-2">
                   {!session.isCurrent && !session.isTrusted && (
                     <button
-                      onClick={() => handleTrustDevice(session.id)}
+                      onClick={() => handleTrustDevice()}
                       className="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
                     >
                       {t("sessions.trustDevice")}
