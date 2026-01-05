@@ -192,7 +192,7 @@ C'est un projet passionnel pour l'usage maison. Si vous trouvez des bugs ou avez
 
 ## 📄 Licence
 
-[Votre Licence Ici] — Glou est fait avec ❤️ pour ceux qui respectent leurs collections.
+MIT License — Glou est fait avec ❤️ pour ceux qui respectent leurs collections.
 
 ---
 

@@ -192,7 +192,7 @@ This is a passion project for home use. If you find bugs or have ideas:
 
 ## 📄 License
 
-[Your License Here] — Glou is built with ❤️ for collectors who respect their collections.
+MIT License — Glou is built with ❤️ for collectors who respect their collections.
 
 ---
 
