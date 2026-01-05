@@ -4,9 +4,11 @@ import dotenv from "dotenv";
 import { createAuthRouter } from "./routes/auth.js";
 import { createProfileRouter } from "./routes/profile.js";
 import { createAdminRouter } from "./routes/admin.js";
+import { createCavesRouter } from "./routes/caves.js";
 import { DatabaseService } from "./services/database.js";
 import { UserService, TwoFAService, SessionService, SecurityEventService } from "./services/auth.js";
 import { AppSettingsService, ProfileService } from "./services/profile.js";
+import { CaveService } from "./services/caves.js";
 import { logger } from "./utils/logger.js";
 
 dotenv.config();
@@ -24,6 +26,7 @@ const sessionService = new SessionService(dbService);
 const securityEventService = new SecurityEventService(dbService);
 const profileService = new ProfileService(dbService);
 const appSettingsService = new AppSettingsService(dbService);
+const caveService = new CaveService(dbService);
 
 // Middleware
 app.use(express.json());
@@ -51,6 +54,8 @@ app.use(
   "/api/admin",
   createAdminRouter(sessionService, userService, profileService, appSettingsService)
 );
+
+app.use("/api/caves", createCavesRouter(sessionService, caveService));
 
 // 404 handler
 app.use((req, res) => {

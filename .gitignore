@@ -114,3 +114,6 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 *.lnk
+# Agent & AI specification files
+.vibe/
+agents/
