@@ -112,3 +112,6 @@ $RECYCLE.BIN/
 # Agent & AI specification files
 .vibe/
 agents/
+.vscode/
+.github/agents/
+.github/copilot-instructions.md
