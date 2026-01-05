@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useLocale } from "@/lib/i18n/I18nProvider";
 import { authClient } from "@/lib/auth/client";
 import { SessionManagement } from "@/components/auth/SessionManagement";
+import LoadingWine from "@/components/LoadingWine";
 
 export default function SecurityPage() {
   const { user } = useAuth();
@@ -19,7 +20,11 @@ export default function SecurityPage() {
   const [error, setError] = useState<string | null>(null);
 
   if (!user) {
-    return <div>{t("list.loading")}</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <LoadingWine />
+      </div>
+    );
   }
 
   const handleSetupTOTP = async () => {

@@ -538,3 +538,56 @@ button:disabled {
 	text-align: center;
 	letter-spacing: 0.25em;
 }
+
+/* Loading Animation */
+.loading-wine {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 2rem;
+}
+
+.bottle-container {
+	transform-origin: 52px 48px;
+	animation: bottle-pour 4s infinite ease-in-out;
+}
+
+.wine-stream {
+	animation: stream-flow 4s infinite ease-in-out;
+	opacity: 0;
+}
+
+.wine-liquid {
+	transform-origin: bottom;
+	animation: wine-fill 4s infinite ease-in-out;
+	transform: scaleY(0);
+}
+
+.glass-container {
+	transform-origin: 32px 48px;
+	animation: glass-drink 4s infinite ease-in-out;
+}
+
+@keyframes bottle-pour {
+	0%, 10% { transform: rotate(0deg); }
+	25%, 45% { transform: rotate(-110deg) translate(-10px, -20px); }
+	60%, 100% { transform: rotate(0deg); }
+}
+
+@keyframes stream-flow {
+	0%, 20% { opacity: 0; stroke-dashoffset: 20; }
+	25%, 40% { opacity: 1; stroke-dashoffset: 0; }
+	45%, 100% { opacity: 0; stroke-dashoffset: -20; }
+}
+
+@keyframes wine-fill {
+	0%, 25% { transform: scaleY(0); }
+	45%, 70% { transform: scaleY(1); }
+	85%, 100% { transform: scaleY(0); }
+}
+
+@keyframes glass-drink {
+	0%, 70% { transform: rotate(0deg); }
+	80%, 90% { transform: rotate(25deg); }
+	100% { transform: rotate(0deg); }
+}

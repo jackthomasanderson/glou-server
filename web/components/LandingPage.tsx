@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import LoadingWine from "./LoadingWine";
 
 export function LandingPage() {
 	const { isAuthenticated, isLoading } = useAuth();
@@ -18,7 +19,7 @@ export function LandingPage() {
 	if (isLoading) {
 		return (
 			<div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800">
-				<div className="text-slate-600 dark:text-slate-400">Loading...</div>
+				<LoadingWine />
 			</div>
 		);
 	}

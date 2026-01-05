@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "@/lib/i18n/I18nProvider";
 import { useAuth } from "@/lib/auth/AuthContext";
+import LoadingWine from "@/components/LoadingWine";
 import {
   fetchAppSettings,
   fetchMyProfile,
@@ -183,7 +184,11 @@ export default function ProfilePage() {
   });
 
   if (profileQuery.isLoading || !profile) {
-    return <div className="dashboard">{t("list.loading")}</div>;
+    return (
+      <div className="dashboard">
+        <LoadingWine />
+      </div>
+    );
   }
 
   const notif = effective ? (effective.notificationSettings as any) : null;

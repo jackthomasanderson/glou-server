@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth/client";
 import { useLocale } from "@/lib/i18n/I18nProvider";
+import LoadingWine from "../LoadingWine";
 
 interface Session {
   id: string;
@@ -70,7 +71,11 @@ export function SessionManagement() {
   };
 
   if (isLoading) {
-    return <div className="text-center py-4">{t("list.loading")}</div>;
+    return (
+      <div className="text-center py-4">
+        <LoadingWine />
+      </div>
+    );
   }
 
   return (
