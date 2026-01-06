@@ -55,10 +55,9 @@ app.use(
   createAdminRouter(sessionService, userService, profileService, appSettingsService)
 );
 
-// Primary: cellars (English naming). Alias /api/caves retained for backward compatibility.
+// Cellars router
 const cellarsRouter = createCellarsRouter(sessionService, cellarService);
 app.use("/api/cellars", cellarsRouter);
-app.use("/api/caves", cellarsRouter);
 
 // 404 handler
 app.use((req, res) => {
