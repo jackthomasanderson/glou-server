@@ -1,85 +1,85 @@
 import { v4 as uuidv4 } from "uuid";
-import { Cave, CreateCaveInput, UpdateCaveInput } from "../schemas/caves.js";
+import { Cellar, CreateCellarInput, UpdateCellarInput } from "../schemas/cellars.js";
 import { DatabaseService } from "./database.js";
 import { logger } from "../utils/logger.js";
 
 /**
- * Cave management service
+ * Cellar management service
  */
-export class CaveService {
+export class CellarService {
   constructor(private db: DatabaseService) {}
 
   /**
-   * Get all caves for a user
+   * Get all cellars for a user
    */
-  async getCavesByUserId(userId: string): Promise<Cave[]> {
+  async getCellarsByUserId(userId: string): Promise<Cellar[]> {
     const query = `
       SELECT
         id,
         user_id as "userId",
         name,
         description,
-        cave_type as "caveType",
+        cellar_type as "cellarType",
         location_description as "locationDescription",
         created_at as "createdAt",
         updated_at as "updatedAt"
-      FROM caves
+      FROM cellars
       WHERE user_id = $1
       ORDER BY created_at DESC
     `;
 
     try {
       const result = await this.db.query(query, [userId]);
-      return result.rows as Cave[];
+      return result.rows as Cellar[];
     } catch (err) {
-      logger.error("Failed to get caves for user");
+      logger.error("Failed to get cellars for user");
       throw err;
     }
   }
 
   /**
-   * Get a single cave by ID
+   * Get a single cellar by ID
    */
-  async getCaveById(caveId: string, userId: string): Promise<Cave | null> {
+  async getCellarById(cellarId: string, userId: string): Promise<Cellar | null> {
     const query = `
       SELECT
         id,
         user_id as "userId",
         name,
         description,
-        cave_type as "caveType",
+        cellar_type as "cellarType",
         location_description as "locationDescription",
         created_at as "createdAt",
         updated_at as "updatedAt"
-      FROM caves
+      FROM cellars
       WHERE id = $1 AND user_id = $2
     `;
 
     try {
-      const result = await this.db.query(query, [caveId, userId]);
-      return result.rows.length > 0 ? (result.rows[0] as Cave) : null;
+      const result = await this.db.query(query, [cellarId, userId]);
+      return result.rows.length > 0 ? (result.rows[0] as Cellar) : null;
     } catch (err) {
-      logger.error("Failed to get cave");
+      logger.error("Failed to get cellar");
       throw err;
     }
   }
 
   /**
-   * Create a new cave
+   * Create a new cellar
    */
-  async createCave(userId: string, input: CreateCaveInput): Promise<Cave> {
-    const caveId = uuidv4();
+  async createCellar(userId: string, input: CreateCellarInput): Promise<Cellar> {
+    const cellarId = uuidv4();
     const now = new Date();
 
     const query = `
-      INSERT INTO caves (id, user_id, name, description, cave_type, location_description, created_at, updated_at)
+      INSERT INTO cellars (id, user_id, name, description, cellar_type, location_description, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING
         id,
         user_id as "userId",
         name,
         description,
-        cave_type as "caveType",
+        cellar_type as "cellarType",
         location_description as "locationDescription",
         created_at as "createdAt",
         updated_at as "updatedAt"
@@ -87,32 +87,32 @@ export class CaveService {
 
     try {
       const result = await this.db.query(query, [
-        caveId,
+        cellarId,
         userId,
         input.name,
         input.description || null,
-        input.caveType,
+        input.cellarType,
         input.locationDescription || null,
         now,
         now,
       ]);
 
-      logger.info("Cave created");
-      return result.rows[0] as Cave;
+      logger.info("Cellar created");
+      return result.rows[0] as Cellar;
     } catch (err) {
-      logger.error("Failed to create cave");
+      logger.error("Failed to create cellar");
       throw err;
     }
   }
 
   /**
-   * Update a cave
+   * Update a cellar
    */
-  async updateCave(caveId: string, userId: string, input: UpdateCaveInput): Promise<Cave> {
+  async updateCellar(cellarId: string, userId: string, input: UpdateCellarInput): Promise<Cellar> {
     // Check ownership first
-    const existing = await this.getCaveById(caveId, userId);
+    const existing = await this.getCellarById(cellarId, userId);
     if (!existing) {
-      throw new Error("Cave not found or unauthorized");
+      throw new Error("Cellar not found or unauthorized");
     }
 
     const updates: string[] = [];
@@ -131,9 +131,9 @@ export class CaveService {
       paramIndex++;
     }
 
-    if (input.caveType !== undefined) {
-      updates.push(`cave_type = $${paramIndex}`);
-      values.push(input.caveType);
+    if (input.cellarType !== undefined) {
+      updates.push(`cellar_type = $${paramIndex}`);
+      values.push(input.cellarType);
       paramIndex++;
     }
 
@@ -149,11 +149,11 @@ export class CaveService {
 
     updates.push(`updated_at = $${paramIndex}`);
     values.push(new Date());
-    values.push(caveId);
+    values.push(cellarId);
     values.push(userId);
 
     const query = `
-      UPDATE caves
+      UPDATE cellars
       SET ${updates.join(", ")}
       WHERE id = $${paramIndex + 1} AND user_id = $${paramIndex + 2}
       RETURNING
@@ -161,7 +161,7 @@ export class CaveService {
         user_id as "userId",
         name,
         description,
-        cave_type as "caveType",
+        cellar_type as "cellarType",
         location_description as "locationDescription",
         created_at as "createdAt",
         updated_at as "updatedAt"
@@ -171,68 +171,68 @@ export class CaveService {
       const result = await this.db.query(query, values);
 
       if (result.rows.length === 0) {
-        throw new Error("Cave update failed");
+        throw new Error("Cellar update failed");
       }
 
-      logger.info("Cave updated");
-      return result.rows[0] as Cave;
+      logger.info("Cellar updated");
+      return result.rows[0] as Cellar;
     } catch (err) {
-      logger.error("Failed to update cave");
+      logger.error("Failed to update cellar");
       throw err;
     }
   }
 
   /**
-   * Delete a cave
+   * Delete a cellar
    */
-  async deleteCave(caveId: string, userId: string): Promise<boolean> {
+  async deleteCellar(cellarId: string, userId: string): Promise<boolean> {
     // Check ownership first
-    const existing = await this.getCaveById(caveId, userId);
+    const existing = await this.getCellarById(cellarId, userId);
     if (!existing) {
-      throw new Error("Cave not found or unauthorized");
+      throw new Error("Cellar not found or unauthorized");
     }
 
     const query = `
-      DELETE FROM caves
+      DELETE FROM cellars
       WHERE id = $1 AND user_id = $2
     `;
 
     try {
-      const result = await this.db.query(query, [caveId, userId]);
-      logger.info("Cave deleted");
+      const result = await this.db.query(query, [cellarId, userId]);
+      logger.info("Cellar deleted");
       return (result.rowCount ?? 0) > 0;
     } catch (err) {
-      logger.error("Failed to delete cave");
+      logger.error("Failed to delete cellar");
       throw err;
     }
   }
 
   /**
-   * Get cave with bottle count
+   * Get cellar with bottle count
    */
-  async getCaveWithStats(caveId: string, userId: string): Promise<any> {
-    const cave = await this.getCaveById(caveId, userId);
-    if (!cave) {
+  async getCellarWithStats(cellarId: string, userId: string): Promise<any> {
+    const cellar = await this.getCellarById(cellarId, userId);
+    if (!cellar) {
       return null;
     }
 
     const countQuery = `
       SELECT COUNT(*) as count
       FROM bottles
-      WHERE cave_id = $1 AND deleted_at IS NULL
+      WHERE cellar_id = $1 AND deleted_at IS NULL
     `;
 
     try {
-      const result = await this.db.query(countQuery, [caveId]);
+      const result = await this.db.query(countQuery, [cellarId]);
       const bottleCount = parseInt(result.rows[0]?.count || "0", 10);
 
       return {
-        ...cave,
+        ...cellar,
         bottleCount,
       };
     } catch (err) {
-      logger.error("Failed to get cave with stats");
-      return { ...cave, bottleCount: 0 };
+      logger.error("Failed to get cellar with stats");
+      return { ...cellar, bottleCount: 0 };
     }
   }
 }

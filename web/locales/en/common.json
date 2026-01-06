@@ -407,5 +407,106 @@
     "usePin": "Use PIN",
     "autoLockIn": "Auto lock in",
     "minutes": "minutes"
+  },
+  "caves": {
+    "title": "My Caves",
+    "newCave": "+ New Cave",
+    "createCave": "Create Cave",
+    "editCave": "Edit Cave",
+    "viewCave": "View",
+    "deleteCave": "Delete",
+    "noCaves": "No caves yet",
+    "noCavesDescription": "Create your first cave to organize your collection",
+    "loading": "Loading...",
+    "loadingError": "Error loading caves",
+    "caveNotFound": "Error: Cave not found",
+    "deleteConfirm": "Are you sure?",
+    "deleteWarning": "This action will delete the cave. Associated bottles will become orphaned.",
+    "creating": "Creating...",
+    "updating": "Updating...",
+    "deleting": "Deleting...",
+    "created": "Cave created successfully",
+    "updated": "Cave updated",
+    "deleted": "Cave deleted",
+    "createError": "Failed to create cave",
+    "updateError": "Failed to update",
+    "deleteError": "Failed to delete",
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "Cave name",
+      "nameRequired": "Name is required",
+      "type": "Type",
+      "description": "Description",
+      "descriptionPlaceholder": "Optional description",
+      "location": "Location",
+      "locationPlaceholder": "Ex: Basement",
+      "save": "Create",
+      "update": "Update",
+      "cancel": "Cancel"
+    },
+    "types": {
+      "cellar": "Wine Cellar",
+      "showcase": "Showcase",
+      "climate_cabinet": "Climate Cabinet",
+      "rack": "Rack",
+      "other": "Other"
+    },
+    "stats": {
+      "bottleCount": "bottle(s)",
+      "empty": "Empty",
+      "items": "items"
+    }
+  },
+  "cellars": {
+    "title": "My Cellars",
+    "newCellar": "+ New Cellar",
+    "createCellar": "Create a cellar",
+    "editCellar": "Edit cellar",
+    "viewCellar": "View",
+    "deleteCellar": "Delete",
+    "noCellars": "No cellars yet",
+    "noCellarsDescription": "Create your first cellar to organize your collection",
+    "loading": "Loading...",
+    "loadingError": "Error loading cellars",
+    "cellarNotFound": "Error: Cellar not found",
+    "deleteConfirm": "Are you sure?",
+    "deleteWarning": "This action will delete the cellar. Associated bottles will become orphaned.",
+    "creating": "Creating...",
+    "updating": "Updating...",
+    "deleting": "Deleting...",
+    "created": "Cellar created successfully",
+    "updated": "Cellar updated",
+    "deleted": "Cellar deleted",
+    "createError": "Failed to create cellar",
+    "updateError": "Failed to update",
+    "deleteError": "Failed to delete",
+    "meta": {
+      "createdAt": "Created at"
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "Cellar name",
+      "nameRequired": "Name is required",
+      "type": "Type",
+      "description": "Description",
+      "descriptionPlaceholder": "Optional description",
+      "location": "Location",
+      "locationPlaceholder": "Ex: Basement",
+      "save": "Create",
+      "update": "Update",
+      "cancel": "Cancel"
+    },
+    "types": {
+      "cellar": "Wine cellar",
+      "showcase": "Showcase",
+      "climate_cabinet": "Climate cabinet",
+      "rack": "Rack",
+      "other": "Other"
+    },
+    "stats": {
+      "bottleCount": "bottle(s)",
+      "empty": "Empty",
+      "items": "items"
+    }
   }
 }

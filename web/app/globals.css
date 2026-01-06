@@ -1,21 +1,24 @@
 :root {
-	--bg: #0a0a0a;
-	--surface: #161616;
-	--border: #262626;
-	--accent: #c5a059;
-	--danger: #722f37;
-	--text: #e5e5e5;
-	--muted: #a3a3a3;
-	--radius: 4px;
+	/* Palette "Dark Cellar Premium" */
+	--bg: #0D0D0D; /* Noir profond doux */
+	--surface: #1A1A1A; /* Surface élégante */
+	--border: #2A2A2A; /* Bordure subtile */
+	--accent: #C9A961; /* Or Champagne */
+	--danger: #9B2C2C; /* Bordeaux profond */
+	--text: #F5F5F5; /* Blanc cassé */
+	--muted: #A8A8A8; /* Texte secondaire */
+	--radius: 6px;
 }
 
 html.light {
-	--bg: #fafafa;
-	--surface: #ffffff;
-	--border: #e5e5e5;
-	--danger: #b42318;
-	--text: #0a0a0a;
-	--muted: #525252;
+	/* Palette Light Premium */
+	--bg: #FAFAFA; /* Fond clair élégant */
+	--surface: #FFFFFF; /* Surface pure */
+	--border: #E5E5E5; /* Bordure douce */
+	--accent: #C9A961; /* Or Champagne conservé */
+	--danger: #9B2C2C; /* Bordeaux conservé */
+	--text: #1A1A1A; /* Texte sombre */
+	--muted: #666666; /* Texte secondaire */
 }
 
 * {
@@ -24,7 +27,10 @@ html.light {
 
 body {
 	margin: 0;
-	background: radial-gradient(circle at 20% 20%, #111111, #080808 40%), radial-gradient(circle at 80% 0%, #0e0e0e, #050505 45%);
+	/* Fond élégant avec gradient subtil */
+	background: 
+		radial-gradient(circle at 20% 20%, rgba(18, 18, 18, 0.8), var(--bg) 50%), 
+		radial-gradient(circle at 80% 80%, rgba(22, 22, 22, 0.6), var(--bg) 50%);
 	color: var(--text);
 	font-family: var(--font-sans), 'Inter', system-ui, -apple-system, sans-serif;
 	font-size: 14px;
@@ -147,7 +153,10 @@ a {
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
 	padding: 20px;
-	box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+	/* Élévation élégante */
+	box-shadow: 
+		0 4px 12px rgba(0, 0, 0, 0.4),
+		0 0 1px rgba(201, 169, 97, 0.1);
 }
 
 .panel__header {
@@ -175,38 +184,49 @@ a {
 
 button {
 	border: 1px solid var(--border);
-	background: #1e1e1e;
+	background: var(--surface);
 	color: var(--text);
 	border-radius: var(--radius);
-	padding: 10px 14px;
+	padding: 10px 16px;
 	cursor: pointer;
-	transition: border 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+	transition: all 0.2s ease;
 	font-family: inherit;
 	font-size: 14px;
+	font-weight: 500;
 	min-height: 44px;
 }
 
 button.primary {
-	background: linear-gradient(120deg, #c5a059, #8f7640);
-	border-color: #c5a059;
-	color: #0a0a0a;
-	box-shadow: 0 10px 30px rgba(197, 160, 89, 0.3);
+	background: linear-gradient(135deg, var(--accent), #B89551);
+	border-color: var(--accent);
+	color: #0D0D0D;
+	font-weight: 600;
+	box-shadow: 0 2px 8px rgba(201, 169, 97, 0.3);
+}
+
+button.primary:hover {
+	box-shadow: 0 4px 16px rgba(201, 169, 97, 0.5);
+	transform: translateY(-1px);
 }
 
 button.ghost {
 	background: transparent;
 	color: var(--text);
+	border-color: transparent;
 }
 
 button:hover {
 	border-color: var(--accent);
-	box-shadow: 0 4px 18px rgba(197, 160, 89, 0.25);
+	box-shadow: 0 0 0 1px var(--accent);
 }
 
 button:disabled {
-	opacity: 0.5;
+	opacity: 0.4;
 	cursor: not-allowed;
 	box-shadow: none;
+	background: var(--surface);
+	color: var(--muted);
+	transform: none;
 }
 
 .form {
@@ -219,7 +239,7 @@ button:disabled {
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
 	padding: 14px;
-	background: rgba(22, 22, 22, 0.85);
+	background: rgba(26, 26, 26, 0.6);
 }
 
 .section__title {
@@ -263,19 +283,43 @@ button:disabled {
 
 .field input,
 .field select {
-	padding: 10px;
+	padding: 10px 12px;
 	border-radius: var(--radius);
 	border: 1px solid var(--border);
-	background: #0f0f0f;
+	background: var(--surface);
 	color: var(--text);
 	font-family: inherit;
 	font-size: 14px;
 	min-height: 44px;
+	transition: all 0.2s ease;
+}
+
+.field textarea {
+	padding: 10px 12px;
+	border-radius: var(--radius);
+	border: 1px solid var(--border);
+	background: var(--surface);
+	color: var(--text);
+	font-family: inherit;
+	font-size: 14px;
+	min-height: 110px;
+	transition: all 0.2s ease;
+	resize: vertical;
+}
+
+.field textarea:focus {
+	outline: none;
+	border-color: var(--accent);
+	box-shadow: 0 0 0 1px var(--accent), 0 0 8px rgba(201, 169, 97, 0.15);
+	background: rgba(26, 26, 26, 0.8);
 }
 
 .field input:focus,
 .field select:focus {
-	outline: 1px solid var(--accent);
+	outline: none;
+	border-color: var(--accent);
+	box-shadow: 0 0 0 1px var(--accent), 0 0 8px rgba(201, 169, 97, 0.15);
+	background: rgba(26, 26, 26, 0.8);
 }
 
 .form__actions {
@@ -298,8 +342,15 @@ button:disabled {
 .card {
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
-	padding: 14px;
-	background: linear-gradient(180deg, #181818, #111111);
+	padding: 16px;
+	background: var(--surface);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+	transition: all 0.2s ease;
+}
+
+.card:hover {
+	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+	border-color: rgba(201, 169, 97, 0.3);
 }
 
 .card--muted {
@@ -322,27 +373,31 @@ button:disabled {
 }
 
 .pill {
-	padding: 6px 10px;
+	padding: 6px 12px;
 	border-radius: 999px;
 	border: 1px solid var(--border);
-	background: #1e1e1e;
+	background: var(--surface);
 	color: var(--text);
 	font-size: 12px;
+	font-weight: 500;
 }
 
 .pill.info {
 	border-color: var(--accent);
 	color: var(--accent);
+	background: rgba(201, 169, 97, 0.1);
 }
 
 .pill.warning {
-	border-color: #5a2a2f;
-	color: #e5d2d5;
+	border-color: #E5A855;
+	color: #E5A855;
+	background: rgba(229, 168, 85, 0.1);
 }
 
 .pill.danger {
 	border-color: var(--danger);
 	color: var(--danger);
+	background: rgba(155, 44, 44, 0.1);
 }
 
 .card__meta {
@@ -385,7 +440,7 @@ button:disabled {
 }
 
 .skeleton {
-	background: linear-gradient(90deg, var(--surface) 0%, rgba(38, 38, 38, 0.5) 50%, var(--surface) 100%);
+	background: linear-gradient(90deg, var(--surface) 0%, rgba(42, 42, 42, 0.8) 50%, var(--surface) 100%);
 	background-size: 200% 100%;
 	animation: shimmer 1.5s infinite;
 	border-radius: var(--radius);
@@ -404,9 +459,9 @@ button:disabled {
 	background: var(--surface);
 	border: 1px solid var(--border);
 	border-radius: var(--radius);
-	padding: 12px 20px;
+	padding: 14px 20px;
 	color: var(--text);
-	box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 	animation: slideUp 0.3s ease;
 	z-index: 1000;
 	max-width: 90vw;
@@ -503,9 +558,9 @@ button:disabled {
 .auth-alert {
 	border: 1px solid var(--danger);
 	border-radius: var(--radius);
-	padding: 10px 12px;
+	padding: 12px 16px;
 	color: var(--danger);
-	background: rgba(22, 22, 22, 0.85);
+	background: rgba(155, 44, 44, 0.1);
 	margin-bottom: 14px;
 }
 
@@ -539,7 +594,7 @@ button:disabled {
 	letter-spacing: 0.25em;
 }
 
-/* Loading Animation */
+/* Loading Animation - Bouteille versant dans verre à pied */
 .loading-wine {
 	display: flex;
 	justify-content: center;
@@ -547,49 +602,118 @@ button:disabled {
 	padding: 2rem;
 }
 
+/* Animation de la bouteille qui se penche pour verser */
 .bottle-container {
-	transform-origin: 52px 48px;
-	animation: bottle-pour 4s infinite ease-in-out;
+	transform-origin: 24px 50px; /* Point de pivot en bas de la bouteille */
+	animation: bottle-tilt 6s infinite ease-in-out;
 }
 
+/* Liquide dans la bouteille qui baisse progressivement */
+.bottle-liquid {
+	transform-origin: bottom;
+	animation: bottle-empty 6s infinite ease-in-out;
+}
+
+/* Filet de liquide qui coule de la bouteille au verre */
 .wine-stream {
-	animation: stream-flow 4s infinite ease-in-out;
-	opacity: 0;
+	stroke-dasharray: 60;
+	stroke-dashoffset: 60;
+	animation: stream-pour 6s infinite ease-in-out;
 }
 
+/* Liquide qui remplit progressivement le verre */
 .wine-liquid {
 	transform-origin: bottom;
-	animation: wine-fill 4s infinite ease-in-out;
-	transform: scaleY(0);
+	transform: translateY(20px);
+	animation: glass-fill 6s infinite ease-in-out;
 }
 
+/* Le verre qui se lève pour boire */
 .glass-container {
-	transform-origin: 32px 48px;
-	animation: glass-drink 4s infinite ease-in-out;
+	transform-origin: 64px 70px; /* Point de pivot au pied du verre */
+	animation: glass-drink 6s infinite ease-in-out;
 }
 
-@keyframes bottle-pour {
-	0%, 10% { transform: rotate(0deg); }
-	25%, 45% { transform: rotate(-110deg) translate(-10px, -20px); }
-	60%, 100% { transform: rotate(0deg); }
+/* Keyframes pour incliner la bouteille */
+@keyframes bottle-tilt {
+	0%, 10% { 
+		transform: rotate(0deg); 
+	}
+	15%, 50% { 
+		transform: rotate(-45deg) translate(-8px, -5px); 
+	}
+	55%, 100% { 
+		transform: rotate(0deg); 
+	}
 }
 
-@keyframes stream-flow {
-	0%, 20% { opacity: 0; stroke-dashoffset: 20; }
-	25%, 40% { opacity: 1; stroke-dashoffset: 0; }
-	45%, 100% { opacity: 0; stroke-dashoffset: -20; }
+/* Keyframes pour vider la bouteille */
+@keyframes bottle-empty {
+	0%, 10% { 
+		transform: scaleY(1); 
+		opacity: 0.4;
+	}
+	50% { 
+		transform: scaleY(0.2); 
+		opacity: 0.2;
+	}
+	55%, 100% { 
+		transform: scaleY(1); 
+		opacity: 0.4;
+	}
 }
 
-@keyframes wine-fill {
-	0%, 25% { transform: scaleY(0); }
-	45%, 70% { transform: scaleY(1); }
-	85%, 100% { transform: scaleY(0); }
+/* Keyframes pour le filet de liquide */
+@keyframes stream-pour {
+	0%, 14% { 
+		opacity: 0; 
+		stroke-dashoffset: 60; 
+	}
+	15%, 48% { 
+		opacity: 1; 
+		stroke-dashoffset: 0; 
+	}
+	52%, 100% { 
+		opacity: 0; 
+		stroke-dashoffset: -60; 
+	}
 }
 
+/* Keyframes pour remplir le verre progressivement */
+@keyframes glass-fill {
+	0%, 14% { 
+		transform: translateY(20px); 
+		opacity: 0;
+	}
+	15% {
+		transform: translateY(20px); 
+		opacity: 0.6;
+	}
+	50% { 
+		transform: translateY(0px); 
+		opacity: 0.6;
+	}
+	70%, 85% { 
+		transform: translateY(0px); 
+		opacity: 0.6;
+	}
+	95%, 100% { 
+		transform: translateY(20px); 
+		opacity: 0;
+	}
+}
+
+/* Keyframes pour boire le verre */
 @keyframes glass-drink {
-	0%, 70% { transform: rotate(0deg); }
-	80%, 90% { transform: rotate(25deg); }
-	100% { transform: rotate(0deg); }
+	0%, 70% { 
+		transform: rotate(0deg); 
+	}
+	75%, 90% { 
+		transform: rotate(-25deg) translateY(-3px); 
+	}
+	100% { 
+		transform: rotate(0deg); 
+	}
 }
 
 .field__label {

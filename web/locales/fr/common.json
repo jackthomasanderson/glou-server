@@ -407,5 +407,106 @@
     "usePin": "Utiliser le code PIN",
     "autoLockIn": "Verrouillage automatique dans",
     "minutes": "minutes"
+  },
+  "caves": {
+    "title": "Mes caves",
+    "newCave": "+ Nouvelle cave",
+    "createCave": "Créer une cave",
+    "editCave": "Modifier la cave",
+    "viewCave": "Voir",
+    "deleteCave": "Supprimer",
+    "noCaves": "Aucune cave",
+    "noCavesDescription": "Créez votre première cave pour organiser votre collection",
+    "loading": "Chargement...",
+    "loadingError": "Erreur lors du chargement des caves",
+    "caveNotFound": "Erreur: Cave non trouvée",
+    "deleteConfirm": "Êtes-vous sûr ?",
+    "deleteWarning": "Cette action supprimera la cave. Les bouteilles associées seront orphelines.",
+    "creating": "Création...",
+    "updating": "Mise à jour...",
+    "deleting": "Suppression...",
+    "created": "Cave créée avec succès",
+    "updated": "Cave mise à jour",
+    "deleted": "Cave supprimée",
+    "createError": "Échec de création de la cave",
+    "updateError": "Échec de mise à jour",
+    "deleteError": "Échec de suppression",
+    "form": {
+      "name": "Nom",
+      "namePlaceholder": "Nom de la cave",
+      "nameRequired": "Le nom est obligatoire",
+      "type": "Type",
+      "description": "Description",
+      "descriptionPlaceholder": "Description optionnelle",
+      "location": "Localisation",
+      "locationPlaceholder": "Ex: Sous-sol",
+      "save": "Créer",
+      "update": "Mettre à jour",
+      "cancel": "Annuler"
+    },
+    "types": {
+      "cellar": "Cave à vin",
+      "showcase": "Vitrine",
+      "climate_cabinet": "Armoire climatisée",
+      "rack": "Casier",
+      "other": "Autre"
+    },
+    "stats": {
+      "bottleCount": "bouteille(s)",
+      "empty": "Vide",
+      "items": "éléments"
+    }
+  },
+  "cellars": {
+    "title": "Mes celliers",
+    "newCellar": "+ Nouveau cellier",
+    "createCellar": "Créer un cellier",
+    "editCellar": "Modifier le cellier",
+    "viewCellar": "Voir",
+    "deleteCellar": "Supprimer",
+    "noCellars": "Aucun cellier",
+    "noCellarsDescription": "Créez votre premier cellier pour organiser votre collection",
+    "loading": "Chargement...",
+    "loadingError": "Erreur lors du chargement des celliers",
+    "cellarNotFound": "Erreur: Cellier non trouvé",
+    "deleteConfirm": "Êtes-vous sûr ?",
+    "deleteWarning": "Cette action supprimera le cellier. Les bouteilles associées seront orphelines.",
+    "creating": "Création...",
+    "updating": "Mise à jour...",
+    "deleting": "Suppression...",
+    "created": "Cellier créé avec succès",
+    "updated": "Cellier mis à jour",
+    "deleted": "Cellier supprimé",
+    "createError": "Échec de création du cellier",
+    "updateError": "Échec de mise à jour",
+    "deleteError": "Échec de suppression",
+    "meta": {
+      "createdAt": "Créé le"
+    },
+    "form": {
+      "name": "Nom",
+      "namePlaceholder": "Nom du cellier",
+      "nameRequired": "Le nom est obligatoire",
+      "type": "Type",
+      "description": "Description",
+      "descriptionPlaceholder": "Description optionnelle",
+      "location": "Localisation",
+      "locationPlaceholder": "Ex: Sous-sol",
+      "save": "Créer",
+      "update": "Mettre à jour",
+      "cancel": "Annuler"
+    },
+    "types": {
+      "cellar": "Cellier à vin",
+      "showcase": "Vitrine",
+      "climate_cabinet": "Armoire climatisée",
+      "rack": "Casier",
+      "other": "Autre"
+    },
+    "stats": {
+      "bottleCount": "bouteille(s)",
+      "empty": "Vide",
+      "items": "éléments"
+    }
   }
 }

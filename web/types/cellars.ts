@@ -1,34 +1,34 @@
 import { z } from "zod";
 
-export const caveTypeEnum = z.enum(["cellar", "showcase", "climate_cabinet", "rack", "other"]);
+export const cellarTypeEnum = z.enum(["cellar", "showcase", "climate_cabinet", "rack", "other"]);
 
-export type CaveType = z.infer<typeof caveTypeEnum>;
+export type CellarType = z.infer<typeof cellarTypeEnum>;
 
-export interface Cave {
+export interface Cellar {
   id: string;
   userId: string;
   name: string;
   description: string | null;
-  caveType: CaveType;
+  cellarType: CellarType;
   locationDescription: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateCaveInput {
+export interface CreateCellarInput {
   name: string;
   description?: string | null;
-  caveType: CaveType;
+  cellarType: CellarType;
   locationDescription?: string | null;
 }
 
-export interface UpdateCaveInput {
+export interface UpdateCellarInput {
   name?: string;
   description?: string | null;
-  caveType?: CaveType;
+  cellarType?: CellarType;
   locationDescription?: string | null;
 }
 
-export interface CaveWithStats extends Cave {
+export interface CellarWithStats extends Cellar {
   bottleCount?: number;
 }

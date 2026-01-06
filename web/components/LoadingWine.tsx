@@ -3,44 +3,72 @@ import React from 'react';
 const LoadingWine = () => {
   return (
     <div className="loading-wine" aria-label="Loading">
-      <svg viewBox="0 0 64 64" width="64" height="64" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* Wine Glass */}
-        <g className="glass-container">
+      <svg viewBox="0 0 120 80" width="120" height="80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Bouteille */}
+        <g className="bottle-container">
+          {/* Corps de la bouteille */}
           <path 
-            d="M24 48 H40 M32 48 V36 M22 16 C22 32 42 32 42 16 H22 Z" 
+            d="M20 20 H28 V50 H20 V20 Z M22 20 V14 C22 12 26 12 26 14 V20" 
             stroke="var(--accent)" 
             strokeWidth="1.5" 
             strokeLinecap="round"
             strokeLinejoin="round"
+            fill="none"
           />
-          {/* Wine inside */}
+          {/* Liquide dans la bouteille avec animation de baisse */}
+          <rect
+            className="bottle-liquid"
+            x="21"
+            y="24"
+            width="6"
+            height="24"
+            fill="var(--accent)"
+            opacity="0.4"
+          />
+        </g>
+
+        {/* Filet de liquide versé (animation) */}
+        <path 
+          className="wine-stream"
+          d="M 26 14 Q 45 28, 64 42"
+          stroke="var(--accent)" 
+          strokeWidth="2" 
+          strokeLinecap="round"
+          fill="none"
+          opacity="0"
+        />
+
+        {/* Verre à pied */}
+        <g className="glass-container">
+          {/* Pied du verre */}
+          <line x1="64" y1="70" x2="64" y2="50" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round"/>
+          <line x1="58" y1="70" x2="70" y2="70" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round"/>
+          
+          {/* Coupe du verre */}
           <path 
+            d="M 54 50 L 50 30 H 78 L 74 50 Z" 
+            stroke="var(--accent)" 
+            strokeWidth="1.5" 
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          
+          {/* Liquide dans le verre (se remplit progressivement) */}
+          <clipPath id="glassClip">
+            <path d="M 54 50 L 50 30 H 78 L 74 50 Z" />
+          </clipPath>
+          <rect 
             className="wine-liquid"
-            d="M24 28 C24 31 40 31 40 28 V18 H24 V28 Z" 
+            x="50" 
+            y="30" 
+            width="28" 
+            height="20" 
             fill="var(--accent)"
             opacity="0.6"
+            clipPath="url(#glassClip)"
           />
         </g>
-
-        {/* Bottle */}
-        <g className="bottle-container">
-          <path 
-            d="M48 24 H56 V48 H48 V24 Z M50 24 V18 C50 16 54 16 54 18 V24" 
-            stroke="var(--accent)" 
-            strokeWidth="1.5" 
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </g>
-
-        {/* Stream */}
-        <line 
-          className="wine-stream"
-          x1="52" y1="14" x2="32" y2="20" 
-          stroke="var(--accent)" 
-          strokeWidth="1" 
-          strokeDasharray="2 4"
-        />
       </svg>
     </div>
   );

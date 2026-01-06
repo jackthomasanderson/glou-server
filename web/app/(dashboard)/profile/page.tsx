@@ -278,15 +278,15 @@ export default function ProfilePage() {
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input
                     type="color"
-                    value={effective?.accentColor ?? "#c5a059"}
+                    value={effective?.accentColor ?? "#C9A961"}
                     onChange={(e) => setDraft((d) => ({ ...d, accentColor: e.target.value }))}
                     aria-label={t("profile.accentColor")}
                     style={{ height: 44, width: 48, padding: 0, borderRadius: "var(--radius)" }}
                   />
                   <input
-                    value={effective?.accentColor ?? "#c5a059"}
+                    value={effective?.accentColor ?? "#C9A961"}
                     onChange={(e) => setDraft((d) => ({ ...d, accentColor: e.target.value }))}
-                    placeholder="#c5a059"
+                    placeholder="#C9A961"
                   />
                 </div>
               </label>

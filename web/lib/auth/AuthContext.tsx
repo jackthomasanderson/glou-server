@@ -124,35 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       dispatch({ type: "SET_LOADING", payload: true });
       try {
-        // BYPASS POUR FEAT-01 : initialiser avec un utilisateur fictif
-        const dummyUser: AuthUser = {
-          id: "bypass-user-feat01",
-          username: "TestUser",
-          email: "test@glou.local",
-          role: "user",
-          displayName: "Test User",
-          twoFAEnabled: false,
-          preferredLocale: "fr",
-          dateTimeFormat: "system",
-          temperatureUnit: "c",
-          themeMode: "dark",
-          accentColor: "#8B0000",
-        };
-
-        const dummySession: AuthSession = {
-          id: "bypass-session-feat01",
-          sessionToken: "bypass-token-feat01",
-        };
-
-        dispatch({ type: "SET_USER", payload: dummyUser });
-        dispatch({ type: "SET_SESSION", payload: dummySession });
+        await refreshMe();
         dispatch({ type: "SET_LOADING", payload: false });
-
-        // Code original (désactivé) :
-        // await refreshMe();
       } catch {
-        // dispatch({ type: "CLEAR_AUTH" });
-        dispatch({ type: "SET_LOADING", payload: false });
+        dispatch({ type: "CLEAR_AUTH" });
       }
     };
 

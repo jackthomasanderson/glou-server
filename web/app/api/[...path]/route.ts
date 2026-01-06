@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 function getForwardCookieHeader(request: NextRequest): string {
   const direct = request.headers.get("cookie");
@@ -116,6 +116,48 @@ export async function POST(
     return createProxiedResponse(data, response);
   } catch (error) {
     console.error("[API Proxy] POST error:", error);
+    return NextResponse.json(
+      { error: "Backend unavailable", details: String(error) },
+      { status: 502 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { path: string[] } }
+) {
+  try {
+    const path = params.path.join("/");
+    const rawBody = await request.text();
+    const body = rawBody ? JSON.parse(rawBody) : undefined;
+    const url = `${BACKEND_URL}/${path}`;
+    const cookieHeader = getForwardCookieHeader(request);
+
+    console.log(`[API Proxy] PUT ${url}`, body);
+
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: cookieHeader,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+
+    let data;
+    const contentType = response.headers.get("content-type");
+
+    if (contentType?.includes("application/json")) {
+      data = await response.json();
+    } else {
+      data = await response.text();
+    }
+
+    console.log(`[API Proxy] PUT ${url} - Status: ${response.status}`);
+    return createProxiedResponse(data, response);
+  } catch (error) {
+    console.error("[API Proxy] PUT error:", error);
     return NextResponse.json(
       { error: "Backend unavailable", details: String(error) },
       { status: 502 }

@@ -79,7 +79,10 @@ export function createAuthRouter(
       const userAgent = req.headers["user-agent"] as string;
 
       // Get user
-      const user = await userService.getUserByUsername(payload.username);
+      let user = await userService.getUserByUsername(payload.username);
+      if (!user && payload.username.includes("@")) {
+        user = await userService.getUserByEmail(payload.username);
+      }
       if (!user) {
         await securityEventService.logEvent("unknown", "login_failed", ipAddress, userAgent, { reason: "user_not_found" });
         return res.status(401).json({ error: "Invalid username or password" });

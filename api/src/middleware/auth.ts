@@ -28,28 +28,26 @@ function getCookieValue(cookieHeader: string | undefined, name: string): string 
 export function authMiddleware(sessionService: SessionService) {
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
-      // BYPASS TEMPORAIRE : attribuer un userId/sessionId fictif pour tester FEAT-01
-      req.userId = "bypass-user-feat01";
-      req.sessionId = "bypass-session-feat01";
+      let token = req.headers.authorization?.replace("Bearer ", "");
+      if (!token) {
+        token = req.cookies?.["session_token"];
+        if (!token) {
+          token = getCookieValue(req.headers.cookie as string | undefined, "session_token");
+        }
+      }
 
-      // Code d'authentification original (désactivé) :
-      // let token = req.headers.authorization?.replace("Bearer ", "");
-      // if (!token) {
-      //   token = req.cookies?.["session_token"];
-      //   if (!token) {
-      //     token = getCookieValue(req.headers.cookie as string | undefined, "session_token");
-      //   }
-      // }
-      // if (!token) {
-      //   return res.status(401).json({ error: "Unauthorized: Missing session token" });
-      // }
-      // const session = await sessionService.getSessionByToken(token);
-      // if (!session) {
-      //   return res.status(401).json({ error: "Unauthorized: Invalid or expired session" });
-      // }
-      // await sessionService.updateSessionActivity(session.id);
-      // req.userId = session.userId;
-      // req.sessionId = session.id;
+      if (!token) {
+        return res.status(401).json({ error: "Unauthorized: Missing session token" });
+      }
+
+      const session = await sessionService.getSessionByToken(token);
+      if (!session) {
+        return res.status(401).json({ error: "Unauthorized: Invalid or expired session" });
+      }
+
+      await sessionService.updateSessionActivity(session.id);
+      req.userId = session.userId;
+      req.sessionId = session.id;
 
       next();
     } catch (error) {
