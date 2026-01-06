@@ -5,10 +5,12 @@ import { createAuthRouter } from "./routes/auth.js";
 import { createProfileRouter } from "./routes/profile.js";
 import { createAdminRouter } from "./routes/admin.js";
 import { createCellarsRouter } from "./routes/cellars.js";
+import { createBottlesRouter } from "./routes/bottles.js";
 import { DatabaseService } from "./services/database.js";
 import { UserService, TwoFAService, SessionService, SecurityEventService } from "./services/auth.js";
 import { AppSettingsService, ProfileService } from "./services/profile.js";
 import { CellarService } from "./services/cellars.js";
+import { BottleService } from "./services/bottles.js";
 import { logger } from "./utils/logger.js";
 
 dotenv.config();
@@ -27,6 +29,7 @@ const securityEventService = new SecurityEventService(dbService);
 const profileService = new ProfileService(dbService);
 const appSettingsService = new AppSettingsService(dbService);
 const cellarService = new CellarService(dbService);
+const bottleService = new BottleService(dbService);
 
 // Middleware
 app.use(express.json());
@@ -58,6 +61,10 @@ app.use(
 // Cellars router
 const cellarsRouter = createCellarsRouter(sessionService, cellarService);
 app.use("/api/cellars", cellarsRouter);
+
+// Bottles router
+const bottlesRouter = createBottlesRouter(sessionService, bottleService);
+app.use("/api/bottles", bottlesRouter);
 
 // 404 handler
 app.use((req, res) => {

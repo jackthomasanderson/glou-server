@@ -135,7 +135,7 @@ export function BottleDashboard() {
   const getDaysUntilDelete = (deletedAt: string | null): number | null =>
     getDaysUntilPermanentDelete(deletedAt);
 
-  const { data: bottles = [], isLoading } = useQuery({ queryKey, queryFn: () => fetchBottles(true) });
+  const { data: bottles = [], isLoading } = useQuery({ queryKey, queryFn: () => fetchBottles() });
 
   const commonMutateConfig = {
     onMutate: async () => {
