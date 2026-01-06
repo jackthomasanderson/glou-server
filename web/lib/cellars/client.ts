@@ -1,4 +1,4 @@
-import { Cellar, CreateCellarInput, UpdateCellarInput } from "@/types/cellars";
+import { Cellar, CellarWithStats, CreateCellarInput, UpdateCellarInput } from "@/types/cellars";
 
 const API_BASE = "/api";
 
@@ -6,7 +6,7 @@ export const cellarsClient = {
   /**
    * Get all cellars for the authenticated user
    */
-  async getCellars(): Promise<Cellar[]> {
+  async getCellars(): Promise<CellarWithStats[]> {
     const response = await fetch(`${API_BASE}/cellars`, {
       method: "GET",
       headers: {
@@ -25,7 +25,7 @@ export const cellarsClient = {
   /**
    * Get a single cellar by ID
    */
-  async getCellarById(cellarId: string): Promise<Cellar> {
+  async getCellarById(cellarId: string): Promise<CellarWithStats> {
     const response = await fetch(`${API_BASE}/cellars/${cellarId}`, {
       method: "GET",
       headers: {

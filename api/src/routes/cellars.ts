@@ -42,7 +42,7 @@ export function createCellarsRouter(sessionService: SessionService, cellarServic
       }
 
       const { cellarId } = req.params;
-      const cellar = await cellarService.getCellarById(cellarId, userId);
+      const cellar = await cellarService.getCellarWithStats(cellarId, userId);
 
       if (!cellar) {
         return res.status(404).json({ error: "Cellar not found" });

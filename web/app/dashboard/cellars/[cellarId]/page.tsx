@@ -7,16 +7,12 @@ export const metadata: Metadata = {
 
 interface CellarPageProps {
   params: Promise<{
-    caveId: string;
+    cellarId: string;
   }>;
 }
 
 export default async function CellarPage({ params }: CellarPageProps) {
-  const { caveId: cellarId } = await params;
+  const { cellarId } = await params;
 
-  return (
-    <div className="space-y-6">
-      <CellarDetails cellarId={cellarId} />
-    </div>
-  );
+  return <CellarDetails cellarId={cellarId} />;
 }

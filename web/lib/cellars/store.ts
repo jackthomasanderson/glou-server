@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cellarsClient } from "./client";
-import { Cellar, CreateCellarInput, UpdateCellarInput } from "@/types/cellars";
+import { CellarWithStats, CreateCellarInput, UpdateCellarInput } from "@/types/cellars";
 
 const CELLARS_QUERY_KEY = ["cellars"];
 
 type CellarsContext = {
-  previousCellars?: Cellar[];
-  previousCellar?: Cellar;
+  previousCellars?: CellarWithStats[];
+  previousCellar?: CellarWithStats;
   tempId?: string;
   cellarId?: string;
 };
@@ -38,11 +38,11 @@ export function useCreateCellar() {
     mutationFn: (input: CreateCellarInput) => cellarsClient.createCellar(input),
     onMutate: async (input: CreateCellarInput) => {
       await queryClient.cancelQueries({ queryKey: CELLARS_QUERY_KEY });
-      const previousCellars = queryClient.getQueryData<Cellar[]>(CELLARS_QUERY_KEY);
+      const previousCellars = queryClient.getQueryData<CellarWithStats[]>(CELLARS_QUERY_KEY);
 
       const tempId = createTempId();
       const now = new Date().toISOString();
-      const optimistic: Cellar = {
+      const optimistic: CellarWithStats = {
         id: tempId,
         userId: "",
         name: input.name,
@@ -51,9 +51,10 @@ export function useCreateCellar() {
         locationDescription: input.locationDescription ?? null,
         createdAt: now,
         updatedAt: now,
+        bottleCount: 0,
       };
 
-      queryClient.setQueryData<Cellar[]>(CELLARS_QUERY_KEY, (current = []) => [optimistic, ...current]);
+      queryClient.setQueryData<CellarWithStats[]>(CELLARS_QUERY_KEY, (current = []) => [optimistic, ...current]);
       return { previousCellars, tempId } satisfies CellarsContext;
     },
     onError: (_error, _variables, context) => {
@@ -62,11 +63,11 @@ export function useCreateCellar() {
       }
     },
     onSuccess: (created, _variables, context) => {
-      queryClient.setQueryData<Cellar[]>(CELLARS_QUERY_KEY, (current = []) => {
+      queryClient.setQueryData<CellarWithStats[]>(CELLARS_QUERY_KEY, (current = []) => {
         const withoutTemp = context?.tempId ? current.filter((cellar) => cellar.id !== context.tempId) : current;
         return [created, ...withoutTemp];
       });
-      queryClient.setQueryData<Cellar>([...CELLARS_QUERY_KEY, created.id], created);
+      queryClient.setQueryData<CellarWithStats>([...CELLARS_QUERY_KEY, created.id], created);
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: CELLARS_QUERY_KEY }),
   });
@@ -82,11 +83,11 @@ export function useUpdateCellar() {
       await queryClient.cancelQueries({ queryKey: CELLARS_QUERY_KEY });
       await queryClient.cancelQueries({ queryKey: [...CELLARS_QUERY_KEY, cellarId] });
 
-      const previousCellars = queryClient.getQueryData<Cellar[]>(CELLARS_QUERY_KEY);
-      const previousCellar = queryClient.getQueryData<Cellar>([...CELLARS_QUERY_KEY, cellarId]);
+      const previousCellars = queryClient.getQueryData<CellarWithStats[]>(CELLARS_QUERY_KEY);
+      const previousCellar = queryClient.getQueryData<CellarWithStats>([...CELLARS_QUERY_KEY, cellarId]);
 
       const now = new Date().toISOString();
-      queryClient.setQueryData<Cellar[]>(CELLARS_QUERY_KEY, (current = []) =>
+      queryClient.setQueryData<CellarWithStats[]>(CELLARS_QUERY_KEY, (current = []) =>
         current.map((cellar) =>
           cellar.id === cellarId
             ? {
@@ -103,7 +104,7 @@ export function useUpdateCellar() {
         )
       );
 
-      queryClient.setQueryData<Cellar | undefined>([...CELLARS_QUERY_KEY, cellarId], (current) =>
+      queryClient.setQueryData<CellarWithStats | undefined>([...CELLARS_QUERY_KEY, cellarId], (current) =>
         current
           ? {
               ...current,
@@ -129,10 +130,10 @@ export function useUpdateCellar() {
       }
     },
     onSuccess: (updatedCellar) => {
-      queryClient.setQueryData<Cellar[]>(CELLARS_QUERY_KEY, (current = []) =>
+      queryClient.setQueryData<CellarWithStats[]>(CELLARS_QUERY_KEY, (current = []) =>
         current.map((cellar) => (cellar.id === updatedCellar.id ? updatedCellar : cellar))
       );
-      queryClient.setQueryData<Cellar>([...CELLARS_QUERY_KEY, updatedCellar.id], updatedCellar);
+      queryClient.setQueryData<CellarWithStats>([...CELLARS_QUERY_KEY, updatedCellar.id], updatedCellar);
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: CELLARS_QUERY_KEY });
@@ -152,10 +153,10 @@ export function useDeleteCellar() {
       await queryClient.cancelQueries({ queryKey: CELLARS_QUERY_KEY });
       await queryClient.cancelQueries({ queryKey: [...CELLARS_QUERY_KEY, cellarId] });
 
-      const previousCellars = queryClient.getQueryData<Cellar[]>(CELLARS_QUERY_KEY);
-      const previousCellar = queryClient.getQueryData<Cellar>([...CELLARS_QUERY_KEY, cellarId]);
+      const previousCellars = queryClient.getQueryData<CellarWithStats[]>(CELLARS_QUERY_KEY);
+      const previousCellar = queryClient.getQueryData<CellarWithStats>([...CELLARS_QUERY_KEY, cellarId]);
 
-      queryClient.setQueryData<Cellar[]>(CELLARS_QUERY_KEY, (current = []) =>
+      queryClient.setQueryData<CellarWithStats[]>(CELLARS_QUERY_KEY, (current = []) =>
         current.filter((cellar) => cellar.id !== cellarId)
       );
       queryClient.removeQueries({ queryKey: [...CELLARS_QUERY_KEY, cellarId] });

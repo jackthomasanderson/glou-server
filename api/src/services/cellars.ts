@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import { Cellar, CreateCellarInput, UpdateCellarInput } from "../schemas/cellars.js";
+import { Cellar, CellarWithStats, CreateCellarInput, UpdateCellarInput } from "../schemas/cellars.js";
 import { DatabaseService } from "./database.js";
 import { logger } from "../utils/logger.js";
 
@@ -12,25 +12,38 @@ export class CellarService {
   /**
    * Get all cellars for a user
    */
-  async getCellarsByUserId(userId: string): Promise<Cellar[]> {
+  async getCellarsByUserId(userId: string): Promise<CellarWithStats[]> {
     const query = `
       SELECT
-        id,
-        user_id as "userId",
-        name,
-        description,
-        cellar_type as "cellarType",
-        location_description as "locationDescription",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM cellars
-      WHERE user_id = $1
-      ORDER BY created_at DESC
+        c.id,
+        c.user_id as "userId",
+        c.name,
+        c.description,
+        c.cellar_type as "cellarType",
+        c.location_description as "locationDescription",
+        c.created_at as "createdAt",
+        c.updated_at as "updatedAt",
+        COALESCE(COUNT(b.id), 0)::int as "bottleCount"
+      FROM cellars c
+      LEFT JOIN bottles b
+        ON b.cellar_id = c.id
+        AND b.deleted_at IS NULL
+      WHERE c.user_id = $1
+      GROUP BY
+        c.id,
+        c.user_id,
+        c.name,
+        c.description,
+        c.cellar_type,
+        c.location_description,
+        c.created_at,
+        c.updated_at
+      ORDER BY c.created_at DESC
     `;
 
     try {
       const result = await this.db.query(query, [userId]);
-      return result.rows as Cellar[];
+      return result.rows as CellarWithStats[];
     } catch (err) {
       logger.error("Failed to get cellars for user");
       throw err;
@@ -210,7 +223,7 @@ export class CellarService {
   /**
    * Get cellar with bottle count
    */
-  async getCellarWithStats(cellarId: string, userId: string): Promise<any> {
+  async getCellarWithStats(cellarId: string, userId: string): Promise<CellarWithStats | null> {
     const cellar = await this.getCellarById(cellarId, userId);
     if (!cellar) {
       return null;

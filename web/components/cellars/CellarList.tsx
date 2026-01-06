@@ -78,6 +78,12 @@ export function CellarList() {
                 </div>
               </div>
 
+              <p className="feedback" style={{ marginTop: 8 }}>
+                {typeof cellar.bottleCount === "number" && cellar.bottleCount > 0
+                  ? `${cellar.bottleCount} ${t("cellars.stats.bottleCount")}`
+                  : t("cellars.stats.empty")}
+              </p>
+
               {cellar.locationDescription ? <p className="feedback">{cellar.locationDescription}</p> : null}
 
               <div className="actions-inline" style={{ marginTop: 12 }}>
