@@ -507,4 +507,27 @@ export class BottleService {
       throw err;
     }
   }
+
+  /**
+   * Restore a soft-deleted bottle
+   */
+  async restoreBottle(bottleId: string, userId: string): Promise<Bottle> {
+    const query = `
+      UPDATE bottles
+      SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1 AND user_id = $2
+      RETURNING *
+    `;
+
+    try {
+      const result = await this.db.query(query, [bottleId, userId]);
+      if (result.rows.length === 0) {
+        throw new Error("BOTTLE_NOT_FOUND");
+      }
+      return result.rows[0] as Bottle;
+    } catch (err) {
+      logger.error(`Failed to restore bottle: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
+    }
+  }
 }

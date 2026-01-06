@@ -37,11 +37,13 @@ export function authMiddleware(sessionService: SessionService) {
       }
 
       if (!token) {
+        logger.info({ cookies: req.cookies, authHeader: req.headers.authorization }, "No token found in request");
         return res.status(401).json({ error: "Unauthorized: Missing session token" });
       }
 
       const session = await sessionService.getSessionByToken(token);
       if (!session) {
+        logger.warn({ token: token.substring(0, 10) + "..." }, "Invalid or expired session token");
         return res.status(401).json({ error: "Unauthorized: Invalid or expired session" });
       }
 

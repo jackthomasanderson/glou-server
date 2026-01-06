@@ -1,24 +1,37 @@
 :root {
-	/* Palette "Dark Cellar Premium" */
-	--bg: #0D0D0D; /* Noir profond doux */
-	--surface: #1A1A1A; /* Surface élégante */
-	--border: #2A2A2A; /* Bordure subtile */
-	--accent: #C9A961; /* Or Champagne */
-	--danger: #9B2C2C; /* Bordeaux profond */
-	--text: #F5F5F5; /* Blanc cassé */
-	--muted: #A8A8A8; /* Texte secondaire */
+	/* Palette Mode Clair (Primaire) */
+	--bg: #FAFAFA; /* Fond blanc cassé */
+	--surface: #FFFFFF; /* Surface blanche pure */
+	--border: #E8E8E8; /* Bordure gris très clair */
+	--accent: #2563EB; /* Bleu moderne, confiant */
+	--accent-hover: #1D4ED8; /* Bleu plus foncé au hover */
+	--accent-secondary: #F59E0B; /* Ambre chaleureux, alertes */
+	--danger: #EF4444; /* Rouge vif, erreurs */
+	--success: #10B981; /* Vert harmonieux */
+	--text: #1F1F1F; /* Quasi-noir, très lisible */
+	--muted: #666666; /* Texte secondaire gris moyen */
 	--radius: 6px;
+	
+	/* Focus ring */
+	--focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.1);
+	
+	/* Transitions */
+	--transition-fast: 150ms ease;
+	--transition-normal: 200ms ease;
 }
 
-html.light {
-	/* Palette Light Premium */
-	--bg: #FAFAFA; /* Fond clair élégant */
-	--surface: #FFFFFF; /* Surface pure */
-	--border: #E5E5E5; /* Bordure douce */
-	--accent: #C9A961; /* Or Champagne conservé */
-	--danger: #9B2C2C; /* Bordeaux conservé */
-	--text: #1A1A1A; /* Texte sombre */
-	--muted: #666666; /* Texte secondaire */
+html.dark {
+	/* Palette Mode Sombre (Variante) */
+	--bg: #0F172A; /* Bleu-noir très sombre */
+	--surface: #1E293B; /* Gris-bleu foncé */
+	--border: #334155; /* Gris-bleu plus clair */
+	--accent: #3B82F6; /* Bleu lumineux */
+	--accent-hover: #2563EB; /* Bleu plus sombre au hover */
+	--accent-secondary: #FBBF24; /* Ambre lumineux */
+	--danger: #EF4444; /* Rouge vif */
+	--success: #10B981; /* Vert harmonieux */
+	--text: #F1F5F9; /* Blanc très clair */
+	--muted: #94A3B8; /* Gris-bleu clair */
 }
 
 * {
@@ -27,23 +40,21 @@ html.light {
 
 body {
 	margin: 0;
-	/* Fond élégant avec gradient subtil */
-	background: 
-		radial-gradient(circle at 20% 20%, rgba(18, 18, 18, 0.8), var(--bg) 50%), 
-		radial-gradient(circle at 80% 80%, rgba(22, 22, 22, 0.6), var(--bg) 50%);
+	background: var(--bg);
 	color: var(--text);
-	font-family: var(--font-sans), 'Inter', system-ui, -apple-system, sans-serif;
+	font-family: var(--font-sans), 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 	font-size: 14px;
-	line-height: 1.6;
+	line-height: 1.5;
 	min-height: 100vh;
 }
 
 h1,
 h2,
 h3 {
-	font-family: var(--font-sans), 'Inter', system-ui, sans-serif;
+	font-family: var(--font-sans), 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 	font-weight: 600;
 	letter-spacing: -0.01em;
+	line-height: 1.4;
 	margin: 0;
 	color: var(--text);
 }

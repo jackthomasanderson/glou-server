@@ -459,5 +459,33 @@
       "empty": "Empty",
       "items": "items"
     }
+  },
+  "errors": {
+    "auth": {
+      "unauthorized": "Unauthorized access",
+      "forbidden": "Access denied to this resource"
+    },
+    "bottles": {
+      "notFound": "Bottle not found",
+      "cellarNotFound": "Cellar not found",
+      "cellarIdRequired": "Please select a cellar before creating a bottle",
+      "invalidInput": "Invalid data",
+      "invalidCategory": "Invalid category",
+      "invalidVintage": "Invalid vintage (format YYYY or NV)",
+      "invalidCellarId": "Invalid cellar ID",
+      "invalidFillLevel": "Invalid filling level",
+      "invalidAbv": "Invalid alcohol level for this category",
+      "missingRequiredField": "Required field missing",
+      "listFailed": "Error retrieving bottles",
+      "listCellarFailed": "Error retrieving cellar bottles",
+      "getFailed": "Error retrieving bottle",
+      "createFailed": "Error creating bottle",
+      "updateFailed": "Error updating bottle",
+      "deleteFailed": "Error deleting bottle"
+    },
+    "common": {
+      "internalError": "Internal server error",
+      "databaseError": "Database error"
+    }
   }
 }

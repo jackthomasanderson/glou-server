@@ -32,8 +32,11 @@ CREATE TRIGGER trigger_caves_timestamp
   EXECUTE FUNCTION update_caves_timestamp();
 
 -- Add cave_id foreign key to bottles table (soft migration, optional column)
-ALTER TABLE bottles
-  ADD COLUMN IF NOT EXISTS cave_id UUID REFERENCES caves(id) ON DELETE SET NULL;
-
--- Create index on cave_id for efficient querying of bottles by cave
-CREATE INDEX IF NOT EXISTS idx_bottles_cave_id ON bottles(cave_id);
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'bottles') THEN
+    ALTER TABLE bottles
+      ADD COLUMN IF NOT EXISTS cave_id UUID REFERENCES caves(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS idx_bottles_cave_id ON bottles(cave_id);
+  END IF;
+END $$;

@@ -459,5 +459,33 @@
       "empty": "Vide",
       "items": "éléments"
     }
+  },
+  "errors": {
+    "auth": {
+      "unauthorized": "Accès non autorisé",
+      "forbidden": "Accès refusé à cette ressource"
+    },
+    "bottles": {
+      "notFound": "Bouteille non trouvée",
+      "cellarNotFound": "Cellier non trouvé",
+      "cellarIdRequired": "Veuillez sélectionner un cellier avant de créer une bouteille",
+      "invalidInput": "Données invalides",
+      "invalidCategory": "Catégorie invalide",
+      "invalidVintage": "Millésime invalide (format YYYY ou NV)",
+      "invalidCellarId": "ID de cellier invalide",
+      "invalidFillLevel": "Niveau de remplissage invalide",
+      "invalidAbv": "Degré d'alcool invalide pour cette catégorie",
+      "missingRequiredField": "Champ obligatoire manquant",
+      "listFailed": "Erreur lors de la récupération des bouteilles",
+      "listCellarFailed": "Erreur lors de la récupération des bouteilles du cellier",
+      "getFailed": "Erreur lors de la récupération de la bouteille",
+      "createFailed": "Erreur lors de la création de la bouteille",
+      "updateFailed": "Erreur lors de la mise à jour de la bouteille",
+      "deleteFailed": "Erreur lors de la suppression de la bouteille"
+    },
+    "common": {
+      "internalError": "Erreur serveur interne",
+      "databaseError": "Erreur de base de données"
+    }
   }
 }

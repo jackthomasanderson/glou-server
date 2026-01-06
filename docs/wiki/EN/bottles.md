@@ -1,15 +1,16 @@
 # Bottle board (in-memory store)
 
 ## TL;DR
-Multi-category CRUD with optimistic UI, 7-day trash, and restore.
-Data lives only in the Next server memory: it vanishes on restart and is not linked to cellars or users.
+Multi-category CRUD with optimistic UI, soft-delete, and restore.
+**Data persists in PostgreSQL** and survives restarts. Each bottle is linked to a cellar and isolated per user.
 
 ## Prerequisites
 - Next frontend running; bottles do not rely on the API/DB.
 - Understand storage is shared per server instance and non-persistent.
 
 > [!CAUTION]
-> All data is lost when the Next process restarts. This module is a demo and provides neither persistence nor per-user separation.
+> [!NOTE]
+> **FEAT-55 Update**: Bottles are now fully persisted in PostgreSQL with multi-tenancy (user_id filtering) and cellar relationships. Restarting the application does not lose any data.
 
 ## Action
 1. Go to the main dashboard `/dashboard`.
@@ -20,7 +21,8 @@ Data lives only in the Next server memory: it vanishes on restart and is not lin
 6. Delete: the item moves to trash with automatic expiration after 7 days. Restore from the card or via the toast Undo action.
 
 ## Why is it failing?
-- Data disappears after restart: expected, the store is in memory. There is no API persistence yet.
+- ~~Data disappears after restart~~: **FIXED in FEAT-55** — All bottles persist in PostgreSQL.
+- Missing cellarId: Ensure a cellar exists before creating bottles (auto-selected if only one cellar).
 - Fields rejected: check category requirements (e.g., `producer`/`name`/`vintageOrNone` for wine) and numeric bounds (ABV, quantity).
 - Trash not clearing: expiration is recalculated when listing; if nothing triggers a list, items stay visible until the next refresh.
 - No cellar/user scoping: the store is global to the Next instance, with no per-account filter or cellar relation.

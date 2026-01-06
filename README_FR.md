@@ -7,6 +7,7 @@ Votre concierge privé pour bouteilles, bulles, spiritueux et cigares : tout est
 ## ✨ Ce qu’il fait pour vous
 
 - 🍷 **Ajout et rangement express** (FEAT-01) : Créez, modifiez, mettez à la corbeille ou restaurez une bouteille avec des champs malins selon la catégorie, sauvegardes optimistes et un petit délai pour annuler.
+- 💾 **Votre collection, toujours là** (FEAT-55) : Chaque bouteille persiste dans PostgreSQL—fermez l'app, redémarrez le serveur, tout reste exactement là où vous l'avez laissé.
 
 ---
 

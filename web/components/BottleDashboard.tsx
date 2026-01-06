@@ -1,8 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { createBottle, deleteBottle, fetchBottles, restoreBottle, updateBottle } from "../lib/bottles/client";
+import { cellarsClient } from "../lib/cellars/client";
 import { getDaysUntilPermanentDelete } from "../lib/bottles/trash";
 import {
   type BottleCategory,
@@ -20,6 +21,7 @@ import { LocaleSync } from "./LocaleSync";
 const queryKey = ["bottles"] as const;
 
 const baseFields = {
+  cellarId: "", // Will be set automatically from selected cellar
   label: "",
   location: "",
   collection: "",
@@ -122,6 +124,18 @@ export function BottleDashboard() {
   const [showOptionals, setShowOptionals] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackAction, setFeedbackAction] = useState<(() => void) | null>(null);
+
+  const { data: cellars = [] } = useQuery({
+    queryKey: ["cellars"],
+    queryFn: () => cellarsClient.getCellars(),
+  });
+
+  // Auto-populate cellarId when cellars load
+  useEffect(() => {
+    if (cellars.length > 0 && !(form as any).cellarId) {
+      setForm(prev => ({ ...prev, cellarId: cellars[0].id } as BottleInput));
+    }
+  }, [cellars]);
 
   const showToast = (message: string, action?: () => void) => {
     setFeedback(message);
@@ -258,6 +272,10 @@ export function BottleDashboard() {
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!form.cellarId) {
+      alert(t("errors.cellarIdRequired") || "Cellar is required");
+      return;
+    }
     if (editingId) {
       updateMutation.mutate({ id: editingId, payload: form });
     } else {

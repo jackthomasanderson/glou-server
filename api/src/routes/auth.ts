@@ -120,9 +120,10 @@ export function createAuthRouter(
       await securityEventService.logEvent(user.id, "login_success", ipAddress, userAgent);
 
       res.cookie("session_token", sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
+        httpOnly: false,
+        secure: false,
+        sameSite: "lax",
+        path: "/",
         maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       });
 
@@ -201,10 +202,10 @@ export function createAuthRouter(
       await securityEventService.logEvent(user.id, "login_success", ipAddress, userAgent, { method: "2fa" });
 
       res.cookie("session_token", sessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 30 * 24 * 60 * 60 * 1000,
+          httpOnly: false,
+          secure: false,
+          sameSite: "lax",
+          path: "/",
       });
 
       res.json({
@@ -434,15 +435,24 @@ export function createAuthRouter(
   router.get("/me", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.userId) {
+        logger.warn("GET /me - No userId in request after authMiddleware");
         return res.status(401).json({ error: "Unauthorized" });
       }
 
       const user = await userService.getUserById(req.userId);
       if (!user) {
+        logger.warn({ userId: req.userId }, "User not found");
         return res.status(404).json({ error: "User not found" });
       }
 
-      const twoFASettings = await twoFAService.getTwoFASettings(req.userId);
+      let twoFASettings = null;
+      try {
+        twoFASettings = await twoFAService.getTwoFASettings(req.userId);
+      } catch (e) {
+        logger.error(e, "Failed to get 2FA settings");
+        // Don't fail the whole request if 2FA settings fail
+        twoFASettings = null;
+      }
 
       res.json({
         data: {
@@ -458,12 +468,12 @@ export function createAuthRouter(
           temperatureUnit: (user as any).temperatureUnit ?? "c",
           themeMode: (user as any).themeMode ?? "dark",
           accentColor: (user as any).accentColor ?? "#c5a059",
-          twoFAEnabled: twoFASettings?.method !== "none",
+          twoFAEnabled: twoFASettings?.method !== "none" && twoFASettings !== null,
           twoFAMethod: twoFASettings?.method,
         },
       });
     } catch (error) {
-      logger.error(error, "Get user error");
+      logger.error({ error, userId: req.userId }, "Get user error");
       res.status(500).json({ error: "Internal server error" });
     }
   });

@@ -161,6 +161,33 @@ export const bottlesClient = {
       throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
     }
   },
+
+  async restore(bottleId: string): Promise<BottleRecord> {
+    try {
+      const res = await fetch(`${API_BASE}/${bottleId}/restore`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        if (res.status === 404) {
+          throw new BottlesClientError("NOT_FOUND", 404, "Bottle not found");
+        }
+        const error = await res.json();
+        throw new BottlesClientError(
+          "RESTORE_FAILED",
+          res.status,
+          error.error || "Failed to restore bottle"
+        );
+      }
+
+      return (await res.json()) as BottleRecord;
+    } catch (err) {
+      if (err instanceof BottlesClientError) throw err;
+      throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
+    }
+  },
 };
 
 // Convenience functions for backward compatibility
@@ -180,9 +207,8 @@ export async function deleteBottle(id: string): Promise<BottleRecord> {
   return bottlesClient.delete(id);
 }
 
-export async function restoreBottle(): Promise<BottleRecord> {
-  // Soft-deleted bottles can't be restored via API, but we keep for compatibility
-  throw new Error("Restore not yet implemented via API");
+export async function restoreBottle(id: string): Promise<BottleRecord> {
+  return bottlesClient.restore(id);
 }
 
 export { BottlesClientError };
