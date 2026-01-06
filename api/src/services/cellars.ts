@@ -45,6 +45,27 @@ export class CellarService {
       const result = await this.db.query(query, [userId]);
       return result.rows as CellarWithStats[];
     } catch (err) {
+      // If bottles table doesn't exist yet, return cellars without bottle count
+      if ((err as any)?.code === '42P01') {
+        logger.info("Bottles table not yet deployed, returning cellars without bottle count");
+        const fallbackQuery = `
+          SELECT
+            c.id,
+            c.user_id as "userId",
+            c.name,
+            c.description,
+            c.cellar_type as "cellarType",
+            c.location_description as "locationDescription",
+            c.created_at as "createdAt",
+            c.updated_at as "updatedAt",
+            0::int as "bottleCount"
+          FROM cellars c
+          WHERE c.user_id = $1
+          ORDER BY c.created_at DESC
+        `;
+        const result = await this.db.query(fallbackQuery, [userId]);
+        return result.rows as CellarWithStats[];
+      }
       logger.error("Failed to get cellars for user");
       throw err;
     }
