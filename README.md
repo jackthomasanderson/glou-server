@@ -9,6 +9,8 @@ Your private cellar concierge that keeps bottles, bubbles, spirits, and cigars p
 - 🍷 **Add and tidy bottles fast** (FEAT-01): Create, edit, trash, or restore any bottle with category-smart fields, optimistic saves, and a gentle undo before anything is gone.
 - 💾 **Your collection, always there** (FEAT-55): Every bottle persists in PostgreSQL—close the app, restart your server, everything stays exactly where you left it.
 
+- 👤 **Profile & personalization** (FEAT-03): Each user gets a dedicated profile with persistent preferences and custom options for a tailored experience.
+
 ---
 
 ## 🛠 Get Started in Seconds

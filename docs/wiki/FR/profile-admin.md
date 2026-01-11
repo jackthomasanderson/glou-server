@@ -18,7 +18,42 @@ La marque (nom, slogan, logo) est globale et stockée dans la table `app_setting
 6. Section Admin (si visible) : mettez à jour nom/slogan/logo de l'app, et changez les rôles des utilisateurs existants via le sélecteur (admin/user).
 
 ## Pourquoi ça ne marche pas ?
-- Erreur de validation : la couleur d'accent doit respecter le format `#RRGGBB`; les URLs webhook/Gotify doivent être valides.
-- Test de notification en échec : l'API retourne le code HTTP distant; vérifiez l'URL, les firewalls ou un éventuel HTTPS manquant.
-- Section admin absente : votre compte n'est pas admin; seul le premier utilisateur ou ceux promus via l'admin peuvent la voir.
-- Changements non visibles : la requête a échoué ou le cache n'a pas été invalidé; rechargez la page et vérifiez les journaux API.
+
+
+
+
+### Vue d'ensemble
+Chaque utilisateur gère son identité, ses préférences (langue, thème, couleur d'accent) et ses notifications. Les admins peuvent aussi gérer la marque globale et les rôles utilisateurs.
+
+### Principaux endpoints
+- `GET /api/profile/me` — Récupère le profil et les préférences de l'utilisateur courant
+- `PATCH /api/profile/me` — Met à jour le profil et les préférences de l'utilisateur courant
+- `POST /api/profile/notifications/test` — Teste les canaux de notification (webhook, Gotify)
+- `GET /api/profile/app-settings` — Public : récupère la marque (nom, slogan, logo)
+- `GET /api/admin/users` — Liste tous les utilisateurs (admin uniquement)
+- `PATCH /api/admin/users/:userId/role` — Change le rôle d'un utilisateur (admin uniquement)
+- `GET /api/admin/app-settings` — Récupère la marque globale (admin uniquement)
+- `PATCH /api/admin/app-settings` — Met à jour la marque globale (admin uniquement)
+
+### Intégration Frontend/Backend
+- **Frontend** : Utilise React Query pour le fetch et les mutations optimistes des données profil/admin. La page profil (`/profile`) permet d'éditer identité, préférences et notifications. Les admins voient des contrôles supplémentaires pour la marque et la gestion des utilisateurs.
+- **Backend** : Routes Express avec validation (Zod), authentification/autorisation, et persistance PostgreSQL. Les tests de notification font un POST vers les URLs fournies et retournent le statut HTTP.
+- **Optimistic UI** : Les mutations mettent à jour l'UI instantanément; les erreurs déclenchent un rollback et un fallback visuel.
+- **Internationalisation** : Toutes les chaînes sont traduites (EN/FR) via un provider central.
+
+### Modèle de données (Profil)
+- `displayName`, `avatarUrl`, `tagline` : Identité utilisateur
+- `preferredLocale`, `themeMode`, `accentColor` : Préférences
+- `notificationSettings` : Canaux, catégories, plages silencieuses, URLs webhook/Gotify
+
+### Gestion des erreurs
+- Tous les endpoints retournent des erreurs structurées; les problèmes de validation sont détaillés pour le frontend.
+- Le test de notification retourne le statut HTTP distant et l'erreur si inaccessible.
+
+### Sécurité
+- Toutes les mutations nécessitent une authentification; les endpoints admin exigent le rôle `admin`.
+- Les entrées sont validées et nettoyées; secrets et rôles ne sont jamais exposés dans les réponses.
+
+### Voir aussi
+- Voir `/web/lib/profile/client.ts` pour l'intégration API côté frontend.
+- Voir `/api/src/routes/profile.ts` et `/api/src/routes/admin.ts` pour la logique backend.
