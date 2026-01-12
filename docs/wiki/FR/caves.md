@@ -2,11 +2,12 @@
 
 ## TL;DR
 Les caves se gèrent depuis `/dashboard/caves` avec nom, type, description et localisation facultative.
-Pas d'association automatique avec les bouteilles pour l'instant : les stocks restent séparés.
+Les bouteilles sont liées aux caves via la colonne `cellar_id` dans la table des bouteilles ; l'API peut ne pas exposer de compteurs agrégés, mais la relation existe dans le schéma.
 
 ## Prérequis
 - Être connecté; le proxy `/api/caves` doit pointer sur l'API (port 3001 par défaut).
-- Postgres en ligne (table `caves` créée par `db/init/04-feat-24-caves.sql`).
+ - Postgres en ligne (table `caves` créée par `db/init/04-feat-24-caves.sql`).
+ - Remarque : les bouteilles possèdent une clé étrangère `cellar_id` (voir `db/init/06-feat-55-bottles-persistent.sql`).
 - Navigateur autorisé à conserver le cookie `session_token`.
 
 > [!CAUTION]
@@ -23,4 +24,4 @@ Pas d'association automatique avec les bouteilles pour l'instant : les stocks re
 - 401/403 : session expirée ou cookie absent; reconnectez-vous via `/login`.
 - 400 « Invalid input » : `name` vide ou `caveType` hors de l'énumération attendue.
 - 404 en édition : l'identifiant n'existe plus (supprimé ou non lié à votre compte).
-- Pas de compteur de bouteilles : l'API n'expose pas encore les statistiques de cave; c'est attendu dans cet état du code.
+ - Pas de compteur de bouteilles : l'API peut ne pas exposer les statistiques de cave; utilisez `GET /api/bottles?cellarId={id}` pour lister les bouteilles d'une cave.

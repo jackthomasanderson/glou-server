@@ -31,6 +31,11 @@ User profiles allow each user to manage their identity, preferences (language, t
 - `GET /api/admin/app-settings` — Get global branding (admin only)
 - `PATCH /api/admin/app-settings` — Update global branding (admin only)
 
+### Migrations
+
+- `db/init/03-feat-03-profiles-roles.sql` — adds profile columns and `accent_color` to users.
+- `db/init/07-migrate-accent-color.sql` — (migration) updates legacy gold accents to the current default `#2563EB`.
+
 ### Frontend/Backend Integration
 - **Frontend**: Uses React Query for fetching and optimistic mutation of profile and admin data. Profile page (`/profile`) allows editing identity, preferences, and notifications. Admins see extra controls for branding and user management.
 - **Backend**: Express routes validate input (Zod), enforce authentication/authorization, and persist changes to PostgreSQL. Notification tests POST to user-supplied URLs and return HTTP status.

@@ -35,6 +35,11 @@ Chaque utilisateur gère son identité, ses préférences (langue, thème, coule
 - `GET /api/admin/app-settings` — Récupère la marque globale (admin uniquement)
 - `PATCH /api/admin/app-settings` — Met à jour la marque globale (admin uniquement)
 
+### Migrations
+
+- `db/init/03-feat-03-profiles-roles.sql` — ajoute les colonnes de profil et `accent_color` aux utilisateurs.
+- `db/init/07-migrate-accent-color.sql` — (migration) met à jour les accents dorés hérités vers la valeur par défaut actuelle `#2563EB`.
+
 ### Intégration Frontend/Backend
 - **Frontend** : Utilise React Query pour le fetch et les mutations optimistes des données profil/admin. La page profil (`/profile`) permet d'éditer identité, préférences et notifications. Les admins voient des contrôles supplémentaires pour la marque et la gestion des utilisateurs.
 - **Backend** : Routes Express avec validation (Zod), authentification/autorisation, et persistance PostgreSQL. Les tests de notification font un POST vers les URLs fournies et retournent le statut HTTP.
