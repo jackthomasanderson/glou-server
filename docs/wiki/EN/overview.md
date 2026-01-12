@@ -4,6 +4,14 @@
 Start Postgres (docker), then the API on 3001 and the Next frontend on 3000; the first account you register becomes admin.
 Keep the frontend proxy `/api/...` pointing to the API so the `session_token` cookie is set correctly.
 
+## Implemented
+
+- 🍷 FEAT-01: Add and tidy bottles fast (create/edit/trash/restore with optimistic saves).
+- 👤 FEAT-03: Profile & personalization (persistent user preferences and accents).
+- 🔐 FEAT-02: TOTP 2FA (login with TOTP + recovery codes).
+- 🏠 FEAT-24: Cellars/Caves management (cellar schema and APIs).
+- 💾 FEAT-55: Persistent bottle storage in PostgreSQL.
+
 ## Prerequisites
 - Docker for Postgres (or any reachable PostgreSQL) + open ports 5432/3001/3000.
 - Node 20+ and npm to run the API and the frontend.
@@ -22,6 +30,4 @@ Keep the frontend proxy `/api/...` pointing to the API so the `session_token` co
 - 401 or login loop: the `session_token` cookie is not set; ensure the frontend calls `/api/...` (proxy) or that `CORS_ORIGIN` on the API allows `http://localhost:3000`.
 - DB error when starting the API: Postgres is not ready or DB vars are wrong; test with `psql` and verify `DB_HOST/DB_USER/DB_PASSWORD`.
 - 404 on `/api/*`: the Next server is not running or `NEXT_PUBLIC_API_URL` points to an invalid URL.
--- Missing tables when not using Docker: apply `db/init/02-auth-schema.sql`, `03-feat-03-profiles-roles.sql`, and `04-feat-24-caves.sql` manually on your database.
-
-Note: Profile & preferences (FEAT-03) have been implemented. A migration `db/init/07-migrate-accent-color.sql` is provided to update legacy accent colors to the new default `#2563EB`.
+- Missing tables when not using Docker: apply `db/init/02-auth-schema.sql`, `03-feat-03-profiles-roles.sql`, and `04-feat-24-caves.sql` manually on your database.
