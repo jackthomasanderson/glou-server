@@ -1,4 +1,7 @@
--- FEAT-03: User profiles, roles and app branding
+
+-- Ajout clé API IA utilisateur (OpenAI ou autre)
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS ai_api_key TEXT;
 
 -- Add basic role + profile columns on users
 ALTER TABLE users
@@ -10,7 +13,7 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS date_time_format VARCHAR(20) NOT NULL DEFAULT 'system',
   ADD COLUMN IF NOT EXISTS temperature_unit VARCHAR(2) NOT NULL DEFAULT 'c',
   ADD COLUMN IF NOT EXISTS theme_mode VARCHAR(10) NOT NULL DEFAULT 'dark',
-  ADD COLUMN IF NOT EXISTS accent_color VARCHAR(16) NOT NULL DEFAULT '#c5a059',
+  ADD COLUMN IF NOT EXISTS accent_color VARCHAR(16) NOT NULL DEFAULT '#2563EB',
   ADD COLUMN IF NOT EXISTS notification_settings JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 -- Keep roles simple for private usage
@@ -40,11 +43,13 @@ ALTER TABLE users
   ADD CONSTRAINT users_date_time_format_check CHECK (date_time_format IN ('system', '24h', '12h'));
 
 -- App-wide personal branding (single row)
+
 CREATE TABLE IF NOT EXISTS app_settings (
   id BOOLEAN PRIMARY KEY DEFAULT TRUE,
   app_name TEXT,
   app_tagline TEXT,
   logo_url TEXT,
+  ai_api_key TEXT,
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 

@@ -80,69 +80,38 @@ export default function ProfilePage() {
       themeMode: draft.themeMode ?? profile.themeMode,
       accentColor: draft.accentColor ?? profile.accentColor,
       notificationSettings: draft.notificationSettings ?? settings,
+      aiApiKey: typeof draft.aiApiKey === "undefined" ? profile.aiApiKey : draft.aiApiKey,
     };
   }, [profile, draft]);
 
   const saveProfileMutation = useMutation({
     mutationFn: updateMyProfile,
-    onMutate: async (input) => {
-      setError(null);
-      setFeedback(null);
-
+    onMutate: async (input: UpdateProfileInput) => {
+      setTimeout(() => setError(null), 0);
+      setTimeout(() => setFeedback(null), 0);
       await queryClient.cancelQueries({ queryKey: profileKey });
-      const previousProfile = queryClient.getQueryData<Profile>(profileKey);
-
-      if (previousProfile) {
-        const nextProfile: Profile = {
-          ...previousProfile,
-          ...input,
-          notificationSettings:
-            input.notificationSettings ? input.notificationSettings : previousProfile.notificationSettings,
-        };
-        queryClient.setQueryData(profileKey, nextProfile);
+      const previous = queryClient.getQueryData<Profile>(profileKey);
+      if (previous) {
+        queryClient.setQueryData(profileKey, { ...previous, ...input } as Profile);
       }
-
-      return { previousProfile };
+      return { previous };
     },
     onError: (_err, _input, ctx) => {
-      if (ctx?.previousProfile) {
-        queryClient.setQueryData(profileKey, ctx.previousProfile);
-      }
-      setError(t("errors.serverError"));
+      if (ctx?.previous) queryClient.setQueryData(profileKey, ctx.previous);
+      setTimeout(() => setError(t("errors.serverError")), 0);
     },
-    onSuccess: async () => {
-      setFeedback(t("profile.saved"));
-      setDraft({});
-      await refreshMe();
-      await queryClient.invalidateQueries({ queryKey: profileKey });
-    },
-  });
-
-  const testNotifMutation = useMutation({
-    mutationFn: testNotifications,
-    onMutate: () => {
-      setError(null);
-      setFeedback(null);
-    },
-    onSuccess: (data) => {
-      const webhook = data.results.webhook;
-      const gotify = data.results.gotify;
-
-      const webhookStatus = webhook.attempted ? (webhook.ok ? t("notifications.testOk") : t("notifications.testFailed")) : t("notifications.notAttempted");
-      const gotifyStatus = gotify.attempted ? (gotify.ok ? t("notifications.testOk") : t("notifications.testFailed")) : t("notifications.notAttempted");
-
-      setFeedback(`${t("notifications.webhook")} : ${webhookStatus} • ${t("notifications.gotify")} : ${gotifyStatus}`);
-    },
-    onError: () => {
-      setError(t("errors.serverError"));
+    onSuccess: () => {
+      setTimeout(() => setFeedback(t("profile.saved")), 0);
+      queryClient.invalidateQueries({ queryKey: profileKey });
+      refreshMe?.();
     },
   });
 
   const saveBrandMutation = useMutation({
     mutationFn: updateAppSettings,
     onMutate: async (input) => {
-      setError(null);
-      setFeedback(null);
+      setTimeout(() => setError(null), 0);
+      setTimeout(() => setFeedback(null), 0);
       await queryClient.cancelQueries({ queryKey: appSettingsKey });
       const previous = queryClient.getQueryData<AppSettings>(appSettingsKey);
       if (previous) {
@@ -152,10 +121,10 @@ export default function ProfilePage() {
     },
     onError: (_err, _input, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(appSettingsKey, ctx.previous);
-      setError(t("errors.serverError"));
+      setTimeout(() => setError(t("errors.serverError")), 0);
     },
     onSuccess: () => {
-      setFeedback(t("admin.brandingSaved"));
+      setTimeout(() => setFeedback(t("admin.brandingSaved")), 0);
       queryClient.invalidateQueries({ queryKey: appSettingsKey });
     },
   });
@@ -163,8 +132,8 @@ export default function ProfilePage() {
   const updateRoleMutation = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: "admin" | "user" }) => updateUserRole(userId, role),
     onMutate: async ({ userId, role }) => {
-      setError(null);
-      setFeedback(null);
+      setTimeout(() => setError(null), 0);
+      setTimeout(() => setFeedback(null), 0);
       await queryClient.cancelQueries({ queryKey: usersKey });
       const previous = queryClient.getQueryData<UserSummary[]>(usersKey);
       if (previous) {
@@ -177,11 +146,25 @@ export default function ProfilePage() {
     },
     onError: (_err, _input, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(usersKey, ctx.previous);
-      setError(t("errors.serverError"));
+      setTimeout(() => setError(t("errors.serverError")), 0);
     },
     onSuccess: () => {
-      setFeedback(t("admin.roleUpdated"));
+      setTimeout(() => setFeedback(t("admin.roleUpdated")), 0);
       queryClient.invalidateQueries({ queryKey: usersKey });
+    },
+  });
+
+  const testNotifMutation = useMutation({
+    mutationFn: () => testNotifications(),
+    onMutate: async () => {
+      setTimeout(() => setError(null), 0);
+      setTimeout(() => setFeedback(null), 0);
+    },
+    onError: () => {
+      setTimeout(() => setError(t("errors.serverError")), 0);
+    },
+    onSuccess: () => {
+      setTimeout(() => setFeedback(t("notifications.testSent") ?? "Test sent"), 0);
     },
   });
 
@@ -278,15 +261,15 @@ export default function ProfilePage() {
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input
                     type="color"
-                    value={effective?.accentColor ?? "#C9A961"}
+                    value={effective?.accentColor ?? "#2563EB"}
                     onChange={(e) => setDraft((d) => ({ ...d, accentColor: e.target.value }))}
                     aria-label={t("profile.accentColor")}
                     style={{ height: 44, width: 48, padding: 0, borderRadius: "var(--radius)" }}
                   />
                   <input
-                    value={effective?.accentColor ?? "#C9A961"}
+                    value={effective?.accentColor ?? "#2563EB"}
                     onChange={(e) => setDraft((d) => ({ ...d, accentColor: e.target.value }))}
-                    placeholder="#C9A961"
+                    placeholder="#2563EB"
                   />
                 </div>
               </label>
