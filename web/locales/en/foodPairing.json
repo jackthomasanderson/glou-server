@@ -1,0 +1,8 @@
+{
+  "title": "Food pairing",
+  "foodPlaceholder": "What are you eating?",
+  "suggest": "Suggest",
+  "unavailable": "No AI key configured. Please contact the administrator.",
+  "error": "AI suggestion error.",
+  "suggestFood": "Food pairing ideas"
+}

@@ -33,11 +33,11 @@ export function RegisterForm() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setTimeout(() => setError(null), 0);
 
     const validationError = validateForm();
     if (validationError) {
-      setError(validationError);
+      setTimeout(() => setError(validationError), 0);
       return;
     }
 
@@ -49,7 +49,7 @@ export function RegisterForm() {
       router.push("/login?registered=true");
     } catch (err) {
       const message = err instanceof Error ? err.message : t("auth.errors.serverError");
-      setError(message);
+      setTimeout(() => setError(message), 0);
     } finally {
       setIsLoading(false);
     }

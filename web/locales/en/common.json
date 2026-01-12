@@ -13,6 +13,32 @@
     "profile": "Profile",
     "settings": "Settings"
   },
+  "dashboard": {
+    "kpis": {
+      "totalBottles": "Total bottles",
+      "openBottles": "Opened",
+      "cellars": "Cellars"
+    }
+  },
+  "cigars": {
+    "emptyTitle": "No cigars found",
+    "emptyHint": "Add cigars or import a collection.",
+    "loading": "Loading cigars..."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "bottles": "Bottles",
+    "cellars": "Cellars",
+    "cigars": "Cigars",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "bottles": "Bottles",
+    "cellars": "Cellars",
+    "cigars": "Cigars"
+  },
   "header": {
     "language": "Language",
     "theme": "Theme",
@@ -175,7 +201,9 @@
     "restore": "Restore",
     "undo": "Undo",
     "edit": "Edit",
-    "add": "Add bottle"
+    "add": "Add bottle",
+    "addBottle": "Add bottle",
+    "quickAdd": "Quick add"
   },
   "preview": {
     "title": "Preview",

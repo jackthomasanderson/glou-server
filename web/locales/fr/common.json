@@ -13,6 +13,26 @@
     "profile": "Profil",
     "settings": "Paramètres"
   },
+  "dashboard": {
+    "kpis": {
+      "totalBottles": "Total bouteilles",
+      "openBottles": "Ouvertes",
+      "cellars": "Celliers"
+    }
+  },
+  "cigars": {
+    "emptyTitle": "Aucun cigare trouvé",
+    "emptyHint": "Ajoutez des cigares ou importez une collection.",
+    "loading": "Chargement des cigares..."
+  },
+    "nav": {
+      "dashboard": "Tableau de bord",
+      "bottles": "Bouteilles",
+      "cellars": "Celliers",
+      "cigars": "Cigares",
+      "collapse": "Réduire la barre",
+      "expand": "Agrandir la barre"
+    },
   "header": {
     "language": "Langue",
     "theme": "Thème",
@@ -175,7 +195,9 @@
     "restore": "Restaurer",
     "undo": "Annuler",
     "edit": "Modifier",
-    "add": "Ajouter une bouteille"
+    "add": "Ajouter une bouteille",
+    "addBottle": "Ajouter une bouteille",
+    "quickAdd": "Ajout rapide"
   },
   "preview": {
     "title": "Prévisualisation",

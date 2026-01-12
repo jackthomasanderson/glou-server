@@ -3,6 +3,10 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import en from "../../locales/en/common.json";
 import fr from "../../locales/fr/common.json";
+import enAdmin from "../../locales/en/admin.json";
+import frAdmin from "../../locales/fr/admin.json";
+import enFood from "../../locales/en/foodPairing.json";
+import frFood from "../../locales/fr/foodPairing.json";
 import { defaultLocale, type Locale } from "./locales";
 
 type Dictionary = typeof en;
@@ -15,8 +19,16 @@ type I18nContextValue = {
 };
 
 const dictionaries: Record<Locale, Dictionary> = {
-  en,
-  fr
+  en: {
+    ...en,
+    admin: enAdmin,
+    foodPairing: enFood,
+  } as unknown as Dictionary,
+  fr: {
+    ...fr,
+    admin: frAdmin,
+    foodPairing: frFood,
+  } as unknown as Dictionary,
 };
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);

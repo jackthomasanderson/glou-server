@@ -29,7 +29,8 @@ export class ProfileService {
         temperature_unit as "temperatureUnit",
         theme_mode as "themeMode",
         accent_color as "accentColor",
-        notification_settings as "notificationSettings"
+        notification_settings as "notificationSettings",
+        ai_api_key as "aiApiKey"
       FROM users
       WHERE id = $1
     `;
@@ -54,6 +55,7 @@ export class ProfileService {
       { column: "theme_mode", key: "themeMode" },
       { column: "accent_color", key: "accentColor" },
       { column: "notification_settings", key: "notificationSettings" },
+      { column: "ai_api_key", key: "aiApiKey" },
     ];
 
     const setParts: string[] = [];
@@ -84,7 +86,8 @@ export class ProfileService {
         temperature_unit as "temperatureUnit",
         theme_mode as "themeMode",
         accent_color as "accentColor",
-        notification_settings as "notificationSettings"
+        notification_settings as "notificationSettings",
+        ai_api_key as "aiApiKey"
     `;
 
     try {
@@ -141,12 +144,13 @@ export class ProfileService {
 export class AppSettingsService {
   constructor(private db: DatabaseService) {}
 
-  async getAppSettings(): Promise<AppSettings> {
+  async getAppSettings(): Promise<AppSettings & { aiApiKey: string | null }> {
     const query = `
       SELECT
         app_name as "appName",
         app_tagline as "appTagline",
         logo_url as "logoUrl",
+        ai_api_key as "aiApiKey",
         updated_at as "updatedAt"
       FROM app_settings
       WHERE id = TRUE
@@ -154,19 +158,29 @@ export class AppSettingsService {
 
     try {
       const result = await this.db.query(query, []);
-      const row = result.rows[0] as AppSettings | undefined;
+      const row = result.rows[0] as (AppSettings & { aiApiKey: string | null }) | undefined;
       if (row) return row;
 
       // Shouldn't happen due to init, but keep it safe.
       await this.db.query(
-        `INSERT INTO app_settings (id, app_name, app_tagline, logo_url) VALUES (TRUE, NULL, NULL, NULL) ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO app_settings (id, app_name, app_tagline, logo_url, ai_api_key) VALUES (TRUE, NULL, NULL, NULL, NULL) ON CONFLICT (id) DO NOTHING`,
         []
       );
       const again = await this.db.query(query, []);
-      return again.rows[0] as AppSettings;
+      return again.rows[0] as AppSettings & { aiApiKey: string | null };
     } catch (error) {
       logger.error({ error }, "Failed to get app settings");
       throw new Error("Failed to get app settings");
+    }
+  }
+
+  async setAiApiKey(aiApiKey: string | null): Promise<void> {
+    const query = `UPDATE app_settings SET ai_api_key = $1, updated_at = NOW() WHERE id = TRUE`;
+    try {
+      await this.db.query(query, [aiApiKey]);
+    } catch (error) {
+      logger.error({ error, aiApiKey }, "Failed to set AI API key");
+      throw new Error("Failed to set AI API key");
     }
   }
 

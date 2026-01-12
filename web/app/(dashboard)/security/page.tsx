@@ -31,7 +31,7 @@ export default function SecurityPage() {
   const handleSetupTOTP = async () => {
     try {
       setIsSettingUp(true);
-      setError(null);
+      setTimeout(() => setError(null), 0);
       const data = await authClient.setupTOTP();
       setTotpSecret(data.secret);
       setQrCode(data.qrCode);
@@ -39,7 +39,7 @@ export default function SecurityPage() {
       setShowTOTPSetup(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Setup failed";
-      setError(message);
+      setTimeout(() => setError(message), 0);
     } finally {
       setIsSettingUp(false);
     }
@@ -48,7 +48,7 @@ export default function SecurityPage() {
   const handleConfirmTOTP = async () => {
     try {
       if (!totpCode) {
-        setError(t("twoFA.codeRequired"));
+        setTimeout(() => setError(t("twoFA.codeRequired")), 0);
         return;
       }
       await authClient.enableTOTP(totpSecret, totpCode, recoveryCodes);
@@ -59,7 +59,7 @@ export default function SecurityPage() {
       setTotpCode("");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Verification failed";
-      setError(message);
+      setTimeout(() => setError(message), 0);
     }
   };
 
@@ -73,7 +73,7 @@ export default function SecurityPage() {
       await authClient.disableTwoFA(password);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to disable 2FA";
-      setError(message);
+      setTimeout(() => setError(message), 0);
     }
   };
 

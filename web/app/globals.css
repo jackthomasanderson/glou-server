@@ -5,7 +5,7 @@
 	--border: #E8E8E8; /* Bordure gris très clair */
 	--accent: #2563EB; /* Bleu moderne, confiant */
 	--accent-hover: #1D4ED8; /* Bleu plus foncé au hover */
-	--accent-secondary: #F59E0B; /* Ambre chaleureux, alertes */
+	--accent-secondary: var(--accent); /* align secondary accent with primary */
 	--danger: #EF4444; /* Rouge vif, erreurs */
 	--success: #10B981; /* Vert harmonieux */
 	--text: #1F1F1F; /* Quasi-noir, très lisible */
@@ -18,6 +18,7 @@
 	/* Transitions */
 	--transition-fast: 150ms ease;
 	--transition-normal: 200ms ease;
+	--wine: #7B1E30; /* Accent vin pour loader */
 }
 
 html.dark {
@@ -27,7 +28,7 @@ html.dark {
 	--border: #334155; /* Gris-bleu plus clair */
 	--accent: #3B82F6; /* Bleu lumineux */
 	--accent-hover: #2563EB; /* Bleu plus sombre au hover */
-	--accent-secondary: #FBBF24; /* Ambre lumineux */
+	--accent-secondary: var(--accent); /* align secondary accent with primary */
 	--danger: #EF4444; /* Rouge vif */
 	--success: #10B981; /* Vert harmonieux */
 	--text: #F1F5F9; /* Blanc très clair */
@@ -402,6 +403,153 @@ button:disabled {
 	gap: 16px;
 }
 
+/* App shell layout for sidebar + content + bottom nav */
+.app-shell {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	min-height: 100vh;
+}
+
+.sidebar {
+	background: var(--surface);
+	border-right: 1px solid var(--border);
+	padding: 20px 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	width: 240px;
+}
+
+.sidebar__brand {
+	font-weight: 700;
+	font-size: 18px;
+	color: var(--text);
+	display:flex;
+	align-items:center;
+	gap:8px;
+}
+
+.sidebar__nav {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin-top: 12px;
+}
+
+.sidebar__item {
+	color: var(--muted);
+	padding: 8px 10px;
+	border-radius: 6px;
+}
+
+.sidebar__item:hover {
+	background: rgba(0,0,0,0.03);
+	color: var(--text);
+}
+
+.app-content {
+	padding: 20px 24px;
+	min-width: 0;
+}
+
+/* Collapsed sidebar */
+.sidebar.collapsed { width: 72px; padding-left: 8px; padding-right:8px }
+.sidebar.collapsed .item-label { display:none }
+.sidebar.collapsed .sidebar__logo { font-size:16px }
+.sidebar__toggle { margin-left:auto; background:transparent;border:0; cursor:pointer; padding:6px 8px; color:var(--muted); }
+
+/* Generic loader styles */
+.generic-loader {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	padding: 32px 12px;
+	color: var(--muted);
+}
+.generic-loader .spinner {
+	width: 42px;
+	height: 42px;
+	border-radius: 50%;
+	border: 4px solid rgba(0,0,0,0.08);
+	border-top-color: var(--accent);
+	animation: spin 800ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.generic-loader .loader-lines {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: 200px;
+}
+.generic-loader .line {
+	height: 8px;
+	background: linear-gradient(90deg, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.06) 100%);
+	border-radius: 6px;
+}
+.generic-loader .line.short { width: 60%; }
+.generic-loader .line.long { width: 100%; }
+.generic-loader .loader-message { font-size: 13px; color: var(--muted); }
+
+/* Sidebar visual improvements */
+.sidebar__logo {
+	font-size: 20px;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+.sidebar__item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+.sidebar__item:hover { transform: translateX(4px); }
+.sidebar__item .item-icon { font-size: 18px; }
+.sidebar__item.active {
+	background: linear-gradient(90deg, rgba(37,99,235,0.08), rgba(37,99,235,0.03));
+	color: var(--accent);
+	font-weight: 600;
+}
+
+/* Bottom nav adjustments */
+.bottom-nav__item { display:flex; flex-direction:column; align-items:center; gap:4px; padding:6px 8px; }
+.bottom-nav__item .item-icon { font-size:20px }
+.bottom-nav__item.active { color: var(--accent); }
+
+/* Bottom nav visible on small screens */
+.bottom-nav {
+	display: none;
+}
+
+@media (max-width: 800px) {
+	.app-shell {
+		grid-template-columns: 1fr;
+	}
+	.sidebar {
+		display: none;
+	}
+	.bottom-nav {
+		display: flex;
+		position: sticky;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		background: var(--surface);
+		border-top: 1px solid var(--border);
+		gap: 6px;
+		padding: 8px 12px;
+		justify-content: space-around;
+	}
+	.bottom-nav__item {
+		color: var(--muted);
+		font-size: 13px;
+	}
+}
+
 .card {
 	border: 1px solid var(--border);
 	border-radius: 8px;
@@ -457,9 +605,9 @@ button:disabled {
 }
 
 .pill.warning {
-	border-color: #92400E;
-	color: #92400E;
-	background: #FEF3C7;
+	border-color: var(--accent-secondary);
+	color: var(--accent-secondary);
+	background: rgba(37,99,235,0.08);
 }
 
 .pill.danger {
@@ -481,9 +629,9 @@ html.dark .pill.success {
 }
 
 html.dark .pill.warning {
-	border-color: #FBBF24;
-	color: #FEF3C7;
-	background: rgba(251, 191, 36, 0.15);
+	border-color: var(--accent-secondary);
+	color: var(--accent-secondary);
+	background: rgba(59,130,246,0.15);
 }
 
 html.dark .pill.danger {
@@ -652,6 +800,64 @@ html.dark .pill.danger {
 	}
 }
 
+/* Quick add in sidebar */
+.sidebar__quick {
+	border: 1px solid var(--border);
+	background: var(--surface);
+	border-radius: 6px;
+	padding: 6px 10px;
+	cursor: pointer;
+}
+.sidebar__quickMenu {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+	z-index: 40;
+}
+.sidebar__quickItem {
+	padding: 8px 10px;
+	border-radius: 6px;
+	color: var(--text);
+}
+
+/* Fix quick menu when sidebar is collapsed: align menu to left and center button */
+.sidebar.collapsed .sidebar__quickMenu {
+	left: 0;
+	right: auto;
+}
+
+.sidebar.collapsed .sidebar__quick {
+	padding: 8px;
+	width: 40px;
+	height: 40px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+/* Bottom nav FAB */
+.bottom-nav__fab {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 999px;
+	background: var(--accent);
+	color: #fff;
+	font-weight: 700;
+	text-decoration: none;
+	box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+
 .auth-shell {
 	min-height: 100vh;
 	display: flex;
@@ -730,126 +936,103 @@ html.dark .auth-alert {
 	font-size: 16px;
 }
 
-/* Loading Animation - Bouteille versant dans verre à pied */
+/* Compact loader: simple glass with subtle fill and drop animations */
 .loading-wine {
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	padding: 2rem;
+	padding: 1.25rem;
+	color: var(--wine); /* use wine color for this loader */
 }
 
-/* Animation de la bouteille qui se penche pour verser */
-.bottle-container {
-	transform-origin: 24px 50px; /* Point de pivot en bas de la bouteille */
-	animation: bottle-tilt 6s infinite ease-in-out;
+.loader-svg {
+	width: 96px;
+	height: 96px;
+	display: block;
 }
 
-/* Liquide dans la bouteille qui baisse progressivement */
+.loader-fill {
+	transform-origin: center bottom;
+	animation: glass-fill 2.4s ease-in-out infinite;
+}
+
+.loader-drop {
+	transform-origin: center;
+	animation: stream-drop 2.4s ease-in-out infinite;
+}
+
+/* Bottle tilt */
+.loader-bottle .bottle-tilt-origin {
+	transform-origin: 26px 20px; /* pivot near neck */
+	animation: bottle-tilt 2.4s ease-in-out infinite;
+}
+
+/* Bottle liquid level */
 .bottle-liquid {
-	transform-origin: bottom;
-	animation: bottle-empty 6s infinite ease-in-out;
+	transform-origin: center bottom;
+	animation: bottle-empty 2.4s ease-in-out infinite;
 }
 
-/* Filet de liquide qui coule de la bouteille au verre */
-.wine-stream {
-	stroke-dasharray: 60;
-	stroke-dashoffset: 60;
-	animation: stream-pour 6s infinite ease-in-out;
+/* Stream draws in/out */
+.loader-stream {
+	stroke-dasharray: 80;
+	stroke-dashoffset: 80;
+	animation: stream-pour 2.4s ease-in-out infinite;
 }
 
-/* Liquide qui remplit progressivement le verre */
-.wine-liquid {
-	transform-origin: bottom;
-	transform: translateY(20px);
-	animation: glass-fill 6s infinite ease-in-out;
-}
-
-/* Le verre qui se lève pour boire */
-.glass-container {
-	transform-origin: 64px 70px; /* Point de pivot au pied du verre */
-	animation: glass-drink 6s infinite ease-in-out;
-}
-
-/* Keyframes pour incliner la bouteille */
-@keyframes bottle-tilt {
-	0%, 10% { 
-		transform: rotate(0deg); 
-	}
-	15%, 50% { 
-		transform: rotate(-45deg) translate(-8px, -5px); 
-	}
-	55%, 100% { 
-		transform: rotate(0deg); 
-	}
-}
-
-/* Keyframes pour vider la bouteille */
-@keyframes bottle-empty {
-	0%, 10% { 
-		transform: scaleY(1); 
-		opacity: 0.4;
-	}
-	50% { 
-		transform: scaleY(0.2); 
-		opacity: 0.2;
-	}
-	55%, 100% { 
-		transform: scaleY(1); 
-		opacity: 0.4;
-	}
-}
-
-/* Keyframes pour le filet de liquide */
-@keyframes stream-pour {
-	0%, 14% { 
-		opacity: 0; 
-		stroke-dashoffset: 60; 
-	}
-	15%, 48% { 
-		opacity: 1; 
-		stroke-dashoffset: 0; 
-	}
-	52%, 100% { 
-		opacity: 0; 
-		stroke-dashoffset: -60; 
-	}
-}
-
-/* Keyframes pour remplir le verre progressivement */
+/* Glass fill animation */
 @keyframes glass-fill {
-	0%, 14% { 
-		transform: translateY(20px); 
-		opacity: 0;
-	}
-	15% {
-		transform: translateY(20px); 
-		opacity: 0.6;
-	}
-	50% { 
-		transform: translateY(0px); 
-		opacity: 0.6;
-	}
-	70%, 85% { 
-		transform: translateY(0px); 
-		opacity: 0.6;
-	}
-	95%, 100% { 
-		transform: translateY(20px); 
-		opacity: 0;
+	0%   { transform: translateY(18px) scaleY(0.12); opacity: 0.0; }
+	25%  { transform: translateY(18px) scaleY(0.12); opacity: 0.0; }
+	40%  { transform: translateY(8px)  scaleY(0.45); opacity: 0.65; }
+	60%  { transform: translateY(0px)  scaleY(1);    opacity: 0.95; }
+	80%  { transform: translateY(0px)  scaleY(1);    opacity: 0.95; }
+	100% { transform: translateY(18px) scaleY(0.12); opacity: 0.0; }
+}
+
+@keyframes bottle-tilt {
+	0%, 18%  { transform: rotate(0deg); }
+	22%, 60% { transform: rotate(-55deg) translate(-6px, -4px); }
+	70%,100% { transform: rotate(0deg); }
+}
+
+@keyframes bottle-empty {
+	0%, 18% { transform: scaleY(1); opacity: 0.9; }
+	60%    { transform: scaleY(0.28); opacity: 0.6; }
+	100%   { transform: scaleY(1); opacity: 0.9; }
+}
+
+@keyframes stream-pour {
+	0%, 20% { opacity: 0; stroke-dashoffset: 80; }
+	22%, 60% { opacity: 1; stroke-dashoffset: 0; }
+	65%,100% { opacity: 0; stroke-dashoffset: -80; }
+}
+
+@keyframes stream-drop {
+	0%   { transform: translateY(0); opacity: 0; }
+	22%  { transform: translateY(0); opacity: 1; }
+	50%  { transform: translateY(24px); opacity: 0.6; }
+	60%  { transform: translateY(26px); opacity: 0; }
+	100% { transform: translateY(26px); opacity: 0; }
+}
+
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+	.loader-fill,
+	.loader-drop {
+		animation: none !important;
+		opacity: 1;
+		transform: none;
 	}
 }
 
-/* Keyframes pour boire le verre */
-@keyframes glass-drink {
-	0%, 70% { 
-		transform: rotate(0deg); 
-	}
-	75%, 90% { 
-		transform: rotate(-25deg) translateY(-3px); 
-	}
-	100% { 
-		transform: rotate(0deg); 
-	}
+/* Accessible hidden text */
+.sr-only {
+	position: absolute !important;
+	width: 1px; height: 1px;
+	padding: 0; margin: -1px;
+	overflow: hidden; clip: rect(0,0,0,0);
+	white-space: nowrap; border: 0;
 }
 
 .field__label {

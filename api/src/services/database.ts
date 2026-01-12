@@ -8,17 +8,29 @@ export class DatabaseService {
   private pool: Pool;
 
   constructor() {
-    this.pool = new Pool({
-      user: process.env.DB_USER || "glou",
-      host: process.env.DB_HOST || "localhost",
-      database: process.env.DB_NAME || "glou",
-      password: process.env.DB_PASSWORD || "glou",
-      port: parseInt(process.env.DB_PORT || "5432"),
-    });
-
-    this.pool.on("error", (err) => {
-      logger.error(err, "Unexpected error on idle client");
-    });
+    try {
+      this.pool = new Pool({
+        user: process.env.DB_USER || "glou",
+        host: process.env.DB_HOST || "localhost",
+        database: process.env.DB_NAME || "glou",
+        password: process.env.DB_PASSWORD || "glou",
+        port: parseInt(process.env.DB_PORT || "5432"),
+      });
+      // eslint-disable-next-line no-console
+      console.log("[DatabaseService] Pool created with config:", {
+        user: process.env.DB_USER,
+        host: process.env.DB_HOST,
+        database: process.env.DB_NAME,
+        port: process.env.DB_PORT,
+      });
+      this.pool.on("error", (err) => {
+        logger.error(err, "Unexpected error on idle client");
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[DatabaseService] Fatal error during Pool creation", err);
+      throw err;
+    }
   }
 
   /**

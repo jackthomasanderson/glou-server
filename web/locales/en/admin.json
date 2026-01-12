@@ -1,0 +1,12 @@
+{
+  "aiApiKey": {
+    "title": "Global AI API Key",
+    "intro": "Set here the OpenAI (or compatible) API key used by default for all users. Only an admin can edit it.",
+    "label": "AI API Key",
+    "placeholder": "sk-...",
+    "save": "Save",
+    "success": "Key saved!",
+    "fetchError": "Error loading the key.",
+    "saveError": "Error while saving."
+  }
+}

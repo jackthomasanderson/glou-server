@@ -31,10 +31,10 @@ export function SessionManagement() {
       setIsLoading(true);
       const data = await authClient.listSessions();
       setSessions(data);
-      setError(null);
+      setTimeout(() => setError(null), 0);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load sessions";
-      setError(message);
+      setTimeout(() => setError(message), 0);
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +48,7 @@ export function SessionManagement() {
       setSessions(sessions.filter((s) => s.id !== sessionId));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to revoke session";
-      setError(message);
+      setTimeout(() => setError(message), 0);
     }
   };
 
@@ -61,7 +61,7 @@ export function SessionManagement() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to trust device";
-      setError(message);
+      setTimeout(() => setError(message), 0);
     }
   };
 

@@ -33,17 +33,32 @@ const audit = async (payload: {
   console.info(JSON.stringify({ component: "api/bottles", ...payload }));
 };
 
-const requireAuth = (request: Request) => {
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+async function requireAuth(request: Request) {
   const userId = request.headers.get("x-user-id")?.trim();
-  if (!userId) {
+  if (userId) return { userId } as const;
+
+  // Fallback: validate session cookie with backend /api/auth/me
+  try {
+    const cookieHeader = request.headers.get("cookie") || "";
+    const resp = await fetch(`${BACKEND_URL}/api/auth/me`, {
+      method: "GET",
+      headers: { Cookie: cookieHeader },
+    });
+    if (!resp.ok) return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) } as const;
+    const body = await resp.json();
+    const uid = body?.data?.id || body?.data?.user?.id;
+    if (!uid) return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) } as const;
+    return { userId: String(uid) } as const;
+  } catch (err) {
     return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) } as const;
   }
-  return { userId } as const;
-};
+}
 
 export async function GET(request: Request) {
   const ip = getClientIp(request);
-  const auth = requireAuth(request);
+  const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
 
   try {
@@ -67,7 +82,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const ip = getClientIp(request);
-  const auth = requireAuth(request);
+  const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
 
   try {

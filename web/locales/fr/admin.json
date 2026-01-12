@@ -1,0 +1,12 @@
+{
+  "aiApiKey": {
+    "title": "Clé API IA globale",
+    "intro": "Définissez ici la clé API OpenAI (ou compatible) utilisée par défaut pour tous les utilisateurs. Seul un administrateur peut la modifier.",
+    "label": "Clé API IA",
+    "placeholder": "sk-...",
+    "save": "Enregistrer",
+    "success": "Clé enregistrée !",
+    "fetchError": "Erreur de chargement de la clé.",
+    "saveError": "Erreur lors de l'enregistrement."
+  }
+}

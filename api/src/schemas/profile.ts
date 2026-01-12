@@ -66,6 +66,7 @@ export const profileSchema = z.object({
   themeMode: themeModeSchema,
   accentColor: hexColorSchema,
   notificationSettings: z.record(z.unknown()),
+  aiApiKey: z.string().nullable().optional(),
 });
 
 export type Profile = z.infer<typeof profileSchema>;
@@ -81,6 +82,7 @@ export const updateProfileSchema = z
     themeMode: themeModeSchema.optional(),
     accentColor: hexColorSchema.optional(),
     notificationSettings: notificationSettingsSchema.optional(),
+    aiApiKey: z.string().nullable().optional(),
   })
   .strict();
 

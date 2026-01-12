@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { ZodError } from "zod";
 import { UserService, TwoFAService, SessionService, SecurityEventService } from "../services/auth.js";
 import { DatabaseService } from "../services/database.js";
+import { ProfileService } from "../services/profile.js";
 import { CryptoService, TOTPService } from "../services/crypto.js";
 import {
   userRegistrationSchema,
@@ -19,6 +20,7 @@ export function createAuthRouter(
   securityEventService: SecurityEventService
 ): Router {
   const router = Router();
+  const profileService = new ProfileService(userService.db);
 
   /**
    * POST /auth/register
@@ -84,7 +86,7 @@ export function createAuthRouter(
         user = await userService.getUserByEmail(payload.username);
       }
       if (!user) {
-        await securityEventService.logEvent("unknown", "login_failed", ipAddress, userAgent, { reason: "user_not_found" });
+        await securityEventService.logEvent(null as any, "login_failed", ipAddress, userAgent, { reason: "user_not_found" });
         return res.status(401).json({ error: "Invalid username or password" });
       }
 
@@ -439,8 +441,8 @@ export function createAuthRouter(
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const user = await userService.getUserById(req.userId);
-      if (!user) {
+      const profile = await profileService.getProfileByUserId(req.userId);
+      if (!profile) {
         logger.warn({ userId: req.userId }, "User not found");
         return res.status(404).json({ error: "User not found" });
       }
@@ -450,31 +452,20 @@ export function createAuthRouter(
         twoFASettings = await twoFAService.getTwoFASettings(req.userId);
       } catch (e) {
         logger.error(e, "Failed to get 2FA settings");
-        // Don't fail the whole request if 2FA settings fail
         twoFASettings = null;
       }
 
       res.json({
         data: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: (user as any).role,
-          displayName: (user as any).displayName ?? null,
-          avatarUrl: (user as any).avatarUrl ?? null,
-          tagline: (user as any).tagline ?? null,
-          preferredLocale: (user as any).preferredLocale ?? null,
-          dateTimeFormat: (user as any).dateTimeFormat ?? "system",
-          temperatureUnit: (user as any).temperatureUnit ?? "c",
-          themeMode: (user as any).themeMode ?? "dark",
-          accentColor: (user as any).accentColor ?? "#c5a059",
+          ...profile,
           twoFAEnabled: twoFASettings?.method !== "none" && twoFASettings !== null,
           twoFAMethod: twoFASettings?.method,
         },
       });
     } catch (error) {
       logger.error({ error, userId: req.userId }, "Get user error");
-      res.status(500).json({ error: "Internal server error" });
+      const devMsg = process.env.NODE_ENV === "production" ? "Internal server error" : String(error);
+      res.status(500).json({ error: devMsg });
     }
   });
 

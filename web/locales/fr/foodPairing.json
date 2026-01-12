@@ -1,0 +1,8 @@
+{
+  "title": "Accords mets",
+  "foodPlaceholder": "Qu'allez-vous manger ?",
+  "suggest": "Proposer",
+  "unavailable": "Aucune clé IA n'est configurée. Contactez l'administrateur.",
+  "error": "Erreur lors de la suggestion IA.",
+  "suggestFood": "Idées d'accords mets"
+}

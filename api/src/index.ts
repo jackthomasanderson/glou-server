@@ -1,3 +1,16 @@
+// Log any uncaught exceptions or unhandled promise rejections
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'Uncaught Exception');
+  // eslint-disable-next-line no-console
+  console.error('Uncaught Exception', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  logger.fatal({ reason }, 'Unhandled Rejection');
+  // eslint-disable-next-line no-console
+  console.error('Unhandled Rejection', reason);
+  process.exit(1);
+});
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -9,18 +22,29 @@ import { createCellarsRouter } from "./routes/cellars.js";
 import { createBottlesRouter } from "./routes/bottles.js";
 import { DatabaseService } from "./services/database.js";
 import { UserService, TwoFAService, SessionService, SecurityEventService } from "./services/auth.js";
-import { AppSettingsService, ProfileService } from "./services/profile.js";
+import { ProfileService, AppSettingsService } from "./services/profile.js";
 import { CellarService } from "./services/cellars.js";
 import { BottleService } from "./services/bottles.js";
 import { logger } from "./utils/logger.js";
+import { createConsumptionPlanRouter } from "./routes/consumptionPlan.js";
+import { createFoodPairingRouter } from "./routes/foodPairing.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.API_PORT || 3001;
 
-// Initialize database service
-const dbService = new DatabaseService();
+// Initialize database service with error logging
+let dbService: DatabaseService;
+try {
+  dbService = new DatabaseService();
+  logger.info("DatabaseService initialized successfully");
+} catch (err) {
+  logger.fatal({ err }, "Fatal error during DatabaseService initialization");
+  // eslint-disable-next-line no-console
+  console.error("Fatal error during DatabaseService initialization", err);
+  process.exit(1);
+}
 
 // Initialize services
 const userService = new UserService(dbService);
@@ -72,6 +96,14 @@ app.use("/api/cellars", cellarsRouter);
 // Bottles router
 const bottlesRouter = createBottlesRouter(sessionService, bottleService);
 app.use("/api/bottles", bottlesRouter);
+
+// Consumption plan router
+
+const consumptionPlanRouter = createConsumptionPlanRouter(sessionService, bottleService);
+app.use("/api/consumption-plan", consumptionPlanRouter);
+
+const foodPairingRouter = createFoodPairingRouter(sessionService, profileService, appSettingsService);
+app.use("/api/food-pairing", foodPairingRouter);
 
 // 404 handler
 app.use((req, res) => {

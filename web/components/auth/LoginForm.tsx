@@ -22,7 +22,7 @@ export function LoginForm() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setTimeout(() => setError(null), 0);
     setIsLoading(true);
 
     try {
@@ -38,7 +38,7 @@ export function LoginForm() {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : t("auth.errors.serverError");
-      setError(message);
+      setTimeout(() => setError(message), 0);
     } finally {
       setIsLoading(false);
     }
@@ -125,7 +125,7 @@ export function TwoFAVerification({ userId, tempToken, method }: TwoFAVerificati
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setTimeout(() => setError(null), 0);
     setIsLoading(true);
 
     try {
@@ -133,7 +133,7 @@ export function TwoFAVerification({ userId, tempToken, method }: TwoFAVerificati
       router.push("/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : t("auth.errors.serverError");
-      setError(message);
+      setTimeout(() => setError(message), 0);
     } finally {
       setIsLoading(false);
     }

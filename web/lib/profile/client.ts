@@ -35,6 +35,7 @@ export type Profile = {
   themeMode: "dark" | "light";
   accentColor: string;
   notificationSettings: Record<string, unknown>;
+  aiApiKey?: string | null;
 };
 
 export type UpdateProfileInput = Partial<{
@@ -47,6 +48,7 @@ export type UpdateProfileInput = Partial<{
   themeMode: "dark" | "light";
   accentColor: string;
   notificationSettings: ProfileNotificationSettings;
+  aiApiKey?: string | null;
 }>;
 
 export type AppSettings = {

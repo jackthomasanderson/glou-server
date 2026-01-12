@@ -21,6 +21,12 @@ function getCookieValue(cookieHeader: string | undefined, name: string): string 
   return undefined;
 }
 
+function maskToken(token?: string): string {
+  if (!token) return "";
+  if (token.length <= 8) return token;
+  return `${token.slice(0,4)}...${token.slice(-4)}`;
+}
+
 /**
  * Middleware to authenticate request via session token
  * DÉSACTIVÉ POUR FEAT-01 : passe toujours (bypass)
@@ -37,13 +43,13 @@ export function authMiddleware(sessionService: SessionService) {
       }
 
       if (!token) {
-        logger.info({ cookies: req.cookies, authHeader: req.headers.authorization }, "No token found in request");
+        logger.info({ hasCookie: !!req.cookies, authHeader: !!req.headers.authorization }, "No token found in request");
         return res.status(401).json({ error: "Unauthorized: Missing session token" });
       }
 
       const session = await sessionService.getSessionByToken(token);
       if (!session) {
-        logger.warn({ token: token.substring(0, 10) + "..." }, "Invalid or expired session token");
+        logger.warn({ token: maskToken(token) }, "Invalid or expired session token");
         return res.status(401).json({ error: "Unauthorized: Invalid or expired session" });
       }
 
@@ -54,6 +60,8 @@ export function authMiddleware(sessionService: SessionService) {
       next();
     } catch (error) {
       logger.error(error, "Auth middleware error");
+      // eslint-disable-next-line no-console
+      console.error('Auth middleware error:', error);
       res.status(500).json({ error: "Internal server error" });
     }
   };
@@ -77,15 +85,20 @@ export function optionalAuthMiddleware(sessionService: SessionService) {
       if (token) {
         const session = await sessionService.getSessionByToken(token);
         if (session) {
+          logger.debug({ token: maskToken(token), sessionId: session.id }, "Optional auth - session found");
           await sessionService.updateSessionActivity(session.id);
           req.userId = session.userId;
           req.sessionId = session.id;
+        } else {
+          logger.debug({ token: maskToken(token) }, "Optional auth - no session found");
         }
       }
 
       next();
     } catch (error) {
       logger.error(error, "Optional auth middleware error");
+      // eslint-disable-next-line no-console
+      console.error('Optional auth middleware error:', error);
       next();
     }
   };

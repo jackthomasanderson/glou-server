@@ -277,6 +277,12 @@ export class TwoFAService {
 export class SessionService {
   constructor(private db: DatabaseService) {}
 
+  private maskToken(token: string): string {
+    if (!token) return "";
+    if (token.length <= 8) return token;
+    return `${token.slice(0,4)}...${token.slice(-4)}`;
+  }
+
   /**
    * Create a new session
    */
@@ -329,10 +335,22 @@ export class SessionService {
     `;
 
     try {
+      const masked = this.maskToken(token);
+      logger.info({ masked }, "Looking up session by token");
       const result = await this.db.query(query, [token]);
-      return result.rows[0] || null;
+      const row = result.rows[0] || null;
+      if (!row) {
+        logger.info({ masked }, "No session found for token");
+        return null;
+      }
+      logger.info({ masked, sessionId: row.id, userId: row.userId }, "Session found by token");
+      return row;
     } catch (error) {
-      logger.error({ error }, "Failed to get session by token");
+      const masked = this.maskToken(token);
+      logger.error({ error, masked }, "Failed to get session by token");
+      // also print to stderr for dev visibility
+      // eslint-disable-next-line no-console
+      console.error("Failed to get session by token:", error);
       throw new Error("Failed to get session");
     }
   }
@@ -403,9 +421,15 @@ export class SessionService {
     `;
 
     try {
+      const shortId = sessionId ? `${sessionId.slice(0, 4)}...${sessionId.slice(-4)}` : sessionId;
+      logger.debug({ shortId }, "Updating session activity");
       await this.db.query(query, [sessionId]);
+      logger.debug({ shortId }, "Session activity updated");
     } catch (error) {
-      logger.error({ error, sessionId }, "Failed to update session activity");
+      const shortId = sessionId ? `${sessionId.slice(0, 4)}...${sessionId.slice(-4)}` : sessionId;
+      logger.error({ error, shortId }, "Failed to update session activity");
+      // eslint-disable-next-line no-console
+      console.error("Failed to update session activity:", error);
       throw new Error("Failed to update session activity");
     }
   }

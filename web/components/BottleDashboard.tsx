@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { createBottle, deleteBottle, fetchBottles, restoreBottle, updateBottle } from "../lib/bottles/client";
+import { BottleToFoodPairing } from "./BottleToFoodPairing";
 import { cellarsClient } from "../lib/cellars/client";
 import { getDaysUntilPermanentDelete } from "../lib/bottles/trash";
 import {
@@ -138,10 +139,10 @@ export function BottleDashboard() {
   }, [cellars]);
 
   const showToast = (message: string, action?: () => void) => {
-    setFeedback(message);
+    setTimeout(() => setFeedback(message), 0);
     setFeedbackAction(() => action || null);
     setTimeout(() => {
-      setFeedback(null);
+      setTimeout(() => setFeedback(null), 0);
       setFeedbackAction(null);
     }, 6000);
   };
@@ -885,6 +886,11 @@ export function BottleDashboard() {
                   )}
                 </div>
 
+                  {/* AI food pairing button and result */}
+                  <div style={{ margin: "0.5em 0" }}>
+                    <BottleToFoodPairing bottle={{ name: bottle.label, description: bottle.tastingNote }} />
+                  </div>
+
                 <div className="card__actions">
                   {!bottle.deletedAt && (
                     <>
@@ -912,7 +918,7 @@ export function BottleDashboard() {
         <div className="toast" role="status" aria-live="polite">
           <span>{feedback}</span>
           {feedbackAction && (
-            <button type="button" className="toast__action" onClick={() => { feedbackAction(); setFeedback(null); setFeedbackAction(null); }}>
+            <button type="button" className="toast__action" onClick={() => { feedbackAction(); setTimeout(() => setFeedback(null), 0); setTimeout(() => setFeedbackAction(null), 0); }}>
               {t("actions.undo")}
             </button>
           )}

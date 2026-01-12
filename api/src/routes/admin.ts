@@ -1,3 +1,4 @@
+// ...existing imports...
 import { Router, Response } from "express";
 import { ZodError } from "zod";
 import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
@@ -33,6 +34,20 @@ export function createAdminRouter(
   appSettingsService: AppSettingsService
 ): Router {
   const router = Router();
+  // GET clé IA globale (admin only)
+  router.get("/ai-api-key", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+    if (!(await requireAdmin(req, res, userService))) return;
+    const settings = await appSettingsService.getAppSettings();
+    res.json({ aiApiKey: settings.aiApiKey });
+  });
+
+  // SET clé IA globale (admin only)
+  router.post("/ai-api-key", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+    if (!(await requireAdmin(req, res, userService))) return;
+    const { aiApiKey } = req.body;
+    await appSettingsService.setAiApiKey(aiApiKey);
+    res.json({ success: true });
+  });
 
   /**
    * GET /admin/users

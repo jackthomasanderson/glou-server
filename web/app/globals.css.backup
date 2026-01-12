@@ -1,42 +1,8 @@
-:root {
-	/* Palette Mode Clair (Primaire) */
-	--bg: #FAFAFA; /* Fond blanc cassé */
-	--surface: #FFFFFF; /* Surface blanche pure */
-	--border: #E8E8E8; /* Bordure gris très clair */
-	--accent: #2563EB; /* Bleu moderne, confiant */
-	--accent-hover: #1D4ED8; /* Bleu plus foncé au hover */
-	--accent-secondary: #F59E0B; /* Ambre chaleureux, alertes */
-	--danger: #EF4444; /* Rouge vif, erreurs */
-	--success: #10B981; /* Vert harmonieux */
-	--text: #1F1F1F; /* Quasi-noir, très lisible */
-	--muted: #666666; /* Texte secondaire gris moyen */
-	--radius: 6px;
-	
-	/* Focus ring */
-	--focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.1);
-	
-	/* Transitions */
-	--transition-fast: 150ms ease;
-	--transition-normal: 200ms ease;
-}
+/* globals.css.backup: backup kept for reference, cleaned by script
+   - Original content removed to avoid accidental usage.
+   - The active styles now live in web/app/globals.css
+*/
 
-html.dark {
-	/* Palette Mode Sombre (Variante) */
-	--bg: #0F172A; /* Bleu-noir très sombre */
-	--surface: #1E293B; /* Gris-bleu foncé */
-	--border: #334155; /* Gris-bleu plus clair */
-	--accent: #3B82F6; /* Bleu lumineux */
-	--accent-hover: #2563EB; /* Bleu plus sombre au hover */
-	--accent-secondary: #FBBF24; /* Ambre lumineux */
-	--danger: #EF4444; /* Rouge vif */
-	--success: #10B981; /* Vert harmonieux */
-	--text: #F1F5F9; /* Blanc très clair */
-	--muted: #94A3B8; /* Gris-bleu clair */
-}
-
-* {
-	box-sizing: border-box;
-}
 
 body {
 	margin: 0;
