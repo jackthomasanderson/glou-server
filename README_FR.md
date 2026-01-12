@@ -45,7 +45,6 @@ docker run -d --env-file .env -p 3000:3000 -p 3001:3001 glou:latest
 ## 🗺 Sur l’horizon
 
 - 🔐 **2FA TOTP** (FEAT-02) : Connexions sécurisées avec codes et clés de secours.
-- 🎛 **Profil et préférences** (FEAT-03) : Langue, thème et accents sauvegardés pour chaque session.
 - 📸 **Scan d’étiquette** (FEAT-04) : Une photo et la fiche bouteille est déjà préremplie.
 - 🪶 **Transparence des sources** (FEAT-05) : Voir l’origine de chaque donnée et garder vos overrides en priorité.
 - ⏰ **Alertes d’apogée** (FEAT-06) : Rappels doux avant, pendant et après chaque fenêtre idéale.

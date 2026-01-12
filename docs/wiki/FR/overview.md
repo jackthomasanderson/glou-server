@@ -22,4 +22,6 @@ Gardez le proxy `/api/...` du frontend pointé vers l'API pour que le cookie `se
 - 401 ou boucle de login : le cookie `session_token` n'est pas posé; assurez-vous que le frontend appelle bien `/api/...` (proxy) ou que `CORS_ORIGIN` côté API accepte `http://localhost:3000`.
 - Erreur DB au démarrage API : Postgres n'est pas prêt ou les variables DB sont erronées; testez la connexion avec `psql` et vérifiez `DB_HOST/DB_USER/DB_PASSWORD`.
 - 404 sur `/api/*` : le serveur Next n'est pas lancé ou `NEXT_PUBLIC_API_URL` pointe vers une URL invalide.
-- Tables manquantes en mode sans Docker : appliquez manuellement les fichiers SQL `db/init/02-auth-schema.sql`, `03-feat-03-profiles-roles.sql`, `04-feat-24-caves.sql` sur votre base.
+ - Tables manquantes en mode sans Docker : appliquez manuellement les fichiers SQL `db/init/02-auth-schema.sql`, `03-feat-03-profiles-roles.sql`, `04-feat-24-caves.sql` sur votre base.
+
+Remarque : le profil et les préférences (FEAT-03) ont été implémentés. Un script de migration `db/init/07-migrate-accent-color.sql` permet de mettre à jour les anciennes couleurs d'accent vers la nouvelle valeur par défaut `#2563EB`.

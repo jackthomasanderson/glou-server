@@ -47,7 +47,6 @@ docker run -d --env-file .env -p 3000:3000 -p 3001:3001 glou:latest
 ## 🗺 On the Horizon
 
 - 🔐 **TOTP 2FA** (FEAT-02): Secure sign-ins with codes and backup keys.
-- 🎛 **Profile & preferences** (FEAT-03): Your language, theme, and accents saved for every session.
 - 📸 **Label scan express** (FEAT-04): Snap a label, get a ready-to-save bottle card.
 - 🪶 **Source transparency** (FEAT-05): See where every detail comes from and keep your overrides first.
 - ⏰ **Apogee alerts** (FEAT-06): Gentle nudges before, during, and after each perfect drinking window.
