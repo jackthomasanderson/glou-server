@@ -25,3 +25,9 @@ Sessions are stored in the database; you can revoke them or mark a device as tru
 - Login loop: the `session_token` cookie is missing; ensure you go through the `/api/auth/*` proxy and that the frontend origin matches `CORS_ORIGIN`.
 - Trust/revoke looks ineffective: the API ignores the device name and returns minimal feedback; reload the page to view the actual state.
 - 403 on `/admin/*`: only users with the `admin` role (first user or those promoted) can access it.
+
+### Migrations
+
+- `db/init/02-auth-schema.sql` — initial auth tables (users, sessions, etc.).
+- `db/init/03-feat-03-profiles-roles.sql` — adds profile columns (display name, avatar, `accent_color`).
+- `db/init/07-migrate-accent-color.sql` — optional migration to update legacy accent colors to `#2563EB`.

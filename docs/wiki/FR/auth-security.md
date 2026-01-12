@@ -25,3 +25,9 @@ Les sessions sont stockées en base; vous pouvez les révoquer ou marquer un app
 - Boucle de connexion : le cookie `session_token` manque; assurez-vous de passer par le proxy `/api/auth/*` et que le domaine/port du frontend matche `CORS_ORIGIN`.
 - Révocation ou confiance d'appareil sans effet : l'API ne stocke pas le nom d'appareil et ne renvoie pas de confirmation visible; rechargez la page pour voir l'état réel.
 - 403 sur `/admin/*` : seuls les comptes au rôle `admin` (le premier utilisateur ou ceux promus) peuvent y accéder.
+
+### Migrations
+
+- `db/init/02-auth-schema.sql` — tables d'auth (users, sessions, ...).
+- `db/init/03-feat-03-profiles-roles.sql` — ajoute les colonnes de profil (displayName, avatar, `accent_color`).
+- `db/init/07-migrate-accent-color.sql` — migration optionnelle pour remplacer les accents dorés hérités par `#2563EB`.

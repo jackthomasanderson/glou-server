@@ -26,3 +26,7 @@ Multi-category CRUD with optimistic UI, soft-delete, and restore.
 - Fields rejected: check category requirements (e.g., `producer`/`name`/`vintageOrNone` for wine) and numeric bounds (ABV, quantity).
 - Trash not clearing: expiration is recalculated when listing; if nothing triggers a list, items stay visible until the next refresh.
 - No cellar/user scoping: the store is global to the Next instance, with no per-account filter or cellar relation.
+
+### Migrations
+
+- `db/init/06-feat-55-bottles-persistent.sql` — full bottles schema and columns added for FEAT-55.

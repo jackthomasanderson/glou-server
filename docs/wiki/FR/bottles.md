@@ -64,3 +64,7 @@ cd api && npm test
 - **SQL Injection** : requêtes paramétrées avec `$1, $2, ...`
 - **Index** : user_id, cellar_id, category, deleted_at pour requêtes rapides (<100ms)
 - **Soft-delete** : les données supprimées restent auditables (RGPD-friendly)
+
+### Migrations
+
+- `db/init/06-feat-55-bottles-persistent.sql` — schéma complet des bouteilles utilisé pour FEAT-55.
