@@ -4,10 +4,13 @@ Votre concierge privé pour bouteilles, bulles, spiritueux et cigares : tout est
 
 ---
 
-## ✨ Ce qu’il fait pour vous
+ ## ✨ Ce qu’il fait pour vous
 
-- 🍷 **Ajout et rangement express** (FEAT-01) : Créez, modifiez, mettez à la corbeille ou restaurez une bouteille avec des champs malins selon la catégorie, sauvegardes optimistes et un petit délai pour annuler.
-- 💾 **Votre collection, toujours là** (FEAT-55) : Chaque bouteille persiste dans PostgreSQL—fermez l'app, redémarrez le serveur, tout reste exactement là où vous l'avez laissé.
+ - 🍷 **Ajout et rangement express** (FEAT-01) : Créez, modifiez, mettez à la corbeille ou restaurez une bouteille avec des champs malins selon la catégorie, sauvegardes optimistes et un petit délai pour annuler.
+ - 💾 **Votre collection, toujours là** (FEAT-55) : Chaque bouteille persiste dans PostgreSQL—fermez l'app, redémarrez le serveur, tout reste exactement là où vous l'avez laissé.
+ - 🎛 **Profil et préférences** (FEAT-03) : Langue, thème et accents sauvegardés pour chaque session.
+ - 🔐 **2FA TOTP** (FEAT-02) : Connexions sécurisées avec codes et clés de secours.
+ - 🏠 **Gestion des celliers (Caves)** (FEAT-24) : Créez et gérez vos celliers avant d'ajouter des bouteilles; schéma et API relationnels inclus.
 
 ---
 
@@ -44,7 +47,6 @@ docker run -d --env-file .env -p 3000:3000 -p 3001:3001 glou:latest
 
 ## 🗺 Sur l’horizon
 
-- 🔐 **2FA TOTP** (FEAT-02) : Connexions sécurisées avec codes et clés de secours.
 - 📸 **Scan d’étiquette** (FEAT-04) : Une photo et la fiche bouteille est déjà préremplie.
 - 🪶 **Transparence des sources** (FEAT-05) : Voir l’origine de chaque donnée et garder vos overrides en priorité.
 - ⏰ **Alertes d’apogée** (FEAT-06) : Rappels doux avant, pendant et après chaque fenêtre idéale.
