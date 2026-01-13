@@ -19,7 +19,7 @@ export default function NewBottlePage() {
     try {
       await bottlesClient.create({ label: name });
       router.push("/bottles");
-    } catch (err: any) {
+    } catch (err) {
       setError(err?.message || "Save failed");
     } finally {
       setSaving(false);

@@ -1,4 +1,4 @@
-import { AdminAiApiKeyForm } from "../../../components/AdminAiApiKeyForm";
+import { AdminAiApiKeyForm } from "@/components/AdminAiApiKeyForm";
 import { useTranslation } from "react-i18next";
 
 export default function AdminAiPage() {

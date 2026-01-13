@@ -1,4 +1,6 @@
-import { useState } from "react";
+"use client";
+
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 export function AdminAiApiKeyForm() {
@@ -8,20 +10,6 @@ export function AdminAiApiKeyForm() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function fetchKey() {
-    setLoading(true);
-    setTimeout(() => setError(null), 0);
-    try {
-      const res = await fetch("/api/admin/ai-api-key", { credentials: "include" });
-      if (!res.ok) throw new Error("fetchError");
-      const data = await res.json();
-      setValue(data.aiApiKey || "");
-    } catch (e) {
-      setTimeout(() => setError(t("admin.aiApiKey.fetchError")), 0);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function saveKey(e: React.FormEvent) {
     e.preventDefault();
@@ -37,7 +25,7 @@ export function AdminAiApiKeyForm() {
       });
       if (!res.ok) throw new Error("saveError");
       setSuccess(true);
-    } catch (e) {
+    } catch {
       setTimeout(() => setError(t("admin.aiApiKey.saveError")), 0);
     } finally {
       setLoading(false);
@@ -45,7 +33,23 @@ export function AdminAiApiKeyForm() {
   }
 
   // Chargement initial
-  useState(() => { fetchKey(); });
+  useEffect(() => {
+    async function fetchKey() {
+      setLoading(true);
+      setTimeout(() => setError(null), 0);
+      try {
+        const res = await fetch("/api/admin/ai-api-key", { credentials: "include" });
+        if (!res.ok) throw new Error("fetchError");
+        const data = await res.json();
+        setValue(data.aiApiKey || "");
+      } catch {
+        setTimeout(() => setError(t("admin.aiApiKey.fetchError")), 0);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchKey();
+  }, [t]);
 
   return (
     <form onSubmit={saveKey}>

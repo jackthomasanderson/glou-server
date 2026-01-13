@@ -31,6 +31,6 @@ export async function fetchFoodPairingSuggestions({
   });
   const res = await fetch(url, { method: "POST", headers, body });
   if (!res.ok) throw new Error(`OpenAI error: ${res.status}`);
-  const data = await res.json();
+  const data = (await res.json()) as any;
   return data.choices?.[0]?.message?.content;
 }

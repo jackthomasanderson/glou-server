@@ -50,7 +50,7 @@ async function requireAuth(request: Request) {
     const uid = body?.data?.id || body?.data?.user?.id;
     if (!uid) return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) } as const;
     return { userId: String(uid) } as const;
-  } catch (err) {
+  } catch {
     return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) } as const;
   }
 }
@@ -66,7 +66,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
   await audit({ action: "GET", userId: auth.userId, ip, resourceId: params.id, status: "success" });
-  return NextResponse.json({ data: record });
+  return NextResponse.json(record);
 }
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
@@ -79,7 +79,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const payload = bottleInputSchema.parse(body);
     const updated = await bottleRepository.update(auth.userId, params.id, payload);
     await audit({ action: "UPDATE", userId: auth.userId, ip, resourceId: params.id, status: "success", details: { category: updated.category } });
-    return NextResponse.json({ data: updated });
+    return NextResponse.json(updated);
   } catch (error) {
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("; ");
@@ -103,7 +103,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   try {
     const deleted = await bottleRepository.softDelete(auth.userId, params.id);
     await audit({ action: "DELETE", userId: auth.userId, ip, resourceId: params.id, status: "success" });
-    return NextResponse.json({ data: deleted });
+    return NextResponse.json(deleted);
   } catch (error) {
     if (error instanceof Error && error.message === "NOT_FOUND") {
       await audit({ action: "DELETE", userId: auth.userId, ip, resourceId: params.id, status: "not_found" });

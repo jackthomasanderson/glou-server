@@ -22,7 +22,7 @@ export default function NewCigarPage() {
         throw new Error(body.error || res.statusText || 'Failed');
       }
       router.push('/cigars');
-    } catch (err: any) {
+    } catch (err) {
       setError(err?.message || 'Save failed');
     } finally {
       setSaving(false);

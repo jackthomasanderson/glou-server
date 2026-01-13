@@ -51,7 +51,7 @@ async function requireAuth(request: Request) {
     const uid = body?.data?.id || body?.data?.user?.id;
     if (!uid) return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) } as const;
     return { userId: String(uid) } as const;
-  } catch (err) {
+  } catch {
     return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) } as const;
   }
 }
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     const includeDeleted = searchParams.get("includeDeleted") === "true";
     const data = await bottleRepository.list(auth.userId, includeDeleted);
     await audit({ action: "LIST", userId: auth.userId, ip, status: "success", details: { includeDeleted, count: data.length } });
-    return NextResponse.json({ data });
+    return NextResponse.json(data);
   } catch (error) {
     await audit({
       action: "LIST",
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
     const payload = bottleInputSchema.parse(body);
     const created = await bottleRepository.create(auth.userId, payload);
     await audit({ action: "CREATE", userId: auth.userId, ip, resourceId: created.id, status: "success", details: { category: created.category } });
-    return NextResponse.json({ data: created }, { status: 201 });
+    return NextResponse.json(created, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("; ");

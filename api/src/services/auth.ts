@@ -7,7 +7,7 @@ import { logger } from "../utils/logger.js";
  * User management service
  */
 export class UserService {
-  constructor(private db: DatabaseService) {}
+  constructor(public db: DatabaseService) { }
 
   private async hasAnyUser(): Promise<boolean> {
     const query = `SELECT 1 FROM users LIMIT 1`;
@@ -184,7 +184,7 @@ export class UserService {
  * 2FA management service
  */
 export class TwoFAService {
-  constructor(private db: DatabaseService) {}
+  constructor(private db: DatabaseService) { }
 
   /**
    * Get 2FA settings for user
@@ -275,12 +275,12 @@ export class TwoFAService {
  * Session management service
  */
 export class SessionService {
-  constructor(private db: DatabaseService) {}
+  constructor(private db: DatabaseService) { }
 
   private maskToken(token: string): string {
     if (!token) return "";
     if (token.length <= 8) return token;
-    return `${token.slice(0,4)}...${token.slice(-4)}`;
+    return `${token.slice(0, 4)}...${token.slice(-4)}`;
   }
 
   /**
@@ -457,7 +457,7 @@ export class SessionService {
  * Security events logging service
  */
 export class SecurityEventService {
-  constructor(private db: DatabaseService) {}
+  constructor(private db: DatabaseService) { }
 
   /**
    * Log a security event

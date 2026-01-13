@@ -14,11 +14,17 @@
     "settings": "Settings"
   },
   "dashboard": {
+    "overview": "Overview",
     "kpis": {
       "totalBottles": "Total bottles",
       "openBottles": "Opened",
       "cellars": "Cellars"
     }
+  },
+  "stats": {
+    "totalBottles": "Total bottles",
+    "totalValue": "Total value",
+    "toDrink": "Ready to drink"
   },
   "cigars": {
     "emptyTitle": "No cigars found",

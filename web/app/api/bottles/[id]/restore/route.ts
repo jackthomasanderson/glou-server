@@ -48,7 +48,7 @@ async function requireAuth(request: Request) {
     const uid = body?.data?.id || body?.data?.user?.id;
     if (!uid) return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) } as const;
     return { userId: String(uid) } as const;
-  } catch (err) {
+  } catch {
     return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) } as const;
   }
 }
@@ -61,7 +61,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   try {
     const restored = await bottleRepository.restore(auth.userId, params.id);
     await audit({ action: "RESTORE", userId: auth.userId, ip, resourceId: params.id, status: "success" });
-    return NextResponse.json({ data: restored });
+    return NextResponse.json(restored);
   } catch (error) {
     if (error instanceof Error && error.message === "NOT_FOUND") {
       await audit({ action: "RESTORE", userId: auth.userId, ip, resourceId: params.id, status: "not_found" });

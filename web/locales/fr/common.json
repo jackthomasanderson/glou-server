@@ -1,9 +1,9 @@
 {
   "app": {
     "name": "Glou",
-    "title": "Tableau de bord cellier",
+    "title": "Tableau de bord cave",
     "subtitle": "Ajoutez l'essentiel, précisez selon le type (vin, bulles, spiritueux, tabac)",
-    "collection": "Vue cellier"
+    "collection": "Vue cave"
   },
   "pageTitles": {
     "dashboard": "Inventaire",
@@ -14,25 +14,31 @@
     "settings": "Paramètres"
   },
   "dashboard": {
+    "overview": "Vue d'ensemble",
     "kpis": {
       "totalBottles": "Total bouteilles",
       "openBottles": "Ouvertes",
-      "cellars": "Celliers"
+      "cellars": "Caves"
     }
+  },
+  "stats": {
+    "totalBottles": "Total bouteilles",
+    "totalValue": "Valeur totale",
+    "toDrink": "À boire"
   },
   "cigars": {
     "emptyTitle": "Aucun cigare trouvé",
     "emptyHint": "Ajoutez des cigares ou importez une collection.",
     "loading": "Chargement des cigares..."
   },
-    "nav": {
-      "dashboard": "Tableau de bord",
-      "bottles": "Bouteilles",
-      "cellars": "Celliers",
-      "cigars": "Cigares",
-      "collapse": "Réduire la barre",
-      "expand": "Agrandir la barre"
-    },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "bottles": "Bouteilles",
+    "cellars": "Caves",
+    "cigars": "Cigares",
+    "collapse": "Réduire la barre",
+    "expand": "Agrandir la barre"
+  },
   "header": {
     "language": "Langue",
     "theme": "Thème",
@@ -220,7 +226,7 @@
     "days": "jours"
   },
   "list": {
-    "title": "Éléments du cellier",
+    "title": "Éléments de la cave",
     "loading": "Chargement de l'inventaire...",
     "empty": "Pas encore de bouteille. Ajoutez-en une.",
     "deleted": "Supprimée",
@@ -431,26 +437,26 @@
     "minutes": "minutes"
   },
   "cellars": {
-    "title": "Mes celliers",
-    "newCellar": "+ Nouveau cellier",
-    "createCellar": "Créer un cellier",
-    "editCellar": "Modifier le cellier",
+    "title": "Mes caves",
+    "newCellar": "+ Nouvelle cave",
+    "createCellar": "Créer une cave",
+    "editCellar": "Modifier la cave",
     "viewCellar": "Voir",
     "deleteCellar": "Supprimer",
-    "noCellars": "Aucun cellier",
-    "noCellarsDescription": "Créez votre premier cellier pour organiser votre collection",
+    "noCellars": "Aucune cave",
+    "noCellarsDescription": "Créez votre première cave pour organiser votre collection",
     "loading": "Chargement...",
-    "loadingError": "Erreur lors du chargement des celliers",
-    "cellarNotFound": "Erreur: Cellier non trouvé",
+    "loadingError": "Erreur lors du chargement des caves",
+    "cellarNotFound": "Erreur: Cave non trouvée",
     "deleteConfirm": "Êtes-vous sûr ?",
-    "deleteWarning": "Cette action supprimera le cellier. Les bouteilles associées seront orphelines.",
+    "deleteWarning": "Cette action supprimera la cave. Les bouteilles associées seront orphelines.",
     "creating": "Création...",
     "updating": "Mise à jour...",
     "deleting": "Suppression...",
-    "created": "Cellier créé avec succès",
-    "updated": "Cellier mis à jour",
-    "deleted": "Cellier supprimé",
-    "createError": "Échec de création du cellier",
+    "created": "Cave créée avec succès",
+    "updated": "Cave mise à jour",
+    "deleted": "Cave supprimée",
+    "createError": "Échec de création de la cave",
     "updateError": "Échec de mise à jour",
     "deleteError": "Échec de suppression",
     "meta": {
@@ -458,7 +464,7 @@
     },
     "form": {
       "name": "Nom",
-      "namePlaceholder": "Nom du cellier",
+      "namePlaceholder": "Nom de la cave",
       "nameRequired": "Le nom est obligatoire",
       "type": "Type",
       "description": "Description",
@@ -470,7 +476,7 @@
       "cancel": "Annuler"
     },
     "types": {
-      "cellar": "Cellier à vin",
+      "cellar": "Cave à vin",
       "showcase": "Vitrine",
       "climate_cabinet": "Armoire climatisée",
       "rack": "Casier",
@@ -489,17 +495,17 @@
     },
     "bottles": {
       "notFound": "Bouteille non trouvée",
-      "cellarNotFound": "Cellier non trouvé",
-      "cellarIdRequired": "Veuillez sélectionner un cellier avant de créer une bouteille",
+      "cellarNotFound": "Cave non trouvée",
+      "cellarIdRequired": "Veuillez sélectionner une cave avant de créer une bouteille",
       "invalidInput": "Données invalides",
       "invalidCategory": "Catégorie invalide",
       "invalidVintage": "Millésime invalide (format YYYY ou NV)",
-      "invalidCellarId": "ID de cellier invalide",
+      "invalidCellarId": "ID de cave invalide",
       "invalidFillLevel": "Niveau de remplissage invalide",
       "invalidAbv": "Degré d'alcool invalide pour cette catégorie",
       "missingRequiredField": "Champ obligatoire manquant",
       "listFailed": "Erreur lors de la récupération des bouteilles",
-      "listCellarFailed": "Erreur lors de la récupération des bouteilles du cellier",
+      "listCellarFailed": "Erreur lors de la récupération des bouteilles de la cave",
       "getFailed": "Erreur lors de la récupération de la bouteille",
       "createFailed": "Erreur lors de la création de la bouteille",
       "updateFailed": "Erreur lors de la mise à jour de la bouteille",
