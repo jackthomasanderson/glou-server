@@ -96,6 +96,13 @@ export function CellarList() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => router.push(`/cellars/${cellar.id}/edit`)}
+                >
+                  {t("actions.edit")}
+                </button>
+                <button
+                  type="button"
+                  className="danger"
                   onClick={() => handleDelete(cellar.id)}
                   disabled={deletingId === cellar.id}
                 >

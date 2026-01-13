@@ -3,7 +3,9 @@
     "name": "Glou",
     "title": "Cellar dashboard",
     "subtitle": "Capture the basics, then add key details per type (wine, bubbles, spirits, cigars)",
-    "collection": "Cellar overview"
+    "collection": "Cellar overview",
+    "inventory": "Inventory",
+    "suggestions": "Tips"
   },
   "pageTitles": {
     "dashboard": "Inventory",
@@ -39,12 +41,6 @@
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar"
   },
-  "nav": {
-    "dashboard": "Dashboard",
-    "bottles": "Bottles",
-    "cellars": "Cellars",
-    "cigars": "Cigars"
-  },
   "header": {
     "language": "Language",
     "theme": "Theme",
@@ -53,7 +49,7 @@
     "autoMode": "Auto",
     "userMenu": {
       "label": "Account",
-      "profile": "Profile",
+      "profile": "User",
       "security": "Security",
       "admin": "Admin"
     }
@@ -129,7 +125,6 @@
     "humidifier": "Humidifier",
     "manufactureYear": "Manufacture year",
     "grapes": "Grapes",
-    "format": "Format",
     "lotNumber": "Lot number",
     "carafing": "Decanting",
     "wine": {
@@ -140,11 +135,15 @@
     },
     "spirit": {
       "nameEdition": "Expression / Line"
-    }
+    },
+    "email": "Email",
+    "username": "Username",
+    "cellarId": "Cellar"
   },
   "hints": {
     "label": "Clear name shown in the list (e.g., Chambertin 2015)",
     "category": "Pick the main type first to reveal the right fields",
+    "cellarId": "Select the cellar where this bottle is stored",
     "location": "Where it physically sits (e.g., shelf A3)",
     "collection": "Personal grouping (e.g., Gifts, Dinners)",
     "house": "House/brand for sparkling wines",
@@ -207,9 +206,11 @@
     "restore": "Restore",
     "undo": "Undo",
     "edit": "Edit",
-    "add": "Add bottle",
+    "add": "Add",
     "addBottle": "Add bottle",
-    "quickAdd": "Quick add"
+    "upload": "Upload",
+    "quickAdd": "Quick add",
+    "cancel": "Cancel"
   },
   "preview": {
     "title": "Preview",
@@ -369,8 +370,7 @@
     "preferences": "Preferences",
     "displayName": "Display name",
     "displayNamePlaceholder": "Your name",
-    "avatarUrl": "Avatar URL",
-    "avatarUrlPlaceholder": "https://...",
+    "avatar": "Profile picture",
     "tagline": "Tagline",
     "taglinePlaceholder": "Short subtitle",
     "language": "Language",
@@ -383,19 +383,6 @@
   "roles": {
     "admin": "Admin",
     "user": "User"
-  },
-  "admin": {
-    "title": "Admin",
-    "subtitle": "Access and branding",
-    "branding": "App branding",
-    "appName": "App name",
-    "appTagline": "App tagline",
-    "logoUrl": "Logo URL",
-    "saveBranding": "Save branding",
-    "brandingSaved": "Branding saved",
-    "users": "Users",
-    "noUsers": "No users",
-    "roleUpdated": "Role updated"
   },
   "notifications": {
     "title": "Notifications",
@@ -520,6 +507,17 @@
     "common": {
       "internalError": "Internal server error",
       "databaseError": "Database error"
+    }
+  },
+  "consumption": {
+    "suggestion": {
+      "title": "Consumption suggestions",
+      "none": "No suggestions at the moment.",
+      "peakMaturity": "In peak window",
+      "pastMaturity": "Past maturity window",
+      "opened": "Already opened",
+      "lowLevel": "Level is low",
+      "budget": "Daily stock"
     }
   }
 }

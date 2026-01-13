@@ -27,7 +27,7 @@ export function BottleToFoodPairing({ bottle }: BottleToFoodPairingProps) {
       if (!res.ok) throw new Error("apiError");
       const data = await res.json();
       setResult(data.suggestion);
-    } catch (e) {
+    } catch {
       setTimeout(() => setError(t("foodPairing.error")), 0);
     } finally {
       setLoading(false);

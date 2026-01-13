@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useTranslation } from "react-i18next";
+
 
 export function useAiApiKeyAvailable() {
   const [available, setAvailable] = useState<boolean | null>(null);

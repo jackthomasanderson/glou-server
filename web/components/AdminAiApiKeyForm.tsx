@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslations } from "../lib/i18n/I18nProvider";
 
 export function AdminAiApiKeyForm() {
-  const { t } = useTranslation();
+  const { t } = useTranslations();
   const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -53,7 +53,7 @@ export function AdminAiApiKeyForm() {
 
   return (
     <form onSubmit={saveKey}>
-      <label>
+      <label className="field">
         {t("admin.aiApiKey.label")}
         <input
           type="text"
@@ -61,12 +61,13 @@ export function AdminAiApiKeyForm() {
           onChange={e => setValue(e.target.value)}
           placeholder={t("admin.aiApiKey.placeholder")}
           disabled={loading}
-          style={{ width: 400 }}
         />
       </label>
-      <button type="submit" disabled={loading}>
-        {loading ? t("loading") : t("admin.aiApiKey.save")}
-      </button>
+      <div className="form__actions" style={{ marginTop: 12 }}>
+        <button type="submit" className="primary" disabled={loading}>
+          {loading ? t("loading") : t("admin.aiApiKey.save")}
+        </button>
+      </div>
       {success && <span style={{ color: "green", marginLeft: 8 }}>{t("admin.aiApiKey.success")}</span>}
       {error && <span style={{ color: "red", marginLeft: 8 }}>{error}</span>}
     </form>

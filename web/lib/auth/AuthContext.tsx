@@ -11,7 +11,7 @@ export interface AuthUser {
   preferredLocale?: "en" | "fr" | null;
   dateTimeFormat?: "system" | "24h" | "12h";
   temperatureUnit?: "c" | "f";
-  themeMode?: "dark" | "light";
+  themeMode?: "dark" | "light" | "auto";
   accentColor?: string;
   twoFAEnabled: boolean;
   twoFAMethod?: "totp" | "webauthn";

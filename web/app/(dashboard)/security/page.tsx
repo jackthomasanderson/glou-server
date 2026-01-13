@@ -7,6 +7,7 @@ import { useLocale } from "@/lib/i18n/I18nProvider";
 import { authClient } from "@/lib/auth/client";
 import { SessionManagement } from "@/components/auth/SessionManagement";
 import LoadingWine from "@/components/LoadingWine";
+import { AdminAiApiKeyForm } from "@/components/AdminAiApiKeyForm";
 
 export default function SecurityPage() {
   const { user } = useAuth();
@@ -19,6 +20,13 @@ export default function SecurityPage() {
   const [totpCode, setTotpCode] = useState("");
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   if (!user) {
     return (
@@ -77,6 +85,30 @@ export default function SecurityPage() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setTimeout(() => setError(t("auth.passwordsMismatch")), 0);
+      return;
+    }
+
+    try {
+      setIsChangingPassword(true);
+      setError(null);
+      setSuccess(null);
+      await authClient.changePassword(currentPassword, newPassword);
+      setSuccess(t("security.passwordChangeSuccess"));
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to change password";
+      setTimeout(() => setError(message), 0);
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-8">
       <div>
@@ -93,6 +125,66 @@ export default function SecurityPage() {
           {error}
         </div>
       )}
+
+      {success && (
+        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-green-700 dark:text-green-300">
+          {success}
+        </div>
+      )}
+
+      {/* Password Change Section */}
+      <section className="bg-white dark:bg-slate-800 rounded-lg p-6 space-y-4">
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+          {t("security.password")}
+        </h2>
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t("security.currentPassword")}
+              </label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t("security.newPassword")}
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t("auth.confirmPassword")}
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                required
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            disabled={isChangingPassword}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white rounded-lg transition-colors"
+          >
+            {isChangingPassword ? t("actions.update") + "..." : t("security.changePassword")}
+          </button>
+        </form>
+      </section>
 
       {/* Two-Factor Authentication Section */}
       <section className="bg-white dark:bg-slate-800 rounded-lg p-6 space-y-4">
@@ -205,6 +297,19 @@ export default function SecurityPage() {
       <section className="bg-white dark:bg-slate-800 rounded-lg p-6">
         <SessionManagement />
       </section>
+
+      {/* Admin AI Configuration (Security) */}
+      {user.role === "admin" && (
+        <section className="bg-white dark:bg-slate-800 rounded-lg p-6 space-y-4">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+            {t("admin.aiApiKey.title")}
+          </h2>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            {t("admin.aiApiKey.intro")}
+          </p>
+          <AdminAiApiKeyForm />
+        </section>
+      )}
     </div>
   );
 }

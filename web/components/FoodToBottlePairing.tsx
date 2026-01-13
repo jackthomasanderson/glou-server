@@ -1,17 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "../lib/i18n/I18nProvider";
+import { useAuth } from "../lib/auth/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { fetchAppSettings } from "@/lib/profile/client";
 
 export function FoodToBottlePairing() {
   const { t } = useTranslations();
+  const { user } = useAuth();
   const [food, setFood] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { data: appSettings } = useQuery({
+    queryKey: ["app-settings"],
+    queryFn: fetchAppSettings,
+    staleTime: 30_000,
+  });
+
+  const isAIEnabled = !!(user?.aiApiKey || appSettings?.aiApiKey);
+
+  if (!isAIEnabled) {
+    return null;
+  }
+
   async function handleSuggest(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => setError(null), 0);
+    setError(null);
     setResult(null);
     try {
       const res = await fetch("/api/food-pairing/suggest", {
@@ -23,32 +39,59 @@ export function FoodToBottlePairing() {
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
       setResult(data.data);
-    } catch (e) {
-      setTimeout(() => setError(t("errors.serverError")), 0);
+    } catch {
+      setError(t("foodPairing.error"));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div>
-      <h2>{t("foodPairing.title")}</h2>
-      <form onSubmit={handleSuggest} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input
-          type="text"
-          value={food}
-          onChange={(e) => setFood(e.target.value)}
-          placeholder={t("foodPairing.foodPlaceholder")}
-          style={{ flex: 1 }}
-        />
-        <button type="submit" disabled={loading || !food.trim()}>
+    <section className="panel" style={{ marginBottom: 24 }}>
+      <header className="panel__header">
+        <div>
+          <p className="eyebrow">{t("app.suggestions")}</p>
+          <h2>{t("foodPairing.title")}</h2>
+        </div>
+      </header>
+
+      <form onSubmit={handleSuggest} className="form" style={{ flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
+        <div className="field" style={{ flex: 1 }}>
+          <label htmlFor="food-input">{t("foodPairing.foodPlaceholder")}</label>
+          <input
+            id="food-input"
+            type="text"
+            value={food}
+            onChange={(e) => setFood(e.target.value)}
+            placeholder={t("foodPairing.foodPlaceholder")}
+          />
+        </div>
+        <button className="primary" type="submit" disabled={loading || !food.trim()} style={{ height: 44 }}>
           {loading ? t("loading") : t("foodPairing.suggest")}
         </button>
       </form>
-      {error && <div style={{ color: "red" }}>{error}</div>}
-      {result && (
-        <pre style={{ marginTop: 16, background: "#f7f7f7", padding: 12, borderRadius: 6 }}>{result}</pre>
+
+      {error && (
+        <div className="field__error" style={{ marginTop: 12 }}>
+          {error}
+        </div>
       )}
-    </div>
+
+      {result && (
+        <div style={{
+          marginTop: 20,
+          padding: 16,
+          background: "var(--bg)",
+          border: "1px solid var(--border)",
+          borderRadius: "var(--radius)",
+          whiteSpace: "pre-wrap",
+          fontSize: "13px",
+          lineHeight: "1.6",
+          color: "var(--text)"
+        }}>
+          {result}
+        </div>
+      )}
+    </section>
   );
 }

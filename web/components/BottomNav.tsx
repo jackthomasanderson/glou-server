@@ -6,7 +6,6 @@ import { useTranslations } from "../lib/i18n/I18nProvider";
 import { DashboardIcon, BottlesIcon, CellarsIcon, ProfileIcon } from "./Icon";
 import { useEffect, useState } from "react";
 import { bottlesClient } from "../lib/bottles/client";
-import { cigarsClient } from "../lib/cigars/client";
 
 export default function BottomNav() {
   const { t } = useTranslations();
@@ -14,7 +13,6 @@ export default function BottomNav() {
   const pathname = usePathname();
 
   const [bottlesCount, setBottlesCount] = useState<number | null>(null);
-  const [cigarsCount, setCigarsCount] = useState<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -23,15 +21,8 @@ export default function BottomNav() {
         const bs = await bottlesClient.list();
         if (!mounted) return;
         setBottlesCount(Array.isArray(bs) ? bs.length : 0);
-      } catch (e) {
+      } catch {
         setBottlesCount(0);
-      }
-      try {
-        const cs = await cigarsClient.list();
-        if (!mounted) return;
-        setCigarsCount(Array.isArray(cs) ? cs.length : 0);
-      } catch (e) {
-        setCigarsCount(0);
       }
     }
     load();

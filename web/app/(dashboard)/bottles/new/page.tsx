@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "../../../lib/i18n/I18nProvider";
-import { bottlesClient } from "../../../lib/bottles/client";
+import { useTranslations } from "@/lib/i18n/I18nProvider";
+import { bottlesClient } from "@/lib/bottles/client";
 
 export default function NewBottlePage() {
   const { t } = useTranslations();

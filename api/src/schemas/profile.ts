@@ -58,7 +58,7 @@ export const profileSchema = z.object({
   email: z.string().email(),
   role: userRoleSchema,
   displayName: z.string().max(80).nullable(),
-  avatarUrl: z.string().url().nullable(),
+  avatarUrl: z.string().nullable(),
   tagline: z.string().max(140).nullable(),
   preferredLocale: userLocaleSchema.nullable(),
   dateTimeFormat: dateTimeFormatSchema,
@@ -74,7 +74,7 @@ export type Profile = z.infer<typeof profileSchema>;
 export const updateProfileSchema = z
   .object({
     displayName: z.string().max(80).nullable().optional(),
-    avatarUrl: z.string().url().nullable().optional(),
+    avatarUrl: z.string().nullable().optional(),
     tagline: z.string().max(140).nullable().optional(),
     preferredLocale: userLocaleSchema.nullable().optional(),
     dateTimeFormat: dateTimeFormatSchema.optional(),
@@ -91,7 +91,7 @@ export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export const appSettingsSchema = z.object({
   appName: z.string().max(80).nullable(),
   appTagline: z.string().max(140).nullable(),
-  logoUrl: z.string().url().nullable(),
+  logoUrl: z.string().nullable(),
   updatedAt: z.date(),
 });
 
@@ -101,7 +101,7 @@ export const updateAppSettingsSchema = z
   .object({
     appName: z.string().max(80).nullable().optional(),
     appTagline: z.string().max(140).nullable().optional(),
-    logoUrl: z.string().url().nullable().optional(),
+    logoUrl: z.string().nullable().optional(),
   })
   .strict();
 
@@ -112,3 +112,12 @@ export const updateUserRoleSchema = z.object({
 });
 
 export type UpdateUserRoleInput = z.infer<typeof updateUserRoleSchema>;
+
+export const updateUserSchema = z.object({
+  role: userRoleSchema.optional(),
+  displayName: z.string().max(80).nullable().optional(),
+  email: z.string().email().optional(),
+  username: z.string().max(50).optional(),
+});
+
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;

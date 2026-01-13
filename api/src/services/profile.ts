@@ -1,6 +1,6 @@
 import { DatabaseService } from "./database.js";
 import { logger } from "../utils/logger.js";
-import type { AppSettings, Profile, UpdateAppSettingsInput, UpdateProfileInput, UserRole } from "../schemas/profile.js";
+import type { AppSettings, Profile, UpdateAppSettingsInput, UpdateProfileInput, UserRole, UpdateUserInput } from "../schemas/profile.js";
 
 export type UserSummary = {
   id: string;
@@ -12,7 +12,7 @@ export type UserSummary = {
 };
 
 export class ProfileService {
-  constructor(private db: DatabaseService) {}
+  constructor(private db: DatabaseService) { }
 
   async getProfileByUserId(userId: string): Promise<Profile | null> {
     const query = `
@@ -139,10 +139,54 @@ export class ProfileService {
       throw new Error("Failed to update user role");
     }
   }
+
+  async updateUser(userId: string, input: UpdateUserInput): Promise<void> {
+    const fields: { column: string; key: keyof UpdateUserInput }[] = [
+      { column: "role", key: "role" },
+      { column: "display_name", key: "displayName" },
+      { column: "email", key: "email" },
+      { column: "username", key: "username" },
+    ];
+
+    const setParts: string[] = [];
+    const params: unknown[] = [];
+
+    for (const field of fields) {
+      if (typeof input[field.key] === "undefined") continue;
+      params.push((input as any)[field.key]);
+      setParts.push(`${field.column} = $${params.length}`);
+    }
+
+    if (setParts.length === 0) return;
+
+    params.push(userId);
+    const query = `
+      UPDATE users
+      SET ${setParts.join(", ")}, updated_at = NOW()
+      WHERE id = $${params.length}
+    `;
+
+    try {
+      await this.db.query(query, params);
+    } catch (error) {
+      logger.error({ error, userId, input }, "Failed to update user");
+      throw new Error("Failed to update user");
+    }
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    const query = `DELETE FROM users WHERE id = $1`;
+    try {
+      await this.db.query(query, [userId]);
+    } catch (error) {
+      logger.error({ error, userId }, "Failed to delete user");
+      throw new Error("Failed to delete user");
+    }
+  }
 }
 
 export class AppSettingsService {
-  constructor(private db: DatabaseService) {}
+  constructor(private db: DatabaseService) { }
 
   async getAppSettings(): Promise<AppSettings & { aiApiKey: string | null }> {
     const query = `

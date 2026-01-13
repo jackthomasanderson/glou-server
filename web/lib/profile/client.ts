@@ -32,7 +32,7 @@ export type Profile = {
   preferredLocale: "en" | "fr" | null;
   dateTimeFormat: "system" | "24h" | "12h";
   temperatureUnit: "c" | "f";
-  themeMode: "dark" | "light";
+  themeMode: "dark" | "light" | "auto";
   accentColor: string;
   notificationSettings: Record<string, unknown>;
   aiApiKey?: string | null;
@@ -45,7 +45,7 @@ export type UpdateProfileInput = Partial<{
   preferredLocale: "en" | "fr" | null;
   dateTimeFormat: "system" | "24h" | "12h";
   temperatureUnit: "c" | "f";
-  themeMode: "dark" | "light";
+  themeMode: "dark" | "light" | "auto";
   accentColor: string;
   notificationSettings: ProfileNotificationSettings;
   aiApiKey?: string | null;
@@ -66,6 +66,13 @@ export type UserSummary = {
   displayName: string | null;
   createdAt: string;
 };
+
+export type UpdateUserInput = Partial<{
+  role: "admin" | "user";
+  displayName: string | null;
+  email: string;
+  username: string;
+}>;
 
 const headers = { "Content-Type": "application/json" };
 
@@ -126,6 +133,24 @@ export async function updateUserRole(userId: string, role: "admin" | "user"): Pr
     method: "PATCH",
     headers,
     body: JSON.stringify({ role }),
+    credentials: "include",
+  });
+  await handleResponse(res);
+}
+
+export async function updateUser(userId: string, input: UpdateUserInput): Promise<void> {
+  const res = await fetch(`/api/admin/users/${userId}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(input),
+    credentials: "include",
+  });
+  await handleResponse(res);
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  const res = await fetch(`/api/admin/users/${userId}`, {
+    method: "DELETE",
     credentials: "include",
   });
   await handleResponse(res);

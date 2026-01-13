@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "../../../lib/i18n/I18nProvider";
+import { useTranslations } from "@/lib/i18n/I18nProvider";
 
 export default function NewCigarPage() {
   const { t } = useTranslations();

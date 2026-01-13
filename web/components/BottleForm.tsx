@@ -13,7 +13,7 @@ import {
 import { useTranslations } from "../lib/i18n/I18nProvider";
 
 type BottleFormProps = {
-    cellars: any[];
+    cellars: { id: string; name: string }[];
     initialData: BottleRecord | null;
     onSave: (data: BottleInput) => void;
     onCancel: () => void;
@@ -139,7 +139,7 @@ export function BottleForm({ cellars, initialData, onSave, onCancel }: BottleFor
     // Handle edit mode
     useEffect(() => {
         if (initialData) {
-            const { id, createdAt, updatedAt, deletedAt, ...input } = initialData;
+            const { ...input } = initialData;
             setForm(input as BottleInput);
             setShowOptionals(true);
             window.scrollTo({ top: 0, behavior: "smooth" });
@@ -640,6 +640,20 @@ export function BottleForm({ cellars, initialData, onSave, onCancel }: BottleFor
                                 <option value="sparkling">{t("categories.sparkling")}</option>
                                 <option value="spirit">{t("categories.spirit")}</option>
                                 <option value="cigar">{t("categories.cigar")}</option>
+                            </select>
+                        </Field>
+                        <Field label={t("fields.cellarId")} required hint={t("hints.cellarId")}>
+                            <select
+                                value={form.cellarId}
+                                onChange={(e) => setForm((prev) => ({ ...prev, cellarId: e.target.value } as BottleInput))}
+                                disabled={cellars.length <= 1}
+                            >
+                                {cellars.length === 0 && <option value="">--</option>}
+                                {cellars.map((cellar) => (
+                                    <option key={cellar.id} value={cellar.id}>
+                                        {cellar.name}
+                                    </option>
+                                ))}
                             </select>
                         </Field>
                         <Field label={t("fields.location")} hint={t("hints.location")}

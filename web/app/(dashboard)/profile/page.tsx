@@ -5,17 +5,21 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "@/lib/i18n/I18nProvider";
 import { useAuth } from "@/lib/auth/AuthContext";
 import LoadingWine from "@/components/LoadingWine";
+import ImageUpload from "@/components/ImageUpload";
 import {
+  deleteUser,
   fetchAppSettings,
   fetchMyProfile,
   listUsers,
   testNotifications,
   updateAppSettings,
   updateMyProfile,
+  updateUser,
   updateUserRole,
   type AppSettings,
   type Profile,
   type UpdateProfileInput,
+  type UpdateUserInput,
   type UserSummary,
 } from "@/lib/profile/client";
 
@@ -43,6 +47,7 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
 
   const isAdmin = user?.role === "admin";
+  const [activeTab, setActiveTab] = useState<"profile" | "admin">("profile");
 
   const profileQuery = useQuery({
     queryKey: profileKey,
@@ -63,6 +68,8 @@ export default function ProfilePage() {
 
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [userDraft, setUserDraft] = useState<UpdateUserInput>({});
 
   const profile = profileQuery.data;
 
@@ -87,8 +94,8 @@ export default function ProfilePage() {
   const saveProfileMutation = useMutation({
     mutationFn: updateMyProfile,
     onMutate: async (input: UpdateProfileInput) => {
-      setTimeout(() => setError(null), 0);
-      setTimeout(() => setFeedback(null), 0);
+      setError(null);
+      setFeedback(null);
       await queryClient.cancelQueries({ queryKey: profileKey });
       const previous = queryClient.getQueryData<Profile>(profileKey);
       if (previous) {
@@ -98,10 +105,10 @@ export default function ProfilePage() {
     },
     onError: (_err, _input, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(profileKey, ctx.previous);
-      setTimeout(() => setError(t("errors.serverError")), 0);
+      setError(t("errors.serverError"));
     },
     onSuccess: () => {
-      setTimeout(() => setFeedback(t("profile.saved")), 0);
+      setFeedback(t("profile.saved"));
       queryClient.invalidateQueries({ queryKey: profileKey });
       refreshMe?.();
     },
@@ -110,8 +117,8 @@ export default function ProfilePage() {
   const saveBrandMutation = useMutation({
     mutationFn: updateAppSettings,
     onMutate: async (input) => {
-      setTimeout(() => setError(null), 0);
-      setTimeout(() => setFeedback(null), 0);
+      setError(null);
+      setFeedback(null);
       await queryClient.cancelQueries({ queryKey: appSettingsKey });
       const previous = queryClient.getQueryData<AppSettings>(appSettingsKey);
       if (previous) {
@@ -121,10 +128,10 @@ export default function ProfilePage() {
     },
     onError: (_err, _input, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(appSettingsKey, ctx.previous);
-      setTimeout(() => setError(t("errors.serverError")), 0);
+      setError(t("errors.serverError"));
     },
     onSuccess: () => {
-      setTimeout(() => setFeedback(t("admin.brandingSaved")), 0);
+      setFeedback(t("admin.brandingSaved"));
       queryClient.invalidateQueries({ queryKey: appSettingsKey });
     },
   });
@@ -132,8 +139,8 @@ export default function ProfilePage() {
   const updateRoleMutation = useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: "admin" | "user" }) => updateUserRole(userId, role),
     onMutate: async ({ userId, role }) => {
-      setTimeout(() => setError(null), 0);
-      setTimeout(() => setFeedback(null), 0);
+      setError(null);
+      setFeedback(null);
       await queryClient.cancelQueries({ queryKey: usersKey });
       const previous = queryClient.getQueryData<UserSummary[]>(usersKey);
       if (previous) {
@@ -146,10 +153,62 @@ export default function ProfilePage() {
     },
     onError: (_err, _input, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(usersKey, ctx.previous);
-      setTimeout(() => setError(t("errors.serverError")), 0);
+      setError(t("errors.serverError"));
     },
     onSuccess: () => {
-      setTimeout(() => setFeedback(t("admin.roleUpdated")), 0);
+      setFeedback(t("admin.roleUpdated"));
+      queryClient.invalidateQueries({ queryKey: usersKey });
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: ({ userId, draft }: { userId: string; draft: UpdateUserInput }) => updateUser(userId, draft),
+    onMutate: async ({ userId, draft }) => {
+      setError(null);
+      setFeedback(null);
+      await queryClient.cancelQueries({ queryKey: usersKey });
+      const previous = queryClient.getQueryData<UserSummary[]>(usersKey);
+      if (previous) {
+        queryClient.setQueryData(
+          usersKey,
+          previous.map((u) => (u.id === userId ? { ...u, ...draft } : u))
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _input, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(usersKey, ctx.previous);
+      setError(t("errors.serverError"));
+    },
+    onSuccess: () => {
+      setFeedback(t("admin.userUpdated"));
+      queryClient.invalidateQueries({ queryKey: usersKey });
+      setEditingUserId(null);
+      setUserDraft({});
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: (userId: string) => deleteUser(userId),
+    onMutate: async (userId) => {
+      setError(null);
+      setFeedback(null);
+      await queryClient.cancelQueries({ queryKey: usersKey });
+      const previous = queryClient.getQueryData<UserSummary[]>(usersKey);
+      if (previous) {
+        queryClient.setQueryData(
+          usersKey,
+          previous.filter((u) => u.id !== userId)
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _userId, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(usersKey, ctx.previous);
+      setError(t("errors.serverError"));
+    },
+    onSuccess: () => {
+      setFeedback(t("admin.userDeleted"));
       queryClient.invalidateQueries({ queryKey: usersKey });
     },
   });
@@ -157,14 +216,14 @@ export default function ProfilePage() {
   const testNotifMutation = useMutation({
     mutationFn: () => testNotifications(),
     onMutate: async () => {
-      setTimeout(() => setError(null), 0);
-      setTimeout(() => setFeedback(null), 0);
+      setError(null);
+      setFeedback(null);
     },
     onError: () => {
-      setTimeout(() => setError(t("errors.serverError")), 0);
+      setError(t("errors.serverError"));
     },
     onSuccess: () => {
-      setTimeout(() => setFeedback(t("notifications.testSent") ?? "Test sent"), 0);
+      setFeedback(t("notifications.testSent") ?? "Test sent");
     },
   });
 
@@ -178,348 +237,337 @@ export default function ProfilePage() {
 
   const notif = effective ? (effective.notificationSettings as NotificationSettings) : null;
 
+  // Simple initial generator for default avatar
+  const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.displayName || profile.username)}&background=random&color=fff&size=512`;
+
+  // Default logo generator (simplified wine icon placeholder)
+  const defaultLogo = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%237B1E30" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6"/><path d="M15 2v6"/><rect x="6" y="8" width="12" height="14" rx="2"/></svg>`)}`;
+
   return (
     <div className="dashboard">
       <div className="panel">
         <div className="panel__header">
           <div>
-            <p className="eyebrow">{t("pageTitles.profile")}</p>
-            <h2>{t("profile.title")}</h2>
+            <p className="eyebrow">{t("pageTitles.settings")}</p>
+            <h2>{t("pageTitles.settings")}</h2>
             <p>{t("profile.subtitle")}</p>
           </div>
         </div>
 
-        {error ? <div className="section" style={{ borderColor: "var(--danger)", color: "var(--text)" }}>{error}</div> : null}
-        {feedback ? <div className="section">{feedback}</div> : null}
-
-        <div className="form">
-          <div className="section">
-            <div className="section__title">{t("profile.identity")}</div>
-            <div className="grid">
-              <label className="field">
-                {t("profile.displayName")}
-                <input
-                  value={(effective?.displayName ?? "") as string}
-                  onChange={(e) => setDraft((d) => ({ ...d, displayName: e.target.value || null }))}
-                  placeholder={t("profile.displayNamePlaceholder")}
-                />
-              </label>
-
-              <label className="field">
-                {t("profile.avatarUrl")}
-                <input
-                  value={(effective?.avatarUrl ?? "") as string}
-                  onChange={(e) => setDraft((d) => ({ ...d, avatarUrl: e.target.value || null }))}
-                  placeholder={t("profile.avatarUrlPlaceholder")}
-                />
-              </label>
-
-              <label className="field" style={{ gridColumn: "1 / -1" }}>
-                {t("profile.tagline")}
-                <input
-                  value={(effective?.tagline ?? "") as string}
-                  onChange={(e) => setDraft((d) => ({ ...d, tagline: e.target.value || null }))}
-                  placeholder={t("profile.taglinePlaceholder")}
-                />
-              </label>
-            </div>
+        {isAdmin && (
+          <div className="tabs">
+            <button
+              className={`tab ${activeTab === "profile" ? "active" : ""}`}
+              onClick={() => setActiveTab("profile")}
+            >
+              {t("header.userMenu.profile")}
+            </button>
+            <button
+              className={`tab ${activeTab === "admin" ? "active" : ""}`}
+              onClick={() => setActiveTab("admin")}
+            >
+              {t("header.userMenu.admin")}
+            </button>
           </div>
+        )}
 
-          <div className="section">
-            <div className="section__title">{t("profile.preferences")}</div>
-            <div className="grid">
-              <label className="field">
-                {t("profile.language")}
-                <select
-                  value={effective?.preferredLocale ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      preferredLocale: e.target.value === "" ? null : (e.target.value as "en" | "fr"),
-                    }))
-                  }
-                >
-                  <option value="">{t("profile.languageAuto")}</option>
-                  <option value="en">English</option>
-                  <option value="fr">Français</option>
-                </select>
-              </label>
+        {error ? <div className="section" style={{ borderColor: "var(--danger)", color: "var(--text)", marginBottom: 16 }}>{error}</div> : null}
+        {feedback ? <div className="section" style={{ borderColor: "var(--success)", marginBottom: 16 }}>{feedback}</div> : null}
 
-              <label className="field">
-                {t("profile.theme")}
-                <select
-                  value={effective?.themeMode ?? "dark"}
-                  onChange={(e) => setDraft((d) => ({ ...d, themeMode: e.target.value as "dark" | "light" }))}
-                >
-                  <option value="dark">{t("header.darkMode")}</option>
-                  <option value="light">{t("header.lightMode")}</option>
-                </select>
-              </label>
+        {activeTab === "profile" ? (
+          <div className="form">
+            <div className="section">
+              <div className="section__title">{t("profile.identity")}</div>
 
-              <label className="field">
-                {t("profile.accentColor")}
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input
-                    type="color"
-                    value={effective?.accentColor ?? "#2563EB"}
-                    onChange={(e) => setDraft((d) => ({ ...d, accentColor: e.target.value }))}
-                    aria-label={t("profile.accentColor")}
-                    style={{ height: 44, width: 48, padding: 0, borderRadius: "var(--radius)" }}
-                  />
-                  <input
-                    value={effective?.accentColor ?? "#2563EB"}
-                    onChange={(e) => setDraft((d) => ({ ...d, accentColor: e.target.value }))}
-                    placeholder="#2563EB"
-                  />
+              <div style={{ display: "flex", gap: 32, marginBottom: 24, flexWrap: "wrap", alignItems: "center" }}>
+                <ImageUpload
+                  label={t("profile.avatar")}
+                  value={effective?.avatarUrl || null}
+                  onChange={(url) => setDraft((d) => ({ ...d, avatarUrl: url }))}
+                  shape="circle"
+                  defaultImage={defaultAvatar}
+                />
+                <div style={{ flex: 1, minWidth: 280 }} className="grid">
+                  <label className="field">
+                    {t("profile.displayName")}
+                    <input
+                      value={(effective?.displayName ?? "") as string}
+                      onChange={(e) => setDraft((d) => ({ ...d, displayName: e.target.value || null }))}
+                      placeholder={t("profile.displayNamePlaceholder")}
+                    />
+                  </label>
+
                 </div>
-              </label>
+              </div>
             </div>
-          </div>
 
-          <div className="section">
-            <div className="section__title">{t("notifications.title")}</div>
-            <p className="section__hint">{t("notifications.subtitle")}</p>
+            <div className="section">
+              <div className="section__title">{t("profile.preferences")}</div>
+              <div className="grid">
+                <label className="field">
+                  {t("profile.language")}
+                  <select
+                    value={effective?.preferredLocale ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        preferredLocale: e.target.value === "" ? null : (e.target.value as "en" | "fr"),
+                      }))
+                    }
+                  >
+                    <option value="">{t("profile.languageAuto")}</option>
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                  </select>
+                </label>
 
-            <div className="grid">
-              <label className="field">
-                {t("notifications.webhookUrl")}
-                <input
-                  value={(notif?.webhookUrl as string) ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      notificationSettings: { ...notif, webhookUrl: e.target.value },
-                    }))
-                  }
-                  placeholder="https://..."
-                />
-              </label>
+                <label className="field">
+                  {t("profile.theme")}
+                  <select
+                    value={effective?.themeMode ?? "auto"}
+                    onChange={(e) => setDraft((d) => ({ ...d, themeMode: e.target.value as "dark" | "light" | "auto" }))}
+                  >
+                    <option value="auto">{t("header.autoMode")}</option>
+                    <option value="dark">{t("header.darkMode")}</option>
+                    <option value="light">{t("header.lightMode")}</option>
+                  </select>
+                </label>
 
-              <label className="field">
-                {t("notifications.gotifyUrl")}
-                <input
-                  value={(notif?.gotifyUrl as string) ?? ""}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      notificationSettings: { ...notif, gotifyUrl: e.target.value },
-                    }))
-                  }
-                  placeholder="https://..."
-                />
-              </label>
+                <label className="field">
+                  {t("profile.accentColor")}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <input
+                      type="color"
+                      value={effective?.accentColor ?? "#2563EB"}
+                      onChange={(e) => setDraft((d) => ({ ...d, accentColor: e.target.value }))}
+                      aria-label={t("profile.accentColor")}
+                      style={{ height: 44, width: 48, padding: 0, borderRadius: "var(--radius)" }}
+                    />
+                    <input
+                      value={effective?.accentColor ?? "#2563EB"}
+                      onChange={(e) => setDraft((d) => ({ ...d, accentColor: e.target.value }))}
+                      placeholder="#2563EB"
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
 
-              <div className="field">
-                {t("notifications.channels")}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                  {(["email", "inApp", "webhook", "gotify"] as const).map((channel) => (
-                    <label key={channel} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div className="section">
+              <div className="section__title">{t("notifications.title")}</div>
+              <p className="section__hint">{t("notifications.subtitle")}</p>
+
+              <div className="grid">
+                <label className="field">
+                  {t("notifications.webhookUrl")}
+                  <input
+                    value={(notif?.webhookUrl as string) ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        notificationSettings: { ...notif, webhookUrl: e.target.value },
+                      }))
+                    }
+                    placeholder="https://..."
+                  />
+                </label>
+
+                <label className="field">
+                  {t("notifications.gotifyUrl")}
+                  <input
+                    value={(notif?.gotifyUrl as string) ?? ""}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        notificationSettings: { ...notif, gotifyUrl: e.target.value },
+                      }))
+                    }
+                    placeholder="https://..."
+                  />
+                </label>
+
+                <div className="field">
+                  {t("notifications.channels")}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                    {(["email", "inApp", "webhook", "gotify"] as const).map((channel) => (
+                      <label key={channel} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!(notif?.channels as Record<string, unknown>)?.[channel]}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              notificationSettings: {
+                                ...notif,
+                                channels: { ...(notif.channels as Record<string, unknown>), [channel]: e.target.checked },
+                              },
+                            }))
+                          }
+                        />
+                        {t(`notifications.channel.${channel}`)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="field" style={{ gridColumn: "1 / -1" }}>
+                  {t("notifications.categories")}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                    {([
+                      ["peakMaturity", "notifications.category.peakMaturity"],
+                      ["climate", "notifications.category.climate"],
+                      ["plannedConsumption", "notifications.category.plannedConsumption"],
+                      ["sharing", "notifications.category.sharing"],
+                    ] as const).map(([key, label]) => (
+                      <label key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input
+                          type="checkbox"
+                          checked={!!(notif?.categories as Record<string, unknown>)?.[key]}
+                          onChange={(e) =>
+                            setDraft((d) => ({
+                              ...d,
+                              notificationSettings: {
+                                ...notif,
+                                categories: { ...(notif.categories as Record<string, unknown>), [key]: e.target.checked },
+                              },
+                            }))
+                          }
+                        />
+                        {t(label)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="field" style={{ gridColumn: "1 / -1" }}>
+                  {t("notifications.quietHours")}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <input
                         type="checkbox"
-                        checked={!!(notif?.channels as Record<string, unknown>)?.[channel]}
+                        checked={!!(notif?.quietHours as Record<string, unknown>)?.enabled}
                         onChange={(e) =>
                           setDraft((d) => ({
                             ...d,
                             notificationSettings: {
                               ...notif,
-                              channels: { ...(notif.channels as Record<string, unknown>), [channel]: e.target.checked },
+                              quietHours: { ...(notif.quietHours as Record<string, unknown>), enabled: e.target.checked },
                             },
                           }))
                         }
                       />
-                      {t(`notifications.channel.${channel}`)}
+                      {t("notifications.enabled")}
                     </label>
-                  ))}
-                </div>
-              </div>
 
-              <div className="field" style={{ gridColumn: "1 / -1" }}>
-                {t("notifications.categories")}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-                  {([
-                    ["peakMaturity", "notifications.category.peakMaturity"],
-                    ["climate", "notifications.category.climate"],
-                    ["plannedConsumption", "notifications.category.plannedConsumption"],
-                    ["sharing", "notifications.category.sharing"],
-                  ] as const).map(([key, label]) => (
-                    <label key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {t("notifications.start")}
                       <input
-                        type="checkbox"
-                        checked={!!(notif?.categories as Record<string, unknown>)?.[key]}
+                        type="time"
+                        value={(notif?.quietHours as Record<string, unknown>)?.start as string ?? ""}
                         onChange={(e) =>
                           setDraft((d) => ({
                             ...d,
                             notificationSettings: {
                               ...notif,
-                              categories: { ...(notif.categories as Record<string, unknown>), [key]: e.target.checked },
+                              quietHours: { ...(notif.quietHours as Record<string, unknown>), start: e.target.value },
                             },
                           }))
                         }
                       />
-                      {t(label)}
                     </label>
-                  ))}
+
+                    <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {t("notifications.end")}
+                      <input
+                        type="time"
+                        value={(notif?.quietHours as Record<string, unknown>)?.end as string ?? ""}
+                        onChange={(e) =>
+                          setDraft((d) => ({
+                            ...d,
+                            notificationSettings: {
+                              ...notif,
+                              quietHours: { ...(notif.quietHours as Record<string, unknown>), end: e.target.value },
+                            },
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div className="field" style={{ gridColumn: "1 / -1" }}>
-                {t("notifications.quietHours")}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input
-                      type="checkbox"
-                      checked={!!(notif?.quietHours as Record<string, unknown>)?.enabled}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          notificationSettings: {
-                            ...notif,
-                            quietHours: { ...(notif.quietHours as Record<string, unknown>), enabled: e.target.checked },
-                          },
-                        }))
-                      }
-                    />
-                    {t("notifications.enabled")}
-                  </label>
-
-                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {t("notifications.start")}
-                    <input
-                      type="time"
-                      value={(notif?.quietHours as Record<string, unknown>)?.start as string ?? ""}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          notificationSettings: {
-                            ...notif,
-                            quietHours: { ...(notif.quietHours as Record<string, unknown>), start: e.target.value },
-                          },
-                        }))
-                      }
-                    />
-                  </label>
-
-                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {t("notifications.end")}
-                    <input
-                      type="time"
-                      value={(notif?.quietHours as Record<string, unknown>)?.end as string ?? ""}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          notificationSettings: {
-                            ...notif,
-                            quietHours: { ...(notif.quietHours as Record<string, unknown>), end: e.target.value },
-                          },
-                        }))
-                      }
-                    />
-                  </label>
-                </div>
+              <div className="form__actions">
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => testNotifMutation.mutate()}
+                  disabled={testNotifMutation.isPending}
+                >
+                  {t("notifications.sendTest")}
+                </button>
               </div>
             </div>
 
             <div className="form__actions">
               <button
                 type="button"
-                className="ghost"
-                onClick={() => testNotifMutation.mutate()}
-                disabled={testNotifMutation.isPending}
+                className="primary"
+                onClick={() => saveProfileMutation.mutate(draft)}
+                disabled={saveProfileMutation.isPending}
               >
-                {t("notifications.sendTest")}
+                {t("profile.save")}
+              </button>
+              <button type="button" onClick={() => setDraft({})} disabled={saveProfileMutation.isPending}>
+                {t("actions.reset")}
               </button>
             </div>
           </div>
-
-          <div className="form__actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={() => saveProfileMutation.mutate(draft)}
-              disabled={saveProfileMutation.isPending}
-            >
-              {t("profile.save")}
-            </button>
-            <button type="button" onClick={() => setDraft({})} disabled={saveProfileMutation.isPending}>
-              {t("actions.reset")}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {isAdmin ? (
-        <div className="panel">
-          <div className="panel__header">
-            <div>
-              <p className="eyebrow">{t("admin.title")}</p>
-              <h2>{t("admin.subtitle")}</h2>
-            </div>
-          </div>
-
+        ) : (
           <div className="form">
             <div className="section">
               <div className="section__title">{t("admin.branding")}</div>
-              <div className="grid">
-                <label className="field">
-                  {t("admin.appName")}
-                  <input
-                    value={appSettingsQuery.data?.appName ?? ""}
-                    onChange={(e) =>
-                      queryClient.setQueryData<AppSettings | undefined>(appSettingsKey, (prev) => {
-                        const base =
-                          prev ??
-                          ({
-                            appName: null,
-                            appTagline: null,
-                            logoUrl: null,
-                            updatedAt: new Date().toISOString(),
-                          } satisfies AppSettings);
-                        return { ...base, appName: e.target.value || null };
-                      })
-                    }
-                  />
-                </label>
 
-                <label className="field">
-                  {t("admin.appTagline")}
-                  <input
-                    value={appSettingsQuery.data?.appTagline ?? ""}
-                    onChange={(e) =>
-                      queryClient.setQueryData<AppSettings | undefined>(appSettingsKey, (prev) => {
-                        const base =
-                          prev ??
-                          ({
-                            appName: null,
-                            appTagline: null,
-                            logoUrl: null,
-                            updatedAt: new Date().toISOString(),
-                          } satisfies AppSettings);
-                        return { ...base, appTagline: e.target.value || null };
-                      })
-                    }
-                  />
-                </label>
+              <div style={{ display: "flex", gap: 32, marginBottom: 24, flexWrap: "wrap", alignItems: "center" }}>
+                <ImageUpload
+                  label={t("admin.logo")}
+                  value={appSettingsQuery.data?.logoUrl || null}
+                  onChange={(url) =>
+                    queryClient.setQueryData<AppSettings | undefined>(appSettingsKey, (prev) => {
+                      const base = prev ?? { appName: null, appTagline: null, logoUrl: null, updatedAt: new Date().toISOString() };
+                      return { ...base, logoUrl: url };
+                    })
+                  }
+                  shape="square"
+                  defaultImage={defaultLogo}
+                />
 
-                <label className="field" style={{ gridColumn: "1 / -1" }}>
-                  {t("admin.logoUrl")}
-                  <input
-                    value={appSettingsQuery.data?.logoUrl ?? ""}
-                    onChange={(e) =>
-                      queryClient.setQueryData<AppSettings | undefined>(appSettingsKey, (prev) => {
-                        const base =
-                          prev ??
-                          ({
-                            appName: null,
-                            appTagline: null,
-                            logoUrl: null,
-                            updatedAt: new Date().toISOString(),
-                          } satisfies AppSettings);
-                        return { ...base, logoUrl: e.target.value || null };
-                      })
-                    }
-                    placeholder="https://..."
-                  />
-                </label>
+                <div style={{ flex: 1, minWidth: 280 }} className="grid">
+                  <label className="field">
+                    {t("admin.appName")}
+                    <input
+                      value={appSettingsQuery.data?.appName ?? ""}
+                      onChange={(e) =>
+                        queryClient.setQueryData<AppSettings | undefined>(appSettingsKey, (prev) => {
+                          const base = prev ?? { appName: null, appTagline: null, logoUrl: null, updatedAt: new Date().toISOString() };
+                          return { ...base, appName: e.target.value || null };
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label className="field">
+                    {t("admin.appTagline")}
+                    <input
+                      value={appSettingsQuery.data?.appTagline ?? ""}
+                      onChange={(e) =>
+                        queryClient.setQueryData<AppSettings | undefined>(appSettingsKey, (prev) => {
+                          const base = prev ?? { appName: null, appTagline: null, logoUrl: null, updatedAt: new Date().toISOString() };
+                          return { ...base, appTagline: e.target.value || null };
+                        })
+                      }
+                    />
+                  </label>
+                </div>
               </div>
 
               <div className="form__actions">
@@ -547,25 +595,120 @@ export default function ProfilePage() {
               ) : usersQuery.data && usersQuery.data.length ? (
                 <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
                   {usersQuery.data.map((u) => (
-                    <div key={u.id} className="section">
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-                        <div>
-                          <div style={{ color: "var(--text)", fontWeight: 600 }}>
-                            {u.displayName || u.username}
+                    <div key={u.id} className="section" style={{ background: "var(--bg)", position: "relative" }}>
+                      {editingUserId === u.id ? (
+                        <div className="grid" style={{ gap: 12 }}>
+                          <label className="field" style={{ marginBottom: 0 }}>
+                            {t("profile.displayName")}
+                            <input
+                              value={userDraft.displayName ?? u.displayName ?? ""}
+                              onChange={(e) => setUserDraft((d) => ({ ...d, displayName: e.target.value || null }))}
+                              placeholder={t("profile.displayNamePlaceholder")}
+                            />
+                          </label>
+                          <label className="field" style={{ marginBottom: 0 }}>
+                            {t("fields.email")}
+                            <input
+                              value={userDraft.email ?? u.email ?? ""}
+                              onChange={(e) => setUserDraft((d) => ({ ...d, email: e.target.value }))}
+                              placeholder="email@example.com"
+                            />
+                          </label>
+                          <label className="field" style={{ marginBottom: 0 }}>
+                            {t("fields.username")}
+                            <input
+                              value={userDraft.username ?? u.username ?? ""}
+                              onChange={(e) => setUserDraft((d) => ({ ...d, username: e.target.value }))}
+                              placeholder="username"
+                            />
+                          </label>
+                          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                            <button
+                              type="button"
+                              className="primary small"
+                              onClick={() => updateUserMutation.mutate({ userId: u.id, draft: userDraft })}
+                              disabled={updateUserMutation.isPending}
+                            >
+                              {t("actions.save")}
+                            </button>
+                            <button
+                              type="button"
+                              className="ghost small"
+                              onClick={() => {
+                                setEditingUserId(null);
+                                setUserDraft({});
+                              }}
+                            >
+                              {t("actions.cancel")}
+                            </button>
                           </div>
-                          <div style={{ fontSize: 12 }}>{u.email}</div>
                         </div>
+                      ) : (
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <div style={{ color: "var(--text)", fontWeight: 600 }}>
+                                {u.displayName || u.username}
+                              </div>
+                              <span style={{ fontSize: 10, opacity: 0.6, background: "var(--bg-card)", padding: "2px 6px", borderRadius: 4 }}>
+                                {u.username}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 12, opacity: 0.8 }}>{u.email}</div>
+                            <div style={{ fontSize: 10, marginTop: 4, opacity: 0.5 }}>
+                              {new Date(u.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
 
-                        <label className="field" style={{ minWidth: 140 }}>
-                          <select
-                            value={u.role}
-                            onChange={(e) => updateRoleMutation.mutate({ userId: u.id, role: e.target.value as UserSummary["role"] })}
-                          >
-                            <option value="admin">{t("roles.admin")}</option>
-                            <option value="user">{t("roles.user")}</option>
-                          </select>
-                        </label>
-                      </div>
+                          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                            <label className="field" style={{ minWidth: 120, marginBottom: 0 }}>
+                              <select
+                                value={u.role}
+                                style={{ height: 36, fontSize: 13 }}
+                                onChange={(e) => updateRoleMutation.mutate({ userId: u.id, role: e.target.value as UserSummary["role"] })}
+                              >
+                                <option value="admin">{t("roles.admin")}</option>
+                                <option value="user">{t("roles.user")}</option>
+                              </select>
+                            </label>
+
+                            <button
+                              type="button"
+                              className="ghost"
+                              style={{ padding: "8px", height: 36, width: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+                              onClick={() => {
+                                setEditingUserId(u.id);
+                                setUserDraft({
+                                  displayName: u.displayName,
+                                  email: u.email,
+                                  username: u.username,
+                                });
+                              }}
+                              title={t("admin.editUser")}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="ghost"
+                              style={{ color: "var(--danger)", padding: "8px", height: 36, width: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+                              onClick={() => {
+                                if (u.id === user?.id) {
+                                  setError(t("admin.cannotDeleteSelf"));
+                                  return;
+                                }
+                                if (confirm(t("admin.deleteConfirm"))) {
+                                  deleteUserMutation.mutate(u.id);
+                                }
+                              }}
+                              title={t("admin.deleteUser")}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -574,8 +717,8 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
-        </div>
-      ) : null}
+        )}
+      </div>
     </div>
   );
 }

@@ -204,10 +204,10 @@ export function createAuthRouter(
       await securityEventService.logEvent(user.id, "login_success", ipAddress, userAgent, { method: "2fa" });
 
       res.cookie("session_token", sessionToken, {
-          httpOnly: false,
-          secure: false,
-          sameSite: "lax",
-          path: "/",
+        httpOnly: false,
+        secure: false,
+        sameSite: "lax",
+        path: "/",
       });
 
       res.json({
@@ -330,6 +330,53 @@ export function createAuthRouter(
       res.json({ message: "2FA disabled successfully" });
     } catch (error) {
       logger.error(error, "Disable 2FA error");
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /**
+   * PATCH /auth/change-password
+   * Change current user password
+   */
+  router.patch("/change-password", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const { currentPassword, newPassword } = req.body;
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: "Current and new password required" });
+      }
+
+      if (newPassword.length < 12) {
+        return res.status(400).json({ error: "New password must be at least 12 characters" });
+      }
+
+      // Verify current password
+      const user = await userService.getUserById(req.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      const isValid = await CryptoService.verifyPassword(currentPassword, user.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ error: "Invalid current password" });
+      }
+
+      // Hash new password
+      const newPasswordHash = await CryptoService.hashPassword(newPassword);
+
+      // Update password
+      await userService.updatePassword(req.userId, newPasswordHash);
+
+      // Log event
+      const ipAddress = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress;
+      await securityEventService.logEvent(req.userId, "password_changed", ipAddress, req.headers["user-agent"] as string);
+
+      res.json({ message: "Password changed successfully" });
+    } catch (error) {
+      logger.error(error, "Change password error");
       res.status(500).json({ error: "Internal server error" });
     }
   });

@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
 import { SessionService, UserService } from "../services/auth.js";
 import { AppSettingsService, ProfileService } from "../services/profile.js";
-import { updateAppSettingsSchema, updateUserRoleSchema } from "../schemas/profile.js";
+import { updateAppSettingsSchema, updateUserRoleSchema, updateUserSchema } from "../schemas/profile.js";
 import { logger } from "../utils/logger.js";
 
 async function requireAdmin(req: AuthenticatedRequest, res: Response, userService: UserService): Promise<boolean> {
@@ -79,6 +79,46 @@ export function createAdminRouter(
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       logger.error(error, "Update user role error");
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /**
+   * PATCH /admin/users/:userId
+   */
+  router.patch("/users/:userId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!(await requireAdmin(req, res, userService))) return;
+
+      const { userId } = req.params;
+      const payload = updateUserSchema.parse(req.body);
+      await profileService.updateUser(userId, payload);
+      res.json({ message: "User updated" });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ error: "Validation failed", details: error.errors });
+      }
+      logger.error(error, "Update user error");
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /**
+   * DELETE /admin/users/:userId
+   */
+  router.delete("/users/:userId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!(await requireAdmin(req, res, userService))) return;
+
+      const { userId } = req.params;
+      if (userId === req.userId) {
+        return res.status(400).json({ error: "You cannot delete yourself" });
+      }
+
+      await profileService.deleteUser(userId);
+      res.json({ message: "User deleted" });
+    } catch (error) {
+      logger.error(error, "Delete user error");
       res.status(500).json({ error: "Internal server error" });
     }
   });

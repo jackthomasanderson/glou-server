@@ -1,28 +1,32 @@
 "use client";
 
 import React from "react";
-import { useCreateCellar } from "@/lib/cellars/store";
-import { CellarType } from "@/types/cellars";
+import { useCreateCellar, useUpdateCellar } from "@/lib/cellars/store";
+import { CellarType, CellarWithStats } from "@/types/cellars";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "@/lib/i18n/I18nProvider";
 
 interface CellarFormProps {
   onSuccess?: () => void;
-  defaultName?: string;
+  existingCellar?: CellarWithStats;
 }
 
 const cellarTypes: CellarType[] = ["cellar", "showcase", "climate_cabinet", "rack", "other"];
 
-export function CellarForm({ onSuccess, defaultName = "" }: CellarFormProps) {
+export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
   const router = useRouter();
   const createMutation = useCreateCellar();
+  const updateMutation = useUpdateCellar();
   const { t } = useTranslations();
+
   const [formData, setFormData] = React.useState({
-    name: defaultName,
-    description: "",
-    cellarType: "cellar" as CellarType,
-    locationDescription: "",
+    name: existingCellar?.name || "",
+    description: existingCellar?.description || "",
+    cellarType: (existingCellar?.cellarType as CellarType) || "cellar",
+    locationDescription: existingCellar?.locationDescription || "",
   });
+
+  const isEditing = !!existingCellar;
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -38,29 +42,45 @@ export function CellarForm({ onSuccess, defaultName = "" }: CellarFormProps) {
     e.preventDefault();
 
     try {
-      await createMutation.mutateAsync({
-        ...formData,
-        description: formData.description || null,
-        locationDescription: formData.locationDescription || null,
-      });
+      if (isEditing) {
+        await updateMutation.mutateAsync({
+          cellarId: existingCellar.id,
+          input: {
+            ...formData,
+            description: formData.description || null,
+            locationDescription: formData.locationDescription || null,
+          },
+        });
+      } else {
+        await createMutation.mutateAsync({
+          ...formData,
+          description: formData.description || null,
+          locationDescription: formData.locationDescription || null,
+        });
+      }
 
       router.push("/cellars");
       if (onSuccess) onSuccess();
     } catch (err) {
-      console.error("Failed to create cellar:", err);
+      console.error(isEditing ? "Failed to update cellar:" : "Failed to create cellar:", err);
     }
   };
+
+  const isPending = createMutation.isPending || updateMutation.isPending;
+  const error = createMutation.error || updateMutation.error;
 
   return (
     <section className="panel">
       <div className="panel__header">
         <div>
           <p className="eyebrow">{t("app.name")}</p>
-          <h1>{t("cellars.createCellar")}</h1>
+          <h1>{isEditing ? t("cellars.editCellar") : t("cellars.createCellar")}</h1>
         </div>
       </div>
 
-      {createMutation.error ? <p className="feedback">{t("cellars.createError")}</p> : null}
+      {error ? (
+        <p className="feedback">{isEditing ? t("cellars.updateError") : t("cellars.createError")}</p>
+      ) : null}
 
       <form onSubmit={handleSubmit} className="form">
         <div className="field">
@@ -113,8 +133,14 @@ export function CellarForm({ onSuccess, defaultName = "" }: CellarFormProps) {
         </div>
 
         <div className="form__actions">
-          <button type="submit" disabled={createMutation.isPending} className="primary">
-            {createMutation.isPending ? t("cellars.creating") : t("cellars.form.save")}
+          <button type="submit" disabled={isPending} className="primary">
+            {isPending
+              ? isEditing
+                ? t("cellars.updating")
+                : t("cellars.creating")
+              : isEditing
+                ? t("cellars.form.update")
+                : t("cellars.form.save")}
           </button>
           <button type="button" onClick={() => router.back()}>
             {t("cellars.form.cancel")}

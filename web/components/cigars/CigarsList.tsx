@@ -18,9 +18,9 @@ export function CigarsList() {
         const data = await cigarsClient.list();
         if (!mounted) return;
         setItems(data);
-      } catch (err: any) {
+      } catch (err) {
         if (!mounted) return;
-        setError(err?.message || String(err));
+        setError(err instanceof Error ? err.message : String(err));
       } finally {
         if (mounted) setLoading(false);
       }

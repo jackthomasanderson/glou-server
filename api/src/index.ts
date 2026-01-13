@@ -1,16 +1,3 @@
-// Log any uncaught exceptions or unhandled promise rejections
-process.on('uncaughtException', (err) => {
-  logger.fatal({ err }, 'Uncaught Exception');
-  // eslint-disable-next-line no-console
-  console.error('Uncaught Exception', err);
-  process.exit(1);
-});
-process.on('unhandledRejection', (reason) => {
-  logger.fatal({ reason }, 'Unhandled Rejection');
-  // eslint-disable-next-line no-console
-  console.error('Unhandled Rejection', reason);
-  process.exit(1);
-});
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -28,6 +15,20 @@ import { BottleService } from "./services/bottles.js";
 import { logger } from "./utils/logger.js";
 import { createConsumptionPlanRouter } from "./routes/consumptionPlan.js";
 import { createFoodPairingRouter } from "./routes/foodPairing.js";
+
+// Log any uncaught exceptions or unhandled promise rejections
+process.on('uncaughtException', (err) => {
+  logger.fatal({ err }, 'Uncaught Exception');
+  // eslint-disable-next-line no-console
+  console.error('Uncaught Exception', err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  logger.fatal({ reason }, 'Unhandled Rejection');
+  // eslint-disable-next-line no-console
+  console.error('Unhandled Rejection', reason);
+  process.exit(1);
+});
 
 dotenv.config();
 

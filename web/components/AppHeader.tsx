@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "../lib/i18n/I18nProvider";
 import { type Locale } from "../lib/i18n/locales";
 
@@ -13,10 +14,10 @@ export function AppHeader() {
 
   return (
     <header className="app-header">
-      <div className="app-header__brand">
+      <Link href="/" className="app-header__brand">
         <h1>{t("app.title")}</h1>
         <p className="eyebrow">{t("app.subtitle")}</p>
-      </div>
+      </Link>
       <div className="app-header__controls">
         <button
           type="button"

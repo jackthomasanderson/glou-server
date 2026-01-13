@@ -164,9 +164,8 @@ export function BottleDashboard() {
   const editingBottle = editingId ? (Array.isArray(bottles) ? bottles : []).find(b => b.id === editingId) ?? null : null;
 
   return (
-    <div className="dashboard">
+    <>
       <LocaleSync />
-      <AppHeaderClient />
 
       <section className="panel">
         <header className="panel__header">
@@ -221,7 +220,7 @@ export function BottleDashboard() {
       <section className="panel">
         <header className="panel__header">
           <div>
-            <p className="eyebrow">{t("app.list")}</p>
+            <p className="eyebrow">{t("app.inventory")}</p>
             <h2>{t("list.title")}</h2>
           </div>
         </header>
@@ -245,6 +244,6 @@ export function BottleDashboard() {
           )}
         </div>
       )}
-    </div>
+    </>
   );
 }

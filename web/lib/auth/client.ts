@@ -139,6 +139,20 @@ export class AuthClient {
     }
   }
 
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/auth/change-password`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Password change failed");
+    }
+  }
+
   async listSessions(): Promise<SessionSummary[]> {
     const response = await fetch(`${this.baseUrl}/auth/sessions`, {
       credentials: "include",

@@ -38,6 +38,7 @@ const peakMaturitySchema = z
 const commonBottleSchema = z.object({
   label: z.string().min(1).max(120),
   category: bottleCategorySchema,
+  cellarId: z.string().uuid("Invalid cellar ID"),
   location: emptyStringToUndefined(z.string().min(1).max(80)).optional(),
   collection: emptyStringToUndefined(z.string().min(1).max(80)).optional(),
   tags: z.array(z.string().min(1).max(40)).max(10).default([]),

@@ -3,7 +3,9 @@
     "name": "Glou",
     "title": "Tableau de bord cave",
     "subtitle": "Ajoutez l'essentiel, précisez selon le type (vin, bulles, spiritueux, tabac)",
-    "collection": "Vue cave"
+    "collection": "Vue cave",
+    "inventory": "Inventaire",
+    "suggestions": "Conseils"
   },
   "pageTitles": {
     "dashboard": "Inventaire",
@@ -47,7 +49,7 @@
     "autoMode": "Auto",
     "userMenu": {
       "label": "Compte",
-      "profile": "Profil",
+      "profile": "Utilisateur",
       "security": "Sécurité",
       "admin": "Admin"
     }
@@ -123,7 +125,6 @@
     "humidifier": "Humidificateur",
     "manufactureYear": "Année de fabrication",
     "grapes": "Cépages",
-    "format": "Format",
     "lotNumber": "Numéro de lot",
     "carafing": "Carafage",
     "wine": {
@@ -134,11 +135,15 @@
     },
     "spirit": {
       "nameEdition": "Expression / Ligne"
-    }
+    },
+    "email": "Email",
+    "username": "Nom d'utilisateur",
+    "cellarId": "Cave"
   },
   "hints": {
     "label": "Nom clair lisible dans la liste (ex: Chambertin 2015)",
     "category": "Type principal à valider pour les champs suivants",
+    "cellarId": "Sélectionnez la cave où ranger cette bouteille",
     "location": "Où le trouver physiquement (ex: clayette A3)",
     "collection": "Regroupement perso (ex: Dîners, Cadeaux)",
     "house": "Maison ou marque pour les bulles",
@@ -201,9 +206,11 @@
     "restore": "Restaurer",
     "undo": "Annuler",
     "edit": "Modifier",
-    "add": "Ajouter une bouteille",
+    "add": "Ajouter",
     "addBottle": "Ajouter une bouteille",
-    "quickAdd": "Ajout rapide"
+    "upload": "Uploader",
+    "quickAdd": "Ajout rapide",
+    "cancel": "Annuler"
   },
   "preview": {
     "title": "Prévisualisation",
@@ -363,8 +370,7 @@
     "preferences": "Préférences",
     "displayName": "Nom affiché",
     "displayNamePlaceholder": "Votre nom",
-    "avatarUrl": "URL avatar",
-    "avatarUrlPlaceholder": "https://...",
+    "avatar": "Photo de profil",
     "tagline": "Slogan",
     "taglinePlaceholder": "Sous-titre court",
     "language": "Langue",
@@ -377,19 +383,6 @@
   "roles": {
     "admin": "Admin",
     "user": "Utilisateur"
-  },
-  "admin": {
-    "title": "Admin",
-    "subtitle": "Accès et branding",
-    "branding": "Branding de l'app",
-    "appName": "Nom de l'app",
-    "appTagline": "Slogan de l'app",
-    "logoUrl": "URL du logo",
-    "saveBranding": "Enregistrer le branding",
-    "brandingSaved": "Branding enregistré",
-    "users": "Utilisateurs",
-    "noUsers": "Aucun utilisateur",
-    "roleUpdated": "Rôle mis à jour"
   },
   "notifications": {
     "title": "Notifications",
@@ -514,6 +507,17 @@
     "common": {
       "internalError": "Erreur serveur interne",
       "databaseError": "Erreur de base de données"
+    }
+  },
+  "consumption": {
+    "suggestion": {
+      "title": "Suggestions de consommation",
+      "none": "Aucune suggestion pour le moment.",
+      "peakMaturity": "Fenêtre d'apogée idéale",
+      "pastMaturity": "Apogée dépassée",
+      "opened": "Déjà ouverte",
+      "lowLevel": "Niveau bas",
+      "budget": "Stock quotidien"
     }
   }
 }

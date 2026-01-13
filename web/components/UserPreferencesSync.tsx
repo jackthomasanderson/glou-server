@@ -20,7 +20,12 @@ export function UserPreferencesSync() {
     if (!user) return;
 
     const root = document.documentElement;
-    const theme = user.themeMode ?? "dark";
+    let theme = user.themeMode ?? "dark";
+
+    if (theme === "auto") {
+      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      theme = isDark ? "dark" : "light";
+    }
 
     if (theme === "dark") {
       root.classList.add("dark");
