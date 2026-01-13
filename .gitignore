@@ -115,3 +115,4 @@ agents/
 .vscode/
 .github/agents/
 .github/copilot-instructions.md
+.agent/
