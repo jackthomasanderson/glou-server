@@ -25,5 +25,22 @@
     "success": "Clé enregistrée !",
     "fetchError": "Erreur de chargement de la clé.",
     "saveError": "Erreur lors de l'enregistrement."
-  }
+  },
+  "createUser": "Créer un utilisateur",
+  "newUser": "Nouvel utilisateur",
+  "userCreated": "Utilisateur créé avec succès",
+  "smtpTitle": "Configuration SMTP",
+  "smtpHost": "Serveur SMTP",
+  "smtpHostPlaceholder": "smtp.exemple.com",
+  "smtpPort": "Port SMTP",
+  "smtpPortPlaceholder": "587",
+  "smtpUser": "Utilisateur SMTP",
+  "smtpUserPlaceholder": "utilisateur@exemple.com",
+  "smtpPass": "Mot de passe SMTP",
+  "smtpPassPlaceholder": "********",
+  "smtpFrom": "Adresse d'expédition (From)",
+  "smtpFromPlaceholder": "Glou <noreply@exemple.com>",
+  "smtpSecure": "Utiliser TLS/SSL",
+  "saveSmtp": "Enregistrer les paramètres SMTP",
+  "smtpSaved": "Paramètres SMTP enregistrés"
 }

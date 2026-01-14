@@ -2,7 +2,6 @@
 
 import React, { memo } from "react";
 import { BottleToFoodPairing } from "./BottleToFoodPairing";
-import { getDaysUntilPermanentDelete } from "../lib/bottles/trash";
 import { type BottleRecord } from "../lib/bottles/schema";
 import { useTranslations } from "../lib/i18n/I18nProvider";
 
@@ -11,13 +10,9 @@ type BottleListProps = {
     isLoading: boolean;
     onEdit: (bottle: BottleRecord) => void;
     onDelete: (id: string) => void;
-    onRestore: (id: string) => void;
 };
 
-const getDaysUntilDelete = (deletedAt: string | null): number | null =>
-    getDaysUntilPermanentDelete(deletedAt);
-
-function BottleListComponent({ bottles, isLoading, onEdit, onDelete, onRestore }: BottleListProps) {
+function BottleListComponent({ bottles, isLoading, onEdit, onDelete }: BottleListProps) {
     const { t } = useTranslations();
 
     if (isLoading) {
@@ -46,14 +41,13 @@ function BottleListComponent({ bottles, isLoading, onEdit, onDelete, onRestore }
     return (
         <div className="cards">
             {bottles.map((bottle) => (
-                <article key={bottle.id} className={`card ${bottle.deletedAt ? "card--muted" : ""}`}>
+                <article key={bottle.id} className="card">
                     <div className="card__header">
                         <div>
                             <p className="eyebrow">{t(`categories.${bottle.category}`)}</p>
                             <h3>{bottle.label}</h3>
                         </div>
                         <div className="pills">
-                            {bottle.deletedAt ? <span className="pill warning">{t("list.deleted")}</span> : null}
                             {bottle.isOpened ? <span className="pill info">{t("list.opened")}</span> : null}
                             {bottle.fillLevel ? <span className="pill">{t(`levels.${bottle.fillLevel}`)}</span> : null}
                             {bottle.alertStatus && bottle.alertStatus !== "none" ? (
@@ -79,9 +73,6 @@ function BottleListComponent({ bottles, isLoading, onEdit, onDelete, onRestore }
                         {bottle.collection && <span>{t("list.collection")}: {bottle.collection}</span>}
                         {bottle.tags && bottle.tags.length > 0 && <span>{t("list.tags")}: {bottle.tags.join(", ")}</span>}
                         {bottle.tastingNote && <span>{t("list.tastingNote")}: {bottle.tastingNote}</span>}
-                        {bottle.deletedAt && (
-                            <span className="muted">{t("trash.expiresIn")}: {getDaysUntilDelete(bottle.deletedAt) || "0"} {t("trash.days")}</span>
-                        )}
                     </div>
 
                     {/* AI food pairing button and result */}
@@ -90,19 +81,10 @@ function BottleListComponent({ bottles, isLoading, onEdit, onDelete, onRestore }
                     </div>
 
                     <div className="card__actions">
-                        {!bottle.deletedAt && (
-                            <>
-                                <button type="button" onClick={() => onEdit(bottle)}>{t("actions.edit")}</button>
-                                <button type="button" className="ghost" onClick={() => onDelete(bottle.id)}>
-                                    {t("actions.delete")}
-                                </button>
-                            </>
-                        )}
-                        {bottle.deletedAt && (
-                            <button type="button" className="primary" onClick={() => onRestore(bottle.id)}>
-                                {t("actions.restore")}
-                            </button>
-                        )}
+                        <button type="button" onClick={() => onEdit(bottle)}>{t("actions.edit")}</button>
+                        <button type="button" className="ghost" onClick={() => onDelete(bottle.id)}>
+                            {t("actions.delete")}
+                        </button>
                     </div>
 
                     {bottle.id.startsWith("temp-") && <p className="muted">{t("list.optimistic")}</p>}

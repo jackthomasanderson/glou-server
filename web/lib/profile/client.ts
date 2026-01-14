@@ -55,6 +55,12 @@ export type AppSettings = {
   appName: string | null;
   appTagline: string | null;
   logoUrl: string | null;
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  smtpUser?: string | null;
+  smtpPass?: string | null;
+  smtpFrom?: string | null;
+  smtpSecure?: boolean | null;
   updatedAt: string;
 };
 
@@ -113,7 +119,7 @@ export async function fetchAppSettings(): Promise<AppSettings> {
   return (await handleResponse(res)) as AppSettings;
 }
 
-export async function updateAppSettings(input: Partial<{ appName: string | null; appTagline: string | null; logoUrl: string | null }>): Promise<AppSettings> {
+export async function updateAppSettings(input: Partial<Omit<AppSettings, "updatedAt">>): Promise<AppSettings> {
   const res = await fetch("/api/admin/app-settings", {
     method: "PATCH",
     headers,
@@ -154,4 +160,14 @@ export async function deleteUser(userId: string): Promise<void> {
     credentials: "include",
   });
   await handleResponse(res);
+}
+
+export async function createUser(input: { username: string; email: string; password?: string }): Promise<UserSummary> {
+  const res = await fetch("/api/admin/users", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(input),
+    credentials: "include",
+  });
+  return (await handleResponse(res)) as UserSummary;
 }

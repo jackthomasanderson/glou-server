@@ -63,13 +63,14 @@ export function AdminAiApiKeyForm() {
           disabled={loading}
         />
       </label>
-      <div className="form__actions" style={{ marginTop: 12 }}>
+      <div className="form__actions" style={{ marginTop: 12, alignItems: "center" }}>
         <button type="submit" className="primary" disabled={loading}>
           {loading ? t("loading") : t("admin.aiApiKey.save")}
         </button>
+
+        {success && <span style={{ color: "var(--success)", fontSize: 13 }}>{t("admin.aiApiKey.success")}</span>}
+        {error && <span style={{ color: "var(--danger)", fontSize: 13 }}>{error}</span>}
       </div>
-      {success && <span style={{ color: "green", marginLeft: 8 }}>{t("admin.aiApiKey.success")}</span>}
-      {error && <span style={{ color: "red", marginLeft: 8 }}>{error}</span>}
     </form>
   );
 }

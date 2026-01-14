@@ -74,8 +74,8 @@ export function createCellarsRouter(sessionService: SessionService, cellarServic
       if (err instanceof ZodError) {
         return res.status(400).json({ error: "Invalid input", details: err.errors });
       }
-      logger.error("Failed to create cellar");
-      return res.status(500).json({ error: "Failed to create cellar" });
+      logger.error("Failed to create cellar", err);
+      return res.status(500).json({ error: "Failed to create cellar", details: err instanceof Error ? err.message : String(err) });
     }
   });
 

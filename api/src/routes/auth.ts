@@ -126,7 +126,7 @@ export function createAuthRouter(
         secure: false,
         sameSite: "lax",
         path: "/",
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        ...(payload.rememberMe ? { maxAge: 30 * 24 * 60 * 60 * 1000 } : {}), // 30 days if remembered
       });
 
       res.json({
@@ -153,7 +153,7 @@ export function createAuthRouter(
    */
   router.post("/verify-2fa", async (req, res: Response) => {
     try {
-      const { userId, code, recoveryCode, twoFAMethod, tempToken } = req.body;
+      const { userId, code, recoveryCode, twoFAMethod, tempToken, rememberMe } = req.body;
       const ipAddress = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress;
       const userAgent = req.headers["user-agent"] as string;
 
@@ -208,6 +208,7 @@ export function createAuthRouter(
         secure: false,
         sameSite: "lax",
         path: "/",
+        ...(rememberMe ? { maxAge: 30 * 24 * 60 * 60 * 1000 } : {}),
       });
 
       res.json({
@@ -422,6 +423,13 @@ export function createAuthRouter(
       }
 
       const { sessionId } = req.params;
+
+      // Security: ensure the session belongs to the user
+      const sessions = await sessionService.listUserSessions(req.userId);
+      if (!sessions.find(s => s.id === sessionId)) {
+        return res.status(403).json({ error: "Forbidden: Cannot revoke other users' sessions" });
+      }
+
       await sessionService.revokeSession(sessionId);
 
       await securityEventService.logEvent(req.userId, "session_revoked", undefined, undefined, { sessionId });
@@ -445,7 +453,7 @@ export function createAuthRouter(
 
       const { deviceName } = req.body;
 
-      await sessionService.trustDevice(req.sessionId);
+      await sessionService.trustDevice(req.sessionId, deviceName);
       await securityEventService.logEvent(req.userId, "device_trusted", undefined, undefined, { deviceName });
 
       res.json({ message: "Device marked as trusted" });

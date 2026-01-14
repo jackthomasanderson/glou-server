@@ -7,7 +7,7 @@ import { logger } from "../utils/logger.js";
  * Cellar management service
  */
 export class CellarService {
-  constructor(private db: DatabaseService) {}
+  constructor(private db: DatabaseService) { }
 
   /**
    * Get all cellars for a user
@@ -21,13 +21,16 @@ export class CellarService {
         c.description,
         c.cellar_type as "cellarType",
         c.location_description as "locationDescription",
+        c.placement,
+        c.model_name as "modelName",
+        c.bottle_capacity as "bottleCapacity",
+        c.shelf_count as "shelfCount",
         c.created_at as "createdAt",
         c.updated_at as "updatedAt",
         COALESCE(COUNT(b.id), 0)::int as "bottleCount"
       FROM cellars c
       LEFT JOIN bottles b
         ON b.cellar_id = c.id
-        AND b.deleted_at IS NULL
       WHERE c.user_id = $1
       GROUP BY
         c.id,
@@ -36,6 +39,10 @@ export class CellarService {
         c.description,
         c.cellar_type,
         c.location_description,
+        c.placement,
+        c.model_name,
+        c.bottle_capacity,
+        c.shelf_count,
         c.created_at,
         c.updated_at
       ORDER BY c.created_at DESC
@@ -56,6 +63,10 @@ export class CellarService {
             c.description,
             c.cellar_type as "cellarType",
             c.location_description as "locationDescription",
+            c.placement,
+            c.model_name as "modelName",
+            c.bottle_capacity as "bottleCapacity",
+            c.shelf_count as "shelfCount",
             c.created_at as "createdAt",
             c.updated_at as "updatedAt",
             0::int as "bottleCount"
@@ -83,6 +94,10 @@ export class CellarService {
         description,
         cellar_type as "cellarType",
         location_description as "locationDescription",
+        placement,
+        model_name as "modelName",
+        bottle_capacity as "bottleCapacity",
+        shelf_count as "shelfCount",
         created_at as "createdAt",
         updated_at as "updatedAt"
       FROM cellars
@@ -106,8 +121,8 @@ export class CellarService {
     const now = new Date();
 
     const query = `
-      INSERT INTO cellars (id, user_id, name, description, cellar_type, location_description, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      INSERT INTO cellars (id, user_id, name, description, cellar_type, location_description, placement, model_name, bottle_capacity, shelf_count, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING
         id,
         user_id as "userId",
@@ -115,6 +130,10 @@ export class CellarService {
         description,
         cellar_type as "cellarType",
         location_description as "locationDescription",
+        placement,
+        model_name as "modelName",
+        bottle_capacity as "bottleCapacity",
+        shelf_count as "shelfCount",
         created_at as "createdAt",
         updated_at as "updatedAt"
     `;
@@ -127,6 +146,10 @@ export class CellarService {
         input.description || null,
         input.cellarType,
         input.locationDescription || null,
+        input.placement || null,
+        input.modelName || null,
+        input.bottleCapacity ?? null,
+        input.shelfCount ?? null,
         now,
         now,
       ]);
@@ -177,6 +200,30 @@ export class CellarService {
       paramIndex++;
     }
 
+    if (input.placement !== undefined) {
+      updates.push(`placement = $${paramIndex}`);
+      values.push(input.placement);
+      paramIndex++;
+    }
+
+    if (input.modelName !== undefined) {
+      updates.push(`model_name = $${paramIndex}`);
+      values.push(input.modelName);
+      paramIndex++;
+    }
+
+    if (input.bottleCapacity !== undefined) {
+      updates.push(`bottle_capacity = $${paramIndex}`);
+      values.push(input.bottleCapacity);
+      paramIndex++;
+    }
+
+    if (input.shelfCount !== undefined) {
+      updates.push(`shelf_count = $${paramIndex}`);
+      values.push(input.shelfCount);
+      paramIndex++;
+    }
+
     if (updates.length === 0) {
       return existing;
     }
@@ -197,6 +244,10 @@ export class CellarService {
         description,
         cellar_type as "cellarType",
         location_description as "locationDescription",
+        placement,
+        model_name as "modelName",
+        bottle_capacity as "bottleCapacity",
+        shelf_count as "shelfCount",
         created_at as "createdAt",
         updated_at as "updatedAt"
     `;
@@ -253,7 +304,7 @@ export class CellarService {
     const countQuery = `
       SELECT COUNT(*) as count
       FROM bottles
-      WHERE cellar_id = $1 AND deleted_at IS NULL
+      WHERE cellar_id = $1
     `;
 
     try {

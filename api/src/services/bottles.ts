@@ -7,7 +7,7 @@ import { logger } from "../utils/logger.js";
  * Bottle management service
  */
 export class BottleService {
-  constructor(private db: DatabaseService) {}
+  constructor(private db: DatabaseService) { }
 
   /**
    * Get all bottles for a cellar (filtered by user ownership)
@@ -71,10 +71,9 @@ export class BottleService {
         b.purchase_price as "purchasePrice",
         b.tags,
         b.created_at as "createdAt",
-        b.updated_at as "updatedAt",
-        b.deleted_at as "deletedAt"
+        b.updated_at as "updatedAt"
       FROM bottles b
-      WHERE b.cellar_id = $1 AND b.user_id = $2 AND b.deleted_at IS NULL
+      WHERE b.cellar_id = $1 AND b.user_id = $2
       ORDER BY b.created_at DESC
     `;
 
@@ -149,10 +148,9 @@ export class BottleService {
         b.purchase_price as "purchasePrice",
         b.tags,
         b.created_at as "createdAt",
-        b.updated_at as "updatedAt",
-        b.deleted_at as "deletedAt"
+        b.updated_at as "updatedAt"
       FROM bottles b
-      WHERE b.user_id = $1 AND b.deleted_at IS NULL
+      WHERE b.user_id = $1
       ORDER BY b.created_at DESC
     `;
 
@@ -227,10 +225,9 @@ export class BottleService {
         b.purchase_price as "purchasePrice",
         b.tags,
         b.created_at as "createdAt",
-        b.updated_at as "updatedAt",
-        b.deleted_at as "deletedAt"
+        b.updated_at as "updatedAt"
       FROM bottles b
-      WHERE b.id = $1 AND b.user_id = $2 AND b.deleted_at IS NULL
+      WHERE b.id = $1 AND b.user_id = $2
     `;
 
     try {
@@ -486,47 +483,22 @@ export class BottleService {
   }
 
   /**
-   * Soft delete a bottle
+   * Delete a bottle permanently
    */
-  async softDeleteBottle(bottleId: string, userId: string): Promise<Bottle> {
+  async deleteBottle(bottleId: string, userId: string): Promise<boolean> {
     const query = `
-      UPDATE bottles
-      SET deleted_at = CURRENT_TIMESTAMP
+      DELETE FROM bottles
       WHERE id = $1 AND user_id = $2
-      RETURNING *
     `;
 
     try {
       const result = await this.db.query(query, [bottleId, userId]);
-      if (result.rows.length === 0) {
+      if ((result.rowCount ?? 0) === 0) {
         throw new Error("BOTTLE_NOT_FOUND");
       }
-      return result.rows[0] as Bottle;
+      return true;
     } catch (err) {
       logger.error(`Failed to delete bottle: ${err instanceof Error ? err.message : String(err)}`);
-      throw err;
-    }
-  }
-
-  /**
-   * Restore a soft-deleted bottle
-   */
-  async restoreBottle(bottleId: string, userId: string): Promise<Bottle> {
-    const query = `
-      UPDATE bottles
-      SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1 AND user_id = $2
-      RETURNING *
-    `;
-
-    try {
-      const result = await this.db.query(query, [bottleId, userId]);
-      if (result.rows.length === 0) {
-        throw new Error("BOTTLE_NOT_FOUND");
-      }
-      return result.rows[0] as Bottle;
-    } catch (err) {
-      logger.error(`Failed to restore bottle: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
     }
   }

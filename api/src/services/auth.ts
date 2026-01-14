@@ -437,15 +437,15 @@ export class SessionService {
   /**
    * Trust device
    */
-  async trustDevice(sessionId: string, trustDurationDays: number = 90): Promise<void> {
+  async trustDevice(sessionId: string, deviceName?: string, trustDurationDays: number = 90): Promise<void> {
     const query = `
       UPDATE sessions
-      SET is_trusted = true
+      SET is_trusted = true, device_name = COALESCE($2, device_name)
       WHERE id = $1
     `;
 
     try {
-      await this.db.query(query, [sessionId]);
+      await this.db.query(query, [sessionId, deviceName || null]);
     } catch (error) {
       logger.error({ error, sessionId }, "Failed to trust device");
       throw new Error("Failed to trust device");

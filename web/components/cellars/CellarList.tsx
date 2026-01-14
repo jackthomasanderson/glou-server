@@ -80,13 +80,14 @@ export function CellarList() {
 
               <p className="feedback" style={{ marginTop: 8 }}>
                 {typeof cellar.bottleCount === "number" && cellar.bottleCount > 0
-                  ? `${cellar.bottleCount} ${t("cellars.stats.bottleCount")}`
+                  ? `${cellar.bottleCount} ${cellar.bottleCapacity ? `/ ${cellar.bottleCapacity}` : ""} ${t("cellars.stats.bottleCount")}`
                   : t("cellars.stats.empty")}
               </p>
 
+              {cellar.placement ? <p className="feedback">{cellar.placement}</p> : null}
               {cellar.locationDescription ? <p className="feedback">{cellar.locationDescription}</p> : null}
 
-              <div className="actions-inline" style={{ marginTop: 12 }}>
+              <div className="card__actions">
                 <button
                   className="primary"
                   type="button"

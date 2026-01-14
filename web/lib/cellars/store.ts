@@ -49,6 +49,10 @@ export function useCreateCellar() {
         description: input.description ?? null,
         cellarType: input.cellarType,
         locationDescription: input.locationDescription ?? null,
+        placement: input.placement ?? null,
+        modelName: input.modelName ?? null,
+        bottleCapacity: input.bottleCapacity ?? null,
+        shelfCount: input.shelfCount ?? null,
         createdAt: now,
         updatedAt: now,
         bottleCount: 0,
@@ -91,15 +95,19 @@ export function useUpdateCellar() {
         current.map((cellar) =>
           cellar.id === cellarId
             ? {
-                ...cellar,
-                ...input,
-                description: input.description === undefined ? cellar.description : input.description ?? null,
-                locationDescription:
-                  input.locationDescription === undefined
-                    ? cellar.locationDescription
-                    : input.locationDescription ?? null,
-                updatedAt: now,
-              }
+              ...cellar,
+              ...input,
+              description: input.description === undefined ? cellar.description : input.description ?? null,
+              locationDescription:
+                input.locationDescription === undefined
+                  ? cellar.locationDescription
+                  : input.locationDescription ?? null,
+              placement: input.placement === undefined ? cellar.placement : input.placement ?? null,
+              modelName: input.modelName === undefined ? cellar.modelName : input.modelName ?? null,
+              bottleCapacity: input.bottleCapacity === undefined ? cellar.bottleCapacity : input.bottleCapacity ?? null,
+              shelfCount: input.shelfCount === undefined ? cellar.shelfCount : input.shelfCount ?? null,
+              updatedAt: now,
+            }
             : cellar
         )
       );
@@ -107,15 +115,19 @@ export function useUpdateCellar() {
       queryClient.setQueryData<CellarWithStats | undefined>([...CELLARS_QUERY_KEY, cellarId], (current) =>
         current
           ? {
-              ...current,
-              ...input,
-              description: input.description === undefined ? current.description : input.description ?? null,
-              locationDescription:
-                input.locationDescription === undefined
-                  ? current.locationDescription
-                  : input.locationDescription ?? null,
-              updatedAt: now,
-            }
+            ...current,
+            ...input,
+            description: input.description === undefined ? current.description : input.description ?? null,
+            locationDescription:
+              input.locationDescription === undefined
+                ? current.locationDescription
+                : input.locationDescription ?? null,
+            placement: input.placement === undefined ? current.placement : input.placement ?? null,
+            modelName: input.modelName === undefined ? current.modelName : input.modelName ?? null,
+            bottleCapacity: input.bottleCapacity === undefined ? current.bottleCapacity : input.bottleCapacity ?? null,
+            shelfCount: input.shelfCount === undefined ? current.shelfCount : input.shelfCount ?? null,
+            updatedAt: now,
+          }
           : current
       );
 

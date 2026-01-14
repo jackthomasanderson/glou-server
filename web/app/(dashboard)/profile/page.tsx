@@ -16,12 +16,15 @@ import {
   updateMyProfile,
   updateUser,
   updateUserRole,
+  createUser,
   type AppSettings,
   type Profile,
   type UpdateProfileInput,
   type UpdateUserInput,
   type UserSummary,
 } from "@/lib/profile/client";
+import { AdminAiApiKeyForm } from "@/components/AdminAiApiKeyForm";
+import { AdminSmtpForm } from "@/components/AdminSmtpForm";
 
 type NotificationSettings = NonNullable<Profile["notificationSettings"]>;
 
@@ -70,6 +73,8 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [userDraft, setUserDraft] = useState<UpdateUserInput>({});
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [newUserDraft, setNewUserDraft] = useState({ username: "", email: "", password: "" });
 
   const profile = profileQuery.data;
 
@@ -210,6 +215,19 @@ export default function ProfilePage() {
     onSuccess: () => {
       setFeedback(t("admin.userDeleted"));
       queryClient.invalidateQueries({ queryKey: usersKey });
+    },
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: (input: { username: string; email: string; password?: string }) => createUser(input),
+    onSuccess: () => {
+      setFeedback(t("admin.userCreated"));
+      queryClient.invalidateQueries({ queryKey: usersKey });
+      setIsCreatingUser(false);
+      setNewUserDraft({ username: "", email: "", password: "" });
+    },
+    onError: (err: any) => {
+      setError(err.message || t("errors.serverError"));
     },
   });
 
@@ -588,8 +606,70 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            <AdminSmtpForm />
+
             <div className="section">
-              <div className="section__title">{t("admin.users")}</div>
+              <div className="section__title">{t("admin.aiApiKey.title")}</div>
+              <p className="section__hint">{t("admin.aiApiKey.intro")}</p>
+              <AdminAiApiKeyForm />
+            </div>
+
+            <div className="section">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div className="section__title" style={{ marginBottom: 0 }}>{t("admin.users")}</div>
+                {!isCreatingUser && (
+                  <button type="button" className="primary small" onClick={() => setIsCreatingUser(true)}>
+                    {t("admin.createUser")}
+                  </button>
+                )}
+              </div>
+
+              {isCreatingUser && (
+                <div className="section" style={{ background: "var(--bg-card)", marginBottom: 24 }}>
+                  <div className="section__title">{t("admin.newUser")}</div>
+                  <div className="grid">
+                    <label className="field">
+                      {t("fields.username")}
+                      <input
+                        value={newUserDraft.username}
+                        onChange={(e) => setNewUserDraft((d) => ({ ...d, username: e.target.value }))}
+                        placeholder="username"
+                      />
+                    </label>
+                    <label className="field">
+                      {t("fields.email")}
+                      <input
+                        value={newUserDraft.email}
+                        onChange={(e) => setNewUserDraft((d) => ({ ...d, email: e.target.value }))}
+                        placeholder="email@example.com"
+                      />
+                    </label>
+                    <label className="field">
+                      {t("auth.password")}
+                      <input
+                        type="password"
+                        value={newUserDraft.password}
+                        onChange={(e) => setNewUserDraft((d) => ({ ...d, password: e.target.value }))}
+                        placeholder="******** (optional)"
+                      />
+                    </label>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={createUserMutation.isPending}
+                      onClick={() => createUserMutation.mutate(newUserDraft)}
+                    >
+                      {t("actions.add")}
+                    </button>
+                    <button type="button" onClick={() => setIsCreatingUser(false)}>
+                      {t("actions.cancel")}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {usersQuery.isLoading ? (
                 <p>{t("list.loading")}</p>
               ) : usersQuery.data && usersQuery.data.length ? (

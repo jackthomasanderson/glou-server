@@ -7,6 +7,7 @@
     "inventory": "Inventory",
     "suggestions": "Tips"
   },
+  "loading": "Loading...",
   "pageTitles": {
     "dashboard": "Inventory",
     "addBottle": "Add bottle",
@@ -203,7 +204,6 @@
     "reset": "Reset",
     "cancelEdit": "Cancel edit",
     "delete": "Delete",
-    "restore": "Restore",
     "undo": "Undo",
     "edit": "Edit",
     "add": "Add",
@@ -219,18 +219,9 @@
   "feedback": {
     "optimisticCreate": "Saved locally, syncing in background.",
     "optimisticUpdate": "Updated locally, syncing in background.",
-    "optimisticDelete": "Moved to trash. Restore?",
-    "optimisticRestore": "Restored locally, syncing...",
     "saveError": "Save failed. Please review required fields.",
     "deleteError": "Delete failed.",
-    "restoreError": "Restore failed.",
     "permanentlyDeleted": "Permanently deleted."
-  },
-  "trash": {
-    "title": "Trash",
-    "empty": "Trash is empty",
-    "expiresIn": "Expires in",
-    "days": "days"
   },
   "list": {
     "title": "Cellar items",
@@ -266,6 +257,7 @@
     "open": "Open"
   },
   "auth": {
+    "rememberMe": "Remember me",
     "login": "Login",
     "register": "Register",
     "logout": "Logout",
@@ -384,6 +376,50 @@
     "admin": "Admin",
     "user": "User"
   },
+  "admin": {
+    "branding": "App Branding",
+    "logo": "Logo",
+    "appName": "App Name",
+    "appTagline": "App Tagline",
+    "saveBranding": "Save Branding",
+    "brandingSaved": "Branding saved",
+    "smtpTitle": "SMTP Configuration",
+    "smtpHost": "SMTP Host",
+    "smtpHostPlaceholder": "smtp.example.com",
+    "smtpPort": "SMTP Port",
+    "smtpPortPlaceholder": "587",
+    "smtpUser": "SMTP User",
+    "smtpUserPlaceholder": "user@example.com",
+    "smtpPass": "SMTP Password",
+    "smtpPassPlaceholder": "********",
+    "smtpFrom": "SMTP From Address",
+    "smtpFromPlaceholder": "Glou <noreply@example.com>",
+    "smtpSecure": "Use TLS/SSL",
+    "saveSmtp": "Save SMTP Settings",
+    "smtpSaved": "SMTP settings saved",
+    "aiApiKey": {
+      "title": "Global AI API Key",
+      "intro": "This key is used by the system for global suggestions and analyses.",
+      "label": "API Key",
+      "placeholder": "sk-...",
+      "save": "Save Key",
+      "success": "AI API Key saved",
+      "saveError": "Error saving key",
+      "fetchError": "Error fetching key"
+    },
+    "users": "User Management",
+    "noUsers": "No users found",
+    "editUser": "Edit User",
+    "deleteUser": "Delete User",
+    "deleteConfirm": "Are you sure you want to delete this user?",
+    "cannotDeleteSelf": "You cannot delete yourself",
+    "userUpdated": "User updated",
+    "userDeleted": "User deleted",
+    "roleUpdated": "Role updated",
+    "createUser": "Create User",
+    "newUser": "New User",
+    "userCreated": "User created successfully"
+  },
   "notifications": {
     "title": "Notifications",
     "subtitle": "Configure channels and alert categories",
@@ -462,17 +498,26 @@
       "type": "Type",
       "description": "Description",
       "descriptionPlaceholder": "Optional description",
-      "location": "Location",
-      "locationPlaceholder": "Ex: Basement",
+      "location": "Address",
+      "locationPlaceholder": "Type to search address...",
+      "placement": "Placement",
+      "placementPlaceholder": "Ex: Basement, Room 3",
+      "modelName": "Model",
+      "modelPlaceholder": "Ex: EuroCave V-Pure-L",
+      "bottleCapacity": "Capacity (Bottles)",
+      "shelfCount": "Shelf Count",
       "save": "Create",
       "update": "Update",
       "cancel": "Cancel"
     },
     "types": {
-      "cellar": "Wine cellar",
-      "showcase": "Showcase",
-      "climate_cabinet": "Climate cabinet",
-      "rack": "Rack",
+      "aging": "Aging Cellar (Wine)",
+      "service": "Service Cellar (Wine)",
+      "multizone": "Multizone Cellar (Wine)",
+      "combined": "Combined Cellar (Wine & Cigars - Isolated Zones)",
+      "hybrid": "Hybrid Cellar (Wine & Cigars - Shared Zone)",
+      "cigar": "Cigar Humidor",
+      "natural": "Natural Cellar",
       "other": "Other"
     },
     "stats": {

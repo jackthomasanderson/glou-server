@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
-import { createBottle, deleteBottle, fetchBottles, restoreBottle, updateBottle } from "../lib/bottles/client";
+import { createBottle, deleteBottle, fetchBottles, updateBottle } from "../lib/bottles/client";
 import { cellarsClient } from "../lib/cellars/client";
 import {
   type BottleInput,
@@ -63,7 +63,10 @@ export function BottleDashboard() {
         queryClient.setQueryData(queryKey, context.previous);
       }
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey })
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["cellars"] });
+    }
   } as const;
 
   const createMutation = useMutation({
@@ -75,8 +78,7 @@ export function BottleDashboard() {
         ...(payload as BottleRecord),
         id: tempId,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        deletedAt: null
+        updatedAt: new Date().toISOString()
       };
       queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) => [optimistic, ...current]);
       showToast(t("feedback.optimisticCreate"));
@@ -118,34 +120,15 @@ export function BottleDashboard() {
     mutationFn: deleteBottle,
     onMutate: async (id: string) => {
       const context = await commonMutateConfig.onMutate();
-      const deletionTime = new Date().toISOString();
       queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) =>
-        current.map((item) => (item.id === id ? { ...item, deletedAt: deletionTime, updatedAt: deletionTime } : item))
+        current.filter((item) => item.id !== id)
       );
-      showToast(t("feedback.optimisticDelete"), () => restoreMutation.mutate(id));
+      showToast(t("feedback.permanentlyDeleted"));
       return { ...context, lastDeletedId: id } satisfies Context;
     },
     onError: (error, _variables, context) => {
       commonMutateConfig.onError?.(error, _variables, context);
       const errorMessage = error instanceof Error ? error.message : t("feedback.deleteError");
-      showToast(errorMessage);
-    },
-    onSettled: commonMutateConfig.onSettled
-  });
-
-  const restoreMutation = useMutation({
-    mutationFn: restoreBottle,
-    onMutate: async (id: string) => {
-      const context = await commonMutateConfig.onMutate();
-      queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) =>
-        current.map((item) => (item.id === id ? { ...item, deletedAt: null, updatedAt: new Date().toISOString() } : item))
-      );
-      showToast(t("feedback.optimisticRestore"));
-      return context;
-    },
-    onError: (error, _variables, context) => {
-      commonMutateConfig.onError?.(error, _variables, context);
-      const errorMessage = error instanceof Error ? error.message : t("feedback.restoreError");
       showToast(errorMessage);
     },
     onSettled: commonMutateConfig.onSettled
@@ -174,7 +157,7 @@ export function BottleDashboard() {
             <h2>{t("dashboard.overview")}</h2>
           </div>
           <div className="actions-inline">
-            {!isFormVisible && !editingId && (
+            {!isFormVisible && !editingId && cellars.some(c => ["aging", "service", "multizone", "combined", "hybrid", "natural", "other"].includes(c.cellarType)) && (
               <button className="primary" onClick={() => setIsFormVisible(true)}>
                 {t("actions.addBottle")}
               </button>
@@ -182,27 +165,28 @@ export function BottleDashboard() {
           </div>
         </header>
 
-        <div className="stats-grid">
-          <div className="stat-card">
-            <span className="stat-card__label">{t("stats.totalBottles")}</span>
-            <span className="stat-card__value">{(Array.isArray(bottles) ? bottles : []).filter((b) => !b.deletedAt).length}</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-card__label">{t("stats.totalValue")}</span>
-            <span className="stat-card__value">
-              €{(Array.isArray(bottles) ? bottles : [])
-                .filter((b) => !b.deletedAt)
-                .reduce((acc, b) => acc + (b.estimatedValue || b.purchasePrice || 0), 0)
-                .toLocaleString()}
-            </span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-card__label">{t("stats.toDrink")}</span>
-            <span className="stat-card__value">
-              {(Array.isArray(bottles) ? bottles : []).filter((b) => !b.deletedAt && b.peakMaturity && b.peakMaturity.to && b.peakMaturity.to <= new Date().getFullYear()).length}
-            </span>
-          </div>
-        </div>
+        {(() => {
+          const activeBottles = Array.isArray(bottles) ? bottles : [];
+          const totalValue = activeBottles.reduce((acc, b) => acc + (b.estimatedValue || b.purchasePrice || 0), 0);
+          const toDrink = activeBottles.filter(b => b.peakMaturity?.to && b.peakMaturity.to <= new Date().getFullYear()).length;
+
+          return (
+            <div className="stats-grid">
+              <div className="stat-card">
+                <span className="stat-card__label">{t("stats.totalBottles")}</span>
+                <span className="stat-card__value">{activeBottles.length}</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-card__label">{t("stats.totalValue")}</span>
+                <span className="stat-card__value">€{totalValue.toLocaleString()}</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-card__label">{t("stats.toDrink")}</span>
+                <span className="stat-card__value">{toDrink}</span>
+              </div>
+            </div>
+          );
+        })()}
       </section>
 
       {(isFormVisible || editingId) && (
@@ -230,7 +214,6 @@ export function BottleDashboard() {
           isLoading={isLoading}
           onEdit={(bottle) => setEditingId(bottle.id)}
           onDelete={(id) => deleteMutation.mutate(id)}
-          onRestore={(id) => restoreMutation.mutate(id)}
         />
       </section>
 

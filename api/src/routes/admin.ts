@@ -6,6 +6,7 @@ import { SessionService, UserService } from "../services/auth.js";
 import { AppSettingsService, ProfileService } from "../services/profile.js";
 import { updateAppSettingsSchema, updateUserRoleSchema, updateUserSchema } from "../schemas/profile.js";
 import { logger } from "../utils/logger.js";
+import { CryptoService } from "../services/crypto.js";
 
 async function requireAdmin(req: AuthenticatedRequest, res: Response, userService: UserService): Promise<boolean> {
   if (!req.userId) {
@@ -59,6 +60,50 @@ export function createAdminRouter(
       res.json({ data: users });
     } catch (error) {
       logger.error(error, "List users error");
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /**
+   * POST /admin/users
+   */
+  router.post("/users", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!(await requireAdmin(req, res, userService))) return;
+
+      const { username, email, password } = req.body;
+      if (!username || !email) {
+        return res.status(400).json({ error: "Username and email required" });
+      }
+
+      // Check if user exists
+      const existingUser = await userService.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(409).json({ error: "Username already exists" });
+      }
+
+      const existingEmail = await userService.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+
+      const defaultPassword = password || "Glou" + Math.random().toString(36).slice(-8);
+      const passwordHash = await CryptoService.hashPassword(defaultPassword);
+
+      const user = await userService.createUser({ username, email, password: defaultPassword }, passwordHash);
+
+      res.status(201).json({
+        data: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          displayName: user.displayName,
+          createdAt: user.createdAt
+        }
+      });
+    } catch (error) {
+      logger.error(error, "Create user error");
       res.status(500).json({ error: "Internal server error" });
     }
   });

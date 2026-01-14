@@ -132,8 +132,7 @@ export const bottleRecordSchema = z.intersection(
   z.object({
     id: z.string(),
     createdAt: z.string(),
-    updatedAt: z.string(),
-    deletedAt: z.string().nullable()
+    updatedAt: z.string()
   })
 );
 

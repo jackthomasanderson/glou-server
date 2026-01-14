@@ -195,6 +195,12 @@ export class AppSettingsService {
         app_tagline as "appTagline",
         logo_url as "logoUrl",
         ai_api_key as "aiApiKey",
+        smtp_host as "smtpHost",
+        smtp_port as "smtpPort",
+        smtp_user as "smtpUser",
+        smtp_pass as "smtpPass",
+        smtp_from as "smtpFrom",
+        smtp_secure as "smtpSecure",
         updated_at as "updatedAt"
       FROM app_settings
       WHERE id = TRUE
@@ -233,6 +239,12 @@ export class AppSettingsService {
       { column: "app_name", key: "appName" },
       { column: "app_tagline", key: "appTagline" },
       { column: "logo_url", key: "logoUrl" },
+      { column: "smtp_host", key: "smtpHost" },
+      { column: "smtp_port", key: "smtpPort" },
+      { column: "smtp_user", key: "smtpUser" },
+      { column: "smtp_pass", key: "smtpPass" },
+      { column: "smtp_from", key: "smtpFrom" },
+      { column: "smtp_secure", key: "smtpSecure" },
     ];
 
     const setParts: string[] = [];
@@ -252,6 +264,12 @@ export class AppSettingsService {
         app_name as "appName",
         app_tagline as "appTagline",
         logo_url as "logoUrl",
+        smtp_host as "smtpHost",
+        smtp_port as "smtpPort",
+        smtp_user as "smtpUser",
+        smtp_pass as "smtpPass",
+        smtp_from as "smtpFrom",
+        smtp_secure as "smtpSecure",
         updated_at as "updatedAt"
     `;
 

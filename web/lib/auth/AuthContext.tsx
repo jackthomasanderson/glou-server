@@ -51,9 +51,9 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (username: string, password: string) => Promise<LoginResult>;
+  login: (username: string, password: string, rememberMe?: boolean) => Promise<LoginResult>;
   register: (username: string, email: string, password: string) => Promise<void>;
-  verify2FA: (userId: string, code: string, tempToken: string, isRecoveryCode?: boolean) => Promise<LoginSuccessResult>;
+  verify2FA: (userId: string, code: string, tempToken: string, isRecoveryCode?: boolean, rememberMe?: boolean) => Promise<LoginSuccessResult>;
   refreshMe: () => Promise<AuthUser | null>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -134,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
   }, [refreshMe]);
 
-  const login = useCallback(async (username: string, password: string) => {
+  const login = useCallback(async (username: string, password: string, rememberMe?: boolean) => {
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
 
@@ -142,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, rememberMe }),
         credentials: "include",
       });
 
@@ -219,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const verify2FA = useCallback(async (userId: string, code: string, tempToken: string, isRecoveryCode: boolean = false) => {
+  const verify2FA = useCallback(async (userId: string, code: string, tempToken: string, isRecoveryCode: boolean = false, rememberMe?: boolean) => {
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
 
@@ -230,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           userId,
           tempToken,
+          rememberMe,
           ...(isRecoveryCode ? { recoveryCode: code } : { code }),
         }),
         credentials: "include",

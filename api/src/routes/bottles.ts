@@ -155,7 +155,7 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
 
   /**
    * DELETE /bottles/:bottleId
-   * Soft delete a bottle
+   * Permanently delete a bottle
    */
   router.delete("/:bottleId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -166,9 +166,9 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
       }
 
       const { bottleId } = req.params;
-      const bottle = await bottleService.softDeleteBottle(bottleId, userId);
+      await bottleService.deleteBottle(bottleId, userId);
 
-      return res.status(200).json(bottle);
+      return res.status(200).json({ success: true, message: "Bottle deleted" });
     } catch (err) {
       if (err instanceof Error && err.message === "BOTTLE_NOT_FOUND") {
         const error = createErrorResponse(BottlesErrorCode.BOTTLE_NOT_FOUND, 404);
@@ -177,34 +177,6 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
       const errMsg = err instanceof Error ? err.message : String(err);
       logger.error(`Failed to delete bottle: ${errMsg}`);
       const error = createErrorResponse("DELETE_FAILED", 500);
-      return res.status(error.statusCode).json(error.error);
-    }
-  });
-
-  /**
-   * PATCH /bottles/:bottleId/restore
-   * Restore a soft-deleted bottle
-   */
-  router.patch("/:bottleId/restore", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const userId = req.userId;
-      if (!userId) {
-        const error = createErrorResponse(BottlesErrorCode.UNAUTHORIZED, 401);
-        return res.status(error.statusCode).json(error.error);
-      }
-
-      const { bottleId } = req.params;
-      const bottle = await bottleService.restoreBottle(bottleId, userId);
-
-      return res.status(200).json(bottle);
-    } catch (err) {
-      if (err instanceof Error && err.message === "BOTTLE_NOT_FOUND") {
-        const error = createErrorResponse(BottlesErrorCode.BOTTLE_NOT_FOUND, 404);
-        return res.status(error.statusCode).json(error.error);
-      }
-      const errMsg = err instanceof Error ? err.message : String(err);
-      logger.error(`Failed to restore bottle: ${errMsg}`);
-      const error = createErrorResponse("RESTORE_FAILED", 500);
       return res.status(error.statusCode).json(error.error);
     }
   });

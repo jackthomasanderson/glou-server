@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -14,6 +14,15 @@ export function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  // Load rememberMe from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("rememberMe") === "true";
+    if (saved) {
+      setRememberMe(true);
+    }
+  }, []);
   const [isLoading, setIsLoading] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
   const [tempToken, setTempToken] = useState("");
@@ -25,8 +34,15 @@ export function LoginForm() {
     setTimeout(() => setError(null), 0);
     setIsLoading(true);
 
+    // Persist remember me preference
+    if (rememberMe) {
+      localStorage.setItem('rememberMe', 'true');
+    } else {
+      localStorage.removeItem('rememberMe');
+    }
+
     try {
-      const result = await login(username, password);
+      const result = await login(username, password, rememberMe);
 
       if ("requiresTwoFA" in result && result.requiresTwoFA) {
         setRequires2FA(true);
@@ -46,7 +62,12 @@ export function LoginForm() {
 
   if (requires2FA) {
     return (
-      <TwoFAVerification userId={userId} tempToken={tempToken} method={twoFAMethod} />
+      <TwoFAVerification
+        userId={userId}
+        tempToken={tempToken}
+        method={twoFAMethod}
+        rememberMe={rememberMe}
+      />
     );
   }
 
@@ -90,6 +111,18 @@ export function LoginForm() {
             required
           />
         </div>
+        <div className="field remember-me">
+          <label htmlFor="rememberMe" className="checkbox-label">
+            <input
+              id="rememberMe"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              disabled={isLoading}
+            />
+            {t("auth.rememberMe")}
+          </label>
+        </div>
 
         <div className="form__actions">
           <button type="submit" disabled={isLoading} className="primary auth-primary">
@@ -111,9 +144,10 @@ interface TwoFAVerificationProps {
   userId: string;
   tempToken: string;
   method: string;
+  rememberMe: boolean;
 }
 
-export function TwoFAVerification({ userId, tempToken, method }: TwoFAVerificationProps) {
+export function TwoFAVerification({ userId, tempToken, method, rememberMe }: TwoFAVerificationProps) {
   const router = useRouter();
   const { verify2FA } = useAuth();
   const t = useLocale();
@@ -129,7 +163,7 @@ export function TwoFAVerification({ userId, tempToken, method }: TwoFAVerificati
     setIsLoading(true);
 
     try {
-      await verify2FA(userId, code, tempToken, useRecoveryCode);
+      await verify2FA(userId, code, tempToken, useRecoveryCode, rememberMe);
       router.push("/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : t("auth.errors.serverError");

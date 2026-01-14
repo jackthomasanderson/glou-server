@@ -110,7 +110,7 @@ export const bottlesClient = {
   async update(bottleId: string, input: Partial<BottleInput>): Promise<BottleRecord> {
     try {
       const res = await fetch(`${API_BASE}/${bottleId}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(input),
@@ -135,7 +135,7 @@ export const bottlesClient = {
     }
   },
 
-  async delete(bottleId: string): Promise<BottleRecord> {
+  async delete(bottleId: string): Promise<{ success: boolean; message: string }> {
     try {
       const res = await fetch(`${API_BASE}/${bottleId}`, {
         method: "DELETE",
@@ -155,34 +155,7 @@ export const bottlesClient = {
         );
       }
 
-      return (await res.json()) as BottleRecord;
-    } catch (err) {
-      if (err instanceof BottlesClientError) throw err;
-      throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
-    }
-  },
-
-  async restore(bottleId: string): Promise<BottleRecord> {
-    try {
-      const res = await fetch(`${API_BASE}/${bottleId}/restore`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        if (res.status === 404) {
-          throw new BottlesClientError("NOT_FOUND", 404, "Bottle not found");
-        }
-        const error = await res.json();
-        throw new BottlesClientError(
-          "RESTORE_FAILED",
-          res.status,
-          error.error || "Failed to restore bottle"
-        );
-      }
-
-      return (await res.json()) as BottleRecord;
+      return (await res.json()) as { success: boolean; message: string };
     } catch (err) {
       if (err instanceof BottlesClientError) throw err;
       throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
@@ -203,12 +176,8 @@ export async function updateBottle(id: string, input: Partial<BottleInput>): Pro
   return bottlesClient.update(id, input);
 }
 
-export async function deleteBottle(id: string): Promise<BottleRecord> {
+export async function deleteBottle(id: string): Promise<{ success: boolean; message: string }> {
   return bottlesClient.delete(id);
-}
-
-export async function restoreBottle(id: string): Promise<BottleRecord> {
-  return bottlesClient.restore(id);
 }
 
 export { BottlesClientError };

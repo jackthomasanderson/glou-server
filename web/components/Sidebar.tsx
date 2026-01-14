@@ -7,54 +7,50 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { bottlesClient } from "../lib/bottles/client";
 import { cigarsClient } from "../lib/cigars/client";
+import { cellarsClient } from "../lib/cellars/client";
 import { fetchAppSettings } from "../lib/profile/client";
-import { DashboardIcon, BottlesIcon, CellarsIcon, CigarsIcon, ProfileIcon, BellIcon } from "./Icon";
+import { DashboardIcon, BottlesIcon, CellarsIcon, CigarsIcon } from "./Icon";
 
 export default function Sidebar() {
   const { t } = useTranslations();
 
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [bottlesCount, setBottlesCount] = useState<number | null>(null);
-  const [cigarsCount, setCigarsCount] = useState<number | null>(null);
-
   const { data: settings } = useQuery({
     queryKey: ["app-settings"],
     queryFn: fetchAppSettings,
     staleTime: 60_000,
   });
 
+  const { data: bottles = [] } = useQuery({
+    queryKey: ["bottles"],
+    queryFn: () => bottlesClient.list(),
+    staleTime: 30_000,
+  });
+
+  const { data: cigars = [] } = useQuery({
+    queryKey: ["cigars"],
+    queryFn: () => cigarsClient.list(),
+    staleTime: 30_000,
+  });
+
+  const { data: cellars = [] } = useQuery({
+    queryKey: ["cellars"],
+    queryFn: () => cellarsClient.getCellars(),
+    staleTime: 60_000,
+  });
+
+  const bottlesCount = Array.isArray(bottles) ? bottles.length : 0;
+  const cigarsCount = Array.isArray(cigars) ? cigars.length : 0;
+
+  const hasWineCellar = cellars.some(c => ["aging", "service", "multizone", "combined", "hybrid", "natural", "other"].includes(c.cellarType));
+  const hasCigarCellar = cellars.some(c => ["cigar", "combined", "hybrid", "other"].includes(c.cellarType));
+
   useEffect(() => {
     try {
       const v = localStorage.getItem("glou-sidebar-collapsed");
       if (v === "1") setCollapsed(true);
     } catch { }
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    async function loadCounts() {
-      try {
-        const bs = await bottlesClient.list();
-        if (!mounted) return;
-        setBottlesCount(Array.isArray(bs) ? bs.length : 0);
-      } catch {
-        setBottlesCount(0);
-      }
-
-      try {
-        const cs = await cigarsClient.list();
-        if (!mounted) return;
-        setCigarsCount(Array.isArray(cs) ? cs.length : 0);
-      } catch {
-        setCigarsCount(0);
-      }
-    }
-
-    loadCounts();
-    return () => {
-      mounted = false;
-    };
   }, []);
 
   useEffect(() => {
@@ -65,9 +61,9 @@ export default function Sidebar() {
 
   const items = [
     { href: "/dashboard", label: t("nav.dashboard"), Icon: DashboardIcon, show: true },
-    { href: "/bottles", label: t("nav.bottles"), Icon: BottlesIcon, show: bottlesCount !== null ? bottlesCount > 0 : false },
+    { href: "/bottles", label: t("nav.bottles"), Icon: BottlesIcon, show: bottlesCount > 0 || hasWineCellar },
     { href: "/cellars", label: t("nav.cellars"), Icon: CellarsIcon, show: true },
-    { href: "/cigars", label: t("nav.cigars"), Icon: CigarsIcon, show: cigarsCount !== null ? cigarsCount > 0 : false },
+    { href: "/cigars", label: t("nav.cigars"), Icon: CigarsIcon, show: cigarsCount > 0 || hasCigarCellar },
   ];
 
   return (
@@ -113,25 +109,7 @@ export default function Sidebar() {
           })}
       </nav>
 
-      <div className="sidebar__footer">
-        <Link
-          href="/profile"
-          className={`sidebar__item ${pathname?.startsWith("/profile") ? "active" : ""}`}
-          style={{ justifyContent: "space-between", width: "100%" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span className="item-icon" aria-hidden>
-              <ProfileIcon />
-            </span>
-            <span className="item-label">{t("header.userMenu.profile")}</span>
-          </div>
-          {!collapsed && (
-            <span className="sidebar__notif-bell" title="Notifications">
-              <BellIcon />
-            </span>
-          )}
-        </Link>
-      </div>
+
     </aside>
   );
 }

@@ -25,5 +25,22 @@
     "success": "Key saved!",
     "fetchError": "Error loading the key.",
     "saveError": "Error while saving."
-  }
+  },
+  "createUser": "Create User",
+  "newUser": "New User",
+  "userCreated": "User created successfully",
+  "smtpTitle": "SMTP Configuration",
+  "smtpHost": "SMTP Host",
+  "smtpHostPlaceholder": "smtp.example.com",
+  "smtpPort": "SMTP Port",
+  "smtpPortPlaceholder": "587",
+  "smtpUser": "SMTP User",
+  "smtpUserPlaceholder": "user@example.com",
+  "smtpPass": "SMTP Password",
+  "smtpPassPlaceholder": "********",
+  "smtpFrom": "SMTP From Address",
+  "smtpFromPlaceholder": "Glou <noreply@example.com>",
+  "smtpSecure": "Use TLS/SSL",
+  "saveSmtp": "Save SMTP Settings",
+  "smtpSaved": "SMTP settings saved"
 }

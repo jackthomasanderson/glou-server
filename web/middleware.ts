@@ -6,9 +6,9 @@ const csp = [
   "default-src 'self'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  "connect-src 'self'",
-  isDev 
-    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'" 
+  "connect-src 'self' https://photon.komoot.io https://api-adresse.data.gouv.fr",
+  isDev
+    ? "script-src 'self' 'unsafe-eval' 'unsafe-inline'"
     : "script-src 'self'",
   "style-src 'self' 'unsafe-inline'"
 ].join("; ");

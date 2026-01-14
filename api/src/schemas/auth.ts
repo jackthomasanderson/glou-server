@@ -35,6 +35,7 @@ export type UserRegistration = z.infer<typeof userRegistrationSchema>;
 export const loginCredentialsSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(1),
+  rememberMe: z.boolean().optional(),
 });
 
 export type LoginCredentials = z.infer<typeof loginCredentialsSchema>;

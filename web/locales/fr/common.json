@@ -7,6 +7,7 @@
     "inventory": "Inventaire",
     "suggestions": "Conseils"
   },
+  "loading": "Chargement...",
   "pageTitles": {
     "dashboard": "Inventaire",
     "addBottle": "Ajout bouteille",
@@ -203,7 +204,6 @@
     "reset": "Réinitialiser",
     "cancelEdit": "Annuler l'édition",
     "delete": "Supprimer",
-    "restore": "Restaurer",
     "undo": "Annuler",
     "edit": "Modifier",
     "add": "Ajouter",
@@ -219,18 +219,9 @@
   "feedback": {
     "optimisticCreate": "Enregistré localement, synchronisation en cours.",
     "optimisticUpdate": "Mis à jour localement, synchronisation en cours.",
-    "optimisticDelete": "Déplacée à la corbeille. Restaurer ?",
-    "optimisticRestore": "Restaurée localement, synchronisation en cours...",
     "saveError": "Echec de sauvegarde. Vérifier les champs obligatoires.",
     "deleteError": "Echec de suppression.",
-    "restoreError": "Echec de restauration.",
     "permanentlyDeleted": "Supprimée définitivement."
-  },
-  "trash": {
-    "title": "Corbeille",
-    "empty": "La corbeille est vide",
-    "expiresIn": "Expire dans",
-    "days": "jours"
   },
   "list": {
     "title": "Éléments de la cave",
@@ -266,6 +257,7 @@
     "open": "Ouverte"
   },
   "auth": {
+    "rememberMe": "Se souvenir de moi",
     "login": "Connexion",
     "register": "Inscription",
     "logout": "Déconnexion",
@@ -384,6 +376,50 @@
     "admin": "Admin",
     "user": "Utilisateur"
   },
+  "admin": {
+    "branding": "Branding de l'application",
+    "logo": "Logo",
+    "appName": "Nom de l'application",
+    "appTagline": "Slogan de l'application",
+    "saveBranding": "Enregistrer le branding",
+    "brandingSaved": "Branding enregistré",
+    "smtpTitle": "Configuration SMTP",
+    "smtpHost": "Serveur SMTP",
+    "smtpHostPlaceholder": "smtp.exemple.com",
+    "smtpPort": "Port SMTP",
+    "smtpPortPlaceholder": "587",
+    "smtpUser": "Utilisateur SMTP",
+    "smtpUserPlaceholder": "utilisateur@exemple.com",
+    "smtpPass": "Mot de passe SMTP",
+    "smtpPassPlaceholder": "********",
+    "smtpFrom": "Adresse d'expédition (From)",
+    "smtpFromPlaceholder": "Glou <noreply@exemple.com>",
+    "smtpSecure": "Utiliser TLS/SSL",
+    "saveSmtp": "Enregistrer les paramètres SMTP",
+    "smtpSaved": "Paramètres SMTP enregistrés",
+    "aiApiKey": {
+      "title": "Clé API IA Globale",
+      "intro": "Cette clé est utilisée par le système pour les suggestions et analyses globales.",
+      "label": "Clé API",
+      "placeholder": "sk-...",
+      "save": "Enregistrer la clé",
+      "success": "Clé API enregistrée",
+      "saveError": "Erreur lors de l'enregistrement",
+      "fetchError": "Erreur lors de la récupération"
+    },
+    "users": "Gestion des utilisateurs",
+    "noUsers": "Aucun utilisateur trouvé",
+    "editUser": "Modifier l'utilisateur",
+    "deleteUser": "Supprimer l'utilisateur",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cet utilisateur ?",
+    "cannotDeleteSelf": "Vous ne pouvez pas vous supprimer vous-même",
+    "userUpdated": "Utilisateur mis à jour",
+    "userDeleted": "Utilisateur supprimé",
+    "roleUpdated": "Rôle mis à jour",
+    "createUser": "Créer un utilisateur",
+    "newUser": "Nouvel utilisateur",
+    "userCreated": "Utilisateur créé avec succès"
+  },
   "notifications": {
     "title": "Notifications",
     "subtitle": "Configurez les canaux et les catégories d'alertes",
@@ -462,17 +498,26 @@
       "type": "Type",
       "description": "Description",
       "descriptionPlaceholder": "Description optionnelle",
-      "location": "Localisation",
-      "locationPlaceholder": "Ex: Sous-sol",
+      "location": "Adresse",
+      "locationPlaceholder": "Tapez pour rechercher une adresse...",
+      "placement": "Emplacement",
+      "placementPlaceholder": "Ex: Sous-sol, Pièce 3",
+      "modelName": "Modèle",
+      "modelPlaceholder": "Ex: EuroCave V-Pure-L",
+      "bottleCapacity": "Capacité (Bouteilles)",
+      "shelfCount": "Nombre de clayettes",
       "save": "Créer",
       "update": "Mettre à jour",
       "cancel": "Annuler"
     },
     "types": {
-      "cellar": "Cave à vin",
-      "showcase": "Vitrine",
-      "climate_cabinet": "Armoire climatisée",
-      "rack": "Casier",
+      "aging": "Cave de Vieillissement (Vin)",
+      "service": "Cave de Service (Vin)",
+      "multizone": "Cave Multizone (Vin)",
+      "combined": "Cave Combinée (Vin & Cigares - Zones isolées)",
+      "hybrid": "Cave Hybride (Vin & Cigares - Zone partagée)",
+      "cigar": "Cave à Cigares",
+      "natural": "Cave Naturelle",
       "other": "Autre"
     },
     "stats": {

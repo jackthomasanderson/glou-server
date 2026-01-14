@@ -92,6 +92,12 @@ export const appSettingsSchema = z.object({
   appName: z.string().max(80).nullable(),
   appTagline: z.string().max(140).nullable(),
   logoUrl: z.string().nullable(),
+  smtpHost: z.string().nullable().optional(),
+  smtpPort: z.number().int().positive().nullable().optional(),
+  smtpUser: z.string().nullable().optional(),
+  smtpPass: z.string().nullable().optional(),
+  smtpFrom: z.string().nullable().optional(),
+  smtpSecure: z.boolean().nullable().optional(),
   updatedAt: z.date(),
 });
 
@@ -102,6 +108,12 @@ export const updateAppSettingsSchema = z
     appName: z.string().max(80).nullable().optional(),
     appTagline: z.string().max(140).nullable().optional(),
     logoUrl: z.string().nullable().optional(),
+    smtpHost: z.string().nullable().optional(),
+    smtpPort: z.number().int().positive().nullable().optional(),
+    smtpUser: z.string().nullable().optional(),
+    smtpPass: z.string().nullable().optional(),
+    smtpFrom: z.string().nullable().optional(),
+    smtpSecure: z.boolean().nullable().optional(),
   })
   .strict();
 

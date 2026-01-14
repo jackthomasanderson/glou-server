@@ -79,72 +79,66 @@ export function SessionManagement() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="form">
       {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-300 text-sm">
+        <div className="section" style={{ borderColor: "var(--danger)", color: "var(--text)", marginBottom: 16 }}>
           {error}
         </div>
       )}
 
-      <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-        {t("sessions.activeSessions")} ({sessions.length})
-      </h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div className="section__title" style={{ marginBottom: 0 }}>
+          {t("sessions.activeSessions")} ({sessions.length})
+        </div>
+        <button type="button" onClick={handleTrustDevice} className="primary small">
+          {t("sessions.trustDevice")}
+        </button>
+      </div>
 
       {sessions.length === 0 ? (
-        <p className="text-slate-600 dark:text-slate-400">{t("sessions.noSessions")}</p>
+        <p className="section__hint">{t("sessions.noSessions")}</p>
       ) : (
-        <div className="space-y-3">
+        <div className="grid" style={{ gridTemplateColumns: "1fr" }}>
           {sessions.map((session) => (
             <div
               key={session.id}
-              className="p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg"
+              className="section"
+              style={{ background: "var(--bg)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-medium text-slate-900 dark:text-white">
-                      {session.deviceName || t("sessions.unknownDevice")}
-                    </h4>
-                    {session.isCurrent && (
-                      <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
-                        {t("sessions.currentSession")}
-                      </span>
-                    )}
-                    {session.isTrusted && (
-                      <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-1 rounded">
-                        {t("sessions.trustDevice")}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                    {t("sessions.ipAddress")}: {session.ipAddress || t("sessions.notAvailable")}
-                  </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    {t("sessions.lastActivity")}: {formatDate(session.lastActivityAt)}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-                    {t("sessions.approxIpAddress")} • {formatDate(session.createdAt)}
-                  </p>
-                </div>
-
-                <div className="flex gap-2">
-                  {!session.isCurrent && !session.isTrusted && (
-                    <button
-                      onClick={() => handleTrustDevice()}
-                      className="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
-                    >
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 600, color: "var(--text)" }}>
+                    {session.deviceName || t("sessions.unknownDevice")}
+                  </span>
+                  {session.isCurrent && (
+                    <span style={{ fontSize: 10, background: "var(--accent)", color: "#fff", padding: "2px 6px", borderRadius: 4 }}>
+                      {t("sessions.currentSession")}
+                    </span>
+                  )}
+                  {session.isTrusted && (
+                    <span style={{ fontSize: 10, background: "var(--success)", color: "#fff", padding: "2px 6px", borderRadius: 4 }}>
                       {t("sessions.trustDevice")}
-                    </button>
-                  )}
-                  {!session.isCurrent && (
-                    <button
-                      onClick={() => handleRevokeSession(session.id)}
-                      className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
-                    >
-                      {t("sessions.revokeSession")}
-                    </button>
+                    </span>
                   )}
                 </div>
+                <div style={{ fontSize: 12, marginTop: 4, opacity: 0.8 }}>
+                  {t("sessions.ipAddress")}: {session.ipAddress || t("sessions.notAvailable")}
+                </div>
+                <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>
+                  {t("sessions.lastActivity")}: {formatDate(session.lastActivityAt)}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                {!session.isCurrent && (
+                  <button
+                    type="button"
+                    onClick={() => handleRevokeSession(session.id)}
+                    className="danger small"
+                  >
+                    {t("sessions.revokeSession")}
+                  </button>
+                )}
               </div>
             </div>
           ))}

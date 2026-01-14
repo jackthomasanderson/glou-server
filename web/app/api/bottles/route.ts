@@ -62,10 +62,8 @@ export async function GET(request: Request) {
   if ("error" in auth) return auth.error;
 
   try {
-    const { searchParams } = new URL(request.url);
-    const includeDeleted = searchParams.get("includeDeleted") === "true";
-    const data = await bottleRepository.list(auth.userId, includeDeleted);
-    await audit({ action: "LIST", userId: auth.userId, ip, status: "success", details: { includeDeleted, count: data.length } });
+    const data = await bottleRepository.list(auth.userId);
+    await audit({ action: "LIST", userId: auth.userId, ip, status: "success", details: { count: data.length } });
     return NextResponse.json(data);
   } catch (error) {
     await audit({

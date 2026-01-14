@@ -5,13 +5,14 @@ import { useCreateCellar, useUpdateCellar } from "@/lib/cellars/store";
 import { CellarType, CellarWithStats } from "@/types/cellars";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "@/lib/i18n/I18nProvider";
+import { AddressAutocomplete } from "../AddressAutocomplete";
 
 interface CellarFormProps {
   onSuccess?: () => void;
   existingCellar?: CellarWithStats;
 }
 
-const cellarTypes: CellarType[] = ["cellar", "showcase", "climate_cabinet", "rack", "other"];
+const cellarTypes: CellarType[] = ["aging", "service", "multizone", "combined", "hybrid", "cigar", "natural", "other"];
 
 export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
   const router = useRouter();
@@ -22,8 +23,12 @@ export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
   const [formData, setFormData] = React.useState({
     name: existingCellar?.name || "",
     description: existingCellar?.description || "",
-    cellarType: (existingCellar?.cellarType as CellarType) || "cellar",
+    cellarType: (existingCellar?.cellarType as CellarType) || "aging",
     locationDescription: existingCellar?.locationDescription || "",
+    placement: existingCellar?.placement || "",
+    modelName: existingCellar?.modelName || "",
+    bottleCapacity: existingCellar?.bottleCapacity || "",
+    shelfCount: existingCellar?.shelfCount || "",
   });
 
   const isEditing = !!existingCellar;
@@ -32,6 +37,15 @@ export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    // Don't parse here, keep as string in state for controlled input, convert on submit
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -47,15 +61,26 @@ export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
           cellarId: existingCellar.id,
           input: {
             ...formData,
+            cellarType: formData.cellarType as CellarType,
             description: formData.description || null,
             locationDescription: formData.locationDescription || null,
+            placement: formData.placement || null,
+            modelName: formData.modelName || null,
+            bottleCapacity: formData.bottleCapacity ? Number(formData.bottleCapacity) : null,
+            shelfCount: formData.shelfCount ? Number(formData.shelfCount) : null,
           },
         });
       } else {
         await createMutation.mutateAsync({
           ...formData,
+
+          cellarType: formData.cellarType as CellarType,
           description: formData.description || null,
           locationDescription: formData.locationDescription || null,
+          placement: formData.placement || null,
+          modelName: formData.modelName || null,
+          bottleCapacity: formData.bottleCapacity ? Number(formData.bottleCapacity) : null,
+          shelfCount: formData.shelfCount ? Number(formData.shelfCount) : null,
         });
       }
 
@@ -121,14 +146,69 @@ export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
         </div>
 
         <div className="field">
-          <label htmlFor="cellar-location">{t("cellars.form.location")}</label>
+          <label htmlFor="cellar-placement">{t("cellars.form.placement")}</label>
           <input
-            id="cellar-location"
+            id="cellar-placement"
             type="text"
+            name="placement"
+            value={formData.placement}
+            onChange={handleChange}
+            placeholder={t("cellars.form.placementPlaceholder")}
+          />
+        </div>
+
+        <div className="field" style={{ overflow: "visible", zIndex: 10 }}>
+          <label htmlFor="cellar-location">{t("cellars.form.location")}</label>
+          <AddressAutocomplete
+            id="cellar-location"
             name="locationDescription"
             value={formData.locationDescription}
-            onChange={handleChange}
+            onChange={(val) => setFormData(prev => ({ ...prev, locationDescription: val }))}
             placeholder={t("cellars.form.locationPlaceholder")}
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="cellar-model">{t("cellars.form.modelName")}</label>
+          <input
+            id="cellar-model"
+            type="text"
+            name="modelName"
+            value={formData.modelName}
+            onChange={handleChange}
+            placeholder={t("cellars.form.modelPlaceholder")}
+          />
+        </div>
+
+        {formData.cellarType !== "cigar" && (
+          <div className="field">
+            <label htmlFor="cellar-capacity">
+              {t("cellars.form.bottleCapacity")}
+              <span className="field__required">*</span>
+            </label>
+            <input
+              id="cellar-capacity"
+              type="number"
+              name="bottleCapacity"
+              value={formData.bottleCapacity}
+              onChange={handleNumberChange}
+              placeholder="100"
+              min="1"
+              required
+            />
+          </div>
+        )}
+
+        <div className="field">
+          <label htmlFor="cellar-shelf-count">{t("cellars.form.shelfCount")}</label>
+          <input
+            id="cellar-shelf-count"
+            type="number"
+            name="shelfCount"
+            value={formData.shelfCount}
+            onChange={handleNumberChange}
+            placeholder="5"
+            min="0"
           />
         </div>
 

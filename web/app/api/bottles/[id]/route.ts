@@ -60,7 +60,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
 
-  const record = await bottleRepository.get(auth.userId, params.id, true);
+  const record = await bottleRepository.get(auth.userId, params.id);
   if (!record) {
     await audit({ action: "GET", userId: auth.userId, ip, resourceId: params.id, status: "not_found" });
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -99,7 +99,16 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   const ip = getClientIp(request);
   const auth = await requireAuth(request);
   if ("error" in auth) return auth.error;
-  // Directly consider deletion successful without repository interaction
-  await audit({ action: "DELETE", userId: auth.userId, ip, resourceId: params.id, status: "success" });
-  return NextResponse.json({ message: "Bottle deleted (or already absent)" }, { status: 200 });
+  try {
+    await bottleRepository.delete(auth.userId, params.id);
+    await audit({ action: "DELETE", userId: auth.userId, ip, resourceId: params.id, status: "success" });
+    return NextResponse.json({ message: "Bottle deleted" }, { status: 200 });
+  } catch (error) {
+    if (error instanceof Error && error.message === "NOT_FOUND") {
+      await audit({ action: "DELETE", userId: auth.userId, ip, resourceId: params.id, status: "success", details: { note: "already_deleted" } });
+      return NextResponse.json({ message: "Bottle deleted (or already absent)" }, { status: 200 });
+    }
+    await audit({ action: "DELETE", userId: auth.userId, ip, resourceId: params.id, status: "error", details: { message: error instanceof Error ? error.message : "unknown" } });
+    return NextResponse.json({ error: "UNEXPECTED_ERROR" }, { status: 500 });
+  }
 }
