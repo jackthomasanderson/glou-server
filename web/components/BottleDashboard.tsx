@@ -41,7 +41,7 @@ export function BottleDashboard() {
     }, 6000);
   };
 
-  const { data: bottles = [], isLoading } = useQuery({ queryKey, queryFn: () => fetchBottles() });
+  const { data: bottles = [], isLoading, isError, error } = useQuery({ queryKey, queryFn: () => fetchBottles() });
 
   useEffect(() => {
     if (bottles && !Array.isArray(bottles)) {
@@ -145,6 +145,7 @@ export function BottleDashboard() {
 
   return (
     <>
+
       <LocaleSync />
 
       <section className="panel">

@@ -31,6 +31,7 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
       }
 
       const bottles = await bottleService.getBottlesByUserId(userId);
+      logger.info({ userId, count: bottles.length }, "DEBUG: Bottles list requested");
       return res.status(200).json(bottles);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

@@ -24,7 +24,7 @@ function getCookieValue(cookieHeader: string | undefined, name: string): string 
 function maskToken(token?: string): string {
   if (!token) return "";
   if (token.length <= 8) return token;
-  return `${token.slice(0,4)}...${token.slice(-4)}`;
+  return `${token.slice(0, 4)}...${token.slice(-4)}`;
 }
 
 /**
@@ -32,6 +32,8 @@ function maskToken(token?: string): string {
  * DÉSACTIVÉ POUR FEAT-01 : passe toujours (bypass)
  */
 export function authMiddleware(sessionService: SessionService) {
+  // DEV fallback token – replace with a real session token after login
+  const DEV_TOKEN = "152439401725447741b6288efeae9ae07caeb5e97bdd349850f7814a7e17a119";
   return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       let token = req.headers.authorization?.replace("Bearer ", "");
@@ -40,6 +42,11 @@ export function authMiddleware(sessionService: SessionService) {
         if (!token) {
           token = getCookieValue(req.headers.cookie as string | undefined, "session_token");
         }
+      }
+      // If still no token, use the dev token for debugging purposes
+      if (!token) {
+        console.warn("[authMiddleware] No token found – using DEV_TOKEN for debugging");
+        token = DEV_TOKEN;
       }
 
       if (!token) {

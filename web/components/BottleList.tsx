@@ -15,6 +15,8 @@ type BottleListProps = {
 function BottleListComponent({ bottles, isLoading, onEdit, onDelete }: BottleListProps) {
     const { t } = useTranslations();
 
+    console.log("BottleList render: bottles count =", bottles.length);
+
     if (isLoading) {
         return (
             <div className="empty">

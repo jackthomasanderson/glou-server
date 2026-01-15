@@ -21,6 +21,7 @@ class BottlesClientError extends Error {
 export const bottlesClient = {
   async list(): Promise<BottleRecord[]> {
     try {
+      console.log("DEBUG: Fetching bottles from:", `${API_BASE}`);
       const res = await fetch(`${API_BASE}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -29,10 +30,13 @@ export const bottlesClient = {
 
       if (!res.ok) {
         const error = await res.json();
+        console.error("DEBUG: List bottles failed:", error);
         throw new BottlesClientError("LIST_FAILED", res.status, error.error || "Failed to list bottles");
       }
 
-      return (await res.json()) as BottleRecord[];
+      const data = await res.json();
+      console.log("DEBUG: Bottles received:", data);
+      return data as BottleRecord[];
     } catch (err) {
       if (err instanceof BottlesClientError) throw err;
       throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
