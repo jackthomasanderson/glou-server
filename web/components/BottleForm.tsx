@@ -168,6 +168,41 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
         }
     }, [form]);
 
+    // Check if all required fields are filled
+    const areRequiredFieldsFilled = useCallback(() => {
+        if (!form.label || !form.cellarId) return false;
+
+        if (form.category === "wine") {
+            const f = form as WineInput;
+            return !!(f.producer && f.name && f.vintageOrNone);
+        } else if (form.category === "sparkling") {
+            const f = form as SparklingInput;
+            return !!(f.house && f.name && f.vintageOrNone);
+        } else if (form.category === "spirit") {
+            const f = form as SpiritInput;
+            return !!(f.distillery && f.nameEdition && f.abv);
+        } else if (form.category === "cigar") {
+            const f = form as CigarInput;
+            return !!(f.brand && f.format);
+        }
+        return false;
+    }, [form]);
+
+    // Auto-search when required fields are filled
+    useEffect(() => {
+        if (readOnly || initialData) return; // Don't auto-search in edit mode
+        if (!areRequiredFieldsFilled()) return;
+        if (form.photoUrl) return; // Already has an image
+
+        // Debounce the search to avoid excessive API calls
+        const timer = setTimeout(() => {
+            handleAutoSearch();
+        }, 800); // Wait 800ms after last field change
+
+        return () => clearTimeout(timer);
+    }, [form, areRequiredFieldsFilled, handleAutoSearch, readOnly, initialData]);
+
+
 
     // Auto-populate cellarId when cellars load
     useEffect(() => {
@@ -254,14 +289,12 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                         >
                             <input value={sparklingForm.house}
                                 onChange={(e) => setForm((prev) => ({ ...prev, house: e.target.value }))}
-                                onBlur={() => !form.photoUrl && handleAutoSearch()}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.sparkling.name")} required hint={t("hints.sparklingName")}
                         >
                             <input value={sparklingForm.name}
                                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                                onBlur={() => !form.photoUrl && handleAutoSearch()}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.vintageOrNone")} hint={t("hints.vintageOrNone")}
@@ -269,7 +302,6 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                             <input
                                 value={sparklingForm.vintageOrNone}
                                 onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNone: e.target.value }))}
-                                onBlur={() => !form.photoUrl && handleAutoSearch()}
                                 disabled={readOnly}
                             />
                         </Field>
@@ -284,7 +316,6 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                         >
                             <input value={spiritForm.distillery}
                                 onChange={(e) => setForm((prev) => ({ ...prev, distillery: e.target.value }))}
-                                onBlur={() => !form.photoUrl && handleAutoSearch()}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.spirit.nameEdition")} required hint={t("hints.nameEdition")}
@@ -351,21 +382,18 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                         >
                             <input value={wineForm.producer}
                                 onChange={(e) => setForm((prev) => ({ ...prev, producer: e.target.value }))}
-                                onBlur={() => !form.photoUrl && handleAutoSearch()}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.wine.name")} required hint={t("hints.wineName")}
                         >
                             <input value={wineForm.name}
                                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                                onBlur={() => !form.photoUrl && handleAutoSearch()}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.vintageOrNone")} hint={t("hints.vintageOrNone")}
                         >
                             <input value={wineForm.vintageOrNone}
                                 onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNone: e.target.value }))}
-                                onBlur={() => !form.photoUrl && handleAutoSearch()}
                                 disabled={readOnly} />
                         </Field>
                     </div>

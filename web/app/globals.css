@@ -528,6 +528,24 @@ button.btn-icon svg {
 	gap: 16px;
 }
 
+.empty-state {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 64px 24px;
+	text-align: center;
+	border-radius: var(--radius);
+	background: linear-gradient(135deg, rgba(37, 99, 235, 0.02), rgba(37, 99, 235, 0.05));
+	border: 1px dashed var(--border);
+}
+
+.empty-state .feedback {
+	font-size: 15px;
+	max-width: 400px;
+}
+
+
 /* App shell layout for sidebar + content + bottom nav */
 .app-shell {
 	display: grid;
@@ -808,8 +826,22 @@ button.btn-icon svg {
 	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
+.card--horizontal {
+	display: flex;
+	gap: 16px;
+	align-items: flex-start;
+}
+
 .card--muted {
 	opacity: 0.65;
+}
+
+.card__content {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
 }
 
 .card__header {
@@ -817,7 +849,48 @@ button.btn-icon svg {
 	justify-content: space-between;
 	align-items: flex-start;
 	gap: 12px;
+	margin-bottom: 0;
+}
+
+.card__image {
+	width: 100%;
+	height: 200px;
+	overflow: hidden;
+	border-radius: 6px;
 	margin-bottom: 12px;
+	background: var(--bg);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.card__image--thumbnail {
+	width: 140px;
+	height: 240px;
+	flex-shrink: 0;
+	margin-bottom: 0;
+	cursor: zoom-in;
+	position: relative;
+	overflow: hidden;
+	background: linear-gradient(135deg, var(--bg) 0%, var(--surface) 100%);
+	border: 1px solid var(--border);
+	transition: border-color var(--transition-fast);
+}
+
+.card__image--thumbnail:hover {
+	border-color: var(--accent);
+}
+
+.card__image img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	will-change: transform;
+}
+
+.card__image--thumbnail img {
+	padding: 8px;
 }
 
 .card__actions {
@@ -1068,6 +1141,15 @@ html.dark .pill.danger {
 
 	.cards {
 		grid-template-columns: 1fr;
+	}
+
+	.card--horizontal {
+		flex-direction: column;
+	}
+
+	.card__image--thumbnail {
+		width: 100%;
+		height: 180px;
 	}
 }
 

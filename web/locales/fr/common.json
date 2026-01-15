@@ -483,7 +483,7 @@
     "loadingError": "Erreur lors du chargement des caves",
     "cellarNotFound": "Erreur: Cave non trouvée",
     "deleteConfirm": "Êtes-vous sûr ?",
-    "deleteWarning": "Cette action supprimera la cave. Les bouteilles associées seront orphelines.",
+    "deleteWarning": "Cette action supprimera définitivement la cave et toutes les bouteilles qu'elle contient.",
     "creating": "Création...",
     "updating": "Mise à jour...",
     "deleting": "Suppression...",

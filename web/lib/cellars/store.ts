@@ -184,6 +184,9 @@ export function useDeleteCellar() {
         queryClient.setQueryData([...CELLARS_QUERY_KEY, context.cellarId], context.previousCellar);
       }
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: CELLARS_QUERY_KEY }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: CELLARS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ["bottles"] });
+    },
   });
 }

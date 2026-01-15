@@ -15,7 +15,7 @@ export function CellarList() {
   const { t } = useTranslations();
 
   const handleDelete = async (cellarId: string) => {
-    const ok = confirm(`${t("cellars.deleteConfirm")}\n\n${t("cellars.deleteWarning")}`);
+    const ok = window.confirm(`${t("cellars.deleteConfirm")}\n\n${t("cellars.deleteWarning")}`);
     if (ok) {
       setDeletingId(cellarId);
       try {
@@ -57,11 +57,8 @@ export function CellarList() {
       </div>
 
       {!cellars || cellars.length === 0 ? (
-        <div className="form__actions">
+        <div className="empty-state">
           <p className="feedback">{t("cellars.noCellarsDescription")}</p>
-          <button className="primary" type="button" onClick={() => router.push("/cellars/new")} title={t("cellars.createCellar")}>
-            <PlusIcon /> {t("cellars.createCellar")}
-          </button>
         </div>
       ) : (
         <div className="cards">

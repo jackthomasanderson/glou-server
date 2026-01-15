@@ -4,7 +4,7 @@ const isDev = process.env.NODE_ENV === "development";
 
 const csp = [
   "default-src 'self'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https:",
   "font-src 'self'",
   "connect-src 'self' https://photon.komoot.io https://api-adresse.data.gouv.fr",
   isDev

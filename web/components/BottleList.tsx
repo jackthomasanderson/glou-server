@@ -5,6 +5,7 @@ import { BottleToFoodPairing } from "./BottleToFoodPairing";
 import { type BottleRecord } from "../lib/bottles/schema";
 import { useTranslations } from "../lib/i18n/I18nProvider";
 import { EditIcon, TrashIcon, EyeIcon } from "./Icon";
+import { ImageZoom } from "./ImageZoom";
 
 type BottleListProps = {
     bottles: BottleRecord[];
@@ -45,63 +46,68 @@ function BottleListComponent({ bottles, isLoading, onEdit, onDelete, onView }: B
     return (
         <div className="cards">
             {bottles.map((bottle) => (
-                <article key={bottle.id} className="card">
-                    <div className="card__header">
-                        <div>
-                            <p className="eyebrow">{t(`categories.${bottle.category}`)}</p>
-                            <h3>{bottle.label}</h3>
+                <article key={bottle.id} className="card card--horizontal">
+                    {bottle.photoUrl && (
+                        <ImageZoom src={bottle.photoUrl} alt={bottle.label} />
+                    )}
+                    <div className="card__content">
+                        <div className="card__header">
+                            <div>
+                                <p className="eyebrow">{t(`categories.${bottle.category}`)}</p>
+                                <h3>{bottle.label}</h3>
+                            </div>
+                            <div className="pills">
+                                {bottle.quantity && bottle.quantity > 1 ? (
+                                    <span className="pill success">Quantité: {bottle.quantity}</span>
+                                ) : null}
+                                {bottle.isOpened ? <span className="pill info">{t("list.opened")}</span> : null}
+                                {bottle.fillLevel ? <span className="pill">{t(`levels.${bottle.fillLevel}`)}</span> : null}
+                                {bottle.alertStatus && bottle.alertStatus !== "none" ? (
+                                    <span className="pill danger">{t(`alerts.${bottle.alertStatus}`)}</span>
+                                ) : null}
+                            </div>
                         </div>
-                        <div className="pills">
-                            {bottle.quantity && bottle.quantity > 1 ? (
-                                <span className="pill success">Quantité: {bottle.quantity}</span>
-                            ) : null}
-                            {bottle.isOpened ? <span className="pill info">{t("list.opened")}</span> : null}
-                            {bottle.fillLevel ? <span className="pill">{t(`levels.${bottle.fillLevel}`)}</span> : null}
-                            {bottle.alertStatus && bottle.alertStatus !== "none" ? (
-                                <span className="pill danger">{t(`alerts.${bottle.alertStatus}`)}</span>
-                            ) : null}
+
+                        <div className="card__meta">
+                            {bottle.estimatedValue !== undefined && (
+                                <span>{t("list.value")}: €{bottle.estimatedValue}</span>
+                            )}
+                            {bottle.purchasePrice !== undefined && (
+                                <span>{t("list.purchasePrice")}: €{bottle.purchasePrice}</span>
+                            )}
+                            {bottle.purchasePlace && <span>{t("list.purchasePlace")}: {bottle.purchasePlace}</span>}
+                            {bottle.peakMaturity && (bottle.peakMaturity.from || bottle.peakMaturity.to) && (
+                                <span>
+                                    {t("list.peak")}: {bottle.peakMaturity.from ?? "?"} – {bottle.peakMaturity.to ?? "?"}
+                                </span>
+                            )}
+                            {bottle.location && <span>{t("list.location")}: {bottle.location}</span>}
+                            {bottle.collection && <span>{t("list.collection")}: {bottle.collection}</span>}
+                            {bottle.tags && bottle.tags.length > 0 && <span>{t("list.tags")}: {bottle.tags.join(", ")}</span>}
+                            {bottle.tastingNote && <span>{t("list.tastingNote")}: {bottle.tastingNote}</span>}
                         </div>
-                    </div>
 
-                    <div className="card__meta">
-                        {bottle.estimatedValue !== undefined && (
-                            <span>{t("list.value")}: €{bottle.estimatedValue}</span>
-                        )}
-                        {bottle.purchasePrice !== undefined && (
-                            <span>{t("list.purchasePrice")}: €{bottle.purchasePrice}</span>
-                        )}
-                        {bottle.purchasePlace && <span>{t("list.purchasePlace")}: {bottle.purchasePlace}</span>}
-                        {bottle.peakMaturity && (bottle.peakMaturity.from || bottle.peakMaturity.to) && (
-                            <span>
-                                {t("list.peak")}: {bottle.peakMaturity.from ?? "?"} – {bottle.peakMaturity.to ?? "?"}
-                            </span>
-                        )}
-                        {bottle.location && <span>{t("list.location")}: {bottle.location}</span>}
-                        {bottle.collection && <span>{t("list.collection")}: {bottle.collection}</span>}
-                        {bottle.tags && bottle.tags.length > 0 && <span>{t("list.tags")}: {bottle.tags.join(", ")}</span>}
-                        {bottle.tastingNote && <span>{t("list.tastingNote")}: {bottle.tastingNote}</span>}
-                    </div>
+                        {/* AI food pairing button and result */}
+                        <div style={{ margin: "0.5em 0" }}>
+                            <BottleToFoodPairing bottle={{ name: bottle.label, description: bottle.tastingNote }} />
+                        </div>
 
-                    {/* AI food pairing button and result */}
-                    <div style={{ margin: "0.5em 0" }}>
-                        <BottleToFoodPairing bottle={{ name: bottle.label, description: bottle.tastingNote }} />
-                    </div>
-
-                    <div className="card__actions">
-                        {onView && (
-                            <button className="primary btn-icon" onClick={() => onView(bottle)} title={t("actions.view")}>
-                                <EyeIcon />
+                        <div className="card__actions">
+                            {onView && (
+                                <button className="primary btn-icon" onClick={() => onView(bottle)} title={t("actions.view")}>
+                                    <EyeIcon />
+                                </button>
+                            )}
+                            <button className="btn-icon" type="button" onClick={() => onEdit(bottle)} title={t("actions.edit")}>
+                                <EditIcon />
                             </button>
-                        )}
-                        <button className="btn-icon" type="button" onClick={() => onEdit(bottle)} title={t("actions.edit")}>
-                            <EditIcon />
-                        </button>
-                        <button className="danger btn-icon" type="button" onClick={() => onDelete(bottle.id)} title={t("actions.delete")}>
-                            <TrashIcon />
-                        </button>
-                    </div>
+                            <button className="danger btn-icon" type="button" onClick={() => onDelete(bottle.id)} title={t("actions.delete")}>
+                                <TrashIcon />
+                            </button>
+                        </div>
 
-                    {bottle.id.startsWith("temp-") && <p className="muted">{t("list.optimistic")}</p>}
+                        {bottle.id.startsWith("temp-") && <p className="muted">{t("list.optimistic")}</p>}
+                    </div>
                 </article>
             ))}
         </div>

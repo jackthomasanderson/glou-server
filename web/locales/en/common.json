@@ -481,7 +481,7 @@
     "loadingError": "Error loading cellars",
     "cellarNotFound": "Error: Cellar not found",
     "deleteConfirm": "Are you sure?",
-    "deleteWarning": "This action will delete the cellar. Associated bottles will become orphaned.",
+    "deleteWarning": "This action will permanently delete the cellar and all bottles it contains.",
     "creating": "Creating...",
     "updating": "Updating...",
     "deleting": "Deleting...",
