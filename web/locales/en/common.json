@@ -1,8 +1,8 @@
 {
   "app": {
     "name": "Glou",
-    "title": "Cellar dashboard",
-    "subtitle": "Capture the basics, then add key details per type (wine, bubbles, spirits, cigars)",
+    "title": "My Cellar",
+    "subtitle": "Complete management of your wines, spirits, and cigars",
     "collection": "Cellar overview",
     "inventory": "Inventory",
     "suggestions": "Tips"
@@ -10,8 +10,8 @@
   "loading": "Loading...",
   "pageTitles": {
     "dashboard": "Inventory",
-    "addBottle": "Add bottle",
-    "editBottle": "Edit bottle",
+    "addBottle": "Add item",
+    "editBottle": "Edit item",
     "alerts": "Alerts",
     "profile": "Profile",
     "settings": "Settings"
@@ -78,7 +78,7 @@
     "collection": "Collection",
     "tags": "Tags",
     "tagsPlaceholder": "cabernet, collector, left rack",
-    "photoUrl": "Photo URL",
+    "photo": "Photo / Visual",
     "estimatedValue": "Estimated value (€)",
     "purchasePrice": "Purchase price (€)",
     "purchasePlace": "Purchase place",
@@ -206,11 +206,14 @@
     "delete": "Delete",
     "undo": "Undo",
     "edit": "Edit",
+    "view": "View",
     "add": "Add",
-    "addBottle": "Add bottle",
+    "addBottle": "Add item",
     "upload": "Upload",
     "quickAdd": "Quick add",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "searchVisual": "🔍 Auto search",
+    "searching": "Searching..."
   },
   "preview": {
     "title": "Preview",
@@ -522,6 +525,7 @@
     },
     "stats": {
       "bottleCount": "bottle(s)",
+      "cigarCount": "cigar(s)",
       "empty": "Empty",
       "items": "items"
     }
@@ -547,7 +551,8 @@
       "getFailed": "Error retrieving bottle",
       "createFailed": "Error creating bottle",
       "updateFailed": "Error updating bottle",
-      "deleteFailed": "Error deleting bottle"
+      "deleteFailed": "Error deleting bottle",
+      "noTobaccoCellar": "No cellar allows storing tobacco (Cigar, Hybrid, Other or Combined). Please create one first."
     },
     "common": {
       "internalError": "Internal server error",

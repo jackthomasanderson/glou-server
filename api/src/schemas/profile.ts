@@ -12,7 +12,7 @@ export type DateTimeFormat = z.infer<typeof dateTimeFormatSchema>;
 export const temperatureUnitSchema = z.enum(["c", "f"]);
 export type TemperatureUnit = z.infer<typeof temperatureUnitSchema>;
 
-export const themeModeSchema = z.enum(["dark", "light"]);
+export const themeModeSchema = z.enum(["dark", "light", "auto"]);
 export type ThemeMode = z.infer<typeof themeModeSchema>;
 
 const hexColorSchema = z

@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useCellars } from "../lib/cellars/store";
 import { bottlesClient } from "../lib/bottles/client";
-import { cigarsClient } from "../lib/cigars/client";
 import { fetchAppSettings } from "../lib/profile/client";
 import { DashboardIcon, BottlesIcon, CellarsIcon, CigarsIcon } from "./Icon";
 
@@ -30,7 +29,10 @@ export default function Sidebar() {
 
   const { data: cigars = [] } = useQuery({
     queryKey: ["cigars"],
-    queryFn: () => cigarsClient.list(),
+    queryFn: async () => {
+      const all = await bottlesClient.list();
+      return all.filter(item => item.category === "cigar");
+    },
     staleTime: 30_000,
   });
 

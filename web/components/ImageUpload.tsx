@@ -14,15 +14,12 @@ interface ImageUploadProps {
 export default function ImageUpload({ value, onChange, label, shape = "square", defaultImage }: ImageUploadProps) {
     const { t } = useTranslations();
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const [preview, setPreview] = useState<string | null>(value);
-
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64String = reader.result as string;
-                setPreview(base64String);
                 onChange(base64String);
             };
             reader.readAsDataURL(file);
@@ -30,14 +27,13 @@ export default function ImageUpload({ value, onChange, label, shape = "square", 
     };
 
     const handleRemove = () => {
-        setPreview(null);
         onChange(null);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
     };
 
-    const displayImage = preview || value || defaultImage;
+    const displayImage = value || defaultImage;
 
     return (
         <div className="image-upload">

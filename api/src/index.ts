@@ -15,6 +15,8 @@ import { BottleService } from "./services/bottles.js";
 import { logger } from "./utils/logger.js";
 import { createConsumptionPlanRouter } from "./routes/consumptionPlan.js";
 import { createFoodPairingRouter } from "./routes/foodPairing.js";
+import { createImagesRouter } from "./routes/images.js";
+
 
 // Log any uncaught exceptions or unhandled promise rejections
 process.on('uncaughtException', (err) => {
@@ -105,6 +107,10 @@ app.use("/api/consumption-plan", consumptionPlanRouter);
 
 const foodPairingRouter = createFoodPairingRouter(sessionService, profileService, appSettingsService);
 app.use("/api/food-pairing", foodPairingRouter);
+
+const imagesRouter = createImagesRouter(sessionService);
+app.use("/api/images", imagesRouter);
+
 
 // 404 handler
 app.use((req, res) => {

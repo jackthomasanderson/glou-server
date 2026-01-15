@@ -1,10 +1,10 @@
 import { Metadata } from 'next'
-import { CigarsList } from '@/components/cigars/CigarsList'
+import { CigarsPageContent } from '@/components/cigars/CigarsPageContent'
 
 export const metadata: Metadata = {
   title: 'Cigars | Glou',
 }
 
 export default function CigarsPage() {
-  return <CigarsList />
+  return <CigarsPageContent />
 }

@@ -46,6 +46,7 @@ export type UpdateCellarInput = z.infer<typeof updateCellarSchema>;
 /** Cellar with bottle count for display */
 export const cellarWithStatsSchema = cellarSchema.extend({
   bottleCount: z.number().int().nonnegative().optional(),
+  cigarCount: z.number().int().nonnegative().optional(),
 });
 
 export type CellarWithStats = z.infer<typeof cellarWithStatsSchema>;

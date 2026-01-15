@@ -12,7 +12,7 @@ export const userSchema = z.object({
   preferredLocale: z.enum(["en", "fr"]).nullable().optional(),
   dateTimeFormat: z.enum(["system", "24h", "12h"]).optional(),
   temperatureUnit: z.enum(["c", "f"]).optional(),
-  themeMode: z.enum(["dark", "light"]).optional(),
+  themeMode: z.enum(["dark", "light", "auto"]).optional(),
   accentColor: z.string().optional(),
   notificationSettings: z.record(z.unknown()).optional(),
   passwordHash: z.string(),

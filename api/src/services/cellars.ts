@@ -27,7 +27,8 @@ export class CellarService {
         c.shelf_count as "shelfCount",
         c.created_at as "createdAt",
         c.updated_at as "updatedAt",
-        COALESCE(SUM(COALESCE(b.quantity_in_box, 1)), 0)::int as "bottleCount"
+        SUM(CASE WHEN b.category != 'cigar' THEN COALESCE(b.quantity_in_box, 1) ELSE 0 END)::int as "bottleCount",
+        SUM(CASE WHEN b.category = 'cigar' THEN COALESCE(b.quantity_in_box, 1) ELSE 0 END)::int as "cigarCount"
       FROM cellars c
       LEFT JOIN bottles b
         ON b.cellar_id = c.id
@@ -69,7 +70,9 @@ export class CellarService {
             c.shelf_count as "shelfCount",
             c.created_at as "createdAt",
             c.updated_at as "updatedAt",
-            0::int as "bottleCount"
+            c.updated_at as "updatedAt",
+            0::int as "bottleCount",
+            0::int as "cigarCount"
           FROM cellars c
           WHERE c.user_id = $1
           ORDER BY c.created_at DESC
@@ -271,9 +274,11 @@ export class CellarService {
    * Delete a cellar
    */
   async deleteCellar(cellarId: string, userId: string): Promise<boolean> {
+    logger.info({ cellarId, userId }, "Attempting to delete cellar");
     // Check ownership first
     const existing = await this.getCellarById(cellarId, userId);
     if (!existing) {
+      logger.warn({ cellarId, userId }, "Cellar not found or unauthorized for deletion");
       throw new Error("Cellar not found or unauthorized");
     }
 
@@ -284,10 +289,10 @@ export class CellarService {
 
     try {
       const result = await this.db.query(query, [cellarId, userId]);
-      logger.info("Cellar deleted");
+      logger.info({ cellarId, rowCount: result.rowCount }, "Cellar deleted successfully");
       return (result.rowCount ?? 0) > 0;
     } catch (err) {
-      logger.error("Failed to delete cellar");
+      logger.error({ err, cellarId }, "Failed to delete cellar from database");
       throw err;
     }
   }
@@ -302,22 +307,26 @@ export class CellarService {
     }
 
     const countQuery = `
-      SELECT COALESCE(SUM(COALESCE(quantity_in_box, 1)), 0) as count
+      SELECT 
+        SUM(CASE WHEN category != 'cigar' THEN COALESCE(quantity_in_box, 1) ELSE 0 END)::int as "bottleCount",
+        SUM(CASE WHEN category = 'cigar' THEN COALESCE(quantity_in_box, 1) ELSE 0 END)::int as "cigarCount"
       FROM bottles
       WHERE cellar_id = $1
     `;
 
     try {
       const result = await this.db.query(countQuery, [cellarId]);
-      const bottleCount = parseInt(result.rows[0]?.count || "0", 10);
+      const bottleCount = parseInt(result.rows[0]?.bottleCount || "0", 10);
+      const cigarCount = parseInt(result.rows[0]?.cigarCount || "0", 10);
 
       return {
         ...cellar,
         bottleCount,
+        cigarCount,
       };
     } catch (err) {
       logger.error("Failed to get cellar with stats");
-      return { ...cellar, bottleCount: 0 };
+      return { ...cellar, bottleCount: 0, cigarCount: 0 };
     }
   }
 }

@@ -161,7 +161,14 @@ export function AppHeaderClient() {
                 title={t("header.userMenu.label")}
               >
                 <span className="avatar-badge" aria-hidden="true">
-                  {avatarLabel}
+                  {user?.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user?.displayName || user?.username || ""}
+                    />
+                  ) : (
+                    avatarLabel
+                  )}
                 </span>
               </button>
 

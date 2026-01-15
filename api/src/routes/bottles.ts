@@ -142,8 +142,9 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
       if (err instanceof ZodError) {
         console.error("Zod validation error:", JSON.stringify(err.errors, null, 2));
         console.error("Request body:", JSON.stringify(req.body, null, 2));
-        const error = createErrorResponse(BottlesErrorCode.INVALID_INPUT, 400);
-        return res.status(error.statusCode).json(error.error);
+        // Return detailed validation error for debugging
+        const details = err.errors.map(e => `${e.path.join(".")}: ${e.message}`).join(", ");
+        return res.status(400).json({ error: `Validation error: ${details}` });
       }
       if (err instanceof Error && err.message === "BOTTLE_NOT_FOUND") {
         const error = createErrorResponse(BottlesErrorCode.BOTTLE_NOT_FOUND, 404);

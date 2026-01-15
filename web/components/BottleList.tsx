@@ -4,15 +4,17 @@ import React, { memo } from "react";
 import { BottleToFoodPairing } from "./BottleToFoodPairing";
 import { type BottleRecord } from "../lib/bottles/schema";
 import { useTranslations } from "../lib/i18n/I18nProvider";
+import { EditIcon, TrashIcon, EyeIcon } from "./Icon";
 
 type BottleListProps = {
     bottles: BottleRecord[];
     isLoading: boolean;
     onEdit: (bottle: BottleRecord) => void;
     onDelete: (id: string) => void;
+    onView?: (bottle: BottleRecord) => void;
 };
 
-function BottleListComponent({ bottles, isLoading, onEdit, onDelete }: BottleListProps) {
+function BottleListComponent({ bottles, isLoading, onEdit, onDelete, onView }: BottleListProps) {
     const { t } = useTranslations();
 
 
@@ -86,9 +88,16 @@ function BottleListComponent({ bottles, isLoading, onEdit, onDelete }: BottleLis
                     </div>
 
                     <div className="card__actions">
-                        <button type="button" onClick={() => onEdit(bottle)}>{t("actions.edit")}</button>
-                        <button type="button" className="ghost" onClick={() => onDelete(bottle.id)}>
-                            {t("actions.delete")}
+                        {onView && (
+                            <button className="primary btn-icon" onClick={() => onView(bottle)} title={t("actions.view")}>
+                                <EyeIcon />
+                            </button>
+                        )}
+                        <button className="btn-icon" type="button" onClick={() => onEdit(bottle)} title={t("actions.edit")}>
+                            <EditIcon />
+                        </button>
+                        <button className="danger btn-icon" type="button" onClick={() => onDelete(bottle.id)} title={t("actions.delete")}>
+                            <TrashIcon />
                         </button>
                     </div>
 

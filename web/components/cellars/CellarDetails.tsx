@@ -5,6 +5,12 @@ import { useCellarById } from "@/lib/cellars/store";
 import { CellarType } from "@/types/cellars";
 import { useTranslations } from "@/lib/i18n/I18nProvider";
 import { CellarForm } from "./CellarForm";
+import { useBottlesByCellar, useDeleteBottle, useUpdateBottle } from "@/lib/bottles/hooks";
+import { BottleList } from "../BottleList";
+import { BottleForm } from "../BottleForm";
+import { BottleInput } from "@/lib/bottles/schema";
+import { EditIcon } from "../Icon";
+
 
 interface CellarDetailsProps {
   cellarId: string;
@@ -14,6 +20,28 @@ export function CellarDetails({ cellarId }: CellarDetailsProps) {
   const { data: cellar, isLoading, error } = useCellarById(cellarId);
   const { t, locale } = useTranslations();
   const [isEditing, setIsEditing] = React.useState(false);
+
+  // Bottles management
+  const { data: bottles, isLoading: isLoadingBottles } = useBottlesByCellar(cellarId);
+  const deleteBottleMutation = useDeleteBottle();
+  const updateBottleMutation = useUpdateBottle();
+  const [editingBottleId, setEditingBottleId] = React.useState<string | null>(null);
+  const [viewingBottleId, setViewingBottleId] = React.useState<string | null>(null);
+
+  const editingBottle = React.useMemo(() =>
+    editingBottleId ? bottles?.find(b => b.id === editingBottleId) ?? null : null
+    , [bottles, editingBottleId]);
+
+  const viewingBottle = React.useMemo(() =>
+    viewingBottleId ? bottles?.find(b => b.id === viewingBottleId) ?? null : null
+    , [bottles, viewingBottleId]);
+
+  const handleBottleSave = (data: BottleInput) => {
+    if (editingBottleId) {
+      updateBottleMutation.mutate({ id: editingBottleId, input: data });
+      setEditingBottleId(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -49,8 +77,8 @@ export function CellarDetails({ cellarId }: CellarDetailsProps) {
           <h2>{cellar.name}</h2>
         </div>
         <div className="actions-inline">
-          <button type="button" className="primary" onClick={() => setIsEditing(true)}>
-            {t("actions.edit")}
+          <button type="button" className="primary btn-icon" onClick={() => setIsEditing(true)} title={t("actions.edit")}>
+            <EditIcon />
           </button>
         </div>
       </div>
@@ -61,6 +89,30 @@ export function CellarDetails({ cellarId }: CellarDetailsProps) {
       <p className="feedback" style={{ marginTop: 12 }}>
         {t("cellars.meta.createdAt")}: {new Date(cellar.createdAt).toLocaleDateString(locale)}
       </p>
+
+      <div style={{ marginTop: 32 }}>
+        <h3>{t("list.title")}</h3>
+        {editingBottleId || viewingBottleId ? (
+          <BottleForm
+            cellars={[cellar]} 
+            initialData={editingBottle || viewingBottle}
+            onSave={handleBottleSave}
+            onCancel={() => {
+              setEditingBottleId(null);
+              setViewingBottleId(null);
+            }}
+            readOnly={!!viewingBottleId}
+          />
+        ) : (
+          <BottleList
+            bottles={bottles ?? []}
+            isLoading={isLoadingBottles}
+            onView={(bottle) => setViewingBottleId(bottle.id)}
+            onEdit={(bottle) => setEditingBottleId(bottle.id)}
+            onDelete={(id) => deleteBottleMutation.mutate(id)}
+          />
+        )}
+      </div>
     </section>
   );
 }

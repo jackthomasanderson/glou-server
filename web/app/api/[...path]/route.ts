@@ -16,6 +16,25 @@ type HeadersWithGetSetCookie = {
 };
 
 function createProxiedResponse(payload: unknown, backendResponse: Response) {
+  // For 204 No Content, we must NOT send a body
+  if (backendResponse.status === 204) {
+    const next = new NextResponse(null, { status: 204 });
+    // Forward session cookies
+    const headersAny = backendResponse.headers as unknown as HeadersWithGetSetCookie;
+    const single = backendResponse.headers.get("set-cookie");
+    const setCookies: string[] =
+      typeof headersAny?.getSetCookie === "function"
+        ? headersAny.getSetCookie() ?? []
+        : single
+          ? [single]
+          : [];
+
+    for (const cookie of setCookies) {
+      next.headers.append("set-cookie", cookie);
+    }
+    return next;
+  }
+
   const next = NextResponse.json(payload, { status: backendResponse.status });
 
   // Forward session cookies (critical for auth)
@@ -48,10 +67,11 @@ export async function GET(
 ) {
   try {
     const path = params.path.join("/");
-    const url = `${BACKEND_URL}/${path}?${request.nextUrl.searchParams.toString()}`;
+    const url = `${BACKEND_URL}/api/${path}?${request.nextUrl.searchParams.toString()}`;
     const cookieHeader = getForwardCookieHeader(request);
 
-    console.log(`[API Proxy] GET ${url}`);
+    console.log(`[API Proxy Debug] GET path: ${path}`);
+    console.log(`[API Proxy Debug] Full backend URL: ${url}`);
 
     const response = await fetch(url, {
       method: "GET",
@@ -63,7 +83,7 @@ export async function GET(
 
     let data;
     const contentType = response.headers.get("content-type");
-    
+
     if (contentType?.includes("application/json")) {
       data = await response.json();
     } else {
@@ -89,10 +109,11 @@ export async function POST(
     const path = params.path.join("/");
     const rawBody = await request.text();
     const body = rawBody ? JSON.parse(rawBody) : undefined;
-    const url = `${BACKEND_URL}/${path}`;
+    const url = `${BACKEND_URL}/api/${path}`;
     const cookieHeader = getForwardCookieHeader(request);
 
-    console.log(`[API Proxy] POST ${url}`, body);
+    console.log(`[API Proxy Debug] POST path: ${path}`);
+    console.log(`[API Proxy Debug] Full backend URL: ${url}`, body);
 
     const response = await fetch(url, {
       method: "POST",
@@ -105,7 +126,7 @@ export async function POST(
 
     let data;
     const contentType = response.headers.get("content-type");
-    
+
     if (contentType?.includes("application/json")) {
       data = await response.json();
     } else {
@@ -131,10 +152,11 @@ export async function PUT(
     const path = params.path.join("/");
     const rawBody = await request.text();
     const body = rawBody ? JSON.parse(rawBody) : undefined;
-    const url = `${BACKEND_URL}/${path}`;
+    const url = `${BACKEND_URL}/api/${path}`;
     const cookieHeader = getForwardCookieHeader(request);
 
-    console.log(`[API Proxy] PUT ${url}`, body);
+    console.log(`[API Proxy Debug] PUT path: ${path}`);
+    console.log(`[API Proxy Debug] Full backend URL: ${url}`, body);
 
     const response = await fetch(url, {
       method: "PUT",
@@ -171,10 +193,11 @@ export async function DELETE(
 ) {
   try {
     const path = params.path.join("/");
-    const url = `${BACKEND_URL}/${path}`;
+    const url = `${BACKEND_URL}/api/${path}`;
     const cookieHeader = getForwardCookieHeader(request);
 
-    console.log(`[API Proxy] DELETE ${url}`);
+    console.log(`[API Proxy Debug] DELETE path: ${path}`);
+    console.log(`[API Proxy Debug] Full backend URL: ${url}`);
 
     const response = await fetch(url, {
       method: "DELETE",
@@ -186,7 +209,7 @@ export async function DELETE(
 
     let data;
     const contentType = response.headers.get("content-type");
-    
+
     if (contentType?.includes("application/json")) {
       data = await response.json();
     } else {

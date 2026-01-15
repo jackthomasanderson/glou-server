@@ -1,10 +1,10 @@
 import { Metadata } from 'next'
-import { BottleDashboardWrapper } from '@/components/BottleDashboardWrapper'
+import { BottlesPageContent } from '@/components/BottlesPageContent'
 
 export const metadata: Metadata = {
   title: 'Bottles | Glou',
 }
 
 export default function BottlesPage() {
-  return <BottleDashboardWrapper />
+  return <BottlesPageContent />
 }

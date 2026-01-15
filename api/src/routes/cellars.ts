@@ -114,23 +114,27 @@ export function createCellarsRouter(sessionService: SessionService, cellarServic
   router.delete("/:cellarId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.userId;
+      const { cellarId } = req.params;
+      logger.info({ cellarId, userId }, "DELETE cellar request received");
+
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const { cellarId } = req.params;
       const deleted = await cellarService.deleteCellar(cellarId, userId);
 
       if (!deleted) {
+        logger.warn({ cellarId, userId }, "Cellar not found for deletion");
         return res.status(404).json({ error: "Cellar not found" });
       }
 
+      logger.info({ cellarId, userId }, "Cellar deleted successfully, returning 204");
       return res.status(204).send();
     } catch (err) {
       if (err instanceof Error && err.message.includes("not found")) {
         return res.status(404).json({ error: "Cellar not found" });
       }
-      logger.error("Failed to delete cellar");
+      logger.error({ err, cellarId: req.params.cellarId }, "Failed to delete cellar");
       return res.status(500).json({ error: "Failed to delete cellar" });
     }
   });

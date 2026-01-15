@@ -1,9 +1,9 @@
-import { BottleDashboardWrapper } from "@/components/BottleDashboardWrapper";
+import { DashboardPageContent } from "@/components/DashboardPageContent";
 
 export const metadata = {
 	title: "Dashboard - Glou",
 };
 
 export default function DashboardPage() {
-	return <BottleDashboardWrapper />;
+	return <DashboardPageContent />;
 }

@@ -1,17 +1,18 @@
 {
   "app": {
     "name": "Glou",
-    "title": "Tableau de bord cave",
-    "subtitle": "Ajoutez l'essentiel, précisez selon le type (vin, bulles, spiritueux, tabac)",
+    "title": "Ma Cave",
+    "subtitle": "Gestion complète de vos vins, spiritueux et cigares",
     "collection": "Vue cave",
     "inventory": "Inventaire",
     "suggestions": "Conseils"
   },
   "loading": "Chargement...",
   "pageTitles": {
-    "dashboard": "Inventaire",
-    "addBottle": "Ajout bouteille",
-    "editBottle": "Édition bouteille",
+    "dashboard": "Tableau de bord",
+    "bottles": "Bouteilles",
+    "addBottle": "Ajout élément",
+    "editBottle": "Édition élément",
     "alerts": "Alertes",
     "profile": "Profil",
     "settings": "Paramètres"
@@ -78,7 +79,7 @@
     "collection": "Collection",
     "tags": "Tags",
     "tagsPlaceholder": "cabernet, collectionneur, clayette gauche",
-    "photoUrl": "URL photo",
+    "photo": "Photo / Visuel",
     "estimatedValue": "Valeur estimée (€)",
     "purchasePrice": "Prix d'achat (€)",
     "purchasePlace": "Lieu d'achat",
@@ -206,11 +207,14 @@
     "delete": "Supprimer",
     "undo": "Annuler",
     "edit": "Modifier",
+    "view": "Voir",
     "add": "Ajouter",
-    "addBottle": "Ajouter une bouteille",
+    "addBottle": "Ajouter un élément",
     "upload": "Uploader",
     "quickAdd": "Ajout rapide",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "searchVisual": "🔍 Recherche visuelle",
+    "searching": "Recherche..."
   },
   "preview": {
     "title": "Prévisualisation",
@@ -218,10 +222,11 @@
   },
   "feedback": {
     "optimisticCreate": "Enregistré localement, synchronisation en cours.",
+    "optimisticCreateCigar": "Cigare enregistré localement, synchronisation en cours.",
     "optimisticUpdate": "Mis à jour localement, synchronisation en cours.",
     "saveError": "Echec de sauvegarde. Vérifier les champs obligatoires.",
     "deleteError": "Echec de suppression.",
-    "permanentlyDeleted": "Supprimée définitivement."
+    "permanentlyDeleted": "Supprimé définitivement."
   },
   "list": {
     "title": "Éléments de la cave",
@@ -522,6 +527,7 @@
     },
     "stats": {
       "bottleCount": "bouteille(s)",
+      "cigarCount": "cigare(s)",
       "empty": "Vide",
       "items": "éléments"
     }
@@ -532,9 +538,9 @@
       "forbidden": "Accès refusé à cette ressource"
     },
     "bottles": {
-      "notFound": "Bouteille non trouvée",
+      "notFound": "Élément non trouvé",
       "cellarNotFound": "Cave non trouvée",
-      "cellarIdRequired": "Veuillez sélectionner une cave avant de créer une bouteille",
+      "cellarIdRequired": "Veuillez sélectionner une cave avant de créer un élément",
       "invalidInput": "Données invalides",
       "invalidCategory": "Catégorie invalide",
       "invalidVintage": "Millésime invalide (format YYYY ou NV)",
@@ -542,12 +548,13 @@
       "invalidFillLevel": "Niveau de remplissage invalide",
       "invalidAbv": "Degré d'alcool invalide pour cette catégorie",
       "missingRequiredField": "Champ obligatoire manquant",
-      "listFailed": "Erreur lors de la récupération des bouteilles",
-      "listCellarFailed": "Erreur lors de la récupération des bouteilles de la cave",
-      "getFailed": "Erreur lors de la récupération de la bouteille",
-      "createFailed": "Erreur lors de la création de la bouteille",
-      "updateFailed": "Erreur lors de la mise à jour de la bouteille",
-      "deleteFailed": "Erreur lors de la suppression de la bouteille"
+      "listFailed": "Erreur lors de la récupération des éléments",
+      "listCellarFailed": "Erreur lors de la récupération des éléments de la cave",
+      "getFailed": "Erreur lors de la récupération de l'élément",
+      "createFailed": "Erreur lors de la création de l'élément",
+      "updateFailed": "Erreur lors de la mise à jour de l'élément",
+      "deleteFailed": "Erreur lors de la suppression de l'élément",
+      "noTobaccoCellar": "Aucune cave ne permet de stocker du tabac (type Cigare, Hybride, Autre ou Combinée). Veuillez d'abord en créer une."
     },
     "common": {
       "internalError": "Erreur serveur interne",

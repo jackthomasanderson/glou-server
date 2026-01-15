@@ -43,4 +43,5 @@ export interface UpdateCellarInput {
 
 export interface CellarWithStats extends Cellar {
   bottleCount?: number;
+  cigarCount?: number;
 }

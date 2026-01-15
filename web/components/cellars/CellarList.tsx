@@ -5,6 +5,7 @@ import { useCellars, useDeleteCellar } from "@/lib/cellars/store";
 import { CellarType } from "@/types/cellars";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "@/lib/i18n/I18nProvider";
+import { EyeIcon, EditIcon, TrashIcon, PlusIcon } from "../Icon";
 
 export function CellarList() {
   const router = useRouter();
@@ -49,9 +50,8 @@ export function CellarList() {
           <h1>{t("cellars.title")}</h1>
         </div>
         <div className="actions-inline">
-          <button className="primary" type="button" onClick={() => router.push("/cellars/new")}
-          >
-            {t("cellars.newCellar")}
+          <button className="primary btn-icon" type="button" onClick={() => router.push("/cellars/new")} title={t("cellars.newCellar")}>
+            <PlusIcon />
           </button>
         </div>
       </div>
@@ -59,9 +59,8 @@ export function CellarList() {
       {!cellars || cellars.length === 0 ? (
         <div className="form__actions">
           <p className="feedback">{t("cellars.noCellarsDescription")}</p>
-          <button className="primary" type="button" onClick={() => router.push("/cellars/new")}
-          >
-            {t("cellars.createCellar")}
+          <button className="primary" type="button" onClick={() => router.push("/cellars/new")} title={t("cellars.createCellar")}>
+            <PlusIcon /> {t("cellars.createCellar")}
           </button>
         </div>
       ) : (
@@ -79,9 +78,28 @@ export function CellarList() {
               </div>
 
               <p className="feedback" style={{ marginTop: 8 }}>
-                {typeof cellar.bottleCount === "number" && cellar.bottleCount > 0
-                  ? `${cellar.bottleCount} ${cellar.bottleCapacity ? `/ ${cellar.bottleCapacity}` : ""} ${t("cellars.stats.bottleCount")}`
-                  : t("cellars.stats.empty")}
+                {(() => {
+                  const hasBottles = typeof cellar.bottleCount === "number" && cellar.bottleCount > 0;
+                  const hasCigars = typeof cellar.cigarCount === "number" && cellar.cigarCount > 0;
+
+                  if (!hasBottles && !hasCigars) {
+                    return t("cellars.stats.empty");
+                  }
+
+                  const parts = [];
+
+                  if (hasBottles) {
+                    parts.push(
+                      `${cellar.bottleCount} ${cellar.bottleCapacity ? `/ ${cellar.bottleCapacity}` : ""} ${t("cellars.stats.bottleCount")}`
+                    );
+                  }
+
+                  if (hasCigars) {
+                    parts.push(`${cellar.cigarCount} ${t("cellars.stats.cigarCount")}`);
+                  }
+
+                  return parts.join(" - ");
+                })()}
               </p>
 
               {cellar.placement ? <p className="feedback">{cellar.placement}</p> : null}
@@ -89,25 +107,33 @@ export function CellarList() {
 
               <div className="card__actions">
                 <button
-                  className="primary"
+                  className="primary btn-icon"
                   type="button"
                   onClick={() => router.push(`/cellars/${cellar.id}`)}
+                  title={t("cellars.viewCellar")}
                 >
-                  {t("cellars.viewCellar")}
+                  <EyeIcon />
                 </button>
                 <button
+                  className="btn-icon"
                   type="button"
                   onClick={() => router.push(`/cellars/${cellar.id}/edit`)}
+                  title={t("actions.edit")}
                 >
-                  {t("actions.edit")}
+                  <EditIcon />
                 </button>
                 <button
                   type="button"
-                  className="danger"
+                  className="danger btn-icon"
                   onClick={() => handleDelete(cellar.id)}
                   disabled={deletingId === cellar.id}
+                  title={t("cellars.deleteCellar")}
                 >
-                  {deletingId === cellar.id ? t("cellars.deleting") : t("cellars.deleteCellar")}
+                  {deletingId === cellar.id ? (
+                    <span className="spinner" />
+                  ) : (
+                    <TrashIcon />
+                  )}
                 </button>
               </div>
             </article>
