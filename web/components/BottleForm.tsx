@@ -33,7 +33,8 @@ const baseFields = {
     alertStatus: "none" as BottleInput["alertStatus"],
     tastingNote: "",
     purchasePlace: "",
-    purchasePrice: undefined as number | undefined
+    purchasePrice: undefined as number | undefined,
+    quantity: 1
 };
 
 type WineInput = WineBottleInput;
@@ -169,6 +170,7 @@ export function BottleForm({ cellars, initialData, onSave, onCancel }: BottleFor
             tastingNote: form.tastingNote,
             purchasePlace: form.purchasePlace,
             purchasePrice: form.purchasePrice,
+            quantity: form.quantity ?? 1,
             cellarId: form.cellarId // Preserve cellarId
         };
         setForm({ ...buildDefaults(category), ...preserved, category });
@@ -632,6 +634,19 @@ export function BottleForm({ cellars, initialData, onSave, onCancel }: BottleFor
                         <Field label={t("fields.label")} required hint={t("hints.label")}
                         >
                             <input value={form.label} onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))} />
+                        </Field>
+                        <Field label="Quantity" required>
+                            <div style={{ display: "flex", alignItems: "center" }}>
+                                <button type="button" onClick={() => setForm((prev) => ({ ...prev, quantity: Math.max(1, (prev.quantity ?? 1) - 1) }))}>-</button>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={form.quantity ?? 1}
+                                    onChange={(e) => setForm((prev) => ({ ...prev, quantity: Math.max(1, Number(e.target.value) || 1) }))}
+                                    style={{ width: "60px", textAlign: "center", margin: "0 8px" }}
+                                />
+                                <button type="button" onClick={() => setForm((prev) => ({ ...prev, quantity: (prev.quantity ?? 1) + 1 }))}>+</button>
+                            </div>
                         </Field>
                         <Field label={t("fields.category")} required hint={t("hints.category")}
                         >

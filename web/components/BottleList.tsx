@@ -15,7 +15,7 @@ type BottleListProps = {
 function BottleListComponent({ bottles, isLoading, onEdit, onDelete }: BottleListProps) {
     const { t } = useTranslations();
 
-    console.log("BottleList render: bottles count =", bottles.length);
+
 
     if (isLoading) {
         return (
@@ -50,6 +50,9 @@ function BottleListComponent({ bottles, isLoading, onEdit, onDelete }: BottleLis
                             <h3>{bottle.label}</h3>
                         </div>
                         <div className="pills">
+                            {bottle.quantity && bottle.quantity > 1 ? (
+                                <span className="pill success">Quantité: {bottle.quantity}</span>
+                            ) : null}
                             {bottle.isOpened ? <span className="pill info">{t("list.opened")}</span> : null}
                             {bottle.fillLevel ? <span className="pill">{t(`levels.${bottle.fillLevel}`)}</span> : null}
                             {bottle.alertStatus && bottle.alertStatus !== "none" ? (

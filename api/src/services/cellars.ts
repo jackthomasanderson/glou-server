@@ -27,7 +27,7 @@ export class CellarService {
         c.shelf_count as "shelfCount",
         c.created_at as "createdAt",
         c.updated_at as "updatedAt",
-        COALESCE(COUNT(b.id), 0)::int as "bottleCount"
+        COALESCE(SUM(COALESCE(b.quantity_in_box, 1)), 0)::int as "bottleCount"
       FROM cellars c
       LEFT JOIN bottles b
         ON b.cellar_id = c.id
@@ -302,7 +302,7 @@ export class CellarService {
     }
 
     const countQuery = `
-      SELECT COUNT(*) as count
+      SELECT COALESCE(SUM(COALESCE(quantity_in_box, 1)), 0) as count
       FROM bottles
       WHERE cellar_id = $1
     `;

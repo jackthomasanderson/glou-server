@@ -140,6 +140,8 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
       return res.status(200).json(bottle);
     } catch (err) {
       if (err instanceof ZodError) {
+        console.error("Zod validation error:", JSON.stringify(err.errors, null, 2));
+        console.error("Request body:", JSON.stringify(req.body, null, 2));
         const error = createErrorResponse(BottlesErrorCode.INVALID_INPUT, 400);
         return res.status(error.statusCode).json(error.error);
       }

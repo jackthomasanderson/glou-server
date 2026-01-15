@@ -165,14 +165,28 @@ export function BottleDashboard() {
 
         {(() => {
           const activeBottles = Array.isArray(bottles) ? bottles : [];
-          const totalValue = activeBottles.reduce((acc, b) => acc + (b.estimatedValue || b.purchasePrice || 0), 0);
-          const toDrink = activeBottles.filter(b => b.peakMaturity?.to && b.peakMaturity.to <= new Date().getFullYear()).length;
+          // Calculate total bottles by summing quantity
+          const totalBottles = activeBottles.reduce((acc, b) => acc + (b.quantity || 1), 0);
+
+          // Calculate total value (price * quantity)
+          const totalValue = activeBottles.reduce((acc, b) => {
+            const price = b.estimatedValue || b.purchasePrice || 0;
+            return acc + (price * (b.quantity || 1));
+          }, 0);
+
+          // Calculate 'to drink' count taking quantity into account
+          const toDrink = activeBottles.reduce((acc, b) => {
+            if (b.peakMaturity?.to && b.peakMaturity.to <= new Date().getFullYear()) {
+              return acc + (b.quantity || 1);
+            }
+            return acc;
+          }, 0);
 
           return (
             <div className="stats-grid">
               <div className="stat-card">
                 <span className="stat-card__label">{t("stats.totalBottles")}</span>
-                <span className="stat-card__value">{activeBottles.length}</span>
+                <span className="stat-card__value">{totalBottles}</span>
               </div>
               <div className="stat-card">
                 <span className="stat-card__label">{t("stats.totalValue")}</span>

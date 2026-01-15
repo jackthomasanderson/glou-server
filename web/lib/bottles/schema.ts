@@ -50,7 +50,8 @@ const commonBottleSchema = z.object({
   alertStatus: z.enum(["none", "approaching", "critical"]).default("none"),
   tastingNote: emptyStringToUndefined(z.string().max(240)).optional(),
   purchasePlace: emptyStringToUndefined(z.string().max(160)).optional(),
-  purchasePrice: z.number().nonnegative().optional()
+  purchasePrice: z.number().nonnegative().optional(),
+  quantity: z.number().int().min(1).max(200).default(1)
 });
 
 const wineBottleSchema = commonBottleSchema.extend({
@@ -102,7 +103,6 @@ const cigarBoxSchema = commonBottleSchema.extend({
   category: z.literal("cigar"),
   brand: z.string().min(1).max(120),
   format: z.string().min(1).max(120),
-  quantity: z.number().int().min(1).max(200),
   wrapper: emptyStringToUndefined(z.string().max(80)).optional(),
   binder: emptyStringToUndefined(z.string().max(80)).optional(),
   filler: emptyStringToUndefined(z.string().max(80)).optional(),

@@ -13,6 +13,10 @@ export type AlertStatus = z.infer<typeof alertStatusSchema>;
 const emptyStringToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((val) => (val === "" || val === null ? undefined : val), schema.or(z.undefined()));
 
+// Helper to convert null to undefined for update operations
+const nullToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((val) => (val === null ? undefined : val), schema.optional());
+
 const currentYear = new Date().getFullYear();
 const maxVintageYear = currentYear + 1;
 
@@ -28,8 +32,8 @@ const vintageStringSchema = z
 
 const peakMaturitySchema = z
   .object({
-    from: z.number().int().min(1900).max(2100).optional(),
-    to: z.number().int().min(1900).max(2100).optional()
+    from: z.preprocess((val) => val === null ? undefined : val, z.number().int().min(1900).max(2100).optional()),
+    to: z.preprocess((val) => val === null ? undefined : val, z.number().int().min(1900).max(2100).optional())
   })
   .refine((value) => {
     if (value.from && value.to) {
@@ -53,7 +57,8 @@ const commonBottleSchema = z.object({
   alertStatus: alertStatusSchema.default("none"),
   tastingNote: emptyStringToUndefined(z.string().max(240)).optional(),
   purchasePlace: emptyStringToUndefined(z.string().max(160)).optional(),
-  purchasePrice: z.number().nonnegative().optional()
+  purchasePrice: z.number().nonnegative().optional(),
+  quantity: z.number().int().min(1).max(200).default(1)
 });
 
 const wineBottleSchema = commonBottleSchema.extend({
@@ -104,7 +109,6 @@ const cigarBoxSchema = commonBottleSchema.extend({
   category: z.literal("cigar"),
   brand: z.string().min(1).max(120),
   format: z.string().min(1).max(120),
-  quantity: z.number().int().min(1).max(200),
   wrapper: emptyStringToUndefined(z.string().max(80)).optional(),
   binder: emptyStringToUndefined(z.string().max(80)).optional(),
   filler: emptyStringToUndefined(z.string().max(80)).optional(),
@@ -133,39 +137,43 @@ export const updateBottleSchema = z.object({
   collection: emptyStringToUndefined(z.string().min(1).max(80)).optional(),
   tags: z.array(z.string().min(1).max(40)).max(10).optional(),
   photoUrl: emptyStringToUndefined(z.string().url()).optional(),
-  isOpened: z.boolean().optional(),
-  fillLevel: fillLevelSchema.optional(),
-  estimatedValue: z.number().nonnegative().optional(),
-  peakMaturity: peakMaturitySchema.optional(),
-  alertStatus: alertStatusSchema.optional(),
+  isOpened: nullToUndefined(z.boolean()),
+  fillLevel: nullToUndefined(fillLevelSchema),
+  estimatedValue: nullToUndefined(z.number().nonnegative()),
+  peakMaturity: nullToUndefined(peakMaturitySchema),
+  alertStatus: nullToUndefined(alertStatusSchema),
   tastingNote: emptyStringToUndefined(z.string().max(240)).optional(),
   purchasePlace: emptyStringToUndefined(z.string().max(160)).optional(),
-  purchasePrice: z.number().nonnegative().optional(),
+  purchasePrice: nullToUndefined(z.number().nonnegative()),
   // Wine-specific
-  producer: z.string().min(1).max(120).optional(),
-  name: z.string().min(1).max(120).optional(),
-  vintageOrNone: vintageStringSchema.optional(),
+  producer: nullToUndefined(z.string().min(1).max(120)),
+  name: nullToUndefined(z.string().min(1).max(120)),
+  vintageOrNone: nullToUndefined(vintageStringSchema),
   color: emptyStringToUndefined(z.string().min(1).max(40)).optional(),
   appellation: emptyStringToUndefined(z.string().min(1).max(120)).optional(),
   grapes: emptyStringToUndefined(z.string().max(160)).optional(),
-  abv: z.number().optional(),
+  abv: z.preprocess((val) => {
+    if (val === null || val === undefined) return undefined;
+    if (typeof val === "string") return parseFloat(val);
+    return val;
+  }, z.number().optional()),
   format: emptyStringToUndefined(z.string().max(40)).optional(),
   servingTemp: emptyStringToUndefined(z.string().max(40)).optional(),
   lotNumber: emptyStringToUndefined(z.string().max(60)).optional(),
   carafing: emptyStringToUndefined(z.string().max(80)).optional(),
-  requiresAeration: z.boolean().optional(),
+  requiresAeration: nullToUndefined(z.boolean()),
   // Sparkling-specific
-  house: z.string().min(1).max(120).optional(),
+  house: nullToUndefined(z.string().min(1).max(120)),
   style: emptyStringToUndefined(z.string().min(1).max(60)).optional(),
   dosage: emptyStringToUndefined(z.string().max(60)).optional(),
   disgorgement: emptyStringToUndefined(z.string().max(60)).optional(),
   pressure: emptyStringToUndefined(z.string().max(60)).optional(),
   baseWine: emptyStringToUndefined(z.string().max(120)).optional(),
   bottlingDate: emptyStringToUndefined(z.string().max(60)).optional(),
-  baseYear: z.number().int().min(1900).max(maxVintageYear).optional(),
+  baseYear: nullToUndefined(z.number().int().min(1900).max(maxVintageYear)),
   // Spirit-specific
-  distillery: z.string().min(1).max(120).optional(),
-  nameEdition: z.string().min(1).max(160).optional(),
+  distillery: nullToUndefined(z.string().min(1).max(120)),
+  nameEdition: nullToUndefined(z.string().min(1).max(160)),
   ageStatement: emptyStringToUndefined(z.string().max(40)).optional(),
   caskType: emptyStringToUndefined(z.string().max(120)).optional(),
   batch: emptyStringToUndefined(z.string().max(60)).optional(),
@@ -173,15 +181,15 @@ export const updateBottleSchema = z.object({
   angelShare: emptyStringToUndefined(z.string().max(120)).optional(),
   aromaProfile: emptyStringToUndefined(z.string().max(200)).optional(),
   // Cigar-specific
-  brand: z.string().min(1).max(120).optional(),
-  quantity: z.number().int().min(1).max(200).optional(),
+  brand: nullToUndefined(z.string().min(1).max(120)),
+  quantity: nullToUndefined(z.number().int().min(1).max(200)),
   wrapper: emptyStringToUndefined(z.string().max(80)).optional(),
   binder: emptyStringToUndefined(z.string().max(80)).optional(),
   filler: emptyStringToUndefined(z.string().max(80)).optional(),
   factoryCode: emptyStringToUndefined(z.string().max(60)).optional(),
   targetHumidity: emptyStringToUndefined(z.string().max(40)).optional(),
   humidifier: emptyStringToUndefined(z.string().max(60)).optional(),
-  manufactureYear: z.number().int().min(1900).max(2100).optional()
+  manufactureYear: nullToUndefined(z.number().int().min(1900).max(2100))
 });
 
 export type UpdateBottleInput = z.infer<typeof updateBottleSchema>;
