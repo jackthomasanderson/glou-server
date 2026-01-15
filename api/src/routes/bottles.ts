@@ -124,7 +124,7 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
    * PUT /bottles/:bottleId
    * Update a bottle
    */
-  router.put("/:bottleId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  const updateHandler = async (req: AuthenticatedRequest, res: Response) => {
     try {
       const userId = req.userId;
       if (!userId) {
@@ -151,7 +151,10 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
       const error = createErrorResponse("UPDATE_FAILED", 500);
       return res.status(error.statusCode).json(error.error);
     }
-  });
+  };
+
+  router.put("/:bottleId", authMiddleware(sessionService), updateHandler);
+  router.patch("/:bottleId", authMiddleware(sessionService), updateHandler);
 
   /**
    * DELETE /bottles/:bottleId

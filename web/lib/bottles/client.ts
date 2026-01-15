@@ -110,7 +110,7 @@ export const bottlesClient = {
   async update(bottleId: string, input: Partial<BottleInput>): Promise<BottleRecord> {
     try {
       const res = await fetch(`${API_BASE}/${bottleId}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(input),

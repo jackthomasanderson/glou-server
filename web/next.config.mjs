@@ -2,7 +2,9 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  srcDir: "web",
+  experimental: {
+    serverComponentsExternalPackages: ['pg'],
+  },
   rewrites: async () => {
     // Proxy unknown API calls to external backend, but allow Next's built-in
     // app/api routes to take precedence by applying this rewrite after files.

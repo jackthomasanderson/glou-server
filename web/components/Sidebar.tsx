@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "../lib/i18n/I18nProvider";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useCellars } from "../lib/cellars/store";
 import { bottlesClient } from "../lib/bottles/client";
 import { cigarsClient } from "../lib/cigars/client";
-import { cellarsClient } from "../lib/cellars/client";
 import { fetchAppSettings } from "../lib/profile/client";
 import { DashboardIcon, BottlesIcon, CellarsIcon, CigarsIcon } from "./Icon";
 
@@ -34,11 +34,7 @@ export default function Sidebar() {
     staleTime: 30_000,
   });
 
-  const { data: cellars = [] } = useQuery({
-    queryKey: ["cellars"],
-    queryFn: () => cellarsClient.getCellars(),
-    staleTime: 60_000,
-  });
+  const { data: cellars = [] } = useCellars();
 
   const bottlesCount = Array.isArray(bottles) ? bottles.length : 0;
   const cigarsCount = Array.isArray(cigars) ? cigars.length : 0;

@@ -7,6 +7,69 @@ import { logger } from "../utils/logger.js";
  * Bottle management service
  */
 export class BottleService {
+  static readonly BOTTLE_SELECT = `
+    id,
+    user_id as "userId",
+    cellar_id as "cellarId",
+    category,
+    label,
+    producer_name as "producer",
+    house_name as "house",
+    distillery_name as "distillery",
+    brand_name as "brand",
+    name_edition as "name",
+    name_edition as "nameEdition",
+    vintage_or_none as "vintageOrNone",
+    abv,
+    is_opened as "isOpened",
+    fill_level as "fillLevel",
+    color,
+    appellation,
+    grapes,
+    format,
+    serving_temp as "servingTemp",
+    wine_lot_number as "lotNumber",
+    carafing,
+    requires_aeration as "requiresAeration",
+    style,
+    dosage,
+    disgorgement,
+    pressure,
+    base_wine as "baseWine",
+    bottling_date as "bottlingDate",
+    base_year as "baseYear",
+    age_statement as "ageStatement",
+    cask_type as "caskType",
+    batch,
+    additive_note as "additiveNote",
+    angel_share as "angelShare",
+    aroma_profile as "aromaProfile",
+    format_box as "formatBox",
+    cigar_format as "cigarFormat",
+    quantity_in_box as "quantity",
+    manufacture_year as "manufactureYear",
+    seal_state as "sealState",
+    leaf_origin as "wrapper",
+    binder,
+    filler,
+    factory_code as "factoryCode",
+    target_humidity as "targetHumidity",
+    humidification_system as "humidifier",
+    location,
+    collection,
+    photo_url as "photoUrl",
+    estimated_value as "estimatedValue",
+    peak_maturity_from as "peakMaturityFrom",
+    peak_maturity_to as "peakMaturityTo",
+    alert_status as "alertStatus",
+    tasting_note as "tastingNote",
+    purchase_place as "purchasePlace",
+    purchase_price as "purchasePrice",
+    tags,
+    created_at as "createdAt",
+    updated_at as "updatedAt"
+  `;
+
   constructor(private db: DatabaseService) { }
 
   /**
@@ -14,67 +77,10 @@ export class BottleService {
    */
   async getBottlesBycellarId(cellarId: string, userId: string): Promise<Bottle[]> {
     const query = `
-      SELECT
-        b.id,
-        b.user_id as "userId",
-        b.cellar_id as "cellarId",
-        b.category,
-        b.label,
-        b.producer_name as "producer",
-        b.house_name as "house",
-        b.distillery_name as "distillery",
-        b.brand_name as "brand",
-        b.name_edition as "name",
-        b.vintage_or_none as "vintageOrNone",
-        b.abv,
-        b.is_opened as "isOpened",
-        b.fill_level as "fillLevel",
-        b.color,
-        b.appellation,
-        b.grapes,
-        b.format,
-        b.serving_temp as "servingTemp",
-        b.wine_lot_number as "lotNumber",
-        b.carafing,
-        b.requires_aeration as "requiresAeration",
-        b.style,
-        b.dosage,
-        b.disgorgement,
-        b.pressure,
-        b.base_wine as "baseWine",
-        b.bottling_date as "bottlingDate",
-        b.base_year as "baseYear",
-        b.age_statement as "ageStatement",
-        b.cask_type as "caskType",
-        b.batch,
-        b.additive_note as "additiveNote",
-        b.angel_share as "angelShare",
-        b.aroma_profile as "aromaProfile",
-        b.format_box as "formatBox",
-        b.cigar_format as "cigarFormat",
-        b.quantity_in_box as "quantity",
-        b.manufacture_year as "manufactureYear",
-        b.seal_state as "sealState",
-        b.leaf_origin as "wrapper",
-        b.factory_code as "factoryCode",
-        b.target_humidity as "targetHumidity",
-        b.humidification_system as "humidifier",
-        b.location,
-        b.collection,
-        b.photo_url as "photoUrl",
-        b.estimated_value as "estimatedValue",
-        b.peak_maturity_from as "peakMaturityFrom",
-        b.peak_maturity_to as "peakMaturityTo",
-        b.alert_status as "alertStatus",
-        b.tasting_note as "tastingNote",
-        b.purchase_place as "purchasePlace",
-        b.purchase_price as "purchasePrice",
-        b.tags,
-        b.created_at as "createdAt",
-        b.updated_at as "updatedAt"
-      FROM bottles b
-      WHERE b.cellar_id = $1 AND b.user_id = $2
-      ORDER BY b.created_at DESC
+      SELECT ${BottleService.BOTTLE_SELECT}
+      FROM bottles
+      WHERE cellar_id = $1 AND user_id = $2
+      ORDER BY created_at DESC
     `;
 
     try {
@@ -91,67 +97,10 @@ export class BottleService {
    */
   async getBottlesByUserId(userId: string): Promise<Bottle[]> {
     const query = `
-      SELECT
-        b.id,
-        b.user_id as "userId",
-        b.cellar_id as "cellarId",
-        b.category,
-        b.label,
-        b.producer_name as "producer",
-        b.house_name as "house",
-        b.distillery_name as "distillery",
-        b.brand_name as "brand",
-        b.name_edition as "name",
-        b.vintage_or_none as "vintageOrNone",
-        b.abv,
-        b.is_opened as "isOpened",
-        b.fill_level as "fillLevel",
-        b.color,
-        b.appellation,
-        b.grapes,
-        b.format,
-        b.serving_temp as "servingTemp",
-        b.wine_lot_number as "lotNumber",
-        b.carafing,
-        b.requires_aeration as "requiresAeration",
-        b.style,
-        b.dosage,
-        b.disgorgement,
-        b.pressure,
-        b.base_wine as "baseWine",
-        b.bottling_date as "bottlingDate",
-        b.base_year as "baseYear",
-        b.age_statement as "ageStatement",
-        b.cask_type as "caskType",
-        b.batch,
-        b.additive_note as "additiveNote",
-        b.angel_share as "angelShare",
-        b.aroma_profile as "aromaProfile",
-        b.format_box as "formatBox",
-        b.cigar_format as "cigarFormat",
-        b.quantity_in_box as "quantity",
-        b.manufacture_year as "manufactureYear",
-        b.seal_state as "sealState",
-        b.leaf_origin as "wrapper",
-        b.factory_code as "factoryCode",
-        b.target_humidity as "targetHumidity",
-        b.humidification_system as "humidifier",
-        b.location,
-        b.collection,
-        b.photo_url as "photoUrl",
-        b.estimated_value as "estimatedValue",
-        b.peak_maturity_from as "peakMaturityFrom",
-        b.peak_maturity_to as "peakMaturityTo",
-        b.alert_status as "alertStatus",
-        b.tasting_note as "tastingNote",
-        b.purchase_place as "purchasePlace",
-        b.purchase_price as "purchasePrice",
-        b.tags,
-        b.created_at as "createdAt",
-        b.updated_at as "updatedAt"
-      FROM bottles b
-      WHERE b.user_id = $1
-      ORDER BY b.created_at DESC
+      SELECT ${BottleService.BOTTLE_SELECT}
+      FROM bottles
+      WHERE user_id = $1
+      ORDER BY created_at DESC
     `;
 
     try {
@@ -168,66 +117,9 @@ export class BottleService {
    */
   async getBottleById(bottleId: string, userId: string): Promise<Bottle | null> {
     const query = `
-      SELECT
-        b.id,
-        b.user_id as "userId",
-        b.cellar_id as "cellarId",
-        b.category,
-        b.label,
-        b.producer_name as "producer",
-        b.house_name as "house",
-        b.distillery_name as "distillery",
-        b.brand_name as "brand",
-        b.name_edition as "name",
-        b.vintage_or_none as "vintageOrNone",
-        b.abv,
-        b.is_opened as "isOpened",
-        b.fill_level as "fillLevel",
-        b.color,
-        b.appellation,
-        b.grapes,
-        b.format,
-        b.serving_temp as "servingTemp",
-        b.wine_lot_number as "lotNumber",
-        b.carafing,
-        b.requires_aeration as "requiresAeration",
-        b.style,
-        b.dosage,
-        b.disgorgement,
-        b.pressure,
-        b.base_wine as "baseWine",
-        b.bottling_date as "bottlingDate",
-        b.base_year as "baseYear",
-        b.age_statement as "ageStatement",
-        b.cask_type as "caskType",
-        b.batch,
-        b.additive_note as "additiveNote",
-        b.angel_share as "angelShare",
-        b.aroma_profile as "aromaProfile",
-        b.format_box as "formatBox",
-        b.cigar_format as "cigarFormat",
-        b.quantity_in_box as "quantity",
-        b.manufacture_year as "manufactureYear",
-        b.seal_state as "sealState",
-        b.leaf_origin as "wrapper",
-        b.factory_code as "factoryCode",
-        b.target_humidity as "targetHumidity",
-        b.humidification_system as "humidifier",
-        b.location,
-        b.collection,
-        b.photo_url as "photoUrl",
-        b.estimated_value as "estimatedValue",
-        b.peak_maturity_from as "peakMaturityFrom",
-        b.peak_maturity_to as "peakMaturityTo",
-        b.alert_status as "alertStatus",
-        b.tasting_note as "tastingNote",
-        b.purchase_place as "purchasePlace",
-        b.purchase_price as "purchasePrice",
-        b.tags,
-        b.created_at as "createdAt",
-        b.updated_at as "updatedAt"
-      FROM bottles b
-      WHERE b.id = $1 AND b.user_id = $2
+      SELECT ${BottleService.BOTTLE_SELECT}
+      FROM bottles
+      WHERE id = $1 AND user_id = $2
     `;
 
     try {
@@ -255,7 +147,7 @@ export class BottleService {
         color, appellation, grapes, format, serving_temp, wine_lot_number, carafing, requires_aeration,
         style, dosage, disgorgement, pressure, base_wine, bottling_date, base_year,
         age_statement, cask_type, batch, additive_note, angel_share, aroma_profile,
-        format_box, cigar_format, quantity_in_box, manufacture_year, seal_state, leaf_origin, factory_code, target_humidity, humidification_system,
+        format_box, cigar_format, quantity_in_box, manufacture_year, seal_state, leaf_origin, binder, filler, factory_code, target_humidity, humidification_system,
         location, collection, photo_url, estimated_value, peak_maturity_from, peak_maturity_to,
         alert_status, tasting_note, purchase_place, purchase_price, tags,
         created_at, updated_at
@@ -267,12 +159,12 @@ export class BottleService {
         $15, $16, $17, $18, $19, $20, $21, $22,
         $23, $24, $25, $26, $27, $28, $29,
         $30, $31, $32, $33, $34, $35,
-        $36, $37, $38, $39, $40, $41, $42, $43, $44,
-        $45, $46, $47, $48, $49, $50,
-        $51, $52, $53, $54, $55,
-        $56, $57
+        $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46,
+        $47, $48, $49, $50, $51, $52,
+        $53, $54, $55, $56, $57,
+        $58, $59
       )
-      RETURNING *
+      RETURNING ${BottleService.BOTTLE_SELECT}
     `;
 
     const peakMaturity = (input as any).peakMaturity || {};
@@ -315,6 +207,8 @@ export class BottleService {
       (input as any).manufactureYear || null,
       (input as any).sealState || null,
       (input as any).wrapper || null,
+      (input as any).binder || null,
+      (input as any).filler || null,
       (input as any).factoryCode || null,
       (input as any).targetHumidity || null,
       (input as any).humidifier || null,
@@ -395,22 +289,24 @@ export class BottleService {
         manufacture_year = $36,
         seal_state = $37,
         leaf_origin = $38,
-        factory_code = $39,
-        target_humidity = $40,
-        humidification_system = $41,
-        location = $42,
-        collection = $43,
-        photo_url = $44,
-        estimated_value = $45,
-        peak_maturity_from = $46,
-        peak_maturity_to = $47,
-        alert_status = $48,
-        tasting_note = $49,
-        purchase_place = $50,
-        purchase_price = $51,
-        tags = $52
-      WHERE id = $53 AND user_id = $54
-      RETURNING *
+        binder = $39,
+        filler = $40,
+        factory_code = $41,
+        target_humidity = $42,
+        humidification_system = $43,
+        location = $44,
+        collection = $45,
+        photo_url = $46,
+        estimated_value = $47,
+        peak_maturity_from = $48,
+        peak_maturity_to = $49,
+        alert_status = $50,
+        tasting_note = $51,
+        purchase_place = $52,
+        purchase_price = $53,
+        tags = $54
+      WHERE id = $55 AND user_id = $56
+      RETURNING ${BottleService.BOTTLE_SELECT}
     `;
 
     const values = [
@@ -452,6 +348,8 @@ export class BottleService {
       (merged as any).manufactureYear || null,
       (merged as any).sealState || null,
       (merged as any).wrapper || null,
+      (merged as any).binder || null,
+      (merged as any).filler || null,
       (merged as any).factoryCode || null,
       (merged as any).targetHumidity || null,
       (merged as any).humidifier || null,

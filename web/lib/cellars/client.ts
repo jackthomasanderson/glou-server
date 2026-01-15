@@ -7,12 +7,13 @@ export const cellarsClient = {
    * Get all cellars for the authenticated user
    */
   async getCellars(): Promise<CellarWithStats[]> {
-    const response = await fetch(`${API_BASE}/cellars`, {
+    const response = await fetch(`${API_BASE}/cellars?t=${Date.now()}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
       credentials: "include",
+      cache: "no-store",
     });
 
     if (!response.ok) {

@@ -69,7 +69,8 @@ export function useCreateCellar() {
     onSuccess: (created, _variables, context) => {
       queryClient.setQueryData<CellarWithStats[]>(CELLARS_QUERY_KEY, (current = []) => {
         const withoutTemp = context?.tempId ? current.filter((cellar) => cellar.id !== context.tempId) : current;
-        return [created, ...withoutTemp];
+        const newCellar: CellarWithStats = { ...created, bottleCount: 0 };
+        return [newCellar, ...withoutTemp];
       });
       queryClient.setQueryData<CellarWithStats>([...CELLARS_QUERY_KEY, created.id], created);
     },

@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { createBottle, deleteBottle, fetchBottles, updateBottle } from "../lib/bottles/client";
-import { cellarsClient } from "../lib/cellars/client";
+import { useCellars } from "../lib/cellars/store";
 import {
   type BottleInput,
   type BottleRecord
@@ -30,10 +30,7 @@ export function BottleDashboard() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackAction, setFeedbackAction] = useState<(() => void) | null>(null);
 
-  const { data: cellars = [] } = useQuery({
-    queryKey: ["cellars"],
-    queryFn: () => cellarsClient.getCellars(),
-  });
+  const { data: cellars = [] } = useCellars();
 
   const showToast = (message: string, action?: () => void) => {
     setTimeout(() => setFeedback(message), 0);

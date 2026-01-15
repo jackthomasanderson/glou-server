@@ -1,1 +1,18 @@
-// next.config.mjs at project root\n/** @type {import('next').NextConfig} */\nconst nextConfig = {\n  reactStrictMode: true,\n  swcMinify: true,\n  srcDir: "web", // use the 'web' folder as source\n  rewrites: async () => {\n    return {\n      afterFiles: [\n        {\n          source: '/api/:path*',\n          destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/:path*`,\n        },\n      ],\n    };\n  },\n};\n\nexport default nextConfig;\n
+// next.config.mjs at project root
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+    reactStrictMode: true,
+    swcMinify: true,
+    rewrites: async () => {
+        return {
+            afterFiles: [
+                {
+                    source: '/api/:path*',
+                    destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/:path*`,
+                },
+            ],
+        };
+    },
+};
+
+export default nextConfig;

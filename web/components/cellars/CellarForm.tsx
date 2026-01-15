@@ -31,6 +31,47 @@ export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
     shelfCount: existingCellar?.shelfCount || "",
   });
 
+  // Force legacy types to "aging" or "other" if they don't match our new list
+  // This handles cellars created with the old schema
+  React.useEffect(() => {
+
+    if (existingCellar && existingCellar.cellarType && !cellarTypes.includes(existingCellar.cellarType as CellarType)) {
+
+      const mapLegacyObj: Record<string, CellarType> = {
+        'cellar': 'aging',
+        'types.cellar': 'aging', // Handle potential double translation key issue
+        'cellars.types.cellar': 'aging',
+        'showcase': 'service',
+        'climate_cabinet': 'multizone',
+        'rack': 'natural'
+      };
+
+      // Try exact match or partial match
+      let newType: CellarType = 'other';
+      const currentType = existingCellar.cellarType;
+
+      if (mapLegacyObj[currentType]) {
+        newType = mapLegacyObj[currentType];
+      } else if (currentType.includes('cellar')) {
+        newType = 'aging';
+      }
+
+
+      setFormData(prev => ({
+        ...prev,
+        cellarType: newType,
+        bottleCapacity: newType === 'cigar' ? "" : prev.bottleCapacity
+      }));
+    }
+  }, [existingCellar]);
+
+
+  React.useEffect(() => {
+    if (formData.cellarType === "cigar") {
+      setFormData(prev => ({ ...prev, bottleCapacity: "" }));
+    }
+  }, [formData.cellarType]);
+
   const isEditing = !!existingCellar;
 
   const handleChange = (
@@ -79,7 +120,7 @@ export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
           locationDescription: formData.locationDescription || null,
           placement: formData.placement || null,
           modelName: formData.modelName || null,
-          bottleCapacity: formData.bottleCapacity ? Number(formData.bottleCapacity) : null,
+          bottleCapacity: formData.bottleCapacity ? Number(formData.bottleCapacity) : undefined,
           shelfCount: formData.shelfCount ? Number(formData.shelfCount) : null,
         });
       }

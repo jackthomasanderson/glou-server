@@ -157,7 +157,7 @@ export class CellarService {
       logger.info("Cellar created");
       return result.rows[0] as Cellar;
     } catch (err) {
-      logger.error("Failed to create cellar");
+      logger.error(err, "Failed to create cellar");
       throw err;
     }
   }
