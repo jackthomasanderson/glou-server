@@ -2,30 +2,28 @@ import crypto from "crypto";
 import { hashPassword as bcryptHash, verifyPassword as bcryptVerify, isLegacyHash, verifyLegacyPassword } from "../lib/bcrypt.js";
 
 /**
- * Cryptographic utilities
- * UPDATED: Now uses bcrypt for password hashing (industry standard)
+ * Cryptographic utilities for password hashing and TOTP
+ * Password hashing now uses bcrypt via lib/bcrypt.ts
  */
 export class CryptoService {
   /**
    * Hash a password using bcrypt
-   * @deprecated Use hashPassword from lib/bcrypt.ts directly
    */
   static async hashPassword(password: string): Promise<string> {
     return bcryptHash(password);
   }
 
   /**
-   * Verify a password
-   * Supports both new bcrypt hashes and legacy PBKDF2 hashes for migration
+   * Verify a password against a hash
+   * Supports both bcrypt and legacy PBKDF2 hashes
    */
   static async verifyPassword(password: string, hash: string): Promise<boolean> {
-    // Check if this is a legacy PBKDF2 hash
+    // Check if it's a legacy hash
     if (isLegacyHash(hash)) {
-      // Verify using legacy method
       return verifyLegacyPassword(password, hash);
     }
 
-    // Use bcrypt for new hashes
+    // Use bcrypt verification
     return bcryptVerify(password, hash);
   }
 
