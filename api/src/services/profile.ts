@@ -1,6 +1,7 @@
-import { DatabaseService } from "./database.js";
+import { ProfileRepository } from "../repositories/profile.repository.js";
 import { logger } from "../utils/logger.js";
 import type { AppSettings, Profile, UpdateAppSettingsInput, UpdateProfileInput, UserRole, UpdateUserInput } from "../schemas/profile.js";
+import { Prisma } from "@prisma/client";
 
 export type UserSummary = {
   id: string;
@@ -12,32 +13,34 @@ export type UserSummary = {
 };
 
 export class ProfileService {
-  constructor(private db: DatabaseService) { }
+  private repo: ProfileRepository;
+
+  constructor() {
+    this.repo = new ProfileRepository();
+  }
 
   async getProfileByUserId(userId: string): Promise<Profile | null> {
-    const query = `
-      SELECT
-        id,
-        username,
-        email,
-        role,
-        display_name as "displayName",
-        avatar_url as "avatarUrl",
-        tagline,
-        preferred_locale as "preferredLocale",
-        date_time_format as "dateTimeFormat",
-        temperature_unit as "temperatureUnit",
-        theme_mode as "themeMode",
-        accent_color as "accentColor",
-        notification_settings as "notificationSettings",
-        ai_api_key as "aiApiKey"
-      FROM users
-      WHERE id = $1
-    `;
-
     try {
-      const result = await this.db.query(query, [userId]);
-      return (result.rows[0] as Profile) || null;
+      const user = await this.repo.getProfileByUserId(userId);
+      if (!user) return null;
+
+      // Map to Profile type (Prisma result -> Profile schema)
+      return {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role as UserRole,
+        displayName: user.display_name,
+        avatarUrl: user.avatar_url,
+        tagline: user.tagline,
+        preferredLocale: user.preferred_locale,
+        dateTimeFormat: user.date_time_format,
+        temperatureUnit: user.temperature_unit,
+        themeMode: user.theme_mode,
+        accentColor: user.accent_color,
+        notificationSettings: user.notification_settings ? JSON.parse(JSON.stringify(user.notification_settings)) : undefined,
+        aiApiKey: user.ai_api_key,
+      } as Profile;
     } catch (error) {
       logger.error({ error, userId }, "Failed to get profile");
       throw new Error("Failed to get profile");
@@ -45,58 +48,41 @@ export class ProfileService {
   }
 
   async updateProfile(userId: string, input: UpdateProfileInput): Promise<Profile> {
-    const fields: { column: string; key: keyof UpdateProfileInput }[] = [
-      { column: "display_name", key: "displayName" },
-      { column: "avatar_url", key: "avatarUrl" },
-      { column: "tagline", key: "tagline" },
-      { column: "preferred_locale", key: "preferredLocale" },
-      { column: "date_time_format", key: "dateTimeFormat" },
-      { column: "temperature_unit", key: "temperatureUnit" },
-      { column: "theme_mode", key: "themeMode" },
-      { column: "accent_color", key: "accentColor" },
-      { column: "notification_settings", key: "notificationSettings" },
-      { column: "ai_api_key", key: "aiApiKey" },
-    ];
-
-    const setParts: string[] = [];
-    const params: unknown[] = [];
-
-    for (const field of fields) {
-      if (typeof input[field.key] === "undefined") continue;
-      params.push(field.key === "notificationSettings" ? JSON.stringify(input[field.key]) : (input as any)[field.key]);
-      setParts.push(`${field.column} = $${params.length}`);
-    }
-
-    params.push(userId);
-
-    const query = `
-      UPDATE users
-      SET ${setParts.length ? setParts.join(", ") + "," : ""} updated_at = NOW()
-      WHERE id = $${params.length}
-      RETURNING
-        id,
-        username,
-        email,
-        role,
-        display_name as "displayName",
-        avatar_url as "avatarUrl",
-        tagline,
-        preferred_locale as "preferredLocale",
-        date_time_format as "dateTimeFormat",
-        temperature_unit as "temperatureUnit",
-        theme_mode as "themeMode",
-        accent_color as "accentColor",
-        notification_settings as "notificationSettings",
-        ai_api_key as "aiApiKey"
-    `;
-
     try {
-      const result = await this.db.query(query, params);
-      const profile = result.rows[0] as Profile | undefined;
-      if (!profile) {
-        throw new Error("Profile not found");
-      }
-      return profile;
+      // Map input to Prisma update data
+      const data: Prisma.usersUpdateInput = {
+        updated_at: new Date(),
+      };
+
+      if (input.displayName !== undefined) data.display_name = input.displayName;
+      if (input.avatarUrl !== undefined) data.avatar_url = input.avatarUrl;
+      if (input.tagline !== undefined) data.tagline = input.tagline;
+      if (input.preferredLocale !== undefined) data.preferred_locale = input.preferredLocale;
+      if (input.dateTimeFormat !== undefined) data.date_time_format = input.dateTimeFormat;
+      if (input.temperatureUnit !== undefined) data.temperature_unit = input.temperatureUnit;
+      if (input.themeMode !== undefined) data.theme_mode = input.themeMode;
+      if (input.accentColor !== undefined) data.accent_color = input.accentColor;
+      if (input.notificationSettings !== undefined) data.notification_settings = input.notificationSettings;
+      if (input.aiApiKey !== undefined) data.ai_api_key = input.aiApiKey;
+
+      const updatedUser = await this.repo.updateProfile(userId, data);
+
+      return {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+        role: updatedUser.role as UserRole,
+        displayName: updatedUser.display_name,
+        avatarUrl: updatedUser.avatar_url,
+        tagline: updatedUser.tagline,
+        preferredLocale: updatedUser.preferred_locale,
+        dateTimeFormat: updatedUser.date_time_format,
+        temperatureUnit: updatedUser.temperature_unit,
+        themeMode: updatedUser.theme_mode,
+        accentColor: updatedUser.accent_color,
+        notificationSettings: updatedUser.notification_settings,
+        aiApiKey: updatedUser.ai_api_key,
+      } as Profile;
     } catch (error) {
       logger.error({ error, userId, input }, "Failed to update profile");
       throw new Error("Failed to update profile");
@@ -104,21 +90,16 @@ export class ProfileService {
   }
 
   async listUsers(): Promise<UserSummary[]> {
-    const query = `
-      SELECT
-        id,
-        username,
-        email,
-        role,
-        display_name as "displayName",
-        created_at as "createdAt"
-      FROM users
-      ORDER BY created_at ASC
-    `;
-
     try {
-      const result = await this.db.query(query, []);
-      return result.rows as UserSummary[];
+      const users = await this.repo.listUsers();
+      return users.map(u => ({
+        id: u.id!,
+        username: u.username!,
+        email: u.email!,
+        role: u.role as UserRole,
+        displayName: u.display_name!,
+        createdAt: u.created_at!,
+      }));
     } catch (error) {
       logger.error({ error }, "Failed to list users");
       throw new Error("Failed to list users");
@@ -126,14 +107,8 @@ export class ProfileService {
   }
 
   async updateUserRole(userId: string, role: UserRole): Promise<void> {
-    const query = `
-      UPDATE users
-      SET role = $1, updated_at = NOW()
-      WHERE id = $2
-    `;
-
     try {
-      await this.db.query(query, [role, userId]);
+      await this.repo.updateUserRole(userId, role);
     } catch (error) {
       logger.error({ error, userId, role }, "Failed to update user role");
       throw new Error("Failed to update user role");
@@ -141,33 +116,15 @@ export class ProfileService {
   }
 
   async updateUser(userId: string, input: UpdateUserInput): Promise<void> {
-    const fields: { column: string; key: keyof UpdateUserInput }[] = [
-      { column: "role", key: "role" },
-      { column: "display_name", key: "displayName" },
-      { column: "email", key: "email" },
-      { column: "username", key: "username" },
-    ];
-
-    const setParts: string[] = [];
-    const params: unknown[] = [];
-
-    for (const field of fields) {
-      if (typeof input[field.key] === "undefined") continue;
-      params.push((input as any)[field.key]);
-      setParts.push(`${field.column} = $${params.length}`);
-    }
-
-    if (setParts.length === 0) return;
-
-    params.push(userId);
-    const query = `
-      UPDATE users
-      SET ${setParts.join(", ")}, updated_at = NOW()
-      WHERE id = $${params.length}
-    `;
-
     try {
-      await this.db.query(query, params);
+      const data: Prisma.usersUpdateInput = {};
+
+      if (input.role) data.role = input.role;
+      if (input.displayName !== undefined) data.display_name = input.displayName;
+      if (input.email) data.email = input.email;
+      if (input.username) data.username = input.username;
+
+      await this.repo.updateProfile(userId, data);
     } catch (error) {
       logger.error({ error, userId, input }, "Failed to update user");
       throw new Error("Failed to update user");
@@ -175,9 +132,8 @@ export class ProfileService {
   }
 
   async deleteUser(userId: string): Promise<void> {
-    const query = `DELETE FROM users WHERE id = $1`;
     try {
-      await this.db.query(query, [userId]);
+      await this.repo.deleteUser(userId);
     } catch (error) {
       logger.error({ error, userId }, "Failed to delete user");
       throw new Error("Failed to delete user");
@@ -186,38 +142,46 @@ export class ProfileService {
 }
 
 export class AppSettingsService {
-  constructor(private db: DatabaseService) { }
+  private repo: ProfileRepository;
+
+  constructor() {
+    this.repo = new ProfileRepository();
+  }
 
   async getAppSettings(): Promise<AppSettings & { aiApiKey: string | null }> {
-    const query = `
-      SELECT
-        app_name as "appName",
-        app_tagline as "appTagline",
-        logo_url as "logoUrl",
-        ai_api_key as "aiApiKey",
-        smtp_host as "smtpHost",
-        smtp_port as "smtpPort",
-        smtp_user as "smtpUser",
-        smtp_pass as "smtpPass",
-        smtp_from as "smtpFrom",
-        smtp_secure as "smtpSecure",
-        updated_at as "updatedAt"
-      FROM app_settings
-      WHERE id = TRUE
-    `;
-
     try {
-      const result = await this.db.query(query, []);
-      const row = result.rows[0] as (AppSettings & { aiApiKey: string | null }) | undefined;
-      if (row) return row;
+      let settings = await this.repo.getAppSettings();
 
-      // Shouldn't happen due to init, but keep it safe.
-      await this.db.query(
-        `INSERT INTO app_settings (id, app_name, app_tagline, logo_url, ai_api_key) VALUES (TRUE, NULL, NULL, NULL, NULL) ON CONFLICT (id) DO NOTHING`,
-        []
-      );
-      const again = await this.db.query(query, []);
-      return again.rows[0] as AppSettings & { aiApiKey: string | null };
+      if (!settings) {
+        // Fallback or init logic if needed, but for now returning defaults if missing
+        return {
+          appName: "Glou",
+          appTagline: "",
+          logoUrl: null,
+          aiApiKey: null,
+          smtpHost: null,
+          smtpPort: null,
+          smtpUser: null,
+          smtpPass: null,
+          smtpFrom: null,
+          smtpSecure: false,
+          updatedAt: new Date(),
+        };
+      }
+
+      return {
+        appName: settings.app_name,
+        appTagline: settings.app_tagline,
+        logoUrl: settings.logo_url,
+        aiApiKey: settings.ai_api_key,
+        smtpHost: settings.smtp_host,
+        smtpPort: settings.smtp_port,
+        smtpUser: settings.smtp_user,
+        smtpPass: settings.smtp_pass,
+        smtpFrom: settings.smtp_from,
+        smtpSecure: settings.smtp_secure,
+        updatedAt: settings.updated_at,
+      };
     } catch (error) {
       logger.error({ error }, "Failed to get app settings");
       throw new Error("Failed to get app settings");
@@ -225,9 +189,8 @@ export class AppSettingsService {
   }
 
   async setAiApiKey(aiApiKey: string | null): Promise<void> {
-    const query = `UPDATE app_settings SET ai_api_key = $1, updated_at = NOW() WHERE id = TRUE`;
     try {
-      await this.db.query(query, [aiApiKey]);
+      await this.repo.setAiApiKey(aiApiKey || "");
     } catch (error) {
       logger.error({ error, aiApiKey }, "Failed to set AI API key");
       throw new Error("Failed to set AI API key");
@@ -235,47 +198,35 @@ export class AppSettingsService {
   }
 
   async updateAppSettings(input: UpdateAppSettingsInput): Promise<AppSettings> {
-    const fields: { column: string; key: keyof UpdateAppSettingsInput }[] = [
-      { column: "app_name", key: "appName" },
-      { column: "app_tagline", key: "appTagline" },
-      { column: "logo_url", key: "logoUrl" },
-      { column: "smtp_host", key: "smtpHost" },
-      { column: "smtp_port", key: "smtpPort" },
-      { column: "smtp_user", key: "smtpUser" },
-      { column: "smtp_pass", key: "smtpPass" },
-      { column: "smtp_from", key: "smtpFrom" },
-      { column: "smtp_secure", key: "smtpSecure" },
-    ];
-
-    const setParts: string[] = [];
-    const params: unknown[] = [];
-
-    for (const field of fields) {
-      if (typeof input[field.key] === "undefined") continue;
-      params.push((input as any)[field.key]);
-      setParts.push(`${field.column} = $${params.length}`);
-    }
-
-    const query = `
-      UPDATE app_settings
-      SET ${setParts.length ? setParts.join(", ") + "," : ""} updated_at = NOW()
-      WHERE id = TRUE
-      RETURNING
-        app_name as "appName",
-        app_tagline as "appTagline",
-        logo_url as "logoUrl",
-        smtp_host as "smtpHost",
-        smtp_port as "smtpPort",
-        smtp_user as "smtpUser",
-        smtp_pass as "smtpPass",
-        smtp_from as "smtpFrom",
-        smtp_secure as "smtpSecure",
-        updated_at as "updatedAt"
-    `;
-
     try {
-      const result = await this.db.query(query, params);
-      return result.rows[0] as AppSettings;
+      const data: Prisma.app_settingsUpdateInput = {
+        updated_at: new Date(),
+      };
+
+      if (input.appName !== undefined) data.app_name = input.appName;
+      if (input.appTagline !== undefined) data.app_tagline = input.appTagline;
+      if (input.logoUrl !== undefined) data.logo_url = input.logoUrl;
+      if (input.smtpHost !== undefined) data.smtp_host = input.smtpHost;
+      if (input.smtpPort !== undefined) data.smtp_port = input.smtpPort;
+      if (input.smtpUser !== undefined) data.smtp_user = input.smtpUser;
+      if (input.smtpPass !== undefined) data.smtp_pass = input.smtpPass;
+      if (input.smtpFrom !== undefined) data.smtp_from = input.smtpFrom;
+      if (input.smtpSecure !== undefined) data.smtp_secure = input.smtpSecure;
+
+      const settings = await this.repo.updateAppSettings(data);
+
+      return {
+        appName: settings.app_name,
+        appTagline: settings.app_tagline,
+        logoUrl: settings.logo_url,
+        smtpHost: settings.smtp_host,
+        smtpPort: settings.smtp_port,
+        smtpUser: settings.smtp_user,
+        smtpPass: settings.smtp_pass,
+        smtpFrom: settings.smtp_from,
+        smtpSecure: settings.smtp_secure,
+        updatedAt: settings.updated_at,
+      };
     } catch (error) {
       logger.error({ error, input }, "Failed to update app settings");
       throw new Error("Failed to update app settings");

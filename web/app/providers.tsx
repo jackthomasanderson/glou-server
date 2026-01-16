@@ -7,17 +7,24 @@ import { AuthProvider } from "../lib/auth/AuthContext";
 import { type Locale } from "../lib/i18n/locales";
 import { UserPreferencesSync } from "../components/UserPreferencesSync";
 
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v14-appRouter";
+import { DynamicThemeProvider } from "../components/DynamicThemeProvider";
+
 export function Providers({ children, initialLocale }: { children: React.ReactNode; initialLocale: Locale }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 2 * 1000 } } }));
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <I18nProvider initialLocale={initialLocale}>
-        <AuthProvider>
-          <UserPreferencesSync />
-          {children}
-        </AuthProvider>
-      </I18nProvider>
-    </QueryClientProvider>
+    <AppRouterCacheProvider>
+      <QueryClientProvider client={queryClient}>
+        <I18nProvider initialLocale={initialLocale}>
+          <AuthProvider>
+            <UserPreferencesSync />
+            <DynamicThemeProvider>
+              {children}
+            </DynamicThemeProvider>
+          </AuthProvider>
+        </I18nProvider>
+      </QueryClientProvider>
+    </AppRouterCacheProvider>
   );
 }

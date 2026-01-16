@@ -4,6 +4,7 @@
  */
 
 import { BottleInput, BottleRecord } from "./schema";
+import { fetchWithAuth } from "../api/fetchWithAuth";
 
 const API_BASE = "/api/bottles";
 
@@ -21,21 +22,17 @@ class BottlesClientError extends Error {
 export const bottlesClient = {
   async list(): Promise<BottleRecord[]> {
     try {
-      // console.log("DEBUG: Fetching bottles from:", `${API_BASE}`);
-      const res = await fetch(`${API_BASE}`, {
+      const res = await fetchWithAuth(`${API_BASE}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
       });
 
       if (!res.ok) {
         const error = await res.json();
-        // console.error("DEBUG: List bottles failed:", error);
         throw new BottlesClientError("LIST_FAILED", res.status, error.error || "Failed to list bottles");
       }
 
       const data = await res.json();
-      // console.log("DEBUG: Bottles received:", data);
       return data as BottleRecord[];
     } catch (err) {
       if (err instanceof BottlesClientError) throw err;
@@ -45,10 +42,9 @@ export const bottlesClient = {
 
   async listByCellar(cellarId: string): Promise<BottleRecord[]> {
     try {
-      const res = await fetch(`${API_BASE}/cellar/${cellarId}`, {
+      const res = await fetchWithAuth(`${API_BASE}/cellar/${cellarId}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
       });
 
       if (!res.ok) {
@@ -65,10 +61,9 @@ export const bottlesClient = {
 
   async getById(bottleId: string): Promise<BottleRecord> {
     try {
-      const res = await fetch(`${API_BASE}/${bottleId}`, {
+      const res = await fetchWithAuth(`${API_BASE}/${bottleId}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
       });
 
       if (!res.ok) {
@@ -88,10 +83,9 @@ export const bottlesClient = {
 
   async create(input: BottleInput): Promise<BottleRecord> {
     try {
-      const res = await fetch(`${API_BASE}`, {
+      const res = await fetchWithAuth(`${API_BASE}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(input),
       });
 
@@ -113,10 +107,9 @@ export const bottlesClient = {
 
   async update(bottleId: string, input: Partial<BottleInput>): Promise<BottleRecord> {
     try {
-      const res = await fetch(`${API_BASE}/${bottleId}`, {
+      const res = await fetchWithAuth(`${API_BASE}/${bottleId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(input),
       });
 
@@ -141,10 +134,9 @@ export const bottlesClient = {
 
   async delete(bottleId: string): Promise<{ success: boolean; message: string }> {
     try {
-      const res = await fetch(`${API_BASE}/${bottleId}`, {
+      const res = await fetchWithAuth(`${API_BASE}/${bottleId}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
       });
 
       if (!res.ok) {

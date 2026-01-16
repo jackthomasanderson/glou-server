@@ -1,44 +1,47 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { fetchBottles } from "../lib/bottles/client";
 import { useTranslations } from "../lib/i18n/I18nProvider";
-import { PlusIcon } from "./Icon";
+import { fetchBottles } from "../lib/bottles/client";
+import {
+    Paper,
+    Box,
+    Typography,
+    Grid,
+    Button,
+    Menu,
+    MenuItem,
+    useTheme,
+    alpha,
+    Divider,
+} from "@mui/material";
+import {
+    Add as PlusIcon,
+    KeyboardArrowDown as ArrowDownIcon,
+    WineBar as WineIcon,
+    SmokingRooms as CigarIcon,
+    Inventory as InventoryIcon,
+    Euro as EuroIcon,
+    LocalFlorist as ReadyIcon,
+} from "@mui/icons-material";
 
 const queryKey = ["bottles"] as const;
 
 export function DashboardStats() {
     const { t } = useTranslations();
-    const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
+    const theme = useTheme();
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
     const { data: bottles = [] } = useQuery({ queryKey, queryFn: () => fetchBottles() });
 
-    useEffect(() => {
-        if (!isAddMenuOpen) return;
-        const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setIsAddMenuOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [isAddMenuOpen]);
-
     const activeBottles = Array.isArray(bottles) ? bottles : [];
-
-    // Calculate total bottles by summing quantity
     const totalBottles = activeBottles.reduce((acc, b) => acc + (b.quantity || 1), 0);
-
-    // Calculate total value (price * quantity)
     const totalValue = activeBottles.reduce((acc, b) => {
         const price = b.estimatedValue || b.purchasePrice || 0;
         return acc + (price * (b.quantity || 1));
     }, 0);
-
-    // Calculate 'to drink' count taking quantity into account
     const toDrink = activeBottles.reduce((acc, b) => {
         if (b.peakMaturity?.to && b.peakMaturity.to <= new Date().getFullYear()) {
             return acc + (b.quantity || 1);
@@ -46,65 +49,135 @@ export function DashboardStats() {
         return acc;
     }, 0);
 
+    const handleOpenMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleCloseMenu = () => {
+        setAnchorEl(null);
+    };
+
+    const StatBox = ({ label, value, icon: Icon, color }: { label: string, value: string | number, icon: any, color: string }) => (
+        <Box sx={{
+            p: 3,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1,
+            minWidth: 0
+        }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', mb: 0.5 }}>
+                <Icon sx={{ fontSize: 20, color }} />
+                <Typography variant="overline" sx={{ fontWeight: 700, letterSpacing: '0.05em' }}>
+                    {label}
+                </Typography>
+            </Box>
+            <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                {value}
+            </Typography>
+        </Box>
+    );
+
     return (
-        <section className="panel">
-            <header className="panel__header">
-                <div>
-                    <p className="eyebrow">{t("app.collection")}</p>
-                    <h2>{t("dashboard.overview")}</h2>
-                </div>
-                <div className="actions-inline" ref={menuRef}>
-                    <div className="user-menu">
-                        <button
-                            className="primary"
-                            onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
-                            aria-haspopup="true"
-                            aria-expanded={isAddMenuOpen}
-                            style={{ display: "flex", alignItems: "center", gap: "8px" }}
+        <Paper sx={{ mb: 4, borderRadius: 3, overflow: 'hidden' }}>
+            <Box sx={{
+                p: { xs: 2, md: 3 },
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: { xs: 'flex-start', md: 'center' },
+                flexDirection: { xs: 'column', md: 'row' },
+                gap: 2
+            }}>
+                <Box>
+                    <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                        {t("app.collection")}
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 700, fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
+                        {t("dashboard.overview")}
+                    </Typography>
+                </Box>
+
+                <Box sx={{ width: { xs: '100%', md: 'auto' } }}>
+                    <Button
+                        variant="contained"
+                        disableElevation
+                        onClick={handleOpenMenu}
+                        startIcon={<PlusIcon />}
+                        endIcon={<ArrowDownIcon />}
+                        sx={{ fontWeight: 700, borderRadius: 2 }}
+                        fullWidth
+                    >
+                        {t("actions.add")}
+                    </Button>
+                    <Menu
+                        anchorEl={anchorEl}
+                        open={Boolean(anchorEl)}
+                        onClose={handleCloseMenu}
+                        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                        PaperProps={{
+                            sx: {
+                                mt: 1,
+                                minWidth: 200,
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                            }
+                        }}
+                    >
+                        <MenuItem
+                            component={Link}
+                            href="/bottles?new=true&category=wine"
+                            onClick={handleCloseMenu}
+                            sx={{ gap: 2, py: 1.5 }}
                         >
-                            <PlusIcon />
-                            {t("actions.add")}
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M6 9l6 6 6-6" />
-                            </svg>
-                        </button>
-                        {isAddMenuOpen && (
-                            <div className="user-menu__dropdown" style={{ minWidth: "180px", right: 0 }}>
-                                <Link
-                                    href="/bottles?new=true&category=wine"
-                                    className="user-menu__item"
-                                    style={{ display: "flex", width: "100%", alignItems: "center", textDecoration: "none", color: "inherit" }}
-                                    onClick={() => setIsAddMenuOpen(false)}
-                                >
-                                    🍷 {t("categories.wine")} / {t("categories.spirit")}
-                                </Link>
-                                <Link
-                                    href="/bottles?new=true&category=cigar"
-                                    className="user-menu__item"
-                                    style={{ display: "flex", width: "100%", alignItems: "center", textDecoration: "none", color: "inherit" }}
-                                    onClick={() => setIsAddMenuOpen(false)}
-                                >
-                                    🚬 {t("categories.cigar")}
-                                </Link>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </header>
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <span className="stat-card__label">{t("stats.totalBottles")}</span>
-                    <span className="stat-card__value">{totalBottles}</span>
-                </div>
-                <div className="stat-card">
-                    <span className="stat-card__label">{t("stats.totalValue")}</span>
-                    <span className="stat-card__value">€{totalValue.toLocaleString()}</span>
-                </div>
-                <div className="stat-card">
-                    <span className="stat-card__label">{t("stats.toDrink")}</span>
-                    <span className="stat-card__value">{toDrink}</span>
-                </div>
-            </div>
-        </section>
+                            <WineIcon color="primary" />
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                {t("categories.wine")} / {t("categories.spirit")}
+                            </Typography>
+                        </MenuItem>
+                        <MenuItem
+                            component={Link}
+                            href="/bottles?new=true&category=cigar"
+                            onClick={handleCloseMenu}
+                            sx={{ gap: 2, py: 1.5 }}
+                        >
+                            <CigarIcon sx={{ color: '#78350f' }} />
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                {t("categories.cigar")}
+                            </Typography>
+                        </MenuItem>
+                    </Menu>
+                </Box>
+            </Box>
+
+            <Grid container>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                    <StatBox
+                        label={t("stats.totalBottles")}
+                        value={totalBottles}
+                        icon={InventoryIcon}
+                        color={theme.palette.primary.main}
+                    />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }} sx={{ borderLeft: { sm: '1px solid' }, borderColor: 'divider' }}>
+                    <StatBox
+                        label={t("stats.totalValue")}
+                        value={`€${totalValue.toLocaleString()}`}
+                        icon={EuroIcon}
+                        color="#059669"
+                    />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 4 }} sx={{ borderLeft: { sm: '1px solid' }, borderColor: 'divider' }}>
+                    <StatBox
+                        label={t("stats.toDrink")}
+                        value={toDrink}
+                        icon={ReadyIcon}
+                        color="#d97706"
+                    />
+                </Grid>
+            </Grid>
+        </Paper>
     );
 }

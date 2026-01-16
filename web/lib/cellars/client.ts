@@ -1,4 +1,5 @@
 import { Cellar, CellarWithStats, CreateCellarInput, UpdateCellarInput } from "@/types/cellars";
+import { fetchWithAuth } from "../api/fetchWithAuth";
 
 const API_BASE = "/api";
 
@@ -7,12 +8,11 @@ export const cellarsClient = {
    * Get all cellars for the authenticated user
    */
   async getCellars(): Promise<CellarWithStats[]> {
-    const response = await fetch(`${API_BASE}/cellars?t=${Date.now()}`, {
+    const response = await fetchWithAuth(`${API_BASE}/cellars?t=${Date.now()}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include",
       cache: "no-store",
     });
 
@@ -27,12 +27,11 @@ export const cellarsClient = {
    * Get a single cellar by ID
    */
   async getCellarById(cellarId: string): Promise<CellarWithStats> {
-    const response = await fetch(`${API_BASE}/cellars/${cellarId}`, {
+    const response = await fetchWithAuth(`${API_BASE}/cellars/${cellarId}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include",
     });
 
     if (!response.ok) {
@@ -49,13 +48,12 @@ export const cellarsClient = {
    * Create a new cellar
    */
   async createCellar(input: CreateCellarInput): Promise<Cellar> {
-    const response = await fetch(`${API_BASE}/cellars`, {
+    const response = await fetchWithAuth(`${API_BASE}/cellars`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(input),
-      credentials: "include",
     });
 
     if (!response.ok) {
@@ -69,13 +67,12 @@ export const cellarsClient = {
    * Update a cellar
    */
   async updateCellar(cellarId: string, input: UpdateCellarInput): Promise<Cellar> {
-    const response = await fetch(`${API_BASE}/cellars/${cellarId}`, {
+    const response = await fetchWithAuth(`${API_BASE}/cellars/${cellarId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(input),
-      credentials: "include",
     });
 
     if (!response.ok) {
@@ -92,12 +89,11 @@ export const cellarsClient = {
    * Delete a cellar
    */
   async deleteCellar(cellarId: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/cellars/${cellarId}`, {
+    const response = await fetchWithAuth(`${API_BASE}/cellars/${cellarId}`, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include",
     });
 
     if (!response.ok) {

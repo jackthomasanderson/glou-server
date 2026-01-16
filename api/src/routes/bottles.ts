@@ -1,9 +1,8 @@
-import { Router, Response } from "express";
+import { Router, Response, Request } from "express";
 import { ZodError } from "zod";
 import { BottleService } from "../services/bottles.js";
 import { createBottleSchema, updateBottleSchema } from "../schemas/bottles.js";
-import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
-import { SessionService } from "../services/auth.js";
+import { authenticateJWT } from "../middleware/jwt.middleware.js";
 import { logger } from "../utils/logger.js";
 import { BottlesErrorCode, ErrorCodeToI18nKey } from "../errors/bottlesErrors.js";
 
@@ -15,16 +14,16 @@ function createErrorResponse(code: BottlesErrorCode | string, statusCode: number
   return { statusCode, error: { code, i18nKey } };
 }
 
-export function createBottlesRouter(sessionService: SessionService, bottleService: BottleService): Router {
+export function createBottlesRouter(bottleService: BottleService): Router {
   const router = Router();
 
   /**
    * GET /bottles
    * List all bottles for the authenticated user
    */
-  router.get("/", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         const error = createErrorResponse(BottlesErrorCode.UNAUTHORIZED, 401);
         return res.status(error.statusCode).json(error.error);
@@ -45,9 +44,9 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
    * GET /bottles/cellar/:cellarId
    * List all bottles in a specific cellar
    */
-  router.get("/cellar/:cellarId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/cellar/:cellarId", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         const error = createErrorResponse(BottlesErrorCode.UNAUTHORIZED, 401);
         return res.status(error.statusCode).json(error.error);
@@ -68,9 +67,9 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
    * GET /bottles/:bottleId
    * Get a single bottle by ID
    */
-  router.get("/:bottleId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/:bottleId", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         const error = createErrorResponse(BottlesErrorCode.UNAUTHORIZED, 401);
         return res.status(error.statusCode).json(error.error);
@@ -97,9 +96,9 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
    * POST /bottles
    * Create a new bottle
    */
-  router.post("/", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.post("/", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         const error = createErrorResponse(BottlesErrorCode.UNAUTHORIZED, 401);
         return res.status(error.statusCode).json(error.error);
@@ -125,9 +124,9 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
    * PUT /bottles/:bottleId
    * Update a bottle
    */
-  const updateHandler = async (req: AuthenticatedRequest, res: Response) => {
+  const updateHandler = async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         const error = createErrorResponse(BottlesErrorCode.UNAUTHORIZED, 401);
         return res.status(error.statusCode).json(error.error);
@@ -157,16 +156,16 @@ export function createBottlesRouter(sessionService: SessionService, bottleServic
     }
   };
 
-  router.put("/:bottleId", authMiddleware(sessionService), updateHandler);
-  router.patch("/:bottleId", authMiddleware(sessionService), updateHandler);
+  router.put("/:bottleId", authenticateJWT, updateHandler);
+  router.patch("/:bottleId", authenticateJWT, updateHandler);
 
   /**
    * DELETE /bottles/:bottleId
    * Permanently delete a bottle
    */
-  router.delete("/:bottleId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.delete("/:bottleId", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         const error = createErrorResponse(BottlesErrorCode.UNAUTHORIZED, 401);
         return res.status(error.statusCode).json(error.error);

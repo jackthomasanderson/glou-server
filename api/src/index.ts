@@ -7,8 +7,8 @@ import { createProfileRouter } from "./routes/profile.js";
 import { createAdminRouter } from "./routes/admin.js";
 import { createCellarsRouter } from "./routes/cellars.js";
 import { createBottlesRouter } from "./routes/bottles.js";
-import { DatabaseService } from "./services/database.js";
-import { UserService, TwoFAService, SessionService, SecurityEventService } from "./services/auth.js";
+
+import { UserService, TwoFAService, SecurityEventService } from "./services/auth.js";
 import { ProfileService, AppSettingsService } from "./services/profile.js";
 import { CellarService } from "./services/cellars.js";
 import { BottleService } from "./services/bottles.js";
@@ -16,6 +16,9 @@ import { logger } from "./utils/logger.js";
 import { createConsumptionPlanRouter } from "./routes/consumptionPlan.js";
 import { createFoodPairingRouter } from "./routes/foodPairing.js";
 import { createImagesRouter } from "./routes/images.js";
+
+// Load environment variables
+dotenv.config();
 
 
 // Log any uncaught exceptions or unhandled promise rejections
@@ -37,27 +40,16 @@ dotenv.config();
 const app = express();
 const PORT = process.env.API_PORT || 3001;
 
-// Initialize database service with error logging
-let dbService: DatabaseService;
-try {
-  dbService = new DatabaseService();
-  logger.info("DatabaseService initialized successfully");
-} catch (err) {
-  logger.fatal({ err }, "Fatal error during DatabaseService initialization");
-  // eslint-disable-next-line no-console
-  console.error("Fatal error during DatabaseService initialization", err);
-  process.exit(1);
-}
+
 
 // Initialize services
-const userService = new UserService(dbService);
-const twoFAService = new TwoFAService(dbService);
-const sessionService = new SessionService(dbService);
-const securityEventService = new SecurityEventService(dbService);
-const profileService = new ProfileService(dbService);
-const appSettingsService = new AppSettingsService(dbService);
-const cellarService = new CellarService(dbService);
-const bottleService = new BottleService(dbService);
+const userService = new UserService();
+const twoFAService = new TwoFAService();
+const securityEventService = new SecurityEventService();
+const profileService = new ProfileService();
+const appSettingsService = new AppSettingsService();
+const cellarService = new CellarService();
+const bottleService = new BottleService();
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
@@ -83,33 +75,32 @@ app.get("/health", (req, res) => {
 // Routes
 app.use(
   "/api/auth",
-  createAuthRouter(userService, twoFAService, sessionService, securityEventService)
+  createAuthRouter(userService, twoFAService, securityEventService)
 );
 
-app.use("/api/profile", createProfileRouter(sessionService, profileService, appSettingsService));
+app.use("/api/profile", createProfileRouter(profileService, appSettingsService));
 
 app.use(
   "/api/admin",
-  createAdminRouter(sessionService, userService, profileService, appSettingsService)
+  createAdminRouter(userService, profileService, appSettingsService)
 );
 
 // Cellars router
-const cellarsRouter = createCellarsRouter(sessionService, cellarService);
+const cellarsRouter = createCellarsRouter(cellarService);
 app.use("/api/cellars", cellarsRouter);
 
 // Bottles router
-const bottlesRouter = createBottlesRouter(sessionService, bottleService);
+const bottlesRouter = createBottlesRouter(bottleService);
 app.use("/api/bottles", bottlesRouter);
 
 // Consumption plan router
-
-const consumptionPlanRouter = createConsumptionPlanRouter(sessionService, bottleService);
+const consumptionPlanRouter = createConsumptionPlanRouter(bottleService);
 app.use("/api/consumption-plan", consumptionPlanRouter);
 
-const foodPairingRouter = createFoodPairingRouter(sessionService, profileService, appSettingsService);
+const foodPairingRouter = createFoodPairingRouter(profileService, appSettingsService);
 app.use("/api/food-pairing", foodPairingRouter);
 
-const imagesRouter = createImagesRouter(sessionService);
+const imagesRouter = createImagesRouter();
 app.use("/api/images", imagesRouter);
 
 

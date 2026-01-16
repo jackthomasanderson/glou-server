@@ -1,26 +1,23 @@
-import { Router, Response } from "express";
+import { Router, Response, Request } from "express";
 import { ZodError } from "zod";
-import { UserService, TwoFAService, SessionService, SecurityEventService } from "../services/auth.js";
-import { DatabaseService } from "../services/database.js";
+import { UserService, TwoFAService, SecurityEventService } from "../services/auth.js";
 import { ProfileService } from "../services/profile.js";
 import { CryptoService, TOTPService } from "../services/crypto.js";
+import { generateTokens, verifyRefreshToken, TokenPayload } from "../lib/jwt.js";
+import { authenticateJWT } from "../middleware/jwt.middleware.js";
 import {
   userRegistrationSchema,
   loginCredentialsSchema,
-  totpVerifySchema,
-  User,
 } from "../schemas/auth.js";
-import { AuthenticatedRequest, authMiddleware } from "../middleware/auth.js";
 import { logger } from "../utils/logger.js";
 
 export function createAuthRouter(
   userService: UserService,
   twoFAService: TwoFAService,
-  sessionService: SessionService,
   securityEventService: SecurityEventService
 ): Router {
   const router = Router();
-  const profileService = new ProfileService(userService.db);
+  const profileService = new ProfileService();
 
   /**
    * POST /auth/register
@@ -72,13 +69,13 @@ export function createAuthRouter(
 
   /**
    * POST /auth/login
-   * Authenticate user and create session
+   * Authenticate user and return JWT tokens
    */
   router.post("/login", async (req, res: Response) => {
     try {
       const payload = loginCredentialsSchema.parse(req.body);
-      const ipAddress = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress;
-      const userAgent = req.headers["user-agent"] as string;
+      const ipAddress = ((req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "unknown") as string;
+      const userAgent = (req.headers["user-agent"] || "unknown") as string;
 
       // Get user
       let user = await userService.getUserByUsername(payload.username);
@@ -103,7 +100,7 @@ export function createAuthRouter(
       // If 2FA enabled, return partial response
       if (twoFASettings && twoFASettings.method !== "none") {
         const tempToken = CryptoService.generateToken();
-        // Store temp token in memory or cache for short duration (e.g., 5 minutes)
+        // TODO: Store temp token in Redis or memory cache for 5 minutes
         // For now, return it in response (client should store it)
 
         return res.json({
@@ -114,28 +111,37 @@ export function createAuthRouter(
         });
       }
 
-      // Create session
-      const sessionToken = CryptoService.generateToken();
-      const session = await sessionService.createSession(user.id, sessionToken, undefined, ipAddress);
+      // Generate JWT tokens
+      const tokens = generateTokens({
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role || "user",
+      });
 
       // Log successful login
       await securityEventService.logEvent(user.id, "login_success", ipAddress, userAgent);
 
-      res.cookie("session_token", sessionToken, {
-        httpOnly: false,
-        secure: false,
-        sameSite: "lax",
-        path: "/",
-        ...(payload.rememberMe ? { maxAge: 30 * 24 * 60 * 60 * 1000 } : {}), // 30 days if remembered
-      });
-
       res.json({
-        data: {
-          sessionId: session.id,
-          sessionToken,
-          userId: user.id,
+        user: {
+          id: user.id,
           username: user.username,
           email: user.email,
+          role: user.role,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl,
+          tagline: user.tagline,
+          preferredLocale: user.preferredLocale,
+          dateTimeFormat: user.dateTimeFormat,
+          temperatureUnit: user.temperatureUnit,
+          themeMode: user.themeMode,
+          accentColor: user.accentColor,
+          twoFAEnabled: !!twoFASettings && twoFASettings.method !== "none",
+          twoFAMethod: twoFASettings?.method as "totp" | "webauthn" | undefined,
+        },
+        tokens: {
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
         },
       });
     } catch (error) {
@@ -149,17 +155,19 @@ export function createAuthRouter(
 
   /**
    * POST /auth/verify-2fa
-   * Verify 2FA code
+   * Verify 2FA code and return JWT tokens
    */
   router.post("/verify-2fa", async (req, res: Response) => {
     try {
       const { userId, code, recoveryCode, twoFAMethod, tempToken, rememberMe } = req.body;
-      const ipAddress = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress;
-      const userAgent = req.headers["user-agent"] as string;
+      const ipAddress = ((req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "unknown") as string;
+      const userAgent = (req.headers["user-agent"] || "unknown") as string;
 
       if (!userId || (!code && !recoveryCode)) {
         return res.status(400).json({ error: "Missing required fields" });
       }
+
+      // TODO: Verify tempToken is valid and matches userId
 
       // Get user
       const user = await userService.getUserById(userId);
@@ -197,27 +205,24 @@ export function createAuthRouter(
         return res.status(401).json({ error: "Invalid 2FA code" });
       }
 
-      // Create session
-      const sessionToken = CryptoService.generateToken();
-      const session = await sessionService.createSession(user.id, sessionToken, undefined, ipAddress);
+      // Generate JWT tokens
+      const tokens = generateTokens({
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role || "user",
+      });
 
       await securityEventService.logEvent(user.id, "login_success", ipAddress, userAgent, { method: "2fa" });
 
-      res.cookie("session_token", sessionToken, {
-        httpOnly: false,
-        secure: false,
-        sameSite: "lax",
-        path: "/",
-        ...(rememberMe ? { maxAge: 30 * 24 * 60 * 60 * 1000 } : {}),
-      });
-
       res.json({
         data: {
-          sessionId: session.id,
-          sessionToken,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
           userId: user.id,
           username: user.username,
           email: user.email,
+          role: user.role,
         },
       });
     } catch (error) {
@@ -227,18 +232,61 @@ export function createAuthRouter(
   });
 
   /**
+   * POST /auth/refresh
+   * Refresh access token using refresh token
+   */
+  router.post("/refresh", async (req, res: Response) => {
+    try {
+      const { refreshToken } = req.body;
+
+      if (!refreshToken) {
+        return res.status(400).json({ error: "Refresh token required" });
+      }
+
+      const payload = verifyRefreshToken(refreshToken);
+      if (!payload) {
+        return res.status(401).json({ error: "Invalid or expired refresh token" });
+      }
+
+      // Get user to generate new tokens
+      const user = await userService.getUserById(payload.userId);
+      if (!user) {
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      // Generate new tokens
+      const tokens = generateTokens({
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role || "user",
+      });
+
+      res.json({
+        data: {
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+        },
+      });
+    } catch (error) {
+      logger.error(error, "Token refresh error");
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  /**
    * POST /auth/setup-totp
    * Generate TOTP secret for setup
    */
-  router.post("/setup-totp", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.post("/setup-totp", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      if (!req.userId) {
+      if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
       // Generate secret
       const secret = TOTPService.generateSecret();
-      const qrCode = TOTPService.generateQRCodeDataURL(secret, "Glou", `user-${req.userId}`);
+      const qrCode = TOTPService.generateQRCodeDataURL(secret, "Glou", `user-${req.user.userId}`);
       const manualEntry = secret;
 
       // Generate recovery codes
@@ -262,9 +310,9 @@ export function createAuthRouter(
    * POST /auth/enable-totp
    * Confirm TOTP setup with verification code
    */
-  router.post("/enable-totp", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.post("/enable-totp", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      if (!req.userId) {
+      if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -284,10 +332,10 @@ export function createAuthRouter(
       const hashedRecoveryCodes = recoveryCodes.map((code: string) => CryptoService.hashRecoveryCode(code));
 
       // Store TOTP settings
-      await twoFAService.storeTOTPSecret(req.userId, secret, hashedRecoveryCodes);
+      await twoFAService.storeTOTPSecret(req.user.userId, secret, hashedRecoveryCodes);
 
       // Log event
-      await securityEventService.logEvent(req.userId, "2fa_enabled", undefined, undefined, { method: "totp" });
+      await securityEventService.logEvent(req.user.userId, "2fa_enabled", undefined, undefined, { method: "totp" });
 
       res.json({ message: "TOTP enabled successfully" });
     } catch (error) {
@@ -300,9 +348,9 @@ export function createAuthRouter(
    * POST /auth/disable-2fa
    * Disable 2FA
    */
-  router.post("/disable-2fa", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.post("/disable-2fa", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      if (!req.userId) {
+      if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -312,7 +360,7 @@ export function createAuthRouter(
       }
 
       // Verify password
-      const user = await userService.getUserById(req.userId);
+      const user = await userService.getUserById(req.user.userId);
       if (!user) {
         return res.status(401).json({ error: "User not found" });
       }
@@ -323,10 +371,10 @@ export function createAuthRouter(
       }
 
       // Disable 2FA
-      await twoFAService.disableTwoFA(req.userId);
+      await twoFAService.disableTwoFA(req.user.userId);
 
       // Log event
-      await securityEventService.logEvent(req.userId, "2fa_disabled");
+      await securityEventService.logEvent(req.user.userId, "2fa_disabled");
 
       res.json({ message: "2FA disabled successfully" });
     } catch (error) {
@@ -339,9 +387,9 @@ export function createAuthRouter(
    * PATCH /auth/change-password
    * Change current user password
    */
-  router.patch("/change-password", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.patch("/change-password", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      if (!req.userId) {
+      if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
@@ -355,7 +403,7 @@ export function createAuthRouter(
       }
 
       // Verify current password
-      const user = await userService.getUserById(req.userId);
+      const user = await userService.getUserById(req.user.userId);
       if (!user) {
         return res.status(401).json({ error: "User not found" });
       }
@@ -369,11 +417,11 @@ export function createAuthRouter(
       const newPasswordHash = await CryptoService.hashPassword(newPassword);
 
       // Update password
-      await userService.updatePassword(req.userId, newPasswordHash);
+      await userService.updatePassword(req.user.userId, newPasswordHash);
 
       // Log event
       const ipAddress = (req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress;
-      await securityEventService.logEvent(req.userId, "password_changed", ipAddress, req.headers["user-agent"] as string);
+      await securityEventService.logEvent(req.user.userId, "password_changed", ipAddress, req.headers["user-agent"] as string);
 
       res.json({ message: "Password changed successfully" });
     } catch (error) {
@@ -383,101 +431,17 @@ export function createAuthRouter(
   });
 
   /**
-   * GET /auth/sessions
-   * List user sessions
-   */
-  router.get("/sessions", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      if (!req.userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const sessions = await sessionService.listUserSessions(req.userId);
-
-      res.json({
-        data: sessions.map((s) => ({
-          id: s.id,
-          deviceName: s.deviceName,
-          ipAddress: s.ipAddress,
-          isTrusted: s.isTrusted,
-          lastActivityAt: s.lastActivityAt,
-          expiresAt: s.expiresAt,
-          createdAt: s.createdAt,
-          isCurrent: s.id === req.sessionId,
-        })),
-      });
-    } catch (error) {
-      logger.error(error, "List sessions error");
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  /**
-   * DELETE /auth/sessions/:sessionId
-   * Revoke a session
-   */
-  router.delete("/sessions/:sessionId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      if (!req.userId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const { sessionId } = req.params;
-
-      // Security: ensure the session belongs to the user
-      const sessions = await sessionService.listUserSessions(req.userId);
-      if (!sessions.find(s => s.id === sessionId)) {
-        return res.status(403).json({ error: "Forbidden: Cannot revoke other users' sessions" });
-      }
-
-      await sessionService.revokeSession(sessionId);
-
-      await securityEventService.logEvent(req.userId, "session_revoked", undefined, undefined, { sessionId });
-
-      res.json({ message: "Session revoked successfully" });
-    } catch (error) {
-      logger.error(error, "Revoke session error");
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  /**
-   * POST /auth/trust-device
-   * Mark current device as trusted
-   */
-  router.post("/trust-device", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      if (!req.userId || !req.sessionId) {
-        return res.status(401).json({ error: "Unauthorized" });
-      }
-
-      const { deviceName } = req.body;
-
-      await sessionService.trustDevice(req.sessionId, deviceName);
-      await securityEventService.logEvent(req.userId, "device_trusted", undefined, undefined, { deviceName });
-
-      res.json({ message: "Device marked as trusted" });
-    } catch (error) {
-      logger.error(error, "Trust device error");
-      res.status(500).json({ error: "Internal server error" });
-    }
-  });
-
-  /**
    * POST /auth/logout
-   * Logout user (revoke current session)
+   * Logout user (client should discard tokens)
    */
-  router.post("/logout", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.post("/logout", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      if (req.sessionId) {
-        await sessionService.revokeSession(req.sessionId);
+      if (req.user) {
+        await securityEventService.logEvent(req.user.userId, "logout");
       }
 
-      if (req.userId) {
-        await securityEventService.logEvent(req.userId, "logout");
-      }
-
-      res.clearCookie("session_token");
+      // With JWT, logout is handled client-side by discarding tokens
+      // Optionally, implement token blacklist for immediate invalidation
       res.json({ message: "Logged out successfully" });
     } catch (error) {
       logger.error(error, "Logout error");
@@ -489,22 +453,22 @@ export function createAuthRouter(
    * GET /auth/me
    * Get current user info
    */
-  router.get("/me", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/me", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      if (!req.userId) {
-        logger.warn("GET /me - No userId in request after authMiddleware");
+      if (!req.user) {
+        logger.warn("GET /me - No user in request after authenticateJWT");
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const profile = await profileService.getProfileByUserId(req.userId);
+      const profile = await profileService.getProfileByUserId(req.user.userId);
       if (!profile) {
-        logger.warn({ userId: req.userId }, "User not found");
+        logger.warn({ userId: req.user.userId }, "User not found");
         return res.status(404).json({ error: "User not found" });
       }
 
       let twoFASettings = null;
       try {
-        twoFASettings = await twoFAService.getTwoFASettings(req.userId);
+        twoFASettings = await twoFAService.getTwoFASettings(req.user.userId);
       } catch (e) {
         logger.error(e, "Failed to get 2FA settings");
         twoFASettings = null;
@@ -518,7 +482,7 @@ export function createAuthRouter(
         },
       });
     } catch (error) {
-      logger.error({ error, userId: req.userId }, "Get user error");
+      logger.error({ error, userId: req.user?.userId }, "Get user error");
       const devMsg = process.env.NODE_ENV === "production" ? "Internal server error" : String(error);
       res.status(500).json({ error: devMsg });
     }
@@ -528,14 +492,14 @@ export function createAuthRouter(
    * GET /auth/security-events
    * Get recent security events
    */
-  router.get("/security-events", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/security-events", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      if (!req.userId) {
+      if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-      const events = await securityEventService.getRecentEvents(req.userId, limit);
+      const events = await securityEventService.getRecentEvents(req.user.userId, limit);
 
       res.json({ data: events });
     } catch (error) {

@@ -1,21 +1,20 @@
-import { Router, Response } from "express";
+import { Router, Response, Request } from "express";
 import { ZodError } from "zod";
 import { CellarService } from "../services/cellars.js";
 import { createCellarSchema, updateCellarSchema } from "../schemas/cellars.js";
-import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
-import { SessionService } from "../services/auth.js";
+import { authenticateJWT } from "../middleware/jwt.middleware.js";
 import { logger } from "../utils/logger.js";
 
-export function createCellarsRouter(sessionService: SessionService, cellarService: CellarService): Router {
+export function createCellarsRouter(cellarService: CellarService): Router {
   const router = Router();
 
   /**
    * GET /cellars
    * List all cellars for the authenticated user
    */
-  router.get("/", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -34,9 +33,9 @@ export function createCellarsRouter(sessionService: SessionService, cellarServic
    * GET /cellars/:cellarId
    * Get a single cellar by ID
    */
-  router.get("/:cellarId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/:cellarId", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -59,9 +58,9 @@ export function createCellarsRouter(sessionService: SessionService, cellarServic
    * POST /cellars
    * Create a new cellar
    */
-  router.post("/", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.post("/", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -74,7 +73,7 @@ export function createCellarsRouter(sessionService: SessionService, cellarServic
       if (err instanceof ZodError) {
         return res.status(400).json({ error: "Invalid input", details: err.errors });
       }
-      logger.error("Failed to create cellar", err);
+      logger.error({ err }, "Failed to create cellar");
       return res.status(500).json({ error: "Failed to create cellar" });
     }
   });
@@ -83,9 +82,9 @@ export function createCellarsRouter(sessionService: SessionService, cellarServic
    * PUT /cellars/:cellarId
    * Update a cellar
    */
-  router.put("/:cellarId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.put("/:cellarId", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -111,9 +110,9 @@ export function createCellarsRouter(sessionService: SessionService, cellarServic
    * DELETE /cellars/:cellarId
    * Delete a cellar
    */
-  router.delete("/:cellarId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.delete("/:cellarId", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      const userId = req.userId;
+      const userId = req.user?.userId;
       const { cellarId } = req.params;
       logger.info({ cellarId, userId }, "DELETE cellar request received");
 

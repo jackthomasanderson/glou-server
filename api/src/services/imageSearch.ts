@@ -34,56 +34,55 @@ export class ImageSearchService {
 
             const html = await response.text();
 
-            // Try multiple patterns to extract image URLs from Bing
+            // Try to extract all JSON metadata chunks from Bing's results
+            const jsonRegex = /m="({&quot;murl&quot;:&quot;https?:\/\/.*?&quot;.*?})"/g;
+            const jsonMatches = html.match(jsonRegex);
 
-            // Pattern 1: murl field (media URL) - most reliable
-            const murlRegex = /"murl":"(https?:\/\/[^"]+)"/;
-            const murlMatch = html.match(murlRegex);
-            if (murlMatch && murlMatch[1]) {
-                logger.info({ query, url: murlMatch[1] }, "Image found via murl pattern");
-                return murlMatch[1];
-            }
+            let fallbackUrl: string | null = null;
 
-            // Pattern 2: imgurl field
-            const imgurlRegex = /"imgurl":"(https?:\/\/[^"]+)"/;
-            const imgurlMatch = html.match(imgurlRegex);
-            if (imgurlMatch && imgurlMatch[1]) {
-                logger.info({ query, url: imgurlMatch[1] }, "Image found via imgurl pattern");
-                return imgurlMatch[1];
-            }
+            if (jsonMatches) {
+                for (const match of jsonMatches) {
+                    try {
+                        // Extract content between m=" and "
+                        const jsonStr = match.substring(3, match.length - 1).replace(/&quot;/g, '"');
+                        const data = JSON.parse(jsonStr);
 
-            // Pattern 3: Look for image URLs in src attributes
-            const srcRegex = /src="(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i;
-            const srcMatch = html.match(srcRegex);
-            if (srcMatch && srcMatch[1]) {
-                const imgUrl = srcMatch[1];
-                if (!imgUrl.includes("bing.com") && !imgUrl.includes("favicon")) {
-                    logger.info({ query, url: imgUrl }, "Image found via src pattern");
-                    return imgUrl;
+                        if (data.murl) {
+                            // If it's a portrait image (likely a bottle/cigar stick), return immediately
+                            if (data.h && data.w && data.h > data.w) {
+                                logger.info({ query, url: data.murl, w: data.w, h: data.h }, "Found portrait image (best match)");
+                                return data.murl;
+                            }
+                            // Store the first one as fallback if no portrait and no other result yet
+                            if (!fallbackUrl) fallbackUrl = data.murl;
+                        }
+                    } catch (e) {
+                        continue;
+                    }
                 }
             }
 
+            if (fallbackUrl) {
+                logger.info({ query, url: fallbackUrl }, "Using first image found as fallback");
+                return fallbackUrl;
+            }
+
             // Fallback: simple regex search for absolute image URLs
-            // Match URLs that end with image extensions, stopping at quotes, spaces, or HTML entities
             const imgRegex = /https:\/\/[^\s"'<>&]+\.(?:jpg|jpeg|png|webp)/gi;
             const imgMatches = html.match(imgRegex);
             if (imgMatches && imgMatches.length > 0) {
-                // Filter out some common tracking/icon URLs and clean up any trailing characters
                 const validImgs = imgMatches
-                    .map(src => {
-                        // Remove any trailing HTML entities or special characters
-                        return src.replace(/[&;,]+$/, '');
-                    })
+                    .map(src => src.replace(/[&;,]+$/, ''))
                     .filter(src =>
                         !src.includes("bing.com") &&
                         !src.includes("mm.bing.net") &&
                         !src.includes("favicon") &&
                         !src.includes("logo") &&
                         !src.includes("icon") &&
-                        src.length < 500 // Avoid extremely long URLs
+                        src.length < 500
                     );
                 if (validImgs.length > 0) {
-                    logger.info({ query, url: validImgs[0] }, "Image found via fallback pattern");
+                    logger.info({ query, url: validImgs[0] }, "Image found via legacy fallback pattern");
                     return validImgs[0];
                 }
             }

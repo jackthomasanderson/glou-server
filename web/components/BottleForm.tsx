@@ -102,8 +102,8 @@ const buildDefaults = (category: BottleCategory): BottleInput => {
                 category: "wine",
                 producer: "",
                 name: "",
-                vintageOrNone: "",
-                color: "",
+                vintageOrNone: "NV",
+                color: "red",
                 appellation: "",
                 grapes: "",
                 abv: 13,
@@ -143,25 +143,33 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
         let query = "";
         if (form.category === "wine") {
             const f = form as WineInput;
-            query = `${f.producer} ${f.name} ${f.vintageOrNone} bottle`.trim();
+            const colorLabel = t(`fields.wineColors.${f.color}`) || f.color;
+            query = `${f.producer} ${f.name} ${f.vintageOrNone} ${colorLabel} wine bottle white background`.trim();
         } else if (form.category === "sparkling") {
             const f = form as SparklingInput;
-            query = `${f.house} ${f.name} ${f.vintageOrNone} bottle`.trim();
+            query = `${f.house} ${f.name} ${f.vintageOrNone} champagne bottle white background`.trim();
         } else if (form.category === "spirit") {
             const f = form as SpiritInput;
-            query = `${f.distillery} ${f.nameEdition} bottle`.trim();
+            query = `${f.distillery} ${f.nameEdition} bottle white background`.trim();
         } else if (form.category === "cigar") {
             const f = form as CigarInput;
-            query = `${f.brand} ${f.format} cigar`.trim();
+            query = `${f.brand} ${f.format} cigar sticks`.trim();
         }
 
-        if (!query || query.length < 5) return;
+        if (!query || query.length < 5) {
+            console.log("Query too short for search:", query);
+            return;
+        }
 
+        console.log("Triggering auto-search for:", query);
         setIsSearchingImage(true);
         try {
             const url = await imagesClient.search(query);
             if (url) {
+                console.log("Auto-search found image:", url);
                 setForm(prev => ({ ...prev, photoUrl: url }));
+            } else {
+                console.log("Auto-search found no image.");
             }
         } finally {
             setIsSearchingImage(false);
@@ -170,17 +178,17 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
 
     // Check if all required fields are filled
     const areRequiredFieldsFilled = useCallback(() => {
-        if (!form.label || !form.cellarId) return false;
+        if (!form.cellarId) return false;
 
         if (form.category === "wine") {
             const f = form as WineInput;
-            return !!(f.producer && f.name && f.vintageOrNone);
+            return !!(f.producer && f.name && f.vintageOrNone && f.color);
         } else if (form.category === "sparkling") {
             const f = form as SparklingInput;
             return !!(f.house && f.name && f.vintageOrNone);
         } else if (form.category === "spirit") {
             const f = form as SpiritInput;
-            return !!(f.distillery && f.nameEdition && f.abv);
+            return !!(f.distillery && f.nameEdition);
         } else if (form.category === "cigar") {
             const f = form as CigarInput;
             return !!(f.brand && f.format);
@@ -221,6 +229,12 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
             }
             if (!input.tags) {
                 input.tags = [];
+            }
+            if (input.category === "wine" && (!input.color)) {
+                (input as any).color = "red";
+            }
+            if (!input.photoUrl) {
+                (input as any).photoUrl = "";
             }
             setForm(input as BottleInput);
             setShowOptionals(true);
@@ -396,6 +410,19 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                                 onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNone: e.target.value }))}
                                 disabled={readOnly} />
                         </Field>
+                        <Field label={t("fields.color")} required hint={t("hints.color")}>
+                            <select
+                                value={wineForm.color ?? "red"}
+                                onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value as any }))}
+                                disabled={readOnly}
+                            >
+                                <option value="red">{t("fields.wineColors.red")}</option>
+                                <option value="white">{t("fields.wineColors.white")}</option>
+                                <option value="rose">{t("fields.wineColors.rose")}</option>
+                                <option value="orange">{t("fields.wineColors.orange")}</option>
+                                <option value="yellow">{t("fields.wineColors.yellow")}</option>
+                            </select>
+                        </Field>
                     </div>
                 );
             }
@@ -541,9 +568,6 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                 const wineForm = form as WineInput;
                 return (
                     <div className="grid">
-                        <Field label={t("fields.color")} hint={t("hints.color")}>
-                            <input value={wineForm.color ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value }))} disabled={readOnly} />
-                        </Field>
                         <Field label={t("fields.appellation")} hint={t("hints.appellation")}>
                             <input value={wineForm.appellation ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, appellation: e.target.value }))} disabled={readOnly} />
                         </Field>

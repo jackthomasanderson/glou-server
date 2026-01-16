@@ -1,90 +1,26 @@
 import { v4 as uuidv4 } from "uuid";
 import { CreateBottleInput, UpdateBottleInput, Bottle } from "../schemas/bottles.js";
-import { DatabaseService } from "./database.js";
+import { BottleRepository } from "../repositories/bottle.repository.js";
 import { logger } from "../utils/logger.js";
+import { Prisma } from "@prisma/client";
 
 /**
  * Bottle management service
  */
 export class BottleService {
-  static readonly BOTTLE_SELECT = `
-    id,
-    user_id as "userId",
-    cellar_id as "cellarId",
-    category,
-    label,
-    producer_name as "producer",
-    house_name as "house",
-    distillery_name as "distillery",
-    brand_name as "brand",
-    name_edition as "name",
-    name_edition as "nameEdition",
-    vintage_or_none as "vintageOrNone",
-    abv,
-    is_opened as "isOpened",
-    fill_level as "fillLevel",
-    color,
-    appellation,
-    grapes,
-    format,
-    serving_temp as "servingTemp",
-    wine_lot_number as "lotNumber",
-    carafing,
-    requires_aeration as "requiresAeration",
-    style,
-    dosage,
-    disgorgement,
-    pressure,
-    base_wine as "baseWine",
-    bottling_date as "bottlingDate",
-    base_year as "baseYear",
-    age_statement as "ageStatement",
-    cask_type as "caskType",
-    batch,
-    additive_note as "additiveNote",
-    angel_share as "angelShare",
-    aroma_profile as "aromaProfile",
-    format_box as "formatBox",
-    cigar_format as "cigarFormat",
-    quantity_in_box as "quantity",
-    manufacture_year as "manufactureYear",
-    seal_state as "sealState",
-    leaf_origin as "wrapper",
-    binder,
-    filler,
-    factory_code as "factoryCode",
-    target_humidity as "targetHumidity",
-    humidification_system as "humidifier",
-    location,
-    collection,
-    photo_url as "photoUrl",
-    estimated_value as "estimatedValue",
-    json_build_object('from', peak_maturity_from, 'to', peak_maturity_to) as "peakMaturity",
-    alert_status as "alertStatus",
-    tasting_note as "tastingNote",
-    purchase_place as "purchasePlace",
-    purchase_price as "purchasePrice",
-    tags,
-    created_at as "createdAt",
-    updated_at as "updatedAt"
-  `;
+  private repo: BottleRepository;
 
-  constructor(private db: DatabaseService) { }
+  constructor() {
+    this.repo = new BottleRepository();
+  }
 
   /**
    * Get all bottles for a cellar (filtered by user ownership)
    */
   async getBottlesBycellarId(cellarId: string, userId: string): Promise<Bottle[]> {
-    const query = `
-      SELECT ${BottleService.BOTTLE_SELECT}
-      FROM bottles
-      WHERE cellar_id = $1 AND user_id = $2
-      ORDER BY created_at DESC
-    `;
-
     try {
-      const result = await this.db.query(query, [cellarId, userId]);
-      return result.rows as Bottle[];
+      const bottles = await this.repo.getBottlesByCellarId(cellarId, userId);
+      return bottles.map(this.mapToBottle);
     } catch (err) {
       logger.error(`Failed to list bottles: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
@@ -95,16 +31,9 @@ export class BottleService {
    * Get all bottles for a user
    */
   async getBottlesByUserId(userId: string): Promise<Bottle[]> {
-    const query = `
-      SELECT ${BottleService.BOTTLE_SELECT}
-      FROM bottles
-      WHERE user_id = $1
-      ORDER BY created_at DESC
-    `;
-
     try {
-      const result = await this.db.query(query, [userId]);
-      return result.rows as Bottle[];
+      const bottles = await this.repo.getBottlesByUserId(userId);
+      return bottles.map(this.mapToBottle);
     } catch (err) {
       logger.error(`Failed to list user bottles: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
@@ -115,15 +44,9 @@ export class BottleService {
    * Get a single bottle by ID
    */
   async getBottleById(bottleId: string, userId: string): Promise<Bottle | null> {
-    const query = `
-      SELECT ${BottleService.BOTTLE_SELECT}
-      FROM bottles
-      WHERE id = $1 AND user_id = $2
-    `;
-
     try {
-      const result = await this.db.query(query, [bottleId, userId]);
-      return result.rows[0] || null;
+      const bottle = await this.repo.getBottleById(bottleId, userId);
+      return bottle ? this.mapToBottle(bottle) : null;
     } catch (err) {
       logger.error(`Failed to get bottle: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
@@ -135,100 +58,75 @@ export class BottleService {
    */
   async createBottle(input: CreateBottleInput, userId: string): Promise<Bottle> {
     const id = uuidv4();
-    const now = new Date().toISOString();
-
-    const query = `
-      INSERT INTO bottles (
-        id, user_id, cellar_id, category, label,
-        producer_name, house_name, distillery_name, brand_name,
-        name_edition, vintage_or_none, abv,
-        is_opened, fill_level,
-        color, appellation, grapes, format, serving_temp, wine_lot_number, carafing, requires_aeration,
-        style, dosage, disgorgement, pressure, base_wine, bottling_date, base_year,
-        age_statement, cask_type, batch, additive_note, angel_share, aroma_profile,
-        format_box, cigar_format, quantity_in_box, manufacture_year, seal_state, leaf_origin, binder, filler, factory_code, target_humidity, humidification_system,
-        location, collection, photo_url, estimated_value, peak_maturity_from, peak_maturity_to,
-        alert_status, tasting_note, purchase_place, purchase_price, tags,
-        created_at, updated_at
-      ) VALUES (
-        $1, $2, $3, $4, $5,
-        $6, $7, $8, $9,
-        $10, $11, $12,
-        $13, $14,
-        $15, $16, $17, $18, $19, $20, $21, $22,
-        $23, $24, $25, $26, $27, $28, $29,
-        $30, $31, $32, $33, $34, $35,
-        $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46,
-        $47, $48, $49, $50, $51, $52,
-        $53, $54, $55, $56, $57,
-        $58, $59
-      )
-      RETURNING ${BottleService.BOTTLE_SELECT}
-    `;
-
-    const peakMaturity = (input as any).peakMaturity || {};
-    const abv = (input as any).abv;
-    const values = [
-      id, userId, input.cellarId, input.category, input.label,
-      (input as any).producer || null,
-      (input as any).house || null,
-      (input as any).distillery || null,
-      (input as any).brand || null,
-      (input as any).name || (input as any).nameEdition || null,
-      (input as any).vintageOrNone || "NV",
-      typeof abv === 'number' ? abv : null,
-      input.isOpened || false,
-      input.fillLevel || null,
-      (input as any).color || null,
-      (input as any).appellation || null,
-      (input as any).grapes || null,
-      (input as any).format || null,
-      (input as any).servingTemp || null,
-      (input as any).lotNumber || null,
-      (input as any).carafing || null,
-      (input as any).requiresAeration || null,
-      (input as any).style || null,
-      (input as any).dosage || null,
-      (input as any).disgorgement || null,
-      (input as any).pressure || null,
-      (input as any).baseWine || null,
-      (input as any).bottlingDate || null,
-      (input as any).baseYear || null,
-      (input as any).ageStatement || null,
-      (input as any).caskType || null,
-      (input as any).batch || null,
-      (input as any).additiveNote || null,
-      (input as any).angelShare || null,
-      (input as any).aromaProfile || null,
-      (input as any).formatBox || null,
-      (input as any).cigarFormat || null,
-      (input as any).quantity || null,
-      (input as any).manufactureYear || null,
-      (input as any).sealState || null,
-      (input as any).wrapper || null,
-      (input as any).binder || null,
-      (input as any).filler || null,
-      (input as any).factoryCode || null,
-      (input as any).targetHumidity || null,
-      (input as any).humidifier || null,
-      input.location || null,
-      input.collection || null,
-      input.photoUrl || null,
-      input.estimatedValue || null,
-      peakMaturity.from || null,
-      peakMaturity.to || null,
-      input.alertStatus || "none",
-      input.tastingNote || null,
-      input.purchasePlace || null,
-      input.purchasePrice || null,
-      input.tags || [],
-      now,
-      now
-    ];
+    const now = new Date();
 
     try {
-      const result = await this.db.query(query, values);
-      return result.rows[0] as Bottle;
+      const peakMaturity = (input as any).peakMaturity || {};
+
+      const data: Prisma.bottlesCreateInput = {
+        id,
+        users: { connect: { id: userId } },
+        cellars: { connect: { id: input.cellarId } }, // Assuming cellarId is present and valid
+        category: input.category,
+        label: input.label,
+        producer_name: (input as any).producer || null,
+        house_name: (input as any).house || null,
+        distillery_name: (input as any).distillery || null,
+        brand_name: (input as any).brand || null,
+        name_edition: (input as any).name || (input as any).nameEdition || null,
+        vintage_or_none: (input as any).vintageOrNone || "NV",
+        abv: typeof (input as any).abv === 'number' ? (input as any).abv : null,
+        is_opened: input.isOpened || false,
+        fill_level: input.fillLevel || null,
+        color: (input as any).color || null,
+        appellation: (input as any).appellation || null,
+        grapes: (input as any).grapes || null,
+        format: (input as any).format || null,
+        serving_temp: (input as any).servingTemp || null,
+        wine_lot_number: (input as any).lotNumber || null,
+        carafing: (input as any).carafing || null,
+        requires_aeration: (input as any).requiresAeration || null,
+        style: (input as any).style || null,
+        dosage: (input as any).dosage || null,
+        disgorgement: (input as any).disgorgement || null,
+        pressure: (input as any).pressure || null,
+        base_wine: (input as any).baseWine || null,
+        bottling_date: (input as any).bottlingDate || null,
+        base_year: (input as any).baseYear || null,
+        age_statement: (input as any).ageStatement || null,
+        cask_type: (input as any).caskType || null,
+        batch: (input as any).batch || null,
+        additive_note: (input as any).additiveNote || null,
+        angel_share: (input as any).angelShare || null,
+        aroma_profile: (input as any).aromaProfile || null,
+        format_box: (input as any).formatBox || null,
+        cigar_format: (input as any).cigarFormat || null,
+        quantity_in_box: (input as any).quantity || null,
+        manufacture_year: (input as any).manufactureYear || null,
+        seal_state: (input as any).sealState || null,
+        leaf_origin: (input as any).wrapper || null,
+        binder: (input as any).binder || null,
+        filler: (input as any).filler || null,
+        factory_code: (input as any).factoryCode || null,
+        target_humidity: (input as any).targetHumidity || null,
+        humidification_system: (input as any).humidifier || null,
+        location: input.location || null,
+        collection: input.collection || null,
+        photo_url: input.photoUrl || null,
+        estimated_value: input.estimatedValue || null,
+        peak_maturity_from: peakMaturity.from || null,
+        peak_maturity_to: peakMaturity.to || null,
+        alert_status: input.alertStatus || "none",
+        tasting_note: input.tastingNote || null,
+        purchase_place: input.purchasePlace || null,
+        purchase_price: input.purchasePrice || null,
+        tags: input.tags || [],
+        created_at: now,
+        updated_at: now
+      };
+
+      const bottle = await this.repo.createBottle(userId, input.cellarId, data);
+      return this.mapToBottle(bottle);
     } catch (err) {
       logger.error(`Failed to create bottle: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
@@ -239,140 +137,76 @@ export class BottleService {
    * Update a bottle
    */
   async updateBottle(bottleId: string, input: UpdateBottleInput, userId: string): Promise<Bottle> {
-    // Get existing bottle to merge
-    const existing = await this.getBottleById(bottleId, userId);
-    if (!existing) {
-      throw new Error("BOTTLE_NOT_FOUND");
-    }
-
-    const merged = { ...existing, ...input };
-    const peakMaturity = (merged as any).peakMaturity || { from: null, to: null };
-
-    const query = `
-      UPDATE bottles SET
-        category = $1,
-        label = $2,
-        producer_name = $3,
-        house_name = $4,
-        distillery_name = $5,
-        brand_name = $6,
-        name_edition = $7,
-        vintage_or_none = $8,
-        abv = $9,
-        is_opened = $10,
-        fill_level = $11,
-        color = $12,
-        appellation = $13,
-        grapes = $14,
-        format = $15,
-        serving_temp = $16,
-        wine_lot_number = $17,
-        carafing = $18,
-        requires_aeration = $19,
-        style = $20,
-        dosage = $21,
-        disgorgement = $22,
-        pressure = $23,
-        base_wine = $24,
-        bottling_date = $25,
-        base_year = $26,
-        age_statement = $27,
-        cask_type = $28,
-        batch = $29,
-        additive_note = $30,
-        angel_share = $31,
-        aroma_profile = $32,
-        format_box = $33,
-        cigar_format = $34,
-        quantity_in_box = $35,
-        manufacture_year = $36,
-        seal_state = $37,
-        leaf_origin = $38,
-        binder = $39,
-        filler = $40,
-        factory_code = $41,
-        target_humidity = $42,
-        humidification_system = $43,
-        location = $44,
-        collection = $45,
-        photo_url = $46,
-        estimated_value = $47,
-        peak_maturity_from = $48,
-        peak_maturity_to = $49,
-        alert_status = $50,
-        tasting_note = $51,
-        purchase_place = $52,
-        purchase_price = $53,
-        tags = $54
-      WHERE id = $55 AND user_id = $56
-      RETURNING ${BottleService.BOTTLE_SELECT}
-    `;
-
-    const values = [
-      merged.category,
-      merged.label,
-      (merged as any).producer || null,
-      (merged as any).house || null,
-      (merged as any).distillery || null,
-      (merged as any).brand || null,
-      (merged as any).name || (merged as any).nameEdition || null,
-      (merged as any).vintageOrNone || "NV",
-      merged.abv || null,
-      merged.isOpened || false,
-      merged.fillLevel || null,
-      (merged as any).color || null,
-      (merged as any).appellation || null,
-      (merged as any).grapes || null,
-      (merged as any).format || null,
-      (merged as any).servingTemp || null,
-      (merged as any).lotNumber || null,
-      (merged as any).carafing || null,
-      (merged as any).requiresAeration || null,
-      (merged as any).style || null,
-      (merged as any).dosage || null,
-      (merged as any).disgorgement || null,
-      (merged as any).pressure || null,
-      (merged as any).baseWine || null,
-      (merged as any).bottlingDate || null,
-      (merged as any).baseYear || null,
-      (merged as any).ageStatement || null,
-      (merged as any).caskType || null,
-      (merged as any).batch || null,
-      (merged as any).additiveNote || null,
-      (merged as any).angelShare || null,
-      (merged as any).aromaProfile || null,
-      (merged as any).formatBox || null,
-      (merged as any).cigarFormat || null,
-      (merged as any).quantity || null,
-      (merged as any).manufactureYear || null,
-      (merged as any).sealState || null,
-      (merged as any).wrapper || null,
-      (merged as any).binder || null,
-      (merged as any).filler || null,
-      (merged as any).factoryCode || null,
-      (merged as any).targetHumidity || null,
-      (merged as any).humidifier || null,
-      merged.location || null,
-      merged.collection || null,
-      merged.photoUrl || null,
-      merged.estimatedValue || null,
-      peakMaturity.from || null,
-      peakMaturity.to || null,
-      merged.alertStatus || "none",
-      merged.tastingNote || null,
-      merged.purchasePlace || null,
-      merged.purchasePrice || null,
-      merged.tags || [],
-      bottleId,
-      userId
-    ];
-
     try {
-      const result = await this.db.query(query, values);
-      if (result.rows.length === 0) {
-        throw new Error("BOTTLE_NOT_FOUND");
-      }
-      return result.rows[0] as Bottle;
+      const param: any = input;
+      const peakMaturity = param.peakMaturity || {}; // Could be partial in update, logic in original was merge
+
+      // In repository pattern, we pass partial update.
+      // But original code merged existing.
+      // Prisma update takes partial.
+      // We map inputs to Prisma fields.
+
+      const data: Prisma.bottlesUpdateInput = {
+        updated_at: new Date()
+      };
+
+      if (input.category !== undefined) data.category = input.category;
+      if (input.label !== undefined) data.label = input.label;
+      if (param.producer !== undefined) data.producer_name = param.producer;
+      if (param.house !== undefined) data.house_name = param.house;
+      if (param.distillery !== undefined) data.distillery_name = param.distillery;
+      if (param.brand !== undefined) data.brand_name = param.brand;
+      if (param.name !== undefined || param.nameEdition !== undefined) data.name_edition = param.name || param.nameEdition;
+      if (param.vintageOrNone !== undefined) data.vintage_or_none = param.vintageOrNone;
+      if (param.abv !== undefined) data.abv = param.abv;
+      if (input.isOpened !== undefined) data.is_opened = input.isOpened;
+      if (input.fillLevel !== undefined) data.fill_level = input.fillLevel;
+      if (param.color !== undefined) data.color = param.color;
+      if (param.appellation !== undefined) data.appellation = param.appellation;
+      if (param.grapes !== undefined) data.grapes = param.grapes;
+      if (param.format !== undefined) data.format = param.format;
+      if (param.servingTemp !== undefined) data.serving_temp = param.servingTemp;
+      if (param.lotNumber !== undefined) data.wine_lot_number = param.lotNumber;
+      if (param.carafing !== undefined) data.carafing = param.carafing;
+      if (param.requiresAeration !== undefined) data.requires_aeration = param.requiresAeration;
+      if (param.style !== undefined) data.style = param.style;
+      if (param.dosage !== undefined) data.dosage = param.dosage;
+      if (param.disgorgement !== undefined) data.disgorgement = param.disgorgement;
+      if (param.pressure !== undefined) data.pressure = param.pressure;
+      if (param.baseWine !== undefined) data.base_wine = param.baseWine;
+      if (param.bottlingDate !== undefined) data.bottling_date = param.bottlingDate;
+      if (param.baseYear !== undefined) data.base_year = param.baseYear;
+      if (param.ageStatement !== undefined) data.age_statement = param.ageStatement;
+      if (param.caskType !== undefined) data.cask_type = param.caskType;
+      if (param.batch !== undefined) data.batch = param.batch;
+      if (param.additiveNote !== undefined) data.additive_note = param.additiveNote;
+      if (param.angelShare !== undefined) data.angel_share = param.angelShare;
+      if (param.aromaProfile !== undefined) data.aroma_profile = param.aromaProfile;
+      if (param.formatBox !== undefined) data.format_box = param.formatBox;
+      if (param.cigarFormat !== undefined) data.cigar_format = param.cigarFormat;
+      if (param.quantity !== undefined) data.quantity_in_box = param.quantity;
+      if (param.manufactureYear !== undefined) data.manufacture_year = param.manufactureYear;
+      if (param.sealState !== undefined) data.seal_state = param.sealState;
+      if (param.wrapper !== undefined) data.leaf_origin = param.wrapper;
+      if (param.binder !== undefined) data.binder = param.binder;
+      if (param.filler !== undefined) data.filler = param.filler;
+      if (param.factoryCode !== undefined) data.factory_code = param.factoryCode;
+      if (param.targetHumidity !== undefined) data.target_humidity = param.targetHumidity;
+      if (param.humidifier !== undefined) data.humidification_system = param.humidifier;
+      if (input.location !== undefined) data.location = input.location;
+      if (input.collection !== undefined) data.collection = input.collection;
+      if (input.photoUrl !== undefined) data.photo_url = input.photoUrl;
+      if (input.estimatedValue !== undefined) data.estimated_value = input.estimatedValue;
+      if (peakMaturity.from !== undefined) data.peak_maturity_from = peakMaturity.from;
+      if (peakMaturity.to !== undefined) data.peak_maturity_to = peakMaturity.to;
+      if (input.alertStatus !== undefined) data.alert_status = input.alertStatus;
+      if (input.tastingNote !== undefined) data.tasting_note = input.tastingNote;
+      if (input.purchasePlace !== undefined) data.purchase_place = input.purchasePlace;
+      if (input.purchasePrice !== undefined) data.purchase_price = input.purchasePrice;
+      if (input.tags !== undefined) data.tags = input.tags;
+
+      const bottle = await this.repo.updateBottle(bottleId, userId, data);
+      return this.mapToBottle(bottle);
     } catch (err) {
       logger.error(`Failed to update bottle: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
@@ -383,14 +217,9 @@ export class BottleService {
    * Delete a bottle permanently
    */
   async deleteBottle(bottleId: string, userId: string): Promise<boolean> {
-    const query = `
-      DELETE FROM bottles
-      WHERE id = $1 AND user_id = $2
-    `;
-
     try {
-      const result = await this.db.query(query, [bottleId, userId]);
-      if ((result.rowCount ?? 0) === 0) {
+      const success = await this.repo.deleteBottle(bottleId, userId);
+      if (!success) {
         throw new Error("BOTTLE_NOT_FOUND");
       }
       return true;
@@ -398,5 +227,76 @@ export class BottleService {
       logger.error(`Failed to delete bottle: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
     }
+  }
+
+  /**
+   * Map Prisma bottle result to Bottle schema
+   */
+  private mapToBottle(b: any): Bottle {
+    return {
+      id: b.id,
+      userId: b.user_id,
+      cellarId: b.cellar_id,
+      category: b.category,
+      label: b.label,
+      producer: b.producer_name,
+      house: b.house_name,
+      distillery: b.distillery_name,
+      brand: b.brand_name,
+      name: b.name_edition, // Alias for name
+      nameEdition: b.name_edition,
+      vintageOrNone: b.vintage_or_none,
+      abv: b.abv ? Number(b.abv) : null,
+      isOpened: b.is_opened,
+      fillLevel: b.fill_level,
+      color: b.color,
+      appellation: b.appellation,
+      grapes: b.grapes,
+      format: b.format,
+      servingTemp: b.serving_temp,
+      lotNumber: b.wine_lot_number,
+      carafing: b.carafing,
+      requiresAeration: b.requires_aeration,
+      style: b.style,
+      dosage: b.dosage,
+      disgorgement: b.disgorgement,
+      pressure: b.pressure,
+      baseWine: b.base_wine,
+      bottlingDate: b.bottling_date,
+      baseYear: b.base_year,
+      ageStatement: b.age_statement,
+      caskType: b.cask_type,
+      batch: b.batch,
+      additiveNote: b.additive_note,
+      angelShare: b.angel_share,
+      aromaProfile: b.aroma_profile,
+      formatBox: b.format_box,
+      cigarFormat: b.cigar_format,
+      quantity: b.quantity_in_box,
+      manufactureYear: b.manufacture_year,
+      sealState: b.seal_state,
+      wrapper: b.leaf_origin,
+      binder: b.binder,
+      filler: b.filler,
+      factoryCode: b.factory_code,
+      targetHumidity: b.target_humidity,
+      humidifier: b.humidification_system,
+      location: b.location,
+      collection: b.collection,
+      photoUrl: b.photo_url,
+      estimatedValue: b.estimated_value ? Number(b.estimated_value) : null,
+      peakMaturity: {
+        from: b.peak_maturity_from,
+        to: b.peak_maturity_to
+      },
+      alertStatus: b.alert_status,
+      tastingNote: b.tasting_note,
+      purchasePlace: b.purchase_place,
+      purchasePrice: b.purchase_price ? Number(b.purchase_price) : null,
+      tags: b.tags,
+      createdAt: b.created_at,
+      updatedAt: b.updated_at,
+      deletedAt: null
+    } as Bottle;
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { createBottle, deleteBottle, fetchBottles, updateBottle } from "../lib/bottles/client";
 import { useCellars } from "../lib/cellars/store";
@@ -14,7 +14,22 @@ import { useTranslations } from "../lib/i18n/I18nProvider";
 import { LocaleSync } from "./LocaleSync";
 import { BottleList } from "./BottleList";
 import { BottleForm } from "./BottleForm";
-import { PlusIcon } from "./Icon";
+import {
+    Box,
+    Typography,
+    Button,
+    Paper,
+    IconButton,
+    Snackbar,
+    Alert,
+    alpha,
+    useTheme,
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    Slide,
+} from "@mui/material";
+import { Add as PlusIcon, Close as CloseIcon } from "@mui/icons-material";
 
 const queryKey = ["bottles"] as const;
 
@@ -24,8 +39,16 @@ type Context = {
     lastDeletedId?: string;
 };
 
+const Transition = forwardRef(function Transition(
+    props: any,
+    ref: React.Ref<unknown>,
+) {
+    return <Slide direction="up" ref={ref} {...props} />;
+});
+
 export function BottleManager() {
     const { t } = useTranslations();
+    const theme = useTheme();
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
@@ -34,18 +57,20 @@ export function BottleManager() {
     const [viewingId, setViewingId] = useState<string | null>(null);
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [defaultCategory, setDefaultCategory] = useState<BottleCategory>("wine");
-    const [feedback, setFeedback] = useState<string | null>(null);
-    const [feedbackAction, setFeedbackAction] = useState<(() => void) | null>(null);
+    const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; action?: () => void }>({
+        open: false,
+        message: "",
+    });
 
     const { data: cellars = [] } = useCellars();
 
     const showToast = (message: string, action?: () => void) => {
-        setTimeout(() => setFeedback(message), 0);
-        setFeedbackAction(() => action || null);
-        setTimeout(() => {
-            setTimeout(() => setFeedback(null), 0);
-            setFeedbackAction(null);
-        }, 6000);
+        setSnackbar({ open: true, message, action });
+    };
+
+    const handleCloseSnackbar = (_?: React.SyntheticEvent | Event, reason?: string) => {
+        if (reason === 'clickaway') return;
+        setSnackbar(prev => ({ ...prev, open: false }));
     };
 
     useEffect(() => {
@@ -57,7 +82,6 @@ export function BottleManager() {
                 setDefaultCategory("wine");
             }
             setIsFormVisible(true);
-            // Clean up URL
             const params = new URLSearchParams(searchParams.toString());
             params.delete("new");
             params.delete("category");
@@ -65,16 +89,10 @@ export function BottleManager() {
         }
     }, [searchParams, router, pathname]);
 
-    const { data: bottles = [], isLoading, error } = useQuery({
+    const { data: bottles = [], isLoading } = useQuery({
         queryKey,
         queryFn: () => fetchBottles()
     });
-
-    useEffect(() => {
-        if (bottles && !Array.isArray(bottles)) {
-            console.error("BottleManager: bottles is not an array:", bottles);
-        }
-    }, [bottles]);
 
     const commonMutateConfig = {
         onMutate: async () => {
@@ -105,11 +123,9 @@ export function BottleManager() {
                 updatedAt: new Date().toISOString()
             };
             queryClient.setQueryData<BottleRecord[]>(queryKey, (current = []) => [optimistic, ...current]);
-
             const category = payload.category;
             const message = category === 'cigar' ? t("feedback.optimisticCreateCigar") : t("feedback.optimisticCreate");
             showToast(message || "Item created");
-
             return { ...context, tempId } satisfies Context;
         },
         onError: (error, _variables, context) => {
@@ -179,36 +195,71 @@ export function BottleManager() {
         <>
             <LocaleSync />
 
-            {(isFormVisible || editingId || viewingId) && (
-                <BottleForm
-                    cellars={cellars}
-                    initialData={editingBottle || viewingBottle}
-                    defaultCategory={defaultCategory}
-                    onSave={handleSave}
-                    onCancel={() => {
-                        setEditingId(null);
-                        setViewingId(null);
-                        setIsFormVisible(false);
-                        setDefaultCategory("wine");
-                    }}
-                    readOnly={!!viewingId}
-                />
-            )}
+            {/* Form Dialog for premium feel */}
+            <Dialog
+                fullWidth
+                maxWidth="md"
+                open={isFormVisible || !!editingId || !!viewingId}
+                onClose={() => {
+                    setEditingId(null);
+                    setViewingId(null);
+                    setIsFormVisible(false);
+                    setDefaultCategory("wine");
+                }}
+                TransitionComponent={Transition}
+                PaperProps={{
+                    sx: { borderRadius: 3, bgcolor: 'background.paper', p: 1 }
+                }}
+            >
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                        {viewingId ? t("actions.view") : editingId ? t("actions.edit") : t("actions.addBottle")}
+                    </Typography>
+                    <IconButton onClick={() => { setEditingId(null); setViewingId(null); setIsFormVisible(false); }}>
+                        <CloseIcon />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent sx={{ px: 0 }}>
+                    <BottleForm
+                        cellars={cellars}
+                        initialData={editingBottle || viewingBottle}
+                        defaultCategory={defaultCategory}
+                        onSave={handleSave}
+                        onCancel={() => {
+                            setEditingId(null);
+                            setViewingId(null);
+                            setIsFormVisible(false);
+                            setDefaultCategory("wine");
+                        }}
+                        readOnly={!!viewingId}
+                    />
+                </DialogContent>
+            </Dialog>
 
-            <section className="panel">
-                <header className="panel__header">
-                    <div>
-                        <p className="eyebrow">{t("app.inventory")}</p>
-                        <h2>{t("list.title")}</h2>
-                    </div>
-                    <div className="actions-inline">
+            <Paper sx={{ p: { xs: 2, md: 4 }, borderRadius: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, mb: 4, flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
+                    <Box>
+                        <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                            {t("app.inventory")}
+                        </Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 700, fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
+                            {t("list.title")}
+                        </Typography>
+                    </Box>
+                    <Box>
                         {!isFormVisible && !editingId && cellars.some(c => ["aging", "service", "multizone", "combined", "hybrid", "natural", "other", "cigar"].includes(c.cellarType)) && (
-                            <button className="primary btn-icon" onClick={() => setIsFormVisible(true)} title={t("actions.addBottle")}>
-                                <PlusIcon />
-                            </button>
+                            <Button
+                                variant="contained"
+                                startIcon={<PlusIcon />}
+                                onClick={() => setIsFormVisible(true)}
+                                disableElevation
+                                sx={{ fontWeight: 700, borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
+                            >
+                                {t("actions.add")}
+                            </Button>
                         )}
-                    </div>
-                </header>
+                    </Box>
+                </Box>
 
                 <BottleList
                     bottles={Array.isArray(bottles) ? bottles : []}
@@ -217,18 +268,30 @@ export function BottleManager() {
                     onEdit={(bottle) => setEditingId(bottle.id)}
                     onDelete={(id) => deleteMutation.mutate(id)}
                 />
-            </section>
+            </Paper>
 
-            {feedback && (
-                <div className="toast" role="status" aria-live="polite">
-                    <span>{feedback}</span>
-                    {feedbackAction && (
-                        <button type="button" className="toast__action" onClick={() => { feedbackAction(); setTimeout(() => setFeedback(null), 0); setTimeout(() => setFeedbackAction(null), 0); }}>
-                            {t("actions.undo")}
-                        </button>
-                    )}
-                </div>
-            )}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={6000}
+                onClose={handleCloseSnackbar}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert
+                    onClose={handleCloseSnackbar}
+                    severity="info"
+                    variant="filled"
+                    action={
+                        snackbar.action && (
+                            <Button color="inherit" size="small" onClick={() => { snackbar.action?.(); handleCloseSnackbar(); }}>
+                                {t("actions.undo")}
+                            </Button>
+                        )
+                    }
+                    sx={{ width: '100%', borderRadius: 2, fontWeight: 600 }}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </>
     );
 }

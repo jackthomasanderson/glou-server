@@ -1,3 +1,5 @@
+import { fetchWithAuth } from "../api/fetchWithAuth";
+
 type ProfileNotificationSettings = {
   channels?: {
     email?: boolean;
@@ -92,24 +94,22 @@ const handleResponse = async (response: Response) => {
 };
 
 export async function fetchMyProfile(): Promise<Profile> {
-  const res = await fetch("/api/profile/me", { credentials: "include", cache: "no-store" });
+  const res = await fetchWithAuth("/api/profile/me", { cache: "no-store" });
   return (await handleResponse(res)) as Profile;
 }
 
 export async function updateMyProfile(input: UpdateProfileInput): Promise<Profile> {
-  const res = await fetch("/api/profile/me", {
+  const res = await fetchWithAuth("/api/profile/me", {
     method: "PATCH",
     headers,
     body: JSON.stringify(input),
-    credentials: "include",
   });
   return (await handleResponse(res)) as Profile;
 }
 
 export async function testNotifications(): Promise<{ results: Record<string, { attempted: boolean; ok?: boolean; error?: string }> }> {
-  const res = await fetch("/api/profile/notifications/test", {
+  const res = await fetchWithAuth("/api/profile/notifications/test", {
     method: "POST",
-    credentials: "include",
   });
   return (await handleResponse(res)) as { results: Record<string, { attempted: boolean; ok?: boolean; error?: string }> };
 }
@@ -120,54 +120,49 @@ export async function fetchAppSettings(): Promise<AppSettings> {
 }
 
 export async function updateAppSettings(input: Partial<Omit<AppSettings, "updatedAt">>): Promise<AppSettings> {
-  const res = await fetch("/api/admin/app-settings", {
+  const res = await fetchWithAuth("/api/admin/app-settings", {
     method: "PATCH",
     headers,
     body: JSON.stringify(input),
-    credentials: "include",
   });
   return (await handleResponse(res)) as AppSettings;
 }
 
 export async function listUsers(): Promise<UserSummary[]> {
-  const res = await fetch("/api/admin/users", { credentials: "include", cache: "no-store" });
+  const res = await fetchWithAuth("/api/admin/users", { cache: "no-store" });
   return (await handleResponse(res)) as UserSummary[];
 }
 
 export async function updateUserRole(userId: string, role: "admin" | "user"): Promise<void> {
-  const res = await fetch(`/api/admin/users/${userId}/role`, {
+  const res = await fetchWithAuth(`/api/admin/users/${userId}/role`, {
     method: "PATCH",
     headers,
     body: JSON.stringify({ role }),
-    credentials: "include",
   });
   await handleResponse(res);
 }
 
 export async function updateUser(userId: string, input: UpdateUserInput): Promise<void> {
-  const res = await fetch(`/api/admin/users/${userId}`, {
+  const res = await fetchWithAuth(`/api/admin/users/${userId}`, {
     method: "PATCH",
     headers,
     body: JSON.stringify(input),
-    credentials: "include",
   });
   await handleResponse(res);
 }
 
 export async function deleteUser(userId: string): Promise<void> {
-  const res = await fetch(`/api/admin/users/${userId}`, {
+  const res = await fetchWithAuth(`/api/admin/users/${userId}`, {
     method: "DELETE",
-    credentials: "include",
   });
   await handleResponse(res);
 }
 
 export async function createUser(input: { username: string; email: string; password?: string }): Promise<UserSummary> {
-  const res = await fetch("/api/admin/users", {
+  const res = await fetchWithAuth("/api/admin/users", {
     method: "POST",
     headers,
     body: JSON.stringify(input),
-    credentials: "include",
   });
   return (await handleResponse(res)) as UserSummary;
 }

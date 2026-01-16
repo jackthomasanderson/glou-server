@@ -1,35 +1,32 @@
 import crypto from "crypto";
+import { hashPassword as bcryptHash, verifyPassword as bcryptVerify, isLegacyHash, verifyLegacyPassword } from "../lib/bcrypt.js";
 
 /**
  * Cryptographic utilities
+ * UPDATED: Now uses bcrypt for password hashing (industry standard)
  */
 export class CryptoService {
   /**
-   * Hash a password using bcrypt-like approach
-   * In production, use bcryptjs or @node-rs/bcrypt
+   * Hash a password using bcrypt
+   * @deprecated Use hashPassword from lib/bcrypt.ts directly
    */
   static async hashPassword(password: string): Promise<string> {
-    // Simple PBKDF2 implementation; in production use bcryptjs
-    const salt = crypto.randomBytes(32).toString("hex");
-    const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, "sha256").toString("hex");
-    return `pbkdf2:100000:${salt}:${hash}`;
+    return bcryptHash(password);
   }
 
   /**
    * Verify a password
+   * Supports both new bcrypt hashes and legacy PBKDF2 hashes for migration
    */
   static async verifyPassword(password: string, hash: string): Promise<boolean> {
-    const parts = hash.split(":");
-    if (parts.length !== 4 || parts[0] !== "pbkdf2") {
-      return false;
+    // Check if this is a legacy PBKDF2 hash
+    if (isLegacyHash(hash)) {
+      // Verify using legacy method
+      return verifyLegacyPassword(password, hash);
     }
 
-    const iterations = parseInt(parts[1]);
-    const salt = parts[2];
-    const storedHash = parts[3];
-
-    const computed = crypto.pbkdf2Sync(password, salt, iterations, 64, "sha256").toString("hex");
-    return computed === storedHash;
+    // Use bcrypt for new hashes
+    return bcryptVerify(password, hash);
   }
 
   /**

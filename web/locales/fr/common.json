@@ -140,7 +140,14 @@
     },
     "email": "Email",
     "username": "Nom d'utilisateur",
-    "cellarId": "Cave"
+    "cellarId": "Cave",
+    "wineColors": {
+      "red": "Rouge",
+      "white": "Blanc",
+      "rose": "Rosé",
+      "orange": "Orange",
+      "yellow": "Jaune"
+    }
   },
   "hints": {
     "label": "Nom clair lisible dans la liste (ex: Chambertin 2015)",

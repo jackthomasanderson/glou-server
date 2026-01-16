@@ -1,8 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTranslations } from "../lib/i18n/I18nProvider";
 import { useAuth } from "../lib/auth/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAppSettings } from "@/lib/profile/client";
+import {
+  Paper,
+  Box,
+  Typography,
+  TextField,
+  Button,
+  CircularProgress,
+  Alert,
+  alpha,
+} from "@mui/material";
+import { Restaurant as FoodIcon, AutoAwesome as SparklesIcon } from "@mui/icons-material";
 
 export function FoodToBottlePairing() {
   const { t } = useTranslations();
@@ -47,51 +58,65 @@ export function FoodToBottlePairing() {
   }
 
   return (
-    <section className="panel" style={{ marginBottom: 24 }}>
-      <header className="panel__header">
-        <div>
-          <p className="eyebrow">{t("app.suggestions")}</p>
-          <h2>{t("foodPairing.title")}</h2>
-        </div>
-      </header>
+    <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          {t("app.suggestions")}
+        </Typography>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          {t("foodPairing.title")}
+        </Typography>
+      </Box>
 
-      <form onSubmit={handleSuggest} className="form" style={{ flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
-        <div className="field" style={{ flex: 1 }}>
-          <label htmlFor="food-input">{t("foodPairing.foodPlaceholder")}</label>
-          <input
-            id="food-input"
-            type="text"
-            value={food}
-            onChange={(e) => setFood(e.target.value)}
-            placeholder={t("foodPairing.foodPlaceholder")}
-          />
-        </div>
-        <button className="primary" type="submit" disabled={loading || !food.trim()} style={{ height: 44 }}>
+      <Box component="form" onSubmit={handleSuggest} sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+        <TextField
+          fullWidth
+          size="medium"
+          label={t("foodPairing.foodPlaceholder")}
+          value={food}
+          onChange={(e) => setFood(e.target.value)}
+          placeholder={t("foodPairing.foodPlaceholder")}
+          disabled={loading}
+          InputProps={{
+            startAdornment: <FoodIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+          }}
+          sx={{ flex: 1 }}
+        />
+        <Button
+          variant="contained"
+          type="submit"
+          size="large"
+          disabled={loading || !food.trim()}
+          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SparklesIcon />}
+          sx={{ height: 56, px: 4, fontWeight: 700, borderRadius: 2 }}
+        >
           {loading ? t("loading") : t("foodPairing.suggest")}
-        </button>
-      </form>
+        </Button>
+      </Box>
 
       {error && (
-        <div className="field__error" style={{ marginTop: 12 }}>
+        <Alert severity="error" sx={{ mt: 2 }}>
           {error}
-        </div>
+        </Alert>
       )}
 
       {result && (
-        <div style={{
-          marginTop: 20,
-          padding: 16,
-          background: "var(--bg)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius)",
-          whiteSpace: "pre-wrap",
-          fontSize: "13px",
-          lineHeight: "1.6",
-          color: "var(--text)"
-        }}>
-          {result}
-        </div>
+        <Paper
+          variant="outlined"
+          sx={{
+            mt: 3,
+            p: 2,
+            bgcolor: 'action.hover',
+            whiteSpace: 'pre-wrap',
+            fontSize: '0.9rem',
+            lineHeight: 1.6,
+            borderColor: alpha('#2563EB', 0.2),
+            borderRadius: 2
+          }}
+        >
+          <Typography variant="body2">{result}</Typography>
+        </Paper>
       )}
-    </section>
+    </Paper>
   );
 }

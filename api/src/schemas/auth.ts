@@ -79,33 +79,7 @@ export const twoFASettingsSchema = z.object({
 
 export type TwoFASettings = z.infer<typeof twoFASettingsSchema>;
 
-/** Session schema */
-export const sessionSchema = z.object({
-  id: z.string().uuid(),
-  userId: z.string().uuid(),
-  token: z.string(),
-  deviceName: z.string().optional(),
-  ipAddress: z.string().optional(),
-  isTrusted: z.boolean(),
-  lastActivityAt: z.date(),
-  expiresAt: z.date(),
-  createdAt: z.date(),
-});
 
-export type Session = z.infer<typeof sessionSchema>;
-
-/** Device trust schema */
-export const deviceTrustSchema = z.object({
-  id: z.string().uuid(),
-  userId: z.string().uuid(),
-  sessionId: z.string().uuid(),
-  deviceName: z.string(),
-  trusted: z.boolean(),
-  trustedUntil: z.date().optional(),
-  createdAt: z.date(),
-});
-
-export type DeviceTrust = z.infer<typeof deviceTrustSchema>;
 
 /** WebAuthn credential schema */
 export const webauthnCredentialSchema = z.object({

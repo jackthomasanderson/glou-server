@@ -1,13 +1,11 @@
-import { Router, Response } from "express";
+import { Router, Response, Request } from "express";
 import { ZodError } from "zod";
-import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
-import { SessionService } from "../services/auth.js";
+import { authenticateJWT } from "../middleware/jwt.middleware.js";
 import { AppSettingsService, ProfileService } from "../services/profile.js";
 import { updateProfileSchema } from "../schemas/profile.js";
 import { logger } from "../utils/logger.js";
 
 export function createProfileRouter(
-  sessionService: SessionService,
   profileService: ProfileService,
   appSettingsService: AppSettingsService
 ): Router {
@@ -31,13 +29,13 @@ export function createProfileRouter(
    * GET /profile/me
    * Current user's profile & preferences
    */
-  router.get("/me", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/me", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      if (!req.userId) {
+      if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const profile = await profileService.getProfileByUserId(req.userId);
+      const profile = await profileService.getProfileByUserId(req.user.userId);
       if (!profile) {
         return res.status(404).json({ error: "User not found" });
       }
@@ -53,14 +51,14 @@ export function createProfileRouter(
    * PATCH /profile/me
    * Update current user's profile & preferences
    */
-  router.patch("/me", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.patch("/me", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      if (!req.userId) {
+      if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
       const payload = updateProfileSchema.parse(req.body);
-      const profile = await profileService.updateProfile(req.userId, payload);
+      const profile = await profileService.updateProfile(req.user.userId, payload);
       res.json({ data: profile });
     } catch (error) {
       if (error instanceof ZodError) {
@@ -75,13 +73,13 @@ export function createProfileRouter(
    * POST /profile/notifications/test
    * Minimal test endpoint (webhook/gotify) to confirm configuration.
    */
-  router.post("/notifications/test", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.post("/notifications/test", authenticateJWT, async (req: Request, res: Response) => {
     try {
-      if (!req.userId) {
+      if (!req.user) {
         return res.status(401).json({ error: "Unauthorized" });
       }
 
-      const profile = await profileService.getProfileByUserId(req.userId);
+      const profile = await profileService.getProfileByUserId(req.user.userId);
       if (!profile) {
         return res.status(404).json({ error: "User not found" });
       }

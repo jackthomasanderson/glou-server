@@ -139,7 +139,14 @@
     },
     "email": "Email",
     "username": "Username",
-    "cellarId": "Cellar"
+    "cellarId": "Cellar",
+    "wineColors": {
+      "red": "Red",
+      "white": "White",
+      "rose": "Rosé",
+      "orange": "Orange",
+      "yellow": "Yellow"
+    }
   },
   "hints": {
     "label": "Clear name shown in the list (e.g., Chambertin 2015)",

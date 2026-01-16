@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model app_settings {
+  id          Boolean  @id @default(true)
+  app_name    String?
+  app_tagline String?
+  logo_url    String?
+  updated_at  DateTime @default(now()) @db.Timestamp(6)
+  ai_api_key  String?
+  smtp_host   String?
+  smtp_port   Int?
+  smtp_user   String?
+  smtp_pass   String?
+  smtp_from   String?
+  smtp_secure Boolean? @default(false)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model bottles {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String   @db.Uuid
+  cellar_id             String   @db.Uuid
+  category              String   @db.VarChar(20)
+  label                 String   @db.VarChar(120)
+  producer_name         String?  @db.VarChar(120)
+  house_name            String?  @db.VarChar(120)
+  distillery_name       String?  @db.VarChar(120)
+  brand_name            String?  @db.VarChar(120)
+  name_edition          String   @db.VarChar(160)
+  vintage_or_none       String   @default("NV") @db.VarChar(10)
+  abv                   Decimal? @db.Decimal(4, 1)
+  is_opened             Boolean  @default(false)
+  fill_level            String?  @db.VarChar(20)
+  color                 String?  @db.VarChar(40)
+  appellation           String?  @db.VarChar(120)
+  grapes                String?  @db.VarChar(160)
+  format                String?  @db.VarChar(40)
+  serving_temp          String?  @db.VarChar(40)
+  wine_lot_number       String?  @db.VarChar(60)
+  carafing              String?  @db.VarChar(80)
+  requires_aeration     Boolean?
+  style                 String?  @db.VarChar(60)
+  dosage                String?  @db.VarChar(60)
+  disgorgement          String?  @db.VarChar(60)
+  pressure              String?  @db.VarChar(60)
+  base_wine             String?  @db.VarChar(120)
+  bottling_date         String?  @db.VarChar(60)
+  base_year             Int?
+  age_statement         String?  @db.VarChar(40)
+  cask_type             String?  @db.VarChar(120)
+  batch                 String?  @db.VarChar(60)
+  additive_note         String?  @db.VarChar(160)
+  angel_share           String?  @db.VarChar(120)
+  aroma_profile         String?  @db.VarChar(200)
+  format_box            String?  @db.VarChar(40)
+  cigar_format          String?  @db.VarChar(40)
+  quantity_in_box       Int?
+  manufacture_year      Int?
+  seal_state            String?  @db.VarChar(30)
+  leaf_origin           String?  @db.VarChar(120)
+  factory_code          String?  @db.VarChar(60)
+  target_humidity       Decimal? @db.Decimal(3, 1)
+  humidification_system String?  @db.VarChar(120)
+  location              String?  @db.VarChar(80)
+  collection            String?  @db.VarChar(80)
+  photo_url             String?
+  estimated_value       Decimal? @db.Decimal(12, 2)
+  peak_maturity_from    Int?
+  peak_maturity_to      Int?
+  alert_status          String?  @default("none") @db.VarChar(20)
+  tasting_note          String?  @db.VarChar(240)
+  purchase_place        String?  @db.VarChar(160)
+  purchase_price        Decimal? @db.Decimal(10, 2)
+  tags                  String[] @default([]) @db.VarChar(40)
+  created_at            DateTime @default(now()) @db.Timestamp(6)
+  updated_at            DateTime @default(now()) @db.Timestamp(6)
+  binder                String?  @db.VarChar(80)
+  filler                String?  @db.VarChar(80)
+  cellars               cellars  @relation(fields: [cellar_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bottles_cellar")
+  users                 users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bottles_user")
+
+  @@index([alert_status], map: "idx_bottles_alert")
+  @@index([category], map: "idx_bottles_category")
+  @@index([cellar_id], map: "idx_bottles_cellar_id")
+  @@index([is_opened], map: "idx_bottles_status")
+  @@index([user_id], map: "idx_bottles_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model cellars {
+  id                   String    @id(map: "caves_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id              String    @db.Uuid
+  name                 String    @db.VarChar(255)
+  description          String?
+  cellar_type          String    @db.VarChar(50)
+  location_description String?
+  created_at           DateTime  @default(now()) @db.Timestamp(6)
+  updated_at           DateTime  @default(now()) @db.Timestamp(6)
+  placement            String?
+  model_name           String?
+  bottle_capacity      Int?
+  shelf_count          Int?
+  bottles              bottles[]
+  users                users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "caves_user_id_fkey")
+
+  @@index([user_id], map: "idx_cellars_user_id")
+}
+
+model security_events {
+  id         String   @id @db.Uuid
+  user_id    String?  @db.Uuid
+  event_type String   @db.VarChar(100)
+  ip_address String?  @db.VarChar(45)
+  user_agent String?
+  metadata   Json?
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  users      users?   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_security_events_created_at")
+  @@index([user_id], map: "idx_security_events_user_id")
+}
+
+model two_fa_settings {
+  id                   String    @id @db.Uuid
+  user_id              String    @unique @db.Uuid
+  method               String    @default("none") @db.VarChar(20)
+  totp_secret          String?   @db.VarChar(255)
+  webauthn_credentials Json?
+  recovery_codes_hash  Json?
+  enabled_at           DateTime? @db.Timestamp(6)
+  created_at           DateTime  @default(now()) @db.Timestamp(6)
+  updated_at           DateTime  @default(now()) @db.Timestamp(6)
+  users                users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model users {
+  id                    String                 @id @db.Uuid
+  username              String                 @unique @db.VarChar(50)
+  email                 String                 @unique @db.VarChar(255)
+  password_hash         String                 @db.VarChar(255)
+  created_at            DateTime               @default(now()) @db.Timestamp(6)
+  updated_at            DateTime               @default(now()) @db.Timestamp(6)
+  role                  String                 @default("user") @db.VarChar(20)
+  display_name          String?
+  avatar_url            String?
+  tagline               String?
+  preferred_locale      String?                @db.VarChar(2)
+  date_time_format      String                 @default("system") @db.VarChar(20)
+  temperature_unit      String                 @default("c") @db.VarChar(2)
+  theme_mode            String                 @default("dark") @db.VarChar(10)
+  accent_color          String                 @default("#c5a059") @db.VarChar(16)
+  notification_settings Json                   @default("{}")
+  ai_api_key            String?
+  bottles               bottles[]
+  cellars               cellars[]
+  security_events       security_events[]
+  sessions              sessions[]
+  two_fa_settings       two_fa_settings?
+  webauthn_credentials  webauthn_credentials[]
+}
+
+model webauthn_credentials {
+  id            String   @id @db.Uuid
+  user_id       String   @db.Uuid
+  credential_id String   @unique @db.VarChar(255)
+  public_key    String
+  counter       Int
+  name          String?  @db.VarChar(255)
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_webauthn_credentials_user_id")
+}
+
+model failed_login_attempts {
+  id           String   @id @db.Uuid
+  username     String   @db.VarChar(50)
+  ip_address   String   @db.VarChar(45)
+  attempted_at DateTime @default(now()) @db.Timestamp(6)
+  expires_at   DateTime @db.Timestamp(6)
+
+  @@index([expires_at], map: "idx_failed_login_attempts_expires_at")
+}
+
+model sessions {
+  id               String   @id @db.Uuid
+  user_id          String   @db.Uuid
+  token            String   @unique @db.VarChar(255)
+  device_name      String?  @db.VarChar(255)
+  ip_address       String?  @db.VarChar(45)
+  is_trusted       Boolean? @default(false)
+  last_activity_at DateTime @db.Timestamp(6)
+  expires_at       DateTime @db.Timestamp(6)
+  created_at       DateTime @default(now()) @db.Timestamp(6)
+  users            users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at], map: "idx_sessions_expires_at")
+  @@index([user_id], map: "idx_sessions_user_id")
+}

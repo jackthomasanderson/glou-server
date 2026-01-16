@@ -1,55 +1,56 @@
 import { v4 as uuidv4 } from "uuid";
-import { User, UserRegistration, LoginCredentials, TwoFASettings, Session } from "../schemas/auth.js";
-import { DatabaseService } from "./database.js";
+import { User, UserRegistration, TwoFASettings } from "../schemas/auth.js";
+import { UserRepository } from "../repositories/user.repository.js";
+import { TwoFARepository } from "../repositories/twofa.repository.js";
+import { SecurityEventRepository } from "../repositories/securityEvent.repository.js";
 import { logger } from "../utils/logger.js";
+import { UserRole } from "../schemas/profile.js";
 
 /**
  * User management service
  */
 export class UserService {
-  constructor(public db: DatabaseService) { }
+  public repo: UserRepository;
+
+  constructor() {
+    this.repo = new UserRepository();
+  }
 
   private async hasAnyUser(): Promise<boolean> {
-    const query = `SELECT 1 FROM users LIMIT 1`;
-    const result = await this.db.query(query, []);
-    return result.rows.length > 0;
+    return await this.repo.hasAnyUser();
   }
 
   /**
    * Create a new user (registration)
    */
   async createUser(registration: UserRegistration, passwordHash: string): Promise<User> {
-    const userId = uuidv4();
+    const isFirstUser = !(await this.hasAnyUser());
+    const role: UserRole = isFirstUser ? "admin" : "user";
     const now = new Date();
 
-    const isFirstUser = !(await this.hasAnyUser());
-    const role = isFirstUser ? "admin" : "user";
-
-    const query = `
-      INSERT INTO users (id, username, email, password_hash, role, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING
-        id,
-        username,
-        email,
-        role,
-        display_name as "displayName",
-        avatar_url as "avatarUrl",
-        tagline,
-        preferred_locale as "preferredLocale",
-        date_time_format as "dateTimeFormat",
-        temperature_unit as "temperatureUnit",
-        theme_mode as "themeMode",
-        accent_color as "accentColor",
-        notification_settings as "notificationSettings",
-        password_hash as "passwordHash",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-    `;
-
     try {
-      const result = await this.db.query(query, [userId, registration.username, registration.email, passwordHash, role, now, now]);
-      return result.rows[0] as User;
+      const userId = uuidv4();
+
+      const user = await this.repo.createUser({
+        id: userId,
+        username: registration.username,
+        email: registration.email,
+        password_hash: passwordHash,
+        role: role,
+        created_at: now,
+        updated_at: now,
+        display_name: null,
+        avatar_url: null,
+        tagline: null,
+        preferred_locale: "fr",
+        date_time_format: "DD/MM/YYYY HH:mm",
+        temperature_unit: "celsius",
+        theme_mode: "dark",
+        accent_color: "blue",
+        notification_settings: {},
+      });
+
+      return this.mapToUser(user);
     } catch (error) {
       logger.error({ error, registration }, "Failed to create user");
       throw new Error("Failed to create user");
@@ -60,31 +61,10 @@ export class UserService {
    * Get user by username
    */
   async getUserByUsername(username: string): Promise<User | null> {
-    const query = `
-      SELECT
-        id,
-        username,
-        email,
-        role,
-        display_name as "displayName",
-        avatar_url as "avatarUrl",
-        tagline,
-        preferred_locale as "preferredLocale",
-        date_time_format as "dateTimeFormat",
-        temperature_unit as "temperatureUnit",
-        theme_mode as "themeMode",
-        accent_color as "accentColor",
-        notification_settings as "notificationSettings",
-        password_hash as "passwordHash",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM users
-      WHERE username = $1
-    `;
-
     try {
-      const result = await this.db.query(query, [username]);
-      return result.rows[0] || null;
+      const user = await this.repo.getUserByUsername(username);
+      if (!user) return null;
+      return this.mapToUser(user);
     } catch (error) {
       logger.error({ error, username }, "Failed to get user by username");
       throw new Error("Failed to get user");
@@ -95,31 +75,10 @@ export class UserService {
    * Get user by email
    */
   async getUserByEmail(email: string): Promise<User | null> {
-    const query = `
-      SELECT
-        id,
-        username,
-        email,
-        role,
-        display_name as "displayName",
-        avatar_url as "avatarUrl",
-        tagline,
-        preferred_locale as "preferredLocale",
-        date_time_format as "dateTimeFormat",
-        temperature_unit as "temperatureUnit",
-        theme_mode as "themeMode",
-        accent_color as "accentColor",
-        notification_settings as "notificationSettings",
-        password_hash as "passwordHash",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM users
-      WHERE email = $1
-    `;
-
     try {
-      const result = await this.db.query(query, [email]);
-      return result.rows[0] || null;
+      const user = await this.repo.getUserByEmail(email);
+      if (!user) return null;
+      return this.mapToUser(user);
     } catch (error) {
       logger.error({ error, email }, "Failed to get user by email");
       throw new Error("Failed to get user");
@@ -130,31 +89,10 @@ export class UserService {
    * Get user by ID
    */
   async getUserById(userId: string): Promise<User | null> {
-    const query = `
-      SELECT
-        id,
-        username,
-        email,
-        role,
-        display_name as "displayName",
-        avatar_url as "avatarUrl",
-        tagline,
-        preferred_locale as "preferredLocale",
-        date_time_format as "dateTimeFormat",
-        temperature_unit as "temperatureUnit",
-        theme_mode as "themeMode",
-        accent_color as "accentColor",
-        notification_settings as "notificationSettings",
-        password_hash as "passwordHash",
-        created_at as "createdAt",
-        updated_at as "updatedAt"
-      FROM users
-      WHERE id = $1
-    `;
-
     try {
-      const result = await this.db.query(query, [userId]);
-      return result.rows[0] || null;
+      const user = await this.repo.getUserById(userId);
+      if (!user) return null;
+      return this.mapToUser(user);
     } catch (error) {
       logger.error({ error, userId }, "Failed to get user by ID");
       throw new Error("Failed to get user");
@@ -165,18 +103,36 @@ export class UserService {
    * Update user password
    */
   async updatePassword(userId: string, newPasswordHash: string): Promise<void> {
-    const query = `
-      UPDATE users
-      SET password_hash = $1, updated_at = $2
-      WHERE id = $3
-    `;
-
     try {
-      await this.db.query(query, [newPasswordHash, new Date(), userId]);
+      await this.repo.updateUser(userId, {
+        password_hash: newPasswordHash,
+        updated_at: new Date(),
+      });
     } catch (error) {
       logger.error({ error, userId }, "Failed to update password");
       throw new Error("Failed to update password");
     }
+  }
+
+  private mapToUser(user: any): User {
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role as UserRole,
+      displayName: user.display_name,
+      avatarUrl: user.avatar_url,
+      tagline: user.tagline,
+      preferredLocale: user.preferred_locale,
+      dateTimeFormat: user.date_time_format,
+      temperatureUnit: user.temperature_unit,
+      themeMode: user.theme_mode,
+      accentColor: user.accent_color,
+      notificationSettings: user.notification_settings,
+      passwordHash: user.password_hash,
+      createdAt: user.created_at,
+      updatedAt: user.updated_at,
+    } as User;
   }
 }
 
@@ -184,24 +140,31 @@ export class UserService {
  * 2FA management service
  */
 export class TwoFAService {
-  constructor(private db: DatabaseService) { }
+  private repo: TwoFARepository;
+
+  constructor() {
+    this.repo = new TwoFARepository();
+  }
 
   /**
    * Get 2FA settings for user
    */
   async getTwoFASettings(userId: string): Promise<TwoFASettings | null> {
-    const query = `
-      SELECT id, user_id as "userId", method, totp_secret as "totpSecret",
-             webauthn_credentials as "webauthnCredentials",
-             recovery_codes_hash as "recoveryCodesHash",
-             enabled_at as "enabledAt", created_at as "createdAt", updated_at as "updatedAt"
-      FROM two_fa_settings
-      WHERE user_id = $1
-    `;
-
     try {
-      const result = await this.db.query(query, [userId]);
-      return result.rows[0] || null;
+      const settings = await this.repo.getTwoFASettings(userId);
+      if (!settings) return null;
+
+      return {
+        id: settings.id,
+        userId: settings.user_id,
+        method: settings.method,
+        totpSecret: settings.totp_secret,
+        webauthnCredentials: settings.webauthn_credentials,
+        recoveryCodesHash: settings.recovery_codes_hash as string[],
+        enabledAt: settings.enabled_at,
+        createdAt: settings.created_at,
+        updatedAt: settings.updated_at,
+      } as TwoFASettings;
     } catch (error) {
       logger.error({ error, userId }, "Failed to get 2FA settings");
       throw new Error("Failed to get 2FA settings");
@@ -212,21 +175,29 @@ export class TwoFAService {
    * Initialize 2FA settings for user
    */
   async initializeTwoFASettings(userId: string): Promise<TwoFASettings> {
-    const settingsId = uuidv4();
-    const now = new Date();
-
-    const query = `
-      INSERT INTO two_fa_settings (id, user_id, method, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, user_id as "userId", method, totp_secret as "totpSecret",
-                webauthn_credentials as "webauthnCredentials",
-                recovery_codes_hash as "recoveryCodesHash",
-                enabled_at as "enabledAt", created_at as "createdAt", updated_at as "updatedAt"
-    `;
-
     try {
-      const result = await this.db.query(query, [settingsId, userId, "none", now, now]);
-      return result.rows[0];
+      const id = uuidv4();
+      const now = new Date();
+
+      const settings = await this.repo.createTwoFASettings({
+        id,
+        users: { connect: { id: userId } },
+        method: "none",
+        created_at: now,
+        updated_at: now,
+      });
+
+      return {
+        id: settings.id,
+        userId: settings.user_id,
+        method: settings.method,
+        totpSecret: settings.totp_secret,
+        webauthnCredentials: settings.webauthn_credentials,
+        recoveryCodesHash: settings.recovery_codes_hash as string[],
+        enabledAt: settings.enabled_at,
+        createdAt: settings.created_at,
+        updatedAt: settings.updated_at,
+      } as TwoFASettings;
     } catch (error) {
       logger.error({ error, userId }, "Failed to initialize 2FA settings");
       throw new Error("Failed to initialize 2FA settings");
@@ -237,14 +208,8 @@ export class TwoFAService {
    * Store TOTP secret
    */
   async storeTOTPSecret(userId: string, secret: string, recoveryCodesHash: string[]): Promise<void> {
-    const query = `
-      UPDATE two_fa_settings
-      SET totp_secret = $1, recovery_codes_hash = $2, method = $3, enabled_at = $4, updated_at = $5
-      WHERE user_id = $6
-    `;
-
     try {
-      await this.db.query(query, [secret, JSON.stringify(recoveryCodesHash), "totp", new Date(), new Date(), userId]);
+      await this.repo.enableTwoFA(userId, secret, recoveryCodesHash);
     } catch (error) {
       logger.error({ error, userId }, "Failed to store TOTP secret");
       throw new Error("Failed to store TOTP secret");
@@ -255,15 +220,8 @@ export class TwoFAService {
    * Disable 2FA
    */
   async disableTwoFA(userId: string): Promise<void> {
-    const query = `
-      UPDATE two_fa_settings
-      SET method = $1, totp_secret = NULL, webauthn_credentials = NULL,
-          recovery_codes_hash = NULL, enabled_at = NULL, updated_at = $2
-      WHERE user_id = $3
-    `;
-
     try {
-      await this.db.query(query, ["none", new Date(), userId]);
+      await this.repo.disableTwoFA(userId);
     } catch (error) {
       logger.error({ error, userId }, "Failed to disable 2FA");
       throw new Error("Failed to disable 2FA");
@@ -272,192 +230,14 @@ export class TwoFAService {
 }
 
 /**
- * Session management service
- */
-export class SessionService {
-  constructor(private db: DatabaseService) { }
-
-  private maskToken(token: string): string {
-    if (!token) return "";
-    if (token.length <= 8) return token;
-    return `${token.slice(0, 4)}...${token.slice(-4)}`;
-  }
-
-  /**
-   * Create a new session
-   */
-  async createSession(
-    userId: string,
-    token: string,
-    deviceName?: string,
-    ipAddress?: string,
-    durationDays: number = 30
-  ): Promise<Session> {
-    const sessionId = uuidv4();
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-
-    const query = `
-      INSERT INTO sessions (id, user_id, token, device_name, ip_address, is_trusted, last_activity_at, expires_at, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id, user_id as "userId", token, device_name as "deviceName", ip_address as "ipAddress",
-                is_trusted as "isTrusted", last_activity_at as "lastActivityAt", expires_at as "expiresAt", created_at as "createdAt"
-    `;
-
-    try {
-      const result = await this.db.query(query, [
-        sessionId,
-        userId,
-        token,
-        deviceName || null,
-        ipAddress || null,
-        false,
-        now,
-        expiresAt,
-        now,
-      ]);
-      return result.rows[0];
-    } catch (error) {
-      logger.error({ error, userId }, "Failed to create session");
-      throw new Error("Failed to create session");
-    }
-  }
-
-  /**
-   * Get session by token
-   */
-  async getSessionByToken(token: string): Promise<(Session & { userId: string }) | null> {
-    const query = `
-      SELECT id, user_id as "userId", token, device_name as "deviceName", ip_address as "ipAddress",
-             is_trusted as "isTrusted", last_activity_at as "lastActivityAt", expires_at as "expiresAt", created_at as "createdAt"
-      FROM sessions
-      WHERE token = $1 AND expires_at > NOW()
-    `;
-
-    try {
-      const masked = this.maskToken(token);
-      logger.info({ masked }, "Looking up session by token");
-      const result = await this.db.query(query, [token]);
-      const row = result.rows[0] || null;
-      if (!row) {
-        logger.info({ masked }, "No session found for token");
-        return null;
-      }
-      logger.info({ masked, sessionId: row.id, userId: row.userId }, "Session found by token");
-      return row;
-    } catch (error) {
-      const masked = this.maskToken(token);
-      logger.error({ error, masked }, "Failed to get session by token");
-      // also print to stderr for dev visibility
-      // eslint-disable-next-line no-console
-      console.error("Failed to get session by token:", error);
-      throw new Error("Failed to get session");
-    }
-  }
-
-  /**
-   * List user sessions
-   */
-  async listUserSessions(userId: string): Promise<Session[]> {
-    const query = `
-      SELECT id, user_id as "userId", token, device_name as "deviceName", ip_address as "ipAddress",
-             is_trusted as "isTrusted", last_activity_at as "lastActivityAt", expires_at as "expiresAt", created_at as "createdAt"
-      FROM sessions
-      WHERE user_id = $1 AND expires_at > NOW()
-      ORDER BY last_activity_at DESC
-    `;
-
-    try {
-      const result = await this.db.query(query, [userId]);
-      return result.rows;
-    } catch (error) {
-      logger.error({ error, userId }, "Failed to list user sessions");
-      throw new Error("Failed to list sessions");
-    }
-  }
-
-  /**
-   * Revoke a session
-   */
-  async revokeSession(sessionId: string): Promise<void> {
-    const query = `
-      DELETE FROM sessions
-      WHERE id = $1
-    `;
-
-    try {
-      await this.db.query(query, [sessionId]);
-    } catch (error) {
-      logger.error({ error, sessionId }, "Failed to revoke session");
-      throw new Error("Failed to revoke session");
-    }
-  }
-
-  /**
-   * Revoke all user sessions except current
-   */
-  async revokeAllUserSessionsExcept(userId: string, exceptSessionId: string): Promise<void> {
-    const query = `
-      DELETE FROM sessions
-      WHERE user_id = $1 AND id != $2
-    `;
-
-    try {
-      await this.db.query(query, [userId, exceptSessionId]);
-    } catch (error) {
-      logger.error({ error, userId }, "Failed to revoke all user sessions");
-      throw new Error("Failed to revoke all sessions");
-    }
-  }
-
-  /**
-   * Update session last activity
-   */
-  async updateSessionActivity(sessionId: string): Promise<void> {
-    const query = `
-      UPDATE sessions
-      SET last_activity_at = NOW()
-      WHERE id = $1
-    `;
-
-    try {
-      const shortId = sessionId ? `${sessionId.slice(0, 4)}...${sessionId.slice(-4)}` : sessionId;
-      logger.debug({ shortId }, "Updating session activity");
-      await this.db.query(query, [sessionId]);
-      logger.debug({ shortId }, "Session activity updated");
-    } catch (error) {
-      const shortId = sessionId ? `${sessionId.slice(0, 4)}...${sessionId.slice(-4)}` : sessionId;
-      logger.error({ error, shortId }, "Failed to update session activity");
-      // eslint-disable-next-line no-console
-      console.error("Failed to update session activity:", error);
-      throw new Error("Failed to update session activity");
-    }
-  }
-
-  /**
-   * Trust device
-   */
-  async trustDevice(sessionId: string, deviceName?: string, trustDurationDays: number = 90): Promise<void> {
-    const query = `
-      UPDATE sessions
-      SET is_trusted = true, device_name = COALESCE($2, device_name)
-      WHERE id = $1
-    `;
-
-    try {
-      await this.db.query(query, [sessionId, deviceName || null]);
-    } catch (error) {
-      logger.error({ error, sessionId }, "Failed to trust device");
-      throw new Error("Failed to trust device");
-    }
-  }
-}
-
-/**
  * Security events logging service
  */
 export class SecurityEventService {
-  constructor(private db: DatabaseService) { }
+  private repo: SecurityEventRepository;
+
+  constructor() {
+    this.repo = new SecurityEventRepository();
+  }
 
   /**
    * Log a security event
@@ -469,15 +249,16 @@ export class SecurityEventService {
     userAgent?: string,
     metadata?: Record<string, unknown>
   ): Promise<void> {
-    const eventId = uuidv4();
-
-    const query = `
-      INSERT INTO security_events (id, user_id, event_type, ip_address, user_agent, metadata, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-    `;
-
     try {
-      await this.db.query(query, [eventId, userId, eventType, ipAddress || null, userAgent || null, JSON.stringify(metadata || {}), new Date()]);
+      await this.repo.createEvent({
+        id: uuidv4(),
+        users: { connect: { id: userId } },
+        event_type: eventType,
+        ip_address: ipAddress || null,
+        user_agent: userAgent || null,
+        metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : {}, // Prisma InputJsonValue
+        created_at: new Date(),
+      });
     } catch (error) {
       logger.error({ error, userId, eventType }, "Failed to log security event");
     }
@@ -487,18 +268,17 @@ export class SecurityEventService {
    * Get recent events for user
    */
   async getRecentEvents(userId: string, limit: number = 20): Promise<any[]> {
-    const query = `
-      SELECT id, user_id as "userId", event_type as "eventType", ip_address as "ipAddress",
-             user_agent as "userAgent", metadata, created_at as "createdAt"
-      FROM security_events
-      WHERE user_id = $1
-      ORDER BY created_at DESC
-      LIMIT $2
-    `;
-
     try {
-      const result = await this.db.query(query, [userId, limit]);
-      return result.rows;
+      const events = await this.repo.getRecentEvents(userId, limit);
+      return events.map(e => ({
+        id: e.id,
+        userId: e.user_id,
+        eventType: e.event_type,
+        ipAddress: e.ip_address,
+        userAgent: e.user_agent,
+        metadata: e.metadata,
+        createdAt: e.created_at,
+      }));
     } catch (error) {
       logger.error({ error, userId }, "Failed to get security events");
       throw new Error("Failed to get security events");

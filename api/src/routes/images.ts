@@ -1,17 +1,19 @@
-import { Router, Response } from "express";
-import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
-import { SessionService } from "../services/auth.js";
+import { Router, Response, Request } from "express";
+import { authenticateJWT } from "../middleware/jwt.middleware.js";
 import { ImageSearchService } from "../services/imageSearch.js";
 import { logger } from "../utils/logger.js";
 
-export function createImagesRouter(sessionService: SessionService): Router {
+export function createImagesRouter(): Router {
     const router = Router();
+
+    // All routes require authentication
+    router.use(authenticateJWT);
 
     /**
      * GET /api/images/search?q=query
      * Search for an image URL based on a query string.
      */
-    router.get("/search", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+    router.get("/search", async (req: Request, res: Response) => {
         try {
             const { q } = req.query;
             if (!q || typeof q !== "string") {

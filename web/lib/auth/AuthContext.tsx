@@ -17,9 +17,9 @@ export interface AuthUser {
   twoFAMethod?: "totp" | "webauthn";
 }
 
-export interface AuthSession {
-  id: string;
-  sessionToken: string;
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
 }
 
 type LoginChallengeResult = {
@@ -31,7 +31,7 @@ type LoginChallengeResult = {
 
 type LoginSuccessResult = {
   user: AuthUser;
-  session: AuthSession;
+  tokens: AuthTokens;
 };
 
 export type LoginResult = LoginChallengeResult | LoginSuccessResult;
@@ -47,7 +47,6 @@ async function readJsonOrText<T = unknown>(response: Response): Promise<T | { er
 
 interface AuthContextType {
   user: AuthUser | null;
-  session: AuthSession | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -61,7 +60,6 @@ interface AuthContextType {
 
 interface AuthState {
   user: AuthUser | null;
-  session: AuthSession | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -70,12 +68,10 @@ type AuthAction =
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "SET_USER"; payload: AuthUser }
-  | { type: "SET_SESSION"; payload: AuthSession }
   | { type: "CLEAR_AUTH" };
 
 const initialState: AuthState = {
   user: null,
-  session: null,
   isLoading: true,
   error: null,
 };
@@ -88,13 +84,82 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
       return { ...state, error: action.payload };
     case "SET_USER":
       return { ...state, user: action.payload, error: null };
-    case "SET_SESSION":
-      return { ...state, session: action.payload };
     case "CLEAR_AUTH":
       return { ...initialState, isLoading: false };
     default:
       return state;
   }
+}
+
+// Token management
+const TOKEN_KEY = "glou_access_token";
+const REFRESH_TOKEN_KEY = "glou_refresh_token";
+
+function getAccessToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+function setTokens(tokens: AuthTokens): void {
+  localStorage.setItem(TOKEN_KEY, tokens.accessToken);
+  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+}
+
+function clearTokens(): void {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+// API helper with automatic token refresh
+async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  const accessToken = getAccessToken();
+
+  const headers = new Headers(options.headers);
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  let response = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  // If 401, try to refresh token
+  if (response.status === 401 && getRefreshToken()) {
+    const refreshToken = getRefreshToken();
+    if (refreshToken) {
+      try {
+        const refreshResponse = await fetch("/api/auth/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (refreshResponse.ok) {
+          const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await refreshResponse.json();
+          setTokens({ accessToken: newAccessToken, refreshToken: newRefreshToken });
+
+          // Retry original request with new token
+          headers.set("Authorization", `Bearer ${newAccessToken}`);
+          response = await fetch(url, {
+            ...options,
+            headers,
+          });
+        } else {
+          // Refresh failed, clear tokens
+          clearTokens();
+        }
+      } catch (error) {
+        console.error("Token refresh failed:", error);
+        clearTokens();
+      }
+    }
+  }
+
+  return response;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -104,9 +169,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshMe = useCallback(async (): Promise<AuthUser | null> => {
     try {
-      const response = await fetch("/api/auth/me", { credentials: "include" });
+      const response = await fetchWithAuth("/api/profile/me");
       if (!response.ok) {
         dispatch({ type: "CLEAR_AUTH" });
+        clearTokens();
         return null;
       }
 
@@ -115,14 +181,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return data as AuthUser;
     } catch {
       dispatch({ type: "CLEAR_AUTH" });
+      clearTokens();
       return null;
     }
   }, []);
 
-  // Initialize auth from session on mount
+  // Initialize auth from token on mount
   useEffect(() => {
     const initializeAuth = async () => {
       dispatch({ type: "SET_LOADING", payload: true });
+
+      // Check if we have a token
+      if (!getAccessToken()) {
+        dispatch({ type: "CLEAR_AUTH" });
+        return;
+      }
+
       try {
         await refreshMe();
         dispatch({ type: "SET_LOADING", payload: false });
@@ -143,16 +217,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password, rememberMe }),
-        credentials: "include",
       });
 
-      const result = await readJsonOrText<{ error?: string } | { data?: { sessionId?: string; sessionToken?: string }; requiresTwoFA?: boolean; userId?: string; tempToken?: string; twoFAMethod?: string }>(response);
+      const result = await readJsonOrText<{ error?: string } | { user?: AuthUser; tokens?: AuthTokens; requires2FA?: boolean; userId?: string; tempToken?: string; twoFAMethod?: string }>(response);
 
       if (!response.ok) {
         throw new Error((result as { error?: string })?.error || "Login failed");
       }
 
-      if ((result as { requiresTwoFA?: boolean })?.requiresTwoFA) {
+      if ((result as { requires2FA?: boolean })?.requires2FA) {
         dispatch({ type: "SET_LOADING", payload: false });
 
         const challenge: LoginChallengeResult = {
@@ -165,24 +238,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return challenge;
       }
 
-      const data = (result as { data?: { sessionId?: string; sessionToken?: string } })?.data;
-      if (!data?.sessionId || !data?.sessionToken) {
-        throw new Error("Login failed");
+      const tokens = (result as { tokens?: AuthTokens })?.tokens;
+      const user = (result as { user?: AuthUser })?.user;
+
+      if (!tokens?.accessToken || !tokens?.refreshToken || !user) {
+        throw new Error("Login failed - invalid response");
       }
 
-      const session: AuthSession = {
-        id: data.sessionId,
-        sessionToken: data.sessionToken,
-      };
-
-      const me = await refreshMe();
-      if (!me?.id) {
-        throw new Error("Login succeeded but session initialization failed");
-      }
-      dispatch({ type: "SET_SESSION", payload: session });
+      setTokens(tokens);
+      dispatch({ type: "SET_USER", payload: user });
       dispatch({ type: "SET_LOADING", payload: false });
 
-      const success: LoginSuccessResult = { user: me, session };
+      const success: LoginSuccessResult = { user, tokens };
       return success;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Login failed";
@@ -190,7 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "SET_LOADING", payload: false });
       throw error;
     }
-  }, [refreshMe]);
+  }, []);
 
   const register = useCallback(async (username: string, email: string, password: string) => {
     dispatch({ type: "SET_LOADING", payload: true });
@@ -201,13 +268,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),
-        credentials: "include",
       });
 
       const result = await response.json();
 
       if (!response.ok) {
         throw new Error(result.error || "Registration failed");
+      }
+
+      // Auto-login after registration
+      const tokens = result.tokens;
+      const user = result.user;
+
+      if (tokens?.accessToken && tokens?.refreshToken && user) {
+        setTokens(tokens);
+        dispatch({ type: "SET_USER", payload: user });
       }
 
       dispatch({ type: "SET_LOADING", payload: false });
@@ -233,33 +308,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           rememberMe,
           ...(isRecoveryCode ? { recoveryCode: code } : { code }),
         }),
-        credentials: "include",
       });
 
-      const result = await readJsonOrText<{ error?: string } | { data?: { sessionId?: string; sessionToken?: string } }>(response);
+      const result = await readJsonOrText<{ error?: string } | { user?: AuthUser; tokens?: AuthTokens }>(response);
 
       if (!response.ok) {
         throw new Error((result as { error?: string })?.error || "2FA verification failed");
       }
 
-      const data = (result as { data?: { sessionId?: string; sessionToken?: string } })?.data;
-      if (!data?.sessionId || !data?.sessionToken) {
+      const tokens = (result as { tokens?: AuthTokens })?.tokens;
+      const user = (result as { user?: AuthUser })?.user;
+
+      if (!tokens?.accessToken || !tokens?.refreshToken || !user) {
         throw new Error("2FA verification failed");
       }
 
-      const session: AuthSession = {
-        id: data.sessionId,
-        sessionToken: data.sessionToken,
-      };
-
-      const me = await refreshMe();
-      if (!me?.id) {
-        throw new Error("2FA verification succeeded but session initialization failed");
-      }
-      dispatch({ type: "SET_SESSION", payload: session });
+      setTokens(tokens);
+      dispatch({ type: "SET_USER", payload: user });
       dispatch({ type: "SET_LOADING", payload: false });
 
-      const success: LoginSuccessResult = { user: me, session };
+      const success: LoginSuccessResult = { user, tokens };
       return success;
     } catch (error) {
       const message = error instanceof Error ? error.message : "2FA verification failed";
@@ -267,14 +335,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "SET_LOADING", payload: false });
       throw error;
     }
-  }, [refreshMe]);
+  }, []);
 
   const logout = useCallback(async () => {
     try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      // JWT logout is client-side only
+      clearTokens();
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -288,7 +354,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthContextType = {
     user: state.user,
-    session: state.session,
     isAuthenticated: state.user !== null,
     isLoading: state.isLoading,
     error: state.error,

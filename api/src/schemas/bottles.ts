@@ -66,7 +66,7 @@ const wineBottleSchema = commonBottleSchema.extend({
   producer: z.string().min(1).max(120),
   name: z.string().min(1).max(120),
   vintageOrNone: vintageStringSchema,
-  color: emptyStringToUndefined(z.string().min(1).max(40)).optional(),
+  color: z.enum(["red", "white", "rose", "orange", "yellow"]),
   appellation: emptyStringToUndefined(z.string().min(1).max(120)).optional(),
   grapes: emptyStringToUndefined(z.string().max(160)).optional(),
   abv: z.number().min(5).max(18).optional(),
@@ -157,7 +157,7 @@ export const updateBottleSchema = z.object({
   producer: emptyStringToUndefined(z.string().min(1).max(120)),
   name: emptyStringToUndefined(z.string().min(1).max(120)),
   vintageOrNone: nullToUndefined(vintageStringSchema),
-  color: emptyStringToUndefined(z.string().min(1).max(40)).optional(),
+  color: nullToUndefined(z.enum(["red", "white", "rose", "orange", "yellow"])),
   appellation: emptyStringToUndefined(z.string().min(1).max(120)).optional(),
   grapes: emptyStringToUndefined(z.string().max(160)).optional(),
   abv: z.preprocess((val) => {

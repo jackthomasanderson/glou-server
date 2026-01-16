@@ -1,50 +1,31 @@
-// ...existing imports...
-import { Router, Response } from "express";
+import { Router, Response, Request } from "express";
 import { ZodError } from "zod";
-import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
-import { SessionService, UserService } from "../services/auth.js";
+import { authenticateJWT, requireAdmin as jwtRequireAdmin } from "../middleware/jwt.middleware.js";
+import { UserService } from "../services/auth.js";
 import { AppSettingsService, ProfileService } from "../services/profile.js";
 import { updateAppSettingsSchema, updateUserRoleSchema, updateUserSchema } from "../schemas/profile.js";
 import { logger } from "../utils/logger.js";
 import { CryptoService } from "../services/crypto.js";
 
-async function requireAdmin(req: AuthenticatedRequest, res: Response, userService: UserService): Promise<boolean> {
-  if (!req.userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return false;
-  }
-
-  const user = await userService.getUserById(req.userId);
-  if (!user) {
-    res.status(401).json({ error: "Unauthorized" });
-    return false;
-  }
-
-  if ((user as any).role !== "admin") {
-    res.status(403).json({ error: "Forbidden" });
-    return false;
-  }
-
-  return true;
-}
-
 export function createAdminRouter(
-  sessionService: SessionService,
   userService: UserService,
   profileService: ProfileService,
   appSettingsService: AppSettingsService
 ): Router {
   const router = Router();
+
+  // All admin routes require authentication AND admin role
+  router.use(authenticateJWT);
+  router.use(jwtRequireAdmin);
+
   // GET clé IA globale (admin only)
-  router.get("/ai-api-key", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
-    if (!(await requireAdmin(req, res, userService))) return;
+  router.get("/ai-api-key", async (req: Request, res: Response) => {
     const settings = await appSettingsService.getAppSettings();
     res.json({ aiApiKey: settings.aiApiKey });
   });
 
   // SET clé IA globale (admin only)
-  router.post("/ai-api-key", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
-    if (!(await requireAdmin(req, res, userService))) return;
+  router.post("/ai-api-key", async (req: Request, res: Response) => {
     const { aiApiKey } = req.body;
     await appSettingsService.setAiApiKey(aiApiKey);
     res.json({ success: true });
@@ -53,9 +34,8 @@ export function createAdminRouter(
   /**
    * GET /admin/users
    */
-  router.get("/users", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/users", async (req: Request, res: Response) => {
     try {
-      if (!(await requireAdmin(req, res, userService))) return;
       const users = await profileService.listUsers();
       res.json({ data: users });
     } catch (error) {
@@ -67,10 +47,8 @@ export function createAdminRouter(
   /**
    * POST /admin/users
    */
-  router.post("/users", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.post("/users", async (req: Request, res: Response) => {
     try {
-      if (!(await requireAdmin(req, res, userService))) return;
-
       const { username, email, password } = req.body;
       if (!username || !email) {
         return res.status(400).json({ error: "Username and email required" });
@@ -111,10 +89,8 @@ export function createAdminRouter(
   /**
    * PATCH /admin/users/:userId/role
    */
-  router.patch("/users/:userId/role", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.patch("/users/:userId/role", async (req: Request, res: Response) => {
     try {
-      if (!(await requireAdmin(req, res, userService))) return;
-
       const { userId } = req.params;
       const payload = updateUserRoleSchema.parse(req.body);
       await profileService.updateUserRole(userId, payload.role);
@@ -131,10 +107,8 @@ export function createAdminRouter(
   /**
    * PATCH /admin/users/:userId
    */
-  router.patch("/users/:userId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.patch("/users/:userId", async (req: Request, res: Response) => {
     try {
-      if (!(await requireAdmin(req, res, userService))) return;
-
       const { userId } = req.params;
       const payload = updateUserSchema.parse(req.body);
       await profileService.updateUser(userId, payload);
@@ -151,12 +125,10 @@ export function createAdminRouter(
   /**
    * DELETE /admin/users/:userId
    */
-  router.delete("/users/:userId", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.delete("/users/:userId", async (req: Request, res: Response) => {
     try {
-      if (!(await requireAdmin(req, res, userService))) return;
-
       const { userId } = req.params;
-      if (userId === req.userId) {
+      if (userId === req.user?.userId) {
         return res.status(400).json({ error: "You cannot delete yourself" });
       }
 
@@ -171,9 +143,8 @@ export function createAdminRouter(
   /**
    * GET /admin/app-settings
    */
-  router.get("/app-settings", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.get("/app-settings", async (req: Request, res: Response) => {
     try {
-      if (!(await requireAdmin(req, res, userService))) return;
       const settings = await appSettingsService.getAppSettings();
       res.json({ data: settings });
     } catch (error) {
@@ -185,9 +156,8 @@ export function createAdminRouter(
   /**
    * PATCH /admin/app-settings
    */
-  router.patch("/app-settings", authMiddleware(sessionService), async (req: AuthenticatedRequest, res: Response) => {
+  router.patch("/app-settings", async (req: Request, res: Response) => {
     try {
-      if (!(await requireAdmin(req, res, userService))) return;
       const payload = updateAppSettingsSchema.parse(req.body);
       const settings = await appSettingsService.updateAppSettings(payload);
       res.json({ data: settings });
