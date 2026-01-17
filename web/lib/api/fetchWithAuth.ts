@@ -57,7 +57,8 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}): Pro
                 });
 
                 if (refreshResponse.ok) {
-                    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await refreshResponse.json();
+                    const result = await refreshResponse.json();
+                    const { accessToken: newAccessToken, refreshToken: newRefreshToken } = result.data || result;
                     setTokens(newAccessToken, newRefreshToken);
 
                     // Retry original request with new token

@@ -39,11 +39,18 @@ export function AdminAiApiKeyForm() {
       setTimeout(() => setError(null), 0);
       try {
         const res = await fetch("/api/admin/ai-api-key", { credentials: "include" });
+        if (res.status === 401) {
+          // Endpoint not available or not authorized - silently ignore
+          return;
+        }
         if (!res.ok) throw new Error("fetchError");
         const data = await res.json();
         setValue(data.aiApiKey || "");
-      } catch {
-        setTimeout(() => setError(t("admin.aiApiKey.fetchError")), 0);
+      } catch (err) {
+        // Only show error for non-401 failures
+        if (err instanceof Error && err.message !== "fetchError") {
+          setTimeout(() => setError(t("admin.aiApiKey.fetchError")), 0);
+        }
       } finally {
         setLoading(false);
       }

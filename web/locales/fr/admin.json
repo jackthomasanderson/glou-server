@@ -15,6 +15,9 @@
   "deleteConfirm": "Supprimer cet utilisateur ? Cette action est irréversible.",
   "editUser": "Modifier l'utilisateur",
   "deleteUser": "Supprimer",
+  "deleteWarning": "Cette action est irréversible. Veuillez taper le nom d'utilisateur \"{{username}}\" pour confirmer.",
+  "deletePrompt": "Nom d'utilisateur",
+  "deleteMismatch": "Le nom d'utilisateur ne correspond pas.",
   "cannotDeleteSelf": "Vous ne pouvez pas vous supprimer vous-même.",
   "aiApiKey": {
     "title": "Clé API IA globale",

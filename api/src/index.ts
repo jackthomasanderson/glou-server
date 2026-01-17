@@ -94,7 +94,7 @@ const bottlesRouter = createBottlesRouter(bottleService);
 app.use("/api/bottles", bottlesRouter);
 
 // Consumption plan router
-const consumptionPlanRouter = createConsumptionPlanRouter(bottleService);
+const consumptionPlanRouter = createConsumptionPlanRouter();
 app.use("/api/consumption-plan", consumptionPlanRouter);
 
 const foodPairingRouter = createFoodPairingRouter(profileService, appSettingsService);
@@ -102,6 +102,10 @@ app.use("/api/food-pairing", foodPairingRouter);
 
 const imagesRouter = createImagesRouter();
 app.use("/api/images", imagesRouter);
+
+// Alerts router
+import alertsRouter from "./routes/alerts.js";
+app.use("/api/alerts", alertsRouter);
 
 
 // 404 handler

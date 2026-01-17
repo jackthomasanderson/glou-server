@@ -422,6 +422,9 @@
     "editUser": "Edit User",
     "deleteUser": "Delete User",
     "deleteConfirm": "Are you sure you want to delete this user?",
+    "deleteWarning": "This action cannot be undone. Please type the username \"{{username}}\" to confirm.",
+    "deletePrompt": "Confirm deletion by typing the username:",
+    "deleteMismatch": "Username mismatch. Deletion cancelled.",
     "cannotDeleteSelf": "You cannot delete yourself",
     "userUpdated": "User updated",
     "userDeleted": "User deleted",
@@ -567,14 +570,67 @@
     }
   },
   "consumption": {
+    "title": "Consumption Plan",
+    "subtitle": "Optimize your tasting with intelligent planning",
+    "tabs": {
+      "suggestions": "Suggestions",
+      "weekly": "Weekly Plan",
+      "history": "History"
+    },
     "suggestion": {
       "title": "Consumption suggestions",
       "none": "No suggestions at the moment.",
       "peakMaturity": "In peak window",
       "pastMaturity": "Past maturity window",
+      "approaching": "Approaching peak",
       "opened": "Already opened",
       "lowLevel": "Level is low",
       "budget": "Daily stock"
+    },
+    "objective": {
+      "title": "Consumption Objectives",
+      "current": "Current objective",
+      "noActive": "No active objective. Create one to start.",
+      "create": "Create objective",
+      "edit": "Edit objective",
+      "delete": "Delete",
+      "period": "Period",
+      "targetCount": "Target bottle count",
+      "prioritizeOpened": "Prioritize opened bottles",
+      "prioritizeCollections": "Priority collections",
+      "maxBudget": "Max budget per bottle (€)",
+      "maxBudgetHint": "Limits suggestions to bottles under this price",
+      "active": "Active",
+      "inactive": "Inactive",
+      "progress": "Progress",
+      "week": "Week",
+      "month": "Month"
+    },
+    "weekly": {
+      "title": "Weekly Plan",
+      "subtitle": "Your tasting schedule this week",
+      "noSuggestions": "No suggestions"
+    },
+    "actions": {
+      "markConsumed": "Mark as consumed",
+      "skip": "Skip",
+      "skipReason": "Reason (optional)",
+      "viewDetails": "View details",
+      "consumed": "Consumed",
+      "postponed": "Postponed"
+    },
+    "history": {
+      "title": "History",
+      "subtitle": "Your past tastings",
+      "empty": "No consumption recorded",
+      "consumedOn": "Consumed on",
+      "notes": "Notes"
+    },
+    "reasons": {
+      "rotation": "Stock rotation",
+      "collection": "Collection balancing",
+      "event": "Planned event",
+      "approaching": "Approaching peak"
     }
   }
 }

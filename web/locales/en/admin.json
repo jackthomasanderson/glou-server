@@ -15,6 +15,9 @@
   "deleteConfirm": "Delete this user? This action is irreversible.",
   "editUser": "Edit user",
   "deleteUser": "Delete",
+  "deleteWarning": "This action cannot be undone. Please type the username \"{{username}}\" to confirm.",
+  "deletePrompt": "Username",
+  "deleteMismatch": "Username mismatch.",
   "cannotDeleteSelf": "You cannot delete yourself.",
   "aiApiKey": {
     "title": "Global AI API Key",

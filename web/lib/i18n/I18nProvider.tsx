@@ -15,7 +15,7 @@ type I18nContextValue = {
   locale: Locale;
   dictionary: Dictionary;
   setLocale: (locale: Locale) => void;
-  t: (key: string) => string;
+  t: (key: string, params?: Record<string, string | number | undefined | null>) => string;
 };
 
 const dictionaries: Record<Locale, Dictionary> = {
@@ -43,7 +43,7 @@ const resolveKey = (dictionary: Dictionary, key: string): unknown => {
 
 const detectBrowserLocale = (): Locale => {
   if (typeof window === "undefined") return defaultLocale;
-  
+
   const stored = localStorage.getItem("glou-locale");
   if (stored && (stored === "en" || stored === "fr")) {
     return stored as Locale;
@@ -53,7 +53,7 @@ const detectBrowserLocale = (): Locale => {
   if (browserLang.startsWith("fr")) {
     return "fr";
   }
-  
+
   return "en";
 };
 
@@ -80,9 +80,16 @@ export function I18nProvider({ children, initialLocale }: { children: React.Reac
     }
   }, [locale]);
 
-  const t = useCallback((key: string) => {
+  type Params = Record<string, string | number | undefined | null>;
+
+  const t = useCallback((key: string, params?: Params) => {
     const value = resolveKey(dictionary, key);
     if (typeof value === "string") {
+      if (params) {
+        return Object.entries(params).reduce((acc, [key, replacement]) => {
+          return acc.replace(new RegExp(`{{${key}}}`, "g"), String(replacement ?? ""));
+        }, value);
+      }
       return value;
     }
     return key;

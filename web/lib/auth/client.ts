@@ -1,15 +1,6 @@
 import { type AuthUser } from "./AuthContext";
 
-export type SessionSummary = {
-  id: string;
-  deviceName?: string;
-  ipAddress?: string;
-  isTrusted: boolean;
-  lastActivityAt: string;
-  expiresAt: string;
-  createdAt: string;
-  isCurrent: boolean;
-};
+
 
 /**
  * Auth API client
@@ -153,45 +144,7 @@ export class AuthClient {
     }
   }
 
-  async listSessions(): Promise<SessionSummary[]> {
-    const response = await fetch(`${this.baseUrl}/auth/sessions`, {
-      credentials: "include",
-    });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Failed to list sessions");
-    }
-
-    const { data } = await response.json();
-    return data;
-  }
-
-  async revokeSession(sessionId: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/auth/sessions/${sessionId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Revoke session failed");
-    }
-  }
-
-  async trustDevice(deviceName?: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/auth/trust-device`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceName }),
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Trust device failed");
-    }
-  }
 
   async logout(): Promise<void> {
     await fetch(`${this.baseUrl}/auth/logout`, {

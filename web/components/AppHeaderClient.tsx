@@ -31,10 +31,11 @@ import {
   SettingsBrightness as AutoModeIcon,
   Language as LanguageIcon,
 } from "@mui/icons-material";
+import { AlertBadge } from "./AlertBadge";
 
 export function AppHeaderClient() {
   const { t, locale, setLocale } = useTranslations();
-  const { user, isAuthenticated, logout, refreshMe } = useAuth();
+  const { user, isAuthenticated, isLoading, logout, refreshMe } = useAuth();
   const router = useRouter();
   const theme = useTheme();
   const [isHydrated, setIsHydrated] = useState(false);
@@ -137,15 +138,9 @@ export function AppHeaderClient() {
         </Box>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          {isAuthenticated && (
+          {isAuthenticated && !isLoading && (
             <>
-              <Tooltip title="Notifications">
-                <IconButton color="inherit">
-                  <Badge color="error" variant="dot">
-                    <BellIcon />
-                  </Badge>
-                </IconButton>
-              </Tooltip>
+              <AlertBadge />
 
               <Tooltip title={t("header.userMenu.label")}>
                 <IconButton onClick={handleMenuOpen} sx={{ ml: 1, p: 0.5 }}>

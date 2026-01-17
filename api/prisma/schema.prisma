@@ -82,9 +82,10 @@ model bottles {
   created_at            DateTime @default(now()) @db.Timestamp(6)
   updated_at            DateTime @default(now()) @db.Timestamp(6)
   binder                String?  @db.VarChar(80)
-  filler                String?  @db.VarChar(80)
-  cellars               cellars  @relation(fields: [cellar_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bottles_cellar")
-  users                 users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bottles_user")
+  filler                String?                @db.VarChar(80)
+  cellars               cellars                @relation(fields: [cellar_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bottles_cellar")
+  users                 users                  @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bottles_user")
+  consumption_events    consumption_events[]
 
   @@index([alert_status], map: "idx_bottles_alert")
   @@index([category], map: "idx_bottles_category")
@@ -159,12 +160,16 @@ model users {
   accent_color          String                 @default("#c5a059") @db.VarChar(16)
   notification_settings Json                   @default("{}")
   ai_api_key            String?
-  bottles               bottles[]
-  cellars               cellars[]
-  security_events       security_events[]
-  sessions              sessions[]
-  two_fa_settings       two_fa_settings?
-  webauthn_credentials  webauthn_credentials[]
+  bottles                  bottles[]
+  cellars                  cellars[]
+  security_events          security_events[]
+
+  two_fa_settings          two_fa_settings?
+  webauthn_credentials     webauthn_credentials[]
+  consumption_objectives   consumption_objectives[]
+  consumption_events       consumption_events[]
+  notifications            notifications[]
+  alert_preferences        alert_preferences?
 }
 
 model webauthn_credentials {
@@ -190,18 +195,68 @@ model failed_login_attempts {
   @@index([expires_at], map: "idx_failed_login_attempts_expires_at")
 }
 
-model sessions {
-  id               String   @id @db.Uuid
-  user_id          String   @db.Uuid
-  token            String   @unique @db.VarChar(255)
-  device_name      String?  @db.VarChar(255)
-  ip_address       String?  @db.VarChar(45)
-  is_trusted       Boolean? @default(false)
-  last_activity_at DateTime @db.Timestamp(6)
-  expires_at       DateTime @db.Timestamp(6)
-  created_at       DateTime @default(now()) @db.Timestamp(6)
-  users            users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@index([expires_at], map: "idx_sessions_expires_at")
-  @@index([user_id], map: "idx_sessions_user_id")
+
+/// This table stores user consumption objectives/goals
+model consumption_objectives {
+  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                String   @db.Uuid
+  period                 String   @db.VarChar(10)
+  target_count           Int
+  prioritize_opened      Boolean  @default(false)
+  prioritize_collections String[] @default([]) @db.VarChar(80)
+  max_budget_per_bottle  Decimal? @db.Decimal(10, 2)
+  active                 Boolean  @default(true)
+  created_at             DateTime @default(now()) @db.Timestamp(6)
+  updated_at             DateTime @default(now()) @db.Timestamp(6)
+  users                  users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_consumption_objectives_user_id")
+  @@index([active], map: "idx_consumption_objectives_active")
+}
+
+/// This table tracks consumption events (consumed, postponed, planned)
+model consumption_events {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  bottle_id  String   @db.Uuid
+  event_type String   @db.VarChar(20)
+  event_date DateTime @db.Timestamp(6)
+  notes      String?
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  bottles    bottles  @relation(fields: [bottle_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_consumption_events_user_id")
+  @@index([bottle_id], map: "idx_consumption_events_bottle_id")
+  @@index([event_type], map: "idx_consumption_events_type")
+  @@index([event_date], map: "idx_consumption_events_date")
+}
+
+/// This table stores in-app notifications for alerts
+model notifications {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  type       String   @db.VarChar(50)
+  title      String   @db.VarChar(255)
+  message    String?
+  data       Json?
+  read       Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_notifications_user_id")
+  @@index([read], map: "idx_notifications_read")
+}
+
+/// This table stores user alert preferences
+model alert_preferences {
+  user_id           String    @id @db.Uuid
+  days_before_peak  Int       @default(30)
+  enable_email      Boolean   @default(true)
+  enable_in_app     Boolean   @default(true)
+  quiet_hours_start String?   @db.VarChar(5)
+  quiet_hours_end   String?   @db.VarChar(5)
+  updated_at        DateTime  @default(now()) @db.Timestamp(6)
+  users             users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }

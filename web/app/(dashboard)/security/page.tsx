@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useLocale } from "@/lib/i18n/I18nProvider";
 import { authClient } from "@/lib/auth/client";
-import { SessionManagement } from "@/components/auth/SessionManagement";
+
 import LoadingWine from "@/components/LoadingWine";
 import { AdminAiApiKeyForm } from "@/components/AdminAiApiKeyForm";
 
@@ -284,10 +284,7 @@ export default function SecurityPage() {
           )}
         </div>
 
-        {/* Sessions Section */}
-        <div className="section">
-          <SessionManagement />
-        </div>
+
       </div>
     </div>
   );

@@ -31,6 +31,7 @@ import {
   WineBar as BottlesIcon,
   Kitchen as CellarsIcon,
   SmokingRooms as CigarsIcon,
+  CalendarMonth as ConsumptionIcon,
 } from "@mui/icons-material";
 
 const DRAWER_WIDTH = 260;
@@ -87,6 +88,7 @@ export default function Sidebar() {
   const items = [
     { href: "/dashboard", label: t("nav.dashboard"), Icon: DashboardIcon, show: true, count: 0 },
     { href: "/bottles", label: t("nav.bottles"), Icon: BottlesIcon, show: bottlesCount > 0 || hasWineCellar, count: bottlesCount },
+    { href: "/consumption", label: t("consumption.title"), Icon: ConsumptionIcon, show: bottlesCount > 0, count: 0 },
     { href: "/cellars", label: t("nav.cellars"), Icon: CellarsIcon, show: true, count: cellars.length },
     { href: "/cigars", label: t("nav.cigars"), Icon: CigarsIcon, show: cigarsCount > 0 || hasCigarCellar, count: cigarsCount },
   ];

@@ -13,6 +13,7 @@ import {
     type WineBottleInput
 } from "../lib/bottles/schema";
 import { useTranslations } from "../lib/i18n/I18nProvider";
+import { OpenedBottleReminder } from "./OpenedBottleReminder";
 
 
 type BottleFormProps = {
@@ -136,6 +137,7 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
     const [form, setForm] = useState<BottleInput>(() => buildDefaults(fixedCategory || defaultCategory));
     const [showOptionals, setShowOptionals] = useState(false);
     const [isSearchingImage, setIsSearchingImage] = useState(false);
+    const [showReminder, setShowReminder] = useState(false);
 
     const handleAutoSearch = useCallback(async () => {
         if (form.photoUrl && !form.photoUrl.startsWith('http')) return; // If manually uploaded base64, don't overwrite
@@ -690,7 +692,15 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                         type="checkbox"
                         checked={form.isOpened ?? false}
                         aria-label={t("fields.isOpened")}
-                        onChange={(e) => setForm((prev) => ({ ...prev, isOpened: e.target.checked }))}
+                        checked={form.isOpened ?? false}
+                        aria-label={t("fields.isOpened")}
+                        onChange={(e) => {
+                            const isOpened = e.target.checked;
+                            setForm((prev) => ({ ...prev, isOpened }));
+                            if (isOpened && initialData?.id) {
+                                setShowReminder(true);
+                            }
+                        }}
                         disabled={readOnly}
                     />
                     <span>{form.isOpened ? t("list.opened") : t("list.closed")}</span>
@@ -902,6 +912,18 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                     <div className="section__title">{t("preview.title")}</div>
                     {renderPreviewCard()}
                 </div>
+
+                {initialData?.id && (
+                    <OpenedBottleReminder
+                        open={showReminder}
+                        onClose={() => setShowReminder(false)}
+                        bottle={{
+                            id: initialData.id,
+                            label: form.label,
+                            category: form.category
+                        }}
+                    />
+                )}
             </form>
         </section>
     );

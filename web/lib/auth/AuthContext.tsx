@@ -316,11 +316,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error((result as { error?: string })?.error || "2FA verification failed");
       }
 
-      const tokens = (result as { tokens?: AuthTokens })?.tokens;
-      const user = (result as { user?: AuthUser })?.user;
+      // Backend returns { data: { tokens: ..., user: ... } } (check auth.ts structure)
+      // Actually verify-2fa returns { data: { accessToken, refreshToken, userId, ... } }
+      // So result is { data: { ... } }
+
+      const data = (result as { data?: any })?.data;
+      // In verify-2fa, tokens are spread in data, not nested in a 'tokens' object
+      // wait, let's verify auth.ts again.
+      // res.json({ data: { accessToken: ..., refreshToken: ..., userId: ... } });
+
+      const tokens = data ? { accessToken: data.accessToken, refreshToken: data.refreshToken } : undefined;
+      const user = data ? {
+        id: data.userId,
+        username: data.username,
+        email: data.email,
+        role: data.role,
+        twoFAEnabled: true
+      } : undefined;
 
       if (!tokens?.accessToken || !tokens?.refreshToken || !user) {
-        throw new Error("2FA verification failed");
+        throw new Error("2FA verification failed - invalid response");
       }
 
       setTokens(tokens);

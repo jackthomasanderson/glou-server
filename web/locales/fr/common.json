@@ -262,7 +262,34 @@
   "alerts": {
     "none": "Aucune alerte",
     "approaching": "Apogée proche",
-    "critical": "Critique"
+    "critical": "Critique",
+    "center": {
+      "title": "Centre d'alertes",
+      "empty": "Aucune alerte pour le moment",
+      "markRead": "MarquerComme lu",
+      "dismiss": "Ignorer",
+      "filters": {
+        "all": "Toutes",
+        "unread": "Non lues",
+        "peakMaturity": "Apogée",
+        "opened": "Bouteilles entamées"
+      }
+    },
+    "peakMaturity": {
+      "title": "Alerte apogée",
+      "approaching": "Cette bouteille entre dans sa fenêtre d'apogée",
+      "approachingStart": "La fenêtre d'apogée approche",
+      "inWindow": "En pleine apogée",
+      "approachingEnd": "Fin de fenêtre d'apogée proche",
+      "pastPeak": "Apogée dépassée",
+      "critical": "Cette bouteille a dépassé son apogée optimal"
+    },
+    "preferences": {
+      "title": "Préférences d'alertes",
+      "daysBeforePeak": "Jours avant apogée pour alerter",
+      "enableEmail": "Notifications par email",
+      "enableInApp": "Notifications in-app"
+    }
   },
   "sealStates": {
     "sealed": "Scellée",
@@ -424,6 +451,9 @@
     "editUser": "Modifier l'utilisateur",
     "deleteUser": "Supprimer l'utilisateur",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cet utilisateur ?",
+    "deleteWarning": "Cette action est irréversible. Veuillez taper le nom d'utilisateur \"{{username}}\" pour confirmer.",
+    "deletePrompt": "Confirmez la suppression en tapant le nom de l'utilisateur :",
+    "deleteMismatch": "Le nom d'utilisateur ne correspond pas. La suppression a été annulée.",
     "cannotDeleteSelf": "Vous ne pouvez pas vous supprimer vous-même",
     "userUpdated": "Utilisateur mis à jour",
     "userDeleted": "Utilisateur supprimé",
@@ -569,14 +599,67 @@
     }
   },
   "consumption": {
+    "title": "Plan de consommation",
+    "subtitle": "Optimisez votre dégustation avec un plan intelligent",
+    "tabs": {
+      "suggestions": "Suggestions",
+      "weekly": "Plan hebdomadaire",
+      "history": "Historique"
+    },
     "suggestion": {
       "title": "Suggestions de consommation",
       "none": "Aucune suggestion pour le moment.",
       "peakMaturity": "Fenêtre d'apogée idéale",
       "pastMaturity": "Apogée dépassée",
+      "approached": "Apogée proche",
       "opened": "Déjà ouverte",
       "lowLevel": "Niveau bas",
       "budget": "Stock quotidien"
+    },
+    "objective": {
+      "title": "Objectifs de consommation",
+      "current": "Objectif actuel",
+      "noActive": "Aucun objectif actif. Créez-en un pour commencer.",
+      "create": "Créer un objectif",
+      "edit": "Modifier l'objectif",
+      "delete": "Supprimer",
+      "period": "Période",
+      "targetCount": "Nombre cible de bouteilles",
+      "prioritizeOpened": "Prioriser les bouteilles entamées",
+      "prioritizeCollections": "Collections prioritaires",
+      "maxBudget": "Budget maximum par bouteille (€)",
+      "maxBudgetHint": "Limite vos suggestions aux bouteilles sous ce prix",
+      "active": "Actif",
+      "inactive": "Inactif",
+      "progress": "Progression",
+      "week": "Semaine",
+      "month": "Mois"
+    },
+    "weekly": {
+      "title": "Plan hebdomadaire",
+      "subtitle": "Votre programme de dégustation cette semaine",
+      "noSuggestions": "Aucune suggestion"
+    },
+    "actions": {
+      "markConsumed": "Marquer comme consommé",
+      "skip": "Reporter",
+      "skipReason": "Raison (optionnel)",
+      "viewDetails": "Voir les détails",
+      "consumed": "Consommé",
+      "postponed": "Reporté"
+    },
+    "history": {
+      "title": "Historique",
+      "subtitle": "Vos dégustations passées",
+      "empty": "Aucune consommation enregistrée",
+      "consumedOn": "Consommé le",
+      "notes": "Notes"
+    },
+    "reasons": {
+      "rotation": "Rotation du stock",
+      "collection": "Équilibrage de collection",
+      "event": "Événement planifié",
+      "approaching": "Apogée proche"
     }
   }
 }

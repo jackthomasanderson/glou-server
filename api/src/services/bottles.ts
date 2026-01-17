@@ -232,7 +232,7 @@ export class BottleService {
   /**
    * Map Prisma bottle result to Bottle schema
    */
-  private mapToBottle(b: any): Bottle {
+  public mapToBottle(b: any): Bottle {
     return {
       id: b.id,
       userId: b.user_id,

@@ -212,9 +212,9 @@ export function BottleManager() {
                 }}
             >
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                    <Box component="span" sx={{ fontWeight: 800, fontSize: '1.5rem' }}>
                         {viewingId ? t("actions.view") : editingId ? t("actions.edit") : t("actions.addBottle")}
-                    </Typography>
+                    </Box>
                     <IconButton onClick={() => { setEditingId(null); setViewingId(null); setIsFormVisible(false); }}>
                         <CloseIcon />
                     </IconButton>
