@@ -78,26 +78,26 @@ export class ConsumptionPlanService {
             const reasons: string[] = [];
 
             // === PEAK MATURITY SCORING (FEAT-06) ===
-            if (bottle.peakMaturityFrom && bottle.peakMaturityTo) {
+            if (bottle.peakMaturity?.from && bottle.peakMaturity?.to) {
                 if (
-                    bottle.peakMaturityFrom <= currentYear &&
-                    currentYear <= bottle.peakMaturityTo
+                    bottle.peakMaturity.from <= currentYear &&
+                    currentYear <= bottle.peakMaturity.to
                 ) {
                     score += 50;
                     reasons.push("consumption.suggestion.peakMaturity");
 
                     // Bonus for being in the middle of the window
-                    const windowSize = bottle.peakMaturityTo - bottle.peakMaturityFrom;
-                    const progress = currentYear - bottle.peakMaturityFrom;
+                    const windowSize = bottle.peakMaturity.to - bottle.peakMaturity.from;
+                    const progress = currentYear - bottle.peakMaturity.from;
                     if (windowSize > 0 && progress / windowSize >= 0.4 && progress / windowSize <= 0.6) {
                         score += 10;
                     }
-                } else if (currentYear > bottle.peakMaturityTo) {
+                } else if (currentYear > bottle.peakMaturity.to) {
                     // Past maturity - urgent drinking
-                    const yearsPast = currentYear - bottle.peakMaturityTo;
+                    const yearsPast = currentYear - bottle.peakMaturity.to;
                     score += 40 + Math.min(yearsPast * 5, 30);
                     reasons.push("consumption.suggestion.pastMaturity");
-                } else if (currentYear === bottle.peakMaturityFrom - 1) {
+                } else if (currentYear === bottle.peakMaturity.from - 1) {
                     // Approaching optimal window
                     score += 20;
                     reasons.push("consumption.suggestion.approaching");
@@ -121,8 +121,10 @@ export class ConsumptionPlanService {
             }
 
             // === BUDGET-BASED DAILY DRINKING ===
-            if (bottle.purchasePrice !== undefined) {
+            if (bottle.purchasePrice !== undefined && bottle.purchasePrice !== null) {
                 const price = Number(bottle.purchasePrice);
+                // Only consider it a "budget" bottle if we actually have a price and it's low
+                // Zero is a valid price (gift/free), but null is not.
                 if (price < 20) {
                     score += 10;
                     reasons.push("consumption.suggestion.budget");

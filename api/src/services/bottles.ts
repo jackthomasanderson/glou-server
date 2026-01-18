@@ -126,7 +126,18 @@ export class BottleService {
       };
 
       const bottle = await this.repo.createBottle(userId, input.cellarId, data);
-      return this.mapToBottle(bottle);
+      const mappedBottle = this.mapToBottle(bottle);
+
+      // Trigger alert check
+      try {
+        const { AlertService } = await import('./alert.service.js');
+        const alertService = new AlertService();
+        await alertService.checkAndUpdateBottleAlert(mappedBottle);
+      } catch (e) {
+        logger.error({ error: e }, "Failed to update alert status after bottle creation");
+      }
+
+      return mappedBottle;
     } catch (err) {
       logger.error(`Failed to create bottle: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
@@ -206,7 +217,37 @@ export class BottleService {
       if (input.tags !== undefined) data.tags = input.tags;
 
       const bottle = await this.repo.updateBottle(bottleId, userId, data);
-      return this.mapToBottle(bottle);
+
+      // Update alert status immediately
+      const mappedBottle = this.mapToBottle(bottle);
+      // We need to instantiate AlertService here to avoid circular dependency issues at module level,
+      // or better, use dependency injection correctly. For now, dynamic import or local instantiation.
+      // Since BottleService is used in AlertService, we have a circular dependency risk.
+      // However, AlertService depends on BottleService. BottleService depending on AlertService is a cycle.
+      // To break it, we can instantiate AlertService locally just for this operation, 
+      // or move the trigger logic to the controller/route handler.
+      // Given the architecture, let's try local dynamic import to be safe, or just instantiate if the module system handles it.
+      // Actually, let's keep it simple: The best place for this orchestration is often the controller or a higher level service.
+      // But user wants "immediate" feedback. 
+      // Let's modify the service to accept an optional AlertService or similar, OR just do it here.
+
+      // Ideally, we'd emit an event.
+      // For this codebase, let's use a lazy-loaded AlertService approach to minimize refactoring impact.
+
+      try {
+        const { AlertService } = await import('./alert.service.js');
+        const alertService = new AlertService();
+        await alertService.checkAndUpdateBottleAlert(mappedBottle);
+        // Re-fetch to get updated status if it changed?
+        // checkAndUpdateBottleAlert updates the DB. The returned 'bottle' here doesn't have the new status.
+        // But for the UI return, it might matter.
+        // It's acceptable for the API response to show the pre-alert-calc state, 
+        // as the notification will pop up asynchronously.
+      } catch (e) {
+        logger.error({ error: e }, "Failed to update alert status after bottle update");
+      }
+
+      return mappedBottle;
     } catch (err) {
       logger.error(`Failed to update bottle: ${err instanceof Error ? err.message : String(err)}`);
       throw err;

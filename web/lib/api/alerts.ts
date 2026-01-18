@@ -53,12 +53,19 @@ export function useUnreadCount(options?: { enabled?: boolean }) {
         queryKey: ['notifications', 'unread-count'],
         queryFn: async () => {
             const res = await fetchWithAuth('/api/alerts/unread-count');
-            if (!res.ok) throw new Error('Failed to fetch unread count');
+            if (!res.ok) {
+                // Don't throw error on 401 (unauthorized), just return 0
+                if (res.status === 401) {
+                    return 0;
+                }
+                throw new Error('Failed to fetch unread count');
+            }
             const data = await res.json();
             return data.data.count as number;
         },
         refetchInterval: 30000, // Refetch every 30 seconds
         enabled: options?.enabled !== false,
+        retry: false, // Don't retry on 401 errors
     });
 }
 

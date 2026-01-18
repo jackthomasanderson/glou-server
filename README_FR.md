@@ -11,6 +11,7 @@ Votre concierge privé pour bouteilles, bulles, spiritueux et cigares : tout est
  - 🎛 **Profil et préférences** (FEAT-03) : Langue, thème et accents sauvegardés pour chaque session.
  - 🔐 **2FA TOTP** (FEAT-02) : Connexions sécurisées avec codes et clés de secours.
  - 🏠 **Gestion des celliers (Caves)** (FEAT-24) : Créez et gérez vos celliers avant d'ajouter des bouteilles; schéma et API relationnels inclus.
+ - 👀 **Vue à votre image** (FEAT-57) : Basculez entre grille et liste pour explorer votre collection selon votre style.
 
 ---
 

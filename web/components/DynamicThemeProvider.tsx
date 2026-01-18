@@ -1,26 +1,37 @@
 "use client";
 
 import { useAuth } from "@/lib/auth/AuthContext";
-import { theme as defaultTheme, darkTheme } from "@/lib/theme";
+import { createTheme as createMuiTheme } from "@/lib/theme";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
-import { useEffect, useState, useMemo } from "react";
+import { useMemo } from "react";
 
 export function DynamicThemeProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
 
-    // Use useMemo to avoid re-creating themes on every render if not needed
+    // Create dynamic theme based on user preferences
     const theme = useMemo(() => {
+        // Determine theme mode
         let mode = user?.themeMode ?? "dark";
         if (mode === "auto") {
             // On server, we don't have window, default to dark
-            if (typeof window === "undefined") return darkTheme;
-
-            const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-            mode = isDark ? "dark" : "light";
+            if (typeof window === "undefined") {
+                mode = "dark";
+            } else {
+                const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+                mode = isDark ? "dark" : "light";
+            }
         }
-        return mode === "dark" ? darkTheme : defaultTheme;
-    }, [user?.themeMode]);
+
+        // Get accent color with fallback to default blue
+        const accentColor = user?.accentColor || (mode === "dark" ? "#3B82F6" : "#2563EB");
+
+        // Ensure accent color has # prefix
+        const normalizedAccentColor = accentColor.startsWith("#") ? accentColor : `#${accentColor}`;
+
+        // Create theme with custom accent color
+        return createMuiTheme(mode as "light" | "dark", normalizedAccentColor);
+    }, [user?.themeMode, user?.accentColor]);
 
     return (
         <ThemeProvider theme={theme}>

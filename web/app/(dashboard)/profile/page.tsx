@@ -362,14 +362,35 @@ export default function ProfilePage() {
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <input
                       type="color"
-                      value={effective?.accentColor ?? "#2563EB"}
+                      value={(() => {
+                        const color = effective?.accentColor ?? "#2563EB";
+                        // Validate and normalize the color
+                        if (!color || color.trim() === "" || color.trim() === "#") {
+                          return "#2563EB";
+                        }
+                        return color.startsWith("#") ? color : `#${color}`;
+                      })()}
                       onChange={(e) => setDraft((d) => ({ ...d, accentColor: e.target.value }))}
                       aria-label={t("profile.accentColor")}
                       style={{ height: 44, width: 48, padding: 0, borderRadius: "var(--radius)" }}
                     />
                     <input
-                      value={effective?.accentColor ?? "#2563EB"}
-                      onChange={(e) => setDraft((d) => ({ ...d, accentColor: e.target.value }))}
+                      value={(() => {
+                        const color = effective?.accentColor ?? "#2563EB";
+                        // Validate and normalize the color
+                        if (!color || color.trim() === "" || color.trim() === "#") {
+                          return "#2563EB";
+                        }
+                        return color.startsWith("#") ? color : `#${color}`;
+                      })()}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Ensure the value starts with # if it's a valid hex color
+                        const normalizedValue = value && !value.startsWith("#") && /^[0-9A-Fa-f]{6}$/.test(value)
+                          ? `#${value}`
+                          : value;
+                        setDraft((d) => ({ ...d, accentColor: normalizedValue }));
+                      }}
                       placeholder="#2563EB"
                     />
                   </div>

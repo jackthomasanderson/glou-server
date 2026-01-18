@@ -200,17 +200,18 @@ export function AlertCenter() {
                                     </Box>
                                 }
                                 secondary={
-                                    <>
+                                    <Box component="div">
                                         {notification.message && (
-                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                            <Typography component="div" variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                                                 {notification.message}
                                             </Typography>
                                         )}
-                                        <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5, display: "block" }}>
+                                        <Typography component="div" variant="caption" color="text.disabled" sx={{ mt: 0.5, display: "block" }}>
                                             {new Date(notification.createdAt).toLocaleString()}
                                         </Typography>
-                                    </>
+                                    </Box>
                                 }
+                                secondaryTypographyProps={{ component: 'div' }}
                             />
                         </ListItem>
                     ))}

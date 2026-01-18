@@ -955,9 +955,9 @@ button.btn-icon svg {
 }
 
 html.dark .pill.info {
-	border-color: #3B82F6;
+	border-color: var(--accent);
 	color: #DBEAFE;
-	background: rgba(59, 130, 246, 0.15);
+	background: color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 html.dark .pill.success {

@@ -11,12 +11,7 @@ export class CellarRepository {
      */
     async createCellar(userId: string, data: Prisma.cellarsCreateInput): Promise<cellars> {
         return await prisma.cellars.create({
-            data: {
-                ...data,
-                users: {
-                    connect: { id: userId },
-                },
-            },
+            data,
         });
     }
 

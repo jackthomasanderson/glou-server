@@ -114,4 +114,5 @@ $RECYCLE.BIN/
 .vscode/
 .github/agents/
 .github/copilot-instructions.md
-.agent
+
+api/verify_output.txt

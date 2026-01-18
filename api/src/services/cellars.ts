@@ -74,12 +74,10 @@ export class CellarService {
    * Create a new cellar
    */
   async createCellar(userId: string, input: CreateCellarInput): Promise<Cellar> {
-    const cellarId = uuidv4();
     const now = new Date();
 
     try {
       const data: Prisma.cellarsCreateInput = {
-        id: cellarId,
         users: { connect: { id: userId } },
         name: input.name,
         description: input.description || null,
@@ -111,7 +109,10 @@ export class CellarService {
         updatedAt: c.updated_at,
       };
     } catch (err) {
-      logger.error(err, "Failed to create cellar");
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errStack = err instanceof Error ? err.stack : undefined;
+      logger.error({ err, errMsg, errStack, userId, input }, "Failed to create cellar in service");
+      console.error("CellarService.createCellar error:", err);
       throw err;
     }
   }

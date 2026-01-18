@@ -43,15 +43,17 @@ export class UserService {
         avatar_url: null,
         tagline: null,
         preferred_locale: "fr",
-        date_time_format: "DD/MM/YYYY HH:mm",
-        temperature_unit: "celsius",
+        date_time_format: "system",
+        temperature_unit: "c",
         theme_mode: "dark",
-        accent_color: "blue",
+        accent_color: "#c5a059",
         notification_settings: {},
       });
 
       return this.mapToUser(user);
     } catch (error) {
+      console.error("=== ERREUR CRÉATION USER ===");
+      console.error(error);
       logger.error({ error, registration }, "Failed to create user");
       throw new Error("Failed to create user");
     }
@@ -199,6 +201,8 @@ export class TwoFAService {
         updatedAt: settings.updated_at,
       } as TwoFASettings;
     } catch (error) {
+      console.error("=== ERREUR INIT 2FA ===");
+      console.error(error);
       logger.error({ error, userId }, "Failed to initialize 2FA settings");
       throw new Error("Failed to initialize 2FA settings");
     }
@@ -252,7 +256,7 @@ export class SecurityEventService {
     try {
       await this.repo.createEvent({
         id: uuidv4(),
-        users: { connect: { id: userId } },
+        users: userId ? { connect: { id: userId } } : undefined,
         event_type: eventType,
         ip_address: ipAddress || null,
         user_agent: userAgent || null,

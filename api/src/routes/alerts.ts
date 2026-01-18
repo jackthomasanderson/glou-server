@@ -3,8 +3,11 @@ import { AlertService } from '../services/alert.service.js';
 import { NotificationService } from '../services/notification.service.js';
 import { logger } from '../utils/logger.js';
 import { z } from 'zod';
+import { authenticateJWT } from '../middleware/jwt.middleware.js';
 
 const router = Router();
+router.use(authenticateJWT);
+
 const alertService = new AlertService();
 const notificationService = new NotificationService();
 
@@ -26,7 +29,7 @@ router.get('/', async (req, res) => {
             limit: limit ? parseInt(limit as string, 10) : undefined,
         });
 
-        res.json(notifications);
+        res.json({ data: notifications });
     } catch (error) {
         logger.error({ error }, 'Failed to get notifications');
         res.status(500).json({ error: 'Failed to get notifications' });
@@ -57,7 +60,7 @@ router.post('/', async (req, res) => {
             data
         });
 
-        res.status(201).json(notification);
+        res.status(201).json({ data: notification });
     } catch (error) {
         logger.error({ error }, 'Failed to create notification');
         res.status(500).json({ error: 'Failed to create notification' });
@@ -75,7 +78,8 @@ router.get('/unread-count', async (req, res) => {
         }
 
         const count = await notificationService.getUnreadCount(userId);
-        res.json({ count });
+        logger.info({ userId, count }, 'Fetched unread notification count');
+        res.json({ data: { count } });
     } catch (error) {
         logger.error({ error }, 'Failed to get unread count');
         res.status(500).json({ error: 'Failed to get unread count' });
@@ -103,7 +107,7 @@ router.put('/:id/read', async (req, res) => {
         }
 
         await notificationService.markNotificationRead(id);
-        res.json({ success: true });
+        res.json({ data: { success: true } });
     } catch (error) {
         logger.error({ error }, 'Failed to mark notification as read');
         res.status(500).json({ error: 'Failed to mark notification as read' });
@@ -131,7 +135,7 @@ router.delete('/:id', async (req, res) => {
         }
 
         await notificationService.deleteNotification(id);
-        res.json({ success: true });
+        res.json({ data: { success: true } });
     } catch (error) {
         logger.error({ error }, 'Failed to delete notification');
         res.status(500).json({ error: 'Failed to delete notification' });
@@ -149,7 +153,7 @@ router.get('/preferences', async (req, res) => {
         }
 
         const preferences = await alertService.getAlertPreferences(userId);
-        res.json(preferences);
+        res.json({ data: preferences });
     } catch (error) {
         logger.error({ error }, 'Failed to get alert preferences');
         res.status(500).json({ error: 'Failed to get alert preferences' });
@@ -187,7 +191,7 @@ router.put('/preferences', async (req, res) => {
             validation.data
         );
 
-        res.json(preferences);
+        res.json({ data: preferences });
     } catch (error) {
         logger.error({ error }, 'Failed to update alert preferences');
         res.status(500).json({ error: 'Failed to update alert preferences' });
@@ -205,7 +209,7 @@ router.post('/refresh', async (req, res) => {
         }
 
         const result = await alertService.updateBottleAlertStatuses(userId);
-        res.json(result);
+        res.json({ data: result });
     } catch (error) {
         logger.error({ error }, 'Failed to refresh alert statuses');
         res.status(500).json({ error: 'Failed to refresh alert statuses' });

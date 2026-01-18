@@ -62,6 +62,8 @@ export function createProfileRouter(
       res.json({ data: profile });
     } catch (error) {
       if (error instanceof ZodError) {
+        console.error("!!! VALIDATION ERROR !!!", JSON.stringify(error.errors, null, 2));
+        console.error("PAYLOAD:", JSON.stringify(req.body, null, 2));
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
       logger.error(error, "Update profile error");

@@ -10,6 +10,9 @@ import { BottleList } from "../BottleList";
 import { BottleForm } from "../BottleForm";
 import { BottleInput } from "@/lib/bottles/schema";
 import { EditIcon } from "../Icon";
+import { ViewSwitch, ViewMode } from "../ViewSwitch";
+
+const STORAGE_KEY = "glou_bottles_view_mode";
 
 
 interface CellarDetailsProps {
@@ -27,6 +30,14 @@ export function CellarDetails({ cellarId }: CellarDetailsProps) {
   const updateBottleMutation = useUpdateBottle();
   const [editingBottleId, setEditingBottleId] = React.useState<string | null>(null);
   const [viewingBottleId, setViewingBottleId] = React.useState<string | null>(null);
+  const [viewMode, setViewMode] = React.useState<ViewMode>("grid");
+
+  React.useEffect(() => {
+    const savedMode = localStorage.getItem(STORAGE_KEY) as ViewMode;
+    if (savedMode) {
+      setViewMode(savedMode);
+    }
+  }, []);
 
   const editingBottle = React.useMemo(() =>
     editingBottleId ? bottles?.find(b => b.id === editingBottleId) ?? null : null
@@ -91,10 +102,15 @@ export function CellarDetails({ cellarId }: CellarDetailsProps) {
       </p>
 
       <div style={{ marginTop: 32 }}>
-        <h3>{t("list.title")}</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h3>{t("list.title")}</h3>
+          {!editingBottleId && !viewingBottleId && (
+            <ViewSwitch value={viewMode} onChange={setViewMode} storageKey={STORAGE_KEY} />
+          )}
+        </div>
         {editingBottleId || viewingBottleId ? (
           <BottleForm
-            cellars={[cellar]} 
+            cellars={[cellar]}
             initialData={editingBottle || viewingBottle}
             onSave={handleBottleSave}
             onCancel={() => {
@@ -110,6 +126,8 @@ export function CellarDetails({ cellarId }: CellarDetailsProps) {
             onView={(bottle) => setViewingBottleId(bottle.id)}
             onEdit={(bottle) => setEditingBottleId(bottle.id)}
             onDelete={(id) => deleteBottleMutation.mutate(id)}
+            cellarType={cellar.cellarType}
+            viewMode={viewMode}
           />
         )}
       </div>

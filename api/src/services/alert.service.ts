@@ -3,6 +3,8 @@ import { BottleService } from './bottles.js';
 import { logger } from '../utils/logger.js';
 import type { Bottle } from '../schemas/bottles.js';
 
+import { NotificationService } from './notification.service.js';
+
 export type AlertStatus = 'none' | 'approaching' | 'critical';
 
 export interface AlertCalculationResult {
@@ -17,10 +19,12 @@ export interface AlertCalculationResult {
 export class AlertService {
     private repo: AlertRepository;
     private bottleService: BottleService;
+    private notificationService: NotificationService;
 
     constructor() {
         this.repo = new AlertRepository();
         this.bottleService = new BottleService();
+        this.notificationService = new NotificationService();
     }
 
     /**
@@ -34,13 +38,13 @@ export class AlertService {
         let alertStatus: AlertStatus = 'none';
 
         // Skip if no peak maturity data
-        if (!bottle.peakMaturityFrom || !bottle.peakMaturityTo) {
+        if (!bottle.peakMaturity?.from || !bottle.peakMaturity?.to) {
             return { bottleId: bottle.id, alertStatus, reasons };
         }
 
         const currentYear = new Date().getFullYear();
-        const peakStart = bottle.peakMaturityFrom;
-        const peakEnd = bottle.peakMaturityTo;
+        const peakStart = bottle.peakMaturity.from;
+        const peakEnd = bottle.peakMaturity.to;
 
         // Calculate days threshold (approximate as years for simplicity)
         const yearThreshold = Math.floor(daysBeforePeak / 365);
@@ -101,6 +105,7 @@ export class AlertService {
             const daysBeforePeak = preferences?.daysBeforePeak ?? 30;
 
             const updates: Array<{ bottleId: string; alertStatus: string }> = [];
+            const bottlesToNotify: Array<{ id: string; label: string; alertStatus: string }> = [];
             let errors = 0;
 
             for (const bottle of bottles) {
@@ -113,6 +118,14 @@ export class AlertService {
                             bottleId: result.bottleId,
                             alertStatus: result.alertStatus,
                         });
+
+                        if (result.alertStatus === 'approaching' || result.alertStatus === 'critical') {
+                            bottlesToNotify.push({
+                                id: bottle.id,
+                                label: bottle.label,
+                                alertStatus: result.alertStatus
+                            });
+                        }
                     }
                 } catch (error) {
                     logger.error({ error, bottleId: bottle.id }, 'Error calculating alert status');
@@ -122,6 +135,12 @@ export class AlertService {
 
             if (updates.length > 0) {
                 await this.repo.batchUpdateAlertStatuses(updates);
+
+                // Send batch notification
+                if (bottlesToNotify.length > 0 && userId) {
+                    await this.notificationService.notifyPeakMaturityAlert(userId, bottlesToNotify);
+                }
+
                 logger.info(
                     { userId, count: updates.length },
                     'Updated bottle alert statuses'
@@ -216,6 +235,19 @@ export class AlertService {
                 bottle.id,
                 result.alertStatus
             );
+
+            // Notify user if status changed to something important
+            if (result.alertStatus === 'approaching' || result.alertStatus === 'critical') {
+                await this.notificationService.notifyPeakMaturityAlert(
+                    bottle.userId,
+                    [{
+                        id: bottle.id,
+                        label: bottle.label,
+                        alertStatus: result.alertStatus
+                    }]
+                );
+            }
+
             logger.info(
                 { bottleId: bottle.id, newStatus: result.alertStatus },
                 'Updated bottle alert status'

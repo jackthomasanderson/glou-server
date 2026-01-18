@@ -127,11 +127,10 @@ export const createBottleSchema = z.discriminatedUnion("category", [
 
 export type CreateBottleInput = z.infer<typeof createBottleSchema>;
 
-// Update schema: simpler approach - use the base schema but make all fields optional
-export const updateBottleSchema = z.object({
+// Base fields common to all update schemas
+const commonUpdateFields = {
   id: z.string().uuid(),
   label: nullToUndefined(z.string().min(1).max(120)),
-  category: nullToUndefined(bottleCategorySchema),
   cellarId: nullToUndefined(z.string().uuid()),
   location: emptyStringToUndefined(z.string().min(1).max(80)).optional(),
   collection: emptyStringToUndefined(z.string().min(1).max(80)).optional(),
@@ -153,7 +152,11 @@ export const updateBottleSchema = z.object({
     if (typeof val === "string") return parseFloat(val);
     return val;
   }, z.number().nonnegative().optional()),
-  // Wine-specific
+};
+
+const wineUpdateSchema = z.object({
+  ...commonUpdateFields,
+  category: z.literal("wine"),
   producer: emptyStringToUndefined(z.string().min(1).max(120)),
   name: emptyStringToUndefined(z.string().min(1).max(120)),
   vintageOrNone: nullToUndefined(vintageStringSchema),
@@ -170,8 +173,14 @@ export const updateBottleSchema = z.object({
   lotNumber: emptyStringToUndefined(z.string().max(60)).optional(),
   carafing: emptyStringToUndefined(z.string().max(80)).optional(),
   requiresAeration: nullToUndefined(z.boolean()),
-  // Sparkling-specific
+});
+
+const sparklingUpdateSchema = z.object({
+  ...commonUpdateFields,
+  category: z.literal("sparkling"),
   house: emptyStringToUndefined(z.string().min(1).max(120)),
+  name: emptyStringToUndefined(z.string().min(1).max(120)),
+  vintageOrNone: nullToUndefined(vintageStringSchema),
   style: emptyStringToUndefined(z.string().min(1).max(60)).optional(),
   dosage: emptyStringToUndefined(z.string().max(60)).optional(),
   disgorgement: emptyStringToUndefined(z.string().max(60)).optional(),
@@ -179,26 +188,47 @@ export const updateBottleSchema = z.object({
   baseWine: emptyStringToUndefined(z.string().max(120)).optional(),
   bottlingDate: emptyStringToUndefined(z.string().max(60)).optional(),
   baseYear: nullToUndefined(z.number().int().min(1900).max(maxVintageYear)),
-  // Spirit-specific
+});
+
+const spiritUpdateSchema = z.object({
+  ...commonUpdateFields,
+  category: z.literal("spirit"),
   distillery: emptyStringToUndefined(z.string().min(1).max(120)),
   nameEdition: emptyStringToUndefined(z.string().min(1).max(160)),
+  abv: z.preprocess((val) => {
+    if (val === null || val === undefined) return undefined;
+    if (typeof val === "string") return parseFloat(val);
+    return val;
+  }, z.number().optional()),
   ageStatement: emptyStringToUndefined(z.string().max(40)).optional(),
   caskType: emptyStringToUndefined(z.string().max(120)).optional(),
   batch: emptyStringToUndefined(z.string().max(60)).optional(),
   additiveNote: emptyStringToUndefined(z.string().max(160)).optional(),
   angelShare: emptyStringToUndefined(z.string().max(120)).optional(),
   aromaProfile: emptyStringToUndefined(z.string().max(200)).optional(),
-  // Cigar-specific
+});
+
+const cigarUpdateSchema = z.object({
+  ...commonUpdateFields,
+  category: z.literal("cigar"),
   brand: emptyStringToUndefined(z.string().min(1).max(120)),
   quantity: nullToUndefined(z.number().int().min(1).max(200)),
   wrapper: emptyStringToUndefined(z.string().max(80)).optional(),
   binder: emptyStringToUndefined(z.string().max(80)).optional(),
   filler: emptyStringToUndefined(z.string().max(80)).optional(),
+  format: emptyStringToUndefined(z.string().min(1).max(120)),
   factoryCode: emptyStringToUndefined(z.string().max(60)).optional(),
   targetHumidity: emptyStringToUndefined(z.string().max(40)).optional(),
   humidifier: emptyStringToUndefined(z.string().max(60)).optional(),
   manufactureYear: nullToUndefined(z.number().int().min(1900).max(2100))
 });
+
+export const updateBottleSchema = z.discriminatedUnion("category", [
+  wineUpdateSchema,
+  sparklingUpdateSchema,
+  spiritUpdateSchema,
+  cigarUpdateSchema
+]);
 
 export type UpdateBottleInput = z.infer<typeof updateBottleSchema>;
 
@@ -252,8 +282,7 @@ export const bottleSchema = z.object({
   collection: z.string().optional(),
   photoUrl: z.string().optional(),
   estimatedValue: z.number().optional(),
-  peakMaturityFrom: z.number().optional(),
-  peakMaturityTo: z.number().optional(),
+  peakMaturity: peakMaturitySchema.optional(),
   alertStatus: alertStatusSchema,
   tastingNote: z.string().optional(),
   purchasePlace: z.string().optional(),

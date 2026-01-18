@@ -221,7 +221,9 @@
     "quickAdd": "Ajout rapide",
     "cancel": "Annuler",
     "searchVisual": "🔍 Recherche visuelle",
-    "searching": "Recherche..."
+    "searching": "Recherche...",
+    "gridView": "Vue Grille",
+    "listView": "Vue Liste"
   },
   "preview": {
     "title": "Prévisualisation",
@@ -239,6 +241,8 @@
     "title": "Éléments de la cave",
     "loading": "Chargement de l'inventaire...",
     "empty": "Pas encore de bouteille. Ajoutez-en une.",
+    "emptyCigar": "Pas encore de cigare. Ajoutez-en un.",
+    "emptyMixed": "Pas encore d'élément. Ajoutez une bouteille ou un cigare.",
     "deleted": "Supprimée",
     "optimistic": "En attente de synchro",
     "value": "Valeur estimée",
@@ -490,6 +494,10 @@
       "climate": "Hygrométrie / température",
       "plannedConsumption": "Consommation planifiée",
       "sharing": "Partages"
+    },
+    "reminder": {
+      "title": "Rappel consommation : {{label}}",
+      "message": "Objectif de consommation pour le {{date}}"
     }
   },
   "lock": {
@@ -509,7 +517,7 @@
   },
   "cellars": {
     "title": "Mes caves",
-    "newCellar": "+ Nouvelle cave",
+    "newCellar": "Nouvelle cave",
     "createCellar": "Créer une cave",
     "editCellar": "Modifier la cave",
     "viewCellar": "Voir",

@@ -1,16 +1,13 @@
-/**
- * HTTP client for images API
- */
+import { fetchWithAuth } from "../api/fetchWithAuth";
 
 const API_BASE = "/api/images";
 
 export const imagesClient = {
     async search(query: string): Promise<string | null> {
         try {
-            const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`, {
+            const res = await fetchWithAuth(`${API_BASE}/search?q=${encodeURIComponent(query)}`, {
                 method: "GET",
                 headers: { "Content-Type": "application/json" },
-                credentials: "include",
             });
 
             if (!res.ok) {

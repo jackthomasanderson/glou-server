@@ -24,7 +24,6 @@ export function createCellarsRouter(cellarService: CellarService): Router {
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       logger.error(`Failed to list cellars: ${errMsg}`);
-      console.error("Cellars route error:", err);
       return res.status(500).json({ error: "Failed to list cellars", details: errMsg });
     }
   });
@@ -73,8 +72,10 @@ export function createCellarsRouter(cellarService: CellarService): Router {
       if (err instanceof ZodError) {
         return res.status(400).json({ error: "Invalid input", details: err.errors });
       }
-      logger.error({ err }, "Failed to create cellar");
-      return res.status(500).json({ error: "Failed to create cellar" });
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errStack = err instanceof Error ? err.stack : undefined;
+      logger.error({ err, errMsg, errStack, userId: req.user?.userId, body: req.body }, "Failed to create cellar");
+      return res.status(500).json({ error: "Failed to create cellar", details: errMsg });
     }
   });
 
@@ -114,7 +115,6 @@ export function createCellarsRouter(cellarService: CellarService): Router {
     try {
       const userId = req.user?.userId;
       const { cellarId } = req.params;
-      logger.info({ cellarId, userId }, "DELETE cellar request received");
 
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized" });
@@ -127,7 +127,7 @@ export function createCellarsRouter(cellarService: CellarService): Router {
         return res.status(404).json({ error: "Cellar not found" });
       }
 
-      logger.info({ cellarId, userId }, "Cellar deleted successfully, returning 204");
+      logger.info({ cellarId, userId }, "Cellar deleted successfully");
       return res.status(204).send();
     } catch (err) {
       if (err instanceof Error && err.message.includes("not found")) {

@@ -14,6 +14,9 @@ import { useTranslations } from "../lib/i18n/I18nProvider";
 import { LocaleSync } from "./LocaleSync";
 import { BottleList } from "./BottleList";
 import { BottleForm } from "./BottleForm";
+import { ViewSwitch, ViewMode } from "./ViewSwitch";
+
+const STORAGE_KEY = "glou_global_bottles_view_mode";
 import {
     Box,
     Typography,
@@ -61,6 +64,14 @@ export function BottleManager() {
         open: false,
         message: "",
     });
+    const [viewMode, setViewMode] = useState<ViewMode>("grid");
+
+    useEffect(() => {
+        const savedMode = localStorage.getItem(STORAGE_KEY) as ViewMode;
+        if (savedMode) {
+            setViewMode(savedMode);
+        }
+    }, []);
 
     const { data: cellars = [] } = useCellars();
 
@@ -246,7 +257,8 @@ export function BottleManager() {
                             {t("list.title")}
                         </Typography>
                     </Box>
-                    <Box>
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <ViewSwitch value={viewMode} onChange={setViewMode} storageKey={STORAGE_KEY} />
                         {!isFormVisible && !editingId && cellars.some(c => ["aging", "service", "multizone", "combined", "hybrid", "natural", "other", "cigar"].includes(c.cellarType)) && (
                             <Button
                                 variant="contained"
@@ -267,6 +279,7 @@ export function BottleManager() {
                     onView={(bottle) => setViewingId(bottle.id)}
                     onEdit={(bottle) => setEditingId(bottle.id)}
                     onDelete={(id) => deleteMutation.mutate(id)}
+                    viewMode={viewMode}
                 />
             </Paper>
 

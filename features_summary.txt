@@ -1,0 +1,57 @@
+﻿# FonctionnalitÃ© FEAT-01 : CRUD Bouteille avec Champs Contextuels par CatÃ©gorie
+# FonctionnalitÃ© FEAT-03 : Profils Utilisateurs & Personnalisation
+# FonctionnalitÃ© FEAT-24 : Gestion des Caves (CRUD)
+# FonctionnalitÃ© FEAT-55 : Stockage Persistant des Actifs en Base de DonnÃ©es
+# FonctionnalitÃ© FEAT-02 : 2FA TOTP
+# FonctionnalitÃ© FEAT-04 : Scan Ã‰tiquette & Ajout Express
+# FonctionnalitÃ© FEAT-05 : Transparence des Sources & Trace des Overrides
+# FonctionnalitÃ© FEAT-06 : Alertes ApogÃ©e & FenÃªtre de DÃ©gustation
+# FonctionnalitÃ© FEAT-07 : Gestion des Bouteilles EntamÃ©es & Niveaux
+# FonctionnalitÃ© FEAT-08 : Plan de Consommation Intelligent & Rotation de Stock
+# FonctionnalitÃ© FEAT-09 : Consommation GuidÃ©e par Accords Mets/Bouteilles
+# FonctionnalitÃ© FEAT-10 : Ã‰tiquettes QR/NFC & Check-out Rapide
+# FonctionnalitÃ© FEAT-11 : Bulk Edit & Workflows Rapides
+# FonctionnalitÃ© FEAT-12 : Inventaire Physique AssistÃ©
+# FonctionnalitÃ© FEAT-13 : ModÃ©lisation de Cave & Clayettes ParamÃ©trables
+# FonctionnalitÃ© FEAT-14 : Cartographie de Cave & Localisation Visuelle
+# FonctionnalitÃ© FEAT-15 : Monitoring Hygro/Temp & Alertes de DÃ©rive
+# FonctionnalitÃ© FEAT-16 : Mode Hors-Ligne & Sync Confiance
+# FonctionnalitÃ© FEAT-17 : Partage PrivÃ© & Mode InvitÃ©
+# FonctionnalitÃ© FEAT-18 : PortabilitÃ© & SouverainetÃ© des DonnÃ©es
+# FonctionnalitÃ© FEAT-19 : Valorisation & Suivi de MarchÃ©
+# FonctionnalitÃ© FEAT-20 : Wishlist, Veille Prix & Budget Perso
+# FonctionnalitÃ© FEAT-21 : Analytique Perso & Rapports PDF
+# FonctionnalitÃ© FEAT-22 : Journal de DÃ©gustation & Recos PersonnalisÃ©es
+# FonctionnalitÃ© FEAT-23 : Offline First â€” AccÃ¨s Sans RÃ©seau
+# FonctionnalitÃ© FEAT-25 : Gestion des Sessions & Appareils de Confiance
+# FonctionnalitÃ© FEAT-26 : "Se Souvenir de Moi"
+# FonctionnalitÃ© FEAT-27 : Indicateur de Force du Mot de Passe
+# FonctionnalitÃ© FEAT-28 : RÃ©initialisation de Mot de Passe par Email
+# FonctionnalitÃ© FEAT-29 : Notifications SÃ©curitÃ©
+# FonctionnalitÃ© FEAT-30 : Verrouillage Rapide & Auto-Lock
+# FonctionnalitÃ© FEAT-31 : RÃ´les & Permissions de Base (Admin / Utilisateur)
+# FonctionnalitÃ© FEAT-32 : SystÃ¨me de Notifications
+# FonctionnalitÃ© FEAT-33 : Personal Branding d'App
+# FonctionnalitÃ© FEAT-34 : Configuration SystÃ¨me & IntÃ©grations
+# FonctionnalitÃ© FEAT-35 : DonnÃ©es PersonnalisÃ©es (UI Preferences)
+# FonctionnalitÃ© FEAT-36 : Audit Complet
+# FonctionnalitÃ© FEAT-37 : Gestion Utilisateurs AvancÃ©e (Invitations & Permissions)
+# FonctionnalitÃ© FEAT-38 : ConformitÃ© RGPD (Export & Suppression)
+# FonctionnalitÃ© FEAT-39 : Maintenance & RÃ©tention des DonnÃ©es
+# FonctionnalitÃ© FEAT-40 : Carte du Monde avec GÃ©olocalisation des Actifs
+# FonctionnalitÃ© FEAT-41 : Heatmap par Type d'Actif
+# FonctionnalitÃ© FEAT-42 : Filtrage et Exploration des Actifs sur la Carte
+# FonctionnalitÃ© FEAT-43 : CRUD Bouteille Persistant avec Corbeille et Undo
+# FonctionnalitÃ© FEAT-44 : Saisie Contextuelle par CatÃ©gorie de Bouteille
+# FonctionnalitÃ© FEAT-45 : Fiche Bouteille et Listes Filtrables sur Champs Transverses
+# FonctionnalitÃ© FEAT-46 : AutocomplÃ©tion lors de l'ajout d'items et de localisations
+# FonctionnalitÃ© FEAT-47 : Authentification de Base - Inscription, Connexion et Sessions
+# FonctionnalitÃ© FEAT-48 : Recherche dans le Gestionnaire de Cave
+# FonctionnalitÃ© FEAT-49 : Statistiques des Caves
+# FonctionnalitÃ© FEAT-50 : Navigation Caves
+# FonctionnalitÃ© FEAT-51 : Filtrage et Recherche de Caves
+# FonctionnalitÃ© FEAT-52 : Assignation de Bouteilles aux Caves
+# FonctionnalitÃ© FEAT-53 : Politique de notifications (Admin)
+# FonctionnalitÃ© FEAT-54 : Configuration rÃ©seau & accÃ¨s externe (Admin)
+# FonctionnalitÃ© FEAT-56 : Setup Wizard d'Onboarding
+# FonctionnalitÃ© FEAT-57 : Affichage Grille/Liste (Switch View)

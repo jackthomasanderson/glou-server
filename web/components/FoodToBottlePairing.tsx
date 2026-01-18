@@ -110,7 +110,7 @@ export function FoodToBottlePairing() {
             whiteSpace: 'pre-wrap',
             fontSize: '0.9rem',
             lineHeight: 1.6,
-            borderColor: alpha('#2563EB', 0.2),
+            borderColor: (theme) => alpha(theme.palette.primary.main, 0.2),
             borderRadius: 2
           }}
         >

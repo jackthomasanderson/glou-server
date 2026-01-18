@@ -75,8 +75,8 @@ export const OpenedBottleReminder: React.FC<OpenedBottleReminderProps> = ({
         // For MVP, we create a notification that says "Consumption goal: [Date]"
 
         await createNotification.mutateAsync({
-            title: `Rappel consommation : ${bottle.label}`,
-            message: `Objectif de consommation pour le ${formattedDate}`,
+            title: t('notifications.reminder.title', { label: bottle.label }),
+            message: t('notifications.reminder.message', { date: formattedDate }),
             type: 'reminder',
             data: {
                 bottleId: bottle.id,

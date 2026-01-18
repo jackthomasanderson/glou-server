@@ -17,7 +17,8 @@ export type ThemeMode = z.infer<typeof themeModeSchema>;
 
 const hexColorSchema = z
   .string()
-  .regex(/^#([0-9a-fA-F]{6})$/, "Invalid hex color (expected #RRGGBB)");
+  .regex(/^#([0-9a-fA-F]{6})$/, "Invalid hex color (expected #RRGGBB)")
+  .or(z.literal(""));
 
 export const notificationSettingsSchema = z
   .object({
@@ -40,15 +41,22 @@ export const notificationSettingsSchema = z
     quietHours: z
       .object({
         enabled: z.boolean().optional(),
-        start: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-        end: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+        start: z
+          .string()
+          .regex(/^\d{2}:\d{2}$/)
+          .optional()
+          .or(z.literal("")),
+        end: z
+          .string()
+          .regex(/^\d{2}:\d{2}$/)
+          .optional()
+          .or(z.literal("")),
       })
       .optional(),
     locale: userLocaleSchema.optional(),
-    webhookUrl: z.string().url().optional().or(z.literal("")),
-    gotifyUrl: z.string().url().optional().or(z.literal("")),
-  })
-  .strict();
+    webhookUrl: z.string().optional().nullable(),
+    gotifyUrl: z.string().optional().nullable(),
+  });
 
 export type NotificationSettings = z.infer<typeof notificationSettingsSchema>;
 
@@ -64,7 +72,7 @@ export const profileSchema = z.object({
   dateTimeFormat: dateTimeFormatSchema,
   temperatureUnit: temperatureUnitSchema,
   themeMode: themeModeSchema,
-  accentColor: hexColorSchema,
+  accentColor: hexColorSchema.nullable(),
   notificationSettings: z.record(z.unknown()),
   aiApiKey: z.string().nullable().optional(),
 });
@@ -77,14 +85,13 @@ export const updateProfileSchema = z
     avatarUrl: z.string().nullable().optional(),
     tagline: z.string().max(140).nullable().optional(),
     preferredLocale: userLocaleSchema.nullable().optional(),
-    dateTimeFormat: dateTimeFormatSchema.optional(),
-    temperatureUnit: temperatureUnitSchema.optional(),
-    themeMode: themeModeSchema.optional(),
-    accentColor: hexColorSchema.optional(),
-    notificationSettings: notificationSettingsSchema.optional(),
+    dateTimeFormat: dateTimeFormatSchema.nullable().optional(),
+    temperatureUnit: temperatureUnitSchema.nullable().optional(),
+    themeMode: themeModeSchema.nullable().optional(),
+    accentColor: hexColorSchema.nullable().optional(),
+    notificationSettings: z.any(),
     aiApiKey: z.string().nullable().optional(),
-  })
-  .strict();
+  });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
@@ -114,8 +121,7 @@ export const updateAppSettingsSchema = z
     smtpPass: z.string().nullable().optional(),
     smtpFrom: z.string().nullable().optional(),
     smtpSecure: z.boolean().nullable().optional(),
-  })
-  .strict();
+  });
 
 export type UpdateAppSettingsInput = z.infer<typeof updateAppSettingsSchema>;
 

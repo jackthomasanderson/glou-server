@@ -7,11 +7,14 @@ Your private cellar concierge that keeps bottles, bubbles, spirits, and cigars p
 ## ✨ What can it do for you?
 
 - 🍷 **Add and tidy bottles fast** (FEAT-01): Create, edit, trash, or restore any bottle with category-smart fields, optimistic saves, and a gentle undo before anything is gone.
-- 💾 **Your collection, always there** (FEAT-55): Every bottle persists in PostgreSQL—close the app, restart your server, everything stays exactly where you left it.
-
- - 👤 **Profile & personalization** (FEAT-03): Each user gets a dedicated profile with persistent preferences and custom options for a tailored experience.
- - 🔐 **TOTP 2FA** (FEAT-02): Secure sign-ins with codes and backup keys.
- - 🏠 **Cellars / Caves management** (FEAT-24): Create and manage cellars before adding bottles; relational schema and APIs included.
+- 💾 **Your collection, always there** (FEAT-55): Every bottle persists in PostgreSQL.
+- 👤 **Profile & personalization** (FEAT-03): Dedicated profile with persistent preferences.
+- 🔐 **TOTP 2FA** (FEAT-02): Secure sign-ins with codes and backup keys.
+- 🏠 **Cellars management** (FEAT-24): Create and manage cellars before adding bottles.
+- ⏰ **Apogee alerts** (FEAT-06): Gentle nudges for perfect drinking windows.
+- 🥤 **Level tracking** (FEAT-07): Keep track of opened bottles and remaining levels.
+- 🧠 **Smart Consumption** (FEAT-08): Intelligent suggestions on what to drink next.
+- 👀 **View your way** (FEAT-57): Toggle between grid and list views to browse your collection your style.
 
 ---
 
@@ -48,9 +51,8 @@ docker run -d --env-file .env -p 3000:3000 -p 3001:3001 glou:latest
 
 ## 🗺 On the Horizon
 
- - 📸 **Label scan express** (FEAT-04): Snap a label, get a ready-to-save bottle card.
- - 🪶 **Source transparency** (FEAT-05): See where every detail comes from and keep your overrides first.
- - ⏰ **Apogee alerts** (FEAT-06): Gentle nudges before, during, and after each perfect drinking window.
+- 📸 **Label scan express** (FEAT-04): Snap a label, get a ready-to-save bottle card.
+- 🪶 **Source transparency** (FEAT-05): See where every detail comes from.
 
 ---
 

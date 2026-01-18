@@ -1,0 +1,9 @@
+Starting Bug Fix Verification...
+Using user: Romain
+
+--- TEST 1: Stock Quotidien Fix (No Price) ---
+✅ PASSED: Bottle with no price does NOT have "Stock quotidien" tag.
+
+--- TEST 2: Notification Triggering ---
+✅ PASSED: Bottle status correctly triggered to "critical".
+✅ PASSED: Notification was created for past peak bottle.

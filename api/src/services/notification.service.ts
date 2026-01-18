@@ -111,7 +111,10 @@ export class NotificationService {
         // Get user preferences
         const preferences = await this.repo.getAlertPreferences(userId);
 
-        if (!preferences?.enableInApp && !preferences?.enableEmail) {
+        const enableInApp = preferences?.enableInApp ?? true;
+        const enableEmail = preferences?.enableEmail ?? true;
+
+        if (!enableInApp && !enableEmail) {
             logger.debug({ userId }, 'User has disabled all alert notifications');
             return;
         }
@@ -122,36 +125,55 @@ export class NotificationService {
         );
 
         // Create in-app notifications
-        if (preferences?.enableInApp) {
+        if (enableInApp) {
             if (criticalBottles.length > 0) {
+                const count = criticalBottles.length;
+                const title = count === 1
+                    ? '1 bouteille a dépassé son apogée'
+                    : `${count} bouteilles ont dépassé leur apogée`;
+                const message = count === 1
+                    ? `La bouteille suivante nécessite une attention urgente : ${criticalBottles[0].label}`
+                    : `Les bouteilles suivantes nécessitent une attention urgente : ${criticalBottles.map((b) => b.label).join(', ')}`;
+
                 await this.createInAppNotification({
                     userId,
                     type: 'peak_maturity',
-                    title: `${criticalBottles.length} bouteille(s) ont dépassé leur apogée`,
-                    message: `Les bouteilles suivantes nécessitent une attention urgente: ${criticalBottles.map((b) => b.label).join(', ')}`,
+                    title,
+                    message,
                     data: { bottles: criticalBottles },
                 });
             }
 
             if (approachingBottles.length > 0) {
+                const count = approachingBottles.length;
+                const title = count === 1
+                    ? "1 bouteille approche de sa fenêtre d'apogée"
+                    : `${count} bouteilles approchent de leur fenêtre d'apogée`;
+                const message = count === 1
+                    ? `La bouteille suivante entre dans sa fenêtre optimale : ${approachingBottles[0].label}`
+                    : `Les bouteilles suivantes entrent dans leur fenêtre optimale : ${approachingBottles.map((b) => b.label).join(', ')}`;
+
                 await this.createInAppNotification({
                     userId,
                     type: 'peak_maturity',
-                    title: `${approachingBottles.length} bouteille(s) approchent de leur fenêtre d'apogée`,
-                    message: `Les bouteilles suivantes entrent dans leur fenêtre optimale: ${approachingBottles.map((b) => b.label).join(', ')}`,
+                    title,
+                    message,
                     data: { bottles: approachingBottles },
                 });
             }
         }
 
         // Send email notification
-        if (preferences?.enableEmail) {
+        if (enableEmail) {
             const totalCount = criticalBottles.length + approachingBottles.length;
             if (totalCount > 0) {
-                let emailBody = `Bonjour,\n\nVoici votre rapport d'alertes d'apogée:\n\n`;
+                let emailBody = `Bonjour,\n\nVoici votre rapport d'alertes d'apogée :\n\n`;
 
                 if (criticalBottles.length > 0) {
-                    emailBody += `⚠️ Bouteilles critiques (${criticalBottles.length}):\n`;
+                    const count = criticalBottles.length;
+                    emailBody += count === 1
+                        ? `⚠️ Bouteille critique (1) :\n`
+                        : `⚠️ Bouteilles critiques (${count}) :\n`;
                     criticalBottles.forEach((b) => {
                         emailBody += `  - ${b.label}\n`;
                     });
@@ -159,7 +181,10 @@ export class NotificationService {
                 }
 
                 if (approachingBottles.length > 0) {
-                    emailBody += `📅 Bouteilles approchant l'apogée (${approachingBottles.length}):\n`;
+                    const count = approachingBottles.length;
+                    emailBody += count === 1
+                        ? `📅 Bouteille approchant l'apogée (1) :\n`
+                        : `📅 Bouteilles approchant l'apogée (${count}) :\n`;
                     approachingBottles.forEach((b) => {
                         emailBody += `  - ${b.label}\n`;
                     });
@@ -168,9 +193,13 @@ export class NotificationService {
 
                 emailBody += `Consultez votre centre d'alertes pour plus de détails.\n\nCordialement,\nGlou`;
 
+                const subject = totalCount === 1
+                    ? `🍷 Alerte d'apogée : 1 bouteille`
+                    : `🍷 Alertes d'apogée : ${totalCount} bouteilles`;
+
                 await this.sendEmailNotification(
                     userId,
-                    `🍷 Alertes d'apogée: ${totalCount} bouteille(s)`,
+                    subject,
                     emailBody
                 );
             }

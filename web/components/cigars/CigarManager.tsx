@@ -14,6 +14,9 @@ import { LocaleSync } from "../LocaleSync";
 import { BottleList } from "../BottleList";
 import { BottleForm } from "../BottleForm";
 import { PlusIcon } from "../Icon";
+import { ViewSwitch, ViewMode } from "../ViewSwitch";
+
+const STORAGE_KEY = "glou_cigars_view_mode";
 
 const queryKey = ["cigars"] as const;
 
@@ -34,6 +37,14 @@ export function CigarManager() {
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [feedback, setFeedback] = useState<string | null>(null);
     const [feedbackAction, setFeedbackAction] = useState<(() => void) | null>(null);
+    const [viewMode, setViewMode] = useState<ViewMode>("grid");
+
+    useEffect(() => {
+        const savedMode = localStorage.getItem(STORAGE_KEY) as ViewMode;
+        if (savedMode) {
+            setViewMode(savedMode);
+        }
+    }, []);
 
     const { data: cellars = [] } = useCellars();
 
@@ -194,7 +205,8 @@ export function CigarManager() {
                         <p className="eyebrow">{t("app.inventory")}</p>
                         <h2>{t("list.title")}</h2>
                     </div>
-                    <div className="actions-inline">
+                    <div className="actions-inline" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <ViewSwitch value={viewMode} onChange={setViewMode} storageKey={STORAGE_KEY} />
                         {!isFormVisible && !editingId && cigarCellars.length > 0 && (
                             <button className="primary btn-icon" onClick={() => setIsFormVisible(true)} title={t("actions.addBottle").replace("bouteille", "cigare").replace("Bottle", "Cigar")}>
                                 <PlusIcon />
@@ -212,6 +224,7 @@ export function CigarManager() {
                     onView={(cigar) => setViewingId(cigar.id)}
                     onEdit={(cigar) => setEditingId(cigar.id)}
                     onDelete={(id) => deleteMutation.mutate(id)}
+                    viewMode={viewMode}
                 />
             </section>
 

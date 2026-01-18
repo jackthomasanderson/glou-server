@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useCreateCellar, useUpdateCellar } from "@/lib/cellars/store";
+import { useCreateCellar, useUpdateCellar, useDeleteCellar } from "@/lib/cellars/store";
 import { CellarType, CellarWithStats } from "@/types/cellars";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "@/lib/i18n/I18nProvider";
@@ -18,6 +18,7 @@ export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
   const router = useRouter();
   const createMutation = useCreateCellar();
   const updateMutation = useUpdateCellar();
+  const deleteMutation = useDeleteCellar();
   const { t } = useTranslations();
 
   const [formData, setFormData] = React.useState({
@@ -132,8 +133,20 @@ export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
     }
   };
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
-  const error = createMutation.error || updateMutation.error;
+  const handleDelete = async () => {
+    if (!existingCellar || !confirm(t("cellars.deleteConfirm"))) return;
+
+    try {
+      await deleteMutation.mutateAsync(existingCellar.id);
+      router.push("/cellars");
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      console.error("Failed to delete cellar:", err);
+    }
+  };
+
+  const isPending = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+  const error = createMutation.error || updateMutation.error || deleteMutation.error;
 
   return (
     <section className="panel">
@@ -142,6 +155,19 @@ export function CellarForm({ onSuccess, existingCellar }: CellarFormProps) {
           <p className="eyebrow">{t("app.name")}</p>
           <h1>{isEditing ? t("cellars.editCellar") : t("cellars.createCellar")}</h1>
         </div>
+        {isEditing && (
+          <div className="actions-inline">
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="danger btn-icon" // Assuming btn-icon exists or just default
+              disabled={isPending}
+              title={t("actions.delete")}
+            >
+              {t("actions.delete")}
+            </button>
+          </div>
+        )}
       </div>
 
       {error ? (

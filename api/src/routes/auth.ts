@@ -62,6 +62,8 @@ export function createAuthRouter(
       if (error instanceof ZodError) {
         return res.status(400).json({ error: "Validation failed", details: error.errors });
       }
+      console.error("=== ERREUR REGISTER ROUTE ===");
+      console.error(error);
       logger.error(error, "Registration error");
       res.status(500).json({ error: "Internal server error" });
     }

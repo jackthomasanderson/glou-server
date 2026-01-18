@@ -159,19 +159,14 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
         }
 
         if (!query || query.length < 5) {
-            console.log("Query too short for search:", query);
             return;
         }
 
-        console.log("Triggering auto-search for:", query);
         setIsSearchingImage(true);
         try {
             const url = await imagesClient.search(query);
             if (url) {
-                console.log("Auto-search found image:", url);
                 setForm(prev => ({ ...prev, photoUrl: url }));
-            } else {
-                console.log("Auto-search found no image.");
             }
         } finally {
             setIsSearchingImage(false);
@@ -224,21 +219,26 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
     // Handle edit mode
     useEffect(() => {
         if (initialData) {
-            const { ...input } = initialData;
-            // Sanitize null values from DB
-            if (input.quantity === null || input.quantity === undefined) {
-                (input as any).quantity = 1;
+            // Sanitize all null values from DB to undefined/defaults
+            const sanitized = { ...initialData } as any;
+            Object.keys(sanitized).forEach(key => {
+                if (sanitized[key] === null) {
+                    sanitized[key] = undefined;
+                }
+            });
+
+            // Specific defaults
+            if (sanitized.quantity === undefined) sanitized.quantity = 1;
+            if (!sanitized.tags) sanitized.tags = [];
+            if (sanitized.category === "wine") {
+                if (!sanitized.color) sanitized.color = "red";
+            } else {
+                delete sanitized.color;
             }
-            if (!input.tags) {
-                input.tags = [];
-            }
-            if (input.category === "wine" && (!input.color)) {
-                (input as any).color = "red";
-            }
-            if (!input.photoUrl) {
-                (input as any).photoUrl = "";
-            }
-            setForm(input as BottleInput);
+            if (sanitized.photoUrl === undefined) sanitized.photoUrl = "";
+            if (sanitized.peakMaturity === null) sanitized.peakMaturity = undefined;
+
+            setForm(sanitized as BottleInput);
             setShowOptionals(true);
             window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
@@ -249,7 +249,7 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                 setForm(prev => ({ ...prev, cellarId: cellars[0].id } as BottleInput));
             }
         }
-    }, [initialData, cellars]);
+    }, [initialData, cellars, fixedCategory, defaultCategory]);
 
     const handleCategoryChange = (category: BottleCategory) => {
         if (category === "cigar") {
@@ -303,20 +303,20 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                     <div className="grid">
                         <Field label={t("fields.house")} required hint={t("hints.house")}
                         >
-                            <input value={sparklingForm.house}
+                            <input value={sparklingForm.house ?? ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, house: e.target.value }))}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.sparkling.name")} required hint={t("hints.sparklingName")}
                         >
-                            <input value={sparklingForm.name}
+                            <input value={sparklingForm.name ?? ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.vintageOrNone")} hint={t("hints.vintageOrNone")}
                         >
                             <input
-                                value={sparklingForm.vintageOrNone}
+                                value={sparklingForm.vintageOrNone ?? ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNone: e.target.value }))}
                                 disabled={readOnly}
                             />
@@ -330,13 +330,13 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                     <div className="grid">
                         <Field label={t("fields.distillery")} required hint={t("hints.distillery")}
                         >
-                            <input value={spiritForm.distillery}
+                            <input value={spiritForm.distillery ?? ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, distillery: e.target.value }))}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.spirit.nameEdition")} required hint={t("hints.nameEdition")}
                         >
-                            <input value={spiritForm.nameEdition}
+                            <input value={spiritForm.nameEdition ?? ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, nameEdition: e.target.value }))}
                                 onBlur={() => !form.photoUrl && handleAutoSearch()}
                                 disabled={readOnly} />
@@ -364,14 +364,14 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                     <div className="grid">
                         <Field label={t("fields.brand")} required hint={t("hints.brand")}
                         >
-                            <input value={cigarForm.brand}
+                            <input value={cigarForm.brand ?? ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, brand: e.target.value }))}
                                 onBlur={() => !form.photoUrl && handleAutoSearch()}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.format")} required hint={t("hints.formatCigar")}
                         >
-                            <input value={cigarForm.format}
+                            <input value={cigarForm.format ?? ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, format: e.target.value }))}
                                 onBlur={() => !form.photoUrl && handleAutoSearch()}
                                 disabled={readOnly} />
@@ -381,7 +381,7 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                             <input
                                 type="number"
                                 min={1}
-                                value={cigarForm.quantity}
+                                value={cigarForm.quantity ?? 1}
                                 onChange={(e) => setForm((prev) => ({ ...prev, quantity: Number(e.target.value) }))}
                                 disabled={readOnly}
                             />
@@ -396,19 +396,19 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                     <div className="grid">
                         <Field label={t("fields.producer")} required hint={t("hints.producer")}
                         >
-                            <input value={wineForm.producer}
+                            <input value={wineForm.producer ?? ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, producer: e.target.value }))}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.wine.name")} required hint={t("hints.wineName")}
                         >
-                            <input value={wineForm.name}
+                            <input value={wineForm.name ?? ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                                 disabled={readOnly} />
                         </Field>
                         <Field label={t("fields.vintageOrNone")} hint={t("hints.vintageOrNone")}
                         >
-                            <input value={wineForm.vintageOrNone}
+                            <input value={wineForm.vintageOrNone ?? ""}
                                 onChange={(e) => setForm((prev) => ({ ...prev, vintageOrNone: e.target.value }))}
                                 disabled={readOnly} />
                         </Field>
@@ -692,8 +692,6 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                         type="checkbox"
                         checked={form.isOpened ?? false}
                         aria-label={t("fields.isOpened")}
-                        checked={form.isOpened ?? false}
-                        aria-label={t("fields.isOpened")}
                         onChange={(e) => {
                             const isOpened = e.target.checked;
                             setForm((prev) => ({ ...prev, isOpened }));
@@ -713,10 +711,18 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                     max={2100}
                     value={form.peakMaturity?.from ?? ""}
                     onChange={(e) =>
-                        setForm((prev) => ({
-                            ...prev,
-                            peakMaturity: { ...prev.peakMaturity, from: e.target.value ? Number(e.target.value) : undefined }
-                        }))
+                        setForm((prev) => {
+                            const newFrom = e.target.value ? Number(e.target.value) : undefined;
+                            let newTo = prev.peakMaturity?.to;
+                            // Auto-adjust 'to' if 'from' is after it
+                            if (newFrom && newTo && newFrom > newTo) {
+                                newTo = newFrom;
+                            }
+                            return {
+                                ...prev,
+                                peakMaturity: { ...prev.peakMaturity, from: newFrom, to: newTo }
+                            };
+                        })
                     }
                     disabled={readOnly}
                 />
@@ -728,10 +734,18 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                     max={2100}
                     value={form.peakMaturity?.to ?? ""}
                     onChange={(e) =>
-                        setForm((prev) => ({
-                            ...prev,
-                            peakMaturity: { ...prev.peakMaturity, to: e.target.value ? Number(e.target.value) : undefined }
-                        }))
+                        setForm((prev) => {
+                            const newTo = e.target.value ? Number(e.target.value) : undefined;
+                            let newFrom = prev.peakMaturity?.from;
+                            // Auto-adjust 'from' if 'to' is before it
+                            if (newTo && newFrom && newTo < newFrom) {
+                                newFrom = newTo;
+                            }
+                            return {
+                                ...prev,
+                                peakMaturity: { ...prev.peakMaturity, from: newFrom, to: newTo }
+                            }
+                        })
                     }
                     disabled={readOnly}
                 />
@@ -813,7 +827,7 @@ export function BottleForm({ cellars, initialData, defaultCategory = "wine", fix
                     <div className="grid">
                         <Field label={t("fields.label")} required hint={t("hints.label")}
                         >
-                            <input value={form.label} onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))} disabled={readOnly} />
+                            <input value={form.label ?? ""} onChange={(e) => setForm((prev) => ({ ...prev, label: e.target.value }))} disabled={readOnly} />
                         </Field>
                         <Field label="Quantity" required>
                             <div style={{ display: "flex", alignItems: "center" }}>
