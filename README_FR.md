@@ -1,23 +1,28 @@
 # Glou — Simplement Précieux
 
-Votre concierge privé pour bouteilles, bulles, spiritueux et cigares : tout est rangé, suivi et sous votre contrôle.
+### Votre concierge privé pour bouteilles, bulles, spiritueux et cigares : tout est rangé, suivi et sous votre contrôle.
+
+![Écran de connexion Glou](assets/login_page.png)
 
 ---
 
- ## ✨ Ce qu’il fait pour vous
+## ✨ Pourquoi Glou ? (Points Forts)
 
- - 🍷 **Ajout et rangement express** (FEAT-01) : Créez, modifiez, mettez à la corbeille ou restaurez une bouteille avec des champs malins selon la catégorie, sauvegardes optimistes et un petit délai pour annuler.
- - 💾 **Votre collection, toujours là** (FEAT-55) : Chaque bouteille persiste dans PostgreSQL—fermez l'app, redémarrez le serveur, tout reste exactement là où vous l'avez laissé.
- - 🎛 **Profil et préférences** (FEAT-03) : Langue, thème et accents sauvegardés pour chaque session.
- - 🔐 **2FA TOTP** (FEAT-02) : Connexions sécurisées avec codes et clés de secours.
- - 🏠 **Gestion des celliers (Caves)** (FEAT-24) : Créez et gérez vos celliers avant d'ajouter des bouteilles; schéma et API relationnels inclus.
- - 👀 **Vue à votre image** (FEAT-57) : Basculez entre grille et liste pour explorer votre collection selon votre style.
+- 🍷 **Cave Infini & Historique** (FEAT-55) : Gérez des milliers de bouteilles avec un historique persistant. Tout est stocké en sécurité dans PostgreSQL.
+- 🚀 **Suggestions Intelligentes** (FEAT-08) : Trop de choix ? Laissez Glou vous suggérer la bouteille parfaite selon l'apogée et vos goûts.
+- 📱 **Mobile & Hors-Ligne** (FEAT-58) : Conçu pour tous les écrans. Gérez votre cave depuis le restaurant ou le fond de votre sous-sol.
+- 🔐 **Sécurisé & Privé** (FEAT-02/03) : Auto-hébergé, support 2FA et propriété totale des données. Pas de suivi, pas de pubs.
+- 📊 **Vues Dynamiques** (FEAT-57) : Visualisez votre collection à votre façon — basculez entre grille et liste instantanément.
 
 ---
 
 ## 🛠 Démarrage Express
 
-1) **Préparez la recette** — créez un `.env` à la racine :
+### Prérequis
+- Docker & Docker Compose
+
+### Lancement
+1. **Préparez la recette** — créez un `.env` à la racine :
 ```env
 API_PORT=3001
 WEB_PORT=3000
@@ -30,28 +35,26 @@ CORS_ORIGIN=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:3001/api
 ```
 
-2) **Lancez l’essentiel**
+2. **Lancez tout**
 ```bash
 docker compose up -d db
 cd api && npm install && npm run dev
 cd ../web && npm install && npm run dev -- -p 3000
 ```
 
-3) **Profitez** — ouvrez votre navigateur sur http://localhost:3000
-
-Envie d’une seule commande ?
-```bash
-docker run -d --env-file .env -p 3000:3000 -p 3001:3001 glou:latest
-```
+3. **Profitez** — ouvrez votre navigateur sur **[http://localhost:3000](http://localhost:3000)**
 
 ---
 
-## 🗺 Sur l’horizon
+## 🗺 Roadmap (Feuille de route)
 
-- 📸 **Scan d’étiquette** (FEAT-04) : Une photo et la fiche bouteille est déjà préremplie.
-- 🪶 **Transparence des sources** (FEAT-05) : Voir l’origine de chaque donnée et garder vos overrides en priorité.
-- ⏰ **Alertes d’apogée** (FEAT-06) : Rappels doux avant, pendant et après chaque fenêtre idéale.
+**En cours de préparation :**
+- 📸 **Scan d'étiquette** (FEAT-04) : Une photo et la fiche bouteille est pré-remplie.
+- 🛡 **Sessions de Confiance** (FEAT-25) : Gérez vos appareils actifs.
+- 📓 **Journal de Dégustation** (FEAT-22) : Notez vos expériences sensorielles.
+- 📧 **Réinitialisation de mot de passe** (FEAT-28) : Récupération de compte par email.
+- ...et bien plus à venir !
 
 ---
 
-Fait avec soin pour les collectionneurs qui aiment garder leurs trésors simples et précieux.
+**Fait avec soin pour les collectionneurs qui aiment garder leurs trésors simples et précieux.**

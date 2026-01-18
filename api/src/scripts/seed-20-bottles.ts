@@ -9,7 +9,9 @@ async function main() {
     console.log("Starting seed of 20 bottles...");
 
     // 1. Find a user (take the first one)
-    const user = await prisma.users.findFirst();
+    const user = await prisma.users.findFirst({
+        where: { email: "demo@glou.com" }
+    });
     if (!user) {
         console.error("❌ No users found in the database. Please register a user first.");
         process.exit(1);
@@ -27,7 +29,7 @@ async function main() {
             data: {
                 user_id: user.id,
                 name: "Default Cellar",
-                cellar_type: "mixed",
+                cellar_type: "combined",
                 location_description: "Created by seed script",
             },
         });

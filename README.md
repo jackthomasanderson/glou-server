@@ -1,26 +1,28 @@
 # Glou — Simply Precious
 
-Your private cellar concierge that keeps bottles, bubbles, spirits, and cigars perfectly organized while staying fully in your hands.
+### Your private cellar concierge that keeps bottles, bubbles, spirits, and cigars perfectly organized while staying fully in your hands.
+
+![Glou Login Screen](assets/login_page.png)
 
 ---
 
-## ✨ What can it do for you?
+## ✨ Why Glou? (Highlights)
 
-- 🍷 **Add and tidy bottles fast** (FEAT-01): Create, edit, trash, or restore any bottle with category-smart fields, optimistic saves, and a gentle undo before anything is gone.
-- 💾 **Your collection, always there** (FEAT-55): Every bottle persists in PostgreSQL.
-- 👤 **Profile & personalization** (FEAT-03): Dedicated profile with persistent preferences.
-- 🔐 **TOTP 2FA** (FEAT-02): Secure sign-ins with codes and backup keys.
-- 🏠 **Cellars management** (FEAT-24): Create and manage cellars before adding bottles.
-- ⏰ **Apogee alerts** (FEAT-06): Gentle nudges for perfect drinking windows.
-- 🥤 **Level tracking** (FEAT-07): Keep track of opened bottles and remaining levels.
-- 🧠 **Smart Consumption** (FEAT-08): Intelligent suggestions on what to drink next.
-- 👀 **View your way** (FEAT-57): Toggle between grid and list views to browse your collection your style.
+- 🍷 **Infinite Cellar & History** (FEAT-55): Manage thousands of bottles with persistent history. Every bottle is safely stored in PostgreSQL.
+- 🚀 **Smart Consumption Suggestions** (FEAT-08): Too many choices? Let Glou suggest the perfect bottle based on maturity and your preferences.
+- 📱 **Mobile & Offline Ready** (FEAT-58): Designed for any screen. Manage your cellar from the restaurant or deep in your basement.
+- 🔐 **Secure & Private** (FEAT-02/03): Self-hosted, 2FA support, and complete data ownership. no tracking, no ads.
+- 📊 **Dynamic Views** (FEAT-57): Visualize your collection your way—switch between grid and list views instantly.
 
 ---
 
 ## 🛠 Get Started in Seconds
 
-1) **Prepare the secret sauce** — create a `.env` at the root:
+### Prerequisites
+- Docker & Docker Compose
+
+### Launch
+1. **Prepare the secret sauce** — create a `.env` at the root:
 ```env
 API_PORT=3001
 WEB_PORT=3000
@@ -33,27 +35,26 @@ CORS_ORIGIN=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:3001/api
 ```
 
-2) **Launch the essentials**
+2. **Launch everything**
 ```bash
 docker compose up -d db
 cd api && npm install && npm run dev
 cd ../web && npm install && npm run dev -- -p 3000
 ```
 
-3) **Enjoy** — open your browser at http://localhost:3000
-
-Prefer a single command?
-```bash
-docker run -d --env-file .env -p 3000:3000 -p 3001:3001 glou:latest
-```
+3. **Enjoy** — open your browser at **[http://localhost:3000](http://localhost:3000)**
 
 ---
 
-## 🗺 On the Horizon
+## 🗺 Roadmap
 
-- 📸 **Label scan express** (FEAT-04): Snap a label, get a ready-to-save bottle card.
-- 🪶 **Source transparency** (FEAT-05): See where every detail comes from.
+**Currently Brewing (In Progress):**
+- 📸 **Label Scan Express** (FEAT-04): Snap a label, get a ready-to-save bottle card.
+- 🛡 **Trusted Sessions** (FEAT-25): Manage your active devices.
+- 📓 **Tasting Journal** (FEAT-22): Record your sensory experiences.
+- 📧 **Password Reset** (FEAT-28): recover your account via email.
+- ...and much more coming soon!
 
 ---
 
-Made with care for collectors who like to keep things precious and simple.
+**Made with care for collectors who like to keep things precious and simple.**
