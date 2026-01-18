@@ -19,6 +19,7 @@ import {
   Chip,
   alpha,
   useTheme,
+  useMediaQuery,
   Tooltip,
   CircularProgress,
 } from "@mui/material";
@@ -50,6 +51,7 @@ export function CellarList() {
   const [cellarToDelete, setCellarToDelete] = useState<string | null>(null);
   const { t } = useTranslations();
   const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
   useEffect(() => {
@@ -130,7 +132,7 @@ export function CellarList() {
             {t("cellars.noCellarsDescription")}
           </Typography>
         </Box>
-      ) : viewMode === "grid" ? (
+      ) : viewMode === "grid" || !isDesktop ? (
         <Grid container spacing={3}>
           {cellars.map((cellar) => (
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={cellar.id}>

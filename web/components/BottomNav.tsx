@@ -57,7 +57,6 @@ export default function BottomNav() {
       show: bottlesCount !== null ? bottlesCount > 0 : false
     },
     { href: "/cellars", label: t("nav.cellars"), icon: <CellarsIcon />, show: true },
-    { href: "/profile", label: t("pageTitles.profile"), icon: <ProfileIcon />, show: true },
   ];
 
   const activeIndex = items.findIndex(it => pathname === it.href || (it.href !== "/" && pathname?.startsWith(it.href)));

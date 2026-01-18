@@ -26,6 +26,7 @@ import {
     TableHead,
     TableRow,
     Avatar,
+    useMediaQuery,
 } from "@mui/material";
 import {
     Edit as EditIcon,
@@ -38,6 +39,8 @@ import {
     Schedule as MaturityIcon,
 } from "@mui/icons-material";
 import { ViewMode } from "./ViewSwitch";
+
+
 
 type BottleListProps = {
     bottles: BottleRecord[];
@@ -60,6 +63,7 @@ function BottleListComponent({
 }: BottleListProps) {
     const { t } = useTranslations();
     const theme = useTheme();
+    const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
     if (isLoading) {
         return (
@@ -258,6 +262,63 @@ function BottleListComponent({
                                                 <TrashIcon fontSize="small" />
                                             </IconButton>
                                         </Tooltip>
+                                    </Box>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                ))}
+            </Grid>
+        );
+    }
+
+    if (viewMode === "list" && !isDesktop) {
+        return (
+            <Grid container spacing={2}>
+                {bottles.map((bottle) => (
+                    <Grid size={12} key={bottle.id}>
+                        <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                            <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                <Box sx={{ display: 'flex', gap: 2 }}>
+                                    <Avatar
+                                        src={bottle.photoUrl}
+                                        variant="rounded"
+                                        sx={{ width: 56, height: 56, bgcolor: 'action.hover' }}
+                                    >
+                                        {bottle.category === 'cigar' ? <CigarIcon /> : <WineIcon />}
+                                    </Avatar>
+                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <Box>
+                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.2, mb: 0.5 }}>
+                                                    {bottle.label}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                    {t(`categories.${bottle.category}`)} • {bottle.quantity} {t("fields.quantity").toLowerCase()}
+                                                </Typography>
+                                            </Box>
+                                            {onView && (
+                                                <IconButton size="small" onClick={() => onView(bottle)} sx={{ ml: 1, mt: -1, mr: -1 }}>
+                                                    <EyeIcon fontSize="small" />
+                                                </IconButton>
+                                            )}
+                                        </Box>
+
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1.5 }}>
+                                            {bottle.peakMaturity && (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <MaturityIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {bottle.peakMaturity.from ?? "?"} - {bottle.peakMaturity.to ?? "?"}
+                                                    </Typography>
+                                                </Box>
+                                            )}
+                                            {bottle.estimatedValue != null && (
+                                                <Typography variant="caption" sx={{ fontWeight: 600, color: 'success.main' }}>
+                                                    €{bottle.estimatedValue}
+                                                </Typography>
+                                            )}
+                                        </Box>
                                     </Box>
                                 </Box>
                             </CardContent>

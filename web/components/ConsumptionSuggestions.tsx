@@ -221,12 +221,13 @@ export function ConsumptionSuggestions() {
                           />
                         ))}
                       </Box>
-                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 2 }}>
                         <Button
                           size="small"
                           variant="contained"
                           startIcon={<ConsumeIcon />}
                           onClick={() => handleConsumeClick(suggestion.bottleId)}
+                          sx={{ flex: 1 }}
                         >
                           {t("consumption.actions.markConsumed")}
                         </Button>
@@ -235,6 +236,7 @@ export function ConsumptionSuggestions() {
                           variant="outlined"
                           startIcon={<SkipIcon />}
                           onClick={() => handleSkipClick(suggestion.bottleId)}
+                          sx={{ flex: 1 }}
                         >
                           {t("consumption.actions.skip")}
                         </Button>

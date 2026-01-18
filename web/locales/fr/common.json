@@ -649,7 +649,7 @@
       "noSuggestions": "Aucune suggestion"
     },
     "actions": {
-      "markConsumed": "Marquer comme consommé",
+      "markConsumed": "Consommer",
       "skip": "Reporter",
       "skipReason": "Raison (optionnel)",
       "viewDetails": "Voir les détails",

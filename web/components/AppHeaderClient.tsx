@@ -115,7 +115,7 @@ export function AppHeaderClient() {
       borderBottom: '1px solid',
       borderColor: 'divider',
       color: 'text.primary',
-      display: { xs: 'none', md: 'block' }
+      display: 'block' // Always visible now
     }}>
       <Toolbar sx={{ justifyContent: "space-between", px: { xs: 2, md: 3 } }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, md: 2 }, cursor: 'pointer' }} onClick={() => router.push("/")}>

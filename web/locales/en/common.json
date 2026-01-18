@@ -620,7 +620,7 @@
       "noSuggestions": "No suggestions"
     },
     "actions": {
-      "markConsumed": "Mark as consumed",
+      "markConsumed": "Consume",
       "skip": "Skip",
       "skipReason": "Reason (optional)",
       "viewDetails": "View details",
