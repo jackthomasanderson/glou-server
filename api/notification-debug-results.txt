@@ -1,9 +1,0 @@
---- DEBUGGING NOTIFICATIONS V2 ---
-Found user: Romain (4c548523-4fb4-47d1-b41f-322fd28074c6)
-Total notifications found in DB: 3
-- [2026-01-17T23:56:23.005Z] ID: 23ddb725-00cc-4af9-bc76-116f6dd0d833, Title: "1 bouteille(s) ont dépassé leur apogée", Read: false, Type: peak_maturity
-- [2026-01-17T23:53:34.901Z] ID: efc51c7f-4708-452f-84ec-6fe83d4060a9, Title: "1 bouteille(s) ont dépassé leur apogée", Read: false, Type: peak_maturity
-- [2026-01-17T23:35:49.587Z] ID: 256afe20-a34f-4f0a-8bf4-5c9e192f9023, Title: "Rappel consommation : Tradition", Read: false, Type: reminder
-Total CRITICAL bottles: 1
-- Bottle: Tradition, Status: critical, Ends: 2025
-Unread count (Prisma): 3

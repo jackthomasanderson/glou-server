@@ -70,8 +70,7 @@ export async function GET(
     const url = `${BACKEND_URL}/api/${path}?${request.nextUrl.searchParams.toString()}`;
     const cookieHeader = getForwardCookieHeader(request);
 
-    console.log(`[API Proxy Debug] GET path: ${path}`);
-    console.log(`[API Proxy Debug] Full backend URL: ${url}`);
+
 
     const response = await fetch(url, {
       method: "GET",
@@ -90,7 +89,7 @@ export async function GET(
       data = await response.text();
     }
 
-    console.log(`[API Proxy] GET ${url} - Status: ${response.status}`);
+
     return createProxiedResponse(data, response);
   } catch (error) {
     console.error("[API Proxy] GET error:", error);
@@ -112,8 +111,7 @@ export async function POST(
     const url = `${BACKEND_URL}/api/${path}`;
     const cookieHeader = getForwardCookieHeader(request);
 
-    console.log(`[API Proxy Debug] POST path: ${path}`);
-    console.log(`[API Proxy Debug] Full backend URL: ${url}`, body);
+
 
     const response = await fetch(url, {
       method: "POST",
@@ -133,7 +131,7 @@ export async function POST(
       data = await response.text();
     }
 
-    console.log(`[API Proxy] POST ${url} - Status: ${response.status}`);
+
     return createProxiedResponse(data, response);
   } catch (error) {
     console.error("[API Proxy] POST error:", error);
@@ -155,8 +153,7 @@ export async function PUT(
     const url = `${BACKEND_URL}/api/${path}`;
     const cookieHeader = getForwardCookieHeader(request);
 
-    console.log(`[API Proxy Debug] PUT path: ${path}`);
-    console.log(`[API Proxy Debug] Full backend URL: ${url}`, body);
+
 
     const response = await fetch(url, {
       method: "PUT",
@@ -176,7 +173,7 @@ export async function PUT(
       data = await response.text();
     }
 
-    console.log(`[API Proxy] PUT ${url} - Status: ${response.status}`);
+
     return createProxiedResponse(data, response);
   } catch (error) {
     console.error("[API Proxy] PUT error:", error);
@@ -196,8 +193,7 @@ export async function DELETE(
     const url = `${BACKEND_URL}/api/${path}`;
     const cookieHeader = getForwardCookieHeader(request);
 
-    console.log(`[API Proxy Debug] DELETE path: ${path}`);
-    console.log(`[API Proxy Debug] Full backend URL: ${url}`);
+
 
     const response = await fetch(url, {
       method: "DELETE",
@@ -216,7 +212,7 @@ export async function DELETE(
       data = await response.text();
     }
 
-    console.log(`[API Proxy] DELETE ${url} - Status: ${response.status}`);
+
     return createProxiedResponse(data, response);
   } catch (error) {
     console.error("[API Proxy] DELETE error:", error);
