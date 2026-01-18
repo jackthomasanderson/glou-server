@@ -9,6 +9,7 @@ import { createCellarsRouter } from "./routes/cellars.js";
 import { createBottlesRouter } from "./routes/bottles.js";
 
 import { UserService, TwoFAService, SecurityEventService } from "./services/auth.js";
+import { TrustedSessionService } from "./services/trustedSession.js";
 import { ProfileService, AppSettingsService } from "./services/profile.js";
 import { CellarService } from "./services/cellars.js";
 import { BottleService } from "./services/bottles.js";
@@ -46,10 +47,12 @@ const PORT = process.env.API_PORT || 3001;
 const userService = new UserService();
 const twoFAService = new TwoFAService();
 const securityEventService = new SecurityEventService();
+const trustedSessionService = new TrustedSessionService();
 const profileService = new ProfileService();
 const appSettingsService = new AppSettingsService();
 const cellarService = new CellarService();
 const bottleService = new BottleService();
+
 
 // Middleware
 app.use(express.json({ limit: '50mb' }));
@@ -75,7 +78,7 @@ app.get("/health", (req, res) => {
 // Routes
 app.use(
   "/api/auth",
-  createAuthRouter(userService, twoFAService, securityEventService)
+  createAuthRouter(userService, twoFAService, securityEventService, trustedSessionService)
 );
 
 app.use("/api/profile", createProfileRouter(profileService, appSettingsService));

@@ -93,24 +93,25 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 
 // Token management
 const TOKEN_KEY = "glou_access_token";
-const REFRESH_TOKEN_KEY = "glou_refresh_token";
+// const REFRESH_TOKEN_KEY = "glou_refresh_token"; // Removed: Use HttpOnly Cookie
 
 function getAccessToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return sessionStorage.getItem(TOKEN_KEY);
 }
 
 function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
+  // return localStorage.getItem(REFRESH_TOKEN_KEY);
+  return null; // Force cookie usage
 }
 
 function setTokens(tokens: AuthTokens): void {
-  localStorage.setItem(TOKEN_KEY, tokens.accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  sessionStorage.setItem(TOKEN_KEY, tokens.accessToken);
+  // localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken); // Removed
 }
 
 function clearTokens(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
+  // localStorage.removeItem(REFRESH_TOKEN_KEY); // Removed
 }
 
 // API helper with automatic token refresh
@@ -127,35 +128,35 @@ async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Re
     headers,
   });
 
-  // If 401, try to refresh token
-  if (response.status === 401 && getRefreshToken()) {
+  // If 401, try to refresh token (via local token or cookie)
+  if (response.status === 401) {
     const refreshToken = getRefreshToken();
-    if (refreshToken) {
-      try {
-        const refreshResponse = await fetch("/api/auth/refresh", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
+    // Proceed if we have a refresh token OR if we want to try cookie (refreshToken null is handled by body)
+    // if (refreshToken) { <-- Removed check
+    try {
+      const refreshResponse = await fetch("/api/auth/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: undefined }),
+      });
+
+      if (refreshResponse.ok) {
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await refreshResponse.json();
+        setTokens({ accessToken: newAccessToken, refreshToken: newRefreshToken });
+
+        // Retry original request with new token
+        headers.set("Authorization", `Bearer ${newAccessToken}`);
+        response = await fetch(url, {
+          ...options,
+          headers,
         });
-
-        if (refreshResponse.ok) {
-          const { accessToken: newAccessToken, refreshToken: newRefreshToken } = await refreshResponse.json();
-          setTokens({ accessToken: newAccessToken, refreshToken: newRefreshToken });
-
-          // Retry original request with new token
-          headers.set("Authorization", `Bearer ${newAccessToken}`);
-          response = await fetch(url, {
-            ...options,
-            headers,
-          });
-        } else {
-          // Refresh failed, clear tokens
-          clearTokens();
-        }
-      } catch (error) {
-        console.error("Token refresh failed:", error);
+      } else {
+        // Refresh failed, clear tokens
         clearTokens();
       }
+    } catch (error) {
+      console.error("Token refresh failed:", error);
+      clearTokens();
     }
   }
 
@@ -191,11 +192,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeAuth = async () => {
       dispatch({ type: "SET_LOADING", payload: true });
 
-      // Check if we have a token
-      if (!getAccessToken()) {
-        dispatch({ type: "CLEAR_AUTH" });
-        return;
-      }
+      // Check if we have a token, if not try to refresh (via cookie)
+      // if (!getAccessToken()) { ... }  <-- Removing this to allow "Remember Me" auto-login
 
       try {
         await refreshMe();
@@ -354,7 +352,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      // JWT logout is client-side only
+      // server-side logout (revoke session/cookie)
+      await fetch("/api/auth/logout", { method: "POST" });
       clearTokens();
     } catch (error) {
       console.error("Logout error:", error);

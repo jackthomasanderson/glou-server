@@ -58,10 +58,10 @@ export class ProfileService {
       if (input.avatarUrl !== undefined) data.avatar_url = input.avatarUrl;
       if (input.tagline !== undefined) data.tagline = input.tagline;
       if (input.preferredLocale !== undefined) data.preferred_locale = input.preferredLocale;
-      if (input.dateTimeFormat !== undefined) data.date_time_format = input.dateTimeFormat;
-      if (input.temperatureUnit !== undefined) data.temperature_unit = input.temperatureUnit;
-      if (input.themeMode !== undefined) data.theme_mode = input.themeMode;
-      if (input.accentColor !== undefined) data.accent_color = input.accentColor;
+      if (input.dateTimeFormat !== undefined) data.date_time_format = input.dateTimeFormat || "system";
+      if (input.temperatureUnit !== undefined) data.temperature_unit = input.temperatureUnit || "c";
+      if (input.themeMode !== undefined) data.theme_mode = input.themeMode || "dark";
+      if (input.accentColor !== undefined) data.accent_color = input.accentColor || "#c5a059";
       if (input.notificationSettings !== undefined) data.notification_settings = input.notificationSettings;
       if (input.aiApiKey !== undefined) data.ai_api_key = input.aiApiKey;
 

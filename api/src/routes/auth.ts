@@ -1,6 +1,7 @@
 import { Router, Response, Request } from "express";
 import { ZodError } from "zod";
 import { UserService, TwoFAService, SecurityEventService } from "../services/auth.js";
+import { TrustedSessionService } from "../services/trustedSession.js";
 import { ProfileService } from "../services/profile.js";
 import { CryptoService, TOTPService } from "../services/crypto.js";
 import { generateTokens, verifyRefreshToken, TokenPayload } from "../lib/jwt.js";
@@ -11,10 +12,18 @@ import {
 } from "../schemas/auth.js";
 import { logger } from "../utils/logger.js";
 
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "strict" as const,
+  path: "/",
+};
+
 export function createAuthRouter(
   userService: UserService,
   twoFAService: TwoFAService,
-  securityEventService: SecurityEventService
+  securityEventService: SecurityEventService,
+  trustedSessionService: TrustedSessionService
 ): Router {
   const router = Router();
   const profileService = new ProfileService();
@@ -113,8 +122,26 @@ export function createAuthRouter(
         });
       }
 
-      // Generate JWT tokens
-      const tokens = generateTokens({
+      // Create trusted session
+      const { rawToken, session } = await trustedSessionService.createSession(
+        user.id,
+        userAgent,
+        ipAddress,
+        payload.rememberMe
+      );
+
+      // Set refresh token cookie
+      // Set refresh token cookie
+      // If rememberMe is true, set expiration. Else, strict session cookie (cleared on browser close).
+      const cookieOptions = { ...COOKIE_OPTIONS };
+      if (payload.rememberMe) {
+        (cookieOptions as any).expires = session.expires_at;
+      }
+
+      res.cookie("glou_rt", rawToken, cookieOptions);
+
+      // Generate Access Token (short lived)
+      const { accessToken } = generateTokens({
         userId: user.id,
         username: user.username,
         email: user.email,
@@ -142,8 +169,8 @@ export function createAuthRouter(
           twoFAMethod: twoFASettings?.method as "totp" | "webauthn" | undefined,
         },
         tokens: {
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
+          accessToken: accessToken,
+          refreshToken: rawToken, // Return for non-browser clients
         },
       });
     } catch (error) {
@@ -207,8 +234,25 @@ export function createAuthRouter(
         return res.status(401).json({ error: "Invalid 2FA code" });
       }
 
-      // Generate JWT tokens
-      const tokens = generateTokens({
+      // Create trusted session
+      const { rawToken, session } = await trustedSessionService.createSession(
+        user.id,
+        userAgent,
+        ipAddress,
+        rememberMe
+      );
+
+      // Set refresh token cookie
+      // Set refresh token cookie
+      const cookieOptions = { ...COOKIE_OPTIONS };
+      if (rememberMe) {
+        (cookieOptions as any).expires = session.expires_at;
+      }
+
+      res.cookie("glou_rt", rawToken, cookieOptions);
+
+      // Generate Access Token (short lived)
+      const { accessToken } = generateTokens({
         userId: user.id,
         username: user.username,
         email: user.email,
@@ -219,8 +263,8 @@ export function createAuthRouter(
 
       res.json({
         data: {
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
+          accessToken,
+          refreshToken: rawToken,
           userId: user.id,
           username: user.username,
           email: user.email,
@@ -240,24 +284,54 @@ export function createAuthRouter(
   router.post("/refresh", async (req, res: Response) => {
     try {
       const { refreshToken } = req.body;
+      // Check for token in body or cookie
+      const token = refreshToken || req.cookies?.glou_rt;
+      // Extract IP/UA for session binding/logging
+      const ipAddress = ((req.headers["x-forwarded-for"] as string) || req.socket.remoteAddress || "unknown") as string;
+      const userAgent = (req.headers["user-agent"] || "unknown") as string;
 
-      if (!refreshToken) {
-        return res.status(400).json({ error: "Refresh token required" });
+      if (!token) {
+        return res.status(401).json({ error: "Refresh token required" });
       }
 
-      const payload = verifyRefreshToken(refreshToken);
-      if (!payload) {
-        return res.status(401).json({ error: "Invalid or expired refresh token" });
+      // Verify session in DB
+      const session = await trustedSessionService.verifySession(token);
+      if (!session) {
+        // Clear cookie if invalid
+        res.clearCookie("glou_rt");
+        return res.status(401).json({ error: "Invalid or expired session" });
       }
 
       // Get user to generate new tokens
-      const user = await userService.getUserById(payload.userId);
+      const user = await userService.getUserById(session.user_id);
       if (!user) {
         return res.status(401).json({ error: "User not found" });
       }
 
-      // Generate new tokens
-      const tokens = generateTokens({
+      // Rotate session (Revoke old, create new)
+      const { rawToken: newRawToken, session: newSession } = await trustedSessionService.rotateSession(
+        session,
+        userAgent,
+        ipAddress
+      );
+
+      // Set new cookie
+      // Set new cookie
+      // Detect if original session was long-lived to persist "Remember Me" state across refreshes
+      const now = new Date();
+      // If remaining time > 2 days, likely remembered. 
+      // Improve: rotateSession should return isLongLived bool or we check based on expiration length
+      const isLongLived = newSession.expires_at.getTime() - now.getTime() > 24 * 60 * 60 * 1000 * 2;
+
+      const cookieOptions = { ...COOKIE_OPTIONS };
+      if (isLongLived) {
+        (cookieOptions as any).expires = newSession.expires_at;
+      }
+
+      res.cookie("glou_rt", newRawToken, cookieOptions);
+
+      // Generate new Access Token
+      const { accessToken } = generateTokens({
         userId: user.id,
         username: user.username,
         email: user.email,
@@ -266,8 +340,8 @@ export function createAuthRouter(
 
       res.json({
         data: {
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
+          accessToken,
+          refreshToken: newRawToken,
         },
       });
     } catch (error) {
@@ -442,8 +516,18 @@ export function createAuthRouter(
         await securityEventService.logEvent(req.user.userId, "logout");
       }
 
-      // With JWT, logout is handled client-side by discarding tokens
-      // Optionally, implement token blacklist for immediate invalidation
+      // Revoke session if token present
+      const token = req.cookies?.glou_rt;
+      if (token) {
+        const session = await trustedSessionService.verifySession(token);
+        if (session) {
+          await trustedSessionService.revokeSession(session.id);
+        }
+      }
+
+      // Clear cookie
+      res.clearCookie("glou_rt");
+
       res.json({ message: "Logged out successfully" });
     } catch (error) {
       logger.error(error, "Logout error");

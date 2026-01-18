@@ -170,6 +170,7 @@ model users {
   consumption_events       consumption_events[]
   notifications            notifications[]
   alert_preferences        alert_preferences?
+  trusted_sessions         trusted_sessions[]
 }
 
 model webauthn_credentials {
@@ -259,4 +260,23 @@ model alert_preferences {
   quiet_hours_end   String?   @db.VarChar(5)
   updated_at        DateTime  @default(now()) @db.Timestamp(6)
   users             users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table stores trusted sessions for "Remember Me" functionality
+model trusted_sessions {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String   @db.Uuid
+  refresh_token String   @unique @db.VarChar(255)
+  device_name   String?  @db.VarChar(120)
+  ip_address    String?  @db.VarChar(45)
+  user_agent    String?
+  last_used_at  DateTime @default(now()) @db.Timestamp(6)
+  expires_at    DateTime @db.Timestamp(6)
+  created_at    DateTime @default(now()) @db.Timestamp(6)
+  is_revoked    Boolean  @default(false)
+  
+  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_trusted_sessions_user_id")
+  @@index([refresh_token], map: "idx_trusted_sessions_token")
 }
