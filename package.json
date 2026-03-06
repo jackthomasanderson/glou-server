@@ -1,4 +1,10 @@
 {
+  "name": "glou-server",
+  "private": true,
+  "workspaces": [
+    "api",
+    "web"
+  ],
   "dependencies": {
     "i18next": "^25.7.4",
     "react-i18next": "^16.5.2",
@@ -11,4 +17,4 @@
     "build": "next build web",
     "start": "next start web"
   }
-}
+}
