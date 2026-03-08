@@ -149,6 +149,27 @@
         "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 12 caractères.",
         "USERNAME_INVALID_CHARS": "Caractères autorisés : lettres, chiffres, - et _."
       }
+    },
+    "cellars": {
+      "title": "Mes Caves",
+      "addCellar": "Ajouter une cave",
+      "editCellar": "Modifier la cave",
+      "deleteCellar": "Supprimer la cave",
+      "noCellars": "Vous n'avez pas encore de cave.",
+      "name": "Nom de la cave",
+      "description": "Description (optionnelle)",
+      "type": "Type de cave",
+      "types": {
+        "VINTAGE": "Vieillissement / Enterrée",
+        "COOLER": "Armoire Climatisée / Service",
+        "SHELF": "Vitrines / Étagères"
+      },
+      "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les bouteilles qu'elle contient deviendront orphelines.",
+      "success": {
+        "created": "Cave créée avec succès",
+        "updated": "Cave mise à jour",
+        "deleted": "Cave supprimée"
+      }
     }
   }
 }

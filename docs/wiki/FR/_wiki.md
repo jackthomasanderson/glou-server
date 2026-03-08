@@ -6,3 +6,4 @@ Bienvenue sur le wiki de Glou. Cette documentation est strictement focalisée su
 1. [Installation](./01-Installation.md)
 2. [Configuration](./02-Configuration.md)
 3. [Dépannage](./03-Depannage.md)
+4. [Gestion des Caves](./04-Gestion-Des-Caves.md)

@@ -17,6 +17,7 @@ export const commonBottleSchema = z.object({
   isOpened: z.boolean().default(false),
   fillLevel: z.number().int().min(0).max(100).optional(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
+  cellarId: z.string().uuid().optional().nullable(),
   lockedFields: z.array(z.string()).default([]),
 });
 
@@ -141,6 +142,7 @@ export const bottlePatchSchema = z.object({
   factoryCode: z.string().max(50).optional(),
   recommendedHumidity: z.number().min(50).max(100).optional(),
   humidificationSystem: z.string().max(200).optional(),
+  cellarId: z.string().uuid().optional().nullable(),
 });
 
 export type BottlePatch = z.infer<typeof bottlePatchSchema>;

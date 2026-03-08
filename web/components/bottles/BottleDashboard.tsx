@@ -96,42 +96,17 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
       {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" fontWeight={700}>
-            {t('common.nav.bottles')}
-          </Typography>
-          {isFetching && !isLoading ? (
-            <Typography variant="caption" color="text.secondary">
-              {t('common.status.loading')}
-            </Typography>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              Logged in as {user?.displayName ?? user?.username}
-            </Typography>
-          )}
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            variant="outlined"
-            color="inherit"
-            startIcon={<LogoutIcon />}
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
-            sx={{ display: { xs: 'none', sm: 'flex' } }}
-          >
-            {t('common.auth.logout')}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setMode('creating')}
-            sx={{ display: { xs: 'none', sm: 'flex' } }}
-            aria-label={t('common.bottle.add')}
-          >
-            {t('common.bottle.add')}
-          </Button>
-        </Box>
+      {/* Header handled by Navbar, keeping only specific actions if needed or removing extra space */}
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setMode('creating')}
+          sx={{ display: { xs: 'none', sm: 'flex' } }}
+          aria-label={t('common.bottle.add')}
+        >
+          {t('common.bottle.add')}
+        </Button>
       </Box>
 
       {/* Error state */}

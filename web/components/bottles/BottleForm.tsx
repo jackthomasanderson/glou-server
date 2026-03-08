@@ -29,12 +29,15 @@ const EMPTY_FORM: Partial<Bottle> = {
   alertStatus: 'none',
 };
 
+import { useCellars } from '@/hooks/useCellars';
+
 /**
  * Formulaire 2 temps :
- * 1) Tronc commun (catégorie + nom + producteur) → sauvegarde possible dès ici
+ * 1) Tronc commun (catégorie + nom + producteur + cave) → sauvegarde possible dès ici
  * 2) Champs essentiels par catégorie + section optionnelle repliable
  */
 export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = false, t }: BottleFormProps) {
+  const { data: cellars } = useCellars();
   const [values, setValues] = useState<Partial<Bottle>>(initialValues ?? EMPTY_FORM);
   const [showOptionals, setShowOptionals] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
@@ -69,7 +72,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
 
       <Grid container spacing={2}>
         {/* Category */}
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <FormControl fullWidth size="small" required>
             <InputLabel>{t('common.bottle.fields.category')}</InputLabel>
             <Select
@@ -87,11 +90,33 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
           </FormControl>
         </Grid>
 
+        {/* Cellar Selection */}
+        <Grid item xs={12} sm={6} md={3}>
+          <FormControl fullWidth size="small">
+            <InputLabel>{t('common.nav.caves')}</InputLabel>
+            <Select
+              value={values.cellarId ?? ''}
+              label={t('common.nav.caves')}
+              onChange={(e) => setField('cellarId', e.target.value)}
+            >
+              <MenuItem value="">
+                <em>{t('common.status.empty')}</em>
+              </MenuItem>
+              {cellars?.map((cellar) => (
+                <MenuItem key={cellar.id} value={cellar.id}>
+                  {cellar.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+
         {/* Name */}
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <TextField
             fullWidth
             required
+            size="small"
             label={t('common.bottle.fields.name')}
             value={values.name ?? ''}
             onChange={(e) => {
@@ -102,10 +127,11 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
         </Grid>
 
         {/* Producer */}
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <TextField
             fullWidth
             required
+            size="small"
             label={t('common.bottle.fields.producer')}
             value={values.producer ?? ''}
             onChange={(e) => setField('producer', e.target.value)}

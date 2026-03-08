@@ -11,33 +11,58 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  username     String    @unique
-  email        String    @unique
+  id           String     @id @default(uuid())
+  username     String     @unique
+  email        String     @unique
   displayName  String?
   passwordHash String
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
   bottles      Bottle[]
   auditLogs    AuditLog[]
+  cellars      Cellar[]
+}
 
-  @@index([username])
-  @@map("users")
+enum CellarType {
+  VINTAGE // Cave de vieillissement/enterrée
+  COOLER // Armoire de mise à température / de service
+  SHELF // Étagère / Vitrine / Stockage passif
+}
+
+model Cellar {
+  id          String     @id @default(uuid())
+  name        String
+  description String?
+  type        CellarType @default(VINTAGE)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  bottles Bottle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("cellars")
 }
 
 // Soft-delete via deletedAt
 model Bottle {
-  id             String    @id @default(uuid())
-  userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  cellarId String?
+  cellar   Cellar? @relation(fields: [cellarId], references: [id], onDelete: SetNull)
 
   // Common fields
   category       BottleCategory
   name           String
-  producer       String        // producer/house/distillery/brand
-  location       String?       // cave/clayette reference
+  producer       String // producer/house/distillery/brand
+  location       String? // cave/clayette reference
   collection     String?
-  tags           String[]      @default([])
+  tags           String[]       @default([])
   photoUrl       String?
   notes          String?
   purchasePrice  Float?
@@ -45,59 +70,59 @@ model Bottle {
   estimatedValue Float?
 
   // Contextual — Wine & Sparkling
-  vintage        Int?          // millésime, null = sans année
-  color          String?       // rouge/blanc/rosé/orange
+  vintage        Int? // millésime, null = sans année
+  color          String? // rouge/blanc/rosé/orange
   region         String?
-  grapeVarieties String[]      @default([])
+  grapeVarieties String[]  @default([])
   alcoholDegree  Float?
-  bottleSize     String?       // 75cl, magnum...
-  peakMaturity   String?       // période idéale dégustation
+  bottleSize     String? // 75cl, magnum...
+  peakMaturity   String? // période idéale dégustation
   needsAeration  Boolean?
   serviceTemp    String?
   lotNumber      String?
   batchDate      DateTime?
 
   // Contextual — Sparkling extras
-  sparklingType  String?       // Champagne, Crémant, Prosecco...
-  sugarLevel     String?       // brut, extra-brut...
+  sparklingType  String? // Champagne, Crémant, Prosecco...
+  sugarLevel     String? // brut, extra-brut...
   disgorgingDate DateTime?
   baseYear       Int?
 
   // Contextual — Spirit
-  distilleryName String?
-  edition        String?
-  declaredAge    String?
-  caskType       String?
-  additions      String?
+  distilleryName  String?
+  edition         String?
+  declaredAge     String?
+  caskType        String?
+  additions       String?
   aromaticProfile String?
 
   // Contextual — Cigar
-  brand          String?
-  format         String?       // Corona, Robusto...
-  quantity       Int?
-  manufactureYear Int?
-  sealedStatus   String?       // sealed, opened
-  leafOrigin     String?
-  factoryCode    String?
-  recommendedHumidity Float?
+  brand                String?
+  format               String? // Corona, Robusto...
+  quantity             Int?
+  manufactureYear      Int?
+  sealedStatus         String? // sealed, opened
+  leafOrigin           String?
+  factoryCode          String?
+  recommendedHumidity  Float?
   humidificationSystem String?
 
   // Cross-cutting fields
-  isOpened       Boolean       @default(false)
-  fillLevel      Int?          // 0-100 (%)
-  alertStatus    String?       // none, approaching, peak, past
+  isOpened    Boolean @default(false)
+  fillLevel   Int? // 0-100 (%)
+  alertStatus String? // none, approaching, peak, past
 
   // Integrity
-  lockedFields   String[]      @default([])  // User-locked fields, not overwritten by auto-enrichment
-  syncedAt       DateTime?     // Last third-party sync timestamp
+  lockedFields String[]  @default([]) // User-locked fields, not overwritten by auto-enrichment
+  syncedAt     DateTime? // Last third-party sync timestamp
 
   // Soft-delete
-  deletedAt      DateTime?
+  deletedAt DateTime?
 
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  auditLogs      AuditLog[]
+  auditLogs AuditLog[]
 
   @@index([userId])
   @@index([userId, deletedAt])
@@ -109,16 +134,16 @@ model Bottle {
 }
 
 model AuditLog {
-  id           Int      @id @default(autoincrement())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bottleId     String?
-  bottle       Bottle?  @relation(fields: [bottleId], references: [id], onDelete: SetNull)
-  action       String   // CREATE, READ, UPDATE, DELETE, RESTORE, LIST
-  status       String   // success, error, validation_error, not_found
-  ip           String
-  details      Json?
-  createdAt    DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bottleId  String?
+  bottle    Bottle?  @relation(fields: [bottleId], references: [id], onDelete: SetNull)
+  action    String // CREATE, READ, UPDATE, DELETE, RESTORE, LIST
+  status    String // success, error, validation_error, not_found
+  ip        String
+  details   Json?
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([action])

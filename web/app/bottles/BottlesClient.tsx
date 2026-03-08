@@ -19,6 +19,8 @@ function createTranslator(messages: Messages) {
   };
 }
 
+import { MainLayout } from '@/components/ui/MainLayout';
+
 /**
  * Client wrapper pour /bottles — gère l'i18n côté client.
  * Nécessaire car les fonctions ne peuvent pas traverser la frontière
@@ -33,8 +35,8 @@ export function BottlesClient() {
   );
 
   return (
-    <AuthGuard>
+    <MainLayout>
       <BottleDashboard t={t} />
-    </AuthGuard>
+    </MainLayout>
   );
 }
