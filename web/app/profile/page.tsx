@@ -18,6 +18,7 @@ import {
   CircularProgress
 } from '@mui/material';
 import { MainLayout } from '@/components/ui/MainLayout';
+import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
 import { useMe, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import PersonIcon from '@mui/icons-material/Person';
@@ -221,6 +222,12 @@ export default function ProfilePage() {
               </Paper>
             </Grid>
           </Grid>
+
+          {/* Sécurité */}
+          {user && (
+            <TwoFactorSettings user={user} />
+          )}
+
         </Box>
       </Container>
     </MainLayout>

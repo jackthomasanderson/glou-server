@@ -11,6 +11,7 @@ export interface PublicUser {
   theme: 'LIGHT' | 'DARK';
   language: 'FR' | 'EN';
   tempUnit: 'CELSIUS' | 'FAHRENHEIT';
+  isTwoFactorEnabled?: boolean;
   createdAt: string;
 }
 
@@ -52,10 +53,14 @@ export function useMe() {
 export function useLogin() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  return useMutation<PublicUser, Error, { identifier: string; password: string }>({
-    mutationFn: (data) => apiFetch<PublicUser>('/api/auth/login', { method: 'POST', body: JSON.stringify(data) }),
-    onSuccess: (user) => {
-      queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
+  return useMutation<PublicUser & { requires2fa?: boolean }, Error, { identifier: string; password: string }>({
+    mutationFn: (data) => apiFetch<PublicUser & { requires2fa?: boolean }>('/api/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: (data) => {
+      if (data.requires2fa) {
+        // Will be handled by the component
+        return;
+      }
+      queryClient.setQueryData<PublicUser | null>(ME_KEY, data);
       router.push('/bottles');
     },
   });
@@ -121,6 +126,46 @@ export function useUpdatePreferences() {
       apiFetch<PublicUser>('/api/user/preferences', { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
+    },
+  });
+}
+
+// ─── 2FA Methods ────────────────────────────────────────────────────────────
+
+export function useGenerate2fa() {
+  return useMutation<{ qrCodeUrl: string; secret: string }, Error, void>({
+    mutationFn: () => apiFetch<{ qrCodeUrl: string; secret: string }>('/api/auth/2fa/generate', { method: 'POST' }),
+  });
+}
+
+export function useTurnOn2fa() {
+  const queryClient = useQueryClient();
+  return useMutation<{ backupCodes: string[] }, Error, { code: string }>({
+    mutationFn: (data) => apiFetch<{ backupCodes: string[] }>('/api/auth/2fa/turn-on', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ME_KEY });
+    },
+  });
+}
+
+export function useTurnOff2fa() {
+  const queryClient = useQueryClient();
+  return useMutation<{ success: boolean }, Error, { password: string; code?: string }>({
+    mutationFn: (data) => apiFetch<{ success: boolean }>('/api/auth/2fa/turn-off', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ME_KEY });
+    },
+  });
+}
+
+export function useVerify2faLogin() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  return useMutation<PublicUser, Error, { code: string }>({
+    mutationFn: (data) => apiFetch<PublicUser>('/api/auth/2fa/verify-login', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: (user) => {
+      queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
+      router.push('/bottles');
     },
   });
 }

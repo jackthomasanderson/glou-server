@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 export interface AuthPayload {
   userId: string;
   email: string;
+  scope?: 'full' | '2fa_pending';
 }
 
 /** Extend Express Request to carry authenticated user info */
@@ -37,6 +38,10 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
 
   try {
     const payload = jwt.verify(token, secret) as AuthPayload;
+    if (payload.scope === '2fa_pending') {
+      res.status(403).json({ error: '2FA_REQUIRED' });
+      return;
+    }
     req.userId = payload.userId;
     req.userEmail = payload.email;
     next();

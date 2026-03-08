@@ -15,7 +15,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import NextLink from 'next/link';
-import { useLogin } from '@/hooks/useAuth';
+import { useLogin, useVerify2faLogin } from '@/hooks/useAuth';
 
 const createLoginSchema = (t: (key: string) => string) =>
   z.object({
@@ -29,7 +29,11 @@ export function LoginForm() {
   type LoginFormValues = z.infer<typeof loginSchema>;
 
   const [apiError, setApiError] = useState<string | null>(null);
+  const [step, setStep] = useState<'login' | '2fa'>('login');
+  const [code, setCode] = useState('');
+
   const loginMutation = useLogin();
+  const verifyMutation = useVerify2faLogin();
 
   const {
     control,
@@ -43,16 +47,33 @@ export function LoginForm() {
   const onSubmit = (data: LoginFormValues) => {
     setApiError(null);
     loginMutation.mutate(data, {
+      onSuccess: (res: any) => {
+        if (res?.requires2fa) {
+          setStep('2fa');
+        }
+      },
       onError: (error) => {
         const msgKey = `auth.errors.${error.message}`;
-        // Fallback to the exact error message or a generic one if no translation exists
         const translated = t(msgKey);
         setApiError(translated === msgKey ? t('auth.errors.UNEXPECTED_ERROR') : translated);
       },
     });
   };
 
-  const isPending = loginMutation.isPending;
+  const handle2faSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code || code.length < 6) return;
+    setApiError(null);
+    verifyMutation.mutate({ code }, {
+      onError: (error) => {
+        const msgKey = `auth.errors.${error.message}`;
+        const translated = t(msgKey);
+        setApiError(translated === msgKey ? t('auth.errors.UNEXPECTED_ERROR') : translated);
+      },
+    });
+  };
+
+  const isPending = loginMutation.isPending || verifyMutation.isPending;
 
   return (
     <Paper
@@ -83,68 +104,102 @@ export function LoginForm() {
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <Controller
-          name="identifier"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label={t('auth.identifier')}
-              fullWidth
-              autoComplete="username"
-              margin="normal"
-              error={!!errors.identifier}
-              helperText={errors.identifier?.message}
-              disabled={isPending}
-              InputLabelProps={{ shrink: true }}
-            />
-          )}
-        />
-        <Controller
-          name="password"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              type="password"
-              label={t('common:auth.password').split('(')[0].trim()}
-              fullWidth
-              autoComplete="current-password"
-              margin="normal"
-              error={!!errors.password}
-              helperText={errors.password?.message}
-              disabled={isPending}
-              InputLabelProps={{ shrink: true }}
-            />
-          )}
-        />
-
-        <Button
-          type="submit"
-          fullWidth
-          variant="contained"
-          size="large"
-          disabled={isPending}
-          sx={{ mt: 3, mb: 3, py: 1.5, borderRadius: 2, fontWeight: 600 }}
-          startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}
-        >
-          {t('auth.loginCta')}
-        </Button>
-
-        <Box textAlign="center">
-          <Link
-            component={NextLink}
-            href="/register"
-            variant="body2"
-            color="primary"
-            underline="hover"
-            sx={{ fontWeight: 500 }}
+      {step === '2fa' ? (
+        <form onSubmit={handle2faSubmit} noValidate>
+          <Typography variant="body1" sx={{ mb: 3, textAlign: 'center' }}>
+            Veuillez entrer le code à 6 chiffres de votre application d'authentification ou l'un de vos codes de secours.
+          </Typography>
+          <TextField
+            fullWidth
+            label="Code d'authentification"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            margin="normal"
+            disabled={isPending}
+            InputLabelProps={{ shrink: true }}
+            autoFocus
+          />
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            size="large"
+            disabled={isPending || code.length < 6}
+            sx={{ mt: 3, mb: 3, py: 1.5, borderRadius: 2, fontWeight: 600 }}
+            startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}
           >
-            {t('auth.registerLink')}
-          </Link>
-        </Box>
-      </form>
+            Vérifier
+          </Button>
+          <Box textAlign="center">
+            <Button variant="text" onClick={() => setStep('login')} disabled={isPending}>
+              Retour
+            </Button>
+          </Box>
+        </form>
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Controller
+            name="identifier"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label={t('auth.identifier')}
+                fullWidth
+                autoComplete="username"
+                margin="normal"
+                error={!!errors.identifier}
+                helperText={errors.identifier?.message}
+                disabled={isPending}
+                InputLabelProps={{ shrink: true }}
+              />
+            )}
+          />
+          <Controller
+            name="password"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                type="password"
+                label={t('common:auth.password').split('(')[0].trim()}
+                fullWidth
+                autoComplete="current-password"
+                margin="normal"
+                error={!!errors.password}
+                helperText={errors.password?.message}
+                disabled={isPending}
+                InputLabelProps={{ shrink: true }}
+              />
+            )}
+          />
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            size="large"
+            disabled={isPending}
+            sx={{ mt: 3, mb: 3, py: 1.5, borderRadius: 2, fontWeight: 600 }}
+            startIcon={isPending ? <CircularProgress size={20} color="inherit" /> : null}
+          >
+            {t('auth.loginCta')}
+          </Button>
+
+          <Box textAlign="center">
+            <Link
+              component={NextLink}
+              href="/register"
+              variant="body2"
+              color="primary"
+              underline="hover"
+              sx={{ fontWeight: 500 }}
+            >
+              {t('auth.registerLink')}
+            </Link>
+          </Box>
+        </form>
+      )}
     </Paper>
   );
 }

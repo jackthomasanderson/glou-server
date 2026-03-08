@@ -164,24 +164,19 @@
         "COOLER": "Armoire Climatisée / Service",
         "SHELF": "Vitrines / Étagères"
       },
-      "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les bouteilles qu'elle contient deviendront orphelines.",
-      "success": {
-        "created": "Cave créée avec succès",
-        "updated": "Cave mise à jour",
-        "deleted": "Cave supprimée"
-      },
-      "profile": {
-        "title": "Mon Profil",
-        "personalInfo": "Informations personnelles",
-        "preferences": "Préférences d'affichage",
-        "slogan": "Slogan / Bio",
-        "sloganPlaceholder": "Dites-en plus sur votre passion...",
-        "theme": "Thème d'apparence",
-        "language": "Langue de l'interface",
-        "tempUnit": "Unité de température",
-        "saveSuccess": "Profil mis à jour avec succès",
-        "saveError": "Erreur lors de la mise à jour du profil"
-      }
+      "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les bouteilles qu'elle contient deviendront orphelines."
+    },
+    "profile": {
+      "title": "Mon Profil",
+      "personalInfo": "Informations personnelles",
+      "preferences": "Préférences d'affichage",
+      "slogan": "Slogan / Bio",
+      "sloganPlaceholder": "Dites-en plus sur votre passion...",
+      "theme": "Thème d'apparence",
+      "language": "Langue de l'interface",
+      "tempUnit": "Unité de température",
+      "saveSuccess": "Profil mis à jour avec succès",
+      "saveError": "Erreur lors de la mise à jour du profil"
     }
   }
 }
