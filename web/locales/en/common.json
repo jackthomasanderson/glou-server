@@ -124,6 +124,31 @@
       "updateError": "Could not update the bottle",
       "deleteError": "Could not delete the bottle",
       "restoreError": "Could not restore the bottle"
+    },
+    "auth": {
+      "login": "Login",
+      "register": "Create an account",
+      "logout": "Logout",
+      "username": "Username",
+      "email": "Email address",
+      "password": "Password (min. 12 characters)",
+      "displayName": "Display name (optional)",
+      "identifier": "Username or email",
+      "loginCta": "Sign in",
+      "registerCta": "Create account",
+      "loginLink": "Already have an account? Sign in",
+      "registerLink": "No account yet? Sign up",
+      "tagline": "Simply precious.",
+      "errors": {
+        "INVALID_CREDENTIALS": "Invalid username or password.",
+        "USERNAME_ALREADY_TAKEN": "This username is already taken.",
+        "EMAIL_ALREADY_TAKEN": "This email address is already in use.",
+        "VALIDATION_ERROR": "Please check your inputs.",
+        "UNEXPECTED_ERROR": "An unexpected error occurred.",
+        "USERNAME_TOO_SHORT": "Username must be at least 3 characters long.",
+        "PASSWORD_TOO_SHORT": "Password must be at least 12 characters long.",
+        "USERNAME_INVALID_CHARS": "Allowed characters: letters, numbers, - and _."
+      }
     }
   }
 }

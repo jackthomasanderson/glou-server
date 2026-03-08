@@ -2,7 +2,7 @@
 import React from 'react';
 import {
   Grid, TextField, Select, MenuItem, FormControl, InputLabel,
-  FormControlLabel, Checkbox, Slider, Typography, Box,
+  FormControlLabel, Checkbox, Slider, Typography,
 } from '@mui/material';
 import { BottleCategory } from '@/lib/bottles/types';
 

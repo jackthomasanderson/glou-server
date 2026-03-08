@@ -12,13 +12,16 @@ datasource db {
 
 model User {
   id           String    @id @default(uuid())
+  username     String    @unique
   email        String    @unique
+  displayName  String?
   passwordHash String
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   bottles      Bottle[]
   auditLogs    AuditLog[]
 
+  @@index([username])
   @@map("users")
 }
 

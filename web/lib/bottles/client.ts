@@ -13,21 +13,13 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return body.data;
 }
 
-function getAuthHeaders(): HeadersInit {
-  // Token stored in localStorage during dev; HttpOnly cookie in prod
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('glou_token');
-    if (token) return { Authorization: `Bearer ${token}` };
-  }
-  return {};
-}
-
+// Auth relies on HttpOnly cookies sent automatically via credentials: 'include'
 // ─── API client ──────────────────────────────────────────────────────────────
 
 export const bottleClient = {
   async list(): Promise<Bottle[]> {
     const res = await fetch(`${API_BASE}/bottles`, {
-      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
     });
     return handleResponse<Bottle[]>(res);
@@ -35,7 +27,7 @@ export const bottleClient = {
 
   async listTrash(): Promise<Bottle[]> {
     const res = await fetch(`${API_BASE}/bottles/trash`, {
-      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
     });
     return handleResponse<Bottle[]>(res);
@@ -43,7 +35,7 @@ export const bottleClient = {
 
   async get(id: string): Promise<Bottle> {
     const res = await fetch(`${API_BASE}/bottles/${id}`, {
-      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
     });
     return handleResponse<Bottle>(res);
@@ -52,7 +44,7 @@ export const bottleClient = {
   async create(data: Partial<Bottle>): Promise<Bottle> {
     const res = await fetch(`${API_BASE}/bottles`, {
       method: 'POST',
-      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify(data),
     });
@@ -62,7 +54,7 @@ export const bottleClient = {
   async update(id: string, patch: Partial<Bottle>): Promise<Bottle> {
     const res = await fetch(`${API_BASE}/bottles/${id}`, {
       method: 'PATCH',
-      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify(patch),
     });
@@ -72,7 +64,7 @@ export const bottleClient = {
   async delete(id: string): Promise<Bottle> {
     const res = await fetch(`${API_BASE}/bottles/${id}`, {
       method: 'DELETE',
-      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
     });
     return handleResponse<Bottle>(res);
@@ -81,7 +73,7 @@ export const bottleClient = {
   async restore(id: string): Promise<Bottle> {
     const res = await fetch(`${API_BASE}/bottles/${id}/restore`, {
       method: 'POST',
-      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
     });
     return handleResponse<Bottle>(res);

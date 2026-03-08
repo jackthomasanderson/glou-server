@@ -4,6 +4,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { connectWithRetry } from './lib/prisma';
 import { bottlesRouter } from './routes/bottles.router';
+import { authRouter } from './routes/auth.router';
 import { errorMiddleware } from './middleware/error.middleware';
 import { bottleService } from './services/bottle.service';
 import { purgeOldAuditLogs } from './services/audit.service';
@@ -29,6 +30,7 @@ app.get('/health', (_req, res) => {
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
+app.use('/api/auth', authRouter);
 app.use('/api/bottles', bottlesRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────

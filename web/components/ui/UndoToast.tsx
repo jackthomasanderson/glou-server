@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, Collapse, LinearProgress, Typography } from '@mui/material';
+import { Alert, Box, Button, LinearProgress, Typography } from '@mui/material';
 import UndoIcon from '@mui/icons-material/Undo';
 
 const UNDO_TIMEOUT_MS = 6000;

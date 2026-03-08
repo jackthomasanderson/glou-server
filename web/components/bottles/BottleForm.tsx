@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import {
   Box, Button, Collapse, Divider, FormControl, Grid,
-  IconButton, InputLabel, MenuItem, Paper, Select,
+  InputLabel, MenuItem, Paper, Select,
   TextField, Tooltip, Typography,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';

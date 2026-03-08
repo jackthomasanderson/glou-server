@@ -124,6 +124,31 @@
       "updateError": "Impossible de mettre à jour la bouteille",
       "deleteError": "Impossible de supprimer la bouteille",
       "restoreError": "Impossible de restaurer la bouteille"
+    },
+    "auth": {
+      "login": "Connexion",
+      "register": "Créer un compte",
+      "logout": "Déconnexion",
+      "username": "Nom d'utilisateur",
+      "email": "Adresse email",
+      "password": "Mot de passe (12 caractères min.)",
+      "displayName": "Nom affiché (facultatif)",
+      "identifier": "Identifiant ou email",
+      "loginCta": "Se connecter",
+      "registerCta": "Créer mon compte",
+      "loginLink": "Déjà un compte ? Se connecter",
+      "registerLink": "Pas encore de compte ? S'inscrire",
+      "tagline": "Simplement précieux.",
+      "errors": {
+        "INVALID_CREDENTIALS": "Identifiant ou mot de passe incorrect.",
+        "USERNAME_ALREADY_TAKEN": "Ce nom d'utilisateur est déjà pris.",
+        "EMAIL_ALREADY_TAKEN": "Cette adresse email est déjà utilisée.",
+        "VALIDATION_ERROR": "Veuillez vérifier vos saisies.",
+        "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
+        "USERNAME_TOO_SHORT": "Le nom d'utilisateur doit contenir au moins 3 caractères.",
+        "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 12 caractères.",
+        "USERNAME_INVALID_CHARS": "Caractères autorisés : lettres, chiffres, - et _."
+      }
     }
   }
 }

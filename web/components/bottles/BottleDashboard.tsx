@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useCallback } from 'react';
 import {
-  Box, Button, CircularProgress, Container, Fab,
+  Box, Button, Container, Fab,
   Grid, Typography, Collapse, Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -16,6 +16,8 @@ import {
 import { BottleCard, BottleCardSkeleton } from './BottleCard';
 import { BottleForm } from './BottleForm';
 import { UndoToast } from '@/components/ui/UndoToast';
+import { useLogout, useMe } from '@/hooks/useAuth';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
@@ -36,6 +38,9 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
 
   const [mode, setMode] = useState<UIMode>('idle');
   const [editingBottle, setEditingBottle] = useState<Bottle | null>(null);
+
+  const { data: user } = useMe();
+  const logoutMutation = useLogout();
 
   // Undo toast state
   const [undoTarget, setUndoTarget] = useState<Bottle | null>(null);
@@ -96,21 +101,37 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           <Typography variant="h4" fontWeight={700}>
             {t('common.nav.bottles')}
           </Typography>
-          {isFetching && !isLoading && (
+          {isFetching && !isLoading ? (
             <Typography variant="caption" color="text.secondary">
               {t('common.status.loading')}
             </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Logged in as {user?.displayName ?? user?.username}
+            </Typography>
           )}
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setMode('creating')}
-          sx={{ display: { xs: 'none', sm: 'flex' } }}
-          aria-label={t('common.bottle.add')}
-        >
-          {t('common.bottle.add')}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<LogoutIcon />}
+            onClick={() => logoutMutation.mutate()}
+            disabled={logoutMutation.isPending}
+            sx={{ display: { xs: 'none', sm: 'flex' } }}
+          >
+            {t('common.auth.logout')}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setMode('creating')}
+            sx={{ display: { xs: 'none', sm: 'flex' } }}
+            aria-label={t('common.bottle.add')}
+          >
+            {t('common.bottle.add')}
+          </Button>
+        </Box>
       </Box>
 
       {/* Error state */}

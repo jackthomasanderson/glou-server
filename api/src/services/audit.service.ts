@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 
-export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE';
+export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'LOGIN' | 'LOGOUT' | 'REGISTER';
+
 export type AuditStatus = 'success' | 'error' | 'validation_error' | 'not_found';
 
 export interface AuditEntry {
@@ -25,7 +26,8 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
         status: entry.status,
         ip: entry.ip,
         bottleId: entry.bottleId ?? null,
-        details: entry.details ?? {},
+        details: (entry.details ?? {}) as Record<string, unknown>,
+
       },
     });
   } catch (err) {

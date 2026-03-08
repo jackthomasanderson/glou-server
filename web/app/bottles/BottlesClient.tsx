@@ -3,6 +3,7 @@ import { BottleDashboard } from '@/components/bottles/BottleDashboard';
 import frMessages from '@/locales/fr/common.json';
 import enMessages from '@/locales/en/common.json';
 import { useState, useCallback } from 'react';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 
 type Messages = typeof frMessages;
 
@@ -31,5 +32,9 @@ export function BottlesClient() {
     [locale]
   );
 
-  return <BottleDashboard t={t} />;
+  return (
+    <AuthGuard>
+      <BottleDashboard t={t} />
+    </AuthGuard>
+  );
 }
