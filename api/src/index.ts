@@ -6,6 +6,7 @@ import { connectWithRetry } from './lib/prisma';
 import { bottlesRouter } from './routes/bottles.router';
 import { authRouter } from './routes/auth.router';
 import cellarsRouter from './routes/cellars.router';
+import userRouter from './routes/user.router';
 import { errorMiddleware } from './middleware/error.middleware';
 import { bottleService } from './services/bottle.service';
 import { purgeOldAuditLogs } from './services/audit.service';
@@ -34,6 +35,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/cellars', cellarsRouter);
 app.use('/api/bottles', bottlesRouter);
+app.use('/api/user', userRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 

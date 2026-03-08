@@ -14,13 +14,33 @@ model User {
   id           String     @id @default(uuid())
   username     String     @unique
   email        String     @unique
-  displayName  String?
-  passwordHash String
-  createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+  
+  // Profile & Preferences
+  displayName  String?
+  slogan       String?    // Bio / Underline
+  theme        Theme      @default(LIGHT)
+  language     Language   @default(FR)
+  tempUnit     TempUnit   @default(CELSIUS)
+
   bottles      Bottle[]
   auditLogs    AuditLog[]
   cellars      Cellar[]
+}
+
+enum Theme {
+  LIGHT
+  DARK
+}
+
+enum Language {
+  FR
+  EN
+}
+
+enum TempUnit {
+  CELSIUS
+  FAHRENHEIT
 }
 
 enum CellarType {

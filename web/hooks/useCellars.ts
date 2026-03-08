@@ -1,20 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { client } from '../lib/bottles/client';
+import { client } from '@/lib/api';
 
-export interface Cellar {
-  id: string;
-  name: string;
-  description: string | null;
-  type: 'VINTAGE' | 'COOLER' | 'SHELF';
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateCellarInput {
-  name: string;
-  description?: string | null;
-  type: 'VINTAGE' | 'COOLER' | 'SHELF';
-}
+import { Cellar, CreateCellarInput, UpdateCellarInput } from '@/lib/cellars/types';
 
 /**
  * Hook to fetch all cellars for the current user
@@ -23,8 +10,8 @@ export function useCellars() {
   return useQuery<Cellar[]>({
     queryKey: ['cellars'],
     queryFn: async () => {
-      const response = await client.get('/cellars');
-      return response.data;
+      const { data } = await client.get<Cellar[]>('/cellars');
+      return data;
     },
   });
 }
@@ -36,7 +23,7 @@ export function useCreateCellar() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: CreateCellarInput) => {
-      const response = await client.post('/cellars', data);
+      const response = await client.post<Cellar>('/cellars', data);
       return response.data;
     },
     onSuccess: () => {
@@ -51,8 +38,8 @@ export function useCreateCellar() {
 export function useUpdateCellar() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<CreateCellarInput> }) => {
-      const response = await client.patch(`/cellars/${id}`, data);
+    mutationFn: async ({ id, data }: { id: string; data: UpdateCellarInput }) => {
+      const response = await client.patch<Cellar>(`/cellars/${id}`, data);
       return response.data;
     },
     onSuccess: () => {
@@ -68,7 +55,7 @@ export function useDeleteCellar() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await client.delete(`/cellars/${id}`);
+      await client.delete<void>(`/cellars/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cellars'] });

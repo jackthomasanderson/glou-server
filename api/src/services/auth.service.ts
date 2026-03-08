@@ -2,6 +2,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
+import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.schema';
+import { Theme, Language, TempUnit } from '@prisma/client';
 
 const JWT_EXPIRES_IN = '30d';
 const BCRYPT_ROUNDS = 12;
@@ -17,6 +19,10 @@ export interface PublicUser {
   username: string;
   email: string;
   displayName: string | null;
+  slogan: string | null;
+  theme: Theme;
+  language: Language;
+  tempUnit: TempUnit;
   createdAt: Date;
 }
 
@@ -53,7 +59,17 @@ export class AuthService {
         displayName: displayName ?? null,
         passwordHash,
       },
-      select: { id: true, username: true, email: true, displayName: true, createdAt: true },
+      select: { 
+        id: true, 
+        username: true, 
+        email: true, 
+        displayName: true, 
+        slogan: true,
+        theme: true,
+        language: true,
+        tempUnit: true,
+        createdAt: true 
+      },
     });
 
     const token = signToken({ userId: user.id, email: user.email, username: user.username });
@@ -83,6 +99,10 @@ export class AuthService {
       username: user.username,
       email: user.email,
       displayName: user.displayName,
+      slogan: user.slogan,
+      theme: user.theme,
+      language: user.language,
+      tempUnit: user.tempUnit,
       createdAt: user.createdAt,
     };
 
@@ -96,7 +116,61 @@ export class AuthService {
   async me(userId: string): Promise<PublicUser | null> {
     const user = await prisma.user.findFirst({
       where: { id: userId },
-      select: { id: true, username: true, email: true, displayName: true, createdAt: true },
+      select: { 
+        id: true, 
+        username: true, 
+        email: true, 
+        displayName: true, 
+        slogan: true,
+        theme: true,
+        language: true,
+        tempUnit: true,
+        createdAt: true 
+      },
+    });
+    return user;
+  }
+
+  /**
+   * Update user profile (UI-facing infos)
+   */
+  async updateProfile(userId: string, data: UpdateProfileInput): Promise<PublicUser> {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: { 
+        id: true, 
+        username: true, 
+        email: true, 
+        displayName: true, 
+        slogan: true,
+        theme: true,
+        language: true,
+        tempUnit: true,
+        createdAt: true 
+      },
+    });
+    return user;
+  }
+
+  /**
+   * Update user preferences (System settings)
+   */
+  async updatePreferences(userId: string, data: UpdatePreferencesInput): Promise<PublicUser> {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: { 
+        id: true, 
+        username: true, 
+        email: true, 
+        displayName: true, 
+        slogan: true,
+        theme: true,
+        language: true,
+        tempUnit: true,
+        createdAt: true 
+      },
     });
     return user;
   }

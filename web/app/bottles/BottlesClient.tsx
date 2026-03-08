@@ -1,7 +1,7 @@
 'use client';
 import { BottleDashboard } from '@/components/bottles/BottleDashboard';
-import frMessages from '@/locales/fr/common.json';
-import enMessages from '@/locales/en/common.json';
+import frMessages from '@/public/locales/fr/common.json';
+import enMessages from '@/public/locales/en/common.json';
 import { useState, useCallback } from 'react';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 

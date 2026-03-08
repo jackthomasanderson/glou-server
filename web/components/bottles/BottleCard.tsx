@@ -12,7 +12,7 @@ import GrassIcon from '@mui/icons-material/Grass';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import { Bottle, BottleCategory } from '@/lib/bottles/types';
 
-const CATEGORY_ICONS: Record<BottleCategory, React.ReactNode> = {
+const CATEGORY_ICONS: Record<BottleCategory, React.ReactElement> = {
   wine: <LocalBarIcon fontSize="small" />,
   sparkling: <BubbleChartIcon fontSize="small" />,
   spirit: <SportsMmaIcon fontSize="small" />,

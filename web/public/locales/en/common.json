@@ -169,6 +169,18 @@
         "created": "Cellar created successfully",
         "updated": "Cellar updated",
         "deleted": "Cellar deleted"
+      },
+      "profile": {
+        "title": "My Profile",
+        "personalInfo": "Personal Information",
+        "preferences": "Display Preferences",
+        "slogan": "Slogan / Bio",
+        "sloganPlaceholder": "Tell us more about your passion...",
+        "theme": "Appearance Theme",
+        "language": "Interface Language",
+        "tempUnit": "Temperature Unit",
+        "saveSuccess": "Profile updated successfully",
+        "saveError": "Error while updating profile"
       }
     }
   }

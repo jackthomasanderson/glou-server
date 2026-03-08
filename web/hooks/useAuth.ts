@@ -7,6 +7,10 @@ export interface PublicUser {
   username: string;
   email: string;
   displayName: string | null;
+  slogan: string | null;
+  theme: 'LIGHT' | 'DARK';
+  language: 'FR' | 'EN';
+  tempUnit: 'CELSIUS' | 'FAHRENHEIT';
   createdAt: string;
 }
 
@@ -33,7 +37,7 @@ export function useMe() {
     queryKey: ME_KEY,
     queryFn: async () => {
       try {
-        return await apiFetch<PublicUser>('/api/auth/me');
+        return await apiFetch<PublicUser>('/api/user/me');
       } catch {
         return null;
       }
@@ -87,6 +91,36 @@ export function useLogout() {
       queryClient.setQueryData(ME_KEY, null);
       queryClient.clear();
       router.push('/login');
+    },
+  });
+}
+
+// ─── useUpdateProfile ────────────────────────────────────────────────────────
+
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  return useMutation<PublicUser, Error, { displayName?: string | null; slogan?: string | null }>({
+    mutationFn: (data) =>
+      apiFetch<PublicUser>('/api/user/profile', { method: 'PATCH', body: JSON.stringify(data) }),
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
+    },
+  });
+}
+
+// ─── useUpdatePreferences ───────────────────────────────────────────────────
+
+export function useUpdatePreferences() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    PublicUser,
+    Error,
+    { theme?: 'LIGHT' | 'DARK'; language?: 'FR' | 'EN'; tempUnit?: 'CELSIUS' | 'FAHRENHEIT' }
+  >({
+    mutationFn: (data) =>
+      apiFetch<PublicUser>('/api/user/preferences', { method: 'PATCH', body: JSON.stringify(data) }),
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
   });
 }

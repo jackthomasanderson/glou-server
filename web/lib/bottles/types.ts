@@ -55,6 +55,9 @@ export interface Bottle {
   recommendedHumidity?: number | null;
   humidificationSystem?: string | null;
 
+  // Cellar
+  cellarId?: string | null;
+
   // Cross-cutting
   isOpened: boolean;
   fillLevel?: number | null;
