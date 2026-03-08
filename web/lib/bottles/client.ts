@@ -1,179 +1,89 @@
-/**
- * HTTP client for bottles API
- * Handles all API calls to the bottles endpoint
- */
+import { Bottle } from './types';
 
-import { BottleInput, BottleRecord } from "./schema";
-import { fetchWithAuth } from "../api/fetchWithAuth";
+const API_BASE = '/api';
 
-const API_BASE = "/api/bottles";
+type ApiError = { error: string; details?: string };
 
-class BottlesClientError extends Error {
-  constructor(
-    public code: string,
-    public statusCode: number,
-    message: string
-  ) {
-    super(message);
-    this.name = "BottlesClientError";
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({ error: 'NETWORK_ERROR' }))) as ApiError;
+    throw new Error(body.details ?? body.error ?? `HTTP ${res.status}`);
   }
+  const body = await res.json() as { data: T };
+  return body.data;
 }
 
-export const bottlesClient = {
-  async list(): Promise<BottleRecord[]> {
-    try {
-      const res = await fetchWithAuth(`${API_BASE}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+function getAuthHeaders(): HeadersInit {
+  // Token stored in localStorage during dev; HttpOnly cookie in prod
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('glou_token');
+    if (token) return { Authorization: `Bearer ${token}` };
+  }
+  return {};
+}
 
-      if (!res.ok) {
-        const error = await res.json();
-        throw new BottlesClientError("LIST_FAILED", res.status, error.error || "Failed to list bottles");
-      }
+// ─── API client ──────────────────────────────────────────────────────────────
 
-      const data = await res.json();
-      return data as BottleRecord[];
-    } catch (err) {
-      if (err instanceof BottlesClientError) throw err;
-      throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
-    }
+export const bottleClient = {
+  async list(): Promise<Bottle[]> {
+    const res = await fetch(`${API_BASE}/bottles`, {
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    return handleResponse<Bottle[]>(res);
   },
 
-  async listByCellar(cellarId: string): Promise<BottleRecord[]> {
-    try {
-      const res = await fetchWithAuth(`${API_BASE}/cellar/${cellarId}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new BottlesClientError("LIST_CELLAR_FAILED", res.status, error.error || "Failed to list cellar bottles");
-      }
-
-      return (await res.json()) as BottleRecord[];
-    } catch (err) {
-      if (err instanceof BottlesClientError) throw err;
-      throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
-    }
+  async listTrash(): Promise<Bottle[]> {
+    const res = await fetch(`${API_BASE}/bottles/trash`, {
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    return handleResponse<Bottle[]>(res);
   },
 
-  async getById(bottleId: string): Promise<BottleRecord> {
-    try {
-      const res = await fetchWithAuth(`${API_BASE}/${bottleId}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) {
-        if (res.status === 404) {
-          throw new BottlesClientError("NOT_FOUND", 404, "Bottle not found");
-        }
-        const error = await res.json();
-        throw new BottlesClientError("GET_FAILED", res.status, error.error || "Failed to get bottle");
-      }
-
-      return (await res.json()) as BottleRecord;
-    } catch (err) {
-      if (err instanceof BottlesClientError) throw err;
-      throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
-    }
+  async get(id: string): Promise<Bottle> {
+    const res = await fetch(`${API_BASE}/bottles/${id}`, {
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    return handleResponse<Bottle>(res);
   },
 
-  async create(input: BottleInput): Promise<BottleRecord> {
-    try {
-      const res = await fetchWithAuth(`${API_BASE}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new BottlesClientError(
-          "CREATE_FAILED",
-          res.status,
-          error.error || "Failed to create bottle"
-        );
-      }
-
-      return (await res.json()) as BottleRecord;
-    } catch (err) {
-      if (err instanceof BottlesClientError) throw err;
-      throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
-    }
+  async create(data: Partial<Bottle>): Promise<Bottle> {
+    const res = await fetch(`${API_BASE}/bottles`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    return handleResponse<Bottle>(res);
   },
 
-  async update(bottleId: string, input: Partial<BottleInput>): Promise<BottleRecord> {
-    try {
-      const res = await fetchWithAuth(`${API_BASE}/${bottleId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-
-      if (!res.ok) {
-        if (res.status === 404) {
-          throw new BottlesClientError("NOT_FOUND", 404, "Bottle not found");
-        }
-        const error = await res.json();
-        throw new BottlesClientError(
-          "UPDATE_FAILED",
-          res.status,
-          error.error || "Failed to update bottle"
-        );
-      }
-
-      return (await res.json()) as BottleRecord;
-    } catch (err) {
-      if (err instanceof BottlesClientError) throw err;
-      throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
-    }
+  async update(id: string, patch: Partial<Bottle>): Promise<Bottle> {
+    const res = await fetch(`${API_BASE}/bottles/${id}`, {
+      method: 'PATCH',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(patch),
+    });
+    return handleResponse<Bottle>(res);
   },
 
-  async delete(bottleId: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const res = await fetchWithAuth(`${API_BASE}/${bottleId}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      });
+  async delete(id: string): Promise<Bottle> {
+    const res = await fetch(`${API_BASE}/bottles/${id}`, {
+      method: 'DELETE',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    return handleResponse<Bottle>(res);
+  },
 
-      if (!res.ok) {
-        if (res.status === 404) {
-          throw new BottlesClientError("NOT_FOUND", 404, "Bottle not found");
-        }
-        const error = await res.json();
-        throw new BottlesClientError(
-          "DELETE_FAILED",
-          res.status,
-          error.error || "Failed to delete bottle"
-        );
-      }
-
-      return (await res.json()) as { success: boolean; message: string };
-    } catch (err) {
-      if (err instanceof BottlesClientError) throw err;
-      throw new BottlesClientError("NETWORK_ERROR", 0, String(err));
-    }
+  async restore(id: string): Promise<Bottle> {
+    const res = await fetch(`${API_BASE}/bottles/${id}/restore`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    return handleResponse<Bottle>(res);
   },
 };
-
-// Convenience functions for backward compatibility
-export async function fetchBottles(): Promise<BottleRecord[]> {
-  return bottlesClient.list();
-}
-
-export async function createBottle(input: BottleInput): Promise<BottleRecord> {
-  return bottlesClient.create(input);
-}
-
-export async function updateBottle(id: string, input: Partial<BottleInput>): Promise<BottleRecord> {
-  return bottlesClient.update(id, input);
-}
-
-export async function deleteBottle(id: string): Promise<{ success: boolean; message: string }> {
-  return bottlesClient.delete(id);
-}
-
-export { BottlesClientError };

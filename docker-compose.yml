@@ -1,21 +1,70 @@
 services:
   db:
-    image: postgres:16-alpine
-    container_name: glou-db
+    image: postgres:15-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-glou}
-      POSTGRES_USER: ${POSTGRES_USER:-glou}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-glou}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      POSTGRES_USER: ${DB_USER:-glou}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-glou_secret}
+      POSTGRES_DB: ${DB_NAME:-glou_db}
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-glou} -d ${DB_NAME:-glou_db}"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 10
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${DB_USER:-glou}:${DB_PASSWORD:-glou_secret}@db:5432/${DB_NAME:-glou_db}
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3001
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    ports:
+      - "3001:3001"
+    volumes:
+      - api_logs:/app/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
+    ports:
+      - "3000:3000"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
-  pgdata:
+  db_data:
+    driver: local
+  api_logs:
+    driver: local

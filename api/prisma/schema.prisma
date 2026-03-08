@@ -1,3 +1,6 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,276 +10,122 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model app_settings {
-  id          Boolean  @id @default(true)
-  app_name    String?
-  app_tagline String?
-  logo_url    String?
-  updated_at  DateTime @default(now()) @db.Timestamp(6)
-  ai_api_key  String?
-  smtp_host   String?
-  smtp_port   Int?
-  smtp_user   String?
-  smtp_pass   String?
-  smtp_from   String?
-  smtp_secure Boolean? @default(false)
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  bottles      Bottle[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model bottles {
-  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id               String   @db.Uuid
-  cellar_id             String   @db.Uuid
-  category              String   @db.VarChar(20)
-  label                 String   @db.VarChar(120)
-  producer_name         String?  @db.VarChar(120)
-  house_name            String?  @db.VarChar(120)
-  distillery_name       String?  @db.VarChar(120)
-  brand_name            String?  @db.VarChar(120)
-  name_edition          String   @db.VarChar(160)
-  vintage_or_none       String   @default("NV") @db.VarChar(10)
-  abv                   Decimal? @db.Decimal(4, 1)
-  is_opened             Boolean  @default(false)
-  fill_level            String?  @db.VarChar(20)
-  color                 String?  @db.VarChar(40)
-  appellation           String?  @db.VarChar(120)
-  grapes                String?  @db.VarChar(160)
-  format                String?  @db.VarChar(40)
-  serving_temp          String?  @db.VarChar(40)
-  wine_lot_number       String?  @db.VarChar(60)
-  carafing              String?  @db.VarChar(80)
-  requires_aeration     Boolean?
-  style                 String?  @db.VarChar(60)
-  dosage                String?  @db.VarChar(60)
-  disgorgement          String?  @db.VarChar(60)
-  pressure              String?  @db.VarChar(60)
-  base_wine             String?  @db.VarChar(120)
-  bottling_date         String?  @db.VarChar(60)
-  base_year             Int?
-  age_statement         String?  @db.VarChar(40)
-  cask_type             String?  @db.VarChar(120)
-  batch                 String?  @db.VarChar(60)
-  additive_note         String?  @db.VarChar(160)
-  angel_share           String?  @db.VarChar(120)
-  aroma_profile         String?  @db.VarChar(200)
-  format_box            String?  @db.VarChar(40)
-  cigar_format          String?  @db.VarChar(40)
-  quantity_in_box       Int?
-  manufacture_year      Int?
-  seal_state            String?  @db.VarChar(30)
-  leaf_origin           String?  @db.VarChar(120)
-  factory_code          String?  @db.VarChar(60)
-  target_humidity       Decimal? @db.Decimal(3, 1)
-  humidification_system String?  @db.VarChar(120)
-  location              String?  @db.VarChar(80)
-  collection            String?  @db.VarChar(80)
-  photo_url             String?
-  estimated_value       Decimal? @db.Decimal(12, 2)
-  peak_maturity_from    Int?
-  peak_maturity_to      Int?
-  alert_status          String?  @default("none") @db.VarChar(20)
-  tasting_note          String?  @db.VarChar(240)
-  purchase_place        String?  @db.VarChar(160)
-  purchase_price        Decimal? @db.Decimal(10, 2)
-  tags                  String[] @default([]) @db.VarChar(40)
-  created_at            DateTime @default(now()) @db.Timestamp(6)
-  updated_at            DateTime @default(now()) @db.Timestamp(6)
-  binder                String?  @db.VarChar(80)
-  filler                String?                @db.VarChar(80)
-  cellars               cellars                @relation(fields: [cellar_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bottles_cellar")
-  users                 users                  @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_bottles_user")
-  consumption_events    consumption_events[]
+// Soft-delete via deletedAt
+model Bottle {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([alert_status], map: "idx_bottles_alert")
-  @@index([category], map: "idx_bottles_category")
-  @@index([cellar_id], map: "idx_bottles_cellar_id")
-  @@index([is_opened], map: "idx_bottles_status")
-  @@index([user_id], map: "idx_bottles_user_id")
+  // Common fields
+  category       BottleCategory
+  name           String
+  producer       String        // producer/house/distillery/brand
+  location       String?       // cave/clayette reference
+  collection     String?
+  tags           String[]      @default([])
+  photoUrl       String?
+  notes          String?
+  purchasePrice  Float?
+  purchasePlace  String?
+  estimatedValue Float?
+
+  // Contextual — Wine & Sparkling
+  vintage        Int?          // millésime, null = sans année
+  color          String?       // rouge/blanc/rosé/orange
+  region         String?
+  grapeVarieties String[]      @default([])
+  alcoholDegree  Float?
+  bottleSize     String?       // 75cl, magnum...
+  peakMaturity   String?       // période idéale dégustation
+  needsAeration  Boolean?
+  serviceTemp    String?
+  lotNumber      String?
+  batchDate      DateTime?
+
+  // Contextual — Sparkling extras
+  sparklingType  String?       // Champagne, Crémant, Prosecco...
+  sugarLevel     String?       // brut, extra-brut...
+  disgorgingDate DateTime?
+  baseYear       Int?
+
+  // Contextual — Spirit
+  distilleryName String?
+  edition        String?
+  declaredAge    String?
+  caskType       String?
+  additions      String?
+  aromaticProfile String?
+
+  // Contextual — Cigar
+  brand          String?
+  format         String?       // Corona, Robusto...
+  quantity       Int?
+  manufactureYear Int?
+  sealedStatus   String?       // sealed, opened
+  leafOrigin     String?
+  factoryCode    String?
+  recommendedHumidity Float?
+  humidificationSystem String?
+
+  // Cross-cutting fields
+  isOpened       Boolean       @default(false)
+  fillLevel      Int?          // 0-100 (%)
+  alertStatus    String?       // none, approaching, peak, past
+
+  // Integrity
+  lockedFields   String[]      @default([])  // User-locked fields, not overwritten by auto-enrichment
+  syncedAt       DateTime?     // Last third-party sync timestamp
+
+  // Soft-delete
+  deletedAt      DateTime?
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  auditLogs      AuditLog[]
+
+  @@index([userId])
+  @@index([userId, deletedAt])
+  @@index([userId, category])
+  @@index([name])
+  @@index([vintage])
+  @@index([producer])
+  @@map("bottles")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model cellars {
-  id                   String    @id(map: "caves_pkey") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id              String    @db.Uuid
-  name                 String    @db.VarChar(255)
-  description          String?
-  cellar_type          String    @db.VarChar(50)
-  location_description String?
-  created_at           DateTime  @default(now()) @db.Timestamp(6)
-  updated_at           DateTime  @default(now()) @db.Timestamp(6)
-  placement            String?
-  model_name           String?
-  bottle_capacity      Int?
-  shelf_count          Int?
-  bottles              bottles[]
-  users                users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "caves_user_id_fkey")
+model AuditLog {
+  id           Int      @id @default(autoincrement())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bottleId     String?
+  bottle       Bottle?  @relation(fields: [bottleId], references: [id], onDelete: SetNull)
+  action       String   // CREATE, READ, UPDATE, DELETE, RESTORE, LIST
+  status       String   // success, error, validation_error, not_found
+  ip           String
+  details      Json?
+  createdAt    DateTime @default(now())
 
-  @@index([user_id], map: "idx_cellars_user_id")
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
-model security_events {
-  id         String   @id @db.Uuid
-  user_id    String?  @db.Uuid
-  event_type String   @db.VarChar(100)
-  ip_address String?  @db.VarChar(45)
-  user_agent String?
-  metadata   Json?
-  created_at DateTime @default(now()) @db.Timestamp(6)
-  users      users?   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([created_at], map: "idx_security_events_created_at")
-  @@index([user_id], map: "idx_security_events_user_id")
-}
-
-model two_fa_settings {
-  id                   String    @id @db.Uuid
-  user_id              String    @unique @db.Uuid
-  method               String    @default("none") @db.VarChar(20)
-  totp_secret          String?   @db.VarChar(255)
-  webauthn_credentials Json?
-  recovery_codes_hash  Json?
-  enabled_at           DateTime? @db.Timestamp(6)
-  created_at           DateTime  @default(now()) @db.Timestamp(6)
-  updated_at           DateTime  @default(now()) @db.Timestamp(6)
-  users                users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model users {
-  id                    String                 @id @db.Uuid
-  username              String                 @unique @db.VarChar(50)
-  email                 String                 @unique @db.VarChar(255)
-  password_hash         String                 @db.VarChar(255)
-  created_at            DateTime               @default(now()) @db.Timestamp(6)
-  updated_at            DateTime               @default(now()) @db.Timestamp(6)
-  role                  String                 @default("user") @db.VarChar(20)
-  display_name          String?
-  avatar_url            String?
-  tagline               String?
-  preferred_locale      String?                @db.VarChar(2)
-  date_time_format      String                 @default("system") @db.VarChar(20)
-  temperature_unit      String                 @default("c") @db.VarChar(2)
-  theme_mode            String                 @default("dark") @db.VarChar(10)
-  accent_color          String                 @default("#c5a059") @db.VarChar(16)
-  notification_settings Json                   @default("{}")
-  ai_api_key            String?
-  bottles                  bottles[]
-  cellars                  cellars[]
-  security_events          security_events[]
-
-  two_fa_settings          two_fa_settings?
-  webauthn_credentials     webauthn_credentials[]
-  consumption_objectives   consumption_objectives[]
-  consumption_events       consumption_events[]
-  notifications            notifications[]
-  alert_preferences        alert_preferences?
-  trusted_sessions         trusted_sessions[]
-}
-
-model webauthn_credentials {
-  id            String   @id @db.Uuid
-  user_id       String   @db.Uuid
-  credential_id String   @unique @db.VarChar(255)
-  public_key    String
-  counter       Int
-  name          String?  @db.VarChar(255)
-  created_at    DateTime @default(now()) @db.Timestamp(6)
-  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([user_id], map: "idx_webauthn_credentials_user_id")
-}
-
-model failed_login_attempts {
-  id           String   @id @db.Uuid
-  username     String   @db.VarChar(50)
-  ip_address   String   @db.VarChar(45)
-  attempted_at DateTime @default(now()) @db.Timestamp(6)
-  expires_at   DateTime @db.Timestamp(6)
-
-  @@index([expires_at], map: "idx_failed_login_attempts_expires_at")
-}
-
-
-
-/// This table stores user consumption objectives/goals
-model consumption_objectives {
-  id                     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id                String   @db.Uuid
-  period                 String   @db.VarChar(10)
-  target_count           Int
-  prioritize_opened      Boolean  @default(false)
-  prioritize_collections String[] @default([]) @db.VarChar(80)
-  max_budget_per_bottle  Decimal? @db.Decimal(10, 2)
-  active                 Boolean  @default(true)
-  created_at             DateTime @default(now()) @db.Timestamp(6)
-  updated_at             DateTime @default(now()) @db.Timestamp(6)
-  users                  users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([user_id], map: "idx_consumption_objectives_user_id")
-  @@index([active], map: "idx_consumption_objectives_active")
-}
-
-/// This table tracks consumption events (consumed, postponed, planned)
-model consumption_events {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String   @db.Uuid
-  bottle_id  String   @db.Uuid
-  event_type String   @db.VarChar(20)
-  event_date DateTime @db.Timestamp(6)
-  notes      String?
-  created_at DateTime @default(now()) @db.Timestamp(6)
-  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  bottles    bottles  @relation(fields: [bottle_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([user_id], map: "idx_consumption_events_user_id")
-  @@index([bottle_id], map: "idx_consumption_events_bottle_id")
-  @@index([event_type], map: "idx_consumption_events_type")
-  @@index([event_date], map: "idx_consumption_events_date")
-}
-
-/// This table stores in-app notifications for alerts
-model notifications {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id    String   @db.Uuid
-  type       String   @db.VarChar(50)
-  title      String   @db.VarChar(255)
-  message    String?
-  data       Json?
-  read       Boolean  @default(false)
-  created_at DateTime @default(now()) @db.Timestamp(6)
-  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([user_id], map: "idx_notifications_user_id")
-  @@index([read], map: "idx_notifications_read")
-}
-
-/// This table stores user alert preferences
-model alert_preferences {
-  user_id           String    @id @db.Uuid
-  days_before_peak  Int       @default(30)
-  enable_email      Boolean   @default(true)
-  enable_in_app     Boolean   @default(true)
-  quiet_hours_start String?   @db.VarChar(5)
-  quiet_hours_end   String?   @db.VarChar(5)
-  updated_at        DateTime  @default(now()) @db.Timestamp(6)
-  users             users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-}
-
-/// This table stores trusted sessions for "Remember Me" functionality
-model trusted_sessions {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id       String   @db.Uuid
-  refresh_token String   @unique @db.VarChar(255)
-  device_name   String?  @db.VarChar(120)
-  ip_address    String?  @db.VarChar(45)
-  user_agent    String?
-  last_used_at  DateTime @default(now()) @db.Timestamp(6)
-  expires_at    DateTime @db.Timestamp(6)
-  created_at    DateTime @default(now()) @db.Timestamp(6)
-  is_revoked    Boolean  @default(false)
-  
-  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([user_id], map: "idx_trusted_sessions_user_id")
-  @@index([refresh_token], map: "idx_trusted_sessions_token")
+enum BottleCategory {
+  wine
+  sparkling
+  spirit
+  cigar
 }

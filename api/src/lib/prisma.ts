@@ -1,44 +1,40 @@
-import { PrismaClient } from "@prisma/client";
-import { logger } from "../utils/logger.js";
+import { PrismaClient } from '@prisma/client';
 
-/**
- * Prisma Client Singleton
- * 
- * This ensures we only create one instance of PrismaClient across the application.
- * Creating multiple instances can exhaust database connections.
- */
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 2000;
 
-// Prevent multiple instances of Prisma Client in development
-const globalForPrisma = globalThis as unknown as {
-    prisma: PrismaClient | undefined;
-};
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const prisma =
-    globalForPrisma.prisma ??
-    new PrismaClient({
-        log: process.env.NODE_ENV === "development"
-            ? ["query", "error", "warn"]
-            : ["error"],
-    });
-
-// Log Prisma queries in development
-if (process.env.NODE_ENV === "development") {
-    logger.info("Prisma Client initialized with query logging");
+function createPrismaClient(): PrismaClient {
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development'
+      ? ['query', 'info', 'warn', 'error']
+      : ['warn', 'error'],
+  });
 }
 
-if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = prisma;
+export const prisma: PrismaClient = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
 }
 
 /**
- * Gracefully disconnect Prisma on application shutdown
+ * Connect with exponential retry logic.
+ * Implements the "5 retries × 2s" pattern from design.md infrastructure spec.
  */
-export async function disconnectPrisma() {
-    await prisma.$disconnect();
-    logger.info("Prisma disconnected");
+export async function connectWithRetry(): Promise<void> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await prisma.$connect();
+      console.info(`[prisma] Connected to database (attempt ${attempt})`);
+      return;
+    } catch (error) {
+      console.warn(`[prisma] Connection attempt ${attempt}/${MAX_RETRIES} failed:`, error);
+      if (attempt === MAX_RETRIES) {
+        throw new Error(`[prisma] Could not connect after ${MAX_RETRIES} attempts. Aborting.`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+    }
+  }
 }
-
-// Handle process termination
-process.on("beforeExit", async () => {
-    await disconnectPrisma();
-});

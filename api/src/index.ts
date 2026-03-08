@@ -1,129 +1,65 @@
-import express from "express";
-import cors from "cors";
-import cookieParser from "cookie-parser";
-import dotenv from "dotenv";
-import { createAuthRouter } from "./routes/auth.js";
-import { createProfileRouter } from "./routes/profile.js";
-import { createAdminRouter } from "./routes/admin.js";
-import { createCellarsRouter } from "./routes/cellars.js";
-import { createBottlesRouter } from "./routes/bottles.js";
-
-import { UserService, TwoFAService, SecurityEventService } from "./services/auth.js";
-import { TrustedSessionService } from "./services/trustedSession.js";
-import { ProfileService, AppSettingsService } from "./services/profile.js";
-import { CellarService } from "./services/cellars.js";
-import { BottleService } from "./services/bottles.js";
-import { logger } from "./utils/logger.js";
-import { createConsumptionPlanRouter } from "./routes/consumptionPlan.js";
-import { createFoodPairingRouter } from "./routes/foodPairing.js";
-import { createImagesRouter } from "./routes/images.js";
-
-// Load environment variables
-dotenv.config();
-
-
-// Log any uncaught exceptions or unhandled promise rejections
-process.on('uncaughtException', (err) => {
-  logger.fatal({ err }, 'Uncaught Exception');
-  // eslint-disable-next-line no-console
-  console.error('Uncaught Exception', err);
-  process.exit(1);
-});
-process.on('unhandledRejection', (reason) => {
-  logger.fatal({ reason }, 'Unhandled Rejection');
-  // eslint-disable-next-line no-console
-  console.error('Unhandled Rejection', reason);
-  process.exit(1);
-});
-
-dotenv.config();
+import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import { connectWithRetry } from './lib/prisma';
+import { bottlesRouter } from './routes/bottles.router';
+import { errorMiddleware } from './middleware/error.middleware';
+import { bottleService } from './services/bottle.service';
+import { purgeOldAuditLogs } from './services/audit.service';
 
 const app = express();
-const PORT = process.env.API_PORT || 3001;
+const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
+// ─── Security middleware ─────────────────────────────────────────────────────
 
-
-// Initialize services
-const userService = new UserService();
-const twoFAService = new TwoFAService();
-const securityEventService = new SecurityEventService();
-const trustedSessionService = new TrustedSessionService();
-const profileService = new ProfileService();
-const appSettingsService = new AppSettingsService();
-const cellarService = new CellarService();
-const bottleService = new BottleService();
-
-
-// Middleware
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(helmet());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+  credentials: true,
+}));
 app.use(cookieParser());
+app.use(express.json({ limit: '2mb' }));
 
-// CORS configuration with explicit credentials handling
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:3000",
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    exposedHeaders: ["Set-Cookie"],
-  })
-);
+// ─── Health check ────────────────────────────────────────────────────────────
 
-// Health check
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Routes
-app.use(
-  "/api/auth",
-  createAuthRouter(userService, twoFAService, securityEventService, trustedSessionService)
-);
+// ─── Routes ──────────────────────────────────────────────────────────────────
 
-app.use("/api/profile", createProfileRouter(profileService, appSettingsService));
+app.use('/api/bottles', bottlesRouter);
 
-app.use(
-  "/api/admin",
-  createAdminRouter(userService, profileService, appSettingsService)
-);
+// ─── 404 handler ────────────────────────────────────────────────────────────
 
-// Cellars router
-const cellarsRouter = createCellarsRouter(cellarService);
-app.use("/api/cellars", cellarsRouter);
-
-// Bottles router
-const bottlesRouter = createBottlesRouter(bottleService);
-app.use("/api/bottles", bottlesRouter);
-
-// Consumption plan router
-const consumptionPlanRouter = createConsumptionPlanRouter();
-app.use("/api/consumption-plan", consumptionPlanRouter);
-
-const foodPairingRouter = createFoodPairingRouter(profileService, appSettingsService);
-app.use("/api/food-pairing", foodPairingRouter);
-
-const imagesRouter = createImagesRouter();
-app.use("/api/images", imagesRouter);
-
-// Alerts router
-import alertsRouter from "./routes/alerts.js";
-app.use("/api/alerts", alertsRouter);
-
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: "Not found" });
+app.use((_req, res) => {
+  res.status(404).json({ error: 'NOT_FOUND' });
 });
 
-// Error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  logger.error({ err, path: req.path, method: req.method }, "Unhandled error");
-  res.status(err.status || 500).json({
-    error: err.message || "Internal server error",
+// ─── Global error handler ────────────────────────────────────────────────────
+
+app.use(errorMiddleware);
+
+// ─── Startup ─────────────────────────────────────────────────────────────────
+
+async function bootstrap(): Promise<void> {
+  await connectWithRetry();
+
+  // Background maintenance: purge old trash and expired audit logs
+  void bottleService.purgeTrashed().then((count) => {
+    if (count > 0) console.info(`[startup] Purged ${count} permanently deleted bottles`);
   });
-});
+  void purgeOldAuditLogs(90).then((count) => {
+    if (count > 0) console.info(`[startup] Purged ${count} old audit log entries`);
+  });
 
-app.listen(PORT, () => {
-  logger.info(`API server running on port ${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.info(`[api] Server listening on port ${PORT} (${process.env.NODE_ENV})`);
+  });
+}
+
+bootstrap().catch((err) => {
+  console.error('[api] Fatal startup error:', err);
+  process.exit(1);
 });
