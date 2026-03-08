@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme } from '@/lib/theme';
+import { I18nProvider } from './I18nProvider';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -16,12 +17,14 @@ const queryClient = new QueryClient({
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        {children}
-        {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
-      </ThemeProvider>
-    </QueryClientProvider>
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          {children}
+          {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
+        </ThemeProvider>
+      </QueryClientProvider>
+    </I18nProvider>
   );
 }
