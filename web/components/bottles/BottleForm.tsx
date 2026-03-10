@@ -88,7 +88,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
                 setStep(2);
               }}
             >
-              {(['wine', 'sparkling', 'spirit', 'cigar'] as BottleCategory[]).map((c) => (
+              {(['wine', 'sparkling', 'spirit'] as BottleCategory[]).map((c) => (
                 <MenuItem key={c} value={c}>{t(`common.categories.${c}`)}</MenuItem>
               ))}
             </Select>
