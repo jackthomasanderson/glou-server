@@ -26,6 +26,8 @@ export const updatePreferencesSchema = z.object({
   theme: z.enum(['LIGHT', 'DARK']).optional(),
   language: z.enum(['FR', 'EN']).optional(),
   tempUnit: z.enum(['CELSIUS', 'FAHRENHEIT']).optional(),
+  accentColor: z.string().startsWith('#').optional(),
+  dateFormat: z.enum(['SYSTEM', 'H24', 'H12']).optional(),
 });
 
 export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;

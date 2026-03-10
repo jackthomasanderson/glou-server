@@ -22,13 +22,13 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
   // Handle Theme Sync
   const theme = useMemo(() => {
     const mode = user?.theme?.toLowerCase() === 'dark' ? 'dark' : 'light';
+    const primaryColor = user?.accentColor || '#6366f1';
+
     return createTheme({
       palette: {
         mode,
         primary: {
-          main: '#6366f1', // Indigo sleek
-          light: '#818cf8',
-          dark: '#4f46e5',
+          main: primaryColor,
         },
         secondary: {
           main: '#f43f5e', // Rose
@@ -45,7 +45,7 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
         fontFamily: 'var(--font-inter), Roboto, sans-serif',
       },
     });
-  }, [user?.theme]);
+  }, [user?.theme, user?.accentColor]);
 
   return (
     <ThemeProvider theme={theme}>

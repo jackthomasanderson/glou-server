@@ -92,7 +92,7 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t, isSelec
           )}
           {bottle.alertStatus && bottle.alertStatus !== 'none' && (
             <Chip
-              label={t(`common.bottle.alertStatus.${bottle.alertStatus}`)}
+              label={t(`bottle.alertStatus.${bottle.alertStatus}`)}
               size="small"
               color={bottle.alertStatus === 'peak' ? 'success' : 'default'}
             />

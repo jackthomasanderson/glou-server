@@ -17,7 +17,9 @@ const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
 // ─── Security middleware ─────────────────────────────────────────────────────
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 app.use(cors({
   origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
   credentials: true,

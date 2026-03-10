@@ -27,6 +27,9 @@ model User {
   theme        Theme      @default(LIGHT)
   language     Language   @default(FR)
   tempUnit     TempUnit   @default(CELSIUS)
+  accentColor  String     @default("#6366f1")
+  dateFormat   DateFormat @default(SYSTEM)
+
   // Security (2FA)
   isTwoFactorEnabled Boolean    @default(false)
   twoFactorSecret    String?
@@ -53,6 +56,12 @@ enum Language {
 enum TempUnit {
   CELSIUS
   FAHRENHEIT
+}
+
+enum DateFormat {
+  SYSTEM
+  H24
+  H12
 }
 
 enum CellarType {

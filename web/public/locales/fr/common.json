@@ -118,6 +118,18 @@
     "sealedStatus": {
       "sealed": "Scellé",
       "opened": "Ouvert"
+    },
+    "bulk": {
+      "selected": "{{count}} sélectionnée",
+      "selected_plural": "{{count}} sélectionnées"
+    },
+    "sparklingTypes": {
+      "champagne": "Champagne",
+      "cremant": "Crémant",
+      "prosecco": "Prosecco",
+      "cava": "Cava",
+      "petnat": "Pétillant Naturel",
+      "other": "Autre"
     }
   },
   "toast": {
@@ -189,8 +201,28 @@
     "theme": "Thème d'apparence",
     "language": "Langue de l'interface",
     "tempUnit": "Unité de température",
+    "dateFormat": "Format d'heure",
+    "dateFormats": {
+      "SYSTEM": "Système",
+      "H24": "24 heures",
+      "H12": "12 heures (AM/PM)"
+    },
+    "accentColor": "Couleur d'accentuation",
+    "colors": {
+      "indigo": "Indigo",
+      "rose": "Rose",
+      "amber": "Ambre",
+      "emerald": "Émeraude",
+      "cyan": "Cyan",
+      "violet": "Violet"
+    },
     "saveSuccess": "Profil mis à jour avec succès",
     "saveError": "Erreur lors de la mise à jour du profil",
+    "avatarSuccess": "Photo de profil mise à jour",
+    "avatarError": "Erreur lors du téléchargement de l'image",
+    "deleteAvatar": "Supprimer la photo de profil",
+    "deleteAvatarSuccess": "Photo de profil supprimée",
+    "deleteAvatarError": "Erreur lors de la suppression de la photo",
     "emailSuccess": "Email mis à jour",
     "passwordSuccess": "Mot de passe mis à jour",
     "passwordError": "Mot de passe actuel incorrect"

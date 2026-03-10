@@ -27,7 +27,7 @@ import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 type UIMode = 'idle' | 'creating' | 'editing';
 
 interface BottleDashboardProps {
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }
 
 /**
@@ -281,7 +281,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           }}
         >
           <Typography fontWeight="bold" color="primary">
-            {selectedIds.size} sélectionnées
+            {t('bottle.bulk.selected', { count: selectedIds.size })}
           </Typography>
           <FormControl size="small" sx={{ minWidth: 160, flexGrow: 1 }}>
             <InputLabel>{t('nav.caves')}</InputLabel>

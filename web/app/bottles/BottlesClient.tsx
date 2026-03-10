@@ -7,14 +7,37 @@ import { useState, useMemo } from 'react';
 type Messages = typeof frMessages;
 
 function createTranslator(messages: Messages) {
-  return function t(key: string): string {
-    const parts = key.split('.');
+  return function t(key: string, options?: Record<string, unknown>): string {
+    let finalKey = key;
+    if (options && typeof options.count === 'number' && options.count > 1) {
+      finalKey = `${key}_plural`;
+    }
+
+    const parts = finalKey.split('.');
     let current: unknown = messages;
     for (const part of parts) {
-      if (typeof current !== 'object' || current === null) return key;
+      if (typeof current !== 'object' || current === null) break;
       current = (current as Record<string, unknown>)[part];
     }
-    return typeof current === 'string' ? current : key;
+
+    // Fallback to non-plural if plural key missing
+    if (typeof current !== 'string' && finalKey !== key) {
+      current = messages;
+      for (const part of key.split('.')) {
+        if (typeof current !== 'object' || current === null) return key;
+        current = (current as Record<string, unknown>)[part];
+      }
+    }
+
+    if (typeof current !== 'string') return key;
+
+    let text = current;
+    if (options) {
+      Object.entries(options).forEach(([k, v]) => {
+        text = text.replace(`{{${k}}}`, String(v));
+      });
+    }
+    return text;
   };
 }
 

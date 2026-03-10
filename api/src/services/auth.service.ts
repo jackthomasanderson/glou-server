@@ -3,10 +3,12 @@ import jwt from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { prisma } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
 import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.schema';
-import { Theme, Language, TempUnit } from '@prisma/client';
+import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 
 const JWT_EXPIRES_IN = '30d';
 const BCRYPT_ROUNDS = 12;
@@ -29,6 +31,8 @@ export interface PublicUser {
   theme: Theme;
   language: Language;
   tempUnit: TempUnit;
+  accentColor: string;
+  dateFormat: DateFormat;
   isAdmin: boolean;
   createdAt: Date;
 }
@@ -81,6 +85,8 @@ export class AuthService {
         theme: true,
         language: true,
         tempUnit: true,
+        accentColor: true,
+        dateFormat: true,
         isAdmin: true,
         createdAt: true
       },
@@ -119,6 +125,8 @@ export class AuthService {
       theme: user.theme,
       language: user.language,
       tempUnit: user.tempUnit,
+      accentColor: user.accentColor,
+      dateFormat: user.dateFormat,
       isAdmin: user.isAdmin,
       createdAt: user.createdAt,
     };
@@ -149,6 +157,8 @@ export class AuthService {
         theme: true,
         language: true,
         tempUnit: true,
+        accentColor: true,
+        dateFormat: true,
         isAdmin: true,
         createdAt: true
       },
@@ -174,11 +184,41 @@ export class AuthService {
         theme: true,
         language: true,
         tempUnit: true,
+        accentColor: true,
+        dateFormat: true,
         isAdmin: true,
         createdAt: true
       },
     });
     return user;
+  }
+
+  /**
+   * Delete user avatar
+   */
+  async deleteAvatar(userId: string): Promise<PublicUser> {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { avatarUrl: true }
+    });
+
+    if (user.avatarUrl) {
+      try {
+        // Extract filename from URL
+        const parts = user.avatarUrl.split('/');
+        const filename = parts[parts.length - 1];
+        const filePath = path.join(process.cwd(), 'uploads', 'avatars', filename);
+
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (err) {
+        console.error('Failed to delete avatar file:', err);
+        // We continue anyway to at least clear the DB field
+      }
+    }
+
+    return this.updateProfile(userId, { avatarUrl: null });
   }
 
   /**
@@ -204,6 +244,8 @@ export class AuthService {
         theme: true,
         language: true,
         tempUnit: true,
+        accentColor: true,
+        dateFormat: true,
         isAdmin: true,
         createdAt: true
       }
@@ -245,6 +287,8 @@ export class AuthService {
         theme: true,
         language: true,
         tempUnit: true,
+        accentColor: true,
+        dateFormat: true,
         isAdmin: true,
         createdAt: true
       },
@@ -397,6 +441,8 @@ export class AuthService {
       theme: user.theme,
       language: user.language,
       tempUnit: user.tempUnit,
+      accentColor: user.accentColor,
+      dateFormat: user.dateFormat,
       isAdmin: user.isAdmin,
       createdAt: user.createdAt,
     };

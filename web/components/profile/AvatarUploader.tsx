@@ -1,14 +1,19 @@
 'use client';
 import React, { useRef, useState } from 'react';
-import { Box, Avatar, Typography, IconButton, CircularProgress } from '@mui/material';
+import { Box, Avatar, Typography, IconButton, CircularProgress, Alert, Snackbar } from '@mui/material';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import { useUploadAvatar, PublicUser } from '@/hooks/useAuth';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { useUploadAvatar, useDeleteAvatar, PublicUser } from '@/hooks/useAuth';
+import { useTranslation } from 'react-i18next';
 
 export function AvatarUploader({ user }: { user: PublicUser }) {
+    const { t } = useTranslation();
     const uploadAvatar = useUploadAvatar();
+    const deleteAvatar = useDeleteAvatar();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isHovered, setIsHovered] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -17,7 +22,27 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
     };
 
     const handleUpload = (file: File) => {
-        uploadAvatar.mutate(file);
+        uploadAvatar.mutate(file, {
+            onSuccess: () => {
+                setFeedback({ type: 'success', msg: t('profile.avatarSuccess') });
+            },
+            onError: (err) => {
+                setFeedback({ type: 'error', msg: t('profile.avatarError') });
+                console.error('Avatar upload error:', err);
+            }
+        });
+    };
+
+    const handleDelete = () => {
+        deleteAvatar.mutate(undefined, {
+            onSuccess: () => {
+                setFeedback({ type: 'success', msg: t('profile.deleteAvatarSuccess') });
+            },
+            onError: (err) => {
+                setFeedback({ type: 'error', msg: t('profile.deleteAvatarError') });
+                console.error('Avatar delete error:', err);
+            }
+        });
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -103,6 +128,28 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
                         <PhotoCameraIcon />
                     </IconButton>
                 )}
+
+                {user?.avatarUrl && !uploadAvatar.isPending && (
+                    <IconButton
+                        size="small"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete();
+                        }}
+                        sx={{
+                            position: 'absolute',
+                            top: 0,
+                            right: 0,
+                            color: 'error.main',
+                            bgcolor: 'background.paper',
+                            boxShadow: 2,
+                            '&:hover': { bgcolor: 'background.default' }
+                        }}
+                        title={t('profile.deleteAvatar')}
+                    >
+                        <DeleteIcon fontSize="small" />
+                    </IconButton>
+                )}
             </Box>
 
             <Typography variant="subtitle1" fontWeight={700} mt={2}>
@@ -123,6 +170,19 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
                 style={{ display: 'none' }}
                 accept="image/*"
             />
+
+            <Snackbar
+                open={!!feedback}
+                autoHideDuration={4000}
+                onClose={() => setFeedback(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                {feedback ? (
+                    <Alert onClose={() => setFeedback(null)} severity={feedback.type} sx={{ width: '100%' }}>
+                        {feedback.msg}
+                    </Alert>
+                ) : undefined}
+            </Snackbar>
         </Box>
     );
 }

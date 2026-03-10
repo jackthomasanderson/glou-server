@@ -10,7 +10,7 @@ interface CategoryFieldsProps {
   category: BottleCategory;
   values: Record<string, unknown>;
   onChange: (field: string, value: unknown) => void;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }
 
 /**
@@ -82,8 +82,15 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
                 label={t('bottle.fields.sparklingType')}
                 onChange={(e) => onChange('sparklingType', e.target.value)}
               >
-                {['Champagne', 'Crémant', 'Prosecco', 'Cava', 'Pétillant Naturel', 'Autre'].map((s) => (
-                  <MenuItem key={s} value={s}>{s}</MenuItem>
+                {[
+                  { key: 'champagne', label: 'Champagne' },
+                  { key: 'cremant', label: 'Crémant' },
+                  { key: 'prosecco', label: 'Prosecco' },
+                  { key: 'cava', label: 'Cava' },
+                  { key: 'petnat', label: 'Pétillant Naturel' },
+                  { key: 'other', label: 'Autre' }
+                ].map((s) => (
+                  <MenuItem key={s.key} value={s.key}>{t(`bottle.sparklingTypes.${s.key}`)}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -119,7 +126,7 @@ interface OptionalFieldsProps {
   category: BottleCategory;
   values: Record<string, unknown>;
   onChange: (field: string, value: unknown) => void;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }
 
 /**

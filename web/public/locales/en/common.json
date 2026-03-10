@@ -111,13 +111,25 @@
     },
     "alertStatus": {
       "none": "Not set",
-      "approaching": "Approche de l'apogée",
+      "approaching": "Approaching peak",
       "peak": "At peak",
       "past": "Past peak"
     },
     "sealedStatus": {
       "sealed": "Sealed",
       "opened": "Opened"
+    },
+    "bulk": {
+      "selected": "{{count}} selected",
+      "selected_plural": "{{count}} selected"
+    },
+    "sparklingTypes": {
+      "champagne": "Champagne",
+      "cremant": "Crémant",
+      "prosecco": "Prosecco",
+      "cava": "Cava",
+      "petnat": "Pétillant Naturel",
+      "other": "Other"
     }
   },
   "toast": {
@@ -189,8 +201,28 @@
     "theme": "Appearance Theme",
     "language": "Interface Language",
     "tempUnit": "Temperature Unit",
+    "dateFormat": "Time Format",
+    "dateFormats": {
+      "SYSTEM": "System Default",
+      "H24": "24 hours",
+      "H12": "12 hours (AM/PM)"
+    },
+    "accentColor": "Accent Color",
+    "colors": {
+      "indigo": "Indigo",
+      "rose": "Rose",
+      "amber": "Amber",
+      "emerald": "Emerald",
+      "cyan": "Cyan",
+      "violet": "Violet"
+    },
     "saveSuccess": "Profile updated successfully",
     "saveError": "Error while updating profile",
+    "avatarSuccess": "Profile picture updated",
+    "avatarError": "Error uploading profile picture",
+    "deleteAvatar": "Delete profile picture",
+    "deleteAvatarSuccess": "Profile picture deleted",
+    "deleteAvatarError": "Error deleting profile picture",
     "emailSuccess": "Email updated successfully",
     "passwordSuccess": "Password updated successfully",
     "passwordError": "Incorrect current password"

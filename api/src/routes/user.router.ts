@@ -60,6 +60,19 @@ router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), async (req
 });
 
 /**
+ * DELETE /api/user/avatar
+ * Remove current user avatar
+ */
+router.delete('/avatar', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const user = await authService.deleteAvatar(req.userId);
+    res.json({ data: user });
+  } catch (err: any) {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+/**
  * PATCH /api/user/email
  * Update user email
  */

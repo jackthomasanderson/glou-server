@@ -13,6 +13,8 @@ export interface PublicUser {
   theme: 'LIGHT' | 'DARK';
   language: 'FR' | 'EN';
   tempUnit: 'CELSIUS' | 'FAHRENHEIT';
+  accentColor: string;
+  dateFormat: 'SYSTEM' | 'H24' | 'H12';
   isAdmin: boolean;
   isTwoFactorEnabled?: boolean;
   createdAt: string;
@@ -139,6 +141,18 @@ export function useUploadAvatar() {
     },
   });
 }
+
+// ─── useDeleteAvatar ─────────────────────────────────────────────────────────
+
+export function useDeleteAvatar() {
+  const queryClient = useQueryClient();
+  return useMutation<PublicUser, Error, void>({
+    mutationFn: () => apiFetch<PublicUser>('/api/user/avatar', { method: 'DELETE' }),
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
+    },
+  });
+}
 // ─── useUpdateEmail ──────────────────────────────────────────────────────────
 
 export function useUpdateEmail() {
@@ -168,7 +182,13 @@ export function useUpdatePreferences() {
   return useMutation<
     PublicUser,
     Error,
-    { theme?: 'LIGHT' | 'DARK'; language?: 'FR' | 'EN'; tempUnit?: 'CELSIUS' | 'FAHRENHEIT' }
+    {
+      theme?: 'LIGHT' | 'DARK';
+      language?: 'FR' | 'EN';
+      tempUnit?: 'CELSIUS' | 'FAHRENHEIT';
+      accentColor?: string;
+      dateFormat?: 'SYSTEM' | 'H24' | 'H12';
+    }
   >({
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/user/preferences', { method: 'PATCH', body: JSON.stringify(data) }),

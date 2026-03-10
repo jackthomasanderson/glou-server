@@ -16,7 +16,7 @@ interface BottleFormProps {
   onSubmit: (values: Partial<Bottle>) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }
 
 const EMPTY_FORM: Partial<Bottle> = {

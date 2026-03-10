@@ -81,7 +81,7 @@ export default function AdminPage() {
                     sx={{ mr: 2 }}
                     variant="outlined"
                 >
-                    {t('common.back', 'Retour')}
+                    {t('actions.back', 'Retour')}
                 </Button>
                 <Typography variant="h4" fontWeight="bold">
                     {t('nav.admin', 'Administration')}

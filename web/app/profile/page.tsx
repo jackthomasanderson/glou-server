@@ -41,7 +41,9 @@ export default function ProfilePage() {
   const [prefsData, setPrefsData] = useState({
     theme: 'LIGHT' as 'LIGHT' | 'DARK',
     language: 'FR' as 'FR' | 'EN',
-    tempUnit: 'CELSIUS' as 'CELSIUS' | 'FAHRENHEIT'
+    tempUnit: 'CELSIUS' as 'CELSIUS' | 'FAHRENHEIT',
+    dateFormat: 'SYSTEM' as 'SYSTEM' | 'H24' | 'H12',
+    accentColor: '#6366f1'
   });
 
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -55,9 +57,11 @@ export default function ProfilePage() {
         appSlogan: user.appSlogan || ''
       });
       setPrefsData({
-        theme: user.theme,
-        language: user.language,
-        tempUnit: user.tempUnit
+        theme: user.theme || 'LIGHT',
+        language: user.language || 'FR',
+        tempUnit: user.tempUnit || 'CELSIUS',
+        dateFormat: user.dateFormat || 'SYSTEM',
+        accentColor: user.accentColor || '#6366f1'
       });
     }
   }, [user]);
@@ -230,6 +234,55 @@ export default function ProfilePage() {
                         <MenuItem value="FAHRENHEIT">°Fahrenheit</MenuItem>
                       </Select>
                     </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>{t('profile.dateFormat')}</InputLabel>
+                      <Select
+                        value={prefsData.dateFormat}
+                        label={t('profile.dateFormat')}
+                        onChange={(e) => handlePrefsChange('dateFormat', e.target.value)}
+                      >
+                        <MenuItem value="SYSTEM">{t('profile.dateFormats.SYSTEM')}</MenuItem>
+                        <MenuItem value="H24">{t('profile.dateFormats.H24')}</MenuItem>
+                        <MenuItem value="H12">{t('profile.dateFormats.H12')}</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      {t('profile.accentColor')}
+                    </Typography>
+                    <Box display="flex" gap={1.5} flexWrap="wrap">
+                      {[
+                        { name: 'indigo', val: '#6366f1' },
+                        { name: 'rose', val: '#f43f5e' },
+                        { name: 'amber', val: '#f59e0b' },
+                        { name: 'emerald', val: '#10b981' },
+                        { name: 'cyan', val: '#06b6d4' },
+                        { name: 'violet', val: '#8b5cf6' },
+                      ].map((c) => (
+                        <Box
+                          key={c.val}
+                          onClick={() => handlePrefsChange('accentColor', c.val)}
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            bgcolor: c.val,
+                            cursor: 'pointer',
+                            border: '3px solid',
+                            borderColor: prefsData.accentColor === c.val ? 'primary.main' : 'transparent',
+                            boxShadow: prefsData.accentColor === c.val ? 2 : 0,
+                            transition: 'all 0.2s',
+                            '&:hover': { transform: 'scale(1.1)' }
+                          }}
+                          title={t(`profile.colors.${c.name}`)}
+                        />
+                      ))}
+                    </Box>
                   </Grid>
                 </Grid>
 
