@@ -13,11 +13,14 @@ import {
   useDeleteBottle,
   useRestoreBottle,
 } from '@/hooks/useBottles';
+import { useCellars } from '@/hooks/useCellars';
+import Link from 'next/link';
 import { BottleCard, BottleCardSkeleton } from './BottleCard';
 import { BottleForm } from './BottleForm';
 import { UndoToast } from '@/components/ui/UndoToast';
 import { useLogout, useMe } from '@/hooks/useAuth';
 import LogoutIcon from '@mui/icons-material/Logout';
+import WarehouseIcon from '@mui/icons-material/Warehouse';
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
@@ -31,6 +34,7 @@ interface BottleDashboardProps {
  */
 export function BottleDashboard({ t }: BottleDashboardProps) {
   const { data: bottles, isLoading, isError, isFetching } = useBottles();
+  const { data: cellars } = useCellars();
   const createMutation = useCreateBottle();
   const updateMutation = useUpdateBottle();
   const deleteMutation = useDeleteBottle();
@@ -91,11 +95,11 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
     setEditingBottle(null);
   }, []);
 
-  const categoryLabel = (cat: string) => t(`common.categories.${cat}`);
+  const hasCellars = (cellars?.length ?? 0) > 0;
+  const categoryLabel = (cat: string) => t(`categories.${cat}`);
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
-      {/* Header */}
       {/* Header handled by Navbar, keeping only specific actions if needed or removing extra space */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
         <Button
@@ -103,16 +107,17 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           startIcon={<AddIcon />}
           onClick={() => setMode('creating')}
           sx={{ display: { xs: 'none', sm: 'flex' } }}
-          aria-label={t('common.bottle.add')}
+          aria-label={t('bottle.add')}
+          disabled={!hasCellars}
         >
-          {t('common.bottle.add')}
+          {t('bottle.add')}
         </Button>
       </Box>
 
       {/* Error state */}
       {isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {t('common.status.error')}
+          {t('status.error')}
         </Alert>
       )}
 
@@ -152,19 +157,40 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
             bgcolor: 'action.hover',
           }}
         >
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            {t('common.bottle.noBottles')}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t('common.bottle.noBottlesDesc')}
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setMode('creating')}
-          >
-            {t('common.bottle.add')}
-          </Button>
+          {hasCellars ? (
+            <>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                {t('bottle.noBottles')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {t('bottle.noBottlesDesc')}
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setMode('creating')}
+              >
+                {t('bottle.add')}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                {t('bottle.createCellarFirst')}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                {t('bottle.createCellarFirstDesc')}
+              </Typography>
+              <Button
+                variant="contained"
+                startIcon={<WarehouseIcon />}
+                component={Link}
+                href="/cellars"
+              >
+                {t('nav.caves')}
+              </Button>
+            </>
+          )}
         </Box>
       )}
 
@@ -188,9 +214,10 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
       {/* FAB for mobile */}
       <Fab
         color="primary"
-        aria-label={t('common.bottle.add')}
+        aria-label={t('bottle.add')}
         sx={{ position: 'fixed', bottom: 80, right: 24, display: { sm: 'none' } }}
         onClick={() => setMode('creating')}
+        disabled={!hasCellars}
       >
         <AddIcon />
       </Fab>
@@ -198,8 +225,8 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
       {/* Undo toast (soft delete) */}
       {undoTarget && (
         <UndoToast
-          message={t('common.toast.deleteSuccess')}
-          undoLabel={t('common.actions.undo')}
+          message={t('toast.deleteSuccess')}
+          undoLabel={t('actions.undo')}
           onUndo={handleUndo}
           onExpire={() => setUndoTarget(null)}
         />

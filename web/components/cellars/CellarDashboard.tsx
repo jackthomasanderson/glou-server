@@ -1,25 +1,25 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Button, 
-  Grid, 
-  Card, 
-  CardContent, 
-  CardActions, 
-  IconButton, 
-  Dialog, 
-  DialogTitle, 
-  DialogContent, 
-  DialogActions, 
-  TextField, 
-  MenuItem, 
+import {
+  Box,
+  Typography,
+  Button,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
   CircularProgress,
   Alert
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Storage as StorageIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Warehouse as CellarIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
 
@@ -77,7 +77,7 @@ export const CellarDashboard: React.FC = () => {
   };
 
   if (isLoading) return <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>;
-  if (isError) return <Alert severity="error">{t('common.status.error')}</Alert>;
+  if (isError) return <Alert severity="error">{t('status.error')}</Alert>;
 
   return (
     <Box>
@@ -85,9 +85,9 @@ export const CellarDashboard: React.FC = () => {
         <Typography variant="h4" component="h1">
           {t('cellars.title')}
         </Typography>
-        <Button 
-          variant="contained" 
-          startIcon={<AddIcon />} 
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
           onClick={() => handleOpenForm()}
         >
           {t('cellars.addCellar')}
@@ -95,9 +95,31 @@ export const CellarDashboard: React.FC = () => {
       </Box>
 
       {cellars?.length === 0 ? (
-        <Typography variant="body1" color="text.secondary" textAlign="center" mt={4}>
-          {t('cellars.noCellars')}
-        </Typography>
+        <Box
+          sx={{
+            textAlign: 'center',
+            py: 8,
+            border: '2px dashed',
+            borderColor: 'divider',
+            borderRadius: 2,
+            bgcolor: 'action.hover',
+            mt: 4
+          }}
+        >
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            {t('cellars.noCellars')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            {t('cellars.noCellarsDesc')}
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenForm()}
+          >
+            {t('cellars.addCellar')}
+          </Button>
+        </Box>
       ) : (
         <Grid container spacing={3}>
           {cellars?.map((cellar) => (
@@ -105,7 +127,7 @@ export const CellarDashboard: React.FC = () => {
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Box display="flex" alignItems="center" mb={2}>
-                    <StorageIcon color="primary" sx={{ mr: 1 }} />
+                    <CellarIcon color="primary" sx={{ mr: 1 }} />
                     <Typography variant="h6" component="div">
                       {cellar.name}
                     </Typography>
@@ -169,13 +191,13 @@ export const CellarDashboard: React.FC = () => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseForm}>{t('common.actions.cancel')}</Button>
-          <Button 
-            onClick={handleSubmit} 
-            variant="contained" 
+          <Button onClick={handleCloseForm}>{t('actions.cancel')}</Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
             disabled={!formData.name}
           >
-            {editingCellar ? t('common.actions.save') : t('common.actions.add')}
+            {editingCellar ? t('actions.save') : t('actions.add')}
           </Button>
         </DialogActions>
       </Dialog>

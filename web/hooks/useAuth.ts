@@ -7,10 +7,13 @@ export interface PublicUser {
   username: string;
   email: string;
   displayName: string | null;
-  slogan: string | null;
+  avatarUrl: string | null;
+  appName: string | null;
+  appSlogan: string | null;
   theme: 'LIGHT' | 'DARK';
   language: 'FR' | 'EN';
   tempUnit: 'CELSIUS' | 'FAHRENHEIT';
+  isAdmin: boolean;
   isTwoFactorEnabled?: boolean;
   createdAt: string;
 }
@@ -104,12 +107,57 @@ export function useLogout() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  return useMutation<PublicUser, Error, { displayName?: string | null; slogan?: string | null }>({
+  return useMutation<PublicUser, Error, { displayName?: string | null; avatarUrl?: string | null; appName?: string | null; appSlogan?: string | null }>({
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/user/profile', { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
+  });
+}
+
+// ─── useUploadAvatar ─────────────────────────────────────────────────────────
+
+export function useUploadAvatar() {
+  const queryClient = useQueryClient();
+  return useMutation<PublicUser, Error, File>({
+    mutationFn: async (file) => {
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const res = await fetch('/api/user/avatar', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'UNEXPECTED_ERROR');
+      return json.data as PublicUser;
+    },
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
+    },
+  });
+}
+// ─── useUpdateEmail ──────────────────────────────────────────────────────────
+
+export function useUpdateEmail() {
+  const queryClient = useQueryClient();
+  return useMutation<PublicUser, Error, { email: string }>({
+    mutationFn: (data) =>
+      apiFetch<PublicUser>('/api/user/email', { method: 'PATCH', body: JSON.stringify(data) }),
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
+    },
+  });
+}
+
+// ─── useUpdatePassword ───────────────────────────────────────────────────────
+
+export function useUpdatePassword() {
+  return useMutation<{ success: boolean }, Error, { currentPassword: string; newPassword: string }>({
+    mutationFn: (data) =>
+      apiFetch<{ success: boolean }>('/api/user/password', { method: 'PATCH', body: JSON.stringify(data) }),
   });
 }
 

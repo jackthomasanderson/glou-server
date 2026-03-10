@@ -46,7 +46,12 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
     setValues((prev) => ({ ...prev, [field]: value }));
   };
 
-  const canSaveMinimal = Boolean(values.category && values.name?.trim() && values.producer?.trim());
+  const canSaveMinimal = Boolean(
+    values.category &&
+    values.name?.trim() &&
+    values.producer?.trim() &&
+    values.cellarId
+  );
   const isEditing = Boolean(initialValues?.id);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -59,25 +64,25 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
       component="form"
       onSubmit={handleSubmit}
       sx={{ p: 3 }}
-      aria-label={isEditing ? t('common.bottle.edit') : t('common.bottle.add')}
+      aria-label={isEditing ? t('bottle.edit') : t('bottle.add')}
     >
       <Typography variant="h6" fontWeight={700} gutterBottom>
-        {isEditing ? t('common.bottle.edit') : t('common.bottle.add')}
+        {isEditing ? t('bottle.edit') : t('bottle.add')}
       </Typography>
 
       {/* ── Step 1: Common trunk ── */}
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-        {t('common.bottle.step1')}
+        {t('bottle.step1')}
       </Typography>
 
       <Grid container spacing={2}>
         {/* Category */}
         <Grid item xs={12} sm={6} md={3}>
           <FormControl fullWidth size="small" required>
-            <InputLabel>{t('common.bottle.fields.category')}</InputLabel>
+            <InputLabel>{t('bottle.fields.category')}</InputLabel>
             <Select
               value={values.category ?? 'wine'}
-              label={t('common.bottle.fields.category')}
+              label={t('bottle.fields.category')}
               onChange={(e) => {
                 setField('category', e.target.value as BottleCategory);
                 setStep(2);
@@ -90,17 +95,17 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
           </FormControl>
         </Grid>
 
-        {/* Cellar Selection */}
         <Grid item xs={12} sm={6} md={3}>
-          <FormControl fullWidth size="small">
-            <InputLabel>{t('common.nav.caves')}</InputLabel>
+          <FormControl fullWidth size="small" required>
+            <InputLabel>{t('nav.caves')}</InputLabel>
             <Select
               value={values.cellarId ?? ''}
-              label={t('common.nav.caves')}
+              label={t('nav.caves')}
               onChange={(e) => setField('cellarId', e.target.value)}
+              required
             >
-              <MenuItem value="">
-                <em>{t('common.status.empty')}</em>
+              <MenuItem value="" disabled>
+                <em>{t('bottle.chooseCellar')}</em>
               </MenuItem>
               {cellars?.map((cellar) => (
                 <MenuItem key={cellar.id} value={cellar.id}>
@@ -117,7 +122,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
             fullWidth
             required
             size="small"
-            label={t('common.bottle.fields.name')}
+            label={t('bottle.fields.name')}
             value={values.name ?? ''}
             onChange={(e) => {
               setField('name', e.target.value);
@@ -132,7 +137,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
             fullWidth
             required
             size="small"
-            label={t('common.bottle.fields.producer')}
+            label={t('bottle.fields.producer')}
             value={values.producer ?? ''}
             onChange={(e) => setField('producer', e.target.value)}
           />
@@ -143,7 +148,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
       {canSaveMinimal && step === 1 && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="caption" color="text.secondary">
-            {t('common.bottle.saveMinimalHint')}
+            {t('bottle.saveMinimalHint')}
           </Typography>
         </Box>
       )}
@@ -153,7 +158,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
         <>
           <Divider sx={{ my: 2.5 }} />
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-            {t('common.bottle.step2')}
+            {t('bottle.step2')}
           </Typography>
 
           <CategoryFields
@@ -165,7 +170,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
 
           {/* Optional fields toggle */}
           <Box sx={{ mt: 2 }}>
-            <Tooltip title={showOptionals ? t('common.actions.showLess') : t('common.actions.showMore')}>
+            <Tooltip title={showOptionals ? t('actions.showLess') : t('actions.showMore')}>
               <Button
                 size="small"
                 variant="text"
@@ -174,7 +179,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
                 aria-expanded={showOptionals}
                 aria-controls="optional-fields"
               >
-                {showOptionals ? t('common.actions.showLess') : t('common.actions.showMore')}
+                {showOptionals ? t('actions.showLess') : t('actions.showMore')}
               </Button>
             </Tooltip>
           </Box>
@@ -195,20 +200,20 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
       {/* ── Actions ── */}
       <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
         <Button variant="outlined" onClick={onCancel} disabled={isSubmitting}>
-          {t('common.actions.cancel')}
+          {t('actions.cancel')}
         </Button>
         <Button
           type="submit"
           variant="contained"
           startIcon={<SaveIcon />}
           disabled={!canSaveMinimal || isSubmitting}
-          aria-label={isEditing ? t('common.actions.update') : t('common.bottle.saveMinimal')}
+          aria-label={isEditing ? t('actions.update') : t('bottle.saveMinimal')}
         >
           {isSubmitting
-            ? t('common.status.saving')
+            ? t('status.saving')
             : isEditing
-            ? t('common.actions.update')
-            : t('common.bottle.saveMinimal')}
+              ? t('actions.update')
+              : t('bottle.saveMinimal')}
         </Button>
       </Box>
     </Paper>

@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { RegisterForm } from '@/components/auth/RegisterForm';
+import { RegisterForm } from '../../components/auth/RegisterForm';
 
 export const metadata = {
   title: 'Register — Glou',

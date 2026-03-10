@@ -13,7 +13,7 @@ export const registerSchema = z.object({
     .string()
     .min(12, 'PASSWORD_TOO_SHORT')
     .max(128, 'PASSWORD_TOO_LONG'),
-  displayName: z.string().min(1).max(60).optional(),
+  displayName: z.string().max(60).optional().or(z.literal('')),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

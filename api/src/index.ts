@@ -30,6 +30,11 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ─── Static Files ──────────────────────────────────────────────────────────────
+
+import path from 'path';
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 app.use('/api/auth', authRouter);

@@ -1,17 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Container, 
-  Box, 
-  Typography, 
-  Paper, 
-  TextField, 
-  Button, 
-  Grid, 
-  MenuItem, 
-  Select, 
-  FormControl, 
+import {
+  Container,
+  Box,
+  Typography,
+  Paper,
+  TextField,
+  Button,
+  Grid,
+  MenuItem,
+  Select,
+  FormControl,
   InputLabel,
   Alert,
   Avatar,
@@ -23,6 +23,8 @@ import { useMe, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
+import { AccountSecurity } from '@/components/profile/AccountSecurity';
+import { AvatarUploader } from '@/components/profile/AvatarUploader';
 
 export default function ProfilePage() {
   const { t } = useTranslation();
@@ -32,7 +34,9 @@ export default function ProfilePage() {
 
   const [profileData, setProfileData] = useState({
     displayName: '',
-    slogan: ''
+    avatarUrl: '',
+    appName: '',
+    appSlogan: ''
   });
 
   const [prefsData, setPrefsData] = useState({
@@ -47,7 +51,9 @@ export default function ProfilePage() {
     if (user) {
       setProfileData({
         displayName: user.displayName || '',
-        slogan: user.slogan || ''
+        avatarUrl: user.avatarUrl || '',
+        appName: user.appName || '',
+        appSlogan: user.appSlogan || ''
       });
       setPrefsData({
         theme: user.theme,
@@ -61,7 +67,7 @@ export default function ProfilePage() {
     e.preventDefault();
     updateProfile.mutate(profileData, {
       onSuccess: () => {
-        setSuccessMsg(t('common.profile.saveSuccess'));
+        setSuccessMsg(t('profile.saveSuccess'));
         setTimeout(() => setSuccessMsg(null), 3000);
       }
     });
@@ -72,7 +78,7 @@ export default function ProfilePage() {
     setPrefsData(newPrefs);
     updatePrefs.mutate(newPrefs, {
       onSuccess: () => {
-        setSuccessMsg(t('common.profile.saveSuccess'));
+        setSuccessMsg(t('profile.saveSuccess'));
         setTimeout(() => setSuccessMsg(null), 3000);
       }
     });
@@ -93,7 +99,7 @@ export default function ProfilePage() {
       <Container maxWidth="md">
         <Box sx={{ my: 4 }}>
           <Typography variant="h4" fontWeight={700} gutterBottom>
-            {t('common.profile.title')}
+            {t('profile.title')}
           </Typography>
 
           {successMsg && (
@@ -109,52 +115,48 @@ export default function ProfilePage() {
                 <Box display="flex" alignItems="center" gap={1.5} mb={3}>
                   <PersonIcon color="primary" />
                   <Typography variant="h6" fontWeight={600}>
-                    {t('common.profile.personalInfo')}
+                    {t('profile.personalInfo')}
                   </Typography>
                 </Box>
 
-                <Box display="flex" flexDirection="column" alignItems="center" mb={4}>
-                  <Avatar 
-                    sx={{ width: 80, height: 80, bgcolor: 'primary.main', mb: 2, fontSize: '2rem' }}
-                  >
-                    {user?.username?.charAt(0).toUpperCase()}
-                  </Avatar>
-                  <Typography variant="subtitle1" fontWeight={700}>
-                    @{user?.username}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {user?.email}
-                  </Typography>
-                </Box>
+                <AvatarUploader user={user} />
 
                 <Box component="form" onSubmit={handleProfileSubmit}>
                   <TextField
                     fullWidth
-                    label={t('common.auth.displayName')}
+                    label={t('auth.displayName')}
                     value={profileData.displayName}
                     onChange={(e) => setProfileData(prev => ({ ...prev, displayName: e.target.value }))}
                     margin="normal"
                     size="small"
                   />
+
                   <TextField
                     fullWidth
-                    label={t('common.profile.slogan')}
-                    value={profileData.slogan}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, slogan: e.target.value }))}
-                    placeholder={t('common.profile.sloganPlaceholder')}
+                    label={t('profile.appName')}
+                    value={profileData.appName}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, appName: e.target.value }))}
+                    placeholder={t('profile.appNamePlaceholder')}
                     margin="normal"
                     size="small"
-                    multiline
-                    rows={2}
                   />
-                  <Button 
-                    type="submit" 
-                    variant="contained" 
-                    fullWidth 
+                  <TextField
+                    fullWidth
+                    label={t('profile.appSlogan')}
+                    value={profileData.appSlogan}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, appSlogan: e.target.value }))}
+                    placeholder={t('profile.appSloganPlaceholder')}
+                    margin="normal"
+                    size="small"
+                  />
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    fullWidth
                     sx={{ mt: 3 }}
                     disabled={updateProfile.isPending}
                   >
-                    {updateProfile.isPending ? t('common.status.saving') : t('common.actions.save')}
+                    {updateProfile.isPending ? t('status.saving') : t('actions.save')}
                   </Button>
                 </Box>
               </Paper>
@@ -166,17 +168,17 @@ export default function ProfilePage() {
                 <Box display="flex" alignItems="center" gap={1.5} mb={3}>
                   <SettingsIcon color="primary" />
                   <Typography variant="h6" fontWeight={600}>
-                    {t('common.profile.preferences')}
+                    {t('profile.preferences')}
                   </Typography>
                 </Box>
 
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
                     <FormControl fullWidth size="small">
-                      <InputLabel>{t('common.profile.theme')}</InputLabel>
+                      <InputLabel>{t('profile.theme')}</InputLabel>
                       <Select
                         value={prefsData.theme}
-                        label={t('common.profile.theme')}
+                        label={t('profile.theme')}
                         onChange={(e) => handlePrefsChange('theme', e.target.value)}
                       >
                         <MenuItem value="LIGHT">Clair / Light</MenuItem>
@@ -187,10 +189,10 @@ export default function ProfilePage() {
 
                   <Grid item xs={12}>
                     <FormControl fullWidth size="small">
-                      <InputLabel>{t('common.profile.language')}</InputLabel>
+                      <InputLabel>{t('profile.language')}</InputLabel>
                       <Select
                         value={prefsData.language}
-                        label={t('common.profile.language')}
+                        label={t('profile.language')}
                         onChange={(e) => handlePrefsChange('language', e.target.value)}
                       >
                         <MenuItem value="FR">Français</MenuItem>
@@ -201,10 +203,10 @@ export default function ProfilePage() {
 
                   <Grid item xs={12}>
                     <FormControl fullWidth size="small">
-                      <InputLabel>{t('common.profile.tempUnit')}</InputLabel>
+                      <InputLabel>{t('profile.tempUnit')}</InputLabel>
                       <Select
                         value={prefsData.tempUnit}
-                        label={t('common.profile.tempUnit')}
+                        label={t('profile.tempUnit')}
                         onChange={(e) => handlePrefsChange('tempUnit', e.target.value)}
                       >
                         <MenuItem value="CELSIUS">°Celsius</MenuItem>
@@ -225,7 +227,14 @@ export default function ProfilePage() {
 
           {/* Sécurité */}
           {user && (
-            <TwoFactorSettings user={user} />
+            <Grid container spacing={4} sx={{ mt: 0 }}>
+              <Grid item xs={12} md={6}>
+                <AccountSecurity user={user} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TwoFactorSettings user={user} />
+              </Grid>
+            </Grid>
           )}
 
         </Box>

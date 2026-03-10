@@ -17,7 +17,7 @@ export const commonBottleSchema = z.object({
   isOpened: z.boolean().default(false),
   fillLevel: z.number().int().min(0).max(100).optional(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
-  cellarId: z.string().uuid().optional().nullable(),
+  cellarId: z.string().uuid({ message: "Cellar is required" }),
   lockedFields: z.array(z.string()).default([]),
 });
 

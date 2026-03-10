@@ -92,26 +92,26 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t }: Bottl
       </CardContent>
 
       <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-        <Tooltip title={t('common.actions.edit')}>
+        <Tooltip title={t('actions.edit')}>
           <span>
             <IconButton
               size="small"
               onClick={() => onEdit(bottle)}
               disabled={isTemp}
-              aria-label={t('common.actions.edit')}
+              aria-label={t('actions.edit')}
             >
               <EditIcon fontSize="small" />
             </IconButton>
           </span>
         </Tooltip>
-        <Tooltip title={t('common.actions.delete')}>
+        <Tooltip title={t('actions.delete')}>
           <span>
             <IconButton
               size="small"
               color="error"
               onClick={() => onDelete(bottle)}
               disabled={isTemp}
-              aria-label={t('common.actions.delete')}
+              aria-label={t('actions.delete')}
             >
               <DeleteIcon fontSize="small" />
             </IconButton>

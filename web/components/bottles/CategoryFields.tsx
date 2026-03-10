@@ -36,12 +36,12 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
     <Grid item xs={12} sm={6} key="vintage">
       <TextField
         fullWidth
-        label={t('common.bottle.fields.vintage')}
+        label={t('bottle.fields.vintage')}
         type="number"
         value={String(values['vintage'] ?? '')}
         onChange={(e) => onChange('vintage', e.target.value ? Number(e.target.value) : undefined)}
         inputProps={{ min: 1800, max: new Date().getFullYear(), step: 1 }}
-        helperText={t('common.bottle.fields.noVintage')}
+        helperText={t('bottle.fields.noVintage')}
       />
     </Grid>
   );
@@ -53,10 +53,10 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
           {vintageField}
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth size="small">
-              <InputLabel>{t('common.bottle.fields.color')}</InputLabel>
+              <InputLabel>{t('bottle.fields.color')}</InputLabel>
               <Select
                 value={String(values['color'] ?? '')}
-                label={t('common.bottle.fields.color')}
+                label={t('bottle.fields.color')}
                 onChange={(e) => onChange('color', e.target.value)}
               >
                 {['red', 'white', 'rosé', 'orange'].map((c) => (
@@ -65,8 +65,8 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
               </Select>
             </FormControl>
           </Grid>
-          {field('region', t('common.bottle.fields.region'))}
-          {field('alcoholDegree', t('common.bottle.fields.alcoholDegree'), 'number')}
+          {field('region', t('bottle.fields.region'))}
+          {field('alcoholDegree', t('bottle.fields.alcoholDegree'), 'number')}
         </Grid>
       );
 
@@ -76,10 +76,10 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
           {vintageField}
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth size="small">
-              <InputLabel>{t('common.bottle.fields.sparklingType')}</InputLabel>
+              <InputLabel>{t('bottle.fields.sparklingType')}</InputLabel>
               <Select
                 value={String(values['sparklingType'] ?? '')}
-                label={t('common.bottle.fields.sparklingType')}
+                label={t('bottle.fields.sparklingType')}
                 onChange={(e) => onChange('sparklingType', e.target.value)}
               >
                 {['Champagne', 'Crémant', 'Prosecco', 'Cava', 'Pétillant Naturel', 'Autre'].map((s) => (
@@ -88,23 +88,23 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
               </Select>
             </FormControl>
           </Grid>
-          {field('sugarLevel', t('common.bottle.fields.sugarLevel'))}
+          {field('sugarLevel', t('bottle.fields.sugarLevel'))}
         </Grid>
       );
 
     case 'spirit':
       return (
         <Grid container spacing={2}>
-          {field('edition', t('common.bottle.fields.edition'))}
-          {field('alcoholDegree', t('common.bottle.fields.alcoholDegree'), 'number', true)}
+          {field('edition', t('bottle.fields.edition'))}
+          {field('alcoholDegree', t('bottle.fields.alcoholDegree'), 'number', true)}
         </Grid>
       );
 
     case 'cigar':
       return (
         <Grid container spacing={2}>
-          {field('format', t('common.bottle.fields.format'))}
-          {field('quantity', t('common.bottle.fields.quantity'), 'number', true)}
+          {field('format', t('bottle.fields.format'))}
+          {field('quantity', t('bottle.fields.quantity'), 'number', true)}
         </Grid>
       );
 
@@ -141,17 +141,17 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
 
   const commonOptionals = (
     <>
-      {field('location', t('common.bottle.fields.location'))}
-      {field('collection', t('common.bottle.fields.collection'))}
-      {field('purchasePrice', t('common.bottle.fields.purchasePrice'), 'number')}
-      {field('estimatedValue', t('common.bottle.fields.estimatedValue'), 'number')}
-      {field('photoUrl', t('common.bottle.fields.photoUrl'))}
+      {field('location', t('bottle.fields.location'))}
+      {field('collection', t('bottle.fields.collection'))}
+      {field('purchasePrice', t('bottle.fields.purchasePrice'), 'number')}
+      {field('estimatedValue', t('bottle.fields.estimatedValue'), 'number')}
+      {field('photoUrl', t('bottle.fields.photoUrl'))}
       <Grid item xs={12} key="notes">
         <TextField
           fullWidth
           multiline
           rows={3}
-          label={t('common.bottle.fields.notes')}
+          label={t('bottle.fields.notes')}
           value={String(values['notes'] ?? '')}
           onChange={(e) => onChange('notes', e.target.value)}
         />
@@ -164,13 +164,13 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
               onChange={(e) => onChange('isOpened', e.target.checked)}
             />
           }
-          label={t('common.bottle.fields.isOpened')}
+          label={t('bottle.fields.isOpened')}
         />
       </Grid>
       {Boolean(values['isOpened']) && (
         <Grid item xs={12} key="fillLevel">
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            {t('common.bottle.fields.fillLevel')} : {Number(values['fillLevel'] ?? 100)}%
+            {t('bottle.fields.fillLevel')} : {Number(values['fillLevel'] ?? 100)}%
           </Typography>
           <Slider
             value={Number(values['fillLevel'] ?? 100)}
@@ -180,7 +180,7 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
             marks
             valueLabelDisplay="auto"
             onChange={(_e, v) => onChange('fillLevel', v)}
-            aria-label={t('common.bottle.fields.fillLevel')}
+            aria-label={t('bottle.fields.fillLevel')}
           />
         </Grid>
       )}
@@ -189,10 +189,10 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
 
   const wineOptionals = (
     <>
-      {field('bottleSize', t('common.bottle.fields.bottleSize'))}
-      {field('peakMaturity', t('common.bottle.fields.peakMaturity'))}
-      {field('serviceTemp', t('common.bottle.fields.serviceTemp'))}
-      {field('lotNumber', t('common.bottle.fields.lotNumber'))}
+      {field('bottleSize', t('bottle.fields.bottleSize'))}
+      {field('peakMaturity', t('bottle.fields.peakMaturity'))}
+      {field('serviceTemp', t('bottle.fields.serviceTemp'))}
+      {field('lotNumber', t('bottle.fields.lotNumber'))}
       <Grid item xs={12} sm={6} key="needsAeration">
         <FormControlLabel
           control={
@@ -201,7 +201,7 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
               onChange={(e) => onChange('needsAeration', e.target.checked)}
             />
           }
-          label={t('common.bottle.fields.needsAeration')}
+          label={t('bottle.fields.needsAeration')}
         />
       </Grid>
     </>
@@ -209,31 +209,31 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
 
   const sparklingOptionals = (
     <>
-      {field('bottleSize', t('common.bottle.fields.bottleSize'))}
-      {field('peakMaturity', t('common.bottle.fields.peakMaturity'))}
-      {field('serviceTemp', t('common.bottle.fields.serviceTemp'))}
-      {field('baseYear', t('common.bottle.fields.baseYear'), 'number')}
+      {field('bottleSize', t('bottle.fields.bottleSize'))}
+      {field('peakMaturity', t('bottle.fields.peakMaturity'))}
+      {field('serviceTemp', t('bottle.fields.serviceTemp'))}
+      {field('baseYear', t('bottle.fields.baseYear'), 'number')}
     </>
   );
 
   const spiritOptionals = (
     <>
-      {field('declaredAge', t('common.bottle.fields.declaredAge'))}
-      {field('caskType', t('common.bottle.fields.caskType'))}
-      {field('aromaticProfile', t('common.bottle.fields.aromaticProfile'))}
-      {field('additions', t('common.bottle.fields.additions'))}
-      {field('lotNumber', t('common.bottle.fields.lotNumber'))}
-      {field('bottleSize', t('common.bottle.fields.bottleSize'))}
+      {field('declaredAge', t('bottle.fields.declaredAge'))}
+      {field('caskType', t('bottle.fields.caskType'))}
+      {field('aromaticProfile', t('bottle.fields.aromaticProfile'))}
+      {field('additions', t('bottle.fields.additions'))}
+      {field('lotNumber', t('bottle.fields.lotNumber'))}
+      {field('bottleSize', t('bottle.fields.bottleSize'))}
     </>
   );
 
   const cigarOptionals = (
     <>
-      {field('manufactureYear', t('common.bottle.fields.manufactureYear'), 'number')}
-      {field('leafOrigin', t('common.bottle.fields.leafOrigin'))}
-      {field('factoryCode', t('common.bottle.fields.factoryCode'))}
-      {field('recommendedHumidity', t('common.bottle.fields.recommendedHumidity'), 'number')}
-      {field('humidificationSystem', t('common.bottle.fields.humidificationSystem'))}
+      {field('manufactureYear', t('bottle.fields.manufactureYear'), 'number')}
+      {field('leafOrigin', t('bottle.fields.leafOrigin'))}
+      {field('factoryCode', t('bottle.fields.factoryCode'))}
+      {field('recommendedHumidity', t('bottle.fields.recommendedHumidity'), 'number')}
+      {field('humidificationSystem', t('bottle.fields.humidificationSystem'))}
     </>
   );
 

@@ -3,13 +3,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  AppBar, 
-  Toolbar, 
-  Typography, 
-  Button, 
-  Box, 
-  Container, 
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Box,
+  Container,
   IconButton,
   Menu,
   MenuItem,
@@ -18,9 +18,9 @@ import {
   useTheme,
   useMediaQuery
 } from '@mui/material';
-import { 
-  Liquor as BottleIcon, 
-  Storage as CellarIcon, 
+import {
+  Liquor as BottleIcon,
+  Warehouse as CellarIcon,
   AccountCircle,
   Logout as LogoutIcon,
   Menu as MenuIcon
@@ -69,20 +69,25 @@ export const Navbar: React.FC = () => {
       </Box>
       <Divider />
       <MenuItem onClick={handleMenuClose} component={Link} href="/profile">
-        {t('common.nav.profile')}
+        {t('nav.profile')}
       </MenuItem>
+      {user?.isAdmin && (
+        <MenuItem onClick={handleMenuClose} component={Link} href="/admin">
+          {t('nav.admin', 'Administration')}
+        </MenuItem>
+      )}
       <MenuItem onClick={() => { handleMenuClose(); logoutMutation.mutate(); }}>
         <Box display="flex" alignItems="center" gap={1}>
           <LogoutIcon fontSize="small" />
-          {t('common.auth.logout')}
+          {t('auth.logout')}
         </Box>
       </MenuItem>
     </Menu>
   );
 
   const navLinks = [
-    { label: t('common.nav.bottles'), href: '/bottles', icon: <BottleIcon /> },
-    { label: t('common.nav.caves'), href: '/cellars', icon: <CellarIcon /> },
+    { label: t('nav.bottles'), href: '/bottles', icon: <BottleIcon /> },
+    { label: t('nav.caves'), href: '/cellars', icon: <CellarIcon /> },
   ];
 
   return (
@@ -103,7 +108,7 @@ export const Navbar: React.FC = () => {
               letterSpacing: '.1rem',
             }}
           >
-            GLOU
+            {user?.appName || 'GLOU'}
           </Typography>
 
           {!isMobile && (
@@ -115,7 +120,7 @@ export const Navbar: React.FC = () => {
                   href={link.href}
                   startIcon={link.icon}
                   color={pathname.startsWith(link.href) ? 'primary' : 'inherit'}
-                  sx={{ 
+                  sx={{
                     fontWeight: pathname.startsWith(link.href) ? 700 : 400,
                     borderRadius: 2
                   }}
@@ -138,8 +143,8 @@ export const Navbar: React.FC = () => {
               onClick={handleProfileMenuOpen}
               color="inherit"
             >
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '1rem' }}>
-                {(user?.displayName || user?.username || '?')[0].toUpperCase()}
+              <Avatar src={user?.avatarUrl || undefined} sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '1rem' }}>
+                {!user?.avatarUrl && (user?.displayName || user?.username || '?')[0].toUpperCase()}
               </Avatar>
             </IconButton>
           </Box>

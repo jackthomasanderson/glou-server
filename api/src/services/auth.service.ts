@@ -23,10 +23,13 @@ export interface PublicUser {
   username: string;
   email: string;
   displayName: string | null;
-  slogan: string | null;
+  avatarUrl: string | null;
+  appName: string | null;
+  appSlogan: string | null;
   theme: Theme;
   language: Language;
   tempUnit: TempUnit;
+  isAdmin: boolean;
   createdAt: Date;
 }
 
@@ -39,7 +42,6 @@ function signToken(payload: AuthPayload): string {
 export class AuthService {
   /**
    * Register a new user.
-   * Throws with code string if username/email already taken.
    */
   async register(data: RegisterInput): Promise<{ user: PublicUser; token: string }> {
     const { username, email, password, displayName } = data;
@@ -63,16 +65,19 @@ export class AuthService {
         displayName: displayName ?? null,
         passwordHash,
       },
-      select: { 
-        id: true, 
-        username: true, 
-        email: true, 
-        displayName: true, 
-        slogan: true,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        appName: true,
+        appSlogan: true,
         theme: true,
         language: true,
         tempUnit: true,
-        createdAt: true 
+        isAdmin: true,
+        createdAt: true
       },
     });
 
@@ -103,10 +108,13 @@ export class AuthService {
       username: user.username,
       email: user.email,
       displayName: user.displayName,
-      slogan: user.slogan,
+      avatarUrl: user.avatarUrl,
+      appName: user.appName,
+      appSlogan: user.appSlogan,
       theme: user.theme,
       language: user.language,
       tempUnit: user.tempUnit,
+      isAdmin: user.isAdmin,
       createdAt: user.createdAt,
     };
 
@@ -125,16 +133,19 @@ export class AuthService {
   async me(userId: string): Promise<PublicUser | null> {
     const user = await prisma.user.findFirst({
       where: { id: userId },
-      select: { 
-        id: true, 
-        username: true, 
-        email: true, 
-        displayName: true, 
-        slogan: true,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        appName: true,
+        appSlogan: true,
         theme: true,
         language: true,
         tempUnit: true,
-        createdAt: true 
+        isAdmin: true,
+        createdAt: true
       },
     });
     return user;
@@ -147,19 +158,68 @@ export class AuthService {
     const user = await prisma.user.update({
       where: { id: userId },
       data,
-      select: { 
-        id: true, 
-        username: true, 
-        email: true, 
-        displayName: true, 
-        slogan: true,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        appName: true,
+        appSlogan: true,
         theme: true,
         language: true,
         tempUnit: true,
-        createdAt: true 
+        isAdmin: true,
+        createdAt: true
       },
     });
     return user;
+  }
+
+  /**
+   * Update user email
+   */
+  async updateEmail(userId: string, email: string): Promise<PublicUser> {
+    const existing = await prisma.user.findFirst({
+      where: { email, NOT: { id: userId } }
+    });
+    if (existing) throw new Error('EMAIL_ALREADY_TAKEN');
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { email },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        appName: true,
+        appSlogan: true,
+        theme: true,
+        language: true,
+        tempUnit: true,
+        isAdmin: true,
+        createdAt: true
+      }
+    });
+    return user;
+  }
+
+  /**
+   * Update user password
+   */
+  async updatePassword(userId: string, currentPass: string, newPass: string): Promise<void> {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+    const valid = await bcrypt.compare(currentPass, user.passwordHash);
+    if (!valid) throw new Error('INVALID_CREDENTIALS');
+
+    const passwordHash = await bcrypt.hash(newPass, BCRYPT_ROUNDS);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash }
+    });
   }
 
   /**
@@ -169,16 +229,19 @@ export class AuthService {
     const user = await prisma.user.update({
       where: { id: userId },
       data,
-      select: { 
-        id: true, 
-        username: true, 
-        email: true, 
-        displayName: true, 
-        slogan: true,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        appName: true,
+        appSlogan: true,
         theme: true,
         language: true,
         tempUnit: true,
-        createdAt: true 
+        isAdmin: true,
+        createdAt: true
       },
     });
     return user;
@@ -286,7 +349,7 @@ export class AuthService {
   async verifyTwoFactorLogin(userId: string, code: string): Promise<{ user: PublicUser; token: string }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
-    
+
     let validCode = false;
     let usedBackupCodeHash: string | null = null;
 
@@ -323,10 +386,13 @@ export class AuthService {
       username: user.username,
       email: user.email,
       displayName: user.displayName,
-      slogan: user.slogan,
+      avatarUrl: user.avatarUrl,
+      appName: user.appName,
+      appSlogan: user.appSlogan,
       theme: user.theme,
       language: user.language,
       tempUnit: user.tempUnit,
+      isAdmin: user.isAdmin,
       createdAt: user.createdAt,
     };
 

@@ -20,7 +20,10 @@ model User {
   
   // Profile & Preferences
   displayName  String?
-  slogan       String?    // Bio / Underline
+  avatarUrl    String?
+  appName      String?    // Personal app name (replaces "GLOU")
+  appSlogan    String?    // Personal app slogan
+  
   theme        Theme      @default(LIGHT)
   language     Language   @default(FR)
   tempUnit     TempUnit   @default(CELSIUS)
@@ -28,6 +31,9 @@ model User {
   isTwoFactorEnabled Boolean    @default(false)
   twoFactorSecret    String?
   backupCodes        String[]   @default([])
+
+  // Admin
+  isAdmin            Boolean    @default(false)
 
   bottles      Bottle[]
   auditLogs    AuditLog[]

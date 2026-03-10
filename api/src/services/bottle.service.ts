@@ -165,6 +165,7 @@ export class BottleService {
     if (d['fillLevel'] !== undefined) result['fillLevel'] = d['fillLevel'];
     if (d['alertStatus'] !== undefined) result['alertStatus'] = d['alertStatus'];
     if (d['lockedFields'] !== undefined) result['lockedFields'] = d['lockedFields'];
+    if (d['cellarId'] !== undefined) result['cellarId'] = d['cellarId'];
 
     // Wine/Sparkling
     if (d['vintage'] !== undefined) result['vintage'] = d['vintage'];

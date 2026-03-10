@@ -17,7 +17,7 @@ router.get('/', async (req: Request, res: Response) => {
   const userId = req.userId!;
   try {
     const cellars = await CellarService.listCellars(userId);
-    res.json(cellars);
+    res.json({ data: cellars });
   } catch (err: any) {
     res.status(500).json({ error: 'FAILED_TO_FETCH_CELLARS' });
   }
@@ -35,7 +35,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     if (!cellar) {
       return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
     }
-    res.json(cellar);
+    res.json({ data: cellar });
   } catch (err: any) {
     res.status(500).json({ error: 'FAILED_TO_FETCH_CELLAR' });
   }
@@ -69,7 +69,7 @@ router.post('/', async (req: Request, res: Response) => {
       status: 'success',
       details: { cellarId: cellar.id }
     });
-    res.status(201).json(cellar);
+    res.status(201).json({ data: cellar });
   } catch (err: any) {
     await auditLog({
       userId,
@@ -107,7 +107,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       status: 'success',
       details: { cellarId: id }
     });
-    res.json(cellar);
+    res.json({ data: cellar });
   } catch (err: any) {
     res.status(500).json({ error: 'FAILED_TO_UPDATE_CELLAR' });
   }
