@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware, adminMiddleware } from '../middleware/auth.middleware';
+import { MaintenanceService } from '../services/maintenance.service';
 
 const adminRouter = Router();
 
@@ -25,7 +26,7 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
             },
             orderBy: { createdAt: 'desc' },
         });
-        res.json(users);
+        res.json({ data: users });
     } catch (error) {
         console.error('[Admin] Error fetching users:', error);
         res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
@@ -63,7 +64,7 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
                 isAdmin: true,
             },
         });
-        res.json(user);
+        res.json({ data: user });
     } catch (error: any) {
         console.error('[Admin] Error updating user role:', error);
         if (error.code === 'P2025') {
@@ -71,6 +72,29 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
             return;
         }
         res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
+
+/**
+ * @route   POST /api/admin/maintenance/purge
+ * @desc    Purge all business data (bottles, cellars, logs)
+ * @access  Admin Private
+ */
+adminRouter.post('/maintenance/purge', async (req: Request, res: Response): Promise<void> => {
+    const { confirmation } = req.body;
+
+    if (confirmation !== 'SUPPRIMER') {
+        res.status(400).json({ error: 'INVALID_CONFIRMATION' });
+        return;
+    }
+
+    try {
+        const result = await MaintenanceService.purgeAllData();
+        res.json({ data: result });
+    } catch (error) {
+        console.error('[Admin] Maintenance purge error:', error);
+        res.status(500).json({ error: 'PURGE_FAILED' });
     }
 });
 

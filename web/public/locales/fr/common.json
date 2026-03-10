@@ -192,5 +192,27 @@
     "emailSuccess": "Email mis à jour",
     "passwordSuccess": "Mot de passe mis à jour",
     "passwordError": "Mot de passe actuel incorrect"
+  },
+  "admin": {
+    "title": "Administration",
+    "maintenance": {
+      "title": "Maintenance",
+      "purge": {
+        "title": "Remise à zéro de la base de données",
+        "description": "Cette action supprimera TOUTES les bouteilles, TOUTES les caves et TOUS les journaux d'activité. Les comptes utilisateurs seront préservés.",
+        "button": "Purger toutes les données",
+        "confirmTitle": "Confirmation de purge complète",
+        "confirmDescription": "Attention ! Cette action est irréversible. Pour confirmer que vous souhaitez supprimer TOUTES les données métier, veuillez saisir le mot-clé ci-dessous :",
+        "keywordLabel": "Saisissez \"SUPPRIMER\" pour confirmer",
+        "keywordValue": "SUPPRIMER",
+        "success": "La base de données a été remise à zéro avec succès.",
+        "error": "Une erreur est survenue lors de la purge des données.",
+        "counts": {
+          "bottles": "{{count}} bouteilles supprimées",
+          "cellars": "{{count}} caves supprimées",
+          "logs": "{{count}} entrées de log supprimées"
+        }
+      }
+    }
   }
 }

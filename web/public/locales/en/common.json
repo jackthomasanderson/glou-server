@@ -192,5 +192,27 @@
     "emailSuccess": "Email updated successfully",
     "passwordSuccess": "Password updated successfully",
     "passwordError": "Incorrect current password"
+  },
+  "admin": {
+    "title": "Administration",
+    "maintenance": {
+      "title": "Maintenance",
+      "purge": {
+        "title": "Complete Database Reset",
+        "description": "This action will delete ALL bottles, ALL cellars and ALL activity logs. User accounts will be preserved.",
+        "button": "Purge all data",
+        "confirmTitle": "Full Purge Confirmation",
+        "confirmDescription": "Warning! This action is irreversible. To confirm that you want to delete ALL business data, please enter the keyword below:",
+        "keywordLabel": "Enter \"SUPPRIMER\" to confirm",
+        "keywordValue": "SUPPRIMER",
+        "success": "The database has been reset successfully.",
+        "error": "An error occurred during data purge.",
+        "counts": {
+          "bottles": "{{count}} bottles deleted",
+          "cellars": "{{count}} cellars deleted",
+          "logs": "{{count}} log entries deleted"
+        }
+      }
+    }
   }
 }

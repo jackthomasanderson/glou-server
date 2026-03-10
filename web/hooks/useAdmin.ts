@@ -10,6 +10,15 @@ export interface AdminUser {
     createdAt: string;
 }
 
+export interface PurgeResult {
+    success: boolean;
+    counts: {
+        bottles: number;
+        cellars: number;
+        auditLogs: number;
+    };
+}
+
 // Fetch all users
 export function useAdminUsers() {
     return useQuery({
@@ -33,6 +42,21 @@ export function useUpdateUserRole() {
         onSuccess: () => {
             // Refresh the users list
             queryClient.invalidateQueries({ queryKey: ['admin_users'] });
+        },
+    });
+}
+// Purge all data
+export function usePurgeData() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (confirmation: string) => {
+            const response = await api.post<PurgeResult>('/admin/maintenance/purge', { confirmation });
+            return response.data;
+        },
+        onSuccess: () => {
+            // Invalidate everything to clear caches
+            queryClient.invalidateQueries();
         },
     });
 }
