@@ -3,12 +3,14 @@ import { authService } from '../src/services/auth.service';
 import { prisma } from '../src/lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 
 vi.mock('../src/lib/prisma', () => ({
   prisma: {
     user: {
       findFirst: vi.fn(),
       create: vi.fn(),
+      count: vi.fn(),
     },
   },
 }));
@@ -48,14 +50,27 @@ describe('AuthService', () => {
 
     it('should create a user and return a token when data is valid', async () => {
       vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.user.count).mockResolvedValue(0);
       vi.mocked(bcrypt.hash).mockResolvedValue('hashedPassword' as never);
       const mockCreatedUser = {
         id: '1',
         username: validData.username,
         email: validData.email,
         displayName: validData.displayName,
-        createdAt: new Date(),
+        avatarUrl: null,
+        appName: null,
+        appSlogan: null,
+        theme: Theme.LIGHT,
+        language: Language.FR,
+        tempUnit: TempUnit.CELSIUS,
+        accentColor: '#6366f1',
+        dateFormat: DateFormat.SYSTEM,
+        isTwoFactorEnabled: false,
+        twoFactorSecret: null,
+        backupCodes: [],
+        isAdmin: false,
         passwordHash: 'hashedPassword',
+        createdAt: new Date(),
         updatedAt: new Date(),
       };
       vi.mocked(prisma.user.create).mockResolvedValue(mockCreatedUser);
@@ -98,6 +113,18 @@ describe('AuthService', () => {
       email: 'test@example.com',
       displayName: 'Test User',
       passwordHash: 'hashedPassword',
+      avatarUrl: null,
+      appName: null,
+      appSlogan: null,
+      theme: Theme.LIGHT,
+      language: Language.FR,
+      tempUnit: TempUnit.CELSIUS,
+      accentColor: '#6366f1',
+      dateFormat: DateFormat.SYSTEM,
+      isTwoFactorEnabled: false,
+      twoFactorSecret: null,
+      backupCodes: [],
+      isAdmin: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
