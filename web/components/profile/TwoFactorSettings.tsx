@@ -11,9 +11,6 @@ import {
   TextField,
   Alert,
   CircularProgress,
-  List,
-  ListItem,
-  ListItemText,
   Paper,
   Divider
 } from '@mui/material';
@@ -23,7 +20,7 @@ import { useGenerate2fa, useTurnOn2fa, useTurnOff2fa, PublicUser, useMe } from '
 export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const [isTurnOnModalOpen, setIsTurnOnModalOpen] = useState(false);
   const [isTurnOffModalOpen, setIsTurnOffModalOpen] = useState(false);
-  
+
   const { refetch: refetchMe } = useMe();
 
   const [setupData, setSetupData] = useState<{ qrCodeUrl: string; secret: string } | null>(null);
@@ -112,17 +109,17 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
         <DialogTitle>Activer la double authentification</DialogTitle>
         <DialogContent dividers>
           {errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
-          
+
           {backupCodes ? (
             <Box>
               <Alert severity="success" sx={{ mb: 3 }}>
                 Double authentification activée avec succès !
               </Alert>
               <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="error.main">
-                ⚠️ C'est la seule fois que ces codes de secours seront affichés.
+                ⚠️ C&apos;est la seule fois que ces codes de secours seront affichés.
               </Typography>
               <Typography variant="body2" mb={2}>
-                Veuillez les copier et les conserver dans un endroit sûr (comme un gestionnaire de mots de passe). Ils vous permettront de vous connecter si vous perdez l'accès à votre application d'authentification.
+                Veuillez les copier et les conserver dans un endroit sûr (comme un gestionnaire de mots de passe). Ils vous permettront de vous connecter si vous perdez l&apos;accès à votre application d&apos;authentification.
               </Typography>
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
                 <Box display="grid" gridTemplateColumns="1fr 1fr" gap={1}>
@@ -141,17 +138,17 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
           ) : setupData ? (
             <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
               <Typography variant="body2" textAlign="center">
-                1. Scannez ce QR Code avec votre application d'authentification (Google Authenticator, Authy, etc.).
+                1. Scannez ce QR Code avec votre application d&apos;authentification (Google Authenticator, Authy, etc.).
               </Typography>
               <Box component="img" src={setupData.qrCodeUrl} alt="QR Code 2FA" sx={{ width: 200, height: 200, borderRadius: 2, border: '1px solid', borderColor: 'divider' }} />
               <Typography variant="caption" color="text.secondary">
                 Ou utilisez la clé secrète manuellement : <Typography component="span" fontFamily="monospace" fontWeight="bold">{setupData.secret}</Typography>
               </Typography>
-              
+
               <Divider sx={{ width: '100%', my: 2 }} />
-              
+
               <Typography variant="body2" textAlign="center" mb={1}>
-                2. Saisissez le code à 6 chiffres généré par l'application pour confirmer l'activation.
+                2. Saisissez le code à 6 chiffres généré par l&apos;application pour confirmer l&apos;activation.
               </Typography>
               <TextField
                 label="Code à 6 chiffres"
@@ -168,9 +165,9 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
           {!backupCodes && (
             <>
               <Button onClick={handleCloseEnable} color="inherit" disabled={turnOnMutation.isPending}>Annuler</Button>
-              <Button 
-                onClick={handleConfirmEnable} 
-                variant="contained" 
+              <Button
+                onClick={handleConfirmEnable}
+                variant="contained"
                 disabled={code.length < 6 || turnOnMutation.isPending}
               >
                 {turnOnMutation.isPending ? 'Activation...' : 'Confirmer'}
@@ -178,7 +175,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
             </>
           )}
           {backupCodes && (
-            <Button onClick={handleCloseEnable} variant="contained" color="primary">J'ai sauvegardé mes codes</Button>
+            <Button onClick={handleCloseEnable} variant="contained" color="primary">J&apos;ai sauvegardé mes codes</Button>
           )}
         </DialogActions>
       </Dialog>
@@ -188,7 +185,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
         <DialogTitle>Désactiver la double authentification</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" mb={3}>
-            Pour des raisons de sécurité, veuillez renseigner votre mot de passe actuel ainsi qu'un code 2FA valide pour désactiver cette protection.
+            Pour des raisons de sécurité, veuillez renseigner votre mot de passe actuel ainsi qu&apos;un code 2FA valide pour désactiver cette protection.
           </Typography>
           {errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
           <TextField
@@ -211,9 +208,9 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsTurnOffModalOpen(false)} color="inherit" disabled={turnOffMutation.isPending}>Annuler</Button>
-          <Button 
-            onClick={handleConfirmDisable} 
-            variant="contained" 
+          <Button
+            onClick={handleConfirmDisable}
+            variant="contained"
             color="error"
             disabled={!password || code.length < 6 || turnOffMutation.isPending}
           >

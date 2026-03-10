@@ -2,9 +2,9 @@
 import React, { useRef, useState } from 'react';
 import { Box, Avatar, Typography, IconButton, CircularProgress } from '@mui/material';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import { useUploadAvatar } from '@/hooks/useAuth';
+import { useUploadAvatar, PublicUser } from '@/hooks/useAuth';
 
-export function AvatarUploader({ user }: { user: any }) {
+export function AvatarUploader({ user }: { user: PublicUser }) {
     const uploadAvatar = useUploadAvatar();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isHovered, setIsHovered] = useState(false);

@@ -47,7 +47,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
                 setSuccessMsg(t('profile.emailSuccess'));
                 setTimeout(() => setSuccessMsg(null), 3000);
             },
-            onError: (err: any) => {
+            onError: (err: Error) => {
                 if (err.message === 'EMAIL_ALREADY_TAKEN') {
                     setErrorMsg(t('auth.errors.EMAIL_ALREADY_TAKEN'));
                 } else {
@@ -75,7 +75,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
                 setSuccessMsg(t('profile.passwordSuccess'));
                 setTimeout(() => setSuccessMsg(null), 3000);
             },
-            onError: (err: any) => {
+            onError: (err: Error) => {
                 if (err.message === 'INVALID_CREDENTIALS') {
                     setErrorMsg(t('profile.passwordError'));
                 } else {

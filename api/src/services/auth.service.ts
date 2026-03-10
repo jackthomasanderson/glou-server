@@ -58,12 +58,17 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
+    // If this is the first user, make them an admin
+    const userCount = await prisma.user.count();
+    const isAdmin = userCount === 0;
+
     const user = await prisma.user.create({
       data: {
         username,
         email,
         displayName: displayName ?? null,
         passwordHash,
+        isAdmin,
       },
       select: {
         id: true,

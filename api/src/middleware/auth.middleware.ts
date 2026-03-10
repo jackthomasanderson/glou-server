@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { prisma } from '../lib/prisma';
 
 export interface AuthPayload {
   userId: string;
@@ -47,6 +48,34 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
     next();
   } catch {
     res.status(401).json({ error: 'TOKEN_INVALID_OR_EXPIRED' });
+  }
+}
+
+/** 
+ * Admin middleware - must be used AFTER authMiddleware.
+ * Checks if the authenticated user has isAdmin = true.
+ */
+export async function adminMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (!req.userId) {
+    res.status(401).json({ error: 'UNAUTHORIZED' });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId },
+      select: { isAdmin: true },
+    });
+
+    if (!user || !user.isAdmin) {
+      res.status(403).json({ error: 'FORBIDDEN_ADMIN_ONLY' });
+      return;
+    }
+
+    next();
+  } catch (error) {
+    console.error('[adminMiddleware] Error verifying admin status:', error);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 }
 

@@ -22,6 +22,7 @@ import {
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Warehouse as CellarIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
+import { Cellar } from '@/lib/cellars/types';
 
 export const CellarDashboard: React.FC = () => {
   const { t } = useTranslation();
@@ -31,7 +32,7 @@ export const CellarDashboard: React.FC = () => {
   const deleteMutation = useDeleteCellar();
 
   const [openForm, setOpenForm] = useState(false);
-  const [editingCellar, setEditingCellar] = useState<any>(null);
+  const [editingCellar, setEditingCellar] = useState<Cellar | null>(null);
   const [formData, setFormData] = useState<{
     name: string;
     description: string;
@@ -42,7 +43,7 @@ export const CellarDashboard: React.FC = () => {
     type: 'VINTAGE'
   });
 
-  const handleOpenForm = (cellar?: any) => {
+  const handleOpenForm = (cellar?: Cellar) => {
     if (cellar) {
       setEditingCellar(cellar);
       setFormData({
@@ -65,7 +66,7 @@ export const CellarDashboard: React.FC = () => {
     if (editingCellar) {
       await updateMutation.mutateAsync({ id: editingCellar.id, data: formData });
     } else {
-      await createMutation.mutateAsync(formData as any);
+      await createMutation.mutateAsync(formData);
     }
     handleCloseForm();
   };

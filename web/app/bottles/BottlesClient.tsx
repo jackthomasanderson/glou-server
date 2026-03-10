@@ -2,8 +2,7 @@
 import { BottleDashboard } from '@/components/bottles/BottleDashboard';
 import frMessages from '@/public/locales/fr/common.json';
 import enMessages from '@/public/locales/en/common.json';
-import { useState, useCallback } from 'react';
-import { AuthGuard } from '@/components/auth/AuthGuard';
+import { useState, useMemo } from 'react';
 
 type Messages = typeof frMessages;
 
@@ -29,8 +28,8 @@ import { MainLayout } from '@/components/ui/MainLayout';
 export function BottlesClient() {
   const [locale] = useState<'fr' | 'en'>('fr');
 
-  const t = useCallback(
-    createTranslator(locale === 'fr' ? frMessages : enMessages),
+  const t = useMemo(
+    () => createTranslator(locale === 'fr' ? frMessages : enMessages),
     [locale]
   );
 

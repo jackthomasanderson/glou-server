@@ -14,7 +14,6 @@ import {
   FormControl,
   InputLabel,
   Alert,
-  Avatar,
   CircularProgress
 } from '@mui/material';
 import { MainLayout } from '@/components/ui/MainLayout';
@@ -112,11 +111,29 @@ export default function ProfilePage() {
             {/* Colonne de gauche: Infos Personnelles */}
             <Grid item xs={12} md={6}>
               <Paper sx={{ p: 3, height: '100%', borderRadius: 3 }}>
-                <Box display="flex" alignItems="center" gap={1.5} mb={3}>
-                  <PersonIcon color="primary" />
-                  <Typography variant="h6" fontWeight={600}>
-                    {t('profile.personalInfo')}
-                  </Typography>
+                <Box display="flex" alignItems="center" justifyContent="space-between" mb={3}>
+                  <Box display="flex" alignItems="center" gap={1.5}>
+                    <PersonIcon color="primary" />
+                    <Typography variant="h6" fontWeight={600}>
+                      {t('profile.personalInfo')}
+                    </Typography>
+                  </Box>
+                  {user && (
+                    <Box
+                      sx={{
+                        px: 1.5, py: 0.5,
+                        borderRadius: 2,
+                        bgcolor: user.isAdmin ? 'primary.main' : 'background.default',
+                        color: user.isAdmin ? 'primary.contrastText' : 'text.secondary',
+                        border: user.isAdmin ? 'none' : '1px solid',
+                        borderColor: 'divider',
+                        typography: 'caption',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {user.isAdmin ? 'Admin' : 'Utilisateur'}
+                    </Box>
+                  )}
                 </Box>
 
                 <AvatarUploader user={user} />
@@ -218,7 +235,7 @@ export default function ProfilePage() {
 
                 <Box sx={{ mt: 5, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
                   <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                    Les changements de thème et de langue s'appliquent instantanément et sont sauvegardés sur votre compte.
+                    Les changements de thème et de langue s&apos;appliquent instantanément et sont sauvegardés sur votre compte.
                   </Typography>
                 </Box>
               </Paper>

@@ -21,9 +21,7 @@ import {
 import {
   Liquor as BottleIcon,
   Warehouse as CellarIcon,
-  AccountCircle,
-  Logout as LogoutIcon,
-  Menu as MenuIcon
+  Logout as LogoutIcon
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useLogout, useMe } from '@/hooks/useAuth';

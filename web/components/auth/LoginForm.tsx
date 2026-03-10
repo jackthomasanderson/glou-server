@@ -47,7 +47,7 @@ export function LoginForm() {
   const onSubmit = (data: LoginFormValues) => {
     setApiError(null);
     loginMutation.mutate(data, {
-      onSuccess: (res: any) => {
+      onSuccess: (res: { requires2fa?: boolean }) => {
         if (res?.requires2fa) {
           setStep('2fa');
         }
@@ -107,7 +107,7 @@ export function LoginForm() {
       {step === '2fa' ? (
         <form onSubmit={handle2faSubmit} noValidate>
           <Typography variant="body1" sx={{ mb: 3, textAlign: 'center' }}>
-            Veuillez entrer le code à 6 chiffres de votre application d'authentification ou l'un de vos codes de secours.
+            Veuillez entrer le code à 6 chiffres de votre application d&apos;authentification ou l&apos;un de vos codes de secours.
           </Typography>
           <TextField
             fullWidth

@@ -18,8 +18,6 @@ import Link from 'next/link';
 import { BottleCard, BottleCardSkeleton } from './BottleCard';
 import { BottleForm } from './BottleForm';
 import { UndoToast } from '@/components/ui/UndoToast';
-import { useLogout, useMe } from '@/hooks/useAuth';
-import LogoutIcon from '@mui/icons-material/Logout';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
 
 type UIMode = 'idle' | 'creating' | 'editing';
@@ -33,7 +31,7 @@ interface BottleDashboardProps {
  * Gère : liste, création, édition, suppression avec Undo, Optimistic UI.
  */
 export function BottleDashboard({ t }: BottleDashboardProps) {
-  const { data: bottles, isLoading, isError, isFetching } = useBottles();
+  const { data: bottles, isLoading, isError } = useBottles();
   const { data: cellars } = useCellars();
   const createMutation = useCreateBottle();
   const updateMutation = useUpdateBottle();
@@ -42,9 +40,6 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
 
   const [mode, setMode] = useState<UIMode>('idle');
   const [editingBottle, setEditingBottle] = useState<Bottle | null>(null);
-
-  const { data: user } = useMe();
-  const logoutMutation = useLogout();
 
   // Undo toast state
   const [undoTarget, setUndoTarget] = useState<Bottle | null>(null);
