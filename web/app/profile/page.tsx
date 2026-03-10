@@ -136,7 +136,7 @@ export default function ProfilePage() {
                   )}
                 </Box>
 
-                <AvatarUploader user={user} />
+                {user && <AvatarUploader user={user} />}
 
                 <Box component="form" onSubmit={handleProfileSubmit}>
                   <TextField

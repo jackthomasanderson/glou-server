@@ -2,18 +2,18 @@
 import React from 'react';
 import {
   Card, CardContent, CardActions, IconButton, Typography,
-  Chip, Box, Skeleton, Tooltip,
+  Chip, Box, Skeleton, Tooltip, Checkbox,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import LocalBarIcon from '@mui/icons-material/LocalBar';
+import WineBarIcon from '@mui/icons-material/WineBar';
 import SportsMmaIcon from '@mui/icons-material/SportsMma';
 import GrassIcon from '@mui/icons-material/Grass';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import { Bottle, BottleCategory } from '@/lib/bottles/types';
 
 const CATEGORY_ICONS: Record<BottleCategory, React.ReactElement> = {
-  wine: <LocalBarIcon fontSize="small" />,
+  wine: <WineBarIcon fontSize="small" />,
   sparkling: <BubbleChartIcon fontSize="small" />,
   spirit: <SportsMmaIcon fontSize="small" />,
   cigar: <GrassIcon fontSize="small" />,
@@ -32,9 +32,11 @@ interface BottleCardProps {
   onEdit: (bottle: Bottle) => void;
   onDelete: (bottle: Bottle) => void;
   t: (key: string) => string;
+  isSelected?: boolean;
+  onSelectToggle?: (bottle: Bottle) => void;
 }
 
-export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t }: BottleCardProps) {
+export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t, isSelected = false, onSelectToggle }: BottleCardProps) {
   const isTemp = bottle.id.startsWith('temp-');
 
   return (
@@ -47,7 +49,17 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t }: Bottl
       }}
       aria-label={`${bottle.name} — ${categoryLabel}`}
     >
-      <CardContent sx={{ pb: 1 }}>
+      <CardContent sx={{ pb: 1, pt: onSelectToggle ? 4 : 2 }}>
+        {onSelectToggle && (
+          <Box sx={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}>
+            <Checkbox
+              checked={isSelected}
+              onChange={() => onSelectToggle(bottle)}
+              color="primary"
+            />
+          </Box>
+        )}
+
         {/* Category badge */}
         <Chip
           icon={CATEGORY_ICONS[bottle.category]}

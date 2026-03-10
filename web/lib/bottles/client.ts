@@ -29,6 +29,11 @@ export const bottleClient = {
     return result;
   },
 
+  async bulkUpdate(ids: string[], patch: Partial<Bottle>): Promise<{ updatedCount: number }> {
+    const { data: result } = await client.post<{ updatedCount: number }>('/bottles/bulk', { ids, patch });
+    return result;
+  },
+
   async delete(id: string): Promise<Bottle> {
     const { data } = await client.delete<Bottle>(`/bottles/${id}`);
     return data;

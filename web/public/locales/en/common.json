@@ -13,6 +13,7 @@
   },
   "actions": {
     "add": "Add",
+    "select": "Select",
     "save": "Save",
     "update": "Update",
     "delete": "Delete",
@@ -52,6 +53,7 @@
     "createCellarFirst": "Create a cellar first",
     "createCellarFirstDesc": "You need at least one cellar to store your bottles.",
     "chooseCellar": "Choose a cellar",
+    "noCellar": "No cellar",
     "preview": "Preview",
     "step1": "Basic information",
     "step2": "Category details",

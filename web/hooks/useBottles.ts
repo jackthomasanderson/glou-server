@@ -40,6 +40,7 @@ export function useCreateBottle() {
     mutationFn: bottleClient.create,
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: BOTTLES_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
     },
   });
 }
@@ -52,6 +53,20 @@ export function useUpdateBottle() {
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Bottle> }) => bottleClient.update(id, patch),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: BOTTLES_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
+    },
+  });
+}
+
+// ─── Mutation: Bulk Update ───────────────────────────────────────────────────
+
+export function useBulkUpdateBottle() {
+  const queryClient = useQueryClient();
+  return useMutation<{ updatedCount: number }, Error, { ids: string[]; patch: Partial<Bottle> }>({
+    mutationFn: ({ ids, patch }) => bottleClient.bulkUpdate(ids, patch),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: BOTTLES_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
     },
   });
 }
@@ -65,6 +80,7 @@ export function useDeleteBottle() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: BOTTLES_KEY });
       void queryClient.invalidateQueries({ queryKey: TRASH_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
     },
   });
 }
@@ -78,6 +94,7 @@ export function useRestoreBottle() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: BOTTLES_KEY });
       void queryClient.invalidateQueries({ queryKey: TRASH_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
     },
   });
 }

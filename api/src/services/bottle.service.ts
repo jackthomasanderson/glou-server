@@ -86,6 +86,40 @@ export class BottleService {
   }
 
   /**
+   * Bulk update multiple bottles, respecting user-locked fields per bottle.
+   */
+  async bulkUpdate(
+    userId: string,
+    ids: string[],
+    patch: BottlePatch
+  ): Promise<number> {
+    const existing = await prisma.bottle.findMany({
+      where: { id: { in: ids }, userId, deletedAt: null },
+    });
+
+    if (existing.length === 0) return 0;
+
+    let updatedCount = 0;
+    await prisma.$transaction(async (tx) => {
+      for (const bottle of existing) {
+        const safePatch = Object.fromEntries(
+          Object.entries(patch).filter(([key]) => !bottle.lockedFields.includes(key))
+        );
+        await tx.bottle.update({
+          where: { id: bottle.id },
+          data: {
+            ...this.mapInputToDb(safePatch as BottlePatch),
+            updatedAt: new Date(),
+          },
+        });
+        updatedCount++;
+      }
+    });
+
+    return updatedCount;
+  }
+
+  /**
    * Soft-delete: sets deletedAt. Will be auto-purged after TRASH_RETENTION_DAYS.
    */
   async softDelete(userId: string, id: string): Promise<Bottle | null> {

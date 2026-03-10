@@ -49,8 +49,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
   const canSaveMinimal = Boolean(
     values.category &&
     values.name?.trim() &&
-    values.producer?.trim() &&
-    values.cellarId
+    values.producer?.trim()
   );
   const isEditing = Boolean(initialValues?.id);
 
@@ -89,23 +88,22 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
               }}
             >
               {(['wine', 'sparkling', 'spirit'] as BottleCategory[]).map((c) => (
-                <MenuItem key={c} value={c}>{t(`common.categories.${c}`)}</MenuItem>
+                <MenuItem key={c} value={c}>{t(`categories.${c}`)}</MenuItem>
               ))}
             </Select>
           </FormControl>
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <FormControl fullWidth size="small" required>
+          <FormControl fullWidth size="small">
             <InputLabel>{t('nav.caves')}</InputLabel>
             <Select
-              value={values.cellarId ?? ''}
+              value={values.cellarId === null ? 'none' : (values.cellarId ?? 'none')}
               label={t('nav.caves')}
-              onChange={(e) => setField('cellarId', e.target.value)}
-              required
+              onChange={(e) => setField('cellarId', e.target.value === 'none' ? null : e.target.value)}
             >
-              <MenuItem value="" disabled>
-                <em>{t('bottle.chooseCellar')}</em>
+              <MenuItem value="none">
+                <em>{t('bottle.noCellar')}</em>
               </MenuItem>
               {cellars?.map((cellar) => (
                 <MenuItem key={cellar.id} value={cellar.id}>

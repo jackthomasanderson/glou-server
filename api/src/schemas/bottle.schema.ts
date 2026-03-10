@@ -17,7 +17,7 @@ export const commonBottleSchema = z.object({
   isOpened: z.boolean().default(false),
   fillLevel: z.number().int().min(0).max(100).optional(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
-  cellarId: z.string().uuid({ message: "Cellar is required" }),
+  cellarId: z.string().uuid({ message: "Invalid Cellar ID" }).optional().nullable(),
   lockedFields: z.array(z.string()).default([]),
 });
 
@@ -97,7 +97,7 @@ export type BottleCategory = BottleInput['category'];
 // supported by Zod's type system for discriminated unions.
 
 export const bottlePatchSchema = z.object({
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
+  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']).optional(),
   name: z.string().min(1).max(200).optional(),
   producer: z.string().min(1).max(200).optional(),
   location: z.string().max(200).optional(),

@@ -60,7 +60,7 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
                 onChange={(e) => onChange('color', e.target.value)}
               >
                 {['red', 'white', 'rosé', 'orange'].map((c) => (
-                  <MenuItem key={c} value={c}>{t(`common.bottle.color.${c}`)}</MenuItem>
+                  <MenuItem key={c} value={c}>{t(`bottle.color.${c}`)}</MenuItem>
                 ))}
               </Select>
             </FormControl>

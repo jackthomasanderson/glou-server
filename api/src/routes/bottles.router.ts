@@ -58,6 +58,32 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+// ─── POST /api/bottles/bulk ────────────────────────────────────────────────────
+
+router.post('/bulk', async (req: Request, res: Response): Promise<void> => {
+  const ip = getClientIp(req);
+  try {
+    const { ids, patch } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: 'ids array is required' });
+      return;
+    }
+    const validatedPatch = bottlePatchSchema.parse(patch);
+    const count = await bottleService.bulkUpdate(req.userId, ids as string[], validatedPatch);
+    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, details: { count, bulk: true } });
+    res.json({ data: { updatedCount: count } });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'validation_error', ip, details: { issues, bulk: true } });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
+      return;
+    }
+    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, details: { message: String(error), bulk: true } });
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
 // ─── POST /api/bottles ───────────────────────────────────────────────────────
 
 router.post('/', async (req: Request, res: Response): Promise<void> => {

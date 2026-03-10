@@ -13,6 +13,7 @@
   },
   "actions": {
     "add": "Ajouter",
+    "select": "Sélectionner",
     "save": "Enregistrer",
     "update": "Mettre à jour",
     "delete": "Supprimer",
@@ -52,6 +53,7 @@
     "createCellarFirst": "Créez une cave d'abord",
     "createCellarFirstDesc": "Vous devez avoir au moins une cave pour loger vos bouteilles.",
     "chooseCellar": "Choisir une cave",
+    "noCellar": "Aucune cave",
     "preview": "Aperçu",
     "step1": "Informations de base",
     "step2": "Détails par catégorie",

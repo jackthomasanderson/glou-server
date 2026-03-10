@@ -12,6 +12,7 @@ import {
   useUpdateBottle,
   useDeleteBottle,
   useRestoreBottle,
+  useBulkUpdateBottle,
 } from '@/hooks/useBottles';
 import { useCellars } from '@/hooks/useCellars';
 import Link from 'next/link';
@@ -19,6 +20,9 @@ import { BottleCard, BottleCardSkeleton } from './BottleCard';
 import { BottleForm } from './BottleForm';
 import { UndoToast } from '@/components/ui/UndoToast';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
+import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
+import CloseIcon from '@mui/icons-material/Close';
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
@@ -43,6 +47,25 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
 
   // Undo toast state
   const [undoTarget, setUndoTarget] = useState<Bottle | null>(null);
+
+  // Bulk mode state
+  const bulkUpdateMutation = useBulkUpdateBottle();
+  const [bulkMode, setBulkMode] = useState<boolean>(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const handleSelectToggle = useCallback((bottle: Bottle) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(bottle.id)) next.delete(bottle.id);
+      else next.add(bottle.id);
+      return next;
+    });
+  }, []);
+
+  const toggleBulkMode = useCallback(() => {
+    setBulkMode((prev) => !prev);
+    setSelectedIds(new Set());
+  }, []);
 
   const handleCreate = useCallback(
     (values: Partial<Bottle>) => {
@@ -96,14 +119,23 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
       {/* Header handled by Navbar, keeping only specific actions if needed or removing extra space */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+        <Button
+          variant={bulkMode ? "contained" : "outlined"}
+          color={bulkMode ? "secondary" : "primary"}
+          startIcon={bulkMode ? <CloseIcon /> : <FormatListBulletedIcon />}
+          onClick={toggleBulkMode}
+          sx={{ display: bottles && bottles.length > 0 ? 'flex' : 'none' }}
+        >
+          {bulkMode ? t('actions.cancel') : t('actions.select')}
+        </Button>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setMode('creating')}
           sx={{ display: { xs: 'none', sm: 'flex' } }}
           aria-label={t('bottle.add')}
-          disabled={!hasCellars}
+          disabled={!hasCellars || bulkMode}
         >
           {t('bottle.add')}
         </Button>
@@ -200,6 +232,8 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 t={t}
+                isSelected={selectedIds.has(bottle.id)}
+                onSelectToggle={bulkMode ? handleSelectToggle : undefined}
               />
             </Grid>
           ))}
@@ -225,6 +259,63 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           onUndo={handleUndo}
           onExpire={() => setUndoTarget(null)}
         />
+      )}
+
+      {/* Bulk action bar */}
+      {bulkMode && selectedIds.size > 0 && (
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1200,
+            bgcolor: 'background.paper',
+            p: 2,
+            borderRadius: 2,
+            boxShadow: 4,
+            display: 'flex',
+            gap: 3,
+            alignItems: 'center',
+            minWidth: 320,
+          }}
+        >
+          <Typography fontWeight="bold" color="primary">
+            {selectedIds.size} sélectionnées
+          </Typography>
+          <FormControl size="small" sx={{ minWidth: 160, flexGrow: 1 }}>
+            <InputLabel>{t('nav.caves')}</InputLabel>
+            <Select
+              label={t('nav.caves')}
+              value=""
+              onChange={(e) => {
+                const targetCellarId = e.target.value;
+                if (!targetCellarId) return;
+                bulkUpdateMutation.mutate({
+                  ids: Array.from(selectedIds),
+                  patch: { cellarId: targetCellarId === 'none' ? null : targetCellarId }
+                }, {
+                  onSuccess: () => {
+                    setBulkMode(false);
+                    setSelectedIds(new Set());
+                  }
+                });
+              }}
+              displayEmpty
+            >
+              <MenuItem value="" disabled sx={{ display: 'none' }}>
+              </MenuItem>
+              <MenuItem value="none">
+                <em>{t('bottle.noCellar')}</em>
+              </MenuItem>
+              {cellars?.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
       )}
     </Container>
   );
