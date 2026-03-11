@@ -48,6 +48,7 @@ Glou is constantly evolving. Here is a glimpse of what's currently cooking and w
 ### ✅ Recently Implemented
 - 🏷️ **Contextual Asset CRUD (FEAT-01)**: Adaptive creation workflows tailored perfectly to wines, bubbles, spirits, or boxes of cigars.
 - 🔍 **Advanced Search & Faceted Filtering (FEAT-48)**: Quickly find bottles by name, producer, vintage, category or cellar with real-time suggestions and chip filters.
+- 📦 **Bulk Actions & Predicates (FEAT-11)**: Massively update your collection and save action models (presets) to automate routine maintenance.
 
 ### 🔮 Next Up
 - Predictive analytics for asset valuation.

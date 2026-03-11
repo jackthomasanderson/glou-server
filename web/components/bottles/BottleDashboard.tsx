@@ -28,6 +28,7 @@ import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import CloseIcon from '@mui/icons-material/Close';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { BulkActionDialog } from './BulkActionDialog';
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
@@ -57,6 +58,8 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   const bulkUpdateMutation = useBulkUpdateBottle();
   const [bulkMode, setBulkMode] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  const [bulkSuccessCount, setBulkSuccessCount] = useState<number | null>(null);
 
   const handleSelectToggle = useCallback((bottle: Bottle) => {
     setSelectedIds((prev) => {
@@ -160,6 +163,23 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
       setMode('idle');
     },
     [createMutation]
+  );
+
+  const handleBulkApply = useCallback(
+    (patch: Partial<Bottle>) => {
+      bulkUpdateMutation.mutate(
+        { ids: Array.from(selectedIds), patch },
+        {
+          onSuccess: (res) => {
+            setBulkSuccessCount(res.updatedCount);
+            setBulkMode(false);
+            setSelectedIds(new Set());
+            setIsBulkDialogOpen(false);
+          },
+        }
+      );
+    },
+    [selectedIds, bulkUpdateMutation]
   );
 
   const handleUpdate = useCallback(
@@ -453,6 +473,16 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
         />
       )}
 
+      {/* Bulk success toast */}
+      {bulkSuccessCount !== null && (
+        <UndoToast
+          message={t('bulk.success', { count: bulkSuccessCount })}
+          undoLabel={t('actions.close')}
+          onUndo={() => setBulkSuccessCount(null)}
+          onExpire={() => setBulkSuccessCount(null)}
+        />
+      )}
+
       {/* Bulk action bar */}
       {bulkMode && selectedIds.size > 0 && (
         <Box
@@ -473,42 +503,26 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           }}
         >
           <Typography fontWeight="bold" color="primary">
-            {t('bottle.bulk.selected', { count: selectedIds.size })}
+            {t('bulk.selected', { count: selectedIds.size })}
           </Typography>
-          <FormControl size="small" sx={{ minWidth: 160, flexGrow: 1 }}>
-            <InputLabel>{t('nav.caves')}</InputLabel>
-            <Select
-              label={t('nav.caves')}
-              value=""
-              onChange={(e) => {
-                const targetCellarId = e.target.value;
-                if (!targetCellarId) return;
-                bulkUpdateMutation.mutate({
-                  ids: Array.from(selectedIds),
-                  patch: { cellarId: targetCellarId === 'none' ? null : targetCellarId }
-                }, {
-                  onSuccess: () => {
-                    setBulkMode(false);
-                    setSelectedIds(new Set());
-                  }
-                });
-              }}
-              displayEmpty
-            >
-              <MenuItem value="" disabled sx={{ display: 'none' }}>
-              </MenuItem>
-              <MenuItem value="none">
-                <em>{t('bottle.noCellar')}</em>
-              </MenuItem>
-              {cellars?.map((c) => (
-                <MenuItem key={c.id} value={c.id}>
-                  {c.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Button 
+            variant="contained" 
+            onClick={() => setIsBulkDialogOpen(true)}
+          >
+            {t('bulk.title')}
+          </Button>
         </Box>
       )}
+
+      {/* Bulk Action Dialog */}
+      <BulkActionDialog
+        open={isBulkDialogOpen}
+        onClose={() => setIsBulkDialogOpen(false)}
+        selectedBottles={bottles?.filter(b => selectedIds.has(b.id)) || []}
+        onApply={handleBulkApply}
+        isSubmitting={bulkUpdateMutation.isPending}
+        t={t}
+      />
     </Container>
   );
 }

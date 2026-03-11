@@ -41,6 +41,7 @@ model User {
   bottles      Bottle[]
   auditLogs    AuditLog[]
   cellars      Cellar[]
+  bulkPresets  BulkPreset[]
 }
 
 enum Theme {
@@ -197,4 +198,17 @@ enum BottleCategory {
   sparkling
   spirit
   cigar
+}
+
+model BulkPreset {
+  id        String   @id @default(uuid())
+  name      String
+  payload   Json     // The BottlePatch to apply
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("bulk_presets")
 }

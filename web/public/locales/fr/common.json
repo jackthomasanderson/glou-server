@@ -127,10 +127,6 @@
       "sealed": "Scellé",
       "opened": "Ouvert"
     },
-    "bulk": {
-      "selected": "{{count}} sélectionnée",
-      "selected_plural": "{{count}} sélectionnées"
-    },
     "sparklingTypes": {
       "champagne": "Champagne",
       "cremant": "Crémant",
@@ -256,5 +252,26 @@
         }
       }
     }
+  },
+  "bulk": {
+    "selected": "{{count}} sélectionnée",
+    "selected_plural": "{{count}} sélectionnées",
+    "title": "Actions groupées",
+    "subtitle": "Modifier {{count}} bouteilles simultanément",
+    "fieldsToUpdate": "Champs à modifier",
+    "preview": "Récapitulatif des changements",
+    "before": "Avant",
+    "after": "Après",
+    "mixed": "(Valeurs multiples)",
+    "noChange": "(Aucun changement)",
+    "apply": "Appliquer les modifications",
+    "presets": "Modèles d'actions",
+    "savePreset": "Enregistrer comme modèle",
+    "presetName": "Nom du modèle",
+    "loadPreset": "Charger un modèle",
+    "deletePreset": "Supprimer le modèle",
+    "noPresets": "Aucun modèle enregistré",
+    "success": "{{count}} bouteilles ont été mises à jour",
+    "error": "Une erreur est survenue lors de la mise à jour groupée"
   }
 }

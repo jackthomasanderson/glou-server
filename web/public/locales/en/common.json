@@ -127,10 +127,6 @@
       "sealed": "Sealed",
       "opened": "Opened"
     },
-    "bulk": {
-      "selected": "{{count}} selected",
-      "selected_plural": "{{count}} selected"
-    },
     "sparklingTypes": {
       "champagne": "Champagne",
       "cremant": "Crémant",
@@ -256,5 +252,26 @@
         }
       }
     }
+  },
+  "bulk": {
+    "selected": "{{count}} selected",
+    "selected_plural": "{{count}} selected",
+    "title": "Bulk Actions",
+    "subtitle": "Update {{count}} bottles simultaneously",
+    "fieldsToUpdate": "Fields to update",
+    "preview": "Changes summary",
+    "before": "Before",
+    "after": "After",
+    "mixed": "(Mixed values)",
+    "noChange": "(No change)",
+    "apply": "Apply changes",
+    "presets": "Action Modeles (Presets)",
+    "savePreset": "Save as preset",
+    "presetName": "Preset name",
+    "loadPreset": "Load preset",
+    "deletePreset": "Delete preset",
+    "noPresets": "No presets saved",
+    "success": "{{count}} bottles have been updated",
+    "error": "An error occurred during bulk update"
   }
 }

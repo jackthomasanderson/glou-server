@@ -47,6 +47,8 @@ Glou évolue constamment. Voici un aperçu de ce qui se prépare en cuisine.
 
 ### ✅ Récemment Ajouté
 - 🏷️ **Gestion Contextuelle (FEAT-01)** : Ajout et édition "intelligents", s'adaptant parfaitement au type d'actif (vins, bulles, spiritueux, cigares).
+- 🔍 **Recherche Avancée & Filtres (FEAT-48)** : Retrouvez vos bouteilles en un instant grâce aux suggestions et aux filtres par cave, catégorie et millésime.
+- 📦 **Actions Groupées & Modèles (FEAT-11)** : Modifiez massivement vos bouteilles et sauvegardez des modèles d'actions (presets) pour automatiser vos routines.
 
 ### 🔮 À Venir
 - Analyses prédictives pour la valorisation de la cave.

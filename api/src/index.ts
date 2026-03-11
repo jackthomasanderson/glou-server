@@ -8,6 +8,7 @@ import { authRouter } from './routes/auth.router';
 import cellarsRouter from './routes/cellars.router';
 import userRouter from './routes/user.router';
 import adminRouter from './routes/admin.router';
+import bulkPresetsRouter from './routes/bulk-presets.router';
 import { errorMiddleware } from './middleware/error.middleware';
 import { bottleService } from './services/bottle.service';
 import { purgeOldAuditLogs } from './services/audit.service';
@@ -43,6 +44,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 app.use('/api/auth', authRouter);
 app.use('/api/cellars', cellarsRouter);
 app.use('/api/bottles', bottlesRouter);
+app.use('/api/bulk-presets', bulkPresetsRouter);
 app.use('/api/user', userRouter);
 app.use('/api/admin', adminRouter);
 
