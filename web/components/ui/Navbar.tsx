@@ -35,19 +35,15 @@ export const Navbar: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [mobileMoreAnchorEl, setMobileMoreAnchorEl] = React.useState<null | HTMLElement>(null);
+
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
-  const handleMobileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setMobileMoreAnchorEl(event.currentTarget);
-  };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-    setMobileMoreAnchorEl(null);
   };
 
   const menuId = 'primary-search-account-menu';

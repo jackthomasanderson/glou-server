@@ -15,4 +15,4 @@ export interface CreateCellarInput {
   type: CellarType;
 }
 
-export interface UpdateCellarInput extends Partial<CreateCellarInput> {}
+export type UpdateCellarInput = Partial<CreateCellarInput>;

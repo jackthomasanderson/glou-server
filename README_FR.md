@@ -7,11 +7,11 @@
 ---
 
 ## ✨ Le Top 5
-1. 📸 **Saisie Zéro Effort** : Prenez une étiquette en photo ! Notre OCR extrait et pré-remplit instantanément les détails pour un inventaire toujours à jour sans friction.
-2. 🧠 **Moteur de Données Intelligent** : Enrichissement automatique via APIs tierces (Vivino, Whiskybase) couplé à notre cache propriétaire pour des données riches, fiables et ultra-rapides.
-3. 💎 **Expérience Haute Fidélité** : Une interface immersive (clair/sombre) offrant une sensation d'instantanéité. Admirez votre collection sans aucune latence perçue.
-4. 🎛️ **Tableau de Bord de Précision** : Alertes prédictives sur l'apogée de vos bouteilles et suivi en temps réel des métriques critiques (ex: hygrométrie de vos caves à cigares).
-5. 🛡️ **Stack Robuste & Sécurisée** : Architecture Docker Compose claire (Backend Node.js, Frontend Next.js, PostgreSQL) s'exécutant de manière sécurisée et isolée.
+1. 📸 **Saisie Zéro Effort (Système Hybride)** : Prenez une photo de l'étiquette ! Notre système OCR/vision remplit instantanément les détails.
+2. 🤝 **Inventaire Partagé** : Conçu pour la collaboration. Tous les utilisateurs de l'instance partagent un inventaire commun unique (parfait pour les familles ou clubs).
+3. 🧠 **Smart Data Engine** : Enrichissement automatique via APIs (Vivino, Whiskybase) intégré à notre cache local propriétaire.
+4. 💎 **UX Immersive Haute Fidélité** : Un design system élégant offrant des performances instantanées.
+5. 🛡️ **Sécurité et Évolutivité** : Une stack Docker Compose robuste (Node.js, Next.js, PostgreSQL).
 
 ---
 

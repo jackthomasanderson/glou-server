@@ -13,9 +13,9 @@ export class BottleService {
   /**
    * List all active (non-deleted) bottles for a given user.
    */
-  async listBottles(userId: string): Promise<Bottle[]> {
+  async listBottles(_userId: string): Promise<Bottle[]> {
     return prisma.bottle.findMany({
-      where: { userId, deletedAt: null },
+      where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -23,11 +23,10 @@ export class BottleService {
   /**
    * List soft-deleted bottles (trash) for a given user still within retention window.
    */
-  async listTrash(userId: string): Promise<Bottle[]> {
+  async listTrash(_userId: string): Promise<Bottle[]> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     return prisma.bottle.findMany({
       where: {
-        userId,
         deletedAt: { not: null, gte: cutoff },
       },
       orderBy: { deletedAt: 'desc' },
@@ -38,9 +37,9 @@ export class BottleService {
    * Get a single bottle by id, scoped to the user.
    * Returns null if not found or not owned by user.
    */
-  async getBottle(userId: string, id: string): Promise<Bottle | null> {
+  async getBottle(_userId: string, id: string): Promise<Bottle | null> {
     return prisma.bottle.findFirst({
-      where: { id, userId, deletedAt: null },
+      where: { id, deletedAt: null },
     });
   }
 
@@ -62,12 +61,12 @@ export class BottleService {
    * Locked fields are never overwritten by this method (they require explicit unlock).
    */
   async updateBottle(
-    userId: string,
+    _userId: string,
     id: string,
     patch: BottlePatch
   ): Promise<Bottle | null> {
     const existing = await prisma.bottle.findFirst({
-      where: { id, userId, deletedAt: null },
+      where: { id, deletedAt: null },
     });
     if (!existing) return null;
 
@@ -89,12 +88,12 @@ export class BottleService {
    * Bulk update multiple bottles, respecting user-locked fields per bottle.
    */
   async bulkUpdate(
-    userId: string,
+    _userId: string,
     ids: string[],
     patch: BottlePatch
   ): Promise<number> {
     const existing = await prisma.bottle.findMany({
-      where: { id: { in: ids }, userId, deletedAt: null },
+      where: { id: { in: ids }, deletedAt: null },
     });
 
     if (existing.length === 0) return 0;
@@ -122,9 +121,9 @@ export class BottleService {
   /**
    * Soft-delete: sets deletedAt. Will be auto-purged after TRASH_RETENTION_DAYS.
    */
-  async softDelete(userId: string, id: string): Promise<Bottle | null> {
+  async softDelete(_userId: string, id: string): Promise<Bottle | null> {
     const existing = await prisma.bottle.findFirst({
-      where: { id, userId, deletedAt: null },
+      where: { id, deletedAt: null },
     });
     if (!existing) return null;
 
@@ -137,12 +136,11 @@ export class BottleService {
   /**
    * Restore a soft-deleted bottle (within retention window).
    */
-  async restore(userId: string, id: string): Promise<Bottle | null> {
+  async restore(_userId: string, id: string): Promise<Bottle | null> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const existing = await prisma.bottle.findFirst({
       where: {
         id,
-        userId,
         deletedAt: { not: null, gte: cutoff },
       },
     });

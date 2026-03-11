@@ -21,7 +21,7 @@ export const client = {
     return { data };
   },
 
-  async post<T>(url: string, data?: any): Promise<{ data: T }> {
+  async post<T>(url: string, data?: unknown): Promise<{ data: T }> {
     const res = await fetch(`${API_BASE}${url}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -32,7 +32,7 @@ export const client = {
     return { data: result };
   },
 
-  async patch<T>(url: string, data?: any): Promise<{ data: T }> {
+  async patch<T>(url: string, data?: unknown): Promise<{ data: T }> {
     const res = await fetch(`${API_BASE}${url}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

@@ -17,9 +17,8 @@ export class CellarService {
   /**
    * List all cellars for a user
    */
-  static async listCellars(userId: string) {
+  static async listCellars(_userId: string) {
     return prisma.cellar.findMany({
-      where: { userId },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -27,11 +26,10 @@ export class CellarService {
   /**
    * Get a specific cellar by ID, ensuring it belongs to the user
    */
-  static async getCellar(userId: string, id: string) {
+  static async getCellar(_userId: string, id: string) {
     return prisma.cellar.findFirst({
       where: {
         id,
-        userId,
       },
     });
   }
@@ -40,7 +38,7 @@ export class CellarService {
    * Update a cellar
    */
   static async updateCellar(userId: string, id: string, data: UpdateCellarInput) {
-    // Ensure ownership before update
+    // Ensure existence before update
     const cellar = await this.getCellar(userId, id);
     if (!cellar) return null;
 
@@ -56,7 +54,7 @@ export class CellarService {
    * consider what happens to orphan bottles in the future.
    */
   static async deleteCellar(userId: string, id: string) {
-    // Ensure ownership before delete
+    // Ensure existence before delete
     const cellar = await this.getCellar(userId, id);
     if (!cellar) return null;
 

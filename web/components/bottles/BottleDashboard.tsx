@@ -1,11 +1,15 @@
 'use client';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box, Button, Container, Fab,
-  Grid, Typography, Collapse, Alert,
+  Grid, Typography, Collapse, Alert, IconButton, InputBase,
+  Stack, Chip, Tooltip, Divider, Paper,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import { Bottle } from '@/lib/bottles/types';
+import { Cellar } from '@/lib/cellars/types';
 import {
   useBottles,
   useCreateBottle,
@@ -22,6 +26,7 @@ import { UndoToast } from '@/components/ui/UndoToast';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import CloseIcon from '@mui/icons-material/Close';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 
 type UIMode = 'idle' | 'creating' | 'editing';
@@ -61,6 +66,86 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
       return next;
     });
   }, []);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCellars, setSelectedCellars] = useState<string[]>([]);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+
+  const toggleSearch = useCallback(() => {
+    setIsSearchOpen((prev) => !prev);
+    if (!isSearchOpen === false) setSearchQuery('');
+  }, [isSearchOpen]);
+
+  const toggleFilters = useCallback(() => {
+    setIsFiltersOpen((prev) => !prev);
+  }, []);
+
+  const toggleCategory = useCallback((category: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
+  }, []);
+
+  const toggleCellar = useCallback((cellarId: string) => {
+    setSelectedCellars((prev) =>
+      prev.includes(cellarId)
+        ? prev.filter((id) => id !== cellarId)
+        : [...prev, cellarId]
+    );
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery('');
+    setSelectedCategories([]);
+    setSelectedCellars([]);
+  }, []);
+
+  const filteredBottles = useMemo(() => {
+    if (!bottles) return [];
+
+    let result = bottles;
+
+    // 1. Category Filter
+    if (selectedCategories.length > 0) {
+      result = result.filter((b: Bottle) => selectedCategories.includes(b.category));
+    }
+
+    // 2. Cellar Filter
+    if (selectedCellars.length > 0) {
+      result = result.filter((b: Bottle) => selectedCellars.includes(b.cellarId || ''));
+    }
+
+    // 3. Text Search
+    if (searchQuery.trim()) {
+      const normalize = (s: string) =>
+        s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const q = normalize(searchQuery);
+
+      result = result.filter((b: Bottle) => {
+        const cellar = cellars?.find((c: Cellar) => c.id === b.cellarId);
+        const cellarName = cellar ? normalize(cellar.name) : '';
+
+        const searchStrings = [
+          b.name,
+          b.producer,
+          b.vintage?.toString(),
+          t(`categories.${b.category}`),
+          b.region,
+          b.collection,
+          cellarName,
+          ...(b.tags || [])
+        ].filter(Boolean) as string[];
+
+        return searchStrings.some((s: string) => normalize(s).includes(q));
+      });
+    }
+
+    return result;
+  }, [bottles, searchQuery, selectedCategories, selectedCellars, cellars, t]);
 
   const toggleBulkMode = useCallback(() => {
     setBulkMode((prev) => !prev);
@@ -119,13 +204,48 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
       {/* Header handled by Navbar, keeping only specific actions if needed or removing extra space */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2, alignItems: 'center' }}>
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          transition: 'all 0.3s ease-in-out',
+          width: isSearchOpen ? { xs: '100%', sm: 300 } : 40,
+          overflow: 'hidden',
+          bgcolor: isSearchOpen ? 'background.paper' : 'transparent',
+          borderRadius: 2,
+          border: isSearchOpen ? '1px solid' : 'none',
+          borderColor: 'divider',
+          px: isSearchOpen ? 1 : 0,
+        }}>
+          <IconButton onClick={toggleSearch} color={isSearchOpen ? "primary" : "default"}>
+            {isSearchOpen ? <ClearIcon /> : <SearchIcon />}
+          </IconButton>
+          {isSearchOpen && (
+            <InputBase
+              autoFocus
+              fullWidth
+              placeholder={t('bottle.searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{ ml: 1, flex: 1 }}
+            />
+          )}
+        </Box>
+
+        <IconButton 
+          onClick={toggleFilters} 
+          color={isFiltersOpen || selectedCategories.length > 0 || selectedCellars.length > 0 ? "secondary" : "default"}
+          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+        >
+          <FilterListIcon />
+        </IconButton>
+
         <Button
           variant={bulkMode ? "contained" : "outlined"}
           color={bulkMode ? "secondary" : "primary"}
           startIcon={bulkMode ? <CloseIcon /> : <FormatListBulletedIcon />}
           onClick={toggleBulkMode}
-          sx={{ display: bottles && bottles.length > 0 ? 'flex' : 'none' }}
+          sx={{ display: bottles && bottles.length > 0 && !isSearchOpen ? 'flex' : 'none' }}
         >
           {bulkMode ? t('actions.cancel') : t('actions.select')}
         </Button>
@@ -133,13 +253,72 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setMode('creating')}
-          sx={{ display: { xs: 'none', sm: 'flex' } }}
+          sx={{ display: isSearchOpen ? { xs: 'none', md: 'flex' } : { xs: 'none', sm: 'flex' } }}
           aria-label={t('bottle.add')}
           disabled={!hasCellars || bulkMode}
         >
           {t('bottle.add')}
         </Button>
       </Box>
+
+      {/* Filters panel */}
+      <Collapse in={isFiltersOpen} unmountOnExit>
+        <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" gutterBottom color="text.secondary">
+                {t('bottle.filterByCategory')}
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {['wine', 'sparkling', 'spirit', 'cigar'].map((cat) => (
+                  <Chip
+                    key={cat}
+                    label={t(`categories.${cat}`)}
+                    onClick={() => toggleCategory(cat)}
+                    color={selectedCategories.includes(cat) ? "primary" : "default"}
+                    variant={selectedCategories.includes(cat) ? "filled" : "outlined"}
+                    size="small"
+                  />
+                ))}
+              </Stack>
+            </Box>
+
+            {hasCellars && (
+              <Box>
+                <Typography variant="subtitle2" gutterBottom color="text.secondary">
+                  {t('bottle.filterByCellar')}
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {cellars?.map((cellar) => (
+                    <Chip
+                      key={cellar.id}
+                      label={cellar.name}
+                      onClick={() => toggleCellar(cellar.id)}
+                      color={selectedCellars.includes(cellar.id) ? "primary" : "default"}
+                      variant={selectedCellars.includes(cellar.id) ? "filled" : "outlined"}
+                      size="small"
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            )}
+
+            {(selectedCategories.length > 0 || selectedCellars.length > 0 || searchQuery) && (
+              <>
+                <Divider />
+                <Button 
+                  size="small" 
+                  onClick={clearFilters} 
+                  startIcon={<CloseIcon />}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  {t('actions.clearAll')}
+                </Button>
+              </>
+            )}
+          </Stack>
+        </Paper>
+      </Collapse>
 
       {/* Error state */}
       {isError && (
@@ -172,59 +351,72 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
         </Grid>
       )}
 
-      {/* Empty state */}
-      {!isLoading && !isError && bottles?.length === 0 && mode === 'idle' && (
-        <Box
-          sx={{
-            textAlign: 'center',
-            py: 8,
-            border: '2px dashed',
-            borderColor: 'divider',
-            borderRadius: 2,
-            bgcolor: 'action.hover',
-          }}
-        >
-          {hasCellars ? (
-            <>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                {t('bottle.noBottles')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {t('bottle.noBottlesDesc')}
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setMode('creating')}
-              >
-                {t('bottle.add')}
-              </Button>
-            </>
+      {/* Empty state or No results */}
+      {!isLoading && !isError && mode === 'idle' && (
+        <>
+          {bottles?.length === 0 ? (
+            <Box
+              sx={{
+                textAlign: 'center',
+                py: 8,
+                border: '2px dashed',
+                borderColor: 'divider',
+                borderRadius: 2,
+                bgcolor: 'action.hover',
+              }}
+            >
+              {hasCellars ? (
+                <>
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    {t('bottle.noBottles')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {t('bottle.noBottlesDesc')}
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => setMode('creating')}
+                  >
+                    {t('bottle.add')}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    {t('bottle.createCellarFirst')}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    {t('bottle.createCellarFirstDesc')}
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<WarehouseIcon />}
+                    component={Link}
+                    href="/cellars"
+                  >
+                    {t('nav.caves')}
+                  </Button>
+                </>
+              )}
+            </Box>
           ) : (
-            <>
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                {t('bottle.createCellarFirst')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                {t('bottle.createCellarFirstDesc')}
-              </Typography>
-              <Button
-                variant="contained"
-                startIcon={<WarehouseIcon />}
-                component={Link}
-                href="/cellars"
-              >
-                {t('nav.caves')}
-              </Button>
-            </>
+            searchQuery.trim() && filteredBottles.length === 0 && (
+              <Box sx={{ textAlign: 'center', py: 8 }}>
+                <SearchIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
+                <Typography variant="h6" color="text.secondary">
+                  {t('bottle.noResults', { query: searchQuery })}
+                </Typography>
+              </Box>
+            )
           )}
-        </Box>
+        </>
       )}
 
       {/* Bottle grid */}
-      {!isLoading && bottles && bottles.length > 0 && (
+      {!isLoading && filteredBottles && filteredBottles.length > 0 && (
         <Grid container spacing={2}>
-          {bottles.map((bottle) => (
+          {filteredBottles.map((bottle: Bottle) => (
             <Grid item xs={12} sm={6} md={4} key={bottle.id}>
               <BottleCard
                 bottle={bottle}

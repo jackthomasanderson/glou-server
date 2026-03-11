@@ -8,10 +8,10 @@
 
 ## ✨ Top 5 Highlights
 1. 📸 **Zero-Effort Intake (Hybrid System)**: Snap a photo of a label! Our OCR/vision system instantly pre-fills the details so your inventory is effortlessly up to date.
-2. 🧠 **Smart Data Engine**: Automatic enrichment via APIs (Vivino, Whiskybase) seamlessly integrated with our proprietary local cache, ensuring your data is always pristine and lightning fast. 
-3. 💎 **High-Fidelity Immersive UX**: A sleek, dark/light design system offering instant-feel performance, letting you admire and interact with your collection without any perceptible latency.
-4. 🎛️ **Precision Dashboard**: Predictive alerts for peak maturity (apogée) and real-time monitoring of critical metrics like cigar hygrometry.
-5. 🛡️ **Built for Scale & Security**: A robust Docker Compose stack (Node.js backend, Next.js frontend, PostgreSQL) running cleanly and safely.
+2. 🤝 **Shared Inventory**: Designed for collaboration. All users on the instance share a single common inventory, making it perfect for families, roommates, or wine clubs.
+3. 🧠 **Smart Data Engine**: Automatic enrichment via APIs (Vivino, Whiskybase) seamlessly integrated with our proprietary local cache.
+4. 💎 **High-Fidelity Immersive UX**: A sleek design system offering instant-feel performance.
+5. 🛡️ **Built for Scale & Security**: A robust Docker Compose stack running cleanly and safely.
 
 ---
 
@@ -47,6 +47,7 @@ Glou is constantly evolving. Here is a glimpse of what's currently cooking and w
 
 ### ✅ Recently Implemented
 - 🏷️ **Contextual Asset CRUD (FEAT-01)**: Adaptive creation workflows tailored perfectly to wines, bubbles, spirits, or boxes of cigars.
+- 🔍 **Advanced Search & Faceted Filtering (FEAT-48)**: Quickly find bottles by name, producer, vintage, category or cellar with real-time suggestions and chip filters.
 
 ### 🔮 Next Up
 - Predictive analytics for asset valuation.
