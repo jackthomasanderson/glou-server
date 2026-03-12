@@ -195,6 +195,8 @@ export class BottleService {
     if (d['estimatedValue'] !== undefined) result['estimatedValue'] = d['estimatedValue'];
     if (d['isOpened'] !== undefined) result['isOpened'] = d['isOpened'];
     if (d['fillLevel'] !== undefined) result['fillLevel'] = d['fillLevel'];
+    if (d['openedAt'] !== undefined) result['openedAt'] = d['openedAt'];
+    if (d['reminderDate'] !== undefined) result['reminderDate'] = d['reminderDate'];
     if (d['alertStatus'] !== undefined) result['alertStatus'] = d['alertStatus'];
     if (d['lockedFields'] !== undefined) result['lockedFields'] = d['lockedFields'];
     if (d['cellarId'] !== undefined) result['cellarId'] = d['cellarId'];

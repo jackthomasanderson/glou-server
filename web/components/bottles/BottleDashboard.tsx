@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Box, Button, Container, Fab,
   Grid, Typography, Collapse, Alert, IconButton, InputBase,
@@ -74,6 +75,26 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedCellars, setSelectedCellars] = useState<string[]>([]);
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [openedFilter, setOpenedFilter] = useState<'all' | 'full' | 'opened' | 'alerts'>('all');
+
+  useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam === 'opened') {
+      setOpenedFilter('opened');
+      setIsFiltersOpen(true);
+    } else if (filterParam === 'full') {
+      setOpenedFilter('full');
+      setIsFiltersOpen(true);
+    } else if (filterParam === 'alerts') {
+      setOpenedFilter('alerts');
+      setIsFiltersOpen(true);
+    } else {
+      setOpenedFilter('all');
+    }
+  }, [searchParams]);
+
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const toggleSearch = useCallback(() => {
@@ -105,7 +126,9 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
     setSearchQuery('');
     setSelectedCategories([]);
     setSelectedCellars([]);
-  }, []);
+    setOpenedFilter('all');
+    router.push('/bottles');
+  }, [router]);
 
   const filteredBottles = useMemo(() => {
     if (!bottles) return [];
@@ -120,6 +143,16 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
     // 2. Cellar Filter
     if (selectedCellars.length > 0) {
       result = result.filter((b: Bottle) => selectedCellars.includes(b.cellarId || ''));
+    }
+
+    // 2b. Opened Filter
+    if (openedFilter === 'full') {
+      result = result.filter((b: Bottle) => !b.isOpened);
+    } else if (openedFilter === 'opened') {
+      result = result.filter((b: Bottle) => b.isOpened);
+    } else if (openedFilter === 'alerts') {
+      const today = new Date().toISOString().split('T')[0];
+      result = result.filter((b: Bottle) => b.reminderDate && b.reminderDate.split('T')[0] <= today);
     }
 
     // 3. Text Search
@@ -148,7 +181,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
     }
 
     return result;
-  }, [bottles, searchQuery, selectedCategories, selectedCellars, cellars, t]);
+  }, [bottles, searchQuery, selectedCategories, selectedCellars, cellars, openedFilter, t]);
 
   const toggleBulkMode = useCallback(() => {
     setBulkMode((prev) => !prev);
@@ -323,7 +356,25 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
               </Box>
             )}
 
-            {(selectedCategories.length > 0 || selectedCellars.length > 0 || searchQuery) && (
+            <Box>
+              <Typography variant="subtitle2" gutterBottom color="text.secondary">
+                {t('bottle.fields.isOpened')}
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {['all', 'full', 'opened', 'alerts'].map((f) => (
+                  <Chip
+                    key={f}
+                    label={t(`bottle.filters.${f}`)}
+                    onClick={() => setOpenedFilter(f as any)}
+                    color={openedFilter === f ? "primary" : "default"}
+                    variant={openedFilter === f ? "filled" : "outlined"}
+                    size="small"
+                  />
+                ))}
+              </Stack>
+            </Box>
+
+            {(selectedCategories.length > 0 || selectedCellars.length > 0 || openedFilter !== 'all' || searchQuery) && (
               <>
                 <Divider />
                 <Button 
@@ -431,6 +482,38 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
             )
           )}
         </>
+      )}
+
+      {/* Stats summary */}
+      {!isLoading && bottles && bottles.length > 0 && mode === 'idle' && (
+        <Box sx={{ mb: 3 }}>
+          <Stack direction="row" spacing={3} divider={<Divider orientation="vertical" flexItem />}>
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block">
+                {t('bottle.stats.total')}
+              </Typography>
+              <Typography variant="h6" fontWeight={700}>
+                {bottles.length}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block">
+                {t('bottle.stats.full')}
+              </Typography>
+              <Typography variant="h6" fontWeight={700} color="success.main">
+                {bottles.filter(b => !b.isOpened).length}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block">
+                {t('bottle.stats.opened')}
+              </Typography>
+              <Typography variant="h6" fontWeight={700} color="warning.main">
+                {bottles.filter(b => b.isOpened).length}
+              </Typography>
+            </Box>
+          </Stack>
+        </Box>
       )}
 
       {/* Bottle grid */}

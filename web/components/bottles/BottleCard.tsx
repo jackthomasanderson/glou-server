@@ -4,8 +4,11 @@ import {
   Card, CardContent, CardActions, IconButton, Typography,
   Chip, Box, Skeleton, Tooltip, Checkbox,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import {
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Notifications as ReminderIcon,
+} from '@mui/icons-material';
 import WineBarIcon from '@mui/icons-material/WineBar';
 import SportsMmaIcon from '@mui/icons-material/SportsMma';
 import GrassIcon from '@mui/icons-material/Grass';
@@ -84,11 +87,25 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t, isSelec
             <Chip label={bottle.region} size="small" variant="outlined" />
           )}
           {bottle.isOpened && (
-            <Chip
-              label={`${bottle.fillLevel ?? '?'}%`}
-              size="small"
-              color="warning"
-            />
+            <Tooltip title={bottle.openedAt ? `${t('bottle.fields.openedAt')}: ${new Date(bottle.openedAt).toLocaleDateString()}` : ''}>
+              <Chip
+                label={`${bottle.fillLevel ?? '?'}%`}
+                size="small"
+                color="warning"
+                variant={bottle.fillLevel === 0 ? 'outlined' : 'filled'}
+              />
+            </Tooltip>
+          )}
+          {bottle.reminderDate && (
+            <Tooltip title={t('bottle.fields.reminderDate')}>
+              <Chip
+                icon={<ReminderIcon sx={{ fontSize: '1rem !important' }} />}
+                label={new Date(bottle.reminderDate).toLocaleDateString()}
+                size="small"
+                color={new Date(bottle.reminderDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0] ? 'error' : 'info'}
+                variant="outlined"
+              />
+            </Tooltip>
           )}
           {bottle.alertStatus && bottle.alertStatus !== 'none' && (
             <Chip

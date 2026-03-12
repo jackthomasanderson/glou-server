@@ -79,8 +79,10 @@
       "purchasePrice": "Purchase price (€)",
       "purchasePlace": "Purchase place",
       "estimatedValue": "Estimated value (€)",
-      "isOpened": "Opened bottle",
-      "fillLevel": "Fill level (%)",
+      "isOpened": "Bottle opened",
+      "fillLevel": "Fill level",
+      "openedAt": "Opened on",
+      "reminderDate": "Consumption reminder",
       "alertStatus": "Peak status",
       "vintage": "Vintage",
       "noVintage": "No vintage",
@@ -134,6 +136,28 @@
       "cava": "Cava",
       "petnat": "Pétillant Naturel",
       "other": "Other"
+    },
+    "fillLevels": {
+      "full": "Full",
+      "threeQuarters": "3/4 left",
+      "half": "Half",
+      "quarter": "1/4 left",
+      "empty": "Empty"
+    },
+    "filters": {
+      "all": "All states",
+      "full": "Full only",
+      "opened": "Opened only",
+      "alerts": "Reminders to consume"
+    },
+    "stats": {
+      "total": "Total stock",
+      "full": "Full stock",
+      "opened": "Opened bottles"
+    },
+    "alerts": {
+      "title": "Reminders to consume",
+      "viewAll": "View all reminders"
     }
   },
   "toast": {

@@ -16,6 +16,8 @@ export const commonBottleSchema = z.object({
   estimatedValue: z.number().min(0).optional(),
   isOpened: z.boolean().default(false),
   fillLevel: z.number().int().min(0).max(100).optional(),
+  openedAt: z.coerce.date().optional().nullable(),
+  reminderDate: z.coerce.date().optional().nullable(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
   cellarId: z.string().uuid({ message: "Invalid Cellar ID" }).optional().nullable(),
   lockedFields: z.array(z.string()).default([]),
@@ -110,6 +112,8 @@ export const bottlePatchSchema = z.object({
   estimatedValue: z.number().min(0).optional(),
   isOpened: z.boolean().optional(),
   fillLevel: z.number().int().min(0).max(100).optional(),
+  openedAt: z.coerce.date().optional().nullable(),
+  reminderDate: z.coerce.date().optional().nullable(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).optional(),
   lockedFields: z.array(z.string()).optional(),
   // Wine/Sparkling

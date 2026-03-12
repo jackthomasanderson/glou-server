@@ -2,7 +2,7 @@
 import React from 'react';
 import {
   Grid, TextField, Select, MenuItem, FormControl, InputLabel,
-  FormControlLabel, Checkbox, Slider, Typography,
+  FormControlLabel, Checkbox, Slider, Typography, Box, Button,
 } from '@mui/material';
 import { BottleCategory } from '@/lib/bottles/types';
 
@@ -168,28 +168,75 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
           control={
             <Checkbox
               checked={Boolean(values['isOpened'])}
-              onChange={(e) => onChange('isOpened', e.target.checked)}
+              onChange={(e) => {
+                onChange('isOpened', e.target.checked);
+                if (e.target.checked && !values['openedAt']) {
+                  onChange('openedAt', new Date().toISOString().split('T')[0]);
+                }
+              }}
             />
           }
           label={t('bottle.fields.isOpened')}
         />
       </Grid>
       {Boolean(values['isOpened']) && (
-        <Grid item xs={12} key="fillLevel">
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            {t('bottle.fields.fillLevel')} : {Number(values['fillLevel'] ?? 100)}%
-          </Typography>
-          <Slider
-            value={Number(values['fillLevel'] ?? 100)}
-            min={0}
-            max={100}
-            step={5}
-            marks
-            valueLabelDisplay="auto"
-            onChange={(_e, v) => onChange('fillLevel', v)}
-            aria-label={t('bottle.fields.fillLevel')}
-          />
-        </Grid>
+        <>
+          <Grid item xs={12} key="fillLevel">
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              {t('bottle.fields.fillLevel')}
+            </Typography>
+            <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {[
+                { val: 100, label: t('bottle.fillLevels.full') },
+                { val: 75, label: t('bottle.fillLevels.threeQuarters') },
+                { val: 50, label: t('bottle.fillLevels.half') },
+                { val: 25, label: t('bottle.fillLevels.quarter') },
+                { val: 0, label: t('bottle.fillLevels.empty') },
+              ].map((level) => (
+                <Button
+                  key={level.val}
+                  size="small"
+                  variant={values['fillLevel'] === level.val ? 'contained' : 'outlined'}
+                  onClick={() => onChange('fillLevel', level.val)}
+                  sx={{ borderRadius: 2 }}
+                >
+                  {level.label}
+                </Button>
+              ))}
+            </Box>
+            <Slider
+              value={Number(values['fillLevel'] ?? 100)}
+              min={0}
+              max={100}
+              step={5}
+              marks
+              valueLabelDisplay="auto"
+              onChange={(_e, v) => onChange('fillLevel', v)}
+              aria-label={t('bottle.fields.fillLevel')}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} key="openedAt">
+            <TextField
+              fullWidth
+              type="date"
+              label={t('bottle.fields.openedAt')}
+              InputLabelProps={{ shrink: true }}
+              value={typeof values['openedAt'] === 'string' ? values['openedAt'].split('T')[0] : ''}
+              onChange={(e) => onChange('openedAt', e.target.value)}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} key="reminderDate">
+            <TextField
+              fullWidth
+              type="date"
+              label={t('bottle.fields.reminderDate')}
+              InputLabelProps={{ shrink: true }}
+              value={typeof values['reminderDate'] === 'string' ? values['reminderDate'].split('T')[0] : ''}
+              onChange={(e) => onChange('reminderDate', e.target.value)}
+              helperText="Rappel optionnel pour consommer avant oxydation"
+            />
+          </Grid>
+        </>
       )}
     </>
   );

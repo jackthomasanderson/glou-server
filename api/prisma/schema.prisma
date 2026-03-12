@@ -150,9 +150,11 @@ model Bottle {
   humidificationSystem String?
 
   // Cross-cutting fields
-  isOpened    Boolean @default(false)
-  fillLevel   Int? // 0-100 (%)
-  alertStatus String? // none, approaching, peak, past
+  isOpened     Boolean   @default(false)
+  fillLevel    Int?      // 0-100 (%)
+  openedAt     DateTime?
+  reminderDate DateTime?
+  alertStatus  String?   // none, approaching, peak, past
 
   // Integrity
   lockedFields String[]  @default([]) // User-locked fields, not overwritten by auto-enrichment

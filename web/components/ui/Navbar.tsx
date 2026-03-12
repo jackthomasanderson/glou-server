@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   AppBar,
   Toolbar,
@@ -11,40 +11,69 @@ import {
   Box,
   Container,
   IconButton,
-  Menu,
-  MenuItem,
   Avatar,
   Divider,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Badge,
+  Menu,
+  MenuItem,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
 } from '@mui/material';
 import {
   Liquor as BottleIcon,
   Warehouse as CellarIcon,
-  Logout as LogoutIcon
+  Logout as LogoutIcon,
+  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useLogout, useMe } from '@/hooks/useAuth';
+import { useBottles } from '@/hooks/useBottles';
 
 export const Navbar: React.FC = () => {
   const { t } = useTranslation();
   const { data: user } = useMe();
   const logoutMutation = useLogout();
   const pathname = usePathname();
+  const router = useRouter();
+  const { data: bottles } = useBottles();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  const alertsCount = useMemo(() => {
+    if (!bottles) return 0;
+    const today = new Date().toISOString().split('T')[0];
+    return bottles.filter(b => b.reminderDate && b.reminderDate.split('T')[0] <= today).length;
+  }, [bottles]);
+
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [notifAnchorEl, setNotifAnchorEl] = React.useState<null | HTMLElement>(null);
 
 
   const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
+  const handleNotifMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    if (alertsCount > 0) {
+      setNotifAnchorEl(event.currentTarget);
+    }
+  };
+
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+    setNotifAnchorEl(null);
   };
+
+  const alertBottles = useMemo(() => {
+    if (!bottles) return [];
+    const today = new Date().toISOString().split('T')[0];
+    return bottles.filter(b => b.reminderDate && b.reminderDate.split('T')[0] <= today);
+  }, [bottles]);
 
   const menuId = 'primary-search-account-menu';
   const renderMenu = (
@@ -127,7 +156,63 @@ export const Navbar: React.FC = () => {
 
           <Box sx={{ flexGrow: isMobile ? 1 : 0 }} />
 
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton color="inherit" onClick={handleNotifMenuOpen}>
+              <Badge badgeContent={alertsCount} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
+
+            <Menu
+              anchorEl={notifAnchorEl}
+              open={Boolean(notifAnchorEl)}
+              onClose={handleMenuClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              PaperProps={{ sx: { width: 320, maxHeight: 400 } }}
+            >
+              <Box sx={{ p: 2, bgcolor: 'action.hover' }}>
+                <Typography variant="subtitle2" fontWeight="bold">
+                  {t('bottle.alerts.title')}
+                </Typography>
+              </Box>
+              <Divider />
+              <List sx={{ p: 0 }}>
+                {alertBottles.map((bottle) => (
+                  <ListItem 
+                    key={bottle.id} 
+                    button 
+                    onClick={() => {
+                      handleMenuClose();
+                      router.push('/bottles?filter=alerts');
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <NotificationsIcon color="error" fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={bottle.name} 
+                      secondary={bottle.producer}
+                      primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
+                      secondaryTypographyProps={{ variant: 'caption' }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+              <Divider />
+              <MenuItem 
+                onClick={() => {
+                  handleMenuClose();
+                  router.push('/bottles?filter=alerts');
+                }}
+                sx={{ justifyContent: 'center', py: 1 }}
+              >
+                <Typography variant="caption" color="primary" fontWeight="bold">
+                  {t('bottle.alerts.viewAll')}
+                </Typography>
+              </MenuItem>
+            </Menu>
+
             <IconButton
               size="large"
               edge="end"

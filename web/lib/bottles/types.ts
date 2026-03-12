@@ -61,6 +61,8 @@ export interface Bottle {
   // Cross-cutting
   isOpened: boolean;
   fillLevel?: number | null;
+  openedAt?: string | null;
+  reminderDate?: string | null;
   alertStatus?: AlertStatus | null;
   lockedFields: string[];
   deletedAt?: string | null;
@@ -83,6 +85,8 @@ export const bottleFormSchema = z.object({
   estimatedValue: z.number().min(0).optional(),
   isOpened: z.boolean().default(false),
   fillLevel: z.number().int().min(0).max(100).optional(),
+  openedAt: z.string().optional().nullable(),
+  reminderDate: z.string().optional().nullable(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
   quantity: z.number().int().min(1).optional(),

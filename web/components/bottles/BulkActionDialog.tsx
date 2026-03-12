@@ -47,6 +47,7 @@ export function BulkActionDialog({
     collection: false,
     tags: false,
     isOpened: false,
+    fillLevel: false,
   });
 
   // State for field values
@@ -56,6 +57,7 @@ export function BulkActionDialog({
     collection: '',
     tags: [],
     isOpened: false,
+    fillLevel: 100,
   });
 
   const [presetName, setPresetName] = useState('');
@@ -76,6 +78,7 @@ export function BulkActionDialog({
     if (enabledFields.collection) patch.collection = values.collection;
     if (enabledFields.tags) patch.tags = values.tags;
     if (enabledFields.isOpened) patch.isOpened = values.isOpened;
+    if (enabledFields.fillLevel) patch.fillLevel = values.fillLevel;
     onApply(patch);
   };
 
@@ -87,6 +90,7 @@ export function BulkActionDialog({
     if (enabledFields.collection) patch.collection = values.collection;
     if (enabledFields.tags) patch.tags = values.tags;
     if (enabledFields.isOpened) patch.isOpened = values.isOpened;
+    if (enabledFields.fillLevel) patch.fillLevel = values.fillLevel;
 
     createPresetMutation.mutate({ name: presetName, payload: patch }, {
       onSuccess: () => {
@@ -121,6 +125,10 @@ export function BulkActionDialog({
       newEnabled.isOpened = true;
       newValues.isOpened = p.isOpened;
     }
+    if (p.fillLevel !== undefined) {
+      newEnabled.fillLevel = true;
+      newValues.fillLevel = p.fillLevel;
+    }
 
     setEnabledFields(newEnabled);
     setValues(newValues);
@@ -128,7 +136,7 @@ export function BulkActionDialog({
 
   // Summary logic: Before vs After
   const summary = useMemo(() => {
-    const fields = ['cellarId', 'location', 'collection', 'tags', 'isOpened'] as const;
+    const fields = ['cellarId', 'location', 'collection', 'tags', 'isOpened', 'fillLevel'] as const;
     const result: Record<string, { before: string; after: string; changed: boolean }> = {};
 
     fields.forEach((field) => {
@@ -329,6 +337,27 @@ export function BulkActionDialog({
                   <MenuItem value="opened">{t('bottle.sealedStatus.opened')}</MenuItem>
                 </Select>
               </FormControl>
+            )}
+          </Box>
+          {/* fillLevel */}
+          <Box>
+            <FormControlLabel
+              control={<Checkbox checked={enabledFields.fillLevel} onChange={() => toggleField('fillLevel')} />}
+              label={t('bottle.fields.fillLevel')}
+            />
+            {enabledFields.fillLevel && (
+              <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
+                {[100, 75, 50, 25, 0].map((v) => (
+                  <Chip
+                    key={v}
+                    label={`${v}%`}
+                    onClick={() => setField('fillLevel', v)}
+                    color={values.fillLevel === v ? 'primary' : 'default'}
+                    variant={values.fillLevel === v ? 'filled' : 'outlined'}
+                    size="small"
+                  />
+                ))}
+              </Stack>
             )}
           </Box>
         </Stack>

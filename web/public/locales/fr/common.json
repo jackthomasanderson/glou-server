@@ -79,8 +79,10 @@
       "purchasePrice": "Prix d'achat (€)",
       "purchasePlace": "Lieu d'achat",
       "estimatedValue": "Valeur estimée (€)",
-      "isOpened": "Bouteille entamée",
-      "fillLevel": "Niveau de remplissage (%)",
+      "isOpened": "Bouteille entamée / ouverte",
+      "fillLevel": "Niveau restant",
+      "openedAt": "Ouverte le",
+      "reminderDate": "Rappel de consommation",
       "alertStatus": "Statut apogée",
       "vintage": "Millésime",
       "noVintage": "Sans millésime",
@@ -134,6 +136,28 @@
       "cava": "Cava",
       "petnat": "Pétillant Naturel",
       "other": "Autre"
+    },
+    "fillLevels": {
+      "full": "Plein",
+      "threeQuarters": "3/4 restant",
+      "half": "Moitié",
+      "quarter": "1/4 restant",
+      "empty": "Vide"
+    },
+    "filters": {
+      "all": "Tous les états",
+      "full": "Pleines uniquement",
+      "opened": "Entamées uniquement",
+      "alerts": "Rappels à consommer"
+    },
+    "stats": {
+      "total": "Total stock",
+      "full": "Stock plein",
+      "opened": "Bouteilles entamées"
+    },
+    "alerts": {
+      "title": "Rappels à consommer",
+      "viewAll": "Voir tous les rappels"
     }
   },
   "toast": {
