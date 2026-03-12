@@ -16,6 +16,8 @@ import {
 } from '@mui/material';
 import NextLink from 'next/link';
 import { useLogin, useVerify2faLogin } from '@/hooks/useAuth';
+import { useHasMounted } from '@/hooks/useHasMounted';
+
 
 const createLoginSchema = (t: (key: string) => string) =>
   z.object({
@@ -25,6 +27,8 @@ const createLoginSchema = (t: (key: string) => string) =>
 
 export function LoginForm() {
   const { t } = useTranslation('common');
+  const hasMounted = useHasMounted();
+
   const loginSchema = createLoginSchema(t);
   type LoginFormValues = z.infer<typeof loginSchema>;
 
@@ -75,7 +79,10 @@ export function LoginForm() {
 
   const isPending = loginMutation.isPending || verifyMutation.isPending;
 
+  if (!hasMounted) return null;
+
   return (
+
     <Paper
       elevation={0}
       sx={{

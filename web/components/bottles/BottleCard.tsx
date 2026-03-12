@@ -1,5 +1,7 @@
 'use client';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useHasMounted } from '@/hooks/useHasMounted';
+
 import {
   Card, CardContent, CardActions, IconButton, Typography,
   Chip, Box, Skeleton, Tooltip, Checkbox,
@@ -41,6 +43,8 @@ interface BottleCardProps {
 
 export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t, isSelected = false, onSelectToggle }: BottleCardProps) {
   const isTemp = bottle.id.startsWith('temp-');
+  const hasMounted = useHasMounted();
+
 
   return (
     <Card
@@ -87,7 +91,9 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t, isSelec
             <Chip label={bottle.region} size="small" variant="outlined" />
           )}
           {bottle.isOpened && (
-            <Tooltip title={bottle.openedAt ? `${t('bottle.fields.openedAt')}: ${new Date(bottle.openedAt).toLocaleDateString()}` : ''}>
+            <Tooltip title={bottle.openedAt && hasMounted ? `${t('bottle.fields.openedAt')}: ${new Date(bottle.openedAt).toLocaleDateString()}` : ''}>
+
+
               <Chip
                 label={`${bottle.fillLevel ?? '?'}%`}
                 size="small"
@@ -100,9 +106,13 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t, isSelec
             <Tooltip title={t('bottle.fields.reminderDate')}>
               <Chip
                 icon={<ReminderIcon sx={{ fontSize: '1rem !important' }} />}
-                label={new Date(bottle.reminderDate).toLocaleDateString()}
+                label={hasMounted ? new Date(bottle.reminderDate).toLocaleDateString() : ''}
+
+
                 size="small"
-                color={new Date(bottle.reminderDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0] ? 'error' : 'info'}
+                color={hasMounted && new Date(bottle.reminderDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0] ? 'error' : 'info'}
+
+
                 variant="outlined"
               />
             </Tooltip>

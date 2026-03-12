@@ -40,7 +40,7 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
         type="number"
         value={String(values['vintage'] ?? '')}
         onChange={(e) => onChange('vintage', e.target.value ? Number(e.target.value) : undefined)}
-        inputProps={{ min: 1800, max: new Date().getFullYear(), step: 1 }}
+        inputProps={{ min: 1800, max: 2100, step: 1 }}
         helperText={t('bottle.fields.noVintage')}
       />
     </Grid>

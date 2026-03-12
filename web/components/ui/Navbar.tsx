@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import { useHasMounted } from '@/hooks/useHasMounted';
+
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -42,12 +44,15 @@ export const Navbar: React.FC = () => {
   const { data: bottles } = useBottles();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const hasMounted = useHasMounted();
+
 
   const alertsCount = useMemo(() => {
-    if (!bottles) return 0;
+    if (!bottles || !hasMounted) return 0;
     const today = new Date().toISOString().split('T')[0];
     return bottles.filter(b => b.reminderDate && b.reminderDate.split('T')[0] <= today).length;
-  }, [bottles]);
+  }, [bottles, hasMounted]);
+
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [notifAnchorEl, setNotifAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -70,10 +75,11 @@ export const Navbar: React.FC = () => {
   };
 
   const alertBottles = useMemo(() => {
-    if (!bottles) return [];
+    if (!bottles || !hasMounted) return [];
     const today = new Date().toISOString().split('T')[0];
     return bottles.filter(b => b.reminderDate && b.reminderDate.split('T')[0] <= today);
-  }, [bottles]);
+  }, [bottles, hasMounted]);
+
 
   const menuId = 'primary-search-account-menu';
   const renderMenu = (
@@ -113,8 +119,11 @@ export const Navbar: React.FC = () => {
     { label: t('nav.caves'), href: '/cellars', icon: <CellarIcon /> },
   ];
 
+  if (!hasMounted) return null;
+
   return (
     <AppBar position="sticky" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary' }}>
+
       <Container maxWidth="lg">
         <Toolbar disableGutters>
           <Typography

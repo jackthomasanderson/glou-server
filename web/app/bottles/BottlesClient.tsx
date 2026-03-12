@@ -2,7 +2,7 @@
 import { BottleDashboard } from '@/components/bottles/BottleDashboard';
 import frMessages from '@/public/locales/fr/common.json';
 import enMessages from '@/public/locales/en/common.json';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 
 type Messages = typeof frMessages;
 
@@ -58,7 +58,9 @@ export function BottlesClient() {
 
   return (
     <MainLayout>
-      <BottleDashboard t={t} />
+      <Suspense fallback={null}>
+        <BottleDashboard t={t} />
+      </Suspense>
     </MainLayout>
   );
 }

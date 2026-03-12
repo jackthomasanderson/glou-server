@@ -16,6 +16,8 @@ import {
 } from '@mui/material';
 import NextLink from 'next/link';
 import { useRegister } from '@/hooks/useAuth';
+import { useHasMounted } from '@/hooks/useHasMounted';
+
 
 const createRegisterSchema = (t: (key: string) => string) =>
   z.object({
@@ -30,6 +32,8 @@ const createRegisterSchema = (t: (key: string) => string) =>
 
 export function RegisterForm() {
   const { t } = useTranslation('common');
+  const hasMounted = useHasMounted();
+
   const registerSchema = createRegisterSchema(t);
   type RegisterFormValues = z.infer<typeof registerSchema>;
 
@@ -58,7 +62,12 @@ export function RegisterForm() {
 
   const isPending = registerMutation.isPending;
 
+  if (!hasMounted) {
+    return null; // or a skeleton
+  }
+
   return (
+
     <Paper
       elevation={0}
       sx={{

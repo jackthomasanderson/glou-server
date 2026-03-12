@@ -1,5 +1,7 @@
 'use client';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useHasMounted } from '@/hooks/useHasMounted';
+
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Box, Button, Container, Fab,
@@ -47,6 +49,8 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   const updateMutation = useUpdateBottle();
   const deleteMutation = useDeleteBottle();
   const restoreMutation = useRestoreBottle();
+  const hasMounted = useHasMounted();
+
 
   const [mode, setMode] = useState<UIMode>('idle');
   const [editingBottle, setEditingBottle] = useState<Bottle | null>(null);
@@ -150,9 +154,11 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
     } else if (openedFilter === 'opened') {
       result = result.filter((b: Bottle) => b.isOpened);
     } else if (openedFilter === 'alerts') {
+      if (!hasMounted) return [];
       const today = new Date().toISOString().split('T')[0];
       result = result.filter((b: Bottle) => b.reminderDate && b.reminderDate.split('T')[0] <= today);
     }
+
 
     // 3. Text Search
     if (searchQuery.trim()) {
@@ -180,7 +186,8 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
     }
 
     return result;
-  }, [bottles, searchQuery, selectedCategories, selectedCellars, cellars, openedFilter, t]);
+  }, [bottles, searchQuery, selectedCategories, selectedCellars, cellars, openedFilter, t, hasMounted]);
+
 
   const toggleBulkMode = useCallback(() => {
     setBulkMode((prev) => !prev);

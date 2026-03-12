@@ -4,12 +4,17 @@ import React, { useMemo, useEffect } from 'react';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { useMe } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
+import { useHasMounted } from '@/hooks/useHasMounted';
 
 export function ThemeWrapper({ children }: { children: React.ReactNode }) {
   const { data: user } = useMe();
   const { i18n } = useTranslation();
+  const hasMounted = useHasMounted();
 
-  // Handle Language Sync
+
+  if (!hasMounted) {
+    return <div style={{ visibility: 'hidden' }}>{children}</div>;
+  }
   useEffect(() => {
     if (user?.language) {
       const lang = user.language.toLowerCase();
