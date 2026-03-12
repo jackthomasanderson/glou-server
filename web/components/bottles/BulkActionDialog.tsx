@@ -4,7 +4,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Box, Typography, Checkbox, FormControlLabel,
   Stack, TextField, MenuItem, Divider, IconButton,
-  Select, InputLabel, FormControl, Chip, Alert,
+  Select, InputLabel, FormControl, Chip,
   Autocomplete,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -67,7 +67,7 @@ export function BulkActionDialog({
     setEnabledFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const setField = (field: string, value: any) => {
+  const setField = <K extends keyof Partial<Bottle>>(field: K, value: Partial<Bottle>[K]) => {
     setValues((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -100,7 +100,7 @@ export function BulkActionDialog({
     });
   };
 
-  const handleLoadPreset = (preset: any) => {
+  const handleLoadPreset = (preset: { payload: Partial<Bottle> }) => {
     const p = preset.payload;
     const newEnabled = { ...enabledFields };
     const newValues = { ...values };
@@ -149,8 +149,8 @@ export function BulkActionDialog({
       // Calculate Before
       let beforeText = '';
       const uniqueValues = new Set(selectedBottles.map(b => {
-          const val = (b as any)[field];
-          if (field === 'tags') return JSON.stringify(val?.sort() || []);
+          const val = b[field as keyof Bottle];
+          if (field === 'tags' && Array.isArray(val)) return JSON.stringify([...val].sort());
           return val;
       }));
 
@@ -171,7 +171,7 @@ export function BulkActionDialog({
 
       // Calculate After
       let afterText = '';
-      const afterVal = (values as any)[field];
+      const afterVal = values[field as keyof Partial<Bottle>];
       if (field === 'cellarId') {
         afterText = cellars?.find(c => c.id === afterVal)?.name || t('bottle.noCellar');
       } else if (field === 'isOpened') {

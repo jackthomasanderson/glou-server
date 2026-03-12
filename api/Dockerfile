@@ -16,7 +16,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 
 # Non-root user
-RUN addgroup -g 1001 glou && adduser -u 1001 -G glou -s /bin/sh -D glou
+RUN apk add --no-cache openssl && \
+    addgroup -g 1001 glou && adduser -u 1001 -G glou -s /bin/sh -D glou
 
 WORKDIR /app
 
@@ -26,6 +27,7 @@ RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/prisma ./prisma
 
 RUN mkdir -p /app/logs && chown -R glou:glou /app
 

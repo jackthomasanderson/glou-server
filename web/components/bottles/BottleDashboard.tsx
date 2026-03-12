@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Box, Button, Container, Fab,
   Grid, Typography, Collapse, Alert, IconButton, InputBase,
-  Stack, Chip, Tooltip, Divider, Paper,
+  Stack, Chip, Divider, Paper,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
@@ -28,7 +28,6 @@ import WarehouseIcon from '@mui/icons-material/Warehouse';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import CloseIcon from '@mui/icons-material/Close';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { BulkActionDialog } from './BulkActionDialog';
 
 type UIMode = 'idle' | 'creating' | 'editing';
@@ -365,7 +364,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
                   <Chip
                     key={f}
                     label={t(`bottle.filters.${f}`)}
-                    onClick={() => setOpenedFilter(f as any)}
+                    onClick={() => setOpenedFilter(f as typeof openedFilter)}
                     color={openedFilter === f ? "primary" : "default"}
                     variant={openedFilter === f ? "filled" : "outlined"}
                     size="small"
