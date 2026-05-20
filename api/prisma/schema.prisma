@@ -150,12 +150,17 @@ model Bottle {
   recommendedHumidity  Float?
   humidificationSystem String?
 
+  // Peak maturity window (structured, year-based)
+  peakMaturityFrom Int?    // Start year of optimal drinking window
+  peakMaturityTo   Int?    // End year of optimal drinking window
+  alertsPaused     Boolean @default(false) // User-paused alerts for this bottle
+
   // Cross-cutting fields
   isOpened     Boolean   @default(false)
   fillLevel    Int?      // 0-100 (%)
   openedAt     DateTime?
   reminderDate DateTime?
-  alertStatus  String?   // none, approaching, peak, past
+  alertStatus  String?   // none, approaching, peak, past (auto-computed from peakMaturityFrom/To)
 
   // Integrity
   lockedFields String[]  @default([]) // User-locked fields, not overwritten by auto-enrichment
@@ -172,6 +177,7 @@ model Bottle {
   @@index([userId])
   @@index([userId, deletedAt])
   @@index([userId, category])
+  @@index([alertStatus])
   @@index([name])
   @@index([vintage])
   @@index([producer])

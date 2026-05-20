@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { BottlePatch, BottleInput } from '../schemas/bottle.schema';
+import { computeAlertStatus } from './alert.service';
 import { v4 as uuidv4 } from 'uuid';
 
 // Bottle type inferred from Prisma client
@@ -47,11 +48,14 @@ export class BottleService {
    * Create a new bottle.
    */
   async createBottle(userId: string, data: BottleInput): Promise<Bottle> {
-    // Cast to `never` is intentional: mapInputToDb returns Record<string, unknown>
-    // which is runtime-safe (all keys validated by Zod) but TypeScript can't verify shape statically.
-    const dbData = this.mapInputToDb(data as unknown as BottlePatch);
+    const patch = data as unknown as BottlePatch;
+    const dbData = this.mapInputToDb(patch);
+    const alertStatus = computeAlertStatus(
+      (patch as Record<string, unknown>)['peakMaturityFrom'] as number | undefined,
+      (patch as Record<string, unknown>)['peakMaturityTo'] as number | undefined,
+    );
     return prisma.bottle.create({
-      data: { id: uuidv4(), userId, ...dbData } as never,
+      data: { id: uuidv4(), userId, ...dbData, alertStatus } as never,
     });
   }
 
@@ -73,14 +77,18 @@ export class BottleService {
     // Filter out any patched keys that are in lockedFields (user manual override protection)
     const safePatch = Object.fromEntries(
       Object.entries(patch).filter(([key]) => !existing.lockedFields.includes(key))
-    );
+    ) as BottlePatch;
+
+    const dbData = this.mapInputToDb(safePatch);
+
+    // Recompute alertStatus whenever peak maturity window changes
+    const from = ('peakMaturityFrom' in safePatch ? safePatch.peakMaturityFrom : existing.peakMaturityFrom) as number | null | undefined;
+    const to = ('peakMaturityTo' in safePatch ? safePatch.peakMaturityTo : existing.peakMaturityTo) as number | null | undefined;
+    const alertStatus = computeAlertStatus(from, to);
 
     return prisma.bottle.update({
       where: { id },
-      data: {
-        ...this.mapInputToDb(safePatch as BottlePatch),
-        updatedAt: new Date(),
-      },
+      data: { ...dbData, alertStatus, updatedAt: new Date() },
     });
   }
 
@@ -198,6 +206,7 @@ export class BottleService {
     if (d['openedAt'] !== undefined) result['openedAt'] = d['openedAt'];
     if (d['reminderDate'] !== undefined) result['reminderDate'] = d['reminderDate'];
     if (d['alertStatus'] !== undefined) result['alertStatus'] = d['alertStatus'];
+    if (d['alertsPaused'] !== undefined) result['alertsPaused'] = d['alertsPaused'];
     if (d['lockedFields'] !== undefined) result['lockedFields'] = d['lockedFields'];
     if (d['cellarId'] !== undefined) result['cellarId'] = d['cellarId'];
 
@@ -209,6 +218,8 @@ export class BottleService {
     if (d['alcoholDegree'] !== undefined) result['alcoholDegree'] = d['alcoholDegree'];
     if (d['bottleSize'] !== undefined) result['bottleSize'] = d['bottleSize'];
     if (d['peakMaturity'] !== undefined) result['peakMaturity'] = d['peakMaturity'];
+    if (d['peakMaturityFrom'] !== undefined) result['peakMaturityFrom'] = d['peakMaturityFrom'];
+    if (d['peakMaturityTo'] !== undefined) result['peakMaturityTo'] = d['peakMaturityTo'];
     if (d['needsAeration'] !== undefined) result['needsAeration'] = d['needsAeration'];
     if (d['serviceTemp'] !== undefined) result['serviceTemp'] = d['serviceTemp'];
     if (d['lotNumber'] !== undefined) result['lotNumber'] = d['lotNumber'];

@@ -84,6 +84,10 @@
       "openedAt": "Opened on",
       "reminderDate": "Consumption reminder",
       "alertStatus": "Peak status",
+      "peakMaturityFrom": "Optimal window start (year)",
+      "peakMaturityFromHint": "First year of the ideal tasting period",
+      "peakMaturityTo": "Optimal window end (year)",
+      "peakMaturityToHint": "Last year of the ideal tasting period",
       "vintage": "Vintage",
       "noVintage": "No vintage",
       "color": "Color",
@@ -159,6 +163,17 @@
       "title": "Reminders to consume",
       "viewAll": "View all reminders"
     }
+  },
+  "alerts": {
+    "title": "Peak Maturity Alerts",
+    "window": "Optimal window",
+    "from": "From",
+    "until": "Until",
+    "paused": "Alert paused",
+    "pauseAlert": "Pause alert",
+    "resumeAlert": "Resume alert",
+    "pastCount": "{{count}} past peak",
+    "peakCount": "{{count}} at peak"
   },
   "toast": {
     "createSuccess": "Bottle added successfully",

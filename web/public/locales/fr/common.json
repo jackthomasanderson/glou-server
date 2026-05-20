@@ -84,6 +84,10 @@
       "openedAt": "Ouverte le",
       "reminderDate": "Rappel de consommation",
       "alertStatus": "Statut apogée",
+      "peakMaturityFrom": "Début de fenêtre optimale (année)",
+      "peakMaturityFromHint": "Première année de la période idéale",
+      "peakMaturityTo": "Fin de fenêtre optimale (année)",
+      "peakMaturityToHint": "Dernière année de la période idéale",
       "vintage": "Millésime",
       "noVintage": "Sans millésime",
       "color": "Couleur",
@@ -159,6 +163,17 @@
       "title": "Rappels à consommer",
       "viewAll": "Voir tous les rappels"
     }
+  },
+  "alerts": {
+    "title": "Alertes Apogée",
+    "window": "Fenêtre optimale",
+    "from": "À partir de",
+    "until": "Jusqu'en",
+    "paused": "Alerte suspendue",
+    "pauseAlert": "Suspendre l'alerte",
+    "resumeAlert": "Réactiver l'alerte",
+    "pastCount": "{{count}} passé l'apogée",
+    "peakCount": "{{count}} à l'apogée"
   },
   "toast": {
     "createSuccess": "Bouteille ajoutée avec succès",

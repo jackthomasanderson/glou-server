@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useHasMounted } from '@/hooks/useHasMounted';
 
 import {
@@ -16,6 +16,7 @@ import SportsMmaIcon from '@mui/icons-material/SportsMma';
 import GrassIcon from '@mui/icons-material/Grass';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import { Bottle, BottleCategory } from '@/lib/bottles/types';
+import { DrinkingWindowBadge } from './DrinkingWindowBadge';
 
 const CATEGORY_ICONS: Record<BottleCategory, React.ReactElement> = {
   wine: <WineBarIcon fontSize="small" />,
@@ -117,13 +118,13 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t, isSelec
               />
             </Tooltip>
           )}
-          {bottle.alertStatus && bottle.alertStatus !== 'none' && (
-            <Chip
-              label={t(`bottle.alertStatus.${bottle.alertStatus}`)}
-              size="small"
-              color={bottle.alertStatus === 'peak' ? 'success' : 'default'}
-            />
-          )}
+          <DrinkingWindowBadge
+            alertStatus={bottle.alertStatus}
+            alertsPaused={bottle.alertsPaused}
+            peakMaturityFrom={bottle.peakMaturityFrom}
+            peakMaturityTo={bottle.peakMaturityTo}
+            t={t}
+          />
           {bottle.location && (
             <Chip label={bottle.location} size="small" variant="outlined" />
           )}

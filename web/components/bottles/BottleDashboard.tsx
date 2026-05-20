@@ -31,6 +31,7 @@ import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import CloseIcon from '@mui/icons-material/Close';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { BulkActionDialog } from './BulkActionDialog';
+import { AlertCenter } from './AlertCenter';
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
@@ -396,6 +397,9 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           </Stack>
         </Paper>
       </Collapse>
+
+      {/* Alert center: drinking window notifications */}
+      {mode === 'idle' && <AlertCenter t={t} />}
 
       {/* Error state */}
       {isError && (

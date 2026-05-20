@@ -11,10 +11,6 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
   const { i18n } = useTranslation();
   const hasMounted = useHasMounted();
 
-
-  if (!hasMounted) {
-    return <div style={{ visibility: 'hidden' }}>{children}</div>;
-  }
   useEffect(() => {
     if (user?.language) {
       const lang = user.language.toLowerCase();
@@ -24,7 +20,6 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [user?.language, i18n]);
 
-  // Handle Theme Sync
   const theme = useMemo(() => {
     const mode = user?.theme?.toLowerCase() === 'dark' ? 'dark' : 'light';
     const primaryColor = user?.accentColor || '#6366f1';
@@ -32,25 +27,21 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
     return createTheme({
       palette: {
         mode,
-        primary: {
-          main: primaryColor,
-        },
-        secondary: {
-          main: '#f43f5e', // Rose
-        },
+        primary: { main: primaryColor },
+        secondary: { main: '#f43f5e' },
         background: {
           default: mode === 'dark' ? '#0f172a' : '#f8fafc',
           paper: mode === 'dark' ? '#1e293b' : '#ffffff',
         },
       },
-      shape: {
-        borderRadius: 12,
-      },
-      typography: {
-        fontFamily: 'var(--font-inter), Roboto, sans-serif',
-      },
+      shape: { borderRadius: 12 },
+      typography: { fontFamily: 'var(--font-inter), Roboto, sans-serif' },
     });
   }, [user?.theme, user?.accentColor]);
+
+  if (!hasMounted) {
+    return <div style={{ visibility: 'hidden' }}>{children}</div>;
+  }
 
   return (
     <ThemeProvider theme={theme}>

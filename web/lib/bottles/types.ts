@@ -28,6 +28,8 @@ export interface Bottle {
   alcoholDegree?: number | null;
   bottleSize?: string | null;
   peakMaturity?: string | null;
+  peakMaturityFrom?: number | null;
+  peakMaturityTo?: number | null;
   needsAeration?: boolean | null;
   serviceTemp?: string | null;
   lotNumber?: string | null;
@@ -64,6 +66,7 @@ export interface Bottle {
   openedAt?: string | null;
   reminderDate?: string | null;
   alertStatus?: AlertStatus | null;
+  alertsPaused?: boolean;
   lockedFields: string[];
   deletedAt?: string | null;
   createdAt: string;

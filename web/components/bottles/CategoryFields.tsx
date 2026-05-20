@@ -241,10 +241,38 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
     </>
   );
 
+  const peakWindowFields = (
+    <>
+      <Grid item xs={12} sm={6} key="peakMaturityFrom">
+        <TextField
+          fullWidth
+          label={t('bottle.fields.peakMaturityFrom')}
+          type="number"
+          value={String(values['peakMaturityFrom'] ?? '')}
+          onChange={(e) => onChange('peakMaturityFrom', e.target.value ? Number(e.target.value) : null)}
+          inputProps={{ min: 1800, max: 2200, step: 1 }}
+          helperText={t('bottle.fields.peakMaturityFromHint')}
+        />
+      </Grid>
+      <Grid item xs={12} sm={6} key="peakMaturityTo">
+        <TextField
+          fullWidth
+          label={t('bottle.fields.peakMaturityTo')}
+          type="number"
+          value={String(values['peakMaturityTo'] ?? '')}
+          onChange={(e) => onChange('peakMaturityTo', e.target.value ? Number(e.target.value) : null)}
+          inputProps={{ min: 1800, max: 2200, step: 1 }}
+          helperText={t('bottle.fields.peakMaturityToHint')}
+        />
+      </Grid>
+    </>
+  );
+
   const wineOptionals = (
     <>
       {field('bottleSize', t('bottle.fields.bottleSize'))}
       {field('peakMaturity', t('bottle.fields.peakMaturity'))}
+      {peakWindowFields}
       {field('serviceTemp', t('bottle.fields.serviceTemp'))}
       {field('lotNumber', t('bottle.fields.lotNumber'))}
       <Grid item xs={12} sm={6} key="needsAeration">
@@ -265,6 +293,7 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
     <>
       {field('bottleSize', t('bottle.fields.bottleSize'))}
       {field('peakMaturity', t('bottle.fields.peakMaturity'))}
+      {peakWindowFields}
       {field('serviceTemp', t('bottle.fields.serviceTemp'))}
       {field('baseYear', t('bottle.fields.baseYear'), 'number')}
     </>

@@ -9,6 +9,7 @@ import cellarsRouter from './routes/cellars.router';
 import userRouter from './routes/user.router';
 import adminRouter from './routes/admin.router';
 import bulkPresetsRouter from './routes/bulk-presets.router';
+import { alertsRouter } from './routes/alerts.router';
 import { errorMiddleware } from './middleware/error.middleware';
 import { bottleService } from './services/bottle.service';
 import { purgeOldAuditLogs } from './services/audit.service';
@@ -45,6 +46,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/cellars', cellarsRouter);
 app.use('/api/bottles', bottlesRouter);
 app.use('/api/bulk-presets', bulkPresetsRouter);
+app.use('/api/alerts', alertsRouter);
 app.use('/api/user', userRouter);
 app.use('/api/admin', adminRouter);
 
