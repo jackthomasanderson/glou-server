@@ -1,56 +1,66 @@
 <div align="center">
   <h1>🍷 Glou</h1>
   <p><strong>Simply precious.</strong></p>
-  <p>Glou is a high-fidelity asset management ecosystem for luxury collections (wines, bubbles, spirits, and cigars). By combining visual recognition, expert data, and predictive indicators, we help collectors preserve the integrity of their assets and master their peak maturity.</p>
+  <p>Glou is a self-hosted asset manager for luxury collections — wines, spirits, bubbles, and cigars. Visual recognition, expert data, and peak maturity indicators in one stack you fully own.</p>
 </div>
 
 ---
 
 ## ✨ Top 5 Highlights
-1. 📸 **Zero-Effort Intake (Hybrid System)**: Snap a photo of a label! Our OCR/vision system instantly pre-fills the details so your inventory is effortlessly up to date.
-2. 🤝 **Shared Inventory**: Designed for collaboration. All users on the instance share a single common inventory, making it perfect for families, roommates, or wine clubs.
-3. 🧠 **Smart Data Engine**: Automatic enrichment via APIs (Vivino, Whiskybase) seamlessly integrated with our proprietary local cache.
-4. 💎 **High-Fidelity Immersive UX**: A sleek design system offering instant-feel performance.
-5. 🛡️ **Built for Scale & Security**: A robust Docker Compose stack running cleanly and safely.
+1. 📸 **Zero-Effort Intake**: Snap a label photo. OCR pre-fills the details instantly.
+2. 🤝 **Shared Inventory**: Every user on the instance shares one collective cellar — built for families, roommates, and wine clubs.
+3. 🧠 **Smart Data Engine**: Auto-enrichment via Vivino and Whiskybase, backed by a local cache.
+4. 🔔 **Peak Maturity Alerts**: Get notified when a bottle enters its drinking window before it's too late.
+5. 🛡️ **Fully Self-Hosted**: A Docker Compose stack (Node.js · Next.js · PostgreSQL) you run on your own machine.
 
 ---
 
 ## 🚀 Quick Start
-Get your own instance of Glou running in under 2 minutes.
 
 **Prerequisites:**
-- Docker & Docker Compose installed.
+- Docker installed and running.
 
-**Commands:**
+**Step 1 — Configure**
 ```bash
-# 1. Copy the example environment file
 cp .env.example .env
-
-# 2. Launch the entire stack in detached mode
-docker-compose up -d
 ```
+Open `.env` and set a strong `JWT_SECRET`.
 
-**Access:**
-Once the containers are up, simply navigate to [http://localhost:3000](http://localhost:3000) to access the Glou web interface. The API runs quietly on port 3001.
+> [!CAUTION]
+> `JWT_SECRET` has no safe default. Running with the placeholder value makes all user sessions trivially forgeable. Generate one with: `openssl rand -hex 32`
 
-*Note: For advanced configurations, environment variables, and troubleshooting, please refer to our comprehensive [Wiki](./docs/wiki/EN/_wiki.md).*
+**Step 2 — Launch**
+```bash
+docker compose up -d
+```
+Docker pulls the pre-built images and starts the stack. No compilation required.
+
+**Step 3 — Create your account**
+
+Open [http://localhost:3000](http://localhost:3000) and click **Register**. The first account you create is automatically granted admin privileges.
+
+> [!TIP]
+> To update to a new version: `docker compose pull && docker compose up -d`
+
+*For advanced configuration, environment variables, and troubleshooting, see the [Wiki](./docs/wiki/EN/_wiki.md).*
 
 ---
 
 ## 🗺️ Roadmap & Next Steps
-Glou is constantly evolving. Here is a glimpse of what's currently cooking and what's on the horizon.
 
 ### 🏗️ In Progress (WIP)
-- 🔒 **Enhanced Security (FEAT-02)**: Introducing 2FA (Two-Factor Authentication) for robust account protection.
-- 🎨 **User Profiles & Personalization (FEAT-03)**: Total control over your UI theme (dark/light), accent colors, language (FR/EN), and regional formats without reloading.
-- ⚡ **Express Label Scanning (FEAT-04)**: Upgrading our OCR intake flow to handle rapid "session mode" scanning for bulk inventory updates.
+- 🔒 **Two-Factor Authentication (FEAT-02)**: TOTP-based 2FA for account protection.
+- ⚡ **Express Label Scanning (FEAT-04)**: Session mode for scanning dozens of bottles in one go.
 
 ### ✅ Recently Implemented
-- 🏷️ **Contextual Asset CRUD (FEAT-01)**: Adaptive creation workflows tailored perfectly to wines, bubbles, spirits, or boxes of cigars.
-- 🔍 **Advanced Search & Faceted Filtering (FEAT-48)**: Quickly find bottles by name, producer, vintage, category or cellar with real-time suggestions and chip filters.
-- 📦 **Bulk Actions & Predicates (FEAT-11)**: Massively update your collection and save action models (presets) to automate routine maintenance.
+- 👥 **Member Roles & Access Control (FEAT-61)**: Admins can activate/deactivate user accounts with immediate effect (live JWT invalidation) and browse a paginated audit log.
+- 🔔 **Peak Maturity Alerts (FEAT-06)**: Automated alerts when a bottle enters its optimal drinking window.
+- 🎨 **User Profiles & Personalization (FEAT-03)**: Theme, accent color, language (FR/EN), and date format — applied instantly.
+- 🏷️ **Contextual Asset CRUD (FEAT-01)**: Adaptive creation workflows for wines, bubbles, spirits, and cigars.
+- 🔍 **Advanced Search & Faceted Filtering (FEAT-48)**: Find any bottle by name, producer, vintage, category, or cellar in real time.
+- 📦 **Bulk Actions & Presets (FEAT-11)**: Update your collection in bulk and save action presets to automate routine tasks.
 
 ### 🔮 Next Up
-- Predictive analytics for asset valuation.
-- Advanced IoT integration for live cellar and humidor monitoring.
+- Predictive analytics for collection valuation.
+- Advanced IoT integration for live cellar temperature and humidity monitoring.
 - Native mobile companion application.

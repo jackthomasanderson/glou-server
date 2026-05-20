@@ -1,56 +1,66 @@
 <div align="center">
   <h1>🍷 Glou</h1>
   <p><strong>Simplement précieux.</strong></p>
-  <p>Glou est un écosystème de gestion intelligente et haute fidélité pour vos actifs de luxe (vins, bulles, spiritueux, cigares). En combinant reconnaissance visuelle, données d'experts et indicateurs prédictifs, nous aidons les collectionneurs à préserver l'intégrité de leurs actifs et à maîtriser leur apogée.</p>
+  <p>Glou est un gestionnaire d'actifs auto-hébergé pour collections de luxe — vins, spiritueux, bulles et cigares. Reconnaissance visuelle, données d'experts et indicateurs d'apogée dans une stack que vous maîtrisez entièrement.</p>
 </div>
 
 ---
 
 ## ✨ Le Top 5
-1. 📸 **Saisie Zéro Effort (Système Hybride)** : Prenez une photo de l'étiquette ! Notre système OCR/vision remplit instantanément les détails.
-2. 🤝 **Inventaire Partagé** : Conçu pour la collaboration. Tous les utilisateurs de l'instance partagent un inventaire commun unique (parfait pour les familles ou clubs).
-3. 🧠 **Smart Data Engine** : Enrichissement automatique via APIs (Vivino, Whiskybase) intégré à notre cache local propriétaire.
-4. 💎 **UX Immersive Haute Fidélité** : Un design system élégant offrant des performances instantanées.
-5. 🛡️ **Sécurité et Évolutivité** : Une stack Docker Compose robuste (Node.js, Next.js, PostgreSQL).
+1. 📸 **Saisie Zéro Effort** : Photographiez une étiquette. L'OCR remplit les détails instantanément.
+2. 🤝 **Inventaire Partagé** : Tous les utilisateurs de l'instance partagent une cave commune — parfait pour les familles, colocataires et clubs.
+3. 🧠 **Smart Data Engine** : Enrichissement automatique via Vivino et Whiskybase, avec cache local.
+4. 🔔 **Alertes Apogée** : Soyez notifié quand une bouteille entre dans sa fenêtre de dégustation optimale.
+5. 🛡️ **Totalement Auto-Hébergé** : Une stack Docker Compose (Node.js · Next.js · PostgreSQL) que vous faites tourner chez vous.
 
 ---
 
 ## 🚀 L'Autoroute (Quick Start)
-Démarrez votre propre instance de Glou en moins de 2 minutes.
 
 **Prérequis :**
-- Docker et Docker Compose installés.
+- Docker installé et en cours d'exécution.
 
-**Commandes :**
+**Étape 1 — Configurer**
 ```bash
-# 1. Copier le fichier d'environnement d'exemple
 cp .env.example .env
-
-# 2. Lancer la stack complète en arrière-plan
-docker-compose up -d
 ```
+Ouvrez `.env` et renseignez un `JWT_SECRET` robuste.
 
-**Accès :**
-Une fois les conteneurs démarrés, rendez-vous simplement sur [http://localhost:3000](http://localhost:3000) pour accéder à l'interface web. L'API tourne silencieusement sur le port 3001.
+> [!CAUTION]
+> `JWT_SECRET` n'a pas de valeur par défaut sûre. Utiliser la valeur d'exemple rend toutes les sessions utilisateurs falsifiables. Générez-en une avec : `openssl rand -hex 32`
 
-*Note : Pour les configurations avancées et la résolution de problèmes, consultez notre [Wiki](./docs/wiki/FR/_wiki.md).*
+**Étape 2 — Lancer**
+```bash
+docker compose up -d
+```
+Docker télécharge les images pré-construites et démarre la stack. Aucune compilation requise.
+
+**Étape 3 — Créer votre compte**
+
+Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **S'inscrire**. Le premier compte créé reçoit automatiquement les droits administrateur.
+
+> [!TIP]
+> Pour mettre à jour vers une nouvelle version : `docker compose pull && docker compose up -d`
+
+*Pour la configuration avancée, les variables d'environnement et le dépannage, consultez le [Wiki](./docs/wiki/FR/_wiki.md).*
 
 ---
 
 ## 🗺️ Roadmap & Prochaines Étapes
-Glou évolue constamment. Voici un aperçu de ce qui se prépare en cuisine.
 
 ### 🏗️ En Cours (WIP)
-- 🔒 **Sécurité Renforcée (FEAT-02)** : Arrivée de la double authentification (2FA) pour protéger votre compte.
-- 🎨 **Profils & Personnalisation (FEAT-03)** : Contrôle total sur votre thème (clair/sombre), vos couleurs d'accentuation, et vos unités (FR/EN) appliqués instantanément.
-- ⚡ **Scan Express (FEAT-04)** : Amélioration du flux OCR pour un "mode session" permettant de scanner des dizaines d'articles à la volée.
+- 🔒 **Double Authentification (FEAT-02)** : 2FA basée sur TOTP pour protéger votre compte.
+- ⚡ **Scan Express (FEAT-04)** : Mode session pour scanner des dizaines de bouteilles d'affilée.
 
 ### ✅ Récemment Ajouté
-- 🏷️ **Gestion Contextuelle (FEAT-01)** : Ajout et édition "intelligents", s'adaptant parfaitement au type d'actif (vins, bulles, spiritueux, cigares).
-- 🔍 **Recherche Avancée & Filtres (FEAT-48)** : Retrouvez vos bouteilles en un instant grâce aux suggestions et aux filtres par cave, catégorie et millésime.
-- 📦 **Actions Groupées & Modèles (FEAT-11)** : Modifiez massivement vos bouteilles et sauvegardez des modèles d'actions (presets) pour automatiser vos routines.
+- 👥 **Rôles & Contrôle d'Accès (FEAT-61)** : Les admins peuvent activer/désactiver les comptes avec effet immédiat (invalidation JWT en live) et consulter un journal d'audit paginé.
+- 🔔 **Alertes Apogée (FEAT-06)** : Alertes automatiques quand une bouteille entre dans sa fenêtre de dégustation optimale.
+- 🎨 **Profils & Personnalisation (FEAT-03)** : Thème, couleur d'accent, langue (FR/EN) et format de date — appliqués instantanément.
+- 🏷️ **Gestion Contextuelle (FEAT-01)** : Création et édition adaptées au type d'actif (vins, bulles, spiritueux, cigares).
+- 🔍 **Recherche Avancée & Filtres (FEAT-48)** : Retrouvez n'importe quelle bouteille par nom, producteur, millésime, catégorie ou cave en temps réel.
+- 📦 **Actions Groupées & Modèles (FEAT-11)** : Mettez à jour votre cave en masse et sauvegardez des modèles pour automatiser vos routines.
 
 ### 🔮 À Venir
-- Analyses prédictives pour la valorisation de la cave.
-- Intégration IoT avancée pour le suivi en direct de l'hygrométrie et de la température.
-- Application mobile native d'accompagnement.
+- Analyses prédictives pour la valorisation de la collection.
+- Intégration IoT avancée pour le suivi en direct de la température et de l'hygrométrie.
+- Application mobile native.
