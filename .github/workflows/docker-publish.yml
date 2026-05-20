@@ -8,6 +8,7 @@ on:
 env:
   IMAGE_API: ghcr.io/jackthomasanderson/glou-server-api
   IMAGE_WEB: ghcr.io/jackthomasanderson/glou-server-web
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-and-push:
