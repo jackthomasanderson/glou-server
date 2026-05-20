@@ -7,3 +7,5 @@ Bienvenue sur le wiki de Glou. Cette documentation est strictement focalisée su
 2. [Configuration](./02-Configuration.md)
 3. [Dépannage](./03-Depannage.md)
 4. [Gestion des Caves](./04-Gestion-Des-Caves.md)
+5. [Ajouter une Bouteille](./05-Ajout-Bouteille.md)
+6. [Alertes Apogée](./06-Alertes-Apogee.md)

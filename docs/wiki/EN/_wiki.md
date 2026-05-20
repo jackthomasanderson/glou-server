@@ -7,3 +7,5 @@ Welcome to the Glou wiki. This documentation strictly focuses on setup, configur
 2. [Configuration](./02-Configuration.md)
 3. [Troubleshooting](./03-Troubleshooting.md)
 4. [Cellar Management](./04-Cellar-Management.md)
+5. [Bottle Addition](./05-Bottle-Addition.md)
+6. [Peak Maturity Alerts](./06-Peak-Maturity-Alerts.md)
