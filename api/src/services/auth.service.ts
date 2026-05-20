@@ -24,7 +24,6 @@ export interface PublicUser {
   id: string;
   username: string;
   email: string;
-  displayName: string | null;
   avatarUrl: string | null;
   appName: string | null;
   appSlogan: string | null;
@@ -48,7 +47,7 @@ export class AuthService {
    * Register a new user.
    */
   async register(data: RegisterInput): Promise<{ user: PublicUser; token: string }> {
-    const { username, email, password, displayName } = data;
+    const { username, email, password } = data;
 
     // Check uniqueness
     const existing = await prisma.user.findFirst({
@@ -70,7 +69,6 @@ export class AuthService {
       data: {
         username,
         email,
-        displayName: displayName ?? null,
         passwordHash,
         isAdmin,
       },
@@ -78,7 +76,6 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
-        displayName: true,
         avatarUrl: true,
         appName: true,
         appSlogan: true,
@@ -110,6 +107,7 @@ export class AuthService {
     });
 
     if (!user) throw new Error('INVALID_CREDENTIALS');
+    if (!user.isActive) throw new Error('ACCOUNT_DEACTIVATED');
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw new Error('INVALID_CREDENTIALS');
@@ -118,7 +116,6 @@ export class AuthService {
       id: user.id,
       username: user.username,
       email: user.email,
-      displayName: user.displayName,
       avatarUrl: user.avatarUrl,
       appName: user.appName,
       appSlogan: user.appSlogan,
@@ -150,7 +147,6 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
-        displayName: true,
         avatarUrl: true,
         appName: true,
         appSlogan: true,
@@ -170,6 +166,14 @@ export class AuthService {
    * Update user profile (UI-facing infos)
    */
   async updateProfile(userId: string, data: UpdateProfileInput): Promise<PublicUser> {
+    if (data.username) {
+      const existing = await prisma.user.findFirst({
+        where: { username: data.username, NOT: { id: userId } },
+        select: { id: true },
+      });
+      if (existing) throw new Error('USERNAME_ALREADY_TAKEN');
+    }
+
     const user = await prisma.user.update({
       where: { id: userId },
       data,
@@ -177,7 +181,6 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
-        displayName: true,
         avatarUrl: true,
         appName: true,
         appSlogan: true,
@@ -237,7 +240,6 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
-        displayName: true,
         avatarUrl: true,
         appName: true,
         appSlogan: true,
@@ -280,7 +282,6 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
-        displayName: true,
         avatarUrl: true,
         appName: true,
         appSlogan: true,
@@ -434,7 +435,6 @@ export class AuthService {
       id: user.id,
       username: user.username,
       email: user.email,
-      displayName: user.displayName,
       avatarUrl: user.avatarUrl,
       appName: user.appName,
       appSlogan: user.appSlogan,

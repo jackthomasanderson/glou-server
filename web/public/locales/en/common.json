@@ -28,7 +28,8 @@
     "filter": "Filter",
     "clearAll": "Clear all",
     "showMore": "Show optional fields",
-    "showLess": "Hide optional fields"
+    "showLess": "Hide optional fields",
+    "view": "View"
   },
   "status": {
     "loading": "Loading…",
@@ -46,6 +47,7 @@
   "bottle": {
     "add": "Add a bottle",
     "edit": "Edit bottle",
+    "details": "Bottle details",
     "delete": "Delete bottle",
     "restore": "Restore bottle",
     "deleteConfirm": "The bottle will be moved to the trash.",
@@ -70,7 +72,12 @@
     "fields": {
       "category": "Category",
       "name": "Name",
-      "producer": "Producer / House / Distillery / Brand",
+      "producer": "Producer",
+      "producerPlaceholder": {
+        "wine": "Château / Domaine / Négociant",
+        "sparkling": "House / Domain / Cooperative",
+        "spirit": "Distillery / Brand"
+      },
       "location": "Location",
       "collection": "Collection",
       "tags": "Tags",
@@ -192,6 +199,7 @@
     "username": "Username",
     "email": "Email address",
     "password": "Password (min. 12 characters)",
+    "confirmPassword": "Confirm password",
     "displayName": "Display name (optional)",
     "identifier": "Username or email",
     "loginCta": "Sign in",
@@ -207,7 +215,8 @@
       "UNEXPECTED_ERROR": "An unexpected error occurred.",
       "USERNAME_TOO_SHORT": "Username must be at least 3 characters long.",
       "PASSWORD_TOO_SHORT": "Password must be at least 12 characters long.",
-      "USERNAME_INVALID_CHARS": "Allowed characters: letters, numbers, - and _."
+      "USERNAME_INVALID_CHARS": "Allowed characters: letters, numbers, - and _.",
+      "PASSWORDS_DO_NOT_MATCH": "Passwords do not match."
     }
   },
   "cellars": {
@@ -272,6 +281,39 @@
   },
   "admin": {
     "title": "Administration",
+    "users": {
+      "title": "Member Management",
+      "subtitle": "Manage roles and access for each member of this instance.",
+      "columns": {
+        "email": "Email",
+        "username": "Username",
+        "role": "Admin",
+        "status": "Status",
+        "createdAt": "Created"
+      },
+      "active": "Active",
+      "inactive": "Deactivated",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "deactivateSelf": "You cannot deactivate your own account",
+      "deactivateLastAdmin": "You cannot deactivate the last administrator",
+      "me": "me"
+    },
+    "auditLog": {
+      "title": "Audit Log",
+      "subtitle": "All actions performed on this instance.",
+      "columns": {
+        "date": "Date",
+        "user": "Member",
+        "action": "Action",
+        "status": "Status",
+        "ip": "IP Address"
+      },
+      "noLogs": "No log entries",
+      "prevPage": "Previous",
+      "nextPage": "Next",
+      "pageInfo": "Page {{page}} / {{pages}} — {{total}} entries"
+    },
     "maintenance": {
       "title": "Maintenance",
       "purge": {

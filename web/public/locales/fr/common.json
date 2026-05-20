@@ -28,7 +28,8 @@
     "filter": "Filtrer",
     "clearAll": "Tout effacer",
     "showMore": "Afficher les compléments",
-    "showLess": "Masquer les compléments"
+    "showLess": "Masquer les compléments",
+    "view": "Voir"
   },
   "status": {
     "loading": "Chargement…",
@@ -46,6 +47,7 @@
   "bottle": {
     "add": "Ajouter une bouteille",
     "edit": "Modifier la bouteille",
+    "details": "Détails de la bouteille",
     "delete": "Supprimer la bouteille",
     "restore": "Restaurer la bouteille",
     "deleteConfirm": "La bouteille sera déplacée dans la corbeille.",
@@ -70,7 +72,12 @@
     "fields": {
       "category": "Catégorie",
       "name": "Nom",
-      "producer": "Producteur / Maison / Distillerie / Marque",
+      "producer": "Producteur",
+      "producerPlaceholder": {
+        "wine": "Château / Domaine / Négociant",
+        "sparkling": "Maison / Domaine / Coopérative",
+        "spirit": "Distillerie / Marque"
+      },
       "location": "Emplacement",
       "collection": "Collection",
       "tags": "Étiquettes",
@@ -192,6 +199,7 @@
     "username": "Nom d'utilisateur",
     "email": "Adresse email",
     "password": "Mot de passe (12 caractères min.)",
+    "confirmPassword": "Confirmer le mot de passe",
     "displayName": "Nom affiché (facultatif)",
     "identifier": "Identifiant ou email",
     "loginCta": "Se connecter",
@@ -207,7 +215,8 @@
       "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
       "USERNAME_TOO_SHORT": "Le nom d'utilisateur doit contenir au moins 3 caractères.",
       "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 12 caractères.",
-      "USERNAME_INVALID_CHARS": "Caractères autorisés : lettres, chiffres, - et _."
+      "USERNAME_INVALID_CHARS": "Caractères autorisés : lettres, chiffres, - et _.",
+      "PASSWORDS_DO_NOT_MATCH": "Les mots de passe ne correspondent pas."
     }
   },
   "cellars": {
@@ -272,6 +281,39 @@
   },
   "admin": {
     "title": "Administration",
+    "users": {
+      "title": "Gestion des membres",
+      "subtitle": "Gérez les rôles et l'accès de chaque membre à cette instance.",
+      "columns": {
+        "email": "Email",
+        "username": "Nom d'utilisateur",
+        "role": "Administrateur",
+        "status": "Statut",
+        "createdAt": "Créé le"
+      },
+      "active": "Actif",
+      "inactive": "Désactivé",
+      "activate": "Réactiver",
+      "deactivate": "Désactiver",
+      "deactivateSelf": "Impossible de désactiver votre propre compte",
+      "deactivateLastAdmin": "Impossible de désactiver le dernier administrateur",
+      "me": "moi"
+    },
+    "auditLog": {
+      "title": "Journal d'audit",
+      "subtitle": "Toutes les actions effectuées sur cette instance.",
+      "columns": {
+        "date": "Date",
+        "user": "Membre",
+        "action": "Action",
+        "status": "Statut",
+        "ip": "Adresse IP"
+      },
+      "noLogs": "Aucune entrée de journal",
+      "prevPage": "Précédent",
+      "nextPage": "Suivant",
+      "pageInfo": "Page {{page}} / {{pages}} — {{total}} entrées"
+    },
     "maintenance": {
       "title": "Maintenance",
       "purge": {

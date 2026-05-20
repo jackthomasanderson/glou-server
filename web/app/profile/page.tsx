@@ -32,7 +32,6 @@ export default function ProfilePage() {
   const updatePrefs = useUpdatePreferences();
 
   const [profileData, setProfileData] = useState({
-    displayName: '',
     avatarUrl: '',
     appName: '',
     appSlogan: ''
@@ -51,7 +50,6 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       setProfileData({
-        displayName: user.displayName || '',
         avatarUrl: user.avatarUrl || '',
         appName: user.appName || '',
         appSlogan: user.appSlogan || ''
@@ -143,15 +141,6 @@ export default function ProfilePage() {
                 {user && <AvatarUploader user={user} />}
 
                 <Box component="form" onSubmit={handleProfileSubmit}>
-                  <TextField
-                    fullWidth
-                    label={t('auth.displayName')}
-                    value={profileData.displayName}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, displayName: e.target.value }))}
-                    margin="normal"
-                    size="small"
-                  />
-
                   <TextField
                     fullWidth
                     label={t('profile.appName')}

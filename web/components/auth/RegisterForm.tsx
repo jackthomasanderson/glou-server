@@ -27,7 +27,10 @@ const createRegisterSchema = (t: (key: string) => string) =>
       .regex(/^[a-zA-Z0-9_-]+$/, t('auth.errors.USERNAME_INVALID_CHARS')),
     email: z.string().email(t('auth.errors.VALIDATION_ERROR')),
     password: z.string().min(12, t('auth.errors.PASSWORD_TOO_SHORT')),
-    displayName: z.string().optional(),
+    confirmPassword: z.string(),
+  }).refine((data) => data.password === data.confirmPassword, {
+    message: t('auth.errors.PASSWORDS_DO_NOT_MATCH'),
+    path: ['confirmPassword'],
   });
 
 export function RegisterForm() {
@@ -46,12 +49,13 @@ export function RegisterForm() {
     formState: { errors },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { username: '', email: '', password: '', displayName: '' },
+    defaultValues: { username: '', email: '', password: '', confirmPassword: '' },
   });
 
-  const onSubmit = (data: RegisterFormValues) => {
+  const onSubmit = (formValues: RegisterFormValues) => {
     setApiError(null);
-    registerMutation.mutate(data, {
+    const { username, email, password } = formValues;
+    registerMutation.mutate({ username, email, password }, {
       onError: (error) => {
         const msgKey = `auth.errors.${error.message}`;
         const translated = t(msgKey);
@@ -150,22 +154,23 @@ export function RegisterForm() {
           )}
         />
         <Controller
-          name="displayName"
+          name="confirmPassword"
           control={control}
           render={({ field }) => (
             <TextField
               {...field}
-              label={t('auth.displayName')}
+              type="password"
+              label={t('auth.confirmPassword')}
               fullWidth
+              autoComplete="new-password"
               margin="normal"
-              error={!!errors.displayName}
-              helperText={errors.displayName?.message}
+              error={!!errors.confirmPassword}
+              helperText={errors.confirmPassword?.message}
               disabled={isPending}
               InputLabelProps={{ shrink: true }}
             />
           )}
         />
-
         <Button
           type="submit"
           fullWidth

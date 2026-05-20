@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const updateProfileSchema = z.object({
-  displayName: z.string().min(1).max(60).optional().nullable(),
+  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/).optional(),
   avatarUrl: z.string().url().max(500).optional().nullable().or(z.literal('')),
   appName: z.string().max(40).optional().nullable().or(z.literal('')),
   appSlogan: z.string().max(100).optional().nullable().or(z.literal('')),

@@ -32,6 +32,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { BulkActionDialog } from './BulkActionDialog';
 import { AlertCenter } from './AlertCenter';
+import { BottleDetailDialog } from './BottleDetailDialog';
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
@@ -55,6 +56,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
 
   const [mode, setMode] = useState<UIMode>('idle');
   const [editingBottle, setEditingBottle] = useState<Bottle | null>(null);
+  const [viewingBottle, setViewingBottle] = useState<Bottle | null>(null);
 
   // Undo toast state
   const [undoTarget, setUndoTarget] = useState<Bottle | null>(null);
@@ -251,6 +253,10 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   const handleEdit = useCallback((bottle: Bottle) => {
     setEditingBottle(bottle);
     setMode('editing');
+  }, []);
+
+  const handleView = useCallback((bottle: Bottle) => {
+    setViewingBottle(bottle);
   }, []);
 
   const handleCancel = useCallback(() => {
@@ -536,6 +542,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
                 categoryLabel={categoryLabel(bottle.category)}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onView={bulkMode ? undefined : handleView}
                 t={t}
                 isSelected={selectedIds.has(bottle.id)}
                 onSelectToggle={bulkMode ? handleSelectToggle : undefined}
@@ -614,6 +621,14 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
         selectedBottles={bottles?.filter(b => selectedIds.has(b.id)) || []}
         onApply={handleBulkApply}
         isSubmitting={bulkUpdateMutation.isPending}
+        t={t}
+      />
+
+      <BottleDetailDialog
+        bottle={viewingBottle}
+        open={Boolean(viewingBottle)}
+        onClose={() => setViewingBottle(null)}
+        onEdit={handleEdit}
         t={t}
       />
     </Container>

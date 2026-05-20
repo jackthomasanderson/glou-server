@@ -6,7 +6,6 @@ export interface PublicUser {
   id: string;
   username: string;
   email: string;
-  displayName: string | null;
   avatarUrl: string | null;
   appName: string | null;
   appSlogan: string | null;
@@ -79,7 +78,7 @@ export function useRegister() {
   return useMutation<
     PublicUser,
     Error,
-    { username: string; email: string; password: string; displayName?: string }
+    { username: string; email: string; password: string }
   >({
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/auth/register', { method: 'POST', body: JSON.stringify(data) }),
@@ -109,7 +108,7 @@ export function useLogout() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  return useMutation<PublicUser, Error, { displayName?: string | null; avatarUrl?: string | null; appName?: string | null; appSlogan?: string | null }>({
+  return useMutation<PublicUser, Error, { username?: string; avatarUrl?: string | null; appName?: string | null; appSlogan?: string | null }>({
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/user/profile', { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: (updatedUser) => {

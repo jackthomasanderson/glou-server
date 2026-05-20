@@ -7,6 +7,7 @@ export interface AdminUser {
     email: string;
     displayName: string | null;
     isAdmin: boolean;
+    isActive: boolean;
     createdAt: string;
 }
 
@@ -17,6 +18,30 @@ export interface PurgeResult {
         cellars: number;
         auditLogs: number;
     };
+}
+
+export interface AuditLogEntry {
+    id: number;
+    userId: string;
+    user: { username: string; displayName: string | null };
+    bottleId: string | null;
+    action: string;
+    status: string;
+    ip: string;
+    details: Record<string, unknown> | null;
+    createdAt: string;
+}
+
+export interface AuditLogMeta {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+}
+
+export interface AuditLogResponse {
+    items: AuditLogEntry[];
+    meta: AuditLogMeta;
 }
 
 // Fetch all users
@@ -40,11 +65,40 @@ export function useUpdateUserRole() {
             return response.data;
         },
         onSuccess: () => {
-            // Refresh the users list
             queryClient.invalidateQueries({ queryKey: ['admin_users'] });
         },
     });
 }
+
+// Activate or deactivate a user account
+export function useUpdateUserStatus() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+            const response = await api.patch<AdminUser>(`/admin/users/${userId}/status`, { isActive });
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin_users'] });
+        },
+    });
+}
+
+// Fetch paginated audit logs
+export function useAdminAuditLogs(page = 1, limit = 50) {
+    return useQuery({
+        queryKey: ['admin_audit_logs', page, limit],
+        queryFn: async (): Promise<AuditLogResponse> => {
+            const response = await api.get<AuditLogResponse>(
+                `/admin/audit-logs?page=${page}&limit=${limit}`,
+            );
+            return response.data;
+        },
+        staleTime: 30_000,
+    });
+}
+
 // Purge all data
 export function usePurgeData() {
     const queryClient = useQueryClient();
@@ -55,7 +109,6 @@ export function usePurgeData() {
             return response.data;
         },
         onSuccess: () => {
-            // Invalidate everything to clear caches
             queryClient.invalidateQueries();
         },
     });

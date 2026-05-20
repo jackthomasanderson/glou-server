@@ -22,6 +22,7 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
                 email: true,
                 displayName: true,
                 isAdmin: true,
+                isActive: true,
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
@@ -47,7 +48,7 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
         return;
     }
 
-    // Prevent admin from removing their own admin privileges by accident
+    // Prevent admin from removing their own admin privileges
     if (req.userId === userId && !isAdmin) {
         res.status(400).json({ error: 'CANNOT_REMOVE_OWN_ADMIN' });
         return;
@@ -62,6 +63,7 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
                 username: true,
                 email: true,
                 isAdmin: true,
+                isActive: true,
             },
         });
         res.json({ data: user });
@@ -75,6 +77,102 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
     }
 });
 
+/**
+ * @route   PATCH /api/admin/users/:userId/status
+ * @desc    Activate or deactivate a user account
+ * @access  Admin Private
+ */
+adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): Promise<void> => {
+    const { userId } = req.params;
+    const { isActive } = req.body;
+
+    if (typeof isActive !== 'boolean') {
+        res.status(400).json({ error: 'INVALID_INPUT' });
+        return;
+    }
+
+    // Prevent self-deactivation
+    if (req.userId === userId && !isActive) {
+        res.status(400).json({ error: 'CANNOT_DEACTIVATE_SELF' });
+        return;
+    }
+
+    try {
+        // Prevent deactivating the last active admin
+        if (!isActive) {
+            const target = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { isAdmin: true },
+            });
+            if (target?.isAdmin) {
+                const activeAdminCount = await prisma.user.count({
+                    where: { isAdmin: true, isActive: true },
+                });
+                if (activeAdminCount <= 1) {
+                    res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
+                    return;
+                }
+            }
+        }
+
+        const user = await prisma.user.update({
+            where: { id: userId },
+            data: { isActive },
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                isAdmin: true,
+                isActive: true,
+            },
+        });
+        res.json({ data: user });
+    } catch (error: any) {
+        console.error('[Admin] Error updating user status:', error);
+        if (error.code === 'P2025') {
+            res.status(404).json({ error: 'USER_NOT_FOUND' });
+            return;
+        }
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
+/**
+ * @route   GET /api/admin/audit-logs
+ * @desc    Get paginated audit log for the instance
+ * @access  Admin Private
+ */
+adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void> => {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+    const skip = (page - 1) * limit;
+
+    try {
+        const [logs, total] = await Promise.all([
+            prisma.auditLog.findMany({
+                skip,
+                take: limit,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    user: {
+                        select: { username: true, displayName: true },
+                    },
+                },
+            }),
+            prisma.auditLog.count(),
+        ]);
+
+        res.json({
+            data: {
+                items: logs,
+                meta: { page, limit, total, pages: Math.ceil(total / limit) },
+            },
+        });
+    } catch (error) {
+        console.error('[Admin] Error fetching audit logs:', error);
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
 
 /**
  * @route   POST /api/admin/maintenance/purge

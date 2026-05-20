@@ -93,7 +93,7 @@ export const Navbar: React.FC = () => {
       onClose={handleMenuClose}
     >
       <Box sx={{ px: 2, py: 1 }}>
-        <Typography variant="subtitle2">{user?.displayName || user?.username}</Typography>
+        <Typography variant="subtitle2">{user?.username}</Typography>
         <Typography variant="body2" color="text.secondary">{user?.email}</Typography>
       </Box>
       <Divider />
@@ -232,7 +232,7 @@ export const Navbar: React.FC = () => {
               color="inherit"
             >
               <Avatar src={user?.avatarUrl || undefined} sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '1rem' }}>
-                {!user?.avatarUrl && (user?.displayName || user?.username || '?')[0].toUpperCase()}
+                {!user?.avatarUrl && (user?.username || '?')[0].toUpperCase()}
               </Avatar>
             </IconButton>
           </Box>

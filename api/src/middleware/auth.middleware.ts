@@ -18,7 +18,7 @@ declare global {
   }
 }
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   // Extract token from Authorization header (Bearer) or HttpOnly cookie
   const authHeader = req.headers.authorization;
   const token =
@@ -43,6 +43,17 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
       res.status(403).json({ error: '2FA_REQUIRED' });
       return;
     }
+
+    // Verify account is still active (immediate effect on deactivation)
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { isActive: true },
+    });
+    if (!user || !user.isActive) {
+      res.status(401).json({ error: 'ACCOUNT_DEACTIVATED' });
+      return;
+    }
+
     req.userId = payload.userId;
     req.userEmail = payload.email;
     next();

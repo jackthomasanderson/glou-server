@@ -37,12 +37,13 @@ interface BottleCardProps {
   categoryLabel: string;
   onEdit: (bottle: Bottle) => void;
   onDelete: (bottle: Bottle) => void;
+  onView?: (bottle: Bottle) => void;
   t: (key: string) => string;
   isSelected?: boolean;
   onSelectToggle?: (bottle: Bottle) => void;
 }
 
-export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t, isSelected = false, onSelectToggle }: BottleCardProps) {
+export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, onView, t, isSelected = false, onSelectToggle }: BottleCardProps) {
   const isTemp = bottle.id.startsWith('temp-');
   const hasMounted = useHasMounted();
 
@@ -57,7 +58,10 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, t, isSelec
       }}
       aria-label={`${bottle.name} — ${categoryLabel}`}
     >
-      <CardContent sx={{ pb: 1, pt: onSelectToggle ? 4 : 2 }}>
+      <CardContent
+        sx={{ pb: 1, pt: onSelectToggle ? 4 : 2, cursor: onView ? 'pointer' : 'default' }}
+        onClick={() => onView?.(bottle)}
+      >
         {onSelectToggle && (
           <Box sx={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}>
             <Checkbox

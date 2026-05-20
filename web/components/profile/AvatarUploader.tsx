@@ -1,19 +1,34 @@
 'use client';
 import React, { useRef, useState } from 'react';
-import { Box, Avatar, Typography, IconButton, CircularProgress, Alert, Snackbar } from '@mui/material';
+import { Box, Avatar, Typography, IconButton, CircularProgress, Alert, Snackbar, TextField } from '@mui/material';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { useUploadAvatar, useDeleteAvatar, PublicUser } from '@/hooks/useAuth';
+import EditIcon from '@mui/icons-material/Edit';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
+import { useUploadAvatar, useDeleteAvatar, useUpdateProfile, PublicUser } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 
 export function AvatarUploader({ user }: { user: PublicUser }) {
     const { t } = useTranslation();
     const uploadAvatar = useUploadAvatar();
     const deleteAvatar = useDeleteAvatar();
+    const updateProfile = useUpdateProfile();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isHovered, setIsHovered] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
+    const [editingUsername, setEditingUsername] = useState(false);
+    const [usernameValue, setUsernameValue] = useState(user.username);
+
+    const handleUsernameConfirm = () => {
+        const trimmed = usernameValue.trim();
+        if (!trimmed || trimmed === user.username) { setEditingUsername(false); return; }
+        updateProfile.mutate({ username: trimmed }, {
+            onSuccess: () => { setEditingUsername(false); setFeedback({ type: 'success', msg: t('profile.saveSuccess') }); },
+            onError: (err) => { setFeedback({ type: 'error', msg: err.message === 'USERNAME_ALREADY_TAKEN' ? t('auth.errors.USERNAME_ALREADY_TAKEN') : t('profile.avatarError') }); },
+        });
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -152,9 +167,34 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
                 )}
             </Box>
 
-            <Typography variant="subtitle1" fontWeight={700} mt={2}>
-                @{user?.username}
-            </Typography>
+            {editingUsername ? (
+                <Box display="flex" alignItems="center" gap={0.5} mt={2}>
+                    <TextField
+                        size="small"
+                        value={usernameValue}
+                        onChange={(e) => setUsernameValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleUsernameConfirm(); if (e.key === 'Escape') { setEditingUsername(false); setUsernameValue(user.username); } }}
+                        autoFocus
+                        sx={{ width: 160 }}
+                        disabled={updateProfile.isPending}
+                    />
+                    <IconButton size="small" onClick={handleUsernameConfirm} disabled={updateProfile.isPending} color="primary">
+                        {updateProfile.isPending ? <CircularProgress size={16} /> : <CheckIcon fontSize="small" />}
+                    </IconButton>
+                    <IconButton size="small" onClick={() => { setEditingUsername(false); setUsernameValue(user.username); }}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </Box>
+            ) : (
+                <Box display="flex" alignItems="center" gap={0.5} mt={2}>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                        {user.username}
+                    </Typography>
+                    <IconButton size="small" onClick={() => { setUsernameValue(user.username); setEditingUsername(true); }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 } }}>
+                        <EditIcon sx={{ fontSize: 15 }} />
+                    </IconButton>
+                </Box>
+            )}
             <Typography variant="body2" color="text.secondary">
                 {user?.email}
             </Typography>

@@ -38,6 +38,7 @@ model User {
 
   // Admin
   isAdmin            Boolean    @default(false)
+  isActive           Boolean    @default(true)
 
   bottles      Bottle[]
   auditLogs    AuditLog[]

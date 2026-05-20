@@ -136,6 +136,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
             required
             size="small"
             label={t('bottle.fields.producer')}
+            placeholder={t(`bottle.fields.producerPlaceholder.${values.category ?? 'wine'}`)}
             value={values.producer ?? ''}
             onChange={(e) => setField('producer', e.target.value)}
           />

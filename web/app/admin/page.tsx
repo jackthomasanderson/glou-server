@@ -1,37 +1,62 @@
 'use client';
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
     Container, Typography, Paper, Box, CircularProgress,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Switch, Skeleton,
-    Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, TextField,
-    Alert, AlertTitle, Stack
+    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+    Switch, Skeleton, Button, Dialog, DialogTitle, DialogContent,
+    DialogContentText, DialogActions, TextField, Alert, AlertTitle,
+    Stack, Chip, Tooltip, IconButton,
 } from '@mui/material';
-import { useTranslation } from 'react-i18next';
-import { useMe } from '@/hooks/useAuth';
-import { useAdminUsers, useUpdateUserRole, AdminUser, usePurgeData, PurgeResult } from '@/hooks/useAdmin';
-import { useRouter } from 'next/navigation';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import { useTranslation } from 'react-i18next';
+import { useMe } from '@/hooks/useAuth';
+import {
+    useAdminUsers, useUpdateUserRole, useUpdateUserStatus,
+    useAdminAuditLogs, usePurgeData,
+    AdminUser, AuditLogEntry, PurgeResult,
+} from '@/hooks/useAdmin';
+import { useRouter } from 'next/navigation';
+import { useHasMounted } from '@/hooks/useHasMounted';
 
 export default function AdminPage() {
     const { t } = useTranslation();
     const { data: user, isLoading: isAuthLoading } = useMe();
     const router = useRouter();
+    const hasMounted = useHasMounted();
 
     const { data: users, isLoading: isUsersLoading } = useAdminUsers();
     const { mutate: updateRole } = useUpdateUserRole();
+    const { mutate: updateStatus } = useUpdateUserStatus();
     const { mutate: purgeAll, isPending: isPurging } = usePurgeData();
+
+    const [auditPage, setAuditPage] = React.useState(1);
+    const { data: auditResponse, isLoading: isAuditLoading } = useAdminAuditLogs(auditPage);
 
     const [isPurgeDialogOpen, setIsPurgeDialogOpen] = React.useState(false);
     const [confirmationText, setConfirmationText] = React.useState('');
     const [purgeResult, setPurgeResult] = React.useState<PurgeResult | null>(null);
     const [purgeError, setPurgeError] = React.useState<string | null>(null);
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (!isAuthLoading && !user?.isAdmin) {
             router.push('/');
         }
     }, [user, isAuthLoading, router]);
+
+    const handleRoleToggle = (targetUser: AdminUser, checked: boolean) => {
+        if (targetUser.id === user?.id) return;
+        updateRole({ userId: targetUser.id, isAdmin: checked });
+    };
+
+    const handleStatusToggle = (targetUser: AdminUser) => {
+        if (targetUser.id === user?.id) return;
+        updateStatus({ userId: targetUser.id, isActive: !targetUser.isActive });
+    };
 
     const handlePurgeClick = () => {
         setIsPurgeDialogOpen(true);
@@ -41,7 +66,6 @@ export default function AdminPage() {
 
     const handleConfirmPurge = () => {
         if (confirmationText !== t('admin.maintenance.purge.keywordValue')) return;
-
         purgeAll(confirmationText, {
             onSuccess: (data: PurgeResult) => {
                 setPurgeResult(data);
@@ -51,16 +75,7 @@ export default function AdminPage() {
             onError: (err: unknown) => {
                 const apiError = err as { response?: { data?: { error?: string } } };
                 setPurgeError(apiError.response?.data?.error || 'PURGE_FAILED');
-            }
-        });
-    };
-
-    const handleRoleToggle = (targetUser: AdminUser, checked: boolean) => {
-        if (targetUser.id === user?.id) return; // double safe guard
-        updateRole({ userId: targetUser.id, isAdmin: checked }, {
-            onError: (err) => {
-                console.error("Erreur lors de la modification du rôle :", err);
-            }
+            },
         });
     };
 
@@ -81,62 +96,189 @@ export default function AdminPage() {
                     sx={{ mr: 2 }}
                     variant="outlined"
                 >
-                    {t('actions.back', 'Retour')}
+                    {t('actions.back')}
                 </Button>
                 <Typography variant="h4" fontWeight="bold">
-                    {t('nav.admin', 'Administration')}
+                    {t('admin.title')}
                 </Typography>
             </Box>
 
+            {/* ── User management ────────────────────────────────────────────── */}
             <Paper sx={{ p: 4, mt: 4, borderRadius: 3 }}>
-                <Typography variant="h6" gutterBottom>Gestion des Utilisateurs</Typography>
+                <Typography variant="h6" gutterBottom>{t('admin.users.title')}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    Gérez ici les rôles des utilisateurs de toute la plateforme.
+                    {t('admin.users.subtitle')}
                 </Typography>
 
                 <TableContainer>
                     <Table size="small">
                         <TableHead>
                             <TableRow>
-                                <TableCell>Email</TableCell>
-                                <TableCell>Nom d&apos;utilisateur</TableCell>
-                                <TableCell align="center">Rôle Admin</TableCell>
-                                <TableCell>Date de création</TableCell>
+                                <TableCell>{t('admin.users.columns.email')}</TableCell>
+                                <TableCell>{t('admin.users.columns.username')}</TableCell>
+                                <TableCell align="center">{t('admin.users.columns.role')}</TableCell>
+                                <TableCell align="center">{t('admin.users.columns.status')}</TableCell>
+                                <TableCell>{t('admin.users.columns.createdAt')}</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {isUsersLoading ? (
-                                Array.from(new Array(3)).map((_, idx) => (
+                            {isUsersLoading
+                                ? Array.from(new Array(3)).map((_, idx) => (
                                     <TableRow key={idx}>
-                                        <TableCell><Skeleton variant="text" /></TableCell>
-                                        <TableCell><Skeleton variant="text" /></TableCell>
-                                        <TableCell><Skeleton variant="text" /></TableCell>
-                                        <TableCell><Skeleton variant="text" /></TableCell>
+                                        {Array.from(new Array(5)).map((__, c) => (
+                                            <TableCell key={c}><Skeleton variant="text" /></TableCell>
+                                        ))}
                                     </TableRow>
                                 ))
-                            ) : (
-                                users?.map((u) => (
-                                    <TableRow key={u.id}>
+                                : users?.map((u) => (
+                                    <TableRow key={u.id} sx={{ opacity: u.isActive ? 1 : 0.5 }}>
                                         <TableCell>{u.email}</TableCell>
-                                        <TableCell>{u.username}</TableCell>
-                                        <TableCell align="center">
-                                            <Switch
-                                                checked={u.isAdmin}
-                                                onChange={(e) => handleRoleToggle(u, e.target.checked)}
-                                                disabled={u.id === user.id} // User cannot demote themselves
-                                            />
+                                        <TableCell>
+                                            {u.username}
+                                            {u.id === user.id && (
+                                                <Chip label={t('admin.users.me')} size="small" sx={{ ml: 1 }} />
+                                            )}
                                         </TableCell>
-                                        <TableCell>{new Date(u.createdAt).toLocaleDateString()}</TableCell>
+                                        <TableCell align="center">
+                                            <Tooltip title={u.id === user.id ? t('admin.users.deactivateSelf') : ''}>
+                                                <span>
+                                                    <Switch
+                                                        checked={u.isAdmin}
+                                                        onChange={(e) => handleRoleToggle(u, e.target.checked)}
+                                                        disabled={u.id === user.id}
+                                                        size="small"
+                                                    />
+                                                </span>
+                                            </Tooltip>
+                                        </TableCell>
+                                        <TableCell align="center">
+                                            <Tooltip title={u.id === user.id
+                                                ? t('admin.users.deactivateSelf')
+                                                : u.isActive ? t('admin.users.deactivate') : t('admin.users.activate')
+                                            }>
+                                                <span>
+                                                    <IconButton
+                                                        size="small"
+                                                        color={u.isActive ? 'success' : 'default'}
+                                                        onClick={() => handleStatusToggle(u)}
+                                                        disabled={u.id === user.id}
+                                                    >
+                                                        {u.isActive
+                                                            ? <CheckCircleIcon fontSize="small" />
+                                                            : <BlockIcon fontSize="small" />
+                                                        }
+                                                    </IconButton>
+                                                </span>
+                                            </Tooltip>
+                                        </TableCell>
+                                        <TableCell>
+                                            {hasMounted ? new Date(u.createdAt).toLocaleDateString() : ''}
+                                        </TableCell>
                                     </TableRow>
                                 ))
-                            )}
+                            }
                         </TableBody>
                     </Table>
                 </TableContainer>
             </Paper>
 
-            {/* Maintenance Section */}
-            <Paper sx={{ p: 4, mt: 4, borderRadius: 3, border: '1px solid', borderColor: 'error.light', bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(211, 47, 47, 0.1)' : 'rgba(211, 47, 47, 0.03)' }}>
+            {/* ── Audit log ──────────────────────────────────────────────────── */}
+            <Paper sx={{ p: 4, mt: 4, borderRadius: 3 }}>
+                <Typography variant="h6" gutterBottom>{t('admin.auditLog.title')}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                    {t('admin.auditLog.subtitle')}
+                </Typography>
+
+                <TableContainer>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>{t('admin.auditLog.columns.date')}</TableCell>
+                                <TableCell>{t('admin.auditLog.columns.user')}</TableCell>
+                                <TableCell>{t('admin.auditLog.columns.action')}</TableCell>
+                                <TableCell>{t('admin.auditLog.columns.status')}</TableCell>
+                                <TableCell>{t('admin.auditLog.columns.ip')}</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {isAuditLoading
+                                ? Array.from(new Array(5)).map((_, idx) => (
+                                    <TableRow key={idx}>
+                                        {Array.from(new Array(5)).map((__, c) => (
+                                            <TableCell key={c}><Skeleton variant="text" /></TableCell>
+                                        ))}
+                                    </TableRow>
+                                ))
+                                : auditResponse?.items.length === 0
+                                ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} align="center">
+                                            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                                                {t('admin.auditLog.noLogs')}
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                                : auditResponse?.items.map((entry: AuditLogEntry) => (
+                                    <TableRow key={entry.id}>
+                                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                            {hasMounted ? new Date(entry.createdAt).toLocaleString() : ''}
+                                        </TableCell>
+                                        <TableCell>{entry.user?.username || '—'}</TableCell>
+                                        <TableCell>
+                                            <Chip label={entry.action} size="small" variant="outlined" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={entry.status}
+                                                size="small"
+                                                color={entry.status === 'success' ? 'success' : 'error'}
+                                            />
+                                        </TableCell>
+                                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                                            {entry.ip}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            }
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+
+                {auditResponse?.meta && auditResponse.meta.pages > 1 && (
+                    <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1 }}>
+                        <Typography variant="caption" color="text.secondary">
+                            {t('admin.auditLog.pageInfo', {
+                                page: auditResponse.meta.page,
+                                pages: auditResponse.meta.pages,
+                                total: auditResponse.meta.total,
+                            })}
+                        </Typography>
+                        <IconButton
+                            size="small"
+                            onClick={() => setAuditPage((p) => Math.max(1, p - 1))}
+                            disabled={auditPage <= 1}
+                        >
+                            <NavigateBeforeIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton
+                            size="small"
+                            onClick={() => setAuditPage((p) => p + 1)}
+                            disabled={auditPage >= (auditResponse?.meta.pages ?? 1)}
+                        >
+                            <NavigateNextIcon fontSize="small" />
+                        </IconButton>
+                    </Box>
+                )}
+            </Paper>
+
+            {/* ── Maintenance ───────────────────────────────────────────────── */}
+            <Paper sx={{
+                p: 4, mt: 4, borderRadius: 3,
+                border: '1px solid',
+                borderColor: 'error.light',
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(211,47,47,0.1)' : 'rgba(211,47,47,0.03)',
+            }}>
                 <Typography variant="h6" color="error.main" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <DeleteForeverIcon /> {t('admin.maintenance.title')}
                 </Typography>
@@ -172,11 +314,8 @@ export default function AdminPage() {
                 </Button>
             </Paper>
 
-            {/* Purge Confirmation Dialog */}
-            <Dialog
-                open={isPurgeDialogOpen}
-                onClose={() => !isPurging && setIsPurgeDialogOpen(false)}
-            >
+            {/* ── Purge dialog ──────────────────────────────────────────────── */}
+            <Dialog open={isPurgeDialogOpen} onClose={() => !isPurging && setIsPurgeDialogOpen(false)}>
                 <DialogTitle color="error.main">
                     {t('admin.maintenance.purge.confirmTitle')}
                 </DialogTitle>
@@ -204,7 +343,7 @@ export default function AdminPage() {
                         variant="contained"
                         disabled={confirmationText !== t('admin.maintenance.purge.keywordValue') || isPurging}
                     >
-                        {isPurging ? <CircularProgress size={24} color="inherit" /> : t('actions.delete')}
+                        {isPurging ? <CircularProgress size={24} color="inherit" /> : t('actions.confirm')}
                     </Button>
                 </DialogActions>
             </Dialog>
