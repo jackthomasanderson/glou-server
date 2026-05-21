@@ -329,7 +329,7 @@ export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleD
             </Box>
           )}
 
-          {/* Traceability (FEAT-62) */}
+          {/* Traceability */}
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <PersonOutlineIcon fontSize="small" color="action" />

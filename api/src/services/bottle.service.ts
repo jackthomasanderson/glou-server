@@ -67,7 +67,7 @@ export class BottleService {
   }
 
   /**
-   * Get a bottle enriched with creator and last-editor user info (FEAT-62).
+   * Get a bottle enriched with creator and last-editor user info.
    */
   async getBottleWithTraceability(_userId: string, id: string): Promise<BottleWithTraceability | null> {
     const bottle = await prisma.bottle.findFirst({ where: { id, deletedAt: null } });
@@ -88,7 +88,7 @@ export class BottleService {
   }
 
   /**
-   * Get the field-level change history for a bottle (FEAT-62).
+   * Get the field-level change history for a bottle.
    */
   async getBottleHistory(id: string): Promise<BottleHistoryEntry[]> {
     const logs = await prisma.auditLog.findMany({
@@ -137,7 +137,7 @@ export class BottleService {
   /**
    * Update a bottle, respecting user-locked fields.
    * Locked fields are never overwritten by this method (they require explicit unlock).
-   * Returns the updated bottle and the list of field changes for audit (FEAT-62).
+   * Returns the updated bottle and the list of field changes for audit.
    */
   async updateBottle(
     userId: string,
@@ -154,7 +154,7 @@ export class BottleService {
       Object.entries(patch).filter(([key]) => !existing.lockedFields.includes(key))
     ) as BottlePatch;
 
-    // Compute field-level diff for FEAT-62 audit trail
+    // Compute field-level diff for audit trail
     const changes: FieldChange[] = Object.entries(safePatch)
       .filter(([key, val]) => {
         const existingVal = (existing as unknown as Record<string, unknown>)[key];

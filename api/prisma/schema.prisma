@@ -163,7 +163,7 @@ model Bottle {
   reminderDate DateTime?
   alertStatus  String?   // none, approaching, peak, past (auto-computed from peakMaturityFrom/To)
 
-  // Traceability (FEAT-62)
+  // Traceability
   updatedBy    String?   // userId of the last editor (null = no edits yet)
 
   // Integrity
