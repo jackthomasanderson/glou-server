@@ -1,5 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client as api } from '../lib/api';
+import { maturityReferenceClient } from '../lib/maturity-references/client';
+import { MaturityReference, MaturityReferenceInput } from '../lib/maturity-references/types';
 
 export interface AdminUser {
     id: string;
@@ -110,6 +112,49 @@ export function usePurgeData() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries();
+        },
+    });
+}
+
+// ─── Maturity References ──────────────────────────────────────────────────────
+
+export type { MaturityReference, MaturityReferenceInput };
+
+export function useMaturityReferences() {
+    return useQuery({
+        queryKey: ['admin_maturity_references'],
+        queryFn: () => maturityReferenceClient.list(),
+        staleTime: 60_000,
+    });
+}
+
+export function useCreateMaturityReference() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (input: MaturityReferenceInput) => maturityReferenceClient.create(input),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin_maturity_references'] });
+        },
+    });
+}
+
+export function useUpdateMaturityReference() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, patch }: { id: string; patch: Partial<MaturityReferenceInput> }) =>
+            maturityReferenceClient.update(id, patch),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin_maturity_references'] });
+        },
+    });
+}
+
+export function useDeleteMaturityReference() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => maturityReferenceClient.delete(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['admin_maturity_references'] });
         },
     });
 }

@@ -213,6 +213,35 @@ enum BottleCategory {
   cigar
 }
 
+enum MaturityMode {
+  ABSOLUTE
+  RELATIVE
+}
+
+model MaturityReference {
+  id          String         @id @default(uuid())
+  name        String
+  category    BottleCategory
+
+  // Optional matching criteria (specificity determines priority)
+  region      String?
+  color       String?
+  producer    String?
+  vintageFrom Int?
+  vintageTo   Int?
+
+  // Peak window
+  mode        MaturityMode
+  windowFrom  Int
+  windowTo    Int
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([category])
+  @@map("maturity_references")
+}
+
 model BulkPreset {
   id        String   @id @default(uuid())
   name      String

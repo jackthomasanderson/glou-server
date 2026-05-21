@@ -10,6 +10,7 @@ import userRouter from './routes/user.router';
 import adminRouter from './routes/admin.router';
 import bulkPresetsRouter from './routes/bulk-presets.router';
 import { alertsRouter } from './routes/alerts.router';
+import { maturityReferencesRouter } from './routes/maturity-references.router';
 import { errorMiddleware } from './middleware/error.middleware';
 import { bottleService } from './services/bottle.service';
 import { purgeOldAuditLogs } from './services/audit.service';
@@ -49,6 +50,7 @@ app.use('/api/bulk-presets', bulkPresetsRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/user', userRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/maturity-references', maturityReferencesRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 

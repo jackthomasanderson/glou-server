@@ -169,6 +169,10 @@
     "alerts": {
       "title": "Reminders to consume",
       "viewAll": "View all reminders"
+    },
+    "maturitySuggestion": {
+      "apply": "Apply",
+      "window": "Peak: {{from}} – {{to}}"
     }
   },
   "alerts": {
@@ -313,6 +317,44 @@
       "prevPage": "Previous",
       "nextPage": "Next",
       "pageInfo": "Page {{page}} / {{pages}} — {{total}} entries"
+    },
+    "maturityRefs": {
+      "title": "Peak Maturity References",
+      "subtitle": "Define reference drinking windows by category, region, color, or producer.",
+      "add": "Add reference",
+      "addTitle": "New peak maturity reference",
+      "editTitle": "Edit reference",
+      "empty": "No references configured.",
+      "deleteConfirmTitle": "Delete reference?",
+      "deleteConfirmBody": "The reference \"{{name}}\" will be permanently deleted.",
+      "columns": {
+        "name": "Name",
+        "category": "Category",
+        "criteria": "Criteria",
+        "window": "Window",
+        "bottles": "Bottles",
+        "actions": "Actions"
+      },
+      "fields": {
+        "name": "Reference name",
+        "mode": "Mode",
+        "windowFrom": "Window start",
+        "windowTo": "Window end",
+        "vintageFrom": "Vintage from",
+        "vintageTo": "Vintage to"
+      },
+      "modes": {
+        "relative": "Relative (years since vintage)",
+        "absolute": "Absolute (calendar years)"
+      },
+      "hints": {
+        "relativeWindow": "Years since vintage (e.g. 5 → 15)",
+        "criteria": "Match criteria (leave empty to match all)"
+      },
+      "errors": {
+        "nameRequired": "Name is required.",
+        "windowInvalid": "Window end must be ≥ window start."
+      }
     },
     "maintenance": {
       "title": "Maintenance",

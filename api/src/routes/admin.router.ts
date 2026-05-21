@@ -1,7 +1,10 @@
 import { Router, Request, Response } from 'express';
+import { ZodError } from 'zod';
 import { prisma } from '../lib/prisma';
 import { authMiddleware, adminMiddleware } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
+import { maturityReferenceSchema, maturityReferencePatchSchema } from '../schemas/maturity-reference.schema';
+import { maturityReferenceService } from '../services/maturity-reference.service';
 
 const adminRouter = Router();
 
@@ -194,6 +197,58 @@ adminRouter.post('/maintenance/purge', async (req: Request, res: Response): Prom
         console.error('[Admin] Maintenance purge error:', error);
         res.status(500).json({ error: 'PURGE_FAILED' });
     }
+});
+
+// ─── Maturity References ──────────────────────────────────────────────────────
+
+adminRouter.get('/maturity-references', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const refs = await maturityReferenceService.list();
+    res.json({ data: refs });
+  } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+adminRouter.post('/maturity-references', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const data = maturityReferenceSchema.parse(req.body);
+    const ref = await maturityReferenceService.create(data);
+    res.status(201).json({ data: ref });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      return;
+    }
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+adminRouter.patch('/maturity-references/:id', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  try {
+    const patch = maturityReferencePatchSchema.parse(req.body);
+    const ref = await maturityReferenceService.update(id, patch);
+    if (!ref) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+    res.json({ data: ref });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      return;
+    }
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+adminRouter.delete('/maturity-references/:id', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  try {
+    const ok = await maturityReferenceService.delete(id);
+    if (!ok) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+    res.json({ data: { deleted: true } });
+  } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
 });
 
 export default adminRouter;

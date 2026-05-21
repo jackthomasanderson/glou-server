@@ -1,15 +1,18 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Button, Collapse, Divider, FormControl, Grid,
   InputLabel, MenuItem, Paper, Select,
-  TextField, Tooltip, Typography,
+  TextField, Tooltip, Typography, Alert,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import SaveIcon from '@mui/icons-material/Save';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { Bottle, BottleCategory } from '@/lib/bottles/types';
 import { CategoryFields, OptionalFields } from './CategoryFields';
+import { maturityReferenceClient } from '@/lib/maturity-references/client';
+import { MaturitySuggestion } from '@/lib/maturity-references/types';
 
 interface BottleFormProps {
   initialValues?: Partial<Bottle>;
@@ -41,9 +44,46 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
   const [values, setValues] = useState<Partial<Bottle>>(initialValues ?? EMPTY_FORM);
   const [showOptionals, setShowOptionals] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
+  const [suggestion, setSuggestion] = useState<MaturitySuggestion | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const relevantCategory = values.category;
+  const relevantForSuggest = ['wine', 'sparkling', 'spirit'].includes(relevantCategory ?? '');
 
   const setField = (field: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [field]: value }));
+  };
+
+  useEffect(() => {
+    if (!relevantForSuggest || !values.category) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const result = await maturityReferenceClient.suggest({
+          category: values.category as 'wine' | 'sparkling' | 'spirit' | 'cigar',
+          region: values.region ?? undefined,
+          color: values.color ?? undefined,
+          producer: values.producer ?? undefined,
+          vintage: values.vintage ?? undefined,
+        });
+        setSuggestion(result);
+      } catch {
+        setSuggestion(null);
+      }
+    }, 600);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.category, values.region, values.color, values.producer, values.vintage, relevantForSuggest]);
+
+  const applySuggestion = () => {
+    if (!suggestion) return;
+    setValues((prev) => ({
+      ...prev,
+      peakMaturityFrom: suggestion.peakMaturityFrom ?? prev.peakMaturityFrom,
+      peakMaturityTo: suggestion.peakMaturityTo ?? prev.peakMaturityTo,
+    }));
+    setShowOptionals(true);
+    setSuggestion(null);
   };
 
   const canSaveMinimal = Boolean(
@@ -166,6 +206,27 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
             onChange={setField}
             t={t}
           />
+
+          {/* Maturity suggestion banner */}
+          {suggestion && suggestion.peakMaturityFrom != null && suggestion.peakMaturityTo != null && (
+            <Alert
+              severity="info"
+              icon={<AutoAwesomeIcon fontSize="small" />}
+              sx={{ mt: 2 }}
+              action={
+                <Button size="small" onClick={applySuggestion} color="inherit">
+                  {t('bottle.maturitySuggestion.apply')}
+                </Button>
+              }
+            >
+              <strong>{suggestion.reference.name}</strong>
+              {' — '}
+              {t('bottle.maturitySuggestion.window', {
+                from: suggestion.peakMaturityFrom,
+                to: suggestion.peakMaturityTo,
+              })}
+            </Alert>
+          )}
 
           {/* Optional fields toggle */}
           <Box sx={{ mt: 2 }}>

@@ -169,6 +169,10 @@
     "alerts": {
       "title": "Rappels à consommer",
       "viewAll": "Voir tous les rappels"
+    },
+    "maturitySuggestion": {
+      "apply": "Appliquer",
+      "window": "Apogée : {{from}} – {{to}}"
     }
   },
   "alerts": {
@@ -313,6 +317,44 @@
       "prevPage": "Précédent",
       "nextPage": "Suivant",
       "pageInfo": "Page {{page}} / {{pages}} — {{total}} entrées"
+    },
+    "maturityRefs": {
+      "title": "Références d'apogée",
+      "subtitle": "Définissez des fenêtres de dégustation de référence par catégorie, région, couleur ou producteur.",
+      "add": "Ajouter une référence",
+      "addTitle": "Nouvelle référence d'apogée",
+      "editTitle": "Modifier la référence",
+      "empty": "Aucune référence configurée.",
+      "deleteConfirmTitle": "Supprimer la référence ?",
+      "deleteConfirmBody": "La référence « {{name}} » sera supprimée définitivement.",
+      "columns": {
+        "name": "Nom",
+        "category": "Catégorie",
+        "criteria": "Critères",
+        "window": "Fenêtre",
+        "bottles": "Bouteilles",
+        "actions": "Actions"
+      },
+      "fields": {
+        "name": "Nom de la référence",
+        "mode": "Mode",
+        "windowFrom": "Fenêtre début",
+        "windowTo": "Fenêtre fin",
+        "vintageFrom": "Millésime de",
+        "vintageTo": "Millésime à"
+      },
+      "modes": {
+        "relative": "Relatif (années depuis millésime)",
+        "absolute": "Absolu (années calendaires)"
+      },
+      "hints": {
+        "relativeWindow": "Années depuis le millésime (ex: 5 → 15)",
+        "criteria": "Critères de correspondance (laissez vide pour correspondre à tous)"
+      },
+      "errors": {
+        "nameRequired": "Le nom est obligatoire.",
+        "windowInvalid": "La fenêtre de fin doit être ≥ à la fenêtre de début."
+      }
     },
     "maintenance": {
       "title": "Maintenance",

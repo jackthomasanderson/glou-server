@@ -22,6 +22,7 @@ import {
 } from '@/hooks/useAdmin';
 import { useRouter } from 'next/navigation';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { MaturityReferencesSection } from '@/components/admin/MaturityReferencesSection';
 
 export default function AdminPage() {
     const { t } = useTranslation();
@@ -271,6 +272,9 @@ export default function AdminPage() {
                     </Box>
                 )}
             </Paper>
+
+            {/* ── Maturity References ───────────────────────────────────────── */}
+            <MaturityReferencesSection />
 
             {/* ── Maintenance ───────────────────────────────────────────────── */}
             <Paper sx={{
