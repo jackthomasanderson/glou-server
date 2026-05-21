@@ -3,6 +3,28 @@ import { BottlePatch, BottleInput } from '../schemas/bottle.schema';
 import { computeAlertStatus } from './alert.service';
 import { v4 as uuidv4 } from 'uuid';
 
+export interface FieldChange {
+  field: string;
+  from: unknown;
+  to: unknown;
+}
+
+export interface BottleHistoryEntry {
+  id: number;
+  action: string;
+  status: string;
+  actorId: string;
+  actorName: string;
+  changes: FieldChange[] | null;
+  createdAt: Date;
+}
+
+export interface BottleWithTraceability {
+  bottle: Record<string, unknown>;
+  creator: { id: string; name: string } | null;
+  lastEditor: { id: string; name: string } | null;
+}
+
 // Bottle type inferred from Prisma client
 type Bottle = Awaited<ReturnType<typeof prisma.bottle.findFirst>> extends infer T | null ? NonNullable<T> : never;
 
@@ -45,6 +67,58 @@ export class BottleService {
   }
 
   /**
+   * Get a bottle enriched with creator and last-editor user info (FEAT-62).
+   */
+  async getBottleWithTraceability(_userId: string, id: string): Promise<BottleWithTraceability | null> {
+    const bottle = await prisma.bottle.findFirst({ where: { id, deletedAt: null } });
+    if (!bottle) return null;
+
+    const uniqueIds = [...new Set([bottle.userId, (bottle as unknown as Record<string, unknown>)['updatedBy'] as string | undefined].filter(Boolean))] as string[];
+    const users = await prisma.user.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, displayName: true, username: true },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u.displayName ?? u.username]));
+
+    const creator = bottle.userId ? { id: bottle.userId, name: userMap.get(bottle.userId) ?? bottle.userId } : null;
+    const updatedById = (bottle as unknown as Record<string, unknown>)['updatedBy'] as string | undefined;
+    const lastEditor = updatedById ? { id: updatedById, name: userMap.get(updatedById) ?? updatedById } : null;
+
+    return { bottle: bottle as unknown as Record<string, unknown>, creator, lastEditor };
+  }
+
+  /**
+   * Get the field-level change history for a bottle (FEAT-62).
+   */
+  async getBottleHistory(id: string): Promise<BottleHistoryEntry[]> {
+    const logs = await prisma.auditLog.findMany({
+      where: {
+        bottleId: id,
+        action: { in: ['CREATE', 'UPDATE', 'DELETE', 'RESTORE'] },
+        status: 'success',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const uniqueUserIds = [...new Set(logs.map((l) => l.userId))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: uniqueUserIds } },
+      select: { id: true, displayName: true, username: true },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u.displayName ?? u.username]));
+
+    return logs.map((log) => ({
+      id: log.id,
+      action: log.action,
+      status: log.status,
+      actorId: log.userId,
+      actorName: userMap.get(log.userId) ?? log.userId,
+      changes: (log.details as Record<string, unknown> | null)?.['changes'] as FieldChange[] | null ?? null,
+      createdAt: log.createdAt,
+    }));
+  }
+
+  /**
    * Create a new bottle.
    */
   async createBottle(userId: string, data: BottleInput): Promise<Bottle> {
@@ -63,12 +137,13 @@ export class BottleService {
   /**
    * Update a bottle, respecting user-locked fields.
    * Locked fields are never overwritten by this method (they require explicit unlock).
+   * Returns the updated bottle and the list of field changes for audit (FEAT-62).
    */
   async updateBottle(
-    _userId: string,
+    userId: string,
     id: string,
     patch: BottlePatch
-  ): Promise<Bottle | null> {
+  ): Promise<{ bottle: Bottle; changes: FieldChange[] } | null> {
     const existing = await prisma.bottle.findFirst({
       where: { id, deletedAt: null },
     });
@@ -79,6 +154,18 @@ export class BottleService {
       Object.entries(patch).filter(([key]) => !existing.lockedFields.includes(key))
     ) as BottlePatch;
 
+    // Compute field-level diff for FEAT-62 audit trail
+    const changes: FieldChange[] = Object.entries(safePatch)
+      .filter(([key, val]) => {
+        const existingVal = (existing as unknown as Record<string, unknown>)[key];
+        return JSON.stringify(existingVal) !== JSON.stringify(val);
+      })
+      .map(([key, val]) => ({
+        field: key,
+        from: (existing as unknown as Record<string, unknown>)[key],
+        to: val,
+      }));
+
     const dbData = this.mapInputToDb(safePatch);
 
     // Recompute alertStatus whenever peak maturity window changes
@@ -86,17 +173,19 @@ export class BottleService {
     const to = ('peakMaturityTo' in safePatch ? safePatch.peakMaturityTo : existing.peakMaturityTo) as number | null | undefined;
     const alertStatus = computeAlertStatus(from, to);
 
-    return prisma.bottle.update({
+    const bottle = await prisma.bottle.update({
       where: { id },
-      data: { ...dbData, alertStatus, updatedAt: new Date() },
+      data: { ...dbData, alertStatus, updatedAt: new Date(), updatedBy: userId } as never,
     });
+
+    return { bottle, changes };
   }
 
   /**
    * Bulk update multiple bottles, respecting user-locked fields per bottle.
    */
   async bulkUpdate(
-    _userId: string,
+    userId: string,
     ids: string[],
     patch: BottlePatch
   ): Promise<number> {
@@ -117,7 +206,8 @@ export class BottleService {
           data: {
             ...this.mapInputToDb(safePatch as BottlePatch),
             updatedAt: new Date(),
-          },
+            updatedBy: userId,
+          } as never,
         });
         updatedCount++;
       }

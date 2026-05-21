@@ -44,16 +44,36 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   const ip = getClientIp(req);
   try {
-    const bottle = await bottleService.getBottle(req.userId, id);
-    if (!bottle) {
+    const result = await bottleService.getBottleWithTraceability(req.userId, id);
+    if (!result) {
       void auditLog({ userId: req.userId, action: 'READ', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'BOTTLE_NOT_FOUND' });
       return;
     }
     void auditLog({ userId: req.userId, action: 'READ', status: 'success', ip, bottleId: id });
-    res.json({ data: bottle });
+    res.json({ data: { ...result.bottle, _creator: result.creator, _lastEditor: result.lastEditor } });
   } catch (error) {
     void auditLog({ userId: req.userId, action: 'READ', status: 'error', ip, bottleId: id, details: { message: String(error) } });
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── GET /api/bottles/:id/history ────────────────────────────────────────────
+
+router.get('/:id/history', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const ip = getClientIp(req);
+  try {
+    const bottle = await bottleService.getBottle(req.userId, id);
+    if (!bottle) {
+      res.status(404).json({ error: 'BOTTLE_NOT_FOUND' });
+      return;
+    }
+    const history = await bottleService.getBottleHistory(id);
+    void auditLog({ userId: req.userId, action: 'READ', status: 'success', ip, bottleId: id, details: { scope: 'history' } });
+    res.json({ data: history });
+  } catch (error) {
+    void auditLog({ userId: req.userId, action: 'READ', status: 'error', ip, bottleId: id, details: { message: String(error), scope: 'history' } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -112,14 +132,14 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const patch = bottlePatchSchema.parse(req.body);
-    const bottle = await bottleService.updateBottle(req.userId, id, patch);
-    if (!bottle) {
+    const result = await bottleService.updateBottle(req.userId, id, patch);
+    if (!result) {
       void auditLog({ userId: req.userId, action: 'UPDATE', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'BOTTLE_NOT_FOUND' });
       return;
     }
-    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: id });
-    res.json({ data: bottle });
+    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: id, details: { changes: result.changes } });
+    res.json({ data: result.bottle });
   } catch (error) {
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');

@@ -1,5 +1,5 @@
 import { client } from '../api';
-import { Bottle } from './types';
+import { Bottle, BottleHistoryEntry } from './types';
 
 // ─── Bottle API client ───────────────────────────────────────────────────────
 
@@ -41,6 +41,11 @@ export const bottleClient = {
 
   async restore(id: string): Promise<Bottle> {
     const { data } = await client.post<Bottle>(`/bottles/${id}/restore`);
+    return data;
+  },
+
+  async getHistory(id: string): Promise<BottleHistoryEntry[]> {
+    const { data } = await client.get<BottleHistoryEntry[]>(`/bottles/${id}/history`);
     return data;
   },
 };

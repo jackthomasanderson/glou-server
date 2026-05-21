@@ -1,7 +1,7 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bottleClient } from '@/lib/bottles/client';
-import { Bottle } from '@/lib/bottles/types';
+import { Bottle, BottleHistoryEntry } from '@/lib/bottles/types';
 
 const BOTTLES_KEY = ['bottles'];
 const TRASH_KEY = ['bottles', 'trash'];
@@ -29,6 +29,15 @@ export function useBottle(id: string) {
     queryKey: ['bottles', id],
     queryFn: () => bottleClient.get(id),
     enabled: !!id,
+  });
+}
+
+export function useBottleHistory(id: string, enabled: boolean) {
+  return useQuery<BottleHistoryEntry[]>({
+    queryKey: ['bottles', id, 'history'],
+    queryFn: () => bottleClient.getHistory(id),
+    enabled: !!id && enabled,
+    staleTime: 1000 * 60,
   });
 }
 

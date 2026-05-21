@@ -69,6 +69,7 @@ describe('AuthService', () => {
         twoFactorSecret: null,
         backupCodes: [],
         isAdmin: false,
+        isActive: true,
         passwordHash: 'hashedPassword',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -125,6 +126,7 @@ describe('AuthService', () => {
       twoFactorSecret: null,
       backupCodes: [],
       isAdmin: false,
+      isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

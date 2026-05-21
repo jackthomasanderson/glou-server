@@ -1,10 +1,12 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useCellars } from '@/hooks/useCellars';
+import { useBottle, useBottleHistory } from '@/hooks/useBottles';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, IconButton, Typography, Chip, Box, Divider, Stack,
+  Collapse, CircularProgress, Tooltip,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -12,7 +14,9 @@ import WineBarIcon from '@mui/icons-material/WineBar';
 import SportsMmaIcon from '@mui/icons-material/SportsMma';
 import GrassIcon from '@mui/icons-material/Grass';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
-import { Bottle, BottleCategory } from '@/lib/bottles/types';
+import HistoryIcon from '@mui/icons-material/History';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import { Bottle, BottleCategory, BottleHistoryEntry } from '@/lib/bottles/types';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
 
 const CATEGORY_ICONS: Record<BottleCategory, React.ReactElement> = {
@@ -52,6 +56,39 @@ function DetailRow({ label, value }: DetailRowProps) {
   );
 }
 
+function HistoryEntryRow({ entry, formatDate, t }: { entry: BottleHistoryEntry; formatDate: (d: string) => string | null; t: (k: string) => string }) {
+  const actionLabel: Record<string, string> = {
+    CREATE: t('traceability.actions.create'),
+    UPDATE: t('traceability.actions.update'),
+    DELETE: t('traceability.actions.delete'),
+    RESTORE: t('traceability.actions.restore'),
+  };
+  return (
+    <Box sx={{ py: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1 }}>
+        <Typography variant="caption" fontWeight={600} color="text.primary">
+          {actionLabel[entry.action] ?? entry.action}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {formatDate(entry.createdAt)}
+        </Typography>
+      </Box>
+      <Typography variant="caption" color="text.secondary">
+        {entry.actorName}
+      </Typography>
+      {entry.changes && entry.changes.length > 0 && (
+        <Box sx={{ mt: 0.5, pl: 1 }}>
+          {entry.changes.map((c, i) => (
+            <Typography key={i} variant="caption" display="block" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+              {c.field}: {JSON.stringify(c.from)} → {JSON.stringify(c.to)}
+            </Typography>
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 interface BottleDetailDialogProps {
   bottle: Bottle | null;
   open: boolean;
@@ -63,21 +100,34 @@ interface BottleDetailDialogProps {
 export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleDetailDialogProps) {
   const hasMounted = useHasMounted();
   const { data: cellars } = useCellars();
+  const [showHistory, setShowHistory] = useState(false);
+
+  const { data: enrichedBottle } = useBottle(bottle?.id ?? '');
+  const { data: history, isLoading: historyLoading } = useBottleHistory(bottle?.id ?? '', showHistory);
 
   if (!bottle) return null;
 
-  const cellarName = bottle.cellarId
-    ? cellars?.find((c) => c.id === bottle.cellarId)?.name ?? null
+  const displayBottle = enrichedBottle ?? bottle;
+  const creator = enrichedBottle?._creator ?? null;
+  const lastEditor = enrichedBottle?._lastEditor ?? null;
+
+  const cellarName = displayBottle.cellarId
+    ? cellars?.find((c) => c.id === displayBottle.cellarId)?.name ?? null
     : null;
 
-  const isWineOrSparkling = bottle.category === 'wine' || bottle.category === 'sparkling';
-  const isSparkling = bottle.category === 'sparkling';
-  const isSpirit = bottle.category === 'spirit';
-  const isCigar = bottle.category === 'cigar';
+  const isWineOrSparkling = displayBottle.category === 'wine' || displayBottle.category === 'sparkling';
+  const isSparkling = displayBottle.category === 'sparkling';
+  const isSpirit = displayBottle.category === 'spirit';
+  const isCigar = displayBottle.category === 'cigar';
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr || !hasMounted) return null;
     return new Date(dateStr).toLocaleDateString();
+  };
+
+  const formatDateTime = (dateStr: string | null | undefined) => {
+    if (!dateStr || !hasMounted) return null;
+    return new Date(dateStr).toLocaleString();
   };
 
   return (
@@ -85,14 +135,14 @@ export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleD
       <DialogTitle sx={{ pr: 6 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Chip
-            icon={CATEGORY_ICONS[bottle.category]}
-            label={t(`categories.${bottle.category}`)}
-            color={CATEGORY_COLORS[bottle.category]}
+            icon={CATEGORY_ICONS[displayBottle.category]}
+            label={t(`categories.${displayBottle.category}`)}
+            color={CATEGORY_COLORS[displayBottle.category]}
             size="small"
           />
           <Typography variant="h6" component="span" fontWeight={600}>
-            {bottle.name}
-            {bottle.vintage ? ` · ${bottle.vintage}` : ''}
+            {displayBottle.name}
+            {displayBottle.vintage ? ` · ${displayBottle.vintage}` : ''}
           </Typography>
         </Box>
         <IconButton
@@ -112,10 +162,10 @@ export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleD
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               {t('bottle.step1')}
             </Typography>
-            <DetailRow label={t('bottle.fields.producer')} value={bottle.producer} />
+            <DetailRow label={t('bottle.fields.producer')} value={displayBottle.producer} />
             <DetailRow label={t('cellars.name')} value={cellarName} />
-            <DetailRow label={t('bottle.fields.location')} value={bottle.location} />
-            <DetailRow label={t('bottle.fields.collection')} value={bottle.collection} />
+            <DetailRow label={t('bottle.fields.location')} value={displayBottle.location} />
+            <DetailRow label={t('bottle.fields.collection')} value={displayBottle.collection} />
           </Box>
 
           {/* Category-specific fields */}
@@ -129,21 +179,21 @@ export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleD
                 <>
                   <DetailRow
                     label={t('bottle.fields.color')}
-                    value={bottle.color ? t(`bottle.color.${bottle.color}`) : null}
+                    value={displayBottle.color ? t(`bottle.color.${displayBottle.color}`) : null}
                   />
-                  <DetailRow label={t('bottle.fields.region')} value={bottle.region} />
+                  <DetailRow label={t('bottle.fields.region')} value={displayBottle.region} />
                   <DetailRow
                     label={t('bottle.fields.grapeVarieties')}
-                    value={bottle.grapeVarieties?.length ? bottle.grapeVarieties.join(', ') : null}
+                    value={displayBottle.grapeVarieties?.length ? displayBottle.grapeVarieties.join(', ') : null}
                   />
-                  <DetailRow label={t('bottle.fields.alcoholDegree')} value={bottle.alcoholDegree != null ? `${bottle.alcoholDegree}%` : null} />
-                  <DetailRow label={t('bottle.fields.bottleSize')} value={bottle.bottleSize} />
+                  <DetailRow label={t('bottle.fields.alcoholDegree')} value={displayBottle.alcoholDegree != null ? `${displayBottle.alcoholDegree}%` : null} />
+                  <DetailRow label={t('bottle.fields.bottleSize')} value={displayBottle.bottleSize} />
                   <DetailRow
                     label={t('bottle.fields.needsAeration')}
-                    value={bottle.needsAeration ? t('bottle.fields.needsAeration') : null}
+                    value={displayBottle.needsAeration ? t('bottle.fields.needsAeration') : null}
                   />
-                  <DetailRow label={t('bottle.fields.serviceTemp')} value={bottle.serviceTemp} />
-                  <DetailRow label={t('bottle.fields.lotNumber')} value={bottle.lotNumber} />
+                  <DetailRow label={t('bottle.fields.serviceTemp')} value={displayBottle.serviceTemp} />
+                  <DetailRow label={t('bottle.fields.lotNumber')} value={displayBottle.lotNumber} />
                 </>
               )}
 
@@ -151,89 +201,89 @@ export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleD
                 <>
                   <DetailRow
                     label={t('bottle.fields.sparklingType')}
-                    value={bottle.sparklingType ? t(`bottle.sparklingTypes.${bottle.sparklingType}`) : null}
+                    value={displayBottle.sparklingType ? t(`bottle.sparklingTypes.${displayBottle.sparklingType}`) : null}
                   />
-                  <DetailRow label={t('bottle.fields.sugarLevel')} value={bottle.sugarLevel} />
-                  <DetailRow label={t('bottle.fields.baseYear')} value={bottle.baseYear} />
+                  <DetailRow label={t('bottle.fields.sugarLevel')} value={displayBottle.sugarLevel} />
+                  <DetailRow label={t('bottle.fields.baseYear')} value={displayBottle.baseYear} />
                 </>
               )}
 
               {isSpirit && (
                 <>
-                  <DetailRow label={t('bottle.fields.edition')} value={bottle.edition} />
-                  <DetailRow label={t('bottle.fields.declaredAge')} value={bottle.declaredAge} />
-                  <DetailRow label={t('bottle.fields.caskType')} value={bottle.caskType} />
-                  <DetailRow label={t('bottle.fields.additions')} value={bottle.additions} />
-                  <DetailRow label={t('bottle.fields.aromaticProfile')} value={bottle.aromaticProfile} />
-                  <DetailRow label={t('bottle.fields.alcoholDegree')} value={bottle.alcoholDegree != null ? `${bottle.alcoholDegree}%` : null} />
-                  <DetailRow label={t('bottle.fields.bottleSize')} value={bottle.bottleSize} />
+                  <DetailRow label={t('bottle.fields.edition')} value={displayBottle.edition} />
+                  <DetailRow label={t('bottle.fields.declaredAge')} value={displayBottle.declaredAge} />
+                  <DetailRow label={t('bottle.fields.caskType')} value={displayBottle.caskType} />
+                  <DetailRow label={t('bottle.fields.additions')} value={displayBottle.additions} />
+                  <DetailRow label={t('bottle.fields.aromaticProfile')} value={displayBottle.aromaticProfile} />
+                  <DetailRow label={t('bottle.fields.alcoholDegree')} value={displayBottle.alcoholDegree != null ? `${displayBottle.alcoholDegree}%` : null} />
+                  <DetailRow label={t('bottle.fields.bottleSize')} value={displayBottle.bottleSize} />
                 </>
               )}
 
               {isCigar && (
                 <>
-                  <DetailRow label={t('bottle.fields.format')} value={bottle.format} />
-                  <DetailRow label={t('bottle.fields.quantity')} value={bottle.quantity} />
-                  <DetailRow label={t('bottle.fields.manufactureYear')} value={bottle.manufactureYear} />
+                  <DetailRow label={t('bottle.fields.format')} value={displayBottle.format} />
+                  <DetailRow label={t('bottle.fields.quantity')} value={displayBottle.quantity} />
+                  <DetailRow label={t('bottle.fields.manufactureYear')} value={displayBottle.manufactureYear} />
                   <DetailRow
                     label={t('bottle.fields.sealedStatus')}
-                    value={bottle.sealedStatus ? t(`bottle.sealedStatus.${bottle.sealedStatus}`) : null}
+                    value={displayBottle.sealedStatus ? t(`bottle.sealedStatus.${displayBottle.sealedStatus}`) : null}
                   />
-                  <DetailRow label={t('bottle.fields.leafOrigin')} value={bottle.leafOrigin} />
-                  <DetailRow label={t('bottle.fields.factoryCode')} value={bottle.factoryCode} />
+                  <DetailRow label={t('bottle.fields.leafOrigin')} value={displayBottle.leafOrigin} />
+                  <DetailRow label={t('bottle.fields.factoryCode')} value={displayBottle.factoryCode} />
                   <DetailRow
                     label={t('bottle.fields.recommendedHumidity')}
-                    value={bottle.recommendedHumidity != null ? `${bottle.recommendedHumidity}%` : null}
+                    value={displayBottle.recommendedHumidity != null ? `${displayBottle.recommendedHumidity}%` : null}
                   />
-                  <DetailRow label={t('bottle.fields.humidificationSystem')} value={bottle.humidificationSystem} />
+                  <DetailRow label={t('bottle.fields.humidificationSystem')} value={displayBottle.humidificationSystem} />
                 </>
               )}
             </Box>
           )}
 
           {/* Peak maturity / drinking window */}
-          {(bottle.peakMaturityFrom || bottle.peakMaturityTo || bottle.alertStatus) && (
+          {(displayBottle.peakMaturityFrom || displayBottle.peakMaturityTo || displayBottle.alertStatus) && (
             <Box>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 {t('bottle.fields.peakMaturity')}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
                 <DrinkingWindowBadge
-                  alertStatus={bottle.alertStatus}
-                  alertsPaused={bottle.alertsPaused}
-                  peakMaturityFrom={bottle.peakMaturityFrom}
-                  peakMaturityTo={bottle.peakMaturityTo}
+                  alertStatus={displayBottle.alertStatus}
+                  alertsPaused={displayBottle.alertsPaused}
+                  peakMaturityFrom={displayBottle.peakMaturityFrom}
+                  peakMaturityTo={displayBottle.peakMaturityTo}
                   t={t}
                   size="medium"
                 />
               </Box>
-              <DetailRow label={t('bottle.fields.peakMaturityFrom')} value={bottle.peakMaturityFrom} />
-              <DetailRow label={t('bottle.fields.peakMaturityTo')} value={bottle.peakMaturityTo} />
+              <DetailRow label={t('bottle.fields.peakMaturityFrom')} value={displayBottle.peakMaturityFrom} />
+              <DetailRow label={t('bottle.fields.peakMaturityTo')} value={displayBottle.peakMaturityTo} />
             </Box>
           )}
 
           {/* Opened status */}
-          {(bottle.isOpened || bottle.reminderDate) && (
+          {(displayBottle.isOpened || displayBottle.reminderDate) && (
             <Box>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 {t('bottle.fields.isOpened')}
               </Typography>
-              {bottle.isOpened && (
+              {displayBottle.isOpened && (
                 <>
                   <DetailRow
                     label={t('bottle.fields.fillLevel')}
-                    value={bottle.fillLevel != null ? `${bottle.fillLevel}%` : null}
+                    value={displayBottle.fillLevel != null ? `${displayBottle.fillLevel}%` : null}
                   />
-                  <DetailRow label={t('bottle.fields.openedAt')} value={formatDate(bottle.openedAt)} />
+                  <DetailRow label={t('bottle.fields.openedAt')} value={formatDate(displayBottle.openedAt)} />
                 </>
               )}
-              {bottle.reminderDate && (
+              {displayBottle.reminderDate && (
                 <DetailRow
                   label={t('bottle.fields.reminderDate')}
                   value={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <NotificationsIcon fontSize="small" color="info" />
-                      <Typography variant="body2">{formatDate(bottle.reminderDate)}</Typography>
+                      <Typography variant="body2">{formatDate(displayBottle.reminderDate)}</Typography>
                     </Box>
                   }
                 />
@@ -242,14 +292,14 @@ export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleD
           )}
 
           {/* Purchase info */}
-          {(bottle.purchasePrice != null || bottle.purchasePlace || bottle.estimatedValue != null) && (
+          {(displayBottle.purchasePrice != null || displayBottle.purchasePlace || displayBottle.estimatedValue != null) && (
             <Box>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 {t('bottle.fields.purchasePrice')}
               </Typography>
-              <DetailRow label={t('bottle.fields.purchasePrice')} value={bottle.purchasePrice != null ? `${bottle.purchasePrice} €` : null} />
-              <DetailRow label={t('bottle.fields.purchasePlace')} value={bottle.purchasePlace} />
-              <DetailRow label={t('bottle.fields.estimatedValue')} value={bottle.estimatedValue != null ? `${bottle.estimatedValue} €` : null} />
+              <DetailRow label={t('bottle.fields.purchasePrice')} value={displayBottle.purchasePrice != null ? `${displayBottle.purchasePrice} €` : null} />
+              <DetailRow label={t('bottle.fields.purchasePlace')} value={displayBottle.purchasePlace} />
+              <DetailRow label={t('bottle.fields.estimatedValue')} value={displayBottle.estimatedValue != null ? `${displayBottle.estimatedValue} €` : null} />
             </Box>
           )}
 
@@ -260,7 +310,7 @@ export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleD
                 {t('bottle.fields.tags')}
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                {bottle.tags.map((tag) => (
+                {displayBottle.tags.map((tag) => (
                   <Chip key={tag} label={tag} size="small" variant="outlined" />
                 ))}
               </Box>
@@ -268,16 +318,72 @@ export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleD
           )}
 
           {/* Notes */}
-          {bottle.notes && (
+          {displayBottle.notes && (
             <Box>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 {t('bottle.fields.notes')}
               </Typography>
               <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {bottle.notes}
+                {displayBottle.notes}
               </Typography>
             </Box>
           )}
+
+          {/* Traceability (FEAT-62) */}
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <PersonOutlineIcon fontSize="small" color="action" />
+              <Typography variant="subtitle2" color="text.secondary">
+                {t('traceability.title')}
+              </Typography>
+            </Box>
+            {creator && (
+              <DetailRow
+                label={t('traceability.createdBy')}
+                value={
+                  <Tooltip title={formatDateTime(displayBottle.createdAt) ?? ''}>
+                    <Typography variant="body2">{creator.name} · {formatDate(displayBottle.createdAt)}</Typography>
+                  </Tooltip>
+                }
+              />
+            )}
+            {lastEditor && (
+              <DetailRow
+                label={t('traceability.lastEditedBy')}
+                value={
+                  <Tooltip title={formatDateTime(displayBottle.updatedAt) ?? ''}>
+                    <Typography variant="body2">{lastEditor.name} · {formatDate(displayBottle.updatedAt)}</Typography>
+                  </Tooltip>
+                }
+              />
+            )}
+            <Box sx={{ mt: 1 }}>
+              <Button
+                size="small"
+                startIcon={historyLoading ? <CircularProgress size={14} /> : <HistoryIcon fontSize="small" />}
+                onClick={() => setShowHistory((v) => !v)}
+                disabled={historyLoading}
+                sx={{ textTransform: 'none', px: 0 }}
+              >
+                {showHistory ? t('traceability.hideHistory') : t('traceability.showHistory')}
+              </Button>
+              <Collapse in={showHistory && !historyLoading}>
+                <Box sx={{ mt: 1 }}>
+                  {history && history.length === 0 && (
+                    <Typography variant="caption" color="text.secondary">{t('traceability.noHistory')}</Typography>
+                  )}
+                  {history?.map((entry) => (
+                    <HistoryEntryRow
+                      key={entry.id}
+                      entry={entry}
+                      formatDate={(d) => formatDateTime(d)}
+                      t={t}
+                    />
+                  ))}
+                </Box>
+              </Collapse>
+            </Box>
+          </Box>
         </Stack>
       </DialogContent>
 

@@ -354,5 +354,19 @@
     "noPresets": "No presets saved",
     "success": "{{count}} bottles have been updated",
     "error": "An error occurred during bulk update"
+  },
+  "traceability": {
+    "title": "Traceability",
+    "createdBy": "Created by",
+    "lastEditedBy": "Last edited by",
+    "showHistory": "Show change history",
+    "hideHistory": "Hide history",
+    "noHistory": "No changes recorded.",
+    "actions": {
+      "create": "Created",
+      "update": "Updated",
+      "delete": "Deleted",
+      "restore": "Restored"
+    }
   }
 }

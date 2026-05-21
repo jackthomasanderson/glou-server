@@ -71,6 +71,27 @@ export interface Bottle {
   deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+
+  // Traceability (FEAT-62) — present only on single-bottle GET
+  updatedBy?: string | null;
+  _creator?: { id: string; name: string } | null;
+  _lastEditor?: { id: string; name: string } | null;
+}
+
+export interface BottleFieldChange {
+  field: string;
+  from: unknown;
+  to: unknown;
+}
+
+export interface BottleHistoryEntry {
+  id: number;
+  action: string;
+  status: string;
+  actorId: string;
+  actorName: string;
+  changes: BottleFieldChange[] | null;
+  createdAt: string;
 }
 
 // ─── Schéma Zod frontend (validation côté client avant envoi) ─────────────────
