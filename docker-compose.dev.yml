@@ -29,6 +29,8 @@ services:
       DATABASE_URL: postgresql://${DB_USER:-glou}:${DB_PASSWORD:-glou_secret}@db:5432/${DB_NAME:-glou_db}
       JWT_SECRET: ${JWT_SECRET}
       PORT: 3001
+    ports:
+      - "3001:3001"
 
   web:
     build:
@@ -38,6 +40,8 @@ services:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
     depends_on:
       - api
+    ports:
+      - "3000:3000"
 
 volumes:
   db_data:
