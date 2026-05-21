@@ -177,6 +177,7 @@ export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleD
 
               {isWineOrSparkling && (
                 <>
+                  <DetailRow label={t('bottle.fields.vintage')} value={displayBottle.vintage} />
                   <DetailRow
                     label={t('bottle.fields.color')}
                     value={displayBottle.color ? t(`bottle.color.${displayBottle.color}`) : null}
@@ -242,7 +243,8 @@ export function BottleDetailDialog({ bottle, open, onClose, onEdit, t }: BottleD
           )}
 
           {/* Peak maturity / drinking window */}
-          {(displayBottle.peakMaturityFrom || displayBottle.peakMaturityTo || displayBottle.alertStatus) && (
+          {(displayBottle.peakMaturityFrom || displayBottle.peakMaturityTo ||
+            (displayBottle.alertStatus && displayBottle.alertStatus !== 'none')) && (
             <Box>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 {t('bottle.fields.peakMaturity')}

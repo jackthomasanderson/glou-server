@@ -414,18 +414,15 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
         </Alert>
       )}
 
-      {/* Form panel */}
-      <Collapse in={mode !== 'idle'} unmountOnExit>
-        <Box sx={{ mb: 3 }}>
-          <BottleForm
-            initialValues={mode === 'editing' && editingBottle ? editingBottle : undefined}
-            onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
-            onCancel={handleCancel}
-            isSubmitting={createMutation.isPending || updateMutation.isPending}
-            t={t}
-          />
-        </Box>
-      </Collapse>
+      {/* Form dialog */}
+      <BottleForm
+        open={mode !== 'idle'}
+        initialValues={mode === 'editing' && editingBottle ? editingBottle : undefined}
+        onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
+        onClose={handleCancel}
+        isSubmitting={createMutation.isPending || updateMutation.isPending}
+        t={t}
+      />
 
       {/* Loading skeletons */}
       {isLoading && (

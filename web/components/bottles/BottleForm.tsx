@@ -1,23 +1,30 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Box, Button, Collapse, Divider, FormControl, Grid,
-  InputLabel, MenuItem, Paper, Select,
-  TextField, Tooltip, Typography, Alert,
+  Alert, Box, Button, Chip, Collapse, Dialog, DialogActions,
+  DialogContent, DialogTitle, Divider, FormControl, Grid,
+  IconButton, InputLabel, MenuItem, Select, Stack, TextField,
+  Tooltip, Typography,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import WineBarIcon from '@mui/icons-material/WineBar';
+import BubbleChartIcon from '@mui/icons-material/BubbleChart';
+import SportsMmaIcon from '@mui/icons-material/SportsMma';
+import GrassIcon from '@mui/icons-material/Grass';
 import { Bottle, BottleCategory } from '@/lib/bottles/types';
-import { CategoryFields, OptionalFields } from './CategoryFields';
+import { useCellars } from '@/hooks/useCellars';
 import { maturityReferenceClient } from '@/lib/maturity-references/client';
 import { MaturitySuggestion } from '@/lib/maturity-references/types';
 
 interface BottleFormProps {
+  open: boolean;
   initialValues?: Partial<Bottle>;
   onSubmit: (values: Partial<Bottle>) => void;
-  onCancel: () => void;
+  onClose: () => void;
   isSubmitting?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
 }
@@ -32,30 +39,53 @@ const EMPTY_FORM: Partial<Bottle> = {
   alertStatus: 'none',
 };
 
-import { useCellars } from '@/hooks/useCellars';
+const CATEGORY_ICONS: Record<BottleCategory, React.ReactElement> = {
+  wine: <WineBarIcon fontSize="small" />,
+  sparkling: <BubbleChartIcon fontSize="small" />,
+  spirit: <SportsMmaIcon fontSize="small" />,
+  cigar: <GrassIcon fontSize="small" />,
+};
 
-/**
- * Formulaire 2 temps :
- * 1) Tronc commun (catégorie + nom + producteur + cave) → sauvegarde possible dès ici
- * 2) Champs essentiels par catégorie + section optionnelle repliable
- */
-export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = false, t }: BottleFormProps) {
+const CATEGORY_COLORS: Record<BottleCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
+  wine: 'secondary',
+  sparkling: 'primary',
+  spirit: 'default',
+  cigar: 'warning',
+};
+
+export function BottleForm({
+  open, initialValues, onSubmit, onClose, isSubmitting = false, t,
+}: BottleFormProps) {
   const { data: cellars } = useCellars();
   const [values, setValues] = useState<Partial<Bottle>>(initialValues ?? EMPTY_FORM);
   const [showOptionals, setShowOptionals] = useState(false);
-  const [step, setStep] = useState<1 | 2>(1);
   const [suggestion, setSuggestion] = useState<MaturitySuggestion | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isEditing = Boolean(initialValues?.id);
 
-  const relevantCategory = values.category;
-  const relevantForSuggest = ['wine', 'sparkling', 'spirit'].includes(relevantCategory ?? '');
+  // Reset form when dialog opens with new values
+  useEffect(() => {
+    if (open) {
+      setValues(initialValues ?? EMPTY_FORM);
+      setShowOptionals(false);
+      setSuggestion(null);
+    }
+  }, [open, initialValues]);
 
-  const setField = (field: string, value: unknown) => {
+  const setField = (field: string, value: unknown) =>
     setValues((prev) => ({ ...prev, [field]: value }));
+
+  const canSave = Boolean(values.category && values.name?.trim() && values.producer?.trim());
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (canSave) onSubmit(values);
   };
 
+  // Debounced maturity suggestion
+  const hasPeakCategories = ['wine', 'sparkling'].includes(values.category ?? '');
   useEffect(() => {
-    if (!relevantForSuggest || !values.category) return;
+    if (!hasPeakCategories || !values.category) { setSuggestion(null); return; }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
@@ -67,13 +97,11 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
           vintage: values.vintage ?? undefined,
         });
         setSuggestion(result);
-      } catch {
-        setSuggestion(null);
-      }
+      } catch { setSuggestion(null); }
     }, 600);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.category, values.region, values.color, values.producer, values.vintage, relevantForSuggest]);
+  }, [values.category, values.region, values.color, values.producer, values.vintage]);
 
   const applySuggestion = () => {
     if (!suggestion) return;
@@ -82,192 +110,571 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
       peakMaturityFrom: suggestion.peakMaturityFrom ?? prev.peakMaturityFrom,
       peakMaturityTo: suggestion.peakMaturityTo ?? prev.peakMaturityTo,
     }));
-    setShowOptionals(true);
     setSuggestion(null);
   };
 
-  const canSaveMinimal = Boolean(
-    values.category &&
-    values.name?.trim() &&
-    values.producer?.trim()
-  );
-  const isEditing = Boolean(initialValues?.id);
+  const category = (values.category ?? 'wine') as BottleCategory;
+  const isWine = category === 'wine';
+  const isSparkling = category === 'sparkling';
+  const isSpirit = category === 'spirit';
+  const isCigar = category === 'cigar';
+  const isWineOrSparkling = isWine || isSparkling;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (canSaveMinimal) onSubmit(values);
-  };
+  const numField = (val: string, fallback?: number) => (val ? Number(val) : fallback);
 
   return (
-    <Paper
-      component="form"
-      onSubmit={handleSubmit}
-      sx={{ p: 3 }}
-      aria-label={isEditing ? t('bottle.edit') : t('bottle.add')}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      scroll="paper"
+      PaperProps={{ component: 'form', onSubmit: handleSubmit }}
     >
-      <Typography variant="h6" fontWeight={700} gutterBottom>
-        {isEditing ? t('bottle.edit') : t('bottle.add')}
-      </Typography>
-
-      {/* ── Step 1: Common trunk ── */}
-      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-        {t('bottle.step1')}
-      </Typography>
-
-      <Grid container spacing={2}>
-        {/* Category */}
-        <Grid item xs={12} sm={6} md={3}>
-          <FormControl fullWidth size="small" required>
-            <InputLabel>{t('bottle.fields.category')}</InputLabel>
-            <Select
-              value={values.category ?? 'wine'}
-              label={t('bottle.fields.category')}
-              onChange={(e) => {
-                setField('category', e.target.value as BottleCategory);
-                setStep(2);
-              }}
-            >
-              {(['wine', 'sparkling', 'spirit'] as BottleCategory[]).map((c) => (
-                <MenuItem key={c} value={c}>{t(`categories.${c}`)}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <FormControl fullWidth size="small">
-            <InputLabel>{t('nav.caves')}</InputLabel>
-            <Select
-              value={values.cellarId === null ? 'none' : (values.cellarId ?? 'none')}
-              label={t('nav.caves')}
-              onChange={(e) => setField('cellarId', e.target.value === 'none' ? null : e.target.value)}
-            >
-              <MenuItem value="none">
-                <em>{t('bottle.noCellar')}</em>
-              </MenuItem>
-              {cellars?.map((cellar) => (
-                <MenuItem key={cellar.id} value={cellar.id}>
-                  {cellar.name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Grid>
-
-        {/* Name */}
-        <Grid item xs={12} sm={6} md={3}>
-          <TextField
-            fullWidth
-            required
+      <DialogTitle sx={{ pr: 6, pb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Chip
+            icon={CATEGORY_ICONS[category]}
+            label={t(`categories.${category}`)}
+            color={CATEGORY_COLORS[category]}
             size="small"
-            label={t('bottle.fields.name')}
-            value={values.name ?? ''}
-            onChange={(e) => {
-              setField('name', e.target.value);
-              if (e.target.value && step === 1) setStep(2);
-            }}
           />
-        </Grid>
-
-        {/* Producer */}
-        <Grid item xs={12} sm={6} md={3}>
-          <TextField
-            fullWidth
-            required
-            size="small"
-            label={t('bottle.fields.producer')}
-            placeholder={t(`bottle.fields.producerPlaceholder.${values.category ?? 'wine'}`)}
-            value={values.producer ?? ''}
-            onChange={(e) => setField('producer', e.target.value)}
-          />
-        </Grid>
-      </Grid>
-
-      {/* Minimal save hint */}
-      {canSaveMinimal && step === 1 && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="caption" color="text.secondary">
-            {t('bottle.saveMinimalHint')}
+          <Typography variant="h6" component="span" fontWeight={600}>
+            {isEditing ? t('bottle.edit') : t('bottle.add')}
           </Typography>
         </Box>
-      )}
+        <IconButton
+          onClick={onClose}
+          size="small"
+          sx={{ position: 'absolute', top: 8, right: 8 }}
+          disabled={isSubmitting}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
 
-      {/* ── Step 2: Category-specific essential fields ── */}
-      {(step === 2 || isEditing) && values.category && (
-        <>
-          <Divider sx={{ my: 2.5 }} />
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-            {t('bottle.step2')}
-          </Typography>
+      <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
+        <Stack spacing={3}>
 
-          <CategoryFields
-            category={values.category}
-            values={values as Record<string, unknown>}
-            onChange={setField}
-            t={t}
-          />
+          {/* ── Section 1 : Identité ──────────────────────────────────────── */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {t('bottle.step1')}
+            </Typography>
 
-          {/* Maturity suggestion banner */}
-          {suggestion && suggestion.peakMaturityFrom != null && suggestion.peakMaturityTo != null && (
-            <Alert
-              severity="info"
-              icon={<AutoAwesomeIcon fontSize="small" />}
-              sx={{ mt: 2 }}
-              action={
-                <Button size="small" onClick={applySuggestion} color="inherit">
-                  {t('bottle.maturitySuggestion.apply')}
-                </Button>
-              }
-            >
-              <strong>{suggestion.reference.name}</strong>
-              {' — '}
-              {t('bottle.maturitySuggestion.window', {
-                from: suggestion.peakMaturityFrom,
-                to: suggestion.peakMaturityTo,
-              })}
-            </Alert>
-          )}
+            {/* Category chips */}
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+              {(['wine', 'sparkling', 'spirit', 'cigar'] as BottleCategory[]).map((cat) => (
+                <Chip
+                  key={cat}
+                  icon={CATEGORY_ICONS[cat]}
+                  label={t(`categories.${cat}`)}
+                  color={category === cat ? CATEGORY_COLORS[cat] : 'default'}
+                  variant={category === cat ? 'filled' : 'outlined'}
+                  onClick={() => setField('category', cat)}
+                  sx={{ cursor: 'pointer' }}
+                />
+              ))}
+            </Stack>
 
-          {/* Optional fields toggle */}
-          <Box sx={{ mt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  required
+                  size="small"
+                  label={t('bottle.fields.name')}
+                  value={values.name ?? ''}
+                  onChange={(e) => setField('name', e.target.value)}
+                  autoFocus={!isEditing}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  required
+                  size="small"
+                  label={t('bottle.fields.producer')}
+                  placeholder={t(`bottle.fields.producerPlaceholder.${category}`)}
+                  value={values.producer ?? ''}
+                  onChange={(e) => setField('producer', e.target.value)}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>{t('nav.caves')}</InputLabel>
+                  <Select
+                    value={values.cellarId === null ? 'none' : (values.cellarId ?? 'none')}
+                    label={t('nav.caves')}
+                    onChange={(e) => setField('cellarId', e.target.value === 'none' ? null : e.target.value)}
+                  >
+                    <MenuItem value="none"><em>{t('bottle.noCellar')}</em></MenuItem>
+                    {cellars?.map((c) => (
+                      <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+
+          <Divider />
+
+          {/* ── Section 2 : Caractéristiques catégorie ───────────────────── */}
+          <Box>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              {t('bottle.step2')}
+            </Typography>
+
+            <Grid container spacing={2}>
+
+              {/* Wine essential */}
+              {isWine && (
+                <>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.vintage')}
+                      type="number"
+                      value={values.vintage ?? ''}
+                      onChange={(e) => setField('vintage', numField(e.target.value))}
+                      inputProps={{ min: 1800, max: 2100, step: 1 }}
+                      helperText={t('bottle.fields.noVintage')}
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>{t('bottle.fields.color')}</InputLabel>
+                      <Select
+                        value={values.color ?? ''}
+                        label={t('bottle.fields.color')}
+                        onChange={(e) => setField('color', e.target.value || undefined)}
+                      >
+                        <MenuItem value=""><em>—</em></MenuItem>
+                        {['red', 'white', 'rosé', 'orange'].map((c) => (
+                          <MenuItem key={c} value={c}>{t(`bottle.color.${c}`)}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.region')}
+                      value={values.region ?? ''}
+                      onChange={(e) => setField('region', e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.alcoholDegree')}
+                      type="number"
+                      value={values.alcoholDegree ?? ''}
+                      onChange={(e) => setField('alcoholDegree', numField(e.target.value))}
+                      inputProps={{ min: 0, max: 100, step: 0.1 }}
+                      InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">%</Typography> }}
+                    />
+                  </Grid>
+                </>
+              )}
+
+              {/* Sparkling essential */}
+              {isSparkling && (
+                <>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.vintage')}
+                      type="number"
+                      value={values.vintage ?? ''}
+                      onChange={(e) => setField('vintage', numField(e.target.value))}
+                      inputProps={{ min: 1800, max: 2100, step: 1 }}
+                      helperText={t('bottle.fields.noVintage')}
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>{t('bottle.fields.sparklingType')}</InputLabel>
+                      <Select
+                        value={values.sparklingType ?? ''}
+                        label={t('bottle.fields.sparklingType')}
+                        onChange={(e) => setField('sparklingType', e.target.value || undefined)}
+                      >
+                        <MenuItem value=""><em>—</em></MenuItem>
+                        {['champagne', 'cremant', 'prosecco', 'cava', 'petnat', 'other'].map((s) => (
+                          <MenuItem key={s} value={s}>{t(`bottle.sparklingTypes.${s}`)}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.sugarLevel')}
+                      value={values.sugarLevel ?? ''}
+                      onChange={(e) => setField('sugarLevel', e.target.value)}
+                    />
+                  </Grid>
+                </>
+              )}
+
+              {/* Spirit essential */}
+              {isSpirit && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.edition')}
+                      value={values.edition ?? ''}
+                      onChange={(e) => setField('edition', e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small" required
+                      label={t('bottle.fields.alcoholDegree')}
+                      type="number"
+                      value={values.alcoholDegree ?? ''}
+                      onChange={(e) => setField('alcoholDegree', numField(e.target.value))}
+                      inputProps={{ min: 0, max: 100, step: 0.1 }}
+                      InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">%</Typography> }}
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.declaredAge')}
+                      value={values.declaredAge ?? ''}
+                      onChange={(e) => setField('declaredAge', e.target.value)}
+                    />
+                  </Grid>
+                </>
+              )}
+
+              {/* Cigar essential */}
+              {isCigar && (
+                <>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.format')}
+                      value={values.format ?? ''}
+                      onChange={(e) => setField('format', e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small" required
+                      label={t('bottle.fields.quantity')}
+                      type="number"
+                      value={values.quantity ?? ''}
+                      onChange={(e) => setField('quantity', numField(e.target.value))}
+                      inputProps={{ min: 1, step: 1 }}
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.manufactureYear')}
+                      type="number"
+                      value={values.manufactureYear ?? ''}
+                      onChange={(e) => setField('manufactureYear', numField(e.target.value))}
+                      inputProps={{ min: 1900, max: 2100, step: 1 }}
+                    />
+                  </Grid>
+                </>
+              )}
+
+              {/* Peak maturity window — wine + sparkling only */}
+              {isWineOrSparkling && (
+                <>
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {t('bottle.fields.peakMaturity')}
+                      </Typography>
+                    </Divider>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.peakMaturityFrom')}
+                      type="number"
+                      value={values.peakMaturityFrom ?? ''}
+                      onChange={(e) => setField('peakMaturityFrom', e.target.value ? Number(e.target.value) : null)}
+                      inputProps={{ min: 1800, max: 2200, step: 1 }}
+                      helperText={t('bottle.fields.peakMaturityFromHint')}
+                    />
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <TextField
+                      fullWidth size="small"
+                      label={t('bottle.fields.peakMaturityTo')}
+                      type="number"
+                      value={values.peakMaturityTo ?? ''}
+                      onChange={(e) => setField('peakMaturityTo', e.target.value ? Number(e.target.value) : null)}
+                      inputProps={{ min: 1800, max: 2200, step: 1 }}
+                      helperText={t('bottle.fields.peakMaturityToHint')}
+                    />
+                  </Grid>
+                </>
+              )}
+            </Grid>
+
+            {/* Suggestion banner */}
+            {suggestion && suggestion.peakMaturityFrom != null && suggestion.peakMaturityTo != null && (
+              <Alert
+                severity="info"
+                icon={<AutoAwesomeIcon fontSize="small" />}
+                sx={{ mt: 2 }}
+                action={
+                  <Button size="small" onClick={applySuggestion} color="inherit">
+                    {t('bottle.maturitySuggestion.apply')}
+                  </Button>
+                }
+              >
+                <strong>{suggestion.reference.name}</strong>
+                {' — '}
+                {t('bottle.maturitySuggestion.window', {
+                  from: suggestion.peakMaturityFrom,
+                  to: suggestion.peakMaturityTo,
+                })}
+              </Alert>
+            )}
+          </Box>
+
+          <Divider />
+
+          {/* ── Section 3 : Compléments ──────────────────────────────────── */}
+          <Box>
             <Tooltip title={showOptionals ? t('actions.showLess') : t('actions.showMore')}>
               <Button
                 size="small"
                 variant="text"
                 onClick={() => setShowOptionals((prev) => !prev)}
                 startIcon={showOptionals ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                aria-expanded={showOptionals}
-                aria-controls="optional-fields"
               >
                 {showOptionals ? t('actions.showLess') : t('actions.showMore')}
               </Button>
             </Tooltip>
+
+            <Collapse in={showOptionals}>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+
+                {/* Common optionals */}
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth size="small"
+                    label={t('bottle.fields.location')}
+                    value={values.location ?? ''}
+                    onChange={(e) => setField('location', e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth size="small"
+                    label={t('bottle.fields.collection')}
+                    value={values.collection ?? ''}
+                    onChange={(e) => setField('collection', e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField fullWidth size="small"
+                    label={t('bottle.fields.purchasePrice')}
+                    type="number"
+                    value={values.purchasePrice ?? ''}
+                    onChange={(e) => setField('purchasePrice', numField(e.target.value))}
+                    InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">€</Typography> }}
+                  />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField fullWidth size="small"
+                    label={t('bottle.fields.estimatedValue')}
+                    type="number"
+                    value={values.estimatedValue ?? ''}
+                    onChange={(e) => setField('estimatedValue', numField(e.target.value))}
+                    InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">€</Typography> }}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small"
+                    label={t('bottle.fields.photoUrl')}
+                    value={values.photoUrl ?? ''}
+                    onChange={(e) => setField('photoUrl', e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField fullWidth size="small" multiline rows={3}
+                    label={t('bottle.fields.notes')}
+                    value={values.notes ?? ''}
+                    onChange={(e) => setField('notes', e.target.value)}
+                  />
+                </Grid>
+
+                {/* Category-specific optionals */}
+                {(isWine || isSparkling) && (
+                  <>
+                    <Grid item xs={6} sm={3}>
+                      <TextField fullWidth size="small"
+                        label={t('bottle.fields.bottleSize')}
+                        value={values.bottleSize ?? ''}
+                        onChange={(e) => setField('bottleSize', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <TextField fullWidth size="small"
+                        label={t('bottle.fields.serviceTemp')}
+                        value={values.serviceTemp ?? ''}
+                        onChange={(e) => setField('serviceTemp', e.target.value)}
+                      />
+                    </Grid>
+                    {isWine && (
+                      <Grid item xs={6} sm={3}>
+                        <TextField fullWidth size="small"
+                          label={t('bottle.fields.lotNumber')}
+                          value={values.lotNumber ?? ''}
+                          onChange={(e) => setField('lotNumber', e.target.value)}
+                        />
+                      </Grid>
+                    )}
+                    {isSparkling && (
+                      <Grid item xs={6} sm={3}>
+                        <TextField fullWidth size="small"
+                          label={t('bottle.fields.baseYear')}
+                          type="number"
+                          value={values.baseYear ?? ''}
+                          onChange={(e) => setField('baseYear', numField(e.target.value))}
+                          inputProps={{ min: 1800, max: 2100 }}
+                        />
+                      </Grid>
+                    )}
+                  </>
+                )}
+
+                {isSpirit && (
+                  <>
+                    <Grid item xs={12} sm={6}>
+                      <TextField fullWidth size="small"
+                        label={t('bottle.fields.caskType')}
+                        value={values.caskType ?? ''}
+                        onChange={(e) => setField('caskType', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField fullWidth size="small"
+                        label={t('bottle.fields.aromaticProfile')}
+                        value={values.aromaticProfile ?? ''}
+                        onChange={(e) => setField('aromaticProfile', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField fullWidth size="small"
+                        label={t('bottle.fields.additions')}
+                        value={values.additions ?? ''}
+                        onChange={(e) => setField('additions', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <TextField fullWidth size="small"
+                        label={t('bottle.fields.bottleSize')}
+                        value={values.bottleSize ?? ''}
+                        onChange={(e) => setField('bottleSize', e.target.value)}
+                      />
+                    </Grid>
+                  </>
+                )}
+
+                {isCigar && (
+                  <>
+                    <Grid item xs={12} sm={6}>
+                      <TextField fullWidth size="small"
+                        label={t('bottle.fields.leafOrigin')}
+                        value={values.leafOrigin ?? ''}
+                        onChange={(e) => setField('leafOrigin', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <TextField fullWidth size="small"
+                        label={t('bottle.fields.factoryCode')}
+                        value={values.factoryCode ?? ''}
+                        onChange={(e) => setField('factoryCode', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <TextField fullWidth size="small"
+                        label={t('bottle.fields.recommendedHumidity')}
+                        type="number"
+                        value={values.recommendedHumidity ?? ''}
+                        onChange={(e) => setField('recommendedHumidity', numField(e.target.value))}
+                        inputProps={{ min: 50, max: 100 }}
+                        InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">%</Typography> }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <TextField fullWidth size="small"
+                        label={t('bottle.fields.humidificationSystem')}
+                        value={values.humidificationSystem ?? ''}
+                        onChange={(e) => setField('humidificationSystem', e.target.value)}
+                      />
+                    </Grid>
+                  </>
+                )}
+
+                {/* Opened status */}
+                <Grid item xs={12}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Button
+                      size="small"
+                      variant={values.isOpened ? 'contained' : 'outlined'}
+                      color="warning"
+                      onClick={() => {
+                        const next = !values.isOpened;
+                        setField('isOpened', next);
+                        if (next && !values.openedAt) {
+                          setField('openedAt', new Date().toISOString().split('T')[0]);
+                        }
+                      }}
+                    >
+                      {values.isOpened ? '✓ ' : ''}{t('bottle.fields.isOpened')}
+                    </Button>
+                  </Stack>
+                </Grid>
+
+                {values.isOpened && (
+                  <>
+                    <Grid item xs={6} sm={3}>
+                      <TextField fullWidth size="small" type="date"
+                        label={t('bottle.fields.openedAt')}
+                        InputLabelProps={{ shrink: true }}
+                        value={typeof values.openedAt === 'string' ? values.openedAt.split('T')[0] : ''}
+                        onChange={(e) => setField('openedAt', e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <TextField fullWidth size="small" type="date"
+                        label={t('bottle.fields.reminderDate')}
+                        InputLabelProps={{ shrink: true }}
+                        value={typeof values.reminderDate === 'string' ? values.reminderDate.split('T')[0] : ''}
+                        onChange={(e) => setField('reminderDate', e.target.value)}
+                      />
+                    </Grid>
+                  </>
+                )}
+
+              </Grid>
+            </Collapse>
           </Box>
+        </Stack>
+      </DialogContent>
 
-          <Collapse in={showOptionals}>
-            <Box id="optional-fields" sx={{ mt: 2 }}>
-              <OptionalFields
-                category={values.category}
-                values={values as Record<string, unknown>}
-                onChange={setField}
-                t={t}
-              />
-            </Box>
-          </Collapse>
-        </>
-      )}
-
-      {/* ── Actions ── */}
-      <Box sx={{ mt: 3, display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-        <Button variant="outlined" onClick={onCancel} disabled={isSubmitting}>
+      <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+        <Button variant="outlined" onClick={onClose} disabled={isSubmitting}>
           {t('actions.cancel')}
         </Button>
         <Button
           type="submit"
           variant="contained"
           startIcon={<SaveIcon />}
-          disabled={!canSaveMinimal || isSubmitting}
-          aria-label={isEditing ? t('actions.update') : t('bottle.saveMinimal')}
+          disabled={!canSave || isSubmitting}
         >
           {isSubmitting
             ? t('status.saving')
@@ -275,7 +682,7 @@ export function BottleForm({ initialValues, onSubmit, onCancel, isSubmitting = f
               ? t('actions.update')
               : t('bottle.saveMinimal')}
         </Button>
-      </Box>
-    </Paper>
+      </DialogActions>
+    </Dialog>
   );
 }
