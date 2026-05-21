@@ -18,9 +18,8 @@ services:
       - "5432:5432"
 
   api:
-    build:
-      context: ./api
-      dockerfile: Dockerfile
+    image: ghcr.io/jackthomasanderson/glou-server-api:latest
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -33,13 +32,13 @@ services:
       - "3001:3001"
 
   web:
-    build:
-      context: ./web
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    image: ghcr.io/jackthomasanderson/glou-server-web:latest
+    restart: unless-stopped
     depends_on:
       - api
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
     ports:
       - "3000:3000"
 
