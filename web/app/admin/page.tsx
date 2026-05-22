@@ -183,6 +183,9 @@ export default function AdminPage() {
                 </TableContainer>
             </Paper>
 
+            {/* ── Maturity References ───────────────────────────────────────── */}
+            <MaturityReferencesSection />
+
             {/* ── Audit log ──────────────────────────────────────────────────── */}
             <Paper sx={{ p: 4, mt: 4, borderRadius: 3 }}>
                 <Typography variant="h6" gutterBottom>{t('admin.auditLog.title')}</Typography>
@@ -272,9 +275,6 @@ export default function AdminPage() {
                     </Box>
                 )}
             </Paper>
-
-            {/* ── Maturity References ───────────────────────────────────────── */}
-            <MaturityReferencesSection />
 
             {/* ── Maintenance ───────────────────────────────────────────────── */}
             <Paper sx={{
