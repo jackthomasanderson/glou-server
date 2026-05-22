@@ -337,19 +337,24 @@
       },
       "fields": {
         "name": "Nom de la référence",
-        "mode": "Mode",
-        "windowFrom": "Fenêtre début",
-        "windowTo": "Fenêtre fin",
+        "mode": "Calcul de la fenêtre",
+        "windowFromRelative": "Prêt à boire après (ans)",
+        "windowToRelative": "Décline après (ans)",
+        "windowFromAbsolute": "Première année",
+        "windowToAbsolute": "Dernière année",
         "vintageFrom": "Millésime de",
         "vintageTo": "Millésime à"
       },
       "modes": {
-        "relative": "Relatif (années depuis millésime)",
-        "absolute": "Absolu (années calendaires)"
+        "relative": "Relatif au millésime",
+        "absolute": "Années calendaires",
+        "cigarInfo": "Les cigares se référencent toujours en années calendaires"
       },
       "hints": {
-        "relativeWindow": "Années depuis le millésime (ex: 5 → 15)",
-        "criteria": "Critères de correspondance (laissez vide pour correspondre à tous)"
+        "criteria": "Correspondance optionnelle",
+        "windowRelative": "Ex : 5 → 15 pour une bouteille buvable de 5 à 15 ans après le millésime",
+        "windowAbsolute": "Ex : 2010 → 2030 pour une fenêtre calendaire fixe",
+        "colorPlaceholder": "Rouge, Blanc, Rosé…"
       },
       "errors": {
         "nameRequired": "Le nom est obligatoire.",

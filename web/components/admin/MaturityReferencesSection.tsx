@@ -4,12 +4,19 @@ import {
   Paper, Typography, Box, Button, Table, TableHead, TableRow, TableCell,
   TableBody, TableContainer, Skeleton, IconButton, Tooltip, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, FormControl, InputLabel, Select, MenuItem,
-  Stack, Alert,
+  TextField, Stack, Alert, Divider,
 } from '@mui/material';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import WineBarIcon from '@mui/icons-material/WineBar';
+import BubbleChartIcon from '@mui/icons-material/BubbleChart';
+import LocalBarIcon from '@mui/icons-material/LocalBar';
+import SmokingRoomsIcon from '@mui/icons-material/SmokingRooms';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { useTranslation } from 'react-i18next';
 import {
   useMaturityReferences,
@@ -19,6 +26,20 @@ import {
   MaturityReference,
   MaturityReferenceInput,
 } from '@/hooks/useAdmin';
+
+const CATEGORY_CONFIG = {
+  wine:      { hasColor: true,  hasVintage: true,  forceAbsolute: false },
+  sparkling: { hasColor: true,  hasVintage: true,  forceAbsolute: false },
+  spirit:    { hasColor: false, hasVintage: true,  forceAbsolute: false },
+  cigar:     { hasColor: false, hasVintage: false, forceAbsolute: true  },
+} as const;
+
+const CATEGORY_ICONS = {
+  wine:      WineBarIcon,
+  sparkling: BubbleChartIcon,
+  spirit:    LocalBarIcon,
+  cigar:     SmokingRoomsIcon,
+};
 
 const EMPTY_FORM: MaturityReferenceInput = {
   name: '',
@@ -34,9 +55,7 @@ const EMPTY_FORM: MaturityReferenceInput = {
 };
 
 function windowLabel(ref: MaturityReference): string {
-  if (ref.mode === 'ABSOLUTE') {
-    return `${ref.windowFrom} – ${ref.windowTo}`;
-  }
+  if (ref.mode === 'ABSOLUTE') return `${ref.windowFrom} – ${ref.windowTo}`;
   const sign = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
   return `${sign(ref.windowFrom)} → ${sign(ref.windowTo)} ans`;
 }
@@ -72,6 +91,18 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
   const setField = (field: keyof MaturityReferenceInput, value: unknown) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  const handleCategoryChange = (cat: MaturityReferenceInput['category']) => {
+    const cfg = CATEGORY_CONFIG[cat];
+    setForm((prev) => ({
+      ...prev,
+      category: cat,
+      mode: cfg.forceAbsolute ? 'ABSOLUTE' : prev.mode,
+      color: cfg.hasColor ? prev.color : null,
+      vintageFrom: cfg.hasVintage ? prev.vintageFrom : null,
+      vintageTo: cfg.hasVintage ? prev.vintageTo : null,
+    }));
+  };
+
   const numField = (val: unknown) => {
     const n = Number(val);
     return isNaN(n) ? null : n;
@@ -81,7 +112,6 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
     if (!form.name.trim()) { setError(t('admin.maturityRefs.errors.nameRequired')); return; }
     if (form.windowTo < form.windowFrom) { setError(t('admin.maturityRefs.errors.windowInvalid')); return; }
     setError(null);
-
     if (editing) {
       update({ id: editing.id, patch: form }, { onSuccess: onClose });
     } else {
@@ -90,6 +120,17 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
   };
 
   const isPending = isCreating || isUpdating;
+  const cfg = CATEGORY_CONFIG[form.category];
+
+  const windowFromLabel = form.mode === 'RELATIVE'
+    ? t('admin.maturityRefs.fields.windowFromRelative')
+    : t('admin.maturityRefs.fields.windowFromAbsolute');
+  const windowToLabel = form.mode === 'RELATIVE'
+    ? t('admin.maturityRefs.fields.windowToRelative')
+    : t('admin.maturityRefs.fields.windowToAbsolute');
+  const windowHint = form.mode === 'RELATIVE'
+    ? t('admin.maturityRefs.hints.windowRelative')
+    : t('admin.maturityRefs.hints.windowAbsolute');
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -97,7 +138,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
         {editing ? t('admin.maturityRefs.editTitle') : t('admin.maturityRefs.addTitle')}
       </DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
+        <Stack spacing={2.5} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
 
           <TextField
@@ -109,56 +150,90 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
             size="small"
           />
 
-          <Stack direction="row" spacing={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('bottle.fields.category')}</InputLabel>
-              <Select
-                value={form.category}
-                label={t('bottle.fields.category')}
-                onChange={(e) => setField('category', e.target.value)}
-              >
-                {(['wine', 'sparkling', 'spirit', 'cigar'] as const).map((c) => (
-                  <MenuItem key={c} value={c}>{t(`categories.${c}`)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+          {/* Category */}
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+              {t('bottle.fields.category')}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {(['wine', 'sparkling', 'spirit', 'cigar'] as const).map((cat) => {
+                const Icon = CATEGORY_ICONS[cat];
+                const selected = form.category === cat;
+                return (
+                  <Chip
+                    key={cat}
+                    icon={<Icon sx={{ fontSize: '1rem !important' }} />}
+                    label={t(`categories.${cat}`)}
+                    onClick={() => handleCategoryChange(cat)}
+                    color={selected ? 'primary' : 'default'}
+                    variant={selected ? 'filled' : 'outlined'}
+                    sx={{ cursor: 'pointer' }}
+                  />
+                );
+              })}
+            </Box>
+          </Box>
 
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('admin.maturityRefs.fields.mode')}</InputLabel>
-              <Select
+          {/* Mode */}
+          {!cfg.forceAbsolute ? (
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                {t('admin.maturityRefs.fields.mode')}
+              </Typography>
+              <ToggleButtonGroup
                 value={form.mode}
-                label={t('admin.maturityRefs.fields.mode')}
-                onChange={(e) => setField('mode', e.target.value)}
+                exclusive
+                onChange={(_, val) => val && setField('mode', val)}
+                size="small"
+                fullWidth
               >
-                <MenuItem value="RELATIVE">{t('admin.maturityRefs.modes.relative')}</MenuItem>
-                <MenuItem value="ABSOLUTE">{t('admin.maturityRefs.modes.absolute')}</MenuItem>
-              </Select>
-            </FormControl>
+                <ToggleButton value="RELATIVE" sx={{ gap: 1, fontSize: '0.8rem', py: 0.75 }}>
+                  <AccessTimeIcon fontSize="small" />
+                  {t('admin.maturityRefs.modes.relative')}
+                </ToggleButton>
+                <ToggleButton value="ABSOLUTE" sx={{ gap: 1, fontSize: '0.8rem', py: 0.75 }}>
+                  <CalendarMonthIcon fontSize="small" />
+                  {t('admin.maturityRefs.modes.absolute')}
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+          ) : (
+            <Alert severity="info" icon={<CalendarMonthIcon fontSize="small" />} sx={{ py: 0.5 }}>
+              <Typography variant="caption">{t('admin.maturityRefs.modes.cigarInfo')}</Typography>
+            </Alert>
+          )}
+
+          {/* Window */}
+          <Stack spacing={0.5}>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label={windowFromLabel}
+                type="number"
+                value={form.windowFrom}
+                onChange={(e) => setField('windowFrom', numField(e.target.value) ?? 0)}
+                fullWidth
+                size="small"
+                inputProps={form.mode === 'ABSOLUTE' ? { min: 1800, max: 2200 } : { min: 0 }}
+              />
+              <TextField
+                label={windowToLabel}
+                type="number"
+                value={form.windowTo}
+                onChange={(e) => setField('windowTo', numField(e.target.value) ?? 0)}
+                fullWidth
+                size="small"
+                inputProps={form.mode === 'ABSOLUTE' ? { min: 1800, max: 2200 } : { min: 0 }}
+              />
+            </Stack>
+            <Typography variant="caption" color="text.secondary">{windowHint}</Typography>
           </Stack>
 
-          <Stack direction="row" spacing={2}>
-            <TextField
-              label={t('admin.maturityRefs.fields.windowFrom')}
-              type="number"
-              value={form.windowFrom}
-              onChange={(e) => setField('windowFrom', numField(e.target.value) ?? 0)}
-              fullWidth
-              size="small"
-              helperText={form.mode === 'RELATIVE' ? t('admin.maturityRefs.hints.relativeWindow') : undefined}
-            />
-            <TextField
-              label={t('admin.maturityRefs.fields.windowTo')}
-              type="number"
-              value={form.windowTo}
-              onChange={(e) => setField('windowTo', numField(e.target.value) ?? 0)}
-              fullWidth
-              size="small"
-            />
-          </Stack>
-
-          <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
-            {t('admin.maturityRefs.hints.criteria')}
-          </Typography>
+          {/* Criteria */}
+          <Divider>
+            <Typography variant="caption" color="text.secondary">
+              {t('admin.maturityRefs.hints.criteria')}
+            </Typography>
+          </Divider>
 
           <Stack direction="row" spacing={2}>
             <TextField
@@ -177,33 +252,39 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
             />
           </Stack>
 
-          <Stack direction="row" spacing={2}>
+          {cfg.hasColor && (
             <TextField
               label={t('bottle.fields.color')}
               value={form.color ?? ''}
               onChange={(e) => setField('color', e.target.value || null)}
-              fullWidth
               size="small"
-            />
-            <TextField
-              label={t('admin.maturityRefs.fields.vintageFrom')}
-              type="number"
-              value={form.vintageFrom ?? ''}
-              onChange={(e) => setField('vintageFrom', e.target.value ? numField(e.target.value) : null)}
               fullWidth
-              size="small"
-              inputProps={{ min: 1800, max: 2200 }}
+              placeholder={t('admin.maturityRefs.hints.colorPlaceholder')}
             />
-            <TextField
-              label={t('admin.maturityRefs.fields.vintageTo')}
-              type="number"
-              value={form.vintageTo ?? ''}
-              onChange={(e) => setField('vintageTo', e.target.value ? numField(e.target.value) : null)}
-              fullWidth
-              size="small"
-              inputProps={{ min: 1800, max: 2200 }}
-            />
-          </Stack>
+          )}
+
+          {cfg.hasVintage && (
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label={t('admin.maturityRefs.fields.vintageFrom')}
+                type="number"
+                value={form.vintageFrom ?? ''}
+                onChange={(e) => setField('vintageFrom', e.target.value ? numField(e.target.value) : null)}
+                fullWidth
+                size="small"
+                inputProps={{ min: 1800, max: 2200 }}
+              />
+              <TextField
+                label={t('admin.maturityRefs.fields.vintageTo')}
+                type="number"
+                value={form.vintageTo ?? ''}
+                onChange={(e) => setField('vintageTo', e.target.value ? numField(e.target.value) : null)}
+                fullWidth
+                size="small"
+                inputProps={{ min: 1800, max: 2200 }}
+              />
+            </Stack>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ pb: 2, px: 3 }}>

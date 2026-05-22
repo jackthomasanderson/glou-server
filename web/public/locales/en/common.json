@@ -337,19 +337,24 @@
       },
       "fields": {
         "name": "Reference name",
-        "mode": "Mode",
-        "windowFrom": "Window start",
-        "windowTo": "Window end",
+        "mode": "Window calculation",
+        "windowFromRelative": "Ready to drink after (yrs)",
+        "windowToRelative": "Declining after (yrs)",
+        "windowFromAbsolute": "First year",
+        "windowToAbsolute": "Last year",
         "vintageFrom": "Vintage from",
         "vintageTo": "Vintage to"
       },
       "modes": {
-        "relative": "Relative (years since vintage)",
-        "absolute": "Absolute (calendar years)"
+        "relative": "Relative to vintage",
+        "absolute": "Calendar years",
+        "cigarInfo": "Cigars always use calendar years"
       },
       "hints": {
-        "relativeWindow": "Years since vintage (e.g. 5 → 15)",
-        "criteria": "Match criteria (leave empty to match all)"
+        "criteria": "Optional matching criteria",
+        "windowRelative": "E.g. 5 → 15 for a bottle drinkable 5 to 15 years after vintage",
+        "windowAbsolute": "E.g. 2010 → 2030 for a fixed calendar window",
+        "colorPlaceholder": "Red, White, Rosé…"
       },
       "errors": {
         "nameRequired": "Name is required.",
