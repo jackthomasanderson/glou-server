@@ -17,12 +17,23 @@ import {
   TextField,
   MenuItem,
   CircularProgress,
-  Alert
+  Alert,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Tooltip,
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Warehouse as CellarIcon } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
 import { Cellar } from '@/lib/cellars/types';
+import { ViewToggle } from '@/components/ui/ViewToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 export const CellarDashboard: React.FC = () => {
   const { t } = useTranslation();
@@ -31,6 +42,7 @@ export const CellarDashboard: React.FC = () => {
   const updateMutation = useUpdateCellar();
   const deleteMutation = useDeleteCellar();
 
+  const [viewMode, setViewMode] = useViewMode('cellars');
   const [openForm, setOpenForm] = useState(false);
   const [editingCellar, setEditingCellar] = useState<Cellar | null>(null);
   const [formData, setFormData] = useState<{
@@ -86,13 +98,16 @@ export const CellarDashboard: React.FC = () => {
         <Typography variant="h4" component="h1">
           {t('cellars.title')}
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenForm()}
-        >
-          {t('cellars.addCellar')}
-        </Button>
+        <Box display="flex" gap={1} alignItems="center">
+          <ViewToggle value={viewMode} onChange={setViewMode} />
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenForm()}
+          >
+            {t('cellars.addCellar')}
+          </Button>
+        </Box>
       </Box>
 
       {cellars?.length === 0 ? (
@@ -121,7 +136,7 @@ export const CellarDashboard: React.FC = () => {
             {t('cellars.addCellar')}
           </Button>
         </Box>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <Grid container spacing={3}>
           {cellars?.map((cellar) => (
             <Grid item xs={12} sm={6} md={4} key={cellar.id}>
@@ -154,6 +169,52 @@ export const CellarDashboard: React.FC = () => {
             </Grid>
           ))}
         </Grid>
+      ) : (
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ width: 40 }} />
+                <TableCell>{t('cellars.name')}</TableCell>
+                <TableCell>{t('cellars.type')}</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('cellars.description')}</TableCell>
+                <TableCell align="right">{t('admin.maturityRefs.columns.actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {cellars?.map((cellar) => (
+                <TableRow key={cellar.id} hover>
+                  <TableCell>
+                    <CellarIcon color="primary" fontSize="small" />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={600}>{cellar.name}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip label={t(`cellars.types.${cellar.type}`)} size="small" variant="outlined" />
+                  </TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                    <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 300 }}>
+                      {cellar.description ?? '—'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title={t('actions.edit')}>
+                      <IconButton size="small" onClick={() => handleOpenForm(cellar)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t('actions.delete')}>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(cellar.id)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       {/* Form Dialog */}

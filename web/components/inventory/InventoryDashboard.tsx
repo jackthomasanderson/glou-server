@@ -669,14 +669,14 @@ export function InventoryDashboard({ t }: InventoryDashboardProps) {
       <BulkActionDialog
         open={isBulkDialogOpen}
         onClose={() => setIsBulkDialogOpen(false)}
-        selectedBottles={items?.filter(b => selectedIds.has(b.id)) || []}
+        selectedItems={items?.filter(b => selectedIds.has(b.id)) || []}
         onApply={handleBulkApply}
         isSubmitting={bulkUpdateMutation.isPending}
         t={t}
       />
 
       <InventoryDetailDialog
-        bottle={viewingItem}
+        item={viewingItem}
         open={Boolean(viewingItem)}
         onClose={() => setViewingItem(null)}
         onEdit={handleEdit}
