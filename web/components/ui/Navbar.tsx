@@ -31,6 +31,7 @@ import {
   Logout as LogoutIcon,
   Notifications as NotificationsIcon,
 } from '@mui/icons-material';
+import { GlobalSearch } from './GlobalSearch';
 import { useTranslation } from 'react-i18next';
 import { useLogout, useMe } from '@/hooks/useAuth';
 import { useBottles } from '@/hooks/useBottles';
@@ -144,7 +145,7 @@ export const Navbar: React.FC = () => {
           </Typography>
 
           {!isMobile && (
-            <Box sx={{ flexGrow: 1, display: 'flex', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1, mr: 2 }}>
               {navLinks.map((link) => (
                 <Button
                   key={link.href}
@@ -163,9 +164,9 @@ export const Navbar: React.FC = () => {
             </Box>
           )}
 
-          <Box sx={{ flexGrow: isMobile ? 1 : 0 }} />
+          <GlobalSearch />
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
             <IconButton color="inherit" onClick={handleNotifMenuOpen}>
               <Badge badgeContent={alertsCount} color="error">
                 <NotificationsIcon />

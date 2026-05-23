@@ -9,7 +9,11 @@
     "caves": "Wine Cellars",
     "cigars": "Cigars",
     "profile": "Profile",
-    "admin": "Administration"
+    "admin": "Administration",
+    "searchPlaceholder": "Search...",
+    "searchNoResults": "No results",
+    "searchViewAll": "View all results →",
+    "searchCollection": "Collection"
   },
   "actions": {
     "add": "Add",

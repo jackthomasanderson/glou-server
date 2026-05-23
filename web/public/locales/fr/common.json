@@ -9,7 +9,11 @@
     "caves": "Caves",
     "cigars": "Cigares",
     "profile": "Profil",
-    "admin": "Administration"
+    "admin": "Administration",
+    "searchPlaceholder": "Rechercher...",
+    "searchNoResults": "Aucun résultat",
+    "searchViewAll": "Voir tous les résultats →",
+    "searchCollection": "Collection"
   },
   "actions": {
     "add": "Ajouter",

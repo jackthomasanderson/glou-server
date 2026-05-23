@@ -87,6 +87,11 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
 
   useEffect(() => {
     const filterParam = searchParams.get('filter');
+    const qParam = searchParams.get('q');
+    if (qParam) {
+      setSearchQuery(qParam);
+      setIsSearchOpen(true);
+    }
     if (filterParam === 'opened') {
       setOpenedFilter('opened');
       setIsFiltersOpen(true);
