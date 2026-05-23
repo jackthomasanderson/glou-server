@@ -40,7 +40,7 @@ model User {
   isAdmin            Boolean    @default(false)
   isActive           Boolean    @default(true)
 
-  bottles      Bottle[]
+  inventory    InventoryItem[]
   auditLogs    AuditLog[]
   cellars      Cellar[]
   bulkPresets  BulkPreset[]
@@ -82,7 +82,7 @@ model Cellar {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  bottles Bottle[]
+  inventory InventoryItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -92,7 +92,7 @@ model Cellar {
 }
 
 // Soft-delete via deletedAt
-model Bottle {
+model InventoryItem {
   id     String @id @default(uuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -193,7 +193,7 @@ model AuditLog {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   bottleId  String?
-  bottle    Bottle?  @relation(fields: [bottleId], references: [id], onDelete: SetNull)
+  bottle    InventoryItem?  @relation(fields: [bottleId], references: [id], onDelete: SetNull)
   action    String // CREATE, READ, UPDATE, DELETE, RESTORE, LIST
   status    String // success, error, validation_error, not_found
   ip        String
@@ -245,7 +245,7 @@ model MaturityReference {
 model BulkPreset {
   id        String   @id @default(uuid())
   name      String
-  payload   Json     // The BottlePatch to apply
+  payload   Json     // The InventoryPatch to apply
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())

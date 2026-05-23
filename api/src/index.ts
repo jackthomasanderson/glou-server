@@ -3,7 +3,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { connectWithRetry } from './lib/prisma';
-import { bottlesRouter } from './routes/bottles.router';
+import { inventoryRouter } from './routes/inventory.router';
 import { authRouter } from './routes/auth.router';
 import cellarsRouter from './routes/cellars.router';
 import userRouter from './routes/user.router';
@@ -12,7 +12,7 @@ import bulkPresetsRouter from './routes/bulk-presets.router';
 import { alertsRouter } from './routes/alerts.router';
 import { maturityReferencesRouter } from './routes/maturity-references.router';
 import { errorMiddleware } from './middleware/error.middleware';
-import { bottleService } from './services/bottle.service';
+import { inventoryService } from './services/inventory.service';
 import { purgeOldAuditLogs } from './services/audit.service';
 
 const app = express();
@@ -45,7 +45,7 @@ app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.use('/api/auth', authRouter);
 app.use('/api/cellars', cellarsRouter);
-app.use('/api/bottles', bottlesRouter);
+app.use('/api/inventory', inventoryRouter);
 app.use('/api/bulk-presets', bulkPresetsRouter);
 app.use('/api/alerts', alertsRouter);
 app.use('/api/user', userRouter);
@@ -68,8 +68,8 @@ async function bootstrap(): Promise<void> {
   await connectWithRetry();
 
   // Background maintenance: purge old trash and expired audit logs
-  void bottleService.purgeTrashed().then((count) => {
-    if (count > 0) console.info(`[startup] Purged ${count} permanently deleted bottles`);
+  void inventoryService.purgeTrashed().then((count) => {
+    if (count > 0) console.info(`[startup] Purged ${count} permanently deleted items`);
   });
   void purgeOldAuditLogs(90).then((count) => {
     if (count > 0) console.info(`[startup] Purged ${count} old audit log entries`);

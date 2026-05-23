@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // ─── Common fields (all categories) ─────────────────────────────────────────
 
-export const commonBottleSchema = z.object({
+export const commonInventorySchema = z.object({
   category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
   name: z.string().min(1, 'Name is required').max(200),
   producer: z.string().min(1, 'Producer is required').max(200),
@@ -25,7 +25,7 @@ export const commonBottleSchema = z.object({
 
 // ─── Wine-specific schema ────────────────────────────────────────────────────
 
-export const wineBottleSchema = commonBottleSchema.extend({
+export const wineInventorySchema = commonInventorySchema.extend({
   category: z.literal('wine'),
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
   color: z.enum(['red', 'white', 'rosé', 'orange']).optional(),
@@ -43,11 +43,11 @@ export const wineBottleSchema = commonBottleSchema.extend({
 
 // ─── Sparkling-specific schema ───────────────────────────────────────────────
 
-export const sparklingBottleSchema = commonBottleSchema.extend({
+export const sparklingInventorySchema = commonInventorySchema.extend({
   category: z.literal('sparkling'),
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
-  sparklingType: z.string().max(100).optional(), // Champagne, Crémant, Prosecco...
-  sugarLevel: z.string().max(50).optional(),     // brut, extra-brut...
+  sparklingType: z.string().max(100).optional(),
+  sugarLevel: z.string().max(50).optional(),
   disgorgingDate: z.coerce.date().optional(),
   baseYear: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
   peakMaturity: z.string().max(100).optional(),
@@ -60,7 +60,7 @@ export const sparklingBottleSchema = commonBottleSchema.extend({
 
 // ─── Spirit-specific schema ──────────────────────────────────────────────────
 
-export const spiritBottleSchema = commonBottleSchema.extend({
+export const spiritInventorySchema = commonInventorySchema.extend({
   category: z.literal('spirit'),
   edition: z.string().max(200).optional(),
   alcoholDegree: z.number().min(0).max(100),
@@ -74,7 +74,7 @@ export const spiritBottleSchema = commonBottleSchema.extend({
 
 // ─── Cigar-specific schema ───────────────────────────────────────────────────
 
-export const cigarBottleSchema = commonBottleSchema.extend({
+export const cigarInventorySchema = commonInventorySchema.extend({
   category: z.literal('cigar'),
   format: z.string().max(100).optional(),
   quantity: z.number().int().min(1).max(1000),
@@ -88,21 +88,21 @@ export const cigarBottleSchema = commonBottleSchema.extend({
 
 // ─── Discriminated union ─────────────────────────────────────────────────────
 
-export const bottleInputSchema = z.discriminatedUnion('category', [
-  wineBottleSchema,
-  sparklingBottleSchema,
-  spiritBottleSchema,
-  cigarBottleSchema,
+export const inventoryInputSchema = z.discriminatedUnion('category', [
+  wineInventorySchema,
+  sparklingInventorySchema,
+  spiritInventorySchema,
+  cigarInventorySchema,
 ]);
 
-export type BottleInput = z.infer<typeof bottleInputSchema>;
-export type BottleCategory = BottleInput['category'];
+export type InventoryInput = z.infer<typeof inventoryInputSchema>;
+export type InventoryCategory = InventoryInput['category'];
 
 // ─── Patch schema ────────────────────────────────────────────────────────────
 // Uses a flat partial object instead of discriminatedUnion.partial() which is not
 // supported by Zod's type system for discriminated unions.
 
-export const bottlePatchSchema = z.object({
+export const inventoryPatchSchema = z.object({
   category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']).optional(),
   name: z.string().min(1).max(200).optional(),
   producer: z.string().min(1).max(200).optional(),
@@ -156,4 +156,4 @@ export const bottlePatchSchema = z.object({
   cellarId: z.string().uuid().optional().nullable(),
 });
 
-export type BottlePatch = z.infer<typeof bottlePatchSchema>;
+export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;

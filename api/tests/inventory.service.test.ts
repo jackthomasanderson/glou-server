@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BottleService } from '../src/services/bottle.service';
+import { InventoryService } from '../src/services/inventory.service';
 
 // Mock Prisma pour tests unitaires sans DB
 vi.mock('../src/lib/prisma', () => ({
   prisma: {
-    bottle: {
+    inventoryItem: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
       create: vi.fn(),
@@ -16,15 +16,15 @@ vi.mock('../src/lib/prisma', () => ({
 
 import { prisma } from '../src/lib/prisma';
 
-describe('BottleService', () => {
-  let service: BottleService;
+describe('InventoryService', () => {
+  let service: InventoryService;
 
   beforeEach(() => {
-    service = new BottleService();
+    service = new InventoryService();
     vi.clearAllMocks();
   });
 
-  it('daysUntilPermanentDelete - returns 7 for a just-deleted bottle', () => {
+  it('daysUntilPermanentDelete - returns 7 for a just-deleted item', () => {
     const deletedAt = new Date();
     const days = service.daysUntilPermanentDelete(deletedAt);
     expect(days).toBe(7);
@@ -42,52 +42,50 @@ describe('BottleService', () => {
     expect(days).toBe(4);
   });
 
-  it('listBottles - calls prisma with userId and deletedAt null filter', async () => {
-    const mockBottles = [{ id: 'b1', userId: 'u1', name: 'Pétrus', deletedAt: null }];
-    vi.mocked(prisma.bottle.findMany).mockResolvedValue(mockBottles as never);
+  it('listInventory - calls prisma with deletedAt null filter', async () => {
+    const mockItems = [{ id: 'b1', userId: 'u1', name: 'Pétrus', deletedAt: null }];
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(mockItems as never);
 
-    const result = await service.listBottles('u1');
+    const result = await service.listInventory('u1');
 
-    expect(prisma.bottle.findMany).toHaveBeenCalledWith({
-      where: { userId: 'u1', deletedAt: null },
+    expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
     });
-    expect(result).toEqual(mockBottles);
+    expect(result).toEqual(mockItems);
   });
 
-  it('softDelete - returns null when bottle not found', async () => {
-    vi.mocked(prisma.bottle.findFirst).mockResolvedValue(null);
+  it('softDelete - returns null when item not found', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null);
 
     const result = await service.softDelete('u1', 'unknown-id');
     expect(result).toBeNull();
   });
 
-  it('restore - returns null when bottle is past retention window', async () => {
-    // findFirst returns null because the cutoff filter excludes it
-    vi.mocked(prisma.bottle.findFirst).mockResolvedValue(null);
+  it('restore - returns null when item is past retention window', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null);
 
     const result = await service.restore('u1', 'old-id');
     expect(result).toBeNull();
   });
 
-  it('updateBottle - respects lockedFields', async () => {
-    const existingBottle = {
+  it('updateItem - respects lockedFields', async () => {
+    const existingItem = {
       id: 'b1',
       userId: 'u1',
       lockedFields: ['name', 'vintage'],
       deletedAt: null,
     };
-    vi.mocked(prisma.bottle.findFirst).mockResolvedValue(existingBottle as never);
-    vi.mocked(prisma.bottle.update).mockResolvedValue({ ...existingBottle, producer: 'New Producer' } as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
+    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, producer: 'New Producer' } as never);
 
-    await service.updateBottle('u1', 'b1', {
+    await service.updateItem('u1', 'b1', {
       category: 'wine',
       name: 'Should Not Change',  // locked
       producer: 'New Producer',    // not locked → allowed
     });
 
-    // Verify update was called without the locked 'name' field
-    const updateCall = vi.mocked(prisma.bottle.update).mock.calls[0];
+    const updateCall = vi.mocked(prisma.inventoryItem.update).mock.calls[0];
     expect(updateCall).toBeDefined();
     const updateData = updateCall?.[0] as { data: Record<string, unknown> };
     expect(updateData.data.name).toBeUndefined();

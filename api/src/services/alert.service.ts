@@ -23,12 +23,12 @@ export function computeAlertStatus(
 }
 
 /**
- * Returns all active (non-deleted) bottles with a computed alert status,
+ * Returns all active (non-deleted) inventory items with a computed alert status,
  * excluding paused alerts and 'none' status.
  * Sorted by urgency: past → peak → approaching.
  */
 export async function getAlerts() {
-  const bottles = await prisma.bottle.findMany({
+  const items = await prisma.inventoryItem.findMany({
     where: {
       deletedAt: null,
       alertStatus: { in: ['approaching', 'peak', 'past'] },
@@ -52,21 +52,21 @@ export async function getAlerts() {
   });
 
   const urgencyOrder: Record<string, number> = { past: 0, peak: 1, approaching: 2 };
-  return bottles.sort(
+  return items.sort(
     (a, b) => (urgencyOrder[a.alertStatus ?? 'approaching'] ?? 2) - (urgencyOrder[b.alertStatus ?? 'approaching'] ?? 2),
   );
 }
 
 /**
- * Toggles alert pause for a single bottle.
+ * Toggles alert pause for a single inventory item.
  */
 export async function toggleAlertPause(id: string): Promise<boolean> {
-  const bottle = await prisma.bottle.findFirst({ where: { id, deletedAt: null } });
-  if (!bottle) return false;
+  const item = await prisma.inventoryItem.findFirst({ where: { id, deletedAt: null } });
+  if (!item) return false;
 
-  await prisma.bottle.update({
+  await prisma.inventoryItem.update({
     where: { id },
-    data: { alertsPaused: !bottle.alertsPaused, updatedAt: new Date() },
+    data: { alertsPaused: !item.alertsPaused, updatedAt: new Date() },
   });
   return true;
 }

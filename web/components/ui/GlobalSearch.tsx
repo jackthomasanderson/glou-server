@@ -7,14 +7,12 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
+import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
 import { InventoryItem } from '@/lib/inventory/types';
 
-interface GlobalSearchProps {
-  t: (key: string) => string;
-}
-
-export function GlobalSearch({ t }: GlobalSearchProps) {
+export function GlobalSearch() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
@@ -55,7 +53,7 @@ export function GlobalSearch({ t }: GlobalSearchProps) {
       >
         <SearchIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
         <InputBase
-          placeholder={t('inventory.searchPlaceholder')}
+          placeholder={t('nav.searchPlaceholder')}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);

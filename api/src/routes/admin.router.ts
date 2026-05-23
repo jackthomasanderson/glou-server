@@ -179,7 +179,7 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
 
 /**
  * @route   POST /api/admin/maintenance/purge
- * @desc    Purge all business data (bottles, cellars, logs)
+ * @desc    Purge all business data (inventory items, cellars, logs)
  * @access  Admin Private
  */
 adminRouter.post('/maintenance/purge', async (req: Request, res: Response): Promise<void> => {

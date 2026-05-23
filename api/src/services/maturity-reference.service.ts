@@ -97,7 +97,7 @@ export class MaturityReferenceService {
     if (ref.vintageFrom != null && ref.vintageTo != null) {
       where['vintage'] = { gte: ref.vintageFrom, lte: ref.vintageTo };
     }
-    return prisma.bottle.count({ where: where as never });
+    return prisma.inventoryItem.count({ where: where as never });
   }
 }
 

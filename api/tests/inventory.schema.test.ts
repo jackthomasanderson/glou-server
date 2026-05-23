@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { bottleInputSchema } from '../src/schemas/bottle.schema';
+import { inventoryInputSchema } from '../src/schemas/inventory.schema';
 
-describe('bottleInputSchema', () => {
-  it('validates a minimal wine bottle', () => {
-    const result = bottleInputSchema.safeParse({
+describe('inventoryInputSchema', () => {
+  it('validates a minimal wine item', () => {
+    const result = inventoryInputSchema.safeParse({
       category: 'wine',
       name: 'Pétrus',
       producer: 'Château Pétrus',
@@ -12,7 +12,7 @@ describe('bottleInputSchema', () => {
   });
 
   it('validates a spirit with required alcoholDegree', () => {
-    const result = bottleInputSchema.safeParse({
+    const result = inventoryInputSchema.safeParse({
       category: 'spirit',
       name: 'Yamazaki 12',
       producer: 'Suntory',
@@ -22,7 +22,7 @@ describe('bottleInputSchema', () => {
   });
 
   it('rejects a spirit without alcoholDegree', () => {
-    const result = bottleInputSchema.safeParse({
+    const result = inventoryInputSchema.safeParse({
       category: 'spirit',
       name: 'Yamazaki 12',
       producer: 'Suntory',
@@ -31,7 +31,7 @@ describe('bottleInputSchema', () => {
   });
 
   it('rejects a cigar without quantity', () => {
-    const result = bottleInputSchema.safeParse({
+    const result = inventoryInputSchema.safeParse({
       category: 'cigar',
       name: 'Romeo y Julieta',
       producer: 'Romeo y Julieta',
@@ -40,7 +40,7 @@ describe('bottleInputSchema', () => {
   });
 
   it('validates a cigar with quantity', () => {
-    const result = bottleInputSchema.safeParse({
+    const result = inventoryInputSchema.safeParse({
       category: 'cigar',
       name: 'Romeo y Julieta',
       producer: 'Romeo y Julieta',
@@ -50,7 +50,7 @@ describe('bottleInputSchema', () => {
   });
 
   it('rejects an invalid category', () => {
-    const result = bottleInputSchema.safeParse({
+    const result = inventoryInputSchema.safeParse({
       category: 'beer',
       name: 'Leffe',
       producer: 'Leffe',
@@ -59,7 +59,7 @@ describe('bottleInputSchema', () => {
   });
 
   it('rejects a vintage out of range', () => {
-    const result = bottleInputSchema.safeParse({
+    const result = inventoryInputSchema.safeParse({
       category: 'wine',
       name: 'Futuristic Wine',
       producer: 'Future Inc',
@@ -69,7 +69,7 @@ describe('bottleInputSchema', () => {
   });
 
   it('accepts a wine without vintage (sans millésime)', () => {
-    const result = bottleInputSchema.safeParse({
+    const result = inventoryInputSchema.safeParse({
       category: 'wine',
       name: 'Sans Millésime',
       producer: 'Domaine X',

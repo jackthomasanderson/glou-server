@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { BottlePatch, BottleInput } from '../schemas/bottle.schema';
+import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus } from './alert.service';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -9,7 +9,7 @@ export interface FieldChange {
   to: unknown;
 }
 
-export interface BottleHistoryEntry {
+export interface InventoryHistoryEntry {
   id: number;
   action: string;
   status: string;
@@ -19,36 +19,30 @@ export interface BottleHistoryEntry {
   createdAt: Date;
 }
 
-export interface BottleWithTraceability {
-  bottle: Record<string, unknown>;
+export interface InventoryWithTraceability {
+  item: Record<string, unknown>;
   creator: { id: string; name: string } | null;
   lastEditor: { id: string; name: string } | null;
 }
 
-// Bottle type inferred from Prisma client
-type Bottle = Awaited<ReturnType<typeof prisma.bottle.findFirst>> extends infer T | null ? NonNullable<T> : never;
+// InventoryItem type inferred from Prisma client
+type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> extends infer T | null ? NonNullable<T> : never;
 
 
 /** Corbeille : 7 jours avant purge définitive */
 const TRASH_RETENTION_DAYS = 7;
 
-export class BottleService {
-  /**
-   * List all active (non-deleted) bottles for a given user.
-   */
-  async listBottles(_userId: string): Promise<Bottle[]> {
-    return prisma.bottle.findMany({
+export class InventoryService {
+  async listInventory(_userId: string): Promise<InventoryItem[]> {
+    return prisma.inventoryItem.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  /**
-   * List soft-deleted bottles (trash) for a given user still within retention window.
-   */
-  async listTrash(_userId: string): Promise<Bottle[]> {
+  async listTrash(_userId: string): Promise<InventoryItem[]> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    return prisma.bottle.findMany({
+    return prisma.inventoryItem.findMany({
       where: {
         deletedAt: { not: null, gte: cutoff },
       },
@@ -56,41 +50,31 @@ export class BottleService {
     });
   }
 
-  /**
-   * Get a single bottle by id, scoped to the user.
-   * Returns null if not found or not owned by user.
-   */
-  async getBottle(_userId: string, id: string): Promise<Bottle | null> {
-    return prisma.bottle.findFirst({
+  async getItem(_userId: string, id: string): Promise<InventoryItem | null> {
+    return prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
     });
   }
 
-  /**
-   * Get a bottle enriched with creator and last-editor user info.
-   */
-  async getBottleWithTraceability(_userId: string, id: string): Promise<BottleWithTraceability | null> {
-    const bottle = await prisma.bottle.findFirst({ where: { id, deletedAt: null } });
-    if (!bottle) return null;
+  async getItemWithTraceability(_userId: string, id: string): Promise<InventoryWithTraceability | null> {
+    const item = await prisma.inventoryItem.findFirst({ where: { id, deletedAt: null } });
+    if (!item) return null;
 
-    const uniqueIds = [...new Set([bottle.userId, (bottle as unknown as Record<string, unknown>)['updatedBy'] as string | undefined].filter(Boolean))] as string[];
+    const uniqueIds = [...new Set([item.userId, (item as unknown as Record<string, unknown>)['updatedBy'] as string | undefined].filter(Boolean))] as string[];
     const users = await prisma.user.findMany({
       where: { id: { in: uniqueIds } },
       select: { id: true, displayName: true, username: true },
     });
     const userMap = new Map(users.map((u) => [u.id, u.displayName ?? u.username]));
 
-    const creator = bottle.userId ? { id: bottle.userId, name: userMap.get(bottle.userId) ?? bottle.userId } : null;
-    const updatedById = (bottle as unknown as Record<string, unknown>)['updatedBy'] as string | undefined;
+    const creator = item.userId ? { id: item.userId, name: userMap.get(item.userId) ?? item.userId } : null;
+    const updatedById = (item as unknown as Record<string, unknown>)['updatedBy'] as string | undefined;
     const lastEditor = updatedById ? { id: updatedById, name: userMap.get(updatedById) ?? updatedById } : null;
 
-    return { bottle: bottle as unknown as Record<string, unknown>, creator, lastEditor };
+    return { item: item as unknown as Record<string, unknown>, creator, lastEditor };
   }
 
-  /**
-   * Get the field-level change history for a bottle.
-   */
-  async getBottleHistory(id: string): Promise<BottleHistoryEntry[]> {
+  async getItemHistory(id: string): Promise<InventoryHistoryEntry[]> {
     const logs = await prisma.auditLog.findMany({
       where: {
         bottleId: id,
@@ -118,43 +102,32 @@ export class BottleService {
     }));
   }
 
-  /**
-   * Create a new bottle.
-   */
-  async createBottle(userId: string, data: BottleInput): Promise<Bottle> {
-    const patch = data as unknown as BottlePatch;
+  async createItem(userId: string, data: InventoryInput): Promise<InventoryItem> {
+    const patch = data as unknown as InventoryPatch;
     const dbData = this.mapInputToDb(patch);
     const alertStatus = computeAlertStatus(
       (patch as Record<string, unknown>)['peakMaturityFrom'] as number | undefined,
       (patch as Record<string, unknown>)['peakMaturityTo'] as number | undefined,
     );
-    return prisma.bottle.create({
+    return prisma.inventoryItem.create({
       data: { id: uuidv4(), userId, ...dbData, alertStatus } as never,
     });
   }
 
-
-  /**
-   * Update a bottle, respecting user-locked fields.
-   * Locked fields are never overwritten by this method (they require explicit unlock).
-   * Returns the updated bottle and the list of field changes for audit.
-   */
-  async updateBottle(
+  async updateItem(
     userId: string,
     id: string,
-    patch: BottlePatch
-  ): Promise<{ bottle: Bottle; changes: FieldChange[] } | null> {
-    const existing = await prisma.bottle.findFirst({
+    patch: InventoryPatch
+  ): Promise<{ item: InventoryItem; changes: FieldChange[] } | null> {
+    const existing = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) return null;
 
-    // Filter out any patched keys that are in lockedFields (user manual override protection)
     const safePatch = Object.fromEntries(
       Object.entries(patch).filter(([key]) => !existing.lockedFields.includes(key))
-    ) as BottlePatch;
+    ) as InventoryPatch;
 
-    // Compute field-level diff for audit trail
     const changes: FieldChange[] = Object.entries(safePatch)
       .filter(([key, val]) => {
         const existingVal = (existing as unknown as Record<string, unknown>)[key];
@@ -168,28 +141,24 @@ export class BottleService {
 
     const dbData = this.mapInputToDb(safePatch);
 
-    // Recompute alertStatus whenever peak maturity window changes
     const from = ('peakMaturityFrom' in safePatch ? safePatch.peakMaturityFrom : existing.peakMaturityFrom) as number | null | undefined;
     const to = ('peakMaturityTo' in safePatch ? safePatch.peakMaturityTo : existing.peakMaturityTo) as number | null | undefined;
     const alertStatus = computeAlertStatus(from, to);
 
-    const bottle = await prisma.bottle.update({
+    const item = await prisma.inventoryItem.update({
       where: { id },
       data: { ...dbData, alertStatus, updatedAt: new Date(), updatedBy: userId } as never,
     });
 
-    return { bottle, changes };
+    return { item, changes };
   }
 
-  /**
-   * Bulk update multiple bottles, respecting user-locked fields per bottle.
-   */
   async bulkUpdate(
     userId: string,
     ids: string[],
-    patch: BottlePatch
+    patch: InventoryPatch
   ): Promise<number> {
-    const existing = await prisma.bottle.findMany({
+    const existing = await prisma.inventoryItem.findMany({
       where: { id: { in: ids }, deletedAt: null },
     });
 
@@ -197,14 +166,14 @@ export class BottleService {
 
     let updatedCount = 0;
     await prisma.$transaction(async (tx) => {
-      for (const bottle of existing) {
+      for (const item of existing) {
         const safePatch = Object.fromEntries(
-          Object.entries(patch).filter(([key]) => !bottle.lockedFields.includes(key))
+          Object.entries(patch).filter(([key]) => !item.lockedFields.includes(key))
         );
-        await tx.bottle.update({
-          where: { id: bottle.id },
+        await tx.inventoryItem.update({
+          where: { id: item.id },
           data: {
-            ...this.mapInputToDb(safePatch as BottlePatch),
+            ...this.mapInputToDb(safePatch as InventoryPatch),
             updatedAt: new Date(),
             updatedBy: userId,
           } as never,
@@ -216,27 +185,21 @@ export class BottleService {
     return updatedCount;
   }
 
-  /**
-   * Soft-delete: sets deletedAt. Will be auto-purged after TRASH_RETENTION_DAYS.
-   */
-  async softDelete(_userId: string, id: string): Promise<Bottle | null> {
-    const existing = await prisma.bottle.findFirst({
+  async softDelete(_userId: string, id: string): Promise<InventoryItem | null> {
+    const existing = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) return null;
 
-    return prisma.bottle.update({
+    return prisma.inventoryItem.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
   }
 
-  /**
-   * Restore a soft-deleted bottle (within retention window).
-   */
-  async restore(_userId: string, id: string): Promise<Bottle | null> {
+  async restore(_userId: string, id: string): Promise<InventoryItem | null> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    const existing = await prisma.bottle.findFirst({
+    const existing = await prisma.inventoryItem.findFirst({
       where: {
         id,
         deletedAt: { not: null, gte: cutoff },
@@ -244,38 +207,27 @@ export class BottleService {
     });
     if (!existing) return null;
 
-    return prisma.bottle.update({
+    return prisma.inventoryItem.update({
       where: { id },
       data: { deletedAt: null },
     });
   }
 
-  /**
-   * Purge all bottles past the retention window (called by scheduled job or on startup).
-   */
   async purgeTrashed(): Promise<number> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    const result = await prisma.bottle.deleteMany({
+    const result = await prisma.inventoryItem.deleteMany({
       where: { deletedAt: { lt: cutoff } },
     });
     return result.count;
   }
 
-  /**
-   * Days left before permanent deletion.
-   */
   daysUntilPermanentDelete(deletedAt: Date): number {
     const expiresAt = new Date(deletedAt.getTime() + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const remaining = Math.ceil((expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
     return Math.max(0, remaining);
   }
 
-  /**
-   * Map validated DTO to Prisma-compatible data shape.
-   * Every field is explicitly mapped to avoid TypeScript strict mode violations.
-   * Uses BottlePatch (flat, all-optional) rather than the complex discriminated BottleInput.
-   */
-  private mapInputToDb(data: Partial<BottlePatch>): Record<string, unknown> {
+  private mapInputToDb(data: Partial<InventoryPatch>): Record<string, unknown> {
     const d = data as Record<string, unknown>;
     const result: Record<string, unknown> = {};
 
@@ -339,5 +291,4 @@ export class BottleService {
   }
 }
 
-export const bottleService = new BottleService();
-
+export const inventoryService = new InventoryService();
