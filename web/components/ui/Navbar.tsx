@@ -34,7 +34,7 @@ import {
 import { GlobalSearch } from './GlobalSearch';
 import { useTranslation } from 'react-i18next';
 import { useLogout, useMe } from '@/hooks/useAuth';
-import { useBottles } from '@/hooks/useBottles';
+import { useInventory } from '@/hooks/useInventory';
 
 export const Navbar: React.FC = () => {
   const { t } = useTranslation();
@@ -42,17 +42,17 @@ export const Navbar: React.FC = () => {
   const logoutMutation = useLogout();
   const pathname = usePathname();
   const router = useRouter();
-  const { data: bottles } = useBottles();
+  const { data: items } = useInventory();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const hasMounted = useHasMounted();
 
 
   const alertsCount = useMemo(() => {
-    if (!bottles || !hasMounted) return 0;
+    if (!items || !hasMounted) return 0;
     const today = new Date().toISOString().split('T')[0];
-    return bottles.filter(b => b.reminderDate && b.reminderDate.split('T')[0] <= today).length;
-  }, [bottles, hasMounted]);
+    return items.filter(b => b.reminderDate && b.reminderDate.split('T')[0] <= today).length;
+  }, [items, hasMounted]);
 
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -75,11 +75,11 @@ export const Navbar: React.FC = () => {
     setNotifAnchorEl(null);
   };
 
-  const alertBottles = useMemo(() => {
-    if (!bottles || !hasMounted) return [];
+  const alertItems = useMemo(() => {
+    if (!items || !hasMounted) return [];
     const today = new Date().toISOString().split('T')[0];
-    return bottles.filter(b => b.reminderDate && b.reminderDate.split('T')[0] <= today);
-  }, [bottles, hasMounted]);
+    return items.filter(b => b.reminderDate && b.reminderDate.split('T')[0] <= today);
+  }, [items, hasMounted]);
 
 
   const menuId = 'primary-search-account-menu';
@@ -116,7 +116,7 @@ export const Navbar: React.FC = () => {
   );
 
   const navLinks = [
-    { label: t('nav.bottles'), href: '/bottles', icon: <BottleIcon /> },
+    { label: t('nav.bottles'), href: '/inventory', icon: <BottleIcon /> },
     { label: t('nav.caves'), href: '/cellars', icon: <CellarIcon /> },
   ];
 
@@ -183,26 +183,26 @@ export const Navbar: React.FC = () => {
             >
               <Box sx={{ p: 2, bgcolor: 'action.hover' }}>
                 <Typography variant="subtitle2" fontWeight="bold">
-                  {t('bottle.alerts.title')}
+                  {t('inventory.alerts.title')}
                 </Typography>
               </Box>
               <Divider />
               <List sx={{ p: 0 }}>
-                {alertBottles.map((bottle) => (
-                  <ListItem 
-                    key={bottle.id} 
-                    button 
+                {alertItems.map((item) => (
+                  <ListItem
+                    key={item.id}
+                    button
                     onClick={() => {
                       handleMenuClose();
-                      router.push('/bottles?filter=alerts');
+                      router.push('/inventory?filter=alerts');
                     }}
                   >
                     <ListItemIcon sx={{ minWidth: 40 }}>
                       <NotificationsIcon color="error" fontSize="small" />
                     </ListItemIcon>
-                    <ListItemText 
-                      primary={bottle.name} 
-                      secondary={bottle.producer}
+                    <ListItemText
+                      primary={item.name}
+                      secondary={item.producer}
                       primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
                       secondaryTypographyProps={{ variant: 'caption' }}
                     />
@@ -210,15 +210,15 @@ export const Navbar: React.FC = () => {
                 ))}
               </List>
               <Divider />
-              <MenuItem 
+              <MenuItem
                 onClick={() => {
                   handleMenuClose();
-                  router.push('/bottles?filter=alerts');
+                  router.push('/inventory?filter=alerts');
                 }}
                 sx={{ justifyContent: 'center', py: 1 }}
               >
                 <Typography variant="caption" color="primary" fontWeight="bold">
-                  {t('bottle.alerts.viewAll')}
+                  {t('inventory.alerts.viewAll')}
                 </Typography>
               </MenuItem>
             </Menu>

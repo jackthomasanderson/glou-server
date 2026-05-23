@@ -9,28 +9,28 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
-import { Bottle } from '@/lib/bottles/types';
+import { InventoryItem } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useBulkPresets, useCreateBulkPreset, useDeleteBulkPreset } from '@/hooks/useBulkPresets';
 
 interface BulkActionDialogProps {
   open: boolean;
   onClose: () => void;
-  selectedBottles: Bottle[];
-  onApply: (patch: Partial<Bottle>) => void;
+  selectedItems: InventoryItem[];
+  onApply: (patch: Partial<InventoryItem>) => void;
   isSubmitting?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
 }
 
 /**
- * BulkActionDialog allows updating multiple bottles at once.
+ * BulkActionDialog allows updating multiple inventory items at once.
  * Supports: Cellar, Location, Collection, Tags, Consumption status (isOpened).
  * Allows saving/loading presets.
  */
 export function BulkActionDialog({
   open,
   onClose,
-  selectedBottles,
+  selectedItems,
   onApply,
   isSubmitting,
   t,
@@ -51,7 +51,7 @@ export function BulkActionDialog({
   });
 
   // State for field values
-  const [values, setValues] = useState<Partial<Bottle>>({
+  const [values, setValues] = useState<Partial<InventoryItem>>({
     cellarId: null,
     location: '',
     collection: '',
@@ -67,12 +67,12 @@ export function BulkActionDialog({
     setEnabledFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
 
-  const setField = <K extends keyof Partial<Bottle>>(field: K, value: Partial<Bottle>[K]) => {
+  const setField = <K extends keyof Partial<InventoryItem>>(field: K, value: Partial<InventoryItem>[K]) => {
     setValues((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleApply = () => {
-    const patch: Partial<Bottle> = {};
+    const patch: Partial<InventoryItem> = {};
     if (enabledFields.cellarId) patch.cellarId = values.cellarId;
     if (enabledFields.location) patch.location = values.location;
     if (enabledFields.collection) patch.collection = values.collection;
@@ -84,7 +84,7 @@ export function BulkActionDialog({
 
   const handleSavePreset = () => {
     if (!presetName.trim()) return;
-    const patch: Partial<Bottle> = {};
+    const patch: Partial<InventoryItem> = {};
     if (enabledFields.cellarId) patch.cellarId = values.cellarId;
     if (enabledFields.location) patch.location = values.location;
     if (enabledFields.collection) patch.collection = values.collection;
@@ -100,7 +100,7 @@ export function BulkActionDialog({
     });
   };
 
-  const handleLoadPreset = (preset: { payload: Partial<Bottle> }) => {
+  const handleLoadPreset = (preset: { payload: Partial<InventoryItem> }) => {
     const p = preset.payload;
     const newEnabled = { ...enabledFields };
     const newValues = { ...values };
@@ -148,8 +148,8 @@ export function BulkActionDialog({
 
       // Calculate Before
       let beforeText = '';
-      const uniqueValues = new Set(selectedBottles.map(b => {
-          const val = b[field as keyof Bottle];
+      const uniqueValues = new Set(selectedItems.map(b => {
+          const val = b[field as keyof InventoryItem];
           if (field === 'tags' && Array.isArray(val)) return JSON.stringify([...val].sort());
           return val;
       }));
@@ -159,9 +159,9 @@ export function BulkActionDialog({
       } else {
         const val = Array.from(uniqueValues)[0];
         if (field === 'cellarId') {
-          beforeText = cellars?.find(c => c.id === val)?.name || t('bottle.noCellar');
+          beforeText = cellars?.find(c => c.id === val)?.name || t('inventory.noCellar');
         } else if (field === 'isOpened') {
-          beforeText = val ? t('bottle.sealedStatus.opened') : t('bottle.sealedStatus.sealed');
+          beforeText = val ? t('inventory.sealedStatus.opened') : t('inventory.sealedStatus.sealed');
         } else if (field === 'tags') {
           beforeText = (JSON.parse(val as string) as string[]).join(', ') || t('status.empty');
         } else {
@@ -171,11 +171,11 @@ export function BulkActionDialog({
 
       // Calculate After
       let afterText = '';
-      const afterVal = values[field as keyof Partial<Bottle>];
+      const afterVal = values[field as keyof Partial<InventoryItem>];
       if (field === 'cellarId') {
-        afterText = cellars?.find(c => c.id === afterVal)?.name || t('bottle.noCellar');
+        afterText = cellars?.find(c => c.id === afterVal)?.name || t('inventory.noCellar');
       } else if (field === 'isOpened') {
-        afterText = afterVal ? t('bottle.sealedStatus.opened') : t('bottle.sealedStatus.sealed');
+        afterText = afterVal ? t('inventory.sealedStatus.opened') : t('inventory.sealedStatus.sealed');
       } else if (field === 'tags') {
         afterText = (afterVal as string[]).join(', ') || t('status.empty');
       } else {
@@ -186,7 +186,7 @@ export function BulkActionDialog({
     });
 
     return result;
-  }, [selectedBottles, enabledFields, values, cellars, t]);
+  }, [selectedItems, enabledFields, values, cellars, t]);
 
   const hasChanges = Object.values(enabledFields).some(v => v);
 
@@ -197,7 +197,7 @@ export function BulkActionDialog({
       </DialogTitle>
       <DialogContent dividers>
         <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
-          {t('bulk.subtitle', { count: selectedBottles.length })}
+          {t('bulk.subtitle', { count: selectedItems.length })}
         </Typography>
 
         {/* Presets Toggle */}
@@ -255,7 +255,7 @@ export function BulkActionDialog({
                   label={t('nav.caves')}
                   onChange={(e) => setField('cellarId', e.target.value === 'none' ? null : e.target.value)}
                 >
-                  <MenuItem value="none"><em>{t('bottle.noCellar')}</em></MenuItem>
+                  <MenuItem value="none"><em>{t('inventory.noCellar')}</em></MenuItem>
                   {cellars?.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -266,12 +266,12 @@ export function BulkActionDialog({
           <Box>
             <FormControlLabel
               control={<Checkbox checked={enabledFields.location} onChange={() => toggleField('location')} />}
-              label={t('bottle.fields.location')}
+              label={t('inventory.fields.location')}
             />
             {enabledFields.location && (
               <TextField
                 fullWidth size="small" sx={{ mt: 1 }}
-                label={t('bottle.fields.location')}
+                label={t('inventory.fields.location')}
                 value={values.location}
                 onChange={(e) => setField('location', e.target.value)}
               />
@@ -282,12 +282,12 @@ export function BulkActionDialog({
           <Box>
             <FormControlLabel
               control={<Checkbox checked={enabledFields.collection} onChange={() => toggleField('collection')} />}
-              label={t('bottle.fields.collection')}
+              label={t('inventory.fields.collection')}
             />
             {enabledFields.collection && (
               <TextField
                 fullWidth size="small" sx={{ mt: 1 }}
-                label={t('bottle.fields.collection')}
+                label={t('inventory.fields.collection')}
                 value={values.collection}
                 onChange={(e) => setField('collection', e.target.value)}
               />
@@ -298,7 +298,7 @@ export function BulkActionDialog({
           <Box>
             <FormControlLabel
               control={<Checkbox checked={enabledFields.tags} onChange={() => toggleField('tags')} />}
-              label={t('bottle.fields.tags')}
+              label={t('inventory.fields.tags')}
             />
             {enabledFields.tags && (
               <Autocomplete
@@ -313,7 +313,7 @@ export function BulkActionDialog({
                   ))
                 }
                 renderInput={(params) => (
-                  <TextField {...params} size="small" sx={{ mt: 1 }} label={t('bottle.fields.tags')} placeholder="..." />
+                  <TextField {...params} size="small" sx={{ mt: 1 }} label={t('inventory.fields.tags')} placeholder="..." />
                 )}
               />
             )}
@@ -323,18 +323,18 @@ export function BulkActionDialog({
           <Box>
             <FormControlLabel
               control={<Checkbox checked={enabledFields.isOpened} onChange={() => toggleField('isOpened')} />}
-              label={t('bottle.fields.isOpened')}
+              label={t('inventory.fields.isOpened')}
             />
             {enabledFields.isOpened && (
               <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-                <InputLabel>{t('bottle.fields.isOpened')}</InputLabel>
+                <InputLabel>{t('inventory.fields.isOpened')}</InputLabel>
                 <Select
                   value={values.isOpened ? 'opened' : 'sealed'}
-                  label={t('bottle.fields.isOpened')}
+                  label={t('inventory.fields.isOpened')}
                   onChange={(e) => setField('isOpened', e.target.value === 'opened')}
                 >
-                  <MenuItem value="sealed">{t('bottle.sealedStatus.sealed')}</MenuItem>
-                  <MenuItem value="opened">{t('bottle.sealedStatus.opened')}</MenuItem>
+                  <MenuItem value="sealed">{t('inventory.sealedStatus.sealed')}</MenuItem>
+                  <MenuItem value="opened">{t('inventory.sealedStatus.opened')}</MenuItem>
                 </Select>
               </FormControl>
             )}
@@ -343,7 +343,7 @@ export function BulkActionDialog({
           <Box>
             <FormControlLabel
               control={<Checkbox checked={enabledFields.fillLevel} onChange={() => toggleField('fillLevel')} />}
-              label={t('bottle.fields.fillLevel')}
+              label={t('inventory.fields.fillLevel')}
             />
             {enabledFields.fillLevel && (
               <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
@@ -374,7 +374,7 @@ export function BulkActionDialog({
                 return (
                   <Box key={field} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="caption" sx={{ minWidth: 80, fontWeight: 'bold' }}>
-                      {field === 'cellarId' ? t('nav.caves') : t(`bottle.fields.${field}`)} :
+                      {field === 'cellarId' ? t('nav.caves') : t(`inventory.fields.${field}`)} :
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
                       {data.before}

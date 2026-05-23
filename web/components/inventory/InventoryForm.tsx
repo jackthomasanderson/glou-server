@@ -15,21 +15,21 @@ import WineBarIcon from '@mui/icons-material/WineBar';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import SportsMmaIcon from '@mui/icons-material/SportsMma';
 import GrassIcon from '@mui/icons-material/Grass';
-import { Bottle, BottleCategory } from '@/lib/bottles/types';
+import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { maturityReferenceClient } from '@/lib/maturity-references/client';
 import { MaturitySuggestion } from '@/lib/maturity-references/types';
 
-interface BottleFormProps {
+interface InventoryFormProps {
   open: boolean;
-  initialValues?: Partial<Bottle>;
-  onSubmit: (values: Partial<Bottle>) => void;
+  initialValues?: Partial<InventoryItem>;
+  onSubmit: (values: Partial<InventoryItem>) => void;
   onClose: () => void;
   isSubmitting?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-const EMPTY_FORM: Partial<Bottle> = {
+const EMPTY_FORM: Partial<InventoryItem> = {
   category: 'wine',
   name: '',
   producer: '',
@@ -39,25 +39,25 @@ const EMPTY_FORM: Partial<Bottle> = {
   alertStatus: 'none',
 };
 
-const CATEGORY_ICONS: Record<BottleCategory, React.ReactElement> = {
+const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <WineBarIcon fontSize="small" />,
   sparkling: <BubbleChartIcon fontSize="small" />,
   spirit: <SportsMmaIcon fontSize="small" />,
   cigar: <GrassIcon fontSize="small" />,
 };
 
-const CATEGORY_COLORS: Record<BottleCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
+const CATEGORY_COLORS: Record<InventoryCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
   wine: 'secondary',
   sparkling: 'primary',
   spirit: 'default',
   cigar: 'warning',
 };
 
-export function BottleForm({
+export function InventoryForm({
   open, initialValues, onSubmit, onClose, isSubmitting = false, t,
-}: BottleFormProps) {
+}: InventoryFormProps) {
   const { data: cellars } = useCellars();
-  const [values, setValues] = useState<Partial<Bottle>>(initialValues ?? EMPTY_FORM);
+  const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? EMPTY_FORM);
   const [showOptionals, setShowOptionals] = useState(false);
   const [suggestion, setSuggestion] = useState<MaturitySuggestion | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -113,7 +113,7 @@ export function BottleForm({
     setSuggestion(null);
   };
 
-  const category = (values.category ?? 'wine') as BottleCategory;
+  const category = (values.category ?? 'wine') as InventoryCategory;
   const isWine = category === 'wine';
   const isSparkling = category === 'sparkling';
   const isSpirit = category === 'spirit';
@@ -140,7 +140,7 @@ export function BottleForm({
             size="small"
           />
           <Typography variant="h6" component="span" fontWeight={600}>
-            {isEditing ? t('bottle.edit') : t('bottle.add')}
+            {isEditing ? t('inventory.edit') : t('inventory.add')}
           </Typography>
         </Box>
         <IconButton
@@ -159,12 +159,12 @@ export function BottleForm({
           {/* ── Section 1 : Identité ──────────────────────────────────────── */}
           <Box>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              {t('bottle.step1')}
+              {t('inventory.step1')}
             </Typography>
 
             {/* Category chips */}
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
-              {(['wine', 'sparkling', 'spirit', 'cigar'] as BottleCategory[]).map((cat) => (
+              {(['wine', 'sparkling', 'spirit', 'cigar'] as InventoryCategory[]).map((cat) => (
                 <Chip
                   key={cat}
                   icon={CATEGORY_ICONS[cat]}
@@ -183,7 +183,7 @@ export function BottleForm({
                   fullWidth
                   required
                   size="small"
-                  label={t('bottle.fields.name')}
+                  label={t('inventory.fields.name')}
                   value={values.name ?? ''}
                   onChange={(e) => setField('name', e.target.value)}
                   autoFocus={!isEditing}
@@ -194,8 +194,8 @@ export function BottleForm({
                   fullWidth
                   required
                   size="small"
-                  label={t('bottle.fields.producer')}
-                  placeholder={t(`bottle.fields.producerPlaceholder.${category}`)}
+                  label={t('inventory.fields.producer')}
+                  placeholder={t(`inventory.fields.producerPlaceholder.${category}`)}
                   value={values.producer ?? ''}
                   onChange={(e) => setField('producer', e.target.value)}
                 />
@@ -208,7 +208,7 @@ export function BottleForm({
                     label={t('nav.caves')}
                     onChange={(e) => setField('cellarId', e.target.value === 'none' ? null : e.target.value)}
                   >
-                    <MenuItem value="none"><em>{t('bottle.noCellar')}</em></MenuItem>
+                    <MenuItem value="none"><em>{t('inventory.noCellar')}</em></MenuItem>
                     {cellars?.map((c) => (
                       <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
                     ))}
@@ -223,7 +223,7 @@ export function BottleForm({
           {/* ── Section 2 : Caractéristiques catégorie ───────────────────── */}
           <Box>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              {t('bottle.step2')}
+              {t('inventory.step2')}
             </Typography>
 
             <Grid container spacing={2}>
@@ -234,25 +234,25 @@ export function BottleForm({
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.vintage')}
+                      label={t('inventory.fields.vintage')}
                       type="number"
                       value={values.vintage ?? ''}
                       onChange={(e) => setField('vintage', numField(e.target.value))}
                       inputProps={{ min: 1800, max: 2100, step: 1 }}
-                      helperText={t('bottle.fields.noVintage')}
+                      helperText={t('inventory.fields.noVintage')}
                     />
                   </Grid>
                   <Grid item xs={6} sm={3}>
                     <FormControl fullWidth size="small">
-                      <InputLabel>{t('bottle.fields.color')}</InputLabel>
+                      <InputLabel>{t('inventory.fields.color')}</InputLabel>
                       <Select
                         value={values.color ?? ''}
-                        label={t('bottle.fields.color')}
+                        label={t('inventory.fields.color')}
                         onChange={(e) => setField('color', e.target.value || undefined)}
                       >
                         <MenuItem value=""><em>—</em></MenuItem>
                         {['red', 'white', 'rosé', 'orange'].map((c) => (
-                          <MenuItem key={c} value={c}>{t(`bottle.color.${c}`)}</MenuItem>
+                          <MenuItem key={c} value={c}>{t(`inventory.color.${c}`)}</MenuItem>
                         ))}
                       </Select>
                     </FormControl>
@@ -260,7 +260,7 @@ export function BottleForm({
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.region')}
+                      label={t('inventory.fields.region')}
                       value={values.region ?? ''}
                       onChange={(e) => setField('region', e.target.value)}
                     />
@@ -268,7 +268,7 @@ export function BottleForm({
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.alcoholDegree')}
+                      label={t('inventory.fields.alcoholDegree')}
                       type="number"
                       value={values.alcoholDegree ?? ''}
                       onChange={(e) => setField('alcoholDegree', numField(e.target.value))}
@@ -285,25 +285,25 @@ export function BottleForm({
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.vintage')}
+                      label={t('inventory.fields.vintage')}
                       type="number"
                       value={values.vintage ?? ''}
                       onChange={(e) => setField('vintage', numField(e.target.value))}
                       inputProps={{ min: 1800, max: 2100, step: 1 }}
-                      helperText={t('bottle.fields.noVintage')}
+                      helperText={t('inventory.fields.noVintage')}
                     />
                   </Grid>
                   <Grid item xs={6} sm={3}>
                     <FormControl fullWidth size="small">
-                      <InputLabel>{t('bottle.fields.sparklingType')}</InputLabel>
+                      <InputLabel>{t('inventory.fields.sparklingType')}</InputLabel>
                       <Select
                         value={values.sparklingType ?? ''}
-                        label={t('bottle.fields.sparklingType')}
+                        label={t('inventory.fields.sparklingType')}
                         onChange={(e) => setField('sparklingType', e.target.value || undefined)}
                       >
                         <MenuItem value=""><em>—</em></MenuItem>
                         {['champagne', 'cremant', 'prosecco', 'cava', 'petnat', 'other'].map((s) => (
-                          <MenuItem key={s} value={s}>{t(`bottle.sparklingTypes.${s}`)}</MenuItem>
+                          <MenuItem key={s} value={s}>{t(`inventory.sparklingTypes.${s}`)}</MenuItem>
                         ))}
                       </Select>
                     </FormControl>
@@ -311,7 +311,7 @@ export function BottleForm({
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.sugarLevel')}
+                      label={t('inventory.fields.sugarLevel')}
                       value={values.sugarLevel ?? ''}
                       onChange={(e) => setField('sugarLevel', e.target.value)}
                     />
@@ -325,7 +325,7 @@ export function BottleForm({
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.edition')}
+                      label={t('inventory.fields.edition')}
                       value={values.edition ?? ''}
                       onChange={(e) => setField('edition', e.target.value)}
                     />
@@ -333,7 +333,7 @@ export function BottleForm({
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small" required
-                      label={t('bottle.fields.alcoholDegree')}
+                      label={t('inventory.fields.alcoholDegree')}
                       type="number"
                       value={values.alcoholDegree ?? ''}
                       onChange={(e) => setField('alcoholDegree', numField(e.target.value))}
@@ -344,7 +344,7 @@ export function BottleForm({
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.declaredAge')}
+                      label={t('inventory.fields.declaredAge')}
                       value={values.declaredAge ?? ''}
                       onChange={(e) => setField('declaredAge', e.target.value)}
                     />
@@ -358,7 +358,7 @@ export function BottleForm({
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.format')}
+                      label={t('inventory.fields.format')}
                       value={values.format ?? ''}
                       onChange={(e) => setField('format', e.target.value)}
                     />
@@ -366,7 +366,7 @@ export function BottleForm({
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small" required
-                      label={t('bottle.fields.quantity')}
+                      label={t('inventory.fields.quantity')}
                       type="number"
                       value={values.quantity ?? ''}
                       onChange={(e) => setField('quantity', numField(e.target.value))}
@@ -376,7 +376,7 @@ export function BottleForm({
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.manufactureYear')}
+                      label={t('inventory.fields.manufactureYear')}
                       type="number"
                       value={values.manufactureYear ?? ''}
                       onChange={(e) => setField('manufactureYear', numField(e.target.value))}
@@ -392,30 +392,30 @@ export function BottleForm({
                   <Grid item xs={12}>
                     <Divider sx={{ my: 0.5 }}>
                       <Typography variant="caption" color="text.secondary">
-                        {t('bottle.fields.peakMaturity')}
+                        {t('inventory.fields.peakMaturity')}
                       </Typography>
                     </Divider>
                   </Grid>
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.peakMaturityFrom')}
+                      label={t('inventory.fields.peakMaturityFrom')}
                       type="number"
                       value={values.peakMaturityFrom ?? ''}
                       onChange={(e) => setField('peakMaturityFrom', e.target.value ? Number(e.target.value) : null)}
                       inputProps={{ min: 1800, max: 2200, step: 1 }}
-                      helperText={t('bottle.fields.peakMaturityFromHint')}
+                      helperText={t('inventory.fields.peakMaturityFromHint')}
                     />
                   </Grid>
                   <Grid item xs={6} sm={3}>
                     <TextField
                       fullWidth size="small"
-                      label={t('bottle.fields.peakMaturityTo')}
+                      label={t('inventory.fields.peakMaturityTo')}
                       type="number"
                       value={values.peakMaturityTo ?? ''}
                       onChange={(e) => setField('peakMaturityTo', e.target.value ? Number(e.target.value) : null)}
                       inputProps={{ min: 1800, max: 2200, step: 1 }}
-                      helperText={t('bottle.fields.peakMaturityToHint')}
+                      helperText={t('inventory.fields.peakMaturityToHint')}
                     />
                   </Grid>
                 </>
@@ -430,13 +430,13 @@ export function BottleForm({
                 sx={{ mt: 2 }}
                 action={
                   <Button size="small" onClick={applySuggestion} color="inherit">
-                    {t('bottle.maturitySuggestion.apply')}
+                    {t('inventory.maturitySuggestion.apply')}
                   </Button>
                 }
               >
                 <strong>{suggestion.reference.name}</strong>
                 {' — '}
-                {t('bottle.maturitySuggestion.window', {
+                {t('inventory.maturitySuggestion.window', {
                   from: suggestion.peakMaturityFrom,
                   to: suggestion.peakMaturityTo,
                 })}
@@ -465,21 +465,21 @@ export function BottleForm({
                 {/* Common optionals */}
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth size="small"
-                    label={t('bottle.fields.location')}
+                    label={t('inventory.fields.location')}
                     value={values.location ?? ''}
                     onChange={(e) => setField('location', e.target.value)}
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth size="small"
-                    label={t('bottle.fields.collection')}
+                    label={t('inventory.fields.collection')}
                     value={values.collection ?? ''}
                     onChange={(e) => setField('collection', e.target.value)}
                   />
                 </Grid>
                 <Grid item xs={6} sm={3}>
                   <TextField fullWidth size="small"
-                    label={t('bottle.fields.purchasePrice')}
+                    label={t('inventory.fields.purchasePrice')}
                     type="number"
                     value={values.purchasePrice ?? ''}
                     onChange={(e) => setField('purchasePrice', numField(e.target.value))}
@@ -488,7 +488,7 @@ export function BottleForm({
                 </Grid>
                 <Grid item xs={6} sm={3}>
                   <TextField fullWidth size="small"
-                    label={t('bottle.fields.estimatedValue')}
+                    label={t('inventory.fields.estimatedValue')}
                     type="number"
                     value={values.estimatedValue ?? ''}
                     onChange={(e) => setField('estimatedValue', numField(e.target.value))}
@@ -497,14 +497,14 @@ export function BottleForm({
                 </Grid>
                 <Grid item xs={12}>
                   <TextField fullWidth size="small"
-                    label={t('bottle.fields.photoUrl')}
+                    label={t('inventory.fields.photoUrl')}
                     value={values.photoUrl ?? ''}
                     onChange={(e) => setField('photoUrl', e.target.value)}
                   />
                 </Grid>
                 <Grid item xs={12}>
                   <TextField fullWidth size="small" multiline rows={3}
-                    label={t('bottle.fields.notes')}
+                    label={t('inventory.fields.notes')}
                     value={values.notes ?? ''}
                     onChange={(e) => setField('notes', e.target.value)}
                   />
@@ -515,14 +515,14 @@ export function BottleForm({
                   <>
                     <Grid item xs={6} sm={3}>
                       <TextField fullWidth size="small"
-                        label={t('bottle.fields.bottleSize')}
+                        label={t('inventory.fields.bottleSize')}
                         value={values.bottleSize ?? ''}
                         onChange={(e) => setField('bottleSize', e.target.value)}
                       />
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <TextField fullWidth size="small"
-                        label={t('bottle.fields.serviceTemp')}
+                        label={t('inventory.fields.serviceTemp')}
                         value={values.serviceTemp ?? ''}
                         onChange={(e) => setField('serviceTemp', e.target.value)}
                       />
@@ -530,7 +530,7 @@ export function BottleForm({
                     {isWine && (
                       <Grid item xs={6} sm={3}>
                         <TextField fullWidth size="small"
-                          label={t('bottle.fields.lotNumber')}
+                          label={t('inventory.fields.lotNumber')}
                           value={values.lotNumber ?? ''}
                           onChange={(e) => setField('lotNumber', e.target.value)}
                         />
@@ -539,7 +539,7 @@ export function BottleForm({
                     {isSparkling && (
                       <Grid item xs={6} sm={3}>
                         <TextField fullWidth size="small"
-                          label={t('bottle.fields.baseYear')}
+                          label={t('inventory.fields.baseYear')}
                           type="number"
                           value={values.baseYear ?? ''}
                           onChange={(e) => setField('baseYear', numField(e.target.value))}
@@ -554,28 +554,28 @@ export function BottleForm({
                   <>
                     <Grid item xs={12} sm={6}>
                       <TextField fullWidth size="small"
-                        label={t('bottle.fields.caskType')}
+                        label={t('inventory.fields.caskType')}
                         value={values.caskType ?? ''}
                         onChange={(e) => setField('caskType', e.target.value)}
                       />
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <TextField fullWidth size="small"
-                        label={t('bottle.fields.aromaticProfile')}
+                        label={t('inventory.fields.aromaticProfile')}
                         value={values.aromaticProfile ?? ''}
                         onChange={(e) => setField('aromaticProfile', e.target.value)}
                       />
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <TextField fullWidth size="small"
-                        label={t('bottle.fields.additions')}
+                        label={t('inventory.fields.additions')}
                         value={values.additions ?? ''}
                         onChange={(e) => setField('additions', e.target.value)}
                       />
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <TextField fullWidth size="small"
-                        label={t('bottle.fields.bottleSize')}
+                        label={t('inventory.fields.bottleSize')}
                         value={values.bottleSize ?? ''}
                         onChange={(e) => setField('bottleSize', e.target.value)}
                       />
@@ -587,21 +587,21 @@ export function BottleForm({
                   <>
                     <Grid item xs={12} sm={6}>
                       <TextField fullWidth size="small"
-                        label={t('bottle.fields.leafOrigin')}
+                        label={t('inventory.fields.leafOrigin')}
                         value={values.leafOrigin ?? ''}
                         onChange={(e) => setField('leafOrigin', e.target.value)}
                       />
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <TextField fullWidth size="small"
-                        label={t('bottle.fields.factoryCode')}
+                        label={t('inventory.fields.factoryCode')}
                         value={values.factoryCode ?? ''}
                         onChange={(e) => setField('factoryCode', e.target.value)}
                       />
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <TextField fullWidth size="small"
-                        label={t('bottle.fields.recommendedHumidity')}
+                        label={t('inventory.fields.recommendedHumidity')}
                         type="number"
                         value={values.recommendedHumidity ?? ''}
                         onChange={(e) => setField('recommendedHumidity', numField(e.target.value))}
@@ -611,7 +611,7 @@ export function BottleForm({
                     </Grid>
                     <Grid item xs={12} sm={6}>
                       <TextField fullWidth size="small"
-                        label={t('bottle.fields.humidificationSystem')}
+                        label={t('inventory.fields.humidificationSystem')}
                         value={values.humidificationSystem ?? ''}
                         onChange={(e) => setField('humidificationSystem', e.target.value)}
                       />
@@ -634,7 +634,7 @@ export function BottleForm({
                         }
                       }}
                     >
-                      {values.isOpened ? '✓ ' : ''}{t('bottle.fields.isOpened')}
+                      {values.isOpened ? '✓ ' : ''}{t('inventory.fields.isOpened')}
                     </Button>
                   </Stack>
                 </Grid>
@@ -643,7 +643,7 @@ export function BottleForm({
                   <>
                     <Grid item xs={6} sm={3}>
                       <TextField fullWidth size="small" type="date"
-                        label={t('bottle.fields.openedAt')}
+                        label={t('inventory.fields.openedAt')}
                         InputLabelProps={{ shrink: true }}
                         value={typeof values.openedAt === 'string' ? values.openedAt.split('T')[0] : ''}
                         onChange={(e) => setField('openedAt', e.target.value)}
@@ -651,7 +651,7 @@ export function BottleForm({
                     </Grid>
                     <Grid item xs={6} sm={3}>
                       <TextField fullWidth size="small" type="date"
-                        label={t('bottle.fields.reminderDate')}
+                        label={t('inventory.fields.reminderDate')}
                         InputLabelProps={{ shrink: true }}
                         value={typeof values.reminderDate === 'string' ? values.reminderDate.split('T')[0] : ''}
                         onChange={(e) => setField('reminderDate', e.target.value)}
@@ -680,7 +680,7 @@ export function BottleForm({
             ? t('status.saving')
             : isEditing
               ? t('actions.update')
-              : t('bottle.saveMinimal')}
+              : t('inventory.saveMinimal')}
         </Button>
       </DialogActions>
     </Dialog>

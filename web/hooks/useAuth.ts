@@ -65,7 +65,7 @@ export function useLogin() {
         return;
       }
       queryClient.setQueryData<PublicUser | null>(ME_KEY, data);
-      router.push('/bottles');
+      router.push('/inventory');
     },
   });
 }
@@ -84,7 +84,7 @@ export function useRegister() {
       apiFetch<PublicUser>('/api/auth/register', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
-      router.push('/bottles');
+      router.push('/inventory');
     },
   });
 }
@@ -232,7 +232,7 @@ export function useVerify2faLogin() {
     mutationFn: (data) => apiFetch<PublicUser>('/api/auth/2fa/verify-login', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
-      router.push('/bottles');
+      router.push('/inventory');
     },
   });
 }

@@ -15,36 +15,36 @@ import WineBarIcon from '@mui/icons-material/WineBar';
 import SportsMmaIcon from '@mui/icons-material/SportsMma';
 import GrassIcon from '@mui/icons-material/Grass';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
-import { Bottle, BottleCategory } from '@/lib/bottles/types';
+import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
 
-const CATEGORY_ICONS: Record<BottleCategory, React.ReactElement> = {
+const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <WineBarIcon fontSize="small" />,
   sparkling: <BubbleChartIcon fontSize="small" />,
   spirit: <SportsMmaIcon fontSize="small" />,
   cigar: <GrassIcon fontSize="small" />,
 };
 
-const CATEGORY_COLORS: Record<BottleCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
+const CATEGORY_COLORS: Record<InventoryCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
   wine: 'secondary',
   sparkling: 'primary',
   spirit: 'default',
   cigar: 'warning',
 };
 
-interface BottleCardProps {
-  bottle: Bottle;
+interface InventoryCardProps {
+  item: InventoryItem;
   categoryLabel: string;
-  onEdit: (bottle: Bottle) => void;
-  onDelete: (bottle: Bottle) => void;
-  onView?: (bottle: Bottle) => void;
+  onEdit: (item: InventoryItem) => void;
+  onDelete: (item: InventoryItem) => void;
+  onView?: (item: InventoryItem) => void;
   t: (key: string) => string;
   isSelected?: boolean;
-  onSelectToggle?: (bottle: Bottle) => void;
+  onSelectToggle?: (item: InventoryItem) => void;
 }
 
-export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, onView, t, isSelected = false, onSelectToggle }: BottleCardProps) {
-  const isTemp = bottle.id.startsWith('temp-');
+export function InventoryCard({ item, categoryLabel, onEdit, onDelete, onView, t, isSelected = false, onSelectToggle }: InventoryCardProps) {
+  const isTemp = item.id.startsWith('temp-');
   const hasMounted = useHasMounted();
 
 
@@ -56,17 +56,17 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, onView, t,
         transition: 'opacity 0.3s, box-shadow 0.2s',
         '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' },
       }}
-      aria-label={`${bottle.name} — ${categoryLabel}`}
+      aria-label={`${item.name} — ${categoryLabel}`}
     >
       <CardContent
         sx={{ pb: 1, pt: onSelectToggle ? 4 : 2, cursor: onView ? 'pointer' : 'default' }}
-        onClick={() => onView?.(bottle)}
+        onClick={() => onView?.(item)}
       >
         {onSelectToggle && (
           <Box sx={{ position: 'absolute', top: 4, right: 4, zIndex: 1 }}>
             <Checkbox
               checked={isSelected}
-              onChange={() => onSelectToggle(bottle)}
+              onChange={() => onSelectToggle(item)}
               color="primary"
             />
           </Box>
@@ -74,48 +74,48 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, onView, t,
 
         {/* Category badge */}
         <Chip
-          icon={CATEGORY_ICONS[bottle.category]}
+          icon={CATEGORY_ICONS[item.category]}
           label={categoryLabel}
-          color={CATEGORY_COLORS[bottle.category]}
+          color={CATEGORY_COLORS[item.category]}
           size="small"
           sx={{ mb: 1 }}
         />
 
         {/* Main info */}
         <Typography variant="subtitle1" fontWeight={600} noWrap>
-          {bottle.name}
+          {item.name}
         </Typography>
         <Typography variant="body2" color="text.secondary" noWrap>
-          {bottle.producer}
-          {bottle.vintage ? ` · ${bottle.vintage}` : ''}
+          {item.producer}
+          {item.vintage ? ` · ${item.vintage}` : ''}
         </Typography>
 
         {/* Cross-cutting metadata */}
         <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-          {bottle.region && (
-            <Chip label={bottle.region} size="small" variant="outlined" />
+          {item.region && (
+            <Chip label={item.region} size="small" variant="outlined" />
           )}
-          {bottle.isOpened && (
-            <Tooltip title={bottle.openedAt && hasMounted ? `${t('bottle.fields.openedAt')}: ${new Date(bottle.openedAt).toLocaleDateString()}` : ''}>
+          {item.isOpened && (
+            <Tooltip title={item.openedAt && hasMounted ? `${t('inventory.fields.openedAt')}: ${new Date(item.openedAt).toLocaleDateString()}` : ''}>
 
 
               <Chip
-                label={`${bottle.fillLevel ?? '?'}%`}
+                label={`${item.fillLevel ?? '?'}%`}
                 size="small"
                 color="warning"
-                variant={bottle.fillLevel === 0 ? 'outlined' : 'filled'}
+                variant={item.fillLevel === 0 ? 'outlined' : 'filled'}
               />
             </Tooltip>
           )}
-          {bottle.reminderDate && (
-            <Tooltip title={t('bottle.fields.reminderDate')}>
+          {item.reminderDate && (
+            <Tooltip title={t('inventory.fields.reminderDate')}>
               <Chip
                 icon={<ReminderIcon sx={{ fontSize: '1rem !important' }} />}
-                label={hasMounted ? new Date(bottle.reminderDate).toLocaleDateString() : ''}
+                label={hasMounted ? new Date(item.reminderDate).toLocaleDateString() : ''}
 
 
                 size="small"
-                color={hasMounted && new Date(bottle.reminderDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0] ? 'error' : 'info'}
+                color={hasMounted && new Date(item.reminderDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0] ? 'error' : 'info'}
 
 
                 variant="outlined"
@@ -123,14 +123,14 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, onView, t,
             </Tooltip>
           )}
           <DrinkingWindowBadge
-            alertStatus={bottle.alertStatus}
-            alertsPaused={bottle.alertsPaused}
-            peakMaturityFrom={bottle.peakMaturityFrom}
-            peakMaturityTo={bottle.peakMaturityTo}
+            alertStatus={item.alertStatus}
+            alertsPaused={item.alertsPaused}
+            peakMaturityFrom={item.peakMaturityFrom}
+            peakMaturityTo={item.peakMaturityTo}
             t={t}
           />
-          {bottle.location && (
-            <Chip label={bottle.location} size="small" variant="outlined" />
+          {item.location && (
+            <Chip label={item.location} size="small" variant="outlined" />
           )}
         </Box>
       </CardContent>
@@ -140,7 +140,7 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, onView, t,
           <span>
             <IconButton
               size="small"
-              onClick={() => onEdit(bottle)}
+              onClick={() => onEdit(item)}
               disabled={isTemp}
               aria-label={t('actions.edit')}
             >
@@ -153,7 +153,7 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, onView, t,
             <IconButton
               size="small"
               color="error"
-              onClick={() => onDelete(bottle)}
+              onClick={() => onDelete(item)}
               disabled={isTemp}
               aria-label={t('actions.delete')}
             >
@@ -167,7 +167,7 @@ export function BottleCard({ bottle, categoryLabel, onEdit, onDelete, onView, t,
 }
 
 // Skeleton version for loading state
-export function BottleCardSkeleton() {
+export function InventoryCardSkeleton() {
   return (
     <Card>
       <CardContent>

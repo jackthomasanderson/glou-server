@@ -1,5 +1,5 @@
 'use client';
-import { BottleDashboard } from '@/components/bottles/BottleDashboard';
+import { InventoryDashboard } from '@/components/inventory/InventoryDashboard';
 import frMessages from '@/public/locales/fr/common.json';
 import enMessages from '@/public/locales/en/common.json';
 import { useState, useMemo, Suspense } from 'react';
@@ -44,11 +44,11 @@ function createTranslator(messages: Messages) {
 import { MainLayout } from '@/components/ui/MainLayout';
 
 /**
- * Client wrapper pour /bottles — gère l'i18n côté client.
+ * Client wrapper pour /inventory — gère l'i18n côté client.
  * Nécessaire car les fonctions ne peuvent pas traverser la frontière
  * Server → Client Component dans l'App Router Next.js.
  */
-export function BottlesClient() {
+export function InventoryClient() {
   const [locale] = useState<'fr' | 'en'>('fr');
 
   const t = useMemo(
@@ -59,7 +59,7 @@ export function BottlesClient() {
   return (
     <MainLayout>
       <Suspense fallback={null}>
-        <BottleDashboard t={t} />
+        <InventoryDashboard t={t} />
       </Suspense>
     </MainLayout>
   );

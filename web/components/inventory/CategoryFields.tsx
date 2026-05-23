@@ -4,10 +4,10 @@ import {
   Grid, TextField, Select, MenuItem, FormControl, InputLabel,
   FormControlLabel, Checkbox, Slider, Typography, Box, Button,
 } from '@mui/material';
-import { BottleCategory } from '@/lib/bottles/types';
+import { InventoryCategory } from '@/lib/inventory/types';
 
 interface CategoryFieldsProps {
-  category: BottleCategory;
+  category: InventoryCategory;
   values: Record<string, unknown>;
   onChange: (field: string, value: unknown) => void;
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -36,12 +36,12 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
     <Grid item xs={12} sm={6} key="vintage">
       <TextField
         fullWidth
-        label={t('bottle.fields.vintage')}
+        label={t('inventory.fields.vintage')}
         type="number"
         value={String(values['vintage'] ?? '')}
         onChange={(e) => onChange('vintage', e.target.value ? Number(e.target.value) : undefined)}
         inputProps={{ min: 1800, max: 2100, step: 1 }}
-        helperText={t('bottle.fields.noVintage')}
+        helperText={t('inventory.fields.noVintage')}
       />
     </Grid>
   );
@@ -53,20 +53,20 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
           {vintageField}
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth size="small">
-              <InputLabel>{t('bottle.fields.color')}</InputLabel>
+              <InputLabel>{t('inventory.fields.color')}</InputLabel>
               <Select
                 value={String(values['color'] ?? '')}
-                label={t('bottle.fields.color')}
+                label={t('inventory.fields.color')}
                 onChange={(e) => onChange('color', e.target.value)}
               >
                 {['red', 'white', 'rosé', 'orange'].map((c) => (
-                  <MenuItem key={c} value={c}>{t(`bottle.color.${c}`)}</MenuItem>
+                  <MenuItem key={c} value={c}>{t(`inventory.color.${c}`)}</MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
-          {field('region', t('bottle.fields.region'))}
-          {field('alcoholDegree', t('bottle.fields.alcoholDegree'), 'number')}
+          {field('region', t('inventory.fields.region'))}
+          {field('alcoholDegree', t('inventory.fields.alcoholDegree'), 'number')}
         </Grid>
       );
 
@@ -76,10 +76,10 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
           {vintageField}
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth size="small">
-              <InputLabel>{t('bottle.fields.sparklingType')}</InputLabel>
+              <InputLabel>{t('inventory.fields.sparklingType')}</InputLabel>
               <Select
                 value={String(values['sparklingType'] ?? '')}
-                label={t('bottle.fields.sparklingType')}
+                label={t('inventory.fields.sparklingType')}
                 onChange={(e) => onChange('sparklingType', e.target.value)}
               >
                 {[
@@ -90,28 +90,28 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
                   { key: 'petnat', label: 'Pétillant Naturel' },
                   { key: 'other', label: 'Autre' }
                 ].map((s) => (
-                  <MenuItem key={s.key} value={s.key}>{t(`bottle.sparklingTypes.${s.key}`)}</MenuItem>
+                  <MenuItem key={s.key} value={s.key}>{t(`inventory.sparklingTypes.${s.key}`)}</MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
-          {field('sugarLevel', t('bottle.fields.sugarLevel'))}
+          {field('sugarLevel', t('inventory.fields.sugarLevel'))}
         </Grid>
       );
 
     case 'spirit':
       return (
         <Grid container spacing={2}>
-          {field('edition', t('bottle.fields.edition'))}
-          {field('alcoholDegree', t('bottle.fields.alcoholDegree'), 'number', true)}
+          {field('edition', t('inventory.fields.edition'))}
+          {field('alcoholDegree', t('inventory.fields.alcoholDegree'), 'number', true)}
         </Grid>
       );
 
     case 'cigar':
       return (
         <Grid container spacing={2}>
-          {field('format', t('bottle.fields.format'))}
-          {field('quantity', t('bottle.fields.quantity'), 'number', true)}
+          {field('format', t('inventory.fields.format'))}
+          {field('quantity', t('inventory.fields.quantity'), 'number', true)}
         </Grid>
       );
 
@@ -123,7 +123,7 @@ export function CategoryFields({ category, values, onChange, t }: CategoryFields
 // ─── Optional section ────────────────────────────────────────────────────────
 
 interface OptionalFieldsProps {
-  category: BottleCategory;
+  category: InventoryCategory;
   values: Record<string, unknown>;
   onChange: (field: string, value: unknown) => void;
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -148,17 +148,17 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
 
   const commonOptionals = (
     <>
-      {field('location', t('bottle.fields.location'))}
-      {field('collection', t('bottle.fields.collection'))}
-      {field('purchasePrice', t('bottle.fields.purchasePrice'), 'number')}
-      {field('estimatedValue', t('bottle.fields.estimatedValue'), 'number')}
-      {field('photoUrl', t('bottle.fields.photoUrl'))}
+      {field('location', t('inventory.fields.location'))}
+      {field('collection', t('inventory.fields.collection'))}
+      {field('purchasePrice', t('inventory.fields.purchasePrice'), 'number')}
+      {field('estimatedValue', t('inventory.fields.estimatedValue'), 'number')}
+      {field('photoUrl', t('inventory.fields.photoUrl'))}
       <Grid item xs={12} key="notes">
         <TextField
           fullWidth
           multiline
           rows={3}
-          label={t('bottle.fields.notes')}
+          label={t('inventory.fields.notes')}
           value={String(values['notes'] ?? '')}
           onChange={(e) => onChange('notes', e.target.value)}
         />
@@ -176,22 +176,22 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
               }}
             />
           }
-          label={t('bottle.fields.isOpened')}
+          label={t('inventory.fields.isOpened')}
         />
       </Grid>
       {Boolean(values['isOpened']) && (
         <>
           <Grid item xs={12} key="fillLevel">
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              {t('bottle.fields.fillLevel')}
+              {t('inventory.fields.fillLevel')}
             </Typography>
             <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {[
-                { val: 100, label: t('bottle.fillLevels.full') },
-                { val: 75, label: t('bottle.fillLevels.threeQuarters') },
-                { val: 50, label: t('bottle.fillLevels.half') },
-                { val: 25, label: t('bottle.fillLevels.quarter') },
-                { val: 0, label: t('bottle.fillLevels.empty') },
+                { val: 100, label: t('inventory.fillLevels.full') },
+                { val: 75, label: t('inventory.fillLevels.threeQuarters') },
+                { val: 50, label: t('inventory.fillLevels.half') },
+                { val: 25, label: t('inventory.fillLevels.quarter') },
+                { val: 0, label: t('inventory.fillLevels.empty') },
               ].map((level) => (
                 <Button
                   key={level.val}
@@ -212,14 +212,14 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
               marks
               valueLabelDisplay="auto"
               onChange={(_e, v) => onChange('fillLevel', v)}
-              aria-label={t('bottle.fields.fillLevel')}
+              aria-label={t('inventory.fields.fillLevel')}
             />
           </Grid>
           <Grid item xs={12} sm={6} key="openedAt">
             <TextField
               fullWidth
               type="date"
-              label={t('bottle.fields.openedAt')}
+              label={t('inventory.fields.openedAt')}
               InputLabelProps={{ shrink: true }}
               value={typeof values['openedAt'] === 'string' ? values['openedAt'].split('T')[0] : ''}
               onChange={(e) => onChange('openedAt', e.target.value)}
@@ -229,7 +229,7 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
             <TextField
               fullWidth
               type="date"
-              label={t('bottle.fields.reminderDate')}
+              label={t('inventory.fields.reminderDate')}
               InputLabelProps={{ shrink: true }}
               value={typeof values['reminderDate'] === 'string' ? values['reminderDate'].split('T')[0] : ''}
               onChange={(e) => onChange('reminderDate', e.target.value)}
@@ -246,23 +246,23 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
       <Grid item xs={12} sm={6} key="peakMaturityFrom">
         <TextField
           fullWidth
-          label={t('bottle.fields.peakMaturityFrom')}
+          label={t('inventory.fields.peakMaturityFrom')}
           type="number"
           value={String(values['peakMaturityFrom'] ?? '')}
           onChange={(e) => onChange('peakMaturityFrom', e.target.value ? Number(e.target.value) : null)}
           inputProps={{ min: 1800, max: 2200, step: 1 }}
-          helperText={t('bottle.fields.peakMaturityFromHint')}
+          helperText={t('inventory.fields.peakMaturityFromHint')}
         />
       </Grid>
       <Grid item xs={12} sm={6} key="peakMaturityTo">
         <TextField
           fullWidth
-          label={t('bottle.fields.peakMaturityTo')}
+          label={t('inventory.fields.peakMaturityTo')}
           type="number"
           value={String(values['peakMaturityTo'] ?? '')}
           onChange={(e) => onChange('peakMaturityTo', e.target.value ? Number(e.target.value) : null)}
           inputProps={{ min: 1800, max: 2200, step: 1 }}
-          helperText={t('bottle.fields.peakMaturityToHint')}
+          helperText={t('inventory.fields.peakMaturityToHint')}
         />
       </Grid>
     </>
@@ -270,11 +270,11 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
 
   const wineOptionals = (
     <>
-      {field('bottleSize', t('bottle.fields.bottleSize'))}
-      {field('peakMaturity', t('bottle.fields.peakMaturity'))}
+      {field('bottleSize', t('inventory.fields.bottleSize'))}
+      {field('peakMaturity', t('inventory.fields.peakMaturity'))}
       {peakWindowFields}
-      {field('serviceTemp', t('bottle.fields.serviceTemp'))}
-      {field('lotNumber', t('bottle.fields.lotNumber'))}
+      {field('serviceTemp', t('inventory.fields.serviceTemp'))}
+      {field('lotNumber', t('inventory.fields.lotNumber'))}
       <Grid item xs={12} sm={6} key="needsAeration">
         <FormControlLabel
           control={
@@ -283,7 +283,7 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
               onChange={(e) => onChange('needsAeration', e.target.checked)}
             />
           }
-          label={t('bottle.fields.needsAeration')}
+          label={t('inventory.fields.needsAeration')}
         />
       </Grid>
     </>
@@ -291,32 +291,32 @@ export function OptionalFields({ category, values, onChange, t }: OptionalFields
 
   const sparklingOptionals = (
     <>
-      {field('bottleSize', t('bottle.fields.bottleSize'))}
-      {field('peakMaturity', t('bottle.fields.peakMaturity'))}
+      {field('bottleSize', t('inventory.fields.bottleSize'))}
+      {field('peakMaturity', t('inventory.fields.peakMaturity'))}
       {peakWindowFields}
-      {field('serviceTemp', t('bottle.fields.serviceTemp'))}
-      {field('baseYear', t('bottle.fields.baseYear'), 'number')}
+      {field('serviceTemp', t('inventory.fields.serviceTemp'))}
+      {field('baseYear', t('inventory.fields.baseYear'), 'number')}
     </>
   );
 
   const spiritOptionals = (
     <>
-      {field('declaredAge', t('bottle.fields.declaredAge'))}
-      {field('caskType', t('bottle.fields.caskType'))}
-      {field('aromaticProfile', t('bottle.fields.aromaticProfile'))}
-      {field('additions', t('bottle.fields.additions'))}
-      {field('lotNumber', t('bottle.fields.lotNumber'))}
-      {field('bottleSize', t('bottle.fields.bottleSize'))}
+      {field('declaredAge', t('inventory.fields.declaredAge'))}
+      {field('caskType', t('inventory.fields.caskType'))}
+      {field('aromaticProfile', t('inventory.fields.aromaticProfile'))}
+      {field('additions', t('inventory.fields.additions'))}
+      {field('lotNumber', t('inventory.fields.lotNumber'))}
+      {field('bottleSize', t('inventory.fields.bottleSize'))}
     </>
   );
 
   const cigarOptionals = (
     <>
-      {field('manufactureYear', t('bottle.fields.manufactureYear'), 'number')}
-      {field('leafOrigin', t('bottle.fields.leafOrigin'))}
-      {field('factoryCode', t('bottle.fields.factoryCode'))}
-      {field('recommendedHumidity', t('bottle.fields.recommendedHumidity'), 'number')}
-      {field('humidificationSystem', t('bottle.fields.humidificationSystem'))}
+      {field('manufactureYear', t('inventory.fields.manufactureYear'), 'number')}
+      {field('leafOrigin', t('inventory.fields.leafOrigin'))}
+      {field('factoryCode', t('inventory.fields.factoryCode'))}
+      {field('recommendedHumidity', t('inventory.fields.recommendedHumidity'), 'number')}
+      {field('humidificationSystem', t('inventory.fields.humidificationSystem'))}
     </>
   );
 

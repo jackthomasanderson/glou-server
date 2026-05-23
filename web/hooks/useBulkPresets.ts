@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bulkPresetClient, BulkPreset } from '@/lib/bulk-presets/client';
-import { Bottle } from '@/lib/bottles/types';
+import { InventoryItem } from '@/lib/inventory/types';
 
 export function useBulkPresets() {
   return useQuery({
@@ -12,7 +12,7 @@ export function useBulkPresets() {
 export function useCreateBulkPreset() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, payload }: { name: string; payload: Partial<Bottle> }) =>
+    mutationFn: ({ name, payload }: { name: string; payload: Partial<InventoryItem> }) =>
       bulkPresetClient.create(name, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bulk-presets'] });
