@@ -92,7 +92,7 @@ export function AlertCenter({ t }: AlertCenterProps) {
                         {bottle.vintage ? ` · ${bottle.vintage}` : ''}
                       </Typography>
                       <Chip
-                        label={t(`bottle.alertStatus.${bottle.alertStatus ?? 'none'}`)}
+                        label={t(`inventory.alertStatus.${bottle.alertStatus ?? 'none'}`)}
                         size="small"
                         color={STATUS_COLOR[bottle.alertStatus ?? 'none'] ?? 'default'}
                       />

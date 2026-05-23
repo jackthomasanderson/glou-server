@@ -1,15 +1,15 @@
 import type { Metadata } from 'next';
-import { BottlesClient } from './bottles/BottlesClient';
+import { InventoryClient } from './inventory/InventoryClient';
 
 export const metadata: Metadata = {
   title: 'Glou — Gestionnaire de Cave',
-  description: 'Gérez votre collection de bouteilles : vins, spiritueux, bulles et cigares.',
+  description: 'Gérez votre inventaire : vins, spiritueux, bulles et cigares.',
 };
 
 /**
- * HomePage now directly renders the BottlesClient dashboard.
+ * HomePage now directly renders the InventoryClient dashboard.
  * Unauthenticated users will be redirected to /login by the MainLayout's AuthGuard.
  */
 export default function HomePage() {
-  return <BottlesClient />;
+  return <InventoryClient />;
 }

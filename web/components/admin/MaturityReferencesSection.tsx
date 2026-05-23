@@ -153,7 +153,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
           {/* Category */}
           <Box>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-              {t('bottle.fields.category')}
+              {t('inventory.fields.category')}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
               {(['wine', 'sparkling', 'spirit', 'cigar'] as const).map((cat) => {
@@ -237,14 +237,14 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
 
           <Stack direction="row" spacing={2}>
             <TextField
-              label={t('bottle.fields.producer')}
+              label={t('inventory.fields.producer')}
               value={form.producer ?? ''}
               onChange={(e) => setField('producer', e.target.value || null)}
               fullWidth
               size="small"
             />
             <TextField
-              label={t('bottle.fields.region')}
+              label={t('inventory.fields.region')}
               value={form.region ?? ''}
               onChange={(e) => setField('region', e.target.value || null)}
               fullWidth
@@ -254,7 +254,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
 
           {cfg.hasColor && (
             <TextField
-              label={t('bottle.fields.color')}
+              label={t('inventory.fields.color')}
               value={form.color ?? ''}
               onChange={(e) => setField('color', e.target.value || null)}
               size="small"

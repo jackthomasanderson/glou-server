@@ -2,13 +2,13 @@ import { z } from 'zod';
 
 // ─── Types miroirs du backend ────────────────────────────────────────────────
 
-export type BottleCategory = 'wine' | 'sparkling' | 'spirit' | 'cigar';
+export type InventoryCategory = 'wine' | 'sparkling' | 'spirit' | 'cigar';
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
-export interface Bottle {
+export interface InventoryItem {
   id: string;
   userId: string;
-  category: BottleCategory;
+  category: InventoryCategory;
   name: string;
   producer: string;
   location?: string | null;
@@ -72,31 +72,31 @@ export interface Bottle {
   createdAt: string;
   updatedAt: string;
 
-  // Traceability (FEAT-62) — present only on single-bottle GET
+  // Traceability (FEAT-62) — present only on single-item GET
   updatedBy?: string | null;
   _creator?: { id: string; name: string } | null;
   _lastEditor?: { id: string; name: string } | null;
 }
 
-export interface BottleFieldChange {
+export interface InventoryFieldChange {
   field: string;
   from: unknown;
   to: unknown;
 }
 
-export interface BottleHistoryEntry {
+export interface InventoryHistoryEntry {
   id: number;
   action: string;
   status: string;
   actorId: string;
   actorName: string;
-  changes: BottleFieldChange[] | null;
+  changes: InventoryFieldChange[] | null;
   createdAt: string;
 }
 
 // ─── Schéma Zod frontend (validation côté client avant envoi) ─────────────────
 
-export const bottleFormSchema = z.object({
+export const inventoryFormSchema = z.object({
   category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
   name: z.string().min(1, 'Nom requis').max(200),
   producer: z.string().min(1, 'Producteur requis').max(200),
@@ -117,4 +117,4 @@ export const bottleFormSchema = z.object({
   alcoholDegree: z.number().min(0).max(100).optional(),
 });
 
-export type BottleFormValues = z.infer<typeof bottleFormSchema>;
+export type InventoryFormValues = z.infer<typeof inventoryFormSchema>;

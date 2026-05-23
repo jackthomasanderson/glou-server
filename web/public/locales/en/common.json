@@ -44,7 +44,7 @@
     "spirit": "Spirit",
     "cigar": "Cigar / Box"
   },
-  "bottle": {
+  "inventory": {
     "add": "Add a bottle",
     "edit": "Edit bottle",
     "details": "Bottle details",

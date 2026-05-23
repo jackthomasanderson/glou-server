@@ -47,7 +47,7 @@ export function DrinkingWindowBadge({
   const tooltipContent = (
     <Box>
       <Typography variant="caption" display="block" fontWeight={600}>
-        {t(`bottle.alertStatus.${status}`)}
+        {t(`inventory.alertStatus.${status}`)}
       </Typography>
       {windowLabel && (
         <Typography variant="caption" display="block" color="text.secondary">
@@ -66,7 +66,7 @@ export function DrinkingWindowBadge({
     <Tooltip title={tooltipContent} arrow>
       <Chip
         icon={config.icon}
-        label={windowLabel || t(`bottle.alertStatus.${status}`)}
+        label={windowLabel || t(`inventory.alertStatus.${status}`)}
         size={size}
         color={alertsPaused ? 'default' : config.color}
         variant={alertsPaused ? 'outlined' : 'filled'}

@@ -1,10 +1,10 @@
 import { client } from '../api';
-import { Bottle } from '../bottles/types';
+import { InventoryItem } from '../inventory/types';
 
 export interface BulkPreset {
   id: string;
   name: string;
-  payload: Partial<Bottle>;
+  payload: Partial<InventoryItem>;
   createdAt: string;
 }
 
@@ -14,7 +14,7 @@ export const bulkPresetClient = {
     return data;
   },
 
-  async create(name: string, payload: Partial<Bottle>): Promise<BulkPreset> {
+  async create(name: string, payload: Partial<InventoryItem>): Promise<BulkPreset> {
     const { data } = await client.post<BulkPreset>('/bulk-presets', { name, payload });
     return data;
   },

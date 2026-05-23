@@ -7,24 +7,25 @@ import {
   Box, Button, Container, Fab,
   Grid, Typography, Collapse, Alert, IconButton, InputBase,
   Stack, Chip, Divider, Paper,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
-import { Bottle } from '@/lib/bottles/types';
+import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 import {
-  useBottles,
-  useCreateBottle,
-  useUpdateBottle,
-  useDeleteBottle,
-  useRestoreBottle,
-  useBulkUpdateBottle,
-} from '@/hooks/useBottles';
+  useInventory,
+  useCreateInventoryItem,
+  useUpdateInventoryItem,
+  useDeleteInventoryItem,
+  useRestoreInventoryItem,
+  useBulkUpdateInventoryItem,
+} from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
 import Link from 'next/link';
-import { BottleCard, BottleCardSkeleton } from './BottleCard';
-import { BottleForm } from './BottleForm';
+import { InventoryCard, InventoryCardSkeleton } from './InventoryCard';
+import { InventoryForm } from './InventoryForm';
 import { UndoToast } from '@/components/ui/UndoToast';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
@@ -32,47 +33,46 @@ import CloseIcon from '@mui/icons-material/Close';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import { BulkActionDialog } from './BulkActionDialog';
 import { AlertCenter } from './AlertCenter';
-import { BottleDetailDialog } from './BottleDetailDialog';
+import { InventoryDetailDialog } from './InventoryDetailDialog';
+import { InventoryListRow, InventoryListRowSkeleton } from './InventoryListRow';
+import { ViewToggle } from '@/components/ui/ViewToggle';
+import { useViewMode } from '@/hooks/useViewMode';
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
-interface BottleDashboardProps {
+interface InventoryDashboardProps {
   t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-/**
- * Page principale du CRUD bouteilles.
- * Gère : liste, création, édition, suppression avec Undo, Optimistic UI.
- */
-export function BottleDashboard({ t }: BottleDashboardProps) {
-  const { data: bottles, isLoading, isError } = useBottles();
+export function InventoryDashboard({ t }: InventoryDashboardProps) {
+  const { data: items, isLoading, isError } = useInventory();
   const { data: cellars } = useCellars();
-  const createMutation = useCreateBottle();
-  const updateMutation = useUpdateBottle();
-  const deleteMutation = useDeleteBottle();
-  const restoreMutation = useRestoreBottle();
+  const createMutation = useCreateInventoryItem();
+  const updateMutation = useUpdateInventoryItem();
+  const deleteMutation = useDeleteInventoryItem();
+  const restoreMutation = useRestoreInventoryItem();
   const hasMounted = useHasMounted();
 
 
   const [mode, setMode] = useState<UIMode>('idle');
-  const [editingBottle, setEditingBottle] = useState<Bottle | null>(null);
-  const [viewingBottle, setViewingBottle] = useState<Bottle | null>(null);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
 
   // Undo toast state
-  const [undoTarget, setUndoTarget] = useState<Bottle | null>(null);
+  const [undoTarget, setUndoTarget] = useState<InventoryItem | null>(null);
 
   // Bulk mode state
-  const bulkUpdateMutation = useBulkUpdateBottle();
+  const bulkUpdateMutation = useBulkUpdateInventoryItem();
   const [bulkMode, setBulkMode] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [bulkSuccessCount, setBulkSuccessCount] = useState<number | null>(null);
 
-  const handleSelectToggle = useCallback((bottle: Bottle) => {
+  const handleSelectToggle = useCallback((item: InventoryItem) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(bottle.id)) next.delete(bottle.id);
-      else next.add(bottle.id);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
       return next;
     });
   }, []);
@@ -87,6 +87,11 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
 
   useEffect(() => {
     const filterParam = searchParams.get('filter');
+    const qParam = searchParams.get('q');
+    if (qParam) {
+      setSearchQuery(qParam);
+      setIsSearchOpen(true);
+    }
     if (filterParam === 'opened') {
       setOpenedFilter('opened');
       setIsFiltersOpen(true);
@@ -102,6 +107,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   }, [searchParams]);
 
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useViewMode('inventory');
 
   const toggleSearch = useCallback(() => {
     setIsSearchOpen((prev) => !prev);
@@ -133,43 +139,43 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
     setSelectedCategories([]);
     setSelectedCellars([]);
     setOpenedFilter('all');
-    router.push('/bottles');
+    router.push('/inventory');
   }, [router]);
 
-  const filteredBottles = useMemo(() => {
-    if (!bottles) return [];
+  const filteredItems = useMemo(() => {
+    if (!items) return [];
 
-    let result = bottles;
+    let result = items;
 
     // 1. Category Filter
     if (selectedCategories.length > 0) {
-      result = result.filter((b: Bottle) => selectedCategories.includes(b.category));
+      result = result.filter((b: InventoryItem) => selectedCategories.includes(b.category));
     }
 
     // 2. Cellar Filter
     if (selectedCellars.length > 0) {
-      result = result.filter((b: Bottle) => selectedCellars.includes(b.cellarId || ''));
+      result = result.filter((b: InventoryItem) => selectedCellars.includes(b.cellarId || ''));
     }
 
     // 2b. Opened Filter
     if (openedFilter === 'full') {
-      result = result.filter((b: Bottle) => !b.isOpened);
+      result = result.filter((b: InventoryItem) => !b.isOpened);
     } else if (openedFilter === 'opened') {
-      result = result.filter((b: Bottle) => b.isOpened);
+      result = result.filter((b: InventoryItem) => b.isOpened);
     } else if (openedFilter === 'alerts') {
       if (!hasMounted) return [];
       const today = new Date().toISOString().split('T')[0];
-      result = result.filter((b: Bottle) => b.reminderDate && b.reminderDate.split('T')[0] <= today);
+      result = result.filter((b: InventoryItem) => b.reminderDate && b.reminderDate.split('T')[0] <= today);
     }
 
 
     // 3. Text Search
     if (searchQuery.trim()) {
       const normalize = (s: string) =>
-        s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
       const q = normalize(searchQuery);
 
-      result = result.filter((b: Bottle) => {
+      result = result.filter((b: InventoryItem) => {
         const cellar = cellars?.find((c: Cellar) => c.id === b.cellarId);
         const cellarName = cellar ? normalize(cellar.name) : '';
 
@@ -189,7 +195,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
     }
 
     return result;
-  }, [bottles, searchQuery, selectedCategories, selectedCellars, cellars, openedFilter, t, hasMounted]);
+  }, [items, searchQuery, selectedCategories, selectedCellars, cellars, openedFilter, t, hasMounted]);
 
 
   const toggleBulkMode = useCallback(() => {
@@ -198,8 +204,8 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   }, []);
 
   const handleCreate = useCallback(
-    (values: Partial<Bottle>) => {
-      createMutation.mutate(values as Bottle, {
+    (values: Partial<InventoryItem>) => {
+      createMutation.mutate(values as InventoryItem, {
         onSettled: () => setMode('idle'),
       });
       setMode('idle');
@@ -208,7 +214,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   );
 
   const handleBulkApply = useCallback(
-    (patch: Partial<Bottle>) => {
+    (patch: Partial<InventoryItem>) => {
       bulkUpdateMutation.mutate(
         { ids: Array.from(selectedIds), patch },
         {
@@ -225,20 +231,20 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
   );
 
   const handleUpdate = useCallback(
-    (values: Partial<Bottle>) => {
-      if (!editingBottle) return;
+    (values: Partial<InventoryItem>) => {
+      if (!editingItem) return;
       updateMutation.mutate(
-        { id: editingBottle.id, patch: values },
-        { onSettled: () => { setMode('idle'); setEditingBottle(null); } }
+        { id: editingItem.id, patch: values },
+        { onSettled: () => { setMode('idle'); setEditingItem(null); } }
       );
     },
-    [editingBottle, updateMutation]
+    [editingItem, updateMutation]
   );
 
   const handleDelete = useCallback(
-    (bottle: Bottle) => {
-      deleteMutation.mutate(bottle.id, {
-        onSuccess: () => setUndoTarget(bottle),
+    (item: InventoryItem) => {
+      deleteMutation.mutate(item.id, {
+        onSuccess: () => setUndoTarget(item),
       });
     },
     [deleteMutation]
@@ -250,18 +256,18 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
     setUndoTarget(null);
   }, [undoTarget, restoreMutation]);
 
-  const handleEdit = useCallback((bottle: Bottle) => {
-    setEditingBottle(bottle);
+  const handleEdit = useCallback((item: InventoryItem) => {
+    setEditingItem(item);
     setMode('editing');
   }, []);
 
-  const handleView = useCallback((bottle: Bottle) => {
-    setViewingBottle(bottle);
+  const handleView = useCallback((item: InventoryItem) => {
+    setViewingItem(item);
   }, []);
 
   const handleCancel = useCallback(() => {
     setMode('idle');
-    setEditingBottle(null);
+    setEditingItem(null);
   }, []);
 
   const hasCellars = (cellars?.length ?? 0) > 0;
@@ -269,7 +275,6 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
-      {/* Header handled by Navbar, keeping only specific actions if needed or removing extra space */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2, alignItems: 'center' }}>
         <Box sx={{
           display: 'flex',
@@ -290,7 +295,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
             <InputBase
               autoFocus
               fullWidth
-              placeholder={t('bottle.searchPlaceholder')}
+              placeholder={t('inventory.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               sx={{ ml: 1, flex: 1 }}
@@ -298,20 +303,22 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           )}
         </Box>
 
-        <IconButton 
-          onClick={toggleFilters} 
+        <IconButton
+          onClick={toggleFilters}
           color={isFiltersOpen || selectedCategories.length > 0 || selectedCellars.length > 0 ? "secondary" : "default"}
           sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
         >
           <FilterListIcon />
         </IconButton>
 
+        <ViewToggle value={viewMode} onChange={setViewMode} />
+
         <Button
           variant={bulkMode ? "contained" : "outlined"}
           color={bulkMode ? "secondary" : "primary"}
           startIcon={bulkMode ? <CloseIcon /> : <FormatListBulletedIcon />}
           onClick={toggleBulkMode}
-          sx={{ display: bottles && bottles.length > 0 && !isSearchOpen ? 'flex' : 'none' }}
+          sx={{ display: items && items.length > 0 && !isSearchOpen ? 'flex' : 'none' }}
         >
           {bulkMode ? t('actions.cancel') : t('actions.select')}
         </Button>
@@ -320,10 +327,10 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           startIcon={<AddIcon />}
           onClick={() => setMode('creating')}
           sx={{ display: isSearchOpen ? { xs: 'none', md: 'flex' } : { xs: 'none', sm: 'flex' } }}
-          aria-label={t('bottle.add')}
+          aria-label={t('inventory.add')}
           disabled={!hasCellars || bulkMode}
         >
-          {t('bottle.add')}
+          {t('inventory.add')}
         </Button>
       </Box>
 
@@ -333,7 +340,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           <Stack spacing={2}>
             <Box>
               <Typography variant="subtitle2" gutterBottom color="text.secondary">
-                {t('bottle.filterByCategory')}
+                {t('inventory.filterByCategory')}
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {['wine', 'sparkling', 'spirit', 'cigar'].map((cat) => (
@@ -352,7 +359,7 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
             {hasCellars && (
               <Box>
                 <Typography variant="subtitle2" gutterBottom color="text.secondary">
-                  {t('bottle.filterByCellar')}
+                  {t('inventory.filterByCellar')}
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   {cellars?.map((cellar) => (
@@ -371,13 +378,13 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
 
             <Box>
               <Typography variant="subtitle2" gutterBottom color="text.secondary">
-                {t('bottle.fields.isOpened')}
+                {t('inventory.fields.isOpened')}
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {['all', 'full', 'opened', 'alerts'].map((f) => (
                   <Chip
                     key={f}
-                    label={t(`bottle.filters.${f}`)}
+                    label={t(`inventory.filters.${f}`)}
                     onClick={() => setOpenedFilter(f as typeof openedFilter)}
                     color={openedFilter === f ? "primary" : "default"}
                     variant={openedFilter === f ? "filled" : "outlined"}
@@ -390,9 +397,9 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
             {(selectedCategories.length > 0 || selectedCellars.length > 0 || openedFilter !== 'all' || searchQuery) && (
               <>
                 <Divider />
-                <Button 
-                  size="small" 
-                  onClick={clearFilters} 
+                <Button
+                  size="small"
+                  onClick={clearFilters}
                   startIcon={<CloseIcon />}
                   sx={{ alignSelf: 'flex-start' }}
                 >
@@ -415,9 +422,9 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
       )}
 
       {/* Form dialog */}
-      <BottleForm
+      <InventoryForm
         open={mode !== 'idle'}
-        initialValues={mode === 'editing' && editingBottle ? editingBottle : undefined}
+        initialValues={mode === 'editing' && editingItem ? editingItem : undefined}
         onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
         onClose={handleCancel}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
@@ -425,20 +432,29 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
       />
 
       {/* Loading skeletons */}
-      {isLoading && (
+      {isLoading && viewMode === 'grid' && (
         <Grid container spacing={2}>
           {Array.from({ length: 6 }).map((_, i) => (
             <Grid item xs={12} sm={6} md={4} key={i}>
-              <BottleCardSkeleton />
+              <InventoryCardSkeleton />
             </Grid>
           ))}
         </Grid>
+      )}
+      {isLoading && viewMode === 'list' && (
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+          <Table size="small">
+            <TableBody>
+              {Array.from({ length: 8 }).map((_, i) => <InventoryListRowSkeleton key={i} />)}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       {/* Empty state or No results */}
       {!isLoading && !isError && mode === 'idle' && (
         <>
-          {bottles?.length === 0 ? (
+          {items?.length === 0 ? (
             <Box
               sx={{
                 textAlign: 'center',
@@ -452,26 +468,26 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
               {hasCellars ? (
                 <>
                   <Typography variant="h6" color="text.secondary" gutterBottom>
-                    {t('bottle.noBottles')}
+                    {t('inventory.noBottles')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {t('bottle.noBottlesDesc')}
+                    {t('inventory.noBottlesDesc')}
                   </Typography>
                   <Button
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={() => setMode('creating')}
                   >
-                    {t('bottle.add')}
+                    {t('inventory.add')}
                   </Button>
                 </>
               ) : (
                 <>
                   <Typography variant="h6" color="text.secondary" gutterBottom>
-                    {t('bottle.createCellarFirst')}
+                    {t('inventory.createCellarFirst')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    {t('bottle.createCellarFirstDesc')}
+                    {t('inventory.createCellarFirstDesc')}
                   </Typography>
                   <Button
                     variant="contained"
@@ -485,11 +501,11 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
               )}
             </Box>
           ) : (
-            searchQuery.trim() && filteredBottles.length === 0 && (
+            searchQuery.trim() && filteredItems.length === 0 && (
               <Box sx={{ textAlign: 'center', py: 8 }}>
                 <SearchIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
                 <Typography variant="h6" color="text.secondary">
-                  {t('bottle.noResults', { query: searchQuery })}
+                  {t('inventory.noResults', { query: searchQuery })}
                 </Typography>
               </Box>
             )
@@ -498,50 +514,50 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
       )}
 
       {/* Stats summary */}
-      {!isLoading && bottles && bottles.length > 0 && mode === 'idle' && (
+      {!isLoading && items && items.length > 0 && mode === 'idle' && (
         <Box sx={{ mb: 3 }}>
           <Stack direction="row" spacing={3} divider={<Divider orientation="vertical" flexItem />}>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">
-                {t('bottle.stats.total')}
+                {t('inventory.stats.total')}
               </Typography>
               <Typography variant="h6" fontWeight={700}>
-                {bottles.length}
+                {items.length}
               </Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">
-                {t('bottle.stats.full')}
+                {t('inventory.stats.full')}
               </Typography>
               <Typography variant="h6" fontWeight={700} color="success.main">
-                {bottles.filter(b => !b.isOpened).length}
+                {items.filter(b => !b.isOpened).length}
               </Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">
-                {t('bottle.stats.opened')}
+                {t('inventory.stats.opened')}
               </Typography>
               <Typography variant="h6" fontWeight={700} color="warning.main">
-                {bottles.filter(b => b.isOpened).length}
+                {items.filter(b => b.isOpened).length}
               </Typography>
             </Box>
           </Stack>
         </Box>
       )}
 
-      {/* Bottle grid */}
-      {!isLoading && filteredBottles && filteredBottles.length > 0 && (
+      {/* Inventory grid */}
+      {!isLoading && filteredItems && filteredItems.length > 0 && viewMode === 'grid' && (
         <Grid container spacing={2}>
-          {filteredBottles.map((bottle: Bottle) => (
-            <Grid item xs={12} sm={6} md={4} key={bottle.id}>
-              <BottleCard
-                bottle={bottle}
-                categoryLabel={categoryLabel(bottle.category)}
+          {filteredItems.map((item: InventoryItem) => (
+            <Grid item xs={12} sm={6} md={4} key={item.id}>
+              <InventoryCard
+                item={item}
+                categoryLabel={categoryLabel(item.category)}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onView={bulkMode ? undefined : handleView}
                 t={t}
-                isSelected={selectedIds.has(bottle.id)}
+                isSelected={selectedIds.has(item.id)}
                 onSelectToggle={bulkMode ? handleSelectToggle : undefined}
               />
             </Grid>
@@ -549,10 +565,48 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
         </Grid>
       )}
 
+      {/* Inventory list */}
+      {!isLoading && filteredItems && filteredItems.length > 0 && viewMode === 'list' && (
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                {bulkMode && <TableCell padding="checkbox" />}
+                <TableCell sx={{ width: 40 }} />
+                <TableCell>{t('inventory.fields.name')}</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('inventory.fields.producer')}</TableCell>
+                <TableCell align="center">{t('inventory.fields.vintage')}</TableCell>
+                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{t('inventory.fields.region')}</TableCell>
+                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{t('view.columns.cellar')}</TableCell>
+                <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('view.columns.peak')}</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('view.columns.status')}</TableCell>
+                <TableCell align="right">{t('admin.maturityRefs.columns.actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredItems.map((item: InventoryItem) => (
+                <InventoryListRow
+                  key={item.id}
+                  item={item}
+                  categoryLabel={categoryLabel(item.category)}
+                  cellar={cellars?.find((c: Cellar) => c.id === item.cellarId) ?? undefined}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onView={bulkMode ? undefined : handleView}
+                  t={t}
+                  isSelected={selectedIds.has(item.id)}
+                  onSelectToggle={bulkMode ? handleSelectToggle : undefined}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
       {/* FAB for mobile */}
       <Fab
         color="primary"
-        aria-label={t('bottle.add')}
+        aria-label={t('inventory.add')}
         sx={{ position: 'fixed', bottom: 80, right: 24, display: { sm: 'none' } }}
         onClick={() => setMode('creating')}
         disabled={!hasCellars}
@@ -602,8 +656,8 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
           <Typography fontWeight="bold" color="primary">
             {t('bulk.selected', { count: selectedIds.size })}
           </Typography>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={() => setIsBulkDialogOpen(true)}
           >
             {t('bulk.title')}
@@ -615,16 +669,16 @@ export function BottleDashboard({ t }: BottleDashboardProps) {
       <BulkActionDialog
         open={isBulkDialogOpen}
         onClose={() => setIsBulkDialogOpen(false)}
-        selectedBottles={bottles?.filter(b => selectedIds.has(b.id)) || []}
+        selectedBottles={items?.filter(b => selectedIds.has(b.id)) || []}
         onApply={handleBulkApply}
         isSubmitting={bulkUpdateMutation.isPending}
         t={t}
       />
 
-      <BottleDetailDialog
-        bottle={viewingBottle}
-        open={Boolean(viewingBottle)}
-        onClose={() => setViewingBottle(null)}
+      <InventoryDetailDialog
+        bottle={viewingItem}
+        open={Boolean(viewingItem)}
+        onClose={() => setViewingItem(null)}
         onEdit={handleEdit}
         t={t}
       />
