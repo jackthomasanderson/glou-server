@@ -48,7 +48,7 @@ export function GlobalSearch() {
       .slice(0, 3);
   }, [query, cellars]);
 
-  const hasResults = itemResults.length > 0 || cellarResults.length > 0 || query.trim().length > 0;
+  const hasResults = itemResults.length > 0 || cellarResults.length > 0;
 
   const handleSelectItem = useCallback(
     (item: InventoryItem) => {
@@ -167,19 +167,6 @@ export function GlobalSearch() {
               </>
             )}
 
-            {(itemResults.length > 0 || cellarResults.length > 0) && <Divider />}
-            <ListItem
-              button
-              onMouseDown={() => handleSelectCellar()}
-              sx={{ py: 0.75 }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <WarehouseIcon fontSize="small" color="action" />
-                <Typography variant="body2" color="text.secondary">
-                  {t('nav.allCellars', 'Voir toutes les caves')}
-                </Typography>
-              </Box>
-            </ListItem>
           </List>
         </Paper>
       )}
