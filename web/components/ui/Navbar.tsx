@@ -32,6 +32,7 @@ import {
   Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { GlobalSearch } from './GlobalSearch';
+import { ConnectivityIndicator } from './ConnectivityIndicator';
 import { useTranslation } from 'react-i18next';
 import { useLogout, useMe } from '@/hooks/useAuth';
 import { useInventory } from '@/hooks/useInventory';
@@ -169,6 +170,7 @@ export const Navbar: React.FC = () => {
           <GlobalSearch />
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
+            <ConnectivityIndicator />
             <IconButton color="inherit" onClick={handleNotifMenuOpen}>
               <Badge badgeContent={alertsCount} color="error">
                 <NotificationsIcon />

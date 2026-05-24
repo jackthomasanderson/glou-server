@@ -156,6 +156,17 @@ export const CellarDashboard: React.FC = () => {
                       {cellar.description}
                     </Typography>
                   )}
+                  {cellar.stats && (
+                    <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                      <Chip size="small" label={`${cellar.stats.totalItems} ${t('cellars.stats.items')}`} />
+                      {cellar.stats.alertCount > 0 && (
+                        <Chip size="small" color="warning" label={`${cellar.stats.alertCount} ${t('cellars.stats.alerts')}`} />
+                      )}
+                      {cellar.stats.estimatedValue != null && (
+                        <Chip size="small" variant="outlined" label={`~${Math.round(cellar.stats.estimatedValue)} €`} />
+                      )}
+                    </Box>
+                  )}
                 </CardContent>
                 <CardActions>
                   <IconButton size="small" onClick={() => handleOpenForm(cellar)}>
@@ -178,6 +189,8 @@ export const CellarDashboard: React.FC = () => {
                 <TableCell>{t('cellars.name')}</TableCell>
                 <TableCell>{t('cellars.type')}</TableCell>
                 <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('cellars.description')}</TableCell>
+                <TableCell align="right">{t('cellars.stats.items')}</TableCell>
+                <TableCell align="right">{t('cellars.stats.alerts')}</TableCell>
                 <TableCell align="right">{t('admin.maturityRefs.columns.actions')}</TableCell>
               </TableRow>
             </TableHead>
@@ -197,6 +210,16 @@ export const CellarDashboard: React.FC = () => {
                     <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 300 }}>
                       {cellar.description ?? '—'}
                     </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2">{cellar.stats?.totalItems ?? 0}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    {cellar.stats?.alertCount ? (
+                      <Chip size="small" color="warning" label={cellar.stats.alertCount} />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">—</Typography>
+                    )}
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title={t('actions.edit')}>

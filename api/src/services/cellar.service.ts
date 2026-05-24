@@ -2,9 +2,6 @@ import { prisma } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput } from '../schemas/cellar.schema';
 
 export class CellarService {
-  /**
-   * Create a new cellar for a user
-   */
   static async createCellar(userId: string, data: CreateCellarInput) {
     return prisma.cellar.create({
       data: {
@@ -14,32 +11,67 @@ export class CellarService {
     });
   }
 
-  /**
-   * List all cellars for a user
-   */
   static async listCellars(_userId: string) {
-    return prisma.cellar.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    const cellars = await prisma.cellar.findMany({ orderBy: { createdAt: 'desc' } });
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    return Promise.all(
+      cellars.map(async (cellar) => {
+        const [agg, alertCount] = await Promise.all([
+          prisma.inventoryItem.aggregate({
+            where: { cellarId: cellar.id, deletedAt: null },
+            _count: { id: true },
+            _sum: { estimatedValue: true, quantity: true },
+          }),
+          prisma.inventoryItem.count({
+            where: { cellarId: cellar.id, deletedAt: null, reminderDate: { lte: today } },
+          }),
+        ]);
+        return {
+          ...cellar,
+          stats: {
+            totalItems: agg._count.id,
+            totalQuantity: agg._sum.quantity ?? 0,
+            estimatedValue: agg._sum.estimatedValue ?? null,
+            alertCount,
+          },
+        };
+      })
+    );
   }
 
-  /**
-   * Get a specific cellar by ID, ensuring it belongs to the user
-   */
   static async getCellar(_userId: string, id: string) {
-    return prisma.cellar.findFirst({
-      where: {
-        id,
+    const cellar = await prisma.cellar.findFirst({ where: { id } });
+    if (!cellar) return null;
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+
+    const [agg, alertCount] = await Promise.all([
+      prisma.inventoryItem.aggregate({
+        where: { cellarId: id, deletedAt: null },
+        _count: { id: true },
+        _sum: { estimatedValue: true, quantity: true },
+      }),
+      prisma.inventoryItem.count({
+        where: { cellarId: id, deletedAt: null, reminderDate: { lte: today } },
+      }),
+    ]);
+
+    return {
+      ...cellar,
+      stats: {
+        totalItems: agg._count.id,
+        totalQuantity: agg._sum.quantity ?? 0,
+        estimatedValue: agg._sum.estimatedValue ?? null,
+        alertCount,
       },
-    });
+    };
   }
 
-  /**
-   * Update a cellar
-   */
   static async updateCellar(userId: string, id: string, data: UpdateCellarInput) {
-    // Ensure existence before update
-    const cellar = await this.getCellar(userId, id);
+    const cellar = await prisma.cellar.findFirst({ where: { id } });
     if (!cellar) return null;
 
     return prisma.cellar.update({
@@ -48,18 +80,10 @@ export class CellarService {
     });
   }
 
-  /**
-   * Delete a cellar
-   * Note: This is an actual delete as per requirements, but we should 
-   * consider what happens to orphan bottles in the future.
-   */
   static async deleteCellar(userId: string, id: string) {
-    // Ensure existence before delete
-    const cellar = await this.getCellar(userId, id);
+    const cellar = await prisma.cellar.findFirst({ where: { id } });
     if (!cellar) return null;
 
-    return prisma.cellar.delete({
-      where: { id },
-    });
+    return prisma.cellar.delete({ where: { id } });
   }
 }

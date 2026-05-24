@@ -38,6 +38,7 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
+*.tsbuildinfo
 
 # Uploads
 api/uploads/

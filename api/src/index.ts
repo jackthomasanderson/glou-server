@@ -14,6 +14,7 @@ import { maturityReferencesRouter } from './routes/maturity-references.router';
 import { errorMiddleware } from './middleware/error.middleware';
 import { inventoryService } from './services/inventory.service';
 import { purgeOldAuditLogs } from './services/audit.service';
+import searchRouter from './routes/search.router';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -36,6 +37,20 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ─── Connectivity check (no auth) ────────────────────────────────────────────
+
+app.get('/api/connectivity', async (_req, res) => {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    await fetch('https://dns.google/resolve?name=google.com&type=A', { signal: controller.signal });
+    clearTimeout(timeout);
+    res.json({ online: true });
+  } catch {
+    res.json({ online: false });
+  }
+});
+
 // ─── Static Files ──────────────────────────────────────────────────────────────
 
 import path from 'path';
@@ -51,6 +66,7 @@ app.use('/api/alerts', alertsRouter);
 app.use('/api/user', userRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/maturity-references', maturityReferencesRouter);
+app.use('/api/search', searchRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 

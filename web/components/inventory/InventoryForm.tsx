@@ -19,6 +19,8 @@ import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { maturityReferenceClient } from '@/lib/maturity-references/client';
 import { MaturitySuggestion } from '@/lib/maturity-references/types';
+import { ProductAutocomplete } from './ProductAutocomplete';
+import { ProductSuggestion } from '@/lib/inventory/productSearch';
 
 interface InventoryFormProps {
   open: boolean;
@@ -179,14 +181,23 @@ export function InventoryForm({
 
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  required
-                  size="small"
-                  label={t('inventory.fields.name')}
+                <ProductAutocomplete
                   value={values.name ?? ''}
-                  onChange={(e) => setField('name', e.target.value)}
-                  autoFocus={!isEditing}
+                  onChange={(name) => setField('name', name)}
+                  onSelect={(s: ProductSuggestion) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      name: s.name,
+                      producer: s.producer ?? prev.producer,
+                      category: (s.category as InventoryCategory) ?? prev.category,
+                      vintage: s.vintage ?? prev.vintage,
+                      bottleSize: s.bottleSize ?? prev.bottleSize,
+                      format: s.format ?? prev.format,
+                      region: s.region ?? prev.region,
+                    }))
+                  }
+                  category={values.category ?? 'wine'}
+                  disabled={isEditing}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
