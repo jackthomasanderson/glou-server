@@ -46,10 +46,10 @@ export function GlobalSearch() {
   };
 
   return (
-    <Box sx={{ position: 'relative' }}>
+    <Box sx={{ position: 'relative', width: '100%' }}>
       <Paper
         variant="outlined"
-        sx={{ display: 'flex', alignItems: 'center', px: 1, borderRadius: 2 }}
+        sx={{ display: 'flex', alignItems: 'center', px: 1, borderRadius: 2, width: '100%' }}
       >
         <SearchIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
         <InputBase

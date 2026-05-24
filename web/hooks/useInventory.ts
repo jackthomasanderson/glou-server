@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryClient } from '@/lib/inventory/client';
 import { InventoryItem, InventoryHistoryEntry } from '@/lib/inventory/types';
 
-const INVENTORY_KEY = ['inventory'];
+export const INVENTORY_KEY = ['inventory'];
 const TRASH_KEY = ['inventory', 'trash'];
 
 // ─── Read hooks ──────────────────────────────────────────────────────────────
@@ -47,6 +47,11 @@ export function useCreateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, Partial<InventoryItem>>({
     mutationFn: inventoryClient.create,
+    onSuccess: (newItem) => {
+      queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
+        old ? [...old, newItem] : [newItem]
+      );
+    },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });

@@ -164,9 +164,11 @@ export const Navbar: React.FC = () => {
             </Box>
           )}
 
-          <GlobalSearch />
+          <Box sx={{ flex: 1, mx: 2, maxWidth: 420 }}>
+            <GlobalSearch />
+          </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <IconButton color="inherit" onClick={handleNotifMenuOpen}>
               <Badge badgeContent={alertsCount} color="error">
                 <NotificationsIcon />
