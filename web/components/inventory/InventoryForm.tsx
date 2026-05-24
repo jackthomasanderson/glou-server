@@ -21,6 +21,7 @@ import { maturityReferenceClient } from '@/lib/maturity-references/client';
 import { MaturitySuggestion } from '@/lib/maturity-references/types';
 import { ProductAutocomplete } from './ProductAutocomplete';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
+import { ProducerAutocomplete } from './ProducerAutocomplete';
 
 interface InventoryFormProps {
   open: boolean;
@@ -201,14 +202,13 @@ export function InventoryForm({
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  required
-                  size="small"
+                <ProducerAutocomplete
+                  value={values.producer ?? ''}
+                  onChange={(producer) => setField('producer', producer)}
+                  category={values.category ?? 'wine'}
                   label={t('inventory.fields.producer')}
                   placeholder={t(`inventory.fields.producerPlaceholder.${category}`)}
-                  value={values.producer ?? ''}
-                  onChange={(e) => setField('producer', e.target.value)}
+                  required
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
