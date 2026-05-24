@@ -35,6 +35,16 @@
     "showLess": "Masquer les compléments",
     "view": "Voir"
   },
+  "duplicate": {
+    "title": "Cet item existe déjà",
+    "description": "{{name}} ({{producer}}) est déjà présent dans votre inventaire.",
+    "currentQuantity": "Quantité actuelle : {{count}}",
+    "cellar": "Cave : {{cellar}}",
+    "noCellar": "Aucune cave assignée",
+    "increment": "Incrémenter la quantité",
+    "createAnyway": "Créer quand même",
+    "cancel": "Retour au formulaire"
+  },
   "status": {
     "loading": "Chargement…",
     "saving": "Enregistrement…",

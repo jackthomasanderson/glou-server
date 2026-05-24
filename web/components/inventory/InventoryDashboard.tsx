@@ -37,6 +37,8 @@ import { InventoryDetailDialog } from './InventoryDetailDialog';
 import { InventoryListRow, InventoryListRowSkeleton } from './InventoryListRow';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { DuplicateDialog } from './DuplicateDialog';
+import { findDuplicate } from '@/lib/inventory/duplicate';
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
@@ -57,6 +59,8 @@ export function InventoryDashboard({ t }: InventoryDashboardProps) {
   const [mode, setMode] = useState<UIMode>('idle');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
+  const [duplicateFound, setDuplicateFound] = useState<InventoryItem | null>(null);
+  const [duplicateCandidate, setDuplicateCandidate] = useState<Partial<InventoryItem> | null>(null);
 
   // Undo toast state
   const [undoTarget, setUndoTarget] = useState<InventoryItem | null>(null);
@@ -205,13 +209,43 @@ export function InventoryDashboard({ t }: InventoryDashboardProps) {
 
   const handleCreate = useCallback(
     (values: Partial<InventoryItem>) => {
+      const dup = findDuplicate(items ?? [], values);
+      if (dup) {
+        setDuplicateFound(dup);
+        setDuplicateCandidate(values);
+        return;
+      }
       createMutation.mutate(values as InventoryItem, {
         onSettled: () => setMode('idle'),
       });
       setMode('idle');
     },
-    [createMutation]
+    [createMutation, items]
   );
+
+  const handleDuplicateIncrement = useCallback(() => {
+    if (!duplicateFound || !duplicateCandidate) return;
+    const newQty = (duplicateFound.quantity ?? 1) + (duplicateCandidate.quantity ?? 1);
+    updateMutation.mutate(
+      { id: duplicateFound.id, patch: { quantity: newQty } },
+      { onSettled: () => { setMode('idle'); setDuplicateFound(null); setDuplicateCandidate(null); } }
+    );
+  }, [duplicateFound, duplicateCandidate, updateMutation]);
+
+  const handleDuplicateCreateAnyway = useCallback(() => {
+    if (!duplicateCandidate) return;
+    setDuplicateFound(null);
+    setDuplicateCandidate(null);
+    createMutation.mutate(duplicateCandidate as InventoryItem, {
+      onSettled: () => setMode('idle'),
+    });
+    setMode('idle');
+  }, [duplicateCandidate, createMutation]);
+
+  const handleDuplicateCancel = useCallback(() => {
+    setDuplicateFound(null);
+    setDuplicateCandidate(null);
+  }, []);
 
   const handleBulkApply = useCallback(
     (patch: Partial<InventoryItem>) => {
@@ -682,6 +716,18 @@ export function InventoryDashboard({ t }: InventoryDashboardProps) {
         onEdit={handleEdit}
         t={t}
       />
+
+      {duplicateFound && duplicateCandidate && (
+        <DuplicateDialog
+          duplicate={duplicateFound}
+          candidate={duplicateCandidate}
+          cellars={cellars ?? []}
+          t={t}
+          onIncrement={handleDuplicateIncrement}
+          onCreateAnyway={handleDuplicateCreateAnyway}
+          onCancel={handleDuplicateCancel}
+        />
+      )}
     </Container>
   );
 }

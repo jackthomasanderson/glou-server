@@ -35,6 +35,16 @@
     "showLess": "Hide optional fields",
     "view": "View"
   },
+  "duplicate": {
+    "title": "This item already exists",
+    "description": "{{name}} ({{producer}}) is already in your inventory.",
+    "currentQuantity": "Current quantity: {{count}}",
+    "cellar": "Cellar: {{cellar}}",
+    "noCellar": "No cellar assigned",
+    "increment": "Increment quantity",
+    "createAnyway": "Create anyway",
+    "cancel": "Back to form"
+  },
   "status": {
     "loading": "Loading…",
     "saving": "Saving…",
