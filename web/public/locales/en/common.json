@@ -59,7 +59,7 @@
     "cigar": "Cigar / Box"
   },
   "inventory": {
-    "add": "Add a bottle",
+    "add": "Add",
     "edit": "Edit bottle",
     "details": "Bottle details",
     "delete": "Delete bottle",
