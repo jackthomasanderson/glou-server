@@ -29,7 +29,7 @@ interface Props {
 }
 
 export function ProductAutocomplete({ value, onChange, onSelect, category, disabled }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isOnline = useConnectivity();
   const { shouldWarn, dismiss } = useConnectivityWarning('autocomplete');
   const { data: inventoryItems } = useInventory();
@@ -86,7 +86,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
       setLoadingExternal(true);
       try {
         const { data } = await client.get<ProductSuggestion[]>(
-          `/search/products?q=${encodeURIComponent(newValue)}&category=${encodeURIComponent(category)}`
+          `/search/products?q=${encodeURIComponent(newValue)}&category=${encodeURIComponent(category)}&lang=${i18n.language}`
         );
         setExternalOptions(data.map((s) => ({ ...s, source: 'external' as const })));
       } catch {

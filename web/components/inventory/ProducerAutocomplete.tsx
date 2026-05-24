@@ -27,7 +27,7 @@ interface Props {
 }
 
 export function ProducerAutocomplete({ value, onChange, category, label, placeholder, required }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isOnline = useConnectivity();
   const { data: inventoryItems } = useInventory();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -79,7 +79,7 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
       setLoadingExternal(true);
       try {
         const { data } = await client.get<string[]>(
-          `/search/producers?q=${encodeURIComponent(newValue)}&category=${encodeURIComponent(category)}`
+          `/search/producers?q=${encodeURIComponent(newValue)}&category=${encodeURIComponent(category)}&lang=${i18n.language}`
         );
         setExternalProducers(data ?? []);
       } catch {

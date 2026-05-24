@@ -4,22 +4,19 @@ import { authMiddleware } from '../middleware/auth.middleware';
 const router = Router();
 
 // Prefixes injected before the user query to scope Google suggestions
-const PRODUCT_PREFIX: Record<string, string> = {
-  wine: 'vin',
-  sparkling: 'champagne',
-  spirit: 'whisky',
-  cigar: 'cigare',
+const PRODUCT_PREFIX: Record<string, Record<string, string>> = {
+  fr: { wine: 'vin', sparkling: 'champagne', spirit: 'whisky', cigar: 'cigare' },
+  en: { wine: 'wine', sparkling: 'champagne', spirit: 'whisky', cigar: 'cigar' },
 };
 
-const PRODUCER_PREFIX: Record<string, string> = {
-  wine: 'château',
-  sparkling: 'maison',
-  spirit: 'distillerie',
-  cigar: 'manufacture',
+const PRODUCER_PREFIX: Record<string, Record<string, string>> = {
+  fr: { wine: 'château', sparkling: 'maison', spirit: 'distillerie', cigar: 'manufacture' },
+  en: { wine: 'winery', sparkling: 'house', spirit: 'distillery', cigar: 'manufacturer' },
 };
 
-async function googleSuggest(query: string): Promise<string[]> {
-  const url = `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}&hl=fr`;
+async function googleSuggest(query: string, lang: string): Promise<string[]> {
+  const hl = lang === 'en' ? 'en' : 'fr';
+  const url = `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}&hl=${hl}`;
   const res = await fetch(url, {
     signal: AbortSignal.timeout(3000),
     headers: { 'User-Agent': 'Mozilla/5.0' },
@@ -35,12 +32,13 @@ async function googleSuggest(query: string): Promise<string[]> {
 router.get('/products', authMiddleware, async (req, res) => {
   const q = String(req.query.q ?? '').trim();
   const category = String(req.query.category ?? '');
+  const lang = String(req.query.lang ?? 'fr') === 'en' ? 'en' : 'fr';
 
   if (!q || q.length < 2) return res.json({ data: [] });
 
   try {
-    const prefix = PRODUCT_PREFIX[category] ?? 'vin';
-    const suggestions = await googleSuggest(`${prefix} ${q}`);
+    const prefix = PRODUCT_PREFIX[lang][category] ?? (lang === 'en' ? 'wine' : 'vin');
+    const suggestions = await googleSuggest(`${prefix} ${q}`, lang);
 
     const seen = new Set<string>();
     const results = suggestions
@@ -76,12 +74,13 @@ router.get('/products', authMiddleware, async (req, res) => {
 router.get('/producers', authMiddleware, async (req, res) => {
   const q = String(req.query.q ?? '').trim();
   const category = String(req.query.category ?? '');
+  const lang = String(req.query.lang ?? 'fr') === 'en' ? 'en' : 'fr';
 
   if (!q || q.length < 2) return res.json({ data: [] });
 
   try {
-    const prefix = PRODUCER_PREFIX[category] ?? 'château';
-    const suggestions = await googleSuggest(`${prefix} ${q}`);
+    const prefix = PRODUCER_PREFIX[lang][category] ?? (lang === 'en' ? 'winery' : 'château');
+    const suggestions = await googleSuggest(`${prefix} ${q}`, lang);
 
     const seen = new Set<string>();
     const results = suggestions
