@@ -1,6 +1,6 @@
 type ApiError = { error: string; details?: string };
 
-async function handleResponse<T>(res: Response): Promise<T> {
+export async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({ error: 'NETWORK_ERROR' }))) as ApiError;
     throw new Error(body.details ?? body.error ?? `HTTP ${res.status}`);

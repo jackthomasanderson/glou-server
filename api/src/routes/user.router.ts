@@ -55,7 +55,7 @@ router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), async (req
     const user = await authService.updateProfile(req.userId, { avatarUrl });
     res.json({ data: user });
   } catch (err: any) {
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', details: err.message });
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 

@@ -24,7 +24,9 @@ export const avatarUpload = multer({
     storage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     fileFilter: (_req, file, cb) => {
-        if (file.mimetype.startsWith('image/')) {
+        if (file.mimetype === 'image/svg+xml') {
+            cb(new Error('SVG_NOT_ALLOWED'));
+        } else if (file.mimetype.startsWith('image/')) {
             cb(null, true);
         } else {
             cb(new Error('INVALID_FILE_TYPE'));

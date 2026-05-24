@@ -13,7 +13,10 @@
     "searchPlaceholder": "Rechercher...",
     "searchNoResults": "Aucun résultat",
     "searchViewAll": "Voir tous les résultats →",
-    "searchCollection": "Collection"
+    "searchCollection": "Collection",
+    "searchBottles": "Bouteilles",
+    "searchCellars": "Caves",
+    "allCellars": "Voir toutes les caves"
   },
   "actions": {
     "add": "Ajouter",

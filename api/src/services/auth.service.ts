@@ -20,6 +20,10 @@ export interface AuthPayload {
   scope?: 'full' | '2fa_pending';
 }
 
+export type LoginResult =
+  | { user: PublicUser; token: string; requires2fa?: never }
+  | { user: PublicUser; token: string; requires2fa: true };
+
 export interface PublicUser {
   id: string;
   username: string;
@@ -96,7 +100,7 @@ export class AuthService {
   /**
    * Login with username OR email + password.
    */
-  async login(data: LoginInput): Promise<{ user: PublicUser; token: string }> {
+  async login(data: LoginInput): Promise<LoginResult> {
     const { identifier, password } = data;
 
     // Accept username or email
@@ -130,7 +134,7 @@ export class AuthService {
 
     if (user.isTwoFactorEnabled) {
       const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: '2fa_pending' });
-      return { user: publicUser, token, requires2fa: true } as any; // Type hack for now
+      return { user: publicUser, token, requires2fa: true };
     }
 
     const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full' });
@@ -207,10 +211,10 @@ export class AuthService {
 
     if (user.avatarUrl) {
       try {
-        // Extract filename from URL
-        const parts = user.avatarUrl.split('/');
-        const filename = parts[parts.length - 1];
-        const filePath = path.join(process.cwd(), 'uploads', 'avatars', filename);
+        const filename = path.basename(user.avatarUrl);
+        const uploadsDir = path.resolve(process.cwd(), 'uploads', 'avatars');
+        const filePath = path.resolve(uploadsDir, filename);
+        if (!filePath.startsWith(uploadsDir + path.sep)) throw new Error('INVALID_PATH');
 
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);

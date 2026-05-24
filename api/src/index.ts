@@ -2,6 +2,7 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import rateLimit from 'express-rate-limit';
 import { connectWithRetry } from './lib/prisma';
 import { inventoryRouter } from './routes/inventory.router';
 import { authRouter } from './routes/auth.router';
@@ -57,6 +58,16 @@ import path from 'path';
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/2fa', authLimiter);
 
 app.use('/api/auth', authRouter);
 app.use('/api/cellars', cellarsRouter);

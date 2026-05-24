@@ -227,67 +227,10 @@ export class InventoryService {
     return Math.max(0, remaining);
   }
 
-  private mapInputToDb(data: Partial<InventoryPatch>): Record<string, unknown> {
-    const d = data as Record<string, unknown>;
-    const result: Record<string, unknown> = {};
-
-    // Common
-    if (d['category'] !== undefined) result['category'] = d['category'];
-    if (d['name'] !== undefined) result['name'] = d['name'];
-    if (d['producer'] !== undefined) result['producer'] = d['producer'];
-    if (d['location'] !== undefined) result['location'] = d['location'];
-    if (d['collection'] !== undefined) result['collection'] = d['collection'];
-    if (d['tags'] !== undefined) result['tags'] = d['tags'];
-    if (d['photoUrl'] !== undefined) result['photoUrl'] = d['photoUrl'];
-    if (d['notes'] !== undefined) result['notes'] = d['notes'];
-    if (d['purchasePrice'] !== undefined) result['purchasePrice'] = d['purchasePrice'];
-    if (d['purchasePlace'] !== undefined) result['purchasePlace'] = d['purchasePlace'];
-    if (d['estimatedValue'] !== undefined) result['estimatedValue'] = d['estimatedValue'];
-    if (d['isOpened'] !== undefined) result['isOpened'] = d['isOpened'];
-    if (d['fillLevel'] !== undefined) result['fillLevel'] = d['fillLevel'];
-    if (d['openedAt'] !== undefined) result['openedAt'] = d['openedAt'];
-    if (d['reminderDate'] !== undefined) result['reminderDate'] = d['reminderDate'];
-    if (d['alertStatus'] !== undefined) result['alertStatus'] = d['alertStatus'];
-    if (d['alertsPaused'] !== undefined) result['alertsPaused'] = d['alertsPaused'];
-    if (d['lockedFields'] !== undefined) result['lockedFields'] = d['lockedFields'];
-    if (d['cellarId'] !== undefined) result['cellarId'] = d['cellarId'];
-
-    // Wine/Sparkling
-    if (d['vintage'] !== undefined) result['vintage'] = d['vintage'];
-    if (d['color'] !== undefined) result['color'] = d['color'];
-    if (d['region'] !== undefined) result['region'] = d['region'];
-    if (d['grapeVarieties'] !== undefined) result['grapeVarieties'] = d['grapeVarieties'];
-    if (d['alcoholDegree'] !== undefined) result['alcoholDegree'] = d['alcoholDegree'];
-    if (d['bottleSize'] !== undefined) result['bottleSize'] = d['bottleSize'];
-    if (d['peakMaturity'] !== undefined) result['peakMaturity'] = d['peakMaturity'];
-    if (d['peakMaturityFrom'] !== undefined) result['peakMaturityFrom'] = d['peakMaturityFrom'];
-    if (d['peakMaturityTo'] !== undefined) result['peakMaturityTo'] = d['peakMaturityTo'];
-    if (d['needsAeration'] !== undefined) result['needsAeration'] = d['needsAeration'];
-    if (d['serviceTemp'] !== undefined) result['serviceTemp'] = d['serviceTemp'];
-    if (d['lotNumber'] !== undefined) result['lotNumber'] = d['lotNumber'];
-    if (d['sparklingType'] !== undefined) result['sparklingType'] = d['sparklingType'];
-    if (d['sugarLevel'] !== undefined) result['sugarLevel'] = d['sugarLevel'];
-    if (d['disgorgingDate'] !== undefined) result['disgorgingDate'] = d['disgorgingDate'];
-    if (d['baseYear'] !== undefined) result['baseYear'] = d['baseYear'];
-
-    // Spirit
-    if (d['edition'] !== undefined) result['edition'] = d['edition'];
-    if (d['declaredAge'] !== undefined) result['declaredAge'] = d['declaredAge'];
-    if (d['caskType'] !== undefined) result['caskType'] = d['caskType'];
-    if (d['additions'] !== undefined) result['additions'] = d['additions'];
-    if (d['aromaticProfile'] !== undefined) result['aromaticProfile'] = d['aromaticProfile'];
-
-    // Cigar
-    if (d['format'] !== undefined) result['format'] = d['format'];
-    if (d['quantity'] !== undefined) result['quantity'] = d['quantity'];
-    if (d['manufactureYear'] !== undefined) result['manufactureYear'] = d['manufactureYear'];
-    if (d['sealedStatus'] !== undefined) result['sealedStatus'] = d['sealedStatus'];
-    if (d['leafOrigin'] !== undefined) result['leafOrigin'] = d['leafOrigin'];
-    if (d['factoryCode'] !== undefined) result['factoryCode'] = d['factoryCode'];
-    if (d['recommendedHumidity'] !== undefined) result['recommendedHumidity'] = d['recommendedHumidity'];
-    if (d['humidificationSystem'] !== undefined) result['humidificationSystem'] = d['humidificationSystem'];
-
-    return result;
+  private mapInputToDb(data: Partial<InventoryPatch>): Partial<InventoryPatch> {
+    return Object.fromEntries(
+      Object.entries(data).filter(([, v]) => v !== undefined)
+    ) as Partial<InventoryPatch>;
   }
 }
 
