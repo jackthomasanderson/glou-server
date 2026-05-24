@@ -43,6 +43,14 @@ function hasYear(s: string): boolean {
   return /\b(19|20)\d{2}\b/.test(s);
 }
 
+function extractVintage(s: string): { name: string; vintage: number | null } {
+  const match = s.match(/\b((19|20)\d{2})\b/);
+  if (!match) return { name: s.trim(), vintage: null };
+  const year = parseInt(match[1], 10);
+  const name = s.replace(match[0], '').replace(/\s{2,}/g, ' ').trim();
+  return { name, vintage: year };
+}
+
 async function googleSuggest(query: string, lang: string): Promise<string[]> {
   const hl = lang === 'en' ? 'en' : 'fr';
   const url = `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodeURIComponent(query)}&hl=${hl}`;
@@ -71,10 +79,9 @@ router.get('/products', authMiddleware, async (req, res) => {
     const results = suggestions
       .map((s) => {
         const lower = s.toLowerCase();
-        const stripped = lower.startsWith(`${prefix} `)
+        return lower.startsWith(`${prefix} `)
           ? s.slice(prefix.length + 1).trim()
           : s.trim();
-        return toTitleCase(stripped);
       })
       .filter((s) => {
         if (!s || seen.has(s.toLowerCase()) || isCommercial(s)) return false;
@@ -82,7 +89,10 @@ router.get('/products', authMiddleware, async (req, res) => {
         return true;
       })
       .slice(0, 6)
-      .map((name) => ({ source: 'external', name, producer: '', category }));
+      .map((raw) => {
+        const { name, vintage } = extractVintage(raw);
+        return { source: 'external', name: toTitleCase(name), producer: '', category, vintage };
+      });
 
     res.json({ data: results });
   } catch {
