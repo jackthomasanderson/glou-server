@@ -5,13 +5,11 @@ import { useHasMounted } from '@/hooks/useHasMounted';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Box, Button, Container, Fab,
-  Grid, Typography, Collapse, Alert, IconButton, InputBase,
+  Grid, Typography, Collapse, Alert, IconButton,
   Stack, Chip, Divider, Paper,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import SearchIcon from '@mui/icons-material/Search';
-import ClearIcon from '@mui/icons-material/Clear';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 import {
@@ -31,6 +29,7 @@ import WarehouseIcon from '@mui/icons-material/Warehouse';
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
 import CloseIcon from '@mui/icons-material/Close';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import SearchIcon from '@mui/icons-material/Search';
 import { BulkActionDialog } from './BulkActionDialog';
 import { AlertCenter } from './AlertCenter';
 import { InventoryDetailDialog } from './InventoryDetailDialog';
@@ -82,7 +81,6 @@ export function InventoryDashboard({ t }: InventoryDashboardProps) {
   }, []);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedCellars, setSelectedCellars] = useState<string[]>([]);
   const searchParams = useSearchParams();
@@ -94,7 +92,6 @@ export function InventoryDashboard({ t }: InventoryDashboardProps) {
     const qParam = searchParams.get('q');
     if (qParam) {
       setSearchQuery(qParam);
-      setIsSearchOpen(true);
     }
     if (filterParam === 'opened') {
       setOpenedFilter('opened');
@@ -112,11 +109,6 @@ export function InventoryDashboard({ t }: InventoryDashboardProps) {
 
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('inventory');
-
-  const toggleSearch = useCallback(() => {
-    setIsSearchOpen((prev) => !prev);
-    if (!isSearchOpen === false) setSearchQuery('');
-  }, [isSearchOpen]);
 
   const toggleFilters = useCallback(() => {
     setIsFiltersOpen((prev) => !prev);
@@ -310,33 +302,6 @@ export function InventoryDashboard({ t }: InventoryDashboardProps) {
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2, alignItems: 'center' }}>
-        <Box sx={{
-          display: 'flex',
-          alignItems: 'center',
-          transition: 'all 0.3s ease-in-out',
-          width: isSearchOpen ? { xs: '100%', sm: 300 } : 40,
-          overflow: 'hidden',
-          bgcolor: isSearchOpen ? 'background.paper' : 'transparent',
-          borderRadius: 2,
-          border: isSearchOpen ? '1px solid' : 'none',
-          borderColor: 'divider',
-          px: isSearchOpen ? 1 : 0,
-        }}>
-          <IconButton onClick={toggleSearch} color={isSearchOpen ? "primary" : "default"}>
-            {isSearchOpen ? <ClearIcon /> : <SearchIcon />}
-          </IconButton>
-          {isSearchOpen && (
-            <InputBase
-              autoFocus
-              fullWidth
-              placeholder={t('inventory.searchPlaceholder')}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{ ml: 1, flex: 1 }}
-            />
-          )}
-        </Box>
-
         <IconButton
           onClick={toggleFilters}
           color={isFiltersOpen || selectedCategories.length > 0 || selectedCellars.length > 0 ? "secondary" : "default"}
@@ -352,7 +317,7 @@ export function InventoryDashboard({ t }: InventoryDashboardProps) {
           color={bulkMode ? "secondary" : "primary"}
           startIcon={bulkMode ? <CloseIcon /> : <FormatListBulletedIcon />}
           onClick={toggleBulkMode}
-          sx={{ display: items && items.length > 0 && !isSearchOpen ? 'flex' : 'none' }}
+          sx={{ display: items && items.length > 0 ? 'flex' : 'none' }}
         >
           {bulkMode ? t('actions.cancel') : t('actions.select')}
         </Button>
@@ -360,7 +325,7 @@ export function InventoryDashboard({ t }: InventoryDashboardProps) {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setMode('creating')}
-          sx={{ display: isSearchOpen ? { xs: 'none', md: 'flex' } : { xs: 'none', sm: 'flex' } }}
+          sx={{ display: { xs: 'none', sm: 'flex' } }}
           aria-label={t('inventory.add')}
           disabled={!hasCellars || bulkMode}
         >

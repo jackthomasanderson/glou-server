@@ -11,6 +11,7 @@ import {
   Typography,
   Alert,
   CircularProgress,
+  Popper,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
@@ -33,6 +34,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
   const { shouldWarn, dismiss } = useConnectivityWarning('autocomplete');
   const { data: inventoryItems } = useInventory();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [externalOptions, setExternalOptions] = useState<ProductSuggestion[]>([]);
   const [loadingExternal, setLoadingExternal] = useState(false);
@@ -106,8 +108,10 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
     setTimeout(() => setIsOpen(false), 150);
   };
 
+  const popperWidth = anchorRef.current?.offsetWidth;
+
   return (
-    <Box sx={{ position: 'relative' }}>
+    <Box ref={anchorRef}>
       <TextField
         fullWidth
         required
@@ -124,20 +128,13 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
         }}
       />
 
-      {isOpen && options.length > 0 && (
-        <Paper
-          elevation={4}
-          sx={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            zIndex: 1400,
-            mt: 0.5,
-            borderRadius: 2,
-            overflow: 'hidden',
-          }}
-        >
+      <Popper
+        open={isOpen && options.length > 0}
+        anchorEl={anchorRef.current}
+        placement="bottom-start"
+        style={{ zIndex: 1500, width: popperWidth }}
+      >
+        <Paper elevation={4} sx={{ borderRadius: 2, overflow: 'hidden', mt: 0.5 }}>
           <List dense disablePadding>
             {options.map((option, idx) => (
               <ListItem
@@ -165,7 +162,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
             ))}
           </List>
         </Paper>
-      )}
+      </Popper>
 
       {shouldWarn && (
         <Alert severity="info" onClose={dismiss} sx={{ mt: 0.5, py: 0.25, fontSize: '0.75rem' }}>
