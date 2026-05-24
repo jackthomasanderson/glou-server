@@ -5,7 +5,8 @@ function normalize(value: string | null | undefined): string {
 }
 
 function vintageMatch(a: number | null | undefined, b: number | null | undefined): boolean {
-  if (a == null && b == null) return true;
+  // If either side has no vintage, treat as potential match and let the user decide
+  if (a == null || b == null) return true;
   return a === b;
 }
 
