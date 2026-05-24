@@ -79,6 +79,12 @@ model Cellar {
   description String?
   type        CellarType @default(VINTAGE)
 
+  // Grid plan configuration (FEAT-68) — all optional
+  columns      Int? // Grid width (number of columns)
+  rows         Int? // Grid height (number of rows)
+  hotZoneRows  Int? // Number of rows from top with higher temperature
+  coldZoneRows Int? // Number of rows from bottom with lower temperature
+
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 

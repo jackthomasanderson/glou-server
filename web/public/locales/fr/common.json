@@ -269,6 +269,12 @@
     "featuresAffected": "Autocomplétion externe, scan et recherche d'images indisponibles",
     "degraded": "Autocomplétion externe indisponible — recherche limitée à votre inventaire"
   },
+  "imagePicker": {
+    "tooltip": "Rechercher une image",
+    "searchPlaceholder": "Nom du produit…",
+    "noResults": "Aucune image trouvée",
+    "offline": "Recherche d'images indisponible — connexion internet requise"
+  },
   "autocomplete": {
     "internal": "Mon inventaire",
     "external": "Internet",

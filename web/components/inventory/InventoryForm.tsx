@@ -22,6 +22,7 @@ import { MaturitySuggestion } from '@/lib/maturity-references/types';
 import { ProductAutocomplete } from './ProductAutocomplete';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
+import { ImagePickerButton } from './ImagePicker';
 
 interface InventoryFormProps {
   open: boolean;
@@ -507,11 +508,17 @@ export function InventoryForm({
                   />
                 </Grid>
                 <Grid item xs={12}>
-                  <TextField fullWidth size="small"
-                    label={t('inventory.fields.photoUrl')}
-                    value={values.photoUrl ?? ''}
-                    onChange={(e) => setField('photoUrl', e.target.value)}
-                  />
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+                    <TextField fullWidth size="small"
+                      label={t('inventory.fields.photoUrl')}
+                      value={values.photoUrl ?? ''}
+                      onChange={(e) => setField('photoUrl', e.target.value)}
+                    />
+                    <ImagePickerButton
+                      initialQuery={[values.producer, values.name].filter(Boolean).join(' ')}
+                      onSelect={(url) => setField('photoUrl', url)}
+                    />
+                  </Box>
                 </Grid>
                 <Grid item xs={12}>
                   <TextField fullWidth size="small" multiline rows={3}

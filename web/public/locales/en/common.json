@@ -269,6 +269,12 @@
     "featuresAffected": "External autocomplete, label scan and image search unavailable",
     "degraded": "External autocomplete unavailable — search limited to your inventory"
   },
+  "imagePicker": {
+    "tooltip": "Search for an image",
+    "searchPlaceholder": "Product name…",
+    "noResults": "No images found",
+    "offline": "Image search unavailable — internet connection required"
+  },
   "autocomplete": {
     "internal": "My inventory",
     "external": "Internet",

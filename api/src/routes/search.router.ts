@@ -135,4 +135,53 @@ router.get('/producers', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/search/images?q=...
+router.get('/images', authMiddleware, async (req, res) => {
+  const q = String(req.query.q ?? '').trim();
+  if (!q || q.length < 2) return res.json({ data: [] });
+
+  try {
+    const url = new URL('https://commons.wikimedia.org/w/api.php');
+    url.searchParams.set('action', 'query');
+    url.searchParams.set('generator', 'search');
+    url.searchParams.set('gsrsearch', q);
+    url.searchParams.set('gsrnamespace', '6');
+    url.searchParams.set('prop', 'imageinfo');
+    url.searchParams.set('iiprop', 'url|thumburl');
+    url.searchParams.set('iiurlwidth', '200');
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('gsrlimit', '8');
+
+    const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(5000),
+      headers: { 'User-Agent': 'Glou/1.0 (wine cellar management app)' },
+    });
+
+    if (!response.ok) return res.json({ data: [] });
+
+    const json = (await response.json()) as {
+      query?: {
+        pages?: Record<string, {
+          title: string;
+          imageinfo?: Array<{ url: string; thumburl: string }>;
+        }>;
+      };
+    };
+
+    const pages = json.query?.pages ?? {};
+    const results = Object.values(pages)
+      .filter((p) => p.imageinfo?.[0]?.url && p.imageinfo?.[0]?.thumburl)
+      .map((p) => ({
+        url: p.imageinfo![0].url,
+        thumb: p.imageinfo![0].thumburl,
+        title: p.title.replace(/^File:/, '').replace(/\.[^.]+$/, ''),
+      }))
+      .slice(0, 8);
+
+    res.json({ data: results });
+  } catch {
+    res.json({ data: [] });
+  }
+});
+
 export default router;
