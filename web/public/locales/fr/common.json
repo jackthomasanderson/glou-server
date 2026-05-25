@@ -306,6 +306,15 @@
     "noResults": "Aucune image trouvée",
     "offline": "Recherche d'images indisponible — connexion internet requise"
   },
+  "itemImage": {
+    "sectionLabel": "Photo",
+    "placeholder": "Aucune image",
+    "savedLocally": "Stocké en local",
+    "remove": "Supprimer l'image",
+    "pasteUrl": "Coller une URL d'image",
+    "upload": "Uploader une image depuis votre appareil",
+    "urlPlaceholder": "https://… (URL de l'image)"
+  },
   "autocomplete": {
     "internal": "Mon inventaire",
     "external": "Internet",

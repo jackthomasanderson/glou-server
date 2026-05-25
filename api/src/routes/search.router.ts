@@ -248,4 +248,32 @@ router.post('/images/save', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/search/images/upload — store a file upload locally
+import multer from 'multer';
+
+const productImageStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, PRODUCTS_UPLOAD_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${crypto.randomUUID()}${ext}`);
+  },
+});
+
+const productImageUpload = multer({
+  storage: productImageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (Object.keys(ALLOWED_IMAGE_TYPES).includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('INVALID_FILE_TYPE'));
+    }
+  },
+});
+
+router.post('/images/upload', authMiddleware, productImageUpload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'NO_FILE' });
+  res.json({ data: { path: `/uploads/products/${req.file.filename}` } });
+});
+
 export default router;

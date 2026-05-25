@@ -22,7 +22,8 @@ import { MaturitySuggestion } from '@/lib/maturity-references/types';
 import { ProductAutocomplete } from './ProductAutocomplete';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
-import { ImagePickerButton, ImageResult } from './ImagePicker';
+import { ImageResult } from './ImagePicker';
+import { ItemImageSection } from './ItemImageSection';
 
 interface InventoryFormProps {
   open: boolean;
@@ -65,6 +66,7 @@ export function InventoryForm({
   const [showOptionals, setShowOptionals] = useState(false);
   const [suggestion, setSuggestion] = useState<MaturitySuggestion | null>(null);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
+  const [isAutoLoading, setIsAutoLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const imageDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isEditing = Boolean(initialValues?.id);
@@ -76,23 +78,41 @@ export function InventoryForm({
       setShowOptionals(false);
       setSuggestion(null);
       setPrefetchedImages([]);
+      setIsAutoLoading(false);
     }
   }, [open, initialValues]);
 
-  // Auto-search images when name + producer are filled and no photo is set yet
+  // Auto-search + auto-save first result when name + producer filled and no photo yet
   useEffect(() => {
     if (isEditing || !values.name?.trim() || !values.producer?.trim() || values.photoUrl) {
       return;
     }
     if (imageDebounceRef.current) clearTimeout(imageDebounceRef.current);
     imageDebounceRef.current = setTimeout(async () => {
+      setIsAutoLoading(true);
       try {
         const q = encodeURIComponent(`${values.producer} ${values.name}`.trim());
-        const res = await fetch(`/api/search/images?q=${q}`, { credentials: 'include' });
-        const json = (await res.json()) as { data: ImageResult[] };
-        setPrefetchedImages(json.data ?? []);
-      } catch { /* ignore */ }
-    }, 1000);
+        const searchRes = await fetch(`/api/search/images?q=${q}`, { credentials: 'include' });
+        const searchJson = (await searchRes.json()) as { data: ImageResult[] };
+        const results = searchJson.data ?? [];
+        setPrefetchedImages(results);
+
+        if (results.length > 0) {
+          const saveRes = await fetch('/api/search/images/save', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: results[0].url }),
+          });
+          const saveJson = (await saveRes.json()) as { data?: { path: string } };
+          if (saveJson.data?.path) {
+            setField('photoUrl', saveJson.data.path);
+          }
+        }
+      } catch { /* ignore */ } finally {
+        setIsAutoLoading(false);
+      }
+    }, 1200);
     return () => { if (imageDebounceRef.current) clearTimeout(imageDebounceRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.name, values.producer, values.photoUrl, isEditing]);
@@ -529,18 +549,16 @@ export function InventoryForm({
                   />
                 </Grid>
                 <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
-                    <TextField fullWidth size="small"
-                      label={t('inventory.fields.photoUrl')}
-                      value={values.photoUrl ?? ''}
-                      onChange={(e) => setField('photoUrl', e.target.value)}
-                    />
-                    <ImagePickerButton
-                      initialQuery={[values.producer, values.name].filter(Boolean).join(' ')}
-                      preloadedResults={prefetchedImages}
-                      onSelect={(localPath) => setField('photoUrl', localPath)}
-                    />
-                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    {t('itemImage.sectionLabel')}
+                  </Typography>
+                  <ItemImageSection
+                    photoUrl={values.photoUrl ?? ''}
+                    onPhotoChange={(url) => setField('photoUrl', url)}
+                    autoSearchQuery={[values.producer, values.name].filter(Boolean).join(' ')}
+                    preloadedResults={prefetchedImages}
+                    isAutoLoading={isAutoLoading}
+                  />
                 </Grid>
                 <Grid item xs={12}>
                   <TextField fullWidth size="small" multiline rows={3}

@@ -3,7 +3,7 @@ import React from 'react';
 import { useHasMounted } from '@/hooks/useHasMounted';
 
 import {
-  Card, CardContent, CardActions, IconButton, Typography,
+  Card, CardContent, CardActions, CardMedia, IconButton, Typography,
   Chip, Box, Skeleton, Tooltip, Checkbox,
 } from '@mui/material';
 import {
@@ -32,6 +32,13 @@ const CATEGORY_COLORS: Record<InventoryCategory, 'secondary' | 'primary' | 'defa
   cigar: 'warning',
 };
 
+const CATEGORY_PLACEHOLDER_BG: Record<InventoryCategory, string> = {
+  wine: 'linear-gradient(160deg, #6B1A2A 0%, #A83254 100%)',
+  sparkling: 'linear-gradient(160deg, #1A4A7A 0%, #3B7CC4 100%)',
+  spirit: 'linear-gradient(160deg, #3A3A2A 0%, #7A7A4A 100%)',
+  cigar: 'linear-gradient(160deg, #4A2E1A 0%, #8B5C2A 100%)',
+};
+
 interface InventoryCardProps {
   item: InventoryItem;
   categoryLabel: string;
@@ -58,6 +65,35 @@ export function InventoryCard({ item, categoryLabel, onEdit, onDelete, onView, t
       }}
       aria-label={`${item.name} — ${categoryLabel}`}
     >
+      {/* ── Photo / placeholder ─────────────────────────── */}
+      {item.photoUrl ? (
+        <CardMedia
+          component="img"
+          height={150}
+          image={item.photoUrl}
+          alt={item.name}
+          sx={{ objectFit: 'contain', bgcolor: 'background.paper', cursor: onView ? 'pointer' : 'default' }}
+          onClick={() => onView?.(item)}
+        />
+      ) : (
+        <Box
+          onClick={() => onView?.(item)}
+          sx={{
+            height: 90,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: CATEGORY_PLACEHOLDER_BG[item.category],
+            cursor: onView ? 'pointer' : 'default',
+            opacity: 0.7,
+            fontSize: '2rem',
+            color: 'rgba(255,255,255,0.6)',
+          }}
+        >
+          {CATEGORY_ICONS[item.category]}
+        </Box>
+      )}
+
       <CardContent
         sx={{ pb: 1, pt: onSelectToggle ? 4 : 2, cursor: onView ? 'pointer' : 'default' }}
         onClick={() => onView?.(item)}
@@ -170,6 +206,7 @@ export function InventoryCard({ item, categoryLabel, onEdit, onDelete, onView, t
 export function InventoryCardSkeleton() {
   return (
     <Card>
+      <Skeleton variant="rectangular" height={90} />
       <CardContent>
         <Skeleton variant="rounded" width={80} height={24} sx={{ mb: 1 }} />
         <Skeleton variant="text" width="80%" height={28} />

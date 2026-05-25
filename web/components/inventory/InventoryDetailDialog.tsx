@@ -157,6 +157,29 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
 
       <DialogContent dividers sx={{ px: 3 }}>
         <Stack spacing={2} divider={<Divider flexItem />}>
+          {/* Photo */}
+          {displayItem.photoUrl && (
+            <Box
+              sx={{
+                width: '100%',
+                maxHeight: 280,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderRadius: 2,
+                overflow: 'hidden',
+                bgcolor: 'action.hover',
+              }}
+            >
+              <Box
+                component="img"
+                src={displayItem.photoUrl}
+                alt={displayItem.name}
+                sx={{ maxWidth: '100%', maxHeight: 280, objectFit: 'contain' }}
+              />
+            </Box>
+          )}
+
           {/* Identity */}
           <Box>
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>

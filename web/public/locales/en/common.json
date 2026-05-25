@@ -306,6 +306,15 @@
     "noResults": "No images found",
     "offline": "Image search unavailable — internet connection required"
   },
+  "itemImage": {
+    "sectionLabel": "Photo",
+    "placeholder": "No image",
+    "savedLocally": "Stored locally",
+    "remove": "Remove image",
+    "pasteUrl": "Paste an image URL",
+    "upload": "Upload an image from your device",
+    "urlPlaceholder": "https://… (image URL)"
+  },
   "autocomplete": {
     "internal": "My inventory",
     "external": "Internet",
