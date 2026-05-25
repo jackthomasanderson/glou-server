@@ -93,7 +93,8 @@
       "producerPlaceholder": {
         "wine": "Château / Domaine / Négociant",
         "sparkling": "Maison / Domaine / Coopérative",
-        "spirit": "Distillerie / Marque"
+        "spirit": "Distillerie / Marque",
+        "cigar": "Fabricant / Marque"
       },
       "location": "Emplacement",
       "collection": "Collection",
@@ -291,7 +292,12 @@
   "view": {
     "grid": "Vue en cartes",
     "list": "Vue en liste",
-    "map": "Plan de cave"
+    "map": "Plan de cave",
+    "columns": {
+      "cellar": "Cave",
+      "peak": "Apogée",
+      "status": "Statut"
+    }
   },
   "connectivity": {
     "online": "Connecté à internet",
