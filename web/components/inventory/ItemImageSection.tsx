@@ -9,12 +9,32 @@ import LinkIcon from '@mui/icons-material/Link';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
+import WineBarIcon from '@mui/icons-material/WineBar';
+import BubbleChartIcon from '@mui/icons-material/BubbleChart';
+import SportsMmaIcon from '@mui/icons-material/SportsMma';
+import GrassIcon from '@mui/icons-material/Grass';
 import { useTranslation } from 'react-i18next';
 import { ImagePickerButton, ImageResult } from './ImagePicker';
+import { InventoryCategory } from '@/lib/inventory/types';
+
+const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
+  wine: '#3D1A1A',
+  sparkling: '#1A2A3D',
+  spirit: '#2D2010',
+  cigar: '#2A1A0A',
+};
+
+const PLACEHOLDER_ICON: Record<InventoryCategory, React.ReactElement> = {
+  wine: <WineBarIcon sx={{ fontSize: 40, opacity: 0.3, color: '#fff' }} />,
+  sparkling: <BubbleChartIcon sx={{ fontSize: 40, opacity: 0.3, color: '#fff' }} />,
+  spirit: <SportsMmaIcon sx={{ fontSize: 40, opacity: 0.3, color: '#fff' }} />,
+  cigar: <GrassIcon sx={{ fontSize: 40, opacity: 0.3, color: '#fff' }} />,
+};
 
 interface ItemImageSectionProps {
   photoUrl: string;
   onPhotoChange: (url: string) => void;
+  category: InventoryCategory;
   autoSearchQuery?: string;
   preloadedResults?: ImageResult[];
   isAutoLoading?: boolean;
@@ -40,7 +60,7 @@ async function saveFromUrl(url: string): Promise<string | null> {
 async function uploadFile(file: File): Promise<string | null> {
   try {
     const form = new FormData();
-    form.append('image', file);
+    form.append('file', file);
     const res = await fetch('/api/search/images/upload', {
       method: 'POST',
       credentials: 'include',
@@ -56,6 +76,7 @@ async function uploadFile(file: File): Promise<string | null> {
 export function ItemImageSection({
   photoUrl,
   onPhotoChange,
+  category,
   autoSearchQuery = '',
   preloadedResults,
   isAutoLoading = false,
@@ -94,12 +115,12 @@ export function ItemImageSection({
         sx={{
           position: 'relative',
           width: '100%',
-          height: 180,
+          aspectRatio: '3 / 4',
           borderRadius: 2,
           overflow: 'hidden',
           border: '1px solid',
           borderColor: 'divider',
-          bgcolor: 'action.hover',
+          bgcolor: photoUrl ? 'action.hover' : PLACEHOLDER_BG[category],
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -127,9 +148,7 @@ export function ItemImageSection({
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         ) : (
-          <Typography variant="caption" color="text.disabled">
-            {t('itemImage.placeholder')}
-          </Typography>
+          PLACEHOLDER_ICON[category]
         )}
 
         {hasPhoto && !saving && !isAutoLoading && (

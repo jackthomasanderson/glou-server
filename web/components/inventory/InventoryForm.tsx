@@ -198,7 +198,31 @@ export function InventoryForm({
         </IconButton>
       </DialogTitle>
 
-      <DialogContent dividers sx={{ px: 3, py: 2.5 }}>
+      <DialogContent dividers sx={{ p: 0, display: 'flex', alignItems: 'stretch' }}>
+        {/* ── Left: image panel ─────────────────────────────────────── */}
+        <Box
+          sx={{
+            width: 170,
+            flexShrink: 0,
+            borderRight: 1,
+            borderColor: 'divider',
+            px: 2,
+            py: 2.5,
+            display: { xs: 'none', sm: 'block' },
+          }}
+        >
+          <ItemImageSection
+            photoUrl={values.photoUrl ?? ''}
+            onPhotoChange={(url) => setField('photoUrl', url)}
+            category={category}
+            autoSearchQuery={[values.producer, values.name].filter(Boolean).join(' ')}
+            preloadedResults={prefetchedImages}
+            isAutoLoading={isAutoLoading}
+          />
+        </Box>
+
+        {/* ── Right: form fields ────────────────────────────────────── */}
+        <Box sx={{ flex: 1, px: 3, py: 2.5, minWidth: 0, overflowY: 'auto' }}>
         <Stack spacing={3}>
 
           {/* ── Section 1 : Identité ──────────────────────────────────────── */}
@@ -549,18 +573,6 @@ export function InventoryForm({
                   />
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    {t('itemImage.sectionLabel')}
-                  </Typography>
-                  <ItemImageSection
-                    photoUrl={values.photoUrl ?? ''}
-                    onPhotoChange={(url) => setField('photoUrl', url)}
-                    autoSearchQuery={[values.producer, values.name].filter(Boolean).join(' ')}
-                    preloadedResults={prefetchedImages}
-                    isAutoLoading={isAutoLoading}
-                  />
-                </Grid>
-                <Grid item xs={12}>
                   <TextField fullWidth size="small" multiline rows={3}
                     label={t('inventory.fields.notes')}
                     value={values.notes ?? ''}
@@ -722,6 +734,7 @@ export function InventoryForm({
             </Collapse>
           </Box>
         </Stack>
+        </Box>
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>

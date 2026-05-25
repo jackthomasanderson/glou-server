@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.middleware';
 import fs from 'fs';
 import path from 'path';
+import multer from 'multer';
 
 const router = Router();
 
@@ -151,6 +152,24 @@ const ALLOWED_IMAGE_TYPES: Record<string, string> = {
 
 const PRIVATE_HOST_RE = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
 
+const productImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, PRODUCTS_UPLOAD_DIR),
+    filename: (_req, _file, cb) => {
+      const ext = path.extname(_file.originalname).toLowerCase() || '.jpg';
+      cb(null, `${crypto.randomUUID()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith('image/') && file.mimetype !== 'image/svg+xml') {
+      cb(null, true);
+    } else {
+      cb(new Error('INVALID_FILE_TYPE'));
+    }
+  },
+});
+
 // GET /api/search/images?q=...
 router.get('/images', authMiddleware, async (req, res) => {
   const q = String(req.query.q ?? '').trim();
@@ -249,28 +268,6 @@ router.post('/images/save', authMiddleware, async (req, res) => {
 });
 
 // POST /api/search/images/upload — store a file upload locally
-import multer from 'multer';
-
-const productImageStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, PRODUCTS_UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-    cb(null, `${crypto.randomUUID()}${ext}`);
-  },
-});
-
-const productImageUpload = multer({
-  storage: productImageStorage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (Object.keys(ALLOWED_IMAGE_TYPES).includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('INVALID_FILE_TYPE'));
-    }
-  },
-});
-
 router.post('/images/upload', authMiddleware, productImageUpload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'NO_FILE' });
   res.json({ data: { path: `/uploads/products/${req.file.filename}` } });
