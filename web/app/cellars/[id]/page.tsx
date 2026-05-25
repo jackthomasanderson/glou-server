@@ -66,7 +66,8 @@ export default function CellarDetailPage() {
   const params = useParams();
   const cellarId = params.id as string;
 
-  const [view, setView] = useState<DetailView>('grid');
+  // Default to map view; if no grid configured, cards are shown instead
+  const [view, setView] = useState<DetailView>('map');
 
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
   const { data: allInventory, isLoading: inventoryLoading } = useInventory();
@@ -232,8 +233,21 @@ export default function CellarDetailPage() {
             )
           )}
 
-          {/* Map / grid plan view */}
-          {view === 'map' && (
+          {/* Map / grid plan view — fallback to cards when no grid configured */}
+          {view === 'map' && !hasGrid && (
+            cellarItems.length === 0 ? (
+              <Alert severity="info">{t('inventory.noBottles')}</Alert>
+            ) : (
+              <Grid container spacing={2}>
+                {cellarItems.map((item) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={item.id}>
+                    <BottleCard item={item} />
+                  </Grid>
+                ))}
+              </Grid>
+            )
+          )}
+          {view === 'map' && hasGrid && (
             gridLoading ? (
               <Box display="flex" justifyContent="center" p={4}>
                 <CircularProgress />
