@@ -567,13 +567,6 @@ export function InventoryForm({
                 {/* Common optionals */}
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth size="small"
-                    label={t('inventory.fields.location')}
-                    value={values.location ?? ''}
-                    onChange={(e) => setField('location', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField fullWidth size="small"
                     label={t('inventory.fields.collection')}
                     value={values.collection ?? ''}
                     onChange={(e) => setField('collection', e.target.value)}
