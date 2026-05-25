@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.middleware';
+import fs from 'fs';
+import path from 'path';
 
 const router = Router();
 
@@ -135,52 +137,114 @@ router.get('/producers', authMiddleware, async (req, res) => {
   }
 });
 
+const PRODUCTS_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'products');
+if (!fs.existsSync(PRODUCTS_UPLOAD_DIR)) {
+  fs.mkdirSync(PRODUCTS_UPLOAD_DIR, { recursive: true });
+}
+
+const ALLOWED_IMAGE_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+};
+
+const PRIVATE_HOST_RE = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
+
 // GET /api/search/images?q=...
 router.get('/images', authMiddleware, async (req, res) => {
   const q = String(req.query.q ?? '').trim();
   if (!q || q.length < 2) return res.json({ data: [] });
 
   try {
-    const url = new URL('https://commons.wikimedia.org/w/api.php');
-    url.searchParams.set('action', 'query');
-    url.searchParams.set('generator', 'search');
-    url.searchParams.set('gsrsearch', q);
-    url.searchParams.set('gsrnamespace', '6');
-    url.searchParams.set('prop', 'imageinfo');
-    url.searchParams.set('iiprop', 'url|thumburl');
-    url.searchParams.set('iiurlwidth', '200');
-    url.searchParams.set('format', 'json');
-    url.searchParams.set('gsrlimit', '8');
+    // Step 1: get vqd token from DuckDuckGo
+    const initRes = await fetch(
+      `https://duckduckgo.com/?q=${encodeURIComponent(q)}&iax=images&ia=images`,
+      {
+        signal: AbortSignal.timeout(5000),
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+        },
+      }
+    );
+    if (!initRes.ok) return res.json({ data: [] });
+    const html = await initRes.text();
 
-    const response = await fetch(url.toString(), {
+    const vqdMatch = html.match(/vqd=['"]?([^'"&\s]+)/);
+    if (!vqdMatch) return res.json({ data: [] });
+    const vqd = vqdMatch[1];
+
+    // Step 2: fetch image results
+    const imgUrl = new URL('https://duckduckgo.com/i.js');
+    imgUrl.searchParams.set('l', 'fr-fr');
+    imgUrl.searchParams.set('o', 'json');
+    imgUrl.searchParams.set('q', q);
+    imgUrl.searchParams.set('vqd', vqd);
+    imgUrl.searchParams.set('f', ',,,,,');
+    imgUrl.searchParams.set('p', '1');
+
+    const imgRes = await fetch(imgUrl.toString(), {
       signal: AbortSignal.timeout(5000),
-      headers: { 'User-Agent': 'Glou/1.0 (wine cellar management app)' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Referer': 'https://duckduckgo.com/',
+        'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+      },
     });
+    if (!imgRes.ok) return res.json({ data: [] });
 
-    if (!response.ok) return res.json({ data: [] });
-
-    const json = (await response.json()) as {
-      query?: {
-        pages?: Record<string, {
-          title: string;
-          imageinfo?: Array<{ url: string; thumburl: string }>;
-        }>;
-      };
+    const json = (await imgRes.json()) as {
+      results?: Array<{ image: string; thumbnail: string; title: string }>;
     };
 
-    const pages = json.query?.pages ?? {};
-    const results = Object.values(pages)
-      .filter((p) => p.imageinfo?.[0]?.url && p.imageinfo?.[0]?.thumburl)
-      .map((p) => ({
-        url: p.imageinfo![0].url,
-        thumb: p.imageinfo![0].thumburl,
-        title: p.title.replace(/^File:/, '').replace(/\.[^.]+$/, ''),
-      }))
-      .slice(0, 8);
+    const results = (json.results ?? [])
+      .filter((r) => r.image?.startsWith('https://') && r.thumbnail?.startsWith('https://'))
+      .slice(0, 8)
+      .map((r) => ({ url: r.image, thumb: r.thumbnail, title: r.title ?? '' }));
 
     res.json({ data: results });
   } catch {
     res.json({ data: [] });
+  }
+});
+
+// POST /api/search/images/save — download an image URL and store it locally
+router.post('/images/save', authMiddleware, async (req, res) => {
+  const url = String(req.body?.url ?? '').trim();
+
+  if (!url.startsWith('https://')) {
+    return res.status(400).json({ error: 'INVALID_URL' });
+  }
+
+  try {
+    const parsed = new URL(url);
+    if (PRIVATE_HOST_RE.test(parsed.hostname)) {
+      return res.status(400).json({ error: 'INVALID_URL' });
+    }
+
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(10000),
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+
+    if (!response.ok) return res.status(502).json({ error: 'FETCH_FAILED' });
+
+    const contentType = response.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
+    const ext = ALLOWED_IMAGE_TYPES[contentType];
+    if (!ext) return res.status(422).json({ error: 'INVALID_IMAGE_TYPE' });
+
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength > 5 * 1024 * 1024) {
+      return res.status(413).json({ error: 'IMAGE_TOO_LARGE' });
+    }
+
+    const filename = `${crypto.randomUUID()}.${ext}`;
+    fs.writeFileSync(path.join(PRODUCTS_UPLOAD_DIR, filename), Buffer.from(buffer));
+
+    res.json({ data: { path: `/uploads/products/${filename}` } });
+  } catch {
+    res.status(502).json({ error: 'FETCH_FAILED' });
   }
 });
 

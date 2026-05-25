@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useCallback, useEffect } from 'react';
 import {
-  Alert, Box, CircularProgress, IconButton, InputAdornment,
+  Alert, Badge, Box, CircularProgress, IconButton, InputAdornment,
   Popover, TextField, Tooltip, Typography,
 } from '@mui/material';
 import ImageSearchIcon from '@mui/icons-material/ImageSearch';
@@ -9,7 +9,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import { useConnectivityWarning } from '@/hooks/useConnectivityWarning';
 import { useTranslation } from 'react-i18next';
 
-interface ImageResult {
+export interface ImageResult {
   url: string;
   thumb: string;
   title: string;
@@ -17,17 +17,30 @@ interface ImageResult {
 
 interface ImagePickerButtonProps {
   initialQuery: string;
-  onSelect: (url: string) => void;
+  preloadedResults?: ImageResult[];
+  onSelect: (localPath: string) => void;
 }
 
-export function ImagePickerButton({ initialQuery, onSelect }: ImagePickerButtonProps) {
+export function ImagePickerButton({
+  initialQuery,
+  preloadedResults,
+  onSelect,
+}: ImagePickerButtonProps) {
   const { t } = useTranslation();
   const { shouldWarn, dismiss } = useConnectivityWarning('image_search');
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ImageResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [showOfflineAlert, setShowOfflineAlert] = useState(false);
+
+  // Sync preloaded results when popover is closed
+  useEffect(() => {
+    if (!anchor && preloadedResults) {
+      setResults(preloadedResults);
+    }
+  }, [preloadedResults, anchor]);
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) return;
@@ -49,13 +62,17 @@ export function ImagePickerButton({ initialQuery, onSelect }: ImagePickerButtonP
   const handleOpen = (e: React.MouseEvent<HTMLButtonElement>) => {
     const initial = initialQuery.trim();
     setQuery(initial);
-    setResults([]);
     setAnchor(e.currentTarget);
     if (shouldWarn) {
       setShowOfflineAlert(true);
       dismiss();
     }
-    if (initial) doSearch(initial);
+    // Use preloaded results if fresh, otherwise fetch
+    if (preloadedResults && preloadedResults.length > 0) {
+      setResults(preloadedResults);
+    } else if (initial) {
+      doSearch(initial);
+    }
   };
 
   const handleClose = () => {
@@ -63,18 +80,43 @@ export function ImagePickerButton({ initialQuery, onSelect }: ImagePickerButtonP
     setShowOfflineAlert(false);
   };
 
-  useEffect(() => {
-    if (!anchor) setShowOfflineAlert(false);
-  }, [anchor]);
+  const handleSelect = async (imageUrl: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/search/images/save', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: imageUrl }),
+      });
+      const json = (await res.json()) as { data?: { path: string } };
+      if (json.data?.path) {
+        onSelect(json.data.path);
+        handleClose();
+      }
+    } catch {
+      // noop — image stays unset
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const open = Boolean(anchor);
+  const hasPreloaded = (preloadedResults?.length ?? 0) > 0;
 
   return (
     <>
       <Tooltip title={t('imagePicker.tooltip')}>
-        <IconButton size="small" onClick={handleOpen} sx={{ mt: '2px' }}>
-          <ImageSearchIcon fontSize="small" />
-        </IconButton>
+        <Badge
+          color="primary"
+          variant="dot"
+          invisible={!hasPreloaded || open}
+          sx={{ mt: '2px' }}
+        >
+          <IconButton size="small" onClick={handleOpen}>
+            <ImageSearchIcon fontSize="small" />
+          </IconButton>
+        </Badge>
       </Tooltip>
 
       <Popover
@@ -115,19 +157,19 @@ export function ImagePickerButton({ initialQuery, onSelect }: ImagePickerButtonP
           sx={{ mb: 1.5 }}
         />
 
-        {loading && (
+        {(loading || saving) && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
             <CircularProgress size={24} />
           </Box>
         )}
 
-        {!loading && query && results.length === 0 && (
+        {!loading && !saving && query && results.length === 0 && (
           <Typography variant="caption" color="text.secondary">
             {t('imagePicker.noResults')}
           </Typography>
         )}
 
-        {!loading && results.length > 0 && (
+        {!loading && !saving && results.length > 0 && (
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
             {results.map((img) => (
               <Tooltip key={img.url} title={img.title} placement="top">
@@ -135,7 +177,7 @@ export function ImagePickerButton({ initialQuery, onSelect }: ImagePickerButtonP
                   component="img"
                   src={img.thumb}
                   alt={img.title}
-                  onClick={() => { onSelect(img.url); handleClose(); }}
+                  onClick={() => handleSelect(img.url)}
                   sx={{
                     width: '100%',
                     aspectRatio: '1',

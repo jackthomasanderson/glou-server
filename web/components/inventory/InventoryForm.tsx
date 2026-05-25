@@ -22,7 +22,7 @@ import { MaturitySuggestion } from '@/lib/maturity-references/types';
 import { ProductAutocomplete } from './ProductAutocomplete';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
-import { ImagePickerButton } from './ImagePicker';
+import { ImagePickerButton, ImageResult } from './ImagePicker';
 
 interface InventoryFormProps {
   open: boolean;
@@ -64,7 +64,9 @@ export function InventoryForm({
   const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? EMPTY_FORM);
   const [showOptionals, setShowOptionals] = useState(false);
   const [suggestion, setSuggestion] = useState<MaturitySuggestion | null>(null);
+  const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const imageDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isEditing = Boolean(initialValues?.id);
 
   // Reset form when dialog opens with new values
@@ -73,8 +75,27 @@ export function InventoryForm({
       setValues(initialValues ?? EMPTY_FORM);
       setShowOptionals(false);
       setSuggestion(null);
+      setPrefetchedImages([]);
     }
   }, [open, initialValues]);
+
+  // Auto-search images when name + producer are filled and no photo is set yet
+  useEffect(() => {
+    if (isEditing || !values.name?.trim() || !values.producer?.trim() || values.photoUrl) {
+      return;
+    }
+    if (imageDebounceRef.current) clearTimeout(imageDebounceRef.current);
+    imageDebounceRef.current = setTimeout(async () => {
+      try {
+        const q = encodeURIComponent(`${values.producer} ${values.name}`.trim());
+        const res = await fetch(`/api/search/images?q=${q}`, { credentials: 'include' });
+        const json = (await res.json()) as { data: ImageResult[] };
+        setPrefetchedImages(json.data ?? []);
+      } catch { /* ignore */ }
+    }, 1000);
+    return () => { if (imageDebounceRef.current) clearTimeout(imageDebounceRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.name, values.producer, values.photoUrl, isEditing]);
 
   const setField = (field: string, value: unknown) =>
     setValues((prev) => ({ ...prev, [field]: value }));
@@ -516,7 +537,8 @@ export function InventoryForm({
                     />
                     <ImagePickerButton
                       initialQuery={[values.producer, values.name].filter(Boolean).join(' ')}
-                      onSelect={(url) => setField('photoUrl', url)}
+                      preloadedResults={prefetchedImages}
+                      onSelect={(localPath) => setField('photoUrl', localPath)}
                     />
                   </Box>
                 </Grid>
