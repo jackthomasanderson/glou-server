@@ -49,12 +49,13 @@ Open [http://localhost:3000](http://localhost:3000) and click **Register**. The 
 ## 🗺️ Roadmap & Next Steps
 
 ### 🏗️ In Progress (WIP)
-- 🗺️ **Visual Cellar Map (FEAT-68)**: Grid-based occupancy view of cellar slots, color-coded by product category.
 - 🔒 **Two-Factor Authentication (FEAT-02)**: TOTP-based 2FA for account protection.
 - ⚡ **Express Label Scanning (FEAT-04)**: Session mode for scanning dozens of bottles in one go.
 
 ### ✅ Recently Implemented
-- ✨ **Smart Autocomplete & Image Search (FEAT-66)**: Google-powered suggestions for name and producer when adding a bottle — vintage auto-extracted from suggestions. Attach a photo via Wikimedia Commons image search.
+- 📸 **Graphical Item Visualization (FEAT-69)**: Auto image search as soon as name and producer are filled (DuckDuckGo, local storage). Photo displayed at the top of inventory cards and in the detail view, Vivino-style. Replace via manual search, URL paste, or file upload.
+- 🗺️ **Visual Cellar Map (FEAT-68)**: Grid-based occupancy view of cellar slots, drag & drop bottle placement, color-coded by product category.
+- ✨ **Smart Autocomplete (FEAT-66)**: Google-powered suggestions for name and producer when adding a bottle — vintage auto-extracted from suggestions.
 - 🔍 **Global Search (FEAT-64)**: Instant navbar search across your entire inventory by name, producer, vintage, or category.
 - 🔗 **Duplicate Detection (FEAT-65)**: Automatic duplicate warning before saving a bottle that already exists in your cellar.
 - 📡 **Connectivity Indicator (FEAT-67)**: Live internet status in the navbar — external features (autocomplete, images) degrade gracefully when offline.

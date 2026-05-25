@@ -49,12 +49,13 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **
 ## 🗺️ Roadmap & Prochaines Étapes
 
 ### 🏗️ En Cours (WIP)
-- 🗺️ **Plan Visuel de Cave (FEAT-68)** : Vue en grille des emplacements de cave, colorée par catégorie de produit.
 - 🔒 **Double Authentification (FEAT-02)** : 2FA basée sur TOTP pour protéger votre compte.
 - ⚡ **Scan Express (FEAT-04)** : Mode session pour scanner des dizaines de bouteilles d'affilée.
 
 ### ✅ Récemment Ajouté
-- ✨ **Autocomplétion & Recherche d'Image (FEAT-66)** : Suggestions Google pour le nom et le producteur à la saisie — millésime extrait automatiquement. Association d'une photo via Wikimedia Commons.
+- 📸 **Visualisation Graphique des Items (FEAT-69)** : Image automatique dès que le nom et le producteur sont saisis (DuckDuckGo, stockage local). Photo en haut des cartes inventaire et en tête de fiche, à la Vivino. Remplacement via recherche manuelle, collage d'URL ou upload fichier.
+- 🗺️ **Plan Visuel de Cave (FEAT-68)** : Vue en grille des emplacements de cave, drag & drop pour positionner les bouteilles, colorée par catégorie de produit.
+- ✨ **Autocomplétion & Recherche d'Image (FEAT-66)** : Suggestions Google pour le nom et le producteur à la saisie — millésime extrait automatiquement.
 - 🔍 **Recherche Globale (FEAT-64)** : Barre de recherche dans la navbar pour trouver instantanément n'importe quelle bouteille par nom, producteur, millésime ou catégorie.
 - 🔗 **Détection de Doublons (FEAT-65)** : Avertissement automatique avant l'enregistrement si une bouteille identique existe déjà dans la cave.
 - 📡 **Indicateur de Connectivité (FEAT-67)** : Statut internet en temps réel dans la navbar — les fonctions externes (autocomplétion, images) se dégradent gracieusement hors ligne.
