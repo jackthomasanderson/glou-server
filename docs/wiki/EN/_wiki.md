@@ -9,3 +9,5 @@ Welcome to the Glou wiki. This documentation strictly focuses on setup, configur
 4. [Cellar Management](./04-Cellar-Management.md)
 5. [Bottle Addition](./05-Bottle-Addition.md)
 6. [Peak Maturity Alerts](./06-Peak-Maturity-Alerts.md)
+7. [Global Search](./07-Global-Search.md)
+8. [Autocomplete & Image Search](./08-Autocomplete-Image.md)

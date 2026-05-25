@@ -9,3 +9,5 @@ Bienvenue sur le wiki de Glou. Cette documentation est strictement focalisée su
 4. [Gestion des Caves](./04-Gestion-Des-Caves.md)
 5. [Ajouter une Bouteille](./05-Ajout-Bouteille.md)
 6. [Alertes Apogée](./06-Alertes-Apogee.md)
+7. [Recherche Globale](./07-Recherche-Globale.md)
+8. [Autocomplétion & Recherche d'Image](./08-Autocompletion-Image.md)
