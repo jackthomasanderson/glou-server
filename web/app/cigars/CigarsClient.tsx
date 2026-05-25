@@ -3,6 +3,7 @@ import { InventoryDashboard } from '@/components/inventory/InventoryDashboard';
 import frMessages from '@/public/locales/fr/common.json';
 import enMessages from '@/public/locales/en/common.json';
 import { useState, useMemo, Suspense } from 'react';
+import { MainLayout } from '@/components/ui/MainLayout';
 
 type Messages = typeof frMessages;
 
@@ -20,7 +21,6 @@ function createTranslator(messages: Messages) {
       current = (current as Record<string, unknown>)[part];
     }
 
-    // Fallback to non-plural if plural key missing
     if (typeof current !== 'string' && finalKey !== key) {
       current = messages;
       for (const part of key.split('.')) {
@@ -41,14 +41,7 @@ function createTranslator(messages: Messages) {
   };
 }
 
-import { MainLayout } from '@/components/ui/MainLayout';
-
-/**
- * Client wrapper pour /inventory — gère l'i18n côté client.
- * Nécessaire car les fonctions ne peuvent pas traverser la frontière
- * Server → Client Component dans l'App Router Next.js.
- */
-export function InventoryClient() {
+export function CigarsClient() {
   const [locale] = useState<'fr' | 'en'>('fr');
 
   const t = useMemo(
@@ -59,7 +52,7 @@ export function InventoryClient() {
   return (
     <MainLayout>
       <Suspense fallback={null}>
-        <InventoryDashboard t={t} lockedCategories={['wine', 'sparkling', 'spirit']} />
+        <InventoryDashboard t={t} lockedCategories={['cigar']} />
       </Suspense>
     </MainLayout>
   );

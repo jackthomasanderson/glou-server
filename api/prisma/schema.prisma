@@ -130,7 +130,6 @@ model InventoryItem {
   grapeVarieties String[]  @default([])
   alcoholDegree  Float?
   bottleSize     String? // 75cl, magnum...
-  peakMaturity   String? // période idéale dégustation
   needsAeration  Boolean?
   serviceTemp    String?
   lotNumber      String?
@@ -138,24 +137,22 @@ model InventoryItem {
 
   // Contextual — Sparkling extras
   sparklingType  String? // Champagne, Crémant, Prosecco...
-  sugarLevel     String? // brut, extra-brut...
+  sugarLevel     String? // extra-brut, brut, extra-sec, sec, demi-sec, doux
   disgorgingDate DateTime?
   baseYear       Int?
 
   // Contextual — Spirit
-  distilleryName  String?
+  spiritType      String? // whisky, rhum, gin, cognac...
   edition         String?
-  declaredAge     String?
+  declaredAge     Int?    // âge en années
   caskType        String?
   additions       String?
   aromaticProfile String?
 
   // Contextual — Cigar
-  brand                String?
   format               String? // Corona, Robusto...
   quantity             Int?
   manufactureYear      Int?
-  sealedStatus         String? // sealed, opened
   leafOrigin           String?
   factoryCode          String?
   recommendedHumidity  Float?

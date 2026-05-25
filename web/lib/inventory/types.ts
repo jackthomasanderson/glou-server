@@ -27,7 +27,6 @@ export interface InventoryItem {
   grapeVarieties: string[];
   alcoholDegree?: number | null;
   bottleSize?: string | null;
-  peakMaturity?: string | null;
   peakMaturityFrom?: number | null;
   peakMaturityTo?: number | null;
   needsAeration?: boolean | null;
@@ -37,21 +36,21 @@ export interface InventoryItem {
   // Sparkling extras
   sparklingType?: string | null;
   sugarLevel?: string | null;
+  disgorgingDate?: string | null;
   baseYear?: number | null;
 
   // Spirit
+  spiritType?: string | null;
   edition?: string | null;
-  declaredAge?: string | null;
+  declaredAge?: number | null;
   caskType?: string | null;
   additions?: string | null;
   aromaticProfile?: string | null;
 
   // Cigar
-  brand?: string | null;
   format?: string | null;
   quantity?: number | null;
   manufactureYear?: number | null;
-  sealedStatus?: 'sealed' | 'opened' | null;
   leafOrigin?: string | null;
   factoryCode?: string | null;
   recommendedHumidity?: number | null;

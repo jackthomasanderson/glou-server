@@ -386,12 +386,19 @@ export function InventoryForm({
                     </FormControl>
                   </Grid>
                   <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.sugarLevel')}
-                      value={values.sugarLevel ?? ''}
-                      onChange={(e) => setField('sugarLevel', e.target.value)}
-                    />
+                    <FormControl fullWidth size="small">
+                      <InputLabel>{t('inventory.fields.sugarLevel')}</InputLabel>
+                      <Select
+                        value={values.sugarLevel ?? ''}
+                        label={t('inventory.fields.sugarLevel')}
+                        onChange={(e) => setField('sugarLevel', e.target.value || undefined)}
+                      >
+                        <MenuItem value=""><em>—</em></MenuItem>
+                        {['extra-brut', 'brut', 'extra-sec', 'sec', 'demi-sec', 'doux'].map((s) => (
+                          <MenuItem key={s} value={s}>{t(`inventory.sugarLevels.${s}`)}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   </Grid>
                 </>
               )}
@@ -399,6 +406,21 @@ export function InventoryForm({
               {/* Spirit essential */}
               {isSpirit && (
                 <>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>{t('inventory.fields.spiritType')}</InputLabel>
+                      <Select
+                        value={values.spiritType ?? ''}
+                        label={t('inventory.fields.spiritType')}
+                        onChange={(e) => setField('spiritType', e.target.value || undefined)}
+                      >
+                        <MenuItem value=""><em>—</em></MenuItem>
+                        {['whisky', 'rhum', 'gin', 'cognac', 'calvados', 'armagnac', 'vodka', 'tequila', 'mezcal', 'liqueur', 'other'].map((s) => (
+                          <MenuItem key={s} value={s}>{t(`inventory.spiritTypes.${s}`)}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth size="small"
@@ -422,8 +444,11 @@ export function InventoryForm({
                     <TextField
                       fullWidth size="small"
                       label={t('inventory.fields.declaredAge')}
+                      type="number"
                       value={values.declaredAge ?? ''}
-                      onChange={(e) => setField('declaredAge', e.target.value)}
+                      onChange={(e) => setField('declaredAge', numField(e.target.value))}
+                      inputProps={{ min: 0, max: 200, step: 1 }}
+                      InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">{t('inventory.fields.declaredAgeUnit')}</Typography> }}
                     />
                   </Grid>
                 </>
@@ -563,6 +588,13 @@ export function InventoryForm({
                     InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">€</Typography> }}
                   />
                 </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth size="small"
+                    label={t('inventory.fields.purchasePlace')}
+                    value={values.purchasePlace ?? ''}
+                    onChange={(e) => setField('purchasePlace', e.target.value)}
+                  />
+                </Grid>
                 <Grid item xs={6} sm={3}>
                   <TextField fullWidth size="small"
                     label={t('inventory.fields.estimatedValue')}
@@ -598,24 +630,57 @@ export function InventoryForm({
                       />
                     </Grid>
                     {isWine && (
-                      <Grid item xs={6} sm={3}>
-                        <TextField fullWidth size="small"
-                          label={t('inventory.fields.lotNumber')}
-                          value={values.lotNumber ?? ''}
-                          onChange={(e) => setField('lotNumber', e.target.value)}
-                        />
-                      </Grid>
+                      <>
+                        <Grid item xs={12}>
+                          <TextField fullWidth size="small"
+                            label={t('inventory.fields.grapeVarieties')}
+                            placeholder={t('inventory.fields.grapeVarietiesHint')}
+                            value={(values.grapeVarieties ?? []).join(', ')}
+                            onChange={(e) =>
+                              setField('grapeVarieties', e.target.value ? e.target.value.split(',').map((s) => s.trim()).filter(Boolean) : [])
+                            }
+                          />
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <TextField fullWidth size="small"
+                            label={t('inventory.fields.lotNumber')}
+                            value={values.lotNumber ?? ''}
+                            onChange={(e) => setField('lotNumber', e.target.value)}
+                          />
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <Stack direction="row" alignItems="center">
+                            <Chip
+                              label={t('inventory.fields.needsAeration')}
+                              variant={values.needsAeration ? 'filled' : 'outlined'}
+                              color={values.needsAeration ? 'info' : 'default'}
+                              onClick={() => setField('needsAeration', !values.needsAeration)}
+                              sx={{ cursor: 'pointer' }}
+                            />
+                          </Stack>
+                        </Grid>
+                      </>
                     )}
                     {isSparkling && (
-                      <Grid item xs={6} sm={3}>
-                        <TextField fullWidth size="small"
-                          label={t('inventory.fields.baseYear')}
-                          type="number"
-                          value={values.baseYear ?? ''}
-                          onChange={(e) => setField('baseYear', numField(e.target.value))}
-                          inputProps={{ min: 1800, max: 2100 }}
-                        />
-                      </Grid>
+                      <>
+                        <Grid item xs={6} sm={3}>
+                          <TextField fullWidth size="small"
+                            label={t('inventory.fields.baseYear')}
+                            type="number"
+                            value={values.baseYear ?? ''}
+                            onChange={(e) => setField('baseYear', numField(e.target.value))}
+                            inputProps={{ min: 1800, max: 2100 }}
+                          />
+                        </Grid>
+                        <Grid item xs={6} sm={3}>
+                          <TextField fullWidth size="small" type="date"
+                            label={t('inventory.fields.disgorgingDate')}
+                            InputLabelProps={{ shrink: true }}
+                            value={typeof values.disgorgingDate === 'string' ? values.disgorgingDate.split('T')[0] : ''}
+                            onChange={(e) => setField('disgorgingDate', e.target.value || null)}
+                          />
+                        </Grid>
+                      </>
                     )}
                   </>
                 )}
@@ -711,6 +776,22 @@ export function InventoryForm({
 
                 {values.isOpened && (
                   <>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="text.secondary">{t('inventory.fields.fillLevel')}</Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                        {([100, 75, 50, 25, 0] as const).map((val) => (
+                          <Chip
+                            key={val}
+                            label={t(`inventory.fillLevels.${val === 100 ? 'full' : val === 75 ? 'threeQuarters' : val === 50 ? 'half' : val === 25 ? 'quarter' : 'empty'}`)}
+                            variant={values.fillLevel === val ? 'filled' : 'outlined'}
+                            color={values.fillLevel === val ? 'warning' : 'default'}
+                            size="small"
+                            onClick={() => setField('fillLevel', val)}
+                            sx={{ cursor: 'pointer' }}
+                          />
+                        ))}
+                      </Stack>
+                    </Grid>
                     <Grid item xs={6} sm={3}>
                       <TextField fullWidth size="small" type="date"
                         label={t('inventory.fields.openedAt')}

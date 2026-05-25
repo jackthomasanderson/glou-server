@@ -129,6 +129,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
   const lastEditor = enrichedItem?._lastEditor ?? null;
   const cellarName = d.cellarId ? cellars?.find((c) => c.id === d.cellarId)?.name ?? null : null;
 
+  const isWine = d.category === 'wine';
   const isWineOrSparkling = d.category === 'wine' || d.category === 'sparkling';
   const isSparkling = d.category === 'sparkling';
   const isSpirit = d.category === 'spirit';
@@ -215,6 +216,9 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
                   {isSparkling && d.sparklingType && (
                     <Chip label={t(`inventory.sparklingTypes.${d.sparklingType}`)} size="small" variant="outlined" />
                   )}
+                  {isSpirit && d.spiritType && (
+                    <Chip label={t(`inventory.spiritTypes.${d.spiritType}`)} size="small" variant="outlined" />
+                  )}
                   {d.alcoholDegree != null && (
                     <Chip label={`${d.alcoholDegree}%`} size="small" variant="outlined" />
                   )}
@@ -263,10 +267,16 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
                         value={d.grapeVarieties?.length ? d.grapeVarieties.join(', ') : null} />
                       <DetailRow label={t('inventory.fields.serviceTemp')} value={d.serviceTemp} />
                       <DetailRow label={t('inventory.fields.lotNumber')} value={d.lotNumber} />
+                      {isWine && d.needsAeration != null && (
+                        <DetailRow label={t('inventory.fields.needsAeration')} value={d.needsAeration ? '✓' : null} />
+                      )}
                       {isSparkling && (
                         <>
-                          <DetailRow label={t('inventory.fields.sugarLevel')} value={d.sugarLevel} />
+                          <DetailRow label={t('inventory.fields.sugarLevel')} value={
+                            d.sugarLevel ? t(`inventory.sugarLevels.${d.sugarLevel}`) : null
+                          } />
                           <DetailRow label={t('inventory.fields.baseYear')} value={d.baseYear} />
+                          <DetailRow label={t('inventory.fields.disgorgingDate')} value={d.disgorgingDate ? new Date(d.disgorgingDate).toLocaleDateString() : null} />
                         </>
                       )}
                     </>
@@ -274,7 +284,9 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
                   {isSpirit && (
                     <>
                       <DetailRow label={t('inventory.fields.edition')} value={d.edition} />
-                      <DetailRow label={t('inventory.fields.declaredAge')} value={d.declaredAge} />
+                      <DetailRow label={t('inventory.fields.declaredAge')} value={
+                        d.declaredAge != null ? `${d.declaredAge} ${t('inventory.fields.declaredAgeUnit')}` : null
+                      } />
                       <DetailRow label={t('inventory.fields.caskType')} value={d.caskType} />
                       <DetailRow label={t('inventory.fields.additions')} value={d.additions} />
                       <DetailRow label={t('inventory.fields.aromaticProfile')} value={d.aromaticProfile} />
