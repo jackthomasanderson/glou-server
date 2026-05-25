@@ -1,11 +1,11 @@
-# Autocomplete and Image Search When Adding a Bottle
+# Autocomplete, Image Search & Graphical Visualization
 
 ## TL;DR
-When adding a bottle, the **Name** and **Producer** fields offer suggestions powered by Google. If a vintage year is detected in a suggestion, it is automatically extracted to the Vintage field. An image search lets you attach a photo from Wikimedia Commons.
+When adding an item, the **Name** and **Producer** fields offer suggestions powered by Google. As soon as both fields are filled, an image is automatically searched online and saved locally — no action required. The image appears at the top of inventory cards and at the head of the detail view, Vivino-style.
 
 ## Prerequisites
 - Logged into your account.
-- Active internet connection (suggestions and images come from external services).
+- Active internet connection for the initial search (already-stored images remain visible offline).
 
 ## Action
 
@@ -25,15 +25,33 @@ When adding a bottle, the **Name** and **Producer** fields offer suggestions pow
 2. Suggestions are prefixed by the producer type matching the category (winery, house, distillery…).
 3. Suggestions containing a year or commercial terms (price, buy, shop…) are automatically filtered out.
 
-### 3. Image search (Wikimedia Commons)
+### 3. Automatic image
 
-1. In the add or edit form, click the **Search image** icon next to the image field.
-2. A dialog opens with a search field pre-filled with the bottle name.
-3. Results display up to 8 thumbnails from Wikimedia Commons.
-4. Click an image to select it. It is attached to the bottle record.
+As soon as both **Name** and **Producer** are filled, Glou:
+1. Silently searches for an image online (DuckDuckGo Images).
+2. Downloads and stores the best result locally.
+3. Displays a thumbnail in the **Photo** section of the form.
 
-> [!CAUTION]
-> Images come from Wikimedia Commons (public domain / free license). Verify the image license if you plan to reuse content outside of Glou.
+No action needed. If the image looks right, simply ignore the section — it will be saved with the item.
+
+### 4. Replacing or refining the image
+
+In the **Optional Fields** section of the form, the **Photo** section offers three options:
+
+| Action | How |
+|--------|-----|
+| **Search** (magnifier icon) | Opens a visual picker (thumbnail grid). Refine the query and pick a different image. |
+| **Paste URL** (link icon) | Paste an image URL from a merchant site, Google Images, etc. The image is downloaded and stored locally. |
+| **Upload file** (camera icon) | Upload a photo from your device (JPG, PNG, WebP — max 5 MB). |
+
+> [!NOTE]
+> Regardless of the source, the image is **always stored locally** on your server. No external URL is ever kept in the database.
+
+### 5. Visualization in the inventory
+
+- **With image**: the bottle photo appears at the top of the card (150 px height, automatic fit).
+- **Without image**: a color-coded placeholder matching the category (red for wine, blue for sparkling…) is shown instead.
+- **Detail view**: the image occupies a prominent position at the head of the item sheet.
 
 ## The Firewall (Troubleshooting)
 
@@ -41,6 +59,6 @@ When adding a bottle, the **Name** and **Producer** fields offer suggestions pow
 | :--- | :--- |
 | **No suggestions appear** | Check your internet connection. Suggestions go through `suggestqueries.google.com`. If the server has no outbound internet access, autocomplete silently disables itself. |
 | **Vintage is not auto-extracted** | Extraction detects years in `XXXX` format (1900–2099). Shorthand formats like `'15` are not recognized. |
-| **No images found** | The name doesn't match any file on Wikimedia Commons. Try a broader term (e.g. `Bordeaux red wine` instead of the exact château name). |
-| **Image search icon is missing** | It is only available in Step 2 of the form. Complete Step 1 and proceed to the next step. |
+| **No image appears automatically** | Automatic search requires an internet connection. In offline mode, a one-time-per-session warning is shown. Manual entry remains available. |
+| **The automatic image doesn't match** | Open the Optional Fields section and use the visual picker to choose another image or upload your own. |
 | **Red connectivity indicator in the navbar** | The server cannot reach external services. Suggestions and image search are unavailable. Manual entry still works. |
