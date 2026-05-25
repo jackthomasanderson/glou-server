@@ -95,4 +95,26 @@ export class CellarService {
 
     return prisma.cellar.delete({ where: { id } });
   }
+
+  static async getGridData(userId: string, cellarId: string) {
+    const cellar = await prisma.cellar.findFirst({ where: { id: cellarId } });
+    if (!cellar) return null;
+
+    const items = await prisma.inventoryItem.findMany({
+      where: { cellarId, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        producer: true,
+        category: true,
+        color: true,
+        vintage: true,
+        slotColumn: true,
+        slotRow: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return { cellar, items };
+  }
 }

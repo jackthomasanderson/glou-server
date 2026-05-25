@@ -106,6 +106,10 @@ model InventoryItem {
   cellarId String?
   cellar   Cellar? @relation(fields: [cellarId], references: [id], onDelete: SetNull)
 
+  // Grid slot assignment (FEAT-68) — 1-based coordinates, null = no slot
+  slotColumn Int?
+  slotRow    Int?
+
   // Common fields
   category       BottleCategory
   name           String

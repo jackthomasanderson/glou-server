@@ -118,11 +118,29 @@ export class InventoryService {
     userId: string,
     id: string,
     patch: InventoryPatch
-  ): Promise<{ item: InventoryItem; changes: FieldChange[] } | null> {
+  ): Promise<{ item: InventoryItem; changes: FieldChange[]; slotConflict?: boolean } | null> {
     const existing = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) return null;
+
+    // Slot uniqueness: if assigning a grid slot, verify it is not occupied by another item
+    const targetCellarId = 'cellarId' in patch ? patch.cellarId : existing.cellarId;
+    const targetSlotColumn = 'slotColumn' in patch ? patch.slotColumn : existing.slotColumn;
+    const targetSlotRow = 'slotRow' in patch ? patch.slotRow : existing.slotRow;
+
+    if (targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
+      const conflict = await prisma.inventoryItem.findFirst({
+        where: {
+          cellarId: targetCellarId,
+          slotColumn: targetSlotColumn,
+          slotRow: targetSlotRow,
+          id: { not: id },
+          deletedAt: null,
+        },
+      });
+      if (conflict) return { item: existing as unknown as InventoryItem, changes: [], slotConflict: true };
+    }
 
     const safePatch = Object.fromEntries(
       Object.entries(patch).filter(([key]) => !existing.lockedFields.includes(key))

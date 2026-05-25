@@ -114,6 +114,24 @@ router.patch('/:id', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/cellars/:id/grid
+ * Get cellar grid data: cellar config + all items with slot assignments
+ */
+router.get('/:id/grid', async (req: Request, res: Response) => {
+  const userId = req.userId!;
+  const { id } = req.params;
+  try {
+    const data = await CellarService.getGridData(userId, id);
+    if (!data) {
+      return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
+    }
+    res.json({ data });
+  } catch (err: any) {
+    res.status(500).json({ error: 'FAILED_TO_FETCH_GRID' });
+  }
+});
+
+/**
  * DELETE /api/cellars/:id
  * Delete a cellar
  */

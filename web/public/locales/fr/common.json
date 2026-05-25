@@ -260,7 +260,38 @@
       "items": "actifs",
       "alerts": "alertes",
       "estimatedValue": "Valeur estimée"
+    },
+    "grid": {
+      "showConfig": "Configurer le plan de cave (optionnel)",
+      "hideConfig": "Masquer la configuration du plan",
+      "configHint": "Définissez les dimensions physiques de votre cave pour afficher un plan visuel.",
+      "columns": "Colonnes (largeur)",
+      "rows": "Rangées (hauteur)",
+      "hotZoneRows": "Zone chaude (rangées depuis le haut)",
+      "hotZoneRowsHint": "Rangées à température plus élevée, comptées depuis le haut",
+      "coldZoneRows": "Zone froide (rangées depuis le bas)",
+      "coldZoneRowsHint": "Rangées à température plus fraîche, comptées depuis le bas",
+      "zonesExceedError": "Zone chaude + zone froide dépassent le nombre total de rangées",
+      "configured": "Grille : {{cols}} × {{rows}}",
+      "notConfigured": "Aucun plan configuré pour cette cave.",
+      "occupied": "occupé(s)",
+      "free": "libre(s)",
+      "hotZone": "Zone chaude ({{count}} rangées)",
+      "coldZone": "Zone froide ({{count}} rangées)",
+      "hotZoneLabel": "Zone chaude",
+      "coldZoneLabel": "Zone froide",
+      "cellEmpty": "Vide — cliquez pour assigner une bouteille",
+      "assignTitle": "Assigner une bouteille à l'emplacement C{{col}}·R{{row}}",
+      "noUnassignedBottles": "Toutes les bouteilles de cette cave sont déjà assignées à un emplacement.",
+      "slotOccupied": "Cet emplacement est déjà occupé.",
+      "removeFromSlot": "Retirer de l'emplacement",
+      "slot": "Emplacement"
     }
+  },
+  "view": {
+    "grid": "Vue en cartes",
+    "list": "Vue en liste",
+    "map": "Plan de cave"
   },
   "connectivity": {
     "online": "Connecté à internet",

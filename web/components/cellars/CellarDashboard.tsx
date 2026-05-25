@@ -27,16 +27,48 @@ import {
   TableRow,
   Paper,
   Tooltip,
+  Divider,
+  Collapse,
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Warehouse as CellarIcon } from '@mui/icons-material';
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Warehouse as CellarIcon,
+  GridOn as GridOnIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  OpenInNew as OpenInNewIcon,
+} from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'next/navigation';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
 import { Cellar } from '@/lib/cellars/types';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 
+interface GridFormData {
+  columns: string;
+  rows: string;
+  hotZoneRows: string;
+  coldZoneRows: string;
+}
+
+interface FormData {
+  name: string;
+  description: string;
+  type: 'VINTAGE' | 'COOLER' | 'SHELF';
+  grid: GridFormData;
+}
+
+function parseOptionalInt(value: string): number | null {
+  const n = parseInt(value, 10);
+  return isNaN(n) || value.trim() === '' ? null : n;
+}
+
 export const CellarDashboard: React.FC = () => {
   const { t } = useTranslation();
+  const router = useRouter();
   const { data: cellars, isLoading, isError } = useCellars();
   const createMutation = useCreateCellar();
   const updateMutation = useUpdateCellar();
@@ -44,28 +76,45 @@ export const CellarDashboard: React.FC = () => {
 
   const [viewMode, setViewMode] = useViewMode('cellars');
   const [openForm, setOpenForm] = useState(false);
+  const [showGridConfig, setShowGridConfig] = useState(false);
   const [editingCellar, setEditingCellar] = useState<Cellar | null>(null);
-  const [formData, setFormData] = useState<{
-    name: string;
-    description: string;
-    type: 'VINTAGE' | 'COOLER' | 'SHELF';
-  }>({
+  const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
-    type: 'VINTAGE'
+    type: 'VINTAGE',
+    grid: { columns: '', rows: '', hotZoneRows: '', coldZoneRows: '' },
   });
+
+  const hotZone = parseOptionalInt(formData.grid.hotZoneRows) ?? 0;
+  const coldZone = parseOptionalInt(formData.grid.coldZoneRows) ?? 0;
+  const totalRows = parseOptionalInt(formData.grid.rows);
+  const zonesExceedRows = totalRows != null && hotZone + coldZone > totalRows;
 
   const handleOpenForm = (cellar?: Cellar) => {
     if (cellar) {
       setEditingCellar(cellar);
+      const hasGrid = cellar.columns != null || cellar.rows != null;
+      setShowGridConfig(hasGrid);
       setFormData({
         name: cellar.name,
         description: cellar.description || '',
-        type: cellar.type
+        type: cellar.type,
+        grid: {
+          columns: cellar.columns?.toString() ?? '',
+          rows: cellar.rows?.toString() ?? '',
+          hotZoneRows: cellar.hotZoneRows?.toString() ?? '',
+          coldZoneRows: cellar.coldZoneRows?.toString() ?? '',
+        },
       });
     } else {
       setEditingCellar(null);
-      setFormData({ name: '', description: '', type: 'VINTAGE' });
+      setShowGridConfig(false);
+      setFormData({
+        name: '',
+        description: '',
+        type: 'VINTAGE',
+        grid: { columns: '', rows: '', hotZoneRows: '', coldZoneRows: '' },
+      });
     }
     setOpenForm(true);
   };
@@ -75,10 +124,20 @@ export const CellarDashboard: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    const payload = {
+      name: formData.name,
+      description: formData.description || null,
+      type: formData.type,
+      columns: showGridConfig ? parseOptionalInt(formData.grid.columns) : null,
+      rows: showGridConfig ? parseOptionalInt(formData.grid.rows) : null,
+      hotZoneRows: showGridConfig ? parseOptionalInt(formData.grid.hotZoneRows) : null,
+      coldZoneRows: showGridConfig ? parseOptionalInt(formData.grid.coldZoneRows) : null,
+    };
+
     if (editingCellar) {
-      await updateMutation.mutateAsync({ id: editingCellar.id, data: formData });
+      await updateMutation.mutateAsync({ id: editingCellar.id, data: payload });
     } else {
-      await createMutation.mutateAsync(formData);
+      await createMutation.mutateAsync(payload);
     }
     handleCloseForm();
   };
@@ -140,13 +199,21 @@ export const CellarDashboard: React.FC = () => {
         <Grid container spacing={3}>
           {cellars?.map((cellar) => (
             <Grid item xs={12} sm={6} md={4} key={cellar.id}>
-              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Card
+                sx={{ height: '100%', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+                onClick={() => router.push(`/cellars/${cellar.id}`)}
+              >
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Box display="flex" alignItems="center" mb={2}>
                     <CellarIcon color="primary" sx={{ mr: 1 }} />
                     <Typography variant="h6" component="div">
                       {cellar.name}
                     </Typography>
+                    {cellar.columns && cellar.rows && (
+                      <Tooltip title={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
+                        <GridOnIcon fontSize="small" color="action" sx={{ ml: 'auto' }} />
+                      </Tooltip>
+                    )}
                   </Box>
                   <Typography variant="body2" color="text.secondary">
                     {t(`cellars.types.${cellar.type}`)}
@@ -168,7 +235,7 @@ export const CellarDashboard: React.FC = () => {
                     </Box>
                   )}
                 </CardContent>
-                <CardActions>
+                <CardActions onClick={(e) => e.stopPropagation()}>
                   <IconButton size="small" onClick={() => handleOpenForm(cellar)}>
                     <EditIcon fontSize="small" />
                   </IconButton>
@@ -196,12 +263,24 @@ export const CellarDashboard: React.FC = () => {
             </TableHead>
             <TableBody>
               {cellars?.map((cellar) => (
-                <TableRow key={cellar.id} hover>
+                <TableRow
+                  key={cellar.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => router.push(`/cellars/${cellar.id}`)}
+                >
                   <TableCell>
                     <CellarIcon color="primary" fontSize="small" />
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={600}>{cellar.name}</Typography>
+                    <Box display="flex" alignItems="center" gap={0.5}>
+                      <Typography variant="body2" fontWeight={600}>{cellar.name}</Typography>
+                      {cellar.columns && cellar.rows && (
+                        <Tooltip title={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
+                          <GridOnIcon fontSize="inherit" color="action" />
+                        </Tooltip>
+                      )}
+                    </Box>
                   </TableCell>
                   <TableCell>
                     <Chip label={t(`cellars.types.${cellar.type}`)} size="small" variant="outlined" />
@@ -221,7 +300,7 @@ export const CellarDashboard: React.FC = () => {
                       <Typography variant="body2" color="text.secondary">—</Typography>
                     )}
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                     <Tooltip title={t('actions.edit')}>
                       <IconButton size="small" onClick={() => handleOpenForm(cellar)}>
                         <EditIcon fontSize="small" />
@@ -273,6 +352,75 @@ export const CellarDashboard: React.FC = () => {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
+
+            <Divider />
+
+            {/* Grid configuration toggle */}
+            <Box>
+              <Button
+                size="small"
+                startIcon={showGridConfig ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                onClick={() => setShowGridConfig((v) => !v)}
+                sx={{ textTransform: 'none', px: 0 }}
+              >
+                {showGridConfig ? t('cellars.grid.hideConfig') : t('cellars.grid.showConfig')}
+              </Button>
+            </Box>
+
+            <Collapse in={showGridConfig}>
+              <Box display="flex" flexDirection="column" gap={2}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('cellars.grid.configHint')}
+                </Typography>
+                <Box display="flex" gap={2}>
+                  <TextField
+                    fullWidth
+                    label={t('cellars.grid.columns')}
+                    type="number"
+                    inputProps={{ min: 1, max: 100 }}
+                    value={formData.grid.columns}
+                    onChange={(e) => setFormData({ ...formData, grid: { ...formData.grid, columns: e.target.value } })}
+                    placeholder="—"
+                  />
+                  <TextField
+                    fullWidth
+                    label={t('cellars.grid.rows')}
+                    type="number"
+                    inputProps={{ min: 1, max: 100 }}
+                    value={formData.grid.rows}
+                    onChange={(e) => setFormData({ ...formData, grid: { ...formData.grid, rows: e.target.value } })}
+                    placeholder="—"
+                  />
+                </Box>
+                <Box display="flex" gap={2}>
+                  <TextField
+                    fullWidth
+                    label={t('cellars.grid.hotZoneRows')}
+                    type="number"
+                    inputProps={{ min: 0, max: 100 }}
+                    value={formData.grid.hotZoneRows}
+                    onChange={(e) => setFormData({ ...formData, grid: { ...formData.grid, hotZoneRows: e.target.value } })}
+                    placeholder="0"
+                    disabled={!formData.grid.rows}
+                    helperText={t('cellars.grid.hotZoneRowsHint')}
+                  />
+                  <TextField
+                    fullWidth
+                    label={t('cellars.grid.coldZoneRows')}
+                    type="number"
+                    inputProps={{ min: 0, max: 100 }}
+                    value={formData.grid.coldZoneRows}
+                    onChange={(e) => setFormData({ ...formData, grid: { ...formData.grid, coldZoneRows: e.target.value } })}
+                    placeholder="0"
+                    disabled={!formData.grid.rows}
+                    helperText={t('cellars.grid.coldZoneRowsHint')}
+                  />
+                </Box>
+                {zonesExceedRows && (
+                  <Alert severity="error">{t('cellars.grid.zonesExceedError')}</Alert>
+                )}
+              </Box>
+            </Collapse>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -280,7 +428,7 @@ export const CellarDashboard: React.FC = () => {
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={!formData.name}
+            disabled={!formData.name || zonesExceedRows}
           >
             {editingCellar ? t('actions.save') : t('actions.add')}
           </Button>

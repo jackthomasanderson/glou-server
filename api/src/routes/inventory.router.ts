@@ -138,6 +138,11 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
       return;
     }
+    if (result.slotConflict) {
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: 'SLOT_OCCUPIED' } });
+      res.status(409).json({ error: 'SLOT_OCCUPIED' });
+      return;
+    }
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: id, details: { changes: result.changes } });
     res.json({ data: result.item });
   } catch (error) {

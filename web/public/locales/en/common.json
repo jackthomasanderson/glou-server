@@ -260,7 +260,38 @@
       "items": "items",
       "alerts": "alerts",
       "estimatedValue": "Estimated value"
+    },
+    "grid": {
+      "showConfig": "Configure grid layout (optional)",
+      "hideConfig": "Hide grid configuration",
+      "configHint": "Define the physical dimensions of your cellar to display a visual map.",
+      "columns": "Columns (width)",
+      "rows": "Rows (height)",
+      "hotZoneRows": "Hot zone (rows from top)",
+      "hotZoneRowsHint": "Rows with higher temperature, counted from the top",
+      "coldZoneRows": "Cold zone (rows from bottom)",
+      "coldZoneRowsHint": "Rows with lower temperature, counted from the bottom",
+      "zonesExceedError": "Hot zone + cold zone exceed total rows",
+      "configured": "Grid: {{cols}} × {{rows}}",
+      "notConfigured": "No grid configured for this cellar.",
+      "occupied": "occupied",
+      "free": "free",
+      "hotZone": "Hot zone ({{count}} rows)",
+      "coldZone": "Cold zone ({{count}} rows)",
+      "hotZoneLabel": "Hot zone",
+      "coldZoneLabel": "Cold zone",
+      "cellEmpty": "Empty — click to assign a bottle",
+      "assignTitle": "Assign a bottle to slot C{{col}}·R{{row}}",
+      "noUnassignedBottles": "All bottles in this cellar are already assigned to a slot.",
+      "slotOccupied": "This slot is already occupied.",
+      "removeFromSlot": "Remove from slot",
+      "slot": "Slot"
     }
+  },
+  "view": {
+    "grid": "Card view",
+    "list": "List view",
+    "map": "Grid plan"
   },
   "connectivity": {
     "online": "Connected to internet",

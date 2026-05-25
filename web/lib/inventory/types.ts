@@ -59,6 +59,9 @@ export interface InventoryItem {
 
   // Cellar
   cellarId?: string | null;
+  // Grid slot assignment (FEAT-68)
+  slotColumn?: number | null;
+  slotRow?: number | null;
 
   // Cross-cutting
   isOpened: boolean;
