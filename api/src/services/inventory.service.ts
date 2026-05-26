@@ -37,7 +37,10 @@ export class InventoryService {
     return prisma.inventoryItem.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
-    });
+      include: {
+        collections: { select: { id: true, name: true, color: true, icon: true } },
+      },
+    }) as unknown as InventoryItem[];
   }
 
   async listTrash(_userId: string): Promise<InventoryItem[]> {
@@ -53,7 +56,10 @@ export class InventoryService {
   async getItem(_userId: string, id: string): Promise<InventoryItem | null> {
     return prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
-    });
+      include: {
+        collections: { select: { id: true, name: true, color: true, icon: true } },
+      },
+    }) as unknown as InventoryItem | null;
   }
 
   async getItemWithTraceability(_userId: string, id: string): Promise<InventoryWithTraceability | null> {

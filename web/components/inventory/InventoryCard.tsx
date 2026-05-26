@@ -168,6 +168,26 @@ export function InventoryCard({ item, categoryLabel, onEdit, onDelete, onView, t
           {item.location && (
             <Chip label={item.location} size="small" variant="outlined" />
           )}
+          {item.collections && item.collections.length > 0 && (
+            <>
+              {item.collections.slice(0, 2).map((col) => (
+                <Chip
+                  key={col.id}
+                  label={col.name}
+                  size="small"
+                  sx={{
+                    bgcolor: `${col.color}22`,
+                    borderColor: col.color,
+                    color: col.color,
+                    border: '1px solid',
+                  }}
+                />
+              ))}
+              {item.collections.length > 2 && (
+                <Chip label={`+${item.collections.length - 2}`} size="small" variant="outlined" />
+              )}
+            </>
+          )}
         </Box>
       </CardContent>
 

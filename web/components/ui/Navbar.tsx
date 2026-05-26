@@ -31,6 +31,8 @@ import {
   Logout as LogoutIcon,
   Notifications as NotificationsIcon,
   Grass as GrassIcon,
+  CollectionsBookmark as CollectionsIcon,
+  LocalBar as TastingsIcon,
 } from '@mui/icons-material';
 import { GlobalSearch } from './GlobalSearch';
 import { ConnectivityIndicator } from './ConnectivityIndicator';
@@ -121,6 +123,8 @@ export const Navbar: React.FC = () => {
     { label: t('nav.bottles'), href: '/inventory', icon: <BottleIcon /> },
     { label: t('nav.cigars'), href: '/cigars', icon: <GrassIcon /> },
     { label: t('nav.caves'), href: '/cellars', icon: <CellarIcon /> },
+    { label: t('nav.collections'), href: '/collections', icon: <CollectionsIcon /> },
+    { label: t('nav.tastings'), href: '/tastings', icon: <TastingsIcon /> },
   ];
 
   if (!hasMounted) return null;

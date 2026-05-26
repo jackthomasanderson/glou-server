@@ -18,13 +18,13 @@ model User {
   passwordHash String
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-  
+
   // Profile & Preferences
   displayName  String?
   avatarUrl    String?
   appName      String?    // Personal app name (replaces "GLOU")
   appSlogan    String?    // Personal app slogan
-  
+
   theme        Theme      @default(LIGHT)
   language     Language   @default(FR)
   tempUnit     TempUnit   @default(CELSIUS)
@@ -44,6 +44,8 @@ model User {
   auditLogs    AuditLog[]
   cellars      Cellar[]
   bulkPresets  BulkPreset[]
+  collections  Collection[]
+  tastingNotes TastingNote[]
 }
 
 enum Theme {
@@ -183,7 +185,9 @@ model InventoryItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  auditLogs AuditLog[]
+  auditLogs    AuditLog[]
+  collections  Collection[] @relation("CollectionItems")
+  tastingNotes TastingNote[]
 
   @@index([userId])
   @@index([userId, deletedAt])
@@ -260,4 +264,39 @@ model BulkPreset {
 
   @@index([userId])
   @@map("bulk_presets")
+}
+
+model Collection {
+  id        String          @id @default(uuid())
+  name      String
+  color     String          @default("#6366f1")
+  icon      String?
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     InventoryItem[] @relation("CollectionItems")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@index([userId])
+  @@map("collections")
+}
+
+model TastingNote {
+  id          String         @id @default(uuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId      String?
+  item        InventoryItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  tastedAt    DateTime       @default(now())
+  context     String?
+  rating      Int?
+  notes       String?
+  foodPairing String?
+  photoUrl    String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([itemId])
+  @@map("tasting_notes")
 }

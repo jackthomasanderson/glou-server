@@ -16,7 +16,9 @@
     "searchCollection": "Collection",
     "searchBottles": "Bottles",
     "searchCellars": "Cellars",
-    "allCellars": "View all cellars"
+    "allCellars": "View all cellars",
+    "collections": "Collections",
+    "tastings": "Tastings"
   },
   "actions": {
     "add": "Add",
@@ -36,7 +38,9 @@
     "clearAll": "Clear all",
     "showMore": "Show optional fields",
     "showLess": "Hide optional fields",
-    "view": "View"
+    "view": "View",
+    "saving": "Saving...",
+    "none": "None"
   },
   "duplicate": {
     "title": "This item already exists",
@@ -524,6 +528,54 @@
       "update": "Updated",
       "delete": "Deleted",
       "restore": "Restored"
+    }
+  },
+  "collections": {
+    "title": "Collections",
+    "create": "New collection",
+    "edit": "Edit collection",
+    "empty": "No collections yet",
+    "emptyHint": "Create themed groups to organize your items.",
+    "deleteTitle": "Delete collection",
+    "deleteConfirm": "Delete \"{{name}}\"? Items will not be deleted.",
+    "itemCount": "{{count}} item",
+    "itemCount_plural": "{{count}} items",
+    "fields": {
+      "name": "Collection name",
+      "color": "Color",
+      "icon": "Icon"
+    },
+    "errors": {
+      "nameRequired": "Name is required",
+      "load": "Failed to load collections."
+    }
+  },
+  "tastings": {
+    "title": "Tasting journal",
+    "create": "New tasting",
+    "edit": "Edit tasting",
+    "logTasting": "Log tasting",
+    "empty": "No tastings recorded yet",
+    "emptyHint": "Start documenting your tasting experiences.",
+    "deleteTitle": "Delete tasting",
+    "deleteConfirm": "This tasting note will be permanently deleted.",
+    "noItem": "No linked product",
+    "total": "{{count}} tasting",
+    "total_plural": "{{count}} tastings",
+    "fields": {
+      "item": "Product tasted",
+      "tastedAt": "Tasting date",
+      "rating": "Rating",
+      "context": "Context",
+      "notes": "Tasting notes",
+      "foodPairing": "Food pairing"
+    },
+    "recommendations": {
+      "title": "Serving recommendations",
+      "aeration": "Aeration: {{min}}–{{max}} min"
+    },
+    "errors": {
+      "load": "Failed to load tastings."
     }
   }
 }

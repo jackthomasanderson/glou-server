@@ -5,6 +5,13 @@ import { z } from 'zod';
 export type InventoryCategory = 'wine' | 'sparkling' | 'spirit' | 'cigar';
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
+export interface CollectionSummary {
+  id: string;
+  name: string;
+  color: string;
+  icon?: string | null;
+}
+
 export interface InventoryItem {
   id: string;
   userId: string;
@@ -73,6 +80,9 @@ export interface InventoryItem {
   deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+
+  // Collections (FEAT-13)
+  collections?: CollectionSummary[];
 
   // Traceability (FEAT-62) — present only on single-item GET
   updatedBy?: string | null;

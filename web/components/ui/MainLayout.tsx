@@ -3,6 +3,7 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { Navbar } from './Navbar';
+import { BottomNav } from './BottomNav';
 import { AuthGuard } from '../auth/AuthGuard';
 
 interface MainLayoutProps {
@@ -14,9 +15,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
   const content = (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar />
-      <Box component="main" sx={{ flexGrow: 1 }}>
+      <Box component="main" sx={{ flexGrow: 1, pb: { xs: 8, md: 0 } }}>
         {children}
       </Box>
+      <BottomNav />
     </Box>
   );
 

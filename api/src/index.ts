@@ -16,6 +16,8 @@ import { errorMiddleware } from './middleware/error.middleware';
 import { inventoryService } from './services/inventory.service';
 import { purgeOldAuditLogs } from './services/audit.service';
 import searchRouter from './routes/search.router';
+import collectionsRouter from './routes/collections.router';
+import tastingsRouter from './routes/tastings.router';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -78,6 +80,8 @@ app.use('/api/user', userRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/maturity-references', maturityReferencesRouter);
 app.use('/api/search', searchRouter);
+app.use('/api/collections', collectionsRouter);
+app.use('/api/tastings', tastingsRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 

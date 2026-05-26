@@ -16,7 +16,9 @@
     "searchCollection": "Collection",
     "searchBottles": "Bouteilles",
     "searchCellars": "Caves",
-    "allCellars": "Voir toutes les caves"
+    "allCellars": "Voir toutes les caves",
+    "collections": "Collections",
+    "tastings": "Dégustations"
   },
   "actions": {
     "add": "Ajouter",
@@ -36,7 +38,9 @@
     "clearAll": "Tout effacer",
     "showMore": "Afficher les compléments",
     "showLess": "Masquer les compléments",
-    "view": "Voir"
+    "view": "Voir",
+    "saving": "Enregistrement...",
+    "none": "Aucun"
   },
   "duplicate": {
     "title": "Cet item existe déjà",
@@ -524,6 +528,54 @@
       "update": "Modification",
       "delete": "Suppression",
       "restore": "Restauration"
+    }
+  },
+  "collections": {
+    "title": "Collections",
+    "create": "Nouvelle collection",
+    "edit": "Modifier la collection",
+    "empty": "Aucune collection",
+    "emptyHint": "Créez des thématiques pour organiser vos articles.",
+    "deleteTitle": "Supprimer la collection",
+    "deleteConfirm": "Supprimer « {{name}} » ? Les articles ne seront pas supprimés.",
+    "itemCount": "{{count}} article",
+    "itemCount_plural": "{{count}} articles",
+    "fields": {
+      "name": "Nom de la collection",
+      "color": "Couleur",
+      "icon": "Icône"
+    },
+    "errors": {
+      "nameRequired": "Nom requis",
+      "load": "Impossible de charger les collections."
+    }
+  },
+  "tastings": {
+    "title": "Journal de dégustation",
+    "create": "Nouvelle dégustation",
+    "edit": "Modifier la dégustation",
+    "logTasting": "Dégustation",
+    "empty": "Aucune dégustation enregistrée",
+    "emptyHint": "Commencez à documenter vos expériences de dégustation.",
+    "deleteTitle": "Supprimer la dégustation",
+    "deleteConfirm": "Cette note de dégustation sera supprimée définitivement.",
+    "noItem": "Produit non lié",
+    "total": "{{count}} dégustation",
+    "total_plural": "{{count}} dégustations",
+    "fields": {
+      "item": "Produit dégusté",
+      "tastedAt": "Date de dégustation",
+      "rating": "Note",
+      "context": "Contexte",
+      "notes": "Notes de dégustation",
+      "foodPairing": "Accord mets"
+    },
+    "recommendations": {
+      "title": "Recommandations de service",
+      "aeration": "Aération : {{min}}–{{max}} min"
+    },
+    "errors": {
+      "load": "Impossible de charger les dégustations."
     }
   }
 }

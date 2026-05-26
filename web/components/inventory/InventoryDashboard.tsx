@@ -8,6 +8,7 @@ import {
   Grid, Typography, Collapse, Alert, IconButton,
   Stack, Chip, Divider, Paper,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  useTheme, useMediaQuery,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { InventoryItem } from '@/lib/inventory/types';
@@ -111,6 +112,9 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('inventory');
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const effectiveViewMode = isMobile ? 'grid' : viewMode;
 
   const toggleFilters = useCallback(() => {
     setIsFiltersOpen((prev) => !prev);
@@ -395,7 +399,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           <FilterListIcon />
         </IconButton>
 
-        <ViewToggle value={viewMode} onChange={setViewMode} />
+        {!isMobile && <ViewToggle value={viewMode} onChange={setViewMode} />}
 
         <Button
           variant={bulkMode ? "contained" : "outlined"}
@@ -462,7 +466,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           />
 
           {/* Loading skeletons */}
-          {isLoading && viewMode === 'grid' && (
+          {isLoading && effectiveViewMode === 'grid' && (
             <Grid container spacing={2}>
               {Array.from({ length: 6 }).map((_, i) => (
                 <Grid item xs={12} sm={6} md={4} key={i}>
@@ -471,7 +475,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               ))}
             </Grid>
           )}
-          {isLoading && viewMode === 'list' && (
+          {isLoading && effectiveViewMode === 'list' && (
             <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
               <Table size="small">
                 <TableBody>
@@ -576,7 +580,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           )}
 
           {/* Inventory grid */}
-          {!isLoading && filteredItems && filteredItems.length > 0 && viewMode === 'grid' && (
+          {!isLoading && filteredItems && filteredItems.length > 0 && effectiveViewMode === 'grid' && (
             <Grid container spacing={2}>
               {filteredItems.map((item: InventoryItem) => (
                 <Grid item xs={12} sm={6} md={4} key={item.id}>
@@ -596,7 +600,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           )}
 
           {/* Inventory list */}
-          {!isLoading && filteredItems && filteredItems.length > 0 && viewMode === 'list' && (
+          {!isLoading && filteredItems && filteredItems.length > 0 && effectiveViewMode === 'list' && (
             <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
               <Table size="small">
                 <TableHead>
@@ -639,7 +643,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       <Fab
         color="primary"
         aria-label={t('inventory.add')}
-        sx={{ position: 'fixed', bottom: 80, right: 24, display: { sm: 'none' } }}
+        sx={{ position: 'fixed', bottom: { xs: 80, md: 24 }, right: 24, display: { sm: 'none' } }}
         onClick={() => setMode('creating')}
         disabled={!hasCellars}
       >

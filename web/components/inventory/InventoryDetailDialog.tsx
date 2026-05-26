@@ -16,8 +16,11 @@ import GrassIcon from '@mui/icons-material/Grass';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
 import HistoryIcon from '@mui/icons-material/History';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
+import LocalBarIcon from '@mui/icons-material/LocalBar';
 import { InventoryItem, InventoryCategory, InventoryHistoryEntry } from '@/lib/inventory/types';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
+import { TastingForm } from '@/components/tastings/TastingForm';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <WineBarIcon sx={{ fontSize: 56, opacity: 0.25, color: '#fff' }} />,
@@ -118,6 +121,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
   const hasMounted = useHasMounted();
   const { data: cellars } = useCellars();
   const [showHistory, setShowHistory] = useState(false);
+  const [tastingOpen, setTastingOpen] = useState(false);
 
   const { data: enrichedItem } = useInventoryItem(item?.id ?? '');
   const { data: history, isLoading: historyLoading } = useInventoryItemHistory(item?.id ?? '', showHistory);
@@ -366,6 +370,33 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
                 </Box>
               )}
 
+              {/* Collections */}
+              {d.collections && d.collections.length > 0 && (
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <CollectionsBookmarkIcon fontSize="small" color="action" />
+                    <Typography variant="subtitle2" color="text.secondary">
+                      {t('collections.title')}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                    {d.collections.map((col) => (
+                      <Chip
+                        key={col.id}
+                        label={`${col.icon ? col.icon + ' ' : ''}${col.name}`}
+                        size="small"
+                        sx={{
+                          bgcolor: `${col.color}22`,
+                          borderColor: col.color,
+                          color: col.color,
+                          border: '1px solid',
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
               {/* Traceability */}
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -420,10 +451,24 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
 
       <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
         <Button variant="outlined" onClick={onClose}>{t('actions.close')}</Button>
+        <Button
+          variant="outlined"
+          color="secondary"
+          startIcon={<LocalBarIcon />}
+          onClick={() => setTastingOpen(true)}
+        >
+          {t('tastings.logTasting')}
+        </Button>
         <Button variant="contained" onClick={() => { onClose(); onEdit(item); }}>
           {t('actions.edit')}
         </Button>
       </DialogActions>
+
+      <TastingForm
+        open={tastingOpen}
+        onClose={() => setTastingOpen(false)}
+        initialItemId={item.id}
+      />
     </Dialog>
   );
 }
