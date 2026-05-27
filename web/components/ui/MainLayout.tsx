@@ -15,7 +15,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
   const content = (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar />
-      <Box component="main" sx={{ flexGrow: 1, pb: { xs: 8, md: 0 } }}>
+      <Box component="main" sx={{ flexGrow: 1, pb: { xs: 'calc(56px + env(safe-area-inset-bottom, 0px))', md: 0 } }}>
         {children}
       </Box>
       <BottomNav />

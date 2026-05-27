@@ -22,6 +22,7 @@ import {
   useBulkUpdateInventoryItem,
 } from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
+import { useCollections, useAddItemsToCollection, useRemoveItemFromCollection } from '@/hooks/useCollections';
 import Link from 'next/link';
 import { InventoryCard, InventoryCardSkeleton } from './InventoryCard';
 import { InventoryForm } from './InventoryForm';
@@ -50,18 +51,21 @@ interface InventoryDashboardProps {
 export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardProps) {
   const { data: items, isLoading, isError } = useInventory();
   const { data: cellars } = useCellars();
+  const { data: allCollections } = useCollections();
   const createMutation = useCreateInventoryItem();
   const updateMutation = useUpdateInventoryItem();
   const deleteMutation = useDeleteInventoryItem();
   const restoreMutation = useRestoreInventoryItem();
+  const addItemsToCollectionMutation = useAddItemsToCollection();
+  const removeItemFromCollectionMutation = useRemoveItemFromCollection();
   const hasMounted = useHasMounted();
-
 
   const [mode, setMode] = useState<UIMode>('idle');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
   const [duplicateFound, setDuplicateFound] = useState<InventoryItem | null>(null);
   const [duplicateCandidate, setDuplicateCandidate] = useState<Partial<InventoryItem> | null>(null);
+  const [pendingCollectionIds, setPendingCollectionIds] = useState<string[]>([]);
 
   // Undo toast state
   const [undoTarget, setUndoTarget] = useState<InventoryItem | null>(null);
@@ -85,6 +89,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedCellars, setSelectedCellars] = useState<string[]>([]);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -93,9 +98,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   useEffect(() => {
     const filterParam = searchParams.get('filter');
     const qParam = searchParams.get('q');
+    const collectionParam = searchParams.get('collection');
     if (qParam) {
       setSearchQuery(qParam);
     }
+    setSelectedCollectionId(collectionParam ?? null);
     if (filterParam === 'opened') {
       setOpenedFilter('opened');
       setIsFiltersOpen(true);
@@ -154,6 +161,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       result = result.filter((b: InventoryItem) => lockedCategories.includes(b.category));
     }
 
+    // 0b. Collection filter (from URL param)
+    if (selectedCollectionId) {
+      result = result.filter((b: InventoryItem) =>
+        (b.collections ?? []).some(c => c.id === selectedCollectionId)
+      );
+    }
+
     // 1. Category Filter
     if (selectedCategories.length > 0) {
       result = result.filter((b: InventoryItem) => selectedCategories.includes(b.category));
@@ -175,7 +189,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       result = result.filter((b: InventoryItem) => b.reminderDate && b.reminderDate.split('T')[0] <= today);
     }
 
-
     // 3. Text Search
     if (searchQuery.trim()) {
       const normalize = (s: string) =>
@@ -192,8 +205,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           b.vintage?.toString(),
           t(`categories.${b.category}`),
           b.region,
-          b.collection,
           cellarName,
+          ...(b.collections ?? []).map(c => c.name),
           ...(b.tags || [])
         ].filter(Boolean) as string[];
 
@@ -202,7 +215,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     }
 
     return result;
-  }, [items, searchQuery, selectedCategories, selectedCellars, cellars, openedFilter, t, hasMounted, lockedCategories]);
+  }, [items, searchQuery, selectedCategories, selectedCellars, selectedCollectionId, cellars, openedFilter, t, hasMounted, lockedCategories]);
 
 
   const toggleBulkMode = useCallback(() => {
@@ -210,20 +223,36 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     setSelectedIds(new Set());
   }, []);
 
+  const syncCollections = useCallback(
+    async (itemId: string, newCollectionIds: string[], oldCollectionIds: string[]) => {
+      const oldSet = new Set(oldCollectionIds);
+      const newSet = new Set(newCollectionIds);
+      const toAdd = newCollectionIds.filter(id => !oldSet.has(id));
+      const toRemove = oldCollectionIds.filter(id => !newSet.has(id));
+      await Promise.all([
+        ...toAdd.map(colId => addItemsToCollectionMutation.mutateAsync({ id: colId, itemIds: [itemId] })),
+        ...toRemove.map(colId => removeItemFromCollectionMutation.mutateAsync({ id: colId, itemId })),
+      ]);
+    },
+    [addItemsToCollectionMutation, removeItemFromCollectionMutation]
+  );
+
   const handleCreate = useCallback(
-    (values: Partial<InventoryItem>) => {
+    async (values: Partial<InventoryItem>, collectionIds: string[]) => {
       const dup = findDuplicate(items ?? [], values);
       if (dup) {
         setDuplicateFound(dup);
         setDuplicateCandidate(values);
+        setPendingCollectionIds(collectionIds);
         return;
       }
-      createMutation.mutate(values as InventoryItem, {
-        onSettled: () => setMode('idle'),
-      });
+      const created = await createMutation.mutateAsync(values as InventoryItem);
       setMode('idle');
+      if (collectionIds.length > 0) {
+        await syncCollections(created.id, collectionIds, []);
+      }
     },
-    [createMutation, items]
+    [createMutation, items, syncCollections]
   );
 
   const handleDuplicateIncrement = useCallback(() => {
@@ -231,23 +260,27 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     const newQty = (duplicateFound.quantity ?? 1) + (duplicateCandidate.quantity ?? 1);
     updateMutation.mutate(
       { id: duplicateFound.id, patch: { quantity: newQty } },
-      { onSettled: () => { setMode('idle'); setDuplicateFound(null); setDuplicateCandidate(null); } }
+      { onSettled: () => { setMode('idle'); setDuplicateFound(null); setDuplicateCandidate(null); setPendingCollectionIds([]); } }
     );
   }, [duplicateFound, duplicateCandidate, updateMutation]);
 
-  const handleDuplicateCreateAnyway = useCallback(() => {
+  const handleDuplicateCreateAnyway = useCallback(async () => {
     if (!duplicateCandidate) return;
+    const collIds = pendingCollectionIds;
     setDuplicateFound(null);
     setDuplicateCandidate(null);
-    createMutation.mutate(duplicateCandidate as InventoryItem, {
-      onSettled: () => setMode('idle'),
-    });
+    setPendingCollectionIds([]);
+    const created = await createMutation.mutateAsync(duplicateCandidate as InventoryItem);
     setMode('idle');
-  }, [duplicateCandidate, createMutation]);
+    if (collIds.length > 0) {
+      await syncCollections(created.id, collIds, []);
+    }
+  }, [duplicateCandidate, pendingCollectionIds, createMutation, syncCollections]);
 
   const handleDuplicateCancel = useCallback(() => {
     setDuplicateFound(null);
     setDuplicateCandidate(null);
+    setPendingCollectionIds([]);
   }, []);
 
   const handleBulkApply = useCallback(
@@ -268,14 +301,15 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   );
 
   const handleUpdate = useCallback(
-    (values: Partial<InventoryItem>) => {
+    async (values: Partial<InventoryItem>, newCollectionIds: string[]) => {
       if (!editingItem) return;
-      updateMutation.mutate(
-        { id: editingItem.id, patch: values },
-        { onSettled: () => { setMode('idle'); setEditingItem(null); } }
-      );
+      await updateMutation.mutateAsync({ id: editingItem.id, patch: values });
+      const oldIds = (editingItem.collections ?? []).map(c => c.id);
+      await syncCollections(editingItem.id, newCollectionIds, oldIds);
+      setMode('idle');
+      setEditingItem(null);
     },
-    [editingItem, updateMutation]
+    [editingItem, updateMutation, syncCollections]
   );
 
   const handleDelete = useCallback(
@@ -309,7 +343,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const hasCellars = (cellars?.length ?? 0) > 0;
   const categoryLabel = (cat: string) => t(`categories.${cat}`);
-  const hasActiveFilters = selectedCategories.length > 0 || selectedCellars.length > 0 || openedFilter !== 'all' || !!searchQuery;
+  const hasActiveFilters = selectedCategories.length > 0 || selectedCellars.length > 0 || openedFilter !== 'all' || !!searchQuery || !!selectedCollectionId;
+  const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
 
   const filterContent = (
     <Stack spacing={2}>
@@ -388,38 +423,43 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   );
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2, alignItems: 'center' }}>
-        {/* Mobile-only filter button */}
-        <IconButton
-          onClick={toggleFilters}
-          color={isFiltersOpen || hasActiveFilters ? "secondary" : "default"}
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, display: { md: 'none' } }}
-        >
-          <FilterListIcon />
-        </IconButton>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3 } }}>
+      <Box sx={{ mb: { xs: 2, sm: 3 }, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Left: filter (mobile) / view toggle (desktop) */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <IconButton
+            onClick={toggleFilters}
+            color={isFiltersOpen || hasActiveFilters ? "secondary" : "default"}
+            sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, display: { md: 'none' } }}
+          >
+            <FilterListIcon />
+          </IconButton>
+          {!isMobile && <ViewToggle value={viewMode} onChange={setViewMode} />}
+        </Box>
 
-        {!isMobile && <ViewToggle value={viewMode} onChange={setViewMode} />}
-
-        <Button
-          variant={bulkMode ? "contained" : "outlined"}
-          color={bulkMode ? "secondary" : "primary"}
-          startIcon={bulkMode ? <CloseIcon /> : <FormatListBulletedIcon />}
-          onClick={toggleBulkMode}
-          sx={{ display: items && items.length > 0 ? 'flex' : 'none' }}
-        >
-          {bulkMode ? t('actions.cancel') : t('actions.select')}
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setMode('creating')}
-          sx={{ display: { xs: 'none', sm: 'flex' } }}
-          aria-label={t('inventory.add')}
-          disabled={!hasCellars || bulkMode}
-        >
-          {t('inventory.add')}
-        </Button>
+        {/* Right: select + add */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Button
+            variant={bulkMode ? "contained" : "outlined"}
+            color={bulkMode ? "secondary" : "primary"}
+            startIcon={bulkMode ? <CloseIcon /> : <FormatListBulletedIcon />}
+            onClick={toggleBulkMode}
+            size={isMobile ? "small" : "medium"}
+            sx={{ display: items && items.length > 0 ? 'flex' : 'none' }}
+          >
+            {bulkMode ? t('actions.cancel') : t('actions.select')}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setMode('creating')}
+            sx={{ display: { xs: 'none', sm: 'flex' } }}
+            aria-label={t('inventory.add')}
+            disabled={!hasCellars || bulkMode}
+          >
+            {t('inventory.add')}
+          </Button>
+        </Box>
       </Box>
 
       {/* Mobile: collapsible filter panel */}
@@ -455,21 +495,34 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
             </Alert>
           )}
 
+          {/* Collection filter banner */}
+          {selectedCollectionId && activeCollectionName && (
+            <Box sx={{ mb: 2 }}>
+              <Chip
+                label={t('collections.filterActive', { name: activeCollectionName })}
+                onDelete={() => router.push(pathname)}
+                color="primary"
+                variant="outlined"
+                size="small"
+              />
+            </Box>
+          )}
+
           {/* Form dialog */}
           <InventoryForm
             open={mode !== 'idle'}
             initialValues={mode === 'editing' && editingItem ? editingItem : undefined}
             onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
             onClose={handleCancel}
-            isSubmitting={createMutation.isPending || updateMutation.isPending}
+            isSubmitting={createMutation.isPending || updateMutation.isPending || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}
             t={t}
           />
 
           {/* Loading skeletons */}
           {isLoading && effectiveViewMode === 'grid' && (
-            <Grid container spacing={2}>
+            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               {Array.from({ length: 6 }).map((_, i) => (
-                <Grid item xs={12} sm={6} md={4} key={i}>
+                <Grid item xs={6} sm={6} md={4} key={i}>
                   <InventoryCardSkeleton />
                 </Grid>
               ))}
@@ -549,41 +602,39 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Stats summary */}
           {!isLoading && items && items.length > 0 && mode === 'idle' && (
-            <Box sx={{ mb: 3 }}>
-              <Stack direction="row" spacing={3} divider={<Divider orientation="vertical" flexItem />}>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    {t('inventory.stats.total')}
-                  </Typography>
-                  <Typography variant="h6" fontWeight={700}>
-                    {items.length}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    {t('inventory.stats.full')}
-                  </Typography>
-                  <Typography variant="h6" fontWeight={700} color="success.main">
-                    {items.filter(b => !b.isOpened).length}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    {t('inventory.stats.opened')}
-                  </Typography>
-                  <Typography variant="h6" fontWeight={700} color="warning.main">
-                    {items.filter(b => b.isOpened).length}
-                  </Typography>
-                </Box>
-              </Stack>
+            <Box sx={{ mb: 3, display: 'flex', gap: { xs: 1, sm: 2 } }}>
+              <Paper variant="outlined" sx={{ flex: 1, p: { xs: 1.5, sm: 2 }, borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="h5" fontWeight={700} sx={{ lineHeight: 1.1 }}>
+                  {items.length}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, lineHeight: 1.2 }}>
+                  {t('inventory.stats.total')}
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ flex: 1, p: { xs: 1.5, sm: 2 }, borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="h5" fontWeight={700} color="success.main" sx={{ lineHeight: 1.1 }}>
+                  {items.filter(b => !b.isOpened).length}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, lineHeight: 1.2 }}>
+                  {t('inventory.stats.full')}
+                </Typography>
+              </Paper>
+              <Paper variant="outlined" sx={{ flex: 1, p: { xs: 1.5, sm: 2 }, borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="h5" fontWeight={700} color="warning.main" sx={{ lineHeight: 1.1 }}>
+                  {items.filter(b => b.isOpened).length}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, lineHeight: 1.2 }}>
+                  {t('inventory.stats.opened')}
+                </Typography>
+              </Paper>
             </Box>
           )}
 
           {/* Inventory grid */}
           {!isLoading && filteredItems && filteredItems.length > 0 && effectiveViewMode === 'grid' && (
-            <Grid container spacing={2}>
+            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               {filteredItems.map((item: InventoryItem) => (
-                <Grid item xs={12} sm={6} md={4} key={item.id}>
+                <Grid item xs={6} sm={6} md={4} key={item.id}>
                   <InventoryCard
                     item={item}
                     categoryLabel={categoryLabel(item.category)}
@@ -643,7 +694,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       <Fab
         color="primary"
         aria-label={t('inventory.add')}
-        sx={{ position: 'fixed', bottom: { xs: 80, md: 24 }, right: 24, display: { sm: 'none' } }}
+        sx={{ position: 'fixed', bottom: { xs: 72, md: 24 }, right: 16, display: { sm: 'none' } }}
         onClick={() => setMode('creating')}
         disabled={!hasCellars}
       >
@@ -675,7 +726,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         <Box
           sx={{
             position: 'fixed',
-            bottom: 24,
+            bottom: { xs: 72, md: 24 },
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 1200,
@@ -686,7 +737,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
             display: 'flex',
             gap: 3,
             alignItems: 'center',
-            minWidth: 320,
+            minWidth: { xs: 'calc(100vw - 32px)', sm: 320 },
           }}
         >
           <Typography fontWeight="bold" color="primary">

@@ -34,14 +34,23 @@ export function BottomNav() {
 
   return (
     <Paper
-      sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: theme.zIndex.appBar }}
-      elevation={3}
+      sx={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: theme.zIndex.appBar,
+        borderTop: 1,
+        borderColor: 'divider',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
+      elevation={0}
     >
       <BottomNavigation
         value={activeIndex === -1 ? false : activeIndex}
         onChange={(_, idx) => router.push(navLinks[idx].href)}
         showLabels
-        sx={{ height: 64 }}
+        sx={{ height: 56 }}
       >
         {navLinks.map((link) => (
           <BottomNavigationAction

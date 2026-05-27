@@ -69,7 +69,7 @@ export function InventoryCard({ item, categoryLabel, onEdit, onDelete, onView, t
       {item.photoUrl ? (
         <CardMedia
           component="img"
-          height={150}
+          height={120}
           image={item.photoUrl}
           alt={item.name}
           sx={{ objectFit: 'contain', bgcolor: 'background.paper', cursor: onView ? 'pointer' : 'default' }}
@@ -79,15 +79,14 @@ export function InventoryCard({ item, categoryLabel, onEdit, onDelete, onView, t
         <Box
           onClick={() => onView?.(item)}
           sx={{
-            height: 90,
+            height: 120,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             background: CATEGORY_PLACEHOLDER_BG[item.category],
             cursor: onView ? 'pointer' : 'default',
-            opacity: 0.7,
-            fontSize: '2rem',
-            color: 'rgba(255,255,255,0.6)',
+            fontSize: '2.5rem',
+            color: 'rgba(255,255,255,0.5)',
           }}
         >
           {CATEGORY_ICONS[item.category]}
@@ -95,7 +94,7 @@ export function InventoryCard({ item, categoryLabel, onEdit, onDelete, onView, t
       )}
 
       <CardContent
-        sx={{ pb: 1, pt: onSelectToggle ? 4 : 2, cursor: onView ? 'pointer' : 'default' }}
+        sx={{ pb: 1, pt: onSelectToggle ? 4 : 2, px: { xs: 1, sm: 2 }, cursor: onView ? 'pointer' : 'default' }}
         onClick={() => onView?.(item)}
       >
         {onSelectToggle && (
@@ -191,7 +190,7 @@ export function InventoryCard({ item, categoryLabel, onEdit, onDelete, onView, t
         </Box>
       </CardContent>
 
-      <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
+      <CardActions sx={{ pt: 0, justifyContent: 'flex-end', display: { xs: 'none', sm: 'flex' } }}>
         <Tooltip title={t('actions.edit')}>
           <span>
             <IconButton

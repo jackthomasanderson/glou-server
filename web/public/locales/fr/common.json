@@ -545,6 +545,7 @@
       "color": "Couleur",
       "icon": "Icône"
     },
+    "filterActive": "Collection : {{name}}",
     "errors": {
       "nameRequired": "Nom requis",
       "load": "Impossible de charger les collections."

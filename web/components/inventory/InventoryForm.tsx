@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Alert, Box, Button, Chip, Collapse, Dialog, DialogActions,
+  Alert, Autocomplete, Box, Button, Chip, Collapse, Dialog, DialogActions,
   DialogContent, DialogTitle, Divider, FormControl, Grid,
   IconButton, InputLabel, MenuItem, Select, Stack, TextField,
   Tooltip, Typography,
@@ -17,6 +17,8 @@ import SportsMmaIcon from '@mui/icons-material/SportsMma';
 import GrassIcon from '@mui/icons-material/Grass';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
+import { useCollections } from '@/hooks/useCollections';
+import { Collection } from '@/lib/collections/types';
 import { maturityReferenceClient } from '@/lib/maturity-references/client';
 import { MaturitySuggestion } from '@/lib/maturity-references/types';
 import { ProductAutocomplete } from './ProductAutocomplete';
@@ -28,7 +30,7 @@ import { ItemImageSection } from './ItemImageSection';
 interface InventoryFormProps {
   open: boolean;
   initialValues?: Partial<InventoryItem>;
-  onSubmit: (values: Partial<InventoryItem>) => void;
+  onSubmit: (values: Partial<InventoryItem>, collectionIds: string[]) => void;
   onClose: () => void;
   isSubmitting?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -62,7 +64,9 @@ export function InventoryForm({
   open, initialValues, onSubmit, onClose, isSubmitting = false, t,
 }: InventoryFormProps) {
   const { data: cellars } = useCellars();
+  const { data: allCollections } = useCollections();
   const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? EMPTY_FORM);
+  const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [showOptionals, setShowOptionals] = useState(false);
   const [suggestion, setSuggestion] = useState<MaturitySuggestion | null>(null);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
@@ -75,6 +79,12 @@ export function InventoryForm({
   useEffect(() => {
     if (open) {
       setValues(initialValues ?? EMPTY_FORM);
+      setSelectedCollections(
+        initialValues?.collections?.map(ic => ({
+          id: ic.id, name: ic.name, color: ic.color, icon: ic.icon ?? undefined,
+          userId: '', items: [], createdAt: '', updatedAt: '',
+        })) ?? []
+      );
       setShowOptionals(false);
       setSuggestion(null);
       setPrefetchedImages([]);
@@ -124,7 +134,7 @@ export function InventoryForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (canSave) onSubmit(values);
+    if (canSave) onSubmit(values, selectedCollections.map(c => c.id));
   };
 
   // Debounced maturity suggestion
@@ -566,10 +576,38 @@ export function InventoryForm({
 
                 {/* Common optionals */}
                 <Grid item xs={12} sm={6}>
-                  <TextField fullWidth size="small"
-                    label={t('inventory.fields.collection')}
-                    value={values.collection ?? ''}
-                    onChange={(e) => setField('collection', e.target.value)}
+                  <Autocomplete
+                    multiple
+                    size="small"
+                    options={allCollections ?? []}
+                    getOptionLabel={(option) => option.name}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    value={selectedCollections}
+                    onChange={(_, newValue) => setSelectedCollections(newValue)}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => {
+                        const { key, ...tagProps } = getTagProps({ index });
+                        return (
+                          <Chip
+                            key={key}
+                            label={`${option.icon ?? ''} ${option.name}`.trim()}
+                            size="small"
+                            sx={{ bgcolor: option.color, color: '#fff', fontSize: '0.7rem' }}
+                            {...tagProps}
+                          />
+                        );
+                      })
+                    }
+                    renderOption={(props, option) => (
+                      <Box component="li" {...props} key={option.id}>
+                        <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: option.color, mr: 1, flexShrink: 0 }} />
+                        {option.icon && <Typography variant="body2" sx={{ mr: 0.5 }}>{option.icon}</Typography>}
+                        <Typography variant="body2">{option.name}</Typography>
+                      </Box>
+                    )}
+                    renderInput={(params) => (
+                      <TextField {...params} label={t('inventory.fields.collection')} size="small" />
+                    )}
                   />
                 </Grid>
                 <Grid item xs={6} sm={3}>
