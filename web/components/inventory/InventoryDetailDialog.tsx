@@ -1,47 +1,26 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useCellars } from '@/hooks/useCellars';
-import { useInventoryItem, useInventoryItemHistory } from '@/hooks/useInventory';
+import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem } from '@/hooks/useInventory';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, IconButton, Typography, Chip, Box, Divider, Stack,
-  Collapse, CircularProgress, Tooltip,
+  Box, Typography, IconButton, Chip, Slider, Button, Drawer,
+  Divider, Tooltip, CircularProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import NotificationsIcon from '@mui/icons-material/Notifications';
+import EditIcon from '@mui/icons-material/Edit';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import ThermostatIcon from '@mui/icons-material/Thermostat';
+import PlaceIcon from '@mui/icons-material/Place';
+import WaterDropIcon from '@mui/icons-material/WaterDrop';
+import LocalBarIcon from '@mui/icons-material/LocalBar';
+import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
 import WineBarIcon from '@mui/icons-material/WineBar';
 import SportsMmaIcon from '@mui/icons-material/SportsMma';
 import GrassIcon from '@mui/icons-material/Grass';
 import BubbleChartIcon from '@mui/icons-material/BubbleChart';
-import HistoryIcon from '@mui/icons-material/History';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
-import LocalBarIcon from '@mui/icons-material/LocalBar';
 import { InventoryItem, InventoryCategory, InventoryHistoryEntry } from '@/lib/inventory/types';
-import { DrinkingWindowBadge } from './DrinkingWindowBadge';
 import { TastingForm } from '@/components/tastings/TastingForm';
-
-const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <WineBarIcon sx={{ fontSize: 56, opacity: 0.25, color: '#fff' }} />,
-  sparkling: <BubbleChartIcon sx={{ fontSize: 56, opacity: 0.25, color: '#fff' }} />,
-  spirit: <SportsMmaIcon sx={{ fontSize: 56, opacity: 0.25, color: '#fff' }} />,
-  cigar: <GrassIcon sx={{ fontSize: 56, opacity: 0.25, color: '#fff' }} />,
-};
-
-const CATEGORY_CHIP_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <WineBarIcon fontSize="small" />,
-  sparkling: <BubbleChartIcon fontSize="small" />,
-  spirit: <SportsMmaIcon fontSize="small" />,
-  cigar: <GrassIcon fontSize="small" />,
-};
-
-const CATEGORY_COLORS: Record<InventoryCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
-  wine: 'secondary',
-  sparkling: 'primary',
-  spirit: 'default',
-  cigar: 'warning',
-};
 
 const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
   wine: 'linear-gradient(160deg, #3D1A1A 0%, #6B2C2C 100%)',
@@ -50,61 +29,46 @@ const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
   cigar: 'linear-gradient(160deg, #2A1A0A 0%, #5C3A1A 100%)',
 };
 
-interface DetailRowProps {
+const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
+  wine: <WineBarIcon sx={{ fontSize: 64, opacity: 0.2, color: '#fff' }} />,
+  sparkling: <BubbleChartIcon sx={{ fontSize: 64, opacity: 0.2, color: '#fff' }} />,
+  spirit: <SportsMmaIcon sx={{ fontSize: 64, opacity: 0.2, color: '#fff' }} />,
+  cigar: <GrassIcon sx={{ fontSize: 64, opacity: 0.2, color: '#fff' }} />,
+};
+
+const DRAWER_WIDTH = 400;
+
+interface InfoCardProps {
+  icon: React.ReactElement;
   label: string;
   value: React.ReactNode;
+  valueColor?: string;
 }
 
-function DetailRow({ label, value }: DetailRowProps) {
-  if (value === null || value === undefined || value === '' || value === false) return null;
+function InfoCard({ icon, label, value, valueColor }: InfoCardProps) {
   return (
-    <Box sx={{ display: 'flex', gap: 2, py: 0.5 }}>
-      <Typography variant="body2" color="text.secondary" sx={{ minWidth: 140, flexShrink: 0 }}>
-        {label}
+    <Box
+      sx={{
+        p: 1.5,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.5,
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {React.cloneElement(icon, { sx: { fontSize: 14, color: 'text.secondary' } })}
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.08rem', textTransform: 'uppercase', color: 'text.secondary' }}>
+          {label}
+        </Typography>
+      </Box>
+      <Typography
+        sx={{ fontSize: '0.85rem', fontWeight: 700, color: valueColor ?? 'text.primary', lineHeight: 1.2 }}
+      >
+        {value}
       </Typography>
-      <Box sx={{ flex: 1 }}>
-        {typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? (
-          <Typography variant="body2">{String(value)}</Typography>
-        ) : (
-          value
-        )}
-      </Box>
-    </Box>
-  );
-}
-
-function HistoryEntryRow({ entry, formatDate, t }: {
-  entry: InventoryHistoryEntry;
-  formatDate: (d: string) => string | null;
-  t: (k: string) => string;
-}) {
-  const actionLabel: Record<string, string> = {
-    CREATE: t('traceability.actions.create'),
-    UPDATE: t('traceability.actions.update'),
-    DELETE: t('traceability.actions.delete'),
-    RESTORE: t('traceability.actions.restore'),
-  };
-  return (
-    <Box sx={{ py: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1 }}>
-        <Typography variant="caption" fontWeight={600} color="text.primary">
-          {actionLabel[entry.action] ?? entry.action}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {formatDate(entry.createdAt)}
-        </Typography>
-      </Box>
-      <Typography variant="caption" color="text.secondary">{entry.actorName}</Typography>
-      {entry.changes && entry.changes.length > 0 && (
-        <Box sx={{ mt: 0.5, pl: 1 }}>
-          {entry.changes.map((c, i) => (
-            <Typography key={i} variant="caption" display="block" color="text.secondary"
-              sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
-              {c.field}: {JSON.stringify(c.from)} → {JSON.stringify(c.to)}
-            </Typography>
-          ))}
-        </Box>
-      )}
     </Box>
   );
 }
@@ -120,355 +84,441 @@ interface InventoryDetailDialogProps {
 export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: InventoryDetailDialogProps) {
   const hasMounted = useHasMounted();
   const { data: cellars } = useCellars();
-  const [showHistory, setShowHistory] = useState(false);
+  const updateMutation = useUpdateInventoryItem();
   const [tastingOpen, setTastingOpen] = useState(false);
 
   const { data: enrichedItem } = useInventoryItem(item?.id ?? '');
-  const { data: history, isLoading: historyLoading } = useInventoryItemHistory(item?.id ?? '', showHistory);
-
-  if (!item) return null;
+  const { data: history } = useInventoryItemHistory(item?.id ?? '', open);
 
   const d = enrichedItem ?? item;
-  const creator = enrichedItem?._creator ?? null;
-  const lastEditor = enrichedItem?._lastEditor ?? null;
-  const cellarName = d.cellarId ? cellars?.find((c) => c.id === d.cellarId)?.name ?? null : null;
+  const fillLevel = d?.isOpened ? (d?.fillLevel ?? 0) : 100;
+  const [localFill, setLocalFill] = useState(fillLevel);
 
-  const isWine = d.category === 'wine';
+  useEffect(() => {
+    setLocalFill(d?.isOpened ? (d?.fillLevel ?? 0) : 100);
+  }, [d?.fillLevel, d?.isOpened, open]);
+
+  const handleFillCommit = useCallback(
+    (value: number) => {
+      if (!item) return;
+      updateMutation.mutate({
+        id: item.id,
+        patch: {
+          fillLevel: value,
+          isOpened: value < 100,
+          ...(value < 100 && !item.isOpened ? { openedAt: new Date().toISOString() } : {}),
+        },
+      });
+    },
+    [item, updateMutation]
+  );
+
+  const handlePreset = useCallback(
+    (value: number) => {
+      setLocalFill(value);
+      handleFillCommit(value);
+    },
+    [handleFillCommit]
+  );
+
+  if (!item) return null;
+  if (!d) return null;
+
+  const cellarName = d.cellarId ? cellars?.find((c) => c.id === d.cellarId)?.name ?? null : null;
   const isWineOrSparkling = d.category === 'wine' || d.category === 'sparkling';
-  const isSparkling = d.category === 'sparkling';
-  const isSpirit = d.category === 'spirit';
   const isCigar = d.category === 'cigar';
+
+  const drinkingWindow =
+    d.peakMaturityFrom && d.peakMaturityTo
+      ? `${d.peakMaturityFrom} – ${d.peakMaturityTo}`
+      : d.peakMaturityFrom
+      ? `≥ ${d.peakMaturityFrom}`
+      : d.peakMaturityTo
+      ? `≤ ${d.peakMaturityTo}`
+      : null;
+
+  const sectionLabel = isCigar
+    ? t('inventory.detail.cigarLevel')
+    : isWineOrSparkling
+    ? t('inventory.detail.wineLevel')
+    : t('inventory.detail.spiritLevel');
+
+  const fullLabel = isCigar ? t('inventory.detail.full') : t('inventory.detail.full');
+  const halfLabel = t('inventory.detail.half');
+  const emptyLabel = t('inventory.detail.empty');
 
   const fmt = (s: string | null | undefined) =>
     s && hasMounted ? new Date(s).toLocaleDateString() : null;
-  const fmtDt = (s: string | null | undefined) =>
-    s && hasMounted ? new Date(s).toLocaleString() : null;
+
+  const formatHistoryEntry = (entry: InventoryHistoryEntry): string => {
+    if (!entry.changes || entry.changes.length === 0) {
+      return t(`traceability.actions.${entry.action.toLowerCase()}`);
+    }
+    const fillChange = entry.changes.find(c => c.field === 'fillLevel');
+    if (fillChange) {
+      const val = fillChange.to as number;
+      const label = val >= 100 ? t('inventory.detail.full') : val === 0 ? t('inventory.detail.empty') : `${val}%`;
+      return `${t('inventory.detail.levelAdjusted')} ${val}% (${label})`;
+    }
+    return entry.changes.map(c => `${c.field}: ${JSON.stringify(c.to)}`).join(', ');
+  };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
-      {/* ── Title ───────────────────────────────────────────────────── */}
-      <DialogTitle sx={{ pr: 6, py: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Chip
-            icon={CATEGORY_CHIP_ICONS[d.category]}
-            label={t(`categories.${d.category}`)}
-            color={CATEGORY_COLORS[d.category]}
-            size="small"
-          />
-          <Typography variant="h6" component="span" fontWeight={700}>
-            {d.name}
-            {d.vintage ? ` · ${d.vintage}` : ''}
-          </Typography>
-        </Box>
-        <IconButton onClick={onClose} size="small" sx={{ position: 'absolute', top: 8, right: 8 }}>
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-
-      {/* ── Body ────────────────────────────────────────────────────── */}
-      <DialogContent dividers sx={{ p: 0 }}>
-        <Box sx={{ display: 'flex', minHeight: { sm: 420 } }}>
-
-          {/* ── LEFT: bottle image panel ───────────────────────────── */}
-          <Box
-            sx={{
-              width: { xs: '100%', sm: 220 },
-              maxWidth: { xs: '100%', sm: 220 },
-              flexShrink: 0,
-              display: { xs: 'none', sm: 'flex' },
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: d.photoUrl ? 'none' : PLACEHOLDER_BG[d.category],
-              bgcolor: d.photoUrl ? 'background.default' : undefined,
-              borderRight: 1,
-              borderColor: 'divider',
-              p: 2,
-              position: 'sticky',
-              top: 0,
-              alignSelf: 'flex-start',
-            }}
+    <>
+      <Drawer
+        anchor="right"
+        open={open}
+        onClose={onClose}
+        PaperProps={{
+          sx: { width: { xs: '100%', sm: DRAWER_WIDTH }, display: 'flex', flexDirection: 'column' },
+        }}
+      >
+        {/* ── Header ─────────────────────────────────────────── */}
+        <Box sx={{ px: 3, pt: 2.5, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Typography
+            sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'secondary.main', mb: 0.25 }}
           >
-            {d.photoUrl ? (
+            {isCigar ? t('inventory.detail.titleCigar') : t('inventory.detail.titleWine')}
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2, pr: 4 }}>
+              {d.name}
+            </Typography>
+            <IconButton size="small" onClick={onClose} sx={{ flexShrink: 0 }}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </Box>
+
+        {/* ── Scrollable body ─────────────────────────────────── */}
+        <Box sx={{ flex: 1, overflowY: 'auto' }}>
+          {/* Fill level section */}
+          <Box sx={{ px: 3, pt: 2.5 }}>
+            <Typography
+              sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary', mb: 2, textAlign: 'center' }}
+            >
+              {sectionLabel}
+            </Typography>
+
+            {/* Image + fill badge */}
+            <Box
+              sx={{
+                position: 'relative',
+                height: 160,
+                borderRadius: 2,
+                overflow: 'hidden',
+                mb: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: d.photoUrl ? 'none' : PLACEHOLDER_BG[d.category],
+                bgcolor: d.photoUrl ? 'background.default' : undefined,
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              {d.photoUrl ? (
+                <Box
+                  component="img"
+                  src={d.photoUrl}
+                  alt={d.name}
+                  sx={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
+                />
+              ) : (
+                CATEGORY_ICONS_LG[d.category]
+              )}
               <Box
-                component="img"
-                src={d.photoUrl}
-                alt={d.name}
                 sx={{
-                  width: '100%',
-                  maxHeight: 380,
-                  objectFit: 'contain',
-                  display: 'block',
+                  position: 'absolute',
+                  top: 10,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  bgcolor: localFill <= 20 ? 'error.main' : '#111',
+                  color: '#fff',
+                  borderRadius: 2,
+                  px: 1,
+                  py: 0.35,
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  letterSpacing: '.03rem',
+                  whiteSpace: 'nowrap',
                 }}
+              >
+                {localFill}%
+              </Box>
+            </Box>
+
+            {/* Slider */}
+            <Box sx={{ mb: 0.5 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {isCigar ? t('inventory.detail.levelCigar') : t('inventory.detail.levelWine')}
+                </Typography>
+                <Typography variant="body2" color="primary" fontWeight={700}>
+                  {localFill}%
+                </Typography>
+              </Box>
+              <Slider
+                value={localFill}
+                onChange={(_, v) => setLocalFill(v as number)}
+                onChangeCommitted={(_, v) => handleFillCommit(v as number)}
+                min={0}
+                max={100}
+                step={1}
+                disabled={updateMutation.isPending}
+                sx={{ py: 1 }}
               />
-            ) : (
-              CATEGORY_ICONS[d.category]
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: -1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  {t('inventory.detail.empty')} (0%)
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  {isCigar ? t('inventory.detail.inUse') : t('inventory.detail.opened')}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  {fullLabel} (100%)
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Preset buttons */}
+            <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+              {[
+                { label: fullLabel, value: 100 },
+                { label: halfLabel, value: 50 },
+                { label: emptyLabel, value: 0 },
+              ].map(({ label, value }) => (
+                <Button
+                  key={value}
+                  variant={localFill === value ? 'contained' : 'outlined'}
+                  size="small"
+                  onClick={() => handlePreset(value)}
+                  disabled={updateMutation.isPending}
+                  sx={{ flex: 1, py: 0.75, fontSize: '0.75rem' }}
+                >
+                  {label}
+                </Button>
+              ))}
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 2.5 }} />
+
+          {/* Info cards grid */}
+          <Box sx={{ px: 3 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: 2.5 }}>
+              {drinkingWindow && (
+                <InfoCard
+                  icon={<LocalFireDepartmentIcon />}
+                  label={isCigar ? t('inventory.detail.agingEstimate') : t('inventory.fields.peakMaturity')}
+                  value={drinkingWindow}
+                  valueColor="#B45309"
+                />
+              )}
+              {d.serviceTemp && (
+                <InfoCard
+                  icon={<ThermostatIcon />}
+                  label={isCigar ? t('inventory.fields.serviceTemp') + ' garde' : t('inventory.fields.serviceTemp')}
+                  value={d.serviceTemp}
+                />
+              )}
+              {isCigar && d.recommendedHumidity != null && (
+                <InfoCard
+                  icon={<WaterDropIcon />}
+                  label={t('inventory.fields.recommendedHumidity')}
+                  value={`${d.recommendedHumidity}% HR`}
+                />
+              )}
+              {cellarName && (
+                <InfoCard
+                  icon={<PlaceIcon />}
+                  label={t('inventory.detail.location')}
+                  value={d.location ? `${cellarName} · ${d.location}` : cellarName}
+                  valueColor="#7B1E30"
+                />
+              )}
+            </Box>
+
+            {/* Cigar vitole section */}
+            {isCigar && (d.format || d.quantity) && (
+              <>
+                <Typography
+                  sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary', mb: 1.5 }}
+                >
+                  {t('inventory.detail.vitole')}
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, mb: 2.5 }}>
+                  {d.format && (
+                    <Box sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+                      <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', display: 'block', mb: 0.25 }}>
+                        {t('inventory.fields.format')}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{d.format}</Typography>
+                    </Box>
+                  )}
+                  {d.quantity != null && (
+                    <Box sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+                      <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', display: 'block', mb: 0.25 }}>
+                        {t('inventory.fields.quantity')}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{d.quantity}</Typography>
+                    </Box>
+                  )}
+                  {d.recommendedHumidity != null && (
+                    <Box sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
+                      <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', display: 'block', mb: 0.25 }}>
+                        {t('inventory.fields.recommendedHumidity')}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{d.recommendedHumidity}%</Typography>
+                    </Box>
+                  )}
+                </Box>
+              </>
+            )}
+
+            {/* Notes */}
+            {d.notes && (
+              <>
+                <Typography
+                  sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary', mb: 1 }}
+                >
+                  {isCigar ? t('inventory.detail.tastingNotes') : t('inventory.detail.sommelierNotes')}
+                </Typography>
+                <Box
+                  sx={{
+                    p: 2,
+                    bgcolor: 'action.hover',
+                    borderRadius: 2,
+                    mb: 2.5,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                  }}
+                >
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'text.secondary', fontStyle: 'italic', lineHeight: 1.6 }}>
+                    {d.notes}
+                  </Typography>
+                </Box>
+              </>
+            )}
+
+            {/* Collections */}
+            {d.collections && d.collections.length > 0 && (
+              <>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
+                  <CollectionsBookmarkIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary' }}>
+                    {t('collections.title')}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 2.5 }}>
+                  {d.collections.map((col) => (
+                    <Chip
+                      key={col.id}
+                      label={`${col.icon ? col.icon + ' ' : ''}${col.name}`}
+                      size="small"
+                      sx={{
+                        bgcolor: `${col.color}22`,
+                        borderColor: col.color,
+                        color: col.color,
+                        border: '1px solid',
+                      }}
+                    />
+                  ))}
+                </Box>
+              </>
+            )}
+
+            {/* History */}
+            {history && history.length > 0 && (
+              <>
+                <Typography
+                  sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary', mb: 1.25 }}
+                >
+                  {t('traceability.title')}
+                </Typography>
+                <Box sx={{ mb: 3 }}>
+                  {history.slice(0, 10).map((entry) => (
+                    <Box
+                      key={entry.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        py: 0.75,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        '&:last-child': { borderBottom: 'none' },
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          px: 1,
+                          py: 0.25,
+                          borderRadius: 1.5,
+                          bgcolor: 'primary.main',
+                          color: '#fff',
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                          maxWidth: 80,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {entry.actorName}
+                      </Box>
+                      <Typography variant="caption" sx={{ flex: 1, color: 'text.secondary', fontSize: '0.7rem' }}>
+                        {formatHistoryEntry(entry)}
+                      </Typography>
+                      <Typography variant="caption" color="text.disabled" sx={{ flexShrink: 0, fontSize: '0.65rem' }}>
+                        {hasMounted ? new Date(entry.createdAt).toLocaleDateString() : ''}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </>
             )}
           </Box>
-
-          {/* ── RIGHT: details ────────────────────────────────────── */}
-          <Box sx={{ flex: 1, px: 3, py: 2.5, minWidth: 0, overflowY: 'auto' }}>
-            <Stack spacing={2} divider={<Divider flexItem />}>
-
-              {/* Headline: producer + key attributes */}
-              <Box>
-                <Typography variant="h6" fontWeight={600} gutterBottom>
-                  {d.producer}
-                </Typography>
-                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                  {d.region && <Chip label={d.region} size="small" variant="outlined" />}
-                  {d.color && <Chip label={t(`inventory.color.${d.color}`)} size="small" variant="outlined" />}
-                  {isSparkling && d.sparklingType && (
-                    <Chip label={t(`inventory.sparklingTypes.${d.sparklingType}`)} size="small" variant="outlined" />
-                  )}
-                  {isSpirit && d.spiritType && (
-                    <Chip label={t(`inventory.spiritTypes.${d.spiritType}`)} size="small" variant="outlined" />
-                  )}
-                  {d.alcoholDegree != null && (
-                    <Chip label={`${d.alcoholDegree}%`} size="small" variant="outlined" />
-                  )}
-                  {d.bottleSize && <Chip label={d.bottleSize} size="small" variant="outlined" />}
-                </Stack>
-                {(d.peakMaturityFrom || d.peakMaturityTo || (d.alertStatus && d.alertStatus !== 'none')) && (
-                  <Box sx={{ mt: 1.5 }}>
-                    <DrinkingWindowBadge
-                      alertStatus={d.alertStatus}
-                      alertsPaused={d.alertsPaused}
-                      peakMaturityFrom={d.peakMaturityFrom}
-                      peakMaturityTo={d.peakMaturityTo}
-                      t={t}
-                      size="medium"
-                    />
-                  </Box>
-                )}
-              </Box>
-
-              {/* Identity */}
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  {t('inventory.step1')}
-                </Typography>
-                <DetailRow label={t('cellars.name')} value={cellarName} />
-                <DetailRow label={t('inventory.fields.location')} value={d.location} />
-                <DetailRow label={t('inventory.fields.collection')} value={d.collection} />
-                <DetailRow label={t('inventory.fields.tags')} value={
-                  d.tags?.length ? (
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {d.tags.map((tag) => <Chip key={tag} label={tag} size="small" variant="outlined" />)}
-                    </Box>
-                  ) : null
-                } />
-              </Box>
-
-              {/* Category specifics */}
-              {(isWineOrSparkling || isSpirit || isCigar) && (
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    {t('inventory.step2')}
-                  </Typography>
-                  {isWineOrSparkling && (
-                    <>
-                      <DetailRow label={t('inventory.fields.grapeVarieties')}
-                        value={d.grapeVarieties?.length ? d.grapeVarieties.join(', ') : null} />
-                      <DetailRow label={t('inventory.fields.serviceTemp')} value={d.serviceTemp} />
-                      <DetailRow label={t('inventory.fields.lotNumber')} value={d.lotNumber} />
-                      {isWine && d.needsAeration != null && (
-                        <DetailRow label={t('inventory.fields.needsAeration')} value={d.needsAeration ? '✓' : null} />
-                      )}
-                      {isSparkling && (
-                        <>
-                          <DetailRow label={t('inventory.fields.sugarLevel')} value={
-                            d.sugarLevel ? t(`inventory.sugarLevels.${d.sugarLevel}`) : null
-                          } />
-                          <DetailRow label={t('inventory.fields.baseYear')} value={d.baseYear} />
-                          <DetailRow label={t('inventory.fields.disgorgingDate')} value={d.disgorgingDate ? new Date(d.disgorgingDate).toLocaleDateString() : null} />
-                        </>
-                      )}
-                    </>
-                  )}
-                  {isSpirit && (
-                    <>
-                      <DetailRow label={t('inventory.fields.edition')} value={d.edition} />
-                      <DetailRow label={t('inventory.fields.declaredAge')} value={
-                        d.declaredAge != null ? `${d.declaredAge} ${t('inventory.fields.declaredAgeUnit')}` : null
-                      } />
-                      <DetailRow label={t('inventory.fields.caskType')} value={d.caskType} />
-                      <DetailRow label={t('inventory.fields.additions')} value={d.additions} />
-                      <DetailRow label={t('inventory.fields.aromaticProfile')} value={d.aromaticProfile} />
-                    </>
-                  )}
-                  {isCigar && (
-                    <>
-                      <DetailRow label={t('inventory.fields.format')} value={d.format} />
-                      <DetailRow label={t('inventory.fields.quantity')} value={d.quantity} />
-                      <DetailRow label={t('inventory.fields.manufactureYear')} value={d.manufactureYear} />
-                      <DetailRow label={t('inventory.fields.leafOrigin')} value={d.leafOrigin} />
-                      <DetailRow label={t('inventory.fields.factoryCode')} value={d.factoryCode} />
-                      <DetailRow label={t('inventory.fields.recommendedHumidity')}
-                        value={d.recommendedHumidity != null ? `${d.recommendedHumidity}%` : null} />
-                      <DetailRow label={t('inventory.fields.humidificationSystem')} value={d.humidificationSystem} />
-                    </>
-                  )}
-                </Box>
-              )}
-
-              {/* Peak maturity window */}
-              {(d.peakMaturityFrom || d.peakMaturityTo) && (
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    {t('inventory.fields.peakMaturity')}
-                  </Typography>
-                  <DetailRow label={t('inventory.fields.peakMaturityFrom')} value={d.peakMaturityFrom} />
-                  <DetailRow label={t('inventory.fields.peakMaturityTo')} value={d.peakMaturityTo} />
-                </Box>
-              )}
-
-              {/* Opened status */}
-              {(d.isOpened || d.reminderDate) && (
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    {t('inventory.fields.isOpened')}
-                  </Typography>
-                  {d.isOpened && (
-                    <>
-                      <DetailRow label={t('inventory.fields.fillLevel')}
-                        value={d.fillLevel != null ? `${d.fillLevel}%` : null} />
-                      <DetailRow label={t('inventory.fields.openedAt')} value={fmt(d.openedAt)} />
-                    </>
-                  )}
-                  {d.reminderDate && (
-                    <DetailRow label={t('inventory.fields.reminderDate')} value={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <NotificationsIcon fontSize="small" color="info" />
-                        <Typography variant="body2">{fmt(d.reminderDate)}</Typography>
-                      </Box>
-                    } />
-                  )}
-                </Box>
-              )}
-
-              {/* Purchase */}
-              {(d.purchasePrice != null || d.purchasePlace || d.estimatedValue != null) && (
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    {t('inventory.fields.purchasePrice')}
-                  </Typography>
-                  <DetailRow label={t('inventory.fields.purchasePrice')}
-                    value={d.purchasePrice != null ? `${d.purchasePrice} €` : null} />
-                  <DetailRow label={t('inventory.fields.purchasePlace')} value={d.purchasePlace} />
-                  <DetailRow label={t('inventory.fields.estimatedValue')}
-                    value={d.estimatedValue != null ? `${d.estimatedValue} €` : null} />
-                </Box>
-              )}
-
-              {/* Notes */}
-              {d.notes && (
-                <Box>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    {t('inventory.fields.notes')}
-                  </Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{d.notes}</Typography>
-                </Box>
-              )}
-
-              {/* Collections */}
-              {d.collections && d.collections.length > 0 && (
-                <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <CollectionsBookmarkIcon fontSize="small" color="action" />
-                    <Typography variant="subtitle2" color="text.secondary">
-                      {t('collections.title')}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                    {d.collections.map((col) => (
-                      <Chip
-                        key={col.id}
-                        label={`${col.icon ? col.icon + ' ' : ''}${col.name}`}
-                        size="small"
-                        sx={{
-                          bgcolor: `${col.color}22`,
-                          borderColor: col.color,
-                          color: col.color,
-                          border: '1px solid',
-                        }}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              )}
-
-              {/* Traceability */}
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <PersonOutlineIcon fontSize="small" color="action" />
-                  <Typography variant="subtitle2" color="text.secondary">
-                    {t('traceability.title')}
-                  </Typography>
-                </Box>
-                {creator && (
-                  <DetailRow label={t('traceability.createdBy')} value={
-                    <Tooltip title={fmtDt(d.createdAt) ?? ''}>
-                      <Typography variant="body2">{creator.name} · {fmt(d.createdAt)}</Typography>
-                    </Tooltip>
-                  } />
-                )}
-                {lastEditor && (
-                  <DetailRow label={t('traceability.lastEditedBy')} value={
-                    <Tooltip title={fmtDt(d.updatedAt) ?? ''}>
-                      <Typography variant="body2">{lastEditor.name} · {fmt(d.updatedAt)}</Typography>
-                    </Tooltip>
-                  } />
-                )}
-                <Box sx={{ mt: 1 }}>
-                  <Button
-                    size="small"
-                    startIcon={historyLoading ? <CircularProgress size={14} /> : <HistoryIcon fontSize="small" />}
-                    onClick={() => setShowHistory((v) => !v)}
-                    disabled={historyLoading}
-                    sx={{ textTransform: 'none', px: 0 }}
-                  >
-                    {showHistory ? t('traceability.hideHistory') : t('traceability.showHistory')}
-                  </Button>
-                  <Collapse in={showHistory && !historyLoading}>
-                    <Box sx={{ mt: 1 }}>
-                      {history && history.length === 0 && (
-                        <Typography variant="caption" color="text.secondary">
-                          {t('traceability.noHistory')}
-                        </Typography>
-                      )}
-                      {history?.map((entry) => (
-                        <HistoryEntryRow key={entry.id} entry={entry} formatDate={fmtDt} t={t} />
-                      ))}
-                    </Box>
-                  </Collapse>
-                </Box>
-              </Box>
-
-            </Stack>
-          </Box>
         </Box>
-      </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-        <Button variant="outlined" onClick={onClose}>{t('actions.close')}</Button>
-        <Button
-          variant="outlined"
-          color="secondary"
-          startIcon={<LocalBarIcon />}
-          onClick={() => setTastingOpen(true)}
+        {/* ── Footer ─────────────────────────────────────────── */}
+        <Box
+          sx={{
+            px: 3,
+            py: 2,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            display: 'flex',
+            gap: 1,
+          }}
         >
-          {t('tastings.logTasting')}
-        </Button>
-        <Button variant="contained" onClick={() => { onClose(); onEdit(item); }}>
-          {t('actions.edit')}
-        </Button>
-      </DialogActions>
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<LocalBarIcon />}
+            onClick={() => setTastingOpen(true)}
+            size="small"
+          >
+            {t('tastings.logTasting')}
+          </Button>
+          <Box sx={{ flex: 1 }} />
+          <Button
+            variant="contained"
+            startIcon={<EditIcon />}
+            onClick={() => { onClose(); onEdit(item); }}
+            size="small"
+          >
+            {t('actions.edit')}
+          </Button>
+        </Box>
+      </Drawer>
 
       <TastingForm
         open={tastingOpen}
         onClose={() => setTastingOpen(false)}
         initialItemId={item.id}
       />
-    </Dialog>
+    </>
   );
 }

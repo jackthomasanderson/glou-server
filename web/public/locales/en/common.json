@@ -70,6 +70,26 @@
     "cigar": "Cigar / Box"
   },
   "inventory": {
+    "detail": {
+      "titleWine": "Bottle details",
+      "titleCigar": "Asset details",
+      "wineLevel": "Tactile level adjustment",
+      "cigarLevel": "Box capacity / Humidity",
+      "spiritLevel": "Tactile level adjustment",
+      "levelWine": "Level:",
+      "levelCigar": "Humidity / Quantity:",
+      "full": "Full",
+      "half": "Half",
+      "empty": "Empty",
+      "opened": "Open / Started",
+      "inUse": "In use",
+      "location": "Location",
+      "sommelierNotes": "Sommelier notes",
+      "tastingNotes": "Tasting notes & aromas",
+      "vitole": "Vitole tech sheet",
+      "agingEstimate": "Estimated peak",
+      "levelAdjusted": "Level adjusted to"
+    },
     "add": "Add",
     "edit": "Edit bottle",
     "details": "Bottle details",

@@ -70,6 +70,26 @@
     "cigar": "Cigare / Boîte"
   },
   "inventory": {
+    "detail": {
+      "titleWine": "Détails du flacon",
+      "titleCigar": "Détails de l'actif",
+      "wineLevel": "Ajustement tactile du niveau",
+      "cigarLevel": "Capacité de la boite / Humidité",
+      "spiritLevel": "Ajustement tactile du niveau",
+      "levelWine": "Niveau :",
+      "levelCigar": "Humidité / Quantité :",
+      "full": "Pleine",
+      "half": "Moitié",
+      "empty": "Vide",
+      "opened": "Ouverte / Entamée",
+      "inUse": "En cours",
+      "location": "Emplacement",
+      "sommelierNotes": "Notes du sommelier",
+      "tastingNotes": "Notes de dégustation & arômes",
+      "vitole": "Fiche technique du vitole",
+      "agingEstimate": "Apogée estimée",
+      "levelAdjusted": "Niveau ajusté à"
+    },
     "add": "Ajouter",
     "edit": "Modifier la bouteille",
     "details": "Détails de la bouteille",
