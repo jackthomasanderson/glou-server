@@ -576,7 +576,9 @@
       "aeration": "Aération : {{min}}–{{max}} min"
     },
     "errors": {
-      "load": "Impossible de charger les dégustations."
+      "load": "Impossible de charger les dégustations.",
+      "saveFailed": "Impossible d'enregistrer la dégustation. Veuillez réessayer.",
+      "required": "Ce champ est obligatoire"
     }
   }
 }

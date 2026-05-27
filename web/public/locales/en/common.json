@@ -576,7 +576,9 @@
       "aeration": "Aeration: {{min}}–{{max}} min"
     },
     "errors": {
-      "load": "Failed to load tastings."
+      "load": "Failed to load tastings.",
+      "saveFailed": "Failed to save the tasting. Please try again.",
+      "required": "This field is required"
     }
   }
 }

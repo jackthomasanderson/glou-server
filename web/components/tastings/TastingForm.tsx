@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Box, Typography, Rating, MenuItem, Select,
-  FormControl, InputLabel, Autocomplete,
+  FormControl, InputLabel, Autocomplete, Alert,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { TastingFormValues } from '@/lib/tastings/types';
@@ -29,7 +29,7 @@ export function TastingForm({ open, onClose, initialItemId, editNote }: TastingF
   const updateMutation = useUpdateTasting();
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
-  const { control, handleSubmit, reset, watch, setValue } = useForm<TastingFormValues>({
+  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm<TastingFormValues>({
     defaultValues: { itemId: initialItemId, rating: null, notes: '', context: '', foodPairing: '', tastedAt: new Date().toISOString().split('T')[0] },
   });
 
@@ -59,12 +59,16 @@ export function TastingForm({ open, onClose, initialItemId, editNote }: TastingF
   };
 
   const onSubmit = async (values: TastingFormValues) => {
-    if (editNote) {
-      await updateMutation.mutateAsync({ id: editNote.id, data: values });
-    } else {
-      await createMutation.mutateAsync(values);
+    try {
+      if (editNote) {
+        await updateMutation.mutateAsync({ id: editNote.id, data: values });
+      } else {
+        await createMutation.mutateAsync(values);
+      }
+      onClose();
+    } catch {
+      // error displayed via mutation.error below
     }
-    onClose();
   };
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
@@ -78,9 +82,15 @@ export function TastingForm({ open, onClose, initialItemId, editNote }: TastingF
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            {(createMutation.error || updateMutation.error) && (
+              <Alert severity="error">
+                {t('tastings.errors.saveFailed')}
+              </Alert>
+            )}
             <Controller
               name="itemId"
               control={control}
+              rules={{ required: t('tastings.errors.required') }}
               render={({ field }) => (
                 <Autocomplete
                   options={inventoryOptions}
@@ -88,7 +98,12 @@ export function TastingForm({ open, onClose, initialItemId, editNote }: TastingF
                   value={inventoryOptions.find((i) => i.id === field.value) ?? null}
                   onChange={(_, val) => field.onChange(val?.id ?? '')}
                   renderInput={(params) => (
-                    <TextField {...params} label={t('tastings.fields.item')} />
+                    <TextField
+                      {...params}
+                      label={`${t('tastings.fields.item')} *`}
+                      error={!!errors.itemId}
+                      helperText={errors.itemId?.message}
+                    />
                   )}
                   disabled={!!initialItemId}
                 />

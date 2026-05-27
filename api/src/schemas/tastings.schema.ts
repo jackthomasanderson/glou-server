@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const tastingCreateSchema = z.object({
   itemId: z.string().uuid().optional(),
-  tastedAt: z.string().datetime().optional(),
+  tastedAt: z.string().date().optional(),
   context: z.string().max(200).optional(),
   rating: z.number().int().min(1).max(5).optional(),
   notes: z.string().max(5000).optional(),
