@@ -29,7 +29,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
 
-RUN mkdir -p /app/logs && chown -R glou:glou /app
+RUN mkdir -p /app/logs /app/uploads/products /app/uploads/avatars && chown -R glou:glou /app
 
 USER glou
 

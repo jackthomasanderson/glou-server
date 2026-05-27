@@ -30,6 +30,8 @@ services:
       PORT: 3001
     ports:
       - "3001:3001"
+    volumes:
+      - api_uploads:/app/uploads
 
   web:
     image: ghcr.io/jackthomasanderson/glou-server-web:latest
@@ -44,3 +46,4 @@ services:
 
 volumes:
   db_data:
+  api_uploads:

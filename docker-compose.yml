@@ -39,6 +39,7 @@ services:
       - "3001:3001"
     volumes:
       - api_logs:/app/logs
+      - api_uploads:/app/uploads
     logging:
       driver: "json-file"
       options:
@@ -65,4 +66,6 @@ volumes:
   db_data:
     driver: local
   api_logs:
+    driver: local
+  api_uploads:
     driver: local
