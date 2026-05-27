@@ -3,6 +3,10 @@
     "name": "Glou",
     "tagline": "Votre cave, à portée de main"
   },
+  "filters": {
+    "all": "Toutes",
+    "allCategories": "Toutes les catégories"
+  },
   "nav": {
     "dashboard": "Tableau de bord",
     "bottles": "Bouteilles",

@@ -3,6 +3,10 @@
     "name": "Glou",
     "tagline": "Your cellar, at your fingertips"
   },
+  "filters": {
+    "all": "All",
+    "allCategories": "All categories"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "bottles": "Bottles",
