@@ -22,7 +22,8 @@
     "searchCellars": "Caves",
     "allCellars": "Voir toutes les caves",
     "collections": "Collections",
-    "tastings": "Dégustations"
+    "tastings": "Dégustations",
+    "analytics": "Analyses & Terroirs"
   },
   "actions": {
     "add": "Ajouter",
@@ -603,6 +604,53 @@
       "load": "Impossible de charger les dégustations.",
       "saveFailed": "Impossible d'enregistrer la dégustation. Veuillez réessayer.",
       "required": "Ce champ est obligatoire"
+    }
+  },
+  "analytics": {
+    "pageTitle": "Analyses & Terroirs",
+    "pageSubtitle": "Analyse financière, temporelle, volumétrique et géographique de la cave.",
+    "exportButton": "Exporter le bilan",
+    "stats": {
+      "totalValuation": "Valorisation Globale",
+      "totalValuationHint": "Estimation totale actuelle",
+      "liquidStock": "Liquide en stock",
+      "liquidStockHint": "Hors cigares de collection",
+      "cigarHumidor": "Cigares en humidor",
+      "cigarHumidorHint": "Préservés sous hygrométrie contrôlée",
+      "urgentDegustation": "Urgence de dégustation",
+      "urgentDegustationHint": "Flacons ayant dépassé leur apogée"
+    },
+    "regionMap": {
+      "title": "Répartition géographique",
+      "subtitle": "Distribution de votre collection par terroir",
+      "items": "élément(s) en stock",
+      "valuation": "Valorisation :",
+      "noRegions": "Aucune région renseignée dans votre inventaire."
+    },
+    "categories": {
+      "title": "Répartition des catégories",
+      "active": "Actifs",
+      "wine": "Vins Rouges & Blancs",
+      "sparkling": "Bulles & Champagnes",
+      "spirit": "Spiritueux Fins",
+      "cigar": "Cigares de Prestige",
+      "unit": {
+        "wine": "flacons",
+        "sparkling": "flacons",
+        "spirit": "flacons",
+        "cigar": "vitoles"
+      }
+    },
+    "maturity": {
+      "title": "Planning optimal de consommation (Apogée)",
+      "season": "Saison {{year}}",
+      "description": "Cette projection indique la période idéale pour consommer vos flacons ou apprécier vos cigares afin de préserver l'intégrité de leurs arômes.",
+      "readyNow": "Prêts à déguster immédiatement",
+      "preserve": "À préserver en cave / humidor",
+      "pastPeak": "Apogée dépassé (À consommer d'urgence)",
+      "countLabel": "{{count}} flacons ({{percent}}%)",
+      "humidorTip": "Conseil de l'Humidor",
+      "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70%. Évitez les chocs thermiques pour préserver la souplesse de la cape."
     }
   }
 }

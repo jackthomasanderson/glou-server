@@ -22,7 +22,8 @@
     "searchCellars": "Cellars",
     "allCellars": "View all cellars",
     "collections": "Collections",
-    "tastings": "Tastings"
+    "tastings": "Tastings",
+    "analytics": "Analyses & Terroirs"
   },
   "actions": {
     "add": "Add",
@@ -603,6 +604,53 @@
       "load": "Failed to load tastings.",
       "saveFailed": "Failed to save the tasting. Please try again.",
       "required": "This field is required"
+    }
+  },
+  "analytics": {
+    "pageTitle": "Analyses & Terroirs",
+    "pageSubtitle": "Financial, temporal, volumetric and geographic analysis of your cellar.",
+    "exportButton": "Export report",
+    "stats": {
+      "totalValuation": "Global Valuation",
+      "totalValuationHint": "Current total estimate",
+      "liquidStock": "Liquid in stock",
+      "liquidStockHint": "Excluding collection cigars",
+      "cigarHumidor": "Cigars in humidor",
+      "cigarHumidorHint": "Preserved under controlled humidity",
+      "urgentDegustation": "Tasting urgency",
+      "urgentDegustationHint": "Bottles past their peak"
+    },
+    "regionMap": {
+      "title": "Geographic distribution",
+      "subtitle": "Your collection's spread by terroir",
+      "items": "item(s) in stock",
+      "valuation": "Valuation:",
+      "noRegions": "No regions set in your inventory."
+    },
+    "categories": {
+      "title": "Category breakdown",
+      "active": "Active",
+      "wine": "Red & White Wines",
+      "sparkling": "Bubbles & Champagnes",
+      "spirit": "Fine Spirits",
+      "cigar": "Prestige Cigars",
+      "unit": {
+        "wine": "bottles",
+        "sparkling": "bottles",
+        "spirit": "bottles",
+        "cigar": "vitolas"
+      }
+    },
+    "maturity": {
+      "title": "Optimal Consumption Planning (Peak)",
+      "season": "Season {{year}}",
+      "description": "This projection shows the ideal period to consume your bottles or enjoy your cigars to preserve their aromatic integrity.",
+      "readyNow": "Ready to drink now",
+      "preserve": "To preserve in cellar / humidor",
+      "pastPeak": "Past peak (Drink urgently)",
+      "countLabel": "{{count}} bottles ({{percent}}%)",
+      "humidorTip": "Humidor Tip",
+      "humidorTipText": "Cuban cigars benefit from stable humidity at 70%. Avoid thermal shocks to preserve the wrapper's suppleness."
     }
   }
 }

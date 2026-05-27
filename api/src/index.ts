@@ -18,6 +18,7 @@ import { purgeOldAuditLogs } from './services/audit.service';
 import searchRouter from './routes/search.router';
 import collectionsRouter from './routes/collections.router';
 import tastingsRouter from './routes/tastings.router';
+import { analyticsRouter } from './routes/analytics.router';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -82,6 +83,7 @@ app.use('/api/maturity-references', maturityReferencesRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/collections', collectionsRouter);
 app.use('/api/tastings', tastingsRouter);
+app.use('/api/analytics', analyticsRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 
