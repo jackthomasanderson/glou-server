@@ -1,20 +1,10 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Alert, Autocomplete, Box, Button, Chip, Collapse, Dialog, DialogActions,
-  DialogContent, DialogTitle, Divider, FormControl, Grid,
-  IconButton, InputLabel, MenuItem, Select, Stack, TextField,
-  Tooltip, Typography,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import SaveIcon from '@mui/icons-material/Save';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import WineBarIcon from '@mui/icons-material/WineBar';
-import BubbleChartIcon from '@mui/icons-material/BubbleChart';
-import SportsMmaIcon from '@mui/icons-material/SportsMma';
-import GrassIcon from '@mui/icons-material/Grass';
+  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Button, Chip, Divider, Input, Select, SelectItem, Autocomplete, AutocompleteItem,
+} from '@heroui/react';
+import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
@@ -46,14 +36,16 @@ const EMPTY_FORM: Partial<InventoryItem> = {
   alertStatus: 'none',
 };
 
+type CategoryColor = 'secondary' | 'primary' | 'default' | 'warning';
+
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <WineBarIcon fontSize="small" />,
-  sparkling: <BubbleChartIcon fontSize="small" />,
-  spirit: <SportsMmaIcon fontSize="small" />,
-  cigar: <GrassIcon fontSize="small" />,
+  wine: <Wine size={14} />,
+  sparkling: <Sparkles size={14} />,
+  spirit: <span className="text-xs font-bold">S</span>,
+  cigar: <Leaf size={14} />,
 };
 
-const CATEGORY_COLORS: Record<InventoryCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
+const CATEGORY_COLORS: Record<InventoryCategory, CategoryColor> = {
   wine: 'secondary',
   sparkling: 'primary',
   spirit: 'default',
@@ -75,7 +67,6 @@ export function InventoryForm({
   const imageDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isEditing = Boolean(initialValues?.id);
 
-  // Reset form when dialog opens with new values
   useEffect(() => {
     if (open) {
       setValues(initialValues ?? EMPTY_FORM);
@@ -92,11 +83,8 @@ export function InventoryForm({
     }
   }, [open, initialValues]);
 
-  // Auto-search + auto-save first result when name + producer filled and no photo yet
   useEffect(() => {
-    if (isEditing || !values.name?.trim() || !values.producer?.trim() || values.photoUrl) {
-      return;
-    }
+    if (isEditing || !values.name?.trim() || !values.producer?.trim() || values.photoUrl) return;
     if (imageDebounceRef.current) clearTimeout(imageDebounceRef.current);
     imageDebounceRef.current = setTimeout(async () => {
       setIsAutoLoading(true);
@@ -106,18 +94,14 @@ export function InventoryForm({
         const searchJson = (await searchRes.json()) as { data: ImageResult[] };
         const results = searchJson.data ?? [];
         setPrefetchedImages(results);
-
         if (results.length > 0) {
           const saveRes = await fetch('/api/search/images/save', {
-            method: 'POST',
-            credentials: 'include',
+            method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: results[0].url }),
           });
           const saveJson = (await saveRes.json()) as { data?: { path: string } };
-          if (saveJson.data?.path) {
-            setField('photoUrl', saveJson.data.path);
-          }
+          if (saveJson.data?.path) setField('photoUrl', saveJson.data.path);
         }
       } catch { /* ignore */ } finally {
         setIsAutoLoading(false);
@@ -137,7 +121,6 @@ export function InventoryForm({
     if (canSave) onSubmit(values, selectedCollections.map(c => c.id));
   };
 
-  // Debounced maturity suggestion
   const hasPeakCategories = ['wine', 'sparkling'].includes(values.category ?? '');
   useEffect(() => {
     if (!hasPeakCategories || !values.category) { setSuggestion(null); return; }
@@ -178,694 +161,702 @@ export function InventoryForm({
   const numField = (val: string, fallback?: number) => (val ? Number(val) : fallback);
 
   return (
-    <Dialog
-      open={open}
+    <Modal
+      isOpen={open}
       onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      scroll="paper"
-      PaperProps={{ component: 'form', onSubmit: handleSubmit }}
+      size="2xl"
+      radius="lg"
+      backdrop="opaque"
+      placement="center"
+      scrollBehavior="inside"
     >
-      <DialogTitle sx={{ pr: 6, pb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Chip
-            icon={CATEGORY_ICONS[category]}
-            label={t(`categories.${category}`)}
-            color={CATEGORY_COLORS[category]}
-            size="small"
-          />
-          <Typography variant="h6" component="span" fontWeight={600}>
-            {isEditing ? t('inventory.edit') : t('inventory.add')}
-          </Typography>
-        </Box>
-        <IconButton
-          onClick={onClose}
-          size="small"
-          sx={{ position: 'absolute', top: 8, right: 8 }}
-          disabled={isSubmitting}
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-
-      <DialogContent dividers sx={{ p: 0, display: 'flex', alignItems: 'stretch' }}>
-        {/* ── Left: image panel ─────────────────────────────────────── */}
-        <Box
-          sx={{
-            width: 170,
-            flexShrink: 0,
-            borderRight: 1,
-            borderColor: 'divider',
-            px: 2,
-            py: 2.5,
-            display: { xs: 'none', sm: 'block' },
-          }}
-        >
-          <ItemImageSection
-            photoUrl={values.photoUrl ?? ''}
-            onPhotoChange={(url) => setField('photoUrl', url)}
-            category={category}
-            autoSearchQuery={[values.producer, values.name].filter(Boolean).join(' ')}
-            preloadedResults={prefetchedImages}
-            isAutoLoading={isAutoLoading}
-          />
-        </Box>
-
-        {/* ── Right: form fields ────────────────────────────────────── */}
-        <Box sx={{ flex: 1, px: 3, py: 2.5, minWidth: 0, overflowY: 'auto' }}>
-        <Stack spacing={3}>
-
-          {/* ── Section 1 : Identité ──────────────────────────────────────── */}
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              {t('inventory.step1')}
-            </Typography>
-
-            {/* Category chips */}
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
-              {(['wine', 'sparkling', 'spirit', 'cigar'] as InventoryCategory[]).map((cat) => (
+      <ModalContent>
+        {() => (
+          <form onSubmit={handleSubmit} className="flex flex-col">
+            <ModalHeader className="flex items-center justify-between gap-3 pr-4 pb-2">
+              <div className="flex items-center gap-2">
                 <Chip
-                  key={cat}
-                  icon={CATEGORY_ICONS[cat]}
-                  label={t(`categories.${cat}`)}
-                  color={category === cat ? CATEGORY_COLORS[cat] : 'default'}
-                  variant={category === cat ? 'filled' : 'outlined'}
-                  onClick={() => setField('category', cat)}
-                  sx={{ cursor: 'pointer' }}
-                />
-              ))}
-            </Stack>
-
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <ProductAutocomplete
-                  value={values.name ?? ''}
-                  onChange={(name) => setField('name', name)}
-                  onSelect={(s: ProductSuggestion) =>
-                    setValues((prev) => ({
-                      ...prev,
-                      name: s.name,
-                      producer: s.producer ?? prev.producer,
-                      category: (s.category as InventoryCategory) ?? prev.category,
-                      vintage: s.vintage ?? prev.vintage,
-                      bottleSize: s.bottleSize ?? prev.bottleSize,
-                      format: s.format ?? prev.format,
-                      region: s.region ?? prev.region,
-                    }))
-                  }
-                  category={values.category ?? 'wine'}
-                  disabled={isEditing}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <ProducerAutocomplete
-                  value={values.producer ?? ''}
-                  onChange={(producer) => setField('producer', producer)}
-                  category={values.category ?? 'wine'}
-                  label={t('inventory.fields.producer')}
-                  placeholder={t(`inventory.fields.producerPlaceholder.${category}`)}
-                  required
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('nav.caves')}</InputLabel>
-                  <Select
-                    value={values.cellarId === null ? 'none' : (values.cellarId ?? 'none')}
-                    label={t('nav.caves')}
-                    onChange={(e) => setField('cellarId', e.target.value === 'none' ? null : e.target.value)}
-                  >
-                    <MenuItem value="none"><em>{t('inventory.noCellar')}</em></MenuItem>
-                    {cellars?.map((c) => (
-                      <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Box>
-
-          <Divider />
-
-          {/* ── Section 2 : Caractéristiques catégorie ───────────────────── */}
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              {t('inventory.step2')}
-            </Typography>
-
-            <Grid container spacing={2}>
-
-              {/* Wine essential */}
-              {isWine && (
-                <>
-                  <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.vintage')}
-                      type="number"
-                      value={values.vintage ?? ''}
-                      onChange={(e) => setField('vintage', numField(e.target.value))}
-                      inputProps={{ min: 1800, max: 2100, step: 1 }}
-                      helperText={t('inventory.fields.noVintage')}
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>{t('inventory.fields.color')}</InputLabel>
-                      <Select
-                        value={values.color ?? ''}
-                        label={t('inventory.fields.color')}
-                        onChange={(e) => setField('color', e.target.value || undefined)}
-                      >
-                        <MenuItem value=""><em>—</em></MenuItem>
-                        {['red', 'white', 'rosé', 'orange'].map((c) => (
-                          <MenuItem key={c} value={c}>{t(`inventory.color.${c}`)}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.region')}
-                      value={values.region ?? ''}
-                      onChange={(e) => setField('region', e.target.value)}
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.alcoholDegree')}
-                      type="number"
-                      value={values.alcoholDegree ?? ''}
-                      onChange={(e) => setField('alcoholDegree', numField(e.target.value))}
-                      inputProps={{ min: 0, max: 100, step: 0.1 }}
-                      InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">%</Typography> }}
-                    />
-                  </Grid>
-                </>
-              )}
-
-              {/* Sparkling essential */}
-              {isSparkling && (
-                <>
-                  <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.vintage')}
-                      type="number"
-                      value={values.vintage ?? ''}
-                      onChange={(e) => setField('vintage', numField(e.target.value))}
-                      inputProps={{ min: 1800, max: 2100, step: 1 }}
-                      helperText={t('inventory.fields.noVintage')}
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>{t('inventory.fields.sparklingType')}</InputLabel>
-                      <Select
-                        value={values.sparklingType ?? ''}
-                        label={t('inventory.fields.sparklingType')}
-                        onChange={(e) => setField('sparklingType', e.target.value || undefined)}
-                      >
-                        <MenuItem value=""><em>—</em></MenuItem>
-                        {['champagne', 'cremant', 'prosecco', 'cava', 'petnat', 'other'].map((s) => (
-                          <MenuItem key={s} value={s}>{t(`inventory.sparklingTypes.${s}`)}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>{t('inventory.fields.sugarLevel')}</InputLabel>
-                      <Select
-                        value={values.sugarLevel ?? ''}
-                        label={t('inventory.fields.sugarLevel')}
-                        onChange={(e) => setField('sugarLevel', e.target.value || undefined)}
-                      >
-                        <MenuItem value=""><em>—</em></MenuItem>
-                        {['extra-brut', 'brut', 'extra-sec', 'sec', 'demi-sec', 'doux'].map((s) => (
-                          <MenuItem key={s} value={s}>{t(`inventory.sugarLevels.${s}`)}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                </>
-              )}
-
-              {/* Spirit essential */}
-              {isSpirit && (
-                <>
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>{t('inventory.fields.spiritType')}</InputLabel>
-                      <Select
-                        value={values.spiritType ?? ''}
-                        label={t('inventory.fields.spiritType')}
-                        onChange={(e) => setField('spiritType', e.target.value || undefined)}
-                      >
-                        <MenuItem value=""><em>—</em></MenuItem>
-                        {['whisky', 'rhum', 'gin', 'cognac', 'calvados', 'armagnac', 'vodka', 'tequila', 'mezcal', 'liqueur', 'other'].map((s) => (
-                          <MenuItem key={s} value={s}>{t(`inventory.spiritTypes.${s}`)}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.edition')}
-                      value={values.edition ?? ''}
-                      onChange={(e) => setField('edition', e.target.value)}
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small" required
-                      label={t('inventory.fields.alcoholDegree')}
-                      type="number"
-                      value={values.alcoholDegree ?? ''}
-                      onChange={(e) => setField('alcoholDegree', numField(e.target.value))}
-                      inputProps={{ min: 0, max: 100, step: 0.1 }}
-                      InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">%</Typography> }}
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.declaredAge')}
-                      type="number"
-                      value={values.declaredAge ?? ''}
-                      onChange={(e) => setField('declaredAge', numField(e.target.value))}
-                      inputProps={{ min: 0, max: 200, step: 1 }}
-                      InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">{t('inventory.fields.declaredAgeUnit')}</Typography> }}
-                    />
-                  </Grid>
-                </>
-              )}
-
-              {/* Cigar essential */}
-              {isCigar && (
-                <>
-                  <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.format')}
-                      value={values.format ?? ''}
-                      onChange={(e) => setField('format', e.target.value)}
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small" required
-                      label={t('inventory.fields.quantity')}
-                      type="number"
-                      value={values.quantity ?? ''}
-                      onChange={(e) => setField('quantity', numField(e.target.value))}
-                      inputProps={{ min: 1, step: 1 }}
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.manufactureYear')}
-                      type="number"
-                      value={values.manufactureYear ?? ''}
-                      onChange={(e) => setField('manufactureYear', numField(e.target.value))}
-                      inputProps={{ min: 1900, max: 2100, step: 1 }}
-                    />
-                  </Grid>
-                </>
-              )}
-
-              {/* Peak maturity window — wine + sparkling only */}
-              {isWineOrSparkling && (
-                <>
-                  <Grid item xs={12}>
-                    <Divider sx={{ my: 0.5 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {t('inventory.fields.peakMaturity')}
-                      </Typography>
-                    </Divider>
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.peakMaturityFrom')}
-                      type="number"
-                      value={values.peakMaturityFrom ?? ''}
-                      onChange={(e) => setField('peakMaturityFrom', e.target.value ? Number(e.target.value) : null)}
-                      inputProps={{ min: 1800, max: 2200, step: 1 }}
-                      helperText={t('inventory.fields.peakMaturityFromHint')}
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={3}>
-                    <TextField
-                      fullWidth size="small"
-                      label={t('inventory.fields.peakMaturityTo')}
-                      type="number"
-                      value={values.peakMaturityTo ?? ''}
-                      onChange={(e) => setField('peakMaturityTo', e.target.value ? Number(e.target.value) : null)}
-                      inputProps={{ min: 1800, max: 2200, step: 1 }}
-                      helperText={t('inventory.fields.peakMaturityToHint')}
-                    />
-                  </Grid>
-                </>
-              )}
-            </Grid>
-
-            {/* Suggestion banner */}
-            {suggestion && suggestion.peakMaturityFrom != null && suggestion.peakMaturityTo != null && (
-              <Alert
-                severity="info"
-                icon={<AutoAwesomeIcon fontSize="small" />}
-                sx={{ mt: 2 }}
-                action={
-                  <Button size="small" onClick={applySuggestion} color="inherit">
-                    {t('inventory.maturitySuggestion.apply')}
-                  </Button>
-                }
+                  startContent={CATEGORY_ICONS[category]}
+                  color={CATEGORY_COLORS[category]}
+                  size="sm"
+                  variant="flat"
+                >
+                  {t(`categories.${category}`)}
+                </Chip>
+                <span className="text-base font-semibold">
+                  {isEditing ? t('inventory.edit') : t('inventory.add')}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="p-1 rounded-lg hover:bg-default-100 transition-colors"
+                aria-label="Close"
               >
-                <strong>{suggestion.reference.name}</strong>
-                {' — '}
-                {t('inventory.maturitySuggestion.window', {
-                  from: suggestion.peakMaturityFrom,
-                  to: suggestion.peakMaturityTo,
-                })}
-              </Alert>
-            )}
-          </Box>
+                <X size={16} />
+              </button>
+            </ModalHeader>
 
-          <Divider />
+            <ModalBody className="p-0 flex flex-row items-stretch gap-0">
+              {/* Left image panel — hidden on mobile */}
+              <div className="hidden sm:block w-[170px] shrink-0 border-r border-divider px-4 py-5">
+                <ItemImageSection
+                  photoUrl={values.photoUrl ?? ''}
+                  onPhotoChange={(url) => setField('photoUrl', url)}
+                  category={category}
+                  autoSearchQuery={[values.producer, values.name].filter(Boolean).join(' ')}
+                  preloadedResults={prefetchedImages}
+                  isAutoLoading={isAutoLoading}
+                />
+              </div>
 
-          {/* ── Section 3 : Compléments ──────────────────────────────────── */}
-          <Box>
-            <Tooltip title={showOptionals ? t('actions.showLess') : t('actions.showMore')}>
-              <Button
-                size="small"
-                variant="text"
-                onClick={() => setShowOptionals((prev) => !prev)}
-                startIcon={showOptionals ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              >
-                {showOptionals ? t('actions.showLess') : t('actions.showMore')}
-              </Button>
-            </Tooltip>
+              {/* Right form fields */}
+              <div className="flex-1 min-w-0 px-5 py-5 overflow-y-auto">
+                <div className="flex flex-col gap-6">
 
-            <Collapse in={showOptionals}>
-              <Grid container spacing={2} sx={{ mt: 1 }}>
+                  {/* Section 1: Identity */}
+                  <div>
+                    <p className="text-xs font-semibold text-default-500 mb-3">{t('inventory.step1')}</p>
 
-                {/* Common optionals */}
-                <Grid item xs={12} sm={6}>
-                  <Autocomplete
-                    multiple
-                    size="small"
-                    options={allCollections ?? []}
-                    getOptionLabel={(option) => option.name}
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    value={selectedCollections}
-                    onChange={(_, newValue) => setSelectedCollections(newValue)}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => {
-                        const { key, ...tagProps } = getTagProps({ index });
-                        return (
-                          <Chip
-                            key={key}
-                            label={`${option.icon ?? ''} ${option.name}`.trim()}
-                            size="small"
-                            sx={{ bgcolor: option.color, color: '#fff', fontSize: '0.7rem' }}
-                            {...tagProps}
-                          />
-                        );
-                      })
-                    }
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props} key={option.id}>
-                        <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: option.color, mr: 1, flexShrink: 0 }} />
-                        {option.icon && <Typography variant="body2" sx={{ mr: 0.5 }}>{option.icon}</Typography>}
-                        <Typography variant="body2">{option.name}</Typography>
-                      </Box>
-                    )}
-                    renderInput={(params) => (
-                      <TextField {...params} label={t('inventory.fields.collection')} size="small" />
-                    )}
-                  />
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <TextField fullWidth size="small"
-                    label={t('inventory.fields.purchasePrice')}
-                    type="number"
-                    value={values.purchasePrice ?? ''}
-                    onChange={(e) => setField('purchasePrice', numField(e.target.value))}
-                    InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">€</Typography> }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField fullWidth size="small"
-                    label={t('inventory.fields.purchasePlace')}
-                    value={values.purchasePlace ?? ''}
-                    onChange={(e) => setField('purchasePlace', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                  <TextField fullWidth size="small"
-                    label={t('inventory.fields.estimatedValue')}
-                    type="number"
-                    value={values.estimatedValue ?? ''}
-                    onChange={(e) => setField('estimatedValue', numField(e.target.value))}
-                    InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">€</Typography> }}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField fullWidth size="small" multiline rows={3}
-                    label={t('inventory.fields.notes')}
-                    value={values.notes ?? ''}
-                    onChange={(e) => setField('notes', e.target.value)}
-                  />
-                </Grid>
+                    {/* Category chips */}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {(['wine', 'sparkling', 'spirit', 'cigar'] as InventoryCategory[]).map((cat) => (
+                        <Chip
+                          key={cat}
+                          startContent={CATEGORY_ICONS[cat]}
+                          color={category === cat ? CATEGORY_COLORS[cat] : 'default'}
+                          variant={category === cat ? 'solid' : 'bordered'}
+                          className="cursor-pointer"
+                          onClick={() => setField('category', cat)}
+                        >
+                          {t(`categories.${cat}`)}
+                        </Chip>
+                      ))}
+                    </div>
 
-                {/* Category-specific optionals */}
-                {(isWine || isSparkling) && (
-                  <>
-                    <Grid item xs={6} sm={3}>
-                      <TextField fullWidth size="small"
-                        label={t('inventory.fields.bottleSize')}
-                        value={values.bottleSize ?? ''}
-                        onChange={(e) => setField('bottleSize', e.target.value)}
-                      />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <TextField fullWidth size="small"
-                        label={t('inventory.fields.serviceTemp')}
-                        value={values.serviceTemp ?? ''}
-                        onChange={(e) => setField('serviceTemp', e.target.value)}
-                      />
-                    </Grid>
-                    {isWine && (
-                      <>
-                        <Grid item xs={12}>
-                          <TextField fullWidth size="small"
-                            label={t('inventory.fields.grapeVarieties')}
-                            placeholder={t('inventory.fields.grapeVarietiesHint')}
-                            value={(values.grapeVarieties ?? []).join(', ')}
-                            onChange={(e) =>
-                              setField('grapeVarieties', e.target.value ? e.target.value.split(',').map((s) => s.trim()).filter(Boolean) : [])
-                            }
-                          />
-                        </Grid>
-                        <Grid item xs={6} sm={3}>
-                          <TextField fullWidth size="small"
-                            label={t('inventory.fields.lotNumber')}
-                            value={values.lotNumber ?? ''}
-                            onChange={(e) => setField('lotNumber', e.target.value)}
-                          />
-                        </Grid>
-                        <Grid item xs={6} sm={3}>
-                          <Stack direction="row" alignItems="center">
-                            <Chip
-                              label={t('inventory.fields.needsAeration')}
-                              variant={values.needsAeration ? 'filled' : 'outlined'}
-                              color={values.needsAeration ? 'info' : 'default'}
-                              onClick={() => setField('needsAeration', !values.needsAeration)}
-                              sx={{ cursor: 'pointer' }}
-                            />
-                          </Stack>
-                        </Grid>
-                      </>
-                    )}
-                    {isSparkling && (
-                      <>
-                        <Grid item xs={6} sm={3}>
-                          <TextField fullWidth size="small"
-                            label={t('inventory.fields.baseYear')}
-                            type="number"
-                            value={values.baseYear ?? ''}
-                            onChange={(e) => setField('baseYear', numField(e.target.value))}
-                            inputProps={{ min: 1800, max: 2100 }}
-                          />
-                        </Grid>
-                        <Grid item xs={6} sm={3}>
-                          <TextField fullWidth size="small" type="date"
-                            label={t('inventory.fields.disgorgingDate')}
-                            InputLabelProps={{ shrink: true }}
-                            value={typeof values.disgorgingDate === 'string' ? values.disgorgingDate.split('T')[0] : ''}
-                            onChange={(e) => setField('disgorgingDate', e.target.value || null)}
-                          />
-                        </Grid>
-                      </>
-                    )}
-                  </>
-                )}
-
-                {isSpirit && (
-                  <>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth size="small"
-                        label={t('inventory.fields.caskType')}
-                        value={values.caskType ?? ''}
-                        onChange={(e) => setField('caskType', e.target.value)}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth size="small"
-                        label={t('inventory.fields.aromaticProfile')}
-                        value={values.aromaticProfile ?? ''}
-                        onChange={(e) => setField('aromaticProfile', e.target.value)}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth size="small"
-                        label={t('inventory.fields.additions')}
-                        value={values.additions ?? ''}
-                        onChange={(e) => setField('additions', e.target.value)}
-                      />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <TextField fullWidth size="small"
-                        label={t('inventory.fields.bottleSize')}
-                        value={values.bottleSize ?? ''}
-                        onChange={(e) => setField('bottleSize', e.target.value)}
-                      />
-                    </Grid>
-                  </>
-                )}
-
-                {isCigar && (
-                  <>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth size="small"
-                        label={t('inventory.fields.leafOrigin')}
-                        value={values.leafOrigin ?? ''}
-                        onChange={(e) => setField('leafOrigin', e.target.value)}
-                      />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <TextField fullWidth size="small"
-                        label={t('inventory.fields.factoryCode')}
-                        value={values.factoryCode ?? ''}
-                        onChange={(e) => setField('factoryCode', e.target.value)}
-                      />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <TextField fullWidth size="small"
-                        label={t('inventory.fields.recommendedHumidity')}
-                        type="number"
-                        value={values.recommendedHumidity ?? ''}
-                        onChange={(e) => setField('recommendedHumidity', numField(e.target.value))}
-                        inputProps={{ min: 50, max: 100 }}
-                        InputProps={{ endAdornment: <Typography variant="caption" color="text.secondary">%</Typography> }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                      <TextField fullWidth size="small"
-                        label={t('inventory.fields.humidificationSystem')}
-                        value={values.humidificationSystem ?? ''}
-                        onChange={(e) => setField('humidificationSystem', e.target.value)}
-                      />
-                    </Grid>
-                  </>
-                )}
-
-                {/* Opened status */}
-                <Grid item xs={12}>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <Button
-                      size="small"
-                      variant={values.isOpened ? 'contained' : 'outlined'}
-                      color="warning"
-                      onClick={() => {
-                        const next = !values.isOpened;
-                        setField('isOpened', next);
-                        if (next && !values.openedAt) {
-                          setField('openedAt', new Date().toISOString().split('T')[0]);
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <ProductAutocomplete
+                        value={values.name ?? ''}
+                        onChange={(name) => setField('name', name)}
+                        onSelect={(s: ProductSuggestion) =>
+                          setValues((prev) => ({
+                            ...prev,
+                            name: s.name,
+                            producer: s.producer ?? prev.producer,
+                            category: (s.category as InventoryCategory) ?? prev.category,
+                            vintage: s.vintage ?? prev.vintage,
+                            bottleSize: s.bottleSize ?? prev.bottleSize,
+                            format: s.format ?? prev.format,
+                            region: s.region ?? prev.region,
+                          }))
                         }
-                      }}
-                    >
-                      {values.isOpened ? '✓ ' : ''}{t('inventory.fields.isOpened')}
-                    </Button>
-                  </Stack>
-                </Grid>
+                        category={values.category ?? 'wine'}
+                        disabled={isEditing}
+                      />
+                      <ProducerAutocomplete
+                        value={values.producer ?? ''}
+                        onChange={(producer) => setField('producer', producer)}
+                        category={values.category ?? 'wine'}
+                        label={t('inventory.fields.producer')}
+                        placeholder={t(`inventory.fields.producerPlaceholder.${category}`)}
+                        required
+                      />
+                      <Select
+                        label={t('nav.caves')}
+                        variant="bordered"
+                        size="sm"
+                        selectedKeys={[values.cellarId === null ? 'none' : (values.cellarId ?? 'none')]}
+                        onSelectionChange={(keys) => setField('cellarId', Array.from(keys)[0] === 'none' ? null : Array.from(keys)[0])}
+                      >
+                        <>
+                          <SelectItem key="none"><em>{t('inventory.noCellar')}</em></SelectItem>
+                          {(cellars ?? []).map((c) => <SelectItem key={c.id}>{c.name}</SelectItem>)}
+                        </>
+                      </Select>
+                    </div>
+                  </div>
 
-                {values.isOpened && (
-                  <>
-                    <Grid item xs={12}>
-                      <Typography variant="caption" color="text.secondary">{t('inventory.fields.fillLevel')}</Typography>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
-                        {([100, 75, 50, 25, 0] as const).map((val) => (
-                          <Chip
-                            key={val}
-                            label={t(`inventory.fillLevels.${val === 100 ? 'full' : val === 75 ? 'threeQuarters' : val === 50 ? 'half' : val === 25 ? 'quarter' : 'empty'}`)}
-                            variant={values.fillLevel === val ? 'filled' : 'outlined'}
-                            color={values.fillLevel === val ? 'warning' : 'default'}
-                            size="small"
-                            onClick={() => setField('fillLevel', val)}
-                            sx={{ cursor: 'pointer' }}
+                  <Divider />
+
+                  {/* Section 2: Category fields */}
+                  <div>
+                    <p className="text-xs font-semibold text-default-500 mb-3">{t('inventory.step2')}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+                      {/* Wine essential */}
+                      {isWine && (
+                        <>
+                          <Input
+                            label={t('inventory.fields.vintage')}
+                            type="number"
+                            variant="bordered"
+                            size="sm"
+                            value={String(values.vintage ?? '')}
+                            onValueChange={(v) => setField('vintage', numField(v))}
+                            description={t('inventory.fields.noVintage')}
+                            min={1800} max={2100}
                           />
-                        ))}
-                      </Stack>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <TextField fullWidth size="small" type="date"
-                        label={t('inventory.fields.openedAt')}
-                        InputLabelProps={{ shrink: true }}
-                        value={typeof values.openedAt === 'string' ? values.openedAt.split('T')[0] : ''}
-                        onChange={(e) => setField('openedAt', e.target.value)}
-                      />
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <TextField fullWidth size="small" type="date"
-                        label={t('inventory.fields.reminderDate')}
-                        InputLabelProps={{ shrink: true }}
-                        value={typeof values.reminderDate === 'string' ? values.reminderDate.split('T')[0] : ''}
-                        onChange={(e) => setField('reminderDate', e.target.value)}
-                      />
-                    </Grid>
-                  </>
-                )}
+                          <Select
+                            label={t('inventory.fields.color')}
+                            variant="bordered"
+                            size="sm"
+                            selectedKeys={values.color ? [values.color] : []}
+                            onSelectionChange={(keys) => setField('color', Array.from(keys)[0] || undefined)}
+                          >
+                            <>
+                              <SelectItem key=""><em>—</em></SelectItem>
+                              {['red', 'white', 'rosé', 'orange'].map((c) => (
+                                <SelectItem key={c}>{t(`inventory.color.${c}`)}</SelectItem>
+                              ))}
+                            </>
+                          </Select>
+                          <div className="col-span-2">
+                            <Input
+                              label={t('inventory.fields.region')}
+                              variant="bordered"
+                              size="sm"
+                              value={values.region ?? ''}
+                              onValueChange={(v) => setField('region', v)}
+                            />
+                          </div>
+                          <Input
+                            label={t('inventory.fields.alcoholDegree')}
+                            type="number"
+                            variant="bordered"
+                            size="sm"
+                            value={String(values.alcoholDegree ?? '')}
+                            onValueChange={(v) => setField('alcoholDegree', numField(v))}
+                            endContent={<span className="text-xs text-default-400">%</span>}
+                            min={0} max={100}
+                          />
+                        </>
+                      )}
 
-              </Grid>
-            </Collapse>
-          </Box>
-        </Stack>
-        </Box>
-      </DialogContent>
+                      {/* Sparkling essential */}
+                      {isSparkling && (
+                        <>
+                          <Input
+                            label={t('inventory.fields.vintage')}
+                            type="number"
+                            variant="bordered"
+                            size="sm"
+                            value={String(values.vintage ?? '')}
+                            onValueChange={(v) => setField('vintage', numField(v))}
+                            description={t('inventory.fields.noVintage')}
+                            min={1800} max={2100}
+                          />
+                          <Select
+                            label={t('inventory.fields.sparklingType')}
+                            variant="bordered"
+                            size="sm"
+                            selectedKeys={values.sparklingType ? [values.sparklingType] : []}
+                            onSelectionChange={(keys) => setField('sparklingType', Array.from(keys)[0] || undefined)}
+                          >
+                            <>
+                              <SelectItem key=""><em>—</em></SelectItem>
+                              {['champagne', 'cremant', 'prosecco', 'cava', 'petnat', 'other'].map((s) => (
+                                <SelectItem key={s}>{t(`inventory.sparklingTypes.${s}`)}</SelectItem>
+                              ))}
+                            </>
+                          </Select>
+                          <Select
+                            label={t('inventory.fields.sugarLevel')}
+                            variant="bordered"
+                            size="sm"
+                            selectedKeys={values.sugarLevel ? [values.sugarLevel] : []}
+                            onSelectionChange={(keys) => setField('sugarLevel', Array.from(keys)[0] || undefined)}
+                          >
+                            <>
+                              <SelectItem key=""><em>—</em></SelectItem>
+                              {['extra-brut', 'brut', 'extra-sec', 'sec', 'demi-sec', 'doux'].map((s) => (
+                                <SelectItem key={s}>{t(`inventory.sugarLevels.${s}`)}</SelectItem>
+                              ))}
+                            </>
+                          </Select>
+                        </>
+                      )}
 
-      <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-        <Button variant="outlined" onClick={onClose} disabled={isSubmitting}>
-          {t('actions.cancel')}
-        </Button>
-        <Button
-          type="submit"
-          variant="contained"
-          startIcon={<SaveIcon />}
-          disabled={!canSave || isSubmitting}
-        >
-          {isSubmitting
-            ? t('status.saving')
-            : isEditing
-              ? t('actions.update')
-              : t('inventory.saveMinimal')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+                      {/* Spirit essential */}
+                      {isSpirit && (
+                        <>
+                          <div className="col-span-2">
+                            <Select
+                              label={t('inventory.fields.spiritType')}
+                              variant="bordered"
+                              size="sm"
+                              selectedKeys={values.spiritType ? [values.spiritType] : []}
+                              onSelectionChange={(keys) => setField('spiritType', Array.from(keys)[0] || undefined)}
+                            >
+                              <>
+                                <SelectItem key=""><em>—</em></SelectItem>
+                                {['whisky', 'rhum', 'gin', 'cognac', 'calvados', 'armagnac', 'vodka', 'tequila', 'mezcal', 'liqueur', 'other'].map((s) => (
+                                  <SelectItem key={s}>{t(`inventory.spiritTypes.${s}`)}</SelectItem>
+                                ))}
+                              </>
+                            </Select>
+                          </div>
+                          <div className="col-span-2">
+                            <Input
+                              label={t('inventory.fields.edition')}
+                              variant="bordered"
+                              size="sm"
+                              value={values.edition ?? ''}
+                              onValueChange={(v) => setField('edition', v)}
+                            />
+                          </div>
+                          <Input
+                            label={t('inventory.fields.alcoholDegree')}
+                            type="number"
+                            variant="bordered"
+                            size="sm"
+                            isRequired
+                            value={String(values.alcoholDegree ?? '')}
+                            onValueChange={(v) => setField('alcoholDegree', numField(v))}
+                            endContent={<span className="text-xs text-default-400">%</span>}
+                            min={0} max={100}
+                          />
+                          <Input
+                            label={t('inventory.fields.declaredAge')}
+                            type="number"
+                            variant="bordered"
+                            size="sm"
+                            value={String(values.declaredAge ?? '')}
+                            onValueChange={(v) => setField('declaredAge', numField(v))}
+                            endContent={<span className="text-xs text-default-400">{t('inventory.fields.declaredAgeUnit')}</span>}
+                            min={0} max={200}
+                          />
+                        </>
+                      )}
+
+                      {/* Cigar essential */}
+                      {isCigar && (
+                        <>
+                          <Input
+                            label={t('inventory.fields.format')}
+                            variant="bordered"
+                            size="sm"
+                            value={values.format ?? ''}
+                            onValueChange={(v) => setField('format', v)}
+                          />
+                          <Input
+                            label={t('inventory.fields.quantity')}
+                            type="number"
+                            variant="bordered"
+                            size="sm"
+                            isRequired
+                            value={String(values.quantity ?? '')}
+                            onValueChange={(v) => setField('quantity', numField(v))}
+                            min={1}
+                          />
+                          <Input
+                            label={t('inventory.fields.manufactureYear')}
+                            type="number"
+                            variant="bordered"
+                            size="sm"
+                            value={String(values.manufactureYear ?? '')}
+                            onValueChange={(v) => setField('manufactureYear', numField(v))}
+                            min={1900} max={2100}
+                          />
+                        </>
+                      )}
+
+                      {/* Peak maturity window */}
+                      {isWineOrSparkling && (
+                        <>
+                          <div className="col-span-2 sm:col-span-4">
+                            <Divider>
+                              <span className="text-xs text-default-400 px-2">{t('inventory.fields.peakMaturity')}</span>
+                            </Divider>
+                          </div>
+                          <Input
+                            label={t('inventory.fields.peakMaturityFrom')}
+                            type="number"
+                            variant="bordered"
+                            size="sm"
+                            value={String(values.peakMaturityFrom ?? '')}
+                            onValueChange={(v) => setField('peakMaturityFrom', v ? Number(v) : null)}
+                            description={t('inventory.fields.peakMaturityFromHint')}
+                            min={1800} max={2200}
+                          />
+                          <Input
+                            label={t('inventory.fields.peakMaturityTo')}
+                            type="number"
+                            variant="bordered"
+                            size="sm"
+                            value={String(values.peakMaturityTo ?? '')}
+                            onValueChange={(v) => setField('peakMaturityTo', v ? Number(v) : null)}
+                            description={t('inventory.fields.peakMaturityToHint')}
+                            min={1800} max={2200}
+                          />
+                        </>
+                      )}
+                    </div>
+
+                    {/* Maturity suggestion banner */}
+                    {suggestion && suggestion.peakMaturityFrom != null && suggestion.peakMaturityTo != null && (
+                      <div className="mt-3 flex items-center gap-3 bg-primary-50 border border-primary-200 rounded-xl px-3 py-2">
+                        <Sparkles size={15} className="text-primary shrink-0" />
+                        <p className="flex-1 text-xs text-primary-700">
+                          <strong>{suggestion.reference.name}</strong>
+                          {' — '}
+                          {t('inventory.maturitySuggestion.window', {
+                            from: suggestion.peakMaturityFrom,
+                            to: suggestion.peakMaturityTo,
+                          })}
+                        </p>
+                        <Button size="sm" variant="flat" color="primary" onPress={applySuggestion}>
+                          {t('inventory.maturitySuggestion.apply')}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <Divider />
+
+                  {/* Section 3: Optionals */}
+                  <div>
+                    <Button
+                      size="sm"
+                      variant="light"
+                      endContent={showOptionals ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      onPress={() => setShowOptionals((prev) => !prev)}
+                    >
+                      {showOptionals ? t('actions.showLess') : t('actions.showMore')}
+                    </Button>
+
+                    {showOptionals && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
+                        {/* Collections */}
+                        <div className="col-span-2">
+                          <Autocomplete
+                            label={t('inventory.fields.collection')}
+                            variant="bordered"
+                            size="sm"
+                            inputValue=""
+                            onSelectionChange={(key) => {
+                              if (!key) return;
+                              const col = allCollections?.find(c => c.id === key);
+                              if (col && !selectedCollections.find(c => c.id === col.id)) {
+                                setSelectedCollections(prev => [...prev, col]);
+                              }
+                            }}
+                          >
+                            {(allCollections ?? []).map((option) => (
+                              <AutocompleteItem
+                                key={option.id}
+                                startContent={
+                                  <span
+                                    className="inline-block w-3 h-3 rounded-full shrink-0"
+                                    style={{ backgroundColor: option.color }}
+                                  />
+                                }
+                              >
+                                {option.icon ? `${option.icon} ` : ''}{option.name}
+                              </AutocompleteItem>
+                            ))}
+                          </Autocomplete>
+                          {selectedCollections.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {selectedCollections.map((col) => (
+                                <Chip
+                                  key={col.id}
+                                  size="sm"
+                                  onClose={() => setSelectedCollections(prev => prev.filter(c => c.id !== col.id))}
+                                  style={{ backgroundColor: col.color, color: '#fff' }}
+                                  className="text-[0.7rem]"
+                                >
+                                  {col.icon ? `${col.icon} ` : ''}{col.name}
+                                </Chip>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Purchase price */}
+                        <Input
+                          label={t('inventory.fields.purchasePrice')}
+                          type="number"
+                          variant="bordered"
+                          size="sm"
+                          value={String(values.purchasePrice ?? '')}
+                          onValueChange={(v) => setField('purchasePrice', numField(v))}
+                          endContent={<span className="text-xs text-default-400">€</span>}
+                        />
+
+                        {/* Purchase place */}
+                        <div className="col-span-2">
+                          <Input
+                            label={t('inventory.fields.purchasePlace')}
+                            variant="bordered"
+                            size="sm"
+                            value={values.purchasePlace ?? ''}
+                            onValueChange={(v) => setField('purchasePlace', v)}
+                          />
+                        </div>
+
+                        {/* Estimated value */}
+                        <Input
+                          label={t('inventory.fields.estimatedValue')}
+                          type="number"
+                          variant="bordered"
+                          size="sm"
+                          value={String(values.estimatedValue ?? '')}
+                          onValueChange={(v) => setField('estimatedValue', numField(v))}
+                          endContent={<span className="text-xs text-default-400">€</span>}
+                        />
+
+                        {/* Notes */}
+                        <div className="col-span-2 sm:col-span-4">
+                          <Input
+                            label={t('inventory.fields.notes')}
+                            variant="bordered"
+                            size="sm"
+                            value={values.notes ?? ''}
+                            onValueChange={(v) => setField('notes', v)}
+                          />
+                        </div>
+
+                        {/* Wine/Sparkling optionals */}
+                        {isWineOrSparkling && (
+                          <>
+                            <Input
+                              label={t('inventory.fields.bottleSize')}
+                              variant="bordered"
+                              size="sm"
+                              value={values.bottleSize ?? ''}
+                              onValueChange={(v) => setField('bottleSize', v)}
+                            />
+                            <Input
+                              label={t('inventory.fields.serviceTemp')}
+                              variant="bordered"
+                              size="sm"
+                              value={values.serviceTemp ?? ''}
+                              onValueChange={(v) => setField('serviceTemp', v)}
+                            />
+                            {isWine && (
+                              <>
+                                <div className="col-span-2 sm:col-span-4">
+                                  <Input
+                                    label={t('inventory.fields.grapeVarieties')}
+                                    placeholder={t('inventory.fields.grapeVarietiesHint')}
+                                    variant="bordered"
+                                    size="sm"
+                                    value={(values.grapeVarieties ?? []).join(', ')}
+                                    onValueChange={(v) =>
+                                      setField('grapeVarieties', v ? v.split(',').map((s) => s.trim()).filter(Boolean) : [])
+                                    }
+                                  />
+                                </div>
+                                <Input
+                                  label={t('inventory.fields.lotNumber')}
+                                  variant="bordered"
+                                  size="sm"
+                                  value={values.lotNumber ?? ''}
+                                  onValueChange={(v) => setField('lotNumber', v)}
+                                />
+                                <div className="flex items-center">
+                                  <Chip
+                                    variant={values.needsAeration ? 'solid' : 'bordered'}
+                                    color={values.needsAeration ? 'primary' : 'default'}
+                                    className="cursor-pointer"
+                                    onClick={() => setField('needsAeration', !values.needsAeration)}
+                                  >
+                                    {t('inventory.fields.needsAeration')}
+                                  </Chip>
+                                </div>
+                              </>
+                            )}
+                            {isSparkling && (
+                              <>
+                                <Input
+                                  label={t('inventory.fields.baseYear')}
+                                  type="number"
+                                  variant="bordered"
+                                  size="sm"
+                                  value={String(values.baseYear ?? '')}
+                                  onValueChange={(v) => setField('baseYear', numField(v))}
+                                  min={1800} max={2100}
+                                />
+                                <Input
+                                  label={t('inventory.fields.disgorgingDate')}
+                                  type="date"
+                                  variant="bordered"
+                                  size="sm"
+                                  value={typeof values.disgorgingDate === 'string' ? values.disgorgingDate.split('T')[0] : ''}
+                                  onValueChange={(v) => setField('disgorgingDate', v || null)}
+                                />
+                              </>
+                            )}
+                          </>
+                        )}
+
+                        {/* Spirit optionals */}
+                        {isSpirit && (
+                          <>
+                            <div className="col-span-2">
+                              <Input
+                                label={t('inventory.fields.caskType')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.caskType ?? ''}
+                                onValueChange={(v) => setField('caskType', v)}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Input
+                                label={t('inventory.fields.aromaticProfile')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.aromaticProfile ?? ''}
+                                onValueChange={(v) => setField('aromaticProfile', v)}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Input
+                                label={t('inventory.fields.additions')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.additions ?? ''}
+                                onValueChange={(v) => setField('additions', v)}
+                              />
+                            </div>
+                            <Input
+                              label={t('inventory.fields.bottleSize')}
+                              variant="bordered"
+                              size="sm"
+                              value={values.bottleSize ?? ''}
+                              onValueChange={(v) => setField('bottleSize', v)}
+                            />
+                          </>
+                        )}
+
+                        {/* Cigar optionals */}
+                        {isCigar && (
+                          <>
+                            <div className="col-span-2">
+                              <Input
+                                label={t('inventory.fields.leafOrigin')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.leafOrigin ?? ''}
+                                onValueChange={(v) => setField('leafOrigin', v)}
+                              />
+                            </div>
+                            <Input
+                              label={t('inventory.fields.factoryCode')}
+                              variant="bordered"
+                              size="sm"
+                              value={values.factoryCode ?? ''}
+                              onValueChange={(v) => setField('factoryCode', v)}
+                            />
+                            <Input
+                              label={t('inventory.fields.recommendedHumidity')}
+                              type="number"
+                              variant="bordered"
+                              size="sm"
+                              value={String(values.recommendedHumidity ?? '')}
+                              onValueChange={(v) => setField('recommendedHumidity', numField(v))}
+                              endContent={<span className="text-xs text-default-400">%</span>}
+                              min={50} max={100}
+                            />
+                            <div className="col-span-2">
+                              <Input
+                                label={t('inventory.fields.humidificationSystem')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.humidificationSystem ?? ''}
+                                onValueChange={(v) => setField('humidificationSystem', v)}
+                              />
+                            </div>
+                          </>
+                        )}
+
+                        {/* Opened status */}
+                        <div className="col-span-2 sm:col-span-4">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant={values.isOpened ? 'solid' : 'bordered'}
+                              color={values.isOpened ? 'warning' : 'default'}
+                              onPress={() => {
+                                const next = !values.isOpened;
+                                setField('isOpened', next);
+                                if (next && !values.openedAt) {
+                                  setField('openedAt', new Date().toISOString().split('T')[0]);
+                                }
+                              }}
+                            >
+                              {values.isOpened ? '✓ ' : ''}{t('inventory.fields.isOpened')}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {values.isOpened && (
+                          <>
+                            <div className="col-span-2 sm:col-span-4">
+                              <p className="text-xs text-default-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {([100, 75, 50, 25, 0] as const).map((val) => (
+                                  <Chip
+                                    key={val}
+                                    size="sm"
+                                    variant={values.fillLevel === val ? 'solid' : 'bordered'}
+                                    color={values.fillLevel === val ? 'warning' : 'default'}
+                                    className="cursor-pointer"
+                                    onClick={() => setField('fillLevel', val)}
+                                  >
+                                    {t(`inventory.fillLevels.${val === 100 ? 'full' : val === 75 ? 'threeQuarters' : val === 50 ? 'half' : val === 25 ? 'quarter' : 'empty'}`)}
+                                  </Chip>
+                                ))}
+                              </div>
+                            </div>
+                            <Input
+                              label={t('inventory.fields.openedAt')}
+                              type="date"
+                              variant="bordered"
+                              size="sm"
+                              value={typeof values.openedAt === 'string' ? values.openedAt.split('T')[0] : ''}
+                              onValueChange={(v) => setField('openedAt', v)}
+                            />
+                            <Input
+                              label={t('inventory.fields.reminderDate')}
+                              type="date"
+                              variant="bordered"
+                              size="sm"
+                              value={typeof values.reminderDate === 'string' ? values.reminderDate.split('T')[0] : ''}
+                              onValueChange={(v) => setField('reminderDate', v)}
+                            />
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </ModalBody>
+
+            <ModalFooter className="gap-2 pt-3">
+              <Button variant="bordered" onPress={onClose} isDisabled={isSubmitting}>
+                {t('actions.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                color="primary"
+                startContent={<Save size={15} />}
+                isDisabled={!canSave || isSubmitting}
+                isLoading={isSubmitting}
+              >
+                {isSubmitting
+                  ? t('status.saving')
+                  : isEditing
+                    ? t('actions.update')
+                    : t('inventory.saveMinimal')}
+              </Button>
+            </ModalFooter>
+          </form>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

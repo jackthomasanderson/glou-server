@@ -623,6 +623,10 @@
     "regionMap": {
       "title": "Répartition géographique",
       "subtitle": "Distribution de votre collection par terroir",
+      "mapTitle": "Carte du Monde — Heatmap des Goûts",
+      "mapSubtitle": "Survolez un hotspot géographique pour voir sa valorisation et sa composition.",
+      "legendActive": "Activité intense",
+      "unmapped": "{{count}} terroir(s) non géolocalisé(s)",
       "items": "élément(s) en stock",
       "valuation": "Valorisation :",
       "noRegions": "Aucune région renseignée dans votre inventaire."
@@ -640,6 +644,15 @@
         "spirit": "flacons",
         "cigar": "vitoles"
       }
+    },
+    "garde": {
+      "title": "Planning de Garde (Histogramme)",
+      "subtitle": "Distribution temporelle des bouteilles par année d'apogée optimale",
+      "noData": "Aucune fenêtre d'apogée renseignée dans votre inventaire.",
+      "bottles": "bouteille(s) à l'apogée"
+    },
+    "caves": {
+      "title": "Répartition par cave"
     },
     "maturity": {
       "title": "Planning optimal de consommation (Apogée)",

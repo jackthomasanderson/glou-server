@@ -1,11 +1,10 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Box, Container, Typography, Grid, Fab, CircularProgress, Alert,
-  Dialog, DialogTitle, DialogContent, DialogActions, Button,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
+  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Button, Spinner,
+} from '@heroui/react';
+import { Plus, BookMarked } from 'lucide-react';
 import { useCollections, useCreateCollection, useUpdateCollection, useDeleteCollection } from '@/hooks/useCollections';
 import { Collection, CollectionFormValues } from '@/lib/collections/types';
 import { CollectionCard } from './CollectionCard';
@@ -43,55 +42,67 @@ export function CollectionsDashboard() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <CollectionsBookmarkIcon color="primary" />
-        <Typography variant="h5" fontWeight={700}>{t('collections.title')}</Typography>
-      </Box>
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-6">
+        <BookMarked size={22} className="text-primary" />
+        <h1 className="text-xl font-bold">{t('collections.title')}</h1>
+      </div>
 
-      {isError && <Alert severity="error" sx={{ mb: 2 }}>{t('collections.errors.load')}</Alert>}
+      {/* Error banner */}
+      {isError && (
+        <div className="mb-4 rounded-lg bg-danger-50 border border-danger-200 text-danger px-4 py-3 text-sm">
+          {t('collections.errors.load')}
+        </div>
+      )}
 
+      {/* Loading */}
       {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <div className="flex justify-center py-16">
+          <Spinner size="lg" />
+        </div>
       ) : !collections?.length ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <CollectionsBookmarkIcon sx={{ fontSize: 64, color: 'action.disabled', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">{t('collections.empty')}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            {t('collections.emptyHint')}
-          </Typography>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setFormOpen(true)}>
+        /* Empty state */
+        <div className="flex flex-col items-center py-16 text-center">
+          <BookMarked size={64} className="text-default-300 mb-4" />
+          <p className="text-lg font-semibold text-default-500">{t('collections.empty')}</p>
+          <p className="text-sm text-default-400 mb-6">{t('collections.emptyHint')}</p>
+          <Button
+            color="primary"
+            variant="solid"
+            startContent={<Plus size={16} />}
+            onPress={() => setFormOpen(true)}
+          >
             {t('collections.create')}
           </Button>
-        </Box>
+        </div>
       ) : (
-        <Grid container spacing={2}>
+        /* Grid */
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {collections.map((col) => (
-            <Grid item key={col.id} xs={12} sm={6} md={4} lg={3}>
-              <CollectionCard
-                collection={col}
-                onEdit={setEditing}
-                onDelete={setDeleting}
-                onClick={() => router.push(`/inventory?collection=${col.id}`)}
-              />
-            </Grid>
+            <CollectionCard
+              key={col.id}
+              collection={col}
+              onEdit={setEditing}
+              onDelete={setDeleting}
+              onClick={() => router.push(`/inventory?collection=${col.id}`)}
+            />
           ))}
-        </Grid>
+        </div>
       )}
 
+      {/* FAB — only when there are collections */}
       {(collections?.length ?? 0) > 0 && (
-        <Fab
-          color="primary"
-          aria-label={t('collections.create')}
+        <button
           onClick={() => setFormOpen(true)}
-          sx={{ position: 'fixed', bottom: { xs: 80, md: 24 }, right: 24 }}
+          aria-label={t('collections.create')}
+          className="fixed bottom-20 md:bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-lg flex items-center justify-center hover:bg-primary-400 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 z-50"
         >
-          <AddIcon />
-        </Fab>
+          <Plus size={24} />
+        </button>
       )}
 
+      {/* Create form */}
       <CollectionForm
         open={formOpen}
         onClose={() => setFormOpen(false)}
@@ -99,6 +110,7 @@ export function CollectionsDashboard() {
         isLoading={createMutation.isPending}
       />
 
+      {/* Edit form */}
       <CollectionForm
         open={!!editing}
         onClose={() => setEditing(null)}
@@ -107,25 +119,42 @@ export function CollectionsDashboard() {
         isLoading={updateMutation.isPending}
       />
 
-      <Dialog open={!!deleting} onClose={() => setDeleting(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t('collections.deleteTitle')}</DialogTitle>
-        <DialogContent>
-          <Typography>
-            {t('collections.deleteConfirm', { name: deleting?.name ?? '' })}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleting(null)}>{t('actions.cancel')}</Button>
-          <Button
-            color="error"
-            variant="contained"
-            onClick={handleDelete}
-            disabled={deleteMutation.isPending}
-          >
-            {t('actions.delete')}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+      {/* Delete confirm */}
+      <Modal
+        isOpen={!!deleting}
+        onClose={() => setDeleting(null)}
+        size="sm"
+        radius="lg"
+        backdrop="opaque"
+        placement="center"
+      >
+        <ModalContent>
+          {(onModalClose) => (
+            <>
+              <ModalHeader>{t('collections.deleteTitle')}</ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-default-600">
+                  {t('collections.deleteConfirm', { name: deleting?.name ?? '' })}
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="default" variant="light" onPress={() => setDeleting(null)}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  color="danger"
+                  variant="solid"
+                  onPress={handleDelete}
+                  isLoading={deleteMutation.isPending}
+                  isDisabled={deleteMutation.isPending}
+                >
+                  {t('actions.delete')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+    </div>
   );
 }

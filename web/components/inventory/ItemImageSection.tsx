@@ -1,18 +1,7 @@
 'use client';
 import React, { useRef, useState } from 'react';
-import {
-  Box, CircularProgress, IconButton, InputAdornment,
-  TextField, Tooltip, Typography,
-} from '@mui/material';
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import LinkIcon from '@mui/icons-material/Link';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import CheckIcon from '@mui/icons-material/Check';
-import CloseIcon from '@mui/icons-material/Close';
-import WineBarIcon from '@mui/icons-material/WineBar';
-import BubbleChartIcon from '@mui/icons-material/BubbleChart';
-import SportsMmaIcon from '@mui/icons-material/SportsMma';
-import GrassIcon from '@mui/icons-material/Grass';
+import { Button, Input, Tooltip } from '@heroui/react';
+import { Camera, Link2, Trash2, Check, X, Wine, Sparkles, Dumbbell, Leaf, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ImagePickerButton, ImageResult } from './ImagePicker';
 import { InventoryCategory } from '@/lib/inventory/types';
@@ -25,10 +14,10 @@ const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
 };
 
 const PLACEHOLDER_ICON: Record<InventoryCategory, React.ReactElement> = {
-  wine: <WineBarIcon sx={{ fontSize: 40, opacity: 0.3, color: '#fff' }} />,
-  sparkling: <BubbleChartIcon sx={{ fontSize: 40, opacity: 0.3, color: '#fff' }} />,
-  spirit: <SportsMmaIcon sx={{ fontSize: 40, opacity: 0.3, color: '#fff' }} />,
-  cigar: <GrassIcon sx={{ fontSize: 40, opacity: 0.3, color: '#fff' }} />,
+  wine: <Wine size={40} className="opacity-30 text-white" />,
+  sparkling: <Sparkles size={40} className="opacity-30 text-white" />,
+  spirit: <Dumbbell size={40} className="opacity-30 text-white" />,
+  cigar: <Leaf size={40} className="opacity-30 text-white" />,
 };
 
 interface ItemImageSectionProps {
@@ -109,42 +98,26 @@ export function ItemImageSection({
   const hasPhoto = Boolean(photoUrl);
 
   return (
-    <Box>
+    <div>
       {/* ── Preview area ──────────────────────────────────────── */}
-      <Box
-        sx={{
-          position: 'relative',
-          width: '100%',
+      <div
+        className="relative w-full rounded-xl overflow-hidden border border-default-200 flex items-center justify-center mb-3"
+        style={{
           aspectRatio: '3 / 4',
-          borderRadius: 2,
-          overflow: 'hidden',
-          border: '1px solid',
-          borderColor: 'divider',
-          bgcolor: photoUrl ? 'action.hover' : PLACEHOLDER_BG[category],
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          mb: 1,
+          backgroundColor: hasPhoto ? undefined : PLACEHOLDER_BG[category],
         }}
       >
         {(saving || isAutoLoading) && (
-          <Box
-            sx={{
-              position: 'absolute', inset: 0, zIndex: 2,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              bgcolor: 'rgba(0,0,0,0.35)',
-            }}
-          >
-            <CircularProgress size={28} sx={{ color: 'common.white' }} />
-          </Box>
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/35">
+            <Loader2 size={28} className="animate-spin text-white" />
+          </div>
         )}
 
         {hasPhoto ? (
-          <Box
-            component="img"
+          <img
             src={photoUrl}
             alt=""
-            sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            className="w-full h-full object-contain"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         ) : (
@@ -152,95 +125,103 @@ export function ItemImageSection({
         )}
 
         {hasPhoto && !saving && !isAutoLoading && (
-          <Tooltip title={t('itemImage.remove')}>
-            <IconButton
-              size="small"
-              onClick={() => onPhotoChange('')}
-              sx={{
-                position: 'absolute', top: 4, right: 4,
-                bgcolor: 'rgba(0,0,0,0.45)',
-                color: 'common.white',
-                '&:hover': { bgcolor: 'rgba(0,0,0,0.65)' },
-              }}
+          <Tooltip content={t('itemImage.remove')} delay={500}>
+            <Button
+              isIconOnly
+              size="sm"
+              onPress={() => onPhotoChange('')}
+              className="absolute top-2 right-2 bg-black/45 text-white hover:bg-black/65 min-w-unit-7 w-7 h-7"
+              aria-label={t('itemImage.remove')}
             >
-              <DeleteOutlineIcon fontSize="small" />
-            </IconButton>
+              <Trash2 size={14} />
+            </Button>
           </Tooltip>
         )}
 
         {hasPhoto && isLocal && !saving && !isAutoLoading && (
-          <Box
-            sx={{
-              position: 'absolute', bottom: 4, left: 4,
-              bgcolor: 'rgba(0,0,0,0.45)',
-              color: 'common.white',
-              px: 0.75, py: 0.25, borderRadius: 1,
-            }}
-          >
-            <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
-              {t('itemImage.savedLocally')}
-            </Typography>
-          </Box>
+          <span className="absolute bottom-2 left-2 bg-black/45 text-white px-1.5 py-0.5 rounded text-[0.65rem]">
+            {t('itemImage.savedLocally')}
+          </span>
         )}
-      </Box>
+      </div>
 
       {/* ── URL input mode ───────────────────────────────────── */}
       {mode === 'url' && (
-        <TextField
-          autoFocus
-          fullWidth
-          size="small"
-          placeholder={t('itemImage.urlPlaceholder')}
-          value={urlInput}
-          onChange={(e) => setUrlInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleUrlConfirm();
-            if (e.key === 'Escape') { setMode('idle'); setUrlInput(''); }
-          }}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={handleUrlConfirm} disabled={!urlInput.trim()}>
-                  <CheckIcon fontSize="small" color="success" />
-                </IconButton>
-                <IconButton size="small" onClick={() => { setMode('idle'); setUrlInput(''); }}>
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          sx={{ mb: 1 }}
-        />
+        <div className="mb-3">
+          <Input
+            autoFocus
+            fullWidth
+            size="sm"
+            placeholder={t('itemImage.urlPlaceholder')}
+            value={urlInput}
+            onValueChange={setUrlInput}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleUrlConfirm();
+              if (e.key === 'Escape') { setMode('idle'); setUrlInput(''); }
+            }}
+            endContent={
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={handleUrlConfirm}
+                  disabled={!urlInput.trim()}
+                  className="text-success disabled:opacity-40 hover:opacity-70"
+                >
+                  <Check size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMode('idle'); setUrlInput(''); }}
+                  className="text-default-400 hover:opacity-70"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            }
+          />
+        </div>
       )}
 
       {/* ── Action buttons ───────────────────────────────────── */}
       {mode === 'idle' && (
-        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+        <div className="flex items-center justify-center gap-1">
           <ImagePickerButton
             initialQuery={autoSearchQuery}
             preloadedResults={preloadedResults}
             onSelect={onPhotoChange}
           />
-          <Tooltip title={t('itemImage.pasteUrl')}>
-            <IconButton size="small" onClick={() => setMode('url')}>
-              <LinkIcon fontSize="small" />
-            </IconButton>
+          <Tooltip content={t('itemImage.pasteUrl')} delay={500}>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              onPress={() => setMode('url')}
+              aria-label={t('itemImage.pasteUrl')}
+            >
+              <Link2 size={16} />
+            </Button>
           </Tooltip>
-          <Tooltip title={t('itemImage.upload')}>
-            <IconButton size="small" onClick={() => fileInputRef.current?.click()}>
-              <PhotoCameraIcon fontSize="small" />
-            </IconButton>
+          <Tooltip content={t('itemImage.upload')} delay={500}>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              onPress={() => fileInputRef.current?.click()}
+              aria-label={t('itemImage.upload')}
+            >
+              <Camera size={16} />
+            </Button>
           </Tooltip>
-        </Box>
+        </div>
       )}
 
       <input
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
-        style={{ display: 'none' }}
+        className="hidden"
         onChange={handleFileChange}
       />
-    </Box>
+    </div>
   );
 }

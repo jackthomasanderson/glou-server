@@ -1,11 +1,7 @@
 'use client';
-import React, { useState, useCallback, useEffect } from 'react';
-import {
-  Alert, Badge, Box, CircularProgress, IconButton, InputAdornment,
-  Popover, TextField, Tooltip, Typography,
-} from '@mui/material';
-import ImageSearchIcon from '@mui/icons-material/ImageSearch';
-import SearchIcon from '@mui/icons-material/Search';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Button, Input, Tooltip } from '@heroui/react';
+import { Search, Loader2, X } from 'lucide-react';
 import { useConnectivityWarning } from '@/hooks/useConnectivityWarning';
 import { useTranslation } from 'react-i18next';
 
@@ -28,19 +24,39 @@ export function ImagePickerButton({
 }: ImagePickerButtonProps) {
   const { t } = useTranslation();
   const { shouldWarn, dismiss } = useConnectivityWarning('image_search');
-  const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ImageResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showOfflineAlert, setShowOfflineAlert] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Sync preloaded results when popover is closed
+  // Sync preloaded results when panel is closed
   useEffect(() => {
-    if (!anchor && preloadedResults) {
+    if (!isOpen && preloadedResults) {
       setResults(preloadedResults);
     }
-  }, [preloadedResults, anchor]);
+  }, [preloadedResults, isOpen]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+        setShowOfflineAlert(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isOpen]);
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) return;
@@ -59,15 +75,14 @@ export function ImagePickerButton({
     }
   }, []);
 
-  const handleOpen = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleOpen = () => {
     const initial = initialQuery.trim();
     setQuery(initial);
-    setAnchor(e.currentTarget);
+    setIsOpen(true);
     if (shouldWarn) {
       setShowOfflineAlert(true);
       dismiss();
     }
-    // Use preloaded results if fresh, otherwise fetch
     if (preloadedResults && preloadedResults.length > 0) {
       setResults(preloadedResults);
     } else if (initial) {
@@ -76,7 +91,7 @@ export function ImagePickerButton({
   };
 
   const handleClose = () => {
-    setAnchor(null);
+    setIsOpen(false);
     setShowOfflineAlert(false);
   };
 
@@ -101,99 +116,103 @@ export function ImagePickerButton({
     }
   };
 
-  const open = Boolean(anchor);
   const hasPreloaded = (preloadedResults?.length ?? 0) > 0;
 
   return (
-    <>
-      <Tooltip title={t('imagePicker.tooltip')}>
-        <Badge
-          color="primary"
-          variant="dot"
-          invisible={!hasPreloaded || open}
-          sx={{ mt: '2px' }}
-        >
-          <IconButton size="small" onClick={handleOpen}>
-            <ImageSearchIcon fontSize="small" />
-          </IconButton>
-        </Badge>
+    <div className="relative">
+      <Tooltip content={t('imagePicker.tooltip')} delay={500}>
+        <div className="relative inline-flex">
+          <Button
+            ref={buttonRef}
+            isIconOnly
+            size="sm"
+            variant="light"
+            onPress={handleOpen}
+            aria-label={t('imagePicker.tooltip')}
+          >
+            <Search size={16} />
+          </Button>
+          {/* dot indicator for preloaded results */}
+          {hasPreloaded && !isOpen && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary pointer-events-none" />
+          )}
+        </div>
       </Tooltip>
 
-      <Popover
-        open={open}
-        anchorEl={anchor}
-        onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        PaperProps={{ sx: { p: 2, width: 360 } }}
-      >
-        {showOfflineAlert && (
-          <Alert
-            severity="warning"
-            sx={{ mb: 1.5 }}
-            onClose={() => setShowOfflineAlert(false)}
-          >
-            {t('imagePicker.offline')}
-          </Alert>
-        )}
+      {isOpen && (
+        <div
+          ref={panelRef}
+          className="absolute z-[1500] left-0 top-full mt-1 w-[360px] bg-background border border-default-200 rounded-xl shadow-xl p-4"
+        >
+          {/* Close button */}
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-default-600">
+              {t('imagePicker.tooltip')}
+            </span>
+            <Button isIconOnly size="sm" variant="light" onPress={handleClose}>
+              <X size={14} />
+            </Button>
+          </div>
 
-        <TextField
-          autoFocus
-          fullWidth
-          size="small"
-          placeholder={t('imagePicker.searchPlaceholder')}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') doSearch(query); }}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton size="small" onClick={() => doSearch(query)} edge="end">
-                  <SearchIcon fontSize="small" />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          sx={{ mb: 1.5 }}
-        />
+          {showOfflineAlert && (
+            <div className="flex items-center justify-between bg-warning-50 border border-warning-200 text-warning-700 text-xs rounded-lg px-3 py-2 mb-3">
+              <span>{t('imagePicker.offline')}</span>
+              <button
+                type="button"
+                onClick={() => setShowOfflineAlert(false)}
+                className="ml-2 hover:opacity-70"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
 
-        {(loading || saving) && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-            <CircularProgress size={24} />
-          </Box>
-        )}
+          <Input
+            autoFocus
+            fullWidth
+            size="sm"
+            placeholder={t('imagePicker.searchPlaceholder')}
+            value={query}
+            onValueChange={setQuery}
+            onKeyDown={(e) => { if (e.key === 'Enter') doSearch(query); }}
+            endContent={
+              <button
+                type="button"
+                onClick={() => doSearch(query)}
+                className="text-default-400 hover:text-primary"
+              >
+                <Search size={14} />
+              </button>
+            }
+            className="mb-3"
+          />
 
-        {!loading && !saving && query && results.length === 0 && (
-          <Typography variant="caption" color="text.secondary">
-            {t('imagePicker.noResults')}
-          </Typography>
-        )}
+          {(loading || saving) && (
+            <div className="flex justify-center py-4">
+              <Loader2 size={24} className="animate-spin text-primary" />
+            </div>
+          )}
 
-        {!loading && !saving && results.length > 0 && (
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1 }}>
-            {results.map((img) => (
-              <Tooltip key={img.url} title={img.title} placement="top">
-                <Box
-                  component="img"
-                  src={img.thumb}
-                  alt={img.title}
-                  onClick={() => handleSelect(img.url)}
-                  sx={{
-                    width: '100%',
-                    aspectRatio: '1',
-                    objectFit: 'cover',
-                    borderRadius: 1,
-                    cursor: 'pointer',
-                    border: '2px solid transparent',
-                    transition: 'border-color 0.15s',
-                    '&:hover': { borderColor: 'primary.main' },
-                  }}
-                />
-              </Tooltip>
-            ))}
-          </Box>
-        )}
-      </Popover>
-    </>
+          {!loading && !saving && query && results.length === 0 && (
+            <p className="text-xs text-default-400">{t('imagePicker.noResults')}</p>
+          )}
+
+          {!loading && !saving && results.length > 0 && (
+            <div className="grid grid-cols-4 gap-2">
+              {results.map((img) => (
+                <Tooltip key={img.url} content={img.title} delay={500}>
+                  <img
+                    src={img.thumb}
+                    alt={img.title}
+                    onClick={() => handleSelect(img.url)}
+                    className="w-full aspect-square object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-primary transition-colors duration-150"
+                  />
+                </Tooltip>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

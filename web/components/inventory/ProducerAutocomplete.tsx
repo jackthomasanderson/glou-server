@@ -1,17 +1,7 @@
 'use client';
 import React, { useRef, useState, useMemo } from 'react';
-import {
-  Box,
-  TextField,
-  Chip,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
-  Typography,
-  CircularProgress,
-  Popper,
-} from '@mui/material';
+import { Input, Chip } from '@heroui/react';
+import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
 import { useConnectivity } from '@/hooks/useConnectivity';
@@ -31,7 +21,7 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
   const isOnline = useConnectivity();
   const { data: inventoryItems } = useInventory();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const anchorRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [externalProducers, setExternalProducers] = useState<string[]>([]);
   const [loadingExternal, setLoadingExternal] = useState(false);
@@ -52,7 +42,9 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
   }, [value, inventoryItems]);
 
   const externalFiltered = useMemo(
-    () => externalProducers.filter((p) => !internalProducers.map((i) => i.toLowerCase()).includes(p.toLowerCase())),
+    () => externalProducers.filter(
+      (p) => !internalProducers.map((i) => i.toLowerCase()).includes(p.toLowerCase())
+    ),
     [internalProducers, externalProducers]
   );
 
@@ -64,13 +56,12 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
     [internalProducers, externalFiltered]
   );
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    onChange(newValue);
+  const handleInputChange = (val: string) => {
+    onChange(val);
     setIsOpen(true);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!newValue.trim() || isOnline === false) {
+    if (!val.trim() || isOnline === false) {
       setExternalProducers([]);
       return;
     }
@@ -79,7 +70,7 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
       setLoadingExternal(true);
       try {
         const { data } = await client.get<string[]>(
-          `/search/producers?q=${encodeURIComponent(newValue)}&category=${encodeURIComponent(category)}&lang=${i18n.language}`
+          `/search/producers?q=${encodeURIComponent(val)}&category=${encodeURIComponent(category)}&lang=${i18n.language}`
         );
         setExternalProducers(data ?? []);
       } catch {
@@ -101,55 +92,48 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
   };
 
   return (
-    <Box ref={anchorRef}>
-      <TextField
+    <div ref={wrapperRef} className="relative">
+      <Input
         fullWidth
-        required={required}
-        size="small"
+        isRequired={required}
+        size="sm"
         label={label}
         placeholder={placeholder}
         value={value}
-        onChange={handleInputChange}
+        onValueChange={handleInputChange}
         onFocus={() => { if (value.trim()) setIsOpen(true); }}
         onBlur={handleBlur}
-        InputProps={{
-          endAdornment: loadingExternal ? <CircularProgress size={14} /> : undefined,
-        }}
+        endContent={
+          loadingExternal ? <Loader2 size={14} className="animate-spin text-default-400" /> : undefined
+        }
       />
 
-      <Popper
-        open={isOpen && options.length > 0}
-        anchorEl={anchorRef.current}
-        placement="bottom-start"
-        style={{ zIndex: 1500, width: anchorRef.current?.offsetWidth }}
-      >
-        <Paper elevation={4} sx={{ borderRadius: 2, overflow: 'hidden', mt: 0.5 }}>
-          <List dense disablePadding>
+      {isOpen && options.length > 0 && (
+        <div
+          className="absolute z-[1500] left-0 top-full mt-1 w-full bg-background border border-default-200 rounded-xl shadow-xl overflow-hidden"
+          style={{ minWidth: wrapperRef.current?.offsetWidth }}
+        >
+          <ul className="py-1">
             {options.map((opt, idx) => (
-              <ListItem
+              <li
                 key={`${opt.source}-${opt.label}-${idx}`}
                 onMouseDown={() => handleSelect(opt.label)}
-                sx={{ py: 0.75, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-default-100"
               >
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" fontWeight={600}>{opt.label}</Typography>
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={opt.source === 'internal' ? t('autocomplete.internal') : t('autocomplete.external')}
-                        color={opt.source === 'internal' ? 'primary' : 'default'}
-                        sx={{ height: 18, fontSize: '0.65rem' }}
-                      />
-                    </Box>
-                  }
-                />
-              </ListItem>
+                <span className="text-sm font-semibold">{opt.label}</span>
+                <Chip
+                  size="sm"
+                  variant="bordered"
+                  color={opt.source === 'internal' ? 'primary' : 'default'}
+                  classNames={{ base: 'h-[18px]', content: 'text-[0.65rem] px-1.5' }}
+                >
+                  {opt.source === 'internal' ? t('autocomplete.internal') : t('autocomplete.external')}
+                </Chip>
+              </li>
             ))}
-          </List>
-        </Paper>
-      </Popper>
-    </Box>
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }

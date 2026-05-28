@@ -2,33 +2,32 @@
 import React from 'react';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import {
-  Card, CardContent, CardActions, CardMedia, IconButton, Typography,
-  Chip, Box, Skeleton, Tooltip, Checkbox,
-} from '@mui/material';
+  Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Checkbox, Button,
+} from '@heroui/react';
 import {
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-} from '@mui/icons-material';
-import WineBarIcon from '@mui/icons-material/WineBar';
-import SportsMmaIcon from '@mui/icons-material/SportsMma';
-import GrassIcon from '@mui/icons-material/Grass';
-import BubbleChartIcon from '@mui/icons-material/BubbleChart';
-import PlaceIcon from '@mui/icons-material/Place';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+  Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2,
+} from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <WineBarIcon sx={{ fontSize: 14 }} />,
-  sparkling: <BubbleChartIcon sx={{ fontSize: 14 }} />,
-  spirit: <SportsMmaIcon sx={{ fontSize: 14 }} />,
-  cigar: <GrassIcon sx={{ fontSize: 14 }} />,
+  wine: <Wine size={12} />,
+  sparkling: <Sparkles size={12} />,
+  spirit: <Dumbbell size={12} />,
+  cigar: <Leaf size={12} />,
 };
 
-const CATEGORY_PLACEHOLDER_BG: Record<InventoryCategory, string> = {
-  wine: 'linear-gradient(160deg, #6B1A2A 0%, #A83254 100%)',
-  sparkling: 'linear-gradient(160deg, #1A4A7A 0%, #3B7CC4 100%)',
-  spirit: 'linear-gradient(160deg, #3A3A2A 0%, #7A7A4A 100%)',
-  cigar: 'linear-gradient(160deg, #4A2E1A 0%, #8B5C2A 100%)',
+const CATEGORY_COLORS: Record<InventoryCategory, 'danger' | 'primary' | 'warning' | 'secondary'> = {
+  wine: 'danger',
+  sparkling: 'primary',
+  spirit: 'warning',
+  cigar: 'secondary',
+};
+
+const CATEGORY_PLACEHOLDER_GRADIENT: Record<InventoryCategory, string> = {
+  wine: 'from-[#6B1A2A] to-[#A83254]',
+  sparkling: 'from-[#1A4A7A] to-[#3B7CC4]',
+  spirit: 'from-[#3A3A2A] to-[#7A7A4A]',
+  cigar: 'from-[#4A2E1A] to-[#8B5C2A]',
 };
 
 interface InventoryCardProps {
@@ -67,247 +66,213 @@ export function InventoryCard({
       ? `≤ ${item.peakMaturityTo}`
       : null;
 
+  const alertIconColor =
+    item.alertStatus === 'peak'
+      ? 'text-success'
+      : item.alertStatus === 'past'
+      ? 'text-danger'
+      : item.alertStatus === 'approaching'
+      ? 'text-primary'
+      : 'text-default-300';
+
   return (
     <Card
-      sx={{
-        position: 'relative',
-        opacity: isTemp ? 0.75 : 1,
-        transition: 'box-shadow 0.2s',
-        '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' },
-        display: 'flex',
-        flexDirection: 'column',
-      }}
       aria-label={`${item.name} — ${categoryLabel}`}
+      isPressable={Boolean(onView)}
+      onPress={() => onView?.(item)}
+      className={`flex flex-col transition-shadow hover:shadow-md${isTemp ? ' opacity-75' : ''}`}
     >
       {/* ── Top chips ─────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 1.5, pt: 1.25, pb: 0.5 }}>
+      <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
         <Chip
-          icon={CATEGORY_ICONS[item.category]}
-          label={categoryLabel.toUpperCase()}
-          size="small"
-          variant="outlined"
-          color={item.category === 'wine' || item.category === 'sparkling' ? 'secondary' : item.category === 'spirit' ? 'default' : 'warning'}
-          sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.05rem', '& .MuiChip-label': { px: 0.75 } }}
-        />
+          startContent={CATEGORY_ICONS[item.category]}
+          size="sm"
+          variant="bordered"
+          color={CATEGORY_COLORS[item.category]}
+          radius="sm"
+          classNames={{ base: 'h-5', content: 'px-1.5 text-[0.6rem] font-bold tracking-wider' }}
+        >
+          {categoryLabel.toUpperCase()}
+        </Chip>
         {cellarName && (
           <Chip
-            icon={<PlaceIcon sx={{ fontSize: '11px !important' }} />}
-            label={cellarName}
-            size="small"
-            sx={{
-              height: 20,
-              fontSize: '0.6rem',
-              fontWeight: 600,
-              bgcolor: 'rgba(123,30,48,0.08)',
-              color: 'secondary.main',
-              border: '1px solid',
-              borderColor: 'rgba(123,30,48,0.2)',
-              '& .MuiChip-label': { px: 0.75 },
-              '& .MuiChip-icon': { color: 'secondary.main' },
-            }}
-          />
-        )}
-      </Box>
-
-      {/* ── Image / placeholder + fill badge ─────────────────── */}
-      <Box
-        sx={{ position: 'relative', cursor: onView ? 'pointer' : 'default' }}
-        onClick={() => onView?.(item)}
-      >
-        {item.photoUrl ? (
-          <CardMedia
-            component="img"
-            height={120}
-            image={item.photoUrl}
-            alt={item.name}
-            sx={{ objectFit: 'contain', bgcolor: 'background.paper' }}
-          />
-        ) : (
-          <Box
-            sx={{
-              height: 120,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: CATEGORY_PLACEHOLDER_BG[item.category],
-              fontSize: '2.5rem',
-              color: 'rgba(255,255,255,0.35)',
+            startContent={<MapPin size={10} />}
+            size="sm"
+            radius="sm"
+            classNames={{
+              base: 'h-5 bg-danger-50 border border-danger-200',
+              content: 'px-1.5 text-[0.6rem] font-semibold text-danger-700',
             }}
           >
-            {CATEGORY_ICONS[item.category]}
-          </Box>
+            {cellarName}
+          </Chip>
+        )}
+      </div>
+
+      {/* ── Image / placeholder + fill badge ─────────────────── */}
+      <div
+        className="relative"
+        onClick={(e) => {
+          // When not using isPressable (no onView), do nothing; the Card handles it
+          if (!onView) e.stopPropagation();
+        }}
+      >
+        {item.photoUrl ? (
+          <img
+            src={item.photoUrl}
+            alt={item.name}
+            className="w-full object-contain bg-background"
+            style={{ height: 120 }}
+          />
+        ) : (
+          <div
+            className={`w-full bg-gradient-to-br ${CATEGORY_PLACEHOLDER_GRADIENT[item.category]} flex items-center justify-center text-white/35`}
+            style={{ height: 120, fontSize: '2.5rem' }}
+          >
+            {React.cloneElement(CATEGORY_ICONS[item.category], { size: 40 } as React.SVGProps<SVGSVGElement>)}
+          </div>
         )}
 
         {/* Fill level badge */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            bgcolor: fillLevel <= 20 ? 'error.main' : '#111',
-            color: '#fff',
-            borderRadius: 1.5,
-            px: 0.75,
-            py: 0.25,
-            fontSize: '0.65rem',
-            fontWeight: 700,
-            lineHeight: 1.4,
-            letterSpacing: '.03rem',
-          }}
+        <span
+          className={`absolute top-2 right-2 rounded-lg px-1.5 py-0.5 text-[0.65rem] font-bold leading-tight tracking-wide text-white${
+            fillLevel <= 20 ? ' bg-danger' : ' bg-[#111]'
+          }`}
         >
           {fillLevel}%
-        </Box>
+        </span>
 
         {/* Bulk select checkbox */}
         {onSelectToggle && (
-          <Box sx={{ position: 'absolute', top: 4, left: 4 }}>
+          <div
+            className="absolute top-1 left-1"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Checkbox
-              checked={isSelected}
-              onChange={() => onSelectToggle(item)}
-              size="small"
-              sx={{ p: 0.5, bgcolor: 'background.paper', borderRadius: 1 }}
+              isSelected={isSelected}
+              onValueChange={() => onSelectToggle(item)}
+              size="sm"
+              className="bg-background rounded p-0.5"
             />
-          </Box>
+          </div>
         )}
-      </Box>
+      </div>
 
       {/* ── Collection chips ──────────────────────────────────── */}
       {item.collections && item.collections.length > 0 && (
-        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', px: 1.5, pt: 0.75 }}>
+        <div className="flex flex-wrap gap-1 px-3 pt-1.5">
           {item.collections.slice(0, 2).map((col) => (
             <Chip
               key={col.id}
-              label={col.name}
-              size="small"
-              sx={{
-                height: 18,
-                fontSize: '0.6rem',
-                bgcolor: `${col.color}22`,
+              size="sm"
+              radius="sm"
+              classNames={{
+                base: `h-[18px] border`,
+                content: 'px-1.5 text-[0.6rem]',
+              }}
+              style={{
+                backgroundColor: `${col.color}22`,
                 borderColor: col.color,
                 color: col.color,
-                border: '1px solid',
-                '& .MuiChip-label': { px: 0.75 },
               }}
-            />
+            >
+              {col.name}
+            </Chip>
           ))}
           {item.collections.length > 2 && (
             <Chip
-              label={`+${item.collections.length - 2}`}
-              size="small"
-              variant="outlined"
-              sx={{ height: 18, fontSize: '0.6rem', '& .MuiChip-label': { px: 0.75 } }}
-            />
+              size="sm"
+              variant="bordered"
+              radius="sm"
+              classNames={{ base: 'h-[18px]', content: 'px-1.5 text-[0.6rem]' }}
+            >
+              +{item.collections.length - 2}
+            </Chip>
           )}
-        </Box>
+        </div>
       )}
 
       {/* ── Card body ─────────────────────────────────────────── */}
-      <CardContent
-        sx={{ pt: 1, pb: 0.5, px: 1.5, flex: 1, cursor: onView ? 'pointer' : 'default' }}
-        onClick={() => onView?.(item)}
-      >
+      <CardBody className="pt-2 pb-1 px-3 flex-1 gap-0">
         {/* Producer */}
-        <Typography
-          variant="caption"
-          sx={{
-            display: 'block',
-            fontWeight: 700,
-            fontSize: '0.6rem',
-            letterSpacing: '.08rem',
-            textTransform: 'uppercase',
-            color: 'text.secondary',
-            mb: 0.25,
-          }}
-          noWrap
-        >
+        <p className="text-[0.6rem] font-bold tracking-widest uppercase text-default-400 truncate mb-0.5">
           {item.producer}
-        </Typography>
+        </p>
 
         {/* Name */}
-        <Typography
-          variant="subtitle2"
-          fontWeight={500}
-          noWrap
-          sx={{ lineHeight: 1.3, mb: 0.5 }}
-        >
+        <p className="text-sm font-medium leading-snug truncate mb-1">
           {item.name}
-        </Typography>
+        </p>
 
         {/* Vintage + drinking window */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'nowrap', overflow: 'hidden' }}>
+        <div className="flex items-center gap-1 overflow-hidden flex-nowrap">
           {item.vintage && (
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, flexShrink: 0 }}>
+            <span className="text-xs text-default-400 font-medium shrink-0">
               {item.vintage}
-            </Typography>
+            </span>
           )}
           {drinkingWindow && (
-            <Tooltip title={t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, overflow: 'hidden', minWidth: 0 }}>
-                <WarningAmberIcon
-                  sx={{
-                    fontSize: 12,
-                    flexShrink: 0,
-                    color: item.alertStatus === 'peak' ? 'success.main'
-                      : item.alertStatus === 'past' ? 'error.main'
-                      : item.alertStatus === 'approaching' ? 'info.main'
-                      : 'text.disabled',
-                  }}
-                />
-                <Typography variant="caption" color="text.secondary" noWrap sx={{ fontSize: '0.65rem' }}>
+            <Tooltip
+              content={t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}
+              delay={500}
+            >
+              <div className="flex items-center gap-0.5 overflow-hidden min-w-0">
+                <AlertTriangle size={12} className={`shrink-0 ${alertIconColor}`} />
+                <span className="text-[0.65rem] text-default-400 truncate">
                   Apogée : {drinkingWindow}
-                </Typography>
-              </Box>
+                </span>
+              </div>
             </Tooltip>
           )}
-        </Box>
-      </CardContent>
+        </div>
+      </CardBody>
 
       {/* ── Actions ───────────────────────────────────────────── */}
-      <CardActions sx={{ pt: 0, px: 1, pb: 0.75, justifyContent: 'flex-end' }}>
-        <Tooltip title={t('actions.edit')}>
-          <span>
-            <IconButton
-              size="small"
-              onClick={() => onEdit(item)}
-              disabled={isTemp}
-              aria-label={t('actions.edit')}
-              sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-            >
-              <EditIcon sx={{ fontSize: 15 }} />
-            </IconButton>
-          </span>
+      <CardFooter className="pt-0 px-2 pb-1.5 justify-end gap-0">
+        <Tooltip content={t('actions.edit')} delay={500}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            onPress={() => onEdit(item)}
+            isDisabled={isTemp}
+            aria-label={t('actions.edit')}
+            className="text-default-400 hover:text-primary min-w-unit-7 w-7 h-7"
+          >
+            <Pencil size={14} />
+          </Button>
         </Tooltip>
-        <Tooltip title={t('actions.delete')}>
-          <span>
-            <IconButton
-              size="small"
-              onClick={() => onDelete(item)}
-              disabled={isTemp}
-              aria-label={t('actions.delete')}
-              sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}
-            >
-              <DeleteIcon sx={{ fontSize: 15 }} />
-            </IconButton>
-          </span>
+        <Tooltip content={t('actions.delete')} delay={500}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            onPress={() => onDelete(item)}
+            isDisabled={isTemp}
+            aria-label={t('actions.delete')}
+            className="text-default-400 hover:text-danger min-w-unit-7 w-7 h-7"
+          >
+            <Trash2 size={14} />
+          </Button>
         </Tooltip>
-      </CardActions>
+      </CardFooter>
     </Card>
   );
 }
 
 export function InventoryCardSkeleton() {
   return (
-    <Card>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 1.5, pt: 1.25, pb: 0.5 }}>
-        <Skeleton variant="rounded" width={50} height={20} />
-        <Skeleton variant="rounded" width={60} height={20} />
-      </Box>
-      <Skeleton variant="rectangular" height={120} />
-      <CardContent sx={{ pt: 1, px: 1.5 }}>
-        <Skeleton variant="text" width="60%" height={14} />
-        <Skeleton variant="text" width="85%" height={20} />
-        <Skeleton variant="text" width="70%" height={14} />
-      </CardContent>
+    <Card className="flex flex-col">
+      <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
+        <Skeleton className="rounded-lg w-12 h-5" />
+        <Skeleton className="rounded-lg w-16 h-5" />
+      </div>
+      <Skeleton className="w-full" style={{ height: 120 }} />
+      <CardBody className="pt-2 px-3 gap-1.5">
+        <Skeleton className="rounded w-3/5 h-3" />
+        <Skeleton className="rounded w-4/5 h-5" />
+        <Skeleton className="rounded w-2/3 h-3" />
+      </CardBody>
     </Card>
   );
 }

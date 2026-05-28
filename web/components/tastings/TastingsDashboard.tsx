@@ -1,11 +1,10 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Box, Container, Typography, Grid, Fab, CircularProgress, Alert,
-  Button, Dialog, DialogTitle, DialogContent, DialogActions, Pagination,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import LocalBarIcon from '@mui/icons-material/LocalBar';
+  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Button, Spinner,
+} from '@heroui/react';
+import { Plus, Wine, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTastings, useDeleteTasting } from '@/hooks/useTastings';
 import { TastingNote, TastingFormValues } from '@/lib/tastings/types';
 import { TastingCard } from './TastingCard';
@@ -48,82 +47,145 @@ export function TastingsDashboard() {
   const totalPages = data ? Math.ceil(data.total / data.limit) : 0;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <LocalBarIcon color="primary" />
-        <Typography variant="h5" fontWeight={700}>{t('tastings.title')}</Typography>
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-6">
+        <Wine size={22} className="text-primary" />
+        <h1 className="text-xl font-bold">{t('tastings.title')}</h1>
         {data && (
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+          <span className="ml-auto text-sm text-default-400">
             {t('tastings.total', { count: data.total })}
-          </Typography>
+          </span>
         )}
-      </Box>
+      </div>
 
-      {isError && <Alert severity="error" sx={{ mb: 2 }}>{t('tastings.errors.load')}</Alert>}
+      {/* Error banner */}
+      {isError && (
+        <div className="mb-4 rounded-lg bg-danger-50 border border-danger-200 text-danger px-4 py-3 text-sm">
+          {t('tastings.errors.load')}
+        </div>
+      )}
 
+      {/* Loading */}
       {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <div className="flex justify-center py-16">
+          <Spinner size="lg" />
+        </div>
       ) : !data?.notes.length ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <LocalBarIcon sx={{ fontSize: 64, color: 'action.disabled', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">{t('tastings.empty')}</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            {t('tastings.emptyHint')}
-          </Typography>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setFormOpen(true)}>
+        /* Empty state */
+        <div className="flex flex-col items-center py-16 text-center">
+          <Wine size={64} className="text-default-300 mb-4" />
+          <p className="text-lg font-semibold text-default-500">{t('tastings.empty')}</p>
+          <p className="text-sm text-default-400 mb-6">{t('tastings.emptyHint')}</p>
+          <Button
+            color="primary"
+            variant="solid"
+            startContent={<Plus size={16} />}
+            onPress={() => setFormOpen(true)}
+          >
             {t('tastings.create')}
           </Button>
-        </Box>
+        </div>
       ) : (
         <>
-          <Grid container spacing={2}>
+          {/* Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {data.notes.map((note) => (
-              <Grid item key={note.id} xs={12} sm={6} md={4}>
-                <TastingCard note={note} onEdit={handleEdit} onDelete={setDeleting} />
-              </Grid>
+              <TastingCard
+                key={note.id}
+                note={note}
+                onEdit={handleEdit}
+                onDelete={setDeleting}
+              />
             ))}
-          </Grid>
+          </div>
+
+          {/* Pagination */}
           {totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-              <Pagination count={totalPages} page={page} onChange={(_, p) => setPage(p)} />
-            </Box>
+            <div className="flex items-center justify-center gap-3 mt-6">
+              <Button
+                isIconOnly
+                size="sm"
+                variant="flat"
+                isDisabled={page <= 1}
+                onPress={() => setPage((p) => Math.max(1, p - 1))}
+                aria-label="Previous page"
+              >
+                <ChevronLeft size={16} />
+              </Button>
+              <span className="text-sm text-default-500">
+                {page} / {totalPages}
+              </span>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="flat"
+                isDisabled={page >= totalPages}
+                onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+                aria-label="Next page"
+              >
+                <ChevronRight size={16} />
+              </Button>
+            </div>
           )}
         </>
       )}
 
+      {/* FAB — only when there are notes */}
       {(data?.notes.length ?? 0) > 0 && (
-        <Fab
-          color="primary"
-          aria-label={t('tastings.create')}
+        <button
           onClick={() => setFormOpen(true)}
-          sx={{ position: 'fixed', bottom: { xs: 80, md: 24 }, right: 24 }}
+          aria-label={t('tastings.create')}
+          className="fixed bottom-20 md:bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-lg flex items-center justify-center hover:bg-primary-400 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 z-50"
         >
-          <AddIcon />
-        </Fab>
+          <Plus size={24} />
+        </button>
       )}
 
+      {/* Create form */}
       <TastingForm open={formOpen} onClose={() => setFormOpen(false)} />
 
+      {/* Edit form */}
       <TastingForm
         open={!!editing}
         onClose={() => setEditing(null)}
         editNote={editValues}
       />
 
-      <Dialog open={!!deleting} onClose={() => setDeleting(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t('tastings.deleteTitle')}</DialogTitle>
-        <DialogContent>
-          <Typography>{t('tastings.deleteConfirm')}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleting(null)}>{t('actions.cancel')}</Button>
-          <Button color="error" variant="contained" onClick={handleDelete} disabled={deleteMutation.isPending}>
-            {t('actions.delete')}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+      {/* Delete confirm */}
+      <Modal
+        isOpen={!!deleting}
+        onClose={() => setDeleting(null)}
+        size="sm"
+        radius="lg"
+        backdrop="opaque"
+        placement="center"
+      >
+        <ModalContent>
+          {() => (
+            <>
+              <ModalHeader>{t('tastings.deleteTitle')}</ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-default-600">{t('tastings.deleteConfirm')}</p>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="default" variant="light" onPress={() => setDeleting(null)}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  color="danger"
+                  variant="solid"
+                  onPress={handleDelete}
+                  isLoading={deleteMutation.isPending}
+                  isDisabled={deleteMutation.isPending}
+                >
+                  {t('actions.delete')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+    </div>
   );
 }

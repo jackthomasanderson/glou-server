@@ -2,26 +2,17 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-  Box,
-  Typography,
+  Button,
   Chip,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
   CircularProgress,
-  Alert,
-} from '@mui/material';
-import {
-  Thermostat as HotIcon,
-  AcUnit as ColdIcon,
-} from '@mui/icons-material';
+} from '@heroui/react';
+import { Flame, Snowflake } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -83,43 +74,21 @@ interface BottleVisualProps {
   size?: 'sm' | 'md';
 }
 
-function BottleVisual({ item, size = 'md' }: BottleVisualProps) {
+function BottleVisual({ item }: BottleVisualProps) {
   const label = item.vintage ? `${item.name.slice(0, 6)} ${item.vintage}` : item.name.slice(0, 8);
-  const cellSize = size === 'sm'
-    ? { xs: 28, sm: 36, md: 44 }
-    : { xs: 28, sm: 36, md: 44 };
 
   return (
-    <Box
-      sx={{
-        width: cellSize,
-        height: cellSize,
-        bgcolor: getCellColor(item),
-        borderRadius: 0.5,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+    <div
+      className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center"
+      style={{ backgroundColor: getCellColor(item) }}
     >
-      <Typography
-        variant="caption"
-        sx={{
-          color: '#fff',
-          fontSize: { xs: '6px', sm: '7px', md: '8px' },
-          fontWeight: 600,
-          lineHeight: 1,
-          textAlign: 'center',
-          px: 0.25,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          maxWidth: '100%',
-          textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-        }}
+      <span
+        className="text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
+        style={{ fontSize: '7px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
       >
         {label}
-      </Typography>
-    </Box>
+      </span>
+    </div>
   );
 }
 
@@ -142,53 +111,34 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
 
   const tooltipContent = [item.name, item.producer, item.vintage].filter(Boolean).join(' · ');
 
+  const outlineStyle = zone !== 'temperate'
+    ? { outline: `2px solid ${zone === 'hot' ? 'rgba(255,167,38,0.7)' : 'rgba(33,150,243,0.7)'}`, outlineOffset: '-2px' }
+    : {};
+
   return (
-    <Tooltip title={isDragging ? '' : tooltipContent} placement="top">
-      <Box
+    <Tooltip content={isDragging ? '' : tooltipContent} placement="top">
+      <div
         ref={setNodeRef}
         {...attributes}
         {...listeners}
         onClick={() => onClickOccupied(item)}
-        sx={{
-          width: { xs: 28, sm: 36, md: 44 },
-          height: { xs: 28, sm: 36, md: 44 },
-          bgcolor: getCellColor(item),
-          borderRadius: 0.5,
+        className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-none"
+        style={{
+          backgroundColor: getCellColor(item),
           cursor: isDragging ? 'grabbing' : 'grab',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           opacity: isDragging ? 0.35 : 1,
           transition: isDragging ? 'none' : 'all 0.15s',
           transform: CSS.Translate.toString(transform),
-          outline: zone !== 'temperate'
-            ? `2px solid ${zone === 'hot' ? 'rgba(255,167,38,0.7)' : 'rgba(33,150,243,0.7)'}`
-            : 'none',
-          outlineOffset: '-2px',
-          '&:hover': isDragging ? {} : { filter: 'brightness(1.2)', transform: 'scale(1.08)' },
-          touchAction: 'none',
+          ...outlineStyle,
         }}
       >
-        <Typography
-          variant="caption"
-          sx={{
-            color: '#fff',
-            fontSize: { xs: '6px', sm: '7px', md: '8px' },
-            fontWeight: 600,
-            lineHeight: 1,
-            textAlign: 'center',
-            px: 0.25,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            maxWidth: '100%',
-            textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-            pointerEvents: 'none',
-          }}
+        <span
+          className="text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
+          style={{ fontSize: '7px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
         >
           {item.vintage ? `${item.name.slice(0, 6)} ${item.vintage}` : item.name.slice(0, 8)}
-        </Typography>
-      </Box>
+        </span>
+      </div>
     </Tooltip>
   );
 }
@@ -211,24 +161,18 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied }: 
     data: { col, row, item },
   });
 
-  const cellSize = { xs: 28, sm: 36, md: 44 };
   const borderColor = isOver
-    ? 'primary.main'
-    : zone === 'hot' ? 'warning.light' : zone === 'cold' ? 'info.light' : 'divider';
+    ? '#006FEE'
+    : zone === 'hot' ? 'rgba(255,167,38,0.6)' : zone === 'cold' ? 'rgba(33,150,243,0.6)' : 'rgba(128,128,128,0.25)';
 
   return (
-    <Box
+    <div
       ref={setNodeRef}
-      sx={{
-        width: cellSize,
-        height: cellSize,
-        bgcolor: item ? 'transparent' : ZONE_BG[zone],
-        borderRadius: 0.5,
-        border: item ? 'none' : '1.5px dashed',
-        borderColor: item ? 'transparent' : borderColor,
-        position: 'relative',
-        outline: isOver ? '2px solid' : 'none',
-        outlineColor: 'primary.main',
+      className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded relative"
+      style={{
+        backgroundColor: item ? 'transparent' : ZONE_BG[zone],
+        border: item ? 'none' : `1.5px dashed ${borderColor}`,
+        outline: isOver ? '2px solid #006FEE' : 'none',
         outlineOffset: '1px',
         transition: 'outline 0.1s, outline-offset 0.1s',
       }}
@@ -242,19 +186,14 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied }: 
           onClickOccupied={onClickOccupied}
         />
       ) : (
-        <Tooltip title={t('cellars.grid.cellEmpty')} placement="top">
-          <Box
+        <Tooltip content={t('cellars.grid.cellEmpty')} placement="top">
+          <div
             onClick={onClickEmpty}
-            sx={{
-              width: '100%',
-              height: '100%',
-              cursor: 'pointer',
-              '&:hover': { bgcolor: 'action.hover', borderRadius: 0.5 },
-            }}
+            className="w-full h-full cursor-pointer hover:bg-default-100 rounded"
           />
         </Tooltip>
       )}
-    </Box>
+    </div>
   );
 }
 
@@ -284,16 +223,17 @@ function GridLegend({ items }: { items: GridItem[] }) {
   };
 
   return (
-    <Box display="flex" flexWrap="wrap" gap={1} mt={1.5}>
+    <div className="flex flex-wrap gap-2 mt-3">
       {present.map((key) => (
-        <Chip
+        <span
           key={key}
-          size="small"
-          label={labelFor(key)}
-          sx={{ bgcolor: CATEGORY_COLORS[key] ?? '#9E9E9E', color: '#fff', fontWeight: 600, fontSize: 11 }}
-        />
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-white font-semibold"
+          style={{ backgroundColor: CATEGORY_COLORS[key] ?? '#9E9E9E', fontSize: 11 }}
+        >
+          {labelFor(key)}
+        </span>
       ))}
-    </Box>
+    </div>
   );
 }
 
@@ -324,35 +264,53 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{t('cellars.grid.assignTitle', { col: targetCol, row: targetRow })}</DialogTitle>
-      <DialogContent sx={{ p: 0 }}>
-        {error && <Alert severity="error" sx={{ mx: 2, mt: 1 }}>{error}</Alert>}
-        {unassignedItems.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 2 }}>
-            {t('cellars.grid.noUnassignedBottles')}
-          </Typography>
-        ) : (
-          <List dense>
-            {unassignedItems.map((item) => (
-              <ListItem key={item.id} disablePadding>
-                <ListItemButton onClick={() => handleAssign(item.id)} disabled={assignSlot.isPending}>
-                  <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: getCellColor(item), mr: 1.5, flexShrink: 0 }} />
-                  <ListItemText
-                    primary={item.name}
-                    secondary={[item.producer, item.vintage].filter(Boolean).join(' · ')}
+    <Modal isOpen={open} onClose={onClose} size="xs">
+      <ModalContent>
+        <ModalHeader>
+          {t('cellars.grid.assignTitle', { col: targetCol, row: targetRow })}
+        </ModalHeader>
+        <ModalBody className="px-0 py-0">
+          {error && (
+            <div className="mx-4 mt-2 rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-sm">
+              {error}
+            </div>
+          )}
+          {unassignedItems.length === 0 ? (
+            <p className="px-4 py-4 text-sm text-default-400">
+              {t('cellars.grid.noUnassignedBottles')}
+            </p>
+          ) : (
+            <div className="flex flex-col">
+              {unassignedItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleAssign(item.id)}
+                  disabled={assignSlot.isPending}
+                  className="flex items-center gap-3 px-4 py-2.5 text-left hover:bg-default-50 disabled:opacity-50 transition-colors"
+                >
+                  <div
+                    className="w-3 h-3 rounded-full shrink-0"
+                    style={{ backgroundColor: getCellColor(item) }}
                   />
-                  {assignSlot.isPending && <CircularProgress size={16} sx={{ ml: 1 }} />}
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        )}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>{t('actions.cancel')}</Button>
-      </DialogActions>
-    </Dialog>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{item.name}</div>
+                    <div className="text-xs text-default-400 truncate">
+                      {[item.producer, item.vintage].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                  {assignSlot.isPending && <CircularProgress size="sm" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="light" onPress={onClose}>
+            {t('actions.cancel')}
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 }
 
@@ -384,26 +342,41 @@ function OccupiedDialog({ open, item, cellarId, onClose }: OccupiedDialogProps) 
   if (!item) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{item.name}</DialogTitle>
-      <DialogContent>
-        {error && <Alert severity="error">{error}</Alert>}
-        <Typography variant="body2" color="text.secondary">{item.producer}</Typography>
-        {item.vintage && (
-          <Typography variant="body2" color="text.secondary">{t('inventory.fields.vintage')}: {item.vintage}</Typography>
-        )}
-        <Typography variant="body2" color="text.secondary" mt={0.5}>
-          {t(`categories.${item.category}`)}
-          {item.category === 'wine' && item.color && ` · ${t(`inventory.color.${item.color}`)}`}
-        </Typography>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>{t('actions.close')}</Button>
-        <Button color="warning" onClick={handleRemove} disabled={assignSlot.isPending}>
-          {t('cellars.grid.removeFromSlot')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <Modal isOpen={open} onClose={onClose} size="xs">
+      <ModalContent>
+        <ModalHeader>{item.name}</ModalHeader>
+        <ModalBody>
+          {error && (
+            <div className="rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-sm mb-2">
+              {error}
+            </div>
+          )}
+          <p className="text-sm text-default-500">{item.producer}</p>
+          {item.vintage && (
+            <p className="text-sm text-default-500">
+              {t('inventory.fields.vintage')}: {item.vintage}
+            </p>
+          )}
+          <p className="text-sm text-default-500 mt-1">
+            {t(`categories.${item.category}`)}
+            {item.category === 'wine' && item.color && ` · ${t(`inventory.color.${item.color}`)}`}
+          </p>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="light" onPress={onClose}>
+            {t('actions.close')}
+          </Button>
+          <Button
+            color="warning"
+            variant="flat"
+            onPress={handleRemove}
+            isDisabled={assignSlot.isPending}
+          >
+            {t('cellars.grid.removeFromSlot')}
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   );
 }
 
@@ -517,48 +490,55 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
   }, [localItems, invalidateGrid]);
 
   if (cols === 0 || rows === 0) {
-    return <Alert severity="info">{t('cellars.grid.notConfigured')}</Alert>;
+    return (
+      <div className="rounded-lg bg-primary-50 border border-primary-200 px-4 py-3 text-primary-700 text-sm">
+        {t('cellars.grid.notConfigured')}
+      </div>
+    );
   }
 
   return (
-    <Box>
+    <div>
       {/* Occupancy summary */}
-      <Box display="flex" gap={1} flexWrap="wrap" mb={2} alignItems="center">
-        <Chip
-          size="small"
-          label={`${assignedCount} / ${totalSlots} ${t('cellars.grid.occupied')}`}
-          color="primary"
-          variant="outlined"
-        />
-        <Chip size="small" label={`${freeSlots} ${t('cellars.grid.free')}`} variant="outlined" />
+      <div className="flex gap-2 flex-wrap mb-4 items-center">
+        <Chip size="sm" color="primary" variant="bordered">
+          {assignedCount} / {totalSlots} {t('cellars.grid.occupied')}
+        </Chip>
+        <Chip size="sm" variant="bordered">
+          {freeSlots} {t('cellars.grid.free')}
+        </Chip>
         {hotZoneRows > 0 && (
           <Chip
-            size="small"
-            icon={<HotIcon />}
-            label={t('cellars.grid.hotZone', { count: hotZoneRows })}
-            sx={{ bgcolor: 'rgba(255,167,38,0.15)', borderColor: 'warning.light' }}
-            variant="outlined"
-          />
+            size="sm"
+            variant="bordered"
+            startContent={<Flame size={12} />}
+            className="border-warning-300"
+            style={{ backgroundColor: 'rgba(255,167,38,0.15)' }}
+          >
+            {t('cellars.grid.hotZone', { count: hotZoneRows })}
+          </Chip>
         )}
         {coldZoneRows > 0 && (
           <Chip
-            size="small"
-            icon={<ColdIcon />}
-            label={t('cellars.grid.coldZone', { count: coldZoneRows })}
-            sx={{ bgcolor: 'rgba(33,150,243,0.15)', borderColor: 'info.light' }}
-            variant="outlined"
-          />
+            size="sm"
+            variant="bordered"
+            startContent={<Snowflake size={12} />}
+            className="border-blue-300"
+            style={{ backgroundColor: 'rgba(33,150,243,0.15)' }}
+          >
+            {t('cellars.grid.coldZone', { count: coldZoneRows })}
+          </Chip>
         )}
-      </Box>
+      </div>
 
       {/* Grid */}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <Box sx={{ overflowX: 'auto', pb: 1 }}>
-          <Box
-            sx={{
-              display: 'inline-grid',
+        <div className="overflow-x-auto pb-1">
+          <div
+            className="inline-grid"
+            style={{
               gridTemplateColumns: `repeat(${cols}, auto)`,
-              gap: { xs: '3px', sm: '4px' },
+              gap: '4px',
             }}
           >
             {Array.from({ length: rows }, (_, rowIdx) => {
@@ -580,43 +560,44 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
                 );
               });
             })}
-          </Box>
-        </Box>
+          </div>
+        </div>
 
         {/* Floating drag preview */}
         <DragOverlay dropAnimation={null}>
           {activeDrag && (
-            <Box
-              sx={{
-                boxShadow: 6,
-                borderRadius: 0.5,
-                opacity: 0.95,
-                cursor: 'grabbing',
-                transform: 'scale(1.12)',
-              }}
+            <div
+              className="rounded shadow-lg opacity-95 cursor-grabbing"
+              style={{ transform: 'scale(1.12)' }}
             >
               <BottleVisual item={activeDrag.item} />
-            </Box>
+            </div>
           )}
         </DragOverlay>
       </DndContext>
 
       {/* Zone legend */}
       {(hotZoneRows > 0 || coldZoneRows > 0) && (
-        <Box display="flex" gap={2} mt={1.5} flexWrap="wrap">
+        <div className="flex gap-4 mt-3 flex-wrap">
           {hotZoneRows > 0 && (
-            <Box display="flex" alignItems="center" gap={0.5}>
-              <Box sx={{ width: 14, height: 14, bgcolor: 'rgba(255,167,38,0.4)', borderRadius: 0.5, border: '1px solid rgba(255,167,38,0.7)' }} />
-              <Typography variant="caption" color="text.secondary">{t('cellars.grid.hotZoneLabel')}</Typography>
-            </Box>
+            <div className="flex items-center gap-1.5">
+              <div
+                className="w-3.5 h-3.5 rounded"
+                style={{ backgroundColor: 'rgba(255,167,38,0.4)', border: '1px solid rgba(255,167,38,0.7)' }}
+              />
+              <span className="text-xs text-default-500">{t('cellars.grid.hotZoneLabel')}</span>
+            </div>
           )}
           {coldZoneRows > 0 && (
-            <Box display="flex" alignItems="center" gap={0.5}>
-              <Box sx={{ width: 14, height: 14, bgcolor: 'rgba(33,150,243,0.4)', borderRadius: 0.5, border: '1px solid rgba(33,150,243,0.7)' }} />
-              <Typography variant="caption" color="text.secondary">{t('cellars.grid.coldZoneLabel')}</Typography>
-            </Box>
+            <div className="flex items-center gap-1.5">
+              <div
+                className="w-3.5 h-3.5 rounded"
+                style={{ backgroundColor: 'rgba(33,150,243,0.4)', border: '1px solid rgba(33,150,243,0.7)' }}
+              />
+              <span className="text-xs text-default-500">{t('cellars.grid.coldZoneLabel')}</span>
+            </div>
           )}
-        </Box>
+        </div>
       )}
 
       {/* Category legend */}
@@ -637,6 +618,6 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
         cellarId={cellar.id}
         onClose={() => setOccupiedTarget(null)}
       />
-    </Box>
+    </div>
   );
 }

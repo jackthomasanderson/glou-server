@@ -1,6 +1,6 @@
 'use client';
+
 import React, { useState } from 'react';
-import { Box, Typography, useTheme } from '@mui/material';
 import { GardePoint } from '@/lib/analytics/types';
 
 interface GardeHistogramProps {
@@ -15,61 +15,54 @@ const AXIS_HEIGHT = 24;
 const AXIS_LABEL_EVERY = 3;
 
 export function GardeHistogram({ data, t }: GardeHistogramProps) {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
+  // Detect dark mode via CSS media query on the client
+  const isDark =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+
   const [hoveredYear, setHoveredYear] = useState<number | null>(null);
 
   const currentYear = new Date().getFullYear();
 
   if (data.length === 0) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: CHART_HEIGHT + AXIS_HEIGHT }}>
-        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
-          {t('analytics.garde.noData')}
-        </Typography>
-      </Box>
+      <div
+        className="flex items-center justify-center"
+        style={{ height: CHART_HEIGHT + AXIS_HEIGHT }}
+      >
+        <span className="text-sm text-default-400">{t('analytics.garde.noData')}</span>
+      </div>
     );
   }
 
-  const maxCount = Math.max(...data.map(d => d.count), 1);
+  const maxCount = Math.max(...data.map((d) => d.count), 1);
   const totalWidth = data.length * (BAR_WIDTH + BAR_GAP) - BAR_GAP;
 
-  const primaryColor = theme.palette.primary.main;
+  // Colour palette — approximate MUI primary/warning without theme access
+  const primaryColor = '#006FEE';
   const pastColor = isDark ? '#374151' : '#d1d5db';
-  const todayColor = theme.palette.warning.main;
+  const todayColor = '#F5A524';
 
   return (
-    <Box sx={{ position: 'relative', overflowX: 'auto', overflowY: 'visible' }}>
-      <Box sx={{ position: 'relative', minWidth: totalWidth }}>
+    <div className="relative overflow-x-auto overflow-y-visible">
+      <div className="relative" style={{ minWidth: totalWidth }}>
         {/* Tooltip */}
-        {hoveredYear !== null && (() => {
-          const pt = data.find(d => d.year === hoveredYear);
-          const idx = data.findIndex(d => d.year === hoveredYear);
-          const x = idx * (BAR_WIDTH + BAR_GAP);
-          return pt ? (
-            <Box
-              sx={{
-                position: 'absolute',
-                top: -44,
-                left: Math.min(x, totalWidth - 100),
-                bgcolor: 'background.paper',
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 1.5,
-                px: 1,
-                py: 0.5,
-                zIndex: 10,
-                whiteSpace: 'nowrap',
-                boxShadow: 2,
-                pointerEvents: 'none',
-              }}
-            >
-              <Typography sx={{ fontSize: '0.7rem', fontWeight: 700 }}>
-                {pt.year} — {pt.count} {t('analytics.garde.bottles')}
-              </Typography>
-            </Box>
-          ) : null;
-        })()}
+        {hoveredYear !== null &&
+          (() => {
+            const pt = data.find((d) => d.year === hoveredYear);
+            const idx = data.findIndex((d) => d.year === hoveredYear);
+            const x = idx * (BAR_WIDTH + BAR_GAP);
+            return pt ? (
+              <div
+                className="absolute bg-white dark:bg-default-100 border border-default-200 rounded-xl px-2 py-1 z-10 whitespace-nowrap shadow-md pointer-events-none"
+                style={{ top: -44, left: Math.min(x, totalWidth - 100) }}
+              >
+                <span className="text-[11px] font-bold">
+                  {pt.year} — {pt.count} {t('analytics.garde.bottles')}
+                </span>
+              </div>
+            ) : null;
+          })()}
 
         <svg
           width={totalWidth}
@@ -82,7 +75,10 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
             return (
               <line
                 key={frac}
-                x1={0} y1={y} x2={totalWidth} y2={y}
+                x1={0}
+                y1={y}
+                x2={totalWidth}
+                y2={y}
                 stroke={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}
                 strokeWidth={1}
                 strokeDasharray="3 4"
@@ -130,7 +126,7 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
                     textAnchor="middle"
                     fontSize={10}
                     fontWeight={700}
-                    fill={theme.palette.text.primary}
+                    fill="currentColor"
                   >
                     {pt.count}
                   </text>
@@ -143,7 +139,13 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
                     textAnchor="middle"
                     fontSize={isNow ? 10 : 9}
                     fontWeight={isNow ? 700 : 400}
-                    fill={isNow ? todayColor : isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.45)'}
+                    fill={
+                      isNow
+                        ? todayColor
+                        : isDark
+                        ? 'rgba(255,255,255,0.5)'
+                        : 'rgba(0,0,0,0.45)'
+                    }
                   >
                     {pt.year}
                   </text>
@@ -164,7 +166,7 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
             );
           })}
         </svg>
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }

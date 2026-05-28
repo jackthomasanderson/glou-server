@@ -1,9 +1,7 @@
 'use client';
 import React from 'react';
-import { Box, Typography, Chip, Divider } from '@mui/material';
-import ThermostatIcon from '@mui/icons-material/Thermostat';
-import AirIcon from '@mui/icons-material/Air';
-import RestaurantIcon from '@mui/icons-material/Restaurant';
+import { Chip } from '@heroui/react';
+import { Thermometer, Wind, Utensils } from 'lucide-react';
 import { TastingItemSummary } from '@/lib/tastings/types';
 import { getRecommendations } from '@/lib/tastings/recommendations';
 import { useTranslation } from 'react-i18next';
@@ -19,36 +17,43 @@ export function ServiceRecommendations({ item }: ServiceRecommendationsProps) {
   if (!reco) return null;
 
   return (
-    <Box sx={{ bgcolor: 'action.hover', borderRadius: 1, p: 1.5, mt: 1 }}>
-      <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ display: 'block', mb: 1 }}>
+    <div className="bg-default-100 rounded-lg p-3 mt-1">
+      <p className="text-xs font-semibold text-default-500 mb-2">
         {t('tastings.recommendations.title')}
-      </Typography>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <ThermostatIcon fontSize="small" color="action" />
-          <Typography variant="body2">
+      </p>
+      <div className="flex flex-col gap-2">
+        {/* Temperature */}
+        <div className="flex items-center gap-2">
+          <Thermometer size={16} className="text-default-400 shrink-0" />
+          <span className="text-sm">
             {reco.tempMin}–{reco.tempMax}°C
-          </Typography>
-        </Box>
+          </span>
+        </div>
+
+        {/* Aeration */}
         {reco.aerationMin > 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AirIcon fontSize="small" color="action" />
-            <Typography variant="body2">
+          <div className="flex items-center gap-2">
+            <Wind size={16} className="text-default-400 shrink-0" />
+            <span className="text-sm">
               {t('tastings.recommendations.aeration', { min: reco.aerationMin, max: reco.aerationMax })}
-            </Typography>
-          </Box>
+            </span>
+          </div>
         )}
+
+        {/* Food pairings */}
         {reco.foodPairings.length > 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-            <RestaurantIcon fontSize="small" color="action" sx={{ mt: 0.25 }} />
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+          <div className="flex items-start gap-2">
+            <Utensils size={16} className="text-default-400 shrink-0 mt-0.5" />
+            <div className="flex flex-wrap gap-1">
               {reco.foodPairings.map((fp) => (
-                <Chip key={fp} label={fp} size="small" variant="outlined" />
+                <Chip key={fp} size="sm" variant="bordered">
+                  {fp}
+                </Chip>
               ))}
-            </Box>
-          </Box>
+            </div>
+          </div>
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 }

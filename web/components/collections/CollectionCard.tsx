@@ -1,11 +1,7 @@
 'use client';
 import React from 'react';
-import {
-  Card, CardContent, CardActions, Typography, Box,
-  IconButton, Tooltip, Chip,
-} from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Card, CardBody, CardFooter, Chip, Button, Tooltip } from '@heroui/react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { Collection } from '@/lib/collections/types';
 import { useTranslation } from 'react-i18next';
 
@@ -22,50 +18,61 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
 
   return (
     <Card
-      sx={{
-        cursor: 'pointer',
-        transition: 'box-shadow 0.2s',
-        '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' },
-        borderTop: `4px solid ${collection.color}`,
-      }}
-      onClick={() => onClick(collection)}
+      isPressable
+      onPress={() => onClick(collection)}
+      className="cursor-pointer transition-shadow hover:shadow-lg w-full"
+      style={{ borderTop: `4px solid ${collection.color}` }}
+      radius="lg"
     >
-      <CardContent sx={{ pb: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+      <CardBody className="pb-1">
+        <div className="flex items-center gap-2 mb-2">
           {collection.icon && (
-            <Typography sx={{ fontSize: '1.4rem', lineHeight: 1 }}>{collection.icon}</Typography>
+            <span className="text-2xl leading-none">{collection.icon}</span>
           )}
-          <Typography variant="h6" fontWeight={700} noWrap sx={{ flex: 1 }}>
-            {collection.name}
-          </Typography>
-        </Box>
+          <span className="font-bold text-base truncate flex-1">{collection.name}</span>
+        </div>
         <Chip
-          label={t('collections.itemCount', { count })}
-          size="small"
-          sx={{ bgcolor: `${collection.color}22`, color: collection.color, fontWeight: 600 }}
-        />
-      </CardContent>
-      <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-        <Tooltip title={t('actions.edit')}>
-          <IconButton
-            size="small"
-            onClick={(e) => { e.stopPropagation(); onEdit(collection); }}
+          size="sm"
+          className="font-semibold"
+          style={{
+            backgroundColor: `${collection.color}22`,
+            color: collection.color,
+          }}
+        >
+          {t('collections.itemCount', { count })}
+        </Chip>
+      </CardBody>
+      <CardFooter className="pt-0 justify-end gap-1">
+        <Tooltip content={t('actions.edit')}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
             aria-label={t('actions.edit')}
+            onPress={(e) => {
+              // @ts-ignore — stopPropagation on press event if available
+              e?.stopPropagation?.();
+              onEdit(collection);
+            }}
+            onClick={(e) => { e.stopPropagation(); }}
           >
-            <EditIcon fontSize="small" />
-          </IconButton>
+            <Pencil size={16} />
+          </Button>
         </Tooltip>
-        <Tooltip title={t('actions.delete')}>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(e) => { e.stopPropagation(); onDelete(collection); }}
+        <Tooltip content={t('actions.delete')}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            color="danger"
             aria-label={t('actions.delete')}
+            onPress={() => onDelete(collection)}
+            onClick={(e) => { e.stopPropagation(); }}
           >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+            <Trash2 size={16} />
+          </Button>
         </Tooltip>
-      </CardActions>
+      </CardFooter>
     </Card>
   );
 }

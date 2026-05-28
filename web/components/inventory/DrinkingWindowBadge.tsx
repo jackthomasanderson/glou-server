@@ -1,9 +1,7 @@
 'use client';
 import React from 'react';
-import { Chip, Tooltip, Box, Typography } from '@mui/material';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import { Chip, Tooltip } from '@heroui/react';
+import { Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 
 type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
@@ -13,14 +11,14 @@ interface DrinkingWindowBadgeProps {
   peakMaturityFrom?: number | null;
   peakMaturityTo?: number | null;
   t: (key: string) => string;
-  size?: 'small' | 'medium';
+  size?: 'sm' | 'md';
 }
 
-const STATUS_CONFIG: Record<AlertStatus, { color: 'default' | 'info' | 'success' | 'error'; icon: React.ReactElement }> = {
-  none: { color: 'default', icon: <AccessTimeIcon sx={{ fontSize: '1rem !important' }} /> },
-  approaching: { color: 'info', icon: <AccessTimeIcon sx={{ fontSize: '1rem !important' }} /> },
-  peak: { color: 'success', icon: <CheckCircleOutlineIcon sx={{ fontSize: '1rem !important' }} /> },
-  past: { color: 'error', icon: <WarningAmberIcon sx={{ fontSize: '1rem !important' }} /> },
+const STATUS_CONFIG: Record<AlertStatus, { color: 'default' | 'primary' | 'success' | 'danger'; icon: React.ReactElement }> = {
+  none: { color: 'default', icon: <Clock size={12} /> },
+  approaching: { color: 'primary', icon: <Clock size={12} /> },
+  peak: { color: 'success', icon: <CheckCircle size={12} /> },
+  past: { color: 'danger', icon: <AlertTriangle size={12} /> },
 };
 
 export function DrinkingWindowBadge({
@@ -29,7 +27,7 @@ export function DrinkingWindowBadge({
   peakMaturityFrom,
   peakMaturityTo,
   t,
-  size = 'small',
+  size = 'sm',
 }: DrinkingWindowBadgeProps) {
   const status: AlertStatus = alertsPaused ? 'none' : (alertStatus ?? 'none');
 
@@ -45,33 +43,25 @@ export function DrinkingWindowBadge({
     : '';
 
   const tooltipContent = (
-    <Box>
-      <Typography variant="caption" display="block" fontWeight={600}>
-        {t(`inventory.alertStatus.${status}`)}
-      </Typography>
-      {windowLabel && (
-        <Typography variant="caption" display="block" color="text.secondary">
-          {windowLabel}
-        </Typography>
-      )}
-      {alertsPaused && (
-        <Typography variant="caption" display="block" color="text.disabled">
-          {t('alerts.paused')}
-        </Typography>
-      )}
-    </Box>
+    <div>
+      <p className="text-xs font-semibold">{t(`inventory.alertStatus.${status}`)}</p>
+      {windowLabel && <p className="text-xs text-foreground-400">{windowLabel}</p>}
+      {alertsPaused && <p className="text-xs text-foreground-400">{t('alerts.paused')}</p>}
+    </div>
   );
 
   return (
-    <Tooltip title={tooltipContent} arrow>
+    <Tooltip content={tooltipContent} delay={500}>
       <Chip
-        icon={config.icon}
-        label={windowLabel || t(`inventory.alertStatus.${status}`)}
+        startContent={config.icon}
         size={size}
         color={alertsPaused ? 'default' : config.color}
-        variant={alertsPaused ? 'outlined' : 'filled'}
-        sx={{ opacity: alertsPaused ? 0.6 : 1 }}
-      />
+        variant={alertsPaused ? 'bordered' : 'flat'}
+        radius="full"
+        className={alertsPaused ? 'opacity-60' : ''}
+      >
+        {windowLabel || t(`inventory.alertStatus.${status}`)}
+      </Chip>
     </Tooltip>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { Box, Tooltip } from '@mui/material';
+import { Tooltip } from '@heroui/react';
 import { useConnectivity } from '@/hooks/useConnectivity';
 import { useTranslation } from 'react-i18next';
 
@@ -9,28 +9,22 @@ export function ConnectivityIndicator() {
   const { t } = useTranslation();
 
   const color =
-    isOnline === null ? '#9CA3AF' : isOnline ? '#10B981' : '#F59E0B';
+    isOnline === null ? 'bg-default-400' : isOnline ? 'bg-success' : 'bg-warning';
   const label =
     isOnline === null
       ? t('connectivity.checking')
       : isOnline
       ? t('connectivity.online')
       : t('connectivity.offline');
-  const subtitle =
-    isOnline === false ? t('connectivity.featuresAffected') : '';
+  const subtitle = isOnline === false ? t('connectivity.featuresAffected') : '';
 
   return (
-    <Tooltip title={subtitle ? `${label} — ${subtitle}` : label} arrow>
-      <Box
-        sx={{
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          bgcolor: color,
-          cursor: 'default',
-          flexShrink: 0,
-        }}
-      />
+    <Tooltip
+      content={subtitle ? `${label} — ${subtitle}` : label}
+      color="foreground"
+      delay={500}
+    >
+      <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 cursor-default ${color}`} />
     </Tooltip>
   );
 }

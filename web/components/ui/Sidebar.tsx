@@ -2,20 +2,11 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
 import {
-  Box, Typography, List, ListItem, ListItemButton, ListItemIcon,
-  ListItemText, Avatar, Divider, SwipeableDrawer, Tooltip, Badge, IconButton,
-} from '@mui/material';
-import {
-  Liquor as BottleIcon,
-  Warehouse as CellarIcon,
-  Grass as GrassIcon,
-  CollectionsBookmark as CollectionsIcon,
-  LocalBar as TastingsIcon,
-  BarChart as AnalyticsIcon,
-  ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
-} from '@mui/icons-material';
+  Wine, Leaf, Warehouse, Library, Martini, BarChart3,
+  ChevronLeft, ChevronRight, X,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '@/hooks/useAuth';
 import { useInventory } from '@/hooks/useInventory';
@@ -53,227 +44,162 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   );
 
   const navLinks = [
-    { label: t('nav.bottles'), href: '/inventory', icon: <BottleIcon sx={{ fontSize: 18 }} />, count: bottleCount },
-    { label: t('nav.cigars'), href: '/cigars', icon: <GrassIcon sx={{ fontSize: 18 }} />, count: cigarCount },
-    { label: t('nav.caves'), href: '/cellars', icon: <CellarIcon sx={{ fontSize: 18 }} />, count: cellars?.length ?? 0 },
-    { label: t('nav.collections'), href: '/collections', icon: <CollectionsIcon sx={{ fontSize: 18 }} />, count: collections?.length ?? 0 },
-    { label: t('nav.tastings'), href: '/tastings', icon: <TastingsIcon sx={{ fontSize: 18 }} />, count: 0 },
-    { label: t('nav.analytics'), href: '/analytics', icon: <AnalyticsIcon sx={{ fontSize: 18 }} />, count: 0 },
+    { label: t('nav.bottles'), href: '/inventory', icon: <Wine size={18} />, count: bottleCount },
+    { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={18} />, count: cigarCount },
+    { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={18} />, count: cellars?.length ?? 0 },
+    { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: collections?.length ?? 0 },
+    { label: t('nav.tastings'), href: '/tastings', icon: <Martini size={18} />, count: 0 },
+    { label: t('nav.analytics'), href: '/analytics', icon: <BarChart3 size={18} />, count: 0 },
   ];
 
-  const labelSx = {
-    overflow: 'hidden',
-    maxWidth: expanded ? 200 : 0,
-    opacity: expanded ? 1 : 0,
-    transition: 'max-width 0.2s ease, opacity 0.15s ease',
-    whiteSpace: 'nowrap' as const,
-  };
-
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Brand + toggle */}
-      <Box
-        sx={{
-          px: expanded ? 3 : 0,
-          pt: 3,
-          pb: 2,
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: expanded ? 'space-between' : 'center',
-          transition: 'padding 0.2s ease',
-        }}
+      <div
+        className={`flex items-start pt-5 pb-4 transition-all duration-200 ${
+          expanded ? 'px-4 justify-between' : 'px-0 justify-center'
+        }`}
       >
-        {/* Brand text — fades out on collapse */}
-        <Box sx={{ overflow: 'hidden', maxWidth: expanded ? 160 : 0, opacity: expanded ? 1 : 0, transition: 'max-width 0.2s ease, opacity 0.15s ease' }}>
-          <Typography
-            component={Link}
+        <div
+          className={`overflow-hidden transition-all duration-200 ${
+            expanded ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
+          }`}
+        >
+          <Link
             href="/"
-            sx={{
-              display: 'block',
-              fontWeight: 800,
-              fontSize: '1.1rem',
-              letterSpacing: '.15rem',
-              color: 'secondary.main',
-              textDecoration: 'none',
-              lineHeight: 1.1,
-              whiteSpace: 'nowrap',
-            }}
+            className="block font-extrabold text-[1.1rem] tracking-[.15rem] text-secondary no-underline leading-tight whitespace-nowrap"
           >
             {user?.appName || 'GLOU'}
-          </Typography>
-          <Typography
-            sx={{
-              display: 'block',
-              fontSize: '0.6rem',
-              letterSpacing: '.08rem',
-              textTransform: 'uppercase',
-              color: 'text.secondary',
-              mt: 0.25,
-              whiteSpace: 'nowrap',
-            }}
-          >
+          </Link>
+          <span className="block text-[0.6rem] tracking-[.08rem] uppercase text-foreground-500 mt-0.5 whitespace-nowrap">
             {user?.appSlogan || 'Simplement précieux'}
-          </Typography>
-        </Box>
+          </span>
+        </div>
 
-        {/* Toggle button */}
-        <Tooltip title={expanded ? t('nav.collapse', 'Réduire') : t('nav.expand', 'Développer')} placement="right">
-          <IconButton
-            size="small"
+        <Tooltip
+          content={expanded ? t('nav.collapse', 'Réduire') : t('nav.expand', 'Développer')}
+          placement="right"
+          delay={500}
+        >
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            color="default"
+            radius="md"
             onClick={onToggle}
-            sx={{
-              flexShrink: 0,
-              color: 'text.secondary',
-              borderRadius: 1.5,
-              '&:hover': { bgcolor: 'action.hover' },
-            }}
+            aria-label={expanded ? t('nav.collapse', 'Réduire') : t('nav.expand', 'Développer')}
           >
-            {expanded ? <ChevronLeftIcon sx={{ fontSize: 18 }} /> : <ChevronRightIcon sx={{ fontSize: 18 }} />}
-          </IconButton>
+            {expanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+          </Button>
         </Tooltip>
-      </Box>
+      </div>
 
       {/* Navigation */}
-      <List sx={{ px: 1, pt: 0, flex: 1 }}>
+      <nav className="flex-1 px-2 space-y-0.5">
         {navLinks.map((link) => {
           const active = pathname.startsWith(link.href);
           const showCount = hasMounted && link.count > 0;
 
-          return (
-            <ListItem key={link.href} disablePadding sx={{ mb: 0.25 }}>
-              <Tooltip title={!expanded ? link.label : ''} placement="right" arrow>
-                <ListItemButton
-                  component={Link}
-                  href={link.href}
-                  selected={active}
-                  sx={{
-                    borderRadius: 2,
-                    py: 0.875,
-                    px: expanded ? 1.5 : 0,
-                    justifyContent: expanded ? 'flex-start' : 'center',
-                    transition: 'padding 0.2s ease',
-                    minWidth: 0,
-                    '&.Mui-selected': {
-                      bgcolor: 'primary.main',
-                      color: 'primary.contrastText',
-                      '&:hover': { bgcolor: 'primary.dark' },
-                      '& .MuiListItemIcon-root': { color: 'inherit' },
-                    },
-                  }}
+          const btn = (
+            <Button
+              key={link.href}
+              as={Link}
+              href={link.href}
+              variant={active ? 'flat' : 'light'}
+              color={active ? 'primary' : 'default'}
+              radius="md"
+              className={`w-full transition-all duration-200 ${
+                expanded
+                  ? 'justify-start px-3 py-2'
+                  : 'justify-center px-0 min-w-0'
+              }`}
+              startContent={
+                !expanded && showCount ? (
+                  <Badge content={link.count} color="primary" size="sm" isInvisible={active}>
+                    <span className={active ? 'text-primary' : 'text-foreground-500'}>
+                      {link.icon}
+                    </span>
+                  </Badge>
+                ) : (
+                  <span className={active ? 'text-primary' : 'text-foreground-500'}>
+                    {link.icon}
+                  </span>
+                )
+              }
+              aria-label={link.label}
+            >
+              {expanded && (
+                <span
+                  className={`overflow-hidden transition-all duration-200 text-sm leading-none whitespace-nowrap ${
+                    expanded ? 'max-w-[200px] opacity-100' : 'max-w-0 opacity-0'
+                  } ${active ? 'font-semibold' : 'font-normal'}`}
                 >
-                  <ListItemIcon
-                    sx={{
-                      minWidth: 0,
-                      mr: expanded ? 1.25 : 0,
-                      color: active ? 'inherit' : 'text.secondary',
-                      transition: 'margin 0.2s ease',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {/* Badge for count in collapsed mode */}
-                    {!expanded && showCount ? (
-                      <Badge
-                        badgeContent={link.count}
-                        color={active ? 'default' : 'primary'}
-                        max={99}
-                        sx={{
-                          '& .MuiBadge-badge': {
-                            fontSize: '0.55rem',
-                            minWidth: 15,
-                            height: 15,
-                            padding: '0 3px',
-                            ...(active && { bgcolor: 'rgba(255,255,255,0.9)', color: 'primary.main' }),
-                          },
-                        }}
-                      >
-                        {link.icon}
-                      </Badge>
-                    ) : link.icon}
-                  </ListItemIcon>
-
-                  {/* Label — slides out on collapse */}
-                  <Box sx={labelSx}>
-                    <Typography sx={{ fontSize: '0.8rem', fontWeight: active ? 600 : 400, lineHeight: 1 }}>
-                      {link.label}
-                    </Typography>
-                  </Box>
-
-                  {/* Count badge — expanded mode */}
-                  {expanded && showCount && (
-                    <Box
-                      sx={{
-                        ml: 0.75,
-                        minWidth: 20,
-                        height: 20,
-                        borderRadius: 10,
-                        bgcolor: active ? 'rgba(255,255,255,0.25)' : 'action.selected',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        px: 0.75,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, lineHeight: 1 }}>
-                        {link.count}
-                      </Typography>
-                    </Box>
-                  )}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
+                  {link.label}
+                </span>
+              )}
+              {expanded && showCount && (
+                <span className={`ml-auto text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                  active ? 'bg-white/25 text-white' : 'bg-default-100 text-foreground-500'
+                }`}>
+                  {link.count}
+                </span>
+              )}
+            </Button>
           );
+
+          if (!expanded) {
+            return (
+              <Tooltip key={link.href} content={link.label} placement="right" delay={500}>
+                {btn}
+              </Tooltip>
+            );
+          }
+          return btn;
         })}
-      </List>
+      </nav>
 
       {/* User footer */}
       <Divider />
       <Tooltip
-        title={!expanded ? `${user?.username ?? ''} · ${user?.isAdmin ? 'Admin' : 'User'}` : ''}
+        content={!expanded ? `${user?.username ?? ''} · ${user?.isAdmin ? 'Admin' : 'User'}` : ''}
         placement="right"
+        isDisabled={expanded}
       >
-        <Box
-          sx={{
-            px: expanded ? 2 : 0,
-            py: 1.5,
-            display: 'flex',
-            alignItems: 'center',
-            gap: expanded ? 1 : 0,
-            justifyContent: expanded ? 'flex-start' : 'center',
-            transition: 'padding 0.2s ease',
-          }}
+        <div
+          className={`flex items-center py-3 transition-all duration-200 ${
+            expanded ? 'px-3 gap-2' : 'px-0 justify-center'
+          }`}
         >
           <Avatar
             src={user?.avatarUrl || undefined}
-            component={Link}
+            name={(!user?.avatarUrl && (user?.username || '?')[0].toUpperCase()) || undefined}
+            size="sm"
+            radius="full"
+            isBordered
+            color="secondary"
+            className="flex-shrink-0 cursor-pointer"
+            as={Link}
             href="/profile"
-            sx={{
-              width: 32,
-              height: 32,
-              bgcolor: 'secondary.main',
-              fontSize: '0.8rem',
-              flexShrink: 0,
-              cursor: 'pointer',
-              textDecoration: 'none',
-            }}
-          >
-            {!user?.avatarUrl && (user?.username || '?')[0].toUpperCase()}
-          </Avatar>
+          />
 
-          {/* Name + role — fades out on collapse */}
-          <Box sx={{ ...labelSx, flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, lineHeight: 1.3, whiteSpace: 'nowrap' }} noWrap>
+          <div
+            className={`overflow-hidden transition-all duration-200 flex-1 min-w-0 ${
+              expanded ? 'max-w-[200px] opacity-100' : 'max-w-0 opacity-0'
+            }`}
+          >
+            <p className="text-xs font-semibold leading-tight truncate whitespace-nowrap">
               {user?.username}
-            </Typography>
-            <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap' }} noWrap>
+            </p>
+            <p className="text-[0.65rem] text-foreground-500 leading-tight truncate whitespace-nowrap">
               {user?.isAdmin ? 'Administrateur' : 'Utilisateur'}
-            </Typography>
-          </Box>
+            </p>
+          </div>
 
           {expanded && <ConnectivityIndicator />}
-        </Box>
+        </div>
       </Tooltip>
-    </Box>
+    </div>
   );
 }
 
@@ -285,7 +211,6 @@ interface SidebarProps {
 export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: SidebarProps) {
   const [expanded, setExpanded] = useState(true);
 
-  // Sync from localStorage after mount (avoids SSR mismatch)
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved !== null) setExpanded(saved !== 'false');
@@ -301,49 +226,40 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
 
   return (
     <>
-      {/* Desktop: permanent, in document flow */}
-      <Box
-        component="nav"
-        sx={{
-          width: desktopWidth,
-          flexShrink: 0,
-          height: '100vh',
-          position: 'sticky',
-          top: 0,
-          display: { xs: 'none', md: 'flex' },
-          flexDirection: 'column',
-          bgcolor: 'background.paper',
-          borderRight: '1px solid',
-          borderColor: 'divider',
-          overflow: 'hidden',
-          zIndex: 'drawer',
-          transition: 'width 0.2s ease',
-        }}
+      {/* Desktop: permanent sidebar */}
+      <nav
+        style={{ width: desktopWidth }}
+        className="hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 bg-content1 border-r border-divider overflow-hidden z-20 transition-all duration-200"
       >
         <SidebarContent expanded={expanded} onToggle={toggle} />
-      </Box>
+      </nav>
 
-      {/* Mobile: overlay drawer — always expanded */}
-      <SwipeableDrawer
-        anchor="left"
-        open={mobileOpen}
-        onClose={onMobileClose}
-        onOpen={() => {}}
-        ModalProps={{ keepMounted: true }}
-        sx={{
-          display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': {
-            width: SIDEBAR_WIDTH,
-            boxSizing: 'border-box',
-            border: 'none',
-            borderRight: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-          },
-        }}
-      >
-        <SidebarContent expanded={true} onToggle={onMobileClose} />
-      </SwipeableDrawer>
+      {/* Mobile: overlay drawer */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={onMobileClose}
+          />
+          <div
+            className="absolute left-0 top-0 bottom-0 bg-content1 border-r border-divider overflow-hidden"
+            style={{ width: SIDEBAR_WIDTH }}
+          >
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              radius="full"
+              className="absolute top-3 right-3 z-10"
+              onClick={onMobileClose}
+              aria-label="Fermer"
+            >
+              <X size={16} />
+            </Button>
+            <SidebarContent expanded={true} onToggle={onMobileClose} />
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -2,44 +2,38 @@
 
 import React, { useState } from 'react';
 import {
-  Box,
-  Typography,
   Button,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
-  CircularProgress,
-  Alert,
+  Input,
+  Select,
+  SelectItem,
   Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
+  Card,
+  CardBody,
   Tooltip,
+  CircularProgress,
+  Table,
+  TableHeader,
+  TableColumn,
+  TableBody,
+  TableRow,
+  TableCell,
   Divider,
-  Collapse,
-} from '@mui/material';
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from '@heroui/react';
 import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Warehouse as CellarIcon,
-  GridOn as GridOnIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  OpenInNew as OpenInNewIcon,
-} from '@mui/icons-material';
+  Plus,
+  Pencil,
+  Trash2,
+  Warehouse,
+  Grid2x2,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
@@ -148,292 +142,344 @@ export const CellarDashboard: React.FC = () => {
     }
   };
 
-  if (isLoading) return <Box display="flex" justifyContent="center" p={4}><CircularProgress /></Box>;
-  if (isError) return <Alert severity="error">{t('status.error')}</Alert>;
+  if (isLoading) {
+    return (
+      <div className="flex justify-center p-8">
+        <CircularProgress />
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <div className="rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-danger-700 text-sm">
+        {t('status.error')}
+      </div>
+    );
+  }
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
-        <Typography variant="h4" component="h1">
-          {t('cellars.title')}
-        </Typography>
-        <Box display="flex" gap={1} alignItems="center">
+    <div>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">{t('cellars.title')}</h1>
+        <div className="flex gap-2 items-center">
           <ViewToggle value={viewMode} onChange={setViewMode} />
           <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenForm()}
+            color="primary"
+            startContent={<Plus size={16} />}
+            onPress={() => handleOpenForm()}
           >
             {t('cellars.addCellar')}
           </Button>
-        </Box>
-      </Box>
+        </div>
+      </div>
 
+      {/* Empty state */}
       {cellars?.length === 0 ? (
-        <Box
-          sx={{
-            textAlign: 'center',
-            py: 8,
-            border: '2px dashed',
-            borderColor: 'divider',
-            borderRadius: 2,
-            bgcolor: 'action.hover',
-            mt: 4
-          }}
-        >
-          <Typography variant="h6" color="text.secondary" gutterBottom>
-            {t('cellars.noCellars')}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            {t('cellars.noCellarsDesc')}
-          </Typography>
+        <div className="text-center py-16 border-2 border-dashed border-default-300 rounded-xl bg-default-50 mt-4">
+          <h2 className="text-lg font-semibold text-default-500 mb-1">{t('cellars.noCellars')}</h2>
+          <p className="text-sm text-default-400 mb-6">{t('cellars.noCellarsDesc')}</p>
           <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenForm()}
+            color="primary"
+            startContent={<Plus size={16} />}
+            onPress={() => handleOpenForm()}
           >
             {t('cellars.addCellar')}
           </Button>
-        </Box>
+        </div>
       ) : viewMode === 'grid' ? (
-        <Grid container spacing={3}>
+        /* Grid view */
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {cellars?.map((cellar) => (
-            <Grid item xs={12} sm={6} md={4} key={cellar.id}>
-              <Card
-                sx={{ height: '100%', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+            <Card
+              key={cellar.id}
+              isPressable
+              onPress={() => router.push(`/cellars/${cellar.id}`)}
+              className="h-full"
+            >
+              <CardBody className="flex flex-col gap-2 p-4">
+                {/* Title row */}
+                <div className="flex items-center gap-2 mb-1">
+                  <Warehouse size={18} className="text-primary shrink-0" />
+                  <span className="text-base font-semibold flex-1 min-w-0 truncate">{cellar.name}</span>
+                  {cellar.columns && cellar.rows && (
+                    <Tooltip content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
+                      <Grid2x2 size={14} className="text-default-400" />
+                    </Tooltip>
+                  )}
+                </div>
+
+                <span className="text-sm text-default-500">{t(`cellars.types.${cellar.type}`)}</span>
+
+                {cellar.description && (
+                  <p className="text-sm">{cellar.description}</p>
+                )}
+
+                {cellar.stats && (
+                  <div className="flex gap-1.5 mt-1 flex-wrap">
+                    <Chip size="sm" variant="flat">
+                      {cellar.stats.totalItems} {t('cellars.stats.items')}
+                    </Chip>
+                    {cellar.stats.alertCount > 0 && (
+                      <Chip size="sm" color="warning" variant="flat">
+                        {cellar.stats.alertCount} {t('cellars.stats.alerts')}
+                      </Chip>
+                    )}
+                    {cellar.stats.estimatedValue != null && (
+                      <Chip size="sm" variant="bordered">
+                        ~{Math.round(cellar.stats.estimatedValue)} €
+                      </Chip>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div
+                  className="flex gap-1 mt-2 pt-2 border-t border-default-100"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="light"
+                    onPress={() => handleOpenForm(cellar)}
+                  >
+                    <Pencil size={14} />
+                  </Button>
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="light"
+                    color="danger"
+                    onPress={() => handleDelete(cellar.id)}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        /* List / table view */
+        <Table
+          aria-label={t('cellars.title')}
+          isStriped
+          removeWrapper
+          className="border border-default-200 rounded-xl overflow-hidden"
+        >
+          <TableHeader>
+            <TableColumn className="w-10"> </TableColumn>
+            <TableColumn>{t('cellars.name')}</TableColumn>
+            <TableColumn>{t('cellars.type')}</TableColumn>
+            <TableColumn className="hidden sm:table-cell">{t('cellars.description')}</TableColumn>
+            <TableColumn className="text-right">{t('cellars.stats.items')}</TableColumn>
+            <TableColumn className="text-right">{t('cellars.stats.alerts')}</TableColumn>
+            <TableColumn className="text-right">{t('admin.maturityRefs.columns.actions')}</TableColumn>
+          </TableHeader>
+          <TableBody>
+            {(cellars ?? []).map((cellar) => (
+              <TableRow
+                key={cellar.id}
+                className="cursor-pointer hover:bg-default-50"
                 onClick={() => router.push(`/cellars/${cellar.id}`)}
               >
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Box display="flex" alignItems="center" mb={2}>
-                    <CellarIcon color="primary" sx={{ mr: 1 }} />
-                    <Typography variant="h6" component="div">
-                      {cellar.name}
-                    </Typography>
+                <TableCell>
+                  <Warehouse size={16} className="text-primary" />
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-semibold">{cellar.name}</span>
                     {cellar.columns && cellar.rows && (
-                      <Tooltip title={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
-                        <GridOnIcon fontSize="small" color="action" sx={{ ml: 'auto' }} />
+                      <Tooltip content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
+                        <Grid2x2 size={12} className="text-default-400" />
                       </Tooltip>
                     )}
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Chip size="sm" variant="bordered">
                     {t(`cellars.types.${cellar.type}`)}
-                  </Typography>
-                  {cellar.description && (
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      {cellar.description}
-                    </Typography>
+                  </Chip>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  <span className="text-sm text-default-500 line-clamp-1 max-w-xs block">
+                    {cellar.description ?? '—'}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <span className="text-sm">{cellar.stats?.totalItems ?? 0}</span>
+                </TableCell>
+                <TableCell className="text-right">
+                  {cellar.stats?.alertCount ? (
+                    <Chip size="sm" color="warning" variant="flat">
+                      {cellar.stats.alertCount}
+                    </Chip>
+                  ) : (
+                    <span className="text-sm text-default-400">—</span>
                   )}
-                  {cellar.stats && (
-                    <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
-                      <Chip size="small" label={`${cellar.stats.totalItems} ${t('cellars.stats.items')}`} />
-                      {cellar.stats.alertCount > 0 && (
-                        <Chip size="small" color="warning" label={`${cellar.stats.alertCount} ${t('cellars.stats.alerts')}`} />
-                      )}
-                      {cellar.stats.estimatedValue != null && (
-                        <Chip size="small" variant="outlined" label={`~${Math.round(cellar.stats.estimatedValue)} €`} />
-                      )}
-                    </Box>
-                  )}
-                </CardContent>
-                <CardActions onClick={(e) => e.stopPropagation()}>
-                  <IconButton size="small" onClick={() => handleOpenForm(cellar)}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" color="error" onClick={() => handleDelete(cellar.id)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
-        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ width: 40 }} />
-                <TableCell>{t('cellars.name')}</TableCell>
-                <TableCell>{t('cellars.type')}</TableCell>
-                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('cellars.description')}</TableCell>
-                <TableCell align="right">{t('cellars.stats.items')}</TableCell>
-                <TableCell align="right">{t('cellars.stats.alerts')}</TableCell>
-                <TableCell align="right">{t('admin.maturityRefs.columns.actions')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {cellars?.map((cellar) => (
-                <TableRow
-                  key={cellar.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => router.push(`/cellars/${cellar.id}`)}
+                </TableCell>
+                <TableCell
+                  className="text-right"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <TableCell>
-                    <CellarIcon color="primary" fontSize="small" />
-                  </TableCell>
-                  <TableCell>
-                    <Box display="flex" alignItems="center" gap={0.5}>
-                      <Typography variant="body2" fontWeight={600}>{cellar.name}</Typography>
-                      {cellar.columns && cellar.rows && (
-                        <Tooltip title={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
-                          <GridOnIcon fontSize="inherit" color="action" />
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={t(`cellars.types.${cellar.type}`)} size="small" variant="outlined" />
-                  </TableCell>
-                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                    <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 300 }}>
-                      {cellar.description ?? '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2">{cellar.stats?.totalItems ?? 0}</Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    {cellar.stats?.alertCount ? (
-                      <Chip size="small" color="warning" label={cellar.stats.alertCount} />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">—</Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                    <Tooltip title={t('actions.edit')}>
-                      <IconButton size="small" onClick={() => handleOpenForm(cellar)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
+                  <div className="flex gap-1 justify-end">
+                    <Tooltip content={t('actions.edit')}>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        onPress={() => handleOpenForm(cellar)}
+                      >
+                        <Pencil size={14} />
+                      </Button>
                     </Tooltip>
-                    <Tooltip title={t('actions.delete')}>
-                      <IconButton size="small" color="error" onClick={() => handleDelete(cellar.id)}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                    <Tooltip content={t('actions.delete')}>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        color="danger"
+                        onPress={() => handleDelete(cellar.id)}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
                     </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       )}
 
-      {/* Form Dialog */}
-      <Dialog open={openForm} onClose={handleCloseForm} fullWidth maxWidth="sm">
-        <DialogTitle>
-          {editingCellar ? t('cellars.editCellar') : t('cellars.addCellar')}
-        </DialogTitle>
-        <DialogContent>
-          <Box pt={1} display="flex" flexDirection="column" gap={2}>
-            <TextField
-              fullWidth
-              label={t('cellars.name')}
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
-            <TextField
-              fullWidth
-              select
-              label={t('cellars.type')}
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as 'VINTAGE' | 'COOLER' | 'SHELF' })}
-            >
-              <MenuItem value="VINTAGE">{t('cellars.types.VINTAGE')}</MenuItem>
-              <MenuItem value="COOLER">{t('cellars.types.COOLER')}</MenuItem>
-              <MenuItem value="SHELF">{t('cellars.types.SHELF')}</MenuItem>
-            </TextField>
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              label={t('cellars.description')}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
+      {/* Form Modal */}
+      <Modal isOpen={openForm} onClose={handleCloseForm} size="md">
+        <ModalContent>
+          <ModalHeader>
+            {editingCellar ? t('cellars.editCellar') : t('cellars.addCellar')}
+          </ModalHeader>
+          <ModalBody>
+            <div className="flex flex-col gap-4 pt-1">
+              <Input
+                label={t('cellars.name')}
+                value={formData.name}
+                onValueChange={(v) => setFormData({ ...formData, name: v })}
+                isRequired
+              />
 
-            <Divider />
-
-            {/* Grid configuration toggle */}
-            <Box>
-              <Button
-                size="small"
-                startIcon={showGridConfig ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                onClick={() => setShowGridConfig((v) => !v)}
-                sx={{ textTransform: 'none', px: 0 }}
+              <Select
+                label={t('cellars.type')}
+                selectedKeys={[formData.type]}
+                onSelectionChange={(keys) => {
+                  const val = Array.from(keys)[0] as 'VINTAGE' | 'COOLER' | 'SHELF';
+                  if (val) setFormData({ ...formData, type: val });
+                }}
               >
-                {showGridConfig ? t('cellars.grid.hideConfig') : t('cellars.grid.showConfig')}
-              </Button>
-            </Box>
+                <SelectItem key="VINTAGE">{t('cellars.types.VINTAGE')}</SelectItem>
+                <SelectItem key="COOLER">{t('cellars.types.COOLER')}</SelectItem>
+                <SelectItem key="SHELF">{t('cellars.types.SHELF')}</SelectItem>
+              </Select>
 
-            <Collapse in={showGridConfig}>
-              <Box display="flex" flexDirection="column" gap={2}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('cellars.grid.configHint')}
-                </Typography>
-                <Box display="flex" gap={2}>
-                  <TextField
-                    fullWidth
-                    label={t('cellars.grid.columns')}
-                    type="number"
-                    inputProps={{ min: 1, max: 100 }}
-                    value={formData.grid.columns}
-                    onChange={(e) => setFormData({ ...formData, grid: { ...formData.grid, columns: e.target.value } })}
-                    placeholder="—"
-                  />
-                  <TextField
-                    fullWidth
-                    label={t('cellars.grid.rows')}
-                    type="number"
-                    inputProps={{ min: 1, max: 100 }}
-                    value={formData.grid.rows}
-                    onChange={(e) => setFormData({ ...formData, grid: { ...formData.grid, rows: e.target.value } })}
-                    placeholder="—"
-                  />
-                </Box>
-                <Box display="flex" gap={2}>
-                  <TextField
-                    fullWidth
-                    label={t('cellars.grid.hotZoneRows')}
-                    type="number"
-                    inputProps={{ min: 0, max: 100 }}
-                    value={formData.grid.hotZoneRows}
-                    onChange={(e) => setFormData({ ...formData, grid: { ...formData.grid, hotZoneRows: e.target.value } })}
-                    placeholder="0"
-                    disabled={!formData.grid.rows}
-                    helperText={t('cellars.grid.hotZoneRowsHint')}
-                  />
-                  <TextField
-                    fullWidth
-                    label={t('cellars.grid.coldZoneRows')}
-                    type="number"
-                    inputProps={{ min: 0, max: 100 }}
-                    value={formData.grid.coldZoneRows}
-                    onChange={(e) => setFormData({ ...formData, grid: { ...formData.grid, coldZoneRows: e.target.value } })}
-                    placeholder="0"
-                    disabled={!formData.grid.rows}
-                    helperText={t('cellars.grid.coldZoneRowsHint')}
-                  />
-                </Box>
-                {zonesExceedRows && (
-                  <Alert severity="error">{t('cellars.grid.zonesExceedError')}</Alert>
-                )}
-              </Box>
-            </Collapse>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseForm}>{t('actions.cancel')}</Button>
-          <Button
-            onClick={handleSubmit}
-            variant="contained"
-            disabled={!formData.name || zonesExceedRows}
-          >
-            {editingCellar ? t('actions.save') : t('actions.add')}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+              <Input
+                label={t('cellars.description')}
+                value={formData.description}
+                onValueChange={(v) => setFormData({ ...formData, description: v })}
+              />
+
+              <Divider />
+
+              {/* Grid config toggle */}
+              <div>
+                <Button
+                  size="sm"
+                  variant="light"
+                  startContent={showGridConfig ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  onPress={() => setShowGridConfig((v) => !v)}
+                  className="px-0 text-sm"
+                >
+                  {showGridConfig ? t('cellars.grid.hideConfig') : t('cellars.grid.showConfig')}
+                </Button>
+              </div>
+
+              {showGridConfig && (
+                <div className="flex flex-col gap-4">
+                  <p className="text-xs text-default-400">{t('cellars.grid.configHint')}</p>
+                  <div className="flex gap-3">
+                    <Input
+                      label={t('cellars.grid.columns')}
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={formData.grid.columns}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, grid: { ...formData.grid, columns: v } })
+                      }
+                      placeholder="—"
+                    />
+                    <Input
+                      label={t('cellars.grid.rows')}
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={formData.grid.rows}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, grid: { ...formData.grid, rows: v } })
+                      }
+                      placeholder="—"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Input
+                      label={t('cellars.grid.hotZoneRows')}
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={formData.grid.hotZoneRows}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, grid: { ...formData.grid, hotZoneRows: v } })
+                      }
+                      placeholder="0"
+                      isDisabled={!formData.grid.rows}
+                      description={t('cellars.grid.hotZoneRowsHint')}
+                    />
+                    <Input
+                      label={t('cellars.grid.coldZoneRows')}
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={formData.grid.coldZoneRows}
+                      onValueChange={(v) =>
+                        setFormData({ ...formData, grid: { ...formData.grid, coldZoneRows: v } })
+                      }
+                      placeholder="0"
+                      isDisabled={!formData.grid.rows}
+                      description={t('cellars.grid.coldZoneRowsHint')}
+                    />
+                  </div>
+                  {zonesExceedRows && (
+                    <div className="rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-sm">
+                      {t('cellars.grid.zonesExceedError')}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={handleCloseForm}>
+              {t('actions.cancel')}
+            </Button>
+            <Button
+              color="primary"
+              onPress={handleSubmit}
+              isDisabled={!formData.name || zonesExceedRows}
+            >
+              {editingCellar ? t('actions.save') : t('actions.add')}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </div>
   );
 };

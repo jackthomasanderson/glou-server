@@ -1,22 +1,11 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Paper, Typography, Box, Button, Table, TableHead, TableRow, TableCell,
-  TableBody, TableContainer, Skeleton, IconButton, Tooltip, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Stack, Alert, Divider,
-} from '@mui/material';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import WineBarIcon from '@mui/icons-material/WineBar';
-import BubbleChartIcon from '@mui/icons-material/BubbleChart';
-import LocalBarIcon from '@mui/icons-material/LocalBar';
-import SmokingRoomsIcon from '@mui/icons-material/SmokingRooms';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+  Button, Chip, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
+  Skeleton, Tooltip, Divider, ButtonGroup,
+} from '@heroui/react';
+import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   useMaturityReferences,
@@ -35,10 +24,10 @@ const CATEGORY_CONFIG = {
 } as const;
 
 const CATEGORY_ICONS = {
-  wine:      WineBarIcon,
-  sparkling: BubbleChartIcon,
-  spirit:    LocalBarIcon,
-  cigar:     SmokingRoomsIcon,
+  wine: <Wine size={14} />,
+  sparkling: <Sparkles size={14} />,
+  spirit: <GlassWater size={14} />,
+  cigar: <Leaf size={14} />,
 };
 
 const EMPTY_FORM: MaturityReferenceInput = {
@@ -133,167 +122,172 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
     : t('admin.maturityRefs.hints.windowAbsolute');
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {editing ? t('admin.maturityRefs.editTitle') : t('admin.maturityRefs.addTitle')}
-      </DialogTitle>
-      <DialogContent>
-        <Stack spacing={2.5} sx={{ mt: 1 }}>
-          {error && <Alert severity="error">{error}</Alert>}
+    <Modal isOpen={open} onClose={onClose} size="md" radius="lg" backdrop="opaque" placement="center">
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader>{editing ? t('admin.maturityRefs.editTitle') : t('admin.maturityRefs.addTitle')}</ModalHeader>
+            <ModalBody className="flex flex-col gap-4">
+              {error && (
+                <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{error}</div>
+              )}
 
-          <TextField
-            label={t('admin.maturityRefs.fields.name')}
-            value={form.name}
-            onChange={(e) => setField('name', e.target.value)}
-            required
-            fullWidth
-            size="small"
-          />
+              <Input
+                label={t('admin.maturityRefs.fields.name')}
+                value={form.name}
+                onValueChange={(v) => setField('name', v)}
+                variant="bordered"
+                size="sm"
+                radius="md"
+                labelPlacement="outside"
+                isRequired
+              />
 
-          {/* Category */}
-          <Box>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-              {t('inventory.fields.category')}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {(['wine', 'sparkling', 'spirit', 'cigar'] as const).map((cat) => {
-                const Icon = CATEGORY_ICONS[cat];
-                const selected = form.category === cat;
-                return (
-                  <Chip
-                    key={cat}
-                    icon={<Icon sx={{ fontSize: '1rem !important' }} />}
-                    label={t(`categories.${cat}`)}
-                    onClick={() => handleCategoryChange(cat)}
-                    color={selected ? 'primary' : 'default'}
-                    variant={selected ? 'filled' : 'outlined'}
-                    sx={{ cursor: 'pointer' }}
+              {/* Category */}
+              <div>
+                <p className="text-xs text-foreground-500 mb-2">{t('inventory.fields.category')}</p>
+                <div className="flex gap-2 flex-wrap">
+                  {(['wine', 'sparkling', 'spirit', 'cigar'] as const).map((cat) => (
+                    <Chip
+                      key={cat}
+                      startContent={CATEGORY_ICONS[cat]}
+                      onClick={() => handleCategoryChange(cat)}
+                      color={form.category === cat ? 'primary' : 'default'}
+                      variant={form.category === cat ? 'flat' : 'bordered'}
+                      radius="sm"
+                      className="cursor-pointer"
+                    >
+                      {t(`categories.${cat}`)}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              {/* Mode */}
+              {!cfg.forceAbsolute ? (
+                <div>
+                  <p className="text-xs text-foreground-500 mb-2">{t('admin.maturityRefs.fields.mode')}</p>
+                  <ButtonGroup size="sm" variant="flat" className="w-full">
+                    <Button
+                      color={form.mode === 'RELATIVE' ? 'primary' : 'default'}
+                      variant={form.mode === 'RELATIVE' ? 'flat' : 'light'}
+                      startContent={<Clock size={14} />}
+                      className="flex-1"
+                      onClick={() => setField('mode', 'RELATIVE')}
+                    >
+                      {t('admin.maturityRefs.modes.relative')}
+                    </Button>
+                    <Button
+                      color={form.mode === 'ABSOLUTE' ? 'primary' : 'default'}
+                      variant={form.mode === 'ABSOLUTE' ? 'flat' : 'light'}
+                      startContent={<CalendarDays size={14} />}
+                      className="flex-1"
+                      onClick={() => setField('mode', 'ABSOLUTE')}
+                    >
+                      {t('admin.maturityRefs.modes.absolute')}
+                    </Button>
+                  </ButtonGroup>
+                </div>
+              ) : (
+                <div className="bg-primary-50 border border-primary-200 text-primary text-xs rounded-lg px-4 py-2 flex items-center gap-2">
+                  <CalendarDays size={14} />
+                  {t('admin.maturityRefs.modes.cigarInfo')}
+                </div>
+              )}
+
+              {/* Window */}
+              <div className="flex flex-col gap-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label={windowFromLabel}
+                    type="number"
+                    value={String(form.windowFrom)}
+                    onValueChange={(v) => setField('windowFrom', numField(v) ?? 0)}
+                    variant="bordered"
+                    size="sm"
+                    radius="md"
+                    labelPlacement="outside"
+                    min={form.mode === 'ABSOLUTE' ? 1800 : 0}
+                    max={form.mode === 'ABSOLUTE' ? 2200 : undefined}
                   />
-                );
-              })}
-            </Box>
-          </Box>
+                  <Input
+                    label={windowToLabel}
+                    type="number"
+                    value={String(form.windowTo)}
+                    onValueChange={(v) => setField('windowTo', numField(v) ?? 0)}
+                    variant="bordered"
+                    size="sm"
+                    radius="md"
+                    labelPlacement="outside"
+                    min={form.mode === 'ABSOLUTE' ? 1800 : 0}
+                    max={form.mode === 'ABSOLUTE' ? 2200 : undefined}
+                  />
+                </div>
+                <p className="text-xs text-foreground-400">{windowHint}</p>
+              </div>
 
-          {/* Mode */}
-          {!cfg.forceAbsolute ? (
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                {t('admin.maturityRefs.fields.mode')}
-              </Typography>
-              <ToggleButtonGroup
-                value={form.mode}
-                exclusive
-                onChange={(_, val) => val && setField('mode', val)}
-                size="small"
-                fullWidth
-              >
-                <ToggleButton value="RELATIVE" sx={{ gap: 1, fontSize: '0.8rem', py: 0.75 }}>
-                  <AccessTimeIcon fontSize="small" />
-                  {t('admin.maturityRefs.modes.relative')}
-                </ToggleButton>
-                <ToggleButton value="ABSOLUTE" sx={{ gap: 1, fontSize: '0.8rem', py: 0.75 }}>
-                  <CalendarMonthIcon fontSize="small" />
-                  {t('admin.maturityRefs.modes.absolute')}
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </Box>
-          ) : (
-            <Alert severity="info" icon={<CalendarMonthIcon fontSize="small" />} sx={{ py: 0.5 }}>
-              <Typography variant="caption">{t('admin.maturityRefs.modes.cigarInfo')}</Typography>
-            </Alert>
-          )}
+              <div className="relative flex items-center gap-2">
+                <div className="flex-1 h-px bg-divider" />
+                <span className="text-xs text-foreground-400">{t('admin.maturityRefs.hints.criteria')}</span>
+                <div className="flex-1 h-px bg-divider" />
+              </div>
 
-          {/* Window */}
-          <Stack spacing={0.5}>
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label={windowFromLabel}
-                type="number"
-                value={form.windowFrom}
-                onChange={(e) => setField('windowFrom', numField(e.target.value) ?? 0)}
-                fullWidth
-                size="small"
-                inputProps={form.mode === 'ABSOLUTE' ? { min: 1800, max: 2200 } : { min: 0 }}
-              />
-              <TextField
-                label={windowToLabel}
-                type="number"
-                value={form.windowTo}
-                onChange={(e) => setField('windowTo', numField(e.target.value) ?? 0)}
-                fullWidth
-                size="small"
-                inputProps={form.mode === 'ABSOLUTE' ? { min: 1800, max: 2200 } : { min: 0 }}
-              />
-            </Stack>
-            <Typography variant="caption" color="text.secondary">{windowHint}</Typography>
-          </Stack>
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label={t('inventory.fields.producer')}
+                  value={form.producer ?? ''}
+                  onValueChange={(v) => setField('producer', v || null)}
+                  variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                />
+                <Input
+                  label={t('inventory.fields.region')}
+                  value={form.region ?? ''}
+                  onValueChange={(v) => setField('region', v || null)}
+                  variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                />
+              </div>
 
-          {/* Criteria */}
-          <Divider>
-            <Typography variant="caption" color="text.secondary">
-              {t('admin.maturityRefs.hints.criteria')}
-            </Typography>
-          </Divider>
+              {cfg.hasColor && (
+                <Input
+                  label={t('inventory.fields.color')}
+                  value={form.color ?? ''}
+                  onValueChange={(v) => setField('color', v || null)}
+                  variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                  placeholder={t('admin.maturityRefs.hints.colorPlaceholder')}
+                />
+              )}
 
-          <Stack direction="row" spacing={2}>
-            <TextField
-              label={t('inventory.fields.producer')}
-              value={form.producer ?? ''}
-              onChange={(e) => setField('producer', e.target.value || null)}
-              fullWidth
-              size="small"
-            />
-            <TextField
-              label={t('inventory.fields.region')}
-              value={form.region ?? ''}
-              onChange={(e) => setField('region', e.target.value || null)}
-              fullWidth
-              size="small"
-            />
-          </Stack>
-
-          {cfg.hasColor && (
-            <TextField
-              label={t('inventory.fields.color')}
-              value={form.color ?? ''}
-              onChange={(e) => setField('color', e.target.value || null)}
-              size="small"
-              fullWidth
-              placeholder={t('admin.maturityRefs.hints.colorPlaceholder')}
-            />
-          )}
-
-          {cfg.hasVintage && (
-            <Stack direction="row" spacing={2}>
-              <TextField
-                label={t('admin.maturityRefs.fields.vintageFrom')}
-                type="number"
-                value={form.vintageFrom ?? ''}
-                onChange={(e) => setField('vintageFrom', e.target.value ? numField(e.target.value) : null)}
-                fullWidth
-                size="small"
-                inputProps={{ min: 1800, max: 2200 }}
-              />
-              <TextField
-                label={t('admin.maturityRefs.fields.vintageTo')}
-                type="number"
-                value={form.vintageTo ?? ''}
-                onChange={(e) => setField('vintageTo', e.target.value ? numField(e.target.value) : null)}
-                fullWidth
-                size="small"
-                inputProps={{ min: 1800, max: 2200 }}
-              />
-            </Stack>
-          )}
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ pb: 2, px: 3 }}>
-        <Button onClick={onClose} disabled={isPending}>{t('actions.cancel')}</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={isPending}>
-          {isPending ? t('status.saving') : t('actions.save')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+              {cfg.hasVintage && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label={t('admin.maturityRefs.fields.vintageFrom')}
+                    type="number"
+                    value={form.vintageFrom != null ? String(form.vintageFrom) : ''}
+                    onValueChange={(v) => setField('vintageFrom', v ? numField(v) : null)}
+                    variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                    min={1800} max={2200}
+                  />
+                  <Input
+                    label={t('admin.maturityRefs.fields.vintageTo')}
+                    type="number"
+                    value={form.vintageTo != null ? String(form.vintageTo) : ''}
+                    onValueChange={(v) => setField('vintageTo', v ? numField(v) : null)}
+                    variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                    min={1800} max={2200}
+                  />
+                </div>
+              )}
+            </ModalBody>
+            <ModalFooter>
+              <Button color="danger" variant="light" onPress={onClose} isDisabled={isPending}>{t('actions.cancel')}</Button>
+              <Button color="primary" variant="solid" onPress={handleSubmit} isLoading={isPending}>
+                {t('actions.save')}
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }
 
@@ -314,91 +308,88 @@ export function MaturityReferencesSection() {
 
   return (
     <>
-      <Paper sx={{ p: 4, mt: 4, borderRadius: 3 }}>
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-          <Box>
-            <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
-              {t('admin.maturityRefs.title')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t('admin.maturityRefs.subtitle')}
-            </Typography>
-          </Box>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd} size="small">
+      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-semibold">{t('admin.maturityRefs.title')}</h2>
+            <p className="text-sm text-foreground-500 mt-0.5">{t('admin.maturityRefs.subtitle')}</p>
+          </div>
+          <Button color="primary" variant="solid" size="sm" startContent={<Plus size={14} />} onPress={openAdd}>
             {t('admin.maturityRefs.add')}
           </Button>
-        </Box>
+        </div>
 
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('admin.maturityRefs.columns.name')}</TableCell>
-                <TableCell>{t('admin.maturityRefs.columns.category')}</TableCell>
-                <TableCell>{t('admin.maturityRefs.columns.criteria')}</TableCell>
-                <TableCell>{t('admin.maturityRefs.columns.window')}</TableCell>
-                <TableCell align="center">{t('admin.maturityRefs.columns.bottles')}</TableCell>
-                <TableCell align="right">{t('admin.maturityRefs.columns.actions')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {isLoading
-                ? Array.from({ length: 3 }).map((_, i) => (
-                    <TableRow key={i}>
-                      {Array.from({ length: 6 }).map((__, c) => (
-                        <TableCell key={c}><Skeleton variant="text" /></TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                : refs?.length === 0
-                ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center">
-                      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-                        {t('admin.maturityRefs.empty')}
-                      </Typography>
-                    </TableCell>
+        <Table
+          isCompact
+          shadow="none"
+          radius="md"
+          classNames={{ wrapper: 'border border-divider rounded-xl' }}
+          aria-label={t('admin.maturityRefs.title')}
+        >
+          <TableHeader>
+            <TableColumn>{t('admin.maturityRefs.columns.name')}</TableColumn>
+            <TableColumn>{t('admin.maturityRefs.columns.category')}</TableColumn>
+            <TableColumn>{t('admin.maturityRefs.columns.criteria')}</TableColumn>
+            <TableColumn>{t('admin.maturityRefs.columns.window')}</TableColumn>
+            <TableColumn className="text-center">{t('admin.maturityRefs.columns.bottles')}</TableColumn>
+            <TableColumn className="text-right">{t('admin.maturityRefs.columns.actions')}</TableColumn>
+          </TableHeader>
+          <TableBody>
+            {isLoading
+              ? (Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 6 }).map((__, c) => (
+                      <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
+                    ))}
                   </TableRow>
-                )
-                : refs?.map((ref) => (
-                  <TableRow key={ref.id}>
-                    <TableCell sx={{ fontWeight: 500 }}>{ref.name}</TableCell>
-                    <TableCell>
-                      <Chip label={t(`categories.${ref.category}`)} size="small" variant="outlined" />
-                    </TableCell>
-                    <TableCell sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
-                      {criteriaLabel(ref)}
-                    </TableCell>
-                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                      <Chip
-                        label={`${ref.mode === 'RELATIVE' ? '±' : ''}${windowLabel(ref)}`}
-                        size="small"
-                        color={ref.mode === 'RELATIVE' ? 'info' : 'default'}
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Typography variant="body2" color="text.secondary">{ref.bottleCount}</Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title={t('actions.edit')}>
-                        <IconButton size="small" onClick={() => openEdit(ref)}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
+                )) as unknown as React.ReactElement)
+              : refs?.length === 0
+              ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-6 text-sm text-foreground-400">
+                    {t('admin.maturityRefs.empty')}
+                  </TableCell>
+                </TableRow>
+              ) as unknown as React.ReactElement
+              : (refs?.map((ref) => (
+                <TableRow key={ref.id}>
+                  <TableCell className="font-medium text-sm">{ref.name}</TableCell>
+                  <TableCell>
+                    <Chip size="sm" variant="bordered" radius="sm">{t(`categories.${ref.category}`)}</Chip>
+                  </TableCell>
+                  <TableCell className="text-xs text-foreground-400">{criteriaLabel(ref)}</TableCell>
+                  <TableCell>
+                    <Chip
+                      size="sm"
+                      variant="bordered"
+                      color={ref.mode === 'RELATIVE' ? 'primary' : 'default'}
+                      radius="sm"
+                      className="font-mono text-xs"
+                    >
+                      {ref.mode === 'RELATIVE' ? '±' : ''}{windowLabel(ref)}
+                    </Chip>
+                  </TableCell>
+                  <TableCell className="text-center text-sm text-foreground-400">{ref.bottleCount}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Tooltip content={t('actions.edit')} delay={500}>
+                        <Button isIconOnly size="sm" variant="light" onPress={() => openEdit(ref)} aria-label={t('actions.edit')}>
+                          <Pencil size={14} />
+                        </Button>
                       </Tooltip>
-                      <Tooltip title={t('actions.delete')}>
-                        <IconButton size="small" color="error" onClick={() => setDeleteTarget(ref)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                      <Tooltip content={t('actions.delete')} delay={500}>
+                        <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => setDeleteTarget(ref)} aria-label={t('actions.delete')}>
+                          <Trash2 size={14} />
+                        </Button>
                       </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))
-              }
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )) as unknown as React.ReactElement)
+            }
+          </TableBody>
+        </Table>
+      </div>
 
       <FormDialog
         open={dialogOpen}
@@ -406,20 +397,22 @@ export function MaturityReferencesSection() {
         onClose={() => setDialogOpen(false)}
       />
 
-      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t('admin.maturityRefs.deleteConfirmTitle')}</DialogTitle>
-        <DialogContent>
-          <Typography>
-            {t('admin.maturityRefs.deleteConfirmBody', { name: deleteTarget?.name })}
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ pb: 2, px: 3 }}>
-          <Button onClick={() => setDeleteTarget(null)}>{t('actions.cancel')}</Button>
-          <Button variant="contained" color="error" onClick={confirmDelete}>
-            {t('actions.delete')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>{t('admin.maturityRefs.deleteConfirmTitle')}</ModalHeader>
+              <ModalBody>
+                <p className="text-sm">{t('admin.maturityRefs.deleteConfirmBody', { name: deleteTarget?.name })}</p>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
+                <Button color="danger" variant="solid" onPress={confirmDelete}>{t('actions.delete')}</Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </>
   );
 }

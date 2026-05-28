@@ -1,16 +1,13 @@
 'use client';
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useHasMounted } from '@/hooks/useHasMounted';
-
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import {
-  Box, Button, Fab,
-  Grid, Typography, Collapse, Alert, IconButton,
-  Stack, Chip, Divider, Paper,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  useTheme, useMediaQuery,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+  Button, Chip,
+  Table, TableHeader, TableColumn, TableBody,
+} from '@heroui/react';
+import { Plus, X, List, Filter, Search, Warehouse } from 'lucide-react';
+import Link from 'next/link';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 import {
@@ -23,15 +20,9 @@ import {
 } from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections, useAddItemsToCollection, useRemoveItemFromCollection } from '@/hooks/useCollections';
-import Link from 'next/link';
 import { InventoryCard, InventoryCardSkeleton } from './InventoryCard';
 import { InventoryForm } from './InventoryForm';
 import { UndoToast } from '@/components/ui/UndoToast';
-import WarehouseIcon from '@mui/icons-material/Warehouse';
-import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
-import CloseIcon from '@mui/icons-material/Close';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import SearchIcon from '@mui/icons-material/Search';
 import { BulkActionDialog } from './BulkActionDialog';
 import { AlertCenter } from './AlertCenter';
 import { InventoryDetailDialog } from './InventoryDetailDialog';
@@ -99,14 +90,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     if (qParam) setSearchQuery(qParam);
     setSelectedCollectionId(collectionParam ?? null);
     if (filterParam === 'opened') {
-      setOpenedFilter('opened');
-      setIsFiltersOpen(true);
+      setOpenedFilter('opened'); setIsFiltersOpen(true);
     } else if (filterParam === 'full') {
-      setOpenedFilter('full');
-      setIsFiltersOpen(true);
+      setOpenedFilter('full'); setIsFiltersOpen(true);
     } else if (filterParam === 'alerts') {
-      setOpenedFilter('alerts');
-      setIsFiltersOpen(true);
+      setOpenedFilter('alerts'); setIsFiltersOpen(true);
     } else {
       setOpenedFilter('all');
     }
@@ -114,8 +102,17 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('inventory');
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  // Detect mobile via CSS (no MUI hook needed)
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
   const effectiveViewMode = isMobile ? 'grid' : viewMode;
 
   const toggleFilters = useCallback(() => setIsFiltersOpen((prev) => !prev), []);
@@ -143,7 +140,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const filteredItems = useMemo(() => {
     if (!items) return [];
     let result = items;
-
     if (lockedCategories && lockedCategories.length > 0) {
       result = result.filter((b: InventoryItem) => lockedCategories.includes(b.category));
     }
@@ -302,252 +298,215 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
 
   const filterContent = (
-    <Stack spacing={2}>
-      {/* Cave filter */}
+    <div className="flex flex-col gap-4">
+      {/* Cellar filter */}
       {(cellars?.length ?? 0) > 0 && (
-        <Box>
-          <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: '.08rem', textTransform: 'uppercase', color: 'text.secondary', fontSize: '0.6rem', display: 'block', mb: 1 }}>
+        <div>
+          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
             {t('inventory.filterByCellar')}
-          </Typography>
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+          </p>
+          <div className="flex flex-wrap gap-1">
             <Chip
-              label={t('filters.all')}
-              onClick={() => setSelectedCellars([])}
+              size="sm"
+              variant={selectedCellars.length === 0 ? 'solid' : 'bordered'}
               color={selectedCellars.length === 0 ? 'primary' : 'default'}
-              variant={selectedCellars.length === 0 ? 'filled' : 'outlined'}
-              size="small"
-              sx={{ fontSize: '0.7rem' }}
-            />
+              className="cursor-pointer text-[0.7rem]"
+              onClick={() => setSelectedCellars([])}
+            >
+              {t('filters.all')}
+            </Chip>
             {cellars?.map((cellar) => (
               <Chip
                 key={cellar.id}
-                label={cellar.name}
-                onClick={() => toggleCellar(cellar.id)}
+                size="sm"
+                variant={selectedCellars.includes(cellar.id) ? 'solid' : 'bordered'}
                 color={selectedCellars.includes(cellar.id) ? 'primary' : 'default'}
-                variant={selectedCellars.includes(cellar.id) ? 'filled' : 'outlined'}
-                size="small"
-                sx={{ fontSize: '0.7rem' }}
-              />
+                className="cursor-pointer text-[0.7rem]"
+                onClick={() => toggleCellar(cellar.id)}
+              >
+                {cellar.name}
+              </Chip>
             ))}
-          </Stack>
-        </Box>
+          </div>
+        </div>
       )}
 
       {/* Opened filter */}
-      <Box>
-        <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: '.08rem', textTransform: 'uppercase', color: 'text.secondary', fontSize: '0.6rem', display: 'block', mb: 1 }}>
+      <div>
+        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
           {t('inventory.fields.isOpened')}
-        </Typography>
-        <Stack spacing={0.25}>
+        </p>
+        <div className="flex flex-col gap-0.5">
           {(['all', 'full', 'opened', 'alerts'] as const).map((f) => (
-            <Box
+            <div
               key={f}
               onClick={() => setOpenedFilter(f)}
-              sx={{
-                px: 1,
-                py: 0.5,
-                borderRadius: 1.5,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                bgcolor: openedFilter === f ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
+              className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${openedFilter === f ? 'bg-default-100' : 'hover:bg-default-50'}`}
             >
-              <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: openedFilter === f ? 600 : 400 }}>
+              <span className={`text-[0.75rem] ${openedFilter === f ? 'font-semibold' : 'font-normal'}`}>
                 {t(`inventory.filters.${f}`)}
-              </Typography>
+              </span>
               {openedFilter === f && (
-                <Typography sx={{ fontSize: '0.7rem', color: 'primary.main', fontWeight: 700 }}>✓</Typography>
+                <span className="text-[0.7rem] text-primary font-bold">✓</span>
               )}
-            </Box>
+            </div>
           ))}
-        </Stack>
-      </Box>
+        </div>
+      </div>
 
       {/* Category filter */}
       {!lockedCategories && (
-        <Box>
-          <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: '.08rem', textTransform: 'uppercase', color: 'text.secondary', fontSize: '0.6rem', display: 'block', mb: 1 }}>
+        <div>
+          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
             {t('inventory.filterByCategory')}
-          </Typography>
-          <Stack spacing={0.25}>
-            <Box
+          </p>
+          <div className="flex flex-col gap-0.5">
+            <div
               onClick={() => setSelectedCategories([])}
-              sx={{
-                px: 1, py: 0.5, borderRadius: 1.5, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                bgcolor: selectedCategories.length === 0 ? 'action.selected' : 'transparent',
-                '&:hover': { bgcolor: 'action.hover' },
-              }}
+              className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${selectedCategories.length === 0 ? 'bg-default-100' : 'hover:bg-default-50'}`}
             >
-              <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: selectedCategories.length === 0 ? 600 : 400 }}>
+              <span className={`text-[0.75rem] ${selectedCategories.length === 0 ? 'font-semibold' : 'font-normal'}`}>
                 {t('filters.allCategories')}
-              </Typography>
+              </span>
               {selectedCategories.length === 0 && (
-                <Typography sx={{ fontSize: '0.7rem', color: 'primary.main', fontWeight: 700 }}>✓</Typography>
+                <span className="text-[0.7rem] text-primary font-bold">✓</span>
               )}
-            </Box>
+            </div>
             {['wine', 'sparkling', 'spirit', 'cigar'].map((cat) => (
-              <Box
+              <div
                 key={cat}
                 onClick={() => toggleCategory(cat)}
-                sx={{
-                  px: 1, py: 0.5, borderRadius: 1.5, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  bgcolor: selectedCategories.includes(cat) ? 'action.selected' : 'transparent',
-                  '&:hover': { bgcolor: 'action.hover' },
-                }}
+                className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${selectedCategories.includes(cat) ? 'bg-default-100' : 'hover:bg-default-50'}`}
               >
-                <Typography variant="caption" sx={{ fontSize: '0.75rem', fontWeight: selectedCategories.includes(cat) ? 600 : 400 }}>
+                <span className={`text-[0.75rem] ${selectedCategories.includes(cat) ? 'font-semibold' : 'font-normal'}`}>
                   {t(`categories.${cat}`)}
-                </Typography>
+                </span>
                 {selectedCategories.includes(cat) && (
-                  <Typography sx={{ fontSize: '0.7rem', color: 'primary.main', fontWeight: 700 }}>✓</Typography>
+                  <span className="text-[0.7rem] text-primary font-bold">✓</span>
                 )}
-              </Box>
+              </div>
             ))}
-          </Stack>
-        </Box>
+          </div>
+        </div>
       )}
-    </Stack>
+    </div>
   );
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      {/* Stats row — full width, above filter+grid */}
+    <div className="p-4 sm:p-6">
+      {/* Stats row */}
       {!isLoading && items && items.length > 0 && mode === 'idle' && (
-        <Box sx={{ display: 'flex', gap: { xs: 1.5, sm: 2 }, mb: 3 }}>
-          <Paper variant="outlined" sx={{ flex: 1, p: { xs: 1.5, sm: 2 }, borderRadius: 2, textAlign: 'center' }}>
-            <Typography variant="h5" fontWeight={700} sx={{ lineHeight: 1.1 }}>
-              {items.length}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-              {t('inventory.stats.total')}
-            </Typography>
-          </Paper>
-          <Paper variant="outlined" sx={{ flex: 1, p: { xs: 1.5, sm: 2 }, borderRadius: 2, textAlign: 'center' }}>
-            <Typography variant="h5" fontWeight={700} color="success.main" sx={{ lineHeight: 1.1 }}>
-              {items.filter(b => !b.isOpened).length}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-              {t('inventory.stats.full')}
-            </Typography>
-          </Paper>
-          <Paper variant="outlined" sx={{ flex: 1, p: { xs: 1.5, sm: 2 }, borderRadius: 2, textAlign: 'center' }}>
-            <Typography variant="h5" fontWeight={700} color="warning.main" sx={{ lineHeight: 1.1 }}>
-              {items.filter(b => b.isOpened).length}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-              {t('inventory.stats.opened')}
-            </Typography>
-          </Paper>
-        </Box>
+        <div className="flex gap-3 sm:gap-4 mb-5">
+          {[
+            { value: items.length, label: t('inventory.stats.total'), color: '' },
+            { value: items.filter(b => !b.isOpened).length, label: t('inventory.stats.full'), color: 'text-success' },
+            { value: items.filter(b => b.isOpened).length, label: t('inventory.stats.opened'), color: 'text-warning' },
+          ].map(({ value, label, color }) => (
+            <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">
+              <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>
+              <p className="text-xs text-default-500 mt-1">{label}</p>
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* Mobile: filter toggle button */}
-      <Box sx={{ display: { md: 'none' }, mb: 1.5 }}>
-        <IconButton
+      {/* Mobile: filter toggle */}
+      <div className="flex md:hidden mb-3">
+        <button
           onClick={toggleFilters}
-          color={isFiltersOpen || hasActiveFilters ? 'secondary' : 'default'}
-          sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
-          size="small"
+          className={`p-1.5 border border-divider rounded-xl transition-colors ${isFiltersOpen || hasActiveFilters ? 'border-secondary text-secondary' : ''}`}
+          aria-label="Filters"
         >
-          <FilterListIcon fontSize="small" />
-        </IconButton>
-      </Box>
+          <Filter size={16} />
+        </button>
+      </div>
 
       {/* Mobile: collapsible filter */}
-      <Box sx={{ display: { md: 'none' } }}>
-        <Collapse in={isFiltersOpen} unmountOnExit>
-          <Paper variant="outlined" sx={{ p: 2, mb: 2.5, borderRadius: 2 }}>
-            {filterContent}
-          </Paper>
-        </Collapse>
-      </Box>
+      {isFiltersOpen && (
+        <div className="md:hidden border border-divider rounded-xl p-4 mb-5">
+          {filterContent}
+        </div>
+      )}
 
-      {/* Main layout: filter panel (desktop) + content column */}
-      <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+      {/* Main layout */}
+      <div className="flex gap-5 items-start">
         {/* Desktop filter panel */}
-        <Box sx={{ width: 200, flexShrink: 0, display: { xs: 'none', md: 'block' } }}>
-          <Paper
-            variant="outlined"
-            sx={{ p: 2, borderRadius: 2, position: 'sticky', top: 72 }}
-          >
-            {/* Filter header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                <FilterListIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                <Typography variant="caption" fontWeight={700} sx={{ letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary', fontSize: '0.65rem' }}>
+        <div className="hidden md:block w-[200px] shrink-0">
+          <div className="border border-divider rounded-xl p-4 sticky top-[72px]">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-1.5">
+                <Filter size={13} className="text-default-400" />
+                <span className="text-[0.65rem] font-bold uppercase tracking-widest text-default-400">
                   {t('actions.filter')}
-                </Typography>
-              </Box>
+                </span>
+              </div>
               {hasActiveFilters && (
-                <Typography
-                  variant="caption"
-                  color="primary"
-                  sx={{ cursor: 'pointer', fontSize: '0.65rem', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
+                <button
                   onClick={clearFilters}
+                  className="text-[0.65rem] text-primary font-semibold hover:underline"
                 >
                   ↺ {t('actions.clearAll')}
-                </Typography>
+                </button>
               )}
-            </Box>
+            </div>
             {filterContent}
-          </Paper>
-        </Box>
+          </div>
+        </div>
 
         {/* Content column */}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          {/* Toolbar: view toggle (left) + select + add (right) */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <div className="flex-1 min-w-0">
+          {/* Toolbar */}
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex gap-2 items-center">
               {!isMobile && <ViewToggle value={viewMode} onChange={setViewMode} />}
-            </Box>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            </div>
+            <div className="flex gap-2 items-center">
+              {items && items.length > 0 && (
+                <Button
+                  variant={bulkMode ? 'solid' : 'bordered'}
+                  color={bulkMode ? 'secondary' : 'primary'}
+                  startContent={bulkMode ? <X size={14} /> : <List size={14} />}
+                  onPress={toggleBulkMode}
+                  size="sm"
+                >
+                  {bulkMode ? t('actions.cancel') : t('actions.select')}
+                </Button>
+              )}
               <Button
-                variant={bulkMode ? 'contained' : 'outlined'}
-                color={bulkMode ? 'secondary' : 'primary'}
-                startIcon={bulkMode ? <CloseIcon /> : <FormatListBulletedIcon />}
-                onClick={toggleBulkMode}
-                size="small"
-                sx={{ display: items && items.length > 0 ? 'flex' : 'none' }}
-              >
-                {bulkMode ? t('actions.cancel') : t('actions.select')}
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setMode('creating')}
-                size="small"
+                color="primary"
+                startContent={<Plus size={14} />}
+                onPress={() => setMode('creating')}
+                size="sm"
                 aria-label={t('inventory.add')}
-                disabled={!hasCellars || bulkMode}
+                isDisabled={!hasCellars || bulkMode}
               >
                 {t('inventory.add')}
               </Button>
-            </Box>
-          </Box>
+            </div>
+          </div>
 
           {/* Alert center */}
           {mode === 'idle' && <AlertCenter t={t} />}
 
           {/* Error */}
           {isError && (
-            <Alert severity="error" sx={{ mb: 2 }}>{t('status.error')}</Alert>
+            <div className="bg-danger-50 border border-danger-200 text-danger-700 rounded-xl px-4 py-3 mb-4 text-sm">
+              {t('status.error')}
+            </div>
           )}
 
           {/* Active collection banner */}
           {selectedCollectionId && activeCollectionName && (
-            <Box sx={{ mb: 2 }}>
+            <div className="mb-4">
               <Chip
-                label={t('collections.filterActive', { name: activeCollectionName })}
-                onDelete={() => router.push(pathname)}
+                size="sm"
+                variant="bordered"
                 color="primary"
-                variant="outlined"
-                size="small"
-              />
-            </Box>
+                onClose={() => router.push(pathname)}
+              >
+                {t('collections.filterActive', { name: activeCollectionName })}
+              </Chip>
+            </div>
           )}
 
           {/* Form dialog */}
@@ -562,72 +521,53 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Loading skeletons */}
           {isLoading && effectiveViewMode === 'grid' && (
-            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Grid item xs={6} sm={6} md={4} key={i}>
-                  <InventoryCardSkeleton />
-                </Grid>
+                <InventoryCardSkeleton key={i} />
               ))}
-            </Grid>
+            </div>
           )}
           {isLoading && effectiveViewMode === 'list' && (
-            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-              <Table size="small">
-                <TableBody>
+            <div className="border border-divider rounded-xl overflow-hidden">
+              <table className="w-full">
+                <tbody>
                   {Array.from({ length: 8 }).map((_, i) => <InventoryListRowSkeleton key={i} />)}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                </tbody>
+              </table>
+            </div>
           )}
 
           {/* Empty states */}
           {!isLoading && !isError && mode === 'idle' && (
             <>
               {items?.length === 0 ? (
-                <Box
-                  sx={{
-                    textAlign: 'center',
-                    py: 8,
-                    border: '2px dashed',
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    bgcolor: 'action.hover',
-                  }}
-                >
+                <div className="text-center py-16 border-2 border-dashed border-divider rounded-xl bg-default-50">
                   {hasCellars ? (
                     <>
-                      <Typography variant="h6" color="text.secondary" gutterBottom>
-                        {t('inventory.noBottles')}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {t('inventory.noBottlesDesc')}
-                      </Typography>
-                      <Button variant="contained" startIcon={<AddIcon />} onClick={() => setMode('creating')}>
+                      <p className="text-lg font-semibold text-default-500 mb-1">{t('inventory.noBottles')}</p>
+                      <p className="text-sm text-default-400 mb-4">{t('inventory.noBottlesDesc')}</p>
+                      <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
                         {t('inventory.add')}
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Typography variant="h6" color="text.secondary" gutterBottom>
-                        {t('inventory.createCellarFirst')}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                        {t('inventory.createCellarFirstDesc')}
-                      </Typography>
-                      <Button variant="contained" startIcon={<WarehouseIcon />} component={Link} href="/cellars">
+                      <p className="text-lg font-semibold text-default-500 mb-1">{t('inventory.createCellarFirst')}</p>
+                      <p className="text-sm text-default-400 mb-5">{t('inventory.createCellarFirstDesc')}</p>
+                      <Button color="primary" startContent={<Warehouse size={16} />} as={Link} href="/cellars">
                         {t('nav.caves')}
                       </Button>
                     </>
                   )}
-                </Box>
+                </div>
               ) : (
                 searchQuery.trim() && filteredItems.length === 0 && (
-                  <Box sx={{ textAlign: 'center', py: 8 }}>
-                    <SearchIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary">
+                  <div className="text-center py-16">
+                    <Search size={56} className="text-default-200 mx-auto mb-4" />
+                    <p className="text-lg font-semibold text-default-500">
                       {t('inventory.noResults', { query: searchQuery })}
-                    </Typography>
-                  </Box>
+                    </p>
+                  </div>
                 )
               )}
             </>
@@ -635,13 +575,54 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Grid view */}
           {!isLoading && filteredItems.length > 0 && effectiveViewMode === 'grid' && (
-            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
               {filteredItems.map((item: InventoryItem) => (
-                <Grid item xs={6} sm={6} md={4} key={item.id}>
-                  <InventoryCard
+                <InventoryCard
+                  key={item.id}
+                  item={item}
+                  categoryLabel={categoryLabel(item.category)}
+                  cellarName={cellars?.find((c: Cellar) => c.id === item.cellarId)?.name}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onView={bulkMode ? undefined : handleView}
+                  t={t}
+                  isSelected={selectedIds.has(item.id)}
+                  onSelectToggle={bulkMode ? handleSelectToggle : undefined}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* List view */}
+          {!isLoading && filteredItems.length > 0 && effectiveViewMode === 'list' && (
+            <Table
+              isCompact
+              isStriped={false}
+              shadow="none"
+              radius="none"
+              classNames={{ wrapper: 'border border-divider rounded-xl' }}
+            >
+              <TableHeader>
+                {[
+                  ...(bulkMode ? [<TableColumn key="check" width={40}>{' '}</TableColumn>] : []),
+                  <TableColumn key="icon" width={40}>{' '}</TableColumn>,
+                  <TableColumn key="name">{t('inventory.fields.name')}</TableColumn>,
+                  <TableColumn key="producer" className="hidden sm:table-cell">{t('inventory.fields.producer')}</TableColumn>,
+                  <TableColumn key="vintage" className="text-center">{t('inventory.fields.vintage')}</TableColumn>,
+                  <TableColumn key="region" className="hidden md:table-cell">{t('inventory.fields.region')}</TableColumn>,
+                  <TableColumn key="cellar" className="hidden md:table-cell">{t('view.columns.cellar')}</TableColumn>,
+                  <TableColumn key="peak" className="text-center hidden sm:table-cell">{t('view.columns.peak')}</TableColumn>,
+                  <TableColumn key="status" className="hidden sm:table-cell">{t('view.columns.status')}</TableColumn>,
+                  <TableColumn key="actions" className="text-right">{t('admin.maturityRefs.columns.actions')}</TableColumn>,
+                ]}
+              </TableHeader>
+              <TableBody>
+                {filteredItems.map((item: InventoryItem) => (
+                  <InventoryListRow
+                    key={item.id}
                     item={item}
                     categoryLabel={categoryLabel(item.category)}
-                    cellarName={cellars?.find((c: Cellar) => c.id === item.cellarId)?.name}
+                    cellar={cellars?.find((c: Cellar) => c.id === item.cellarId) ?? undefined}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onView={bulkMode ? undefined : handleView}
@@ -649,61 +630,26 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                     isSelected={selectedIds.has(item.id)}
                     onSelectToggle={bulkMode ? handleSelectToggle : undefined}
                   />
-                </Grid>
-              ))}
-            </Grid>
+                ))}
+              </TableBody>
+            </Table>
           )}
+        </div>
+      </div>
 
-          {/* List view */}
-          {!isLoading && filteredItems.length > 0 && effectiveViewMode === 'list' && (
-            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    {bulkMode && <TableCell padding="checkbox" />}
-                    <TableCell sx={{ width: 40 }} />
-                    <TableCell>{t('inventory.fields.name')}</TableCell>
-                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('inventory.fields.producer')}</TableCell>
-                    <TableCell align="center">{t('inventory.fields.vintage')}</TableCell>
-                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{t('inventory.fields.region')}</TableCell>
-                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{t('view.columns.cellar')}</TableCell>
-                    <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('view.columns.peak')}</TableCell>
-                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{t('view.columns.status')}</TableCell>
-                    <TableCell align="right">{t('admin.maturityRefs.columns.actions')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredItems.map((item: InventoryItem) => (
-                    <InventoryListRow
-                      key={item.id}
-                      item={item}
-                      categoryLabel={categoryLabel(item.category)}
-                      cellar={cellars?.find((c: Cellar) => c.id === item.cellarId) ?? undefined}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      onView={bulkMode ? undefined : handleView}
-                      t={t}
-                      isSelected={selectedIds.has(item.id)}
-                      onSelectToggle={bulkMode ? handleSelectToggle : undefined}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </Box>
-      </Box>
-
-      {/* FAB (mobile) */}
-      <Fab
+      {/* FAB (mobile only) */}
+      <Button
         color="primary"
+        radius="full"
+        size="lg"
+        isIconOnly
+        className="fixed bottom-20 md:bottom-6 right-4 z-30 sm:hidden shadow-lg"
+        onPress={() => setMode('creating')}
+        isDisabled={!hasCellars}
         aria-label={t('inventory.add')}
-        sx={{ position: 'fixed', bottom: { xs: 72, md: 24 }, right: 16, display: { sm: 'none' } }}
-        onClick={() => setMode('creating')}
-        disabled={!hasCellars}
       >
-        <AddIcon />
-      </Fab>
+        <Plus size={22} />
+      </Button>
 
       {/* Toasts */}
       {undoTarget && (
@@ -723,32 +669,14 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         />
       )}
 
-      {/* Bulk action floating bar */}
+      {/* Bulk floating bar */}
       {bulkMode && selectedIds.size > 0 && (
-        <Box
-          sx={{
-            position: 'fixed',
-            bottom: { xs: 72, md: 24 },
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 1200,
-            bgcolor: 'background.paper',
-            p: 2,
-            borderRadius: 2,
-            boxShadow: 4,
-            display: 'flex',
-            gap: 3,
-            alignItems: 'center',
-            minWidth: { xs: 'calc(100vw - 32px)', sm: 320 },
-          }}
-        >
-          <Typography fontWeight="bold" color="primary">
-            {t('bulk.selected', { count: selectedIds.size })}
-          </Typography>
-          <Button variant="contained" onClick={() => setIsBulkDialogOpen(true)}>
+        <div className="fixed bottom-[72px] md:bottom-6 left-1/2 -translate-x-1/2 z-[1200] bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">
+          <span className="font-bold text-primary">{t('bulk.selected', { count: selectedIds.size })}</span>
+          <Button color="primary" onPress={() => setIsBulkDialogOpen(true)}>
             {t('bulk.title')}
           </Button>
-        </Box>
+        </div>
       )}
 
       <BulkActionDialog
@@ -779,6 +707,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           onCancel={handleDuplicateCancel}
         />
       )}
-    </Box>
+    </div>
   );
 }

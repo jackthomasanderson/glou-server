@@ -1,10 +1,10 @@
 'use client';
 import React from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Typography, Box, Chip, Stack, Divider,
-} from '@mui/material';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Button, Chip, Divider,
+} from '@heroui/react';
+import { AlertTriangle } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 
@@ -36,52 +36,53 @@ export function DuplicateDialog({
   const newQty = currentQty + addedQty;
 
   return (
-    <Dialog open onClose={onCancel} maxWidth="xs" fullWidth>
-      <DialogTitle>
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <WarningAmberIcon color="warning" fontSize="small" />
-          <span>{t('duplicate.title')}</span>
-        </Stack>
-      </DialogTitle>
+    <Modal isOpen onClose={onCancel} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader className="flex items-center gap-2 pb-1">
+              <AlertTriangle size={16} className="text-warning shrink-0" />
+              <span>{t('duplicate.title')}</span>
+            </ModalHeader>
 
-      <DialogContent>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          {t('duplicate.description', { name: duplicate.name, producer: duplicate.producer })}
-        </Typography>
+            <ModalBody className="py-2 gap-3">
+              <p className="text-sm text-default-500">
+                {t('duplicate.description', { name: duplicate.name, producer: duplicate.producer })}
+              </p>
 
-        <Divider sx={{ my: 1.5 }} />
+              <Divider />
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="caption" color="text.secondary">
-              {t('duplicate.currentQuantity', { count: currentQty })}
-            </Typography>
-            <Chip label={`→ ${newQty}`} size="small" color="primary" variant="outlined" />
-          </Stack>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-default-500">
+                    {t('duplicate.currentQuantity', { count: currentQty })}
+                  </span>
+                  <Chip size="sm" color="primary" variant="bordered">
+                    → {newQty}
+                  </Chip>
+                </div>
+                <span className="text-xs text-default-500">
+                  {cellarName
+                    ? t('duplicate.cellar', { cellar: cellarName })
+                    : t('duplicate.noCellar')}
+                </span>
+              </div>
+            </ModalBody>
 
-          {cellarName ? (
-            <Typography variant="caption" color="text.secondary">
-              {t('duplicate.cellar', { cellar: cellarName })}
-            </Typography>
-          ) : (
-            <Typography variant="caption" color="text.secondary">
-              {t('duplicate.noCellar')}
-            </Typography>
-          )}
-        </Box>
-      </DialogContent>
-
-      <DialogActions sx={{ flexDirection: 'column', alignItems: 'stretch', gap: 1, px: 3, pb: 2 }}>
-        <Button variant="contained" onClick={onIncrement} fullWidth>
-          {t('duplicate.increment')}
-        </Button>
-        <Button variant="outlined" onClick={onCreateAnyway} fullWidth>
-          {t('duplicate.createAnyway')}
-        </Button>
-        <Button variant="text" onClick={onCancel} fullWidth>
-          {t('duplicate.cancel')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+            <ModalFooter className="flex flex-col items-stretch gap-2 px-4 pb-4 pt-2">
+              <Button color="primary" onPress={onIncrement} fullWidth>
+                {t('duplicate.increment')}
+              </Button>
+              <Button variant="bordered" onPress={onCreateAnyway} fullWidth>
+                {t('duplicate.createAnyway')}
+              </Button>
+              <Button variant="light" onPress={onCancel} fullWidth>
+                {t('duplicate.cancel')}
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
   );
 }

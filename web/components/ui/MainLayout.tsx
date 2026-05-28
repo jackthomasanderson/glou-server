@@ -1,12 +1,10 @@
 'use client';
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import {
-  Box, IconButton, Typography, useTheme, useMediaQuery,
-} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
+import { Button } from '@heroui/react';
+import { Menu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Sidebar, SIDEBAR_WIDTH } from './Sidebar';
+import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { GlobalSearch } from './GlobalSearch';
 import { NotificationBell } from './NotificationBell';
@@ -40,90 +38,48 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { data: user } = useMe();
   const pageTitle = usePageTitle();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const content = (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="flex min-h-screen bg-background">
       <Sidebar mobileOpen={drawerOpen} onMobileClose={() => setDrawerOpen(false)} />
 
-      {/* Right column */}
-      <Box
-        sx={{
-          flex: 1,
-          minWidth: 0,
-          display: 'flex',
-          flexDirection: 'column',
-          // On mobile, sidebar is hidden (drawer). On desktop, sidebar takes SIDEBAR_WIDTH.
-          // The permanent sidebar is in normal flow, so no ml needed.
-        }}
-      >
+      <div className="flex-1 min-w-0 flex flex-col">
         {/* Content header */}
-        <Box
-          sx={{
-            px: { xs: 2, md: 3 },
-            py: 1.25,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-            position: 'sticky',
-            top: 0,
-            zIndex: 'appBar',
-          }}
-        >
-          {/* Mobile: hamburger */}
-          {isMobile && (
-            <IconButton
-              size="small"
-              onClick={() => setDrawerOpen(true)}
-              edge="start"
-              aria-label="open navigation"
-            >
-              <MenuIcon fontSize="small" />
-            </IconButton>
-          )}
+        <header className="sticky top-0 z-20 flex items-center gap-3 px-4 md:px-6 py-2.5 bg-content1 border-b border-divider">
+          {/* Mobile hamburger */}
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            radius="full"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="open navigation"
+            className="md:hidden"
+          >
+            <Menu size={18} />
+          </Button>
 
           {/* Breadcrumb */}
-          <Typography
-            variant="caption"
-            sx={{
-              letterSpacing: '.1rem',
-              textTransform: 'uppercase',
-              fontWeight: 700,
-              color: 'text.secondary',
-              fontSize: '0.65rem',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <span className="text-[0.65rem] font-bold tracking-[.1rem] uppercase text-foreground-500 whitespace-nowrap">
             {user?.appName || 'Glou'}
             {pageTitle && (
-              <Box component="span" sx={{ color: 'text.primary' }}>
-                {' > '}
-                {pageTitle}
-              </Box>
+              <span className="text-foreground"> &gt; {pageTitle}</span>
             )}
-          </Typography>
+          </span>
 
-          <Box sx={{ flexGrow: 1 }} />
-
+          <div className="flex-1" />
           <GlobalSearch />
           <NotificationBell />
-        </Box>
+        </header>
 
         {/* Page content */}
-        <Box
-          component="main"
-          sx={{ flex: 1, pb: { xs: 'calc(56px + env(safe-area-inset-bottom, 0px))', md: 0 } }}
-        >
+        <main className="flex-1 pb-14 md:pb-0">
           {children}
-        </Box>
-      </Box>
+        </main>
+      </div>
 
       <BottomNav />
-    </Box>
+    </div>
   );
 
   if (isProtected) return <AuthGuard>{content}</AuthGuard>;

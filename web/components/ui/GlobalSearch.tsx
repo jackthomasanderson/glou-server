@@ -1,13 +1,8 @@
 'use client';
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Box, InputBase, IconButton, Paper, List, ListItem, ListItemText,
-  Typography, Chip, Divider,
-} from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import ClearIcon from '@mui/icons-material/Clear';
-import WarehouseIcon from '@mui/icons-material/Warehouse';
+import { Input, Chip } from '@heroui/react';
+import { Search, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
@@ -65,111 +60,70 @@ export function GlobalSearch() {
     router.push('/cellars');
   }, [router]);
 
-  const handleClear = () => {
-    setQuery('');
-    setIsOpen(false);
-  };
-
   return (
-    <Box sx={{ position: 'relative', width: { xs: 160, sm: 240, md: 300 } }}>
-      <Paper
-        variant="outlined"
-        sx={{ display: 'flex', alignItems: 'center', px: 1, borderRadius: 2 }}
-      >
-        <SearchIcon fontSize="small" color="action" sx={{ mr: 0.5 }} />
-        <InputBase
-          placeholder={t('nav.searchPlaceholder')}
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(true)}
-          onBlur={() => setTimeout(() => setIsOpen(false), 150)}
-          sx={{ flex: 1, fontSize: '0.875rem' }}
-        />
-        {query && (
-          <IconButton size="small" onClick={handleClear}>
-            <ClearIcon fontSize="small" />
-          </IconButton>
-        )}
-      </Paper>
+    <div className="relative w-40 sm:w-60 md:w-72">
+      <Input
+        placeholder={t('nav.searchPlaceholder')}
+        value={query}
+        onValueChange={(v) => { setQuery(v); setIsOpen(true); }}
+        onFocus={() => setIsOpen(true)}
+        onBlur={() => setTimeout(() => setIsOpen(false), 150)}
+        variant="flat"
+        size="sm"
+        radius="full"
+        isClearable
+        onClear={() => { setQuery(''); setIsOpen(false); }}
+        startContent={<Search size={14} className="text-foreground-400" />}
+        classNames={{ input: 'text-sm' }}
+      />
 
       {isOpen && hasResults && (
-        <Paper
-          elevation={4}
-          sx={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            zIndex: 1300,
-            mt: 0.5,
-            borderRadius: 2,
-            overflow: 'hidden',
-          }}
-        >
-          <List dense disablePadding>
-            {itemResults.length > 0 && (
-              <>
-                {cellarResults.length > 0 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ px: 2, pt: 1, display: 'block' }}>
-                    {t('nav.searchBottles', 'Bouteilles')}
-                  </Typography>
-                )}
-                {itemResults.map((item: InventoryItem) => (
-                  <ListItem
-                    key={item.id}
-                    button
-                    onMouseDown={() => handleSelectItem(item)}
-                    sx={{ py: 1 }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="body2" fontWeight={600}>{item.name}</Typography>
-                          <Chip label={item.category} size="small" variant="outlined" />
-                        </Box>
-                      }
-                      secondary={`${item.producer}${item.vintage ? ` · ${item.vintage}` : ''}`}
-                      secondaryTypographyProps={{ variant: 'caption' }}
-                    />
-                  </ListItem>
-                ))}
-              </>
-            )}
-
-            {cellarResults.length > 0 && (
-              <>
-                {itemResults.length > 0 && <Divider />}
-                <Typography variant="caption" color="text.secondary" sx={{ px: 2, pt: 1, display: 'block' }}>
-                  {t('nav.searchCellars', 'Caves')}
-                </Typography>
-                {cellarResults.map((cellar: Cellar) => (
-                  <ListItem
-                    key={cellar.id}
-                    button
-                    onMouseDown={() => handleSelectCellar()}
-                    sx={{ py: 1 }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <WarehouseIcon fontSize="small" color="action" />
-                          <Typography variant="body2" fontWeight={600}>{cellar.name}</Typography>
-                        </Box>
-                      }
-                      secondary={cellar.description ?? undefined}
-                      secondaryTypographyProps={{ variant: 'caption' }}
-                    />
-                  </ListItem>
-                ))}
-              </>
-            )}
-
-          </List>
-        </Paper>
+        <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-content1 rounded-xl shadow-lg border border-divider overflow-hidden">
+          {itemResults.length > 0 && (
+            <>
+              {cellarResults.length > 0 && (
+                <p className="px-3 pt-2 text-xs text-foreground-400">{t('nav.searchBottles', 'Bouteilles')}</p>
+              )}
+              {itemResults.map((item: InventoryItem) => (
+                <button
+                  key={item.id}
+                  onMouseDown={() => handleSelectItem(item)}
+                  className="w-full text-left px-3 py-2 hover:bg-default-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{item.name}</span>
+                    <Chip size="sm" variant="flat" radius="sm" className="text-xs">{item.category}</Chip>
+                  </div>
+                  <p className="text-xs text-foreground-400 mt-0.5">
+                    {item.producer}{item.vintage ? ` · ${item.vintage}` : ''}
+                  </p>
+                </button>
+              ))}
+            </>
+          )}
+          {cellarResults.length > 0 && (
+            <>
+              {itemResults.length > 0 && <hr className="border-divider" />}
+              <p className="px-3 pt-2 text-xs text-foreground-400">{t('nav.searchCellars', 'Caves')}</p>
+              {cellarResults.map((cellar: Cellar) => (
+                <button
+                  key={cellar.id}
+                  onMouseDown={() => handleSelectCellar()}
+                  className="w-full text-left px-3 py-2 hover:bg-default-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Warehouse size={14} className="text-foreground-400" />
+                    <span className="text-sm font-semibold">{cellar.name}</span>
+                  </div>
+                  {cellar.description && (
+                    <p className="text-xs text-foreground-400 mt-0.5">{cellar.description}</p>
+                  )}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
       )}
-    </Box>
+    </div>
   );
 }

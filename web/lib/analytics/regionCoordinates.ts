@@ -253,7 +253,7 @@ function normalize(str: string): string {
   return str
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/\p{Mn}/gu, '')
     .trim();
 }
 

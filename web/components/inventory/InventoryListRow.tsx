@@ -1,29 +1,25 @@
 'use client';
 import React from 'react';
 import {
-  TableRow, TableCell, IconButton, Chip, Typography, Box, Tooltip, Checkbox, Skeleton,
-} from '@mui/material';
-import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
-import WineBarIcon from '@mui/icons-material/WineBar';
-import SportsMmaIcon from '@mui/icons-material/SportsMma';
-import GrassIcon from '@mui/icons-material/Grass';
-import BubbleChartIcon from '@mui/icons-material/BubbleChart';
+  TableRow, TableCell, Chip, Tooltip, Skeleton, Checkbox, Button,
+} from '@heroui/react';
+import { Wine, Sparkles, Dumbbell, Leaf, Pencil, Trash2 } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <WineBarIcon fontSize="small" />,
-  sparkling: <BubbleChartIcon fontSize="small" />,
-  spirit: <SportsMmaIcon fontSize="small" />,
-  cigar: <GrassIcon fontSize="small" />,
+  wine: <Wine size={14} />,
+  sparkling: <Sparkles size={14} />,
+  spirit: <Dumbbell size={14} />,
+  cigar: <Leaf size={14} />,
 };
 
-const CATEGORY_COLORS: Record<InventoryCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
-  wine: 'secondary',
+const CATEGORY_COLORS: Record<InventoryCategory, 'danger' | 'primary' | 'warning' | 'secondary'> = {
+  wine: 'danger',
   sparkling: 'primary',
-  spirit: 'default',
-  cigar: 'warning',
+  spirit: 'warning',
+  cigar: 'secondary',
 };
 
 interface InventoryListRowProps {
@@ -54,82 +50,68 @@ export function InventoryListRow({
 
   return (
     <TableRow
-      hover
-      selected={isSelected}
-      sx={{
-        opacity: isTemp ? 0.75 : 1,
-        cursor: onView && !onSelectToggle ? 'pointer' : 'default',
-      }}
+      className={`${isTemp ? 'opacity-75' : ''} ${onView && !onSelectToggle ? 'cursor-pointer' : 'cursor-default'} ${isSelected ? 'bg-primary-50' : ''}`}
       onClick={() => !onSelectToggle && onView?.(item)}
     >
-      {onSelectToggle && (
-        <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+      <TableCell onClick={(e) => e.stopPropagation()} className="w-10 pr-0">
+        {onSelectToggle ? (
           <Checkbox
-            checked={isSelected}
-            onChange={() => onSelectToggle(item)}
+            isSelected={isSelected}
+            onValueChange={() => onSelectToggle(item)}
+            size="sm"
             color="primary"
-            size="small"
           />
-        </TableCell>
-      )}
+        ) : null}
+      </TableCell>
 
-      <TableCell sx={{ width: 40, pr: 0 }}>
-        <Tooltip title={categoryLabel}>
+      <TableCell className="w-10 pr-0">
+        <Tooltip content={categoryLabel} delay={500}>
           <Chip
-            icon={CATEGORY_ICONS[item.category]}
+            startContent={CATEGORY_ICONS[item.category]}
             color={CATEGORY_COLORS[item.category]}
-            size="small"
-            sx={{ '& .MuiChip-label': { display: 'none' }, minWidth: 0, px: 0.5 }}
-          />
+            size="sm"
+            classNames={{ base: 'min-w-0 px-1', content: 'hidden' }}
+          >
+            {''}
+          </Chip>
         </Tooltip>
       </TableCell>
 
       <TableCell>
-        <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 200 }}>
-          {item.name}
-        </Typography>
+        <p className="text-sm font-semibold truncate max-w-[200px]">{item.name}</p>
       </TableCell>
 
-      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-        <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 160 }}>
-          {item.producer}
-        </Typography>
+      <TableCell className="hidden sm:table-cell">
+        <p className="text-sm text-default-400 truncate max-w-[160px]">{item.producer}</p>
       </TableCell>
 
-      <TableCell align="center">
-        <Typography variant="body2" color="text.secondary">
-          {item.vintage ?? '—'}
-        </Typography>
+      <TableCell className="text-center">
+        <p className="text-sm text-default-400">{item.vintage ?? '—'}</p>
       </TableCell>
 
-      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-        <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 120 }}>
-          {item.region ?? '—'}
-        </Typography>
+      <TableCell className="hidden md:table-cell">
+        <p className="text-sm text-default-400 truncate max-w-[120px]">{item.region ?? '—'}</p>
       </TableCell>
 
-      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-        <Typography variant="body2" color="text.secondary" noWrap sx={{ maxWidth: 120 }}>
-          {cellar?.name ?? '—'}
-        </Typography>
+      <TableCell className="hidden md:table-cell">
+        <p className="text-sm text-default-400 truncate max-w-[120px]">{cellar?.name ?? '—'}</p>
       </TableCell>
 
-      <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-        <Typography variant="body2" color="text.secondary">
-          {peakLabel ?? '—'}
-        </Typography>
+      <TableCell className="hidden sm:table-cell text-center">
+        <p className="text-sm text-default-400">{peakLabel ?? '—'}</p>
       </TableCell>
 
-      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+      <TableCell className="hidden sm:table-cell">
         {item.isOpened ? (
           <Chip
-            label={`${item.fillLevel ?? '?'}%`}
-            size="small"
+            size="sm"
             color="warning"
-            variant={item.fillLevel === 0 ? 'outlined' : 'filled'}
-          />
+            variant={item.fillLevel === 0 ? 'bordered' : 'flat'}
+          >
+            {item.fillLevel ?? '?'}%
+          </Chip>
         ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <div className="flex items-center">
             <DrinkingWindowBadge
               alertStatus={item.alertStatus}
               alertsPaused={item.alertsPaused}
@@ -137,35 +119,40 @@ export function InventoryListRow({
               peakMaturityTo={item.peakMaturityTo}
               t={t}
             />
-          </Box>
+          </div>
         )}
       </TableCell>
 
-      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-        <Tooltip title={t('actions.edit')}>
-          <span>
-            <IconButton
-              size="small"
-              onClick={() => onEdit(item)}
-              disabled={isTemp}
-              aria-label={t('actions.edit')}
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </span>
+      <TableCell
+        className="text-right"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Tooltip content={t('actions.edit')} delay={500}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            onPress={() => onEdit(item)}
+            isDisabled={isTemp}
+            aria-label={t('actions.edit')}
+            className="text-default-400 hover:text-primary min-w-unit-7 w-7 h-7"
+          >
+            <Pencil size={14} />
+          </Button>
         </Tooltip>
-        <Tooltip title={t('actions.delete')}>
-          <span>
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => onDelete(item)}
-              disabled={isTemp}
-              aria-label={t('actions.delete')}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </span>
+        <Tooltip content={t('actions.delete')} delay={500}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            color="danger"
+            onPress={() => onDelete(item)}
+            isDisabled={isTemp}
+            aria-label={t('actions.delete')}
+            className="min-w-unit-7 w-7 h-7"
+          >
+            <Trash2 size={14} />
+          </Button>
         </Tooltip>
       </TableCell>
     </TableRow>
@@ -175,15 +162,33 @@ export function InventoryListRow({
 export function InventoryListRowSkeleton() {
   return (
     <TableRow>
-      <TableCell sx={{ width: 40 }}><Skeleton variant="rounded" width={28} height={24} /></TableCell>
-      <TableCell><Skeleton variant="text" width="70%" /></TableCell>
-      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}><Skeleton variant="text" width="60%" /></TableCell>
-      <TableCell><Skeleton variant="text" width={40} /></TableCell>
-      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}><Skeleton variant="text" width="50%" /></TableCell>
-      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}><Skeleton variant="text" width="50%" /></TableCell>
-      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}><Skeleton variant="text" width={60} /></TableCell>
-      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}><Skeleton variant="rounded" width={50} height={22} /></TableCell>
-      <TableCell align="right"><Skeleton variant="text" width={60} /></TableCell>
+      <TableCell className="w-10">
+        <Skeleton className="rounded w-7 h-6" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="rounded h-4 w-4/5" />
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">
+        <Skeleton className="rounded h-4 w-3/5" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="rounded h-4 w-10" />
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
+        <Skeleton className="rounded h-4 w-1/2" />
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
+        <Skeleton className="rounded h-4 w-1/2" />
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">
+        <Skeleton className="rounded h-4 w-14" />
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">
+        <Skeleton className="rounded h-5 w-12" />
+      </TableCell>
+      <TableCell className="text-right">
+        <Skeleton className="rounded h-4 w-14 ml-auto" />
+      </TableCell>
     </TableRow>
   );
 }

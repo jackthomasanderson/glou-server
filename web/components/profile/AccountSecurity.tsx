@@ -1,191 +1,189 @@
 'use client';
 import React, { useState } from 'react';
-import {
-    Box,
-    Typography,
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    Alert,
-    Paper,
-} from '@mui/material';
-import LockIcon from '@mui/icons-material/Lock';
+import { Button, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Lock } from 'lucide-react';
 import { PublicUser, useUpdateEmail, useUpdatePassword } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 
 export function AccountSecurity({ user }: { user: PublicUser }) {
-    const { t } = useTranslation();
+  const { t } = useTranslation();
 
-    const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [email, setEmail] = useState(user.email);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-    const [email, setEmail] = useState(user.email);
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
+  const updateEmail = useUpdateEmail();
+  const updatePassword = useUpdatePassword();
 
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
-    const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const handleOpenEmail = () => {
+    setEmail(user.email);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setIsEmailModalOpen(true);
+  };
 
-    const updateEmail = useUpdateEmail();
-    const updatePassword = useUpdatePassword();
+  const handleConfirmEmail = () => {
+    setErrorMsg(null);
+    updateEmail.mutate({ email }, {
+      onSuccess: () => {
+        setIsEmailModalOpen(false);
+        setSuccessMsg(t('profile.emailSuccess'));
+        setTimeout(() => setSuccessMsg(null), 3000);
+      },
+      onError: (err: Error) => {
+        setErrorMsg(err.message === 'EMAIL_ALREADY_TAKEN' ? t('auth.errors.EMAIL_ALREADY_TAKEN') : t('status.error'));
+      },
+    });
+  };
 
-    const handleOpenEmail = () => {
-        setEmail(user.email);
-        setErrorMsg(null);
-        setSuccessMsg(null);
-        setIsEmailModalOpen(true);
-    };
+  const handleOpenPassword = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setIsPasswordModalOpen(true);
+  };
 
-    const handleConfirmEmail = () => {
-        setErrorMsg(null);
-        updateEmail.mutate({ email }, {
-            onSuccess: () => {
-                setIsEmailModalOpen(false);
-                setSuccessMsg(t('profile.emailSuccess'));
-                setTimeout(() => setSuccessMsg(null), 3000);
-            },
-            onError: (err: Error) => {
-                if (err.message === 'EMAIL_ALREADY_TAKEN') {
-                    setErrorMsg(t('auth.errors.EMAIL_ALREADY_TAKEN'));
-                } else {
-                    setErrorMsg(t('status.error'));
-                }
-            }
-        });
-    };
-
-    const handleOpenPassword = () => {
+  const handleConfirmPassword = () => {
+    setErrorMsg(null);
+    updatePassword.mutate({ currentPassword, newPassword }, {
+      onSuccess: () => {
+        setIsPasswordModalOpen(false);
         setCurrentPassword('');
         setNewPassword('');
-        setErrorMsg(null);
-        setSuccessMsg(null);
-        setIsPasswordModalOpen(true);
-    };
+        setSuccessMsg(t('profile.passwordSuccess'));
+        setTimeout(() => setSuccessMsg(null), 3000);
+      },
+      onError: (err: Error) => {
+        setErrorMsg(err.message === 'INVALID_CREDENTIALS' ? t('profile.passwordError') : t('status.error'));
+      },
+    });
+  };
 
-    const handleConfirmPassword = () => {
-        setErrorMsg(null);
-        updatePassword.mutate({ currentPassword, newPassword }, {
-            onSuccess: () => {
-                setIsPasswordModalOpen(false);
-                setCurrentPassword('');
-                setNewPassword('');
-                setSuccessMsg(t('profile.passwordSuccess'));
-                setTimeout(() => setSuccessMsg(null), 3000);
-            },
-            onError: (err: Error) => {
-                if (err.message === 'INVALID_CREDENTIALS') {
-                    setErrorMsg(t('profile.passwordError'));
-                } else {
-                    setErrorMsg(t('status.error'));
-                }
-            }
-        });
-    };
+  return (
+    <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+      <div className="flex items-center gap-3 mb-5">
+        <Lock size={20} className="text-primary" />
+        <h2 className="text-base font-semibold">{t('profile.security')}</h2>
+      </div>
 
-    return (
-        <Paper sx={{ p: 3, height: '100%', borderRadius: 3, mt: 4 }}>
-            <Box display="flex" alignItems="center" gap={1.5} mb={3}>
-                <LockIcon color="primary" />
-                <Typography variant="h6" fontWeight={600}>
-                    {t('profile.security')}
-                </Typography>
-            </Box>
+      {successMsg && (
+        <div className="bg-success-50 border border-success-200 text-success text-sm rounded-lg px-4 py-3 mb-4">
+          {successMsg}
+        </div>
+      )}
 
-            {successMsg && (
-                <Alert severity="success" sx={{ mb: 3 }}>
-                    {successMsg}
-                </Alert>
-            )}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between p-3 bg-default-50 rounded-xl">
+          <div>
+            <p className="text-xs text-foreground-500">Adresse Email</p>
+            <p className="text-sm font-medium">{user.email}</p>
+          </div>
+          <Button size="sm" variant="bordered" color="primary" onPress={handleOpenEmail}>Modifier</Button>
+        </div>
+        <div className="flex items-center justify-between p-3 bg-default-50 rounded-xl">
+          <div>
+            <p className="text-xs text-foreground-500">Mot de passe</p>
+            <p className="text-sm font-medium">••••••••••••</p>
+          </div>
+          <Button size="sm" variant="bordered" color="primary" onPress={handleOpenPassword}>Modifier</Button>
+        </div>
+      </div>
 
-            <Box display="flex" flexDirection="column" gap={2}>
-                <Box display="flex" alignItems="center" justifyContent="space-between" p={2} bgcolor="action.hover" borderRadius={2}>
-                    <Box>
-                        <Typography variant="body2" color="text.secondary">Adresse Email</Typography>
-                        <Typography variant="body1" fontWeight={500}>{user.email}</Typography>
-                    </Box>
-                    <Button variant="outlined" size="small" onClick={handleOpenEmail}>
-                        Modifier
-                    </Button>
-                </Box>
+      {/* Email Modal */}
+      <Modal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>{t('profile.changeEmail')}</ModalHeader>
+              <ModalBody>
+                {errorMsg && (
+                  <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3 mb-2">{errorMsg}</div>
+                )}
+                <Input
+                  label={t('auth.email')}
+                  type="email"
+                  value={email}
+                  onValueChange={setEmail}
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                  autoComplete="off"
+                  autoFocus
+                />
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
+                <Button
+                  color="primary"
+                  variant="solid"
+                  onPress={handleConfirmEmail}
+                  isDisabled={!email || email === user.email || updateEmail.isPending}
+                  isLoading={updateEmail.isPending}
+                >
+                  {t('actions.confirm')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
 
-                <Box display="flex" alignItems="center" justifyContent="space-between" p={2} bgcolor="action.hover" borderRadius={2}>
-                    <Box>
-                        <Typography variant="body2" color="text.secondary">Mot de passe</Typography>
-                        <Typography variant="body1" fontWeight={500}>••••••••••••</Typography>
-                    </Box>
-                    <Button variant="outlined" size="small" onClick={handleOpenPassword}>
-                        Modifier
-                    </Button>
-                </Box>
-            </Box>
-
-            {/* Email Modal */}
-            <Dialog open={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle>{t('profile.changeEmail')}</DialogTitle>
-                <DialogContent dividers>
-                    {errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
-                    <TextField
-                        label={t('auth.email')}
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        fullWidth
-                        margin="normal"
-                        autoComplete="off"
-                        autoFocus
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setIsEmailModalOpen(false)} color="inherit">{t('actions.cancel')}</Button>
-                    <Button
-                        onClick={handleConfirmEmail}
-                        variant="contained"
-                        disabled={!email || email === user.email || updateEmail.isPending}
-                    >
-                        {updateEmail.isPending ? t('status.saving') : t('actions.confirm')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            {/* Password Modal */}
-            <Dialog open={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle>{t('profile.changePassword')}</DialogTitle>
-                <DialogContent dividers>
-                    {errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
-                    <TextField
-                        label={t('profile.currentPassword')}
-                        type="password"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        fullWidth
-                        margin="normal"
-                        autoComplete="current-password"
-                        autoFocus
-                    />
-                    <TextField
-                        label={t('profile.newPassword')}
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        fullWidth
-                        margin="normal"
-                        autoComplete="new-password"
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setIsPasswordModalOpen(false)} color="inherit">{t('actions.cancel')}</Button>
-                    <Button
-                        onClick={handleConfirmPassword}
-                        variant="contained"
-                        disabled={!currentPassword || newPassword.length < 8 || updatePassword.isPending}
-                    >
-                        {updatePassword.isPending ? t('status.saving') : t('actions.confirm')}
-                    </Button>
-                </DialogActions>
-            </Dialog>
-        </Paper>
-    );
+      {/* Password Modal */}
+      <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>{t('profile.changePassword')}</ModalHeader>
+              <ModalBody className="flex flex-col gap-3">
+                {errorMsg && (
+                  <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
+                )}
+                <Input
+                  label={t('profile.currentPassword')}
+                  type="password"
+                  value={currentPassword}
+                  onValueChange={setCurrentPassword}
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                  autoComplete="current-password"
+                  autoFocus
+                />
+                <Input
+                  label={t('profile.newPassword')}
+                  type="password"
+                  value={newPassword}
+                  onValueChange={setNewPassword}
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                  autoComplete="new-password"
+                />
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
+                <Button
+                  color="primary"
+                  variant="solid"
+                  onPress={handleConfirmPassword}
+                  isDisabled={!currentPassword || newPassword.length < 8 || updatePassword.isPending}
+                  isLoading={updatePassword.isPending}
+                >
+                  {t('actions.confirm')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+    </div>
+  );
 }

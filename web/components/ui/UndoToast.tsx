@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, LinearProgress, Typography } from '@mui/material';
-import UndoIcon from '@mui/icons-material/Undo';
+import { Button, Progress } from '@heroui/react';
+import { Undo } from 'lucide-react';
 
 const UNDO_TIMEOUT_MS = 6000;
 
@@ -12,10 +12,6 @@ interface UndoToastProps {
   onExpire: () => void;
 }
 
-/**
- * Toast non-bloquant avec compte-à-rebours et bouton Undo.
- * Respecte les standards a11y : role="status", aria-live="polite".
- */
 export function UndoToast({ message, undoLabel, onUndo, onExpire }: UndoToastProps) {
   const [progress, setProgress] = useState(100);
   const startTime = useRef(Date.now());
@@ -39,43 +35,34 @@ export function UndoToast({ message, undoLabel, onUndo, onExpire }: UndoToastPro
   }, [onExpire]);
 
   return (
-    <Box
+    <div
       role="status"
       aria-live="polite"
-      sx={{
-        position: 'fixed',
-        bottom: 24,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1400,
-        minWidth: 320,
-        maxWidth: 480,
-      }}
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 min-w-80 max-w-lg"
     >
-      <Alert
-        severity="info"
-        sx={{ boxShadow: 3, pr: 1 }}
-        action={
+      <div className="bg-content1 border border-divider rounded-xl shadow-lg px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm">{message}</p>
           <Button
-            size="small"
-            startIcon={<UndoIcon />}
+            size="sm"
+            variant="flat"
+            color="primary"
+            startContent={<Undo size={14} />}
             onClick={onUndo}
-            color="info"
             aria-label={undoLabel}
           >
             {undoLabel}
           </Button>
-        }
-      >
-        <Typography variant="body2">{message}</Typography>
-        <LinearProgress
-          variant="determinate"
+        </div>
+        <Progress
           value={progress}
-          sx={{ mt: 1, borderRadius: 1, height: 3 }}
-          color="info"
+          color="primary"
+          size="sm"
+          radius="full"
+          className="mt-2"
           aria-hidden="true"
         />
-      </Alert>
-    </Box>
+      </div>
+    </div>
   );
 }

@@ -1,15 +1,9 @@
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, CircularProgress } from '@mui/material';
+import { CircularProgress } from '@heroui/react';
 import { useMe } from '@/hooks/useAuth';
 
-/**
- * AuthGuard — wraps protected client pages.
- * - If user is loading: show spinner
- * - If user is null (unauthenticated): redirect to /login
- * - Otherwise: render children
- */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading } = useMe();
   const router = useRouter();
@@ -22,16 +16,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <CircularProgress />
-      </Box>
+      <div className="min-h-screen flex items-center justify-center">
+        <CircularProgress color="primary" size="md" isIndeterminate aria-label="Chargement" />
+      </div>
     );
   }
 

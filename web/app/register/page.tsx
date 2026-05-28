@@ -1,4 +1,3 @@
-import { Box } from '@mui/material';
 import { RegisterForm } from '../../components/auth/RegisterForm';
 
 export const metadata = {
@@ -7,17 +6,8 @@ export const metadata = {
 
 export default function RegisterPage() {
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        bgcolor: 'background.default',
-        p: 2,
-      }}
-    >
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <RegisterForm />
-    </Box>
+    </div>
   );
 }

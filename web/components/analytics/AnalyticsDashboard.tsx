@@ -1,44 +1,55 @@
 'use client';
-import React, { Suspense } from 'react';
+
+import React from 'react';
 import {
-  Box, Container, Typography, Grid, Card, CardContent, Skeleton,
-  Chip, LinearProgress, Alert,
-} from '@mui/material';
+  Card,
+  CardBody,
+  Chip,
+} from '@heroui/react';
 import {
-  EuroRounded as EuroIcon,
-  WaterDrop as WaterIcon,
-  SmokingRooms as CigarIcon,
-  WarningAmber as WarningIcon,
-  BarChart as BarChartIcon,
-  PublicOutlined as GlobeIcon,
-  VerifiedUser as ShieldIcon,
-  CalendarMonth as CalendarIcon,
-  Warehouse as CellarIcon,
-} from '@mui/icons-material';
+  BarChart3,
+  MapPin,
+  Warehouse,
+  CalendarDays,
+  ShieldCheck,
+  Euro,
+  Droplets,
+  CigaretteOff,
+  AlertTriangle,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { AnalyticsStats, CategoryStat, RegionStat, GardePoint, CavePoint } from '@/lib/analytics/types';
 import dynamic from 'next/dynamic';
 import { GardeHistogram } from './GardeHistogram';
 
-// World map loaded client-side only (react-simple-maps relies on browser APIs)
+// World map loaded client-side only (react-leaflet relies on browser APIs)
 const WorldHeatmap = dynamic(
-  () => import('./WorldHeatmap').then(m => m.WorldHeatmap),
-  { ssr: false, loading: () => <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 2 }} /> }
+  () => import('./WorldHeatmap').then((m) => m.WorldHeatmap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[320px] rounded-2xl bg-default-100 animate-pulse" />
+    ),
+  }
 );
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
 const CATEGORY_CONFIG: Record<string, { color: string }> = {
-  wine:     { color: '#7B1E30' },
-  sparkling:{ color: '#2563EB' },
-  spirit:   { color: '#D97706' },
-  cigar:    { color: '#5C3D2E' },
+  wine:      { color: '#7B1E30' },
+  sparkling: { color: '#2563EB' },
+  spirit:    { color: '#D97706' },
+  cigar:     { color: '#5C3D2E' },
 };
 
 // ─── SVG Donut chart ──────────────────────────────────────────────────────────
 
-function DonutChart({ segments, total, centerLabel }: {
+function DonutChart({
+  segments,
+  total,
+  centerLabel,
+}: {
   segments: { value: number; color: string }[];
   total: number;
   centerLabel?: string;
@@ -49,31 +60,49 @@ function DonutChart({ segments, total, centerLabel }: {
 
   return (
     <svg width={120} height={120} viewBox="0 0 120 120" style={{ display: 'block' }}>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(128,128,128,0.12)" strokeWidth={strokeWidth} />
-      {total > 0 && segments.map((seg, i) => {
-        const percent = seg.value / total;
-        if (percent <= 0) return null;
-        const dash = percent * circumference;
-        const rotation = cumulativePercent * 360 - 90;
-        cumulativePercent += percent;
-        return (
-          <circle
-            key={i}
-            cx={cx} cy={cy} r={r}
-            fill="none"
-            stroke={seg.color}
-            strokeWidth={strokeWidth}
-            strokeDasharray={`${dash} ${circumference - dash}`}
-            transform={`rotate(${rotation}, ${cx}, ${cy})`}
-            strokeLinecap="butt"
-          />
-        );
-      })}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke="rgba(128,128,128,0.12)"
+        strokeWidth={strokeWidth}
+      />
+      {total > 0 &&
+        segments.map((seg, i) => {
+          const percent = seg.value / total;
+          if (percent <= 0) return null;
+          const dash = percent * circumference;
+          const rotation = cumulativePercent * 360 - 90;
+          cumulativePercent += percent;
+          return (
+            <circle
+              key={i}
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="none"
+              stroke={seg.color}
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${dash} ${circumference - dash}`}
+              transform={`rotate(${rotation}, ${cx}, ${cy})`}
+              strokeLinecap="butt"
+            />
+          );
+        })}
       <text x={cx} y={cy - 5} textAnchor="middle" fontSize="18" fontWeight="700" fill="currentColor">
         {total}
       </text>
       {centerLabel && (
-        <text x={cx} y={cy + 12} textAnchor="middle" fontSize="8" fill="currentColor" opacity="0.55" letterSpacing="0.5">
+        <text
+          x={cx}
+          y={cy + 12}
+          textAnchor="middle"
+          fontSize="8"
+          fill="currentColor"
+          opacity="0.55"
+          letterSpacing="0.5"
+        >
           {centerLabel.toUpperCase()}
         </text>
       )}
@@ -83,7 +112,13 @@ function DonutChart({ segments, total, centerLabel }: {
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, hint, icon, iconBg }: {
+function StatCard({
+  label,
+  value,
+  hint,
+  icon,
+  iconBg,
+}: {
   label: string;
   value: React.ReactNode;
   hint: string;
@@ -91,146 +126,190 @@ function StatCard({ label, value, hint, icon, iconBg }: {
   iconBg: string;
 }) {
   return (
-    <Card variant="outlined" sx={{ height: '100%' }}>
-      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-          <Box>
-            <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08rem', color: 'text.secondary' }}>
+    <Card className="h-full border border-default-200" shadow="none">
+      <CardBody className="p-5">
+        <div className="flex justify-between items-start gap-2">
+          <div>
+            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-default-500">
               {label}
-            </Typography>
-            <Typography sx={{ fontSize: '1.75rem', fontWeight: 800, lineHeight: 1.2, mt: 0.5 }}>
-              {value}
-            </Typography>
-            <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.5 }}>
-              • {hint}
-            </Typography>
-          </Box>
-          <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, mt: 0.5 }}>
+            </p>
+            <p className="text-[1.75rem] font-extrabold leading-tight mt-1">{value}</p>
+            <p className="text-[0.72rem] text-default-400 mt-1">• {hint}</p>
+          </div>
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+            style={{ backgroundColor: iconBg }}
+          >
             {icon}
-          </Box>
-        </Box>
-      </CardContent>
+          </div>
+        </div>
+      </CardBody>
     </Card>
   );
 }
 
 function StatCardSkeleton() {
   return (
-    <Card variant="outlined">
-      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Skeleton variant="text" width="60%" height={14} />
-        <Skeleton variant="text" width="40%" height={36} sx={{ mt: 0.5 }} />
-        <Skeleton variant="text" width="80%" height={12} sx={{ mt: 0.5 }} />
-      </CardContent>
+    <Card className="border border-default-200" shadow="none">
+      <CardBody className="p-5">
+        <div className="h-3 w-3/5 bg-default-200 rounded animate-pulse" />
+        <div className="h-8 w-2/5 bg-default-200 rounded animate-pulse mt-2" />
+        <div className="h-2.5 w-4/5 bg-default-100 rounded animate-pulse mt-2" />
+      </CardBody>
     </Card>
   );
 }
 
 // ─── Category breakdown ───────────────────────────────────────────────────────
 
-function CategoryBreakdown({ items, total, t }: { items: CategoryStat[]; total: number; t: (k: string) => string }) {
-  const segments = items.map(item => ({ value: item.count, color: CATEGORY_CONFIG[item.category]?.color ?? '#888' }));
+function CategoryBreakdown({
+  items,
+  total,
+  t,
+}: {
+  items: CategoryStat[];
+  total: number;
+  t: (k: string) => string;
+}) {
+  const segments = items.map((item) => ({
+    value: item.count,
+    color: CATEGORY_CONFIG[item.category]?.color ?? '#888',
+  }));
 
   return (
-    <Card variant="outlined" sx={{ height: '100%' }}>
-      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <BarChartIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08rem' }}>
+    <Card className="h-full border border-default-200" shadow="none">
+      <CardBody className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 size={18} className="text-primary" />
+          <p className="text-[0.7rem] font-bold uppercase tracking-wider">
             {t('analytics.categories.title')}
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-          <DonutChart segments={segments} total={total} centerLabel={t('analytics.categories.active')} />
-          <Box sx={{ flex: 1, minWidth: 0 }}>
+          </p>
+        </div>
+        <div className="flex gap-6 items-center">
+          <DonutChart
+            segments={segments}
+            total={total}
+            centerLabel={t('analytics.categories.active')}
+          />
+          <div className="flex-1 min-w-0">
             {items.map((item) => {
               const cfg = CATEGORY_CONFIG[item.category];
               const unit = t(`analytics.categories.unit.${item.category}`);
               return (
-                <Box key={item.category} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
-                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: cfg?.color ?? '#888', flexShrink: 0 }} />
-                  <Typography sx={{ fontSize: '0.75rem', flex: 1, minWidth: 0 }} noWrap>
+                <div key={item.category} className="flex items-center gap-2 mb-2">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: cfg?.color ?? '#888' }}
+                  />
+                  <span className="text-[0.75rem] flex-1 min-w-0 truncate">
                     {t(`analytics.categories.${item.category}`)}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary', flexShrink: 0 }}>
+                  </span>
+                  <span className="text-[0.75rem] font-semibold text-default-500 shrink-0">
                     {item.count} {unit}
-                  </Typography>
-                </Box>
+                  </span>
+                </div>
               );
             })}
             {items.length === 0 && (
-              <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                {t('status.empty')}
-              </Typography>
+              <p className="text-[0.75rem] text-default-400">{t('status.empty')}</p>
             )}
-          </Box>
-        </Box>
-      </CardContent>
+          </div>
+        </div>
+      </CardBody>
     </Card>
+  );
+}
+
+// ─── Progress bar ─────────────────────────────────────────────────────────────
+
+function ProgressBar({ value, color }: { value: number; color: string }) {
+  return (
+    <div className="h-2 rounded-full bg-default-100 overflow-hidden">
+      <div
+        className="h-full rounded-full transition-all"
+        style={{ width: `${Math.min(value, 100)}%`, backgroundColor: color }}
+      />
+    </div>
   );
 }
 
 // ─── Maturity planning ────────────────────────────────────────────────────────
 
-function MaturityPlanning({ stats, t }: { stats: AnalyticsStats; t: (k: string, opts?: Record<string, unknown>) => string }) {
+function MaturityPlanning({
+  stats,
+  t,
+}: {
+  stats: AnalyticsStats;
+  t: (k: string, opts?: Record<string, unknown>) => string;
+}) {
   const { maturityPlanning, cigarModulesCount } = stats;
   const currentYear = new Date().getFullYear();
 
   const rows = [
-    { label: t('analytics.maturity.readyNow'), count: maturityPlanning.readyNow.count, percent: maturityPlanning.readyNow.percent, color: '#D97706' },
-    { label: t('analytics.maturity.preserve'), count: maturityPlanning.preserve.count, percent: maturityPlanning.preserve.percent, color: 'rgba(128,128,128,0.35)' },
-    { label: t('analytics.maturity.pastPeak'), count: maturityPlanning.pastPeak.count, percent: maturityPlanning.pastPeak.percent, color: 'rgba(128,128,128,0.2)' },
+    {
+      label: t('analytics.maturity.readyNow'),
+      count: maturityPlanning.readyNow.count,
+      percent: maturityPlanning.readyNow.percent,
+      color: '#D97706',
+    },
+    {
+      label: t('analytics.maturity.preserve'),
+      count: maturityPlanning.preserve.count,
+      percent: maturityPlanning.preserve.percent,
+      color: 'rgba(128,128,128,0.35)',
+    },
+    {
+      label: t('analytics.maturity.pastPeak'),
+      count: maturityPlanning.pastPeak.count,
+      percent: maturityPlanning.pastPeak.percent,
+      color: 'rgba(128,128,128,0.2)',
+    },
   ];
 
   return (
-    <Card variant="outlined" sx={{ height: '100%' }}>
-      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CalendarIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08rem' }}>
+    <Card className="h-full border border-default-200" shadow="none">
+      <CardBody className="p-5">
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2">
+            <CalendarDays size={18} className="text-primary" />
+            <p className="text-[0.7rem] font-bold uppercase tracking-wider">
               {t('analytics.maturity.title')}
-            </Typography>
-          </Box>
+            </p>
+          </div>
           <Chip
-            label={t('analytics.maturity.season', { year: `${currentYear}/${currentYear + 4}` })}
-            size="small"
-            sx={{ fontSize: '0.6rem', fontWeight: 700, bgcolor: 'warning.main', color: 'warning.contrastText', height: 20 }}
-          />
-        </Box>
-        <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 2.5, lineHeight: 1.5 }}>
+            size="sm"
+            color="warning"
+            className="text-[0.6rem] font-bold h-5"
+          >
+            {t('analytics.maturity.season', { year: `${currentYear}/${currentYear + 4}` })}
+          </Chip>
+        </div>
+        <p className="text-[0.75rem] text-default-500 mb-5 leading-relaxed">
           {t('analytics.maturity.description')}
-        </Typography>
+        </p>
         {rows.map((row) => (
-          <Box key={row.label} sx={{ mb: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{row.label}</Typography>
-              <Typography sx={{ fontSize: '0.75rem', fontWeight: 600 }}>
+          <div key={row.label} className="mb-4">
+            <div className="flex justify-between mb-1">
+              <span className="text-[0.75rem] text-default-500">{row.label}</span>
+              <span className="text-[0.75rem] font-semibold">
                 {t('analytics.maturity.countLabel', { count: row.count, percent: row.percent })}
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={row.percent}
-              sx={{
-                height: 8, borderRadius: 4, bgcolor: 'action.hover',
-                '& .MuiLinearProgress-bar': { bgcolor: row.color, borderRadius: 4 },
-              }}
-            />
-          </Box>
+              </span>
+            </div>
+            <ProgressBar value={row.percent} color={row.color} />
+          </div>
         ))}
         {cigarModulesCount > 0 && (
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mt: 2, bgcolor: 'action.hover', borderRadius: 2, p: 1.5 }}>
-            <ShieldIcon sx={{ fontSize: 16, color: 'primary.main', mt: 0.1, flexShrink: 0 }} />
-            <Box>
-              <Typography sx={{ fontSize: '0.7rem', fontWeight: 700 }}>{t('analytics.maturity.humidorTip')}</Typography>
-              <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.25 }}>
+          <div className="flex items-start gap-2 mt-4 bg-default-50 rounded-xl p-3">
+            <ShieldCheck size={16} className="text-primary mt-0.5 shrink-0" />
+            <div>
+              <p className="text-[0.7rem] font-bold">{t('analytics.maturity.humidorTip')}</p>
+              <p className="text-[0.7rem] text-default-500 mt-0.5">
                 {t('analytics.maturity.humidorTipText')}
-              </Typography>
-            </Box>
-          </Box>
+              </p>
+            </div>
+          </div>
         )}
-      </CardContent>
+      </CardBody>
     </Card>
   );
 }
@@ -240,45 +319,49 @@ function MaturityPlanning({ stats, t }: { stats: AnalyticsStats; t: (k: string, 
 function RegionCards({ regions, t }: { regions: RegionStat[]; t: (k: string) => string }) {
   if (regions.length === 0) return null;
   return (
-    <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+    <div className="flex gap-3 flex-wrap">
       {regions.map((r) => (
-        <Card key={r.region} variant="outlined" sx={{ minWidth: 140, flex: '0 0 auto' }}>
-          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-            <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1rem', color: 'primary.main', mb: 0.5 }}>
+        <Card key={r.region} className="min-w-[140px] shrink-0 border border-default-200" shadow="none">
+          <CardBody className="p-4">
+            <p className="text-[0.65rem] font-extrabold uppercase tracking-widest text-primary mb-1">
               {r.region}
-            </Typography>
-            <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.1 }}>{r.count}</Typography>
-            <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mb: 1 }}>{t('analytics.regionMap.items')}</Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{t('analytics.regionMap.valuation')}</Typography>
-              <Typography sx={{ fontSize: '0.7rem', fontWeight: 700 }}>{r.valuation} €</Typography>
-            </Box>
-          </CardContent>
+            </p>
+            <p className="text-[1.5rem] font-extrabold leading-tight">{r.count}</p>
+            <p className="text-[0.7rem] text-default-400 mb-2">{t('analytics.regionMap.items')}</p>
+            <div className="flex justify-between">
+              <span className="text-[0.7rem] text-default-400">{t('analytics.regionMap.valuation')}</span>
+              <span className="text-[0.7rem] font-bold">{r.valuation} €</span>
+            </div>
+          </CardBody>
         </Card>
       ))}
-    </Box>
+    </div>
   );
 }
 
 // ─── Garde planning section ───────────────────────────────────────────────────
 
-function GardePlanningSection({ data, t }: { data: GardePoint[]; t: (k: string, opts?: Record<string, unknown>) => string }) {
+function GardePlanningSection({
+  data,
+  t,
+}: {
+  data: GardePoint[];
+  t: (k: string, opts?: Record<string, unknown>) => string;
+}) {
   return (
-    <Card variant="outlined">
-      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <CalendarIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-          <Box>
-            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08rem' }}>
+    <Card className="border border-default-200" shadow="none">
+      <CardBody className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <CalendarDays size={18} className="text-primary" />
+          <div>
+            <p className="text-[0.7rem] font-bold uppercase tracking-wider">
               {t('analytics.garde.title')}
-            </Typography>
-            <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>
-              {t('analytics.garde.subtitle')}
-            </Typography>
-          </Box>
-        </Box>
+            </p>
+            <p className="text-[0.68rem] text-default-400">{t('analytics.garde.subtitle')}</p>
+          </div>
+        </div>
         <GardeHistogram data={data} t={t} />
-      </CardContent>
+      </CardBody>
     </Card>
   );
 }
@@ -287,36 +370,29 @@ function GardePlanningSection({ data, t }: { data: GardePoint[]; t: (k: string, 
 
 function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => string }) {
   if (caves.length === 0) return null;
-  const maxCount = Math.max(...caves.map(c => c.count), 1);
+  const maxCount = Math.max(...caves.map((c) => c.count), 1);
 
   return (
-    <Card variant="outlined" sx={{ height: '100%' }}>
-      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <CellarIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08rem' }}>
+    <Card className="h-full border border-default-200" shadow="none">
+      <CardBody className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Warehouse size={18} className="text-primary" />
+          <p className="text-[0.7rem] font-bold uppercase tracking-wider">
             {t('analytics.caves.title')}
-          </Typography>
-        </Box>
+          </p>
+        </div>
         {caves.map((cave) => (
-          <Box key={cave.cellarId} sx={{ mb: 1.5 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography sx={{ fontSize: '0.75rem', fontWeight: 600 }} noWrap>{cave.cellarName}</Typography>
-              <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', flexShrink: 0, ml: 1 }}>
+          <div key={cave.cellarId} className="mb-4">
+            <div className="flex justify-between mb-1">
+              <span className="text-[0.75rem] font-semibold truncate">{cave.cellarName}</span>
+              <span className="text-[0.75rem] text-default-500 shrink-0 ml-2">
                 {cave.count} — {cave.valuation} €
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={(cave.count / maxCount) * 100}
-              sx={{
-                height: 6, borderRadius: 3, bgcolor: 'action.hover',
-                '& .MuiLinearProgress-bar': { borderRadius: 3 },
-              }}
-            />
-          </Box>
+              </span>
+            </div>
+            <ProgressBar value={(cave.count / maxCount) * 100} color="#006FEE" />
+          </div>
         ))}
-      </CardContent>
+      </CardBody>
     </Card>
   );
 }
@@ -329,9 +405,11 @@ export function AnalyticsDashboard() {
 
   if (isError) {
     return (
-      <Container maxWidth="lg" sx={{ py: 3 }}>
-        <Alert severity="error">{t('status.error')}</Alert>
-      </Container>
+      <div className="max-w-5xl mx-auto py-6 px-4">
+        <div className="rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-danger-700 text-sm">
+          {t('status.error')}
+        </div>
+      </div>
     );
   }
 
@@ -339,149 +417,156 @@ export function AnalyticsDashboard() {
   const catItems = data?.categoryBreakdown ?? [];
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <div className="max-w-5xl mx-auto py-6 px-4 space-y-6">
 
       {/* Header */}
-      <Card variant="outlined" sx={{ mb: 3 }}>
-        <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <BarChartIcon color="primary" />
-            <Box>
-              <Typography variant="h6" fontWeight={700}>{t('analytics.pageTitle')}</Typography>
-              <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{t('analytics.pageSubtitle')}</Typography>
-            </Box>
-          </Box>
-        </CardContent>
+      <Card className="border border-default-200" shadow="none">
+        <CardBody className="p-5">
+          <div className="flex items-center gap-3">
+            <BarChart3 size={20} className="text-primary" />
+            <div>
+              <h1 className="text-lg font-bold">{t('analytics.pageTitle')}</h1>
+              <p className="text-[0.75rem] text-default-500">{t('analytics.pageSubtitle')}</p>
+            </div>
+          </div>
+        </CardBody>
       </Card>
 
       {/* KPI cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {isLoading ? (
-          [0,1,2,3].map(i => <Grid item xs={6} md={3} key={i}><StatCardSkeleton /></Grid>)
+          [0, 1, 2, 3].map((i) => <StatCardSkeleton key={i} />)
         ) : (
           <>
-            <Grid item xs={6} md={3}>
-              <StatCard
-                label={t('analytics.stats.totalValuation')}
-                value={`${data?.totalValuation ?? 0} €`}
-                hint={t('analytics.stats.totalValuationHint')}
-                icon={<EuroIcon sx={{ fontSize: 20, color: '#2563EB' }} />}
-                iconBg="rgba(37,99,235,0.1)"
-              />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <StatCard
-                label={t('analytics.stats.liquidStock')}
-                value={`${data?.totalLiquidLiters ?? 0} L`}
-                hint={t('analytics.stats.liquidStockHint')}
-                icon={<WaterIcon sx={{ fontSize: 20, color: '#0891B2' }} />}
-                iconBg="rgba(8,145,178,0.1)"
-              />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <StatCard
-                label={t('analytics.stats.cigarHumidor')}
-                value={`${data?.cigarModulesCount ?? 0} modules`}
-                hint={t('analytics.stats.cigarHumidorHint')}
-                icon={<CigarIcon sx={{ fontSize: 20, color: '#7B1E30' }} />}
-                iconBg="rgba(123,30,48,0.1)"
-              />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <StatCard
-                label={t('analytics.stats.urgentDegustation')}
-                value={data?.urgentDegustationCount ?? 0}
-                hint={t('analytics.stats.urgentDegustationHint')}
-                icon={<WarningIcon sx={{ fontSize: 20, color: '#D97706' }} />}
-                iconBg="rgba(217,119,6,0.1)"
-              />
-            </Grid>
+            <StatCard
+              label={t('analytics.stats.totalValuation')}
+              value={`${data?.totalValuation ?? 0} €`}
+              hint={t('analytics.stats.totalValuationHint')}
+              icon={<Euro size={20} color="#2563EB" />}
+              iconBg="rgba(37,99,235,0.1)"
+            />
+            <StatCard
+              label={t('analytics.stats.liquidStock')}
+              value={`${data?.totalLiquidLiters ?? 0} L`}
+              hint={t('analytics.stats.liquidStockHint')}
+              icon={<Droplets size={20} color="#0891B2" />}
+              iconBg="rgba(8,145,178,0.1)"
+            />
+            <StatCard
+              label={t('analytics.stats.cigarHumidor')}
+              value={`${data?.cigarModulesCount ?? 0} modules`}
+              hint={t('analytics.stats.cigarHumidorHint')}
+              icon={<CigaretteOff size={20} color="#7B1E30" />}
+              iconBg="rgba(123,30,48,0.1)"
+            />
+            <StatCard
+              label={t('analytics.stats.urgentDegustation')}
+              value={data?.urgentDegustationCount ?? 0}
+              hint={t('analytics.stats.urgentDegustationHint')}
+              icon={<AlertTriangle size={20} color="#D97706" />}
+              iconBg="rgba(217,119,6,0.1)"
+            />
           </>
         )}
-      </Grid>
+      </div>
 
       {/* World heatmap */}
-      <Card variant="outlined" sx={{ mb: 3 }}>
-        <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <GlobeIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-            <Box>
-              <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08rem' }}>
+      <Card className="border border-default-200" shadow="none">
+        <CardBody className="p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <MapPin size={18} className="text-primary" />
+            <div>
+              <p className="text-[0.7rem] font-bold uppercase tracking-wider">
                 {t('analytics.regionMap.mapTitle')}
-              </Typography>
-              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>
+              </p>
+              <p className="text-[0.68rem] text-default-400">
                 {t('analytics.regionMap.mapSubtitle')}
-              </Typography>
-            </Box>
-          </Box>
+              </p>
+            </div>
+          </div>
           {isLoading ? (
-            <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 2 }} />
+            <div className="h-[320px] rounded-2xl bg-default-100 animate-pulse" />
           ) : (
             <WorldHeatmap regions={data?.regionBreakdown ?? []} t={t} />
           )}
-        </CardContent>
+        </CardBody>
       </Card>
 
-      {/* Region cards + Garde histogram */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12}>
-          {isLoading ? (
-            <Card variant="outlined"><CardContent sx={{ p: 2.5 }}>
-              <Box sx={{ display: 'flex', gap: 1.5 }}>
-                {[0,1,2,3,4].map(i => <Skeleton key={i} variant="rectangular" width={140} height={110} sx={{ borderRadius: 2 }} />)}
-              </Box>
-            </CardContent></Card>
-          ) : (data?.regionBreakdown?.length ?? 0) > 0 ? (
-            <Card variant="outlined">
-              <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <GlobeIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-                  <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08rem' }}>
-                    {t('analytics.regionMap.title')}
-                  </Typography>
-                  <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', ml: 0.5 }}>
-                    — {t('analytics.regionMap.subtitle')}
-                  </Typography>
-                </Box>
-                <RegionCards regions={data?.regionBreakdown ?? []} t={t} />
-              </CardContent>
-            </Card>
-          ) : null}
-        </Grid>
-      </Grid>
+      {/* Region cards */}
+      {isLoading ? (
+        <Card className="border border-default-200" shadow="none">
+          <CardBody className="p-5">
+            <div className="flex gap-3">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="w-[140px] h-[110px] bg-default-100 rounded-2xl animate-pulse shrink-0" />
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      ) : (data?.regionBreakdown?.length ?? 0) > 0 ? (
+        <Card className="border border-default-200" shadow="none">
+          <CardBody className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin size={18} className="text-primary" />
+              <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+                {t('analytics.regionMap.title')}
+              </p>
+              <span className="text-[0.7rem] text-default-400 ml-1">
+                — {t('analytics.regionMap.subtitle')}
+              </span>
+            </div>
+            <RegionCards regions={data?.regionBreakdown ?? []} t={t} />
+          </CardBody>
+        </Card>
+      ) : null}
 
       {/* Garde planning histogram */}
       {(data?.gardeHistogram?.length ?? 0) > 0 && (
-        <Box sx={{ mb: 3 }}>
-          <GardePlanningSection
-            data={data?.gardeHistogram ?? []}
-            t={t as (k: string, opts?: Record<string, unknown>) => string}
-          />
-        </Box>
+        <GardePlanningSection
+          data={data?.gardeHistogram ?? []}
+          t={t as (k: string, opts?: Record<string, unknown>) => string}
+        />
       )}
 
       {/* Category donut + Maturity planning + Cave distribution */}
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={4}>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div className="md:col-span-4">
           {isLoading ? (
-            <Card variant="outlined"><CardContent sx={{ p: 2.5, height: 280 }}><Skeleton height="100%" /></CardContent></Card>
+            <Card className="border border-default-200" shadow="none">
+              <CardBody className="p-5 h-[280px]">
+                <div className="h-full bg-default-100 rounded-xl animate-pulse" />
+              </CardBody>
+            </Card>
           ) : (
             <CategoryBreakdown items={catItems} total={totalItems} t={t} />
           )}
-        </Grid>
-        <Grid item xs={12} md={(data?.caveDistribution?.length ?? 0) > 0 ? 5 : 8}>
+        </div>
+        <div
+          className={
+            (data?.caveDistribution?.length ?? 0) > 0
+              ? 'md:col-span-5'
+              : 'md:col-span-8'
+          }
+        >
           {isLoading ? (
-            <Card variant="outlined"><CardContent sx={{ p: 2.5, height: 280 }}><Skeleton height="100%" /></CardContent></Card>
+            <Card className="border border-default-200" shadow="none">
+              <CardBody className="p-5 h-[280px]">
+                <div className="h-full bg-default-100 rounded-xl animate-pulse" />
+              </CardBody>
+            </Card>
           ) : data ? (
-            <MaturityPlanning stats={data} t={t as (k: string, opts?: Record<string, unknown>) => string} />
+            <MaturityPlanning
+              stats={data}
+              t={t as (k: string, opts?: Record<string, unknown>) => string}
+            />
           ) : null}
-        </Grid>
+        </div>
         {(data?.caveDistribution?.length ?? 0) > 0 && (
-          <Grid item xs={12} md={3}>
+          <div className="md:col-span-3">
             <CaveDistribution caves={data?.caveDistribution ?? []} t={t} />
-          </Grid>
+          </div>
         )}
-      </Grid>
-    </Container>
+      </div>
+    </div>
   );
 }

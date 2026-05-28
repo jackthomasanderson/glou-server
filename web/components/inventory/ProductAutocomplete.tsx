@@ -1,18 +1,7 @@
 'use client';
 import React, { useRef, useState, useMemo } from 'react';
-import {
-  Box,
-  TextField,
-  Chip,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
-  Typography,
-  Alert,
-  CircularProgress,
-  Popper,
-} from '@mui/material';
+import { Input, Chip } from '@heroui/react';
+import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
 import { useConnectivity } from '@/hooks/useConnectivity';
@@ -34,7 +23,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
   const { shouldWarn, dismiss } = useConnectivityWarning('autocomplete');
   const { data: inventoryItems } = useInventory();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const anchorRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [externalOptions, setExternalOptions] = useState<ProductSuggestion[]>([]);
   const [loadingExternal, setLoadingExternal] = useState(false);
@@ -71,13 +60,12 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
     [internalOptions, externalOptions]
   );
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    onChange(newValue);
+  const handleInputChange = (val: string) => {
+    onChange(val);
     setIsOpen(true);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!newValue.trim() || isOnline === false) {
+    if (!val.trim() || isOnline === false) {
       setExternalOptions([]);
       return;
     }
@@ -86,7 +74,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
       setLoadingExternal(true);
       try {
         const { data } = await client.get<ProductSuggestion[]>(
-          `/search/products?q=${encodeURIComponent(newValue)}&category=${encodeURIComponent(category)}&lang=${i18n.language}`
+          `/search/products?q=${encodeURIComponent(val)}&category=${encodeURIComponent(category)}&lang=${i18n.language}`
         );
         setExternalOptions(data.map((s) => ({ ...s, source: 'external' as const })));
       } catch {
@@ -108,67 +96,64 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
     setTimeout(() => setIsOpen(false), 150);
   };
 
-  const popperWidth = anchorRef.current?.offsetWidth;
-
   return (
-    <Box ref={anchorRef}>
-      <TextField
+    <div ref={wrapperRef} className="relative">
+      <Input
         fullWidth
-        required
-        size="small"
+        isRequired
+        size="sm"
         label={t('inventory.fields.name')}
         value={value}
-        onChange={handleInputChange}
+        onValueChange={handleInputChange}
         onFocus={() => { if (value.trim()) setIsOpen(true); }}
         onBlur={handleBlur}
         autoFocus={!disabled}
-        disabled={disabled}
-        InputProps={{
-          endAdornment: loadingExternal ? <CircularProgress size={14} /> : undefined,
-        }}
+        isDisabled={disabled}
+        endContent={
+          loadingExternal ? <Loader2 size={14} className="animate-spin text-default-400" /> : undefined
+        }
       />
 
-      <Popper
-        open={isOpen && options.length > 0}
-        anchorEl={anchorRef.current}
-        placement="bottom-start"
-        style={{ zIndex: 1500, width: popperWidth }}
-      >
-        <Paper elevation={4} sx={{ borderRadius: 2, overflow: 'hidden', mt: 0.5 }}>
-          <List dense disablePadding>
+      {isOpen && options.length > 0 && (
+        <div
+          className="absolute z-[1500] left-0 top-full mt-1 w-full bg-background border border-default-200 rounded-xl shadow-xl overflow-hidden"
+          style={{ minWidth: wrapperRef.current?.offsetWidth }}
+        >
+          <ul className="py-1">
             {options.map((option, idx) => (
-              <ListItem
+              <li
                 key={`${option.source}-${option.name}-${option.producer}-${idx}`}
                 onMouseDown={() => handleSelect(option)}
-                sx={{ py: 0.75, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                className="flex flex-col px-3 py-2 cursor-pointer hover:bg-default-100 gap-0.5"
               >
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" fontWeight={600}>{option.name}</Typography>
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={option.source === 'internal' ? t('autocomplete.internal') : t('autocomplete.external')}
-                        color={option.source === 'internal' ? 'primary' : 'default'}
-                        sx={{ height: 18, fontSize: '0.65rem' }}
-                      />
-                    </Box>
-                  }
-                  secondary={`${option.producer}${option.vintage ? ` · ${option.vintage}` : ''}`}
-                  secondaryTypographyProps={{ variant: 'caption' }}
-                />
-              </ListItem>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold">{option.name}</span>
+                  <Chip
+                    size="sm"
+                    variant="bordered"
+                    color={option.source === 'internal' ? 'primary' : 'default'}
+                    classNames={{ base: 'h-[18px]', content: 'text-[0.65rem] px-1.5' }}
+                  >
+                    {option.source === 'internal' ? t('autocomplete.internal') : t('autocomplete.external')}
+                  </Chip>
+                </div>
+                <span className="text-xs text-default-400">
+                  {option.producer}{option.vintage ? ` · ${option.vintage}` : ''}
+                </span>
+              </li>
             ))}
-          </List>
-        </Paper>
-      </Popper>
+          </ul>
+        </div>
+      )}
 
       {shouldWarn && (
-        <Alert severity="info" onClose={dismiss} sx={{ mt: 0.5, py: 0.25, fontSize: '0.75rem' }}>
-          {t('connectivity.degraded')}
-        </Alert>
+        <div className="flex items-center justify-between bg-primary-50 border border-primary-200 text-primary-700 text-xs rounded-lg px-3 py-1.5 mt-1">
+          <span>{t('connectivity.degraded')}</span>
+          <button type="button" onClick={dismiss} className="ml-2 hover:opacity-70 text-primary-500">
+            ✕
+          </button>
+        </div>
       )}
-    </Box>
+    </div>
   );
 }

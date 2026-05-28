@@ -1,28 +1,16 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Box,
-  Typography,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Alert,
-  CircularProgress,
-  Paper,
-  Divider
-} from '@mui/material';
-import SecurityIcon from '@mui/icons-material/Security';
+  Button, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Divider, CircularProgress,
+} from '@heroui/react';
+import { ShieldCheck } from 'lucide-react';
 import { useGenerate2fa, useTurnOn2fa, useTurnOff2fa, PublicUser, useMe } from '@/hooks/useAuth';
 
 export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const [isTurnOnModalOpen, setIsTurnOnModalOpen] = useState(false);
   const [isTurnOffModalOpen, setIsTurnOffModalOpen] = useState(false);
-
   const { refetch: refetchMe } = useMe();
-
   const [setupData, setSetupData] = useState<{ qrCodeUrl: string; secret: string } | null>(null);
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
@@ -38,18 +26,15 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
     setIsTurnOnModalOpen(true);
     generateMutation.mutate(undefined, {
       onSuccess: (data) => setSetupData(data),
-      onError: (err) => setErrorMsg(err.message)
+      onError: (err) => setErrorMsg(err.message),
     });
   };
 
   const handleConfirmEnable = () => {
     setErrorMsg(null);
     turnOnMutation.mutate({ code }, {
-      onSuccess: (res) => {
-        setBackupCodes(res.backupCodes);
-        refetchMe();
-      },
-      onError: (err) => setErrorMsg(err.message)
+      onSuccess: (res) => { setBackupCodes(res.backupCodes); refetchMe(); },
+      onError: (err) => setErrorMsg(err.message),
     });
   };
 
@@ -70,154 +55,187 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
         setCode('');
         refetchMe();
       },
-      onError: (err) => setErrorMsg(err.message)
+      onError: (err) => setErrorMsg(err.message),
     });
   };
 
   return (
-    <Paper sx={{ p: 3, height: '100%', borderRadius: 3, mt: 4 }}>
-      <Box display="flex" alignItems="center" gap={1.5} mb={3}>
-        <SecurityIcon color="primary" />
-        <Typography variant="h6" fontWeight={600}>
-          Sécurité & Authentification
-        </Typography>
-      </Box>
+    <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+      <div className="flex items-center gap-3 mb-5">
+        <ShieldCheck size={20} className="text-primary" />
+        <h2 className="text-base font-semibold">Sécurité & Authentification</h2>
+      </div>
 
-      <Box display="flex" flexDirection="column" gap={2}>
-        <Typography variant="body2" color="text.secondary">
-          Protégez votre compte en activant la double authentification (2FA). Cela nécessitera un code généré par votre application (comme Google Authenticator ou Authy) en plus de votre mot de passe lors de la connexion.
-        </Typography>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-foreground-500">
+          Protégez votre compte en activant la double authentification (2FA). Cela nécessitera un code généré par votre application lors de la connexion.
+        </p>
 
-        <Box display="flex" alignItems="center" justifyContent="space-between" mt={2} p={2} bgcolor="action.hover" borderRadius={2}>
-          <Typography variant="body1" fontWeight={500}>
-            Statut 2FA : {user.isTwoFactorEnabled ? <Typography component="span" color="success.main" fontWeight="bold">Activé</Typography> : <Typography component="span" color="text.secondary">Désactivé</Typography>}
-          </Typography>
+        <div className="flex items-center justify-between p-3 bg-default-50 rounded-xl">
+          <p className="text-sm font-medium">
+            Statut 2FA :{' '}
+            {user.isTwoFactorEnabled ? (
+              <span className="text-success font-bold">Activé</span>
+            ) : (
+              <span className="text-foreground-400">Désactivé</span>
+            )}
+          </p>
           {!user.isTwoFactorEnabled ? (
-            <Button variant="contained" color="primary" onClick={handleStartEnable}>
-              Activer
-            </Button>
+            <Button color="primary" variant="solid" size="sm" onPress={handleStartEnable}>Activer</Button>
           ) : (
-            <Button variant="outlined" color="error" onClick={() => setIsTurnOffModalOpen(true)}>
-              Désactiver
-            </Button>
+            <Button color="danger" variant="bordered" size="sm" onPress={() => setIsTurnOffModalOpen(true)}>Désactiver</Button>
           )}
-        </Box>
-      </Box>
+        </div>
+      </div>
 
       {/* Turn On Modal */}
-      <Dialog open={isTurnOnModalOpen} onClose={handleCloseEnable} maxWidth="sm" fullWidth>
-        <DialogTitle>Activer la double authentification</DialogTitle>
-        <DialogContent dividers>
-          {errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
-
-          {backupCodes ? (
-            <Box>
-              <Alert severity="success" sx={{ mb: 3 }}>
-                Double authentification activée avec succès !
-              </Alert>
-              <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="error.main">
-                ⚠️ C&apos;est la seule fois que ces codes de secours seront affichés.
-              </Typography>
-              <Typography variant="body2" mb={2}>
-                Veuillez les copier et les conserver dans un endroit sûr (comme un gestionnaire de mots de passe). Ils vous permettront de vous connecter si vous perdez l&apos;accès à votre application d&apos;authentification.
-              </Typography>
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
-                <Box display="grid" gridTemplateColumns="1fr 1fr" gap={1}>
-                  {backupCodes.map((bc, i) => (
-                    <Typography key={i} variant="body2" fontFamily="monospace" fontWeight="bold">
-                      {bc}
-                    </Typography>
-                  ))}
-                </Box>
-              </Paper>
-            </Box>
-          ) : generateMutation.isPending ? (
-            <Box display="flex" justifyContent="center" p={4}>
-              <CircularProgress />
-            </Box>
-          ) : setupData ? (
-            <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-              <Typography variant="body2" textAlign="center">
-                1. Scannez ce QR Code avec votre application d&apos;authentification (Google Authenticator, Authy, etc.).
-              </Typography>
-              <Box component="img" src={setupData.qrCodeUrl} alt="QR Code 2FA" sx={{ width: 200, height: 200, borderRadius: 2, border: '1px solid', borderColor: 'divider' }} />
-              <Typography variant="caption" color="text.secondary">
-                Ou utilisez la clé secrète manuellement : <Typography component="span" fontFamily="monospace" fontWeight="bold">{setupData.secret}</Typography>
-              </Typography>
-
-              <Divider sx={{ width: '100%', my: 2 }} />
-
-              <Typography variant="body2" textAlign="center" mb={1}>
-                2. Saisissez le code à 6 chiffres généré par l&apos;application pour confirmer l&apos;activation.
-              </Typography>
-              <TextField
-                label="Code à 6 chiffres"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                fullWidth
-                inputProps={{ maxLength: 6 }}
-                autoComplete="off"
-              />
-            </Box>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          {!backupCodes && (
+      <Modal isOpen={isTurnOnModalOpen} onClose={handleCloseEnable} size="md" radius="lg" backdrop="opaque" placement="center">
+        <ModalContent>
+          {() => (
             <>
-              <Button onClick={handleCloseEnable} color="inherit" disabled={turnOnMutation.isPending}>Annuler</Button>
-              <Button
-                onClick={handleConfirmEnable}
-                variant="contained"
-                disabled={code.length < 6 || turnOnMutation.isPending}
-              >
-                {turnOnMutation.isPending ? 'Activation...' : 'Confirmer'}
-              </Button>
+              <ModalHeader>Activer la double authentification</ModalHeader>
+              <ModalBody className="flex flex-col gap-4">
+                {errorMsg && (
+                  <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
+                )}
+                {backupCodes ? (
+                  <div>
+                    <div className="bg-success-50 border border-success-200 text-success text-sm rounded-lg px-4 py-3 mb-4">
+                      Double authentification activée avec succès !
+                    </div>
+                    <p className="text-sm font-bold text-danger mb-2">
+                      ⚠️ C&apos;est la seule fois que ces codes de secours seront affichés.
+                    </p>
+                    <p className="text-sm text-foreground-500 mb-3">
+                      Conservez-les dans un endroit sûr. Ils vous permettront de vous connecter si vous perdez l&apos;accès à votre application.
+                    </p>
+                    <div className="bg-default-50 border border-divider rounded-xl p-4 grid grid-cols-2 gap-2">
+                      {backupCodes.map((bc, i) => (
+                        <code key={i} className="text-sm font-mono font-bold">{bc}</code>
+                      ))}
+                    </div>
+                  </div>
+                ) : generateMutation.isPending ? (
+                  <div className="flex justify-center py-8">
+                    <CircularProgress color="primary" isIndeterminate />
+                  </div>
+                ) : setupData ? (
+                  <div className="flex flex-col items-center gap-4">
+                    <p className="text-sm text-center text-foreground-600">
+                      1. Scannez ce QR Code avec votre application d&apos;authentification (Google Authenticator, Authy, etc.).
+                    </p>
+                    <img
+                      src={setupData.qrCodeUrl}
+                      alt="QR Code 2FA"
+                      className="w-48 h-48 rounded-xl border border-divider"
+                    />
+                    <p className="text-xs text-foreground-400 text-center">
+                      Ou utilisez la clé secrète :{' '}
+                      <code className="font-mono font-bold text-foreground">{setupData.secret}</code>
+                    </p>
+                    <Divider className="w-full" />
+                    <p className="text-sm text-center text-foreground-600">
+                      2. Saisissez le code à 6 chiffres pour confirmer.
+                    </p>
+                    <Input
+                      label="Code à 6 chiffres"
+                      value={code}
+                      onValueChange={setCode}
+                      variant="bordered"
+                      size="md"
+                      radius="md"
+                      labelPlacement="outside"
+                      maxLength={6}
+                      autoComplete="off"
+                      className="w-full"
+                    />
+                  </div>
+                ) : null}
+              </ModalBody>
+              <ModalFooter>
+                {!backupCodes && (
+                  <>
+                    <Button color="danger" variant="light" onPress={handleCloseEnable} isDisabled={turnOnMutation.isPending}>Annuler</Button>
+                    <Button
+                      color="primary"
+                      variant="solid"
+                      onPress={handleConfirmEnable}
+                      isDisabled={code.length < 6 || turnOnMutation.isPending}
+                      isLoading={turnOnMutation.isPending}
+                    >
+                      Confirmer
+                    </Button>
+                  </>
+                )}
+                {backupCodes && (
+                  <Button color="primary" variant="solid" fullWidth onPress={handleCloseEnable}>
+                    J&apos;ai sauvegardé mes codes
+                  </Button>
+                )}
+              </ModalFooter>
             </>
           )}
-          {backupCodes && (
-            <Button onClick={handleCloseEnable} variant="contained" color="primary">J&apos;ai sauvegardé mes codes</Button>
-          )}
-        </DialogActions>
-      </Dialog>
+        </ModalContent>
+      </Modal>
 
       {/* Turn Off Modal */}
-      <Dialog open={isTurnOffModalOpen} onClose={() => { setIsTurnOffModalOpen(false); setErrorMsg(null); }} maxWidth="xs" fullWidth>
-        <DialogTitle>Désactiver la double authentification</DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="body2" mb={3}>
-            Pour des raisons de sécurité, veuillez renseigner votre mot de passe actuel ainsi qu&apos;un code 2FA valide pour désactiver cette protection.
-          </Typography>
-          {errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
-          <TextField
-            label="Mot de passe"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            fullWidth
-            margin="normal"
-          />
-          <TextField
-            label="Code 2FA ou code de secours"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            fullWidth
-            margin="normal"
-            inputProps={{ maxLength: 10 }}
-            autoComplete="off"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsTurnOffModalOpen(false)} color="inherit" disabled={turnOffMutation.isPending}>Annuler</Button>
-          <Button
-            onClick={handleConfirmDisable}
-            variant="contained"
-            color="error"
-            disabled={!password || code.length < 6 || turnOffMutation.isPending}
-          >
-            {turnOffMutation.isPending ? 'Désactivation...' : 'Désactiver'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Paper>
+      <Modal
+        isOpen={isTurnOffModalOpen}
+        onClose={() => { setIsTurnOffModalOpen(false); setErrorMsg(null); }}
+        size="sm"
+        radius="lg"
+        backdrop="opaque"
+        placement="center"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>Désactiver la double authentification</ModalHeader>
+              <ModalBody className="flex flex-col gap-3">
+                <p className="text-sm text-foreground-500">
+                  Pour des raisons de sécurité, veuillez renseigner votre mot de passe actuel ainsi qu&apos;un code 2FA valide.
+                </p>
+                {errorMsg && (
+                  <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
+                )}
+                <Input
+                  label="Mot de passe"
+                  type="password"
+                  value={password}
+                  onValueChange={setPassword}
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                />
+                <Input
+                  label="Code 2FA ou code de secours"
+                  value={code}
+                  onValueChange={setCode}
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                  maxLength={10}
+                  autoComplete="off"
+                />
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose} isDisabled={turnOffMutation.isPending}>Annuler</Button>
+                <Button
+                  color="danger"
+                  variant="solid"
+                  onPress={handleConfirmDisable}
+                  isDisabled={!password || code.length < 6 || turnOffMutation.isPending}
+                  isLoading={turnOffMutation.isPending}
+                >
+                  Désactiver
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+    </div>
   );
 }

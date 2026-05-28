@@ -2,10 +2,9 @@
 import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  IconButton, Badge, Menu, Box, Typography, Divider, List,
-  ListItem, ListItemIcon, ListItemText, MenuItem,
-} from '@mui/material';
-import NotificationsIcon from '@mui/icons-material/Notifications';
+  Button, Badge, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection,
+} from '@heroui/react';
+import { Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
 import { useHasMounted } from '@/hooks/useHasMounted';
@@ -16,7 +15,6 @@ export function NotificationBell() {
   const { data: items } = useInventory();
   const router = useRouter();
   const hasMounted = useHasMounted();
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const alertItems = useMemo(() => {
     if (!items || !hasMounted) return [];
@@ -26,66 +24,52 @@ export function NotificationBell() {
 
   const count = alertItems.length;
 
-  const handleOpen = (e: React.MouseEvent<HTMLElement>) => {
-    if (count > 0) setAnchorEl(e.currentTarget);
-  };
+  const handleViewAll = () => router.push('/inventory?filter=alerts');
 
-  const handleClose = () => setAnchorEl(null);
-
-  const handleViewAll = () => {
-    handleClose();
-    router.push('/inventory?filter=alerts');
-  };
+  if (!hasMounted || count === 0) {
+    return (
+      <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')}>
+        <Bell size={18} />
+      </Button>
+    );
+  }
 
   return (
-    <>
-      <IconButton color="inherit" onClick={handleOpen} size="small">
-        <Badge badgeContent={hasMounted ? count : 0} color="error">
-          <NotificationsIcon fontSize="small" />
-        </Badge>
-      </IconButton>
-
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        PaperProps={{ sx: { width: 300, maxHeight: 360 } }}
+    <Dropdown placement="bottom-end">
+      <DropdownTrigger>
+        <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')}>
+          <Badge content={count} color="danger" size="sm" placement="top-right">
+            <Bell size={18} />
+          </Badge>
+        </Button>
+      </DropdownTrigger>
+      <DropdownMenu
+        aria-label={t('inventory.alerts.title')}
+        variant="flat"
+        className="w-72 max-h-80 overflow-y-auto"
       >
-        <Box sx={{ px: 2, py: 1.5, bgcolor: 'action.hover' }}>
-          <Typography variant="subtitle2" fontWeight={700}>
-            {t('inventory.alerts.title')}
-          </Typography>
-        </Box>
-        <Divider />
-        <List dense disablePadding>
-          {alertItems.map((item) => (
-            <ListItem
+        <DropdownSection title={t('inventory.alerts.title')} showDivider>
+          {alertItems.slice(0, 5).map((item) => (
+            <DropdownItem
               key={item.id}
-              button
-              onClick={handleViewAll}
-              sx={{ py: 0.75 }}
+              startContent={<Bell size={14} className="text-danger" />}
+              description={item.producer}
+              onPress={handleViewAll}
             >
-              <ListItemIcon sx={{ minWidth: 36 }}>
-                <NotificationsIcon color="error" sx={{ fontSize: 16 }} />
-              </ListItemIcon>
-              <ListItemText
-                primary={item.name}
-                secondary={item.producer}
-                primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
-                secondaryTypographyProps={{ variant: 'caption' }}
-              />
-            </ListItem>
+              <span className="text-sm font-semibold">{item.name}</span>
+            </DropdownItem>
           ))}
-        </List>
-        <Divider />
-        <MenuItem onClick={handleViewAll} sx={{ justifyContent: 'center', py: 1 }}>
-          <Typography variant="caption" color="primary" fontWeight={700}>
+        </DropdownSection>
+        <DropdownSection>
+          <DropdownItem
+            key="view-all"
+            className="text-primary font-bold text-center justify-center"
+            onPress={handleViewAll}
+          >
             {t('inventory.alerts.viewAll')}
-          </Typography>
-        </MenuItem>
-      </Menu>
-    </>
+          </DropdownItem>
+        </DropdownSection>
+      </DropdownMenu>
+    </Dropdown>
   );
 }

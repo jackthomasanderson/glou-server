@@ -1,17 +1,20 @@
 'use client';
-import React, { useState, memo } from 'react';
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  Marker,
-  ZoomableGroup,
-} from 'react-simple-maps';
-import { Box, Typography, Tooltip, useTheme, Chip } from '@mui/material';
+
+import React from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { getRegionCoordinates } from '@/lib/analytics/regionCoordinates';
 import { RegionStat } from '@/lib/analytics/types';
 
-const GEO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function radiusFromCount(count: number): number {
+  if (count >= 20) return 22;
+  if (count >= 10) return 18;
+  if (count >= 5) return 14;
+  if (count >= 3) return 11;
+  return 9;
+}
 
 interface MarkerData {
   region: string;
@@ -19,71 +22,58 @@ interface MarkerData {
   valuation: number;
   lat: number;
   lng: number;
-  category?: string;
 }
+
+// ─── Popup content ────────────────────────────────────────────────────────────
+
+function RegionPopup({ marker, t }: { marker: MarkerData; t: (k: string) => string }) {
+  return (
+    <div className="min-w-[130px] font-[Inter,sans-serif]">
+      <div className="font-extrabold text-[0.72rem] uppercase tracking-wider text-blue-600 mb-1">
+        {marker.region}
+      </div>
+      <div className="text-[0.82rem] font-bold">
+        {marker.count} {t('analytics.regionMap.items')}
+      </div>
+      <div className="text-[0.75rem] text-gray-500 mt-0.5">
+        {t('analytics.regionMap.valuation')}{' '}
+        <strong>{marker.valuation} €</strong>
+      </div>
+    </div>
+  );
+}
+
+// ─── Resize helper: invalidate map size when container is revealed ────────────
+
+function MapResizer() {
+  const map = useMap();
+  React.useEffect(() => {
+    const id = setTimeout(() => map.invalidateSize(), 100);
+    return () => clearTimeout(id);
+  }, [map]);
+  return null;
+}
+
+// ─── Props ───────────────────────────────────────────────────────────────────
 
 interface WorldHeatmapProps {
   regions: RegionStat[];
-  t: (key: string) => string;
+  t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
-const MARKER_COLOR_DEFAULT = '#2563EB';
-
-function sizeFromCount(count: number): number {
-  if (count >= 10) return 16;
-  if (count >= 5) return 13;
-  if (count >= 3) return 11;
-  return 9;
-}
-
-const HeatmapMarker = memo(function HeatmapMarker({
-  marker,
-  active,
-  onEnter,
-  onLeave,
-}: {
-  marker: MarkerData;
-  active: boolean;
-  onEnter: () => void;
-  onLeave: () => void;
-}) {
-  const r = sizeFromCount(marker.count);
-  const color = MARKER_COLOR_DEFAULT;
-
-  return (
-    <Marker coordinates={[marker.lng, marker.lat]}>
-      <circle
-        r={r}
-        fill={active ? color : `${color}CC`}
-        stroke="#fff"
-        strokeWidth={1.5}
-        style={{ cursor: 'pointer', transition: 'r 0.15s ease, fill 0.15s ease' }}
-        onMouseEnter={onEnter}
-        onMouseLeave={onLeave}
-      />
-      {marker.count > 1 && (
-        <text
-          textAnchor="middle"
-          y={r * 0.38}
-          style={{
-            fontSize: r * 0.9,
-            fontWeight: 700,
-            fill: '#fff',
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
-        >
-          {marker.count}
-        </text>
-      )}
-    </Marker>
-  );
-});
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export function WorldHeatmap({ regions, t }: WorldHeatmapProps) {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  const [activeRegion, setActiveRegion] = useState<string | null>(null);
+  // Detect dark mode via CSS media query
+  const isDark =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  const tileUrl = isDark
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+
+  const markerColor = '#2563EB';
 
   const markers: MarkerData[] = regions
     .map((r) => {
@@ -93,117 +83,77 @@ export function WorldHeatmap({ regions, t }: WorldHeatmapProps) {
     })
     .filter((m): m is MarkerData => m !== null);
 
-  const unmapped = regions.filter((r) => !getRegionCoordinates(r.region));
-  const activeData = markers.find((m) => m.region === activeRegion);
-
-  const geoFill = isDark ? '#1e2a3a' : '#e8edf3';
-  const geoBorder = isDark ? '#2d3f55' : '#c8d4e0';
-  const mapBg = isDark ? '#0f1a2e' : '#dce6f0';
+  const unmappedCount = regions.length - markers.length;
 
   return (
-    <Box sx={{ position: 'relative', width: '100%' }}>
-      {/* Legend */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
-        <Chip
-          size="small"
-          label={t('analytics.regionMap.legendActive')}
-          sx={{ fontSize: '0.65rem', height: 20, bgcolor: `${MARKER_COLOR_DEFAULT}22`, color: 'primary.main', fontWeight: 700 }}
-        />
-        {unmapped.length > 0 && (
-          <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary', display: 'flex', alignItems: 'center' }}>
-            {t('analytics.regionMap.unmapped', { count: unmapped.length })}
-          </Typography>
-        )}
-      </Box>
-
-      {/* Map */}
-      <Box
-        sx={{
-          borderRadius: 2,
-          overflow: 'hidden',
-          bgcolor: mapBg,
-          border: '1px solid',
-          borderColor: 'divider',
-          position: 'relative',
-        }}
+    <div>
+      {/* Map container */}
+      <div
+        className="rounded-2xl overflow-hidden border border-default-200 relative h-[380px]"
+        style={
+          {
+            // Override leaflet popup styles
+            '--leaflet-popup-border-radius': '10px',
+          } as React.CSSProperties
+        }
       >
-        <ComposableMap
-          projectionConfig={{ scale: 147, center: [10, 15] }}
-          style={{ width: '100%', height: 'auto' }}
-          height={360}
+        <style>{`
+          .leaflet-popup-content-wrapper {
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 0;
+          }
+          .leaflet-popup-content {
+            margin: 12px 16px;
+          }
+          .leaflet-popup-tip-container {
+            display: none;
+          }
+          .leaflet-control-attribution {
+            font-size: 0.6rem;
+            background: transparent !important;
+          }
+        `}</style>
+        <MapContainer
+          center={[25, 10]}
+          zoom={2}
+          minZoom={1}
+          maxZoom={10}
+          style={{ height: '100%', width: '100%' }}
+          scrollWheelZoom
+          worldCopyJump
         >
-          <ZoomableGroup zoom={1} minZoom={0.8} maxZoom={8}>
-            <Geographies geography={GEO_URL}>
-              {({ geographies }) =>
-                geographies.map((geo) => (
-                  <Geography
-                    key={geo.rsmKey}
-                    geography={geo}
-                    fill={geoFill}
-                    stroke={geoBorder}
-                    strokeWidth={0.5}
-                    style={{
-                      default: { outline: 'none' },
-                      hover: { fill: isDark ? '#2a3f5a' : '#d0dce8', outline: 'none' },
-                      pressed: { outline: 'none' },
-                    }}
-                  />
-                ))
-              }
-            </Geographies>
+          <MapResizer />
+          <TileLayer
+            url={tileUrl}
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          />
+          {markers.map((marker) => (
+            <CircleMarker
+              key={marker.region}
+              center={[marker.lat, marker.lng]}
+              radius={radiusFromCount(marker.count)}
+              pathOptions={{
+                color: '#ffffff',
+                weight: 2,
+                fillColor: markerColor,
+                fillOpacity: 0.85,
+              }}
+            >
+              <Popup>
+                <RegionPopup marker={marker} t={t} />
+              </Popup>
+            </CircleMarker>
+          ))}
+        </MapContainer>
+      </div>
 
-            {markers.map((marker) => (
-              <HeatmapMarker
-                key={marker.region}
-                marker={marker}
-                active={activeRegion === marker.region}
-                onEnter={() => setActiveRegion(marker.region)}
-                onLeave={() => setActiveRegion(null)}
-              />
-            ))}
-          </ZoomableGroup>
-        </ComposableMap>
-
-        {/* Floating tooltip */}
-        {activeData && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 16,
-              right: 16,
-              bgcolor: 'background.paper',
-              border: '1px solid',
-              borderColor: 'divider',
-              borderRadius: 2,
-              p: 1.5,
-              minWidth: 160,
-              boxShadow: 3,
-              pointerEvents: 'none',
-            }}
-          >
-            <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.08rem', color: 'primary.main', mb: 0.5 }}>
-              {activeData.region}
-            </Typography>
-            <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>
-              {activeData.count} {t('analytics.regionMap.items')}
-            </Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-              {t('analytics.regionMap.valuation')} {activeData.valuation} €
-            </Typography>
-          </Box>
-        )}
-
-        {markers.length === 0 && (
-          <Box sx={{
-            position: 'absolute', inset: 0, display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
-              {t('analytics.regionMap.noRegions')}
-            </Typography>
-          </Box>
-        )}
-      </Box>
-    </Box>
+      {/* Footer: unmapped notice */}
+      {unmappedCount > 0 && (
+        <p className="text-[0.65rem] text-default-400 mt-1.5">
+          {t('analytics.regionMap.unmapped', { count: unmappedCount })}
+        </p>
+      )}
+    </div>
   );
 }

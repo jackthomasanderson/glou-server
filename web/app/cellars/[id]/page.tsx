@@ -2,38 +2,8 @@
 
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  Box,
-  Container,
-  Typography,
-  CircularProgress,
-  Alert,
-  Chip,
-  Button,
-  IconButton,
-  Tooltip,
-  Divider,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Grid,
-  Card,
-  CardContent,
-  ToggleButtonGroup,
-  ToggleButton,
-} from '@mui/material';
-import {
-  ArrowBack as BackIcon,
-  Edit as EditIcon,
-  GridView as GridViewIcon,
-  ViewList as ViewListIcon,
-  Map as MapIcon,
-  Warehouse as CellarIcon,
-} from '@mui/icons-material';
+import { Button, Chip, CircularProgress, Tooltip, ButtonGroup, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Card, CardBody } from '@heroui/react';
+import { ArrowLeft, LayoutGrid, List, Map, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { useCellar, useCellarGrid } from '@/hooks/useCellars';
@@ -46,16 +16,16 @@ type DetailView = 'grid' | 'list' | 'map';
 function BottleCard({ item }: { item: InventoryItem }) {
   const { t } = useTranslation();
   return (
-    <Card variant="outlined">
-      <CardContent sx={{ pb: '12px !important' }}>
-        <Typography variant="subtitle2" fontWeight={600} noWrap>{item.name}</Typography>
-        <Typography variant="caption" color="text.secondary" noWrap display="block">{item.producer}</Typography>
-        <Box display="flex" gap={0.5} mt={0.5} flexWrap="wrap">
-          <Chip size="small" label={t(`categories.${item.category}`)} />
-          {item.vintage && <Chip size="small" variant="outlined" label={item.vintage} />}
-          {item.color && <Chip size="small" variant="outlined" label={t(`inventory.color.${item.color}`)} />}
-        </Box>
-      </CardContent>
+    <Card shadow="sm" radius="lg">
+      <CardBody className="pb-3">
+        <p className="text-sm font-semibold truncate">{item.name}</p>
+        <p className="text-xs text-foreground-400 truncate">{item.producer}</p>
+        <div className="flex gap-1 mt-1 flex-wrap">
+          <Chip size="sm" variant="flat" radius="sm">{t(`categories.${item.category}`)}</Chip>
+          {item.vintage && <Chip size="sm" variant="bordered" radius="sm">{item.vintage}</Chip>}
+          {item.color && <Chip size="sm" variant="bordered" radius="sm">{t(`inventory.color.${item.color}`)}</Chip>}
+        </div>
+      </CardBody>
     </Card>
   );
 }
@@ -65,8 +35,6 @@ export default function CellarDetailPage() {
   const router = useRouter();
   const params = useParams();
   const cellarId = params.id as string;
-
-  // Default to map view; if no grid configured, cards are shown instead
   const [view, setView] = useState<DetailView>('map');
 
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
@@ -74,19 +42,14 @@ export default function CellarDetailPage() {
   const { data: gridData, isLoading: gridLoading } = useCellarGrid(cellarId);
 
   const hasGrid = !!(cellar?.columns && cellar?.rows);
-
-  const cellarItems = allInventory?.filter(
-    (item) => item.cellarId === cellarId && !item.deletedAt
-  ) ?? [];
+  const cellarItems = allInventory?.filter((item) => item.cellarId === cellarId && !item.deletedAt) ?? [];
 
   if (cellarLoading) {
     return (
       <MainLayout>
-        <Container maxWidth="lg">
-          <Box display="flex" justifyContent="center" p={8}>
-            <CircularProgress />
-          </Box>
-        </Container>
+        <div className="flex justify-center p-16">
+          <CircularProgress isIndeterminate color="primary" />
+        </div>
       </MainLayout>
     );
   }
@@ -94,172 +57,140 @@ export default function CellarDetailPage() {
   if (cellarError || !cellar) {
     return (
       <MainLayout>
-        <Container maxWidth="lg">
-          <Alert severity="error" sx={{ mt: 4 }}>{t('status.error')}</Alert>
-        </Container>
+        <div className="max-w-6xl mx-auto px-4 mt-8">
+          <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
+        </div>
       </MainLayout>
     );
   }
 
   return (
     <MainLayout>
-      <Container maxWidth="lg">
-        <Box sx={{ py: 4 }}>
-          {/* Header */}
-          <Box display="flex" alignItems="center" gap={1} mb={1}>
-            <Tooltip title={t('actions.back')}>
-              <IconButton size="small" onClick={() => router.push('/cellars')}>
-                <BackIcon />
-              </IconButton>
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-1">
+          <Tooltip content={t('actions.back')} delay={500}>
+            <Button isIconOnly size="sm" variant="light" radius="full" onPress={() => router.push('/cellars')} aria-label={t('actions.back')}>
+              <ArrowLeft size={16} />
+            </Button>
+          </Tooltip>
+          <Warehouse size={20} className="text-primary" />
+          <h1 className="text-xl font-bold">{cellar.name}</h1>
+          <Chip size="sm" variant="bordered" radius="sm">{t(`cellars.types.${cellar.type}`)}</Chip>
+        </div>
+
+        {cellar.description && (
+          <p className="text-sm text-foreground-500 ml-10 mb-3">{cellar.description}</p>
+        )}
+
+        {cellar.stats && (
+          <div className="flex gap-2 flex-wrap mb-4 ml-10">
+            <Chip size="sm" variant="flat">{cellar.stats.totalItems} {t('cellars.stats.items')}</Chip>
+            {cellar.stats.alertCount > 0 && (
+              <Chip size="sm" color="warning" variant="flat">{cellar.stats.alertCount} {t('cellars.stats.alerts')}</Chip>
+            )}
+            {cellar.stats.estimatedValue != null && (
+              <Chip size="sm" variant="bordered">~{Math.round(cellar.stats.estimatedValue)} €</Chip>
+            )}
+          </div>
+        )}
+
+        <hr className="border-divider mb-6" />
+
+        {/* View toggle */}
+        <div className="flex justify-between items-center mb-5">
+          <ButtonGroup size="sm" variant="flat">
+            <Tooltip content={t('view.grid')} delay={500}>
+              <Button
+                isIconOnly color={view === 'grid' ? 'primary' : 'default'}
+                variant={view === 'grid' ? 'flat' : 'light'}
+                onPress={() => setView('grid')} aria-label={t('view.grid')}
+              ><LayoutGrid size={16} /></Button>
             </Tooltip>
-            <CellarIcon color="primary" />
-            <Typography variant="h5" component="h1" fontWeight={700}>
-              {cellar.name}
-            </Typography>
-            <Chip size="small" label={t(`cellars.types.${cellar.type}`)} variant="outlined" sx={{ ml: 0.5 }} />
-          </Box>
+            <Tooltip content={t('view.list')} delay={500}>
+              <Button
+                isIconOnly color={view === 'list' ? 'primary' : 'default'}
+                variant={view === 'list' ? 'flat' : 'light'}
+                onPress={() => setView('list')} aria-label={t('view.list')}
+              ><List size={16} /></Button>
+            </Tooltip>
+            {hasGrid && (
+              <Tooltip content={t('view.map')} delay={500}>
+                <Button
+                  isIconOnly color={view === 'map' ? 'primary' : 'default'}
+                  variant={view === 'map' ? 'flat' : 'light'}
+                  onPress={() => setView('map')} aria-label={t('view.map')}
+                ><Map size={16} /></Button>
+              </Tooltip>
+            )}
+          </ButtonGroup>
+        </div>
 
-          {cellar.description && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, ml: 5 }}>
-              {cellar.description}
-            </Typography>
-          )}
+        {/* Grid cards */}
+        {view === 'grid' && (
+          cellarItems.length === 0 ? (
+            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles')}</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {cellarItems.map((item) => <BottleCard key={item.id} item={item} />)}
+            </div>
+          )
+        )}
 
-          {/* Stats */}
-          {cellar.stats && (
-            <Box display="flex" gap={1} flexWrap="wrap" mb={3} ml={5}>
-              <Chip size="small" label={`${cellar.stats.totalItems} ${t('cellars.stats.items')}`} />
-              {cellar.stats.alertCount > 0 && (
-                <Chip size="small" color="warning" label={`${cellar.stats.alertCount} ${t('cellars.stats.alerts')}`} />
-              )}
-              {cellar.stats.estimatedValue != null && (
-                <Chip size="small" variant="outlined" label={`~${Math.round(cellar.stats.estimatedValue)} €`} />
-              )}
-            </Box>
-          )}
-
-          <Divider sx={{ mb: 3 }} />
-
-          {/* View toggle */}
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <ToggleButtonGroup
-              value={view}
-              exclusive
-              onChange={(_, v) => v && setView(v)}
-              size="small"
-            >
-              <ToggleButton value="grid" aria-label={t('view.grid')}>
-                <Tooltip title={t('view.grid')}>
-                  <GridViewIcon fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="list" aria-label={t('view.list')}>
-                <Tooltip title={t('view.list')}>
-                  <ViewListIcon fontSize="small" />
-                </Tooltip>
-              </ToggleButton>
-              {hasGrid && (
-                <ToggleButton value="map" aria-label={t('view.map')}>
-                  <Tooltip title={t('view.map')}>
-                    <MapIcon fontSize="small" />
-                  </Tooltip>
-                </ToggleButton>
-              )}
-            </ToggleButtonGroup>
-          </Box>
-
-          {/* Grid cards view */}
-          {view === 'grid' && (
-            cellarItems.length === 0 ? (
-              <Alert severity="info">{t('inventory.noBottles')}</Alert>
-            ) : (
-              <Grid container spacing={2}>
+        {/* List view */}
+        {view === 'list' && (
+          cellarItems.length === 0 ? (
+            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles')}</div>
+          ) : (
+            <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }}>
+              <TableHeader>
+                <TableColumn>{t('inventory.fields.name')}</TableColumn>
+                <TableColumn>{t('inventory.fields.producer')}</TableColumn>
+                <TableColumn>{t('inventory.fields.category')}</TableColumn>
+                <TableColumn>{t('inventory.fields.vintage')}</TableColumn>
+                <TableColumn>{t('cellars.grid.slot')}</TableColumn>
+              </TableHeader>
+              <TableBody>
                 {cellarItems.map((item) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={item.id}>
-                    <BottleCard item={item} />
-                  </Grid>
+                  <TableRow key={item.id}>
+                    <TableCell className="text-sm font-semibold">{item.name}</TableCell>
+                    <TableCell className="text-sm text-foreground-400">{item.producer}</TableCell>
+                    <TableCell><Chip size="sm" variant="flat">{t(`categories.${item.category}`)}</Chip></TableCell>
+                    <TableCell className="text-sm">{item.vintage ?? '—'}</TableCell>
+                    <TableCell>
+                      {item.slotColumn != null && item.slotRow != null ? (
+                        <Chip size="sm" variant="bordered">{`C${item.slotColumn}·R${item.slotRow}`}</Chip>
+                      ) : <span className="text-foreground-400">—</span>}
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </Grid>
-            )
-          )}
+              </TableBody>
+            </Table>
+          )
+        )}
 
-          {/* List view */}
-          {view === 'list' && (
-            cellarItems.length === 0 ? (
-              <Alert severity="info">{t('inventory.noBottles')}</Alert>
-            ) : (
-              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>{t('inventory.fields.name')}</TableCell>
-                      <TableCell>{t('inventory.fields.producer')}</TableCell>
-                      <TableCell>{t('inventory.fields.category')}</TableCell>
-                      <TableCell>{t('inventory.fields.vintage')}</TableCell>
-                      <TableCell>{t('cellars.grid.slot')}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {cellarItems.map((item) => (
-                      <TableRow key={item.id} hover>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight={600}>{item.name}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">{item.producer}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip size="small" label={t(`categories.${item.category}`)} />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">{item.vintage ?? '—'}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          {item.slotColumn != null && item.slotRow != null ? (
-                            <Chip
-                              size="small"
-                              label={`C${item.slotColumn}·R${item.slotRow}`}
-                              variant="outlined"
-                            />
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">—</Typography>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )
-          )}
-
-          {/* Map / grid plan view — fallback to cards when no grid configured */}
-          {view === 'map' && !hasGrid && (
-            cellarItems.length === 0 ? (
-              <Alert severity="info">{t('inventory.noBottles')}</Alert>
-            ) : (
-              <Grid container spacing={2}>
-                {cellarItems.map((item) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={item.id}>
-                    <BottleCard item={item} />
-                  </Grid>
-                ))}
-              </Grid>
-            )
-          )}
-          {view === 'map' && hasGrid && (
-            gridLoading ? (
-              <Box display="flex" justifyContent="center" p={4}>
-                <CircularProgress />
-              </Box>
-            ) : gridData ? (
-              <CellarGridPlan data={gridData} />
-            ) : (
-              <Alert severity="error">{t('status.error')}</Alert>
-            )
-          )}
-        </Box>
-      </Container>
+        {/* Map/grid plan */}
+        {view === 'map' && !hasGrid && (
+          cellarItems.length === 0 ? (
+            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles')}</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {cellarItems.map((item) => <BottleCard key={item.id} item={item} />)}
+            </div>
+          )
+        )}
+        {view === 'map' && hasGrid && (
+          gridLoading ? (
+            <div className="flex justify-center p-8">
+              <CircularProgress isIndeterminate color="primary" />
+            </div>
+          ) : gridData ? (
+            <CellarGridPlan data={gridData} />
+          ) : (
+            <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
+          )
+        )}
+      </div>
     </MainLayout>
   );
 }

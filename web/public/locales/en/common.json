@@ -623,6 +623,10 @@
     "regionMap": {
       "title": "Geographic distribution",
       "subtitle": "Your collection's spread by terroir",
+      "mapTitle": "World Map — Taste Heatmap",
+      "mapSubtitle": "Hover over a geographic hotspot to see its valuation and composition.",
+      "legendActive": "Intense activity",
+      "unmapped": "{{count}} region(s) not geolocated",
       "items": "item(s) in stock",
       "valuation": "Valuation:",
       "noRegions": "No regions set in your inventory."
@@ -640,6 +644,15 @@
         "spirit": "bottles",
         "cigar": "vitolas"
       }
+    },
+    "garde": {
+      "title": "Garde Planning (Histogram)",
+      "subtitle": "Temporal distribution of bottles by optimal peak year",
+      "noData": "No peak maturity windows set in your inventory.",
+      "bottles": "bottle(s) at peak"
+    },
+    "caves": {
+      "title": "Distribution by cellar"
     },
     "maturity": {
       "title": "Optimal Consumption Planning (Peak)",

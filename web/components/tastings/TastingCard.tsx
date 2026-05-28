@@ -1,12 +1,7 @@
 'use client';
 import React from 'react';
-import {
-  Card, CardContent, CardActions, Typography, Box,
-  IconButton, Tooltip, Rating, Chip, Avatar,
-} from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import WineBarIcon from '@mui/icons-material/WineBar';
+import { Card, CardBody, CardFooter, Avatar, Chip, Button, Tooltip } from '@heroui/react';
+import { Pencil, Trash2, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
 
@@ -20,53 +15,93 @@ export function TastingCard({ note, onEdit, onDelete }: TastingCardProps) {
   const { t } = useTranslation();
 
   return (
-    <Card sx={{ transition: 'box-shadow 0.2s', '&:hover': { boxShadow: '0 4px 12px rgba(0,0,0,0.12)' } }}>
-      <CardContent sx={{ pb: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+    <Card className="transition-shadow hover:shadow-lg w-full" radius="lg">
+      <CardBody className="pb-1">
+        {/* Top row: avatar + name/date + rating */}
+        <div className="flex justify-between items-start gap-2 mb-2">
+          <div className="flex items-center gap-2 min-w-0">
             <Avatar
               src={note.item?.photoUrl ?? undefined}
-              sx={{ width: 36, height: 36, bgcolor: 'primary.light' }}
-            >
-              <WineBarIcon fontSize="small" />
-            </Avatar>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="subtitle2" fontWeight={700} noWrap>
-                {note.item ? `${note.item.name} — ${note.item.producer}` : t('tastings.noItem')}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
+              fallback={<Wine size={16} />}
+              className="w-9 h-9 shrink-0 bg-primary-100 text-primary"
+              showFallback
+            />
+            <div className="min-w-0">
+              <p className="font-bold text-sm truncate">
+                {note.item
+                  ? `${note.item.name} — ${note.item.producer}`
+                  : t('tastings.noItem')}
+              </p>
+              <p className="text-xs text-default-400">
                 {new Date(note.tastedAt).toLocaleDateString()}
                 {note.context ? ` · ${note.context}` : ''}
-              </Typography>
-            </Box>
-          </Box>
-          {note.rating && (
-            <Rating value={note.rating} readOnly size="small" sx={{ flexShrink: 0 }} />
+              </p>
+            </div>
+          </div>
+
+          {/* Read-only star rating */}
+          {note.rating != null && (
+            <div className="flex items-center shrink-0">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                  key={star}
+                  size={14}
+                  className={note.rating! >= star ? 'text-warning' : 'text-default-200'}
+                  fill={note.rating! >= star ? 'currentColor' : 'none'}
+                />
+              ))}
+            </div>
           )}
-        </Box>
+        </div>
 
+        {/* Notes (clamped to 3 lines) */}
         {note.notes && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1, whiteSpace: 'pre-wrap', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          <p
+            className="text-sm text-default-500 mb-2 whitespace-pre-wrap"
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            } as React.CSSProperties}
+          >
             {note.notes}
-          </Typography>
+          </p>
         )}
 
+        {/* Food pairing chip */}
         {note.foodPairing && (
-          <Chip label={note.foodPairing} size="small" variant="outlined" sx={{ mt: 0.5 }} />
+          <Chip size="sm" variant="bordered" className="mt-0.5">
+            {note.foodPairing}
+          </Chip>
         )}
-      </CardContent>
-      <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-        <Tooltip title={t('actions.edit')}>
-          <IconButton size="small" onClick={() => onEdit(note)} aria-label={t('actions.edit')}>
-            <EditIcon fontSize="small" />
-          </IconButton>
+      </CardBody>
+
+      <CardFooter className="pt-0 justify-end gap-1">
+        <Tooltip content={t('actions.edit')}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            aria-label={t('actions.edit')}
+            onPress={() => onEdit(note)}
+          >
+            <Pencil size={16} />
+          </Button>
         </Tooltip>
-        <Tooltip title={t('actions.delete')}>
-          <IconButton size="small" color="error" onClick={() => onDelete(note)} aria-label={t('actions.delete')}>
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+        <Tooltip content={t('actions.delete')}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            color="danger"
+            aria-label={t('actions.delete')}
+            onPress={() => onDelete(note)}
+          >
+            <Trash2 size={16} />
+          </Button>
         </Tooltip>
-      </CardActions>
+      </CardFooter>
     </Card>
   );
 }

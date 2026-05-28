@@ -1,14 +1,10 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Box, Typography, Checkbox, FormControlLabel,
-  Stack, TextField, MenuItem, Divider, IconButton,
-  Select, InputLabel, FormControl, Chip,
-  Autocomplete,
-} from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import SaveIcon from '@mui/icons-material/Save';
+  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Button, Checkbox, Chip, Divider, Input, Select, SelectItem, Slider,
+} from '@heroui/react';
+import { Save, Trash2 } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useBulkPresets, useCreateBulkPreset, useDeleteBulkPreset } from '@/hooks/useBulkPresets';
@@ -22,11 +18,6 @@ interface BulkActionDialogProps {
   t: (key: string, options?: Record<string, unknown>) => string;
 }
 
-/**
- * BulkActionDialog allows updating multiple inventory items at once.
- * Supports: Cellar, Location, Collection, Tags, Consumption status (isOpened).
- * Allows saving/loading presets.
- */
 export function BulkActionDialog({
   open,
   onClose,
@@ -40,7 +31,6 @@ export function BulkActionDialog({
   const createPresetMutation = useCreateBulkPreset();
   const deletePresetMutation = useDeleteBulkPreset();
 
-  // State for enabled fields
   const [enabledFields, setEnabledFields] = useState({
     cellarId: false,
     location: false,
@@ -50,7 +40,6 @@ export function BulkActionDialog({
     fillLevel: false,
   });
 
-  // State for field values
   const [values, setValues] = useState<Partial<InventoryItem>>({
     cellarId: null,
     location: '',
@@ -71,7 +60,7 @@ export function BulkActionDialog({
     setValues((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleApply = () => {
+  const buildPatch = (): Partial<InventoryItem> => {
     const patch: Partial<InventoryItem> = {};
     if (enabledFields.cellarId) patch.cellarId = values.cellarId;
     if (enabledFields.location) patch.location = values.location;
@@ -79,24 +68,15 @@ export function BulkActionDialog({
     if (enabledFields.tags) patch.tags = values.tags;
     if (enabledFields.isOpened) patch.isOpened = values.isOpened;
     if (enabledFields.fillLevel) patch.fillLevel = values.fillLevel;
-    onApply(patch);
+    return patch;
   };
+
+  const handleApply = () => onApply(buildPatch());
 
   const handleSavePreset = () => {
     if (!presetName.trim()) return;
-    const patch: Partial<InventoryItem> = {};
-    if (enabledFields.cellarId) patch.cellarId = values.cellarId;
-    if (enabledFields.location) patch.location = values.location;
-    if (enabledFields.collection) patch.collection = values.collection;
-    if (enabledFields.tags) patch.tags = values.tags;
-    if (enabledFields.isOpened) patch.isOpened = values.isOpened;
-    if (enabledFields.fillLevel) patch.fillLevel = values.fillLevel;
-
-    createPresetMutation.mutate({ name: presetName, payload: patch }, {
-      onSuccess: () => {
-        setPresetName('');
-        setShowSavePreset(false);
-      }
+    createPresetMutation.mutate({ name: presetName, payload: buildPatch() }, {
+      onSuccess: () => { setPresetName(''); setShowSavePreset(false); },
     });
   };
 
@@ -104,329 +84,310 @@ export function BulkActionDialog({
     const p = preset.payload;
     const newEnabled = { ...enabledFields };
     const newValues = { ...values };
-
-    if (p.cellarId !== undefined) {
-      newEnabled.cellarId = true;
-      newValues.cellarId = p.cellarId;
-    }
-    if (p.location !== undefined) {
-      newEnabled.location = true;
-      newValues.location = p.location;
-    }
-    if (p.collection !== undefined) {
-      newEnabled.collection = true;
-      newValues.collection = p.collection;
-    }
-    if (p.tags !== undefined) {
-      newEnabled.tags = true;
-      newValues.tags = p.tags;
-    }
-    if (p.isOpened !== undefined) {
-      newEnabled.isOpened = true;
-      newValues.isOpened = p.isOpened;
-    }
-    if (p.fillLevel !== undefined) {
-      newEnabled.fillLevel = true;
-      newValues.fillLevel = p.fillLevel;
-    }
-
+    if (p.cellarId !== undefined) { newEnabled.cellarId = true; newValues.cellarId = p.cellarId; }
+    if (p.location !== undefined) { newEnabled.location = true; newValues.location = p.location; }
+    if (p.collection !== undefined) { newEnabled.collection = true; newValues.collection = p.collection; }
+    if (p.tags !== undefined) { newEnabled.tags = true; newValues.tags = p.tags; }
+    if (p.isOpened !== undefined) { newEnabled.isOpened = true; newValues.isOpened = p.isOpened; }
+    if (p.fillLevel !== undefined) { newEnabled.fillLevel = true; newValues.fillLevel = p.fillLevel; }
     setEnabledFields(newEnabled);
     setValues(newValues);
   };
 
-  // Summary logic: Before vs After
   const summary = useMemo(() => {
     const fields = ['cellarId', 'location', 'collection', 'tags', 'isOpened', 'fillLevel'] as const;
     const result: Record<string, { before: string; after: string; changed: boolean }> = {};
-
     fields.forEach((field) => {
-      const isEnabled = enabledFields[field];
-      if (!isEnabled) {
-        result[field] = { before: '', after: '', changed: false };
-        return;
-      }
-
-      // Calculate Before
-      let beforeText = '';
+      if (!enabledFields[field]) { result[field] = { before: '', after: '', changed: false }; return; }
       const uniqueValues = new Set(selectedItems.map(b => {
-          const val = b[field as keyof InventoryItem];
-          if (field === 'tags' && Array.isArray(val)) return JSON.stringify([...val].sort());
-          return val;
+        const val = b[field as keyof InventoryItem];
+        if (field === 'tags' && Array.isArray(val)) return JSON.stringify([...val].sort());
+        return val;
       }));
-
+      let beforeText = '';
       if (uniqueValues.size > 1) {
         beforeText = t('bulk.mixed');
       } else {
         const val = Array.from(uniqueValues)[0];
-        if (field === 'cellarId') {
-          beforeText = cellars?.find(c => c.id === val)?.name || t('inventory.noCellar');
-        } else if (field === 'isOpened') {
-          beforeText = val ? t('inventory.sealedStatus.opened') : t('inventory.sealedStatus.sealed');
-        } else if (field === 'tags') {
-          beforeText = (JSON.parse(val as string) as string[]).join(', ') || t('status.empty');
-        } else {
-          beforeText = (val as string) || t('status.empty');
-        }
+        if (field === 'cellarId') beforeText = cellars?.find(c => c.id === val)?.name || t('inventory.noCellar');
+        else if (field === 'isOpened') beforeText = val ? t('inventory.sealedStatus.opened') : t('inventory.sealedStatus.sealed');
+        else if (field === 'tags') beforeText = (JSON.parse(val as string) as string[]).join(', ') || t('status.empty');
+        else beforeText = (val as string) || t('status.empty');
       }
-
-      // Calculate After
-      let afterText = '';
       const afterVal = values[field as keyof Partial<InventoryItem>];
-      if (field === 'cellarId') {
-        afterText = cellars?.find(c => c.id === afterVal)?.name || t('inventory.noCellar');
-      } else if (field === 'isOpened') {
-        afterText = afterVal ? t('inventory.sealedStatus.opened') : t('inventory.sealedStatus.sealed');
-      } else if (field === 'tags') {
-        afterText = (afterVal as string[]).join(', ') || t('status.empty');
-      } else {
-        afterText = (afterVal as string) || t('status.empty');
-      }
-
+      let afterText = '';
+      if (field === 'cellarId') afterText = cellars?.find(c => c.id === afterVal)?.name || t('inventory.noCellar');
+      else if (field === 'isOpened') afterText = afterVal ? t('inventory.sealedStatus.opened') : t('inventory.sealedStatus.sealed');
+      else if (field === 'tags') afterText = (afterVal as string[]).join(', ') || t('status.empty');
+      else afterText = (afterVal as string) || t('status.empty');
       result[field] = { before: beforeText, after: afterText, changed: true };
     });
-
     return result;
   }, [selectedItems, enabledFields, values, cellars, t]);
 
   const hasChanges = Object.values(enabledFields).some(v => v);
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle fontWeight="bold">
-        {t('bulk.title')}
-      </DialogTitle>
-      <DialogContent dividers>
-        <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 3 }}>
-          {t('bulk.subtitle', { count: selectedItems.length })}
-        </Typography>
+    <Modal isOpen={open} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="center" scrollBehavior="inside">
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader className="flex flex-col gap-0.5 pb-2">
+              <span className="font-bold text-base">{t('bulk.title')}</span>
+              <span className="text-xs text-default-500 font-normal">{t('bulk.subtitle', { count: selectedItems.length })}</span>
+            </ModalHeader>
 
-        {/* Presets Toggle */}
-        <Box sx={{ mb: 3 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-            <Typography variant="subtitle2" color="primary">
-              {t('bulk.presets')}
-            </Typography>
-            {presets && presets.length > 0 && (
-              <Select
-                size="small"
-                displayEmpty
-                value=""
-                onChange={(e) => {
-                  const p = presets.find(pr => pr.id === e.target.value);
-                  if (p) handleLoadPreset(p);
-                }}
-                sx={{ minWidth: 150 }}
+            <ModalBody className="gap-4 py-2">
+              {/* Presets row */}
+              {presets && presets.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-widest text-primary">{t('bulk.presets')}</span>
+                  <Select
+                    aria-label={t('bulk.loadPreset')}
+                    placeholder={t('bulk.loadPreset')}
+                    variant="bordered"
+                    size="sm"
+                    className="max-w-[180px]"
+                    onSelectionChange={(keys) => {
+                      const id = Array.from(keys)[0] as string;
+                      const p = presets.find(pr => pr.id === id);
+                      if (p) handleLoadPreset(p);
+                    }}
+                  >
+                    {presets.map(p => (
+                      <SelectItem
+                        key={p.id}
+                        endContent={
+                          <button
+                            className="text-danger hover:opacity-70"
+                            onClick={(e) => { e.stopPropagation(); deletePresetMutation.mutate(p.id); }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        }
+                      >
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                </div>
+              )}
+
+              <Divider />
+
+              <p className="text-xs font-semibold text-default-600">{t('bulk.fieldsToUpdate')}</p>
+
+              <div className="flex flex-col gap-3">
+                {/* Cellar */}
+                <div>
+                  <Checkbox
+                    isSelected={enabledFields.cellarId}
+                    onValueChange={() => toggleField('cellarId')}
+                    size="sm"
+                  >
+                    <span className="text-sm">{t('nav.caves')}</span>
+                  </Checkbox>
+                  {enabledFields.cellarId && (
+                    <Select
+                      aria-label={t('nav.caves')}
+                      label={t('nav.caves')}
+                      variant="bordered"
+                      size="sm"
+                      className="mt-2"
+                      selectedKeys={[values.cellarId ?? 'none']}
+                      onSelectionChange={(keys) => setField('cellarId', Array.from(keys)[0] === 'none' ? null : Array.from(keys)[0] as string)}
+                    >
+                      <>
+                        <SelectItem key="none"><em>{t('inventory.noCellar')}</em></SelectItem>
+                        {(cellars ?? []).map(c => <SelectItem key={c.id}>{c.name}</SelectItem>)}
+                      </>
+                    </Select>
+                  )}
+                </div>
+
+                {/* Location */}
+                <div>
+                  <Checkbox isSelected={enabledFields.location} onValueChange={() => toggleField('location')} size="sm">
+                    <span className="text-sm">{t('inventory.fields.location')}</span>
+                  </Checkbox>
+                  {enabledFields.location && (
+                    <Input
+                      label={t('inventory.fields.location')}
+                      variant="bordered"
+                      size="sm"
+                      className="mt-2"
+                      value={values.location ?? ''}
+                      onValueChange={(v) => setField('location', v)}
+                    />
+                  )}
+                </div>
+
+                {/* Collection */}
+                <div>
+                  <Checkbox isSelected={enabledFields.collection} onValueChange={() => toggleField('collection')} size="sm">
+                    <span className="text-sm">{t('inventory.fields.collection')}</span>
+                  </Checkbox>
+                  {enabledFields.collection && (
+                    <Input
+                      label={t('inventory.fields.collection')}
+                      variant="bordered"
+                      size="sm"
+                      className="mt-2"
+                      value={values.collection ?? ''}
+                      onValueChange={(v) => setField('collection', v)}
+                    />
+                  )}
+                </div>
+
+                {/* Tags */}
+                <div>
+                  <Checkbox isSelected={enabledFields.tags} onValueChange={() => toggleField('tags')} size="sm">
+                    <span className="text-sm">{t('inventory.fields.tags')}</span>
+                  </Checkbox>
+                  {enabledFields.tags && (
+                    <div className="mt-2">
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {(values.tags ?? []).map((tag, i) => (
+                          <Chip
+                            key={i}
+                            size="sm"
+                            variant="bordered"
+                            onClose={() => setField('tags', (values.tags ?? []).filter((_, idx) => idx !== i))}
+                          >
+                            {tag}
+                          </Chip>
+                        ))}
+                      </div>
+                      <Input
+                        aria-label={t('inventory.fields.tags')}
+                        placeholder={t('inventory.fields.tags') + '...'}
+                        variant="bordered"
+                        size="sm"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                            setField('tags', [...(values.tags ?? []), e.currentTarget.value.trim()]);
+                            e.currentTarget.value = '';
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* isOpened */}
+                <div>
+                  <Checkbox isSelected={enabledFields.isOpened} onValueChange={() => toggleField('isOpened')} size="sm">
+                    <span className="text-sm">{t('inventory.fields.isOpened')}</span>
+                  </Checkbox>
+                  {enabledFields.isOpened && (
+                    <Select
+                      aria-label={t('inventory.fields.isOpened')}
+                      label={t('inventory.fields.isOpened')}
+                      variant="bordered"
+                      size="sm"
+                      className="mt-2"
+                      selectedKeys={[values.isOpened ? 'opened' : 'sealed']}
+                      onSelectionChange={(keys) => setField('isOpened', Array.from(keys)[0] === 'opened')}
+                    >
+                      <SelectItem key="sealed">{t('inventory.sealedStatus.sealed')}</SelectItem>
+                      <SelectItem key="opened">{t('inventory.sealedStatus.opened')}</SelectItem>
+                    </Select>
+                  )}
+                </div>
+
+                {/* fillLevel */}
+                <div>
+                  <Checkbox isSelected={enabledFields.fillLevel} onValueChange={() => toggleField('fillLevel')} size="sm">
+                    <span className="text-sm">{t('inventory.fields.fillLevel')}</span>
+                  </Checkbox>
+                  {enabledFields.fillLevel && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {[100, 75, 50, 25, 0].map((v) => (
+                        <Chip
+                          key={v}
+                          size="sm"
+                          variant={values.fillLevel === v ? 'solid' : 'bordered'}
+                          color={values.fillLevel === v ? 'primary' : 'default'}
+                          className="cursor-pointer"
+                          onClick={() => setField('fillLevel', v)}
+                        >
+                          {v}%
+                        </Chip>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Preview */}
+              {hasChanges && (
+                <div className="bg-default-100 rounded-xl p-3">
+                  <p className="text-xs font-bold uppercase tracking-widest text-primary mb-2">{t('bulk.preview')}</p>
+                  <div className="flex flex-col gap-1.5">
+                    {Object.entries(summary).map(([field, data]) => {
+                      if (!data.changed) return null;
+                      return (
+                        <div key={field} className="flex items-center gap-2 text-xs">
+                          <span className="font-bold min-w-[80px] text-default-700">
+                            {field === 'cellarId' ? t('nav.caves') : t(`inventory.fields.${field}`)}:
+                          </span>
+                          <span className="line-through text-default-400">{data.before}</span>
+                          <span className="text-primary font-bold">→ {data.after}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Save preset */}
+              {hasChanges && (
+                <div>
+                  {!showSavePreset ? (
+                    <Button
+                      size="sm"
+                      variant="light"
+                      startContent={<Save size={14} />}
+                      onPress={() => setShowSavePreset(true)}
+                    >
+                      {t('bulk.savePreset')}
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        size="sm"
+                        variant="bordered"
+                        label={t('bulk.presetName')}
+                        value={presetName}
+                        onValueChange={setPresetName}
+                        className="flex-1"
+                      />
+                      <Button size="sm" color="primary" onPress={handleSavePreset} isDisabled={!presetName.trim()}>
+                        {t('actions.save')}
+                      </Button>
+                      <Button size="sm" variant="light" onPress={() => setShowSavePreset(false)}>
+                        {t('actions.cancel')}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </ModalBody>
+
+            <ModalFooter className="gap-2 pt-2">
+              <Button variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
+              <Button
+                color="primary"
+                onPress={handleApply}
+                isDisabled={!hasChanges || isSubmitting}
+                isLoading={isSubmitting}
               >
-                <MenuItem value="" disabled>{t('bulk.loadPreset')}</MenuItem>
-                {presets.map(p => (
-                  <MenuItem key={p.id} value={p.id} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    {p.name}
-                    <IconButton size="small" onClick={(e) => {
-                      e.stopPropagation();
-                      deletePresetMutation.mutate(p.id);
-                    }} sx={{ ml: 1 }}>
-                      <DeleteIcon fontSize="inherit" />
-                    </IconButton>
-                  </MenuItem>
-                ))}
-              </Select>
-            )}
-          </Stack>
-        </Box>
-
-        <Divider sx={{ mb: 3 }} />
-
-        <Typography variant="subtitle2" gutterBottom>
-          {t('bulk.fieldsToUpdate')}
-        </Typography>
-
-        <Stack spacing={2} sx={{ mb: 4 }}>
-          {/* Cellar */}
-          <Box>
-            <FormControlLabel
-              control={<Checkbox checked={enabledFields.cellarId} onChange={() => toggleField('cellarId')} />}
-              label={t('nav.caves')}
-            />
-            {enabledFields.cellarId && (
-              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-                <InputLabel>{t('nav.caves')}</InputLabel>
-                <Select
-                  value={values.cellarId || 'none'}
-                  label={t('nav.caves')}
-                  onChange={(e) => setField('cellarId', e.target.value === 'none' ? null : e.target.value)}
-                >
-                  <MenuItem value="none"><em>{t('inventory.noCellar')}</em></MenuItem>
-                  {cellars?.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-                </Select>
-              </FormControl>
-            )}
-          </Box>
-
-          {/* Location */}
-          <Box>
-            <FormControlLabel
-              control={<Checkbox checked={enabledFields.location} onChange={() => toggleField('location')} />}
-              label={t('inventory.fields.location')}
-            />
-            {enabledFields.location && (
-              <TextField
-                fullWidth size="small" sx={{ mt: 1 }}
-                label={t('inventory.fields.location')}
-                value={values.location}
-                onChange={(e) => setField('location', e.target.value)}
-              />
-            )}
-          </Box>
-
-          {/* Collection */}
-          <Box>
-            <FormControlLabel
-              control={<Checkbox checked={enabledFields.collection} onChange={() => toggleField('collection')} />}
-              label={t('inventory.fields.collection')}
-            />
-            {enabledFields.collection && (
-              <TextField
-                fullWidth size="small" sx={{ mt: 1 }}
-                label={t('inventory.fields.collection')}
-                value={values.collection}
-                onChange={(e) => setField('collection', e.target.value)}
-              />
-            )}
-          </Box>
-
-          {/* Tags */}
-          <Box>
-            <FormControlLabel
-              control={<Checkbox checked={enabledFields.tags} onChange={() => toggleField('tags')} />}
-              label={t('inventory.fields.tags')}
-            />
-            {enabledFields.tags && (
-              <Autocomplete
-                multiple
-                freeSolo
-                options={[]}
-                value={values.tags || []}
-                onChange={(_, newValue) => setField('tags', newValue)}
-                renderTags={(value: string[], getTagProps) =>
-                  value.map((option: string, index: number) => (
-                    <Chip variant="outlined" label={option} {...getTagProps({ index })} key={index} />
-                  ))
-                }
-                renderInput={(params) => (
-                  <TextField {...params} size="small" sx={{ mt: 1 }} label={t('inventory.fields.tags')} placeholder="..." />
-                )}
-              />
-            )}
-          </Box>
-
-          {/* isOpened */}
-          <Box>
-            <FormControlLabel
-              control={<Checkbox checked={enabledFields.isOpened} onChange={() => toggleField('isOpened')} />}
-              label={t('inventory.fields.isOpened')}
-            />
-            {enabledFields.isOpened && (
-              <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-                <InputLabel>{t('inventory.fields.isOpened')}</InputLabel>
-                <Select
-                  value={values.isOpened ? 'opened' : 'sealed'}
-                  label={t('inventory.fields.isOpened')}
-                  onChange={(e) => setField('isOpened', e.target.value === 'opened')}
-                >
-                  <MenuItem value="sealed">{t('inventory.sealedStatus.sealed')}</MenuItem>
-                  <MenuItem value="opened">{t('inventory.sealedStatus.opened')}</MenuItem>
-                </Select>
-              </FormControl>
-            )}
-          </Box>
-          {/* fillLevel */}
-          <Box>
-            <FormControlLabel
-              control={<Checkbox checked={enabledFields.fillLevel} onChange={() => toggleField('fillLevel')} />}
-              label={t('inventory.fields.fillLevel')}
-            />
-            {enabledFields.fillLevel && (
-              <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }} useFlexGap>
-                {[100, 75, 50, 25, 0].map((v) => (
-                  <Chip
-                    key={v}
-                    label={`${v}%`}
-                    onClick={() => setField('fillLevel', v)}
-                    color={values.fillLevel === v ? 'primary' : 'default'}
-                    variant={values.fillLevel === v ? 'filled' : 'outlined'}
-                    size="small"
-                  />
-                ))}
-              </Stack>
-            )}
-          </Box>
-        </Stack>
-
-        {/* Preview Section */}
-        {hasChanges && (
-          <Box sx={{ bgcolor: 'action.hover', p: 2, borderRadius: 2 }}>
-            <Typography variant="subtitle2" color="primary" gutterBottom>
-              {t('bulk.preview')}
-            </Typography>
-            <Stack spacing={1}>
-              {Object.entries(summary).map(([field, data]) => {
-                if (!data.changed) return null;
-                return (
-                  <Box key={field} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="caption" sx={{ minWidth: 80, fontWeight: 'bold' }}>
-                      {field === 'cellarId' ? t('nav.caves') : t(`inventory.fields.${field}`)} :
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ textDecoration: 'line-through' }}>
-                      {data.before}
-                    </Typography>
-                    <Typography variant="caption" color="primary" fontWeight="bold">
-                      → {data.after}
-                    </Typography>
-                  </Box>
-                );
-              })}
-            </Stack>
-          </Box>
-        )}
-
-        {/* Save Preset Section */}
-        {hasChanges && (
-          <Box sx={{ mt: 3 }}>
-            {!showSavePreset ? (
-              <Button size="small" startIcon={<SaveIcon />} onClick={() => setShowSavePreset(true)}>
-                {t('bulk.savePreset')}
+                {t('bulk.apply')}
               </Button>
-            ) : (
-              <Stack direction="row" spacing={1} alignItems="center">
-                <TextField
-                  size="small"
-                  label={t('bulk.presetName')}
-                  value={presetName}
-                  onChange={(e) => setPresetName(e.target.value)}
-                  sx={{ flexGrow: 1 }}
-                />
-                <Button variant="contained" size="small" onClick={handleSavePreset} disabled={!presetName.trim()}>
-                  {t('actions.save')}
-                </Button>
-                <Button size="small" onClick={() => setShowSavePreset(false)}>
-                  {t('actions.cancel')}
-                </Button>
-              </Stack>
-            )}
-          </Box>
+            </ModalFooter>
+          </>
         )}
-      </DialogContent>
-      <DialogActions sx={{ p: 2 }}>
-        <Button onClick={onClose} color="inherit">{t('actions.cancel')}</Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleApply}
-          disabled={!hasChanges || isSubmitting}
-        >
-          {isSubmitting ? t('status.saving') : t('bulk.apply')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      </ModalContent>
+    </Modal>
   );
 }

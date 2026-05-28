@@ -3,22 +3,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useCellars } from '@/hooks/useCellars';
 import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { Button, Chip, Divider, Slider, Tooltip } from '@heroui/react';
 import {
-  Box, Typography, IconButton, Chip, Slider, Button, Drawer,
-  Divider, Tooltip, CircularProgress,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import EditIcon from '@mui/icons-material/Edit';
-import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
-import ThermostatIcon from '@mui/icons-material/Thermostat';
-import PlaceIcon from '@mui/icons-material/Place';
-import WaterDropIcon from '@mui/icons-material/WaterDrop';
-import LocalBarIcon from '@mui/icons-material/LocalBar';
-import CollectionsBookmarkIcon from '@mui/icons-material/CollectionsBookmark';
-import WineBarIcon from '@mui/icons-material/WineBar';
-import SportsMmaIcon from '@mui/icons-material/SportsMma';
-import GrassIcon from '@mui/icons-material/Grass';
-import BubbleChartIcon from '@mui/icons-material/BubbleChart';
+  X, Pencil, Flame, Thermometer, MapPin, Droplets,
+  Wine, BookMarked, Dumbbell, Leaf, Sparkles,
+} from 'lucide-react';
 import { InventoryItem, InventoryCategory, InventoryHistoryEntry } from '@/lib/inventory/types';
 import { TastingForm } from '@/components/tastings/TastingForm';
 
@@ -30,13 +19,11 @@ const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
 };
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
-  wine: <WineBarIcon sx={{ fontSize: 64, opacity: 0.2, color: '#fff' }} />,
-  sparkling: <BubbleChartIcon sx={{ fontSize: 64, opacity: 0.2, color: '#fff' }} />,
-  spirit: <SportsMmaIcon sx={{ fontSize: 64, opacity: 0.2, color: '#fff' }} />,
-  cigar: <GrassIcon sx={{ fontSize: 64, opacity: 0.2, color: '#fff' }} />,
+  wine: <Wine size={64} className="opacity-20 text-white" />,
+  sparkling: <Sparkles size={64} className="opacity-20 text-white" />,
+  spirit: <Dumbbell size={64} className="opacity-20 text-white" />,
+  cigar: <Leaf size={64} className="opacity-20 text-white" />,
 };
-
-const DRAWER_WIDTH = 400;
 
 interface InfoCardProps {
   icon: React.ReactElement;
@@ -47,29 +34,18 @@ interface InfoCardProps {
 
 function InfoCard({ icon, label, value, valueColor }: InfoCardProps) {
   return (
-    <Box
-      sx={{
-        p: 1.5,
-        border: '1px solid',
-        borderColor: 'divider',
-        borderRadius: 2,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 0.5,
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        {React.cloneElement(icon, { sx: { fontSize: 14, color: 'text.secondary' } })}
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.08rem', textTransform: 'uppercase', color: 'text.secondary' }}>
-          {label}
-        </Typography>
-      </Box>
-      <Typography
-        sx={{ fontSize: '0.85rem', fontWeight: 700, color: valueColor ?? 'text.primary', lineHeight: 1.2 }}
+    <div className="p-3 border border-divider rounded-xl flex flex-col gap-1">
+      <div className="flex items-center gap-1">
+        {React.cloneElement(icon, { size: 13, className: 'text-default-400 shrink-0' })}
+        <span className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">{label}</span>
+      </div>
+      <span
+        className="text-[0.85rem] font-bold leading-tight"
+        style={valueColor ? { color: valueColor } : undefined}
       >
         {value}
-      </Typography>
-    </Box>
+      </span>
+    </div>
   );
 }
 
@@ -121,8 +97,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
     [handleFillCommit]
   );
 
-  if (!item) return null;
-  if (!d) return null;
+  if (!item || !d) return null;
 
   const cellarName = d.cellarId ? cellars?.find((c) => c.id === d.cellarId)?.name ?? null : null;
   const isWineOrSparkling = d.category === 'wine' || d.category === 'sparkling';
@@ -143,12 +118,9 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
     ? t('inventory.detail.wineLevel')
     : t('inventory.detail.spiritLevel');
 
-  const fullLabel = isCigar ? t('inventory.detail.full') : t('inventory.detail.full');
+  const fullLabel = t('inventory.detail.full');
   const halfLabel = t('inventory.detail.half');
   const emptyLabel = t('inventory.detail.empty');
-
-  const fmt = (s: string | null | undefined) =>
-    s && hasMounted ? new Date(s).toLocaleDateString() : null;
 
   const formatHistoryEntry = (entry: InventoryHistoryEntry): string => {
     if (!entry.changes || entry.changes.length === 0) {
@@ -165,354 +137,273 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
 
   return (
     <>
-      <Drawer
-        anchor="right"
-        open={open}
-        onClose={onClose}
-        PaperProps={{
-          sx: { width: { xs: '100%', sm: DRAWER_WIDTH }, display: 'flex', flexDirection: 'column' },
-        }}
-      >
-        {/* ── Header ─────────────────────────────────────────── */}
-        <Box sx={{ px: 3, pt: 2.5, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Typography
-            sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'secondary.main', mb: 0.25 }}
-          >
-            {isCigar ? t('inventory.detail.titleCigar') : t('inventory.detail.titleWine')}
-          </Typography>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2, pr: 4 }}>
-              {d.name}
-            </Typography>
-            <IconButton size="small" onClick={onClose} sx={{ flexShrink: 0 }}>
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        </Box>
+      {open && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-        {/* ── Scrollable body ─────────────────────────────────── */}
-        <Box sx={{ flex: 1, overflowY: 'auto' }}>
-          {/* Fill level section */}
-          <Box sx={{ px: 3, pt: 2.5 }}>
-            <Typography
-              sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary', mb: 2, textAlign: 'center' }}
-            >
-              {sectionLabel}
-            </Typography>
-
-            {/* Image + fill badge */}
-            <Box
-              sx={{
-                position: 'relative',
-                height: 160,
-                borderRadius: 2,
-                overflow: 'hidden',
-                mb: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: d.photoUrl ? 'none' : PLACEHOLDER_BG[d.category],
-                bgcolor: d.photoUrl ? 'background.default' : undefined,
-                border: '1px solid',
-                borderColor: 'divider',
-              }}
-            >
-              {d.photoUrl ? (
-                <Box
-                  component="img"
-                  src={d.photoUrl}
-                  alt={d.name}
-                  sx={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
-                />
-              ) : (
-                CATEGORY_ICONS_LG[d.category]
-              )}
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 10,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  bgcolor: localFill <= 20 ? 'error.main' : '#111',
-                  color: '#fff',
-                  borderRadius: 2,
-                  px: 1,
-                  py: 0.35,
-                  fontSize: '0.75rem',
-                  fontWeight: 800,
-                  letterSpacing: '.03rem',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {localFill}%
-              </Box>
-            </Box>
-
-            {/* Slider */}
-            <Box sx={{ mb: 0.5 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography variant="body2" color="text.secondary">
-                  {isCigar ? t('inventory.detail.levelCigar') : t('inventory.detail.levelWine')}
-                </Typography>
-                <Typography variant="body2" color="primary" fontWeight={700}>
-                  {localFill}%
-                </Typography>
-              </Box>
-              <Slider
-                value={localFill}
-                onChange={(_, v) => setLocalFill(v as number)}
-                onChangeCommitted={(_, v) => handleFillCommit(v as number)}
-                min={0}
-                max={100}
-                step={1}
-                disabled={updateMutation.isPending}
-                sx={{ py: 1 }}
-              />
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: -1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  {t('inventory.detail.empty')} (0%)
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  {isCigar ? t('inventory.detail.inUse') : t('inventory.detail.opened')}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  {fullLabel} (100%)
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* Preset buttons */}
-            <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-              {[
-                { label: fullLabel, value: 100 },
-                { label: halfLabel, value: 50 },
-                { label: emptyLabel, value: 0 },
-              ].map(({ label, value }) => (
-                <Button
-                  key={value}
-                  variant={localFill === value ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => handlePreset(value)}
-                  disabled={updateMutation.isPending}
-                  sx={{ flex: 1, py: 0.75, fontSize: '0.75rem' }}
+          {/* Drawer panel */}
+          <div className="relative w-full sm:w-[400px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl">
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
+              <p className="text-[0.6rem] font-bold uppercase tracking-widest text-secondary mb-0.5">
+                {isCigar ? t('inventory.detail.titleCigar') : t('inventory.detail.titleWine')}
+              </p>
+              <div className="flex justify-between items-start">
+                <h2 className="text-lg font-bold leading-tight pr-8">{d.name}</h2>
+                <button
+                  onClick={onClose}
+                  className="shrink-0 p-1 rounded-lg hover:bg-default-100 transition-colors"
+                  aria-label="Close"
                 >
-                  {label}
-                </Button>
-              ))}
-            </Box>
-          </Box>
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
 
-          <Divider sx={{ my: 2.5 }} />
+            {/* Scrollable body */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Fill level section */}
+              <div className="px-5 pt-5">
+                <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-3 text-center">
+                  {sectionLabel}
+                </p>
 
-          {/* Info cards grid */}
-          <Box sx={{ px: 3 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5, mb: 2.5 }}>
-              {drinkingWindow && (
-                <InfoCard
-                  icon={<LocalFireDepartmentIcon />}
-                  label={isCigar ? t('inventory.detail.agingEstimate') : t('inventory.fields.peakMaturity')}
-                  value={drinkingWindow}
-                  valueColor="#B45309"
-                />
-              )}
-              {d.serviceTemp && (
-                <InfoCard
-                  icon={<ThermostatIcon />}
-                  label={isCigar ? t('inventory.fields.serviceTemp') + ' garde' : t('inventory.fields.serviceTemp')}
-                  value={d.serviceTemp}
-                />
-              )}
-              {isCigar && d.recommendedHumidity != null && (
-                <InfoCard
-                  icon={<WaterDropIcon />}
-                  label={t('inventory.fields.recommendedHumidity')}
-                  value={`${d.recommendedHumidity}% HR`}
-                />
-              )}
-              {cellarName && (
-                <InfoCard
-                  icon={<PlaceIcon />}
-                  label={t('inventory.detail.location')}
-                  value={d.location ? `${cellarName} · ${d.location}` : cellarName}
-                  valueColor="#7B1E30"
-                />
-              )}
-            </Box>
-
-            {/* Cigar vitole section */}
-            {isCigar && (d.format || d.quantity) && (
-              <>
-                <Typography
-                  sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary', mb: 1.5 }}
+                {/* Image + fill badge */}
+                <div
+                  className="relative h-40 rounded-xl overflow-hidden mb-3 flex items-center justify-center border border-divider"
+                  style={d.photoUrl ? undefined : { background: PLACEHOLDER_BG[d.category] }}
                 >
-                  {t('inventory.detail.vitole')}
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, mb: 2.5 }}>
-                  {d.format && (
-                    <Box sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
-                      <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', display: 'block', mb: 0.25 }}>
-                        {t('inventory.fields.format')}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{d.format}</Typography>
-                    </Box>
+                  {d.photoUrl ? (
+                    <img src={d.photoUrl} alt={d.name} className="max-h-full max-w-full object-contain" />
+                  ) : (
+                    CATEGORY_ICONS_LG[d.category]
                   )}
-                  {d.quantity != null && (
-                    <Box sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
-                      <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', display: 'block', mb: 0.25 }}>
-                        {t('inventory.fields.quantity')}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{d.quantity}</Typography>
-                    </Box>
-                  )}
-                  {d.recommendedHumidity != null && (
-                    <Box sx={{ p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
-                      <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', display: 'block', mb: 0.25 }}>
-                        {t('inventory.fields.recommendedHumidity')}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{d.recommendedHumidity}%</Typography>
-                    </Box>
-                  )}
-                </Box>
-              </>
-            )}
+                  <div
+                    className={`absolute top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-lg text-xs font-extrabold text-white whitespace-nowrap tracking-wide ${localFill <= 20 ? 'bg-danger' : 'bg-[#111]'}`}
+                  >
+                    {localFill}%
+                  </div>
+                </div>
 
-            {/* Notes */}
-            {d.notes && (
-              <>
-                <Typography
-                  sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary', mb: 1 }}
-                >
-                  {isCigar ? t('inventory.detail.tastingNotes') : t('inventory.detail.sommelierNotes')}
-                </Typography>
-                <Box
-                  sx={{
-                    p: 2,
-                    bgcolor: 'action.hover',
-                    borderRadius: 2,
-                    mb: 2.5,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                  }}
-                >
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: 'text.secondary', fontStyle: 'italic', lineHeight: 1.6 }}>
-                    {d.notes}
-                  </Typography>
-                </Box>
-              </>
-            )}
+                {/* Slider */}
+                <div className="mb-1">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-sm text-default-500">
+                      {isCigar ? t('inventory.detail.levelCigar') : t('inventory.detail.levelWine')}
+                    </span>
+                    <span className="text-sm text-primary font-bold">{localFill}%</span>
+                  </div>
+                  <Slider
+                    value={localFill}
+                    onChange={(v) => setLocalFill(v as number)}
+                    onChangeEnd={(v) => handleFillCommit(v as number)}
+                    minValue={0}
+                    maxValue={100}
+                    step={1}
+                    color="primary"
+                    size="sm"
+                    isDisabled={updateMutation.isPending}
+                    className="py-2"
+                  />
+                  <div className="flex justify-between -mt-1">
+                    <span className="text-[0.65rem] text-default-400">{t('inventory.detail.empty')} (0%)</span>
+                    <span className="text-[0.65rem] text-default-400">
+                      {isCigar ? t('inventory.detail.inUse') : t('inventory.detail.opened')}
+                    </span>
+                    <span className="text-[0.65rem] text-default-400">{fullLabel} (100%)</span>
+                  </div>
+                </div>
 
-            {/* Collections */}
-            {d.collections && d.collections.length > 0 && (
-              <>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
-                  <CollectionsBookmarkIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary' }}>
-                    {t('collections.title')}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 2.5 }}>
-                  {d.collections.map((col) => (
-                    <Chip
-                      key={col.id}
-                      label={`${col.icon ? col.icon + ' ' : ''}${col.name}`}
-                      size="small"
-                      sx={{
-                        bgcolor: `${col.color}22`,
-                        borderColor: col.color,
-                        color: col.color,
-                        border: '1px solid',
-                      }}
-                    />
-                  ))}
-                </Box>
-              </>
-            )}
-
-            {/* History */}
-            {history && history.length > 0 && (
-              <>
-                <Typography
-                  sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '.1rem', textTransform: 'uppercase', color: 'text.secondary', mb: 1.25 }}
-                >
-                  {t('traceability.title')}
-                </Typography>
-                <Box sx={{ mb: 3 }}>
-                  {history.slice(0, 10).map((entry) => (
-                    <Box
-                      key={entry.id}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        py: 0.75,
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                        '&:last-child': { borderBottom: 'none' },
-                      }}
+                {/* Preset buttons */}
+                <div className="flex gap-2 mt-3">
+                  {[
+                    { label: fullLabel, value: 100 },
+                    { label: halfLabel, value: 50 },
+                    { label: emptyLabel, value: 0 },
+                  ].map(({ label, value }) => (
+                    <Button
+                      key={value}
+                      variant={localFill === value ? 'solid' : 'bordered'}
+                      color={localFill === value ? 'primary' : 'default'}
+                      size="sm"
+                      onPress={() => handlePreset(value)}
+                      isDisabled={updateMutation.isPending}
+                      className="flex-1 text-xs py-3"
                     >
-                      <Box
-                        sx={{
-                          px: 1,
-                          py: 0.25,
-                          borderRadius: 1.5,
-                          bgcolor: 'primary.main',
-                          color: '#fff',
-                          fontSize: '0.65rem',
-                          fontWeight: 700,
-                          flexShrink: 0,
-                          maxWidth: 80,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {entry.actorName}
-                      </Box>
-                      <Typography variant="caption" sx={{ flex: 1, color: 'text.secondary', fontSize: '0.7rem' }}>
-                        {formatHistoryEntry(entry)}
-                      </Typography>
-                      <Typography variant="caption" color="text.disabled" sx={{ flexShrink: 0, fontSize: '0.65rem' }}>
-                        {hasMounted ? new Date(entry.createdAt).toLocaleDateString() : ''}
-                      </Typography>
-                    </Box>
+                      {label}
+                    </Button>
                   ))}
-                </Box>
-              </>
-            )}
-          </Box>
-        </Box>
+                </div>
+              </div>
 
-        {/* ── Footer ─────────────────────────────────────────── */}
-        <Box
-          sx={{
-            px: 3,
-            py: 2,
-            borderTop: '1px solid',
-            borderColor: 'divider',
-            display: 'flex',
-            gap: 1,
-          }}
-        >
-          <Button
-            variant="outlined"
-            color="secondary"
-            startIcon={<LocalBarIcon />}
-            onClick={() => setTastingOpen(true)}
-            size="small"
-          >
-            {t('tastings.logTasting')}
-          </Button>
-          <Box sx={{ flex: 1 }} />
-          <Button
-            variant="contained"
-            startIcon={<EditIcon />}
-            onClick={() => { onClose(); onEdit(item); }}
-            size="small"
-          >
-            {t('actions.edit')}
-          </Button>
-        </Box>
-      </Drawer>
+              <Divider className="my-5" />
+
+              {/* Info cards grid */}
+              <div className="px-5">
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  {drinkingWindow && (
+                    <InfoCard
+                      icon={<Flame />}
+                      label={isCigar ? t('inventory.detail.agingEstimate') : t('inventory.fields.peakMaturity')}
+                      value={drinkingWindow}
+                      valueColor="#B45309"
+                    />
+                  )}
+                  {d.serviceTemp && (
+                    <InfoCard
+                      icon={<Thermometer />}
+                      label={isCigar ? t('inventory.fields.serviceTemp') + ' garde' : t('inventory.fields.serviceTemp')}
+                      value={d.serviceTemp}
+                    />
+                  )}
+                  {isCigar && d.recommendedHumidity != null && (
+                    <InfoCard
+                      icon={<Droplets />}
+                      label={t('inventory.fields.recommendedHumidity')}
+                      value={`${d.recommendedHumidity}% HR`}
+                    />
+                  )}
+                  {cellarName && (
+                    <InfoCard
+                      icon={<MapPin />}
+                      label={t('inventory.detail.location')}
+                      value={d.location ? `${cellarName} · ${d.location}` : cellarName}
+                      valueColor="#7B1E30"
+                    />
+                  )}
+                </div>
+
+                {/* Cigar vitole section */}
+                {isCigar && (d.format || d.quantity) && (
+                  <>
+                    <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-3">
+                      {t('inventory.detail.vitole')}
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 mb-5">
+                      {d.format && (
+                        <div className="p-2 border border-divider rounded-xl">
+                          <span className="text-[0.55rem] font-bold uppercase text-default-400 block mb-0.5">
+                            {t('inventory.fields.format')}
+                          </span>
+                          <span className="text-[0.8rem] font-bold">{d.format}</span>
+                        </div>
+                      )}
+                      {d.quantity != null && (
+                        <div className="p-2 border border-divider rounded-xl">
+                          <span className="text-[0.55rem] font-bold uppercase text-default-400 block mb-0.5">
+                            {t('inventory.fields.quantity')}
+                          </span>
+                          <span className="text-[0.8rem] font-bold">{d.quantity}</span>
+                        </div>
+                      )}
+                      {d.recommendedHumidity != null && (
+                        <div className="p-2 border border-divider rounded-xl">
+                          <span className="text-[0.55rem] font-bold uppercase text-default-400 block mb-0.5">
+                            {t('inventory.fields.recommendedHumidity')}
+                          </span>
+                          <span className="text-[0.8rem] font-bold">{d.recommendedHumidity}%</span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Notes */}
+                {d.notes && (
+                  <>
+                    <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+                      {isCigar ? t('inventory.detail.tastingNotes') : t('inventory.detail.sommelierNotes')}
+                    </p>
+                    <div className="p-3 bg-default-50 rounded-xl mb-5 border border-divider">
+                      <p className="text-sm text-default-500 italic leading-relaxed whitespace-pre-wrap">
+                        {d.notes}
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {/* Collections */}
+                {d.collections && d.collections.length > 0 && (
+                  <>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <BookMarked size={13} className="text-default-400" />
+                      <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
+                        {t('collections.title')}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-5">
+                      {d.collections.map((col) => (
+                        <Chip
+                          key={col.id}
+                          size="sm"
+                          variant="bordered"
+                          style={{
+                            backgroundColor: `${col.color}22`,
+                            borderColor: col.color,
+                            color: col.color,
+                          }}
+                        >
+                          {col.icon ? `${col.icon} ` : ''}{col.name}
+                        </Chip>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* History */}
+                {history && history.length > 0 && (
+                  <>
+                    <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-3">
+                      {t('traceability.title')}
+                    </p>
+                    <div className="mb-6">
+                      {history.slice(0, 10).map((entry) => (
+                        <div
+                          key={entry.id}
+                          className="flex items-center gap-2 py-2 border-b border-divider last:border-b-0"
+                        >
+                          <span className="px-2 py-0.5 rounded-md bg-primary text-white text-[0.65rem] font-bold shrink-0 max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
+                            {entry.actorName}
+                          </span>
+                          <span className="flex-1 text-[0.7rem] text-default-500">
+                            {formatHistoryEntry(entry)}
+                          </span>
+                          <span className="shrink-0 text-[0.65rem] text-default-300">
+                            {hasMounted ? new Date(entry.createdAt).toLocaleDateString() : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-divider flex gap-2 shrink-0">
+              <Button
+                variant="bordered"
+                color="secondary"
+                startContent={<Wine size={15} />}
+                onPress={() => setTastingOpen(true)}
+                size="sm"
+              >
+                {t('tastings.logTasting')}
+              </Button>
+              <div className="flex-1" />
+              <Button
+                color="primary"
+                startContent={<Pencil size={15} />}
+                onPress={() => { onClose(); onEdit(item); }}
+                size="sm"
+              >
+                {t('actions.edit')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <TastingForm
         open={tastingOpen}

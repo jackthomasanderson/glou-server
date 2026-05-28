@@ -1,21 +1,14 @@
 'use client';
 import React, { useState } from 'react';
-import {
-  Box, Typography, Chip, IconButton, Skeleton, Collapse,
-  List, ListItem, ListItemText, ListItemSecondaryAction,
-  Tooltip, Paper, Stack, Divider,
-} from '@mui/material';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import { Chip, Skeleton, Tooltip, Button } from '@heroui/react';
+import { Bell, BellOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAlerts, useToggleAlertPause } from '@/hooks/useAlerts';
 import { AlertBottle } from '@/lib/alerts/client';
 
-const STATUS_COLOR: Record<string, 'error' | 'success' | 'info' | 'default'> = {
-  past: 'error',
+const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'> = {
+  past: 'danger',
   peak: 'success',
-  approaching: 'info',
+  approaching: 'primary',
 };
 
 interface AlertCenterProps {
@@ -29,10 +22,10 @@ export function AlertCenter({ t }: AlertCenterProps) {
 
   if (isLoading) {
     return (
-      <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-        <Skeleton variant="text" width={200} height={32} />
-        <Skeleton variant="rounded" height={60} sx={{ mt: 1 }} />
-      </Paper>
+      <div className="border border-default-200 rounded-xl p-4 mb-6">
+        <Skeleton className="rounded w-48 h-8 mb-3" />
+        <Skeleton className="rounded w-full h-16" />
+      </div>
     );
   }
 
@@ -41,87 +34,98 @@ export function AlertCenter({ t }: AlertCenterProps) {
   const pastCount = alerts.filter((a) => a.alertStatus === 'past').length;
   const peakCount = alerts.filter((a) => a.alertStatus === 'peak').length;
 
+  const headerBg =
+    pastCount > 0
+      ? 'bg-danger'
+      : peakCount > 0
+      ? 'bg-success'
+      : 'bg-primary';
+
   return (
-    <Paper variant="outlined" sx={{ mb: 3, borderRadius: 2, overflow: 'hidden' }}>
+    <div className="border border-default-200 rounded-xl overflow-hidden mb-6">
       {/* Header */}
-      <Box
-        sx={{
-          px: 2, py: 1.5,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          bgcolor: pastCount > 0 ? 'error.main' : peakCount > 0 ? 'success.main' : 'info.main',
-          color: 'white',
-          cursor: 'pointer',
-        }}
+      <button
+        type="button"
+        className={`w-full flex items-center justify-between px-4 py-3 text-white cursor-pointer ${headerBg}`}
         onClick={() => setIsOpen((v) => !v)}
       >
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <NotificationsIcon />
-          <Typography variant="subtitle1" fontWeight={700}>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Bell size={18} />
+          <span className="text-sm font-bold">
             {t('alerts.title')} ({alerts.length})
-          </Typography>
+          </span>
           {pastCount > 0 && (
-            <Chip label={t('alerts.pastCount', { count: pastCount })} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.25)', color: 'white' }} />
+            <Chip
+              size="sm"
+              classNames={{ base: 'bg-white/25', content: 'text-white text-xs' }}
+            >
+              {t('alerts.pastCount', { count: pastCount })}
+            </Chip>
           )}
           {peakCount > 0 && (
-            <Chip label={t('alerts.peakCount', { count: peakCount })} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.25)', color: 'white' }} />
+            <Chip
+              size="sm"
+              classNames={{ base: 'bg-white/25', content: 'text-white text-xs' }}
+            >
+              {t('alerts.peakCount', { count: peakCount })}
+            </Chip>
           )}
-        </Stack>
-        {isOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-      </Box>
+        </div>
+        {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+      </button>
 
       {/* Alert list */}
-      <Collapse in={isOpen}>
-        <List dense disablePadding>
-          {alerts.map((bottle: AlertBottle, idx: number) => (
-            <React.Fragment key={bottle.id}>
-              {idx > 0 && <Divider component="li" />}
-              <ListItem
-                sx={{
-                  py: 1.5, px: 2,
-                  bgcolor: bottle.alertStatus === 'past' ? 'error.50' : 'transparent',
-                }}
+      {isOpen && (
+        <ul className="divide-y divide-default-100">
+          {alerts.map((bottle: AlertBottle) => (
+            <li
+              key={bottle.id}
+              className={`flex items-center justify-between px-4 py-3 gap-3${
+                bottle.alertStatus === 'past' ? ' bg-danger-50' : ''
+              }`}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center flex-wrap gap-2">
+                  <span className="text-sm font-semibold truncate">{bottle.name}</span>
+                  <span className="text-sm text-default-400 truncate">
+                    {bottle.producer}
+                    {bottle.vintage ? ` · ${bottle.vintage}` : ''}
+                  </span>
+                  <Chip
+                    size="sm"
+                    color={STATUS_COLOR[bottle.alertStatus ?? 'none'] ?? 'default'}
+                  >
+                    {t(`inventory.alertStatus.${bottle.alertStatus ?? 'none'}`)}
+                  </Chip>
+                </div>
+                {bottle.peakMaturityFrom && bottle.peakMaturityTo && (
+                  <p className="text-xs text-default-400 mt-0.5">
+                    {t('alerts.window')}: {bottle.peakMaturityFrom} – {bottle.peakMaturityTo}
+                  </p>
+                )}
+              </div>
+
+              <Tooltip
+                content={bottle.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')}
+                delay={500}
               >
-                <ListItemText
-                  primary={
-                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                      <Typography variant="body2" fontWeight={600} noWrap>
-                        {bottle.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" noWrap>
-                        {bottle.producer}
-                        {bottle.vintage ? ` · ${bottle.vintage}` : ''}
-                      </Typography>
-                      <Chip
-                        label={t(`inventory.alertStatus.${bottle.alertStatus ?? 'none'}`)}
-                        size="small"
-                        color={STATUS_COLOR[bottle.alertStatus ?? 'none'] ?? 'default'}
-                      />
-                    </Stack>
-                  }
-                  secondary={
-                    bottle.peakMaturityFrom && bottle.peakMaturityTo
-                      ? `${t('alerts.window')}: ${bottle.peakMaturityFrom} – ${bottle.peakMaturityTo}`
-                      : undefined
-                  }
-                />
-                <ListItemSecondaryAction>
-                  <Tooltip title={bottle.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')}>
-                    <IconButton
-                      edge="end"
-                      size="small"
-                      onClick={() => togglePause.mutate(bottle.id)}
-                      disabled={togglePause.isPending}
-                      color={bottle.alertsPaused ? 'default' : 'primary'}
-                    >
-                      {bottle.alertsPaused ? <NotificationsOffIcon fontSize="small" /> : <NotificationsIcon fontSize="small" />}
-                    </IconButton>
-                  </Tooltip>
-                </ListItemSecondaryAction>
-              </ListItem>
-            </React.Fragment>
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="light"
+                  color={bottle.alertsPaused ? 'default' : 'primary'}
+                  onPress={() => togglePause.mutate(bottle.id)}
+                  isDisabled={togglePause.isPending}
+                  aria-label={bottle.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')}
+                  className="shrink-0"
+                >
+                  {bottle.alertsPaused ? <BellOff size={16} /> : <Bell size={16} />}
+                </Button>
+              </Tooltip>
+            </li>
           ))}
-        </List>
-      </Collapse>
-    </Paper>
+        </ul>
+      )}
+    </div>
   );
 }
