@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 import { BulkPresetCreate } from '../schemas/bulk-preset.schema';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -16,7 +17,7 @@ export class BulkPresetService {
         id: uuidv4(),
         userId,
         name: data.name,
-        payload: data.payload as any, // Json type
+        payload: data.payload as Prisma.InputJsonValue,
       },
     });
   }

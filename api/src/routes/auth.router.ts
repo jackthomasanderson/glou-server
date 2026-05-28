@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import { registerSchema, loginSchema } from '../schemas/auth.schema';
-import { authService, COOKIE_NAME, COOKIE_OPTIONS } from '../services/auth.service';
+import jwt from 'jsonwebtoken';
+import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema } from '../schemas/auth.schema';
+import { authService, COOKIE_NAME, COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { auditLog } from '../services/audit.service';
 
@@ -36,7 +37,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = loginSchema.parse(req.body);
-    const result = await authService.login(data) as any;
+    const result: LoginResult = await authService.login(data);
     const user = result.user;
     const token = result.token;
     const requires2fa = result.requires2fa;
@@ -79,7 +80,7 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
     let userId = '';
     try {
       // Decode the pending token to extract userId
-      const payload = require('jsonwebtoken').verify(pendingToken, secret) as any;
+      const payload = jwt.verify(pendingToken, secret) as { scope?: string; userId: string };
       if (payload.scope !== '2fa_pending') {
         throw new Error('NOT_A_PENDING_TOKEN');
       }
@@ -89,7 +90,7 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const { code } = require('../schemas/auth.schema').verify2faSchema.parse(req.body);
+    const { code } = verify2faSchema.parse(req.body);
     const { user, token } = await authService.verifyTwoFactorLogin(userId, code);
 
     res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
@@ -121,7 +122,7 @@ router.post('/2fa/generate', authMiddleware, async (req: Request, res: Response)
 
 router.post('/2fa/turn-on', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { code } = require('../schemas/auth.schema').turnOn2faSchema.parse(req.body);
+    const { code } = turnOn2faSchema.parse(req.body);
     const data = await authService.turnOnTwoFactorAuthentication(req.userId, code);
     res.json({ data });
   } catch (error) {
@@ -138,7 +139,7 @@ router.post('/2fa/turn-on', authMiddleware, async (req: Request, res: Response):
 
 router.post('/2fa/turn-off', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { password, code } = require('../schemas/auth.schema').turnOff2faSchema.parse(req.body);
+    const { password, code } = turnOff2faSchema.parse(req.body);
     await authService.turnOffTwoFactorAuthentication(req.userId, password, code);
     res.json({ data: { success: true } });
   } catch (error) {

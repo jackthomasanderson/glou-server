@@ -36,7 +36,7 @@ export const turnOn2faSchema = z.object({
 
 export const turnOff2faSchema = z.object({
   password: z.string().min(1, 'PASSWORD_REQUIRED'),
-  code: z.string().min(6).max(6, 'INVALID_CODE_LENGTH').optional() // code optional if user uses a backup code? But standard is we require a TOTP code to turn it off or a backup code, length 6 or 10. Let's say min 6, max 10.
+  code: z.string().min(6).max(8, 'INVALID_CODE_LENGTH').optional(),
 });
 
 export const verify2faSchema = z.object({

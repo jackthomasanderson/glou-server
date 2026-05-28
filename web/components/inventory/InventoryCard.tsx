@@ -219,7 +219,7 @@ export function InventoryCard({
               <div className="flex items-center gap-0.5 overflow-hidden min-w-0">
                 <AlertTriangle size={12} className={`shrink-0 ${alertIconColor}`} />
                 <span className="text-[0.65rem] text-default-400 truncate">
-                  Apogée : {drinkingWindow}
+                  {t('view.columns.peak')} : {drinkingWindow}
                 </span>
               </div>
             </Tooltip>

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { CellarService } from '../services/cellar.service';
 import { createCellarSchema, updateCellarSchema } from '../schemas/cellar.schema';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { auditLog } from '../services/audit.service';
 
 const router = Router();
@@ -18,7 +18,7 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const cellars = await CellarService.listCellars(userId);
     res.json({ data: cellars });
-  } catch (err: any) {
+  } catch (err: unknown) {
     res.status(500).json({ error: 'FAILED_TO_FETCH_CELLARS' });
   }
 });
@@ -36,7 +36,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
     }
     res.json({ data: cellar });
-  } catch (err: any) {
+  } catch (err: unknown) {
     res.status(500).json({ error: 'FAILED_TO_FETCH_CELLAR' });
   }
 });
@@ -52,7 +52,7 @@ router.post('/', async (req: Request, res: Response) => {
   if (!validation.success) {
     await auditLog({
       userId,
-      ip: req.ip || '0.0.0.0',
+      ip: getClientIp(req),
       action: 'CELLAR_CREATE',
       status: 'validation_error',
       details: { errors: validation.error.format() }
@@ -64,19 +64,19 @@ router.post('/', async (req: Request, res: Response) => {
     const cellar = await CellarService.createCellar(userId, validation.data);
     await auditLog({
       userId,
-      ip: req.ip || '0.0.0.0',
+      ip: getClientIp(req),
       action: 'CELLAR_CREATE',
       status: 'success',
       details: { cellarId: cellar.id }
     });
     res.status(201).json({ data: cellar });
-  } catch (err: any) {
+  } catch (err: unknown) {
     await auditLog({
       userId,
-      ip: req.ip || '0.0.0.0',
+      ip: getClientIp(req),
       action: 'CELLAR_CREATE',
       status: 'error',
-      details: { error: err.message }
+      details: { error: err instanceof Error ? err.message : 'UNEXPECTED_ERROR' }
     });
     res.status(500).json({ error: 'FAILED_TO_CREATE_CELLAR' });
   }
@@ -102,13 +102,13 @@ router.patch('/:id', async (req: Request, res: Response) => {
     }
     await auditLog({
       userId,
-      ip: req.ip || '0.0.0.0',
+      ip: getClientIp(req),
       action: 'CELLAR_UPDATE',
       status: 'success',
       details: { cellarId: id }
     });
     res.json({ data: cellar });
-  } catch (err: any) {
+  } catch (err: unknown) {
     res.status(500).json({ error: 'FAILED_TO_UPDATE_CELLAR' });
   }
 });
@@ -126,7 +126,7 @@ router.get('/:id/grid', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
     }
     res.json({ data });
-  } catch (err: any) {
+  } catch (err: unknown) {
     res.status(500).json({ error: 'FAILED_TO_FETCH_GRID' });
   }
 });
@@ -146,13 +146,13 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
     await auditLog({
       userId,
-      ip: req.ip || '0.0.0.0',
+      ip: getClientIp(req),
       action: 'CELLAR_DELETE',
       status: 'success',
       details: { cellarId: id }
     });
     res.status(204).send();
-  } catch (err: any) {
+  } catch (err: unknown) {
     res.status(500).json({ error: 'FAILED_TO_DELETE_CELLAR' });
   }
 });

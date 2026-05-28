@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'LOGIN' | 'LOGIN_2FA' | 'LOGOUT' | 'REGISTER' | 'CELLAR_CREATE' | 'CELLAR_READ' | 'CELLAR_UPDATE' | 'CELLAR_DELETE' | 'COLLECTION_CREATE' | 'COLLECTION_UPDATE' | 'COLLECTION_DELETE';
 
@@ -26,7 +27,7 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
         status: entry.status,
         ip: entry.ip,
         bottleId: entry.bottleId ?? null,
-        details: (entry.details ?? {}) as any, 
+        details: (entry.details ?? {}) as Prisma.InputJsonValue,
       },
     });
   } catch (err) {

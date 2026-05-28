@@ -164,7 +164,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       result = result.filter((b: InventoryItem) => b.reminderDate && b.reminderDate.split('T')[0] <= today);
     }
     if (searchQuery.trim()) {
-      const normalize = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+      const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
       const q = normalize(searchQuery);
       result = result.filter((b: InventoryItem) => {
         const cellar = cellars?.find((c: Cellar) => c.id === b.cellarId);
