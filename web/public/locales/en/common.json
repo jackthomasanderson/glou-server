@@ -231,8 +231,19 @@
       "all": "All states",
       "full": "Full only",
       "opened": "Opened only",
-      "alerts": "Reminders to consume"
+      "alerts": "Reminders to consume",
+      "sortBy": "Sort by",
+      "sortOptions": {
+        "default": "Default",
+        "value": "Estimated value ↓",
+        "urgency": "Peak urgency",
+        "name": "Name A→Z"
+      },
+      "minValue": "Min €",
+      "maxValue": "Max €"
     },
+    "filterByTags": "By tags",
+    "filterByValue": "By value (€)",
     "stats": {
       "total": "Total stock",
       "full": "Full stock",
@@ -293,6 +304,18 @@
       "PASSWORD_TOO_SHORT": "Password must be at least 12 characters long.",
       "USERNAME_INVALID_CHARS": "Allowed characters: letters, numbers, - and _.",
       "PASSWORDS_DO_NOT_MATCH": "Passwords do not match."
+    },
+    "passwordStrength": {
+      "weak": "Weak",
+      "fair": "Fair",
+      "good": "Good",
+      "strong": "Strong",
+      "hint": {
+        "length": "Make the password longer",
+        "uppercase": "Add uppercase letters",
+        "numbers": "Add numbers",
+        "special": "Add special characters"
+      }
     }
   },
   "cellars": {
@@ -341,6 +364,16 @@
       "slotOccupied": "This slot is already occupied.",
       "removeFromSlot": "Remove from slot",
       "slot": "Slot"
+    },
+    "searchPlaceholder": "Search by name or description...",
+    "filterByType": "Filter by type",
+    "filterByStatus": "Filter by status",
+    "noResults": "No cellar found matching these criteria",
+    "nFound": "{{count}} cellar(s) found",
+    "status": {
+      "withAlerts": "With alerts",
+      "noAlerts": "No alerts",
+      "empty": "Empty cellar"
     }
   },
   "view": {
@@ -690,6 +723,13 @@
       "countLabel": "{{count}} bottles ({{percent}}%)",
       "humidorTip": "Humidor Tip",
       "humidorTipText": "Cuban cigars benefit from stable humidity at 70%. Avoid thermal shocks to preserve the wrapper's suppleness."
+    },
+    "valuation": {
+      "title": "Valuation Analysis",
+      "purchaseTotal": "Acquisition cost",
+      "estimatedTotal": "Estimated market value",
+      "roi": "Estimated appreciation",
+      "roiHint": "vs. total purchase price"
     }
   }
 }

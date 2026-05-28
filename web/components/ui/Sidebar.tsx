@@ -131,7 +131,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
             >
               {expanded && (
                 <span
-                  className={`overflow-hidden transition-all duration-200 text-sm leading-none whitespace-nowrap ${
+                  className={`overflow-hidden transition-all duration-200 text-sm leading-normal whitespace-nowrap ${
                     expanded ? 'max-w-[200px] opacity-100' : 'max-w-0 opacity-0'
                   } ${active ? 'font-semibold' : 'font-normal'}`}
                 >
@@ -183,7 +183,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
                 aria-label={t('nav.admin')}
               >
                 {expanded && (
-                  <span className={`overflow-hidden transition-all duration-200 text-sm leading-none whitespace-nowrap max-w-[200px] opacity-100 ${active ? 'font-semibold' : 'font-normal'}`}>
+                  <span className={`overflow-hidden transition-all duration-200 text-sm leading-normal whitespace-nowrap max-w-[200px] opacity-100 ${active ? 'font-semibold' : 'font-normal'}`}>
                     {t('nav.admin')}
                   </span>
                 )}

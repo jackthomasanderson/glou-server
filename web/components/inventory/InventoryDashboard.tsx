@@ -78,6 +78,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedCellars, setSelectedCellars] = useState<string[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [minValue, setMinValue] = useState('');
+  const [maxValue, setMaxValue] = useState('');
+  const [sortBy, setSortBy] = useState<'default' | 'value' | 'urgency' | 'name'>('default');
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -133,13 +137,26 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     setSearchQuery('');
     setSelectedCategories([]);
     setSelectedCellars([]);
+    setSelectedTags([]);
+    setMinValue('');
+    setMaxValue('');
+    setSortBy('default');
     setOpenedFilter('all');
     router.push(pathname);
   }, [router, pathname]);
 
+  const allTags = useMemo(() => {
+    if (!items) return [];
+    const set = new Set<string>();
+    items.forEach((b: InventoryItem) => (b.tags || []).forEach((tag) => set.add(tag)));
+    return Array.from(set).sort();
+  }, [items]);
+
   const filteredItems = useMemo(() => {
     if (!items) return [];
     let result = items;
+    const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
     if (lockedCategories && lockedCategories.length > 0) {
       result = result.filter((b: InventoryItem) => lockedCategories.includes(b.category));
     }
@@ -154,6 +171,29 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     if (selectedCellars.length > 0) {
       result = result.filter((b: InventoryItem) => selectedCellars.includes(b.cellarId || ''));
     }
+    if (selectedTags.length > 0) {
+      result = result.filter((b: InventoryItem) =>
+        selectedTags.every((tag) => (b.tags || []).includes(tag))
+      );
+    }
+    if (minValue !== '') {
+      const min = parseFloat(minValue);
+      if (!isNaN(min)) {
+        result = result.filter((b: InventoryItem) => {
+          const v = b.estimatedValue ?? b.purchasePrice ?? 0;
+          return v >= min;
+        });
+      }
+    }
+    if (maxValue !== '') {
+      const max = parseFloat(maxValue);
+      if (!isNaN(max)) {
+        result = result.filter((b: InventoryItem) => {
+          const v = b.estimatedValue ?? b.purchasePrice ?? 0;
+          return v <= max;
+        });
+      }
+    }
     if (openedFilter === 'full') {
       result = result.filter((b: InventoryItem) => !b.isOpened);
     } else if (openedFilter === 'opened') {
@@ -164,22 +204,37 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       result = result.filter((b: InventoryItem) => b.reminderDate && b.reminderDate.split('T')[0] <= today);
     }
     if (searchQuery.trim()) {
-      const normalize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-      const q = normalize(searchQuery);
+      const q = norm(searchQuery);
       result = result.filter((b: InventoryItem) => {
         const cellar = cellars?.find((c: Cellar) => c.id === b.cellarId);
-        const cellarName = cellar ? normalize(cellar.name) : '';
+        const cellarName = cellar ? norm(cellar.name) : '';
         const searchStrings = [
           b.name, b.producer, b.vintage?.toString(),
           t(`categories.${b.category}`), b.region, cellarName,
           ...(b.collections ?? []).map(c => c.name),
           ...(b.tags || [])
         ].filter(Boolean) as string[];
-        return searchStrings.some((s: string) => normalize(s).includes(q));
+        return searchStrings.some((s: string) => norm(s).includes(q));
       });
     }
+
+    if (sortBy === 'value') {
+      result = [...result].sort((a, b) => {
+        const va = a.estimatedValue ?? a.purchasePrice ?? 0;
+        const vb = b.estimatedValue ?? b.purchasePrice ?? 0;
+        return vb - va;
+      });
+    } else if (sortBy === 'urgency') {
+      const urgencyOrder: Record<string, number> = { past: 0, approaching: 1, peak: 2, none: 3 };
+      result = [...result].sort((a, b) =>
+        (urgencyOrder[a.alertStatus ?? 'none'] ?? 3) - (urgencyOrder[b.alertStatus ?? 'none'] ?? 3)
+      );
+    } else if (sortBy === 'name') {
+      result = [...result].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
     return result;
-  }, [items, searchQuery, selectedCategories, selectedCellars, selectedCollectionId, cellars, openedFilter, t, hasMounted, lockedCategories]);
+  }, [items, searchQuery, selectedCategories, selectedCellars, selectedCollectionId, selectedTags, minValue, maxValue, sortBy, cellars, openedFilter, t, hasMounted, lockedCategories]);
 
   const toggleBulkMode = useCallback(() => {
     setBulkMode((prev) => !prev);
@@ -294,7 +349,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const hasCellars = (cellars?.length ?? 0) > 0;
   const categoryLabel = (cat: string) => t(`categories.${cat}`);
-  const hasActiveFilters = selectedCategories.length > 0 || selectedCellars.length > 0 || openedFilter !== 'all' || !!searchQuery || !!selectedCollectionId;
+  const hasActiveFilters = selectedCategories.length > 0 || selectedCellars.length > 0 || openedFilter !== 'all' || !!searchQuery || !!selectedCollectionId || selectedTags.length > 0 || minValue !== '' || maxValue !== '' || sortBy !== 'default';
   const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
 
   const filterContent = (
@@ -389,6 +444,79 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           </div>
         </div>
       )}
+
+      {/* Tags filter */}
+      {allTags.length > 0 && (
+        <div>
+          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+            {t('inventory.filterByTags')}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {allTags.map((tag) => (
+              <Chip
+                key={tag}
+                size="sm"
+                variant={selectedTags.includes(tag) ? 'solid' : 'bordered'}
+                color={selectedTags.includes(tag) ? 'primary' : 'default'}
+                className="cursor-pointer text-[0.7rem]"
+                onClick={() =>
+                  setSelectedTags((prev) =>
+                    prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+                  )
+                }
+              >
+                {tag}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Value range */}
+      <div>
+        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+          {t('inventory.filterByValue')}
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            min={0}
+            placeholder={t('inventory.filters.minValue')}
+            value={minValue}
+            onChange={(e) => setMinValue(e.target.value)}
+            className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
+          />
+          <input
+            type="number"
+            min={0}
+            placeholder={t('inventory.filters.maxValue')}
+            value={maxValue}
+            onChange={(e) => setMaxValue(e.target.value)}
+            className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
+          />
+        </div>
+      </div>
+
+      {/* Sort */}
+      <div>
+        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+          {t('inventory.filters.sortBy')}
+        </p>
+        <div className="flex flex-col gap-0.5">
+          {(['default', 'value', 'urgency', 'name'] as const).map((s) => (
+            <div
+              key={s}
+              onClick={() => setSortBy(s)}
+              className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${sortBy === s ? 'bg-default-100' : 'hover:bg-default-50'}`}
+            >
+              <span className={`text-[0.75rem] ${sortBy === s ? 'font-semibold' : 'font-normal'}`}>
+                {t(`inventory.filters.sortOptions.${s}`)}
+              </span>
+              {sortBy === s && <span className="text-[0.7rem] text-primary font-bold">✓</span>}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 
@@ -643,7 +771,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         radius="full"
         size="lg"
         isIconOnly
-        className="fixed bottom-20 md:bottom-6 right-4 z-30 sm:hidden shadow-lg"
+        className="fixed bottom-[84px] md:bottom-6 right-4 z-30 sm:hidden shadow-lg"
         onPress={() => setMode('creating')}
         isDisabled={!hasCellars}
         aria-label={t('inventory.add')}
@@ -671,7 +799,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
       {/* Bulk floating bar */}
       {bulkMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-[72px] md:bottom-6 left-1/2 -translate-x-1/2 z-[1200] bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">
+        <div className="fixed bottom-[80px] md:bottom-6 left-1/2 -translate-x-1/2 z-[1200] bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">
           <span className="font-bold text-primary">{t('bulk.selected', { count: selectedIds.size })}</span>
           <Button color="primary" onPress={() => setIsBulkDialogOpen(true)}>
             {t('bulk.title')}

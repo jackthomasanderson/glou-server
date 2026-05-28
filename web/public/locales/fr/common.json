@@ -231,8 +231,19 @@
       "all": "Tous les états",
       "full": "Pleines uniquement",
       "opened": "Entamées uniquement",
-      "alerts": "Rappels à consommer"
+      "alerts": "Rappels à consommer",
+      "sortBy": "Trier par",
+      "sortOptions": {
+        "default": "Par défaut",
+        "value": "Valeur estimée ↓",
+        "urgency": "Urgence d'apogée",
+        "name": "Nom A→Z"
+      },
+      "minValue": "Min €",
+      "maxValue": "Max €"
     },
+    "filterByTags": "Par étiquettes",
+    "filterByValue": "Par valeur (€)",
     "stats": {
       "total": "Total stock",
       "full": "Stock plein",
@@ -293,6 +304,18 @@
       "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 12 caractères.",
       "USERNAME_INVALID_CHARS": "Caractères autorisés : lettres, chiffres, - et _.",
       "PASSWORDS_DO_NOT_MATCH": "Les mots de passe ne correspondent pas."
+    },
+    "passwordStrength": {
+      "weak": "Faible",
+      "fair": "Moyen",
+      "good": "Fort",
+      "strong": "Très fort",
+      "hint": {
+        "length": "Allongez le mot de passe",
+        "uppercase": "Ajoutez des majuscules",
+        "numbers": "Ajoutez des chiffres",
+        "special": "Ajoutez des caractères spéciaux"
+      }
     }
   },
   "cellars": {
@@ -341,6 +364,16 @@
       "slotOccupied": "Cet emplacement est déjà occupé.",
       "removeFromSlot": "Retirer de l'emplacement",
       "slot": "Emplacement"
+    },
+    "searchPlaceholder": "Rechercher par nom ou description...",
+    "filterByType": "Filtrer par type",
+    "filterByStatus": "Filtrer par état",
+    "noResults": "Aucune cave trouvée avec ces critères",
+    "nFound": "{{count}} cave(s) trouvée(s)",
+    "status": {
+      "withAlerts": "Avec alertes",
+      "noAlerts": "Sans alertes",
+      "empty": "Cave vide"
     }
   },
   "view": {
@@ -690,6 +723,13 @@
       "countLabel": "{{count}} flacons ({{percent}}%)",
       "humidorTip": "Conseil de l'Humidor",
       "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70%. Évitez les chocs thermiques pour préserver la souplesse de la cape."
+    },
+    "valuation": {
+      "title": "Analyse de valorisation",
+      "purchaseTotal": "Coût d'acquisition",
+      "estimatedTotal": "Valeur de marché estimée",
+      "roi": "Plus-value estimée",
+      "roiHint": "vs. prix d'achat total"
     }
   }
 }

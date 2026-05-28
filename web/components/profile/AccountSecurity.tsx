@@ -4,6 +4,7 @@ import { Button, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter
 import { Lock } from 'lucide-react';
 import { PublicUser, useUpdateEmail, useUpdatePassword } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
+import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
 
 export function AccountSecurity({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
@@ -156,17 +157,20 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
                   autoComplete="current-password"
                   autoFocus
                 />
-                <Input
-                  label={t('profile.newPassword')}
-                  type="password"
-                  value={newPassword}
-                  onValueChange={setNewPassword}
-                  variant="bordered"
-                  size="md"
-                  radius="md"
-                  labelPlacement="outside"
-                  autoComplete="new-password"
-                />
+                <div>
+                  <Input
+                    label={t('profile.newPassword')}
+                    type="password"
+                    value={newPassword}
+                    onValueChange={setNewPassword}
+                    variant="bordered"
+                    size="md"
+                    radius="md"
+                    labelPlacement="outside"
+                    autoComplete="new-password"
+                  />
+                  <PasswordStrengthMeter password={newPassword} />
+                </div>
               </ModalBody>
               <ModalFooter>
                 <Button color="danger" variant="light" onPress={onClose}>{t('actions.cancel')}</Button>

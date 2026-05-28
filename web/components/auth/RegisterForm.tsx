@@ -8,6 +8,7 @@ import { Button, Input, Card, CardBody, Link } from '@heroui/react';
 import NextLink from 'next/link';
 import { useRegister } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 
 const createRegisterSchema = (t: (key: string) => string) =>
   z.object({
@@ -31,6 +32,7 @@ export function RegisterForm() {
   type RegisterFormValues = z.infer<typeof registerSchema>;
 
   const [apiError, setApiError] = useState<string | null>(null);
+  const [passwordValue, setPasswordValue] = useState('');
   const registerMutation = useRegister();
 
   const { control, handleSubmit, formState: { errors } } = useForm<RegisterFormValues>({
@@ -109,19 +111,23 @@ export function RegisterForm() {
             name="password"
             control={control}
             render={({ field }) => (
-              <Input
-                {...field}
-                type="password"
-                label={t('auth.password')}
-                autoComplete="new-password"
-                variant="bordered"
-                size="md"
-                radius="md"
-                labelPlacement="outside"
-                isInvalid={!!errors.password}
-                errorMessage={errors.password?.message}
-                isDisabled={isPending}
-              />
+              <div>
+                <Input
+                  {...field}
+                  type="password"
+                  label={t('auth.password')}
+                  autoComplete="new-password"
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                  isInvalid={!!errors.password}
+                  errorMessage={errors.password?.message}
+                  isDisabled={isPending}
+                  onValueChange={(v) => { field.onChange(v); setPasswordValue(v); }}
+                />
+                <PasswordStrengthMeter password={passwordValue} />
+              </div>
             )}
           />
           <Controller

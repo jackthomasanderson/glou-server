@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Button } from '@heroui/react';
+import { Avatar, Button } from '@heroui/react';
 import { Menu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Sidebar } from './Sidebar';
@@ -83,10 +83,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
           <div className="flex-1" />
           <GlobalSearch />
           <NotificationBell />
+          {/* Mobile: quick profile access */}
+          <Avatar
+            as={Link}
+            href="/profile"
+            src={user?.avatarUrl || undefined}
+            name={(!user?.avatarUrl && (user?.username || '?')[0].toUpperCase()) || undefined}
+            size="sm"
+            radius="full"
+            isBordered
+            color="secondary"
+            className="md:hidden shrink-0 cursor-pointer"
+          />
         </header>
 
         {/* Page content */}
-        <main className="flex-1 pb-14 md:pb-0">
+        <main className="flex-1 pb-16 md:pb-0">
           {children}
         </main>
       </div>

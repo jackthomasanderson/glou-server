@@ -33,6 +33,7 @@ export interface CavePoint {
 
 export interface AnalyticsStats {
   totalValuation: number;
+  totalPurchasePrice: number;
   totalLiquidLiters: number;
   cigarModulesCount: number;
   urgentDegustationCount: number;
@@ -91,6 +92,7 @@ export async function getAnalytics(userId: string): Promise<AnalyticsStats> {
   ]);
 
   let totalValuation = 0;
+  let totalPurchasePrice = 0;
   let totalLiquidLiters = 0;
   let cigarModulesCount = 0;
   let urgentDegustationCount = 0;
@@ -109,6 +111,7 @@ export async function getAnalytics(userId: string): Promise<AnalyticsStats> {
   for (const item of items) {
     const value = item.estimatedValue ?? item.purchasePrice ?? 0;
     totalValuation += value;
+    totalPurchasePrice += item.purchasePrice ?? 0;
     totalLiquidLiters += computeBottleVolume(item.category, item.bottleSize, item.fillLevel);
 
     if (item.category === 'cigar') cigarModulesCount += 1;
@@ -177,6 +180,7 @@ export async function getAnalytics(userId: string): Promise<AnalyticsStats> {
 
   return {
     totalValuation: Math.round(totalValuation),
+    totalPurchasePrice: Math.round(totalPurchasePrice),
     totalLiquidLiters: Math.round(totalLiquidLiters * 100) / 100,
     cigarModulesCount,
     urgentDegustationCount,

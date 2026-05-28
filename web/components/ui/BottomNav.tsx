@@ -27,22 +27,25 @@ export function BottomNav() {
       className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-content1 border-t border-divider"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="flex items-center justify-around h-14">
+      <div className="flex items-stretch justify-around h-16">
         {navLinks.map((link) => {
           const active = pathname.startsWith(link.href);
           return (
-            <Button
+            <button
               key={link.href}
-              isIconOnly
-              variant="light"
-              color={active ? 'primary' : 'default'}
-              size="lg"
-              radius="full"
               onClick={() => router.push(link.href)}
               aria-label={link.label}
+              className={`flex flex-col items-center justify-center flex-1 gap-0.5 min-w-0 py-1 transition-colors ${
+                active ? 'text-primary' : 'text-default-400'
+              }`}
             >
-              {link.icon}
-            </Button>
+              <span className={active ? 'text-primary' : 'text-default-400'}>
+                {link.icon}
+              </span>
+              <span className="text-[0.55rem] font-semibold leading-tight truncate max-w-full px-1">
+                {link.label}
+              </span>
+            </button>
           );
         })}
       </div>

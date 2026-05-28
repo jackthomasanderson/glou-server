@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Button,
   Input,
@@ -32,10 +32,11 @@ import {
   Grid2x2,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
+  Search,
+  X,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
 import { Cellar } from '@/lib/cellars/types';
 import { ViewToggle } from '@/components/ui/ViewToggle';
@@ -60,9 +61,17 @@ function parseOptionalInt(value: string): number | null {
   return isNaN(n) || value.trim() === '' ? null : n;
 }
 
+type CellarStatusFilter = 'all' | 'alerts' | 'no-alerts' | 'empty';
+type CellarTypeFilter = 'all' | 'VINTAGE' | 'COOLER' | 'SHELF';
+
+const normalize = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
 export const CellarDashboard: React.FC = () => {
   const { t } = useTranslation();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { data: cellars, isLoading, isError } = useCellars();
   const createMutation = useCreateCellar();
   const updateMutation = useUpdateCellar();
@@ -72,6 +81,79 @@ export const CellarDashboard: React.FC = () => {
   const [openForm, setOpenForm] = useState(false);
   const [showGridConfig, setShowGridConfig] = useState(false);
   const [editingCellar, setEditingCellar] = useState<Cellar | null>(null);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<CellarTypeFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<CellarStatusFilter>('all');
+
+  useEffect(() => {
+    const q = searchParams.get('q') ?? '';
+    const type = (searchParams.get('type') ?? 'all') as CellarTypeFilter;
+    const status = (searchParams.get('status') ?? 'all') as CellarStatusFilter;
+    setSearchQuery(q);
+    setTypeFilter(type);
+    setStatusFilter(status);
+  }, [searchParams]);
+
+  const pushParams = useCallback(
+    (q: string, type: CellarTypeFilter, status: CellarStatusFilter) => {
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (type !== 'all') params.set('type', type);
+      if (status !== 'all') params.set('status', status);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    },
+    [router, pathname]
+  );
+
+  const handleSearch = useCallback(
+    (v: string) => { setSearchQuery(v); pushParams(v, typeFilter, statusFilter); },
+    [pushParams, typeFilter, statusFilter]
+  );
+  const handleType = useCallback(
+    (v: CellarTypeFilter) => { setTypeFilter(v); pushParams(searchQuery, v, statusFilter); },
+    [pushParams, searchQuery, statusFilter]
+  );
+  const handleStatus = useCallback(
+    (v: CellarStatusFilter) => { setStatusFilter(v); pushParams(searchQuery, typeFilter, v); },
+    [pushParams, searchQuery, typeFilter]
+  );
+
+  const clearFilters = useCallback(() => {
+    setSearchQuery(''); setTypeFilter('all'); setStatusFilter('all');
+    router.replace(pathname);
+  }, [router, pathname]);
+
+  const hasActiveFilters = searchQuery !== '' || typeFilter !== 'all' || statusFilter !== 'all';
+
+  const filteredCellars = useMemo(() => {
+    if (!cellars) return [];
+    let result = cellars;
+
+    if (typeFilter !== 'all') {
+      result = result.filter((c) => c.type === typeFilter);
+    }
+
+    if (statusFilter === 'alerts') {
+      result = result.filter((c) => (c.stats?.alertCount ?? 0) > 0);
+    } else if (statusFilter === 'no-alerts') {
+      result = result.filter((c) => (c.stats?.alertCount ?? 0) === 0 && (c.stats?.totalItems ?? 0) > 0);
+    } else if (statusFilter === 'empty') {
+      result = result.filter((c) => (c.stats?.totalItems ?? 0) === 0);
+    }
+
+    if (searchQuery.trim()) {
+      const q = normalize(searchQuery);
+      result = result.filter(
+        (c) =>
+          normalize(c.name).includes(q) ||
+          (c.description ? normalize(c.description).includes(q) : false)
+      );
+    }
+
+    return result;
+  }, [cellars, typeFilter, statusFilter, searchQuery]);
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -160,7 +242,7 @@ export const CellarDashboard: React.FC = () => {
   return (
     <div>
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">{t('cellars.title')}</h1>
         <div className="flex gap-2 items-center">
           <ViewToggle value={viewMode} onChange={setViewMode} />
@@ -173,6 +255,63 @@ export const CellarDashboard: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Search + filters (only shown when there are cellars) */}
+      {(cellars?.length ?? 0) > 0 && (
+        <div className="flex flex-col sm:flex-row gap-2 mb-5">
+          <Input
+            placeholder={t('cellars.searchPlaceholder')}
+            value={searchQuery}
+            onValueChange={handleSearch}
+            startContent={<Search size={14} className="text-default-400" />}
+            isClearable
+            onClear={() => handleSearch('')}
+            size="sm"
+            variant="bordered"
+            className="flex-1"
+          />
+          <Select
+            size="sm"
+            variant="bordered"
+            selectedKeys={[typeFilter]}
+            onSelectionChange={(keys) => handleType(Array.from(keys)[0] as CellarTypeFilter)}
+            className="w-full sm:w-44"
+            aria-label={t('cellars.filterByType')}
+          >
+            <SelectItem key="all">{t('filters.all')}</SelectItem>
+            <SelectItem key="VINTAGE">{t('cellars.types.VINTAGE')}</SelectItem>
+            <SelectItem key="COOLER">{t('cellars.types.COOLER')}</SelectItem>
+            <SelectItem key="SHELF">{t('cellars.types.SHELF')}</SelectItem>
+          </Select>
+          <Select
+            size="sm"
+            variant="bordered"
+            selectedKeys={[statusFilter]}
+            onSelectionChange={(keys) => handleStatus(Array.from(keys)[0] as CellarStatusFilter)}
+            className="w-full sm:w-44"
+            aria-label={t('cellars.filterByStatus')}
+          >
+            <SelectItem key="all">{t('filters.all')}</SelectItem>
+            <SelectItem key="alerts">{t('cellars.status.withAlerts')}</SelectItem>
+            <SelectItem key="no-alerts">{t('cellars.status.noAlerts')}</SelectItem>
+            <SelectItem key="empty">{t('cellars.status.empty')}</SelectItem>
+          </Select>
+          {hasActiveFilters && (
+            <Button size="sm" variant="light" isIconOnly onPress={clearFilters} aria-label={t('actions.clearAll')}>
+              <X size={14} />
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Result count */}
+      {hasActiveFilters && (cellars?.length ?? 0) > 0 && (
+        <p className="text-xs text-default-400 mb-4">
+          {filteredCellars.length > 0
+            ? t('cellars.nFound', { count: filteredCellars.length })
+            : t('cellars.noResults')}
+        </p>
+      )}
 
       {/* Empty state */}
       {cellars?.length === 0 ? (
@@ -187,10 +326,18 @@ export const CellarDashboard: React.FC = () => {
             {t('cellars.addCellar')}
           </Button>
         </div>
+      ) : filteredCellars.length === 0 && hasActiveFilters ? (
+        <div className="text-center py-16 border-2 border-dashed border-default-300 rounded-xl bg-default-50">
+          <Warehouse size={40} className="text-default-300 mx-auto mb-3" />
+          <p className="text-base font-semibold text-default-500">{t('cellars.noResults')}</p>
+          <Button size="sm" variant="light" color="primary" onPress={clearFilters} className="mt-3">
+            {t('actions.clearAll')}
+          </Button>
+        </div>
       ) : viewMode === 'grid' ? (
         /* Grid view */
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-          {cellars?.map((cellar) => (
+          {filteredCellars.map((cellar) => (
             <Card
               key={cellar.id}
               isPressable
@@ -278,7 +425,7 @@ export const CellarDashboard: React.FC = () => {
             <TableColumn className="text-right">{t('admin.maturityRefs.columns.actions')}</TableColumn>
           </TableHeader>
           <TableBody>
-            {(cellars ?? []).map((cellar) => (
+            {filteredCellars.map((cellar) => (
               <TableRow
                 key={cellar.id}
                 className="cursor-pointer hover:bg-default-50"

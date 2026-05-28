@@ -31,6 +31,7 @@ export interface MaturityPlanning {
 
 export interface AnalyticsStats {
   totalValuation: number;
+  totalPurchasePrice: number;
   totalLiquidLiters: number;
   cigarModulesCount: number;
   urgentDegustationCount: number;

@@ -169,6 +169,7 @@ export function InventoryForm({
       backdrop="opaque"
       placement="center"
       scrollBehavior="inside"
+      hideCloseButton
     >
       <ModalContent>
         {() => (

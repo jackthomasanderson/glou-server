@@ -16,6 +16,8 @@ import {
   Droplets,
   CigaretteOff,
   AlertTriangle,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MainLayout } from '@/components/ui/MainLayout';
@@ -34,6 +36,82 @@ const WorldHeatmap = dynamic(
     ),
   }
 );
+
+// ─── Valuation breakdown ──────────────────────────────────────────────────────
+
+function ValuationBreakdown({
+  totalValuation,
+  totalPurchasePrice,
+  t,
+}: {
+  totalValuation: number;
+  totalPurchasePrice: number;
+  t: (k: string, opts?: Record<string, unknown>) => string;
+}) {
+  const delta = totalValuation - totalPurchasePrice;
+  const roiPercent = totalPurchasePrice > 0 ? Math.round((delta / totalPurchasePrice) * 100) : null;
+  const isPositive = delta >= 0;
+
+  return (
+    <Card className="border border-default-200" shadow="none">
+      <CardBody className="p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Euro size={18} className="text-primary" />
+          <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+            {t('analytics.valuation.title')}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-400">
+              {t('analytics.valuation.purchaseTotal')}
+            </p>
+            <p className="text-[1.4rem] font-extrabold leading-tight">
+              {totalPurchasePrice} €
+            </p>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-400">
+              {t('analytics.valuation.estimatedTotal')}
+            </p>
+            <p className="text-[1.4rem] font-extrabold leading-tight">
+              {totalValuation} €
+            </p>
+          </div>
+          {totalPurchasePrice > 0 && (
+            <div className="flex flex-col gap-0.5">
+              <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-400">
+                {t('analytics.valuation.roi')}
+              </p>
+              <div className="flex items-center gap-1.5">
+                {isPositive
+                  ? <TrendingUp size={16} className="text-success" />
+                  : <TrendingDown size={16} className="text-danger" />}
+                <p
+                  className="text-[1.4rem] font-extrabold leading-tight"
+                  style={{ color: isPositive ? '#22C55E' : '#EF4444' }}
+                >
+                  {isPositive ? '+' : ''}{delta} €
+                </p>
+                {roiPercent !== null && (
+                  <span
+                    className="text-[0.7rem] font-bold"
+                    style={{ color: isPositive ? '#22C55E' : '#EF4444' }}
+                  >
+                    ({isPositive ? '+' : ''}{roiPercent}%)
+                  </span>
+                )}
+              </div>
+              <p className="text-[0.68rem] text-default-400">
+                {t('analytics.valuation.roiHint')}
+              </p>
+            </div>
+          )}
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
@@ -473,6 +551,15 @@ export function AnalyticsDashboard() {
           </>
         )}
       </div>
+
+      {/* Valuation breakdown — only shown if there's purchase or estimated data */}
+      {!isLoading && (data?.totalPurchasePrice ?? 0) > 0 && (
+        <ValuationBreakdown
+          totalValuation={data?.totalValuation ?? 0}
+          totalPurchasePrice={data?.totalPurchasePrice ?? 0}
+          t={t as (k: string, opts?: Record<string, unknown>) => string}
+        />
+      )}
 
       {/* World heatmap */}
       <Card className="border border-default-200" shadow="none">
