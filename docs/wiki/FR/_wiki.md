@@ -11,3 +11,5 @@ Bienvenue sur le wiki de Glou. Cette documentation est strictement focalisée su
 6. [Alertes Apogée](./06-Alertes-Apogee.md)
 7. [Recherche Globale](./07-Recherche-Globale.md)
 8. [Autocomplétion & Recherche d'Image](./08-Autocompletion-Image.md)
+9. [Journal de Dégustation](./09-Journal-Degustation.md)
+10. [Journal d'Audit des Actions](./10-Audit-Actions.md)

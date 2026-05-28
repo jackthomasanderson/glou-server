@@ -11,3 +11,5 @@ Welcome to the Glou wiki. This documentation strictly focuses on setup, configur
 6. [Peak Maturity Alerts](./06-Peak-Maturity-Alerts.md)
 7. [Global Search](./07-Global-Search.md)
 8. [Autocomplete & Image Search](./08-Autocomplete-Image.md)
+9. [Tasting Journal](./09-Tasting-Journal.md)
+10. [Audit Log](./10-Audit-Log.md)
