@@ -49,7 +49,7 @@ export function GlobalSearch() {
     (item: InventoryItem) => {
       setQuery('');
       setIsOpen(false);
-      router.push(`/inventory?q=${encodeURIComponent(item.name)}`);
+      router.push(`/bottles?q=${encodeURIComponent(item.name)}`);
     },
     [router]
   );

@@ -85,7 +85,7 @@ export function CollectionsDashboard() {
               collection={col}
               onEdit={setEditing}
               onDelete={setDeleting}
-              onClick={() => router.push(`/inventory?collection=${col.id}`)}
+              onClick={() => router.push(`/bottles?collection=${col.id}`)}
             />
           ))}
         </div>

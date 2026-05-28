@@ -104,6 +104,7 @@ export function TastingForm({ open, onClose, initialItemId, editNote }: TastingF
       backdrop="opaque"
       placement="center"
       scrollBehavior="inside"
+      classNames={{ base: "max-h-[90dvh]" }}
     >
       <ModalContent>
         {() => (

@@ -464,10 +464,10 @@ export function InventoryForm({
                       {/* Peak maturity window */}
                       {isWineOrSparkling && (
                         <>
-                          <div className="col-span-2 sm:col-span-4">
-                            <Divider>
-                              <span className="text-xs text-default-400 px-2">{t('inventory.fields.peakMaturity')}</span>
-                            </Divider>
+                          <div className="col-span-2 sm:col-span-4 flex items-center gap-2">
+                            <div className="flex-1 h-px bg-divider" />
+                            <span className="text-xs text-default-400 px-2">{t('inventory.fields.peakMaturity')}</span>
+                            <div className="flex-1 h-px bg-divider" />
                           </div>
                           <Input
                             label={t('inventory.fields.peakMaturityFrom')}

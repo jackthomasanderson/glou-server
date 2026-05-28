@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@heroui/react';
 import { Menu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +18,7 @@ interface MainLayoutProps {
 }
 
 const PAGE_TITLES: Record<string, string> = {
-  '/inventory': 'nav.bottles',
+  '/bottles': 'nav.bottles',
   '/cigars': 'nav.cigars',
   '/cellars': 'nav.caves',
   '/collections': 'nav.collections',
@@ -31,13 +32,14 @@ function usePageTitle() {
   const pathname = usePathname();
   const { t } = useTranslation();
   const key = Object.keys(PAGE_TITLES).find(k => pathname.startsWith(k));
-  return key ? t(PAGE_TITLES[key], key.slice(1)) : '';
+  return key ? { label: t(PAGE_TITLES[key], key.slice(1)), href: key } : null;
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isProtected = true }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { data: user } = useMe();
   const pageTitle = usePageTitle();
+  const pathname = usePathname();
 
   const content = (
     <div className="flex min-h-screen bg-background">
@@ -60,10 +62,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
           </Button>
 
           {/* Breadcrumb */}
-          <span className="text-[0.65rem] font-bold tracking-[.1rem] uppercase text-foreground-500 whitespace-nowrap">
-            {user?.appName || 'Glou'}
+          <span className="text-[0.65rem] font-bold tracking-[.1rem] uppercase whitespace-nowrap flex items-center gap-1">
+            <Link href="/" className="text-foreground-500 hover:text-foreground transition-colors">
+              {user?.appName || 'Glou'}
+            </Link>
             {pageTitle && (
-              <span className="text-foreground"> &gt; {pageTitle}</span>
+              <>
+                <span className="text-foreground-400">&gt;</span>
+                {pageTitle.href !== pathname ? (
+                  <Link href={pageTitle.href} className="text-foreground-500 hover:text-foreground transition-colors">
+                    {pageTitle.label}
+                  </Link>
+                ) : (
+                  <span className="text-foreground">{pageTitle.label}</span>
+                )}
+              </>
             )}
           </span>
 

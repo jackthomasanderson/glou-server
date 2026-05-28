@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
 import {
   Wine, Leaf, Warehouse, Library, Martini, BarChart3,
-  ChevronLeft, ChevronRight, X,
+  ChevronLeft, ChevronRight, X, ShieldCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '@/hooks/useAuth';
@@ -44,7 +44,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   );
 
   const navLinks = [
-    { label: t('nav.bottles'), href: '/inventory', icon: <Wine size={18} />, count: bottleCount },
+    { label: t('nav.bottles'), href: '/bottles', icon: <Wine size={18} />, count: bottleCount },
     { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={18} />, count: cigarCount },
     { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={18} />, count: cellars?.length ?? 0 },
     { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: collections?.length ?? 0 },
@@ -158,6 +158,44 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
           return btn;
         })}
       </nav>
+
+      {/* Admin link */}
+      {user?.isAdmin && (
+        <div className="px-2 pb-1">
+          <Divider className="mb-2" />
+          {(() => {
+            const active = pathname.startsWith('/admin');
+            const btn = (
+              <Button
+                as={Link}
+                href="/admin"
+                variant={active ? 'flat' : 'light'}
+                color={active ? 'primary' : 'default'}
+                radius="md"
+                className={`w-full transition-all duration-200 ${
+                  expanded ? 'justify-start px-3 py-2' : 'justify-center px-0 min-w-0'
+                }`}
+                startContent={
+                  <span className={active ? 'text-primary' : 'text-foreground-500'}>
+                    <ShieldCheck size={18} />
+                  </span>
+                }
+                aria-label="Administration"
+              >
+                {expanded && (
+                  <span className={`overflow-hidden transition-all duration-200 text-sm leading-none whitespace-nowrap max-w-[200px] opacity-100 ${active ? 'font-semibold' : 'font-normal'}`}>
+                    Administration
+                  </span>
+                )}
+              </Button>
+            );
+            if (!expanded) {
+              return <Tooltip content="Administration" placement="right" delay={500}>{btn}</Tooltip>;
+            }
+            return btn;
+          })()}
+        </div>
+      )}
 
       {/* User footer */}
       <Divider />

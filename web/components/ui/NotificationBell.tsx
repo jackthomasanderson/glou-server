@@ -24,7 +24,7 @@ export function NotificationBell() {
 
   const count = alertItems.length;
 
-  const handleViewAll = () => router.push('/inventory?filter=alerts');
+  const handleViewAll = () => router.push('/bottles?filter=alerts');
 
   if (!hasMounted || count === 0) {
     return (

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button, Input, Select, SelectItem, CircularProgress } from '@heroui/react';
-import { User, Settings } from 'lucide-react';
+import { User, Settings, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
 import { useMe, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
@@ -203,9 +204,26 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Admin panel shortcut */}
+        {user?.isAdmin && (
+          <div className="mt-6">
+            <Button
+              as={Link}
+              href="/admin"
+              color="primary"
+              variant="bordered"
+              startContent={<ShieldCheck size={16} />}
+              radius="md"
+              fullWidth
+            >
+              Accéder au panneau d&apos;administration
+            </Button>
+          </div>
+        )}
+
         {/* Security sections */}
         {user && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <AccountSecurity user={user} />
             <TwoFactorSettings user={user} />
           </div>

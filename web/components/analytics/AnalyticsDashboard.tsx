@@ -18,6 +18,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { MainLayout } from '@/components/ui/MainLayout';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { AnalyticsStats, CategoryStat, RegionStat, GardePoint, CavePoint } from '@/lib/analytics/types';
 import dynamic from 'next/dynamic';
@@ -405,11 +406,13 @@ export function AnalyticsDashboard() {
 
   if (isError) {
     return (
-      <div className="max-w-5xl mx-auto py-6 px-4">
-        <div className="rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-danger-700 text-sm">
-          {t('status.error')}
+      <MainLayout>
+        <div className="max-w-5xl mx-auto py-6 px-4">
+          <div className="rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-danger-700 text-sm">
+            {t('status.error')}
+          </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
@@ -417,6 +420,7 @@ export function AnalyticsDashboard() {
   const catItems = data?.categoryBreakdown ?? [];
 
   return (
+    <MainLayout>
     <div className="max-w-5xl mx-auto py-6 px-4 space-y-6">
 
       {/* Header */}
@@ -568,5 +572,6 @@ export function AnalyticsDashboard() {
         )}
       </div>
     </div>
+    </MainLayout>
   );
 }

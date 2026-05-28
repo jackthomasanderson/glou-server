@@ -13,7 +13,7 @@ export function BottomNav() {
   const hasMounted = useHasMounted();
 
   const navLinks = [
-    { label: t('nav.bottles'), href: '/inventory', icon: <Wine size={22} /> },
+    { label: t('nav.bottles'), href: '/bottles', icon: <Wine size={22} /> },
     { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={22} /> },
     { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={22} /> },
     { label: t('nav.collections'), href: '/collections', icon: <Library size={22} /> },
