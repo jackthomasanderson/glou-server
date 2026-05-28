@@ -420,7 +420,31 @@
     "deleteAvatarError": "Erreur lors de la suppression de la photo",
     "emailSuccess": "Email mis à jour",
     "passwordSuccess": "Mot de passe mis à jour",
-    "passwordError": "Mot de passe actuel incorrect"
+    "passwordError": "Mot de passe actuel incorrect",
+    "emailLabel": "Adresse email",
+    "passwordLabel": "Mot de passe",
+    "avatarHint": "Cliquez ou glissez une image\n(Recommandé : 400×400px, max 5 Mo)",
+    "twoFactor": {
+      "title": "Sécurité & Authentification",
+      "description": "Protégez votre compte en activant la double authentification (2FA). Cela nécessitera un code généré par votre application lors de la connexion.",
+      "status": "Statut 2FA",
+      "enabled": "Activé",
+      "disabled": "Désactivé",
+      "enable": "Activer",
+      "disable": "Désactiver",
+      "enableTitle": "Activer la double authentification",
+      "enableSuccess": "Double authentification activée avec succès !",
+      "backupCodesWarning": "⚠️ C'est la seule fois que ces codes de secours seront affichés.",
+      "backupCodesHint": "Conservez-les dans un endroit sûr. Ils vous permettront de vous connecter si vous perdez l'accès à votre application.",
+      "step1": "1. Scannez ce QR Code avec votre application d'authentification (Google Authenticator, Authy, etc.).",
+      "orSecret": "Ou utilisez la clé secrète :",
+      "step2": "2. Saisissez le code à 6 chiffres pour confirmer.",
+      "codeLabel": "Code à 6 chiffres",
+      "codesConfirmed": "J'ai sauvegardé mes codes",
+      "disableTitle": "Désactiver la double authentification",
+      "disableHint": "Pour des raisons de sécurité, veuillez renseigner votre mot de passe actuel ainsi qu'un code 2FA valide.",
+      "codeOrBackup": "Code 2FA ou code de secours"
+    }
   },
   "admin": {
     "title": "Administration",

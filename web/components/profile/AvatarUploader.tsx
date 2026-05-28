@@ -135,8 +135,8 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
       )}
 
       <p className="text-sm text-foreground-500">{user?.email}</p>
-      <p className="text-xs text-foreground-400 mt-2 text-center">
-        Cliquez ou glissez une image<br />(Recommandé: 400x400px, max 5MB)
+      <p className="text-xs text-foreground-400 mt-2 text-center" style={{ whiteSpace: 'pre-line' }}>
+        {t('profile.avatarHint')}
       </p>
 
       {feedback && (

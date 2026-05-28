@@ -80,17 +80,17 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between p-3 bg-default-50 rounded-xl">
           <div>
-            <p className="text-xs text-foreground-500">Adresse Email</p>
+            <p className="text-xs text-foreground-500">{t('profile.emailLabel')}</p>
             <p className="text-sm font-medium">{user.email}</p>
           </div>
-          <Button size="sm" variant="bordered" color="primary" onPress={handleOpenEmail}>Modifier</Button>
+          <Button size="sm" variant="bordered" color="primary" onPress={handleOpenEmail}>{t('actions.edit')}</Button>
         </div>
         <div className="flex items-center justify-between p-3 bg-default-50 rounded-xl">
           <div>
-            <p className="text-xs text-foreground-500">Mot de passe</p>
+            <p className="text-xs text-foreground-500">{t('profile.passwordLabel')}</p>
             <p className="text-sm font-medium">••••••••••••</p>
           </div>
-          <Button size="sm" variant="bordered" color="primary" onPress={handleOpenPassword}>Modifier</Button>
+          <Button size="sm" variant="bordered" color="primary" onPress={handleOpenPassword}>{t('actions.edit')}</Button>
         </div>
       </div>
 

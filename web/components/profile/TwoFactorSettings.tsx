@@ -5,9 +5,11 @@ import {
   Divider, CircularProgress,
 } from '@heroui/react';
 import { ShieldCheck } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useGenerate2fa, useTurnOn2fa, useTurnOff2fa, PublicUser, useMe } from '@/hooks/useAuth';
 
 export function TwoFactorSettings({ user }: { user: PublicUser }) {
+  const { t } = useTranslation();
   const [isTurnOnModalOpen, setIsTurnOnModalOpen] = useState(false);
   const [isTurnOffModalOpen, setIsTurnOffModalOpen] = useState(false);
   const { refetch: refetchMe } = useMe();
@@ -63,27 +65,31 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
     <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
       <div className="flex items-center gap-3 mb-5">
         <ShieldCheck size={20} className="text-primary" />
-        <h2 className="text-base font-semibold">Sécurité & Authentification</h2>
+        <h2 className="text-base font-semibold">{t('profile.twoFactor.title')}</h2>
       </div>
 
       <div className="flex flex-col gap-4">
         <p className="text-sm text-foreground-500">
-          Protégez votre compte en activant la double authentification (2FA). Cela nécessitera un code généré par votre application lors de la connexion.
+          {t('profile.twoFactor.description')}
         </p>
 
         <div className="flex items-center justify-between p-3 bg-default-50 rounded-xl">
           <p className="text-sm font-medium">
-            Statut 2FA :{' '}
+            {t('profile.twoFactor.status')} :{' '}
             {user.isTwoFactorEnabled ? (
-              <span className="text-success font-bold">Activé</span>
+              <span className="text-success font-bold">{t('profile.twoFactor.enabled')}</span>
             ) : (
-              <span className="text-foreground-400">Désactivé</span>
+              <span className="text-foreground-400">{t('profile.twoFactor.disabled')}</span>
             )}
           </p>
           {!user.isTwoFactorEnabled ? (
-            <Button color="primary" variant="solid" size="sm" onPress={handleStartEnable}>Activer</Button>
+            <Button color="primary" variant="solid" size="sm" onPress={handleStartEnable}>
+              {t('profile.twoFactor.enable')}
+            </Button>
           ) : (
-            <Button color="danger" variant="bordered" size="sm" onPress={() => setIsTurnOffModalOpen(true)}>Désactiver</Button>
+            <Button color="danger" variant="bordered" size="sm" onPress={() => setIsTurnOffModalOpen(true)}>
+              {t('profile.twoFactor.disable')}
+            </Button>
           )}
         </div>
       </div>
@@ -93,7 +99,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
         <ModalContent>
           {() => (
             <>
-              <ModalHeader>Activer la double authentification</ModalHeader>
+              <ModalHeader>{t('profile.twoFactor.enableTitle')}</ModalHeader>
               <ModalBody className="flex flex-col gap-4">
                 {errorMsg && (
                   <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
@@ -101,13 +107,13 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                 {backupCodes ? (
                   <div>
                     <div className="bg-success-50 border border-success-200 text-success text-sm rounded-lg px-4 py-3 mb-4">
-                      Double authentification activée avec succès !
+                      {t('profile.twoFactor.enableSuccess')}
                     </div>
                     <p className="text-sm font-bold text-danger mb-2">
-                      ⚠️ C&apos;est la seule fois que ces codes de secours seront affichés.
+                      {t('profile.twoFactor.backupCodesWarning')}
                     </p>
                     <p className="text-sm text-foreground-500 mb-3">
-                      Conservez-les dans un endroit sûr. Ils vous permettront de vous connecter si vous perdez l&apos;accès à votre application.
+                      {t('profile.twoFactor.backupCodesHint')}
                     </p>
                     <div className="bg-default-50 border border-divider rounded-xl p-4 grid grid-cols-2 gap-2">
                       {backupCodes.map((bc, i) => (
@@ -122,7 +128,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                 ) : setupData ? (
                   <div className="flex flex-col items-center gap-4">
                     <p className="text-sm text-center text-foreground-600">
-                      1. Scannez ce QR Code avec votre application d&apos;authentification (Google Authenticator, Authy, etc.).
+                      {t('profile.twoFactor.step1')}
                     </p>
                     <img
                       src={setupData.qrCodeUrl}
@@ -130,15 +136,15 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                       className="w-48 h-48 rounded-xl border border-divider"
                     />
                     <p className="text-xs text-foreground-400 text-center">
-                      Ou utilisez la clé secrète :{' '}
+                      {t('profile.twoFactor.orSecret')}{' '}
                       <code className="font-mono font-bold text-foreground">{setupData.secret}</code>
                     </p>
                     <Divider className="w-full" />
                     <p className="text-sm text-center text-foreground-600">
-                      2. Saisissez le code à 6 chiffres pour confirmer.
+                      {t('profile.twoFactor.step2')}
                     </p>
                     <Input
-                      label="Code à 6 chiffres"
+                      label={t('profile.twoFactor.codeLabel')}
                       value={code}
                       onValueChange={setCode}
                       variant="bordered"
@@ -155,7 +161,9 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
               <ModalFooter>
                 {!backupCodes && (
                   <>
-                    <Button color="danger" variant="light" onPress={handleCloseEnable} isDisabled={turnOnMutation.isPending}>Annuler</Button>
+                    <Button color="danger" variant="light" onPress={handleCloseEnable} isDisabled={turnOnMutation.isPending}>
+                      {t('actions.cancel')}
+                    </Button>
                     <Button
                       color="primary"
                       variant="solid"
@@ -163,13 +171,13 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                       isDisabled={code.length < 6 || turnOnMutation.isPending}
                       isLoading={turnOnMutation.isPending}
                     >
-                      Confirmer
+                      {t('actions.confirm')}
                     </Button>
                   </>
                 )}
                 {backupCodes && (
                   <Button color="primary" variant="solid" fullWidth onPress={handleCloseEnable}>
-                    J&apos;ai sauvegardé mes codes
+                    {t('profile.twoFactor.codesConfirmed')}
                   </Button>
                 )}
               </ModalFooter>
@@ -190,16 +198,16 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
         <ModalContent>
           {(onClose) => (
             <>
-              <ModalHeader>Désactiver la double authentification</ModalHeader>
+              <ModalHeader>{t('profile.twoFactor.disableTitle')}</ModalHeader>
               <ModalBody className="flex flex-col gap-3">
                 <p className="text-sm text-foreground-500">
-                  Pour des raisons de sécurité, veuillez renseigner votre mot de passe actuel ainsi qu&apos;un code 2FA valide.
+                  {t('profile.twoFactor.disableHint')}
                 </p>
                 {errorMsg && (
                   <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
                 )}
                 <Input
-                  label="Mot de passe"
+                  label={t('profile.passwordLabel')}
                   type="password"
                   value={password}
                   onValueChange={setPassword}
@@ -209,7 +217,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                   labelPlacement="outside"
                 />
                 <Input
-                  label="Code 2FA ou code de secours"
+                  label={t('profile.twoFactor.codeOrBackup')}
                   value={code}
                   onValueChange={setCode}
                   variant="bordered"
@@ -221,7 +229,9 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                 />
               </ModalBody>
               <ModalFooter>
-                <Button color="danger" variant="light" onPress={onClose} isDisabled={turnOffMutation.isPending}>Annuler</Button>
+                <Button color="danger" variant="light" onPress={onClose} isDisabled={turnOffMutation.isPending}>
+                  {t('actions.cancel')}
+                </Button>
                 <Button
                   color="danger"
                   variant="solid"
@@ -229,7 +239,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                   isDisabled={!password || code.length < 6 || turnOffMutation.isPending}
                   isLoading={turnOffMutation.isPending}
                 >
-                  Désactiver
+                  {t('profile.twoFactor.disable')}
                 </Button>
               </ModalFooter>
             </>
