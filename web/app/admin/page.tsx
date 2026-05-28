@@ -15,6 +15,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { MaturityReferencesSection } from '@/components/admin/MaturityReferencesSection';
+import { MainLayout } from '@/components/ui/MainLayout';
 
 export default function AdminPage() {
   const { t } = useTranslation();
@@ -66,13 +67,16 @@ export default function AdminPage() {
 
   if (isAuthLoading || !user?.isAdmin) {
     return (
-      <div className="flex justify-center items-center min-h-[50vh]">
-        <CircularProgress isIndeterminate color="primary" />
-      </div>
+      <MainLayout>
+        <div className="flex justify-center items-center min-h-[50vh]">
+          <CircularProgress isIndeterminate color="primary" />
+        </div>
+      </MainLayout>
     );
   }
 
   return (
+    <MainLayout>
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex items-center gap-3 mb-6">
         <Button size="sm" variant="bordered" startContent={<ArrowLeft size={14} />} onPress={() => router.push('/')}>
@@ -264,5 +268,6 @@ export default function AdminPage() {
         </ModalContent>
       </Modal>
     </div>
+    </MainLayout>
   );
 }

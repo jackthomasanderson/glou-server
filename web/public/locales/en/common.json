@@ -23,7 +23,9 @@
     "allCellars": "View all cellars",
     "collections": "Collections",
     "tastings": "Tastings",
-    "analytics": "Analyses & Terroirs"
+    "analytics": "Analyses & Terroirs",
+    "roleAdmin": "Administrator",
+    "roleUser": "User"
   },
   "actions": {
     "add": "Add",
@@ -138,9 +140,9 @@
       "openedAt": "Opened on",
       "reminderDate": "Consumption reminder",
       "alertStatus": "Peak status",
-      "peakMaturityFrom": "Optimal window start (year)",
+      "peakMaturityFrom": "From",
       "peakMaturityFromHint": "First year of the ideal tasting period",
-      "peakMaturityTo": "Optimal window end (year)",
+      "peakMaturityTo": "To",
       "peakMaturityToHint": "Last year of the ideal tasting period",
       "vintage": "Vintage",
       "noVintage": "No vintage",

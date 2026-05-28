@@ -180,17 +180,17 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
                     <ShieldCheck size={18} />
                   </span>
                 }
-                aria-label="Administration"
+                aria-label={t('nav.admin')}
               >
                 {expanded && (
                   <span className={`overflow-hidden transition-all duration-200 text-sm leading-none whitespace-nowrap max-w-[200px] opacity-100 ${active ? 'font-semibold' : 'font-normal'}`}>
-                    Administration
+                    {t('nav.admin')}
                   </span>
                 )}
               </Button>
             );
             if (!expanded) {
-              return <Tooltip content="Administration" placement="right" delay={500}>{btn}</Tooltip>;
+              return <Tooltip content={t('nav.admin')} placement="right" delay={500}>{btn}</Tooltip>;
             }
             return btn;
           })()}
@@ -200,7 +200,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
       {/* User footer */}
       <Divider />
       <Tooltip
-        content={!expanded ? `${user?.username ?? ''} · ${user?.isAdmin ? 'Admin' : 'User'}` : ''}
+        content={!expanded ? `${user?.username ?? ''} · ${user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}` : ''}
         placement="right"
         isDisabled={expanded}
       >
@@ -230,7 +230,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
               {user?.username}
             </p>
             <p className="text-[0.65rem] text-foreground-500 leading-tight truncate whitespace-nowrap">
-              {user?.isAdmin ? 'Administrateur' : 'Utilisateur'}
+              {user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}
             </p>
           </div>
 
@@ -247,6 +247,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: SidebarProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
@@ -290,7 +291,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
               radius="full"
               className="absolute top-3 right-3 z-10"
               onClick={onMobileClose}
-              aria-label="Fermer"
+              aria-label={t('actions.close')}
             >
               <X size={16} />
             </Button>

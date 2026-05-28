@@ -474,9 +474,9 @@ export function InventoryForm({
                             type="number"
                             variant="bordered"
                             size="sm"
+                            placeholder="ex: 2025"
                             value={String(values.peakMaturityFrom ?? '')}
                             onValueChange={(v) => setField('peakMaturityFrom', v ? Number(v) : null)}
-                            description={t('inventory.fields.peakMaturityFromHint')}
                             min={1800} max={2200}
                           />
                           <Input
@@ -484,9 +484,9 @@ export function InventoryForm({
                             type="number"
                             variant="bordered"
                             size="sm"
+                            placeholder="ex: 2030"
                             value={String(values.peakMaturityTo ?? '')}
                             onValueChange={(v) => setField('peakMaturityTo', v ? Number(v) : null)}
-                            description={t('inventory.fields.peakMaturityToHint')}
                             min={1800} max={2200}
                           />
                         </>
