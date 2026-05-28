@@ -2,7 +2,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci
 ARG NEXT_PUBLIC_API_URL=http://api:3001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
