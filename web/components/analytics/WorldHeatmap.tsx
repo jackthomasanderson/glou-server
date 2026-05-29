@@ -89,7 +89,7 @@ export function WorldHeatmap({ regions, t }: WorldHeatmapProps) {
     <div>
       {/* Map container */}
       <div
-        className="rounded-2xl overflow-hidden border border-default-200 relative h-[380px]"
+        className="rounded-2xl overflow-hidden border border-default-200 relative h-[380px] isolate"
         style={
           {
             // Override leaflet popup styles

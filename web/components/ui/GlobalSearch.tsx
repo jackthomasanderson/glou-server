@@ -61,7 +61,7 @@ export function GlobalSearch() {
   }, [router]);
 
   return (
-    <div className="relative w-40 sm:w-60 md:w-72">
+    <div className="relative hidden sm:block sm:w-60 md:w-72">
       <Input
         placeholder={t('nav.searchPlaceholder')}
         value={query}
