@@ -247,7 +247,8 @@
     "stats": {
       "total": "Total stock",
       "full": "Stock plein",
-      "opened": "Bouteilles entamées"
+      "opened": "Bouteilles entamées",
+      "openedCigar": "Cigares entamés"
     },
     "alerts": {
       "title": "Rappels à consommer",

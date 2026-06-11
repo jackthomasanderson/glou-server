@@ -247,7 +247,8 @@
     "stats": {
       "total": "Total stock",
       "full": "Full stock",
-      "opened": "Opened bottles"
+      "opened": "Opened bottles",
+      "openedCigar": "Opened cigars"
     },
     "alerts": {
       "title": "Reminders to consume",
