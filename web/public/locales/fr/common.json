@@ -136,6 +136,7 @@
       "purchasePlace": "Lieu d'achat",
       "estimatedValue": "Valeur estimée (€)",
       "isOpened": "Bouteille entamée / ouverte",
+      "isOpenedCigar": "Cigare entamé",
       "fillLevel": "Niveau restant",
       "openedAt": "Ouverte le",
       "reminderDate": "Rappel de consommation",
@@ -230,7 +231,9 @@
     "filters": {
       "all": "Tous les états",
       "full": "Pleines uniquement",
+      "fullCigar": "Entiers uniquement",
       "opened": "Entamées uniquement",
+      "openedCigar": "Entamés uniquement",
       "alerts": "Rappels à consommer",
       "sortBy": "Trier par",
       "sortOptions": {

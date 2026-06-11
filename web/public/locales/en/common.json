@@ -136,6 +136,7 @@
       "purchasePlace": "Purchase place",
       "estimatedValue": "Estimated value (€)",
       "isOpened": "Bottle opened",
+      "isOpenedCigar": "Opened cigar",
       "fillLevel": "Fill level",
       "openedAt": "Opened on",
       "reminderDate": "Consumption reminder",
@@ -230,7 +231,9 @@
     "filters": {
       "all": "All states",
       "full": "Full only",
+      "fullCigar": "Intact only",
       "opened": "Opened only",
+      "openedCigar": "Opened only",
       "alerts": "Reminders to consume",
       "sortBy": "Sort by",
       "sortOptions": {
