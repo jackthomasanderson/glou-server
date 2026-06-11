@@ -763,21 +763,21 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                   </TableColumn>
                 )}
               </TableHeader>
-              <TableBody>
-                {filteredItems.map((item: InventoryItem) => (
-                  <InventoryListRow
-                    key={item.id}
-                    item={item}
-                    categoryLabel={categoryLabel(item.category)}
-                    cellar={cellars?.find((c: Cellar) => c.id === item.cellarId) ?? undefined}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onView={bulkMode ? undefined : handleView}
-                    t={t}
-                    isSelected={selectedIds.has(item.id)}
-                    onSelectToggle={bulkMode ? handleSelectToggle : undefined}
-                  />
-                ))}
+              <TableBody items={filteredItems}>
+                {(item: InventoryItem) => React.cloneElement(
+                  InventoryListRow({
+                    item,
+                    categoryLabel: categoryLabel(item.category),
+                    cellar: cellars?.find((c: Cellar) => c.id === item.cellarId) ?? undefined,
+                    onEdit: handleEdit,
+                    onDelete: handleDelete,
+                    onView: bulkMode ? undefined : handleView,
+                    t,
+                    isSelected: selectedIds.has(item.id),
+                    onSelectToggle: bulkMode ? handleSelectToggle : undefined,
+                  }),
+                  { key: item.id }
+                )}
               </TableBody>
             </Table>
           )}
