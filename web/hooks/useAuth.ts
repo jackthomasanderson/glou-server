@@ -17,6 +17,7 @@ export interface PublicUser {
   isAdmin: boolean;
   isTwoFactorEnabled?: boolean;
   createdAt: string;
+  deletionRequestedAt?: string | null;
 }
 
 const ME_KEY = ['auth', 'me'];
@@ -57,7 +58,7 @@ export function useMe() {
 export function useLogin() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  return useMutation<PublicUser & { requires2fa?: boolean }, Error, { identifier: string; password: string }>({
+  return useMutation<PublicUser & { requires2fa?: boolean }, Error, { identifier: string; password: string; rememberMe?: boolean }>({
     mutationFn: (data) => apiFetch<PublicUser & { requires2fa?: boolean }>('/api/auth/login', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (data) => {
       if (data.requires2fa) {
@@ -233,6 +234,44 @@ export function useVerify2faLogin() {
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
       router.push('/bottles');
+    },
+  });
+}
+
+// ─── RGPD (FEAT-38) ──────────────────────────────────────────────────────────
+
+export function useExportData() {
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      const res = await fetch('/api/user/export', { credentials: 'include' });
+      if (!res.ok) throw new Error('EXPORT_FAILED');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'glou-export.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+  });
+}
+
+export function useRequestAccountDeletion() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, void>({
+    mutationFn: () => apiFetch<void>('/api/user/delete-account', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ME_KEY });
+    },
+  });
+}
+
+export function useCancelAccountDeletion() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, void>({
+    mutationFn: () => apiFetch<void>('/api/user/cancel-delete', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ME_KEY });
     },
   });
 }

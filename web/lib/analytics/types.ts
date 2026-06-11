@@ -29,6 +29,12 @@ export interface MaturityPlanning {
   pastPeak: { count: number; percent: number };
 }
 
+export interface MovementStats {
+  added: number;
+  consumed: number;
+  deleted: number;
+}
+
 export interface AnalyticsStats {
   totalValuation: number;
   totalPurchasePrice: number;
@@ -41,4 +47,5 @@ export interface AnalyticsStats {
   maturityPlanning: MaturityPlanning;
   gardeHistogram: GardePoint[];
   caveDistribution: CavePoint[];
+  movements: MovementStats;
 }

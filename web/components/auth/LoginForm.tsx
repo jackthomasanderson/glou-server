@@ -4,7 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
-import { Button, Input, Card, CardBody, Link } from '@heroui/react';
+import { Button, Input, Card, CardBody, Link, Checkbox } from '@heroui/react';
 import NextLink from 'next/link';
 import { useLogin, useVerify2faLogin } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
@@ -25,6 +25,7 @@ export function LoginForm() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [step, setStep] = useState<'login' | '2fa'>('login');
   const [code, setCode] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
 
   const loginMutation = useLogin();
   const verifyMutation = useVerify2faLogin();
@@ -36,7 +37,7 @@ export function LoginForm() {
 
   const onSubmit = (data: LoginFormValues) => {
     setApiError(null);
-    loginMutation.mutate(data, {
+    loginMutation.mutate({ ...data, rememberMe }, {
       onSuccess: (res: { requires2fa?: boolean }) => {
         if (res?.requires2fa) setStep('2fa');
       },
@@ -151,6 +152,14 @@ export function LoginForm() {
                 />
               )}
             />
+            <Checkbox
+              isSelected={rememberMe}
+              onValueChange={setRememberMe}
+              size="sm"
+              isDisabled={isPending}
+            >
+              <span className="text-sm">{t('auth.rememberMe')}</span>
+            </Checkbox>
             <Button
               type="submit"
               color="primary"

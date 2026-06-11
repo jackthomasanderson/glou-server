@@ -2,9 +2,10 @@ import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
 import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema } from '../schemas/auth.schema';
-import { authService, COOKIE_NAME, COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
+import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { auditLog } from '../services/audit.service';
+import { AuthPayload } from '../services/auth.service';
 
 const router = Router();
 
@@ -38,11 +39,10 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
   try {
     const data = loginSchema.parse(req.body);
     const result: LoginResult = await authService.login(data);
-    const user = result.user;
-    const token = result.token;
-    const requires2fa = result.requires2fa;
+    const { user, token, requires2fa, rememberMe } = result;
 
-    res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
+    const cookieOpts = rememberMe ? COOKIE_OPTIONS : SESSION_COOKIE_OPTIONS;
+    res.cookie(COOKIE_NAME, token, cookieOpts);
     if (!requires2fa) {
       void auditLog({ userId: user.id, action: 'LOGIN', status: 'success', ip });
     }
@@ -78,24 +78,27 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
     if (!secret) throw new Error('SERVER_CONFIGURATION_ERROR');
 
     let userId = '';
+    let rememberMe = false;
     try {
-      // Decode the pending token to extract userId
-      const payload = jwt.verify(pendingToken, secret) as { scope?: string; userId: string };
+      // Decode the pending token to extract userId and rememberMe
+      const payload = jwt.verify(pendingToken, secret) as AuthPayload;
       if (payload.scope !== '2fa_pending') {
         throw new Error('NOT_A_PENDING_TOKEN');
       }
       userId = payload.userId;
+      rememberMe = payload.rememberMe ?? false;
     } catch {
       res.status(401).json({ error: 'TOKEN_INVALID_OR_EXPIRED' });
       return;
     }
 
     const { code } = verify2faSchema.parse(req.body);
-    const { user, token } = await authService.verifyTwoFactorLogin(userId, code);
+    const result = await authService.verifyTwoFactorLogin(userId, code, rememberMe);
 
-    res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
-    void auditLog({ userId: user.id, action: 'LOGIN_2FA', status: 'success', ip });
-    res.json({ data: user });
+    const cookieOpts = result.rememberMe ? COOKIE_OPTIONS : SESSION_COOKIE_OPTIONS;
+    res.cookie(COOKIE_NAME, result.token, cookieOpts);
+    void auditLog({ userId: result.user.id, action: 'LOGIN_2FA', status: 'success', ip });
+    res.json({ data: result.user });
   } catch (error) {
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });

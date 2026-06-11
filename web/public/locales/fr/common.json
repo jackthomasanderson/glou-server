@@ -316,7 +316,8 @@
         "numbers": "Ajoutez des chiffres",
         "special": "Ajoutez des caractères spéciaux"
       }
-    }
+    },
+    "rememberMe": "Se souvenir de moi (30 jours)"
   },
   "cellars": {
     "title": "Mes Caves",
@@ -730,6 +731,40 @@
       "estimatedTotal": "Valeur de marché estimée",
       "roi": "Plus-value estimée",
       "roiHint": "vs. prix d'achat total"
+    },
+    "period": {
+      "label": "Période",
+      "30d": "30 derniers jours",
+      "90d": "90 derniers jours",
+      "1y": "12 derniers mois",
+      "all": "Toute la période"
+    },
+    "movements": {
+      "title": "Flux de mouvements",
+      "added": "Ajoutés",
+      "consumed": "Sortis / Consommés",
+      "restored": "Restaurés"
     }
+  },
+  "qr": {
+    "title": "QR Code de la bouteille",
+    "download": "Télécharger PNG"
+  },
+  "gdpr": {
+    "title": "Données & Confidentialité",
+    "exportTitle": "Exporter mes données",
+    "exportDescription": "Téléchargez une copie complète de vos données personnelles au format JSON (RGPD).",
+    "exportButton": "Exporter",
+    "deleteTitle": "Supprimer mon compte",
+    "deleteDescription": "Votre compte sera marqué pour suppression définitive après un délai de grâce de 30 jours.",
+    "deleteButton": "Supprimer le compte",
+    "deleteModalTitle": "Confirmer la suppression",
+    "deleteModalBody": "Cette action est irréversible. Votre compte et toutes vos données seront supprimés définitivement dans 30 jours.",
+    "deleteModalHint": "Saisissez « {{keyword}} » pour confirmer :",
+    "deleteKeyword": "SUPPRIMER",
+    "deleteConfirm": "Confirmer la suppression",
+    "deletionPending": "Suppression planifiée",
+    "deletionDeadline": "Votre compte sera supprimé le {{date}} sauf annulation.",
+    "cancelDeletion": "Annuler la suppression"
   }
 }

@@ -71,6 +71,7 @@ describe('AuthService', () => {
         isAdmin: false,
         isActive: true,
         passwordHash: 'hashedPassword',
+        deletionRequestedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -106,6 +107,7 @@ describe('AuthService', () => {
     const loginData = {
       identifier: 'testuser',
       password: 'password123456',
+      rememberMe: false,
     };
 
     const mockUser = {
@@ -127,6 +129,7 @@ describe('AuthService', () => {
       backupCodes: [],
       isAdmin: false,
       isActive: true,
+      deletionRequestedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

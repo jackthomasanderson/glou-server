@@ -316,7 +316,8 @@
         "numbers": "Add numbers",
         "special": "Add special characters"
       }
-    }
+    },
+    "rememberMe": "Remember me (30 days)"
   },
   "cellars": {
     "title": "My Cellars",
@@ -730,6 +731,40 @@
       "estimatedTotal": "Estimated market value",
       "roi": "Estimated appreciation",
       "roiHint": "vs. total purchase price"
+    },
+    "period": {
+      "label": "Period",
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "1y": "Last 12 months",
+      "all": "All time"
+    },
+    "movements": {
+      "title": "Movement flows",
+      "added": "Added",
+      "consumed": "Out / Consumed",
+      "restored": "Restored"
     }
+  },
+  "qr": {
+    "title": "Bottle QR Code",
+    "download": "Download PNG"
+  },
+  "gdpr": {
+    "title": "Data & Privacy",
+    "exportTitle": "Export my data",
+    "exportDescription": "Download a full copy of your personal data in JSON format (GDPR).",
+    "exportButton": "Export",
+    "deleteTitle": "Delete my account",
+    "deleteDescription": "Your account will be scheduled for permanent deletion after a 30-day grace period.",
+    "deleteButton": "Delete account",
+    "deleteModalTitle": "Confirm deletion",
+    "deleteModalBody": "This action is irreversible. Your account and all your data will be permanently deleted in 30 days.",
+    "deleteModalHint": "Type \"{{keyword}}\" to confirm:",
+    "deleteKeyword": "DELETE",
+    "deleteConfirm": "Confirm deletion",
+    "deletionPending": "Deletion scheduled",
+    "deletionDeadline": "Your account will be deleted on {{date}} unless cancelled.",
+    "cancelDeletion": "Cancel deletion"
   }
 }

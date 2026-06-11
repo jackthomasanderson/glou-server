@@ -10,7 +10,15 @@ router.use(authMiddleware);
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
-    const stats = await getAnalytics(req.userId);
+    const fromStr = req.query.from as string | undefined;
+    const toStr = req.query.to as string | undefined;
+    const from = fromStr ? new Date(fromStr) : undefined;
+    const to = toStr ? new Date(toStr) : undefined;
+    if ((from && isNaN(from.getTime())) || (to && isNaN(to.getTime()))) {
+      res.status(400).json({ error: 'INVALID_DATE_RANGE' });
+      return;
+    }
+    const stats = await getAnalytics(req.userId, from, to);
     void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { scope: 'analytics' } });
     res.json({ data: stats });
   } catch (error) {

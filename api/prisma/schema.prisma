@@ -40,6 +40,9 @@ model User {
   isAdmin            Boolean    @default(false)
   isActive           Boolean    @default(true)
 
+  // RGPD: account deletion request (FEAT-38)
+  deletionRequestedAt DateTime?
+
   inventory    InventoryItem[]
   auditLogs    AuditLog[]
   cellars      Cellar[]

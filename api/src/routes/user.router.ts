@@ -134,4 +134,45 @@ router.patch('/preferences', authMiddleware, async (req: Request, res: Response)
   }
 });
 
+/**
+ * GET /api/user/export
+ * RGPD: export all personal data as JSON (FEAT-38)
+ */
+router.get('/export', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const data = await authService.exportUserData(req.userId);
+    res.setHeader('Content-Disposition', 'attachment; filename="glou-export.json"');
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(data, null, 2));
+  } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+/**
+ * POST /api/user/delete-account
+ * RGPD: schedule account for deletion with 30-day grace period (FEAT-38)
+ */
+router.post('/delete-account', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    await authService.requestAccountDeletion(req.userId);
+    res.json({ data: { ok: true } });
+  } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+/**
+ * POST /api/user/cancel-delete
+ * RGPD: cancel a pending account deletion (FEAT-38)
+ */
+router.post('/cancel-delete', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    await authService.cancelAccountDeletion(req.userId);
+    res.json({ data: { ok: true } });
+  } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
 export default router;

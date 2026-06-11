@@ -1,10 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Card,
   CardBody,
   Chip,
+  Button,
+  Select,
+  SelectItem,
 } from '@heroui/react';
 import {
   BarChart3,
@@ -18,13 +21,30 @@ import {
   AlertTriangle,
   TrendingUp,
   TrendingDown,
+  FileDown,
+  PackagePlus,
+  PackageMinus,
+  PackageCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { subDays, subMonths, subYears, format } from 'date-fns';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { AnalyticsStats, CategoryStat, RegionStat, GardePoint, CavePoint } from '@/lib/analytics/types';
 import dynamic from 'next/dynamic';
 import { GardeHistogram } from './GardeHistogram';
+
+type Period = '30d' | '90d' | '1y' | 'all';
+
+function periodToDates(period: Period): { from?: string; to?: string } {
+  const now = new Date();
+  switch (period) {
+    case '30d': return { from: format(subDays(now, 30), 'yyyy-MM-dd') };
+    case '90d': return { from: format(subDays(now, 90), 'yyyy-MM-dd') };
+    case '1y': return { from: format(subYears(now, 1), 'yyyy-MM-dd') };
+    default: return {};
+  }
+}
 
 // World map loaded client-side only (react-leaflet relies on browser APIs)
 const WorldHeatmap = dynamic(
@@ -480,7 +500,11 @@ function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => 
 
 export function AnalyticsDashboard() {
   const { t } = useTranslation();
-  const { data, isLoading, isError } = useAnalytics();
+  const [period, setPeriod] = useState<Period>('all');
+  const { from, to } = periodToDates(period);
+  const { data, isLoading, isError } = useAnalytics(from, to);
+
+  const handlePrint = useCallback(() => window.print(), []);
 
   if (isError) {
     return (
@@ -502,13 +526,40 @@ export function AnalyticsDashboard() {
     <div className="max-w-5xl mx-auto py-6 px-4 space-y-6">
 
       {/* Header */}
-      <Card className="border border-default-200" shadow="none">
+      <Card className="border border-default-200 print:hidden" shadow="none">
         <CardBody className="p-5">
-          <div className="flex items-center gap-3">
-            <BarChart3 size={20} className="text-primary" />
-            <div>
-              <h1 className="text-lg font-bold">{t('analytics.pageTitle')}</h1>
-              <p className="text-[0.75rem] text-default-500">{t('analytics.pageSubtitle')}</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <BarChart3 size={20} className="text-primary" />
+              <div>
+                <h1 className="text-lg font-bold">{t('analytics.pageTitle')}</h1>
+                <p className="text-[0.75rem] text-default-500">{t('analytics.pageSubtitle')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select
+                size="sm"
+                radius="md"
+                variant="bordered"
+                selectedKeys={[period]}
+                onSelectionChange={(keys) => setPeriod(Array.from(keys)[0] as Period)}
+                className="w-36"
+                aria-label={t('analytics.period.label')}
+              >
+                <SelectItem key="30d">{t('analytics.period.30d')}</SelectItem>
+                <SelectItem key="90d">{t('analytics.period.90d')}</SelectItem>
+                <SelectItem key="1y">{t('analytics.period.1y')}</SelectItem>
+                <SelectItem key="all">{t('analytics.period.all')}</SelectItem>
+              </Select>
+              <Button
+                size="sm"
+                variant="flat"
+                color="default"
+                startContent={<FileDown size={14} />}
+                onPress={handlePrint}
+              >
+                PDF
+              </Button>
             </div>
           </div>
         </CardBody>
@@ -551,6 +602,42 @@ export function AnalyticsDashboard() {
           </>
         )}
       </div>
+
+      {/* Movements */}
+      {!isLoading && data?.movements && (
+        <Card className="border border-default-200" shadow="none">
+          <CardBody className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <PackagePlus size={18} className="text-primary" />
+              <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+                {t('analytics.movements.title')}
+              </p>
+              {period !== 'all' && (
+                <Chip size="sm" variant="flat" color="default" className="text-[0.6rem] font-bold h-5 ml-1">
+                  {t(`analytics.period.${period}`)}
+                </Chip>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex flex-col items-center gap-1 p-3 bg-success-50 border border-success-200 rounded-xl">
+                <PackagePlus size={18} className="text-success" />
+                <p className="text-[1.5rem] font-extrabold leading-tight">{data.movements.added}</p>
+                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-success-700">{t('analytics.movements.added')}</p>
+              </div>
+              <div className="flex flex-col items-center gap-1 p-3 bg-warning-50 border border-warning-200 rounded-xl">
+                <PackageMinus size={18} className="text-warning" />
+                <p className="text-[1.5rem] font-extrabold leading-tight">{data.movements.consumed}</p>
+                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-warning-700">{t('analytics.movements.consumed')}</p>
+              </div>
+              <div className="flex flex-col items-center gap-1 p-3 bg-primary-50 border border-primary-200 rounded-xl">
+                <PackageCheck size={18} className="text-primary" />
+                <p className="text-[1.5rem] font-extrabold leading-tight">{data.movements.deleted}</p>
+                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-primary-700">{t('analytics.movements.restored')}</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Valuation breakdown — only shown if there's purchase or estimated data */}
       {!isLoading && (data?.totalPurchasePrice ?? 0) > 0 && (

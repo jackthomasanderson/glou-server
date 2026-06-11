@@ -18,11 +18,12 @@ export interface AuthPayload {
   email: string;
   username: string;
   scope?: 'full' | '2fa_pending';
+  rememberMe?: boolean;
 }
 
 export type LoginResult =
-  | { user: PublicUser; token: string; requires2fa?: never }
-  | { user: PublicUser; token: string; requires2fa: true };
+  | { user: PublicUser; token: string; rememberMe: boolean; requires2fa?: never }
+  | { user: PublicUser; token: string; rememberMe: boolean; requires2fa: true };
 
 export interface PublicUser {
   id: string;
@@ -38,6 +39,7 @@ export interface PublicUser {
   dateFormat: DateFormat;
   isAdmin: boolean;
   createdAt: Date;
+  deletionRequestedAt?: Date | null;
 }
 
 function signToken(payload: AuthPayload): string {
@@ -89,7 +91,8 @@ export class AuthService {
         accentColor: true,
         dateFormat: true,
         isAdmin: true,
-        createdAt: true
+        createdAt: true,
+        deletionRequestedAt: true
       },
     });
 
@@ -101,7 +104,7 @@ export class AuthService {
    * Login with username OR email + password.
    */
   async login(data: LoginInput): Promise<LoginResult> {
-    const { identifier, password } = data;
+    const { identifier, password, rememberMe = false } = data;
 
     // Accept username or email
     const user = await prisma.user.findFirst({
@@ -130,15 +133,16 @@ export class AuthService {
       dateFormat: user.dateFormat,
       isAdmin: user.isAdmin,
       createdAt: user.createdAt,
+      deletionRequestedAt: user.deletionRequestedAt,
     };
 
     if (user.isTwoFactorEnabled) {
-      const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: '2fa_pending' });
-      return { user: publicUser, token, requires2fa: true };
+      const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: '2fa_pending', rememberMe });
+      return { user: publicUser, token, rememberMe, requires2fa: true };
     }
 
     const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full' });
-    return { user: publicUser, token };
+    return { user: publicUser, token, rememberMe };
   }
 
   /**
@@ -160,7 +164,8 @@ export class AuthService {
         accentColor: true,
         dateFormat: true,
         isAdmin: true,
-        createdAt: true
+        createdAt: true,
+        deletionRequestedAt: true
       },
     });
     return user;
@@ -194,7 +199,8 @@ export class AuthService {
         accentColor: true,
         dateFormat: true,
         isAdmin: true,
-        createdAt: true
+        createdAt: true,
+        deletionRequestedAt: true
       },
     });
     return user;
@@ -253,7 +259,8 @@ export class AuthService {
         accentColor: true,
         dateFormat: true,
         isAdmin: true,
-        createdAt: true
+        createdAt: true,
+        deletionRequestedAt: true
       }
     });
     return user;
@@ -295,13 +302,12 @@ export class AuthService {
         accentColor: true,
         dateFormat: true,
         isAdmin: true,
-        createdAt: true
+        createdAt: true,
+        deletionRequestedAt: true
       },
     });
     return user;
   }
-
-  // ─── 2FA Methods ────────────────────────────────────────────────────────────
 
   async generateTwoFactorSecret(userId: string): Promise<{ qrCodeUrl: string; secret: string }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
@@ -400,7 +406,61 @@ export class AuthService {
     });
   }
 
-  async verifyTwoFactorLogin(userId: string, code: string): Promise<{ user: PublicUser; token: string }> {
+  // ─── RGPD Methods (FEAT-38) ─────────────────────────────────────────────────
+
+  async exportUserData(userId: string): Promise<Record<string, unknown>> {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: {
+        inventory: { where: { deletedAt: null } },
+        cellars: true,
+        collections: { include: { items: { select: { id: true, name: true } } } },
+        tastingNotes: true,
+        auditLogs: { orderBy: { createdAt: 'desc' }, take: 500 },
+      },
+    });
+
+    return {
+      profile: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        displayName: user.displayName,
+        createdAt: user.createdAt,
+        language: user.language,
+        theme: user.theme,
+      },
+      inventory: user.inventory,
+      cellars: user.cellars,
+      collections: user.collections,
+      tastingNotes: user.tastingNotes,
+      activityLog: user.auditLogs.map(l => ({
+        action: l.action,
+        status: l.status,
+        createdAt: l.createdAt,
+        ip: l.ip,
+      })),
+      exportedAt: new Date().toISOString(),
+    };
+  }
+
+  async requestAccountDeletion(userId: string): Promise<void> {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { deletionRequestedAt: new Date() },
+    });
+  }
+
+  async cancelAccountDeletion(userId: string): Promise<void> {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { deletionRequestedAt: null },
+    });
+  }
+
+  // ─── 2FA Methods ────────────────────────────────────────────────────────────
+
+  async verifyTwoFactorLogin(userId: string, code: string, rememberMe = false): Promise<{ user: PublicUser; token: string; rememberMe: boolean }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
 
@@ -449,10 +509,11 @@ export class AuthService {
       dateFormat: user.dateFormat,
       isAdmin: user.isAdmin,
       createdAt: user.createdAt,
+      deletionRequestedAt: user.deletionRequestedAt,
     };
 
     const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full' });
-    return { user: publicUser, token };
+    return { user: publicUser, token, rememberMe };
   }
 }
 
@@ -460,10 +521,20 @@ export const authService = new AuthService();
 
 // Cookie settings helper
 export const COOKIE_NAME = 'glou_token';
+
+// Persistent cookie (rememberMe=true) — 30 days
 export const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'strict' as const,
-  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in ms
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+  path: '/',
+};
+
+// Session cookie (rememberMe=false) — expires when browser closes
+export const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
   path: '/',
 };

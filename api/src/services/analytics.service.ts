@@ -31,6 +31,12 @@ export interface CavePoint {
   valuation: number;
 }
 
+export interface MovementStats {
+  added: number;
+  consumed: number;
+  deleted: number;
+}
+
 export interface AnalyticsStats {
   totalValuation: number;
   totalPurchasePrice: number;
@@ -43,6 +49,7 @@ export interface AnalyticsStats {
   maturityPlanning: MaturityPlanning;
   gardeHistogram: GardePoint[];
   caveDistribution: CavePoint[];
+  movements: MovementStats;
 }
 
 function computeBottleVolume(category: string, bottleSize: string | null, fillLevel: number | null): number {
@@ -67,8 +74,12 @@ function computeBottleVolume(category: string, bottleSize: string | null, fillLe
   return Math.round(baseVolume * fill * 1000) / 1000;
 }
 
-export async function getAnalytics(userId: string): Promise<AnalyticsStats> {
-  const [items, cellars] = await Promise.all([
+export async function getAnalytics(userId: string, from?: Date, to?: Date): Promise<AnalyticsStats> {
+  const dateFilter = from || to
+    ? { createdAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
+    : {};
+
+  const [items, cellars, auditMovements] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { userId, deletedAt: null },
       select: {
@@ -88,6 +99,16 @@ export async function getAnalytics(userId: string): Promise<AnalyticsStats> {
     prisma.cellar.findMany({
       where: { userId },
       select: { id: true, name: true, type: true },
+    }),
+    prisma.auditLog.groupBy({
+      by: ['action'],
+      where: {
+        userId,
+        action: { in: ['CREATE', 'DELETE', 'RESTORE'] },
+        status: 'success',
+        ...dateFilter,
+      },
+      _count: { action: true },
     }),
   ]);
 
@@ -161,6 +182,12 @@ export async function getAnalytics(userId: string): Promise<AnalyticsStats> {
   const total = items.length;
   const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
 
+  const movements: MovementStats = {
+    added: auditMovements.find(r => r.action === 'CREATE')?._count.action ?? 0,
+    consumed: auditMovements.find(r => r.action === 'DELETE')?._count.action ?? 0,
+    deleted: auditMovements.find(r => r.action === 'RESTORE')?._count.action ?? 0,
+  };
+
   // Build garde histogram sorted by year
   const gardeHistogram = Object.entries(gardeMap)
     .map(([year, count]) => ({ year: parseInt(year, 10), count }))
@@ -199,5 +226,6 @@ export async function getAnalytics(userId: string): Promise<AnalyticsStats> {
     },
     gardeHistogram,
     caveDistribution,
+    movements,
   };
 }

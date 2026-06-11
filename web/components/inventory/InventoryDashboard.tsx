@@ -91,6 +91,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     const filterParam = searchParams.get('filter');
     const qParam = searchParams.get('q');
     const collectionParam = searchParams.get('collection');
+    const scanParam = searchParams.get('scan');
     if (qParam) setSearchQuery(qParam);
     setSelectedCollectionId(collectionParam ?? null);
     if (filterParam === 'opened') {
@@ -102,7 +103,18 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     } else {
       setOpenedFilter('all');
     }
-  }, [searchParams]);
+    // Auto-open bottle from QR scan (FEAT-10)
+    if (scanParam && items) {
+      const found = items.find((i) => i.id === scanParam);
+      if (found) {
+        setViewingItem(found);
+        // Remove ?scan= from URL to avoid reopening on refresh
+        const next = new URLSearchParams(searchParams.toString());
+        next.delete('scan');
+        router.replace(`${pathname}${next.toString() ? `?${next.toString()}` : ''}`);
+      }
+    }
+  }, [searchParams, items]);
 
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [viewMode, setViewMode] = useViewMode('inventory');

@@ -1,3 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@media print {
+  /* Hide nav/sidebar and non-content elements */
+  nav,
+  aside,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Remove shadows and borders that don't print well */
+  [class*="shadow"] {
+    box-shadow: none !important;
+  }
+}

@@ -10,6 +10,7 @@ import { useMe, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { AccountSecurity } from '@/components/profile/AccountSecurity';
 import { AvatarUploader } from '@/components/profile/AvatarUploader';
+import { GdprSection } from '@/components/profile/GdprSection';
 
 const ACCENT_COLORS = [
   { name: 'indigo', val: '#6366f1' },
@@ -226,6 +227,13 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
             <AccountSecurity user={user} />
             <TwoFactorSettings user={user} />
+          </div>
+        )}
+
+        {/* RGPD */}
+        {user && (
+          <div className="mt-6">
+            <GdprSection user={user} />
           </div>
         )}
       </div>

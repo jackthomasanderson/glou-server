@@ -6,10 +6,11 @@ import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem } fro
 import { Button, Chip, Divider, Slider, Tooltip } from '@heroui/react';
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
-  Wine, BookMarked, Dumbbell, Leaf, Sparkles,
+  Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode,
 } from 'lucide-react';
 import { InventoryItem, InventoryCategory, InventoryHistoryEntry } from '@/lib/inventory/types';
 import { TastingForm } from '@/components/tastings/TastingForm';
+import { QrCodeModal } from './QrCodeModal';
 
 const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
   wine: 'linear-gradient(160deg, #3D1A1A 0%, #6B2C2C 100%)',
@@ -62,6 +63,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
   const { data: cellars } = useCellars();
   const updateMutation = useUpdateInventoryItem();
   const [tastingOpen, setTastingOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
 
   const { data: enrichedItem } = useInventoryItem(item?.id ?? '');
   const { data: history } = useInventoryItemHistory(item?.id ?? '', open);
@@ -151,13 +153,24 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
               </p>
               <div className="flex justify-between items-start">
                 <h2 className="text-lg font-bold leading-tight pr-8">{d.name}</h2>
-                <button
-                  onClick={onClose}
-                  className="shrink-0 p-1 rounded-lg hover:bg-default-100 transition-colors"
-                  aria-label="Close"
-                >
-                  <X size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <Tooltip content={t('qr.title')} size="sm" placement="bottom">
+                    <button
+                      onClick={() => setQrOpen(true)}
+                      className="shrink-0 p-1 rounded-lg hover:bg-default-100 transition-colors"
+                      aria-label={t('qr.title')}
+                    >
+                      <QrCode size={16} />
+                    </button>
+                  </Tooltip>
+                  <button
+                    onClick={onClose}
+                    className="shrink-0 p-1 rounded-lg hover:bg-default-100 transition-colors"
+                    aria-label="Close"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -409,6 +422,13 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
         open={tastingOpen}
         onClose={() => setTastingOpen(false)}
         initialItemId={item.id}
+      />
+
+      <QrCodeModal
+        isOpen={qrOpen}
+        onClose={() => setQrOpen(false)}
+        itemId={item.id}
+        itemName={item.name}
       />
     </>
   );
