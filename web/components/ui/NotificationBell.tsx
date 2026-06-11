@@ -88,6 +88,7 @@ export function NotificationBell() {
             {(entry) => entry.kind === 'alert' ? (
               <DropdownItem
                 key={entry.id}
+                onPress={handleViewAll}
                 description={`${entry.alert.producer}${entry.alert.vintage ? ` · ${entry.alert.vintage}` : ''}${entry.alert.peakMaturityFrom ? ` · ${entry.alert.peakMaturityFrom}–${entry.alert.peakMaturityTo}` : ''}`}
                 startContent={
                   <Chip size="sm" color={STATUS_COLOR[entry.alert.alertStatus ?? 'default'] ?? 'default'} variant="flat">

@@ -220,7 +220,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     } else if (openedFilter === 'alerts') {
       if (!hasMounted) return [];
       const today = new Date().toISOString().split('T')[0];
-      result = result.filter((b: InventoryItem) => b.reminderDate && b.reminderDate.split('T')[0] <= today);
+      result = result.filter((b: InventoryItem) =>
+        (b.reminderDate && b.reminderDate.split('T')[0] <= today) ||
+        (b.alertStatus && b.alertStatus !== 'none' && !b.alertsPaused)
+      );
     }
     if (searchQuery.trim()) {
       const q = norm(searchQuery);

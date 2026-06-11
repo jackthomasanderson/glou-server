@@ -7,16 +7,17 @@ import { useTranslation } from 'react-i18next';
 
 interface TastingCardProps {
   note: TastingNote;
+  onView: (note: TastingNote) => void;
   onEdit: (note: TastingNote) => void;
   onDelete: (note: TastingNote) => void;
 }
 
-export function TastingCard({ note, onEdit, onDelete }: TastingCardProps) {
+export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps) {
   const { t } = useTranslation();
 
   return (
     <Card className="transition-shadow hover:shadow-lg w-full" radius="lg">
-      <CardBody className="pb-1">
+      <CardBody className="pb-1 cursor-pointer" onClick={() => onView(note)}>
         {/* Top row: avatar + name/date + rating */}
         <div className="flex justify-between items-start gap-2 mb-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -93,7 +94,7 @@ export function TastingCard({ note, onEdit, onDelete }: TastingCardProps) {
         </div>
       </CardBody>
 
-      <CardFooter className="pt-0 justify-end gap-1">
+      <CardFooter className="pt-0 justify-end gap-1" onClick={(e) => e.stopPropagation()}>
         <Tooltip content={t('actions.edit')}>
           <Button
             isIconOnly

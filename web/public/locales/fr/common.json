@@ -752,12 +752,12 @@
       "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70%. Évitez les chocs thermiques pour préserver la souplesse de la cape."
     },
     "tastingInsights": {
-      "title": "Insights Dégustations",
+      "title": "Statistiques Dégustations",
       "producers": "Producteurs les mieux notés",
-      "topItems": "Meilleurs items",
-      "flopItems": "Items les moins bien notés",
+      "topItems": "Meilleures entrées",
+      "flopItems": "Entrées les moins bien notées",
       "readiness": "Distribution des maturités",
-      "empty": "Notez vos dégustations pour voir vos insights personnels apparaître ici."
+      "empty": "Notez vos dégustations pour voir vos statistiques personnelles apparaître ici."
     },
     "valuation": {
       "title": "Analyse de valorisation",

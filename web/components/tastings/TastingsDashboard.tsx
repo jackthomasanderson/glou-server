@@ -8,6 +8,7 @@ import { Plus, Wine, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTastings, useDeleteTasting } from '@/hooks/useTastings';
 import { TastingNote, TastingFormValues } from '@/lib/tastings/types';
 import { TastingCard } from './TastingCard';
+import { TastingDetailDrawer } from './TastingDetailDrawer';
 import { TastingForm } from './TastingForm';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +16,7 @@ export function TastingsDashboard() {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
+  const [viewing, setViewing] = useState<TastingNote | null>(null);
   const [editing, setEditing] = useState<TastingNote | null>(null);
   const [deleting, setDeleting] = useState<TastingNote | null>(null);
 
@@ -94,6 +96,7 @@ export function TastingsDashboard() {
               <TastingCard
                 key={note.id}
                 note={note}
+                onView={setViewing}
                 onEdit={handleEdit}
                 onDelete={setDeleting}
               />
@@ -141,6 +144,14 @@ export function TastingsDashboard() {
           <Plus size={24} />
         </button>
       )}
+
+      {/* Detail drawer */}
+      <TastingDetailDrawer
+        note={viewing}
+        open={!!viewing}
+        onClose={() => setViewing(null)}
+        onEdit={(note) => { setViewing(null); setEditing(note); }}
+      />
 
       {/* Create form */}
       <TastingForm open={formOpen} onClose={() => setFormOpen(false)} />
