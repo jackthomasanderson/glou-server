@@ -743,18 +743,16 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               classNames={{ wrapper: 'border border-divider rounded-xl' }}
             >
               <TableHeader>
-                {[
-                  ...(bulkMode ? [<TableColumn key="check" width={40}>{' '}</TableColumn>] : []),
-                  <TableColumn key="icon" width={40}>{' '}</TableColumn>,
-                  <TableColumn key="name">{t('inventory.fields.name')}</TableColumn>,
-                  <TableColumn key="producer" className="hidden sm:table-cell">{t('inventory.fields.producer')}</TableColumn>,
-                  <TableColumn key="vintage" className="text-center">{t('inventory.fields.vintage')}</TableColumn>,
-                  <TableColumn key="region" className="hidden md:table-cell">{t('inventory.fields.region')}</TableColumn>,
-                  <TableColumn key="cellar" className="hidden md:table-cell">{t('view.columns.cellar')}</TableColumn>,
-                  <TableColumn key="peak" className="text-center hidden sm:table-cell">{t('view.columns.peak')}</TableColumn>,
-                  <TableColumn key="status" className="hidden sm:table-cell">{t('view.columns.status')}</TableColumn>,
-                  <TableColumn key="actions" className="text-right">{t('admin.maturityRefs.columns.actions')}</TableColumn>,
-                ]}
+                {bulkMode && <TableColumn key="check" width={40}>{' '}</TableColumn>}
+                <TableColumn key="icon" width={40}>{' '}</TableColumn>
+                <TableColumn key="name">{t('inventory.fields.name')}</TableColumn>
+                <TableColumn key="producer" className="hidden sm:table-cell">{t('inventory.fields.producer')}</TableColumn>
+                <TableColumn key="vintage" className="text-center">{t('inventory.fields.vintage')}</TableColumn>
+                <TableColumn key="region" className="hidden md:table-cell">{t('inventory.fields.region')}</TableColumn>
+                <TableColumn key="cellar" className="hidden md:table-cell">{t('view.columns.cellar')}</TableColumn>
+                <TableColumn key="peak" className="text-center hidden sm:table-cell">{t('view.columns.peak')}</TableColumn>
+                <TableColumn key="status" className="hidden sm:table-cell">{t('view.columns.status')}</TableColumn>
+                <TableColumn key="actions" className="text-right">{t('admin.maturityRefs.columns.actions')}</TableColumn>
               </TableHeader>
               <TableBody>
                 {filteredItems.map((item: InventoryItem) => (
