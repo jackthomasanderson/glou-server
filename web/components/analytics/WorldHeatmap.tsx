@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getRegionCoordinates } from '@/lib/analytics/regionCoordinates';
 import { RegionStat } from '@/lib/analytics/types';
@@ -98,16 +98,16 @@ export function WorldHeatmap({ regions, t }: WorldHeatmapProps) {
         }
       >
         <style>{`
-          .leaflet-popup-content-wrapper {
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            padding: 0;
+          .leaflet-tooltip {
+            border-radius: 10px !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
+            padding: 10px 14px !important;
+            border: 1px solid rgba(0,0,0,0.08) !important;
+            background: #fff !important;
+            color: inherit !important;
           }
-          .leaflet-popup-content {
-            margin: 12px 16px;
-          }
-          .leaflet-popup-tip-container {
-            display: none;
+          .leaflet-tooltip::before {
+            display: none !important;
           }
           .leaflet-control-attribution {
             font-size: 0.6rem;
@@ -140,9 +140,9 @@ export function WorldHeatmap({ regions, t }: WorldHeatmapProps) {
                 fillOpacity: 0.85,
               }}
             >
-              <Popup>
+              <Tooltip sticky>
                 <RegionPopup marker={marker} t={t} />
-              </Popup>
+              </Tooltip>
             </CircleMarker>
           ))}
         </MapContainer>

@@ -406,27 +406,31 @@ export function InventoryForm({
                               onValueChange={(v) => setField('edition', v)}
                             />
                           </div>
-                          <Input
-                            label={t('inventory.fields.alcoholDegree')}
-                            type="number"
-                            variant="bordered"
-                            size="sm"
-                            isRequired
-                            value={String(values.alcoholDegree ?? '')}
-                            onValueChange={(v) => setField('alcoholDegree', numField(v))}
-                            endContent={<span className="text-xs text-default-400">%</span>}
-                            min={0} max={100}
-                          />
-                          <Input
-                            label={t('inventory.fields.declaredAge')}
-                            type="number"
-                            variant="bordered"
-                            size="sm"
-                            value={String(values.declaredAge ?? '')}
-                            onValueChange={(v) => setField('declaredAge', numField(v))}
-                            endContent={<span className="text-xs text-default-400">{t('inventory.fields.declaredAgeUnit')}</span>}
-                            min={0} max={200}
-                          />
+                          <div className="col-span-2">
+                            <Input
+                              label={t('inventory.fields.alcoholDegree')}
+                              type="number"
+                              variant="bordered"
+                              size="sm"
+                              isRequired
+                              value={String(values.alcoholDegree ?? '')}
+                              onValueChange={(v) => setField('alcoholDegree', numField(v))}
+                              endContent={<span className="text-xs text-default-400">%</span>}
+                              min={0} max={100}
+                            />
+                          </div>
+                          <div className="col-span-2">
+                            <Input
+                              label={t('inventory.fields.declaredAge')}
+                              type="number"
+                              variant="bordered"
+                              size="sm"
+                              value={String(values.declaredAge ?? '')}
+                              onValueChange={(v) => setField('declaredAge', numField(v))}
+                              endContent={<span className="text-xs text-default-400">{t('inventory.fields.declaredAgeUnit')}</span>}
+                              min={0} max={200}
+                            />
+                          </div>
                         </>
                       )}
 

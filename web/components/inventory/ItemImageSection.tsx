@@ -49,7 +49,7 @@ async function saveFromUrl(url: string): Promise<string | null> {
 async function uploadFile(file: File): Promise<string | null> {
   try {
     const form = new FormData();
-    form.append('file', file);
+    form.append('image', file);
     const res = await fetch('/api/search/images/upload', {
       method: 'POST',
       credentials: 'include',
