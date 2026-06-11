@@ -9,14 +9,15 @@ import { MainLayout } from '@/components/ui/MainLayout';
 import { useCellar, useCellarGrid } from '@/hooks/useCellars';
 import { useInventory } from '@/hooks/useInventory';
 import { CellarGridPlan } from '@/components/cellars/CellarGridPlan';
+import { InventoryDetailDialog } from '@/components/inventory/InventoryDetailDialog';
 import { InventoryItem } from '@/lib/inventory/types';
 
 type DetailView = 'grid' | 'list' | 'map';
 
-function BottleCard({ item }: { item: InventoryItem }) {
+function BottleCard({ item, onPress }: { item: InventoryItem; onPress: () => void }) {
   const { t } = useTranslation();
   return (
-    <Card shadow="sm" radius="lg">
+    <Card isPressable shadow="sm" radius="lg" onPress={onPress}>
       <CardBody className="pb-3">
         <p className="text-sm font-semibold truncate">{item.name}</p>
         <p className="text-xs text-foreground-400 truncate">{item.producer}</p>
@@ -36,6 +37,7 @@ export default function CellarDetailPage() {
   const params = useParams();
   const cellarId = params.id as string;
   const [view, setView] = useState<DetailView>('map');
+  const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
 
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
   const { data: allInventory, isLoading: inventoryLoading } = useInventory();
@@ -132,7 +134,7 @@ export default function CellarDetailPage() {
             <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles')}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {cellarItems.map((item) => <BottleCard key={item.id} item={item} />)}
+              {cellarItems.map((item) => <BottleCard key={item.id} item={item} onPress={() => setViewingItem(item)} />)}
             </div>
           )
         )}
@@ -152,7 +154,7 @@ export default function CellarDetailPage() {
               </TableHeader>
               <TableBody>
                 {cellarItems.map((item) => (
-                  <TableRow key={item.id}>
+                  <TableRow key={item.id} className="cursor-pointer" onClick={() => setViewingItem(item)}>
                     <TableCell className="text-sm font-semibold">{item.name}</TableCell>
                     <TableCell className="text-sm text-foreground-400">{item.producer}</TableCell>
                     <TableCell><Chip size="sm" variant="flat">{t(`categories.${item.category}`)}</Chip></TableCell>
@@ -175,7 +177,7 @@ export default function CellarDetailPage() {
             <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles')}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {cellarItems.map((item) => <BottleCard key={item.id} item={item} />)}
+              {cellarItems.map((item) => <BottleCard key={item.id} item={item} onPress={() => setViewingItem(item)} />)}
             </div>
           )
         )}
@@ -191,6 +193,12 @@ export default function CellarDetailPage() {
           )
         )}
       </div>
+
+      <InventoryDetailDialog
+        item={viewingItem}
+        open={Boolean(viewingItem)}
+        onClose={() => setViewingItem(null)}
+      />
     </MainLayout>
   );
 }
