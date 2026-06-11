@@ -248,6 +248,20 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     return result;
   }, [items, searchQuery, selectedCategories, selectedCellars, selectedCollectionId, selectedTags, minValue, maxValue, sortBy, cellars, openedFilter, t, hasMounted, lockedCategories]);
 
+  type ColDef = { key: string; label: string; width?: number; className?: string };
+  const tableColumns = useMemo<ColDef[]>(() => [
+    ...(bulkMode ? [{ key: 'check', label: ' ', width: 40 }] : []),
+    { key: 'icon', label: ' ', width: 40 },
+    { key: 'name', label: t('inventory.fields.name') },
+    { key: 'producer', label: t('inventory.fields.producer'), className: 'hidden sm:table-cell' },
+    { key: 'vintage', label: t('inventory.fields.vintage'), className: 'text-center' },
+    { key: 'region', label: t('inventory.fields.region'), className: 'hidden md:table-cell' },
+    { key: 'cellar', label: t('view.columns.cellar'), className: 'hidden md:table-cell' },
+    { key: 'peak', label: t('view.columns.peak'), className: 'text-center hidden sm:table-cell' },
+    { key: 'status', label: t('view.columns.status'), className: 'hidden sm:table-cell' },
+    { key: 'actions', label: t('admin.maturityRefs.columns.actions'), className: 'text-right' },
+  ], [bulkMode, t]);
+
   const toggleBulkMode = useCallback(() => {
     setBulkMode((prev) => !prev);
     setSelectedIds(new Set());
@@ -742,17 +756,12 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               radius="none"
               classNames={{ wrapper: 'border border-divider rounded-xl' }}
             >
-              <TableHeader>
-                {bulkMode && <TableColumn key="check" width={40}>{' '}</TableColumn>}
-                <TableColumn key="icon" width={40}>{' '}</TableColumn>
-                <TableColumn key="name">{t('inventory.fields.name')}</TableColumn>
-                <TableColumn key="producer" className="hidden sm:table-cell">{t('inventory.fields.producer')}</TableColumn>
-                <TableColumn key="vintage" className="text-center">{t('inventory.fields.vintage')}</TableColumn>
-                <TableColumn key="region" className="hidden md:table-cell">{t('inventory.fields.region')}</TableColumn>
-                <TableColumn key="cellar" className="hidden md:table-cell">{t('view.columns.cellar')}</TableColumn>
-                <TableColumn key="peak" className="text-center hidden sm:table-cell">{t('view.columns.peak')}</TableColumn>
-                <TableColumn key="status" className="hidden sm:table-cell">{t('view.columns.status')}</TableColumn>
-                <TableColumn key="actions" className="text-right">{t('admin.maturityRefs.columns.actions')}</TableColumn>
+              <TableHeader columns={tableColumns}>
+                {(col) => (
+                  <TableColumn key={col.key} width={col.width} className={col.className}>
+                    {col.label}
+                  </TableColumn>
+                )}
               </TableHeader>
               <TableBody>
                 {filteredItems.map((item: InventoryItem) => (

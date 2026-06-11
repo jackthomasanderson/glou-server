@@ -194,11 +194,15 @@ export function BulkActionDialog({
                       variant="bordered"
                       size="sm"
                       className="mt-2"
+                      items={[{ id: 'none', name: t('inventory.noCellar') }, ...(cellars ?? [])]}
                       selectedKeys={[values.cellarId ?? 'none']}
                       onSelectionChange={(keys) => setField('cellarId', Array.from(keys)[0] === 'none' ? null : Array.from(keys)[0] as string)}
                     >
-                      <SelectItem key="none"><em>{t('inventory.noCellar')}</em></SelectItem>
-                      {(cellars ?? []).map(c => <SelectItem key={c.id}>{c.name}</SelectItem>)}
+                      {(item) => (
+                        <SelectItem key={item.id}>
+                          {item.id === 'none' ? <em>{item.name}</em> : item.name}
+                        </SelectItem>
+                      )}
                     </Select>
                   )}
                 </div>
