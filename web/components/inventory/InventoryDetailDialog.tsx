@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useCellars } from '@/hooks/useCellars';
 import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem } from '@/hooks/useInventory';
@@ -54,11 +55,12 @@ interface InventoryDetailDialogProps {
   item: InventoryItem | null;
   open: boolean;
   onClose: () => void;
-  onEdit: (item: InventoryItem) => void;
-  t: (key: string) => string;
+  onEdit?: (item: InventoryItem) => void;
+  t?: (key: string) => string;
 }
 
-export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: InventoryDetailDialogProps) {
+export function InventoryDetailDialog({ item, open, onClose, onEdit }: InventoryDetailDialogProps) {
+  const { t } = useTranslation();
   const hasMounted = useHasMounted();
   const { data: cellars } = useCellars();
   const updateMutation = useUpdateInventoryItem();
@@ -405,14 +407,16 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit, t }: Invent
                 {t('tastings.logTasting')}
               </Button>
               <div className="flex-1" />
-              <Button
-                color="primary"
-                startContent={<Pencil size={15} />}
-                onPress={() => { onClose(); onEdit(item); }}
-                size="sm"
-              >
-                {t('actions.edit')}
-              </Button>
+              {onEdit && (
+                <Button
+                  color="primary"
+                  startContent={<Pencil size={15} />}
+                  onPress={() => { onClose(); onEdit(item); }}
+                  size="sm"
+                >
+                  {t('actions.edit')}
+                </Button>
+              )}
             </div>
           </div>
         </div>
