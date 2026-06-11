@@ -24,7 +24,6 @@ import { InventoryCard, InventoryCardSkeleton } from './InventoryCard';
 import { InventoryForm } from './InventoryForm';
 import { UndoToast } from '@/components/ui/UndoToast';
 import { BulkActionDialog } from './BulkActionDialog';
-import { AlertCenter } from './AlertCenter';
 import { InventoryDetailDialog } from './InventoryDetailDialog';
 import { InventoryListRow, InventoryListRowSkeleton } from './InventoryListRow';
 import { ViewToggle } from '@/components/ui/ViewToggle';
@@ -163,6 +162,14 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     items.forEach((b: InventoryItem) => (b.tags || []).forEach((tag) => set.add(tag)));
     return Array.from(set).sort();
   }, [items]);
+
+  const baseItems = useMemo(() => {
+    if (!items) return [];
+    if (lockedCategories && lockedCategories.length > 0) {
+      return items.filter((b: InventoryItem) => lockedCategories.includes(b.category));
+    }
+    return items;
+  }, [items, lockedCategories]);
 
   const filteredItems = useMemo(() => {
     if (!items) return [];
@@ -549,12 +556,12 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   return (
     <div className="p-4 sm:p-6">
       {/* Stats row */}
-      {!isLoading && items && items.length > 0 && mode === 'idle' && (
+      {!isLoading && baseItems.length > 0 && mode === 'idle' && (
         <div className="flex gap-3 sm:gap-4 mb-5">
           {[
-            { value: items.length, label: t('inventory.stats.total'), color: '' },
-            { value: items.filter(b => !b.isOpened).length, label: t('inventory.stats.full'), color: 'text-success' },
-            { value: items.filter(b => b.isOpened).length, label: t('inventory.stats.opened'), color: 'text-warning' },
+            { value: baseItems.length, label: t('inventory.stats.total'), color: '' },
+            { value: baseItems.filter(b => !b.isOpened).length, label: t('inventory.stats.full'), color: 'text-success' },
+            { value: baseItems.filter(b => b.isOpened).length, label: lockedCategories?.includes('cigar') ? t('inventory.stats.openedCigar') : t('inventory.stats.opened'), color: 'text-warning' },
           ].map(({ value, label, color }) => (
             <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">
               <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>
@@ -638,9 +645,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               </Button>
             </div>
           </div>
-
-          {/* Alert center */}
-          {mode === 'idle' && <AlertCenter t={t} />}
 
           {/* Error */}
           {isError && (
