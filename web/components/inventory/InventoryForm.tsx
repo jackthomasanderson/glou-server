@@ -118,7 +118,16 @@ export function InventoryForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (canSave) onSubmit(values, selectedCollections.map(c => c.id));
+    if (!canSave) return;
+    // alertStatus is recomputed server-side from peakMaturity — never send it as-is.
+    // cellarId 'none' is a UI sentinel → null.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { alertStatus: _drop, ...rest } = values;
+    const patch = {
+      ...rest,
+      cellarId: rest.cellarId === ('none' as string) || rest.cellarId === '' ? null : rest.cellarId,
+    };
+    onSubmit(patch, selectedCollections.map(c => c.id));
   };
 
   const hasPeakCategories = ['wine', 'sparkling'].includes(values.category ?? '');
