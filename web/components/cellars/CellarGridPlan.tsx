@@ -280,7 +280,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
               {t('cellars.grid.noUnassignedBottles')}
             </p>
           ) : (
-            <div className="flex flex-col">
+            <div className="flex flex-col max-h-80 overflow-y-auto">
               {unassignedItems.map((item) => (
                 <button
                   key={item.id}
