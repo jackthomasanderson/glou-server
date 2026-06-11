@@ -2,8 +2,7 @@ name: Build & Publish Docker Images
 
 on:
   push:
-    branches: [main]
-    tags: ['v*']
+    branches: [main, dev]
 
 env:
   IMAGE_API: ghcr.io/jackthomasanderson/glou-server-api
@@ -36,9 +35,8 @@ jobs:
         with:
           images: ${{ env.IMAGE_API }}
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+            type=raw,value=beta,enable=${{ github.ref_name == 'dev' }}
 
       - name: Extract metadata (Web)
         id: meta-web
@@ -46,9 +44,8 @@ jobs:
         with:
           images: ${{ env.IMAGE_WEB }}
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+            type=raw,value=beta,enable=${{ github.ref_name == 'dev' }}
 
       - name: Build and push API
         uses: docker/build-push-action@v5

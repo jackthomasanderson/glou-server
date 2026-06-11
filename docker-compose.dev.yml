@@ -18,7 +18,7 @@ services:
       - "5432:5432"
 
   api:
-    image: ghcr.io/jackthomasanderson/glou-server-api:latest
+    image: ghcr.io/jackthomasanderson/glou-server-api:beta
     restart: unless-stopped
     depends_on:
       db:
@@ -34,7 +34,7 @@ services:
       - api_uploads:/app/uploads
 
   web:
-    image: ghcr.io/jackthomasanderson/glou-server-web:latest
+    image: ghcr.io/jackthomasanderson/glou-server-web:beta
     restart: unless-stopped
     depends_on:
       - api

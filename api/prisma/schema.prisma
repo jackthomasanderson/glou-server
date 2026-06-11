@@ -284,20 +284,28 @@ model Collection {
   @@map("collections")
 }
 
+enum TastingReadiness {
+  TOO_YOUNG
+  PERFECT
+  PEAK
+  PAST
+}
+
 model TastingNote {
-  id          String         @id @default(uuid())
+  id          String            @id @default(uuid())
   userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   itemId      String?
-  item        InventoryItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
-  tastedAt    DateTime       @default(now())
+  item        InventoryItem?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  tastedAt    DateTime          @default(now())
   context     String?
   rating      Int?
+  readiness   TastingReadiness?
   notes       String?
   foodPairing String?
   photoUrl    String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   @@index([userId])
   @@index([itemId])

@@ -69,12 +69,28 @@ export function TastingCard({ note, onEdit, onDelete }: TastingCardProps) {
           </p>
         )}
 
-        {/* Food pairing chip */}
-        {note.foodPairing && (
-          <Chip size="sm" variant="bordered" className="mt-0.5">
-            {note.foodPairing}
-          </Chip>
-        )}
+        {/* Readiness + food pairing chips */}
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {note.readiness && (
+            <Chip
+              size="sm"
+              variant="flat"
+              color={
+                note.readiness === 'PERFECT' ? 'success'
+                : note.readiness === 'PEAK' ? 'warning'
+                : note.readiness === 'PAST' ? 'danger'
+                : 'default'
+              }
+            >
+              {t(`tastings.readiness.${note.readiness}`)}
+            </Chip>
+          )}
+          {note.foodPairing && (
+            <Chip size="sm" variant="bordered">
+              {note.foodPairing}
+            </Chip>
+          )}
+        </div>
       </CardBody>
 
       <CardFooter className="pt-0 justify-end gap-1">

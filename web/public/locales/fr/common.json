@@ -654,9 +654,30 @@
       "item": "Produit dégusté",
       "tastedAt": "Date de dégustation",
       "rating": "Note",
+      "readiness": "Maturité perçue",
       "context": "Contexte",
       "notes": "Notes de dégustation",
       "foodPairing": "Accord mets"
+    },
+    "readiness": {
+      "TOO_YOUNG": "Trop jeune",
+      "PERFECT": "À point",
+      "PEAK": "À son apogée",
+      "PAST": "Passé"
+    },
+    "stockUpdate": {
+      "title": "Mettre à jour le stock ?",
+      "description": "Cette dégustation a-t-elle modifié l'état de la bouteille dans votre cave ?",
+      "opened": "Bouteille entamée",
+      "consumed": "Bouteille consommée (vide)",
+      "ignore": "Ne pas modifier le stock"
+    },
+    "stats": {
+      "count": "Dégustations",
+      "avgRating": "Note moy.",
+      "lastTasted": "Dernière",
+      "viewAll": "Voir tout",
+      "empty": "Pas encore dégusté"
     },
     "recommendations": {
       "title": "Recommandations de service",
@@ -726,6 +747,14 @@
       "countLabel": "{{count}} flacons ({{percent}}%)",
       "humidorTip": "Conseil de l'Humidor",
       "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70%. Évitez les chocs thermiques pour préserver la souplesse de la cape."
+    },
+    "tastingInsights": {
+      "title": "Insights Dégustations",
+      "producers": "Producteurs les mieux notés",
+      "topItems": "Meilleurs items",
+      "flopItems": "Items les moins bien notés",
+      "readiness": "Distribution des maturités",
+      "empty": "Notez vos dégustations pour voir vos insights personnels apparaître ici."
     },
     "valuation": {
       "title": "Analyse de valorisation",

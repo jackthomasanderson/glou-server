@@ -33,6 +33,7 @@ import { useAnalytics } from '@/hooks/useAnalytics';
 import { AnalyticsStats, CategoryStat, RegionStat, GardePoint, CavePoint } from '@/lib/analytics/types';
 import dynamic from 'next/dynamic';
 import { GardeHistogram } from './GardeHistogram';
+import { TastingInsights } from './TastingInsights';
 
 type Period = '30d' | '90d' | '1y' | 'all';
 
@@ -708,6 +709,9 @@ export function AnalyticsDashboard() {
           t={t as (k: string, opts?: Record<string, unknown>) => string}
         />
       )}
+
+      {/* Tasting insights (FEAT-80) */}
+      <TastingInsights />
 
       {/* Category donut + Maturity planning + Cave distribution */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-4">

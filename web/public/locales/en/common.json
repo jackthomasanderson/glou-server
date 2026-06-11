@@ -654,9 +654,30 @@
       "item": "Product tasted",
       "tastedAt": "Tasting date",
       "rating": "Rating",
+      "readiness": "Perceived maturity",
       "context": "Context",
       "notes": "Tasting notes",
       "foodPairing": "Food pairing"
+    },
+    "readiness": {
+      "TOO_YOUNG": "Too young",
+      "PERFECT": "At its best",
+      "PEAK": "At peak",
+      "PAST": "Past peak"
+    },
+    "stockUpdate": {
+      "title": "Update stock?",
+      "description": "Did this tasting change the state of the bottle in your cellar?",
+      "opened": "Bottle opened",
+      "consumed": "Bottle consumed (empty)",
+      "ignore": "Do not update stock"
+    },
+    "stats": {
+      "count": "Tastings",
+      "avgRating": "Avg rating",
+      "lastTasted": "Last tasted",
+      "viewAll": "View all",
+      "empty": "Not tasted yet"
     },
     "recommendations": {
       "title": "Serving recommendations",
@@ -726,6 +747,14 @@
       "countLabel": "{{count}} bottles ({{percent}}%)",
       "humidorTip": "Humidor Tip",
       "humidorTipText": "Cuban cigars benefit from stable humidity at 70%. Avoid thermal shocks to preserve the wrapper's suppleness."
+    },
+    "tastingInsights": {
+      "title": "Tasting Insights",
+      "producers": "Top-rated producers",
+      "topItems": "Top items",
+      "flopItems": "Lowest-rated items",
+      "readiness": "Maturity distribution",
+      "empty": "Log your tastings to see your personal insights here."
     },
     "valuation": {
       "title": "Valuation Analysis",

@@ -1,5 +1,7 @@
 import { InventoryCategory } from '@/lib/inventory/types';
 
+export type TastingReadiness = 'TOO_YOUNG' | 'PERFECT' | 'PEAK' | 'PAST';
+
 export interface TastingItemSummary {
   id: string;
   name: string;
@@ -20,6 +22,7 @@ export interface TastingNote {
   tastedAt: string;
   context?: string | null;
   rating?: number | null;
+  readiness?: TastingReadiness | null;
   notes?: string | null;
   foodPairing?: string | null;
   photoUrl?: string | null;
@@ -39,7 +42,44 @@ export interface TastingFormValues {
   tastedAt?: string;
   context?: string;
   rating?: number | null;
+  readiness?: TastingReadiness | null;
   notes?: string;
   foodPairing?: string;
   photoUrl?: string | null;
+}
+
+export interface TastingItemStats {
+  count: number;
+  avgRating: number | null;
+  lastTastedAt: string;
+  lastRating: number | null;
+  lastReadiness: TastingReadiness | null;
+}
+
+export interface TastingProducerRank {
+  producer: string;
+  avgRating: number;
+  count: number;
+}
+
+export interface TastingItemRank {
+  id: string;
+  name: string;
+  producer: string;
+  avgRating: number;
+  count: number;
+}
+
+export interface TastingReadinessDistribution {
+  TOO_YOUNG: number;
+  PERFECT: number;
+  PEAK: number;
+  PAST: number;
+}
+
+export interface TastingAnalytics {
+  producerRankings: TastingProducerRank[];
+  topItems: TastingItemRank[];
+  flopItems: TastingItemRank[];
+  readinessDistribution: TastingReadinessDistribution;
 }

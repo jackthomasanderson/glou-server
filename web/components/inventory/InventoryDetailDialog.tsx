@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { InventoryItem, InventoryCategory, InventoryHistoryEntry } from '@/lib/inventory/types';
 import { TastingForm } from '@/components/tastings/TastingForm';
+import { TastingStatsSummary } from '@/components/tastings/TastingStatsSummary';
 import { QrCodeModal } from './QrCodeModal';
 
 const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
@@ -365,6 +366,19 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                     </div>
                   </>
                 )}
+
+                {/* Tasting stats (FEAT-79) */}
+                <>
+                  <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+                    {t('tastings.title')}
+                  </p>
+                  <div className="mb-5">
+                    <TastingStatsSummary
+                      itemId={item.id}
+                      onViewAll={() => setTastingOpen(true)}
+                    />
+                  </div>
+                </>
 
                 {/* History */}
                 {history && history.length > 0 && (

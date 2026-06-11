@@ -62,4 +62,25 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
+router.get('/stats/:itemId', async (req: Request, res: Response) => {
+  const userId = req.userId!;
+  const { itemId } = req.params;
+  try {
+    const stats = await tastingsService.itemStats(userId, itemId);
+    res.json({ data: stats });
+  } catch {
+    res.status(500).json({ error: 'FAILED_TO_FETCH_TASTING_STATS' });
+  }
+});
+
+router.get('/analytics', async (req: Request, res: Response) => {
+  const userId = req.userId!;
+  try {
+    const result = await tastingsService.analytics(userId);
+    res.json({ data: result });
+  } catch {
+    res.status(500).json({ error: 'FAILED_TO_FETCH_TASTING_ANALYTICS' });
+  }
+});
+
 export default router;
