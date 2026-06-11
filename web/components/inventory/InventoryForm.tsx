@@ -270,10 +270,8 @@ export function InventoryForm({
                         selectedKeys={[values.cellarId === null ? 'none' : (values.cellarId ?? 'none')]}
                         onSelectionChange={(keys) => setField('cellarId', Array.from(keys)[0] === 'none' ? null : Array.from(keys)[0])}
                       >
-                        <>
-                          <SelectItem key="none"><em>{t('inventory.noCellar')}</em></SelectItem>
-                          {(cellars ?? []).map((c) => <SelectItem key={c.id}>{c.name}</SelectItem>)}
-                        </>
+                        <SelectItem key="none"><em>{t('inventory.noCellar')}</em></SelectItem>
+                        {(cellars ?? []).map((c) => <SelectItem key={c.id}>{c.name}</SelectItem>)}
                       </Select>
                     </div>
                   </div>
@@ -305,12 +303,10 @@ export function InventoryForm({
                             selectedKeys={values.color ? [values.color] : []}
                             onSelectionChange={(keys) => setField('color', Array.from(keys)[0] || undefined)}
                           >
-                            <>
-                              <SelectItem key=""><em>—</em></SelectItem>
-                              {['red', 'white', 'rosé', 'orange'].map((c) => (
-                                <SelectItem key={c}>{t(`inventory.color.${c}`)}</SelectItem>
-                              ))}
-                            </>
+                            <SelectItem key=""><em>—</em></SelectItem>
+                            {['red', 'white', 'rosé', 'orange'].map((c) => (
+                              <SelectItem key={c}>{t(`inventory.color.${c}`)}</SelectItem>
+                            ))}
                           </Select>
                           <div className="col-span-2">
                             <Input
@@ -354,12 +350,10 @@ export function InventoryForm({
                             selectedKeys={values.sparklingType ? [values.sparklingType] : []}
                             onSelectionChange={(keys) => setField('sparklingType', Array.from(keys)[0] || undefined)}
                           >
-                            <>
-                              <SelectItem key=""><em>—</em></SelectItem>
-                              {['champagne', 'cremant', 'prosecco', 'cava', 'petnat', 'other'].map((s) => (
-                                <SelectItem key={s}>{t(`inventory.sparklingTypes.${s}`)}</SelectItem>
-                              ))}
-                            </>
+                            <SelectItem key=""><em>—</em></SelectItem>
+                            {['champagne', 'cremant', 'prosecco', 'cava', 'petnat', 'other'].map((s) => (
+                              <SelectItem key={s}>{t(`inventory.sparklingTypes.${s}`)}</SelectItem>
+                            ))}
                           </Select>
                           <Select
                             label={t('inventory.fields.sugarLevel')}
@@ -368,12 +362,10 @@ export function InventoryForm({
                             selectedKeys={values.sugarLevel ? [values.sugarLevel] : []}
                             onSelectionChange={(keys) => setField('sugarLevel', Array.from(keys)[0] || undefined)}
                           >
-                            <>
-                              <SelectItem key=""><em>—</em></SelectItem>
-                              {['extra-brut', 'brut', 'extra-sec', 'sec', 'demi-sec', 'doux'].map((s) => (
-                                <SelectItem key={s}>{t(`inventory.sugarLevels.${s}`)}</SelectItem>
-                              ))}
-                            </>
+                            <SelectItem key=""><em>—</em></SelectItem>
+                            {['extra-brut', 'brut', 'extra-sec', 'sec', 'demi-sec', 'doux'].map((s) => (
+                              <SelectItem key={s}>{t(`inventory.sugarLevels.${s}`)}</SelectItem>
+                            ))}
                           </Select>
                         </>
                       )}
@@ -389,12 +381,10 @@ export function InventoryForm({
                               selectedKeys={values.spiritType ? [values.spiritType] : []}
                               onSelectionChange={(keys) => setField('spiritType', Array.from(keys)[0] || undefined)}
                             >
-                              <>
-                                <SelectItem key=""><em>—</em></SelectItem>
-                                {['whisky', 'rhum', 'gin', 'cognac', 'calvados', 'armagnac', 'vodka', 'tequila', 'mezcal', 'liqueur', 'other'].map((s) => (
-                                  <SelectItem key={s}>{t(`inventory.spiritTypes.${s}`)}</SelectItem>
-                                ))}
-                              </>
+                              <SelectItem key=""><em>—</em></SelectItem>
+                              {['whisky', 'rhum', 'gin', 'cognac', 'calvados', 'armagnac', 'vodka', 'tequila', 'mezcal', 'liqueur', 'other'].map((s) => (
+                                <SelectItem key={s}>{t(`inventory.spiritTypes.${s}`)}</SelectItem>
+                              ))}
                             </Select>
                           </div>
                           <div className="col-span-2">
