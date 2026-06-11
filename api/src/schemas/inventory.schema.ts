@@ -19,7 +19,7 @@ export const commonInventorySchema = z.object({
   openedAt: z.coerce.date().optional().nullable(),
   reminderDate: z.coerce.date().optional().nullable(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
-  cellarId: z.string().uuid({ message: "Invalid Cellar ID" }).optional().nullable(),
+  cellarId: z.string().optional().nullable(),
   lockedFields: z.array(z.string()).default([]),
 });
 
@@ -150,7 +150,7 @@ export const inventoryPatchSchema = z.object({
   factoryCode: z.string().max(50).optional().nullable(),
   recommendedHumidity: z.number().min(50).max(100).optional().nullable(),
   humidificationSystem: z.string().max(200).optional().nullable(),
-  cellarId: z.preprocess(v => (v === 'none' || v === '') ? null : v, z.string().uuid().optional().nullable()),
+  cellarId: z.preprocess(v => (v === 'none' || v === '') ? null : v, z.string().optional().nullable()),
   // Grid slot assignment (FEAT-68)
   slotColumn: z.number().int().min(1).max(100).optional().nullable(),
   slotRow: z.number().int().min(1).max(100).optional().nullable(),
