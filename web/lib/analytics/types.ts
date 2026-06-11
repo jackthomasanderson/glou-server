@@ -32,7 +32,7 @@ export interface MaturityPlanning {
 export interface MovementStats {
   added: number;
   consumed: number;
-  deleted: number;
+  restored: number;
 }
 
 export interface AnalyticsStats {

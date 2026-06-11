@@ -34,7 +34,7 @@ export interface CavePoint {
 export interface MovementStats {
   added: number;
   consumed: number;
-  deleted: number;
+  restored: number;
 }
 
 export interface AnalyticsStats {
@@ -185,7 +185,7 @@ export async function getAnalytics(userId: string, from?: Date, to?: Date): Prom
   const movements: MovementStats = {
     added: auditMovements.find(r => r.action === 'CREATE')?._count.action ?? 0,
     consumed: auditMovements.find(r => r.action === 'DELETE')?._count.action ?? 0,
-    deleted: auditMovements.find(r => r.action === 'RESTORE')?._count.action ?? 0,
+    restored: auditMovements.find(r => r.action === 'RESTORE')?._count.action ?? 0,
   };
 
   // Build garde histogram sorted by year

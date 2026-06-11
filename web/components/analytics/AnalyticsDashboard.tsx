@@ -36,6 +36,9 @@ import { GardeHistogram } from './GardeHistogram';
 
 type Period = '30d' | '90d' | '1y' | 'all';
 
+const fmtNum = (n: number) => n.toLocaleString('fr-FR');
+const fmtCurrency = (n: number) => `${fmtNum(n)} €`;
+
 function periodToDates(period: Period): { from?: string; to?: string } {
   const now = new Date();
   switch (period) {
@@ -87,7 +90,7 @@ function ValuationBreakdown({
               {t('analytics.valuation.purchaseTotal')}
             </p>
             <p className="text-[1.4rem] font-extrabold leading-tight">
-              {totalPurchasePrice} €
+              {fmtCurrency(totalPurchasePrice)}
             </p>
           </div>
           <div className="flex flex-col gap-0.5">
@@ -95,7 +98,7 @@ function ValuationBreakdown({
               {t('analytics.valuation.estimatedTotal')}
             </p>
             <p className="text-[1.4rem] font-extrabold leading-tight">
-              {totalValuation} €
+              {fmtCurrency(totalValuation)}
             </p>
           </div>
           {totalPurchasePrice > 0 && (
@@ -111,7 +114,7 @@ function ValuationBreakdown({
                   className="text-[1.4rem] font-extrabold leading-tight"
                   style={{ color: isPositive ? '#22C55E' : '#EF4444' }}
                 >
-                  {isPositive ? '+' : ''}{delta} €
+                  {isPositive ? '+' : ''}{fmtNum(delta)} €
                 </p>
                 {roiPercent !== null && (
                   <span
@@ -429,7 +432,7 @@ function RegionCards({ regions, t }: { regions: RegionStat[]; t: (k: string) => 
             <p className="text-[0.7rem] text-default-400 mb-2">{t('analytics.regionMap.items')}</p>
             <div className="flex justify-between">
               <span className="text-[0.7rem] text-default-400">{t('analytics.regionMap.valuation')}</span>
-              <span className="text-[0.7rem] font-bold">{r.valuation} €</span>
+              <span className="text-[0.7rem] font-bold">{fmtCurrency(r.valuation)}</span>
             </div>
           </CardBody>
         </Card>
@@ -485,7 +488,7 @@ function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => 
             <div className="flex justify-between mb-1">
               <span className="text-[0.75rem] font-semibold truncate">{cave.cellarName}</span>
               <span className="text-[0.75rem] text-default-500 shrink-0 ml-2">
-                {cave.count} — {cave.valuation} €
+                {cave.count} — {fmtCurrency(cave.valuation)}
               </span>
             </div>
             <ProgressBar value={(cave.count / maxCount) * 100} color="#006FEE" />
@@ -573,7 +576,7 @@ export function AnalyticsDashboard() {
           <>
             <StatCard
               label={t('analytics.stats.totalValuation')}
-              value={`${data?.totalValuation ?? 0} €`}
+              value={fmtCurrency(data?.totalValuation ?? 0)}
               hint={t('analytics.stats.totalValuationHint')}
               icon={<Euro size={20} color="#2563EB" />}
               iconBg="rgba(37,99,235,0.1)"
@@ -631,7 +634,7 @@ export function AnalyticsDashboard() {
               </div>
               <div className="flex flex-col items-center gap-1 p-3 bg-primary-50 border border-primary-200 rounded-xl">
                 <PackageCheck size={18} className="text-primary" />
-                <p className="text-[1.5rem] font-extrabold leading-tight">{data.movements.deleted}</p>
+                <p className="text-[1.5rem] font-extrabold leading-tight">{data.movements.restored}</p>
                 <p className="text-[0.65rem] font-bold uppercase tracking-wider text-primary-700">{t('analytics.movements.restored')}</p>
               </div>
             </div>
