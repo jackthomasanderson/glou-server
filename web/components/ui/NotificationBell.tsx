@@ -79,7 +79,7 @@ export function NotificationBell() {
                     <Button
                       isIconOnly size="sm" variant="light"
                       color={alert.alertsPaused ? 'default' : 'primary'}
-                      onPress={(e) => { e.stopPropagation(); togglePause.mutate(alert.id); }}
+                      onClick={(e) => { e.stopPropagation(); togglePause.mutate(alert.id); }}
                       isDisabled={togglePause.isPending}
                       aria-label={alert.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')}
                     >
