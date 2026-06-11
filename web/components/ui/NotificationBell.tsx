@@ -18,6 +18,10 @@ const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'>
   approaching: 'primary',
 };
 
+type AlertEntry = { kind: 'alert'; id: string; alert: AlertBottle };
+type ReminderEntry = { kind: 'reminder'; id: string; item: InventoryItem };
+type NotificationEntry = AlertEntry | ReminderEntry;
+
 export function NotificationBell() {
   const { t } = useTranslation();
   const { data: items } = useInventory();
@@ -38,6 +42,11 @@ export function NotificationBell() {
   }, [apogeeAlerts, hasMounted]);
 
   const count = reminderItems.length + alertItems.length;
+
+  const entries: NotificationEntry[] = useMemo(() => [
+    ...alertItems.slice(0, 5).map((a): AlertEntry => ({ kind: 'alert', id: `apogee-${a.id}`, alert: a })),
+    ...reminderItems.slice(0, 5).map((r): ReminderEntry => ({ kind: 'reminder', id: `reminder-${r.id}`, item: r })),
+  ], [alertItems, reminderItems]);
 
   const handleViewAll = () => router.push('/bottles?filter=alerts');
 
@@ -75,43 +84,42 @@ export function NotificationBell() {
             </DropdownItem>
           </DropdownSection>
         ) : (
-          <DropdownSection title={t('alerts.title')} showDivider>
-            {alertItems.slice(0, 5).map((alert: AlertBottle) => (
+          <DropdownSection title={t('alerts.title')} showDivider items={entries}>
+            {(entry) => entry.kind === 'alert' ? (
               <DropdownItem
-                key={`apogee-${alert.id}`}
-                description={`${alert.producer}${alert.vintage ? ` · ${alert.vintage}` : ''}${alert.peakMaturityFrom ? ` · ${alert.peakMaturityFrom}–${alert.peakMaturityTo}` : ''}`}
+                key={entry.id}
+                description={`${entry.alert.producer}${entry.alert.vintage ? ` · ${entry.alert.vintage}` : ''}${entry.alert.peakMaturityFrom ? ` · ${entry.alert.peakMaturityFrom}–${entry.alert.peakMaturityTo}` : ''}`}
                 startContent={
-                  <Chip size="sm" color={STATUS_COLOR[alert.alertStatus ?? 'default'] ?? 'default'} variant="flat">
-                    {t(`inventory.alertStatus.${alert.alertStatus ?? 'none'}`)}
+                  <Chip size="sm" color={STATUS_COLOR[entry.alert.alertStatus ?? 'default'] ?? 'default'} variant="flat">
+                    {t(`inventory.alertStatus.${entry.alert.alertStatus ?? 'none'}`)}
                   </Chip>
                 }
                 endContent={
-                  <Tooltip content={alert.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')} delay={500}>
+                  <Tooltip content={entry.alert.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')} delay={500}>
                     <Button
                       isIconOnly size="sm" variant="light"
-                      color={alert.alertsPaused ? 'default' : 'primary'}
-                      onClick={(e) => { e.stopPropagation(); togglePause.mutate(alert.id); }}
+                      color={entry.alert.alertsPaused ? 'default' : 'primary'}
+                      onClick={(e) => { e.stopPropagation(); togglePause.mutate(entry.alert.id); }}
                       isDisabled={togglePause.isPending}
-                      aria-label={alert.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')}
+                      aria-label={entry.alert.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')}
                     >
-                      {alert.alertsPaused ? <BellOff size={14} /> : <Bell size={14} />}
+                      {entry.alert.alertsPaused ? <BellOff size={14} /> : <Bell size={14} />}
                     </Button>
                   </Tooltip>
                 }
               >
-                <span className="text-sm font-semibold">{alert.name}</span>
+                <span className="text-sm font-semibold">{entry.alert.name}</span>
               </DropdownItem>
-            ))}
-            {reminderItems.slice(0, 5).map((item: InventoryItem) => (
+            ) : (
               <DropdownItem
-                key={`reminder-${item.id}`}
+                key={entry.id}
                 startContent={<Bell size={14} className="text-danger" />}
-                description={item.producer}
+                description={entry.item.producer}
                 onPress={handleViewAll}
               >
-                <span className="text-sm font-semibold">{item.name}</span>
+                <span className="text-sm font-semibold">{entry.item.name}</span>
               </DropdownItem>
-            ))}
+            )}
           </DropdownSection>
         )}
         <DropdownSection>
