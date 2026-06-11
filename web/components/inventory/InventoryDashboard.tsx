@@ -422,23 +422,29 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       {/* Opened filter */}
       <div>
         <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-          {t('inventory.fields.isOpened')}
+          {lockedCategories?.includes('cigar') ? t('inventory.fields.isOpenedCigar') : t('inventory.fields.isOpened')}
         </p>
         <div className="flex flex-col gap-0.5">
-          {(['all', 'full', 'opened', 'alerts'] as const).map((f) => (
-            <div
-              key={f}
-              onClick={() => setOpenedFilter(f)}
-              className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${openedFilter === f ? 'bg-default-100' : 'hover:bg-default-50'}`}
-            >
-              <span className={`text-[0.75rem] ${openedFilter === f ? 'font-semibold' : 'font-normal'}`}>
-                {t(`inventory.filters.${f}`)}
-              </span>
-              {openedFilter === f && (
-                <span className="text-[0.7rem] text-primary font-bold">✓</span>
-              )}
-            </div>
-          ))}
+          {(['all', 'full', 'opened', 'alerts'] as const).map((f) => {
+            const isCigar = lockedCategories?.includes('cigar');
+            const label = isCigar && (f === 'full' || f === 'opened')
+              ? t(`inventory.filters.${f}Cigar`)
+              : t(`inventory.filters.${f}`);
+            return (
+              <div
+                key={f}
+                onClick={() => setOpenedFilter(f)}
+                className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${openedFilter === f ? 'bg-default-100' : 'hover:bg-default-50'}`}
+              >
+                <span className={`text-[0.75rem] ${openedFilter === f ? 'font-semibold' : 'font-normal'}`}>
+                  {label}
+                </span>
+                {openedFilter === f && (
+                  <span className="text-[0.7rem] text-primary font-bold">✓</span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

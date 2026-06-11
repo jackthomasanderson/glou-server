@@ -41,7 +41,8 @@ export function NotificationBell() {
 
   const handleViewAll = () => router.push('/bottles?filter=alerts');
 
-  if (!hasMounted || count === 0) {
+  // Avoid hydration mismatch — render plain button until mounted
+  if (!hasMounted) {
     return (
       <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')}>
         <Bell size={18} />
@@ -53,9 +54,13 @@ export function NotificationBell() {
     <Dropdown placement="bottom-end">
       <DropdownTrigger>
         <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')}>
-          <Badge content={count} color="danger" size="sm" placement="top-right">
+          {count > 0 ? (
+            <Badge content={count} color="danger" size="sm" placement="top-right">
+              <Bell size={18} />
+            </Badge>
+          ) : (
             <Bell size={18} />
-          </Badge>
+          )}
         </Button>
       </DropdownTrigger>
       <DropdownMenu
@@ -63,7 +68,13 @@ export function NotificationBell() {
         variant="flat"
         className="w-80 max-h-96 overflow-y-auto"
       >
-        {alertItems.length > 0 ? (
+        {count === 0 ? (
+          <DropdownSection>
+            <DropdownItem key="empty" isDisabled>
+              <span className="text-default-400 text-sm">{t('inventory.noNotifications', 'Aucune notification')}</span>
+            </DropdownItem>
+          </DropdownSection>
+        ) : (
           <DropdownSection title={t('alerts.title')} showDivider>
             {alertItems.slice(0, 5).map((alert: AlertBottle) => (
               <DropdownItem
@@ -91,10 +102,6 @@ export function NotificationBell() {
                 <span className="text-sm font-semibold">{alert.name}</span>
               </DropdownItem>
             ))}
-          </DropdownSection>
-        ) : null}
-        {reminderItems.length > 0 ? (
-          <DropdownSection title={t('inventory.alerts.title')} showDivider>
             {reminderItems.slice(0, 5).map((item: InventoryItem) => (
               <DropdownItem
                 key={`reminder-${item.id}`}
@@ -106,7 +113,7 @@ export function NotificationBell() {
               </DropdownItem>
             ))}
           </DropdownSection>
-        ) : null}
+        )}
         <DropdownSection>
           <DropdownItem
             key="view-all"
