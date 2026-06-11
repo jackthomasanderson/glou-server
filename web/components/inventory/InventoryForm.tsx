@@ -337,7 +337,7 @@ export function InventoryForm({
                             value={String(values.alcoholDegree ?? '')}
                             onValueChange={(v) => setField('alcoholDegree', numField(v))}
                             endContent={<span className="text-xs text-default-400">%</span>}
-                            min={0} max={100}
+                            min={0} max={100} step={0.1}
                           />
                         </>
                       )}
@@ -415,7 +415,7 @@ export function InventoryForm({
                               value={String(values.alcoholDegree ?? '')}
                               onValueChange={(v) => setField('alcoholDegree', numField(v))}
                               endContent={<span className="text-xs text-default-400">%</span>}
-                              min={0} max={100}
+                              min={0} max={100} step={0.1}
                             />
                           </div>
                           <div className="col-span-2">
