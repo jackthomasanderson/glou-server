@@ -145,10 +145,23 @@ if (!fs.existsSync(PRODUCTS_UPLOAD_DIR)) {
 
 const ALLOWED_IMAGE_TYPES: Record<string, string> = {
   'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/pjpeg': 'jpg',
   'image/png': 'png',
   'image/webp': 'webp',
   'image/gif': 'gif',
+  'image/avif': 'avif',
 };
+
+function extFromUrl(url: string): string | null {
+  try {
+    const raw = path.extname(new URL(url).pathname).replace('.', '').toLowerCase();
+    const map: Record<string, string> = { jpg: 'jpg', jpeg: 'jpg', png: 'png', webp: 'webp', gif: 'gif', avif: 'avif' };
+    return map[raw] ?? null;
+  } catch {
+    return null;
+  }
+}
 
 const PRIVATE_HOST_RE = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/;
 
@@ -244,13 +257,18 @@ router.post('/images/save', authMiddleware, async (req, res) => {
 
     const response = await fetch(url, {
       signal: AbortSignal.timeout(10000),
-      headers: { 'User-Agent': 'Mozilla/5.0' },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+        'Referer': new URL(url).origin + '/',
+      },
     });
 
     if (!response.ok) return res.status(502).json({ error: 'FETCH_FAILED' });
 
-    const contentType = response.headers.get('content-type')?.split(';')[0]?.trim() ?? '';
-    const ext = ALLOWED_IMAGE_TYPES[contentType];
+    const rawType = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? '';
+    const ext = ALLOWED_IMAGE_TYPES[rawType] ?? extFromUrl(url);
     if (!ext) return res.status(422).json({ error: 'INVALID_IMAGE_TYPE' });
 
     const buffer = await response.arrayBuffer();

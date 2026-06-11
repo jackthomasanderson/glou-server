@@ -29,6 +29,7 @@ export function ImagePickerButton({
   const [results, setResults] = useState<ImageResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [showOfflineAlert, setShowOfflineAlert] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -93,10 +94,12 @@ export function ImagePickerButton({
   const handleClose = () => {
     setIsOpen(false);
     setShowOfflineAlert(false);
+    setSaveError(false);
   };
 
   const handleSelect = async (imageUrl: string) => {
     setSaving(true);
+    setSaveError(false);
     try {
       const res = await fetch('/api/search/images/save', {
         method: 'POST',
@@ -108,9 +111,11 @@ export function ImagePickerButton({
       if (json.data?.path) {
         onSelect(json.data.path);
         handleClose();
+      } else {
+        setSaveError(true);
       }
     } catch {
-      // noop — image stays unset
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -190,6 +195,15 @@ export function ImagePickerButton({
           {(loading || saving) && (
             <div className="flex justify-center py-4">
               <Loader2 size={24} className="animate-spin text-primary" />
+            </div>
+          )}
+
+          {saveError && !saving && (
+            <div className="flex items-center justify-between bg-danger-50 border border-danger-200 text-danger-700 text-xs rounded-lg px-3 py-2 mb-3">
+              <span>{t('imagePicker.saveError')}</span>
+              <button type="button" onClick={() => setSaveError(false)} className="ml-2 hover:opacity-70">
+                <X size={12} />
+              </button>
             </div>
           )}
 

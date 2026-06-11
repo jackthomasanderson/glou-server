@@ -398,7 +398,8 @@
     "tooltip": "Rechercher une image",
     "searchPlaceholder": "Nom du produit…",
     "noResults": "Aucune image trouvée",
-    "offline": "Recherche d'images indisponible — connexion internet requise"
+    "offline": "Recherche d'images indisponible — connexion internet requise",
+    "saveError": "Impossible de télécharger cette image, essayez-en une autre"
   },
   "itemImage": {
     "sectionLabel": "Photo",

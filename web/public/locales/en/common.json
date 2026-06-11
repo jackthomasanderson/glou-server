@@ -398,7 +398,8 @@
     "tooltip": "Search for an image",
     "searchPlaceholder": "Product name…",
     "noResults": "No images found",
-    "offline": "Image search unavailable — internet connection required"
+    "offline": "Image search unavailable — internet connection required",
+    "saveError": "Could not download this image, please try another one"
   },
   "itemImage": {
     "sectionLabel": "Photo",
