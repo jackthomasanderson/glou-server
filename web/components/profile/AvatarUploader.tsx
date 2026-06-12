@@ -114,10 +114,10 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
             className="w-40"
             isDisabled={updateProfile.isPending}
           />
-          <Button isIconOnly size="sm" variant="light" color="primary" onPress={handleUsernameConfirm} isDisabled={updateProfile.isPending}>
+          <Button isIconOnly size="sm" variant="light" color="primary" onPress={handleUsernameConfirm} isDisabled={updateProfile.isPending} aria-label={t('actions.confirm')}>
             {updateProfile.isPending ? <CircularProgress size="sm" isIndeterminate /> : <Check size={14} />}
           </Button>
-          <Button isIconOnly size="sm" variant="light" onPress={() => { setEditingUsername(false); setUsernameValue(user.username); }}>
+          <Button isIconOnly size="sm" variant="light" onPress={() => { setEditingUsername(false); setUsernameValue(user.username); }} aria-label={t('actions.cancel')}>
             <X size={14} />
           </Button>
         </div>
@@ -128,6 +128,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
             isIconOnly size="sm" variant="light" color="default"
             onPress={() => { setUsernameValue(user.username); setEditingUsername(true); }}
             className="opacity-50 hover:opacity-100"
+            aria-label={t('actions.edit')}
           >
             <Pencil size={13} />
           </Button>

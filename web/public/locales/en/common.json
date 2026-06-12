@@ -370,7 +370,6 @@
       "removeFromSlot": "Remove from slot",
       "slot": "Slot"
     },
-    "searchPlaceholder": "Search by name or description...",
     "filterByType": "Filter by type",
     "filterByStatus": "Filter by status",
     "noResults": "No cellar found matching these criteria",

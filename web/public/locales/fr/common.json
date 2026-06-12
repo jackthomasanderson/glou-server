@@ -370,7 +370,6 @@
       "removeFromSlot": "Retirer de l'emplacement",
       "slot": "Emplacement"
     },
-    "searchPlaceholder": "Rechercher par nom ou description...",
     "filterByType": "Filtrer par type",
     "filterByStatus": "Filtrer par état",
     "noResults": "Aucune cave trouvée avec ces critères",

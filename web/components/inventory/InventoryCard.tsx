@@ -80,7 +80,11 @@ export function InventoryCard({
       aria-label={`${item.name} — ${categoryLabel}`}
       isPressable={Boolean(onView)}
       onPress={() => onView?.(item)}
-      className={`flex flex-col transition-shadow hover:shadow-md${isTemp ? ' opacity-75' : ''}`}
+      className={[
+        'flex flex-col transition-all hover:shadow-md',
+        isTemp && 'opacity-75',
+        isSelected && onSelectToggle && 'ring-2 ring-primary ring-offset-0',
+      ].filter(Boolean).join(' ')}
     >
       {/* ── Top chips ─────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
@@ -145,14 +149,15 @@ export function InventoryCard({
         {/* Bulk select checkbox */}
         {onSelectToggle && (
           <div
-            className="absolute top-1 left-1"
+            className="absolute top-2 left-2 z-10"
             onClick={(e) => e.stopPropagation()}
           >
             <Checkbox
               isSelected={isSelected}
               onValueChange={() => onSelectToggle(item)}
               size="sm"
-              className="bg-background rounded p-0.5"
+              color="primary"
+              className="bg-white/95 dark:bg-default-100/90 rounded-md shadow-sm px-1"
               aria-label={t('actions.select')}
             />
           </div>

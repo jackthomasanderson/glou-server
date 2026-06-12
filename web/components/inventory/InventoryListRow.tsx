@@ -50,12 +50,20 @@ export function InventoryListRow({
 
   return (
     <TableRow
-      className={`${isTemp ? 'opacity-75' : ''} ${onView && !onSelectToggle ? 'cursor-pointer' : 'cursor-default'} ${isSelected ? 'bg-primary-50' : ''}`}
+      className={[
+        isTemp ? 'opacity-75' : '',
+        onView && !onSelectToggle ? 'cursor-pointer' : 'cursor-default',
+        'transition-colors',
+        isSelected ? '!bg-primary-100 dark:!bg-primary-900/25' : '',
+      ].filter(Boolean).join(' ')}
       onClick={() => !onSelectToggle && onView?.(item)}
     >
       <TableCell
         onClick={(e) => e.stopPropagation()}
-        className={onSelectToggle ? 'w-10 pr-0' : 'w-0 p-0'}
+        className={[
+          onSelectToggle ? 'w-10 pr-0' : 'w-0 p-0',
+          isSelected && onSelectToggle ? 'border-l-2 border-primary' : '',
+        ].filter(Boolean).join(' ')}
       >
         {onSelectToggle ? (
           <Checkbox

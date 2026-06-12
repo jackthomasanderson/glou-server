@@ -134,6 +134,7 @@ export default function AdminPage() {
                         color={u.isActive ? 'success' : 'default'}
                         onPress={() => handleStatusToggle(u)}
                         isDisabled={u.id === user.id}
+                        aria-label={u.id === user.id ? t('admin.users.deactivateSelf') : u.isActive ? t('admin.users.deactivate') : t('admin.users.activate')}
                       >
                         {u.isActive ? <CheckCircle size={16} /> : <Ban size={16} />}
                       </Button>
@@ -195,10 +196,10 @@ export default function AdminPage() {
             <span className="text-xs text-foreground-400">
               {t('admin.auditLog.pageInfo', { page: auditResponse.meta.page, pages: auditResponse.meta.pages, total: auditResponse.meta.total })}
             </span>
-            <Button isIconOnly size="sm" variant="light" onPress={() => setAuditPage(p => Math.max(1, p - 1))} isDisabled={auditPage <= 1}>
+            <Button isIconOnly size="sm" variant="light" onPress={() => setAuditPage(p => Math.max(1, p - 1))} isDisabled={auditPage <= 1} aria-label={t('admin.auditLog.prevPage')}>
               <ChevronLeft size={16} />
             </Button>
-            <Button isIconOnly size="sm" variant="light" onPress={() => setAuditPage(p => p + 1)} isDisabled={auditPage >= (auditResponse?.meta.pages ?? 1)}>
+            <Button isIconOnly size="sm" variant="light" onPress={() => setAuditPage(p => p + 1)} isDisabled={auditPage >= (auditResponse?.meta.pages ?? 1)} aria-label={t('admin.auditLog.nextPage')}>
               <ChevronRight size={16} />
             </Button>
           </div>

@@ -230,17 +230,17 @@ function StatCard({
 }) {
   return (
     <Card className="h-full border border-default-200" shadow="none">
-      <CardBody className="p-5">
+      <CardBody className="p-4">
         <div className="flex justify-between items-start gap-2">
-          <div>
-            <p className="text-[0.65rem] font-bold uppercase tracking-wider text-default-500">
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-500 truncate">
               {label}
             </p>
-            <p className="text-[1.75rem] font-extrabold leading-tight mt-1">{value}</p>
-            <p className="text-[0.72rem] text-default-400 mt-1">• {hint}</p>
+            <p className="text-[1.4rem] sm:text-[1.75rem] font-extrabold leading-tight mt-1 break-words">{value}</p>
+            <p className="text-[0.68rem] text-default-400 mt-1 leading-snug">• {hint}</p>
           </div>
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
             style={{ backgroundColor: iconBg }}
           >
             {icon}
@@ -288,18 +288,20 @@ function CategoryBreakdown({
             {t('analytics.categories.title')}
           </p>
         </div>
-        <div className="flex gap-6 items-center">
-          <DonutChart
-            segments={segments}
-            total={total}
-            centerLabel={t('analytics.categories.active')}
-          />
-          <div className="flex-1 min-w-0">
+        <div className="flex gap-4 items-center overflow-hidden">
+          <div className="shrink-0">
+            <DonutChart
+              segments={segments}
+              total={total}
+              centerLabel={t('analytics.categories.active')}
+            />
+          </div>
+          <div className="flex-1 min-w-0 overflow-hidden">
             {items.map((item) => {
               const cfg = CATEGORY_CONFIG[item.category];
               const unit = t(`analytics.categories.unit.${item.category}`);
               return (
-                <div key={item.category} className="flex items-center gap-2 mb-2">
+                <div key={item.category} className="flex items-center gap-1.5 mb-2">
                   <div
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: cfg?.color ?? '#888' }}
@@ -570,7 +572,7 @@ export function AnalyticsDashboard() {
       </Card>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {isLoading ? (
           [0, 1, 2, 3].map((i) => <StatCardSkeleton key={i} />)
         ) : (

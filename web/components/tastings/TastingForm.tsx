@@ -210,6 +210,7 @@ export function TastingForm({ open, onClose, initialItemId, editNote }: TastingF
                             radius="full"
                             type="button"
                             onClick={() => field.onChange(field.value === star ? null : star)}
+                            aria-label={`${t('tastings.fields.rating')} ${star}`}
                           >
                             <Star
                               size={18}
