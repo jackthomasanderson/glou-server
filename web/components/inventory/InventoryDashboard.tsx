@@ -688,7 +688,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Loading skeletons */}
           {isLoading && effectiveViewMode === 'grid' && (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <InventoryCardSkeleton key={i} />
               ))}
@@ -742,7 +742,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Grid view */}
           {!isLoading && filteredItems.length > 0 && effectiveViewMode === 'grid' && (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {filteredItems.map((item: InventoryItem) => (
                 <InventoryCard
                   key={item.id}
