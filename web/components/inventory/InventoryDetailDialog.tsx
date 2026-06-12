@@ -14,7 +14,6 @@ import { TastingForm } from '@/components/tastings/TastingForm';
 import { TastingStatsSummary } from '@/components/tastings/TastingStatsSummary';
 import { QrCodeModal } from './QrCodeModal';
 import { CollectionPickerInline } from '@/components/collections/CollectionPickerInline';
-import { useStorageZones } from '@/hooks/useStorageZones';
 
 const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
   wine: 'linear-gradient(160deg, #3D1A1A 0%, #6B2C2C 100%)',
@@ -67,7 +66,6 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const hasMounted = useHasMounted();
   const { data: cellars } = useCellars();
   const updateMutation = useUpdateInventoryItem();
-  const { data: storageZones } = useStorageZones(item?.cellarId ?? '');
   const [tastingOpen, setTastingOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
 
@@ -108,7 +106,6 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   if (!item || !d) return null;
 
   const cellarName = d.cellarId ? cellars?.find((c) => c.id === d.cellarId)?.name ?? null : null;
-  const zoneName = d.storageZoneId ? storageZones?.find((z) => z.id === d.storageZoneId)?.name ?? null : null;
   const isWineOrSparkling = d.category === 'wine' || d.category === 'sparkling';
   const isCigar = d.category === 'cigar';
 
@@ -284,11 +281,11 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                       value={`${d.recommendedHumidity}% HR`}
                     />
                   )}
-                  {(cellarName || zoneName) && (
+                  {(cellarName || d.location) && (
                     <InfoCard
                       icon={<MapPin />}
                       label={t('inventory.detail.location')}
-                      value={[cellarName, zoneName, d.location].filter(Boolean).join(' › ')}
+                      value={[cellarName, d.location].filter(Boolean).join(' › ')}
                       valueColor="#7B1E30"
                     />
                   )}
