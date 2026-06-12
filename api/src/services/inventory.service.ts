@@ -63,7 +63,10 @@ export class InventoryService {
   }
 
   async getItemWithTraceability(_userId: string, id: string): Promise<InventoryWithTraceability | null> {
-    const item = await prisma.inventoryItem.findFirst({ where: { id, deletedAt: null } });
+    const item = await prisma.inventoryItem.findFirst({
+      where: { id, deletedAt: null },
+      include: { collections: { select: { id: true, name: true, color: true, icon: true } } },
+    });
     if (!item) return null;
 
     const uniqueIds = [...new Set([item.userId, (item as unknown as Record<string, unknown>)['updatedBy'] as string | undefined].filter(Boolean))] as string[];
