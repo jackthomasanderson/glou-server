@@ -636,6 +636,8 @@
       "icon": "Icône"
     },
     "filterActive": "Collection : {{name}}",
+    "addToItem": "Ajouter",
+    "allAdded": "Toutes ajoutées",
     "errors": {
       "nameRequired": "Nom requis",
       "load": "Impossible de charger les collections."
@@ -780,6 +782,31 @@
       "restored": "Restaurés"
     }
   },
+  "storageZones": {
+    "title": "Emplacements",
+    "add": "Ajouter une zone",
+    "addChild": "Ajouter une sous-zone",
+    "edit": "Modifier la zone",
+    "empty": "Aucun emplacement défini",
+    "emptyHint": "Créez des zones pour organiser votre cave (étagères, casiers, tiroirs…)",
+    "deleteTitle": "Supprimer l'emplacement",
+    "deleteConfirm": "Supprimer la zone « {{name}} » ?",
+    "deleteItemsWarning": "{{count}} article(s) seront déplacés vers « Non classés ».",
+    "selectorLabel": "Zone de rangement",
+    "unclassified": "Non classé",
+    "fields": {
+      "name": "Nom de la zone",
+      "description": "Description (optionnelle)",
+      "capacity": "Capacité maximale",
+      "capacityHint": "Nombre maximum d'articles (optionnel)",
+      "parent": "Zone parente",
+      "noParent": "Aucune (zone racine)"
+    },
+    "errors": {
+      "hasChildren": "Cette zone contient des sous-zones. Supprimez-les d'abord.",
+      "notFound": "Zone introuvable."
+    }
+  },
   "qr": {
     "title": "QR Code de la bouteille",
     "download": "Télécharger PNG"
@@ -800,5 +827,58 @@
     "deletionPending": "Suppression planifiée",
     "deletionDeadline": "Votre compte sera supprimé le {{date}} sauf annulation.",
     "cancelDeletion": "Annuler la suppression"
+  },
+  "shares": {
+    "title": "Partages invités",
+    "subtitle": "Partagez une vue en lecture seule de votre cave avec vos proches.",
+    "create": "Nouveau partage",
+    "empty": "Aucun partage créé",
+    "emptyHint": "Créez un lien de partage pour inviter quelqu'un à consulter votre cave.",
+    "copyLink": "Copier le lien",
+    "linkCopied": "Lien copié !",
+    "revoke": "Révoquer",
+    "revokeConfirm": "Révoquer le partage « {{label}} » ? L'accès sera immédiatement coupé.",
+    "statusActive": "Actif",
+    "statusExpired": "Expiré",
+    "statusRevoked": "Révoqué",
+    "expiresAt": "Expire le {{date}}",
+    "noExpiry": "Sans expiration",
+    "allCellars": "Toutes les caves",
+    "allCollections": "Toutes les collections",
+    "cellarCount": "{{count}} cave(s)",
+    "collectionCount": "{{count}} collection(s)",
+    "hidePrices": "Masquer les prix et valeurs",
+    "hideNotes": "Masquer les notes personnelles",
+    "fields": {
+      "label": "Nom descriptif",
+      "labelPlaceholder": "Ex : Pour Pierre, Accès temporaire…",
+      "duration": "Durée de validité",
+      "scope": "Périmètre visible",
+      "allCellars": "Toutes les caves",
+      "selectCellars": "Caves spécifiques",
+      "selectCollections": "Collections spécifiques",
+      "durations": {
+        "1d": "24 heures",
+        "7d": "7 jours",
+        "30d": "30 jours",
+        "unlimited": "Illimité"
+      }
+    },
+    "errors": {
+      "load": "Impossible de charger les partages.",
+      "create": "Impossible de créer le partage.",
+      "revoke": "Impossible de révoquer le partage."
+    },
+    "guest": {
+      "badge": "Vue partagée",
+      "readOnly": "Lecture seule",
+      "pricesHidden": "Prix et valeurs masqués",
+      "notesHidden": "Notes personnelles masquées",
+      "expired": "Ce lien de partage a expiré ou a été révoqué.",
+      "loading": "Chargement de la collection partagée…",
+      "empty": "Aucun article dans ce partage.",
+      "scopeAll": "Collection complète",
+      "scopePartial": "Vue partielle"
+    }
   }
 }

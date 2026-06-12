@@ -636,6 +636,8 @@
       "icon": "Icon"
     },
     "filterActive": "Collection: {{name}}",
+    "addToItem": "Add",
+    "allAdded": "All added",
     "errors": {
       "nameRequired": "Name is required",
       "load": "Failed to load collections."
@@ -780,6 +782,31 @@
       "restored": "Restored"
     }
   },
+  "storageZones": {
+    "title": "Storage Zones",
+    "add": "Add zone",
+    "addChild": "Add sub-zone",
+    "edit": "Edit zone",
+    "empty": "No storage zones defined",
+    "emptyHint": "Create zones to organize your cellar (shelves, racks, drawers…)",
+    "deleteTitle": "Delete storage zone",
+    "deleteConfirm": "Delete zone \"{{name}}\"?",
+    "deleteItemsWarning": "{{count}} item(s) will be moved to Unclassified.",
+    "selectorLabel": "Storage zone",
+    "unclassified": "Unclassified",
+    "fields": {
+      "name": "Zone name",
+      "description": "Description (optional)",
+      "capacity": "Max capacity",
+      "capacityHint": "Maximum number of items (optional)",
+      "parent": "Parent zone",
+      "noParent": "None (root zone)"
+    },
+    "errors": {
+      "hasChildren": "This zone has sub-zones. Delete them first.",
+      "notFound": "Zone not found."
+    }
+  },
   "qr": {
     "title": "Bottle QR Code",
     "download": "Download PNG"
@@ -800,5 +827,58 @@
     "deletionPending": "Deletion scheduled",
     "deletionDeadline": "Your account will be deleted on {{date}} unless cancelled.",
     "cancelDeletion": "Cancel deletion"
+  },
+  "shares": {
+    "title": "Guest Shares",
+    "subtitle": "Share a read-only view of your cellar with friends or experts.",
+    "create": "New share",
+    "empty": "No shares created",
+    "emptyHint": "Create a share link to invite someone to browse your cellar.",
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied!",
+    "revoke": "Revoke",
+    "revokeConfirm": "Revoke share \"{{label}}\"? Access will be cut immediately.",
+    "statusActive": "Active",
+    "statusExpired": "Expired",
+    "statusRevoked": "Revoked",
+    "expiresAt": "Expires {{date}}",
+    "noExpiry": "No expiration",
+    "allCellars": "All cellars",
+    "allCollections": "All collections",
+    "cellarCount": "{{count}} cellar(s)",
+    "collectionCount": "{{count}} collection(s)",
+    "hidePrices": "Hide prices and values",
+    "hideNotes": "Hide personal notes",
+    "fields": {
+      "label": "Descriptive name",
+      "labelPlaceholder": "E.g. For Pierre, Temporary access…",
+      "duration": "Validity period",
+      "scope": "Visible scope",
+      "allCellars": "All cellars",
+      "selectCellars": "Specific cellars",
+      "selectCollections": "Specific collections",
+      "durations": {
+        "1d": "24 hours",
+        "7d": "7 days",
+        "30d": "30 days",
+        "unlimited": "Unlimited"
+      }
+    },
+    "errors": {
+      "load": "Unable to load shares.",
+      "create": "Unable to create share.",
+      "revoke": "Unable to revoke share."
+    },
+    "guest": {
+      "badge": "Shared view",
+      "readOnly": "Read-only",
+      "pricesHidden": "Prices and values are hidden",
+      "notesHidden": "Personal notes are hidden",
+      "expired": "This share link has expired or been revoked.",
+      "loading": "Loading shared collection…",
+      "empty": "No items in this share.",
+      "scopeAll": "Full collection",
+      "scopePartial": "Partial view"
+    }
   }
 }

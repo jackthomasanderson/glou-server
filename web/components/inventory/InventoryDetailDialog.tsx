@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useCellars } from '@/hooks/useCellars';
 import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem } from '@/hooks/useInventory';
-import { Button, Chip, Divider, Slider, Tooltip } from '@heroui/react';
+import { Button, Divider, Slider, Tooltip } from '@heroui/react';
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
   Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode,
@@ -13,6 +13,8 @@ import { InventoryItem, InventoryCategory, InventoryHistoryEntry } from '@/lib/i
 import { TastingForm } from '@/components/tastings/TastingForm';
 import { TastingStatsSummary } from '@/components/tastings/TastingStatsSummary';
 import { QrCodeModal } from './QrCodeModal';
+import { CollectionPickerInline } from '@/components/collections/CollectionPickerInline';
+import { useStorageZones } from '@/hooks/useStorageZones';
 
 const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
   wine: 'linear-gradient(160deg, #3D1A1A 0%, #6B2C2C 100%)',
@@ -65,6 +67,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const hasMounted = useHasMounted();
   const { data: cellars } = useCellars();
   const updateMutation = useUpdateInventoryItem();
+  const { data: storageZones } = useStorageZones(item?.cellarId ?? '');
   const [tastingOpen, setTastingOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
 
@@ -105,6 +108,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   if (!item || !d) return null;
 
   const cellarName = d.cellarId ? cellars?.find((c) => c.id === d.cellarId)?.name ?? null : null;
+  const zoneName = d.storageZoneId ? storageZones?.find((z) => z.id === d.storageZoneId)?.name ?? null : null;
   const isWineOrSparkling = d.category === 'wine' || d.category === 'sparkling';
   const isCigar = d.category === 'cigar';
 
@@ -280,11 +284,11 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                       value={`${d.recommendedHumidity}% HR`}
                     />
                   )}
-                  {cellarName && (
+                  {(cellarName || zoneName) && (
                     <InfoCard
                       icon={<MapPin />}
                       label={t('inventory.detail.location')}
-                      value={d.location ? `${cellarName} · ${d.location}` : cellarName}
+                      value={[cellarName, zoneName, d.location].filter(Boolean).join(' › ')}
                       valueColor="#7B1E30"
                     />
                   )}
@@ -339,33 +343,21 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                   </>
                 )}
 
-                {/* Collections */}
-                {d.collections && d.collections.length > 0 && (
-                  <>
-                    <div className="flex items-center gap-1.5 mb-2">
-                      <BookMarked size={13} className="text-default-400" />
-                      <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
-                        {t('collections.title')}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mb-5">
-                      {d.collections.map((col) => (
-                        <Chip
-                          key={col.id}
-                          size="sm"
-                          variant="bordered"
-                          style={{
-                            backgroundColor: `${col.color}22`,
-                            borderColor: col.color,
-                            color: col.color,
-                          }}
-                        >
-                          {col.icon ? `${col.icon} ` : ''}{col.name}
-                        </Chip>
-                      ))}
-                    </div>
-                  </>
-                )}
+                {/* Collections — editable inline */}
+                <>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <BookMarked size={13} className="text-default-400" />
+                    <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
+                      {t('collections.title')}
+                    </p>
+                  </div>
+                  <div className="mb-5">
+                    <CollectionPickerInline
+                      itemId={d.id}
+                      currentCollections={d.collections ?? []}
+                    />
+                  </div>
+                </>
 
                 {/* Tasting stats (FEAT-79) */}
                 <>
