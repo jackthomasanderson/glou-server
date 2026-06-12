@@ -93,39 +93,13 @@ model Cellar {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  inventory    InventoryItem[]
-  storageZones StorageZone[]
+  inventory InventoryItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@map("cellars")
-}
-
-// FEAT-14: Hierarchical storage zones (Cave > Étagère > Casier > ...)
-model StorageZone {
-  id          String  @id @default(uuid())
-  name        String
-  description String?
-  capacity    Int?    // Optional max item count
-
-  cellarId String
-  cellar   Cellar @relation(fields: [cellarId], references: [id], onDelete: Cascade)
-
-  // Self-relation for hierarchy (null = root zone of the cellar)
-  parentId String?
-  parent   StorageZone?  @relation("ZoneHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  children StorageZone[] @relation("ZoneHierarchy")
-
-  items InventoryItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([cellarId])
-  @@index([parentId])
-  @@map("storage_zones")
 }
 
 // Soft-delete via deletedAt
@@ -136,10 +110,6 @@ model InventoryItem {
 
   cellarId String?
   cellar   Cellar? @relation(fields: [cellarId], references: [id], onDelete: SetNull)
-
-  // FEAT-14: Storage zone assignment (null = unclassified)
-  storageZoneId String?
-  storageZone   StorageZone? @relation(fields: [storageZoneId], references: [id], onDelete: SetNull)
 
   // Grid slot assignment (FEAT-68) — 1-based coordinates, null = no slot
   slotColumn Int?
@@ -340,27 +310,4 @@ model TastingNote {
   @@index([userId])
   @@index([itemId])
   @@map("tasting_notes")
-}
-
-// FEAT-17: Guest share — time-limited, scoped, read-only access link
-model GuestShare {
-  id            String    @id @default(cuid())
-  token         String    @unique @default(cuid())
-  label         String?   // Descriptive name (e.g. "Pour Pierre")
-  expiresAt     DateTime?
-  revokedAt     DateTime?
-  hidePrices    Boolean   @default(false)
-  hideNotes     Boolean   @default(false)
-
-  // Scope: at least one must be non-empty; empty array = "all" (for that dimension)
-  cellarIds     String[]
-  collectionIds String[]
-
-  createdBy     String    // userId of the owner
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@index([createdBy])
-  @@index([token])
-  @@map("guest_shares")
 }

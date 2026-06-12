@@ -19,9 +19,6 @@ import searchRouter from './routes/search.router';
 import collectionsRouter from './routes/collections.router';
 import tastingsRouter from './routes/tastings.router';
 import { analyticsRouter } from './routes/analytics.router';
-import storageZonesRouter from './routes/storage-zones.router';
-import sharesRouter from './routes/shares.router';
-import guestRouter from './routes/guest.router';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -87,9 +84,6 @@ app.use('/api/search', searchRouter);
 app.use('/api/collections', collectionsRouter);
 app.use('/api/tastings', tastingsRouter);
 app.use('/api/analytics', analyticsRouter);
-app.use('/api', storageZonesRouter);
-app.use('/api/shares', sharesRouter);
-app.use('/api/guest/:token', guestRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 

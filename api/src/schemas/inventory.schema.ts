@@ -20,8 +20,6 @@ export const commonInventorySchema = z.object({
   reminderDate: z.coerce.date().optional().nullable(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
   cellarId: z.string().optional().nullable(),
-  // FEAT-14: Storage zone assignment
-  storageZoneId: z.string().optional().nullable(),
   lockedFields: z.array(z.string()).default([]),
 });
 
@@ -153,8 +151,6 @@ export const inventoryPatchSchema = z.object({
   recommendedHumidity: z.number().min(50).max(100).optional().nullable(),
   humidificationSystem: z.string().max(200).optional().nullable(),
   cellarId: z.preprocess(v => (v === 'none' || v === '') ? null : v, z.string().optional().nullable()),
-  // FEAT-14: Storage zone assignment
-  storageZoneId: z.preprocess(v => (v === 'none' || v === '') ? null : v, z.string().optional().nullable()),
   // Grid slot assignment (FEAT-68)
   slotColumn: z.number().int().min(1).max(100).optional().nullable(),
   slotRow: z.number().int().min(1).max(100).optional().nullable(),
