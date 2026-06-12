@@ -131,9 +131,9 @@ adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): 
             },
         });
         res.json({ data: user });
-    } catch (error: any) {
+    } catch (error) {
         console.error('[Admin] Error updating user status:', error);
-        if (error.code === 'P2025') {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
