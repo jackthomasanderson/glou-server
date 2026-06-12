@@ -152,6 +152,7 @@ export function ItemImageSection({
             autoFocus
             fullWidth
             size="sm"
+            aria-label={t('itemImage.urlPlaceholder')}
             placeholder={t('itemImage.urlPlaceholder')}
             value={urlInput}
             onValueChange={setUrlInput}

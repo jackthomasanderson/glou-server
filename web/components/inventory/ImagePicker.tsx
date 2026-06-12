@@ -154,7 +154,7 @@ export function ImagePickerButton({
             <span className="text-sm font-medium text-default-600">
               {t('imagePicker.tooltip')}
             </span>
-            <Button isIconOnly size="sm" variant="light" onPress={handleClose}>
+            <Button isIconOnly size="sm" variant="light" onPress={handleClose} aria-label={t('actions.close')}>
               <X size={14} />
             </Button>
           </div>
@@ -176,6 +176,7 @@ export function ImagePickerButton({
             autoFocus
             fullWidth
             size="sm"
+            aria-label={t('imagePicker.searchPlaceholder')}
             placeholder={t('imagePicker.searchPlaceholder')}
             value={query}
             onValueChange={setQuery}

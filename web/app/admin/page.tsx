@@ -124,6 +124,7 @@ export default function AdminPage() {
                         isDisabled={u.id === user.id}
                         size="sm"
                         color="primary"
+                        aria-label={`${t('admin.users.columns.role')}: ${u.username}`}
                       />
                     </Tooltip>
                   </TableCell>

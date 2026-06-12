@@ -145,6 +145,7 @@ export function GlobalSearch() {
     <div className="relative hidden sm:block sm:w-60 md:w-72">
       <Input
         placeholder={t('nav.searchPlaceholder')}
+        aria-label={t('nav.searchPlaceholder')}
         value={query}
         onValueChange={(v) => { setQuery(v); setIsOpen(true); }}
         onFocus={() => setIsOpen(true)}
@@ -188,6 +189,7 @@ export function MobileSearch({ isOpen, onClose }: { isOpen: boolean; onClose: ()
         <div className="flex-1">
           <Input
             placeholder={t('nav.searchPlaceholder')}
+            aria-label={t('nav.searchPlaceholder')}
             value={query}
             onValueChange={setQuery}
             variant="flat"

@@ -523,6 +523,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           <input
             type="number"
             min={0}
+            aria-label={t('inventory.filters.minValue')}
             placeholder={t('inventory.filters.minValue')}
             value={minValue}
             onChange={(e) => setMinValue(e.target.value)}
@@ -531,6 +532,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           <input
             type="number"
             min={0}
+            aria-label={t('inventory.filters.maxValue')}
             placeholder={t('inventory.filters.maxValue')}
             value={maxValue}
             onChange={(e) => setMaxValue(e.target.value)}

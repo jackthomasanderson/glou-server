@@ -86,6 +86,7 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
                       key={color}
                       type="button"
                       title={color}
+                      aria-label={color}
                       onClick={() => setValue('color', color)}
                       className="w-7 h-7 rounded-full transition-all focus:outline-none"
                       style={{
