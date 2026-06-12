@@ -9,6 +9,7 @@ import { MainLayout } from '@/components/ui/MainLayout';
 import { useCellar, useCellarGrid } from '@/hooks/useCellars';
 import { useInventory } from '@/hooks/useInventory';
 import { CellarGridPlan } from '@/components/cellars/CellarGridPlan';
+import { StorageZonesPanel } from '@/components/cellars/StorageZonesPanel';
 import { InventoryDetailDialog } from '@/components/inventory/InventoryDetailDialog';
 import { InventoryItem } from '@/lib/inventory/types';
 
@@ -96,6 +97,13 @@ export default function CellarDetailPage() {
             )}
           </div>
         )}
+
+        <hr className="border-divider mb-6" />
+
+        {/* Storage zones */}
+        <div className="mb-8">
+          <StorageZonesPanel cellarId={cellarId} />
+        </div>
 
         <hr className="border-divider mb-6" />
 

@@ -16,6 +16,7 @@ import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
 import { ImageResult } from './ImagePicker';
 import { ItemImageSection } from './ItemImageSection';
+import { StorageZoneSelector } from './StorageZoneSelector';
 
 interface InventoryFormProps {
   open: boolean;
@@ -126,6 +127,7 @@ export function InventoryForm({
     const patch = {
       ...rest,
       cellarId: rest.cellarId === ('none' as string) || rest.cellarId === '' ? null : rest.cellarId,
+      storageZoneId: rest.storageZoneId ?? null,
     };
     onSubmit(patch, selectedCollections.map(c => c.id));
   };
@@ -278,7 +280,13 @@ export function InventoryForm({
                         size="sm"
                         items={[{ id: 'none', name: t('inventory.noCellar') }, ...(cellars ?? [])]}
                         selectedKeys={[values.cellarId === null ? 'none' : (values.cellarId ?? 'none')]}
-                        onSelectionChange={(keys) => setField('cellarId', Array.from(keys)[0] === 'none' ? null : Array.from(keys)[0])}
+                        onSelectionChange={(keys) => {
+                          const val = Array.from(keys)[0];
+                          const newCellarId = val === 'none' ? null : (val as string);
+                          setField('cellarId', newCellarId);
+                          // Reset zone when cellar changes
+                          if (newCellarId !== values.cellarId) setField('storageZoneId', null);
+                        }}
                       >
                         {(item) => (
                           <SelectItem key={item.id}>
@@ -286,6 +294,11 @@ export function InventoryForm({
                           </SelectItem>
                         )}
                       </Select>
+                      <StorageZoneSelector
+                        cellarId={values.cellarId}
+                        value={values.storageZoneId}
+                        onChange={(id) => setField('storageZoneId', id)}
+                      />
                     </div>
                   </div>
 
