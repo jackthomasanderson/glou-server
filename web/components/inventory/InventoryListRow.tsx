@@ -63,6 +63,7 @@ export function InventoryListRow({
             onValueChange={() => onSelectToggle(item)}
             size="sm"
             color="primary"
+            aria-label={t('actions.select')}
           />
         ) : null}
       </TableCell>

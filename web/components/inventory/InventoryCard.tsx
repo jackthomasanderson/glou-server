@@ -153,6 +153,7 @@ export function InventoryCard({
               onValueChange={() => onSelectToggle(item)}
               size="sm"
               className="bg-background rounded p-0.5"
+              aria-label={t('actions.select')}
             />
           </div>
         )}
