@@ -87,7 +87,7 @@ app.use('/api/collections', collectionsRouter);
 app.use('/api/tastings', tastingsRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/shares', sharesRouter);
-app.use('/api/guest', guestRouter);
+app.use('/api/guest/:token', guestRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 
