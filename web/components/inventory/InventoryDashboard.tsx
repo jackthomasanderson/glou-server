@@ -260,7 +260,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   type ColDef = { key: string; label: string; width?: number; className?: string };
   const tableColumns = useMemo<ColDef[]>(() => [
-    ...(bulkMode ? [{ key: 'check', label: ' ', width: 40 }] : []),
+    { key: 'check', label: ' ', width: 40, className: bulkMode ? undefined : 'w-0 p-0' },
     { key: 'icon', label: ' ', width: 40 },
     { key: 'name', label: t('inventory.fields.name') },
     { key: 'producer', label: t('inventory.fields.producer'), className: 'hidden sm:table-cell' },
