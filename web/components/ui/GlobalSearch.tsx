@@ -13,10 +13,8 @@ function normalize(s: string) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
-export function GlobalSearch() {
-  const { t } = useTranslation();
+function useSearch() {
   const [query, setQuery] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const { data: items } = useInventory();
   const { data: cellars } = useCellars();
@@ -26,8 +24,8 @@ export function GlobalSearch() {
     const q = normalize(query);
     return items
       .filter((b: InventoryItem) => {
-        const searchStrings = [b.name, b.producer, b.vintage?.toString(), b.region].filter(Boolean) as string[];
-        return searchStrings.some((s: string) => normalize(s).includes(q));
+        const ss = [b.name, b.producer, b.vintage?.toString(), b.region].filter(Boolean) as string[];
+        return ss.some((s: string) => normalize(s).includes(q));
       })
       .slice(0, 6);
   }, [query, items]);
@@ -37,28 +35,111 @@ export function GlobalSearch() {
     const q = normalize(query);
     return cellars
       .filter((c: Cellar) => {
-        const searchStrings = [c.name, c.description].filter(Boolean) as string[];
-        return searchStrings.some((s: string) => normalize(s).includes(q));
+        const ss = [c.name, c.description].filter(Boolean) as string[];
+        return ss.some((s: string) => normalize(s).includes(q));
       })
       .slice(0, 3);
   }, [query, cellars]);
 
-  const hasResults = itemResults.length > 0 || cellarResults.length > 0;
-
-  const handleSelectItem = useCallback(
-    (item: InventoryItem) => {
+  const selectItem = useCallback(
+    (item: InventoryItem, onDone: () => void) => {
       setQuery('');
-      setIsOpen(false);
+      onDone();
       router.push(`/bottles?q=${encodeURIComponent(item.name)}`);
     },
     [router]
   );
 
-  const handleSelectCellar = useCallback(() => {
+  const selectCellar = useCallback(
+    (onDone: () => void) => {
+      setQuery('');
+      onDone();
+      router.push('/cellars');
+    },
+    [router]
+  );
+
+  return {
+    query,
+    setQuery,
+    itemResults,
+    cellarResults,
+    hasResults: itemResults.length > 0 || cellarResults.length > 0,
+    selectItem,
+    selectCellar,
+  };
+}
+
+function ResultsList({
+  itemResults,
+  cellarResults,
+  onSelectItem,
+  onSelectCellar,
+}: {
+  itemResults: InventoryItem[];
+  cellarResults: Cellar[];
+  onSelectItem: (item: InventoryItem) => void;
+  onSelectCellar: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {itemResults.length > 0 && (
+        <>
+          {cellarResults.length > 0 && (
+            <p className="px-3 pt-2 text-xs text-foreground-400">{t('nav.searchBottles')}</p>
+          )}
+          {itemResults.map((item: InventoryItem) => (
+            <button
+              key={item.id}
+              onMouseDown={() => onSelectItem(item)}
+              className="w-full text-left px-3 py-2 hover:bg-default-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">{item.name}</span>
+                <Chip size="sm" variant="flat" radius="sm" className="text-xs">{item.category}</Chip>
+              </div>
+              <p className="text-xs text-foreground-400 mt-0.5">
+                {item.producer}{item.vintage ? ` · ${item.vintage}` : ''}
+              </p>
+            </button>
+          ))}
+        </>
+      )}
+      {cellarResults.length > 0 && (
+        <>
+          {itemResults.length > 0 && <hr className="border-divider" />}
+          <p className="px-3 pt-2 text-xs text-foreground-400">{t('nav.searchCellars')}</p>
+          {cellarResults.map((cellar: Cellar) => (
+            <button
+              key={cellar.id}
+              onMouseDown={() => onSelectCellar()}
+              className="w-full text-left px-3 py-2 hover:bg-default-100 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Warehouse size={14} className="text-foreground-400" />
+                <span className="text-sm font-semibold">{cellar.name}</span>
+              </div>
+              {cellar.description && (
+                <p className="text-xs text-foreground-400 mt-0.5">{cellar.description}</p>
+              )}
+            </button>
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
+export function GlobalSearch() {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const { query, setQuery, itemResults, cellarResults, hasResults, selectItem, selectCellar } = useSearch();
+
+  const close = useCallback(() => {
     setQuery('');
     setIsOpen(false);
-    router.push('/cellars');
-  }, [router]);
+  }, [setQuery]);
 
   return (
     <div className="relative hidden sm:block sm:w-60 md:w-72">
@@ -72,58 +153,75 @@ export function GlobalSearch() {
         size="sm"
         radius="full"
         isClearable
-        onClear={() => { setQuery(''); setIsOpen(false); }}
+        onClear={close}
         startContent={<Search size={14} className="text-foreground-400" />}
         classNames={{ input: 'text-sm' }}
       />
-
       {isOpen && hasResults && (
         <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-content1 rounded-xl shadow-lg border border-divider overflow-hidden">
-          {itemResults.length > 0 && (
-            <>
-              {cellarResults.length > 0 && (
-                <p className="px-3 pt-2 text-xs text-foreground-400">{t('nav.searchBottles', 'Bouteilles')}</p>
-              )}
-              {itemResults.map((item: InventoryItem) => (
-                <button
-                  key={item.id}
-                  onMouseDown={() => handleSelectItem(item)}
-                  className="w-full text-left px-3 py-2 hover:bg-default-100 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">{item.name}</span>
-                    <Chip size="sm" variant="flat" radius="sm" className="text-xs">{item.category}</Chip>
-                  </div>
-                  <p className="text-xs text-foreground-400 mt-0.5">
-                    {item.producer}{item.vintage ? ` · ${item.vintage}` : ''}
-                  </p>
-                </button>
-              ))}
-            </>
-          )}
-          {cellarResults.length > 0 && (
-            <>
-              {itemResults.length > 0 && <hr className="border-divider" />}
-              <p className="px-3 pt-2 text-xs text-foreground-400">{t('nav.searchCellars', 'Caves')}</p>
-              {cellarResults.map((cellar: Cellar) => (
-                <button
-                  key={cellar.id}
-                  onMouseDown={() => handleSelectCellar()}
-                  className="w-full text-left px-3 py-2 hover:bg-default-100 transition-colors"
-                >
-                  <div className="flex items-center gap-2">
-                    <Warehouse size={14} className="text-foreground-400" />
-                    <span className="text-sm font-semibold">{cellar.name}</span>
-                  </div>
-                  {cellar.description && (
-                    <p className="text-xs text-foreground-400 mt-0.5">{cellar.description}</p>
-                  )}
-                </button>
-              ))}
-            </>
-          )}
+          <ResultsList
+            itemResults={itemResults}
+            cellarResults={cellarResults}
+            onSelectItem={(item) => selectItem(item, close)}
+            onSelectCellar={() => selectCellar(close)}
+          />
         </div>
       )}
+    </div>
+  );
+}
+
+export function MobileSearch({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { t } = useTranslation();
+  const { query, setQuery, itemResults, cellarResults, hasResults, selectItem, selectCellar } = useSearch();
+
+  const handleClose = useCallback(() => {
+    setQuery('');
+    onClose();
+  }, [setQuery, onClose]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background flex flex-col sm:hidden">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-divider">
+        <div className="flex-1">
+          <Input
+            placeholder={t('nav.searchPlaceholder')}
+            value={query}
+            onValueChange={setQuery}
+            variant="flat"
+            size="sm"
+            radius="full"
+            isClearable
+            onClear={() => setQuery('')}
+            startContent={<Search size={14} className="text-foreground-400" />}
+            classNames={{ input: 'text-sm' }}
+            autoFocus
+          />
+        </div>
+        <button
+          onClick={handleClose}
+          className="text-sm text-primary font-semibold whitespace-nowrap shrink-0"
+        >
+          {t('actions.cancel')}
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+        {hasResults ? (
+          <ResultsList
+            itemResults={itemResults}
+            cellarResults={cellarResults}
+            onSelectItem={(item) => selectItem(item, handleClose)}
+            onSelectCellar={() => selectCellar(handleClose)}
+          />
+        ) : query.trim() ? (
+          <p className="text-sm text-foreground-400 text-center mt-10">
+            {t('nav.searchNoResults')}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }

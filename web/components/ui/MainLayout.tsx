@@ -3,11 +3,11 @@ import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, Button } from '@heroui/react';
-import { Menu } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
-import { GlobalSearch } from './GlobalSearch';
+import { GlobalSearch, MobileSearch } from './GlobalSearch';
 import { NotificationBell } from './NotificationBell';
 import { AuthGuard } from '../auth/AuthGuard';
 import { useMe } from '@/hooks/useAuth';
@@ -37,6 +37,7 @@ function usePageTitle() {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isProtected = true }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { data: user } = useMe();
   const pageTitle = usePageTitle();
   const pathname = usePathname();
@@ -82,6 +83,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
 
           <div className="flex-1" />
           <GlobalSearch />
+          {/* Mobile search trigger */}
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            radius="full"
+            onClick={() => setMobileSearchOpen(true)}
+            aria-label="open search"
+            className="sm:hidden"
+          >
+            <Search size={18} />
+          </Button>
           <NotificationBell />
           {/* Mobile: quick profile access */}
           <Avatar
@@ -104,6 +117,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
       </div>
 
       <BottomNav />
+      <MobileSearch isOpen={mobileSearchOpen} onClose={() => setMobileSearchOpen(false)} />
     </div>
   );
 
