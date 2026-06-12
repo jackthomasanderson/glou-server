@@ -49,9 +49,7 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
             size="sm"
             variant="light"
             aria-label={t('actions.edit')}
-            onPress={(e) => {
-              // @ts-ignore — stopPropagation on press event if available
-              e?.stopPropagation?.();
+            onPress={() => {
               onEdit(collection);
             }}
             onClick={(e) => { e.stopPropagation(); }}

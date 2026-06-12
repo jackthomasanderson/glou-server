@@ -284,6 +284,25 @@ model Collection {
   @@map("collections")
 }
 
+model GuestShare {
+  id            String    @id @default(cuid())
+  token         String    @unique @default(cuid())
+  label         String?
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  hidePrices    Boolean   @default(false)
+  hideNotes     Boolean   @default(false)
+  cellarIds     String[]
+  collectionIds String[]
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([createdBy])
+  @@index([token])
+  @@map("guest_shares")
+}
+
 enum TastingReadiness {
   TOO_YOUNG
   PERFECT

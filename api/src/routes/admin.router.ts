@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { authMiddleware, adminMiddleware } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
@@ -70,9 +71,9 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
             },
         });
         res.json({ data: user });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Admin] Error updating user role:', error);
-        if (error.code === 'P2025') {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
