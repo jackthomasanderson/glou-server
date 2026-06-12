@@ -53,16 +53,16 @@ export function InventoryListRow({
       className={`${isTemp ? 'opacity-75' : ''} ${onView && !onSelectToggle ? 'cursor-pointer' : 'cursor-default'} ${isSelected ? 'bg-primary-50' : ''}`}
       onClick={() => !onSelectToggle && onView?.(item)}
     >
-      <TableCell onClick={(e) => e.stopPropagation()} className="w-10 pr-0">
-        {onSelectToggle ? (
+      {onSelectToggle && (
+        <TableCell onClick={(e) => e.stopPropagation()} className="w-10 pr-0">
           <Checkbox
             isSelected={isSelected}
             onValueChange={() => onSelectToggle(item)}
             size="sm"
             color="primary"
           />
-        ) : null}
-      </TableCell>
+        </TableCell>
+      )}
 
       <TableCell className="w-10 pr-0">
         <Tooltip content={categoryLabel} delay={500}>
