@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { AccountSecurity } from '@/components/profile/AccountSecurity';
 import { AvatarUploader } from '@/components/profile/AvatarUploader';
 import { GdprSection } from '@/components/profile/GdprSection';
+import { SharesDashboard } from '@/components/shares/SharesDashboard';
 
 const ACCENT_COLORS = [
   { name: 'indigo', val: '#6366f1' },
@@ -229,6 +230,11 @@ export default function ProfilePage() {
             <TwoFactorSettings user={user} />
           </div>
         )}
+
+        {/* Guest shares */}
+        <div className="mt-6">
+          <SharesDashboard />
+        </div>
 
         {/* RGPD */}
         {user && (
