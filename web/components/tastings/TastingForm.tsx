@@ -137,11 +137,11 @@ export function TastingForm({ open, onClose, initialItemId, editNote }: TastingF
       >
         <ModalContent>
           {() => (
-            <form onSubmit={handleSubmit(onSubmit)}>
+            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
               <ModalHeader>
                 {editNote ? t('tastings.edit') : t('tastings.create')}
               </ModalHeader>
-              <ModalBody className="flex flex-col gap-4">
+              <ModalBody className="flex flex-col gap-4 min-h-0">
                 {/* Error banner */}
                 {hasError && (
                   <div className="rounded-lg bg-danger-50 border border-danger-200 text-danger px-3 py-2 text-sm">

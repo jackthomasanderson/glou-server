@@ -182,7 +182,7 @@ export function InventoryForm({
     >
       <ModalContent>
         {() => (
-          <form onSubmit={handleSubmit} className="flex flex-col">
+          <form onSubmit={handleSubmit} className="flex flex-col h-full">
             <ModalHeader className="flex items-center justify-between gap-3 pr-4 pb-2">
               <div className="flex items-center gap-2">
                 <Chip
@@ -208,7 +208,7 @@ export function InventoryForm({
               </button>
             </ModalHeader>
 
-            <ModalBody className="p-0 flex flex-row items-stretch gap-0">
+            <ModalBody className="p-0 flex flex-row items-stretch gap-0 min-h-0">
               {/* Left image panel — hidden on mobile */}
               <div className="hidden sm:block w-[170px] shrink-0 border-r border-divider px-4 py-5">
                 <ItemImageSection
