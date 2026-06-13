@@ -43,6 +43,17 @@ export const client = {
     return { data: result };
   },
 
+  async put<T>(url: string, data?: unknown): Promise<{ data: T }> {
+    const res = await fetch(`${API_BASE}${url}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+    const result = await handleResponse<T>(res);
+    return { data: result };
+  },
+
   async delete<T>(url: string): Promise<{ data: T }> {
     const res = await fetch(`${API_BASE}${url}`, {
       method: 'DELETE',

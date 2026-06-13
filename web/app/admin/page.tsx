@@ -15,6 +15,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { MaturityReferencesSection } from '@/components/admin/MaturityReferencesSection';
+import { SystemConfigSection } from '@/components/admin/SystemConfigSection';
 import { MainLayout } from '@/components/ui/MainLayout';
 
 export default function AdminPage() {
@@ -152,6 +153,8 @@ export default function AdminPage() {
       </div>
 
       <MaturityReferencesSection />
+
+      <SystemConfigSection />
 
       {/* Audit log */}
       <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">

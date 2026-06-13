@@ -12,6 +12,7 @@ import { AccountSecurity } from '@/components/profile/AccountSecurity';
 import { AvatarUploader } from '@/components/profile/AvatarUploader';
 import { GdprSection } from '@/components/profile/GdprSection';
 import { SharesDashboard } from '@/components/shares/SharesDashboard';
+import { NotificationPreferences } from '@/components/profile/NotificationPreferences';
 
 const ACCENT_COLORS = [
   { name: 'indigo', val: '#6366f1' },
@@ -234,6 +235,11 @@ export default function ProfilePage() {
         {/* Guest shares */}
         <div className="mt-6">
           <SharesDashboard />
+        </div>
+
+        {/* Notifications */}
+        <div className="mt-6">
+          <NotificationPreferences />
         </div>
 
         {/* RGPD */}

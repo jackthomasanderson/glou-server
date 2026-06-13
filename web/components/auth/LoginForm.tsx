@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,6 +8,7 @@ import { Button, Input, Card, CardBody, Link, Checkbox } from '@heroui/react';
 import NextLink from 'next/link';
 import { useLogin, useVerify2faLogin } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { configClient } from '@/lib/config/client';
 
 const createLoginSchema = (t: (key: string) => string) =>
   z.object({
@@ -26,9 +27,14 @@ export function LoginForm() {
   const [step, setStep] = useState<'login' | '2fa'>('login');
   const [code, setCode] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [smtpEnabled, setSmtpEnabled] = useState(false);
 
   const loginMutation = useLogin();
   const verifyMutation = useVerify2faLogin();
+
+  useEffect(() => {
+    configClient.getSmtpStatus().then(({ smtpEnabled: enabled }) => setSmtpEnabled(enabled)).catch(() => {});
+  }, []);
 
   const { control, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -174,11 +180,16 @@ export function LoginForm() {
             >
               {t('auth.loginCta')}
             </Button>
-            <p className="text-center text-sm">
+            <div className="flex justify-between items-center text-sm">
               <Link as={NextLink} href="/register" size="sm" color="primary">
                 {t('auth.registerLink')}
               </Link>
-            </p>
+              {smtpEnabled && (
+                <Link as={NextLink} href="/forgot-password" size="sm" color="foreground" className="text-foreground-400 hover:text-primary">
+                  {t('forgotPassword.link')}
+                </Link>
+              )}
+            </div>
           </form>
         )}
       </CardBody>

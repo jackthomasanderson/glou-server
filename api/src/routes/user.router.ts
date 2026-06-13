@@ -4,6 +4,9 @@ import { authService } from '../services/auth.service';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { avatarUpload } from '../middleware/upload.middleware';
 import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema } from '../schemas/user.schema';
+import { prisma } from '../lib/prisma';
+import { notificationService } from '../services/notification.service';
+import { systemConfigService } from '../services/system-config.service';
 
 const router = Router();
 
@@ -172,6 +175,95 @@ router.post('/cancel-delete', authMiddleware, async (req: Request, res: Response
     res.json({ data: { ok: true } });
   } catch {
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+// ─── Notification Preferences (FEAT-32) ──────────────────────────────────────
+
+/**
+ * GET /api/user/notifications
+ * Return current user's notification preferences + active channels from system policy
+ */
+router.get('/notifications', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const [user, policy] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.userId },
+        select: {
+          notifInApp: true,
+          notifEmail: true,
+          notifWebhook: true,
+          notifCategories: true,
+          notifQuietStart: true,
+          notifQuietEnd: true,
+          notifLanguage: true,
+          webhookUrl: true,
+        },
+      }),
+      systemConfigService.getPublic(),
+    ]);
+    if (!user) { res.status(404).json({ error: 'USER_NOT_FOUND' }); return; }
+
+    res.json({
+      data: {
+        ...user,
+        policy: {
+          smtpEnabled: policy.smtpEnabled,
+          gotifyEnabled: policy.gotifyEnabled,
+          inAppEnabled: policy.inAppEnabled,
+        },
+      },
+    });
+  } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+/**
+ * PATCH /api/user/notifications
+ * Update notification preferences
+ */
+router.patch('/notifications', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const {
+      notifInApp, notifEmail, notifWebhook,
+      notifCategories, notifQuietStart, notifQuietEnd,
+      notifLanguage, webhookUrl,
+    } = req.body;
+
+    const data: Record<string, unknown> = {};
+    if (notifInApp !== undefined) data.notifInApp = Boolean(notifInApp);
+    if (notifEmail !== undefined) data.notifEmail = Boolean(notifEmail);
+    if (notifWebhook !== undefined) data.notifWebhook = Boolean(notifWebhook);
+    if (Array.isArray(notifCategories)) data.notifCategories = notifCategories;
+    if (notifQuietStart !== undefined) data.notifQuietStart = notifQuietStart === null ? null : Number(notifQuietStart);
+    if (notifQuietEnd !== undefined) data.notifQuietEnd = notifQuietEnd === null ? null : Number(notifQuietEnd);
+    if (notifLanguage !== undefined) data.notifLanguage = notifLanguage;
+    if (webhookUrl !== undefined) data.webhookUrl = webhookUrl || null;
+
+    await prisma.user.update({ where: { id: req.userId }, data });
+    res.json({ data: { ok: true } });
+  } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+/**
+ * POST /api/user/notifications/test/:channel
+ * Test a notification channel (email or webhook)
+ */
+router.post('/notifications/test/:channel', authMiddleware, async (req: Request, res: Response) => {
+  const { channel } = req.params;
+  if (channel !== 'email' && channel !== 'webhook') {
+    res.status(400).json({ error: 'UNKNOWN_CHANNEL' });
+    return;
+  }
+  try {
+    const result = await notificationService.testChannel(req.userId, channel);
+    res.json({ data: result });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
   }
 });
 

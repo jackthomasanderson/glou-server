@@ -22,8 +22,8 @@ model User {
   // Profile & Preferences
   displayName  String?
   avatarUrl    String?
-  appName      String?    // Personal app name (replaces "GLOU")
-  appSlogan    String?    // Personal app slogan
+  appName      String?
+  appSlogan    String?
 
   theme        Theme      @default(LIGHT)
   language     Language   @default(FR)
@@ -40,8 +40,18 @@ model User {
   isAdmin            Boolean    @default(false)
   isActive           Boolean    @default(true)
 
-  // RGPD: account deletion request (FEAT-38)
+  // RGPD
   deletionRequestedAt DateTime?
+
+  // Notifications (FEAT-32)
+  notifInApp         Boolean    @default(true)
+  notifEmail         Boolean    @default(false)
+  notifWebhook       Boolean    @default(false)
+  notifCategories    String[]   @default([])
+  notifQuietStart    Int?
+  notifQuietEnd      Int?
+  notifLanguage      Language?
+  webhookUrl         String?
 
   inventory    InventoryItem[]
   auditLogs    AuditLog[]
@@ -49,6 +59,8 @@ model User {
   bulkPresets  BulkPreset[]
   collections  Collection[]
   tastingNotes TastingNote[]
+  passwordResetTokens PasswordResetToken[]
+  configChangeLogs ConfigChangeLog[]
 }
 
 enum Theme {
@@ -329,4 +341,66 @@ model TastingNote {
   @@index([userId])
   @@index([itemId])
   @@map("tasting_notes")
+}
+
+// ─── FEAT-28: Password Reset Tokens ──────────────────────────────────────────
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ─── FEAT-34/53: System Configuration (singleton) ────────────────────────────
+
+model SystemConfig {
+  id String @id @default("singleton")
+
+  // SMTP (FEAT-34/53)
+  smtpEnabled Boolean @default(false)
+  smtpHost    String?
+  smtpPort    Int?
+  smtpUser    String?
+  smtpPassEnc String? // AES-256-GCM encrypted
+  smtpFrom    String?
+  smtpSecure  Boolean @default(true)
+
+  // Gotify/Webhook (FEAT-34/53)
+  gotifyEnabled  Boolean @default(false)
+  gotifyUrl      String?
+  gotifyTokenEnc String? // AES-256-GCM encrypted
+
+  // In-app notifications (FEAT-53)
+  inAppEnabled Boolean @default(true)
+
+  // External API integrations (FEAT-34)
+  vivinoKeyEnc     String? // AES-256-GCM encrypted
+  whiskybaseKeyEnc String? // AES-256-GCM encrypted
+  ocrUrl           String?
+
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
+// ─── FEAT-34: Config Change History ──────────────────────────────────────────
+
+model ConfigChangeLog {
+  id           Int      @id @default(autoincrement())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fieldName    String
+  maskedOldVal String?
+  maskedNewVal String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("config_change_logs")
 }

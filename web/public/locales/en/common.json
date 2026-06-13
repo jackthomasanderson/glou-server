@@ -879,5 +879,152 @@
       "scopeAll": "Full collection",
       "scopePartial": "Partial view"
     }
+  },
+  "forgotPassword": {
+    "link": "Forgot password?",
+    "title": "Account recovery",
+    "description": "Enter the email address associated with your account. If found, you'll receive a recovery link.",
+    "emailLabel": "Email address",
+    "emailPlaceholder": "your@email.com",
+    "submit": "Send link",
+    "sending": "Sending…",
+    "successTitle": "Email sent",
+    "successBody": "If this address is associated with an account, you will receive a link shortly. Check your spam folder too.",
+    "backToLogin": "Back to login",
+    "errors": {
+      "VALIDATION_ERROR": "Invalid email address.",
+      "SMTP_NOT_CONFIGURED": "Password recovery by email is not available on this instance.",
+      "UNEXPECTED_ERROR": "An error occurred. Please try again."
+    }
+  },
+  "resetPassword": {
+    "title": "New password",
+    "description": "Choose a new password for your account.",
+    "newPasswordLabel": "New password",
+    "confirmLabel": "Confirm password",
+    "submit": "Reset password",
+    "saving": "Resetting…",
+    "successTitle": "Password changed",
+    "successBody": "Your password has been reset. You can now log in.",
+    "goToLogin": "Log in",
+    "invalidToken": "This link is invalid or has expired.",
+    "errors": {
+      "INVALID_OR_EXPIRED_TOKEN": "This link is invalid or has expired. Please make a new request.",
+      "PASSWORD_TOO_SHORT": "Password must be at least 8 characters.",
+      "PASSWORDS_MISMATCH": "Passwords do not match.",
+      "UNEXPECTED_ERROR": "An error occurred. Please try again."
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Configure the channels and alert categories you want to receive.",
+    "channels": {
+      "title": "Channels",
+      "inApp": "In-app notifications",
+      "inAppDesc": "Alerts visible in the interface",
+      "email": "Email",
+      "emailDesc": "Notifications sent to your email address",
+      "webhook": "Webhook / Gotify",
+      "webhookDesc": "Notifications sent to an external URL",
+      "webhookUrl": "Webhook URL",
+      "webhookUrlPlaceholder": "https://gotify.example.com/message",
+      "disabledByAdmin": "Disabled by administrator",
+      "test": "Test",
+      "testSuccess": "Test notification sent.",
+      "testError": "Test failed: {{error}}"
+    },
+    "categories": {
+      "title": "Alert categories",
+      "all": "All categories",
+      "peak": "Peak maturity reached",
+      "temperature": "Temperature/humidity variations",
+      "consumption": "Scheduled consumption",
+      "shares": "Shares & invitations",
+      "permissions": "Permission changes",
+      "new_users": "New users (admin)"
+    },
+    "quietHours": {
+      "title": "Quiet hours",
+      "description": "No notifications during this time range",
+      "from": "From",
+      "to": "To",
+      "disabled": "Disabled",
+      "hour": "h"
+    },
+    "language": {
+      "title": "Notification language",
+      "useUI": "Interface language"
+    },
+    "saved": "Preferences saved."
+  },
+  "adminConfig": {
+    "title": "System Configuration",
+    "subtitle": "Configure integrations and the notification policy for this instance.",
+    "tabs": {
+      "smtp": "SMTP / Email",
+      "notifications": "Notification Policy",
+      "integrations": "API Integrations"
+    },
+    "smtp": {
+      "title": "SMTP Configuration",
+      "enabled": "Enable email sending",
+      "host": "SMTP server",
+      "hostPlaceholder": "smtp.example.com",
+      "port": "Port",
+      "user": "Username",
+      "pass": "Password",
+      "passPlaceholder": "Leave blank to keep current",
+      "from": "Sender address",
+      "fromPlaceholder": "Glou <noreply@example.com>",
+      "secure": "Secure connection (TLS)",
+      "save": "Save SMTP config",
+      "test": "Test connection",
+      "testWithEmail": "Send test email",
+      "testSuccess": "SMTP connection validated.",
+      "testEmailSuccess": "Test email sent.",
+      "testError": "Failed: {{error}}",
+      "saved": "SMTP configuration saved."
+    },
+    "notifPolicy": {
+      "title": "Notification policy",
+      "description": "Globally enable or disable channels available to all users.",
+      "inApp": "In-app notifications",
+      "email": "Email notifications (requires SMTP)",
+      "webhook": "Webhook notifications (Gotify)",
+      "save": "Save policy",
+      "saved": "Policy saved."
+    },
+    "gotify": {
+      "title": "Gotify Webhook (instance)",
+      "enabled": "Enable Gotify webhooks",
+      "url": "Gotify URL",
+      "urlPlaceholder": "https://gotify.example.com/message",
+      "token": "Gotify token",
+      "tokenPlaceholder": "Leave blank to keep current",
+      "test": "Test webhook",
+      "testSuccess": "Gotify webhook validated.",
+      "testError": "Failed: {{error}}",
+      "saved": "Gotify configuration saved."
+    },
+    "integrations": {
+      "title": "Third-party API keys",
+      "vivinoKey": "Vivino API key",
+      "whiskybaseKey": "Whiskybase API key",
+      "ocrUrl": "OCR service URL",
+      "ocrUrlPlaceholder": "https://ocr.example.com/extract",
+      "keyPlaceholder": "Leave blank to keep current",
+      "save": "Save integrations",
+      "saved": "Integrations saved."
+    },
+    "history": {
+      "title": "Change history",
+      "noHistory": "No changes recorded.",
+      "columns": {
+        "date": "Date",
+        "user": "User",
+        "section": "Section",
+        "value": "Values"
+      }
+    }
   }
 }

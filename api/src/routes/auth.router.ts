@@ -1,11 +1,16 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema } from '../schemas/auth.schema';
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { auditLog } from '../services/audit.service';
 import { AuthPayload } from '../services/auth.service';
+import { passwordResetService } from '../services/password-reset.service';
+import { systemConfigService } from '../services/system-config.service';
+
+const passwordResetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
 
 const router = Router();
 
@@ -176,6 +181,67 @@ router.get('/me', authMiddleware, async (req: Request, res: Response): Promise<v
     res.json({ data: user });
   } catch {
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── GET /api/auth/smtp-status ────────────────────────────────────────────────
+
+router.get('/smtp-status', async (_req: Request, res: Response): Promise<void> => {
+  const smtpEnabled = await systemConfigService.isSmtpEnabled();
+  res.json({ data: { smtpEnabled } });
+});
+
+// ─── POST /api/auth/forgot-password ──────────────────────────────────────────
+
+router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    // Always returns 200 to prevent user enumeration
+    await passwordResetService.requestReset(email.trim().toLowerCase());
+    res.json({ data: { ok: true } });
+  } catch {
+    res.json({ data: { ok: true } });
+  }
+});
+
+// ─── POST /api/auth/validate-reset-token ─────────────────────────────────────
+
+router.post('/validate-reset-token', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.body;
+    if (!token || typeof token !== 'string') {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    const result = await passwordResetService.validateToken(token);
+    res.json({ data: result });
+  } catch {
+    res.json({ data: { valid: false } });
+  }
+});
+
+// ─── POST /api/auth/reset-password ───────────────────────────────────────────
+
+router.post('/reset-password', passwordResetLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword || typeof token !== 'string' || typeof newPassword !== 'string') {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    if (newPassword.length < 8) {
+      res.status(400).json({ error: 'PASSWORD_TOO_SHORT' });
+      return;
+    }
+    await passwordResetService.resetPassword(token, newPassword);
+    res.json({ data: { ok: true } });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'UNEXPECTED_ERROR';
+    res.status(400).json({ error: msg });
   }
 });
 

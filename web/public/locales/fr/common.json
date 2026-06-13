@@ -879,5 +879,152 @@
       "scopeAll": "Collection complète",
       "scopePartial": "Vue partielle"
     }
+  },
+  "forgotPassword": {
+    "link": "Mot de passe oublié ?",
+    "title": "Récupération d'accès",
+    "description": "Renseignez l'adresse email associée à votre compte. Si elle est reconnue, vous recevrez un lien de récupération.",
+    "emailLabel": "Adresse email",
+    "emailPlaceholder": "votre@email.com",
+    "submit": "Envoyer le lien",
+    "sending": "Envoi en cours…",
+    "successTitle": "Email envoyé",
+    "successBody": "Si cette adresse est associée à un compte, vous recevrez un lien dans quelques instants. Vérifiez aussi vos spams.",
+    "backToLogin": "Retour à la connexion",
+    "errors": {
+      "VALIDATION_ERROR": "Adresse email invalide.",
+      "SMTP_NOT_CONFIGURED": "La récupération par email n'est pas disponible sur cette instance.",
+      "UNEXPECTED_ERROR": "Une erreur est survenue. Réessayez."
+    }
+  },
+  "resetPassword": {
+    "title": "Nouveau mot de passe",
+    "description": "Choisissez un nouveau mot de passe pour votre compte.",
+    "newPasswordLabel": "Nouveau mot de passe",
+    "confirmLabel": "Confirmer le mot de passe",
+    "submit": "Réinitialiser",
+    "saving": "Réinitialisation…",
+    "successTitle": "Mot de passe modifié",
+    "successBody": "Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter.",
+    "goToLogin": "Se connecter",
+    "invalidToken": "Ce lien est invalide ou a expiré.",
+    "errors": {
+      "INVALID_OR_EXPIRED_TOKEN": "Ce lien est invalide ou a expiré. Faites une nouvelle demande.",
+      "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 8 caractères.",
+      "PASSWORDS_MISMATCH": "Les mots de passe ne correspondent pas.",
+      "UNEXPECTED_ERROR": "Une erreur est survenue. Réessayez."
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Configurez les canaux et catégories d'alertes que vous souhaitez recevoir.",
+    "channels": {
+      "title": "Canaux",
+      "inApp": "Notifications dans l'application",
+      "inAppDesc": "Alertes visibles dans l'interface",
+      "email": "Email",
+      "emailDesc": "Notifications envoyées à votre adresse email",
+      "webhook": "Webhook / Gotify",
+      "webhookDesc": "Notifications envoyées à une URL externe",
+      "webhookUrl": "URL du webhook",
+      "webhookUrlPlaceholder": "https://gotify.example.com/message",
+      "disabledByAdmin": "Désactivé par l'administrateur",
+      "test": "Tester",
+      "testSuccess": "Notification de test envoyée.",
+      "testError": "Échec du test : {{error}}"
+    },
+    "categories": {
+      "title": "Catégories d'alertes",
+      "all": "Toutes les catégories",
+      "peak": "Apogée atteinte",
+      "temperature": "Variations température/hygrométrie",
+      "consumption": "Consommation planifiée",
+      "shares": "Partages & invitations",
+      "permissions": "Changements de permissions",
+      "new_users": "Nouveaux utilisateurs (admin)"
+    },
+    "quietHours": {
+      "title": "Plage silencieuse",
+      "description": "Aucune notification pendant cette plage horaire",
+      "from": "De",
+      "to": "À",
+      "disabled": "Désactivée",
+      "hour": "h"
+    },
+    "language": {
+      "title": "Langue des notifications",
+      "useUI": "Langue de l'interface"
+    },
+    "saved": "Préférences enregistrées."
+  },
+  "adminConfig": {
+    "title": "Configuration Système",
+    "subtitle": "Paramétrez les intégrations et la politique de notifications de l'instance.",
+    "tabs": {
+      "smtp": "SMTP / Email",
+      "notifications": "Politique de notifications",
+      "integrations": "Intégrations API"
+    },
+    "smtp": {
+      "title": "Configuration SMTP",
+      "enabled": "Activer l'envoi d'emails",
+      "host": "Serveur SMTP",
+      "hostPlaceholder": "smtp.example.com",
+      "port": "Port",
+      "user": "Utilisateur",
+      "pass": "Mot de passe",
+      "passPlaceholder": "Laisser vide pour conserver l'actuel",
+      "from": "Adresse expéditeur",
+      "fromPlaceholder": "Glou <noreply@example.com>",
+      "secure": "Connexion sécurisée (TLS)",
+      "save": "Enregistrer la config SMTP",
+      "test": "Tester la connexion",
+      "testWithEmail": "Envoyer un email de test",
+      "testSuccess": "Connexion SMTP validée.",
+      "testEmailSuccess": "Email de test envoyé.",
+      "testError": "Échec : {{error}}",
+      "saved": "Configuration SMTP enregistrée."
+    },
+    "notifPolicy": {
+      "title": "Politique de notifications",
+      "description": "Activez ou désactivez globalement les canaux disponibles pour tous les utilisateurs.",
+      "inApp": "Notifications in-app",
+      "email": "Notifications par email (SMTP requis)",
+      "webhook": "Notifications webhook (Gotify)",
+      "save": "Enregistrer la politique",
+      "saved": "Politique enregistrée."
+    },
+    "gotify": {
+      "title": "Webhook Gotify (instance)",
+      "enabled": "Activer les webhooks Gotify",
+      "url": "URL Gotify",
+      "urlPlaceholder": "https://gotify.example.com/message",
+      "token": "Token Gotify",
+      "tokenPlaceholder": "Laisser vide pour conserver l'actuel",
+      "test": "Tester le webhook",
+      "testSuccess": "Webhook Gotify validé.",
+      "testError": "Échec : {{error}}",
+      "saved": "Configuration Gotify enregistrée."
+    },
+    "integrations": {
+      "title": "Clés API tierces",
+      "vivinoKey": "Clé API Vivino",
+      "whiskybaseKey": "Clé API Whiskybase",
+      "ocrUrl": "URL service OCR",
+      "ocrUrlPlaceholder": "https://ocr.example.com/extract",
+      "keyPlaceholder": "Laisser vide pour conserver l'actuel",
+      "save": "Enregistrer les intégrations",
+      "saved": "Intégrations enregistrées."
+    },
+    "history": {
+      "title": "Historique des modifications",
+      "noHistory": "Aucune modification enregistrée.",
+      "columns": {
+        "date": "Date",
+        "user": "Utilisateur",
+        "section": "Section",
+        "value": "Valeurs"
+      }
+    }
   }
 }

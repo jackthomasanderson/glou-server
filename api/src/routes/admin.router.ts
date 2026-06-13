@@ -6,6 +6,8 @@ import { authMiddleware, adminMiddleware } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
 import { maturityReferenceSchema, maturityReferencePatchSchema } from '../schemas/maturity-reference.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
+import { systemConfigService } from '../services/system-config.service';
+import { emailService } from '../services/email.service';
 
 const adminRouter = Router();
 
@@ -247,6 +249,121 @@ adminRouter.delete('/maturity-references/:id', async (req: Request, res: Respons
     const ok = await maturityReferenceService.delete(id);
     if (!ok) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
     res.json({ data: { deleted: true } });
+  } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+// ─── System Configuration (FEAT-34/53) ───────────────────────────────────────
+
+adminRouter.get('/config', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const config = await systemConfigService.getPublic();
+    res.json({ data: config });
+  } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+adminRouter.put('/config/smtp', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { smtpEnabled, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, smtpSecure } = req.body;
+    const config = await systemConfigService.updateSmtp(
+      { smtpEnabled, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, smtpSecure },
+      req.userId,
+    );
+    res.json({ data: config });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
+  }
+});
+
+adminRouter.put('/config/gotify', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { gotifyEnabled, gotifyUrl, gotifyToken } = req.body;
+    const config = await systemConfigService.updateGotify(
+      { gotifyEnabled, gotifyUrl, gotifyToken },
+      req.userId,
+    );
+    res.json({ data: config });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
+  }
+});
+
+adminRouter.put('/config/notifications', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { smtpEnabled, gotifyEnabled, inAppEnabled } = req.body;
+    if (typeof smtpEnabled !== 'boolean' || typeof gotifyEnabled !== 'boolean' || typeof inAppEnabled !== 'boolean') {
+      res.status(400).json({ error: 'INVALID_INPUT' });
+      return;
+    }
+    const config = await systemConfigService.updateNotificationPolicy({ smtpEnabled, gotifyEnabled, inAppEnabled }, req.userId);
+    res.json({ data: config });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
+  }
+});
+
+adminRouter.put('/config/integrations', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { vivinoKey, whiskybaseKey, ocrUrl } = req.body;
+    const config = await systemConfigService.updateIntegrations({ vivinoKey, whiskybaseKey, ocrUrl }, req.userId);
+    res.json({ data: config });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
+  }
+});
+
+adminRouter.post('/config/test/smtp', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+    let result: { success: boolean; error?: string };
+    if (email) {
+      result = await emailService.sendTestEmail(email as string);
+    } else {
+      result = await emailService.testConnection();
+    }
+    res.json({ data: result });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
+  }
+});
+
+adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const cfg = await systemConfigService.getPublic();
+    if (!cfg.gotifyEnabled || !cfg.gotifyUrl) {
+      res.status(400).json({ error: 'GOTIFY_NOT_CONFIGURED' });
+      return;
+    }
+    const gotifyFull = await systemConfigService.getGotify();
+    const url = gotifyFull.gotifyUrl!;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (gotifyFull.gotifyToken) headers['X-Gotify-Key'] = gotifyFull.gotifyToken;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ title: 'Glou — Test', message: 'Notification de test depuis le panneau admin.' }),
+      signal: AbortSignal.timeout(5000),
+    });
+    res.json({ data: { success: response.ok, status: response.status } });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'FETCH_ERROR';
+    res.json({ data: { success: false, error: msg } });
+  }
+});
+
+adminRouter.get('/config/history', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const history = await systemConfigService.getHistory(100);
+    res.json({ data: history });
   } catch {
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
