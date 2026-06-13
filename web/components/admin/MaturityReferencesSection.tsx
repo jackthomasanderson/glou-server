@@ -308,7 +308,7 @@ export function MaturityReferencesSection() {
 
   return (
     <>
-      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6 overflow-hidden">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-base font-semibold">{t('admin.maturityRefs.title')}</h2>

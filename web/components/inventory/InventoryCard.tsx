@@ -2,10 +2,10 @@
 import React from 'react';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import {
-  Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Checkbox, Button,
+  Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button,
 } from '@heroui/react';
 import {
-  Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2,
+  Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Check,
 } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 
@@ -146,20 +146,20 @@ export function InventoryCard({
           {fillLevel}%
         </span>
 
-        {/* Bulk select checkbox */}
+        {/* Bulk select indicator */}
         {onSelectToggle && (
           <div
             className="absolute top-2 left-2 z-10"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onSelectToggle(item); }}
           >
-            <Checkbox
-              isSelected={isSelected}
-              onValueChange={() => onSelectToggle(item)}
-              size="sm"
-              color="primary"
-              className="bg-white/95 dark:bg-default-100/90 rounded-md shadow-sm px-1"
-              aria-label={t('actions.select')}
-            />
+            <div className={[
+              'w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all',
+              isSelected
+                ? 'bg-primary shadow-sm'
+                : 'bg-black/30 border-2 border-white/60 hover:bg-black/45',
+            ].join(' ')}>
+              {isSelected && <Check size={11} className="text-white" strokeWidth={3} />}
+            </div>
           </div>
         )}
       </div>

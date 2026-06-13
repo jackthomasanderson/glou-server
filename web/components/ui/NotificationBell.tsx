@@ -62,7 +62,7 @@ export function NotificationBell() {
   return (
     <Dropdown placement="bottom-end">
       <DropdownTrigger>
-        <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')}>
+        <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')} className="overflow-visible">
           {count > 0 ? (
             <Badge content={count} color="danger" size="sm" placement="top-right">
               <Bell size={18} />

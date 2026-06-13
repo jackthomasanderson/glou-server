@@ -56,7 +56,7 @@ export function InventoryListRow({
         'transition-colors',
         isSelected ? '!bg-primary-100 dark:!bg-primary-900/25' : '',
       ].filter(Boolean).join(' ')}
-      onClick={() => !onSelectToggle && onView?.(item)}
+      onClick={() => onSelectToggle ? onSelectToggle(item) : onView?.(item)}
     >
       <TableCell
         onClick={(e) => e.stopPropagation()}

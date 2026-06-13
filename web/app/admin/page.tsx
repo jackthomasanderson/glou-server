@@ -87,7 +87,7 @@ export default function AdminPage() {
       </div>
 
       {/* User management */}
-      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-4">
+      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-4 overflow-hidden">
         <h2 className="text-base font-semibold mb-1">{t('admin.users.title')}</h2>
         <p className="text-sm text-foreground-500 mb-4">{t('admin.users.subtitle')}</p>
 
@@ -157,7 +157,7 @@ export default function AdminPage() {
       <SystemConfigSection />
 
       {/* Audit log */}
-      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6 overflow-hidden">
         <h2 className="text-base font-semibold mb-1">{t('admin.auditLog.title')}</h2>
         <p className="text-sm text-foreground-500 mb-4">{t('admin.auditLog.subtitle')}</p>
 

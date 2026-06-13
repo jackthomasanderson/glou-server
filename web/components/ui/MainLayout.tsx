@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, Button } from '@heroui/react';
-import { Menu, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
@@ -36,7 +36,6 @@ function usePageTitle() {
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isProtected = true }) => {
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { data: user } = useMe();
   const pageTitle = usePageTitle();
@@ -44,24 +43,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
 
   const content = (
     <div className="flex min-h-screen bg-background">
-      <Sidebar mobileOpen={drawerOpen} onMobileClose={() => setDrawerOpen(false)} />
+      <Sidebar />
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Content header */}
         <header className="sticky top-0 z-20 flex items-center gap-3 px-4 md:px-6 py-2.5 bg-content1 border-b border-divider">
-          {/* Mobile hamburger */}
-          <Button
-            isIconOnly
-            size="sm"
-            variant="light"
-            radius="full"
-            onClick={() => setDrawerOpen(true)}
-            aria-label="open navigation"
-            className="md:hidden"
-          >
-            <Menu size={18} />
-          </Button>
-
           {/* Breadcrumb */}
           <span className="text-[0.65rem] font-bold tracking-[.1rem] uppercase whitespace-nowrap flex items-center gap-1">
             <Link href="/" className="text-foreground-500 hover:text-foreground transition-colors">
