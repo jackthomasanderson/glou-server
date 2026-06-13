@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Button, Input, Switch, Chip, Skeleton, Tabs, Tab,
 } from '@heroui/react';
-import { Settings, Mail, Bell, Puzzle, History } from 'lucide-react';
+import { Settings, Mail, Bell, Puzzle, History, Webhook } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, SystemConfigPublic } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
@@ -25,7 +25,7 @@ export function SystemConfigSection() {
   const [smtpTestEmail, setSmtpTestEmail] = useState('');
 
   // Gotify form
-  const [gotify, setGotify] = useState({ gotifyEnabled: false, gotifyUrl: '', gotifyToken: '' });
+  const [gotify, setGotify] = useState({ gotifyUrl: '', gotifyToken: '' });
 
   // Notification policy
   const [policy, setPolicy] = useState({ smtpEnabled: false, gotifyEnabled: false, inAppEnabled: true });
@@ -48,7 +48,7 @@ export function SystemConfigSection() {
         smtpFrom: cfg.smtpFrom ?? '',
         smtpSecure: cfg.smtpSecure,
       });
-      setGotify({ gotifyEnabled: cfg.gotifyEnabled, gotifyUrl: cfg.gotifyUrl ?? '', gotifyToken: '' });
+      setGotify({ gotifyUrl: cfg.gotifyUrl ?? '', gotifyToken: '' });
       setPolicy({ smtpEnabled: cfg.smtpEnabled, gotifyEnabled: cfg.gotifyEnabled, inAppEnabled: cfg.inAppEnabled });
       setIntegrations({ vivinoKey: '', whiskybaseKey: '', ocrUrl: cfg.ocrUrl ?? '' });
     }).catch(() => {}).finally(() => setLoading(false));
@@ -112,7 +112,7 @@ export function SystemConfigSection() {
     setSaving(true);
     try {
       const updated = await configClient.updateGotify({
-        gotifyEnabled: gotify.gotifyEnabled,
+        gotifyEnabled: policy.gotifyEnabled,
         gotifyUrl: gotify.gotifyUrl || null,
         gotifyToken: gotify.gotifyToken || undefined,
       });
@@ -213,17 +213,17 @@ export function SystemConfigSection() {
             <Switch isSelected={policy.smtpEnabled} onValueChange={(v) => setPolicy(p => ({ ...p, smtpEnabled: v }))} size="sm">{t('adminConfig.notifPolicy.email')}</Switch>
             <Switch isSelected={policy.gotifyEnabled} onValueChange={(v) => setPolicy(p => ({ ...p, gotifyEnabled: v }))} size="sm">{t('adminConfig.notifPolicy.webhook')}</Switch>
             <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={savePolicy}>{t('adminConfig.notifPolicy.save')}</Button>
+          </div>
+        </Tab>
 
-            {/* Gotify config */}
-            <div className="border-t border-divider pt-4 flex flex-col gap-3">
-              <h3 className="text-sm font-semibold">{t('adminConfig.gotify.title')}</h3>
-              <Switch isSelected={gotify.gotifyEnabled} onValueChange={(v) => setGotify(g => ({ ...g, gotifyEnabled: v }))} size="sm">{t('adminConfig.gotify.enabled')}</Switch>
-              <Input label={t('adminConfig.gotify.url')} placeholder={t('adminConfig.gotify.urlPlaceholder')} value={gotify.gotifyUrl} onValueChange={(v) => setGotify(g => ({ ...g, gotifyUrl: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" />
-              <Input label={t('adminConfig.gotify.token')} type="password" placeholder={config?.gotifyTokenMasked ?? t('adminConfig.gotify.tokenPlaceholder')} value={gotify.gotifyToken} onValueChange={(v) => setGotify(g => ({ ...g, gotifyToken: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
-              <div className="flex gap-2">
-                <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveGotify}>{t('actions.save')}</Button>
-                <Button size="sm" variant="bordered" isLoading={testing} onPress={testGotify}>{t('adminConfig.gotify.test')}</Button>
-              </div>
+        {/* ── Webhook / Gotify ── */}
+        <Tab key="gotify" title={<span className="flex items-center gap-1.5"><Webhook size={14} />{t('adminConfig.tabs.gotify')}</span>}>
+          <div className="flex flex-col gap-4 pt-4">
+            <Input label={t('adminConfig.gotify.url')} placeholder={t('adminConfig.gotify.urlPlaceholder')} value={gotify.gotifyUrl} onValueChange={(v) => setGotify(g => ({ ...g, gotifyUrl: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" />
+            <Input label={t('adminConfig.gotify.token')} type="password" placeholder={config?.gotifyTokenMasked ?? t('adminConfig.gotify.tokenPlaceholder')} value={gotify.gotifyToken} onValueChange={(v) => setGotify(g => ({ ...g, gotifyToken: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
+            <div className="flex gap-2">
+              <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveGotify}>{t('adminConfig.gotify.save')}</Button>
+              <Button size="sm" variant="bordered" isLoading={testing} onPress={testGotify}>{t('adminConfig.gotify.test')}</Button>
             </div>
           </div>
         </Tab>

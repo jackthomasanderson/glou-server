@@ -963,6 +963,7 @@
     "tabs": {
       "smtp": "SMTP / Email",
       "notifications": "Politique de notifications",
+      "gotify": "Webhook / Gotify",
       "integrations": "Intégrations API"
     },
     "smtp": {
@@ -1001,6 +1002,7 @@
       "urlPlaceholder": "https://gotify.example.com/message",
       "token": "Token Gotify",
       "tokenPlaceholder": "Laisser vide pour conserver l'actuel",
+      "save": "Enregistrer la config Gotify",
       "test": "Tester le webhook",
       "testSuccess": "Webhook Gotify validé.",
       "testError": "Échec : {{error}}",

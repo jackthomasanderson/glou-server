@@ -770,6 +770,12 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               shadow="none"
               radius="none"
               classNames={{ wrapper: 'border border-divider rounded-xl' }}
+              onRowAction={(key) => {
+                const found = filteredItems.find(i => i.id === String(key));
+                if (!found) return;
+                if (bulkMode) handleSelectToggle(found);
+                else handleView(found);
+              }}
             >
               <TableHeader columns={tableColumns}>
                 {(col) => (

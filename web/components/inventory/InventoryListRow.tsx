@@ -52,7 +52,7 @@ export function InventoryListRow({
     <TableRow
       className={[
         isTemp ? 'opacity-75' : '',
-        onView && !onSelectToggle ? 'cursor-pointer' : 'cursor-default',
+        (onView || onSelectToggle) ? 'cursor-pointer' : 'cursor-default',
         'transition-colors',
         isSelected ? '!bg-primary-100 dark:!bg-primary-900/25' : '',
       ].filter(Boolean).join(' ')}
