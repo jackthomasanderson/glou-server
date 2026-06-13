@@ -27,6 +27,8 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       DATABASE_URL: postgresql://${DB_USER:-glou}:${DB_PASSWORD:-glou_secret}@db:5432/${DB_NAME:-glou_db}
       JWT_SECRET: ${JWT_SECRET}
+      CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY}
+      APP_URL: ${APP_URL:-http://localhost:3000}
       PORT: 3001
     ports:
       - "3001:3001"
