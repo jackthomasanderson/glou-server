@@ -177,7 +177,7 @@ export function SystemConfigSection() {
         </div>
       )}
 
-      <Tabs variant="underlined" aria-label="Config sections" classNames={{ tabList: 'overflow-x-auto flex-nowrap' }}>
+      <Tabs variant="underlined" aria-label="Config sections">
         {/* ── SMTP ── */}
         <Tab key="smtp" title={<span className="flex items-center gap-1.5"><Mail size={14} />{t('adminConfig.tabs.smtp')}</span>}>
           <div className="flex flex-col gap-4 pt-4">
@@ -241,7 +241,7 @@ export function SystemConfigSection() {
         </Tab>
 
         {/* ── History ── */}
-        <Tab key="history" title={<span className="flex items-center gap-1.5"><History size={14} />{t('adminConfig.history.title')}</span>}>
+        <Tab key="history" title={<span className="flex items-center gap-1.5"><History size={14} />{t('adminConfig.tabs.history')}</span>}>
           <div className="pt-4">
             {history.length === 0 ? (
               <p className="text-sm text-foreground-400 py-4 text-center">{t('adminConfig.history.noHistory')}</p>

@@ -31,13 +31,14 @@ interface InventoryListRowProps {
   onView?: (item: InventoryItem) => void;
   t: (key: string) => string;
   isSelected?: boolean;
-  onSelectToggle?: (item: InventoryItem) => void;
+  isAnchor?: boolean;
+  onSelectToggle?: (item: InventoryItem, event?: React.MouseEvent) => void;
 }
 
 export function InventoryListRow({
   item, categoryLabel, cellar,
   onEdit, onDelete, onView, t,
-  isSelected = false, onSelectToggle,
+  isSelected = false, isAnchor = false, onSelectToggle,
 }: InventoryListRowProps) {
   const isTemp = item.id.startsWith('temp-');
 
@@ -55,8 +56,9 @@ export function InventoryListRow({
         (onView || onSelectToggle) ? 'cursor-pointer' : 'cursor-default',
         'transition-colors',
         isSelected ? '!bg-primary-100 dark:!bg-primary-900/25' : '',
+        isAnchor && isSelected ? 'ring-1 ring-inset ring-primary' : '',
       ].filter(Boolean).join(' ')}
-      onClick={() => onSelectToggle ? onSelectToggle(item) : onView?.(item)}
+      onClick={(e) => onSelectToggle ? onSelectToggle(item, e) : onView?.(item)}
     >
       <TableCell
         onClick={(e) => e.stopPropagation()}

@@ -39,7 +39,8 @@ interface InventoryCardProps {
   onView?: (item: InventoryItem) => void;
   t: (key: string) => string;
   isSelected?: boolean;
-  onSelectToggle?: (item: InventoryItem) => void;
+  isAnchor?: boolean;
+  onSelectToggle?: (item: InventoryItem, event?: React.MouseEvent) => void;
 }
 
 export function InventoryCard({
@@ -51,6 +52,7 @@ export function InventoryCard({
   onView,
   t,
   isSelected = false,
+  isAnchor = false,
   onSelectToggle,
 }: InventoryCardProps) {
   const isTemp = item.id.startsWith('temp-');
@@ -84,6 +86,7 @@ export function InventoryCard({
         'flex flex-col transition-all hover:shadow-md',
         isTemp && 'opacity-75',
         isSelected && onSelectToggle && 'ring-2 ring-primary ring-offset-0',
+        isAnchor && isSelected && onSelectToggle && 'ring-2 ring-offset-2 ring-primary',
       ].filter(Boolean).join(' ')}
     >
       {/* ── Top chips ─────────────────────────────────────────── */}
@@ -150,7 +153,7 @@ export function InventoryCard({
         {onSelectToggle && (
           <div
             className="absolute top-2 left-2 z-10"
-            onClick={(e) => { e.stopPropagation(); onSelectToggle(item); }}
+            onClick={(e) => { e.stopPropagation(); onSelectToggle(item, e); }}
           >
             <div className={[
               'w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all',

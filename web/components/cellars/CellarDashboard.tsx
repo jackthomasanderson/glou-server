@@ -223,7 +223,10 @@ export const CellarDashboard: React.FC = () => {
     <div>
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">{t('cellars.title')}</h1>
+        <div className="flex items-center gap-2">
+          <Warehouse size={22} className="text-primary" />
+          <h1 className="text-xl font-bold">{t('cellars.title')}</h1>
+        </div>
         <div className="flex gap-2 items-center">
           <ViewToggle value={viewMode} onChange={setViewMode} />
           <Button

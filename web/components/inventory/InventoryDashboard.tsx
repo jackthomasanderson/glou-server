@@ -6,7 +6,7 @@ import {
   Button, Chip,
   Table, TableHeader, TableColumn, TableBody,
 } from '@heroui/react';
-import { Plus, X, List, Filter, Search, Warehouse } from 'lucide-react';
+import { Plus, X, List, Filter, Search, Warehouse, Wine, Leaf } from 'lucide-react';
 import Link from 'next/link';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
@@ -63,15 +63,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [bulkSuccessCount, setBulkSuccessCount] = useState<number | null>(null);
-
-  const handleSelectToggle = useCallback((item: InventoryItem) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(item.id)) next.delete(item.id);
-      else next.add(item.id);
-      return next;
-    });
-  }, []);
+  const [anchorId, setAnchorId] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -265,6 +257,36 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     return result;
   }, [items, searchQuery, selectedCategories, selectedWineColors, selectedCellars, selectedCollectionId, selectedTags, minValue, maxValue, sortBy, cellars, openedFilter, t, hasMounted, lockedCategories]);
 
+  // Reset anchor when filters or sort change
+  useEffect(() => {
+    setAnchorId(null);
+  }, [searchQuery, selectedCategories, selectedCellars, selectedTags, selectedWineColors, minValue, maxValue, sortBy, openedFilter, selectedCollectionId]);
+
+  const handleSelectToggle = useCallback((item: InventoryItem, event?: React.MouseEvent) => {
+    if (event?.shiftKey && anchorId) {
+      const anchorIdx = filteredItems.findIndex(i => i.id === anchorId);
+      const targetIdx = filteredItems.findIndex(i => i.id === item.id);
+      if (anchorIdx !== -1 && targetIdx !== -1) {
+        const [start, end] = anchorIdx < targetIdx ? [anchorIdx, targetIdx] : [targetIdx, anchorIdx];
+        const rangeIds = filteredItems.slice(start, end + 1).map(i => i.id);
+        setSelectedIds(prev => {
+          const next = new Set(prev);
+          rangeIds.forEach(id => next.add(id));
+          return next;
+        });
+        // NE PAS changer l'ancre sur un Shift+clic
+      }
+    } else {
+      setAnchorId(item.id);
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        if (next.has(item.id)) next.delete(item.id);
+        else next.add(item.id);
+        return next;
+      });
+    }
+  }, [filteredItems, anchorId]);
+
   type ColDef = { key: string; label: string; width?: number; className?: string };
   const tableColumns = useMemo<ColDef[]>(() => [
     { key: 'check', label: ' ', width: 40, className: bulkMode ? undefined : 'w-0 p-0' },
@@ -282,6 +304,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const toggleBulkMode = useCallback(() => {
     setBulkMode((prev) => !prev);
     setSelectedIds(new Set());
+    setAnchorId(null);
   }, []);
 
   const syncCollections = useCallback(
@@ -349,6 +372,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
             setBulkSuccessCount(res.updatedCount);
             setBulkMode(false);
             setSelectedIds(new Set());
+            setAnchorId(null);
             setIsBulkDialogOpen(false);
           },
         }
@@ -600,6 +624,18 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   return (
     <div className="p-4 sm:p-6">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-6">
+        {lockedCategories?.includes('cigar') ? (
+          <Leaf size={22} className="text-primary" />
+        ) : (
+          <Wine size={22} className="text-primary" />
+        )}
+        <h1 className="text-xl font-bold">
+          {lockedCategories?.includes('cigar') ? t('nav.cigars') : t('nav.bottles')}
+        </h1>
+      </div>
+
       {/* Stats row */}
       {!isLoading && baseItems.length > 0 && mode === 'idle' && (
         <div className="flex gap-3 sm:gap-4 mb-5">
@@ -790,6 +826,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                   onView={bulkMode ? undefined : handleView}
                   t={t}
                   isSelected={selectedIds.has(item.id)}
+                  isAnchor={item.id === anchorId}
                   onSelectToggle={bulkMode ? handleSelectToggle : undefined}
                 />
               ))}
@@ -805,10 +842,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               radius="none"
               classNames={{ wrapper: 'border border-divider rounded-xl' }}
               onRowAction={(key) => {
+                if (bulkMode) return;
                 const found = filteredItems.find(i => i.id === String(key));
                 if (!found) return;
-                if (bulkMode) handleSelectToggle(found);
-                else handleView(found);
+                handleView(found);
               }}
             >
               <TableHeader columns={tableColumns}>
@@ -829,6 +866,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                     onView: bulkMode ? undefined : handleView,
                     t,
                     isSelected: selectedIds.has(item.id),
+                    isAnchor: item.id === anchorId,
                     onSelectToggle: bulkMode ? handleSelectToggle : undefined,
                   }),
                   { key: item.id }
