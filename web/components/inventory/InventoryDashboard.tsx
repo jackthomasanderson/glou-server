@@ -78,6 +78,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const [selectedCellars, setSelectedCellars] = useState<string[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedWineColors, setSelectedWineColors] = useState<string[]>([]);
   const [minValue, setMinValue] = useState('');
   const [maxValue, setMaxValue] = useState('');
   const [sortBy, setSortBy] = useState<'default' | 'value' | 'urgency' | 'name'>('default');
@@ -149,6 +150,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     setSelectedCategories([]);
     setSelectedCellars([]);
     setSelectedTags([]);
+    setSelectedWineColors([]);
     setMinValue('');
     setMaxValue('');
     setSortBy('default');
@@ -186,6 +188,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     }
     if (selectedCategories.length > 0) {
       result = result.filter((b: InventoryItem) => selectedCategories.includes(b.category));
+    }
+    if (selectedWineColors.length > 0) {
+      result = result.filter((b: InventoryItem) =>
+        b.category !== 'wine' || (!!b.color && selectedWineColors.includes(b.color))
+      );
     }
     if (selectedCellars.length > 0) {
       result = result.filter((b: InventoryItem) => selectedCellars.includes(b.cellarId || ''));
@@ -256,7 +263,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     }
 
     return result;
-  }, [items, searchQuery, selectedCategories, selectedCellars, selectedCollectionId, selectedTags, minValue, maxValue, sortBy, cellars, openedFilter, t, hasMounted, lockedCategories]);
+  }, [items, searchQuery, selectedCategories, selectedWineColors, selectedCellars, selectedCollectionId, selectedTags, minValue, maxValue, sortBy, cellars, openedFilter, t, hasMounted, lockedCategories]);
 
   type ColDef = { key: string; label: string; width?: number; className?: string };
   const tableColumns = useMemo<ColDef[]>(() => [
@@ -385,7 +392,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const hasCellars = (cellars?.length ?? 0) > 0;
   const categoryLabel = (cat: string) => t(`categories.${cat}`);
-  const hasActiveFilters = selectedCategories.length > 0 || selectedCellars.length > 0 || openedFilter !== 'all' || !!searchQuery || !!selectedCollectionId || selectedTags.length > 0 || minValue !== '' || maxValue !== '' || sortBy !== 'default';
+  const hasActiveFilters = selectedCategories.length > 0 || selectedWineColors.length > 0 || selectedCellars.length > 0 || openedFilter !== 'all' || !!searchQuery || !!selectedCollectionId || selectedTags.length > 0 || minValue !== '' || maxValue !== '' || sortBy !== 'default';
   const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
 
   const filterContent = (
@@ -482,6 +489,33 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                   <span className="text-[0.7rem] text-primary font-bold">✓</span>
                 )}
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Wine color filter */}
+      {!lockedCategories?.includes('cigar') && (selectedCategories.length === 0 || selectedCategories.includes('wine')) && (
+        <div>
+          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+            {t('inventory.filterByWineColor')}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {(['red', 'white', 'rosé', 'orange'] as const).map((c) => (
+              <Chip
+                key={c}
+                size="sm"
+                variant={selectedWineColors.includes(c) ? 'solid' : 'bordered'}
+                color={selectedWineColors.includes(c) ? 'primary' : 'default'}
+                className="cursor-pointer text-[0.7rem]"
+                onClick={() =>
+                  setSelectedWineColors((prev) =>
+                    prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
+                  )
+                }
+              >
+                {t(`inventory.color.${c}`)}
+              </Chip>
             ))}
           </div>
         </div>

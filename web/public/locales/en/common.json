@@ -246,6 +246,7 @@
       "maxValue": "Max €"
     },
     "filterByTags": "By tags",
+    "filterByWineColor": "By color (wine)",
     "filterByValue": "By value (€)",
     "stats": {
       "total": "Total stock",
@@ -962,9 +963,10 @@
     "subtitle": "Configure integrations and the notification policy for this instance.",
     "tabs": {
       "smtp": "SMTP / Email",
-      "notifications": "Notification Policy",
+      "notifications": "Notifications",
       "gotify": "Webhook / Gotify",
-      "integrations": "API Integrations"
+      "integrations": "API Integrations",
+      "history": "History"
     },
     "smtp": {
       "title": "SMTP Configuration",

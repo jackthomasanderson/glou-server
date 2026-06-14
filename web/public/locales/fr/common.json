@@ -246,6 +246,7 @@
       "maxValue": "Max €"
     },
     "filterByTags": "Par étiquettes",
+    "filterByWineColor": "Par couleur (vin)",
     "filterByValue": "Par valeur (€)",
     "stats": {
       "total": "Total stock",
@@ -962,9 +963,10 @@
     "subtitle": "Paramétrez les intégrations et la politique de notifications de l'instance.",
     "tabs": {
       "smtp": "SMTP / Email",
-      "notifications": "Politique de notifications",
+      "notifications": "Notifications",
       "gotify": "Webhook / Gotify",
-      "integrations": "Intégrations API"
+      "integrations": "Intégrations API",
+      "history": "Historique"
     },
     "smtp": {
       "title": "Configuration SMTP",
