@@ -28,8 +28,9 @@ import { InventoryDetailDialog } from './InventoryDetailDialog';
 import { InventoryListRow, InventoryListRowSkeleton } from './InventoryListRow';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { useViewMode } from '@/hooks/useViewMode';
-import { usePageSize, PAGE_SIZE_OPTIONS } from '@/hooks/usePageSize';
+import { usePageSize } from '@/hooks/usePageSize';
 import { PaginationBar } from '@/components/ui/PaginationBar';
+import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
 import { DuplicateDialog } from './DuplicateDialog';
 import { findDuplicate } from '@/lib/inventory/duplicate';
 
@@ -611,24 +612,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         </div>
       </div>
 
-      {/* Per page */}
-      <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-          {t('pagination.perPage')}
-        </p>
-        <div className="flex flex-wrap gap-1">
-          {PAGE_SIZE_OPTIONS.map((size) => (
-            <div
-              key={size}
-              onClick={() => setPageSize(size)}
-              className={`px-2 py-1 rounded-xl cursor-pointer text-[0.72rem] border transition-colors ${pageSize === size ? 'border-primary bg-primary/10 text-primary font-semibold' : 'border-divider hover:bg-default-50'}`}
-            >
-              {size}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Tags filter */}
       {allTags.length > 0 && (
         <div>
@@ -726,6 +709,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                 <Filter size={16} />
               </button>
               {!isMobile && <ViewToggle value={viewMode} onChange={setViewMode} />}
+              {!isMobile && <div className="w-px h-5 bg-divider" />}
+              <PageSizeToggle value={pageSize} onChange={setPageSize} />
             </div>
             <div className="flex gap-2 items-center">
               {items && items.length > 0 && (

@@ -11,8 +11,9 @@ import { CollectionCard } from './CollectionCard';
 import { CollectionForm } from './CollectionForm';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
-import { usePageSize, PAGE_SIZE_OPTIONS } from '@/hooks/usePageSize';
+import { usePageSize } from '@/hooks/usePageSize';
 import { PaginationBar } from '@/components/ui/PaginationBar';
+import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
 
 export function CollectionsDashboard() {
   const { t } = useTranslation();
@@ -57,6 +58,9 @@ export function CollectionsDashboard() {
       <div className="flex items-center gap-2 mb-6">
         <BookMarked size={22} className="text-primary" />
         <h1 className="text-xl font-bold">{t('collections.title')}</h1>
+        <div className="ml-auto">
+          <PageSizeToggle value={pageSize} onChange={(s) => { setPageSize(s); setCurrentPage(1); }} />
+        </div>
       </div>
 
       {/* Error banner */}
@@ -100,30 +104,16 @@ export function CollectionsDashboard() {
               />
             ))}
           </div>
-          <div className="mt-6 flex flex-col gap-3">
-            <div className="flex items-center gap-2 justify-end">
-              <span className="text-xs text-default-400">{t('pagination.perPage')}</span>
-              {PAGE_SIZE_OPTIONS.map((size) => (
-                <div
-                  key={size}
-                  onClick={() => { setPageSize(size); setCurrentPage(1); }}
-                  className={`px-2 py-1 rounded-xl cursor-pointer text-[0.72rem] border transition-colors ${pageSize === size ? 'border-primary bg-primary/10 text-primary font-semibold' : 'border-divider hover:bg-default-50'}`}
-                >
-                  {size}
-                </div>
-              ))}
-            </div>
-            <PaginationBar
-              page={currentPage}
-              totalPages={totalPages}
-              totalItems={collections?.length ?? 0}
-              onPrev={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              labelPage={t('pagination.page')}
-              labelOf={t('pagination.of')}
-              labelItems={t('pagination.items')}
-            />
-          </div>
+          <PaginationBar
+            page={currentPage}
+            totalPages={totalPages}
+            totalItems={collections?.length ?? 0}
+            onPrev={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            labelPage={t('pagination.page')}
+            labelOf={t('pagination.of')}
+            labelItems={t('pagination.items')}
+          />
         </>
       )}
 
