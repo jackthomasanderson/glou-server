@@ -28,6 +28,8 @@ import { InventoryDetailDialog } from './InventoryDetailDialog';
 import { InventoryListRow, InventoryListRowSkeleton } from './InventoryListRow';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { usePageSize, PAGE_SIZE_OPTIONS } from '@/hooks/usePageSize';
+import { PaginationBar } from '@/components/ui/PaginationBar';
 import { DuplicateDialog } from './DuplicateDialog';
 import { findDuplicate } from '@/lib/inventory/duplicate';
 
@@ -112,6 +114,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const [viewMode, setViewMode] = useViewMode('inventory');
 
   // Detect mobile via CSS (no MUI hook needed)
+  const tabKey = lockedCategories?.includes('cigar') ? 'cigars' : 'bottles';
+  const [pageSize, setPageSize] = usePageSize(tabKey);
+  const [currentPage, setCurrentPage] = useState(1);
+
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
@@ -257,10 +263,22 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     return result;
   }, [items, searchQuery, selectedCategories, selectedWineColors, selectedCellars, selectedCollectionId, selectedTags, minValue, maxValue, sortBy, cellars, openedFilter, t, hasMounted, lockedCategories]);
 
-  // Reset anchor when filters or sort change
+  const totalPages = Math.ceil(filteredItems.length / pageSize);
+  const paginatedItems = useMemo(
+    () => filteredItems.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredItems, currentPage, pageSize]
+  );
+
+  // Reset anchor and page when filters or sort change
   useEffect(() => {
     setAnchorId(null);
+    setCurrentPage(1);
   }, [searchQuery, selectedCategories, selectedCellars, selectedTags, selectedWineColors, minValue, maxValue, sortBy, openedFilter, selectedCollectionId]);
+
+  // Reset page when page size changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [pageSize]);
 
   const handleSelectToggle = useCallback((item: InventoryItem, event?: React.MouseEvent) => {
     if (event?.shiftKey && anchorId) {
@@ -593,6 +611,24 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         </div>
       </div>
 
+      {/* Per page */}
+      <div>
+        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+          {t('pagination.perPage')}
+        </p>
+        <div className="flex flex-wrap gap-1">
+          {PAGE_SIZE_OPTIONS.map((size) => (
+            <div
+              key={size}
+              onClick={() => setPageSize(size)}
+              className={`px-2 py-1 rounded-xl cursor-pointer text-[0.72rem] border transition-colors ${pageSize === size ? 'border-primary bg-primary/10 text-primary font-semibold' : 'border-divider hover:bg-default-50'}`}
+            >
+              {size}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Tags filter */}
       {allTags.length > 0 && (
         <div>
@@ -652,24 +688,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         </div>
       )}
 
-      {/* Mobile: filter toggle */}
-      <div className="flex md:hidden mb-3">
-        <button
-          onClick={toggleFilters}
-          className={`p-1.5 border border-divider rounded-xl transition-colors ${isFiltersOpen || hasActiveFilters ? 'border-secondary text-secondary' : ''}`}
-          aria-label="Filters"
-        >
-          <Filter size={16} />
-        </button>
-      </div>
-
-      {/* Mobile: collapsible filter */}
-      {isFiltersOpen && (
-        <div className="md:hidden border border-divider rounded-xl p-4 mb-5">
-          {filterContent}
-        </div>
-      )}
-
       {/* Main layout */}
       <div className="flex gap-5 items-start">
         {/* Desktop filter panel */}
@@ -700,6 +718,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           {/* Toolbar */}
           <div className="flex justify-between items-center mb-4">
             <div className="flex gap-2 items-center">
+              <button
+                className={`md:hidden p-1.5 border border-divider rounded-xl transition-colors ${isFiltersOpen || hasActiveFilters ? 'border-secondary text-secondary' : ''}`}
+                onClick={toggleFilters}
+                aria-label="Filters"
+              >
+                <Filter size={16} />
+              </button>
               {!isMobile && <ViewToggle value={viewMode} onChange={setViewMode} />}
             </div>
             <div className="flex gap-2 items-center">
@@ -726,6 +751,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               </Button>
             </div>
           </div>
+
+          {/* Mobile: collapsible filter */}
+          {isFiltersOpen && (
+            <div className="md:hidden border border-divider rounded-xl p-4 mb-5">
+              {filterContent}
+            </div>
+          )}
 
           {/* Error */}
           {isError && (
@@ -814,65 +846,90 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Grid view */}
           {!isLoading && filteredItems.length > 0 && effectiveViewMode === 'grid' && (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {filteredItems.map((item: InventoryItem) => (
-                <InventoryCard
-                  key={item.id}
-                  item={item}
-                  categoryLabel={categoryLabel(item.category)}
-                  cellarName={cellars?.find((c: Cellar) => c.id === item.cellarId)?.name}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onView={bulkMode ? undefined : handleView}
-                  t={t}
-                  isSelected={selectedIds.has(item.id)}
-                  isAnchor={item.id === anchorId}
-                  onSelectToggle={bulkMode ? handleSelectToggle : undefined}
-                />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {paginatedItems.map((item: InventoryItem) => (
+                  <InventoryCard
+                    key={item.id}
+                    item={item}
+                    categoryLabel={categoryLabel(item.category)}
+                    cellarName={cellars?.find((c: Cellar) => c.id === item.cellarId)?.name}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onView={bulkMode ? undefined : handleView}
+                    t={t}
+                    isSelected={selectedIds.has(item.id)}
+                    isAnchor={item.id === anchorId}
+                    onSelectToggle={bulkMode ? handleSelectToggle : undefined}
+                  />
+                ))}
+              </div>
+              <PaginationBar
+                page={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredItems.length}
+                onPrev={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                labelPage={t('pagination.page')}
+                labelOf={t('pagination.of')}
+                labelItems={t('pagination.items')}
+              />
+            </>
           )}
 
           {/* List view */}
           {!isLoading && filteredItems.length > 0 && effectiveViewMode === 'list' && (
-            <Table
-              isCompact
-              isStriped={false}
-              shadow="none"
-              radius="none"
-              classNames={{ wrapper: 'border border-divider rounded-xl' }}
-              onRowAction={(key) => {
-                if (bulkMode) return;
-                const found = filteredItems.find(i => i.id === String(key));
-                if (!found) return;
-                handleView(found);
-              }}
-            >
-              <TableHeader columns={tableColumns}>
-                {(col) => (
-                  <TableColumn key={col.key} width={col.width} className={col.className}>
-                    {col.label}
-                  </TableColumn>
-                )}
-              </TableHeader>
-              <TableBody items={filteredItems}>
-                {(item: InventoryItem) => React.cloneElement(
-                  InventoryListRow({
-                    item,
-                    categoryLabel: categoryLabel(item.category),
-                    cellar: cellars?.find((c: Cellar) => c.id === item.cellarId) ?? undefined,
-                    onEdit: handleEdit,
-                    onDelete: handleDelete,
-                    onView: bulkMode ? undefined : handleView,
-                    t,
-                    isSelected: selectedIds.has(item.id),
-                    isAnchor: item.id === anchorId,
-                    onSelectToggle: bulkMode ? handleSelectToggle : undefined,
-                  }),
-                  { key: item.id }
-                )}
-              </TableBody>
-            </Table>
+            <>
+              <Table
+                isCompact
+                isStriped={false}
+                shadow="none"
+                radius="none"
+                classNames={{ wrapper: 'border border-divider rounded-xl' }}
+                aria-label={t('nav.bottles')}
+                onRowAction={(key) => {
+                  if (bulkMode) return;
+                  const found = paginatedItems.find(i => i.id === String(key));
+                  if (!found) return;
+                  handleView(found);
+                }}
+              >
+                <TableHeader columns={tableColumns}>
+                  {(col) => (
+                    <TableColumn key={col.key} width={col.width} className={col.className}>
+                      {col.label}
+                    </TableColumn>
+                  )}
+                </TableHeader>
+                <TableBody items={paginatedItems}>
+                  {(item: InventoryItem) => React.cloneElement(
+                    InventoryListRow({
+                      item,
+                      categoryLabel: categoryLabel(item.category),
+                      cellar: cellars?.find((c: Cellar) => c.id === item.cellarId) ?? undefined,
+                      onEdit: handleEdit,
+                      onDelete: handleDelete,
+                      onView: bulkMode ? undefined : handleView,
+                      t,
+                      isSelected: selectedIds.has(item.id),
+                      isAnchor: item.id === anchorId,
+                      onSelectToggle: bulkMode ? handleSelectToggle : undefined,
+                    }),
+                    { key: item.id }
+                  )}
+                </TableBody>
+              </Table>
+              <PaginationBar
+                page={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredItems.length}
+                onPrev={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                labelPage={t('pagination.page')}
+                labelOf={t('pagination.of')}
+                labelItems={t('pagination.items')}
+              />
+            </>
           )}
         </div>
       </div>

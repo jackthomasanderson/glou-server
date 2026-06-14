@@ -91,7 +91,7 @@ export default function AdminPage() {
         <h2 className="text-base font-semibold mb-1">{t('admin.users.title')}</h2>
         <p className="text-sm text-foreground-500 mb-4">{t('admin.users.subtitle')}</p>
 
-        <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }}>
+        <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('admin.users.title')}>
           <TableHeader>
             <TableColumn>{t('admin.users.columns.email')}</TableColumn>
             <TableColumn>{t('admin.users.columns.username')}</TableColumn>
@@ -161,7 +161,7 @@ export default function AdminPage() {
         <h2 className="text-base font-semibold mb-1">{t('admin.auditLog.title')}</h2>
         <p className="text-sm text-foreground-500 mb-4">{t('admin.auditLog.subtitle')}</p>
 
-        <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }}>
+        <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('admin.auditLog.title')}>
           <TableHeader>
             <TableColumn>{t('admin.auditLog.columns.date')}</TableColumn>
             <TableColumn>{t('admin.auditLog.columns.user')}</TableColumn>

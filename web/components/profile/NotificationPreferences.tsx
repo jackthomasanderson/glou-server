@@ -98,7 +98,7 @@ export function NotificationPreferences() {
             <p className="text-xs text-foreground-400">{t('notifications.channels.inAppDesc')}</p>
           </div>
           {policy.inAppEnabled
-            ? <Switch isSelected={prefs.notifInApp} onValueChange={(v) => save({ notifInApp: v })} size="sm" />
+            ? <Switch isSelected={prefs.notifInApp} onValueChange={(v) => save({ notifInApp: v })} size="sm" aria-label={t('notifications.channels.inApp')} />
             : <Chip size="sm" variant="flat" color="default">{t('notifications.channels.disabledByAdmin')}</Chip>
           }
         </div>
@@ -114,7 +114,7 @@ export function NotificationPreferences() {
               <Button size="sm" variant="flat" isLoading={testingChannel === 'email'} onPress={() => testChannel('email')}>{t('notifications.channels.test')}</Button>
             )}
             {policy.smtpEnabled
-              ? <Switch isSelected={prefs.notifEmail} onValueChange={(v) => save({ notifEmail: v })} size="sm" />
+              ? <Switch isSelected={prefs.notifEmail} onValueChange={(v) => save({ notifEmail: v })} size="sm" aria-label={t('notifications.channels.email')} />
               : <Chip size="sm" variant="flat" color="default">{t('notifications.channels.disabledByAdmin')}</Chip>
             }
           </div>
@@ -132,7 +132,7 @@ export function NotificationPreferences() {
                 <Button size="sm" variant="flat" isLoading={testingChannel === 'webhook'} onPress={() => testChannel('webhook')}>{t('notifications.channels.test')}</Button>
               )}
               {policy.gotifyEnabled
-                ? <Switch isSelected={prefs.notifWebhook} onValueChange={(v) => save({ notifWebhook: v })} size="sm" />
+                ? <Switch isSelected={prefs.notifWebhook} onValueChange={(v) => save({ notifWebhook: v })} size="sm" aria-label={t('notifications.channels.webhook')} />
                 : <Chip size="sm" variant="flat" color="default">{t('notifications.channels.disabledByAdmin')}</Chip>
               }
             </div>

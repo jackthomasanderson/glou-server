@@ -15,6 +15,7 @@ export interface RegionStat {
 export interface MaturityPlanning {
   readyNow: { count: number; percent: number };
   preserve: { count: number; percent: number };
+  atPeak: { count: number; percent: number };
   pastPeak: { count: number; percent: number };
 }
 
@@ -119,6 +120,7 @@ export async function getAnalytics(userId: string, from?: Date, to?: Date): Prom
   let urgentDegustationCount = 0;
   let readyNow = 0;
   let preserve = 0;
+  let atPeak = 0;
   let pastPeak = 0;
 
   const categoryMap: Record<string, { count: number; valuation: number }> = {};
@@ -136,7 +138,7 @@ export async function getAnalytics(userId: string, from?: Date, to?: Date): Prom
     totalLiquidLiters += computeBottleVolume(item.category, item.bottleSize, item.fillLevel);
 
     if (item.category === 'cigar') cigarModulesCount += 1;
-    if (item.alertStatus === 'past') urgentDegustationCount += 1;
+    if (item.alertStatus === 'past' || item.alertStatus === 'peak') urgentDegustationCount += 1;
 
     if (!categoryMap[item.category]) categoryMap[item.category] = { count: 0, valuation: 0 };
     categoryMap[item.category].count += 1;
@@ -154,6 +156,8 @@ export async function getAnalytics(userId: string, from?: Date, to?: Date): Prom
 
     if (item.alertStatus === 'past') {
       pastPeak += 1;
+    } else if (item.alertStatus === 'peak') {
+      atPeak += 1;
     } else if (item.alertStatus === 'approaching') {
       preserve += 1;
     } else {
@@ -222,6 +226,7 @@ export async function getAnalytics(userId: string, from?: Date, to?: Date): Prom
     maturityPlanning: {
       readyNow: { count: readyNow, percent: pct(readyNow) },
       preserve: { count: preserve, percent: pct(preserve) },
+      atPeak: { count: atPeak, percent: pct(atPeak) },
       pastPeak: { count: pastPeak, percent: pct(pastPeak) },
     },
     gardeHistogram,

@@ -243,7 +243,8 @@
         "name": "Nom A→Z"
       },
       "minValue": "Min €",
-      "maxValue": "Max €"
+      "maxValue": "Max €",
+      "perPage": "Éléments par page"
     },
     "filterByTags": "Par étiquettes",
     "filterByWineColor": "Par couleur (vin)",
@@ -706,7 +707,7 @@
       "cigarHumidor": "Cigares en humidor",
       "cigarHumidorHint": "Préservés sous hygrométrie contrôlée",
       "urgentDegustation": "Urgence de dégustation",
-      "urgentDegustationHint": "Flacons ayant dépassé leur apogée"
+      "urgentDegustationHint": "Flacons à l'apogée ou l'ayant dépassée"
     },
     "regionMap": {
       "title": "Répartition géographique",
@@ -748,6 +749,7 @@
       "description": "Cette projection indique la période idéale pour consommer vos flacons ou apprécier vos cigares afin de préserver l'intégrité de leurs arômes.",
       "readyNow": "Prêts à déguster immédiatement",
       "preserve": "À préserver en cave / humidor",
+      "atPeak": "À l'apogée (À consommer en priorité)",
       "pastPeak": "Apogée dépassé (À consommer d'urgence)",
       "countLabel": "{{count}} flacons ({{percent}}%)",
       "humidorTip": "Conseil de l'Humidor",
@@ -918,7 +920,7 @@
   },
   "notifications": {
     "title": "Notifications",
-    "subtitle": "Configurez les canaux et catégories d'alertes que vous souhaitez recevoir.",
+    "subtitle": "Choisissez comment recevoir vos alertes. Certains canaux peuvent être restreints par votre administrateur.",
     "channels": {
       "title": "Canaux",
       "inApp": "Notifications dans l'application",
@@ -963,7 +965,7 @@
     "subtitle": "Paramétrez les intégrations et la politique de notifications de l'instance.",
     "tabs": {
       "smtp": "SMTP / Email",
-      "notifications": "Notifications",
+      "notifications": "Politique de notifs",
       "gotify": "Webhook / Gotify",
       "integrations": "Intégrations API",
       "history": "Historique"
@@ -972,13 +974,14 @@
       "title": "Configuration SMTP",
       "enabled": "Activer l'envoi d'emails",
       "host": "Serveur SMTP",
-      "hostPlaceholder": "smtp.example.com",
+      "hostPlaceholder": "smtp.gmail.com",
       "port": "Port",
       "user": "Utilisateur",
+      "userPlaceholder": "votre@gmail.com",
       "pass": "Mot de passe",
       "passPlaceholder": "Laisser vide pour conserver l'actuel",
       "from": "Adresse expéditeur",
-      "fromPlaceholder": "Glou <noreply@example.com>",
+      "fromPlaceholder": "Glou <votre@gmail.com>",
       "secure": "Connexion sécurisée (TLS)",
       "save": "Enregistrer la config SMTP",
       "test": "Tester la connexion",
@@ -990,10 +993,13 @@
     },
     "notifPolicy": {
       "title": "Politique de notifications",
-      "description": "Activez ou désactivez globalement les canaux disponibles pour tous les utilisateurs.",
-      "inApp": "Notifications in-app",
-      "email": "Notifications par email (SMTP requis)",
-      "webhook": "Notifications webhook (Gotify)",
+      "description": "Ces réglages sont des interrupteurs globaux pour toute l'instance. Si un canal est désactivé ici, les utilisateurs ne pourront pas l'activer dans leurs préférences personnelles.",
+      "inApp": "Notifications dans l'application",
+      "inAppHint": "Permet aux utilisateurs de recevoir des alertes directement dans l'interface.",
+      "email": "Notifications par email",
+      "emailHint": "Nécessite une configuration SMTP valide (onglet SMTP). Les utilisateurs peuvent ensuite l'activer ou le désactiver individuellement.",
+      "webhook": "Notifications webhook / Gotify",
+      "webhookHint": "Nécessite une URL Gotify configurée. Chaque utilisateur définit sa propre URL de destination dans ses préférences.",
       "save": "Enregistrer la politique",
       "saved": "Politique enregistrée."
     },
@@ -1030,5 +1036,11 @@
         "value": "Valeurs"
       }
     }
+  },
+  "pagination": {
+    "perPage": "Éléments par page",
+    "page": "Page",
+    "of": "sur",
+    "items": "éléments"
   }
 }

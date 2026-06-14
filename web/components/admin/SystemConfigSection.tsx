@@ -187,7 +187,7 @@ export function SystemConfigSection() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input label={t('adminConfig.smtp.host')} placeholder={t('adminConfig.smtp.hostPlaceholder')} value={smtp.smtpHost} onValueChange={(v) => setSmtp(s => ({ ...s, smtpHost: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" />
               <Input label={t('adminConfig.smtp.port')} type="number" value={smtp.smtpPort} onValueChange={(v) => setSmtp(s => ({ ...s, smtpPort: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" />
-              <Input label={t('adminConfig.smtp.user')} value={smtp.smtpUser} onValueChange={(v) => setSmtp(s => ({ ...s, smtpUser: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="off" />
+              <Input label={t('adminConfig.smtp.user')} placeholder={t('adminConfig.smtp.userPlaceholder')} value={smtp.smtpUser} onValueChange={(v) => setSmtp(s => ({ ...s, smtpUser: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="off" />
               <Input label={t('adminConfig.smtp.pass')} type="password" placeholder={config?.smtpPassMasked ?? t('adminConfig.smtp.passPlaceholder')} value={smtp.smtpPass} onValueChange={(v) => setSmtp(s => ({ ...s, smtpPass: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
               <Input label={t('adminConfig.smtp.from')} placeholder={t('adminConfig.smtp.fromPlaceholder')} value={smtp.smtpFrom} onValueChange={(v) => setSmtp(s => ({ ...s, smtpFrom: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" className="sm:col-span-2" />
             </div>
@@ -207,12 +207,24 @@ export function SystemConfigSection() {
 
         {/* ── Notification Policy ── */}
         <Tab key="notifications" title={<span className="flex items-center gap-1.5"><Bell size={14} />{t('adminConfig.tabs.notifications')}</span>}>
-          <div className="flex flex-col gap-5 pt-4">
+          <div className="flex flex-col gap-4 pt-4">
             <p className="text-sm text-foreground-500">{t('adminConfig.notifPolicy.description')}</p>
-            <Switch isSelected={policy.inAppEnabled} onValueChange={(v) => setPolicy(p => ({ ...p, inAppEnabled: v }))} size="sm">{t('adminConfig.notifPolicy.inApp')}</Switch>
-            <Switch isSelected={policy.smtpEnabled} onValueChange={(v) => setPolicy(p => ({ ...p, smtpEnabled: v }))} size="sm">{t('adminConfig.notifPolicy.email')}</Switch>
-            <Switch isSelected={policy.gotifyEnabled} onValueChange={(v) => setPolicy(p => ({ ...p, gotifyEnabled: v }))} size="sm">{t('adminConfig.notifPolicy.webhook')}</Switch>
-            <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={savePolicy}>{t('adminConfig.notifPolicy.save')}</Button>
+            <div className="flex flex-col gap-3">
+              {([
+                { key: 'inAppEnabled', label: t('adminConfig.notifPolicy.inApp'), hint: t('adminConfig.notifPolicy.inAppHint') },
+                { key: 'smtpEnabled', label: t('adminConfig.notifPolicy.email'), hint: t('adminConfig.notifPolicy.emailHint') },
+                { key: 'gotifyEnabled', label: t('adminConfig.notifPolicy.webhook'), hint: t('adminConfig.notifPolicy.webhookHint') },
+              ] as const).map(({ key, label, hint }) => (
+                <div key={key} className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-foreground-400">{hint}</p>
+                  </div>
+                  <Switch isSelected={policy[key]} onValueChange={(v) => setPolicy(p => ({ ...p, [key]: v }))} size="sm" className="shrink-0 mt-0.5" />
+                </div>
+              ))}
+            </div>
+            <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={savePolicy} className="self-start">{t('adminConfig.notifPolicy.save')}</Button>
           </div>
         </Tab>
 

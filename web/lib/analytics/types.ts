@@ -26,6 +26,7 @@ export interface RegionStat {
 export interface MaturityPlanning {
   readyNow: { count: number; percent: number };
   preserve: { count: number; percent: number };
+  atPeak: { count: number; percent: number };
   pastPeak: { count: number; percent: number };
 }
 

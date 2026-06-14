@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Spinner,
@@ -11,6 +11,8 @@ import { CollectionCard } from './CollectionCard';
 import { CollectionForm } from './CollectionForm';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
+import { usePageSize, PAGE_SIZE_OPTIONS } from '@/hooks/usePageSize';
+import { PaginationBar } from '@/components/ui/PaginationBar';
 
 export function CollectionsDashboard() {
   const { t } = useTranslation();
@@ -20,9 +22,17 @@ export function CollectionsDashboard() {
   const updateMutation = useUpdateCollection();
   const deleteMutation = useDeleteCollection();
 
+  const [pageSize, setPageSize] = usePageSize('collections');
+  const [currentPage, setCurrentPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Collection | null>(null);
   const [deleting, setDeleting] = useState<Collection | null>(null);
+
+  const totalPages = Math.ceil((collections?.length ?? 0) / pageSize);
+  const paginatedCollections = useMemo(
+    () => (collections ?? []).slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [collections, currentPage, pageSize]
+  );
 
   const handleCreate = async (values: CollectionFormValues) => {
     await createMutation.mutateAsync(values);
@@ -77,18 +87,44 @@ export function CollectionsDashboard() {
           </Button>
         </div>
       ) : (
-        /* Grid */
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {collections.map((col) => (
-            <CollectionCard
-              key={col.id}
-              collection={col}
-              onEdit={setEditing}
-              onDelete={setDeleting}
-              onClick={() => router.push(`/bottles?collection=${col.id}`)}
+        /* Grid + pagination */
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {paginatedCollections.map((col) => (
+              <CollectionCard
+                key={col.id}
+                collection={col}
+                onEdit={setEditing}
+                onDelete={setDeleting}
+                onClick={() => router.push(`/bottles?collection=${col.id}`)}
+              />
+            ))}
+          </div>
+          <div className="mt-6 flex flex-col gap-3">
+            <div className="flex items-center gap-2 justify-end">
+              <span className="text-xs text-default-400">{t('pagination.perPage')}</span>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <div
+                  key={size}
+                  onClick={() => { setPageSize(size); setCurrentPage(1); }}
+                  className={`px-2 py-1 rounded-xl cursor-pointer text-[0.72rem] border transition-colors ${pageSize === size ? 'border-primary bg-primary/10 text-primary font-semibold' : 'border-divider hover:bg-default-50'}`}
+                >
+                  {size}
+                </div>
+              ))}
+            </div>
+            <PaginationBar
+              page={currentPage}
+              totalPages={totalPages}
+              totalItems={collections?.length ?? 0}
+              onPrev={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              onNext={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              labelPage={t('pagination.page')}
+              labelOf={t('pagination.of')}
+              labelItems={t('pagination.items')}
             />
-          ))}
-        </div>
+          </div>
+        </>
       )}
 
       {/* FAB — only when there are collections */}

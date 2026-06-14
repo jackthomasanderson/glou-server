@@ -90,14 +90,14 @@ export function InventoryCard({
       ].filter(Boolean).join(' ')}
     >
       {/* ── Top chips ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
+      <div className="flex items-center justify-between gap-1 px-3 pt-2.5 pb-1 overflow-hidden">
         <Chip
           startContent={CATEGORY_ICONS[item.category]}
           size="sm"
           variant="bordered"
           color={CATEGORY_COLORS[item.category]}
           radius="sm"
-          classNames={{ base: 'h-5', content: 'px-1.5 text-[0.6rem] font-bold tracking-wider' }}
+          classNames={{ base: 'h-5 shrink-0', content: 'px-1.5 text-[0.6rem] font-bold tracking-wider' }}
         >
           {categoryLabel.toUpperCase()}
         </Chip>
@@ -107,8 +107,8 @@ export function InventoryCard({
             size="sm"
             radius="sm"
             classNames={{
-              base: 'h-5 bg-danger-50 border border-danger-200',
-              content: 'px-1.5 text-[0.6rem] font-semibold text-danger-700',
+              base: 'h-5 bg-danger-50 border border-danger-200 min-w-0',
+              content: 'px-1.5 text-[0.6rem] font-semibold text-danger-700 truncate max-w-[80px]',
             }}
           >
             {cellarName}

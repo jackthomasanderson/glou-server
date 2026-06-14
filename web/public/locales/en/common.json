@@ -243,7 +243,8 @@
         "name": "Name A→Z"
       },
       "minValue": "Min €",
-      "maxValue": "Max €"
+      "maxValue": "Max €",
+      "perPage": "Items per page"
     },
     "filterByTags": "By tags",
     "filterByWineColor": "By color (wine)",
@@ -706,7 +707,7 @@
       "cigarHumidor": "Cigars in humidor",
       "cigarHumidorHint": "Preserved under controlled humidity",
       "urgentDegustation": "Tasting urgency",
-      "urgentDegustationHint": "Bottles past their peak"
+      "urgentDegustationHint": "Bottles at or past their peak"
     },
     "regionMap": {
       "title": "Geographic distribution",
@@ -748,6 +749,7 @@
       "description": "This projection shows the ideal period to consume your bottles or enjoy your cigars to preserve their aromatic integrity.",
       "readyNow": "Ready to drink now",
       "preserve": "To preserve in cellar / humidor",
+      "atPeak": "At peak (Drink with priority)",
       "pastPeak": "Past peak (Drink urgently)",
       "countLabel": "{{count}} bottles ({{percent}}%)",
       "humidorTip": "Humidor Tip",
@@ -918,7 +920,7 @@
   },
   "notifications": {
     "title": "Notifications",
-    "subtitle": "Configure the channels and alert categories you want to receive.",
+    "subtitle": "Choose how you receive your alerts. Some channels may be restricted by your administrator.",
     "channels": {
       "title": "Channels",
       "inApp": "In-app notifications",
@@ -963,7 +965,7 @@
     "subtitle": "Configure integrations and the notification policy for this instance.",
     "tabs": {
       "smtp": "SMTP / Email",
-      "notifications": "Notifications",
+      "notifications": "Notif policy",
       "gotify": "Webhook / Gotify",
       "integrations": "API Integrations",
       "history": "History"
@@ -972,13 +974,14 @@
       "title": "SMTP Configuration",
       "enabled": "Enable email sending",
       "host": "SMTP server",
-      "hostPlaceholder": "smtp.example.com",
+      "hostPlaceholder": "smtp.gmail.com",
       "port": "Port",
       "user": "Username",
+      "userPlaceholder": "your@gmail.com",
       "pass": "Password",
       "passPlaceholder": "Leave blank to keep current",
       "from": "Sender address",
-      "fromPlaceholder": "Glou <noreply@example.com>",
+      "fromPlaceholder": "Glou <your@gmail.com>",
       "secure": "Secure connection (TLS)",
       "save": "Save SMTP config",
       "test": "Test connection",
@@ -990,10 +993,13 @@
     },
     "notifPolicy": {
       "title": "Notification policy",
-      "description": "Globally enable or disable channels available to all users.",
+      "description": "These are global switches for the entire instance. If a channel is disabled here, users will not be able to enable it in their personal preferences.",
       "inApp": "In-app notifications",
-      "email": "Email notifications (requires SMTP)",
-      "webhook": "Webhook notifications (Gotify)",
+      "inAppHint": "Allows users to receive alerts directly in the interface.",
+      "email": "Email notifications",
+      "emailHint": "Requires a valid SMTP configuration (SMTP tab). Users can then enable or disable it individually.",
+      "webhook": "Webhook / Gotify notifications",
+      "webhookHint": "Requires a configured Gotify URL. Each user sets their own destination URL in their preferences.",
       "save": "Save policy",
       "saved": "Policy saved."
     },
@@ -1030,5 +1036,11 @@
         "value": "Values"
       }
     }
+  },
+  "pagination": {
+    "perPage": "Items per page",
+    "page": "Page",
+    "of": "of",
+    "items": "items"
   }
 }

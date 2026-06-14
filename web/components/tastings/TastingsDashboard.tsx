@@ -4,23 +4,26 @@ import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Spinner,
 } from '@heroui/react';
-import { Plus, Wine, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Wine } from 'lucide-react';
 import { useTastings, useDeleteTasting } from '@/hooks/useTastings';
 import { TastingNote, TastingFormValues } from '@/lib/tastings/types';
 import { TastingCard } from './TastingCard';
 import { TastingDetailDrawer } from './TastingDetailDrawer';
 import { TastingForm } from './TastingForm';
 import { useTranslation } from 'react-i18next';
+import { usePageSize, PAGE_SIZE_OPTIONS } from '@/hooks/usePageSize';
+import { PaginationBar } from '@/components/ui/PaginationBar';
 
 export function TastingsDashboard() {
   const { t } = useTranslation();
+  const [pageSize, setPageSize] = usePageSize('tastings');
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<TastingNote | null>(null);
   const [editing, setEditing] = useState<TastingNote | null>(null);
   const [deleting, setDeleting] = useState<TastingNote | null>(null);
 
-  const { data, isLoading, isError } = useTastings(page);
+  const { data, isLoading, isError } = useTastings(page, pageSize);
   const deleteMutation = useDeleteTasting();
 
   const handleEdit = (note: TastingNote) => setEditing(note);
@@ -103,34 +106,31 @@ export function TastingsDashboard() {
             ))}
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 mt-6">
-              <Button
-                isIconOnly
-                size="sm"
-                variant="flat"
-                isDisabled={page <= 1}
-                onPress={() => setPage((p) => Math.max(1, p - 1))}
-                aria-label="Previous page"
-              >
-                <ChevronLeft size={16} />
-              </Button>
-              <span className="text-sm text-default-500">
-                {page} / {totalPages}
-              </span>
-              <Button
-                isIconOnly
-                size="sm"
-                variant="flat"
-                isDisabled={page >= totalPages}
-                onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
-                aria-label="Next page"
-              >
-                <ChevronRight size={16} />
-              </Button>
+          {/* Per page selector + pagination */}
+          <div className="mt-6 flex flex-col gap-3">
+            <div className="flex items-center gap-2 justify-end">
+              <span className="text-xs text-default-400">{t('pagination.perPage')}</span>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <div
+                  key={size}
+                  onClick={() => { setPageSize(size); setPage(1); }}
+                  className={`px-2 py-1 rounded-xl cursor-pointer text-[0.72rem] border transition-colors ${pageSize === size ? 'border-primary bg-primary/10 text-primary font-semibold' : 'border-divider hover:bg-default-50'}`}
+                >
+                  {size}
+                </div>
+              ))}
             </div>
-          )}
+            <PaginationBar
+              page={page}
+              totalPages={totalPages}
+              totalItems={data?.total ?? 0}
+              onPrev={() => setPage((p) => Math.max(1, p - 1))}
+              onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+              labelPage={t('pagination.page')}
+              labelOf={t('pagination.of')}
+              labelItems={t('pagination.items')}
+            />
+          </div>
         </>
       )}
 

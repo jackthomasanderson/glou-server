@@ -144,7 +144,7 @@ export default function CellarDetailPage() {
           cellarItems.length === 0 ? (
             <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles')}</div>
           ) : (
-            <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }}>
+            <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('nav.bottles')}>
               <TableHeader>
                 <TableColumn>{t('inventory.fields.name')}</TableColumn>
                 <TableColumn>{t('inventory.fields.producer')}</TableColumn>

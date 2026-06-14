@@ -364,10 +364,16 @@ function MaturityPlanning({
       color: 'rgba(128,128,128,0.35)',
     },
     {
+      label: t('analytics.maturity.atPeak'),
+      count: maturityPlanning.atPeak.count,
+      percent: maturityPlanning.atPeak.percent,
+      color: '#22C55E',
+    },
+    {
       label: t('analytics.maturity.pastPeak'),
       count: maturityPlanning.pastPeak.count,
       percent: maturityPlanning.pastPeak.percent,
-      color: 'rgba(128,128,128,0.2)',
+      color: '#EF4444',
     },
   ];
 

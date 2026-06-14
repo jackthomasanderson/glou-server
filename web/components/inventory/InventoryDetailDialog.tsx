@@ -222,6 +222,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                     size="sm"
                     isDisabled={updateMutation.isPending}
                     className="py-2"
+                    aria-label={isCigar ? t('inventory.detail.levelCigar') : t('inventory.detail.levelWine')}
                   />
                   <div className="flex justify-between -mt-1">
                     <span className="text-[0.65rem] text-default-400">{t('inventory.detail.empty')} (0%)</span>
