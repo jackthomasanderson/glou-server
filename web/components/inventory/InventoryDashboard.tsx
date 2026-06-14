@@ -487,33 +487,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         </div>
       )}
 
-      {/* Tags filter */}
-      {allTags.length > 0 && (
-        <div>
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-            {t('inventory.filterByTags')}
-          </p>
-          <div className="flex flex-wrap gap-1">
-            {allTags.map((tag) => (
-              <Chip
-                key={tag}
-                size="sm"
-                variant={selectedTags.includes(tag) ? 'solid' : 'bordered'}
-                color={selectedTags.includes(tag) ? 'primary' : 'default'}
-                className="cursor-pointer text-[0.7rem]"
-                onClick={() =>
-                  setSelectedTags((prev) =>
-                    prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-                  )
-                }
-              >
-                {tag}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Value range */}
       <div>
         <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
@@ -561,6 +534,33 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           ))}
         </div>
       </div>
+
+      {/* Tags filter */}
+      {allTags.length > 0 && (
+        <div>
+          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+            {t('inventory.filterByTags')}
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {allTags.map((tag) => (
+              <Chip
+                key={tag}
+                size="sm"
+                variant={selectedTags.includes(tag) ? 'solid' : 'bordered'}
+                color={selectedTags.includes(tag) ? 'primary' : 'default'}
+                className="cursor-pointer text-[0.7rem]"
+                onClick={() =>
+                  setSelectedTags((prev) =>
+                    prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+                  )
+                }
+              >
+                {tag}
+              </Chip>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 

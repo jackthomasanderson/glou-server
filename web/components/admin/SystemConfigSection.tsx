@@ -177,7 +177,7 @@ export function SystemConfigSection() {
         </div>
       )}
 
-      <Tabs variant="underlined" aria-label="Config sections">
+      <Tabs variant="underlined" aria-label="Config sections" classNames={{ tabList: 'overflow-x-auto flex-nowrap' }}>
         {/* ── SMTP ── */}
         <Tab key="smtp" title={<span className="flex items-center gap-1.5"><Mail size={14} />{t('adminConfig.tabs.smtp')}</span>}>
           <div className="flex flex-col gap-4 pt-4">
