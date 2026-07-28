@@ -99,15 +99,15 @@ export default function AdminPage() {
             <TableColumn>{t('admin.users.columns.createdAt')}</TableColumn>
           </TableHeader>
           <TableBody>
-            {isUsersLoading
-              ? (Array.from({ length: 3 }).map((_, i) => (
+            <>{isUsersLoading
+              ? Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
                     {Array.from({ length: 5 }).map((__, c) => (
                       <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
                     ))}
                   </TableRow>
-                )) as unknown as React.ReactElement)
-              : (users?.map((u) => (
+                ))
+              : users?.map((u) => (
                 <TableRow key={u.id} className={u.isActive ? '' : 'opacity-50'}>
                   <TableCell className="text-sm">{u.email}</TableCell>
                   <TableCell>
@@ -143,8 +143,8 @@ export default function AdminPage() {
                     {hasMounted ? new Date(u.createdAt).toLocaleDateString() : ''}
                   </TableCell>
                 </TableRow>
-              )) as unknown as React.ReactElement)
-            }
+              ))
+            }</>
           </TableBody>
         </Table>
       </div>
@@ -165,17 +165,17 @@ export default function AdminPage() {
             <TableColumn>{t('admin.auditLog.columns.ip')}</TableColumn>
           </TableHeader>
           <TableBody>
-            {isAuditLoading
-              ? (Array.from({ length: 5 }).map((_, i) => (
+            <>{isAuditLoading
+              ? Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     {Array.from({ length: 5 }).map((__, c) => (
                       <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
                     ))}
                   </TableRow>
-                )) as unknown as React.ReactElement)
+                ))
               : auditResponse?.items.length === 0
-              ? (<TableRow><TableCell colSpan={5} className="text-center py-4 text-sm text-foreground-400">{t('admin.auditLog.noLogs')}</TableCell></TableRow>) as unknown as React.ReactElement
-              : (auditResponse?.items.map((entry: AuditLogEntry) => (
+              ? (<TableRow><TableCell colSpan={5} className="text-center py-4 text-sm text-foreground-400">{t('admin.auditLog.noLogs')}</TableCell></TableRow>)
+              : auditResponse?.items.map((entry: AuditLogEntry) => (
                 <TableRow key={entry.id}>
                   <TableCell className="whitespace-nowrap text-xs">{hasMounted ? new Date(entry.createdAt).toLocaleString() : ''}</TableCell>
                   <TableCell className="text-sm">{entry.user?.username || '—'}</TableCell>
@@ -185,8 +185,8 @@ export default function AdminPage() {
                   </TableCell>
                   <TableCell className="font-mono text-xs text-foreground-400">{entry.ip}</TableCell>
                 </TableRow>
-              )) as unknown as React.ReactElement)
-            }
+              ))
+            }</>
           </TableBody>
         </Table>
 

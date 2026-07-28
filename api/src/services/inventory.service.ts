@@ -28,19 +28,43 @@ export interface InventoryWithTraceability {
 // InventoryItem type inferred from Prisma client
 type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> extends infer T | null ? NonNullable<T> : never;
 
+const INVENTORY_COLLECTIONS_INCLUDE = {
+  collections: { select: { id: true, name: true, color: true, icon: true } },
+};
+
+async function findInventoryItemWithCollections(id: string) {
+  return prisma.inventoryItem.findFirst({
+    where: { id, deletedAt: null },
+    include: INVENTORY_COLLECTIONS_INCLUDE,
+  });
+}
+
+type InventoryItemWithCollections = NonNullable<Awaited<ReturnType<typeof findInventoryItemWithCollections>>>;
+
+function getJsonField<T>(json: unknown, field: string): T | undefined {
+  if (!json || typeof json !== 'object' || Array.isArray(json)) {
+    return undefined;
+  }
+
+  const jsonObject = json as Record<string, unknown>;
+  if (!(field in jsonObject)) {
+    return undefined;
+  }
+
+  return jsonObject[field] as T;
+}
+
 
 /** Corbeille : 7 jours avant purge définitive */
 const TRASH_RETENTION_DAYS = 7;
 
 export class InventoryService {
-  async listInventory(_userId: string): Promise<InventoryItem[]> {
+  async listInventory(_userId: string): Promise<InventoryItemWithCollections[]> {
     return prisma.inventoryItem.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      include: {
-        collections: { select: { id: true, name: true, color: true, icon: true } },
-      },
-    }) as unknown as InventoryItem[];
+      include: INVENTORY_COLLECTIONS_INCLUDE,
+    });
   }
 
   async listTrash(_userId: string): Promise<InventoryItem[]> {
@@ -53,31 +77,26 @@ export class InventoryService {
     });
   }
 
-  async getItem(_userId: string, id: string): Promise<InventoryItem | null> {
-    return prisma.inventoryItem.findFirst({
-      where: { id, deletedAt: null },
-      include: {
-        collections: { select: { id: true, name: true, color: true, icon: true } },
-      },
-    }) as unknown as InventoryItem | null;
+  async getItem(_userId: string, id: string): Promise<InventoryItemWithCollections | null> {
+    return findInventoryItemWithCollections(id);
   }
 
   async getItemWithTraceability(_userId: string, id: string): Promise<InventoryWithTraceability | null> {
     const item = await prisma.inventoryItem.findFirst({ where: { id, deletedAt: null } });
     if (!item) return null;
 
-    const uniqueIds = [...new Set([item.userId, (item as unknown as Record<string, unknown>)['updatedBy'] as string | undefined].filter(Boolean))] as string[];
+    const uniqueIds = [...new Set([item.userId, item.updatedBy].filter((id): id is string => Boolean(id)))];
     const users = await prisma.user.findMany({
       where: { id: { in: uniqueIds } },
       select: { id: true, displayName: true, username: true },
     });
-    const userMap = new Map(users.map((u) => [u.id, u.displayName ?? u.username]));
+    const userMap = new Map(users.map((u: { id: string; displayName: string | null; username: string }) => [u.id, u.displayName ?? u.username]));
 
     const creator = item.userId ? { id: item.userId, name: userMap.get(item.userId) ?? item.userId } : null;
-    const updatedById = (item as unknown as Record<string, unknown>)['updatedBy'] as string | undefined;
+    const updatedById = item.updatedBy;
     const lastEditor = updatedById ? { id: updatedById, name: userMap.get(updatedById) ?? updatedById } : null;
 
-    return { item: item as unknown as Record<string, unknown>, creator, lastEditor };
+    return { item, creator, lastEditor };
   }
 
   async getItemHistory(id: string): Promise<InventoryHistoryEntry[]> {
@@ -90,30 +109,30 @@ export class InventoryService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const uniqueUserIds = [...new Set(logs.map((l) => l.userId))];
+    const uniqueUserIds = [...new Set(logs.map((l: { userId: string }) => l.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: uniqueUserIds } },
       select: { id: true, displayName: true, username: true },
     });
-    const userMap = new Map(users.map((u) => [u.id, u.displayName ?? u.username]));
+    const userMap = new Map(users.map((u: { id: string; displayName: string | null; username: string }) => [u.id, u.displayName ?? u.username]));
 
-    return logs.map((log) => ({
+    return logs.map((log: { id: number; action: string; status: string; userId: string; details: unknown; createdAt: Date }) => ({
       id: log.id,
       action: log.action,
       status: log.status,
       actorId: log.userId,
       actorName: userMap.get(log.userId) ?? log.userId,
-      changes: (log.details as Record<string, unknown> | null)?.['changes'] as FieldChange[] | null ?? null,
+      changes: getJsonField<FieldChange[] | null>(log.details, 'changes') ?? null,
       createdAt: log.createdAt,
     }));
   }
 
   async createItem(userId: string, data: InventoryInput): Promise<InventoryItem> {
-    const patch = data as unknown as InventoryPatch;
+    const patch = this.toPatch(data);
     const dbData = this.mapInputToDb(patch);
     const alertStatus = computeAlertStatus(
-      (patch as Record<string, unknown>)['peakMaturityFrom'] as number | undefined,
-      (patch as Record<string, unknown>)['peakMaturityTo'] as number | undefined,
+      patch.peakMaturityFrom ?? undefined,
+      patch.peakMaturityTo ?? undefined,
     );
     return prisma.inventoryItem.create({
       data: { id: uuidv4(), userId, ...dbData, alertStatus } as never,
@@ -145,7 +164,7 @@ export class InventoryService {
           deletedAt: null,
         },
       });
-      if (conflict) return { item: existing as unknown as InventoryItem, changes: [], slotConflict: true };
+      if (conflict) return { item: existing, changes: [], slotConflict: true };
     }
 
     const safePatch = Object.fromEntries(
@@ -154,12 +173,12 @@ export class InventoryService {
 
     const changes: FieldChange[] = Object.entries(safePatch)
       .filter(([key, val]) => {
-        const existingVal = (existing as unknown as Record<string, unknown>)[key];
+        const existingVal = this.getInventoryField(existing, key);
         return JSON.stringify(existingVal) !== JSON.stringify(val);
       })
       .map(([key, val]) => ({
         field: key,
-        from: (existing as unknown as Record<string, unknown>)[key],
+        from: this.getInventoryField(existing, key),
         to: val,
       }));
 
@@ -189,7 +208,7 @@ export class InventoryService {
     if (existing.length === 0) return 0;
 
     let updatedCount = 0;
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: typeof prisma) => {
       for (const item of existing) {
         const safePatch = Object.fromEntries(
           Object.entries(patch).filter(([key]) => !item.lockedFields.includes(key))
@@ -255,6 +274,65 @@ export class InventoryService {
     return Object.fromEntries(
       Object.entries(data).filter(([, v]) => v !== undefined)
     ) as Partial<InventoryPatch>;
+  }
+
+  private toPatch(input: InventoryInput): InventoryPatch {
+    return {
+      category: input.category,
+      name: input.name,
+      producer: input.producer,
+      location: input.location,
+      collection: input.collection,
+      tags: input.tags,
+      photoUrl: input.photoUrl,
+      notes: input.notes,
+      purchasePrice: input.purchasePrice,
+      purchasePlace: input.purchasePlace,
+      estimatedValue: input.estimatedValue,
+      isOpened: input.isOpened,
+      fillLevel: input.fillLevel,
+      openedAt: input.openedAt,
+      reminderDate: input.reminderDate,
+      alertStatus: input.alertStatus,
+      cellarId: input.cellarId,
+      lockedFields: input.lockedFields,
+      vintage: 'vintage' in input ? input.vintage : undefined,
+      color: 'color' in input ? input.color : undefined,
+      region: 'region' in input ? input.region : undefined,
+      grapeVarieties: 'grapeVarieties' in input ? input.grapeVarieties : undefined,
+      alcoholDegree: 'alcoholDegree' in input ? input.alcoholDegree : undefined,
+      bottleSize: 'bottleSize' in input ? input.bottleSize : undefined,
+      peakMaturityFrom: 'peakMaturityFrom' in input ? input.peakMaturityFrom : undefined,
+      peakMaturityTo: 'peakMaturityTo' in input ? input.peakMaturityTo : undefined,
+      needsAeration: 'needsAeration' in input ? input.needsAeration : undefined,
+      serviceTemp: 'serviceTemp' in input ? input.serviceTemp : undefined,
+      lotNumber: 'lotNumber' in input ? input.lotNumber : undefined,
+      sparklingType: 'sparklingType' in input ? input.sparklingType : undefined,
+      sugarLevel: 'sugarLevel' in input ? input.sugarLevel : undefined,
+      disgorgingDate: 'disgorgingDate' in input ? input.disgorgingDate : undefined,
+      baseYear: 'baseYear' in input ? input.baseYear : undefined,
+      spiritType: 'spiritType' in input ? input.spiritType : undefined,
+      edition: 'edition' in input ? input.edition : undefined,
+      declaredAge: 'declaredAge' in input ? input.declaredAge : undefined,
+      caskType: 'caskType' in input ? input.caskType : undefined,
+      additions: 'additions' in input ? input.additions : undefined,
+      aromaticProfile: 'aromaticProfile' in input ? input.aromaticProfile : undefined,
+      format: 'format' in input ? input.format : undefined,
+      quantity: 'quantity' in input ? input.quantity : undefined,
+      manufactureYear: 'manufactureYear' in input ? input.manufactureYear : undefined,
+      leafOrigin: 'leafOrigin' in input ? input.leafOrigin : undefined,
+      factoryCode: 'factoryCode' in input ? input.factoryCode : undefined,
+      recommendedHumidity: 'recommendedHumidity' in input ? input.recommendedHumidity : undefined,
+      humidificationSystem: 'humidificationSystem' in input ? input.humidificationSystem : undefined,
+    };
+  }
+
+  private getInventoryField(item: InventoryItem, key: string): unknown {
+    if (!(key in item)) {
+      return undefined;
+    }
+
+    return item[key as keyof InventoryItem];
   }
 }
 

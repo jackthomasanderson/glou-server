@@ -335,14 +335,14 @@ export function MaturityReferencesSection() {
             <TableColumn className="text-right">{t('admin.maturityRefs.columns.actions')}</TableColumn>
           </TableHeader>
           <TableBody>
-            {isLoading
-              ? (Array.from({ length: 3 }).map((_, i) => (
+            <>{isLoading
+              ? Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
                     {Array.from({ length: 6 }).map((__, c) => (
                       <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
                     ))}
                   </TableRow>
-                )) as unknown as React.ReactElement)
+                ))
               : refs?.length === 0
               ? (
                 <TableRow>
@@ -350,8 +350,8 @@ export function MaturityReferencesSection() {
                     {t('admin.maturityRefs.empty')}
                   </TableCell>
                 </TableRow>
-              ) as unknown as React.ReactElement
-              : (refs?.map((ref) => (
+              )
+              : refs?.map((ref) => (
                 <TableRow key={ref.id}>
                   <TableCell className="font-medium text-sm">{ref.name}</TableCell>
                   <TableCell>
@@ -385,8 +385,8 @@ export function MaturityReferencesSection() {
                     </div>
                   </TableCell>
                 </TableRow>
-              )) as unknown as React.ReactElement)
-            }
+              ))
+            }</>
           </TableBody>
         </Table>
       </div>
