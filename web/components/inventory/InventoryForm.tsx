@@ -2,20 +2,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  Button, Chip, Divider, Input, Select, SelectItem, Autocomplete, AutocompleteItem,
+  Button, Chip, Divider, Input, Select, SelectItem,
 } from '@heroui/react';
 import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
 import { Collection } from '@/lib/collections/types';
-import { maturityReferenceClient } from '@/lib/maturity-references/client';
-import { MaturitySuggestion } from '@/lib/maturity-references/types';
 import { ProductAutocomplete } from './ProductAutocomplete';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
 import { ImageResult } from './ImagePicker';
 import { ItemImageSection } from './ItemImageSection';
+import { MaturitySuggestionField } from './MaturitySuggestionField';
+import { CollectionSelector } from './CollectionSelector';
 
 interface InventoryFormProps {
   open: boolean;
@@ -60,10 +60,8 @@ export function InventoryForm({
   const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? EMPTY_FORM);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [showOptionals, setShowOptionals] = useState(false);
-  const [suggestion, setSuggestion] = useState<MaturitySuggestion | null>(null);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const imageDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isEditing = Boolean(initialValues?.id);
 
@@ -77,7 +75,6 @@ export function InventoryForm({
         })) ?? []
       );
       setShowOptionals(false);
-      setSuggestion(null);
       setPrefetchedImages([]);
       setIsAutoLoading(false);
     }
@@ -128,36 +125,6 @@ export function InventoryForm({
       cellarId: rest.cellarId === ('none' as string) || rest.cellarId === '' ? null : rest.cellarId,
     };
     onSubmit(patch, selectedCollections.map(c => c.id));
-  };
-
-  const hasPeakCategories = ['wine', 'sparkling'].includes(values.category ?? '');
-  useEffect(() => {
-    if (!hasPeakCategories || !values.category) { setSuggestion(null); return; }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const result = await maturityReferenceClient.suggest({
-          category: values.category as 'wine' | 'sparkling' | 'spirit' | 'cigar',
-          region: values.region ?? undefined,
-          color: values.color ?? undefined,
-          producer: values.producer ?? undefined,
-          vintage: values.vintage ?? undefined,
-        });
-        setSuggestion(result);
-      } catch { setSuggestion(null); }
-    }, 600);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.category, values.region, values.color, values.producer, values.vintage]);
-
-  const applySuggestion = () => {
-    if (!suggestion) return;
-    setValues((prev) => ({
-      ...prev,
-      peakMaturityFrom: suggestion.peakMaturityFrom ?? prev.peakMaturityFrom,
-      peakMaturityTo: suggestion.peakMaturityTo ?? prev.peakMaturityTo,
-    }));
-    setSuggestion(null);
   };
 
   const category = (values.category ?? 'wine') as InventoryCategory;
@@ -497,23 +464,21 @@ export function InventoryForm({
                       )}
                     </div>
 
-                    {/* Maturity suggestion banner */}
-                    {suggestion && suggestion.peakMaturityFrom != null && suggestion.peakMaturityTo != null && (
-                      <div className="mt-3 flex items-center gap-3 bg-primary-50 border border-primary-200 rounded-xl px-3 py-2">
-                        <Sparkles size={15} className="text-primary shrink-0" />
-                        <p className="flex-1 text-xs text-primary-700">
-                          <strong>{suggestion.reference.name}</strong>
-                          {' — '}
-                          {t('inventory.maturitySuggestion.window', {
-                            from: suggestion.peakMaturityFrom,
-                            to: suggestion.peakMaturityTo,
-                          })}
-                        </p>
-                        <Button size="sm" variant="flat" color="primary" onPress={applySuggestion}>
-                          {t('inventory.maturitySuggestion.apply')}
-                        </Button>
-                      </div>
-                    )}
+                    <MaturitySuggestionField
+                      category={values.category ?? ''}
+                      region={values.region ?? undefined}
+                      color={values.color ?? undefined}
+                      producer={values.producer ?? undefined}
+                      vintage={values.vintage != null ? String(values.vintage) : undefined}
+                      onApply={(s) => {
+                        setValues((prev) => ({
+                          ...prev,
+                          peakMaturityFrom: s.peakMaturityFrom ?? prev.peakMaturityFrom,
+                          peakMaturityTo: s.peakMaturityTo ?? prev.peakMaturityTo,
+                        }));
+                      }}
+                      t={t}
+                    />
                   </div>
 
                   <Divider />
@@ -531,51 +496,12 @@ export function InventoryForm({
 
                     {showOptionals && (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-                        {/* Collections */}
-                        <div className="col-span-2">
-                          <Autocomplete
-                            label={t('inventory.fields.collection')}
-                            variant="bordered"
-                            size="sm"
-                            inputValue=""
-                            onSelectionChange={(key) => {
-                              if (!key) return;
-                              const col = allCollections?.find(c => c.id === key);
-                              if (col && !selectedCollections.find(c => c.id === col.id)) {
-                                setSelectedCollections(prev => [...prev, col]);
-                              }
-                            }}
-                          >
-                            {(allCollections ?? []).map((option) => (
-                              <AutocompleteItem
-                                key={option.id}
-                                startContent={
-                                  <span
-                                    className="inline-block w-3 h-3 rounded-full shrink-0"
-                                    style={{ backgroundColor: option.color }}
-                                  />
-                                }
-                              >
-                                {option.icon ? `${option.icon} ` : ''}{option.name}
-                              </AutocompleteItem>
-                            ))}
-                          </Autocomplete>
-                          {selectedCollections.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1.5">
-                              {selectedCollections.map((col) => (
-                                <Chip
-                                  key={col.id}
-                                  size="sm"
-                                  onClose={() => setSelectedCollections(prev => prev.filter(c => c.id !== col.id))}
-                                  style={{ backgroundColor: col.color, color: '#fff' }}
-                                  className="text-[0.7rem]"
-                                >
-                                  {col.icon ? `${col.icon} ` : ''}{col.name}
-                                </Chip>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        <CollectionSelector
+                          allCollections={allCollections ?? []}
+                          selectedCollections={selectedCollections}
+                          onChange={setSelectedCollections}
+                          t={t}
+                        />
 
                         {/* Purchase price */}
                         <Input
