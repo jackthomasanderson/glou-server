@@ -29,6 +29,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Run tests
+        run: |
+          cd api && npm ci && npm test
+          cd ../web && npm ci && npm test
+
       - name: Extract metadata (API)
         id: meta-api
         uses: docker/metadata-action@v5
