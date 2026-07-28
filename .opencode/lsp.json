@@ -1,0 +1,10 @@
+{
+  "servers": [
+    {
+      "id": "prisma",
+      "extensions": [".prisma"],
+      "command": "/Users/niklas.beinghaus/.nvm/versions/node/v22.22.3/bin/prisma-language-server",
+      "args": ["--stdio"]
+    }
+  ]
+}
