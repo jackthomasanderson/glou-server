@@ -258,8 +258,9 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
     try {
       await assignSlot.mutateAsync({ itemId, slotColumn: targetCol, slotRow: targetRow });
       onClose();
-    } catch (err: any) {
-      setError(err?.message === 'SLOT_OCCUPIED' ? t('cellars.grid.slotOccupied') : t('status.error'));
+    } catch (err: unknown) {
+      const message = typeof err === 'object' && err !== null && 'message' in err ? (err as { message: string }).message : undefined;
+      setError(message === 'SLOT_OCCUPIED' ? t('cellars.grid.slotOccupied') : t('status.error'));
     }
   };
 

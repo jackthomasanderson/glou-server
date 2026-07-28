@@ -7,6 +7,10 @@ import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, update
 
 const router = Router();
 
+function isErrorWithMessage(err: unknown): err is { message: string } {
+  return typeof err === 'object' && err !== null && 'message' in err;
+}
+
 /**
  * GET /api/user/me
  * Return current user full profile & preferences
@@ -15,7 +19,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   try {
     const user = await authService.me(req.userId);
     res.json({ data: user });
-  } catch (err: any) {
+  } catch {
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
@@ -29,7 +33,7 @@ router.patch('/profile', authMiddleware, async (req: Request, res: Response) => 
     const data = updateProfileSchema.parse(req.body);
     const user = await authService.updateProfile(req.userId, data);
     res.json({ data: user });
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
       return;
@@ -54,7 +58,7 @@ router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), async (req
 
     const user = await authService.updateProfile(req.userId, { avatarUrl });
     res.json({ data: user });
-  } catch (err: any) {
+  } catch {
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
@@ -67,7 +71,7 @@ router.delete('/avatar', authMiddleware, async (req: Request, res: Response) => 
   try {
     const user = await authService.deleteAvatar(req.userId);
     res.json({ data: user });
-  } catch (err: any) {
+  } catch {
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
@@ -81,12 +85,12 @@ router.patch('/email', authMiddleware, async (req: Request, res: Response) => {
     const { email } = updateEmailSchema.parse(req.body);
     const user = await authService.updateEmail(req.userId, email);
     res.json({ data: user });
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
       return;
     }
-    if (err.message === 'EMAIL_ALREADY_TAKEN') {
+    if (isErrorWithMessage(err) && err.message === 'EMAIL_ALREADY_TAKEN') {
       res.status(409).json({ error: 'EMAIL_ALREADY_TAKEN' });
       return;
     }
@@ -103,12 +107,12 @@ router.patch('/password', authMiddleware, async (req: Request, res: Response) =>
     const { currentPassword, newPassword } = updatePasswordSchema.parse(req.body);
     await authService.updatePassword(req.userId, currentPassword, newPassword);
     res.json({ success: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
       return;
     }
-    if (err.message === 'INVALID_CREDENTIALS') {
+    if (isErrorWithMessage(err) && err.message === 'INVALID_CREDENTIALS') {
       res.status(401).json({ error: 'INVALID_CREDENTIALS' });
       return;
     }
@@ -125,7 +129,7 @@ router.patch('/preferences', authMiddleware, async (req: Request, res: Response)
     const data = updatePreferencesSchema.parse(req.body);
     const user = await authService.updatePreferences(req.userId, data);
     res.json({ data: user });
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (err instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
       return;
