@@ -335,7 +335,18 @@ export function SystemConfigSection() {
         </div>
       )}
 
-      <Tabs variant="underlined" aria-label={t('adminConfig.tabsAriaLabel')}>
+      {/* 8 onglets ne tiennent pas sur une largeur de carte standard : sans
+          contrainte, HeroUI les laisse déborder hors de la carte plutôt que
+          de les faire défiler. `overflow-x-auto` + `flex-nowrap` les
+          maintient sur une seule ligne, défilable horizontalement, bornée
+          par la carte. */}
+      <Tabs
+        variant="underlined"
+        color="primary"
+        size="md"
+        aria-label={t('adminConfig.tabsAriaLabel')}
+        classNames={{ tabList: 'w-full overflow-x-auto flex-nowrap' }}
+      >
         {/* ── SMTP ── */}
         <Tab key="smtp" title={<span className="flex items-center gap-1.5"><Mail size={14} />{t('adminConfig.tabs.smtp')}</span>}>
           <div className="flex flex-col gap-4 pt-4">

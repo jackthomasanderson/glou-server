@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Reserve the vertical scrollbar's width at all times, whether or not the
+ * page currently needs to scroll. Without this, an absolutely-positioned
+ * overlay that extends past the viewport bottom (e.g. a search results
+ * dropdown, FEAT-12's inventory count "Rechercher un actif") makes the
+ * document suddenly taller than the viewport, so the browser's scrollbar
+ * pops in mid-interaction and every column shifts left by its width. With
+ * the gutter reserved up front, that shift never happens — the layout is
+ * stable whether the scrollbar is visually active or not. */
+html {
+  scrollbar-gutter: stable;
+}
+
 @media print {
   /* Hide nav/sidebar and non-content elements */
   nav,

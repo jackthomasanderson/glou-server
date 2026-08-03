@@ -23,7 +23,7 @@
     "allCellars": "View all cellars",
     "collections": "Collections",
     "tastings": "Tastings",
-    "analytics": "Analyses & Terroirs",
+    "analytics": "Analytics & Terroir",
     "inventoryCount": "Physical Inventory",
     "wishlist": "Wishlist & Budget",
     "roleAdmin": "Administrator",
@@ -124,7 +124,7 @@
       "name": "Name",
       "producer": "Producer",
       "producerPlaceholder": {
-        "wine": "Château / Domaine / Négociant",
+        "wine": "Château / Estate / Négociant",
         "sparkling": "House / Domain / Cooperative",
         "spirit": "Distillery / Brand",
         "cigar": "Manufacturer / Brand"
@@ -635,8 +635,8 @@
         "button": "Purge all data",
         "confirmTitle": "Full Purge Confirmation",
         "confirmDescription": "Warning! This action is irreversible. To confirm that you want to delete ALL business data, please enter the keyword below:",
-        "keywordLabel": "Enter \"SUPPRIMER\" to confirm",
-        "keywordValue": "SUPPRIMER",
+        "keywordLabel": "Enter \"DELETE\" to confirm",
+        "keywordValue": "DELETE",
         "success": "The database has been reset successfully.",
         "error": "An error occurred during data purge.",
         "counts": {
@@ -894,7 +894,7 @@
     }
   },
   "analytics": {
-    "pageTitle": "Analyses & Terroirs",
+    "pageTitle": "Analytics & Terroir",
     "pageSubtitle": "Financial, temporal, volumetric and geographic analysis of your cellar.",
     "exportButton": "Export report",
     "stats": {
