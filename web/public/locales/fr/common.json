@@ -756,10 +756,130 @@
       "title": "Recommandations de service",
       "aeration": "Aération : {{min}}–{{max}} min"
     },
+    "tabs": {
+      "ariaLabel": "Sections des dégustations",
+      "journal": "Journal",
+      "pairing": "Accords mets & bouteilles"
+    },
+    "filters": {
+      "searchPlaceholder": "Rechercher par met ou par bouteille...",
+      "noResults": "Aucune dégustation pour \"{{query}}\""
+    },
+    "pairing": {
+      "title": "Que servir avec ce plat ?",
+      "searchLabel": "Plat ou type de met",
+      "searchPlaceholder": "Ex. bœuf bourguignon, saumon, chocolat noir...",
+      "promptTitle": "Décrivez votre plat pour découvrir vos meilleurs accords",
+      "promptHint": "Saisissez un met ou choisissez une suggestion rapide ci-dessus.",
+      "noResults": "Aucune bouteille en stock ne correspond à \"{{query}}\"",
+      "noResultsHint": "Essayez un terme plus général ou une des suggestions rapides.",
+      "resultsCount": "{{count}} bouteille correspondante",
+      "resultsCount_plural": "{{count}} bouteilles correspondantes",
+      "reason": "Accorde avec : {{pairing}}",
+      "consumeNow": "Consommer maintenant",
+      "inventoryLoadError": "Impossible de charger votre inventaire.",
+      "quickChips": {
+        "meat": "Viande",
+        "fish": "Poisson",
+        "cheese": "Fromage",
+        "chocolate": "Chocolat"
+      }
+    },
     "errors": {
       "load": "Impossible de charger les dégustations.",
       "saveFailed": "Impossible d'enregistrer la dégustation. Veuillez réessayer.",
       "required": "Ce champ est obligatoire"
+    }
+  },
+  "consumptionPlan": {
+    "tabs": {
+      "title": "Plan de consommation"
+    },
+    "goal": {
+      "title": "Objectif du mois",
+      "empty": "Aucun objectif défini pour ce mois.",
+      "define": "Définir un objectif",
+      "edit": "Modifier l'objectif",
+      "targetType": "Type d'objectif",
+      "targetTypeCount": "Nombre de bouteilles",
+      "targetTypeVolume": "Volume (en bouteilles)",
+      "targetValue": "Objectif",
+      "progressLabel": "{{count}} / {{target}} bouteilles consommées",
+      "saveError": "Impossible d'enregistrer l'objectif. Veuillez réessayer."
+    },
+    "suggestions": {
+      "title": "À boire maintenant / prochainement",
+      "empty": "Aucune suggestion pour le moment",
+      "emptyHint": "Vos actifs à apogée ou entamés apparaîtront ici.",
+      "loadError": "Impossible de charger les suggestions.",
+      "consume": "Consommer",
+      "postpone": "Reporter"
+    },
+    "reasons": {
+      "peak_window": "Apogée",
+      "opened": "Entamée",
+      "rotation": "Rotation de stock"
+    }
+  },
+  "inventoryCount": {
+    "title": "Inventaire physique",
+    "accessButton": "Inventaire physique",
+    "tabsAria": "Sections de la session d'inventaire",
+    "tabs": {
+      "counting": "Comptage",
+      "summary": "Bilan"
+    },
+    "start": {
+      "title": "Démarrer une session d'inventaire",
+      "description": "Choisissez le périmètre à vérifier : une cave existante ou un périmètre libre (meuble, bac...).",
+      "scopeModeAria": "Mode de sélection du périmètre",
+      "modeCellar": "Cave existante",
+      "modeCustom": "Périmètre libre",
+      "cellarLabel": "Cave",
+      "cellarPlaceholder": "Sélectionner une cave",
+      "noCellars": "Aucune cave n'est encore configurée. Utilisez un périmètre libre.",
+      "customLabel": "Libellé du périmètre",
+      "customPlaceholder": "Ex. : Meuble A, Bac 3...",
+      "customHint": "Un périmètre libre n'est lié à aucune cave : aucune liste théorique ne peut être calculée automatiquement.",
+      "submit": "Démarrer la session",
+      "errorConflict": "Une session d'inventaire est déjà en cours. Reprenez-la ou clôturez-la avant d'en démarrer une nouvelle.",
+      "errorCellarNotFound": "Cette cave est introuvable."
+    },
+    "resume": {
+      "title": "Session en pause",
+      "description": "Une session d'inventaire sur « {{scope}} » est en pause. Reprenez-la où vous vous étiez arrêté.",
+      "viewSummary": "Voir le bilan",
+      "resume": "Reprendre"
+    },
+    "session": {
+      "scopeLabel": "Périmètre",
+      "pause": "Mettre en pause",
+      "viewSummary": "Voir le bilan",
+      "progressAria": "Progression du comptage",
+      "progressCount": "{{confirmed}} / {{expected}} confirmés",
+      "noTheoreticalList": "Ce périmètre libre n'est lié à aucune cave : aucune liste théorique n'est disponible. Tout actif confirmé ici sera enregistré comme trouvé.",
+      "unexpectedFound": "{{count}} actif(s) trouvé(s) hors périmètre",
+      "searchLabel": "Rechercher un actif",
+      "searchPlaceholder": "Nom ou producteur...",
+      "emptyList": "Aucun actif à vérifier pour ce périmètre.",
+      "confirmTap": "Confirmer",
+      "pausedNotice": "Cette session est en pause. Reprenez-la pour continuer le comptage."
+    },
+    "status": {
+      "confirmed": "Confirmé",
+      "pending": "En attente"
+    },
+    "report": {
+      "confirmed": "Confirmés",
+      "missing": "Manquants",
+      "unexpected": "Inattendus",
+      "none": "Aucun",
+      "markConsumed": "Déclarer consommé",
+      "moveToScope": "Déplacer vers ce périmètre",
+      "moveDisabledNoCellar": "Non disponible : ce périmètre n'est lié à aucune cave",
+      "close": "Clôturer la session",
+      "closeWithCorrections": "Clôturer et appliquer ({{count}})",
+      "completedNotice": "Cette session est clôturée."
     }
   },
   "analytics": {
@@ -1111,6 +1231,7 @@
   "adminConfig": {
     "title": "Configuration Système",
     "subtitle": "Paramétrez les intégrations et la politique de notifications de l'instance.",
+    "tabsAriaLabel": "Sections de configuration",
     "tabs": {
       "smtp": "SMTP / Email",
       "notifications": "Politique de notifs",

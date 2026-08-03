@@ -756,10 +756,130 @@
       "title": "Serving recommendations",
       "aeration": "Aeration: {{min}}–{{max}} min"
     },
+    "tabs": {
+      "ariaLabel": "Tastings sections",
+      "journal": "Journal",
+      "pairing": "Food & bottle pairing"
+    },
+    "filters": {
+      "searchPlaceholder": "Search by dish or bottle...",
+      "noResults": "No tastings for \"{{query}}\""
+    },
+    "pairing": {
+      "title": "What to serve with this dish?",
+      "searchLabel": "Dish or type of food",
+      "searchPlaceholder": "E.g. beef bourguignon, salmon, dark chocolate...",
+      "promptTitle": "Describe your dish to discover your best pairings",
+      "promptHint": "Type a dish, or pick one of the quick suggestions above.",
+      "noResults": "No bottle in stock matches \"{{query}}\"",
+      "noResultsHint": "Try a broader term or one of the quick suggestions.",
+      "resultsCount": "{{count}} matching bottle",
+      "resultsCount_plural": "{{count}} matching bottles",
+      "reason": "Pairs with: {{pairing}}",
+      "consumeNow": "Consume now",
+      "inventoryLoadError": "Failed to load your inventory.",
+      "quickChips": {
+        "meat": "Meat",
+        "fish": "Fish",
+        "cheese": "Cheese",
+        "chocolate": "Chocolate"
+      }
+    },
     "errors": {
       "load": "Failed to load tastings.",
       "saveFailed": "Failed to save the tasting. Please try again.",
       "required": "This field is required"
+    }
+  },
+  "consumptionPlan": {
+    "tabs": {
+      "title": "Consumption plan"
+    },
+    "goal": {
+      "title": "Monthly goal",
+      "empty": "No goal set for this month.",
+      "define": "Set a goal",
+      "edit": "Edit goal",
+      "targetType": "Goal type",
+      "targetTypeCount": "Number of bottles",
+      "targetTypeVolume": "Volume (in bottles)",
+      "targetValue": "Target",
+      "progressLabel": "{{count}} / {{target}} bottles consumed",
+      "saveError": "Could not save the goal. Please try again."
+    },
+    "suggestions": {
+      "title": "Drink now / soon",
+      "empty": "No suggestions right now",
+      "emptyHint": "Bottles at their peak or already opened will appear here.",
+      "loadError": "Could not load suggestions.",
+      "consume": "Drink",
+      "postpone": "Postpone"
+    },
+    "reasons": {
+      "peak_window": "Peak window",
+      "opened": "Opened",
+      "rotation": "Stock rotation"
+    }
+  },
+  "inventoryCount": {
+    "title": "Physical Inventory",
+    "accessButton": "Physical Inventory",
+    "tabsAria": "Inventory count session sections",
+    "tabs": {
+      "counting": "Counting",
+      "summary": "Summary"
+    },
+    "start": {
+      "title": "Start an inventory count session",
+      "description": "Choose the scope to check: an existing cellar or a free-form scope (shelf, bin...).",
+      "scopeModeAria": "Scope selection mode",
+      "modeCellar": "Existing cellar",
+      "modeCustom": "Free-form scope",
+      "cellarLabel": "Cellar",
+      "cellarPlaceholder": "Select a cellar",
+      "noCellars": "No cellar is configured yet. Use a free-form scope instead.",
+      "customLabel": "Scope label",
+      "customPlaceholder": "E.g.: Shelf A, Bin 3...",
+      "customHint": "A free-form scope isn't linked to any cellar: no theoretical list can be computed automatically.",
+      "submit": "Start session",
+      "errorConflict": "An inventory count session is already in progress. Resume or close it before starting a new one.",
+      "errorCellarNotFound": "This cellar could not be found."
+    },
+    "resume": {
+      "title": "Session paused",
+      "description": "An inventory count session on \"{{scope}}\" is paused. Resume it right where you left off.",
+      "viewSummary": "View summary",
+      "resume": "Resume"
+    },
+    "session": {
+      "scopeLabel": "Scope",
+      "pause": "Pause",
+      "viewSummary": "View summary",
+      "progressAria": "Counting progress",
+      "progressCount": "{{confirmed}} / {{expected}} confirmed",
+      "noTheoreticalList": "This free-form scope isn't linked to any cellar: no theoretical list is available. Anything confirmed here will be recorded as found.",
+      "unexpectedFound": "{{count}} item(s) found outside their expected scope",
+      "searchLabel": "Search for an item",
+      "searchPlaceholder": "Name or producer...",
+      "emptyList": "No item to check for this scope.",
+      "confirmTap": "Confirm",
+      "pausedNotice": "This session is paused. Resume it to continue counting."
+    },
+    "status": {
+      "confirmed": "Confirmed",
+      "pending": "Pending"
+    },
+    "report": {
+      "confirmed": "Confirmed",
+      "missing": "Missing",
+      "unexpected": "Unexpected",
+      "none": "None",
+      "markConsumed": "Mark as consumed",
+      "moveToScope": "Move to this scope",
+      "moveDisabledNoCellar": "Not available: this scope isn't linked to any cellar",
+      "close": "Close session",
+      "closeWithCorrections": "Close and apply ({{count}})",
+      "completedNotice": "This session is closed."
     }
   },
   "analytics": {
@@ -1111,6 +1231,7 @@
   "adminConfig": {
     "title": "System Configuration",
     "subtitle": "Configure integrations and the notification policy for this instance.",
+    "tabsAriaLabel": "Config sections",
     "tabs": {
       "smtp": "SMTP / Email",
       "notifications": "Notif policy",

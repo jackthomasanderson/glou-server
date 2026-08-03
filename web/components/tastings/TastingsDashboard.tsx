@@ -1,10 +1,10 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  Button, Spinner,
+  Button, Spinner, Input,
 } from '@heroui/react';
-import { Plus, Wine } from 'lucide-react';
+import { Plus, Wine, Search } from 'lucide-react';
 import { useTastings, useDeleteTasting } from '@/hooks/useTastings';
 import { TastingNote, TastingFormValues } from '@/lib/tastings/types';
 import { TastingCard } from './TastingCard';
@@ -19,12 +19,25 @@ export function TastingsDashboard() {
   const { t } = useTranslation();
   const [pageSize, setPageSize] = usePageSize('tastings');
   const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [viewing, setViewing] = useState<TastingNote | null>(null);
   const [editing, setEditing] = useState<TastingNote | null>(null);
   const [deleting, setDeleting] = useState<TastingNote | null>(null);
 
-  const { data, isLoading, isError } = useTastings(page, pageSize);
+  // Debounce the free-text search (filters history by dish/foodPairing or
+  // bottle name/producer, FEAT-09 acceptance criterion 4) before hitting the
+  // server, since filtering happens server-side to stay correct across pages.
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
+
+  const { data, isLoading, isError } = useTastings(page, pageSize, undefined, search);
   const deleteMutation = useDeleteTasting();
 
   const handleEdit = (note: TastingNote) => setEditing(note);
@@ -68,6 +81,21 @@ export function TastingsDashboard() {
         </div>
       </div>
 
+      {/* Search — filters the history by dish (foodPairing) or bottle (name/producer) */}
+      <Input
+        value={searchInput}
+        onValueChange={setSearchInput}
+        placeholder={t('tastings.filters.searchPlaceholder')}
+        startContent={<Search size={16} className="text-default-400" />}
+        variant="flat"
+        size="sm"
+        radius="full"
+        isClearable
+        onClear={() => setSearchInput('')}
+        className="mb-4 max-w-md"
+        aria-label={t('tastings.filters.searchPlaceholder')}
+      />
+
       {/* Error banner */}
       {isError && (
         <div className="mb-4 rounded-lg bg-danger-50 border border-danger-200 text-danger px-4 py-3 text-sm">
@@ -79,6 +107,22 @@ export function TastingsDashboard() {
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Spinner size="lg" />
+        </div>
+      ) : !data?.notes.length && search ? (
+        /* No results for the active search (met/bouteille) */
+        <div className="flex flex-col items-center py-16 text-center">
+          <Search size={64} className="text-default-300 mb-4" />
+          <p className="text-lg font-semibold text-default-500">
+            {t('tastings.filters.noResults', { query: search })}
+          </p>
+          <Button
+            variant="light"
+            color="primary"
+            className="mt-4"
+            onPress={() => setSearchInput('')}
+          >
+            {t('actions.clearAll')}
+          </Button>
         </div>
       ) : !data?.notes.length ? (
         /* Empty state */

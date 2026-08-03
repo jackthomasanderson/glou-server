@@ -2,9 +2,10 @@ import { client } from '../api';
 import { TastingNote, TastingListResult, TastingFormValues, TastingItemStats, TastingAnalytics } from './types';
 
 export const tastingsClient = {
-  async list(page = 1, limit = 20, itemId?: string): Promise<TastingListResult> {
+  async list(page = 1, limit = 20, itemId?: string, search?: string): Promise<TastingListResult> {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (itemId) params.set('itemId', itemId);
+    if (search) params.set('search', search);
     const { data } = await client.get<TastingListResult>(`/tastings?${params}`);
     return data;
   },

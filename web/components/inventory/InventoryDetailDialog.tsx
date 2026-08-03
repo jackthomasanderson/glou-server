@@ -222,7 +222,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                   <button
                     onClick={onClose}
                     className="shrink-0 p-1 rounded-lg hover:bg-default-100 transition-colors"
-                    aria-label="Close"
+                    aria-label={t('actions.close')}
                   >
                     <X size={16} />
                   </button>

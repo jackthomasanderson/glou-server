@@ -73,6 +73,10 @@ model User {
   configChangeLogs ConfigChangeLog[]
   sessions            Session[]
   trustedDevices      TrustedDevice[]
+  consumptionGoals    ConsumptionGoal[]
+  inventoryCountSessions InventoryCountSession[]
+  wishlistItems       WishlistItem[]
+  budgetEnvelopes     BudgetEnvelope[]
 }
 
 enum Theme {
@@ -192,6 +196,12 @@ model InventoryItem {
   peakMaturityTo   Int?    // End year of optimal drinking window
   alertsPaused     Boolean @default(false) // User-paused alerts for this bottle
 
+  // FEAT-08: Consumption Plan — "reporter" a suggestion. Same pattern as
+  // alertsPaused (per-item suppression) but self-expiring instead of a
+  // manual toggle: an item is excluded from consumption suggestions while
+  // this timestamp is in the future, then reappears automatically.
+  consumptionPostponedUntil DateTime?
+
   // Cross-cutting fields
   isOpened     Boolean   @default(false)
   fillLevel    Int?      // 0-100 (%)
@@ -216,6 +226,7 @@ model InventoryItem {
   auditLogs    AuditLog[]
   collections  Collection[] @relation("CollectionItems")
   tastingNotes TastingNote[]
+  countEntries InventoryCountEntry[]
 
   @@index([userId])
   @@index([userId, deletedAt])
@@ -358,6 +369,27 @@ model TastingNote {
   @@index([userId])
   @@index([itemId])
   @@map("tasting_notes")
+}
+
+// ─── FEAT-08: Consumption Plan — personal consumption goals ──────────────────
+// Deliberately personal per User (like notifCategories/theme/etc.), NOT
+// shared-instance data — a consumption goal is an individual resolution
+// ("empty X bottles this month"), unlike the suggestion list itself which
+// stays based on the full shared inventory (design.md invariant: userId is
+// audit-only on INVENTORY entities — this model is different, it IS owned
+// per-user by design, see feature.md decision).
+model ConsumptionGoal {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodStart DateTime
+  periodEnd   DateTime
+  targetType  String // 'volume' | 'count'
+  targetValue Int
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@map("consumption_goals")
 }
 
 // ─── FEAT-28: Password Reset Tokens ──────────────────────────────────────────
@@ -513,4 +545,97 @@ model ConfigChangeLog {
   @@index([userId])
   @@index([createdAt])
   @@map("config_change_logs")
+}
+
+// ─── FEAT-12: Inventaire Physique Assisté & Réconciliation ───────────────────
+// Shared-inventory sessions, like Cellar/InventoryItem: `startedBy` is who
+// launched the session (audit/display only, e.g. "started by X"), but the
+// session and its entries are visible/actionable by any authenticated member
+// — no userId access filter anywhere in inventory-count.service.ts (see
+// design.md invariant: userId = audit only, never an access filter).
+
+model InventoryCountSession {
+  id            String    @id @default(uuid())
+  scopeLabel    String // Libellé libre du périmètre (ex: "Cave Principale", "Meuble A", "Bac 3")
+  cellarId      String? // Optionnel : lien vers une Cellar si le périmètre correspond à une cave entière
+  status        String // 'active' | 'paused' | 'completed'
+  startedBy     String
+  startedByUser User      @relation(fields: [startedBy], references: [id], onDelete: Cascade)
+  startedAt     DateTime  @default(now())
+  pausedAt      DateTime?
+  completedAt   DateTime?
+
+  entries InventoryCountEntry[]
+
+  @@index([status])
+  @@map("inventory_count_sessions")
+}
+
+// ─── FEAT-20: Liste de Souhaits & Pilotage Budgétaire ────────────────────────
+// Deliberately PERSONAL per User — same reasoning as ConsumptionGoal
+// (FEAT-08) above: a wishlist entry ("I want to buy this") and a budget
+// envelope ("I have this much to spend this period") are individual
+// planning artifacts, not shared-inventory data, so scoping them by userId
+// does NOT violate the design.md "userId = audit only" invariant — that
+// invariant applies to INVENTORY entities (bottles, cellars...), never to
+// these personal-by-design models. Once a WishlistItem is actually
+// acquired, it is converted into a regular InventoryItem via
+// wishlist.service.ts#convertToInventory (inventoryService.createItem),
+// which IS shared inventory like everything else from that point on —
+// only the wish itself and its budget tracking stay personal.
+
+model WishlistItem {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  producer       String?
+  category       BottleCategory
+  vintage        Int?
+  targetQuantity Int       @default(1)
+  maxPrice       Float?
+  lastSeenPrice  Float?
+  lastSeenAt     DateTime?
+  status         String    @default("active") // 'active' | 'acquired' | 'cancelled'
+  acquiredItemId String? // link to the InventoryItem created on conversion, if any
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("wishlist_items")
+}
+
+model BudgetEnvelope {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodStart DateTime
+  periodEnd   DateTime
+  amount      Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@map("budget_envelopes")
+}
+
+// Only 'confirmed' and 'unexpected' are ever persisted here — 'missing' is
+// DERIVED at read time (theoretical list minus confirmed entries, see
+// inventory-count.service.ts#getSessionReport) rather than stored, so there
+// is never a second source of truth that could drift out of sync with the
+// live inventory (e.g. an item moved to another cellar mid-session).
+model InventoryCountEntry {
+  id        String   @id @default(uuid())
+  sessionId String
+  session   InventoryCountSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  itemId    String
+  item      InventoryItem         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  status    String // 'confirmed' | 'unexpected'
+  scannedAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@unique([sessionId, itemId])
+  @@map("inventory_count_entries")
 }

@@ -27,6 +27,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/analytics': 'nav.analytics',
   '/profile': 'nav.profile',
   '/admin': 'nav.admin',
+  '/inventory-count': 'inventoryCount.title',
 };
 
 function usePageTitle() {

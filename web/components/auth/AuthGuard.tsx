@@ -1,6 +1,7 @@
 'use client';
 import { useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 import { CircularProgress } from '@heroui/react';
 import { useMe } from '@/hooks/useAuth';
 import { AutoLockProvider, useAutoLock } from '@/hooks/useAutoLock';
@@ -10,6 +11,7 @@ import { OnboardingWizard } from '../onboarding/OnboardingWizard';
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading } = useMe();
   const router = useRouter();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!isLoading && user === null) {
@@ -20,7 +22,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <CircularProgress color="primary" size="md" isIndeterminate aria-label="Chargement" />
+        <CircularProgress color="primary" size="md" isIndeterminate aria-label={t('status.loading')} />
       </div>
     );
   }

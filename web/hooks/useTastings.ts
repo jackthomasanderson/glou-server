@@ -5,10 +5,10 @@ import { TastingNote, TastingFormValues, TastingListResult, TastingItemStats, Ta
 
 export const TASTINGS_KEY = ['tastings'];
 
-export function useTastings(page = 1, limit = 20, itemId?: string) {
+export function useTastings(page = 1, limit = 20, itemId?: string, search?: string) {
   return useQuery<TastingListResult>({
-    queryKey: [...TASTINGS_KEY, { page, limit, itemId }],
-    queryFn: () => tastingsClient.list(page, limit, itemId),
+    queryKey: [...TASTINGS_KEY, { page, limit, itemId, search }],
+    queryFn: () => tastingsClient.list(page, limit, itemId, search),
     staleTime: 1000 * 30,
   });
 }

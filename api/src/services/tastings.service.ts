@@ -16,9 +16,26 @@ const ITEM_SELECT = {
 const DEFAULT_PAGE_SIZE = 20;
 
 export const tastingsService = {
-  async list(userId: string, page = 1, limit = DEFAULT_PAGE_SIZE, itemId?: string) {
+  // `search` (FEAT-09) filters the consumption history by dish (foodPairing)
+  // or bottle (item name/producer) — a single free-text field covers both
+  // acceptance criteria ("filtré par met ou bouteille") without requiring
+  // two separate controls.
+  async list(userId: string, page = 1, limit = DEFAULT_PAGE_SIZE, itemId?: string, search?: string) {
     const skip = (page - 1) * limit;
-    const where = { userId, ...(itemId ? { itemId } : {}) };
+    const trimmedSearch = search?.trim();
+    const where = {
+      userId,
+      ...(itemId ? { itemId } : {}),
+      ...(trimmedSearch
+        ? {
+            OR: [
+              { foodPairing: { contains: trimmedSearch, mode: 'insensitive' as const } },
+              { item: { is: { name: { contains: trimmedSearch, mode: 'insensitive' as const } } } },
+              { item: { is: { producer: { contains: trimmedSearch, mode: 'insensitive' as const } } } },
+            ],
+          }
+        : {}),
+    };
     const [notes, total] = await Promise.all([
       prisma.tastingNote.findMany({
         where,

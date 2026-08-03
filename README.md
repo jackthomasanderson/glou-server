@@ -49,10 +49,17 @@ Open [http://localhost:3000](http://localhost:3000) and click **Register**. The 
 ## 🗺️ Roadmap & Next Steps
 
 ### 🏗️ In Progress (WIP)
-- 🔒 **Two-Factor Authentication (FEAT-02)**: TOTP-based 2FA for account protection.
 - ⚡ **Express Label Scanning (FEAT-04)**: Session mode for scanning dozens of bottles in one go.
 
 ### ✅ Recently Implemented
+- 🧹 **Automatic Data Retention & Maintenance (FEAT-39)**: Set how long audit logs, sessions, and unused invitations are kept, and let Glou clean them up every night on its own — or trigger a cleanup on demand and see exactly what ran.
+- 🌐 **Public URL & Network Access Configuration (FEAT-54)**: Tell Glou how it's reached from the outside (direct or behind a reverse proxy) so every generated link and share stays correct, with a one-click consistency check.
+- 🧭 **Guided Onboarding Wizard (FEAT-56)**: A step-by-step walkthrough on first login — create your first cellar and load your first bottles by label scan, CSV import, or manual entry, no setup guesswork required.
+- 🔎 **Source Transparency & Change History (FEAT-05)**: See exactly where every field on an item came from and roll it back to any earlier value in one click — your manual edits always win over automatic suggestions.
+- 💾 **Scheduled Backups & Data Portability (FEAT-18)**: Automatic nightly database backups you can restore in one click, plus full or category-filtered exports of your entire collection whenever you want.
+- 🗺️ **World Map with Geolocation (FEAT-40)**: Explore your entire collection on an interactive world map grouped by country and region, with a category filter to focus on wines, spirits, or cigars.
+- 🔥 **Heatmap by Asset Type (FEAT-41)**: Switch the world map to a heatmap that reveals which regions dominate your collection for a chosen type — wine, whisky, cigars, and more.
+- 🧮 **Advanced Map Filters & Asset List (FEAT-42)**: Narrow the world map by price, vintage, rating, or opened state, then click straight from the filtered list into any item's detail card.
 - 🔐 **Session & Trusted Device Management (FEAT-25)**: See every device logged into your account, disconnect any of them remotely, and skip repeated 2FA prompts on devices you trust.
 - 🚨 **Security Notifications (FEAT-29)**: Get alerted instantly by email or in-app when a new device logs in, your password changes, or 2FA is toggled — with a direct link to your security settings.
 - 🔒 **Quick Lock & Auto-Lock (FEAT-30)**: Lock the app in one click or let it lock itself after inactivity, then unlock with your password or a short PIN — no need to log back in.

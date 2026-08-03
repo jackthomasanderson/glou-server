@@ -49,10 +49,17 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **
 ## 🗺️ Roadmap & Prochaines Étapes
 
 ### 🏗️ En Cours (WIP)
-- 🔒 **Double Authentification (FEAT-02)** : 2FA basée sur TOTP pour protéger votre compte.
 - ⚡ **Scan Express (FEAT-04)** : Mode session pour scanner des dizaines de bouteilles d'affilée.
 
 ### ✅ Récemment Ajouté
+- 🧹 **Rétention & Maintenance Automatique des Données (FEAT-39)** : Définissez la durée de conservation des logs d'audit, sessions et invitations inutilisées, et laissez Glou les nettoyer chaque nuit tout seul — ou forcez un nettoyage à la demande et consultez exactement ce qui a été fait.
+- 🌐 **Configuration de l'URL Publique & de l'Accès Réseau (FEAT-54)** : Indiquez à Glou comment il est joint depuis l'extérieur (direct ou derrière un reverse proxy) pour que chaque lien et partage généré reste correct, avec une vérification de cohérence en un clic.
+- 🧭 **Assistant d'Onboarding Guidé (FEAT-56)** : Un parcours pas-à-pas à la première connexion — créez votre première cave et chargez vos premières bouteilles par scan d'étiquette, import CSV ou saisie manuelle, sans avoir à deviner quoi que ce soit.
+- 🔎 **Transparence des Sources & Historique des Modifications (FEAT-05)** : Voyez exactement d'où vient chaque champ d'un actif et restaurez-le à une valeur antérieure en un clic — vos saisies manuelles priment toujours sur les suggestions automatiques.
+- 💾 **Sauvegardes Planifiées & Portabilité des Données (FEAT-18)** : Sauvegardes automatiques nocturnes de la base restaurables en un clic, plus des exports complets ou filtrés par catégorie de toute votre collection quand vous le souhaitez.
+- 🗺️ **Carte du Monde avec Géolocalisation (FEAT-40)** : Explorez toute votre collection sur une carte du monde interactive groupée par pays et région, avec un filtre par catégorie pour se concentrer sur les vins, spiritueux ou cigares.
+- 🔥 **Heatmap par Type d'Actif (FEAT-41)** : Basculez la carte du monde en heatmap pour révéler quelles régions dominent votre collection pour un type choisi — vin, whisky, cigares, et plus.
+- 🧮 **Filtres Avancés & Liste d'Actifs sur la Carte (FEAT-42)** : Affinez la carte du monde par prix, millésime, note ou état, puis cliquez directement depuis la liste filtrée vers la fiche détaillée de n'importe quel actif.
 - 🔐 **Gestion des Sessions & Appareils de Confiance (FEAT-25)** : Consultez tous les appareils connectés à votre compte, déconnectez-en n'importe lequel à distance, et évitez de ressaisir votre code 2FA sur les appareils de confiance.
 - 🚨 **Notifications de Sécurité (FEAT-29)** : Soyez alerté instantanément par email ou in-app en cas de nouvelle connexion, changement de mot de passe ou activation/désactivation du 2FA — avec un lien direct vers vos paramètres de sécurité.
 - 🔒 **Verrouillage Rapide & Auto-Lock (FEAT-30)** : Verrouillez l'application en un clic ou laissez-la se verrouiller seule après inactivité, puis déverrouillez avec votre mot de passe ou un code PIN court — sans avoir à vous reconnecter.

@@ -11,8 +11,9 @@ router.get('/', async (req: Request, res: Response) => {
   const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10));
   const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit ?? '20'), 10)));
   const itemId = req.query.itemId ? String(req.query.itemId) : undefined;
+  const search = req.query.search ? String(req.query.search) : undefined;
   try {
-    const result = await tastingsService.list(userId, page, limit, itemId);
+    const result = await tastingsService.list(userId, page, limit, itemId, search);
     res.json({ data: result });
   } catch {
     res.status(500).json({ error: 'FAILED_TO_FETCH_TASTINGS' });

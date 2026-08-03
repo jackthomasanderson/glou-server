@@ -24,7 +24,9 @@ const SPIRIT_RECOS: Record<string, ServiceReco> = {
   default: { tempMin: 18, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['Chocolat noir', 'Fromage sec', 'Fruits secs'] },
 };
 
-const RECOS: Record<InventoryCategory, Record<string, ServiceReco>> = {
+// Exported so pairingEngine.ts can build a dish→bottle inverse index from this
+// same catalog (FEAT-09) without duplicating the food-pairing data.
+export const RECOS: Record<InventoryCategory, Record<string, ServiceReco>> = {
   wine: WINE_RECOS,
   sparkling: {
     default: { tempMin: 6, tempMax: 9, aerationMin: 0, aerationMax: 0, foodPairings: ['Fruits de mer', 'Saumon fumé', 'Canapés', 'Fromage de chèvre'] },

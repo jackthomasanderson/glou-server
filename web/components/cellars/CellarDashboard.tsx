@@ -33,8 +33,10 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
 import { Cellar } from '@/lib/cellars/types';
@@ -229,6 +231,16 @@ export const CellarDashboard: React.FC = () => {
         </div>
         <div className="flex gap-2 items-center">
           <ViewToggle value={viewMode} onChange={setViewMode} />
+          <Button
+            as={Link}
+            href="/inventory-count"
+            variant="bordered"
+            color="primary"
+            startContent={<ClipboardCheck size={16} />}
+            className="hidden sm:flex"
+          >
+            {t('inventoryCount.accessButton')}
+          </Button>
           <Button
             color="primary"
             startContent={<Plus size={16} />}

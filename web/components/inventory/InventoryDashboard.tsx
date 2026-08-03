@@ -6,7 +6,7 @@ import {
   Button, Chip,
   Table, TableHeader, TableColumn, TableBody,
 } from '@heroui/react';
-import { Plus, X, List, Filter, Search, Warehouse, Wine, Leaf } from 'lucide-react';
+import { Plus, X, List, Filter, Search, Warehouse, Wine, Leaf, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
@@ -644,15 +644,28 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   return (
     <div className="p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-6">
-        {lockedCategories?.includes('cigar') ? (
-          <Leaf size={22} className="text-primary" />
-        ) : (
-          <Wine size={22} className="text-primary" />
-        )}
-        <h1 className="text-xl font-bold">
-          {lockedCategories?.includes('cigar') ? t('nav.cigars') : t('nav.bottles')}
-        </h1>
+      <div className="flex items-center justify-between gap-2 mb-6">
+        <div className="flex items-center gap-2">
+          {lockedCategories?.includes('cigar') ? (
+            <Leaf size={22} className="text-primary" />
+          ) : (
+            <Wine size={22} className="text-primary" />
+          )}
+          <h1 className="text-xl font-bold">
+            {lockedCategories?.includes('cigar') ? t('nav.cigars') : t('nav.bottles')}
+          </h1>
+        </div>
+        <Button
+          as={Link}
+          href="/inventory-count"
+          variant="bordered"
+          color="primary"
+          size="sm"
+          startContent={<ClipboardCheck size={14} />}
+          className="hidden sm:flex"
+        >
+          {t('inventoryCount.accessButton')}
+        </Button>
       </div>
 
       {/* Stats row */}

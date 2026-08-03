@@ -9,7 +9,8 @@ export type NotificationCategory =
   | 'shares'
   | 'permissions'
   | 'new_users'
-  | 'security';
+  | 'security'
+  | 'wishlist';
 
 interface NotificationPayload {
   userId: string;

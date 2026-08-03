@@ -20,10 +20,13 @@ interface TastingFormProps {
   open: boolean;
   onClose: () => void;
   initialItemId?: string;
+  // FEAT-09: pre-fills the food pairing field when the form is opened from
+  // the "Consommer maintenant" action of the dish → bottles pairing explorer.
+  initialFoodPairing?: string;
   editNote?: { id: string; values: TastingFormValues };
 }
 
-export function TastingForm({ open, onClose, initialItemId, editNote }: TastingFormProps) {
+export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, editNote }: TastingFormProps) {
   const { t } = useTranslation();
   const { data: items } = useInventory();
   const createMutation = useCreateTasting();
@@ -45,7 +48,7 @@ export function TastingForm({ open, onClose, initialItemId, editNote }: TastingF
       readiness: null,
       notes: '',
       context: '',
-      foodPairing: '',
+      foodPairing: initialFoodPairing ?? '',
       tastedAt: new Date().toISOString().split('T')[0],
     },
   });
@@ -63,12 +66,12 @@ export function TastingForm({ open, onClose, initialItemId, editNote }: TastingF
           readiness: null,
           notes: '',
           context: '',
-          foodPairing: '',
+          foodPairing: initialFoodPairing ?? '',
           tastedAt: new Date().toISOString().split('T')[0],
         });
       }
     }
-  }, [open, initialItemId, editNote, reset]);
+  }, [open, initialItemId, initialFoodPairing, editNote, reset]);
 
   useEffect(() => {
     if (watchedItemId && items) {
