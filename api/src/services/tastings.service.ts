@@ -20,11 +20,16 @@ export const tastingsService = {
   // or bottle (item name/producer) — a single free-text field covers both
   // acceptance criteria ("filtré par met ou bouteille") without requiring
   // two separate controls.
-  async list(userId: string, page = 1, limit = DEFAULT_PAGE_SIZE, itemId?: string, search?: string) {
+  //
+  // Tasting notes are part of the shared inventory's collective history
+  // (design.md invariant: userId is an audit field, not an access filter —
+  // see also FEAT-62 on visible collective contributions). Every member sees
+  // every tasting note, not just the ones they personally logged; `_userId`
+  // is kept for signature stability with the router but unused here.
+  async list(_userId: string, page = 1, limit = DEFAULT_PAGE_SIZE, itemId?: string, search?: string) {
     const skip = (page - 1) * limit;
     const trimmedSearch = search?.trim();
     const where = {
-      userId,
       ...(itemId ? { itemId } : {}),
       ...(trimmedSearch
         ? {
@@ -51,14 +56,16 @@ export const tastingsService = {
 
   async create(userId: string, data: TastingCreateInput) {
     if (data.itemId) {
+      // Shared inventory: any item in the instance can be tasted/logged
+      // against, not just the ones the current user created.
       const item = await prisma.inventoryItem.findFirst({
-        where: { id: data.itemId, userId, deletedAt: null },
+        where: { id: data.itemId, deletedAt: null },
       });
       if (!item) return null;
     }
     return prisma.tastingNote.create({
       data: {
-        userId,
+        userId, // audit: who logged this tasting note
         ...data,
         tastedAt: data.tastedAt ? new Date(data.tastedAt) : new Date(),
       },
@@ -66,8 +73,10 @@ export const tastingsService = {
     });
   },
 
-  async update(id: string, userId: string, data: TastingPatchInput) {
-    const existing = await prisma.tastingNote.findFirst({ where: { id, userId } });
+  // Any member can edit/delete any tasting note — full read/write access to
+  // the shared inventory (design.md roles table), not just the note's author.
+  async update(id: string, _userId: string, data: TastingPatchInput) {
+    const existing = await prisma.tastingNote.findFirst({ where: { id } });
     if (!existing) return null;
     return prisma.tastingNote.update({
       where: { id },
@@ -79,15 +88,15 @@ export const tastingsService = {
     });
   },
 
-  async delete(id: string, userId: string) {
-    const existing = await prisma.tastingNote.findFirst({ where: { id, userId } });
+  async delete(id: string, _userId: string) {
+    const existing = await prisma.tastingNote.findFirst({ where: { id } });
     if (!existing) return null;
     return prisma.tastingNote.delete({ where: { id } });
   },
 
-  async itemStats(userId: string, itemId: string) {
+  async itemStats(_userId: string, itemId: string) {
     const notes = await prisma.tastingNote.findMany({
-      where: { userId, itemId },
+      where: { itemId },
       select: { rating: true, readiness: true, tastedAt: true },
       orderBy: { tastedAt: 'desc' },
     });
@@ -106,9 +115,9 @@ export const tastingsService = {
     };
   },
 
-  async analytics(userId: string) {
+  async analytics(_userId: string) {
     const notes = await prisma.tastingNote.findMany({
-      where: { userId, itemId: { not: null } },
+      where: { itemId: { not: null } },
       select: {
         rating: true,
         readiness: true,

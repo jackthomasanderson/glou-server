@@ -86,14 +86,18 @@ function computeBottleVolume(category: string, bottleSize: string | null, fillLe
   return Math.round(baseVolume * fill * 1000) / 1000;
 }
 
-export async function getAnalytics(userId: string, from?: Date, to?: Date): Promise<AnalyticsStats> {
+// Analytics cover the instance's entire shared inventory (design.md
+// invariant: userId is an audit field, not an access filter) — every member
+// sees the same aggregate stats, not just the items/cellars/movements they
+// personally created.
+export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsStats> {
   const dateFilter = from || to
     ? { createdAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
     : {};
 
   const [items, cellars, auditMovements] = await Promise.all([
     prisma.inventoryItem.findMany({
-      where: { userId, deletedAt: null },
+      where: { deletedAt: null },
       select: {
         category: true,
         estimatedValue: true,
@@ -109,13 +113,11 @@ export async function getAnalytics(userId: string, from?: Date, to?: Date): Prom
       },
     }),
     prisma.cellar.findMany({
-      where: { userId },
       select: { id: true, name: true, type: true },
     }),
     prisma.auditLog.groupBy({
       by: ['action'],
       where: {
-        userId,
         action: { in: ['CREATE', 'DELETE', 'RESTORE'] },
         status: 'success',
         ...dateFilter,

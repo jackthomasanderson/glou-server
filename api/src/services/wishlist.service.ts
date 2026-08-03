@@ -125,6 +125,10 @@ export async function convertToInventory(userId: string, id: string, additionalF
   const wish = await prisma.wishlistItem.findFirst({ where: { id, userId } });
   if (!wish || wish.status !== 'active') return null;
 
+  // Kept strictly to fields declared on EVERY InventoryInput variant
+  // (commonInventorySchema) — `bottleSize` is only valid on wine/sparkling/
+  // spirit (not cigar), so it is added per-branch below rather than here,
+  // to avoid leaking an invalid property into the cigar variant.
   const base = {
     name: wish.name,
     producer: wish.producer ?? '',
@@ -134,20 +138,20 @@ export async function convertToInventory(userId: string, id: string, additionalF
     purchasePrice: additionalFields.purchasePrice ?? wish.lastSeenPrice ?? undefined,
     purchasePlace: additionalFields.purchasePlace ?? undefined,
     cellarId: additionalFields.cellarId ?? undefined,
-    bottleSize: additionalFields.bottleSize ?? undefined,
     lockedFields: [],
   };
+  const bottleSize = additionalFields.bottleSize ?? undefined;
 
   let inventoryInput: InventoryInput;
   switch (wish.category) {
     case 'wine':
-      inventoryInput = { ...base, category: 'wine', vintage: wish.vintage ?? undefined, grapeVarieties: [] };
+      inventoryInput = { ...base, category: 'wine', vintage: wish.vintage ?? undefined, grapeVarieties: [], bottleSize };
       break;
     case 'sparkling':
-      inventoryInput = { ...base, category: 'sparkling', vintage: wish.vintage ?? undefined };
+      inventoryInput = { ...base, category: 'sparkling', vintage: wish.vintage ?? undefined, bottleSize };
       break;
     case 'spirit':
-      inventoryInput = { ...base, category: 'spirit', alcoholDegree: 0 };
+      inventoryInput = { ...base, category: 'spirit', alcoholDegree: 0, bottleSize };
       break;
     case 'cigar':
       inventoryInput = { ...base, category: 'cigar', quantity: additionalFields.quantity ?? wish.targetQuantity };

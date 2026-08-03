@@ -42,15 +42,20 @@ export const collectionsService = {
   },
 
   async addItems(id: string, userId: string, itemIds: string[]) {
+    // The Collection itself is owned by `userId` (legitimate — collections
+    // are per-user groupings), but the items being added come from the
+    // shared instance inventory (design.md invariant: userId on
+    // InventoryItem is an audit field, not an access filter). Any member's
+    // items can be added to any collection they own.
     const existing = await prisma.collection.findFirst({ where: { id, userId } });
     if (!existing) return null;
-    const ownedItems = await prisma.inventoryItem.findMany({
-      where: { id: { in: itemIds }, userId, deletedAt: null },
+    const availableItems = await prisma.inventoryItem.findMany({
+      where: { id: { in: itemIds }, deletedAt: null },
       select: { id: true },
     });
     return prisma.collection.update({
       where: { id },
-      data: { items: { connect: ownedItems.map((item) => ({ id: item.id })) } },
+      data: { items: { connect: availableItems.map((item) => ({ id: item.id })) } },
       include: { items: { select: { id: true }, where: { deletedAt: null } } },
     });
   },

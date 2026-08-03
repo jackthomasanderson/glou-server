@@ -13,6 +13,7 @@ import {
 } from '../services/wishlist.service';
 import {
   listBudgetEnvelopes,
+  getBudgetEnvelope,
   createBudgetEnvelope,
   updateBudgetEnvelope,
   deleteBudgetEnvelope,
@@ -158,6 +159,17 @@ router.get('/budget-envelopes', async (req: Request, res: Response) => {
     res.json({ data: envelopes });
   } catch {
     res.status(500).json({ error: 'FAILED_TO_FETCH_BUDGET_ENVELOPES' });
+  }
+});
+
+router.get('/budget-envelopes/:id', async (req: Request, res: Response) => {
+  const userId = req.userId!;
+  try {
+    const envelope = await getBudgetEnvelope(userId, req.params.id);
+    if (!envelope) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
+    res.json({ data: envelope });
+  } catch {
+    res.status(500).json({ error: 'FAILED_TO_FETCH_BUDGET_ENVELOPE' });
   }
 });
 

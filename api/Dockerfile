@@ -16,13 +16,17 @@ RUN npm run build
 FROM node:20-alpine AS runner
 
 # Non-root user
-# postgresql15-client (pinned, not the generic "postgresql-client" alias):
-# provides pg_dump/pg_restore/psql for the scheduled backup job (FEAT-18, see
-# design.md "Sauvegarde & Migration"). Must match the server major version
-# (postgres:15-alpine in docker-compose.yml) — the unversioned Alpine package
-# tracks whatever major is current in that Alpine release's repo, which can
-# silently drift ahead of 15 and cause pg_dump/pg_restore compatibility issues.
-RUN apk add --no-cache openssl postgresql15-client && \
+# postgresql-client: provides pg_dump/pg_restore/psql for the scheduled backup
+# job (FEAT-18, see design.md "Sauvegarde & Migration"). Uses the generic
+# (unversioned) Alpine package rather than a pinned "postgresqlNN-client" —
+# Alpine only carries a rolling set of recent majors (e.g. 16/17/18 on the
+# release this image tracks; 15 was already dropped, which broke the build
+# when a specific version was hard-pinned here). This is safe: pg_dump/psql
+# from a NEWER client against an OLDER server (postgres:15-alpine in
+# docker-compose.yml) is the officially supported direction for backups —
+# it's a newer-client-vs-newer-server pairing that would risk incompatibility,
+# not this one.
+RUN apk add --no-cache openssl postgresql-client && \
     addgroup -g 1001 glou && adduser -u 1001 -G glou -s /bin/sh -D glou
 
 WORKDIR /app

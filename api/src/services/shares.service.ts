@@ -51,12 +51,13 @@ export const sharesService = {
     hidePrices: boolean;
     hideNotes: boolean;
   }) {
-    const { cellarIds, collectionIds, createdBy, hidePrices, hideNotes } = share;
+    const { cellarIds, collectionIds, hidePrices, hideNotes } = share;
 
-    // Determine the owner's userId to scope items correctly
-    const ownerId = createdBy;
-
-    // Build the where clause to honour the share scope
+    // Build the where clause to honour the share scope. `createdBy` is the
+    // audit trail of who created the share, not an inventory ownership
+    // filter — the shared inventory is unique per instance (design.md), so
+    // the guest sees every item within the share's declared scope
+    // (cellarIds/collectionIds), regardless of who created/edited it.
     const scopeConditions: Record<string, unknown>[] = [];
 
     if (cellarIds.length > 0) {
@@ -71,8 +72,8 @@ export const sharesService = {
 
     const whereClause =
       scopeConditions.length > 0
-        ? { userId: ownerId, deletedAt: null, OR: scopeConditions }
-        : { userId: ownerId, deletedAt: null };
+        ? { deletedAt: null, OR: scopeConditions }
+        : { deletedAt: null };
 
     const items = await prisma.inventoryItem.findMany({
       where: whereClause,

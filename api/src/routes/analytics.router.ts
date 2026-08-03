@@ -18,7 +18,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ error: 'INVALID_DATE_RANGE' });
       return;
     }
-    const stats = await getAnalytics(req.userId, from, to);
+    const stats = await getAnalytics(from, to);
     void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { scope: 'analytics' } });
     res.json({ data: stats });
   } catch (error) {

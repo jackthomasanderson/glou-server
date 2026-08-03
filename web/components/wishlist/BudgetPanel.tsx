@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  Button, Input, Card, CardHeader, CardBody, Progress, Spinner,
+  Button, Input, Card, CardHeader, CardBody, Progress, Skeleton, Spinner,
 } from '@heroui/react';
 import { Plus, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +33,7 @@ function EnvelopeCard({ envelope, onDelete }: { envelope: BudgetEnvelope; onDele
       </CardHeader>
       <CardBody className="gap-2">
         {isLoading || !progress ? (
-          <Progress isIndeterminate size="sm" color="primary" aria-label={t('budget.title')} />
+          <Skeleton className="h-3 w-full rounded-full" />
         ) : (
           <>
             <p className="text-sm text-default-500">
