@@ -1038,6 +1038,7 @@
       "notifications": "Politique de notifs",
       "gotify": "Webhook / Gotify",
       "integrations": "Intégrations API",
+      "retention": "Rétention",
       "history": "Historique"
     },
     "smtp": {
@@ -1104,6 +1105,56 @@
         "user": "Utilisateur",
         "section": "Section",
         "value": "Valeurs"
+      }
+    },
+    "retention": {
+      "title": "Rétention & Nettoyage",
+      "description": "Configurez le délai de conservation avant suppression définitive des données obsolètes. Ce délai s'ajoute à la date d'expiration ou de révocation, il ne la remplace pas.",
+      "fields": {
+        "logRetentionDays": "Logs d'audit (jours)",
+        "sessionRetentionDays": "Sessions & appareils de confiance expirés (jours)",
+        "guestShareRetentionDays": "Partages invités expirés (jours)"
+      },
+      "hints": {
+        "logRetentionDays": "Durée de conservation des entrées du journal d'audit avant suppression définitive.",
+        "sessionRetentionDays": "Délai après expiration ou révocation avant suppression définitive des sessions et appareils de confiance.",
+        "guestShareRetentionDays": "Délai après expiration ou révocation avant suppression définitive des partages invités."
+      },
+      "save": "Enregistrer la rétention",
+      "saved": "Configuration de rétention enregistrée.",
+      "runNow": {
+        "title": "Exécution manuelle",
+        "description": "Force immédiatement le nettoyage des données obsolètes selon les délais configurés ci-dessus.",
+        "button": "Exécuter maintenant",
+        "confirmTitle": "Lancer le nettoyage maintenant ?",
+        "confirmDescription": "Cette action supprime immédiatement et définitivement toutes les données obsolètes selon les délais de rétention configurés. Cette action est irréversible.",
+        "success": "Nettoyage exécuté avec succès.",
+        "error": "Le nettoyage a échoué : {{error}}"
+      },
+      "history": {
+        "title": "Historique des exécutions",
+        "noHistory": "Aucune exécution enregistrée.",
+        "columns": {
+          "date": "Date",
+          "trigger": "Déclencheur",
+          "status": "Statut",
+          "counts": "Éléments supprimés",
+          "duration": "Durée"
+        },
+        "trigger": {
+          "scheduled": "Planifiée",
+          "manual": "Manuelle"
+        },
+        "status": {
+          "success": "Succès",
+          "error": "Échec"
+        },
+        "counts": {
+          "auditLogs": "{{count}} logs",
+          "sessions": "{{count}} sessions",
+          "trustedDevices": "{{count}} appareils",
+          "guestShares": "{{count}} partages"
+        }
       }
     }
   },

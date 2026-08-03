@@ -30,6 +30,12 @@ export type NotificationPolicyConfig = {
   inAppEnabled: boolean;
 };
 
+export type RetentionConfig = {
+  logRetentionDays: number;
+  sessionRetentionDays: number;
+  guestShareRetentionDays: number;
+};
+
 export type PublicSystemConfig = {
   smtpEnabled: boolean;
   smtpHost: string | null;
@@ -45,6 +51,9 @@ export type PublicSystemConfig = {
   vivinoKeyMasked: string | null;
   whiskybaseKeyMasked: string | null;
   ocrUrl: string | null;
+  logRetentionDays: number;
+  sessionRetentionDays: number;
+  guestShareRetentionDays: number;
   updatedAt: Date | null;
   updatedBy: string | null;
 };
@@ -75,6 +84,9 @@ export const systemConfigService = {
       vivinoKeyMasked: maskSecret(cfg.vivinoKeyEnc),
       whiskybaseKeyMasked: maskSecret(cfg.whiskybaseKeyEnc),
       ocrUrl: cfg.ocrUrl,
+      logRetentionDays: cfg.logRetentionDays,
+      sessionRetentionDays: cfg.sessionRetentionDays,
+      guestShareRetentionDays: cfg.guestShareRetentionDays,
       updatedAt: cfg.updatedAt,
       updatedBy: cfg.updatedBy,
     };
@@ -154,6 +166,14 @@ export const systemConfigService = {
 
     await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
     await this.logChange(userId, 'integrations', old, update);
+    return this.getPublic();
+  },
+
+  async updateRetention(data: RetentionConfig, userId: string): Promise<PublicSystemConfig> {
+    const old = await getOrCreate();
+    const update = { ...data, updatedBy: userId };
+    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
+    await this.logChange(userId, 'retention', old, data);
     return this.getPublic();
   },
 

@@ -431,8 +431,31 @@ model SystemConfig {
   whiskybaseKeyEnc String? // AES-256-GCM encrypted
   ocrUrl           String?
 
+  // Data retention (FEAT-39) — delay after which an expired/revoked row
+  // (Session, TrustedDevice, GuestShare) is permanently deleted. This is
+  // NOT the validity window itself, which remains governed by `expiresAt`.
+  logRetentionDays         Int @default(90)
+  sessionRetentionDays     Int @default(30)
+  guestShareRetentionDays  Int @default(30)
+
   updatedAt DateTime @updatedAt
   updatedBy String?
+}
+
+// ─── FEAT-39: Maintenance & Data Retention ────────────────────────────────────
+
+model MaintenanceRun {
+  id          String   @id @default(uuid())
+  runAt       DateTime @default(now())
+  trigger     String // 'scheduled' | 'manual'
+  triggeredBy String? // userId, set when trigger = 'manual'
+  success     Boolean
+  counts      Json?
+  error       String?
+  durationMs  Int?
+
+  @@index([runAt])
+  @@map("maintenance_runs")
 }
 
 // ─── FEAT-34: Config Change History ──────────────────────────────────────────

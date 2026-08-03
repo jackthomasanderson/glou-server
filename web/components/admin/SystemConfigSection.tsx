@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Button, Input, Switch, Chip, Skeleton, Tabs, Tab,
+  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
-import { Settings, Mail, Bell, Puzzle, History, Webhook } from 'lucide-react';
+import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { configClient, SystemConfigPublic } from '@/lib/config/client';
+import { configClient, SystemConfigPublic, MaintenanceRunEntry } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
 
 export function SystemConfigSection() {
@@ -33,6 +34,13 @@ export function SystemConfigSection() {
   // Integrations
   const [integrations, setIntegrations] = useState({ vivinoKey: '', whiskybaseKey: '', ocrUrl: '' });
 
+  // Retention (FEAT-39)
+  const [retention, setRetention] = useState({ logRetentionDays: '90', sessionRetentionDays: '30', guestShareRetentionDays: '30' });
+  const [runs, setRuns] = useState<MaintenanceRunEntry[]>([]);
+  const [runsLoading, setRunsLoading] = useState(true);
+  const [isRunConfirmOpen, setIsRunConfirmOpen] = useState(false);
+  const [running, setRunning] = useState(false);
+
   // History
   const [history, setHistory] = useState<{ id: number; fieldName: string; maskedNewVal: string | null; createdAt: string; user?: { username: string } }[]>([]);
 
@@ -51,8 +59,14 @@ export function SystemConfigSection() {
       setGotify({ gotifyUrl: cfg.gotifyUrl ?? '', gotifyToken: '' });
       setPolicy({ smtpEnabled: cfg.smtpEnabled, gotifyEnabled: cfg.gotifyEnabled, inAppEnabled: cfg.inAppEnabled });
       setIntegrations({ vivinoKey: '', whiskybaseKey: '', ocrUrl: cfg.ocrUrl ?? '' });
+      setRetention({
+        logRetentionDays: String(cfg.logRetentionDays),
+        sessionRetentionDays: String(cfg.sessionRetentionDays),
+        guestShareRetentionDays: String(cfg.guestShareRetentionDays),
+      });
     }).catch(() => {}).finally(() => setLoading(false));
     configClient.getHistory().then(setHistory).catch(() => {});
+    configClient.getMaintenanceRuns().then(setRuns).catch(() => {}).finally(() => setRunsLoading(false));
   }, []);
 
   const showFeedback = (type: 'success' | 'error', msg: string) => {
@@ -155,6 +169,38 @@ export function SystemConfigSection() {
     }
   };
 
+  const saveRetention = async () => {
+    setSaving(true);
+    try {
+      const updated = await configClient.updateRetention({
+        logRetentionDays: parseInt(retention.logRetentionDays, 10),
+        sessionRetentionDays: parseInt(retention.sessionRetentionDays, 10),
+        guestShareRetentionDays: parseInt(retention.guestShareRetentionDays, 10),
+      });
+      setConfig(updated);
+      showFeedback('success', t('adminConfig.retention.saved'));
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : 'Error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const runMaintenanceNow = async () => {
+    setRunning(true);
+    try {
+      const run = await configClient.runMaintenanceNow();
+      setRuns((r) => [run, ...r]);
+      setIsRunConfirmOpen(false);
+      if (run.success) showFeedback('success', t('adminConfig.retention.runNow.success'));
+      else showFeedback('error', t('adminConfig.retention.runNow.error', { error: run.error ?? 'Unknown' }));
+    } catch (err) {
+      showFeedback('error', t('adminConfig.retention.runNow.error', { error: err instanceof Error ? err.message : 'Network error' }));
+    } finally {
+      setRunning(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6 flex flex-col gap-3">
@@ -252,6 +298,101 @@ export function SystemConfigSection() {
           </div>
         </Tab>
 
+        {/* ── Retention & Maintenance (FEAT-39) ── */}
+        <Tab key="retention" title={<span className="flex items-center gap-1.5"><Clock size={14} />{t('adminConfig.tabs.retention')}</span>}>
+          <div className="flex flex-col gap-6 pt-4">
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-foreground-500">{t('adminConfig.retention.description')}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <Input
+                  label={t('adminConfig.retention.fields.logRetentionDays')}
+                  description={t('adminConfig.retention.hints.logRetentionDays')}
+                  type="number" min={1} max={3650}
+                  value={retention.logRetentionDays}
+                  onValueChange={(v) => setRetention((r) => ({ ...r, logRetentionDays: v }))}
+                  variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                />
+                <Input
+                  label={t('adminConfig.retention.fields.sessionRetentionDays')}
+                  description={t('adminConfig.retention.hints.sessionRetentionDays')}
+                  type="number" min={1} max={3650}
+                  value={retention.sessionRetentionDays}
+                  onValueChange={(v) => setRetention((r) => ({ ...r, sessionRetentionDays: v }))}
+                  variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                />
+                <Input
+                  label={t('adminConfig.retention.fields.guestShareRetentionDays')}
+                  description={t('adminConfig.retention.hints.guestShareRetentionDays')}
+                  type="number" min={1} max={3650}
+                  value={retention.guestShareRetentionDays}
+                  onValueChange={(v) => setRetention((r) => ({ ...r, guestShareRetentionDays: v }))}
+                  variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                />
+              </div>
+              <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveRetention} className="self-start">
+                {t('adminConfig.retention.save')}
+              </Button>
+            </div>
+
+            <div className="pt-4 border-t border-divider flex flex-col gap-3">
+              <div>
+                <p className="text-sm font-medium">{t('adminConfig.retention.runNow.title')}</p>
+                <p className="text-xs text-foreground-400">{t('adminConfig.retention.runNow.description')}</p>
+              </div>
+              <Button
+                size="sm" color="danger" variant="bordered" startContent={<PlayCircle size={14} />}
+                onPress={() => setIsRunConfirmOpen(true)}
+                className="self-start"
+              >
+                {t('adminConfig.retention.runNow.button')}
+              </Button>
+            </div>
+
+            <div className="pt-4 border-t border-divider">
+              <p className="text-sm font-semibold mb-2">{t('adminConfig.retention.history.title')}</p>
+              {runsLoading ? (
+                <div className="flex flex-col gap-2">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
+                </div>
+              ) : runs.length === 0 ? (
+                <p className="text-sm text-foreground-400 py-4 text-center">{t('adminConfig.retention.history.noHistory')}</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {runs.map((run) => (
+                    <div key={run.id} className="flex items-start gap-3 py-2 border-b border-divider last:border-0">
+                      <Chip size="sm" variant="flat" radius="sm" color={run.trigger === 'manual' ? 'secondary' : 'default'}>
+                        {t(`adminConfig.retention.history.trigger.${run.trigger}`)}
+                      </Chip>
+                      <Chip size="sm" variant="flat" radius="sm" color={run.success ? 'success' : 'danger'}>
+                        {t(`adminConfig.retention.history.status.${run.success ? 'success' : 'error'}`)}
+                      </Chip>
+                      <div className="flex-1 min-w-0">
+                        {run.success && run.counts ? (
+                          <p className="text-xs text-foreground-500 truncate">
+                            {t('adminConfig.retention.history.counts.auditLogs', { count: run.counts.auditLogs })}
+                            {' · '}
+                            {t('adminConfig.retention.history.counts.sessions', { count: run.counts.sessions })}
+                            {' · '}
+                            {t('adminConfig.retention.history.counts.trustedDevices', { count: run.counts.trustedDevices })}
+                            {' · '}
+                            {t('adminConfig.retention.history.counts.guestShares', { count: run.counts.guestShares })}
+                          </p>
+                        ) : run.error ? (
+                          <p className="text-xs text-danger truncate">{run.error}</p>
+                        ) : null}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs text-foreground-400">{hasMounted ? new Date(run.runAt).toLocaleString() : ''}</p>
+                        {run.durationMs != null && <p className="text-xs text-foreground-300">{run.durationMs} ms</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Tab>
+
         {/* ── History ── */}
         <Tab key="history" title={<span className="flex items-center gap-1.5"><History size={14} />{t('adminConfig.tabs.history')}</span>}>
           <div className="pt-4">
@@ -278,6 +419,28 @@ export function SystemConfigSection() {
           </div>
         </Tab>
       </Tabs>
+
+      {/* Run-now confirmation (irreversible action) */}
+      <Modal
+        isOpen={isRunConfirmOpen}
+        onClose={() => !running && setIsRunConfirmOpen(false)}
+        size="sm" radius="lg" backdrop="opaque" placement="center"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="text-danger">{t('adminConfig.retention.runNow.confirmTitle')}</ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-foreground-500">{t('adminConfig.retention.runNow.confirmDescription')}</p>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose} isDisabled={running}>{t('actions.cancel')}</Button>
+                <Button color="danger" variant="solid" onPress={runMaintenanceNow} isLoading={running}>{t('actions.confirm')}</Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

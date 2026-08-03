@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { authMiddleware, adminMiddleware } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
 import { maturityReferenceSchema, maturityReferencePatchSchema } from '../schemas/maturity-reference.schema';
+import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/retention.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
 import { systemConfigService } from '../services/system-config.service';
 import { emailService } from '../services/email.service';
@@ -202,6 +203,44 @@ adminRouter.post('/maintenance/purge', async (req: Request, res: Response): Prom
     }
 });
 
+/**
+ * @route   GET /api/admin/maintenance/runs
+ * @desc    Paginated history of retention cleanup runs (FEAT-39)
+ * @access  Admin Private
+ */
+adminRouter.get('/maintenance/runs', async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { limit } = maintenanceRunsQuerySchema.parse(req.query);
+        const runs = await prisma.maintenanceRun.findMany({
+            take: limit ?? 50,
+            orderBy: { runAt: 'desc' },
+        });
+        res.json({ data: runs });
+    } catch (error) {
+        if (error instanceof ZodError) {
+            res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+            return;
+        }
+        console.error('[Admin] Error fetching maintenance runs:', error);
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
+/**
+ * @route   POST /api/admin/maintenance/run
+ * @desc    Trigger an immediate data retention cleanup (FEAT-39)
+ * @access  Admin Private
+ */
+adminRouter.post('/maintenance/run', async (req: Request, res: Response): Promise<void> => {
+    try {
+        const run = await MaintenanceService.runRetentionCleanup('manual', req.userId);
+        res.json({ data: run });
+    } catch (error) {
+        console.error('[Admin] Manual retention cleanup error:', error);
+        res.status(500).json({ error: 'RETENTION_CLEANUP_FAILED' });
+    }
+});
+
 // ─── Maturity References ──────────────────────────────────────────────────────
 
 adminRouter.get('/maturity-references', async (_req: Request, res: Response): Promise<void> => {
@@ -314,6 +353,21 @@ adminRouter.put('/config/integrations', async (req: Request, res: Response): Pro
     const config = await systemConfigService.updateIntegrations({ vivinoKey, whiskybaseKey, ocrUrl }, req.userId);
     res.json({ data: config });
   } catch (err) {
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
+  }
+});
+
+adminRouter.put('/config/retention', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = retentionConfigSchema.parse(req.body);
+    const config = await systemConfigService.updateRetention(parsed, req.userId);
+    res.json({ data: config });
+  } catch (err) {
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      return;
+    }
     const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
     res.status(500).json({ error: msg });
   }

@@ -15,8 +15,35 @@ export interface SystemConfigPublic {
   vivinoKeyMasked: string | null;
   whiskybaseKeyMasked: string | null;
   ocrUrl: string | null;
+  logRetentionDays: number;
+  sessionRetentionDays: number;
+  guestShareRetentionDays: number;
   updatedAt: string | null;
   updatedBy: string | null;
+}
+
+export interface RetentionConfig {
+  logRetentionDays: number;
+  sessionRetentionDays: number;
+  guestShareRetentionDays: number;
+}
+
+export interface MaintenanceRunCounts {
+  auditLogs: number;
+  sessions: number;
+  trustedDevices: number;
+  guestShares: number;
+}
+
+export interface MaintenanceRunEntry {
+  id: string;
+  runAt: string;
+  trigger: 'scheduled' | 'manual';
+  triggeredBy: string | null;
+  success: boolean;
+  counts: MaintenanceRunCounts | null;
+  error: string | null;
+  durationMs: number | null;
 }
 
 export interface NotificationPrefs {
@@ -66,6 +93,21 @@ export const configClient = {
 
   async updateIntegrations(payload: Record<string, unknown>): Promise<SystemConfigPublic> {
     const { data } = await client.put<SystemConfigPublic>('/admin/config/integrations', payload);
+    return data;
+  },
+
+  async updateRetention(payload: RetentionConfig): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/retention', payload);
+    return data;
+  },
+
+  async getMaintenanceRuns(): Promise<MaintenanceRunEntry[]> {
+    const { data } = await client.get<MaintenanceRunEntry[]>('/admin/maintenance/runs');
+    return data;
+  },
+
+  async runMaintenanceNow(): Promise<MaintenanceRunEntry> {
+    const { data } = await client.post<MaintenanceRunEntry>('/admin/maintenance/run', {});
     return data;
   },
 

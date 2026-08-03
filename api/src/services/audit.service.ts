@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'LOGIN' | 'LOGIN_2FA' | 'LOGOUT' | 'REGISTER' | 'CELLAR_CREATE' | 'CELLAR_READ' | 'CELLAR_UPDATE' | 'CELLAR_DELETE' | 'COLLECTION_CREATE' | 'COLLECTION_UPDATE' | 'COLLECTION_DELETE' | 'SESSION_REVOKE' | 'TRUST_DEVICE' | 'UNTRUST_DEVICE' | 'PIN_SET' | 'PIN_REMOVE' | 'GUEST_UPDATE';
 
@@ -38,11 +38,16 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
 
 /**
  * Purge audit logs older than N days (default: 90).
- * Called on startup or scheduled maintenance.
+ * Called on startup and by the scheduled/manual retention cleanup (FEAT-39).
+ * Accepts an optional Prisma transaction client so it can participate in a
+ * larger `$transaction` (see MaintenanceService.runRetentionCleanup).
  */
-export async function purgeOldAuditLogs(days = 90): Promise<number> {
+export async function purgeOldAuditLogs(
+  days = 90,
+  client: Prisma.TransactionClient | PrismaClient = prisma,
+): Promise<number> {
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-  const result = await prisma.auditLog.deleteMany({
+  const result = await client.auditLog.deleteMany({
     where: { createdAt: { lt: cutoff } },
   });
   return result.count;

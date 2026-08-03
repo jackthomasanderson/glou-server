@@ -1038,6 +1038,7 @@
       "notifications": "Notif policy",
       "gotify": "Webhook / Gotify",
       "integrations": "API Integrations",
+      "retention": "Retention",
       "history": "History"
     },
     "smtp": {
@@ -1104,6 +1105,56 @@
         "user": "User",
         "section": "Section",
         "value": "Values"
+      }
+    },
+    "retention": {
+      "title": "Retention & Cleanup",
+      "description": "Configure the retention delay before obsolete data is permanently deleted. This delay is added to the expiration or revocation date, it does not replace it.",
+      "fields": {
+        "logRetentionDays": "Audit logs (days)",
+        "sessionRetentionDays": "Expired sessions & trusted devices (days)",
+        "guestShareRetentionDays": "Expired guest shares (days)"
+      },
+      "hints": {
+        "logRetentionDays": "How long audit log entries are kept before permanent deletion.",
+        "sessionRetentionDays": "Delay after expiration or revocation before sessions and trusted devices are permanently deleted.",
+        "guestShareRetentionDays": "Delay after expiration or revocation before guest shares are permanently deleted."
+      },
+      "save": "Save retention",
+      "saved": "Retention configuration saved.",
+      "runNow": {
+        "title": "Manual run",
+        "description": "Immediately force cleanup of obsolete data based on the retention delays configured above.",
+        "button": "Run now",
+        "confirmTitle": "Run cleanup now?",
+        "confirmDescription": "This immediately and permanently deletes all obsolete data based on the configured retention delays. This action is irreversible.",
+        "success": "Cleanup ran successfully.",
+        "error": "Cleanup failed: {{error}}"
+      },
+      "history": {
+        "title": "Run history",
+        "noHistory": "No runs recorded.",
+        "columns": {
+          "date": "Date",
+          "trigger": "Trigger",
+          "status": "Status",
+          "counts": "Items deleted",
+          "duration": "Duration"
+        },
+        "trigger": {
+          "scheduled": "Scheduled",
+          "manual": "Manual"
+        },
+        "status": {
+          "success": "Success",
+          "error": "Failed"
+        },
+        "counts": {
+          "auditLogs": "{{count}} logs",
+          "sessions": "{{count}} sessions",
+          "trustedDevices": "{{count}} devices",
+          "guestShares": "{{count}} shares"
+        }
       }
     }
   },

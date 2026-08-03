@@ -1,4 +1,6 @@
 import { prisma } from '../lib/prisma';
+import { MaintenanceRun, Prisma } from '@prisma/client';
+import { purgeOldAuditLogs } from './audit.service';
 
 export interface PurgeResult {
     success: boolean;
@@ -8,6 +10,17 @@ export interface PurgeResult {
         auditLogs: number;
     };
 }
+
+export type MaintenanceTrigger = 'scheduled' | 'manual';
+
+export interface RetentionCounts {
+    auditLogs: number;
+    sessions: number;
+    trustedDevices: number;
+    guestShares: number;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export class MaintenanceService {
     /**
@@ -33,5 +46,100 @@ export class MaintenanceService {
                 },
             };
         });
+    }
+
+    /**
+     * Run the configured data retention cleanup (FEAT-39):
+     * - Audit logs older than `logRetentionDays` are purged.
+     * - Sessions / TrustedDevices that are expired or revoked for longer
+     *   than `sessionRetentionDays` are permanently deleted.
+     * - GuestShares (also used as pending invitations since FEAT-37) that
+     *   are expired or revoked for longer than `guestShareRetentionDays`
+     *   are permanently deleted.
+     *
+     * All deletions + the resulting MaintenanceRun record are written in a
+     * single `$transaction` (design.md: "usage systématique des transactions
+     * pour toutes les écritures multi-tables"). Never throws to the caller:
+     * on failure, the transaction is rolled back and a separate MaintenanceRun
+     * row is written outside of it with `success: false` and the error message,
+     * so a scheduled run failing never crashes the process.
+     */
+    static async runRetentionCleanup(trigger: MaintenanceTrigger, triggeredBy?: string): Promise<MaintenanceRun> {
+        const startedAt = Date.now();
+
+        try {
+            return await prisma.$transaction(async (tx) => {
+                const config = await tx.systemConfig.findUnique({ where: { id: 'singleton' } });
+                const logRetentionDays = config?.logRetentionDays ?? 90;
+                const sessionRetentionDays = config?.sessionRetentionDays ?? 30;
+                const guestShareRetentionDays = config?.guestShareRetentionDays ?? 30;
+
+                const now = new Date();
+                const sessionCutoff = new Date(now.getTime() - sessionRetentionDays * DAY_MS);
+                const guestShareCutoff = new Date(now.getTime() - guestShareRetentionDays * DAY_MS);
+
+                const auditLogsCount = await purgeOldAuditLogs(logRetentionDays, tx);
+
+                // Expired/revoked longer than the retention window, based on the
+                // effective date (revokedAt if set, otherwise expiresAt).
+                const sessionsResult = await tx.session.deleteMany({
+                    where: {
+                        OR: [
+                            { revokedAt: { not: null, lt: sessionCutoff } },
+                            { revokedAt: null, expiresAt: { lt: sessionCutoff } },
+                        ],
+                    },
+                });
+
+                const trustedDevicesResult = await tx.trustedDevice.deleteMany({
+                    where: {
+                        OR: [
+                            { revokedAt: { not: null, lt: sessionCutoff } },
+                            { revokedAt: null, expiresAt: { lt: sessionCutoff } },
+                        ],
+                    },
+                });
+
+                // GuestShare.expiresAt is nullable (a share/invitation may never
+                // expire) — only revocation makes it eligible in that case.
+                const guestSharesResult = await tx.guestShare.deleteMany({
+                    where: {
+                        OR: [
+                            { revokedAt: { not: null, lt: guestShareCutoff } },
+                            { revokedAt: null, expiresAt: { not: null, lt: guestShareCutoff } },
+                        ],
+                    },
+                });
+
+                const counts: RetentionCounts = {
+                    auditLogs: auditLogsCount,
+                    sessions: sessionsResult.count,
+                    trustedDevices: trustedDevicesResult.count,
+                    guestShares: guestSharesResult.count,
+                };
+
+                return tx.maintenanceRun.create({
+                    data: {
+                        trigger,
+                        triggeredBy: triggeredBy ?? null,
+                        success: true,
+                        counts: counts as unknown as Prisma.InputJsonValue,
+                        durationMs: Date.now() - startedAt,
+                    },
+                });
+            });
+        } catch (error) {
+            console.error('[maintenance] Retention cleanup failed:', error);
+            const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
+            return prisma.maintenanceRun.create({
+                data: {
+                    trigger,
+                    triggeredBy: triggeredBy ?? null,
+                    success: false,
+                    error: message,
+                    durationMs: Date.now() - startedAt,
+                },
+            });
+        }
     }
 }

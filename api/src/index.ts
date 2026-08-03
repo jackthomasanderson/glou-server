@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
+import cron from 'node-cron';
 import { connectWithRetry } from './lib/prisma';
 import { inventoryRouter } from './routes/inventory.router';
 import { authRouter } from './routes/auth.router';
@@ -14,7 +15,7 @@ import { alertsRouter } from './routes/alerts.router';
 import { maturityReferencesRouter } from './routes/maturity-references.router';
 import { errorMiddleware } from './middleware/error.middleware';
 import { inventoryService } from './services/inventory.service';
-import { purgeOldAuditLogs } from './services/audit.service';
+import { MaintenanceService } from './services/maintenance.service';
 import searchRouter from './routes/search.router';
 import collectionsRouter from './routes/collections.router';
 import tastingsRouter from './routes/tastings.router';
@@ -104,12 +105,27 @@ app.use(errorMiddleware);
 async function bootstrap(): Promise<void> {
   await connectWithRetry();
 
-  // Background maintenance: purge old trash and expired audit logs
+  // Background maintenance: purge old trash
   void inventoryService.purgeTrashed().then((count) => {
     if (count > 0) console.info(`[startup] Purged ${count} permanently deleted items`);
   });
-  void purgeOldAuditLogs(90).then((count) => {
-    if (count > 0) console.info(`[startup] Purged ${count} old audit log entries`);
+
+  // FEAT-39: data retention cleanup (audit logs, expired/revoked sessions,
+  // trusted devices and guest shares). Run once immediately on startup so a
+  // restart doesn't have to wait up to 24h for the first cleanup, then keep
+  // it scheduled daily.
+  void MaintenanceService.runRetentionCleanup('scheduled').then((run) => {
+    if (run.success) console.info('[startup] Retention cleanup completed:', run.counts);
+    else console.error('[startup] Retention cleanup failed:', run.error);
+  });
+
+  // Scheduled daily at 3:00 AM server time — chosen as a low-traffic window
+  // for a self-hosted home-lab instance, well outside typical usage hours.
+  cron.schedule('0 3 * * *', () => {
+    void MaintenanceService.runRetentionCleanup('scheduled').then((run) => {
+      if (run.success) console.info('[cron] Retention cleanup completed:', run.counts);
+      else console.error('[cron] Retention cleanup failed:', run.error);
+    });
   });
 
   app.listen(PORT, '0.0.0.0', () => {
