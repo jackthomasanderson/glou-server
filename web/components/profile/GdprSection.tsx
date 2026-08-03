@@ -1,23 +1,31 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Card, CardBody, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
-import { Download, Trash2, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Button, Card, CardBody, Checkbox, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useExportData, useRequestAccountDeletion, useCancelAccountDeletion, PublicUser } from '@/hooks/useAuth';
+import { useExportData, useRequestAccountDeletion, useCancelAccountDeletion, PublicUser, ExportCategory } from '@/hooks/useAuth';
 import { addDays, format, parseISO } from 'date-fns';
 
 interface GdprSectionProps {
   user: PublicUser;
 }
 
+const EXPORT_CATEGORIES: ExportCategory[] = ['inventory', 'cellars', 'collections', 'tastings', 'activity'];
+
 export function GdprSection({ user }: GdprSectionProps) {
   const { t } = useTranslation('common');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState<ExportCategory[]>(EXPORT_CATEGORIES);
 
   const exportMutation = useExportData();
   const deleteMutation = useRequestAccountDeletion();
   const cancelMutation = useCancelAccountDeletion();
+
+  const toggleCategory = (category: ExportCategory, checked: boolean) => {
+    setSelectedCategories((prev) => (checked ? [...prev, category] : prev.filter((c) => c !== category)));
+  };
 
   const isDeletionPending = !!user.deletionRequestedAt;
   const deletionDeadline = isDeletionPending
@@ -62,22 +70,64 @@ export function GdprSection({ user }: GdprSectionProps) {
           )}
 
           {/* Export */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">{t('gdpr.exportTitle')}</p>
-              <p className="text-xs text-default-400 mt-0.5">{t('gdpr.exportDescription')}</p>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold">{t('gdpr.exportTitle')}</p>
+                <p className="text-xs text-default-400 mt-0.5">{t('gdpr.exportDescription')}</p>
+              </div>
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="flat"
+                  color="default"
+                  isLoading={exportMutation.isPending}
+                  startContent={<Download size={14} />}
+                  onPress={() => exportMutation.mutate(undefined)}
+                >
+                  {t('gdpr.exportButton')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="light"
+                  color="primary"
+                  startContent={<ListFilter size={14} />}
+                  onPress={() => setFilterOpen((v) => !v)}
+                >
+                  {t('gdpr.exportFilterToggle')}
+                </Button>
+              </div>
             </div>
-            <Button
-              size="sm"
-              variant="flat"
-              color="default"
-              isLoading={exportMutation.isPending}
-              startContent={<Download size={14} />}
-              onPress={() => exportMutation.mutate()}
-              className="shrink-0"
-            >
-              {t('gdpr.exportButton')}
-            </Button>
+
+            {filterOpen && (
+              <div className="bg-default-50 rounded-xl p-4 flex flex-col gap-3">
+                <p className="text-xs text-foreground-500">{t('gdpr.exportFilterHint')}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {EXPORT_CATEGORIES.map((category) => (
+                    <Checkbox
+                      key={category}
+                      size="sm"
+                      isSelected={selectedCategories.includes(category)}
+                      onValueChange={(checked) => toggleCategory(category, checked)}
+                    >
+                      <span className="text-xs">{t(`gdpr.exportCategories.${category}`)}</span>
+                    </Checkbox>
+                  ))}
+                </div>
+                <Button
+                  size="sm"
+                  variant="bordered"
+                  color="primary"
+                  className="self-start"
+                  isLoading={exportMutation.isPending}
+                  isDisabled={selectedCategories.length === 0}
+                  startContent={<Download size={14} />}
+                  onPress={() => exportMutation.mutate(selectedCategories)}
+                >
+                  {t('gdpr.exportSelectionButton')}
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Delete account */}

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button, Input, Select, SelectItem, CircularProgress } from '@heroui/react';
-import { User, Settings, ShieldCheck } from 'lucide-react';
+import { User, Settings, ShieldCheck, Compass } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
@@ -12,6 +12,7 @@ import { AccountSecurity } from '@/components/profile/AccountSecurity';
 import { SessionsPanel } from '@/components/profile/SessionsPanel';
 import { AvatarUploader } from '@/components/profile/AvatarUploader';
 import { GdprSection } from '@/components/profile/GdprSection';
+import { AccessTransparencyPanel } from '@/components/profile/AccessTransparencyPanel';
 import { SharesDashboard } from '@/components/shares/SharesDashboard';
 import { NotificationPreferences } from '@/components/profile/NotificationPreferences';
 
@@ -127,6 +128,20 @@ export default function ProfilePage() {
                 {t('actions.save')}
               </Button>
             </form>
+
+            <Button
+              as={Link}
+              href="/profile?onboarding=1"
+              variant="light"
+              color="primary"
+              size="sm"
+              radius="md"
+              fullWidth
+              startContent={<Compass size={16} />}
+              className="mt-3"
+            >
+              {t('profile.reviewOnboarding')}
+            </Button>
           </div>
 
           {/* Preferences */}
@@ -235,9 +250,12 @@ export default function ProfilePage() {
         )}
 
         {/* Guest shares */}
-        <div className="mt-6">
+        <div id="shares" className="mt-6 scroll-mt-24">
           <SharesDashboard />
         </div>
+
+        {/* Access transparency panel (FEAT-18) */}
+        <AccessTransparencyPanel />
 
         {/* Notifications */}
         <div className="mt-6">

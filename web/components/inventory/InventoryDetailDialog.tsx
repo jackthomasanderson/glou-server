@@ -3,13 +3,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useCellars } from '@/hooks/useCellars';
-import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem } from '@/hooks/useInventory';
-import { Button, Divider, Slider, Tooltip } from '@heroui/react';
+import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem, useRollbackField } from '@/hooks/useInventory';
+import { Button, Chip, Divider, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Tooltip } from '@heroui/react';
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
-  Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode,
+  Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode, Euro,
+  FileSpreadsheet, ScanLine, Wand2, History as HistoryIcon,
 } from 'lucide-react';
-import { InventoryItem, InventoryCategory, InventoryHistoryEntry } from '@/lib/inventory/types';
+import { InventoryItem, InventoryCategory, InventoryFieldChange, InventoryHistoryEntry, FieldSource } from '@/lib/inventory/types';
 import { TastingForm } from '@/components/tastings/TastingForm';
 import { TastingStatsSummary } from '@/components/tastings/TastingStatsSummary';
 import { QrCodeModal } from './QrCodeModal';
@@ -53,6 +54,38 @@ function InfoCard({ icon, label, value, valueColor }: InfoCardProps) {
   );
 }
 
+// ─── FEAT-05: Field source transparency ─────────────────────────────────────
+// Every non-manual source is roadmap-only today (no OCR/enrichment pipeline
+// is actually wired up) but the badge stays generic so it activates for free
+// once FEAT-04 (scan) and a real enrichment source land.
+const SOURCE_ICONS: Record<Exclude<FieldSource, 'manual'>, React.ReactElement> = {
+  import_csv: <FileSpreadsheet size={11} />,
+  ocr: <ScanLine size={11} />,
+  enrichment: <Wand2 size={11} />,
+};
+
+interface FieldSourceBadgeProps {
+  source: FieldSource | undefined | null;
+  t: (key: string) => string;
+}
+
+/** Renders nothing for the implicit 'manual' default — only non-manual sources are worth flagging. */
+function FieldSourceBadge({ source, t }: FieldSourceBadgeProps) {
+  if (!source || source === 'manual') return null;
+  return (
+    <Chip
+      size="sm"
+      variant="flat"
+      color="default"
+      radius="full"
+      startContent={SOURCE_ICONS[source]}
+      className="h-4 px-1.5 gap-1 text-[0.55rem] font-semibold shrink-0"
+    >
+      {t(`traceability.source.${source}`)}
+    </Chip>
+  );
+}
+
 interface InventoryDetailDialogProps {
   item: InventoryItem | null;
   open: boolean;
@@ -66,8 +99,10 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const hasMounted = useHasMounted();
   const { data: cellars } = useCellars();
   const updateMutation = useUpdateInventoryItem();
+  const rollbackMutation = useRollbackField();
   const [tastingOpen, setTastingOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [rollbackTarget, setRollbackTarget] = useState<InventoryFieldChange | null>(null);
 
   const { data: enrichedItem } = useInventoryItem(item?.id ?? '');
   const { data: history } = useInventoryItemHistory(item?.id ?? '', open);
@@ -108,6 +143,15 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const cellarName = d.cellarId ? cellars?.find((c) => c.id === d.cellarId)?.name ?? null : null;
   const isWineOrSparkling = d.category === 'wine' || d.category === 'sparkling';
   const isCigar = d.category === 'cigar';
+  const fieldSources = d.fieldSources ?? {};
+
+  const handleRollbackConfirm = () => {
+    if (!rollbackTarget) return;
+    rollbackMutation.mutate(
+      { id: item.id, field: rollbackTarget.field, toValue: rollbackTarget.from },
+      { onSuccess: () => setRollbackTarget(null) }
+    );
+  };
 
   const drinkingWindow =
     d.peakMaturityFrom && d.peakMaturityTo
@@ -128,9 +172,14 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const halfLabel = t('inventory.detail.half');
   const emptyLabel = t('inventory.detail.empty');
 
+  const fieldLabel = (field: string): string => t(`inventory.fields.${field}`, { defaultValue: field });
+
   const formatHistoryEntry = (entry: InventoryHistoryEntry): string => {
     if (!entry.changes || entry.changes.length === 0) {
       return t(`traceability.actions.${entry.action.toLowerCase()}`);
+    }
+    if (entry.action === 'RESTORE_FIELD' && entry.changes.length === 1) {
+      return t('traceability.restoredField', { field: fieldLabel(entry.changes[0].field) });
     }
     const fillChange = entry.changes.find(c => c.field === 'fillLevel');
     if (fillChange) {
@@ -156,7 +205,10 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 {isCigar ? t('inventory.detail.titleCigar') : t('inventory.detail.titleWine')}
               </p>
               <div className="flex justify-between items-start">
-                <h2 className="text-lg font-bold leading-tight pr-8">{d.name}</h2>
+                <div className="flex items-center gap-1.5 flex-wrap pr-8">
+                  <h2 className="text-lg font-bold leading-tight">{d.name}</h2>
+                  <FieldSourceBadge source={fieldSources.name} t={t} />
+                </div>
                 <div className="flex items-center gap-1">
                   <Tooltip content={t('qr.title')} size="sm" placement="bottom">
                     <button
@@ -175,6 +227,26 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                     <X size={16} />
                   </button>
                 </div>
+              </div>
+
+              {/* Producer / vintage / region — most visible fields, tagged with their source (FEAT-05) */}
+              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                <span className="text-xs text-default-500">{d.producer}</span>
+                <FieldSourceBadge source={fieldSources.producer} t={t} />
+                {d.vintage != null && (
+                  <>
+                    <span className="text-default-300">·</span>
+                    <span className="text-xs text-default-500">{d.vintage}</span>
+                    <FieldSourceBadge source={fieldSources.vintage} t={t} />
+                  </>
+                )}
+                {d.region && (
+                  <>
+                    <span className="text-default-300">·</span>
+                    <span className="text-xs text-default-500">{d.region}</span>
+                    <FieldSourceBadge source={fieldSources.region} t={t} />
+                  </>
+                )}
               </div>
             </div>
 
@@ -290,6 +362,18 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                       valueColor="#7B1E30"
                     />
                   )}
+                  {d.purchasePrice != null && (
+                    <InfoCard
+                      icon={<Euro />}
+                      label={t('inventory.fields.purchasePrice')}
+                      value={
+                        <span className="flex items-center gap-1.5">
+                          {d.purchasePrice} €
+                          <FieldSourceBadge source={fieldSources.purchasePrice} t={t} />
+                        </span>
+                      }
+                    />
+                  )}
                 </div>
 
                 {/* Cigar vitole section */}
@@ -330,9 +414,12 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 {/* Notes */}
                 {d.notes && (
                   <>
-                    <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-                      {isCigar ? t('inventory.detail.tastingNotes') : t('inventory.detail.sommelierNotes')}
-                    </p>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
+                        {isCigar ? t('inventory.detail.tastingNotes') : t('inventory.detail.sommelierNotes')}
+                      </p>
+                      <FieldSourceBadge source={fieldSources.notes} t={t} />
+                    </div>
                     <div className="p-3 bg-default-50 rounded-xl mb-5 border border-divider">
                       <p className="text-sm text-default-500 italic leading-relaxed whitespace-pre-wrap">
                         {d.notes}
@@ -373,26 +460,58 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 {/* History */}
                 {history && history.length > 0 && (
                   <>
-                    <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-3">
-                      {t('traceability.title')}
-                    </p>
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <HistoryIcon size={13} className="text-default-400" />
+                      <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
+                        {t('traceability.title')}
+                      </p>
+                    </div>
                     <div className="mb-6">
-                      {history.slice(0, 10).map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="flex items-center gap-2 py-2 border-b border-divider last:border-b-0"
-                        >
-                          <span className="px-2 py-0.5 rounded-md bg-primary text-white text-[0.65rem] font-bold shrink-0 max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
-                            {entry.actorName}
-                          </span>
-                          <span className="flex-1 text-[0.7rem] text-default-500">
-                            {formatHistoryEntry(entry)}
-                          </span>
-                          <span className="shrink-0 text-[0.65rem] text-default-300">
-                            {hasMounted ? new Date(entry.createdAt).toLocaleDateString() : ''}
-                          </span>
-                        </div>
-                      ))}
+                      {history.slice(0, 10).map((entry) => {
+                        // fillLevel already has a dedicated restore control (the slider +
+                        // preset buttons above) — repeating a rollback button per adjustment
+                        // here would just be noise on what's typically the most frequent
+                        // change type.
+                        const restorableChanges = (entry.changes ?? []).filter((c) => c.field !== 'fillLevel');
+                        return (
+                          <div key={entry.id} className="py-2 border-b border-divider last:border-b-0">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded-md bg-primary text-white text-[0.65rem] font-bold shrink-0 max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
+                                {entry.actorName}
+                              </span>
+                              <span className="flex-1 text-[0.7rem] text-default-500">
+                                {formatHistoryEntry(entry)}
+                              </span>
+                              <span className="shrink-0 text-[0.65rem] text-default-300">
+                                {hasMounted ? new Date(entry.createdAt).toLocaleDateString() : ''}
+                              </span>
+                            </div>
+                            {restorableChanges.length > 0 && (
+                              <div className="mt-1 pl-1 flex flex-col gap-0.5">
+                                {restorableChanges.map((change, idx) => (
+                                  <div
+                                    key={`${entry.id}-${change.field}-${idx}`}
+                                    className="flex items-center justify-between gap-2"
+                                  >
+                                    <span className="text-[0.6rem] text-default-400 truncate">
+                                      {fieldLabel(change.field)}
+                                    </span>
+                                    <Button
+                                      size="sm"
+                                      variant="light"
+                                      color="primary"
+                                      className="h-5 min-w-0 px-1.5 text-[0.6rem] shrink-0"
+                                      onPress={() => setRollbackTarget(change)}
+                                    >
+                                      {t('traceability.restoreValue')}
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </>
                 )}
@@ -438,6 +557,66 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
         itemId={item.id}
         itemName={item.name}
       />
+
+      {/* Rollback confirmation (FEAT-05) — data-modifying action, requires confirmation */}
+      <Modal
+        isOpen={rollbackTarget !== null}
+        onClose={() => { setRollbackTarget(null); rollbackMutation.reset(); }}
+        size="sm"
+        radius="lg"
+        backdrop="opaque"
+        placement="center"
+      >
+        <ModalContent>
+          {() => (
+            <>
+              <ModalHeader className="flex items-center gap-2 pb-1">
+                <HistoryIcon size={16} className="text-primary shrink-0" />
+                <span>{t('traceability.restoreConfirm.title')}</span>
+              </ModalHeader>
+              <ModalBody className="py-2">
+                <p className="text-sm text-default-500">
+                  {rollbackTarget &&
+                    t('traceability.restoreConfirm.body', {
+                      field: fieldLabel(rollbackTarget.field),
+                      value: formatHistoryValue(rollbackTarget.from, t),
+                    })}
+                </p>
+                {rollbackMutation.isError && (
+                  <p className="text-xs text-danger">{t('traceability.restoreError')}</p>
+                )}
+              </ModalBody>
+              <ModalFooter className="flex gap-2 px-4 pb-4 pt-2">
+                <Button
+                  color="danger"
+                  variant="light"
+                  onPress={() => { setRollbackTarget(null); rollbackMutation.reset(); }}
+                  isDisabled={rollbackMutation.isPending}
+                  className="flex-1"
+                >
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  color="primary"
+                  variant="solid"
+                  onPress={handleRollbackConfirm}
+                  isLoading={rollbackMutation.isPending}
+                  className="flex-1"
+                >
+                  {t('traceability.restoreConfirm.confirm')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </>
   );
+}
+
+/** Human-readable rendering of a raw historical field value inside the rollback confirmation copy. */
+function formatHistoryValue(value: unknown, t: (key: string) => string): string {
+  if (value === null || value === undefined || value === '') return t('actions.none');
+  if (typeof value === 'boolean') return value ? t('traceability.booleanTrue') : t('traceability.booleanFalse');
+  return String(value);
 }

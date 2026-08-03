@@ -48,4 +48,9 @@ export const inventoryClient = {
     const { data } = await client.get<InventoryHistoryEntry[]>(`/inventory/${id}/history`);
     return data;
   },
+
+  async rollbackField(id: string, field: string, toValue: unknown): Promise<InventoryItem> {
+    const { data } = await client.post<InventoryItem>(`/inventory/${id}/rollback`, { field, toValue });
+    return data;
+  },
 };

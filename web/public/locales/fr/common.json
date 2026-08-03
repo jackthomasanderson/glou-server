@@ -445,6 +445,7 @@
     "appNamePlaceholder": "Ex: Ma Cave Privée",
     "appSlogan": "Slogan perso pour l'app",
     "appSloganPlaceholder": "Votre devise...",
+    "reviewOnboarding": "Revoir le guide de démarrage",
     "security": "Sécurité du compte",
     "changeEmail": "Changer l'adresse email",
     "changePassword": "Changer le mot de passe",
@@ -667,7 +668,24 @@
       "create": "Création",
       "update": "Modification",
       "delete": "Suppression",
-      "restore": "Restauration"
+      "restore": "Restauration",
+      "restore_field": "Valeur restaurée"
+    },
+    "restoredField": "Valeur restaurée : {{field}}",
+    "restoreValue": "Restaurer cette valeur",
+    "restoreConfirm": {
+      "title": "Restaurer cette valeur ?",
+      "body": "Le champ « {{field}} » sera restauré à : {{value}}. Cette restauration sera elle-même enregistrée dans l'historique.",
+      "confirm": "Restaurer"
+    },
+    "restoreError": "Impossible de restaurer cette valeur.",
+    "booleanTrue": "Oui",
+    "booleanFalse": "Non",
+    "source": {
+      "manual": "Saisie manuelle",
+      "import_csv": "Import CSV",
+      "ocr": "Scan (OCR)",
+      "enrichment": "Enrichissement auto"
     }
   },
   "collections": {
@@ -769,6 +787,39 @@
       "valuation": "Valorisation :",
       "noRegions": "Aucune région renseignée dans votre inventaire."
     },
+    "map": {
+      "mode": {
+        "markers": "Marqueurs",
+        "heatmap": "Heatmap par type"
+      },
+      "heatmapType": {
+        "label": "Type d'actif",
+        "dominant": "Catégorie dominante"
+      },
+      "filters": {
+        "title": "Filtres",
+        "type": "Type d'actif",
+        "priceRange": "Gamme de prix (€)",
+        "vintageRange": "Millésime / Année",
+        "min": "Min",
+        "max": "Max",
+        "rating": "Évaluation",
+        "ratingAny": "Toutes notes",
+        "ratingMinLabel": "{{count}}+ ",
+        "ratingHint": "Basé sur les 50 dégustations les plus récentes enregistrées — approximation, pas l'historique complet.",
+        "state": "État",
+        "stateAll": "Tous",
+        "stateInCellar": "En cave (non entamé)",
+        "stateOpened": "Entamé"
+      },
+      "list": {
+        "title": "Actifs de la région sélectionnée",
+        "titleAll": "Actifs correspondant aux filtres",
+        "empty": "Aucun actif ne correspond aux filtres sélectionnés.",
+        "itemCount": "{{count}} actif(s)"
+      },
+      "regionSelected": "Région sélectionnée : {{region}}"
+    },
     "categories": {
       "title": "Répartition des catégories",
       "active": "Actifs",
@@ -867,6 +918,16 @@
     "exportTitle": "Exporter mes données",
     "exportDescription": "Téléchargez une copie complète de vos données personnelles au format JSON (RGPD).",
     "exportButton": "Exporter",
+    "exportFilterToggle": "Filtrer par catégorie",
+    "exportFilterHint": "Sélectionnez les catégories à inclure dans l'export. Toutes les catégories sont incluses par défaut.",
+    "exportSelectionButton": "Exporter la sélection",
+    "exportCategories": {
+      "inventory": "Inventaire",
+      "cellars": "Caves",
+      "collections": "Collections",
+      "tastings": "Dégustations",
+      "activity": "Journal d'activité"
+    },
     "deleteTitle": "Supprimer mon compte",
     "deleteDescription": "Votre compte sera marqué pour suppression définitive après un délai de grâce de 30 jours.",
     "deleteButton": "Supprimer le compte",
@@ -878,6 +939,23 @@
     "deletionPending": "Suppression planifiée",
     "deletionDeadline": "Votre compte sera supprimé le {{date}} sauf annulation.",
     "cancelDeletion": "Annuler la suppression"
+  },
+  "accessTransparency": {
+    "title": "Transparence des accès",
+    "subtitle": "Qui a accès à votre compte et à vos données en ce moment.",
+    "manage": "Gérer",
+    "sessions": {
+      "title": "Sessions actives",
+      "lastActive": "Dernière activité",
+      "loadError": "Impossible de charger les sessions actives.",
+      "empty": "Aucune session active."
+    },
+    "shares": {
+      "title": "Partages invités actifs",
+      "loadError": "Impossible de charger les partages.",
+      "empty": "Aucun partage actif.",
+      "unnamed": "Partage sans nom"
+    }
   },
   "shares": {
     "title": "Partages invités",
@@ -1039,6 +1117,8 @@
       "gotify": "Webhook / Gotify",
       "integrations": "Intégrations API",
       "retention": "Rétention",
+      "backups": "Sauvegardes",
+      "network": "Réseau",
       "history": "Historique"
     },
     "smtp": {
@@ -1156,6 +1236,151 @@
           "guestShares": "{{count}} partages"
         }
       }
+    },
+    "backup": {
+      "description": "Configurez la sauvegarde automatique quotidienne de la base de données (pg_dump), stockée en dehors du volume applicatif.",
+      "enabled": "Activer les sauvegardes automatiques",
+      "retentionDays": "Rétention des sauvegardes (jours)",
+      "retentionDaysHint": "Les fichiers de sauvegarde plus anciens que ce délai sont supprimés automatiquement (7 jours minimum recommandé).",
+      "hourUtc": "Heure d'exécution (UTC)",
+      "hourUtcHint": "Heure de la journée (0-23, en UTC) à laquelle la sauvegarde planifiée est déclenchée.",
+      "save": "Enregistrer la configuration",
+      "saved": "Configuration de sauvegarde enregistrée.",
+      "runNow": {
+        "title": "Exécution manuelle",
+        "description": "Déclenche immédiatement une sauvegarde complète de la base de données.",
+        "button": "Sauvegarder maintenant",
+        "success": "Sauvegarde exécutée avec succès.",
+        "error": "La sauvegarde a échoué : {{error}}"
+      },
+      "history": {
+        "title": "Historique des sauvegardes",
+        "noHistory": "Aucune sauvegarde enregistrée.",
+        "download": "Télécharger cette sauvegarde",
+        "restore": "Restaurer cette sauvegarde",
+        "trigger": {
+          "scheduled": "Planifiée",
+          "manual": "Manuelle"
+        },
+        "status": {
+          "success": "Succès",
+          "error": "Échec"
+        }
+      },
+      "restore": {
+        "modalTitle": "Confirmer la restauration",
+        "modalBody": "Cette action est irréversible et écrase immédiatement toutes les données actuelles de l'instance par le contenu de cette sauvegarde.",
+        "modalHint": "Saisissez « {{keyword}} » pour confirmer :",
+        "keyword": "RESTAURER",
+        "confirm": "Confirmer la restauration",
+        "success": "Restauration effectuée avec succès.",
+        "error": "La restauration a échoué."
+      }
+    },
+    "network": {
+      "title": "Configuration réseau",
+      "description": "Définissez l'URL publique de référence de l'instance et la manière dont elle est exposée (accès direct ou via un reverse proxy).",
+      "publicUrl": "URL publique",
+      "publicUrlPlaceholder": "https://cave.mondomaine.fr",
+      "publicUrlHint": "Laissez vide pour utiliser la variable d'environnement APP_URL du serveur.",
+      "accessMode": "Mode d'accès",
+      "accessModeHint": "Indique si l'application est atteinte directement ou par l'intermédiaire d'un reverse proxy externe.",
+      "accessModeOptions": {
+        "direct": "Accès direct",
+        "proxy": "Via un reverse proxy"
+      },
+      "save": "Enregistrer la configuration réseau",
+      "saved": "Configuration réseau enregistrée.",
+      "summary": {
+        "title": "Résumé des paramètres actifs",
+        "effectiveUrl": "URL publique effective",
+        "fromEnv": "Valeur issue de la variable d'environnement APP_URL (aucune URL publique définie en base).",
+        "accessMode": "Mode d'accès actif"
+      },
+      "check": {
+        "button": "Vérifier la configuration",
+        "success": "Configuration cohérente.",
+        "failure": "La configuration réseau est invalide.",
+        "networkError": "Impossible de contacter le serveur pour effectuer la vérification.",
+        "warnings": {
+          "INVALID_URL": "L'URL publique effective n'est pas syntaxiquement valide.",
+          "NOT_HTTPS_IN_PRODUCTION": "L'URL publique n'utilise pas HTTPS alors que l'instance est en environnement de production.",
+          "PROXY_MODE_LOCALHOST_URL": "Le mode d'accès est défini sur « via un reverse proxy » mais l'URL publique pointe vers localhost, ce qui est incohérent pour un accès externe."
+        }
+      }
+    }
+  },
+  "onboarding": {
+    "skip": "Passer l'assistant",
+    "back": "Retour",
+    "welcome": {
+      "title": "Bienvenue sur Glou !",
+      "subtitle": "Configurons ensemble votre première cave en quelques étapes rapides.",
+      "languageLabel": "Langue de l'application",
+      "cta": "Commencer"
+    },
+    "cellar": {
+      "title": "Créez votre première cave",
+      "subtitle": "Donnez un nom à votre cave pour commencer à y ranger vos actifs.",
+      "namePlaceholder": "Ex : Cave à vin",
+      "skipStep": "Passer cette étape",
+      "createCta": "Créer la cave"
+    },
+    "ingestion": {
+      "title": "Comment souhaitez-vous ajouter vos actifs ?",
+      "subtitle": "Choisissez la méthode la plus adaptée. Vous pourrez toujours utiliser les autres plus tard.",
+      "skipStep": "Passer cette étape",
+      "scan": {
+        "title": "Scan Rapide",
+        "description": "Photographiez vos étiquettes pour un ajout automatique.",
+        "unavailable": "Bientôt disponible"
+      },
+      "import": {
+        "title": "Import Fichier",
+        "description": "Importez un fichier CSV listant vos actifs."
+      },
+      "manual": {
+        "title": "Ajout Manuel",
+        "description": "Entrez vos bouteilles ou actifs un par un."
+      }
+    },
+    "manual": {
+      "title": "Ajout manuel",
+      "subtitle": "Ajoutez autant d'actifs que vous le souhaitez, puis continuez.",
+      "addButton": "Ajouter un actif",
+      "itemsAdded": "{{count}} actif(s) ajouté(s) pour l'instant",
+      "doneButton": "Terminer l'ajout"
+    },
+    "csv": {
+      "title": "Import CSV",
+      "subtitle": "Importez un fichier .csv avec les colonnes : name, producer, category, vintage (optionnel).",
+      "csvOnlyHint": "Seul le format CSV est pris en charge (Excel/.xlsx non supporté).",
+      "chooseFile": "Choisir un fichier CSV",
+      "chooseAnother": "Choisir un autre fichier",
+      "parsing": "Analyse du fichier en cours…",
+      "validRows": "{{count}} ligne(s) valide(s)",
+      "errorRows": "{{count}} ligne(s) ignorée(s)",
+      "errorReason": "Ligne {{row}} : {{reason}}",
+      "noValidRows": "Aucune ligne valide à importer.",
+      "confirmButton": "Confirmer l'import",
+      "errorCodes": {
+        "NAME_REQUIRED": "Le nom est manquant",
+        "NAME_TOO_LONG": "Le nom dépasse 200 caractères",
+        "PRODUCER_REQUIRED": "Le producteur est manquant",
+        "PRODUCER_TOO_LONG": "Le producteur dépasse 200 caractères",
+        "INVALID_CATEGORY": "Catégorie invalide (attendu : wine, sparkling, spirit ou cigar)",
+        "INVALID_VINTAGE": "Millésime invalide",
+        "INVALID_ROW": "Ligne invalide"
+      }
+    },
+    "summary": {
+      "title": "Tout est prêt !",
+      "subtitle": "Voici un résumé de votre configuration initiale.",
+      "cellarCreated": "Cave créée : {{name}}",
+      "noCellar": "Aucune cave créée pour l'instant",
+      "itemsAdded": "{{count}} actif(s) ajouté(s) à votre inventaire",
+      "noItems": "Aucun actif ajouté pour le moment",
+      "finishButton": "Accéder au tableau de bord"
     }
   },
   "pagination": {

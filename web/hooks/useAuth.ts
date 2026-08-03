@@ -21,6 +21,8 @@ export interface PublicUser {
   // FEAT-30: Quick Lock & Auto-Lock (client-side lock, session/JWT stays valid)
   hasPin?: boolean;
   autoLockDelayMin?: number | null;
+  // FEAT-56: Setup Wizard d'Onboarding — null while not completed/skipped yet
+  onboardingCompletedAt?: string | null;
 }
 
 const ME_KEY = ['auth', 'me'];
@@ -294,10 +296,15 @@ export function useUntrustDevice() {
 
 // ─── RGPD (FEAT-38) ──────────────────────────────────────────────────────────
 
+// FEAT-18: categories are optional — omitted/empty means "export everything",
+// preserving the original FEAT-38 full-export behavior.
+export type ExportCategory = 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity';
+
 export function useExportData() {
-  return useMutation<void, Error, void>({
-    mutationFn: async () => {
-      const res = await fetch('/api/user/export', { credentials: 'include' });
+  return useMutation<void, Error, ExportCategory[] | void>({
+    mutationFn: async (categories) => {
+      const query = categories && categories.length > 0 ? `?categories=${categories.join(',')}` : '';
+      const res = await fetch(`/api/user/export${query}`, { credentials: 'include' });
       if (!res.ok) throw new Error('EXPORT_FAILED');
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -357,5 +364,18 @@ export function useRemovePin() {
 export function useUnlock() {
   return useMutation<{ ok: boolean }, Error, { password?: string; pin?: string }>({
     mutationFn: (data) => apiFetch<{ ok: boolean }>('/api/auth/unlock', { method: 'POST', body: JSON.stringify(data) }),
+  });
+}
+
+// ─── Setup Wizard d'Onboarding (FEAT-56) ────────────────────────────────────
+
+export function useCompleteOnboarding() {
+  const queryClient = useQueryClient();
+  return useMutation<PublicUser, Error, { skipped?: boolean } | void>({
+    mutationFn: (data) =>
+      apiFetch<PublicUser>('/api/user/onboarding/complete', { method: 'POST', body: JSON.stringify(data ?? {}) }),
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
+    },
   });
 }

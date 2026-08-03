@@ -16,12 +16,14 @@ import { maturityReferencesRouter } from './routes/maturity-references.router';
 import { errorMiddleware } from './middleware/error.middleware';
 import { inventoryService } from './services/inventory.service';
 import { MaintenanceService } from './services/maintenance.service';
+import { backupService } from './services/backup.service';
 import searchRouter from './routes/search.router';
 import collectionsRouter from './routes/collections.router';
 import tastingsRouter from './routes/tastings.router';
 import { analyticsRouter } from './routes/analytics.router';
 import sharesRouter from './routes/shares.router';
 import guestRouter from './routes/guest.router';
+import { importRouter } from './routes/import.router';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -89,6 +91,7 @@ app.use('/api/tastings', tastingsRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/shares', sharesRouter);
 app.use('/api/guest/:token', guestRouter);
+app.use('/api/import', importRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 
@@ -126,6 +129,22 @@ async function bootstrap(): Promise<void> {
       if (run.success) console.info('[cron] Retention cleanup completed:', run.counts);
       else console.error('[cron] Retention cleanup failed:', run.error);
     });
+  });
+
+  // FEAT-18: scheduled database backups (pg_dump). Ticks hourly and re-reads
+  // SystemConfig (backupEnabled/backupHourUtc) on every tick — see
+  // backupService.runScheduledIfDue — so an admin can enable/disable or
+  // change the target hour without restarting the container. Only produces
+  // an actual backup once, when the current UTC hour matches the configured
+  // one, so it behaves as a once-a-day job despite the hourly tick.
+  cron.schedule('0 * * * *', () => {
+    void backupService.runScheduledIfDue()
+      .then((run) => {
+        if (!run) return;
+        if (run.success) console.info('[cron] Backup completed:', run.filePath);
+        else console.error('[cron] Backup failed:', run.error);
+      })
+      .catch((err) => console.error('[cron] Backup cron tick failed:', err));
   });
 
   app.listen(PORT, '0.0.0.0', () => {

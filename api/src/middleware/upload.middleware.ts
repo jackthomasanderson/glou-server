@@ -33,3 +33,25 @@ export const avatarUpload = multer({
         }
     }
 });
+
+// ─── FEAT-56: CSV Import (Onboarding Setup Wizard) ───────────────────────────
+// Memory storage only — the file is parsed in-memory and never written to
+// disk, both at /preview (no persistence at all) and /confirm (the client
+// re-sends the already-parsed rows, not the file itself).
+const csvUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit — onboarding convenience import, not a bulk tool
+    fileFilter: (_req, file, cb) => {
+        const isCsv =
+            file.mimetype === 'text/csv' ||
+            file.mimetype === 'application/vnd.ms-excel' || // Excel on Windows often reports CSV as this mimetype
+            file.originalname.toLowerCase().endsWith('.csv');
+        if (isCsv) {
+            cb(null, true);
+        } else {
+            cb(new Error('INVALID_FILE_TYPE'));
+        }
+    }
+});
+
+export { csvUpload };

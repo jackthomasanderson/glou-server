@@ -42,6 +42,10 @@ services:
     volumes:
       - api_logs:/app/logs
       - api_uploads:/app/uploads
+      # FEAT-18: scheduled pg_dump backups, on their own named volume so they
+      # persist independently of the app data/upload volumes and outside the
+      # container filesystem (design.md "Sauvegarde & Migration").
+      - api_backups:/app/backups
     logging:
       driver: "json-file"
       options:
@@ -70,4 +74,6 @@ volumes:
   api_logs:
     driver: local
   api_uploads:
+    driver: local
+  api_backups:
     driver: local

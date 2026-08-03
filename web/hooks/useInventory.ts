@@ -72,6 +72,22 @@ export function useUpdateInventoryItem() {
   });
 }
 
+// ─── Mutation: Rollback field (FEAT-05) ─────────────────────────────────────
+
+export function useRollbackField() {
+  const queryClient = useQueryClient();
+  return useMutation<InventoryItem, Error, { id: string; field: string; toValue: unknown }>({
+    mutationFn: ({ id, field, toValue }) => inventoryClient.rollbackField(id, field, toValue),
+    onSuccess: (_updatedItem, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ['inventory', variables.id, 'history'] });
+      void queryClient.invalidateQueries({ queryKey: ['inventory', variables.id] });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
+    },
+  });
+}
+
 // ─── Mutation: Bulk Update ───────────────────────────────────────────────────
 
 export function useBulkUpdateInventoryItem() {

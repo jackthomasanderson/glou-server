@@ -59,3 +59,13 @@ export const unlockSchema = z
   });
 
 export type UnlockInput = z.infer<typeof unlockSchema>;
+
+// ─── FEAT-56: Setup Wizard d'Onboarding ──────────────────────────────────────
+
+export const completeOnboardingSchema = z.object({
+  // Distinguishes a full completion from an explicit "Skip" for the audit
+  // trail — both set `onboardingCompletedAt` the same way server-side.
+  skipped: z.boolean().optional().default(false),
+});
+
+export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>;

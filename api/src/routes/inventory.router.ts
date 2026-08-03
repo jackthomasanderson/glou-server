@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import QRCode from 'qrcode';
-import { inventoryInputSchema, inventoryPatchSchema } from '../schemas/inventory.schema';
+import { inventoryInputSchema, inventoryPatchSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
 import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { systemConfigService } from '../services/system-config.service';
 
 const router = Router();
 
@@ -51,7 +52,7 @@ router.get('/:id/qr', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+    const appUrl = await systemConfigService.getEffectivePublicUrl();
     const targetUrl = `${appUrl}/bottles?scan=${id}`;
 
     const pngBuffer = await QRCode.toBuffer(targetUrl, {
@@ -225,6 +226,48 @@ router.post('/:id/restore', async (req: Request, res: Response): Promise<void> =
     res.json({ data: item });
   } catch (error) {
     void auditLog({ userId: req.userId, action: 'RESTORE', status: 'error', ip, bottleId: id, details: { message: String(error) } });
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── POST /api/inventory/:id/rollback ───────────────────────────────────────
+// FEAT-05: restores a single field to a value found in the item's real
+// change history. Logged under the dedicated RESTORE_FIELD action so the
+// history UI can distinguish "value restored" from a regular edit.
+
+router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const ip = getClientIp(req);
+  try {
+    const { field, toValue } = rollbackFieldSchema.parse(req.body);
+    const result = await inventoryService.rollbackField(req.userId, id, field, toValue);
+
+    if (result.status === 'not_found') {
+      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'not_found', ip, bottleId: id, details: { field } });
+      res.status(404).json({ error: 'ITEM_NOT_FOUND' });
+      return;
+    }
+    if (result.status === 'invalid_value') {
+      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, bottleId: id, details: { field } });
+      res.status(400).json({ error: 'VALUE_NOT_IN_HISTORY' });
+      return;
+    }
+    if (result.status === 'slot_conflict') {
+      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'error', ip, bottleId: id, details: { field, reason: 'SLOT_OCCUPIED' } });
+      res.status(409).json({ error: 'SLOT_OCCUPIED' });
+      return;
+    }
+
+    void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, bottleId: id, details: { changes: result.changes } });
+    res.json({ data: result.item });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, bottleId: id, details: { issues } });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
+      return;
+    }
+    void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'error', ip, bottleId: id, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });

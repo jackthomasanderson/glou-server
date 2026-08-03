@@ -1,12 +1,12 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import {
-  Button, Input, Switch, Chip, Skeleton, Tabs, Tab,
+  Button, Input, Switch, Chip, Skeleton, Tabs, Tab, Select, SelectItem,
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
-import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle } from 'lucide-react';
+import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle, Globe, CheckCircle2, AlertTriangle, Archive, Download, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { configClient, SystemConfigPublic, MaintenanceRunEntry } from '@/lib/config/client';
+import { configClient, SystemConfigPublic, MaintenanceRunEntry, NetworkCheckResult, BackupRunEntry } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
 
 export function SystemConfigSection() {
@@ -41,6 +41,20 @@ export function SystemConfigSection() {
   const [isRunConfirmOpen, setIsRunConfirmOpen] = useState(false);
   const [running, setRunning] = useState(false);
 
+  // Network configuration (FEAT-54)
+  const [network, setNetwork] = useState<{ publicUrl: string; accessMode: 'direct' | 'proxy' }>({ publicUrl: '', accessMode: 'direct' });
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<NetworkCheckResult | null>(null);
+
+  // Scheduled backups (FEAT-18)
+  const [backup, setBackup] = useState({ backupEnabled: false, backupRetentionDays: '7', backupHourUtc: '3' });
+  const [backupRuns, setBackupRuns] = useState<BackupRunEntry[]>([]);
+  const [backupRunsLoading, setBackupRunsLoading] = useState(true);
+  const [runningBackup, setRunningBackup] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<BackupRunEntry | null>(null);
+  const [restoreConfirmText, setRestoreConfirmText] = useState('');
+  const [restoring, setRestoring] = useState(false);
+
   // History
   const [history, setHistory] = useState<{ id: number; fieldName: string; maskedNewVal: string | null; createdAt: string; user?: { username: string } }[]>([]);
 
@@ -64,9 +78,19 @@ export function SystemConfigSection() {
         sessionRetentionDays: String(cfg.sessionRetentionDays),
         guestShareRetentionDays: String(cfg.guestShareRetentionDays),
       });
+      setNetwork({
+        publicUrl: cfg.publicUrl ?? '',
+        accessMode: cfg.accessMode === 'proxy' ? 'proxy' : 'direct',
+      });
+      setBackup({
+        backupEnabled: cfg.backupEnabled,
+        backupRetentionDays: String(cfg.backupRetentionDays),
+        backupHourUtc: String(cfg.backupHourUtc),
+      });
     }).catch(() => {}).finally(() => setLoading(false));
     configClient.getHistory().then(setHistory).catch(() => {});
     configClient.getMaintenanceRuns().then(setRuns).catch(() => {}).finally(() => setRunsLoading(false));
+    configClient.getBackupRuns().then(setBackupRuns).catch(() => {}).finally(() => setBackupRunsLoading(false));
   }, []);
 
   const showFeedback = (type: 'success' | 'error', msg: string) => {
@@ -186,6 +210,36 @@ export function SystemConfigSection() {
     }
   };
 
+  const saveNetwork = async () => {
+    setSaving(true);
+    try {
+      const updated = await configClient.updateNetwork({
+        publicUrl: network.publicUrl.trim() ? network.publicUrl.trim() : null,
+        accessMode: network.accessMode,
+      });
+      setConfig(updated);
+      setCheckResult(null);
+      showFeedback('success', t('adminConfig.network.saved'));
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : 'Error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const checkNetworkConfig = async () => {
+    setChecking(true);
+    setCheckResult(null);
+    try {
+      const result = await configClient.checkNetwork();
+      setCheckResult(result);
+    } catch {
+      setCheckResult({ ok: false, warnings: ['NETWORK_ERROR'] });
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const runMaintenanceNow = async () => {
     setRunning(true);
     try {
@@ -199,6 +253,64 @@ export function SystemConfigSection() {
     } finally {
       setRunning(false);
     }
+  };
+
+  const saveBackupConfig = async () => {
+    setSaving(true);
+    try {
+      const updated = await configClient.updateBackupConfig({
+        backupEnabled: backup.backupEnabled,
+        backupRetentionDays: parseInt(backup.backupRetentionDays, 10),
+        backupHourUtc: parseInt(backup.backupHourUtc, 10),
+      });
+      setConfig(updated);
+      showFeedback('success', t('adminConfig.backup.saved'));
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : 'Error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const runBackupNow = async () => {
+    setRunningBackup(true);
+    try {
+      const run = await configClient.runBackupNow();
+      setBackupRuns((r) => [run, ...r]);
+      if (run.success) showFeedback('success', t('adminConfig.backup.runNow.success'));
+      else showFeedback('error', t('adminConfig.backup.runNow.error', { error: run.error ?? 'Unknown' }));
+    } catch (err) {
+      showFeedback('error', t('adminConfig.backup.runNow.error', { error: err instanceof Error ? err.message : 'Network error' }));
+    } finally {
+      setRunningBackup(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (!restoreTarget || restoreConfirmText !== t('adminConfig.backup.restore.keyword')) return;
+    setRestoring(true);
+    try {
+      await configClient.restoreBackup(restoreTarget.id);
+      showFeedback('success', t('adminConfig.backup.restore.success'));
+      setRestoreTarget(null);
+      setRestoreConfirmText('');
+    } catch (err) {
+      showFeedback('error', err instanceof Error ? err.message : t('adminConfig.backup.restore.error'));
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const formatBytes = (bytes: number | null): string => {
+    if (bytes == null) return '—';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let value = bytes;
+    let unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+    return `${value.toFixed(1)} ${units[unitIndex]}`;
   };
 
   if (loading) {
@@ -393,6 +505,202 @@ export function SystemConfigSection() {
           </div>
         </Tab>
 
+        {/* ── Scheduled Backups (FEAT-18) ── */}
+        <Tab key="backups" title={<span className="flex items-center gap-1.5"><Archive size={14} />{t('adminConfig.tabs.backups')}</span>}>
+          <div className="flex flex-col gap-6 pt-4">
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-foreground-500">{t('adminConfig.backup.description')}</p>
+              <Switch isSelected={backup.backupEnabled} onValueChange={(v) => setBackup((b) => ({ ...b, backupEnabled: v }))} size="sm">
+                {t('adminConfig.backup.enabled')}
+              </Switch>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label={t('adminConfig.backup.retentionDays')}
+                  description={t('adminConfig.backup.retentionDaysHint')}
+                  type="number" min={1} max={3650}
+                  value={backup.backupRetentionDays}
+                  onValueChange={(v) => setBackup((b) => ({ ...b, backupRetentionDays: v }))}
+                  variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                />
+                <Input
+                  label={t('adminConfig.backup.hourUtc')}
+                  description={t('adminConfig.backup.hourUtcHint')}
+                  type="number" min={0} max={23}
+                  value={backup.backupHourUtc}
+                  onValueChange={(v) => setBackup((b) => ({ ...b, backupHourUtc: v }))}
+                  variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                />
+              </div>
+              <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveBackupConfig} className="self-start">
+                {t('adminConfig.backup.save')}
+              </Button>
+            </div>
+
+            <div className="pt-4 border-t border-divider flex flex-col gap-3">
+              <div>
+                <p className="text-sm font-medium">{t('adminConfig.backup.runNow.title')}</p>
+                <p className="text-xs text-foreground-400">{t('adminConfig.backup.runNow.description')}</p>
+              </div>
+              <Button
+                size="sm" color="primary" variant="bordered" startContent={<PlayCircle size={14} />}
+                isLoading={runningBackup}
+                onPress={runBackupNow}
+                className="self-start"
+              >
+                {t('adminConfig.backup.runNow.button')}
+              </Button>
+            </div>
+
+            <div className="pt-4 border-t border-divider">
+              <p className="text-sm font-semibold mb-2">{t('adminConfig.backup.history.title')}</p>
+              {backupRunsLoading ? (
+                <div className="flex flex-col gap-2">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
+                </div>
+              ) : backupRuns.length === 0 ? (
+                <p className="text-sm text-foreground-400 py-4 text-center">{t('adminConfig.backup.history.noHistory')}</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {backupRuns.map((run) => (
+                    <div key={run.id} className="flex items-start gap-3 py-2 border-b border-divider last:border-0">
+                      <Chip size="sm" variant="flat" radius="sm" color={run.trigger === 'manual' ? 'secondary' : 'default'}>
+                        {t(`adminConfig.backup.history.trigger.${run.trigger}`)}
+                      </Chip>
+                      <Chip size="sm" variant="flat" radius="sm" color={run.success ? 'success' : 'danger'}>
+                        {t(`adminConfig.backup.history.status.${run.success ? 'success' : 'error'}`)}
+                      </Chip>
+                      <div className="flex-1 min-w-0">
+                        {run.success ? (
+                          <p className="text-xs text-foreground-500 truncate">{formatBytes(run.fileSizeBytes)}</p>
+                        ) : run.error ? (
+                          <p className="text-xs text-danger truncate">{run.error}</p>
+                        ) : null}
+                      </div>
+                      <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                        <p className="text-xs text-foreground-400">{hasMounted ? new Date(run.runAt).toLocaleString() : ''}</p>
+                        {run.durationMs != null && <p className="text-xs text-foreground-300">{run.durationMs} ms</p>}
+                        {run.success && (
+                          <div className="flex gap-1 mt-1">
+                            <Button
+                              as="a"
+                              href={configClient.getBackupDownloadUrl(run.id)}
+                              target="_blank"
+                              rel="noreferrer"
+                              size="sm"
+                              variant="light"
+                              isIconOnly
+                              aria-label={t('adminConfig.backup.history.download')}
+                            >
+                              <Download size={14} />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="light"
+                              color="danger"
+                              isIconOnly
+                              aria-label={t('adminConfig.backup.history.restore')}
+                              onPress={() => setRestoreTarget(run)}
+                            >
+                              <RotateCcw size={14} />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Tab>
+
+        {/* ── Network Configuration & External Access (FEAT-54) ── */}
+        <Tab key="network" title={<span className="flex items-center gap-1.5"><Globe size={14} />{t('adminConfig.tabs.network')}</span>}>
+          <div className="flex flex-col gap-6 pt-4">
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-foreground-500">{t('adminConfig.network.description')}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label={t('adminConfig.network.publicUrl')}
+                  description={t('adminConfig.network.publicUrlHint')}
+                  placeholder={t('adminConfig.network.publicUrlPlaceholder')}
+                  value={network.publicUrl}
+                  onValueChange={(v) => setNetwork((n) => ({ ...n, publicUrl: v }))}
+                  variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                />
+                <Select
+                  label={t('adminConfig.network.accessMode')}
+                  description={t('adminConfig.network.accessModeHint')}
+                  selectedKeys={[network.accessMode]}
+                  onSelectionChange={(keys) => {
+                    const value = Array.from(keys)[0];
+                    if (value === 'direct' || value === 'proxy') {
+                      setNetwork((n) => ({ ...n, accessMode: value }));
+                    }
+                  }}
+                  variant="bordered" size="sm" radius="md" labelPlacement="outside"
+                  disallowEmptySelection
+                >
+                  <SelectItem key="direct">{t('adminConfig.network.accessModeOptions.direct')}</SelectItem>
+                  <SelectItem key="proxy">{t('adminConfig.network.accessModeOptions.proxy')}</SelectItem>
+                </Select>
+              </div>
+              <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveNetwork} className="self-start">
+                {t('adminConfig.network.save')}
+              </Button>
+            </div>
+
+            <div className="pt-4 border-t border-divider flex flex-col gap-2">
+              <p className="text-sm font-semibold">{t('adminConfig.network.summary.title')}</p>
+              <div className="flex flex-col gap-1 text-sm">
+                <p>
+                  <span className="text-foreground-500">{t('adminConfig.network.summary.effectiveUrl')}: </span>
+                  <span className="font-mono">{config?.effectivePublicUrl}</span>
+                </p>
+                {!config?.publicUrl && (
+                  <p className="text-xs text-foreground-400">{t('adminConfig.network.summary.fromEnv')}</p>
+                )}
+                <p>
+                  <span className="text-foreground-500">{t('adminConfig.network.summary.accessMode')}: </span>
+                  <Chip size="sm" variant="flat" radius="sm" color="primary">
+                    {t(`adminConfig.network.accessModeOptions.${config?.accessMode === 'proxy' ? 'proxy' : 'direct'}`)}
+                  </Chip>
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-divider flex flex-col gap-3">
+              <Button
+                size="sm" variant="bordered" color="primary" isLoading={checking}
+                onPress={checkNetworkConfig} className="self-start"
+              >
+                {t('adminConfig.network.check.button')}
+              </Button>
+              {checkResult && (
+                <div className="flex flex-col gap-2">
+                  <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm border font-medium ${checkResult.ok ? 'bg-success-50 border-success-200 text-success-700' : 'bg-danger-50 border-danger-200 text-danger-700'}`}>
+                    {checkResult.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                    {checkResult.ok ? t('adminConfig.network.check.success') : t('adminConfig.network.check.failure')}
+                  </div>
+                  {checkResult.warnings.length > 0 && (
+                    <div className="px-4 py-3 rounded-xl text-xs border bg-warning-50 border-warning-200 text-warning-700">
+                      <ul className="list-disc list-inside flex flex-col gap-1">
+                        {checkResult.warnings.map((code) => (
+                          <li key={code}>
+                            {code === 'NETWORK_ERROR'
+                              ? t('adminConfig.network.check.networkError')
+                              : t(`adminConfig.network.check.warnings.${code}`, code)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </Tab>
+
         {/* ── History ── */}
         <Tab key="history" title={<span className="flex items-center gap-1.5"><History size={14} />{t('adminConfig.tabs.history')}</span>}>
           <div className="pt-4">
@@ -439,6 +747,44 @@ export function SystemConfigSection() {
               </ModalFooter>
             </>
           )}
+        </ModalContent>
+      </Modal>
+
+      {/* Restore confirmation (destructive, overwrites all current data) */}
+      <Modal
+        isOpen={!!restoreTarget}
+        onClose={() => { if (!restoring) { setRestoreTarget(null); setRestoreConfirmText(''); } }}
+        size="sm" radius="lg" backdrop="opaque" placement="center"
+      >
+        <ModalContent>
+          <ModalHeader className="text-danger">{t('adminConfig.backup.restore.modalTitle')}</ModalHeader>
+          <ModalBody className="flex flex-col gap-4">
+            <p className="text-sm text-foreground-600">{t('adminConfig.backup.restore.modalBody')}</p>
+            {restoreTarget && (
+              <p className="text-xs text-foreground-400">{hasMounted ? new Date(restoreTarget.runAt).toLocaleString() : ''}</p>
+            )}
+            <p className="text-xs text-default-400">{t('adminConfig.backup.restore.modalHint', { keyword: t('adminConfig.backup.restore.keyword') })}</p>
+            <input
+              className="w-full border border-divider rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-danger"
+              placeholder={t('adminConfig.backup.restore.keyword')}
+              value={restoreConfirmText}
+              onChange={(e) => setRestoreConfirmText(e.target.value)}
+            />
+          </ModalBody>
+          <ModalFooter className="gap-2">
+            <Button variant="light" size="sm" isDisabled={restoring} onPress={() => { setRestoreTarget(null); setRestoreConfirmText(''); }}>
+              {t('actions.cancel')}
+            </Button>
+            <Button
+              color="danger"
+              size="sm"
+              isLoading={restoring}
+              isDisabled={restoreConfirmText !== t('adminConfig.backup.restore.keyword')}
+              onPress={handleConfirmRestore}
+            >
+              {t('adminConfig.backup.restore.confirm')}
+            </Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </div>

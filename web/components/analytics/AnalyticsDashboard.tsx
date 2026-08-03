@@ -50,9 +50,10 @@ function periodToDates(period: Period): { from?: string; to?: string } {
   }
 }
 
-// World map loaded client-side only (react-leaflet relies on browser APIs)
-const WorldHeatmap = dynamic(
-  () => import('./WorldHeatmap').then((m) => m.WorldHeatmap),
+// World map explorer (FEAT-40/41/42) loaded client-side only — it pulls in
+// react-leaflet, which relies on browser APIs unavailable during SSR.
+const MapExplorer = dynamic(
+  () => import('./MapExplorer').then((m) => m.MapExplorer),
   {
     ssr: false,
     loading: () => (
@@ -677,7 +678,7 @@ export function AnalyticsDashboard() {
           {isLoading ? (
             <div className="h-[320px] rounded-2xl bg-default-100 animate-pulse" />
           ) : (
-            <WorldHeatmap regions={data?.regionBreakdown ?? []} t={t} />
+            <MapExplorer regionCategoryBreakdown={data?.regionCategoryBreakdown ?? []} t={t} />
           )}
         </CardBody>
       </Card>

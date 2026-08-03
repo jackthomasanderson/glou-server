@@ -2,13 +2,16 @@ import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, adminMiddleware } from '../middleware/auth.middleware';
+import { authMiddleware, adminMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
 import { maturityReferenceSchema, maturityReferencePatchSchema } from '../schemas/maturity-reference.schema';
 import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/retention.schema';
+import { networkConfigSchema } from '../schemas/network-config.schema';
+import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
 import { systemConfigService } from '../services/system-config.service';
 import { emailService } from '../services/email.service';
+import { backupService } from '../services/backup.service';
 
 const adminRouter = Router();
 
@@ -373,6 +376,21 @@ adminRouter.put('/config/retention', async (req: Request, res: Response): Promis
   }
 });
 
+adminRouter.put('/config/backup', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = backupConfigSchema.parse(req.body);
+    const config = await systemConfigService.updateBackupConfig(parsed, req.userId);
+    res.json({ data: config });
+  } catch (err) {
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      return;
+    }
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
+  }
+});
+
 adminRouter.post('/config/test/smtp', async (req: Request, res: Response): Promise<void> => {
   try {
     const { email } = req.body;
@@ -414,11 +432,131 @@ adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Pro
   }
 });
 
+// ─── Network Configuration & External Access (FEAT-54) ──────────────────────
+
+adminRouter.put('/config/network', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = networkConfigSchema.parse(req.body);
+    const config = await systemConfigService.updateNetworkConfig(parsed, req.userId);
+    res.json({ data: config });
+  } catch (err) {
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      return;
+    }
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
+  }
+});
+
+adminRouter.post('/config/network/check', async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await systemConfigService.checkNetworkConsistency();
+    res.json({ data: result });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
+  }
+});
+
 adminRouter.get('/config/history', async (_req: Request, res: Response): Promise<void> => {
   try {
     const history = await systemConfigService.getHistory(100);
     res.json({ data: history });
   } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+// ─── Scheduled Backups (FEAT-18) ─────────────────────────────────────────────
+
+/**
+ * @route   GET /api/admin/backups/runs
+ * @desc    Paginated history of backup runs
+ * @access  Admin Private
+ */
+adminRouter.get('/backups/runs', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { limit } = backupRunsQuerySchema.parse(req.query);
+    const runs = await prisma.backupRun.findMany({
+      take: limit ?? 50,
+      orderBy: { runAt: 'desc' },
+    });
+    res.json({ data: runs });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      return;
+    }
+    console.error('[Admin] Error fetching backup runs:', error);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+/**
+ * @route   POST /api/admin/backups/run
+ * @desc    Trigger an immediate manual backup
+ * @access  Admin Private
+ */
+adminRouter.post('/backups/run', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const run = await backupService.runBackup('manual', req.userId);
+    res.json({ data: run });
+  } catch (error) {
+    console.error('[Admin] Manual backup error:', error);
+    res.status(500).json({ error: 'BACKUP_FAILED' });
+  }
+});
+
+/**
+ * @route   POST /api/admin/backups/:id/restore
+ * @desc    DESTRUCTIVE — restores the database from a previous backup run.
+ *          Requires an explicit `confirm: true` in the body on top of admin
+ *          auth, so a scripted/direct API call can never trigger it by
+ *          accident (the frontend additionally requires a typed keyword).
+ * @access  Admin Private
+ */
+adminRouter.post('/backups/:id/restore', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  try {
+    backupRestoreSchema.parse(req.body);
+    const run = await prisma.backupRun.findUnique({ where: { id } });
+    if (!run || !run.success || !run.filePath) {
+      res.status(404).json({ error: 'BACKUP_NOT_FOUND' });
+      return;
+    }
+    await backupService.restoreBackup(run.filePath, req.userId, getClientIp(req));
+    res.json({ data: { ok: true } });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'CONFIRMATION_REQUIRED', details: error.errors });
+      return;
+    }
+    console.error('[Admin] Backup restore error:', error);
+    const msg = error instanceof Error ? error.message : 'RESTORE_FAILED';
+    res.status(500).json({ error: msg });
+  }
+});
+
+/**
+ * @route   GET /api/admin/backups/:id/download
+ * @desc    Downloads a previous backup dump file
+ * @access  Admin Private
+ */
+adminRouter.get('/backups/:id/download', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  try {
+    const { path: filePath, filename } = await backupService.getDownloadTarget(id);
+    res.download(filePath, filename, (err) => {
+      if (err) console.error('[Admin] Backup download stream error:', err);
+    });
+  } catch (error) {
+    console.error('[Admin] Backup download error:', error);
+    const msg = error instanceof Error ? error.message : 'DOWNLOAD_FAILED';
+    if (msg === 'BACKUP_NOT_FOUND' || msg === 'BACKUP_FILE_MISSING') {
+      res.status(404).json({ error: msg });
+      return;
+    }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });

@@ -12,6 +12,16 @@ export interface RegionStat {
   valuation: number;
 }
 
+// FEAT-40/41: region × category breakdown — unlike `regionBreakdown` (capped
+// to the top 10 regions for the dashboard widget), this carries every region
+// with its per-category split so the world map can filter/heatmap by type.
+export interface RegionCategoryStat {
+  region: string;
+  category: string;
+  count: number;
+  valuation: number;
+}
+
 export interface MaturityPlanning {
   readyNow: { count: number; percent: number };
   preserve: { count: number; percent: number };
@@ -47,6 +57,7 @@ export interface AnalyticsStats {
   totalActiveItems: number;
   categoryBreakdown: CategoryStat[];
   regionBreakdown: RegionStat[];
+  regionCategoryBreakdown: RegionCategoryStat[];
   maturityPlanning: MaturityPlanning;
   gardeHistogram: GardePoint[];
   caveDistribution: CavePoint[];
@@ -125,6 +136,9 @@ export async function getAnalytics(userId: string, from?: Date, to?: Date): Prom
 
   const categoryMap: Record<string, { count: number; valuation: number }> = {};
   const regionMap: Record<string, { count: number; valuation: number }> = {};
+  // FEAT-40/41: region × category composite map, built alongside regionMap
+  // from the same loop/values — no second pass over `items`.
+  const regionCategoryMap: Record<string, Record<string, { count: number; valuation: number }>> = {};
   const caveMap: Record<string, { count: number; valuation: number }> = {};
   const currentYear = new Date().getFullYear();
   const gardeMap: Record<number, number> = {};
@@ -152,6 +166,11 @@ export async function getAnalytics(userId: string, from?: Date, to?: Date): Prom
       if (!regionMap[key]) regionMap[key] = { count: 0, valuation: 0 };
       regionMap[key].count += 1;
       regionMap[key].valuation += value;
+
+      if (!regionCategoryMap[key]) regionCategoryMap[key] = {};
+      if (!regionCategoryMap[key][item.category]) regionCategoryMap[key][item.category] = { count: 0, valuation: 0 };
+      regionCategoryMap[key][item.category].count += 1;
+      regionCategoryMap[key][item.category].valuation += value;
     }
 
     if (item.alertStatus === 'past') {
@@ -223,6 +242,16 @@ export async function getAnalytics(userId: string, from?: Date, to?: Date): Prom
       .map(([region, { count, valuation }]) => ({ region, count, valuation: Math.round(valuation) }))
       .sort((a, b) => b.count - a.count || b.valuation - a.valuation)
       .slice(0, 10),
+    regionCategoryBreakdown: Object.entries(regionCategoryMap)
+      .flatMap(([region, byCategory]) =>
+        Object.entries(byCategory).map(([category, { count, valuation }]) => ({
+          region,
+          category,
+          count,
+          valuation: Math.round(valuation),
+        }))
+      )
+      .sort((a, b) => b.count - a.count || b.valuation - a.valuation),
     maturityPlanning: {
       readyNow: { count: readyNow, percent: pct(readyNow) },
       preserve: { count: preserve, percent: pct(preserve) },

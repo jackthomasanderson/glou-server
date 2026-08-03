@@ -36,6 +36,38 @@ export type RetentionConfig = {
   guestShareRetentionDays: number;
 };
 
+// ─── FEAT-18: Scheduled Backups ───────────────────────────────────────────────
+
+export type BackupConfig = {
+  backupEnabled: boolean;
+  backupRetentionDays: number;
+  backupHourUtc: number;
+};
+
+// ─── FEAT-54: Network Configuration & External Access ────────────────────────
+
+export type AccessMode = 'direct' | 'proxy';
+
+const ACCESS_MODES: readonly AccessMode[] = ['direct', 'proxy'];
+
+export type NetworkConfigInput = {
+  publicUrl?: string | null;
+  accessMode: AccessMode;
+};
+
+export type NetworkCheckResult = {
+  ok: boolean;
+  warnings: string[];
+};
+
+const DEFAULT_APP_URL = 'http://localhost:3000';
+
+/** `publicUrl` if set (non-empty), else `process.env.APP_URL`, else the hardcoded default. */
+function resolveEffectivePublicUrl(publicUrl: string | null): string {
+  if (publicUrl && publicUrl.trim() !== '') return publicUrl;
+  return process.env.APP_URL ?? DEFAULT_APP_URL;
+}
+
 export type PublicSystemConfig = {
   smtpEnabled: boolean;
   smtpHost: string | null;
@@ -54,6 +86,13 @@ export type PublicSystemConfig = {
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
+  publicUrl: string | null;
+  accessMode: string;
+  // Resolved URL actually used by the app (publicUrl, or APP_URL, or the localhost default).
+  effectivePublicUrl: string;
+  backupEnabled: boolean;
+  backupRetentionDays: number;
+  backupHourUtc: number;
   updatedAt: Date | null;
   updatedBy: string | null;
 };
@@ -87,6 +126,12 @@ export const systemConfigService = {
       logRetentionDays: cfg.logRetentionDays,
       sessionRetentionDays: cfg.sessionRetentionDays,
       guestShareRetentionDays: cfg.guestShareRetentionDays,
+      publicUrl: cfg.publicUrl,
+      accessMode: cfg.accessMode,
+      effectivePublicUrl: resolveEffectivePublicUrl(cfg.publicUrl),
+      backupEnabled: cfg.backupEnabled,
+      backupRetentionDays: cfg.backupRetentionDays,
+      backupHourUtc: cfg.backupHourUtc,
       updatedAt: cfg.updatedAt,
       updatedBy: cfg.updatedBy,
     };
@@ -175,6 +220,80 @@ export const systemConfigService = {
     await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
     await this.logChange(userId, 'retention', old, data);
     return this.getPublic();
+  },
+
+  async updateBackupConfig(data: BackupConfig, userId: string): Promise<PublicSystemConfig> {
+    const old = await getOrCreate();
+    const update = { ...data, updatedBy: userId };
+    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
+    await this.logChange(userId, 'backup', old, data);
+    return this.getPublic();
+  },
+
+  /**
+   * The public URL actually used to build absolute links (QR codes, security
+   * emails, password reset links...). Rétrocompatible: falls back to
+   * `process.env.APP_URL`, then to 'http://localhost:3000', exactly as the
+   * call sites did before FEAT-54 introduced the admin-configurable value.
+   */
+  async getEffectivePublicUrl(): Promise<string> {
+    const cfg = await getOrCreate();
+    return resolveEffectivePublicUrl(cfg.publicUrl);
+  },
+
+  async updateNetworkConfig(data: NetworkConfigInput, userId: string): Promise<PublicSystemConfig> {
+    if (data.publicUrl) {
+      try {
+        void new URL(data.publicUrl);
+      } catch {
+        throw new Error('INVALID_PUBLIC_URL');
+      }
+    }
+    if (!ACCESS_MODES.includes(data.accessMode)) {
+      throw new Error('INVALID_ACCESS_MODE');
+    }
+
+    const old = await getOrCreate();
+    const update: Record<string, unknown> = { updatedBy: userId, accessMode: data.accessMode };
+    if (data.publicUrl !== undefined) {
+      update.publicUrl = data.publicUrl && data.publicUrl.trim() !== '' ? data.publicUrl : null;
+    }
+
+    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
+    await this.logChange(userId, 'network', old, update);
+    return this.getPublic();
+  },
+
+  /**
+   * Non-blocking consistency check for the network configuration. Deliberately
+   * avoids any outbound self-fetch to the configured URL: DNS may not have
+   * propagated yet, the reverse proxy may not be live yet, etc. — a network
+   * probe would produce false negatives unrelated to the actual configuration.
+   * `ok` reflects whether the effective URL is syntactically valid; the rest
+   * are advisory warnings the admin can choose to ignore.
+   */
+  async checkNetworkConsistency(): Promise<NetworkCheckResult> {
+    const cfg = await getOrCreate();
+    const effectiveUrl = resolveEffectivePublicUrl(cfg.publicUrl);
+    const warnings: string[] = [];
+
+    let parsed: URL;
+    try {
+      parsed = new URL(effectiveUrl);
+    } catch {
+      return { ok: false, warnings: ['INVALID_URL'] };
+    }
+
+    if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
+      warnings.push('NOT_HTTPS_IN_PRODUCTION');
+    }
+
+    const isLocalHost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+    if (cfg.accessMode === 'proxy' && isLocalHost) {
+      warnings.push('PROXY_MODE_LOCALHOST_URL');
+    }
+
+    return { ok: true, warnings };
   },
 
   async getHistory(limit = 50) {

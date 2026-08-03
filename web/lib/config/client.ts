@@ -18,6 +18,12 @@ export interface SystemConfigPublic {
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
+  publicUrl: string | null;
+  accessMode: string;
+  effectivePublicUrl: string;
+  backupEnabled: boolean;
+  backupRetentionDays: number;
+  backupHourUtc: number;
   updatedAt: string | null;
   updatedBy: string | null;
 }
@@ -26,6 +32,36 @@ export interface RetentionConfig {
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
+}
+
+export interface NetworkConfig {
+  publicUrl: string | null;
+  accessMode: 'direct' | 'proxy';
+}
+
+export interface NetworkCheckResult {
+  ok: boolean;
+  warnings: string[];
+}
+
+// ─── FEAT-18: Scheduled Backups ───────────────────────────────────────────────
+
+export interface BackupConfig {
+  backupEnabled: boolean;
+  backupRetentionDays: number;
+  backupHourUtc: number;
+}
+
+export interface BackupRunEntry {
+  id: string;
+  runAt: string;
+  trigger: 'scheduled' | 'manual';
+  triggeredBy: string | null;
+  success: boolean;
+  filePath: string | null;
+  fileSizeBytes: number | null;
+  error: string | null;
+  durationMs: number | null;
 }
 
 export interface MaintenanceRunCounts {
@@ -101,6 +137,16 @@ export const configClient = {
     return data;
   },
 
+  async updateNetwork(payload: NetworkConfig): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/network', payload);
+    return data;
+  },
+
+  async checkNetwork(): Promise<NetworkCheckResult> {
+    const { data } = await client.post<NetworkCheckResult>('/admin/config/network/check', {});
+    return data;
+  },
+
   async getMaintenanceRuns(): Promise<MaintenanceRunEntry[]> {
     const { data } = await client.get<MaintenanceRunEntry[]>('/admin/maintenance/runs');
     return data;
@@ -124,6 +170,29 @@ export const configClient = {
   async getHistory(): Promise<ConfigHistoryEntry[]> {
     const { data } = await client.get<ConfigHistoryEntry[]>('/admin/config/history');
     return data;
+  },
+
+  async updateBackupConfig(payload: BackupConfig): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/backup', payload);
+    return data;
+  },
+
+  async getBackupRuns(): Promise<BackupRunEntry[]> {
+    const { data } = await client.get<BackupRunEntry[]>('/admin/backups/runs');
+    return data;
+  },
+
+  async runBackupNow(): Promise<BackupRunEntry> {
+    const { data } = await client.post<BackupRunEntry>('/admin/backups/run', {});
+    return data;
+  },
+
+  async restoreBackup(id: string): Promise<void> {
+    await client.post(`/admin/backups/${id}/restore`, { confirm: true });
+  },
+
+  getBackupDownloadUrl(id: string): string {
+    return `/api/admin/backups/${id}/download`;
   },
 
   async getNotifPrefs(): Promise<NotificationPrefs> {

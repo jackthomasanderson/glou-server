@@ -173,3 +173,16 @@ export const guestInventoryUpdateSchema = z
   .strict();
 
 export type GuestInventoryUpdate = z.infer<typeof guestInventoryUpdateSchema>;
+
+// ─── Field rollback (FEAT-05) ────────────────────────────────────────────────
+// Restores a single field to a value already present in the item's real
+// audit history (see InventoryService.rollbackField, which re-validates
+// `toValue` server-side against the tracked history — this schema only
+// checks shape).
+
+export const rollbackFieldSchema = z.object({
+  field: z.string().min(1).max(100),
+  toValue: z.unknown(),
+});
+
+export type RollbackFieldInput = z.infer<typeof rollbackFieldSchema>;

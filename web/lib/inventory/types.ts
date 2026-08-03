@@ -5,6 +5,12 @@ import { z } from 'zod';
 export type InventoryCategory = 'wine' | 'sparkling' | 'spirit' | 'cigar';
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
+// ─── Field source transparency (FEAT-05) ────────────────────────────────────
+// Origin of a field's current value. A field absent from `fieldSources` is
+// implicitly 'manual' — no external enrichment source (Vivino, Whiskybase,
+// OCR) is actually wired up yet, that remains roadmap (see design.md).
+export type FieldSource = 'manual' | 'ocr' | 'import_csv' | 'enrichment';
+
 export interface CollectionSummary {
   id: string;
   name: string;
@@ -77,6 +83,8 @@ export interface InventoryItem {
   alertStatus?: AlertStatus | null;
   alertsPaused?: boolean;
   lockedFields: string[];
+  // Per-field source tag (FEAT-05) — absent field = implicit 'manual'
+  fieldSources?: Partial<Record<string, FieldSource>> | null;
   deletedAt?: string | null;
   createdAt: string;
   updatedAt: string;

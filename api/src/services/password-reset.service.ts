@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma';
 import { emailService } from './email.service';
+import { systemConfigService } from './system-config.service';
 
 const TOKEN_TTL_MINUTES = 15;
 
@@ -22,7 +23,7 @@ export const passwordResetService = {
       data: { userId: user.id, tokenHash, expiresAt },
     });
 
-    const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+    const appUrl = await systemConfigService.getEffectivePublicUrl();
     const resetUrl = `${appUrl}/reset-password/${rawToken}`;
 
     const lang = user.language ?? 'FR';

@@ -445,6 +445,7 @@
     "appNamePlaceholder": "Ex: My Private Cellar",
     "appSlogan": "Custom App Slogan",
     "appSloganPlaceholder": "Your motto...",
+    "reviewOnboarding": "Review the getting started guide",
     "security": "Account Security",
     "changeEmail": "Change Email Address",
     "changePassword": "Change Password",
@@ -667,7 +668,24 @@
       "create": "Created",
       "update": "Updated",
       "delete": "Deleted",
-      "restore": "Restored"
+      "restore": "Restored",
+      "restore_field": "Value restored"
+    },
+    "restoredField": "Value restored: {{field}}",
+    "restoreValue": "Restore this value",
+    "restoreConfirm": {
+      "title": "Restore this value?",
+      "body": "The \"{{field}}\" field will be restored to: {{value}}. This restoration is itself recorded in the history.",
+      "confirm": "Restore"
+    },
+    "restoreError": "Unable to restore this value.",
+    "booleanTrue": "Yes",
+    "booleanFalse": "No",
+    "source": {
+      "manual": "Manual entry",
+      "import_csv": "CSV import",
+      "ocr": "Scan (OCR)",
+      "enrichment": "Auto enrichment"
     }
   },
   "collections": {
@@ -769,6 +787,39 @@
       "valuation": "Valuation:",
       "noRegions": "No regions set in your inventory."
     },
+    "map": {
+      "mode": {
+        "markers": "Markers",
+        "heatmap": "Heatmap by type"
+      },
+      "heatmapType": {
+        "label": "Asset type",
+        "dominant": "Dominant category"
+      },
+      "filters": {
+        "title": "Filters",
+        "type": "Asset type",
+        "priceRange": "Price range (€)",
+        "vintageRange": "Vintage / Year",
+        "min": "Min",
+        "max": "Max",
+        "rating": "Rating",
+        "ratingAny": "Any rating",
+        "ratingMinLabel": "{{count}}+ ",
+        "ratingHint": "Based on the 50 most recently logged tastings — an approximation, not the full history.",
+        "state": "State",
+        "stateAll": "All",
+        "stateInCellar": "In cellar (unopened)",
+        "stateOpened": "Opened"
+      },
+      "list": {
+        "title": "Assets in the selected region",
+        "titleAll": "Assets matching the filters",
+        "empty": "No assets match the selected filters.",
+        "itemCount": "{{count}} asset(s)"
+      },
+      "regionSelected": "Selected region: {{region}}"
+    },
     "categories": {
       "title": "Category breakdown",
       "active": "Active",
@@ -867,6 +918,16 @@
     "exportTitle": "Export my data",
     "exportDescription": "Download a full copy of your personal data in JSON format (GDPR).",
     "exportButton": "Export",
+    "exportFilterToggle": "Filter by category",
+    "exportFilterHint": "Select the categories to include in the export. All categories are included by default.",
+    "exportSelectionButton": "Export selection",
+    "exportCategories": {
+      "inventory": "Inventory",
+      "cellars": "Cellars",
+      "collections": "Collections",
+      "tastings": "Tastings",
+      "activity": "Activity log"
+    },
     "deleteTitle": "Delete my account",
     "deleteDescription": "Your account will be scheduled for permanent deletion after a 30-day grace period.",
     "deleteButton": "Delete account",
@@ -878,6 +939,23 @@
     "deletionPending": "Deletion scheduled",
     "deletionDeadline": "Your account will be deleted on {{date}} unless cancelled.",
     "cancelDeletion": "Cancel deletion"
+  },
+  "accessTransparency": {
+    "title": "Access Transparency",
+    "subtitle": "Who currently has access to your account and your data.",
+    "manage": "Manage",
+    "sessions": {
+      "title": "Active sessions",
+      "lastActive": "Last active",
+      "loadError": "Unable to load active sessions.",
+      "empty": "No active session."
+    },
+    "shares": {
+      "title": "Active guest shares",
+      "loadError": "Unable to load shares.",
+      "empty": "No active share.",
+      "unnamed": "Unnamed share"
+    }
   },
   "shares": {
     "title": "Guest Shares",
@@ -1039,6 +1117,8 @@
       "gotify": "Webhook / Gotify",
       "integrations": "API Integrations",
       "retention": "Retention",
+      "backups": "Backups",
+      "network": "Network",
       "history": "History"
     },
     "smtp": {
@@ -1156,6 +1236,151 @@
           "guestShares": "{{count}} shares"
         }
       }
+    },
+    "backup": {
+      "description": "Configure the automatic daily database backup (pg_dump), stored outside the application volume.",
+      "enabled": "Enable automatic backups",
+      "retentionDays": "Backup retention (days)",
+      "retentionDaysHint": "Backup files older than this delay are automatically deleted (7 days minimum recommended).",
+      "hourUtc": "Run time (UTC)",
+      "hourUtcHint": "Time of day (0-23, UTC) at which the scheduled backup is triggered.",
+      "save": "Save configuration",
+      "saved": "Backup configuration saved.",
+      "runNow": {
+        "title": "Manual run",
+        "description": "Immediately triggers a full database backup.",
+        "button": "Back up now",
+        "success": "Backup completed successfully.",
+        "error": "Backup failed: {{error}}"
+      },
+      "history": {
+        "title": "Backup history",
+        "noHistory": "No backup recorded.",
+        "download": "Download this backup",
+        "restore": "Restore this backup",
+        "trigger": {
+          "scheduled": "Scheduled",
+          "manual": "Manual"
+        },
+        "status": {
+          "success": "Success",
+          "error": "Failed"
+        }
+      },
+      "restore": {
+        "modalTitle": "Confirm restore",
+        "modalBody": "This action is irreversible and immediately overwrites all current data on this instance with the content of this backup.",
+        "modalHint": "Type \"{{keyword}}\" to confirm:",
+        "keyword": "RESTORE",
+        "confirm": "Confirm restore",
+        "success": "Restore completed successfully.",
+        "error": "Restore failed."
+      }
+    },
+    "network": {
+      "title": "Network configuration",
+      "description": "Define the instance's reference public URL and how it is exposed (direct access or via a reverse proxy).",
+      "publicUrl": "Public URL",
+      "publicUrlPlaceholder": "https://cellar.mydomain.com",
+      "publicUrlHint": "Leave blank to use the server's APP_URL environment variable.",
+      "accessMode": "Access mode",
+      "accessModeHint": "Indicates whether the application is reached directly or through an external reverse proxy.",
+      "accessModeOptions": {
+        "direct": "Direct access",
+        "proxy": "Via a reverse proxy"
+      },
+      "save": "Save network configuration",
+      "saved": "Network configuration saved.",
+      "summary": {
+        "title": "Active settings summary",
+        "effectiveUrl": "Effective public URL",
+        "fromEnv": "Value comes from the APP_URL environment variable (no public URL set in the database).",
+        "accessMode": "Active access mode"
+      },
+      "check": {
+        "button": "Check configuration",
+        "success": "Configuration is consistent.",
+        "failure": "The network configuration is invalid.",
+        "networkError": "Could not reach the server to run the check.",
+        "warnings": {
+          "INVALID_URL": "The effective public URL is not syntactically valid.",
+          "NOT_HTTPS_IN_PRODUCTION": "The public URL does not use HTTPS while the instance is running in production.",
+          "PROXY_MODE_LOCALHOST_URL": "Access mode is set to \"via a reverse proxy\" but the public URL points to localhost, which is inconsistent for external access."
+        }
+      }
+    }
+  },
+  "onboarding": {
+    "skip": "Skip the wizard",
+    "back": "Back",
+    "welcome": {
+      "title": "Welcome to Glou!",
+      "subtitle": "Let's set up your first cellar together in a few quick steps.",
+      "languageLabel": "Application language",
+      "cta": "Get started"
+    },
+    "cellar": {
+      "title": "Create your first cellar",
+      "subtitle": "Give your cellar a name to start organizing your assets in it.",
+      "namePlaceholder": "E.g. Wine cellar",
+      "skipStep": "Skip this step",
+      "createCta": "Create cellar"
+    },
+    "ingestion": {
+      "title": "How would you like to add your assets?",
+      "subtitle": "Pick the method that suits you best. You can always use the others later.",
+      "skipStep": "Skip this step",
+      "scan": {
+        "title": "Quick Scan",
+        "description": "Photograph your labels for automatic entry.",
+        "unavailable": "Coming soon"
+      },
+      "import": {
+        "title": "File Import",
+        "description": "Import a CSV file listing your assets."
+      },
+      "manual": {
+        "title": "Manual Entry",
+        "description": "Enter your bottles or assets one by one."
+      }
+    },
+    "manual": {
+      "title": "Manual entry",
+      "subtitle": "Add as many assets as you like, then continue.",
+      "addButton": "Add an asset",
+      "itemsAdded": "{{count}} asset(s) added so far",
+      "doneButton": "Finish adding"
+    },
+    "csv": {
+      "title": "CSV Import",
+      "subtitle": "Import a .csv file with the columns: name, producer, category, vintage (optional).",
+      "csvOnlyHint": "Only the CSV format is supported (Excel/.xlsx is not).",
+      "chooseFile": "Choose a CSV file",
+      "chooseAnother": "Choose another file",
+      "parsing": "Analyzing the file…",
+      "validRows": "{{count}} valid row(s)",
+      "errorRows": "{{count}} skipped row(s)",
+      "errorReason": "Row {{row}}: {{reason}}",
+      "noValidRows": "No valid row to import.",
+      "confirmButton": "Confirm import",
+      "errorCodes": {
+        "NAME_REQUIRED": "Name is missing",
+        "NAME_TOO_LONG": "Name exceeds 200 characters",
+        "PRODUCER_REQUIRED": "Producer is missing",
+        "PRODUCER_TOO_LONG": "Producer exceeds 200 characters",
+        "INVALID_CATEGORY": "Invalid category (expected: wine, sparkling, spirit or cigar)",
+        "INVALID_VINTAGE": "Invalid vintage",
+        "INVALID_ROW": "Invalid row"
+      }
+    },
+    "summary": {
+      "title": "All set!",
+      "subtitle": "Here's a recap of your initial setup.",
+      "cellarCreated": "Cellar created: {{name}}",
+      "noCellar": "No cellar created yet",
+      "itemsAdded": "{{count}} asset(s) added to your inventory",
+      "noItems": "No asset added yet",
+      "finishButton": "Go to dashboard"
     }
   },
   "pagination": {

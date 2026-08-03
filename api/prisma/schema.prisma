@@ -47,6 +47,12 @@ model User {
   // RGPD
   deletionRequestedAt DateTime?
 
+  // Onboarding (FEAT-56) — null means the setup wizard hasn't been completed
+  // (or skipped) yet. Re-displayed at next login while null; the wizard
+  // itself deduces its resume step from actual data (cellars/inventory),
+  // there is no separate "current step" column to keep in sync.
+  onboardingCompletedAt DateTime?
+
   // Notifications (FEAT-32)
   notifInApp         Boolean    @default(true)
   notifEmail         Boolean    @default(false)
@@ -198,6 +204,7 @@ model InventoryItem {
 
   // Integrity
   lockedFields String[]  @default([]) // User-locked fields, not overwritten by auto-enrichment
+  fieldSources Json?     // Per-field source tag ({ [field]: 'manual'|'ocr'|'import_csv'|'enrichment' }); absent field = implicit 'manual' (FEAT-05)
   syncedAt     DateTime? // Last third-party sync timestamp
 
   // Soft-delete
@@ -438,6 +445,20 @@ model SystemConfig {
   sessionRetentionDays     Int @default(30)
   guestShareRetentionDays  Int @default(30)
 
+  // Network configuration & external access (FEAT-54). `publicUrl` null means
+  // the instance falls back to the `APP_URL` environment variable (and then
+  // to 'http://localhost:3000') — see systemConfigService.getEffectivePublicUrl.
+  publicUrl  String?
+  accessMode String  @default("direct") // "direct" | "proxy"
+
+  // Scheduled database backups (FEAT-18). `backupHourUtc` is the UTC hour
+  // (0-23) at which the daily cron attempts a scheduled pg_dump — see
+  // backupService.runScheduledIfDue, checked on every cron tick (not just
+  // at startup) so toggling `backupEnabled` takes effect without a restart.
+  backupEnabled       Boolean @default(false)
+  backupRetentionDays Int     @default(7)
+  backupHourUtc       Int     @default(3)
+
   updatedAt DateTime @updatedAt
   updatedBy String?
 }
@@ -456,6 +477,26 @@ model MaintenanceRun {
 
   @@index([runAt])
   @@map("maintenance_runs")
+}
+
+// ─── FEAT-18: Portabilité & Souveraineté des Données — Backups ───────────────
+// History of `pg_dump` runs (design.md "Sauvegarde & Migration": daily cron,
+// timestamped file outside the app volume, 7-day rolling retention). Mirrors
+// MaintenanceRun's shape/style deliberately for consistency.
+
+model BackupRun {
+  id            String   @id @default(uuid())
+  runAt         DateTime @default(now())
+  trigger       String // 'scheduled' | 'manual'
+  triggeredBy   String? // userId, set when trigger = 'manual'
+  success       Boolean
+  filePath      String?
+  fileSizeBytes Int?
+  error         String?
+  durationMs    Int?
+
+  @@index([runAt])
+  @@map("backup_runs")
 }
 
 // ─── FEAT-34: Config Change History ──────────────────────────────────────────

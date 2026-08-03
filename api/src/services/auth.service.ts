@@ -11,6 +11,7 @@ import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.sche
 import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 import { describeDevice, locateIp, countryOfIp } from '../lib/device';
 import { notificationService } from './notification.service';
+import { systemConfigService } from './system-config.service';
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -32,6 +33,10 @@ export interface DeviceInfo {
   userAgent?: string | null;
   ip?: string | null;
 }
+
+// FEAT-18: categories selectable for a filtered personal data export.
+export type ExportCategory = 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity';
+const ALL_EXPORT_CATEGORIES: ExportCategory[] = ['inventory', 'cellars', 'collections', 'tastings', 'activity'];
 
 export type LoginResult =
   | { user: PublicUser; token: string; rememberMe: boolean; requires2fa?: never; viaTrustedDevice?: boolean }
@@ -65,6 +70,9 @@ export interface PublicUser {
   // FEAT-30: Quick Lock & Auto-Lock
   hasPin: boolean;
   autoLockDelayMin: number | null;
+  // FEAT-56: Setup Wizard d'Onboarding — null while the wizard hasn't been
+  // completed or skipped yet.
+  onboardingCompletedAt: Date | null;
 }
 
 /** Shape shared by every Prisma User read used to build a PublicUser (FEAT-30 added pinHash/autoLockDelayMin). */
@@ -85,6 +93,7 @@ interface RawUserForPublic {
   deletionRequestedAt: Date | null;
   pinHash: string | null;
   autoLockDelayMin: number | null;
+  onboardingCompletedAt: Date | null;
 }
 
 function signToken(payload: AuthPayload): string {
@@ -140,6 +149,7 @@ export class AuthService {
       deletionRequestedAt: user.deletionRequestedAt,
       hasPin: !!user.pinHash,
       autoLockDelayMin: user.autoLockDelayMin,
+      onboardingCompletedAt: user.onboardingCompletedAt,
     };
   }
 
@@ -213,7 +223,7 @@ export class AuthService {
     if (!user) return;
     const isEn = (user.notifLanguage ?? user.language) === 'EN';
 
-    const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+    const appUrl = await systemConfigService.getEffectivePublicUrl();
     const securityUrl = `${appUrl}/profile#security`;
     const timestamp = new Date().toLocaleString(isEn ? 'en-US' : 'fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
     const device = describeDevice(deviceInfo.userAgent);
@@ -286,6 +296,7 @@ export class AuthService {
         deletionRequestedAt: true,
         pinHash: true,
         autoLockDelayMin: true,
+        onboardingCompletedAt: true,
       },
     });
     const user = this.toPublicUser(rawUser);
@@ -384,6 +395,7 @@ export class AuthService {
         deletionRequestedAt: true,
         pinHash: true,
         autoLockDelayMin: true,
+        onboardingCompletedAt: true,
       },
     });
     return user ? this.toPublicUser(user) : null;
@@ -421,6 +433,7 @@ export class AuthService {
         deletionRequestedAt: true,
         pinHash: true,
         autoLockDelayMin: true,
+        onboardingCompletedAt: true,
       },
     });
     return this.toPublicUser(user);
@@ -483,6 +496,7 @@ export class AuthService {
         deletionRequestedAt: true,
         pinHash: true,
         autoLockDelayMin: true,
+        onboardingCompletedAt: true,
       }
     });
     return this.toPublicUser(user);
@@ -530,6 +544,7 @@ export class AuthService {
         deletionRequestedAt: true,
         pinHash: true,
         autoLockDelayMin: true,
+        onboardingCompletedAt: true,
       },
     });
     return this.toPublicUser(user);
@@ -683,9 +698,16 @@ export class AuthService {
     this.notifySecurityEvent(userId, 'twoFactorDisabled', deviceInfo);
   }
 
-  // ─── RGPD Methods (FEAT-38) ─────────────────────────────────────────────────
+  // ─── RGPD Methods (FEAT-38 / FEAT-18) ────────────────────────────────────────
 
-  async exportUserData(userId: string): Promise<Record<string, unknown>> {
+  /**
+   * FEAT-18: category-filtered export. `categories` is optional and defaults
+   * to "everything" — rétrocompatible with the pre-FEAT-18 full JSON export
+   * (FEAT-38). An unknown/typo'd category is silently ignored rather than
+   * rejected, since this filters an already-authorized personal export
+   * rather than validating a write.
+   */
+  async exportUserData(userId: string, categories?: ExportCategory[]): Promise<Record<string, unknown>> {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
       include: {
@@ -697,7 +719,12 @@ export class AuthService {
       },
     });
 
-    return {
+    const selected = categories && categories.length > 0
+      ? categories.filter((c): c is ExportCategory => ALL_EXPORT_CATEGORIES.includes(c))
+      : ALL_EXPORT_CATEGORIES;
+    const includes = (cat: ExportCategory) => selected.includes(cat);
+
+    const result: Record<string, unknown> = {
       profile: {
         id: user.id,
         username: user.username,
@@ -707,18 +734,23 @@ export class AuthService {
         language: user.language,
         theme: user.theme,
       },
-      inventory: user.inventory,
-      cellars: user.cellars,
-      collections: user.collections,
-      tastingNotes: user.tastingNotes,
-      activityLog: user.auditLogs.map(l => ({
+    };
+
+    if (includes('inventory')) result.inventory = user.inventory;
+    if (includes('cellars')) result.cellars = user.cellars;
+    if (includes('collections')) result.collections = user.collections;
+    if (includes('tastings')) result.tastingNotes = user.tastingNotes;
+    if (includes('activity')) {
+      result.activityLog = user.auditLogs.map(l => ({
         action: l.action,
         status: l.status,
         createdAt: l.createdAt,
         ip: l.ip,
-      })),
-      exportedAt: new Date().toISOString(),
-    };
+      }));
+    }
+
+    result.exportedAt = new Date().toISOString();
+    return result;
   }
 
   async requestAccountDeletion(userId: string): Promise<void> {
@@ -733,6 +765,42 @@ export class AuthService {
       where: { id: userId },
       data: { deletionRequestedAt: null },
     });
+  }
+
+  // ─── Onboarding (FEAT-56) ───────────────────────────────────────────────────
+
+  /**
+   * Mark the setup wizard as done — either because the user finished it or
+   * because they explicitly skipped it. Both cases stamp the same field:
+   * from a "show it again automatically?" standpoint they're equivalent.
+   * The wizard remains reachable afterwards from the profile page, which
+   * re-opens it on demand without touching this timestamp.
+   */
+  async completeOnboarding(userId: string): Promise<PublicUser> {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { onboardingCompletedAt: new Date() },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        avatarUrl: true,
+        appName: true,
+        appSlogan: true,
+        theme: true,
+        language: true,
+        tempUnit: true,
+        accentColor: true,
+        dateFormat: true,
+        isAdmin: true,
+        createdAt: true,
+        deletionRequestedAt: true,
+        pinHash: true,
+        autoLockDelayMin: true,
+        onboardingCompletedAt: true,
+      },
+    });
+    return this.toPublicUser(user);
   }
 
   // ─── 2FA Methods ────────────────────────────────────────────────────────────

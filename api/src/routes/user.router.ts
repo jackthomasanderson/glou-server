@@ -1,12 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import { authService } from '../services/auth.service';
+import { authService, ExportCategory } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { avatarUpload } from '../middleware/upload.middleware';
-import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema } from '../schemas/user.schema';
+import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema } from '../schemas/user.schema';
 import { prisma } from '../lib/prisma';
 import { notificationService } from '../services/notification.service';
 import { systemConfigService } from '../services/system-config.service';
+import { auditLog } from '../services/audit.service';
 
 const router = Router();
 
@@ -140,11 +141,16 @@ router.patch('/preferences', authMiddleware, async (req: Request, res: Response)
 
 /**
  * GET /api/user/export
- * RGPD: export all personal data as JSON (FEAT-38)
+ * RGPD: export personal data as JSON — full by default, or filtered via
+ * `?categories=inventory,tastings` (FEAT-38 full export, FEAT-18 category filter)
  */
 router.get('/export', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const data = await authService.exportUserData(req.userId);
+    const raw = typeof req.query.categories === 'string' ? req.query.categories : undefined;
+    const categories = raw
+      ? (raw.split(',').map((c) => c.trim()).filter(Boolean) as ExportCategory[])
+      : undefined;
+    const data = await authService.exportUserData(req.userId, categories);
     res.setHeader('Content-Disposition', 'attachment; filename="glou-export.json"');
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(data, null, 2));
@@ -175,6 +181,35 @@ router.post('/cancel-delete', authMiddleware, async (req: Request, res: Response
     await authService.cancelAccountDeletion(req.userId);
     res.json({ data: { ok: true } });
   } catch {
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+// ─── Onboarding (FEAT-56) ─────────────────────────────────────────────────────
+
+/**
+ * POST /api/user/onboarding/complete
+ * Mark the setup wizard as finished or explicitly skipped — either way the
+ * wizard stops auto-displaying at next login (see AuthGuard on the frontend).
+ * It remains reachable manually afterwards from the profile page.
+ */
+router.post('/onboarding/complete', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { skipped } = completeOnboardingSchema.parse(req.body ?? {});
+    const user = await authService.completeOnboarding(req.userId);
+    await auditLog({
+      userId: req.userId,
+      ip: getClientIp(req),
+      action: 'ONBOARDING_COMPLETE',
+      status: 'success',
+      details: { skipped },
+    });
+    res.json({ data: user });
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      return;
+    }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
