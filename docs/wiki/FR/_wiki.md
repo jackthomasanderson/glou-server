@@ -13,3 +13,7 @@ Bienvenue sur le wiki de Glou. Cette documentation est strictement focalisée su
 8. [Autocomplétion & Recherche d'Image](./08-Autocompletion-Image.md)
 9. [Journal de Dégustation](./09-Journal-Degustation.md)
 10. [Journal d'Audit des Actions](./10-Audit-Actions.md)
+11. [Sessions & Appareils de Confiance](./11-Sessions-Appareils-De-Confiance.md)
+12. [Notifications de Sécurité](./12-Notifications-De-Securite.md)
+13. [Verrouillage Rapide & Auto-Lock](./13-Verrouillage-Rapide-Auto-Lock.md)
+14. [Partage Invité en Lecture/Écriture](./14-Partage-Invite-Acces-Ecriture.md)

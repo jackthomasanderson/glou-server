@@ -53,6 +53,10 @@ Open [http://localhost:3000](http://localhost:3000) and click **Register**. The 
 - ⚡ **Express Label Scanning (FEAT-04)**: Session mode for scanning dozens of bottles in one go.
 
 ### ✅ Recently Implemented
+- 🔐 **Session & Trusted Device Management (FEAT-25)**: See every device logged into your account, disconnect any of them remotely, and skip repeated 2FA prompts on devices you trust.
+- 🚨 **Security Notifications (FEAT-29)**: Get alerted instantly by email or in-app when a new device logs in, your password changes, or 2FA is toggled — with a direct link to your security settings.
+- 🔒 **Quick Lock & Auto-Lock (FEAT-30)**: Lock the app in one click or let it lock itself after inactivity, then unlock with your password or a short PIN — no need to log back in.
+- ✍️ **Guest Sharing with Write Access (FEAT-37)**: Let friends log tastings and update fill levels on specific cellars you share with them, without giving them a full account.
 - 📸 **Graphical Item Visualization (FEAT-69)**: Auto image search as soon as name and producer are filled (DuckDuckGo, local storage). Photo displayed at the top of inventory cards and in the detail view, Vivino-style. Replace via manual search, URL paste, or file upload.
 - 🗺️ **Visual Cellar Map (FEAT-68)**: Grid-based occupancy view of cellar slots, drag & drop bottle placement, color-coded by product category.
 - ✨ **Smart Autocomplete (FEAT-66)**: Google-powered suggestions for name and producer when adding a bottle — vintage auto-extracted from suggestions.

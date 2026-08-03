@@ -13,3 +13,7 @@ Welcome to the Glou wiki. This documentation strictly focuses on setup, configur
 8. [Autocomplete & Image Search](./08-Autocomplete-Image.md)
 9. [Tasting Journal](./09-Tasting-Journal.md)
 10. [Audit Log](./10-Audit-Log.md)
+11. [Sessions & Trusted Devices](./11-Sessions-Trusted-Devices.md)
+12. [Security Notifications](./12-Security-Notifications.md)
+13. [Quick Lock & Auto-Lock](./13-Quick-Lock-Auto-Lock.md)
+14. [Guest Sharing: Read/Write Access](./14-Guest-Sharing-Write-Access.md)

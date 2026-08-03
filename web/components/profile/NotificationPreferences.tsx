@@ -46,9 +46,9 @@ export function NotificationPreferences() {
     try {
       const result = await configClient.testNotifChannel(channel);
       if (result.success) showFeedback('success', t('notifications.channels.testSuccess'));
-      else showFeedback('error', t('notifications.channels.testError', { error: result.error ?? 'Unknown' }));
+      else showFeedback('error', t('notifications.channels.testError', { error: result.error ?? t('notifications.channels.unknownError') }));
     } catch {
-      showFeedback('error', t('notifications.channels.testError', { error: 'Network error' }));
+      showFeedback('error', t('notifications.channels.testError', { error: t('notifications.channels.networkError') }));
     } finally {
       setTestingChannel(null);
     }

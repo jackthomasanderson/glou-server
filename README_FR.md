@@ -53,6 +53,10 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **
 - ⚡ **Scan Express (FEAT-04)** : Mode session pour scanner des dizaines de bouteilles d'affilée.
 
 ### ✅ Récemment Ajouté
+- 🔐 **Gestion des Sessions & Appareils de Confiance (FEAT-25)** : Consultez tous les appareils connectés à votre compte, déconnectez-en n'importe lequel à distance, et évitez de ressaisir votre code 2FA sur les appareils de confiance.
+- 🚨 **Notifications de Sécurité (FEAT-29)** : Soyez alerté instantanément par email ou in-app en cas de nouvelle connexion, changement de mot de passe ou activation/désactivation du 2FA — avec un lien direct vers vos paramètres de sécurité.
+- 🔒 **Verrouillage Rapide & Auto-Lock (FEAT-30)** : Verrouillez l'application en un clic ou laissez-la se verrouiller seule après inactivité, puis déverrouillez avec votre mot de passe ou un code PIN court — sans avoir à vous reconnecter.
+- ✍️ **Partage Invité en Écriture (FEAT-37)** : Laissez des amis enregistrer des dégustations et mettre à jour les niveaux de remplissage sur les caves que vous partagez avec eux, sans leur créer de compte complet.
 - 📸 **Visualisation Graphique des Items (FEAT-69)** : Image automatique dès que le nom et le producteur sont saisis (DuckDuckGo, stockage local). Photo en haut des cartes inventaire et en tête de fiche, à la Vivino. Remplacement via recherche manuelle, collage d'URL ou upload fichier.
 - 🗺️ **Plan Visuel de Cave (FEAT-68)** : Vue en grille des emplacements de cave, drag & drop pour positionner les bouteilles, colorée par catégorie de produit.
 - ✨ **Autocomplétion & Recherche d'Image (FEAT-66)** : Suggestions Google pour le nom et le producteur à la saisie — millésime extrait automatiquement.

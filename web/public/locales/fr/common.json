@@ -1001,7 +1001,9 @@
       "disabledByAdmin": "Désactivé par l'administrateur",
       "test": "Tester",
       "testSuccess": "Notification de test envoyée.",
-      "testError": "Échec du test : {{error}}"
+      "testError": "Échec du test : {{error}}",
+      "unknownError": "Erreur inconnue",
+      "networkError": "Erreur réseau"
     },
     "categories": {
       "title": "Catégories d'alertes",

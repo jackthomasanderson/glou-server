@@ -1001,7 +1001,9 @@
       "disabledByAdmin": "Disabled by administrator",
       "test": "Test",
       "testSuccess": "Test notification sent.",
-      "testError": "Test failed: {{error}}"
+      "testError": "Test failed: {{error}}",
+      "unknownError": "Unknown error",
+      "networkError": "Network error"
     },
     "categories": {
       "title": "Alert categories",
