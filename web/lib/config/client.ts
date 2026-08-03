@@ -56,7 +56,7 @@ export interface BackupRunEntry {
   id: string;
   runAt: string;
   trigger: 'scheduled' | 'manual';
-  triggeredBy: string | null;
+  userId: string | null;
   success: boolean;
   filePath: string | null;
   fileSizeBytes: number | null;
@@ -75,7 +75,7 @@ export interface MaintenanceRunEntry {
   id: string;
   runAt: string;
   trigger: 'scheduled' | 'manual';
-  triggeredBy: string | null;
+  userId: string | null;
   success: boolean;
   counts: MaintenanceRunCounts | null;
   error: string | null;

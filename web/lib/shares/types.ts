@@ -2,7 +2,6 @@ export type ShareStatus = 'active' | 'expired' | 'revoked';
 
 export interface GuestShare {
   id: string;
-  token: string;
   label: string | null;
   inviteeName: string | null;
   expiresAt: string | null;
@@ -12,9 +11,18 @@ export interface GuestShare {
   cellarIds: string[];
   writeCellarIds: string[];
   collectionIds: string[];
-  createdBy: string;
+  userId: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Returned only once, right after creation — the raw share link token.
+ * The server only ever persists its hash (security fix), so it cannot be
+ * retrieved again afterwards; the UI must surface it to the user immediately.
+ */
+export interface CreatedGuestShare extends GuestShare {
+  token: string;
 }
 
 export interface ShareFormValues {

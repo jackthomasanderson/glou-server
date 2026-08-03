@@ -208,7 +208,7 @@ model InventoryItem {
   fillLevel    Int?      // 0-100 (%)
   openedAt     DateTime?
   reminderDate DateTime?
-  alertStatus  String?   // none, approaching, peak, past (auto-computed from peakMaturityFrom/To)
+  alertStatus  AlertStatus? // auto-computed from peakMaturityFrom/To, see alert.service.ts#computeAlertStatus
 
   // Traceability
   updatedBy    String?   // userId of the last editor (null = no edits yet)
@@ -229,7 +229,10 @@ model InventoryItem {
   tastingNotes TastingNote[]
   countEntries InventoryCountEntry[]
 
-  @@index([userId])
+  // No standalone `@@index([userId])` — `[userId, deletedAt]` and
+  // `[userId, category]` below already cover it via the leftmost-prefix
+  // rule, and `userId` is audit-only here (design.md), never queried alone
+  // as a filter. Dead write-cost index removed (data-model audit finding).
   @@index([userId, deletedAt])
   @@index([userId, category])
   @@index([alertStatus])
@@ -262,6 +265,15 @@ enum BottleCategory {
   sparkling
   spirit
   cigar
+}
+
+// Closed set auto-computed by alert.service.ts#computeAlertStatus — never
+// user-input, safe to enforce at the DB level.
+enum AlertStatus {
+  none
+  approaching
+  peak
+  past
 }
 
 enum MaturityMode {
@@ -323,7 +335,11 @@ model Collection {
 
 model GuestShare {
   id            String    @id @default(cuid())
-  token         String    @unique @default(cuid())
+  // Hashed at rest (security audit finding) — the raw token
+  // (crypto.randomBytes(32)) is only ever known once, at creation (see
+  // shares.service.ts#create / hashToken). Same pattern as
+  // PasswordResetToken.tokenHash / TrustedDevice.tokenHash.
+  tokenHash     String    @unique
   label         String?
   inviteeName   String? // Display name of the invited person (FEAT-37), distinct from `label`
   expiresAt     DateTime?
@@ -335,12 +351,14 @@ model GuestShare {
   // but absent here remain read-only. Never a superset of cellarIds.
   writeCellarIds String[] @default([])
   collectionIds String[]
-  createdBy     String
+  userId        String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  @@index([createdBy])
-  @@index([token])
+  // No `@@index([tokenHash])` here — `@unique` above already creates one;
+  // an explicit duplicate index only costs write throughput for no read
+  // benefit (data-model audit finding).
+  @@index([userId])
   @@map("guest_shares")
 }
 
@@ -422,7 +440,8 @@ model Session {
   expiresAt    DateTime
   revokedAt    DateTime?
 
-  @@index([userId])
+  // No standalone `@@index([userId])` — `[userId, revokedAt]` below already
+  // covers it via the leftmost-prefix rule (data-model audit finding).
   @@index([userId, revokedAt])
   @@map("sessions")
 }
@@ -445,6 +464,11 @@ model TrustedDevice {
 }
 
 // ─── FEAT-34/53: System Configuration (singleton) ────────────────────────────
+
+enum AccessMode {
+  direct
+  proxy
+}
 
 model SystemConfig {
   id String @id @default("singleton")
@@ -482,7 +506,7 @@ model SystemConfig {
   // the instance falls back to the `APP_URL` environment variable (and then
   // to 'http://localhost:3000') — see systemConfigService.getEffectivePublicUrl.
   publicUrl  String?
-  accessMode String  @default("direct") // "direct" | "proxy"
+  accessMode AccessMode @default(direct)
 
   // Scheduled database backups (FEAT-18). `backupHourUtc` is the UTC hour
   // (0-23) at which the daily cron attempts a scheduled pg_dump — see
@@ -498,15 +522,20 @@ model SystemConfig {
 
 // ─── FEAT-39: Maintenance & Data Retention ────────────────────────────────────
 
+enum RunTrigger {
+  scheduled
+  manual
+}
+
 model MaintenanceRun {
-  id          String   @id @default(uuid())
-  runAt       DateTime @default(now())
-  trigger     String // 'scheduled' | 'manual'
-  triggeredBy String? // userId, set when trigger = 'manual'
-  success     Boolean
-  counts      Json?
-  error       String?
-  durationMs  Int?
+  id         String     @id @default(uuid())
+  runAt      DateTime   @default(now())
+  trigger    RunTrigger
+  userId     String? // set when trigger = 'manual'
+  success    Boolean
+  counts     Json?
+  error      String?
+  durationMs Int?
 
   @@index([runAt])
   @@map("maintenance_runs")
@@ -518,10 +547,10 @@ model MaintenanceRun {
 // MaintenanceRun's shape/style deliberately for consistency.
 
 model BackupRun {
-  id            String   @id @default(uuid())
-  runAt         DateTime @default(now())
-  trigger       String // 'scheduled' | 'manual'
-  triggeredBy   String? // userId, set when trigger = 'manual'
+  id            String     @id @default(uuid())
+  runAt         DateTime   @default(now())
+  trigger       RunTrigger
+  userId        String? // set when trigger = 'manual'
   success       Boolean
   filePath      String?
   fileSizeBytes Int?
@@ -549,22 +578,28 @@ model ConfigChangeLog {
 }
 
 // ─── FEAT-12: Inventaire Physique Assisté & Réconciliation ───────────────────
-// Shared-inventory sessions, like Cellar/InventoryItem: `startedBy` is who
+// Shared-inventory sessions, like Cellar/InventoryItem: `userId` is who
 // launched the session (audit/display only, e.g. "started by X"), but the
 // session and its entries are visible/actionable by any authenticated member
 // — no userId access filter anywhere in inventory-count.service.ts (see
 // design.md invariant: userId = audit only, never an access filter).
 
+enum InventoryCountSessionStatus {
+  active
+  paused
+  completed
+}
+
 model InventoryCountSession {
-  id            String    @id @default(uuid())
-  scopeLabel    String // Libellé libre du périmètre (ex: "Cave Principale", "Meuble A", "Bac 3")
-  cellarId      String? // Optionnel : lien vers une Cellar si le périmètre correspond à une cave entière
-  status        String // 'active' | 'paused' | 'completed'
-  startedBy     String
-  startedByUser User      @relation(fields: [startedBy], references: [id], onDelete: Cascade)
-  startedAt     DateTime  @default(now())
-  pausedAt      DateTime?
-  completedAt   DateTime?
+  id          String                       @id @default(uuid())
+  scopeLabel  String // Libellé libre du périmètre (ex: "Cave Principale", "Meuble A", "Bac 3")
+  cellarId    String? // Optionnel : lien vers une Cellar si le périmètre correspond à une cave entière
+  status      InventoryCountSessionStatus
+  userId      String
+  user        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt   DateTime                     @default(now())
+  pausedAt    DateTime?
+  completedAt DateTime?
 
   entries InventoryCountEntry[]
 
@@ -585,25 +620,32 @@ model InventoryCountSession {
 // which IS shared inventory like everything else from that point on —
 // only the wish itself and its budget tracking stay personal.
 
+enum WishlistStatus {
+  active
+  acquired
+  cancelled
+}
+
 model WishlistItem {
-  id             String    @id @default(uuid())
+  id             String         @id @default(uuid())
   userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
   producer       String?
   category       BottleCategory
   vintage        Int?
-  targetQuantity Int       @default(1)
+  targetQuantity Int            @default(1)
   maxPrice       Float?
   lastSeenPrice  Float?
   lastSeenAt     DateTime?
-  status         String    @default("active") // 'active' | 'acquired' | 'cancelled'
+  status         WishlistStatus @default(active)
   acquiredItemId String? // link to the InventoryItem created on conversion, if any
   notes          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  @@index([userId])
+  // No standalone `@@index([userId])` — `[userId, status]` below already
+  // covers it via the leftmost-prefix rule (data-model audit finding).
   @@index([userId, status])
   @@map("wishlist_items")
 }
@@ -622,18 +664,38 @@ model BudgetEnvelope {
   @@map("budget_envelopes")
 }
 
+enum InventoryCountEntryStatus {
+  confirmed
+  unexpected
+}
+
 // Only 'confirmed' and 'unexpected' are ever persisted here — 'missing' is
 // DERIVED at read time (theoretical list minus confirmed entries, see
 // inventory-count.service.ts#getSessionReport) rather than stored, so there
 // is never a second source of truth that could drift out of sync with the
 // live inventory (e.g. an item moved to another cellar mid-session).
+//
+// `itemId` is nullable (spec/code gap-fix, see feature.md): a physical find that
+// matches NO existing InventoryItem — the "ajouter au stock" corrective
+// action from feature.md — has nothing to link to yet. In that case
+// `newItemName`/`newItemCategory`/`newItemQuantity` capture just enough to
+// create the InventoryItem later (see inventory-count.service.ts
+// #applyCorrectionsInternal, action 'add_to_stock'), after which `itemId` is
+// backfilled to the newly-created item. The two are mutually exclusive:
+// `itemId` set XOR the `newItem*` fields set, enforced in application code
+// (recordUnlistedFind / recordScan), not at the DB level.
 model InventoryCountEntry {
-  id        String   @id @default(uuid())
+  id        String                    @id @default(uuid())
   sessionId String
-  session   InventoryCountSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  itemId    String
-  item      InventoryItem         @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  status    String // 'confirmed' | 'unexpected'
+  session   InventoryCountSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  itemId    String?
+  item      InventoryItem?            @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  status    InventoryCountEntryStatus
+
+  newItemName     String?
+  newItemCategory BottleCategory?
+  newItemQuantity Int?
+
   scannedAt DateTime @default(now())
 
   @@index([sessionId])

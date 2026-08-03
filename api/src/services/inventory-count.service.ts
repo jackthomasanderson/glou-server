@@ -1,12 +1,14 @@
-import { Prisma } from '@prisma/client';
+import { BottleCategory, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { CorrectionInput, StartSessionInput } from '../schemas/inventory-count.schema';
+import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
+import { inventoryService } from './inventory.service';
+import { InventoryInput } from '../schemas/inventory.schema';
 
 /**
  * FEAT-12: Inventaire Physique Assisté & Réconciliation.
  *
  * IMPORTANT — shared inventory, no userId access filter (see design.md
- * invariant: userId = audit only, never an access filter). `startedBy` on
+ * invariant: userId = audit only, never an access filter). `userId` on
  * InventoryCountSession and `actingUserId` passed into the correction
  * helpers below are used ONLY to stamp `updatedBy`/audit trails — they are
  * never used to scope a `where` clause on InventoryItem or on the session
@@ -30,7 +32,7 @@ export interface CountSessionDTO {
   scopeLabel: string;
   cellarId: string | null;
   status: string;
-  startedBy: string;
+  userId: string;
   startedAt: Date;
   pausedAt: Date | null;
   completedAt: Date | null;
@@ -48,7 +50,25 @@ const REPORT_ITEM_SELECT = {
 
 type ReportItemRow = Prisma.InventoryItemGetPayload<{ select: typeof REPORT_ITEM_SELECT }>;
 
-export interface CountUnexpectedItem extends ReportItemRow {
+/**
+ * `itemId` is null for a physical find with no match anywhere in the system
+ * yet (the "ajouter au stock" case, see the InventoryCountEntry model
+ * comment in schema.prisma) — `name`/`producer`/`category`/`vintage`/
+ * `photoUrl`/`cellarId` then fall back to the entry's captured
+ * `newItemName`/`newItemCategory` instead of a real InventoryItem's fields.
+ * `entryId` is always present: it's what a 'add_to_stock' correction
+ * targets (there's no `itemId` to target yet).
+ */
+export interface CountUnexpectedItem {
+  entryId: string;
+  itemId: string | null;
+  name: string;
+  producer: string | null;
+  category: BottleCategory;
+  vintage: number | null;
+  photoUrl: string | null;
+  cellarId: string | null;
+  quantity: number | null;
   scannedAt: Date;
 }
 
@@ -66,9 +86,9 @@ export interface SessionReport {
 }
 
 export interface SkippedCorrection {
-  itemId: string;
+  targetId: string;
   action: string;
-  reason: 'item_not_found' | 'fields_locked' | 'field_locked' | 'session_has_no_cellar';
+  reason: 'item_not_found' | 'fields_locked' | 'field_locked' | 'session_has_no_cellar' | 'entry_not_found';
 }
 
 // Row type inferred from the Prisma client (same pattern as inventory.service.ts).
@@ -82,7 +102,7 @@ function toSessionDTO(row: SessionRow): CountSessionDTO {
     scopeLabel: row.scopeLabel,
     cellarId: row.cellarId,
     status: row.status,
-    startedBy: row.startedBy,
+    userId: row.userId,
     startedAt: row.startedAt,
     pausedAt: row.pausedAt,
     completedAt: row.completedAt,
@@ -127,7 +147,7 @@ export async function startSession(userId: string, input: StartSessionInput): Pr
       scopeLabel: input.scopeLabel,
       cellarId: input.cellarId ?? null,
       status: 'active',
-      startedBy: userId,
+      userId,
     },
   });
 
@@ -206,8 +226,50 @@ export async function recordScan(sessionId: string, itemId: string): Promise<Rec
 
   return {
     status: 'success',
-    entry: { id: entry.id, itemId: entry.itemId, entryStatus: entry.status, scannedAt: entry.scannedAt },
+    // `entry.itemId` is always non-null here — this path (recordScan) only
+    // ever creates/updates entries against a real, already-resolved item
+    // (see recordUnlistedFind below for the itemId-null "add_to_stock" path).
+    entry: { id: entry.id, itemId: entry.itemId!, entryStatus: entry.status, scannedAt: entry.scannedAt },
   };
+}
+
+// ─── Unlisted find ("ajouter au stock") ────────────────────────────────────────
+
+export type RecordUnlistedFindResult =
+  | { status: 'success'; entryId: string }
+  | { status: 'session_not_found' }
+  | { status: 'session_not_active' };
+
+/**
+ * Records a physical find that matches NO existing InventoryItem — the third
+ * corrective action promised by feature.md ("ajouter au stock") but
+ * previously impossible to record at all, since InventoryCountEntry.itemId
+ * used to be NOT NULL. Always filed as 'unexpected' (it's by definition not
+ * on the theoretical list) with no itemId; the InventoryItem itself is only
+ * created later, at closure, if the operator confirms the 'add_to_stock'
+ * correction (see applyCorrectionsInternal below) — recording the find here
+ * is just "I saw this physically", not yet "add it to the shared inventory".
+ */
+export async function recordUnlistedFind(
+  sessionId: string,
+  input: RecordFoundItemInput,
+): Promise<RecordUnlistedFindResult> {
+  const session = await prisma.inventoryCountSession.findUnique({ where: { id: sessionId } });
+  if (!session) return { status: 'session_not_found' };
+  if (session.status !== 'active') return { status: 'session_not_active' };
+
+  const entry = await prisma.inventoryCountEntry.create({
+    data: {
+      sessionId,
+      itemId: null,
+      status: 'unexpected',
+      newItemName: input.name,
+      newItemCategory: input.category,
+      newItemQuantity: input.quantity ?? null,
+    },
+  });
+
+  return { status: 'success', entryId: entry.id };
 }
 
 // ─── Report ───────────────────────────────────────────────────────────────────
@@ -231,17 +293,56 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
           orderBy: { name: 'asc' },
         })
       : Promise.resolve([] as ReportItemRow[]),
+    // `OR: [{ itemId: null }, ...]` is required so unlisted finds (itemId
+    // null, "add_to_stock" candidates) aren't dropped: Prisma's relation
+    // filter on an optional to-one (`item: { deletedAt: null }`) excludes
+    // rows where the relation itself is null, same as an inner join.
     prisma.inventoryCountEntry.findMany({
-      where: { sessionId, item: { deletedAt: null } },
+      where: { sessionId, OR: [{ itemId: null }, { item: { deletedAt: null } }] },
       include: { item: { select: REPORT_ITEM_SELECT } },
       orderBy: { scannedAt: 'desc' },
     }),
   ]);
 
-  const confirmed = entries.filter((e) => e.status === 'confirmed').map((e) => e.item);
+  // 'confirmed' entries always carry an item (only recordScan, never
+  // recordUnlistedFind, ever sets status: 'confirmed') — the extra null
+  // filter is just to satisfy the nullable-relation type from Prisma.
+  const confirmed = entries
+    .filter((e) => e.status === 'confirmed')
+    .map((e) => e.item)
+    .filter((item): item is ReportItemRow => item !== null);
+
   const unexpected: CountUnexpectedItem[] = entries
     .filter((e) => e.status === 'unexpected')
-    .map((e) => ({ ...e.item, scannedAt: e.scannedAt }));
+    .map((e) =>
+      e.item
+        ? {
+            entryId: e.id,
+            itemId: e.item.id,
+            name: e.item.name,
+            producer: e.item.producer,
+            category: e.item.category,
+            vintage: e.item.vintage,
+            photoUrl: e.item.photoUrl,
+            cellarId: e.item.cellarId,
+            quantity: null,
+            scannedAt: e.scannedAt,
+          }
+        : {
+            entryId: e.id,
+            itemId: null,
+            // Guaranteed set together by recordUnlistedFind whenever itemId
+            // is null — see the InventoryCountEntry comment in schema.prisma.
+            name: e.newItemName!,
+            producer: null,
+            category: e.newItemCategory!,
+            vintage: null,
+            photoUrl: null,
+            cellarId: null,
+            quantity: e.newItemQuantity,
+            scannedAt: e.scannedAt,
+          },
+    );
 
   const confirmedIds = new Set(confirmed.map((i) => i.id));
   const missing = theoretical.filter((i) => !confirmedIds.has(i.id));
@@ -263,6 +364,43 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
 // ─── Corrective actions (applied at closure) ─────────────────────────────────
 
 /**
+ * Builds the InventoryInput for a newly-confirmed "ajouter au stock" find.
+ * Mirrors import.service.ts#toInventoryInput's pattern exactly (per-category
+ * switch + safe placeholder defaults for fields the capture flow doesn't
+ * collect) for consistency — only name/category/quantity come from the
+ * count session (feature.md); everything else is left as an editable
+ * placeholder, same spirit as the CSV import's `alcoholDegree: 0`.
+ */
+function toInventoryInputForFound(
+  entry: { newItemName: string; newItemCategory: BottleCategory; newItemQuantity: number | null },
+  cellarId: string | null,
+): InventoryInput {
+  const common = {
+    name: entry.newItemName,
+    producer: '',
+    tags: [] as string[],
+    isOpened: false,
+    alertStatus: 'none' as const,
+    cellarId,
+    lockedFields: [] as string[],
+  };
+
+  switch (entry.newItemCategory) {
+    case 'wine':
+      return { ...common, category: 'wine' as const, grapeVarieties: [] as string[] };
+    case 'sparkling':
+      return { ...common, category: 'sparkling' as const };
+    case 'spirit':
+      return { ...common, category: 'spirit' as const, alcoholDegree: 0 };
+    case 'cigar':
+      // The only category InventoryItem models a quantity (box count) on
+      // directly — other categories represent each physical unit as its own
+      // row, so a captured quantity > 1 there stays informational only.
+      return { ...common, category: 'cigar' as const, quantity: entry.newItemQuantity ?? 1 };
+  }
+}
+
+/**
  * Shared implementation used by both the standalone `applyCorrections` and
  * `completeSession` (which must apply corrections AND flip the session
  * status atomically) — accepts a Prisma transaction client so both callers
@@ -282,7 +420,7 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
  */
 async function applyCorrectionsInternal(
   tx: Prisma.TransactionClient,
-  session: { cellarId: string | null },
+  session: { id: string; cellarId: string | null },
   corrections: CorrectionInput[],
   actingUserId: string,
 ): Promise<{ appliedCount: number; skipped: SkippedCorrection[] }> {
@@ -290,9 +428,39 @@ async function applyCorrectionsInternal(
   const skipped: SkippedCorrection[] = [];
 
   for (const correction of corrections) {
+    if (correction.action === 'add_to_stock') {
+      const entry = await tx.inventoryCountEntry.findUnique({ where: { id: correction.entryId } });
+      // Must belong to this session, still be an unresolved find (itemId
+      // null), and carry the invariant newItem* fields set by
+      // recordUnlistedFind — anything else is either a stale/bad entryId or
+      // an entry that was already resolved by an earlier correction.
+      if (
+        !entry ||
+        entry.sessionId !== session.id ||
+        entry.itemId !== null ||
+        !entry.newItemName ||
+        !entry.newItemCategory
+      ) {
+        skipped.push({ targetId: correction.entryId, action: correction.action, reason: 'entry_not_found' });
+        continue;
+      }
+
+      const created = await inventoryService.createItem(
+        actingUserId,
+        toInventoryInputForFound(
+          { newItemName: entry.newItemName, newItemCategory: entry.newItemCategory, newItemQuantity: entry.newItemQuantity },
+          session.cellarId,
+        ),
+        tx,
+      );
+      await tx.inventoryCountEntry.update({ where: { id: entry.id }, data: { itemId: created.id } });
+      appliedCount++;
+      continue;
+    }
+
     const item = await tx.inventoryItem.findFirst({ where: { id: correction.itemId, deletedAt: null } });
     if (!item) {
-      skipped.push({ itemId: correction.itemId, action: correction.action, reason: 'item_not_found' });
+      skipped.push({ targetId: correction.itemId, action: correction.action, reason: 'item_not_found' });
       continue;
     }
 
@@ -303,7 +471,7 @@ async function applyCorrectionsInternal(
       if (!item.lockedFields.includes('isOpened')) patch.isOpened = true;
       if (!item.lockedFields.includes('fillLevel')) patch.fillLevel = 0;
       if (Object.keys(patch).length === 0) {
-        skipped.push({ itemId: correction.itemId, action: correction.action, reason: 'fields_locked' });
+        skipped.push({ targetId: correction.itemId, action: correction.action, reason: 'fields_locked' });
         continue;
       }
       await tx.inventoryItem.update({
@@ -316,11 +484,11 @@ async function applyCorrectionsInternal(
 
     // move_to_scope
     if (!session.cellarId) {
-      skipped.push({ itemId: correction.itemId, action: correction.action, reason: 'session_has_no_cellar' });
+      skipped.push({ targetId: correction.itemId, action: correction.action, reason: 'session_has_no_cellar' });
       continue;
     }
     if (item.lockedFields.includes('cellarId')) {
-      skipped.push({ itemId: correction.itemId, action: correction.action, reason: 'field_locked' });
+      skipped.push({ targetId: correction.itemId, action: correction.action, reason: 'field_locked' });
       continue;
     }
     await tx.inventoryItem.update({

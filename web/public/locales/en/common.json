@@ -879,7 +879,15 @@
       "searchPlaceholder": "Name or producer...",
       "emptyList": "No item to check for this scope.",
       "confirmTap": "Confirm",
-      "pausedNotice": "This session is paused. Resume it to continue counting."
+      "pausedNotice": "This session is paused. Resume it to continue counting.",
+      "foundNew": {
+        "trigger": "Not in the list? Log a new find",
+        "title": "New item found",
+        "description": "Record an item that is physically present but not yet in the system. It's added to the shared inventory once you confirm it when closing the session.",
+        "nameLabel": "Name",
+        "categoryLabel": "Category",
+        "quantityLabel": "Quantity"
+      }
     },
     "status": {
       "confirmed": "Confirmed",
@@ -893,6 +901,8 @@
       "markConsumed": "Mark as consumed",
       "moveToScope": "Move to this scope",
       "moveDisabledNoCellar": "Not available: this scope isn't linked to any cellar",
+      "addToStock": "Add to stock",
+      "newItemBadge": "Not in system",
       "close": "Close session",
       "closeWithCorrections": "Close and apply ({{count}})",
       "completedNotice": "This session is closed."
@@ -1101,6 +1111,11 @@
     "emptyHint": "Create a share link to invite someone to browse your cellar.",
     "copyLink": "Copy link",
     "linkCopied": "Link copied!",
+    "createdModal": {
+      "title": "Share link created",
+      "warning": "Copy this link now — for security, it will never be shown again.",
+      "done": "Done"
+    },
     "revoke": "Revoke",
     "revokeConfirm": "Revoke share \"{{label}}\"? Access will be cut immediately.",
     "statusActive": "Active",

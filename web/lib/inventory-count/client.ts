@@ -6,6 +6,8 @@ import {
   ScanEntry,
   Correction,
   CompleteSessionResult,
+  RecordFoundItemInput,
+  RecordFoundItemResult,
 } from './types';
 
 export const inventoryCountClient = {
@@ -31,6 +33,14 @@ export const inventoryCountClient = {
 
   async scan(sessionId: string, itemId: string): Promise<ScanEntry> {
     const { data } = await client.post<ScanEntry>(`/inventory-count/sessions/${sessionId}/scan`, { itemId });
+    return data;
+  },
+
+  async recordFoundItem(sessionId: string, input: RecordFoundItemInput): Promise<RecordFoundItemResult> {
+    const { data } = await client.post<RecordFoundItemResult>(
+      `/inventory-count/sessions/${sessionId}/found`,
+      input,
+    );
     return data;
   },
 

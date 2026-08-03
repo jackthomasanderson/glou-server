@@ -8,12 +8,13 @@ import {
   ModalContent,
   ModalHeader,
   ModalBody,
+  ModalFooter,
   Spinner,
 } from '@heroui/react';
-import { Link2, Plus } from 'lucide-react';
+import { Link2, Plus, Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShares, useCreateShare, useRevokeShare } from '@/hooks/useShares';
-import { ShareFormValues } from '@/lib/shares/types';
+import { CreatedGuestShare, ShareFormValues } from '@/lib/shares/types';
 import { ShareCard } from './ShareCard';
 import { ShareForm } from './ShareForm';
 
@@ -24,10 +25,33 @@ export function SharesDashboard() {
   const revokeMutation = useRevokeShare();
   const [formOpen, setFormOpen] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
+  // The raw token is only ever known once, right after creation (only its
+  // hash is persisted server-side — security fix) — held here just long
+  // enough to show the "copy it now" panel below.
+  const [createdShare, setCreatedShare] = useState<CreatedGuestShare | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const handleCreate = async (values: ShareFormValues) => {
-    await createMutation.mutateAsync(values);
+    const created = await createMutation.mutateAsync(values);
     setFormOpen(false);
+    setCreatedShare(created);
+  };
+
+  const shareUrl = createdShare
+    ? typeof window !== 'undefined'
+      ? `${window.location.origin}/guest/${createdShare.token}`
+      : `/guest/${createdShare.token}`
+    : '';
+
+  const handleCopyCreatedLink = async () => {
+    await navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const closeCreatedModal = () => {
+    setCreatedShare(null);
+    setCopied(false);
   };
 
   const handleRevoke = async (id: string) => {
@@ -112,6 +136,34 @@ export function SharesDashboard() {
               isLoading={createMutation.isPending}
             />
           </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      {/* Post-creation modal — the ONLY moment the raw link is ever shown. */}
+      <Modal isOpen={!!createdShare} onClose={closeCreatedModal} size="sm" placement="center">
+        <ModalContent>
+          <ModalHeader>{t('shares.createdModal.title')}</ModalHeader>
+          <ModalBody>
+            <p className="text-sm text-warning-600">{t('shares.createdModal.warning')}</p>
+            <div className="rounded-lg bg-content2 border border-divider px-3 py-2 text-xs break-all font-mono">
+              {shareUrl}
+            </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              size="sm"
+              variant="flat"
+              color="default"
+              startContent={copied ? <Check size={13} /> : <Copy size={13} />}
+              onPress={handleCopyCreatedLink}
+              className="flex-1"
+            >
+              {copied ? t('shares.linkCopied') : t('shares.copyLink')}
+            </Button>
+            <Button size="sm" color="primary" onPress={closeCreatedModal}>
+              {t('shares.createdModal.done')}
+            </Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </>

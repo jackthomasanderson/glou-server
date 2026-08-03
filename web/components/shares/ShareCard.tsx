@@ -1,7 +1,7 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 import { Button, Chip } from '@heroui/react';
-import { Copy, Check, Trash2, ExternalLink } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { format, parseISO } from 'date-fns';
 import { GuestShare, getShareStatus } from '@/lib/shares/types';
@@ -18,21 +18,13 @@ const STATUS_COLOR = {
   revoked: 'danger',
 } as const;
 
+// No share link / copy action here: the raw token is only ever known once,
+// right at creation (see SharesDashboard's post-creation modal) — only its
+// hash is persisted server-side (security fix), so it can never be shown
+// again for an existing share in this list.
 export function ShareCard({ share, onRevoke, isRevoking }: ShareCardProps) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
   const status = getShareStatus(share);
-
-  const shareUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/guest/${share.token}`
-      : `/guest/${share.token}`;
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const scopeLabel = (() => {
     if (share.cellarIds.length > 0)
@@ -88,34 +80,11 @@ export function ShareCard({ share, onRevoke, isRevoking }: ShareCardProps) {
           <Button
             size="sm"
             variant="flat"
-            color="default"
-            startContent={copied ? <Check size={13} /> : <Copy size={13} />}
-            onPress={handleCopy}
-            className="flex-1"
-          >
-            {copied ? t('shares.linkCopied') : t('shares.copyLink')}
-          </Button>
-          <Button
-            size="sm"
-            variant="flat"
-            color="default"
-            isIconOnly
-            as="a"
-            href={shareUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={t('actions.view')}
-          >
-            <ExternalLink size={13} />
-          </Button>
-          <Button
-            size="sm"
-            variant="flat"
             color="danger"
             startContent={<Trash2 size={13} />}
             isLoading={isRevoking}
             onPress={() => onRevoke(share.id)}
-            className="shrink-0"
+            className="w-full"
           >
             {t('shares.revoke')}
           </Button>

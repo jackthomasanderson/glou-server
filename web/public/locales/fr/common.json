@@ -879,7 +879,15 @@
       "searchPlaceholder": "Nom ou producteur...",
       "emptyList": "Aucun actif à vérifier pour ce périmètre.",
       "confirmTap": "Confirmer",
-      "pausedNotice": "Cette session est en pause. Reprenez-la pour continuer le comptage."
+      "pausedNotice": "Cette session est en pause. Reprenez-la pour continuer le comptage.",
+      "foundNew": {
+        "trigger": "Introuvable dans la liste ? Enregistrer une trouvaille",
+        "title": "Nouvel article trouvé",
+        "description": "Enregistrez un article physiquement présent mais absent du système. Il est ajouté à l'inventaire partagé une fois confirmé à la clôture de la session.",
+        "nameLabel": "Nom",
+        "categoryLabel": "Catégorie",
+        "quantityLabel": "Quantité"
+      }
     },
     "status": {
       "confirmed": "Confirmé",
@@ -893,6 +901,8 @@
       "markConsumed": "Déclarer consommé",
       "moveToScope": "Déplacer vers ce périmètre",
       "moveDisabledNoCellar": "Non disponible : ce périmètre n'est lié à aucune cave",
+      "addToStock": "Ajouter au stock",
+      "newItemBadge": "Absent du système",
       "close": "Clôturer la session",
       "closeWithCorrections": "Clôturer et appliquer ({{count}})",
       "completedNotice": "Cette session est clôturée."
@@ -1101,6 +1111,11 @@
     "emptyHint": "Créez un lien de partage pour inviter quelqu'un à consulter votre cave.",
     "copyLink": "Copier le lien",
     "linkCopied": "Lien copié !",
+    "createdModal": {
+      "title": "Lien de partage créé",
+      "warning": "Copiez ce lien maintenant : pour des raisons de sécurité, il ne sera plus jamais affiché.",
+      "done": "Terminé"
+    },
     "revoke": "Révoquer",
     "revokeConfirm": "Révoquer le partage « {{label}} » ? L'accès sera immédiatement coupé.",
     "statusActive": "Actif",

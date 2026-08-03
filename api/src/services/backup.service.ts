@@ -188,7 +188,7 @@ export const backupService = {
    * `MaintenanceService.runRetentionCleanup`'s contract so a failing
    * scheduled run can never crash the process.
    */
-  async runBackup(trigger: BackupTrigger, triggeredBy?: string): Promise<BackupRun> {
+  async runBackup(trigger: BackupTrigger, userId?: string): Promise<BackupRun> {
     const startedAt = Date.now();
 
     try {
@@ -206,7 +206,7 @@ export const backupService = {
       return await prisma.backupRun.create({
         data: {
           trigger,
-          triggeredBy: triggeredBy ?? null,
+          userId: userId ?? null,
           success: true,
           filePath: destPath,
           fileSizeBytes: stats.size,
@@ -219,7 +219,7 @@ export const backupService = {
       return prisma.backupRun.create({
         data: {
           trigger,
-          triggeredBy: triggeredBy ?? null,
+          userId: userId ?? null,
           success: false,
           error: message,
           durationMs: Date.now() - startedAt,
@@ -280,7 +280,7 @@ export const backupService = {
    * like authService.deleteAvatar's traversal guard. Always writes an
    * AuditLog entry (success or failure) before returning/throwing.
    */
-  async restoreBackup(filePath: string, triggeredBy: string, ip: string): Promise<void> {
+  async restoreBackup(filePath: string, userId: string, ip: string): Promise<void> {
     const safePath = resolveInsideBackupsDir(filePath);
     if (!fs.existsSync(safePath)) throw new Error('BACKUP_FILE_NOT_FOUND');
 
@@ -288,7 +288,7 @@ export const backupService = {
     try {
       await execPsqlRestore(conn, safePath);
       await auditLog({
-        userId: triggeredBy,
+        userId,
         action: 'BACKUP_RESTORE',
         status: 'success',
         ip,
@@ -297,7 +297,7 @@ export const backupService = {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
       await auditLog({
-        userId: triggeredBy,
+        userId,
         action: 'BACKUP_RESTORE',
         status: 'error',
         ip,

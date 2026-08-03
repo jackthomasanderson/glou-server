@@ -8,10 +8,16 @@ import {
   pauseSession,
   resumeSession,
   recordScan,
+  recordUnlistedFind,
   getSessionReport,
   completeSession,
 } from '../services/inventory-count.service';
-import { startSessionSchema, scanSchema, completeSessionSchema } from '../schemas/inventory-count.schema';
+import {
+  startSessionSchema,
+  scanSchema,
+  completeSessionSchema,
+  recordFoundItemSchema,
+} from '../schemas/inventory-count.schema';
 
 const router = Router();
 
@@ -205,6 +211,51 @@ router.post('/sessions/:id/scan', async (req: Request, res: Response): Promise<v
       status: 'error',
       ip,
       details: { scope: 'inventory-count-scan', sessionId: id, message: String(error) },
+    });
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── POST /api/inventory-count/sessions/:id/found ────────────────────────────
+// Records a physical find with no match in the system yet — the "ajouter au
+// stock" corrective action (FEAT-12 gap-fix). Confirmed into a real
+// InventoryItem only later, at closure (see /complete below).
+
+router.post('/sessions/:id/found', async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const ip = getClientIp(req);
+  try {
+    const input = recordFoundItemSchema.parse(req.body ?? {});
+    const result = await recordUnlistedFind(id, input);
+
+    if (result.status === 'session_not_found') {
+      res.status(404).json({ error: 'SESSION_NOT_FOUND' });
+      return;
+    }
+    if (result.status === 'session_not_active') {
+      res.status(409).json({ error: 'SESSION_NOT_ACTIVE' });
+      return;
+    }
+
+    void auditLog({
+      userId: req.userId,
+      action: 'UPDATE',
+      status: 'success',
+      ip,
+      details: { scope: 'inventory-count-found', sessionId: id, entryId: result.entryId },
+    });
+    res.status(201).json({ data: result });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      return;
+    }
+    void auditLog({
+      userId: req.userId,
+      action: 'UPDATE',
+      status: 'error',
+      ip,
+      details: { scope: 'inventory-count-found', sessionId: id, message: String(error) },
     });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }

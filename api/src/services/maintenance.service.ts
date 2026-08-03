@@ -72,7 +72,7 @@ export class MaintenanceService {
      * row is written outside of it with `success: false` and the error message,
      * so a scheduled run failing never crashes the process.
      */
-    static async runRetentionCleanup(trigger: MaintenanceTrigger, triggeredBy?: string): Promise<MaintenanceRun> {
+    static async runRetentionCleanup(trigger: MaintenanceTrigger, userId?: string): Promise<MaintenanceRun> {
         const startedAt = Date.now();
 
         try {
@@ -132,7 +132,7 @@ export class MaintenanceService {
                 return tx.maintenanceRun.create({
                     data: {
                         trigger,
-                        triggeredBy: triggeredBy ?? null,
+                        userId: userId ?? null,
                         success: true,
                         counts: counts as unknown as Prisma.InputJsonValue,
                         durationMs: Date.now() - startedAt,
@@ -145,7 +145,7 @@ export class MaintenanceService {
             return prisma.maintenanceRun.create({
                 data: {
                     trigger,
-                    triggeredBy: triggeredBy ?? null,
+                    userId: userId ?? null,
                     success: false,
                     error: message,
                     durationMs: Date.now() - startedAt,

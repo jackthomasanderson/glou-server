@@ -4,11 +4,12 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import {
   Card, CardBody, Button, Input, Chip, Progress, CircularProgress,
 } from '@heroui/react';
-import { Pause, Search, CheckCircle2, Circle, AlertTriangle } from 'lucide-react';
+import { Pause, Search, CheckCircle2, Circle, AlertTriangle, PackagePlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CountSession, CountReportItem } from '@/lib/inventory-count/types';
 import { useSessionReport, useScanItem, usePauseCountSession } from '@/hooks/useInventoryCount';
 import { useInventory } from '@/hooks/useInventory';
+import { RecordFoundItemModal } from './RecordFoundItemModal';
 
 const MIN_SEARCH_LENGTH = 2;
 const MAX_SEARCH_RESULTS = 8;
@@ -33,6 +34,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const [autoScannedFor, setAutoScannedFor] = useState<string | null>(null);
+  const [isFoundModalOpen, setIsFoundModalOpen] = useState(false);
 
   // Opening an existing QR code (?scan=itemId — same URL pattern as
   // InventoryDashboard's QR flow, see QrCodeModal.tsx) while a session is
@@ -56,7 +58,12 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   const alreadyRecordedIds = useMemo(() => {
     const ids = new Set<string>();
     (report?.confirmed ?? []).forEach((i) => ids.add(i.id));
-    (report?.unexpected ?? []).forEach((i) => ids.add(i.id));
+    // Only entries backed by a real InventoryItem have something to exclude
+    // here — an "ajouter au stock" find (itemId null) isn't a scannable
+    // existing item, so there's nothing to hide from the search results.
+    (report?.unexpected ?? []).forEach((i) => {
+      if (i.itemId) ids.add(i.itemId);
+    });
     return ids;
   }, [report]);
 
@@ -194,8 +201,26 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
               </div>
             )}
           </div>
+
+          <Button
+            variant="light"
+            color="default"
+            size="sm"
+            startContent={<PackagePlus size={14} />}
+            onPress={() => setIsFoundModalOpen(true)}
+            isDisabled={!isActive}
+            className="self-start"
+          >
+            {t('inventoryCount.session.foundNew.trigger')}
+          </Button>
         </CardBody>
       </Card>
+
+      <RecordFoundItemModal
+        sessionId={session.id}
+        isOpen={isFoundModalOpen}
+        onClose={() => setIsFoundModalOpen(false)}
+      />
 
       <Card radius="lg" shadow="sm">
         <CardBody className="p-0">

@@ -8,6 +8,8 @@ import {
   ScanEntry,
   Correction,
   CompleteSessionResult,
+  RecordFoundItemInput,
+  RecordFoundItemResult,
 } from '@/lib/inventory-count/types';
 
 const ACTIVE_SESSION_KEY = ['inventory-count', 'active'];
@@ -77,6 +79,17 @@ export function useScanItem(sessionId: string) {
   const queryClient = useQueryClient();
   return useMutation<ScanEntry, Error, string>({
     mutationFn: (itemId: string) => inventoryCountClient.scan(sessionId, itemId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: reportKey(sessionId) });
+    },
+  });
+}
+
+/** Records a physical find with no match in the system yet ("ajouter au stock"). */
+export function useRecordFoundItem(sessionId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<RecordFoundItemResult, Error, RecordFoundItemInput>({
+    mutationFn: (input: RecordFoundItemInput) => inventoryCountClient.recordFoundItem(sessionId, input),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: reportKey(sessionId) });
     },

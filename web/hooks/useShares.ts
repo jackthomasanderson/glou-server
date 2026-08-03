@@ -1,7 +1,7 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sharesClient } from '@/lib/shares/client';
-import { GuestShare, ShareFormValues } from '@/lib/shares/types';
+import { CreatedGuestShare, GuestShare, ShareFormValues } from '@/lib/shares/types';
 
 export const SHARES_KEY = ['shares'];
 
@@ -15,7 +15,7 @@ export function useShares() {
 
 export function useCreateShare() {
   const queryClient = useQueryClient();
-  return useMutation<GuestShare, Error, ShareFormValues>({
+  return useMutation<CreatedGuestShare, Error, ShareFormValues>({
     mutationFn: sharesClient.create,
     onSuccess: (created) => {
       queryClient.setQueryData<GuestShare[]>(SHARES_KEY, (old) =>

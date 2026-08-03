@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { ZodError } from 'zod';
 import { guestMiddleware } from '../middleware/guest.middleware';
 import { sharesService } from '../services/shares.service';
@@ -8,6 +9,25 @@ import { auditLog } from '../services/audit.service';
 import { getClientIp } from '../middleware/auth.middleware';
 
 const router = Router({ mergeParams: true });
+
+// This is the only route family meant to be reachable by someone with no
+// account on the instance (design.md), so it's the one realistic target for
+// token brute-forcing (security audit finding). Keyed by IP, not by the
+// `:token` param: an attacker enumerating the token space sends a DIFFERENT
+// token on every request, so a per-token limiter would never see repeat
+// keys and would never trip — only IP (or a global cap) actually throttles
+// enumeration. Runs ahead of `guestMiddleware` so it also covers failed
+// lookups (a wrong guess never gets past `findByToken`), not just requests
+// against an already-valid share. Generous ceiling — a real guest browsing
+// a shared cellar fires many GETs (list + per-item detail) in one sitting.
+const guestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => getClientIp(req),
+});
+router.use(guestLimiter);
 
 // All routes in this router go through guestMiddleware which validates
 // the token, expiry, and revocation status.
@@ -85,7 +105,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
 
     if (!sharesService.canWriteCellar(share, item.cellarId)) {
       void auditLog({
-        userId: share.createdBy,
+        userId: share.userId,
         action: 'GUEST_UPDATE',
         status: 'error',
         ip,
@@ -97,7 +117,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     }
 
     const patch = guestInventoryUpdateSchema.parse(req.body);
-    const result = await inventoryService.updateItem(share.createdBy, itemId, patch);
+    const result = await inventoryService.updateItem(share.userId, itemId, patch);
 
     if (!result) {
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
@@ -113,7 +133,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     }
 
     void auditLog({
-      userId: share.createdBy,
+      userId: share.userId,
       action: 'GUEST_UPDATE',
       status: 'success',
       ip,
@@ -126,7 +146,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({
-        userId: share.createdBy,
+        userId: share.userId,
         action: 'GUEST_UPDATE',
         status: 'validation_error',
         ip,
@@ -138,7 +158,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     }
     console.error('[guest] update error:', error);
     void auditLog({
-      userId: share.createdBy,
+      userId: share.userId,
       action: 'GUEST_UPDATE',
       status: 'error',
       ip,

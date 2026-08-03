@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+import { GuestShare } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ShareCreateInput } from '../schemas/shares.schema';
 
@@ -7,10 +9,33 @@ function isShareValid(share: { expiresAt: Date | null; revokedAt: Date | null })
   return true;
 }
 
+/**
+ * Same pattern as passwordResetService / TrustedDevice: the raw token is a
+ * `crypto.randomBytes(32)` hex string, never persisted — only its SHA-256
+ * hash is. Resolving a token means hashing the incoming value and looking up
+ * by `tokenHash`, so nothing sensitive is ever readable back out of the DB.
+ */
+function hashToken(rawToken: string): string {
+  return crypto.createHash('sha256').update(rawToken).digest('hex');
+}
+
+/** Strips `tokenHash` before a GuestShare row is ever handed back to a router response. */
+function toPublicShare(share: GuestShare): Omit<GuestShare, 'tokenHash'> {
+  const { tokenHash: _tokenHash, ...rest } = share;
+  return rest;
+}
+
 export const sharesService = {
+  /**
+   * Returns the created share PLUS the one-time plaintext `token` — the
+   * only moment it's ever available. Callers (the router) must surface it
+   * to the user immediately; it cannot be retrieved again afterwards.
+   */
   async create(userId: string, data: ShareCreateInput) {
-    return prisma.guestShare.create({
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const share = await prisma.guestShare.create({
       data: {
+        tokenHash: hashToken(rawToken),
         label: data.label,
         inviteeName: data.inviteeName,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
@@ -19,41 +44,45 @@ export const sharesService = {
         cellarIds: data.cellarIds,
         writeCellarIds: data.writeCellarIds,
         collectionIds: data.collectionIds,
-        createdBy: userId,
+        userId,
       },
     });
+    return { ...toPublicShare(share), token: rawToken };
   },
 
   async listByUser(userId: string) {
-    return prisma.guestShare.findMany({
-      where: { createdBy: userId },
+    const shares = await prisma.guestShare.findMany({
+      where: { userId },
       orderBy: { createdAt: 'desc' },
     });
+    return shares.map(toPublicShare);
   },
 
   async revoke(id: string, userId: string) {
     const share = await prisma.guestShare.findUnique({ where: { id } });
-    if (!share || share.createdBy !== userId) return null;
-    return prisma.guestShare.update({
+    if (!share || share.userId !== userId) return null;
+    const updated = await prisma.guestShare.update({
       where: { id },
       data: { revokedAt: new Date() },
     });
+    return toPublicShare(updated);
   },
 
-  async findByToken(token: string) {
-    return prisma.guestShare.findUnique({ where: { token } });
+  /** Hashes the incoming raw token and resolves the matching share, if any. */
+  async findByToken(rawToken: string) {
+    return prisma.guestShare.findUnique({ where: { tokenHash: hashToken(rawToken) } });
   },
 
   async getInventoryForShare(share: {
     cellarIds: string[];
     collectionIds: string[];
-    createdBy: string;
+    userId: string;
     hidePrices: boolean;
     hideNotes: boolean;
   }) {
     const { cellarIds, collectionIds, hidePrices, hideNotes } = share;
 
-    // Build the where clause to honour the share scope. `createdBy` is the
+    // Build the where clause to honour the share scope. `userId` is the
     // audit trail of who created the share, not an inventory ownership
     // filter — the shared inventory is unique per instance (design.md), so
     // the guest sees every item within the share's declared scope
@@ -125,7 +154,7 @@ export const sharesService = {
     share: {
       cellarIds: string[];
       collectionIds: string[];
-      createdBy: string;
+      userId: string;
       hidePrices: boolean;
       hideNotes: boolean;
     },

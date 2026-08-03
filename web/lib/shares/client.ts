@@ -1,5 +1,5 @@
 import { client } from '../api';
-import { GuestInventoryUpdatePayload, GuestShare, ShareFormValues } from './types';
+import { CreatedGuestShare, GuestInventoryUpdatePayload, GuestShare, ShareFormValues } from './types';
 
 export const sharesClient = {
   async list(): Promise<GuestShare[]> {
@@ -7,8 +7,9 @@ export const sharesClient = {
     return data;
   },
 
-  async create(data: ShareFormValues): Promise<GuestShare> {
-    const { data: result } = await client.post<GuestShare>('/shares', data);
+  /** The response carries the one-time plaintext `token` — see CreatedGuestShare. */
+  async create(data: ShareFormValues): Promise<CreatedGuestShare> {
+    const { data: result } = await client.post<CreatedGuestShare>('/shares', data);
     return result;
   },
 

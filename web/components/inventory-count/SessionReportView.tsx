@@ -1,9 +1,9 @@
 'use client';
 import React, { useMemo, useState } from 'react';
-import { Card, CardHeader, CardBody, Button, Checkbox, CircularProgress } from '@heroui/react';
+import { Card, CardHeader, CardBody, Button, Checkbox, CircularProgress, Chip } from '@heroui/react';
 import { CheckCircle2, AlertTriangle, HelpCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { CountSession, CorrectionAction, Correction } from '@/lib/inventory-count/types';
+import { CountSession, Correction } from '@/lib/inventory-count/types';
 import { useSessionReport, useCompleteCountSession } from '@/hooks/useInventoryCount';
 
 interface SessionReportViewProps {
@@ -24,14 +24,18 @@ export function SessionReportView({ session }: SessionReportViewProps) {
 
   const [consumedIds, setConsumedIds] = useState<Set<string>>(new Set());
   const [moveIds, setMoveIds] = useState<Set<string>>(new Set());
+  // Keyed by entryId, not itemId — a new find has no itemId yet (that's the
+  // whole point of "ajouter au stock", see types.ts#CountUnexpectedItem).
+  const [addToStockEntryIds, setAddToStockEntryIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   const corrections: Correction[] = useMemo(
     () => [
-      ...Array.from(consumedIds).map((itemId) => ({ itemId, action: 'mark_consumed' as CorrectionAction })),
-      ...Array.from(moveIds).map((itemId) => ({ itemId, action: 'move_to_scope' as CorrectionAction })),
+      ...Array.from(consumedIds).map((itemId): Correction => ({ itemId, action: 'mark_consumed' })),
+      ...Array.from(moveIds).map((itemId): Correction => ({ itemId, action: 'move_to_scope' })),
+      ...Array.from(addToStockEntryIds).map((entryId): Correction => ({ entryId, action: 'add_to_stock' })),
     ],
-    [consumedIds, moveIds]
+    [consumedIds, moveIds, addToStockEntryIds]
   );
 
   const handleClose = async () => {
@@ -40,6 +44,7 @@ export function SessionReportView({ session }: SessionReportViewProps) {
       await completeMutation.mutateAsync(corrections);
       setConsumedIds(new Set());
       setMoveIds(new Set());
+      setAddToStockEntryIds(new Set());
     } catch (err) {
       setError(err instanceof Error ? err.message : t('status.error'));
     }
@@ -133,7 +138,8 @@ export function SessionReportView({ session }: SessionReportViewProps) {
           </CardBody>
         </Card>
 
-        {/* Unexpected — corrective action: move_to_scope */}
+        {/* Unexpected — corrective action: move_to_scope (existing item found
+            elsewhere) or add_to_stock (physical find with no system match) */}
         <Card radius="lg" shadow="sm" className="border border-danger-200">
           <CardHeader className="flex items-center gap-2">
             <HelpCircle size={16} className="text-danger" />
@@ -143,26 +149,47 @@ export function SessionReportView({ session }: SessionReportViewProps) {
             {report.unexpected.length === 0 ? (
               <p className="text-xs text-foreground-400">{t('inventoryCount.report.none')}</p>
             ) : (
-              report.unexpected.map((item) => (
-                <div key={item.id} className="flex items-start gap-2">
-                  <Checkbox
-                    size="sm"
-                    isSelected={moveIds.has(item.id)}
-                    onValueChange={() => setMoveIds((prev) => toggleId(prev, item.id))}
-                    isDisabled={isCompleted || !session.cellarId}
-                    aria-label={t('inventoryCount.report.moveToScope')}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.name}</p>
-                    <p className="text-xs text-foreground-400 truncate">{item.producer}</p>
-                    <p className="text-[0.65rem] text-danger-600 mt-0.5">
-                      {session.cellarId
-                        ? t('inventoryCount.report.moveToScope')
-                        : t('inventoryCount.report.moveDisabledNoCellar')}
-                    </p>
+              report.unexpected.map((item) => {
+                const isNewFind = item.itemId === null;
+                return (
+                  <div key={item.entryId} className="flex items-start gap-2">
+                    <Checkbox
+                      size="sm"
+                      isSelected={isNewFind ? addToStockEntryIds.has(item.entryId) : moveIds.has(item.itemId as string)}
+                      onValueChange={() =>
+                        isNewFind
+                          ? setAddToStockEntryIds((prev) => toggleId(prev, item.entryId))
+                          : setMoveIds((prev) => toggleId(prev, item.itemId as string))
+                      }
+                      isDisabled={isCompleted || (!isNewFind && !session.cellarId)}
+                      aria-label={isNewFind ? t('inventoryCount.report.addToStock') : t('inventoryCount.report.moveToScope')}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{item.name}</p>
+                        {isNewFind && (
+                          <Chip size="sm" variant="flat" color="default" className="shrink-0">
+                            {t('inventoryCount.report.newItemBadge')}
+                          </Chip>
+                        )}
+                      </div>
+                      {item.producer && <p className="text-xs text-foreground-400 truncate">{item.producer}</p>}
+                      {isNewFind && item.quantity && (
+                        <p className="text-xs text-foreground-400">
+                          {t('inventoryCount.session.foundNew.quantityLabel')}: {item.quantity}
+                        </p>
+                      )}
+                      <p className="text-[0.65rem] text-danger-600 mt-0.5">
+                        {isNewFind
+                          ? t('inventoryCount.report.addToStock')
+                          : session.cellarId
+                            ? t('inventoryCount.report.moveToScope')
+                            : t('inventoryCount.report.moveDisabledNoCellar')}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </CardBody>
         </Card>
