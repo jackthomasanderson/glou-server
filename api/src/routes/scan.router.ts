@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { scanJobIdParamSchema } from '../schemas/scan.schema';
 import { scanUpload } from '../middleware/upload.middleware';
 import { scanService } from '../services/scan.service';
@@ -10,12 +11,25 @@ const router = Router();
 // All routes require authentication
 router.use(authMiddleware);
 
+// Each scan invokes the OCR/vision service and writes a 10MB-max file to
+// disk — throttle per user (not per IP, since the household typically shares
+// one) to bound both cost and disk usage. Mirrors the `passwordResetLimiter`
+// pattern in auth.router.ts. Runs after authMiddleware, so req.userId is
+// always set here.
+const scanLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req: Request) => req.userId || getClientIp(req),
+});
+
 // ─── POST /api/scan ───────────────────────────────────────────────────────────
 // Uploads a label photo, creates a ScanJob and returns immediately (202) —
 // the actual vision/OCR call runs in the background (see scan.service.ts).
 // The client is expected to poll GET /api/scan/jobs/:id until 'done'/'failed'.
 
-router.post('/', scanUpload.single('photo'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', scanLimiter, scanUpload.single('photo'), async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     if (!req.file) {

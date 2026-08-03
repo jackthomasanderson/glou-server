@@ -168,12 +168,30 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     router.push(pathname);
   }, [router, pathname]);
 
-  const allTags = useMemo(() => {
+  // Tags sorted by usage frequency (most used first, alphabetical as tiebreaker).
+  const tagUsage = useMemo(() => {
     if (!items) return [];
-    const set = new Set<string>();
-    items.forEach((b: InventoryItem) => (b.tags || []).forEach((tag) => set.add(tag)));
-    return Array.from(set).sort();
+    const counts = new Map<string, number>();
+    items.forEach((b: InventoryItem) => (b.tags || []).forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1)));
+    return Array.from(counts.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
   }, [items]);
+
+  const TAG_DISPLAY_LIMIT = 15;
+  const [tagSearchQuery, setTagSearchQuery] = useState('');
+  const [showAllTags, setShowAllTags] = useState(false);
+
+  const filteredTagUsage = useMemo(() => {
+    if (!tagSearchQuery.trim()) return tagUsage;
+    const q = tagSearchQuery.trim().toLowerCase();
+    return tagUsage.filter(({ tag }) => tag.toLowerCase().includes(q));
+  }, [tagUsage, tagSearchQuery]);
+
+  const hasMoreTags = !tagSearchQuery.trim() && tagUsage.length > TAG_DISPLAY_LIMIT;
+  const visibleTagUsage = !tagSearchQuery.trim() && !showAllTags
+    ? filteredTagUsage.slice(0, TAG_DISPLAY_LIMIT)
+    : filteredTagUsage;
 
   const baseItems = useMemo(() => {
     if (!items) return [];
@@ -624,13 +642,23 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       </div>
 
       {/* Tags filter */}
-      {allTags.length > 0 && (
+      {tagUsage.length > 0 && (
         <div>
           <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
             {t('inventory.filterByTags')}
           </p>
+          {tagUsage.length > TAG_DISPLAY_LIMIT && (
+            <input
+              type="text"
+              aria-label={t('inventory.filters.tagSearchPlaceholder')}
+              placeholder={t('inventory.filters.tagSearchPlaceholder')}
+              value={tagSearchQuery}
+              onChange={(e) => setTagSearchQuery(e.target.value)}
+              className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary mb-2"
+            />
+          )}
           <div className="flex flex-wrap gap-1">
-            {allTags.map((tag) => (
+            {visibleTagUsage.map(({ tag }) => (
               <Chip
                 key={tag}
                 size="sm"
@@ -646,7 +674,18 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                 {tag}
               </Chip>
             ))}
+            {visibleTagUsage.length === 0 && tagSearchQuery.trim() && (
+              <p className="text-[0.7rem] text-default-400">{t('inventory.filters.noTagsFound')}</p>
+            )}
           </div>
+          {hasMoreTags && (
+            <button
+              onClick={() => setShowAllTags((prev) => !prev)}
+              className="text-[0.7rem] text-primary font-semibold hover:underline mt-2"
+            >
+              {showAllTags ? t('inventory.filters.tagsShowLess') : t('inventory.filters.tagsShowMore')}
+            </button>
+          )}
         </div>
       )}
     </div>

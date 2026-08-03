@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { MaintenanceRun, Prisma } from '@prisma/client';
 import { purgeOldAuditLogs } from './audit.service';
+import { scanService } from './scan.service';
 
 export interface PurgeResult {
     success: boolean;
@@ -18,9 +19,16 @@ export interface RetentionCounts {
     sessions: number;
     trustedDevices: number;
     guestShares: number;
+    scanFiles: number;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Scan label photos (uploads/scans/*, 10MB max each — see scanUpload) are
+// purged after a fixed 24h window. Not exposed via SystemConfig (unlike the
+// other retention windows below) because that would require a schema.prisma
+// change, out of scope here.
+const SCAN_FILE_RETENTION_HOURS = 24;
 
 export class MaintenanceService {
     /**
@@ -111,11 +119,14 @@ export class MaintenanceService {
                     },
                 });
 
+                const scanFilesCount = await scanService.purgeExpiredScanFiles(SCAN_FILE_RETENTION_HOURS, tx);
+
                 const counts: RetentionCounts = {
                     auditLogs: auditLogsCount,
                     sessions: sessionsResult.count,
                     trustedDevices: trustedDevicesResult.count,
                     guestShares: guestSharesResult.count,
+                    scanFiles: scanFilesCount,
                 };
 
                 return tx.maintenanceRun.create({

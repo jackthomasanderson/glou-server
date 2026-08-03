@@ -1,6 +1,7 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { clearOfflineData } from '@/lib/offline/db';
 
 export interface PublicUser {
   id: string;
@@ -108,11 +109,50 @@ export function useRegister() {
 
 // ─── useLogout ───────────────────────────────────────────────────────────────
 
+/**
+ * Shared-device safety: the Service Worker (FEAT-16/23, see next.config.mjs)
+ * caches GET /api/inventory|cellars|collections responses in Cache Storage
+ * (cache name `glou-inventory-data`, plus next-pwa's default runtime caches
+ * for other same-origin GETs) for up to 24h, and the offline IndexedDB
+ * mirror (web/lib/offline/db.ts) keeps its own copy. Neither is cleared by
+ * React Query's in-memory cache reset alone, so on a shared household device
+ * that data would remain readable after sign-out. We delete every Cache
+ * Storage entry (simplest reliable way to guarantee no residual
+ * inventory/API data survives — cheaper to let Workbox repopulate static
+ * asset caches on next load than to risk missing a cache name) and wipe the
+ * IndexedDB stores. Never throws: cache-clearing failures must not block
+ * logging the user out.
+ */
+async function clearOfflineCaches(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+  } catch (err) {
+    console.error('[logout] Failed to clear Cache Storage:', err);
+  }
+  try {
+    await clearOfflineData();
+  } catch (err) {
+    console.error('[logout] Failed to clear offline IndexedDB store:', err);
+  }
+}
+
 export function useLogout() {
   const queryClient = useQueryClient();
   const router = useRouter();
   return useMutation<void, Error, void>({
-    mutationFn: () => apiFetch<void>('/api/auth/logout', { method: 'POST' }),
+    mutationFn: async () => {
+      try {
+        await apiFetch<void>('/api/auth/logout', { method: 'POST' });
+      } finally {
+        // Always purge local caches, even if the server-side call failed —
+        // on a shared device the local data must not linger either way.
+        await clearOfflineCaches();
+      }
+    },
     onSettled: () => {
       queryClient.setQueryData(ME_KEY, null);
       queryClient.clear();

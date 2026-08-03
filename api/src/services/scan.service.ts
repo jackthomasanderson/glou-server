@@ -51,10 +51,9 @@ export const scanService = {
       });
     }
     // NOTE: the uploaded photo (uploads/scans/*) is intentionally kept on
-    // disk after processing rather than deleted here — deleting files is
-    // explicitly avoided in this environment/workflow. A future retention
-    // pass (mirroring MaintenanceService's pattern for Sessions/TrustedDevice
-    // in FEAT-39) could purge old scan photos; out of scope for this feature.
+    // disk after processing — it isn't deleted here. It is purged later,
+    // once older than 24h, by `purgeExpiredScanFiles` below (wired into
+    // MaintenanceService.runRetentionCleanup, FEAT-39 pattern).
   },
 
   /**
@@ -95,5 +94,49 @@ export const scanService = {
     if (extracted.contenance) sources[category === 'cigar' ? 'format' : 'bottleSize'] = 'ocr';
 
     return Object.keys(sources).length > 0 ? sources : undefined;
+  },
+
+  /**
+   * Delete on-disk scan photos (uploads/scans/*) older than `retentionHours`
+   * and mark their ScanJob row as 'expired' so it's visibly distinguished
+   * from a live job whose file still exists. Reuses the existing free-form
+   * `status` String column — ScanJob.status is a plain String in
+   * schema.prisma, not a Prisma enum, so no schema change is needed to add
+   * this value. `imagePath` is deliberately left untouched (it's a
+   * non-nullable column): a schema change to null it out or add a dedicated
+   * "purgedAt" field is left for a follow-up (schema.prisma is out of scope
+   * here — another agent owns it in parallel).
+   * Called by MaintenanceService.runRetentionCleanup (FEAT-39 pattern), can
+   * participate in the same `$transaction` via the `client` param.
+   */
+  async purgeExpiredScanFiles(
+    retentionHours = 24,
+    client: Prisma.TransactionClient | PrismaClient = prisma,
+  ): Promise<number> {
+    const cutoff = new Date(Date.now() - retentionHours * 60 * 60 * 1000);
+    const staleJobs = await client.scanJob.findMany({
+      where: { createdAt: { lt: cutoff }, status: { not: 'expired' } },
+      select: { id: true, imagePath: true },
+    });
+    if (staleJobs.length === 0) return 0;
+
+    for (const job of staleJobs) {
+      try {
+        await fs.unlink(job.imagePath);
+      } catch (err) {
+        // ENOENT (file already gone) is expected and fine. Anything else is
+        // logged but must not block marking the row 'expired', otherwise a
+        // permission error would make this job retried forever.
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.error(`[scan] Failed to purge scan file ${job.imagePath}:`, err);
+        }
+      }
+    }
+
+    const result = await client.scanJob.updateMany({
+      where: { id: { in: staleJobs.map((j) => j.id) } },
+      data: { status: 'expired', errorMessage: 'Scan photo purged after the 24h retention window.' },
+    });
+    return result.count;
   },
 };

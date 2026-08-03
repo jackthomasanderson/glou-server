@@ -12,6 +12,7 @@ import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 import { describeDevice, locateIp, countryOfIp } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
+import { auditLog } from './audit.service';
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -205,6 +206,38 @@ export class AuthService {
       select: { userAgent: true, ip: true },
     });
     return sessions.some((s) => s.userAgent === userAgent && countryOfIp(s.ip) === country);
+  }
+
+  /**
+   * Revoke every active Session belonging to `userId` except `currentSessionId`.
+   * Called after a password change or a 2FA disable so a stolen session
+   * cookie does not survive the credential rotation (mirrors the manual
+   * revoke path used by `DELETE /api/auth/sessions/:id`, FEAT-25). Records a
+   * single `SESSION_REVOKE` AuditLog entry covering the whole batch.
+   */
+  private async revokeOtherSessions(userId: string, currentSessionId: string, ip: string): Promise<void> {
+    const sessions = await prisma.session.findMany({
+      where: { userId, revokedAt: null, NOT: { id: currentSessionId } },
+      select: { id: true },
+    });
+    if (sessions.length === 0) return;
+
+    await prisma.session.updateMany({
+      where: { id: { in: sessions.map((s) => s.id) } },
+      data: { revokedAt: new Date() },
+    });
+
+    void auditLog({
+      userId,
+      action: 'SESSION_REVOKE',
+      status: 'success',
+      ip,
+      details: {
+        reason: 'bulk_revoke_on_credential_change',
+        revokedSessionIds: sessions.map((s) => s.id),
+        excludedSessionId: currentSessionId,
+      },
+    });
   }
 
   /**
@@ -505,7 +538,7 @@ export class AuthService {
   /**
    * Update user password
    */
-  async updatePassword(userId: string, currentPass: string, newPass: string, deviceInfo: DeviceInfo): Promise<void> {
+  async updatePassword(userId: string, currentPass: string, newPass: string, deviceInfo: DeviceInfo, currentSessionId: string): Promise<void> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
     const valid = await bcrypt.compare(currentPass, user.passwordHash);
@@ -518,6 +551,8 @@ export class AuthService {
     });
 
     this.notifySecurityEvent(userId, 'passwordChanged', deviceInfo);
+    // A stolen session must not survive a password change.
+    await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown');
   }
 
   /**
@@ -656,7 +691,7 @@ export class AuthService {
     return { backupCodes }; // Return plain codes ONCE
   }
 
-  async turnOffTwoFactorAuthentication(userId: string, password: string, deviceInfo: DeviceInfo, code?: string): Promise<void> {
+  async turnOffTwoFactorAuthentication(userId: string, password: string, deviceInfo: DeviceInfo, currentSessionId: string, code?: string): Promise<void> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
 
@@ -696,6 +731,9 @@ export class AuthService {
     });
 
     this.notifySecurityEvent(userId, 'twoFactorDisabled', deviceInfo);
+    // A stolen session must not survive 2FA being turned off (it weakens the
+    // account's remaining auth factor, same rationale as a password change).
+    await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown');
   }
 
   // ─── RGPD Methods (FEAT-38 / FEAT-18) ────────────────────────────────────────

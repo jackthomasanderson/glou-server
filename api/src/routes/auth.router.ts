@@ -181,7 +181,7 @@ router.post('/2fa/turn-on', authMiddleware, async (req: Request, res: Response):
 router.post('/2fa/turn-off', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const { password, code } = turnOff2faSchema.parse(req.body);
-    await authService.turnOffTwoFactorAuthentication(req.userId, password, readDeviceInfo(req), code);
+    await authService.turnOffTwoFactorAuthentication(req.userId, password, readDeviceInfo(req), req.sessionId, code);
     res.json({ data: { success: true } });
   } catch (error) {
     if (error instanceof ZodError) {

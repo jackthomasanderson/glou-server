@@ -45,7 +45,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
   }
 
   try {
-    const payload = jwt.verify(token, secret) as AuthPayload;
+    const payload = jwt.verify(token, secret, { algorithms: ['HS256'] }) as AuthPayload;
     if (payload.scope === '2fa_pending') {
       res.status(403).json({ error: '2FA_REQUIRED' });
       return;

@@ -4,8 +4,15 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-glou}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-glou_secret}
+      # Security hardening — see docker-compose.yml for the full rationale:
+      # no fallback secret, `docker compose` fails fast if DB_PASSWORD isn't
+      # set in .env instead of silently using the known "glou_secret" default.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set. Copy .env.example to .env and set a real DB_PASSWORD before starting.}
       POSTGRES_DB: ${DB_NAME:-glou_db}
+    # Memory tuning — see docker-compose.yml for the full rationale (Postgres
+    # 15 defaults are max_connections=100/shared_buffers=128MB; a household
+    # instance needs far less).
+    command: ["postgres", "-c", "max_connections=20", "-c", "shared_buffers=64MB"]
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -14,8 +21,11 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    ports:
-      - "5432:5432"
+    # Security hardening — see docker-compose.yml for the full rationale: not
+    # exposed to the LAN/host, only reachable from other containers on this
+    # compose network. Debug via `docker compose exec db psql -U ${DB_USER:-glou} -d ${DB_NAME:-glou_db}`.
+    expose:
+      - "5432"
 
   # FEAT-04: self-hosted vision LLM (moondream) for the label-scan pipeline —
   # see docker-compose.yml for the full rationale (not exposed publicly,
@@ -23,6 +33,13 @@ services:
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
+    # Memory tuning — see docker-compose.yml for the full rationale: unload
+    # the model after 5 min idle, one model / one scan at a time (no reason
+    # to reserve RAM for parallel OCR in a single-household instance).
+    environment:
+      OLLAMA_KEEP_ALIVE: 5m
+      OLLAMA_MAX_LOADED_MODELS: 1
+      OLLAMA_NUM_PARALLEL: 1
     volumes:
       - ollama_data:/root/.ollama
     expose:
@@ -54,7 +71,9 @@ services:
         condition: service_started
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      DATABASE_URL: postgresql://${DB_USER:-glou}:${DB_PASSWORD:-glou_secret}@db:5432/${DB_NAME:-glou_db}
+      # Security hardening: matches the `db` service, same guard on the
+      # embedded password (see docker-compose.yml for the full rationale).
+      DATABASE_URL: postgresql://${DB_USER:-glou}:${DB_PASSWORD:?DB_PASSWORD is not set. Copy .env.example to .env and set a real DB_PASSWORD before starting.}@db:5432/${DB_NAME:-glou_db}
       JWT_SECRET: ${JWT_SECRET}
       CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY}
       APP_URL: ${APP_URL:-http://localhost:3000}

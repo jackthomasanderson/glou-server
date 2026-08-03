@@ -106,7 +106,7 @@ router.patch('/password', authMiddleware, async (req: Request, res: Response) =>
   try {
     const { currentPassword, newPassword } = updatePasswordSchema.parse(req.body);
     const deviceInfo = { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
-    await authService.updatePassword(req.userId, currentPassword, newPassword, deviceInfo);
+    await authService.updatePassword(req.userId, currentPassword, newPassword, deviceInfo, req.sessionId);
     res.json({ success: true });
   } catch (err: unknown) {
     if (err instanceof ZodError) {

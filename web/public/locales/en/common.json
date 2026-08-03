@@ -26,6 +26,7 @@
     "analytics": "Analytics & Terroir",
     "inventoryCount": "Physical Inventory",
     "wishlist": "Wishlist & Budget",
+    "more": "More",
     "roleAdmin": "Administrator",
     "roleUser": "User"
   },
@@ -246,7 +247,11 @@
       },
       "minValue": "Min €",
       "maxValue": "Max €",
-      "perPage": "Items per page"
+      "perPage": "Items per page",
+      "tagSearchPlaceholder": "Search a tag…",
+      "tagsShowMore": "Show more",
+      "tagsShowLess": "Show less",
+      "noTagsFound": "No tags found"
     },
     "filterByTags": "By tags",
     "filterByWineColor": "By color (wine)",

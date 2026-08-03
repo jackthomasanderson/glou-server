@@ -9,14 +9,29 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+// Security: the stored file extension MUST be derived from the validated
+// mimetype, never from `file.originalname` (client-controlled). Otherwise a
+// file declared `image/png` but named `x.html` would be stored as `.html`
+// and served as-is by `express.static`, enabling stored XSS. Same pattern
+// as `ALLOWED_IMAGE_TYPES` in `search.router.ts`.
+const ALLOWED_IMAGE_TYPES: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/pjpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/avif': 'avif',
+};
+
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => {
         cb(null, uploadDir);
     },
     filename: (req: Request, file, cb) => {
-        const ext = path.extname(file.originalname);
+        const ext = ALLOWED_IMAGE_TYPES[file.mimetype.toLowerCase()] ?? 'jpg';
         const userId = req.userId || 'unknown';
-        cb(null, `${userId}-${Date.now()}${ext}`);
+        cb(null, `${userId}-${Date.now()}.${ext}`);
     }
 });
 
@@ -69,9 +84,9 @@ const scanUpload = multer({
     storage: multer.diskStorage({
         destination: (_req, _file, cb) => cb(null, scanUploadDir),
         filename: (req: Request, file, cb) => {
-            const ext = path.extname(file.originalname) || '.jpg';
+            const ext = ALLOWED_IMAGE_TYPES[file.mimetype.toLowerCase()] ?? 'jpg';
             const userId = req.userId || 'unknown';
-            cb(null, `${userId}-${Date.now()}${ext}`);
+            cb(null, `${userId}-${Date.now()}.${ext}`);
         },
     }),
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB — label photos from a phone camera

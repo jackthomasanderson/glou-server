@@ -169,13 +169,17 @@ export function TastingsDashboard() {
 
       {/* FAB — only when there are notes */}
       {(data?.notes.length ?? 0) > 0 && (
-        <button
-          onClick={() => setFormOpen(true)}
+        <Button
+          color="primary"
+          radius="full"
+          size="lg"
+          isIconOnly
+          onPress={() => setFormOpen(true)}
           aria-label={t('tastings.create')}
-          className="fixed bottom-20 md:bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-lg flex items-center justify-center hover:bg-primary-400 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 z-50"
+          className="fixed bottom-20 md:bottom-6 right-6 z-50 shadow-lg"
         >
           <Plus size={24} />
-        </button>
+        </Button>
       )}
 
       {/* Detail drawer */}

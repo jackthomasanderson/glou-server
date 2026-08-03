@@ -137,3 +137,18 @@ export async function getQueuedMutation(id: string): Promise<QueuedMutation | un
   const db = await getOfflineDB();
   return db.get('sync_queue', id);
 }
+
+// ─── Logout cleanup (security) ───────────────────────────────────────────────
+
+/**
+ * Wipes both offline stores (mirrored inventory snapshot + pending sync
+ * queue). Called on logout (see web/hooks/useAuth.ts#useLogout) so a shared
+ * household device doesn't retain readable inventory data — or stale queued
+ * mutations belonging to the account that just signed out — in IndexedDB
+ * after sign-out.
+ */
+export async function clearOfflineData(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  const db = await getOfflineDB();
+  await Promise.all([db.clear('inventory_cache'), db.clear('sync_queue')]);
+}
