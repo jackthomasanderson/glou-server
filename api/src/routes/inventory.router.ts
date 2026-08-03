@@ -2,7 +2,9 @@ import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import QRCode from 'qrcode';
 import { inventoryInputSchema, inventoryPatchSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
+import { scanJobIdHintSchema } from '../schemas/scan.schema';
 import { inventoryService } from '../services/inventory.service';
+import { scanService } from '../services/scan.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { systemConfigService } from '../services/system-config.service';
@@ -142,7 +144,18 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = inventoryInputSchema.parse(req.body);
-    const item = await inventoryService.createItem(req.userId, data);
+
+    // FEAT-04: optional hint that this creation originated from a completed
+    // scan job — used only to tag the actually-extracted fields as 'ocr'
+    // (FEAT-05 provenance). The client never supplies the field-source map
+    // itself, only the job id, so it can't spoof provenance; see
+    // scanService.computeOcrFieldSources.
+    const scanJobIdResult = scanJobIdHintSchema.safeParse((req.body as Record<string, unknown>).scanJobId);
+    const fieldSources = scanJobIdResult.success && scanJobIdResult.data
+      ? await scanService.computeOcrFieldSources(req.userId, scanJobIdResult.data, data.category)
+      : undefined;
+
+    const item = await inventoryService.createItem(req.userId, data, undefined, fieldSources);
     void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, details: { category: data.category } });
     res.status(201).json({ data: item });
   } catch (error) {

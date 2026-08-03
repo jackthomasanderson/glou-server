@@ -6,7 +6,7 @@ import {
   Button, Chip,
   Table, TableHeader, TableColumn, TableBody,
 } from '@heroui/react';
-import { Plus, X, List, Filter, Search, Warehouse, Wine, Leaf, ClipboardCheck } from 'lucide-react';
+import { Plus, X, List, Filter, Search, Warehouse, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
 import Link from 'next/link';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
@@ -34,6 +34,7 @@ import { PaginationBar } from '@/components/ui/PaginationBar';
 import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
 import { DuplicateDialog } from './DuplicateDialog';
 import { findDuplicate } from '@/lib/inventory/duplicate';
+import { ScanFlow } from './ScanFlow';
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
@@ -63,6 +64,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   );
 
   const [mode, setMode] = useState<UIMode>('idle');
+  const [scanOpen, setScanOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
   const [duplicateFound, setDuplicateFound] = useState<InventoryItem | null>(null);
@@ -747,6 +749,17 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                 </Button>
               )}
               <Button
+                color="secondary"
+                variant="flat"
+                startContent={<Camera size={14} />}
+                onPress={() => setScanOpen(true)}
+                size="sm"
+                aria-label={t('scan.launchButton')}
+                isDisabled={!hasCellars || bulkMode}
+              >
+                {t('scan.launchButton')}
+              </Button>
+              <Button
                 color="primary"
                 startContent={<Plus size={14} />}
                 onPress={() => setMode('creating')}
@@ -795,6 +808,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
             onClose={handleCancel}
             isSubmitting={createMutation.isPending || updateMutation.isPending || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}
             t={t}
+            onScanRequested={mode === 'creating' ? () => { setMode('idle'); setScanOpen(true); } : undefined}
           />
 
           {/* Loading skeletons */}
@@ -1013,6 +1027,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           onCancel={handleDuplicateCancel}
         />
       )}
+
+      <ScanFlow open={scanOpen} onClose={() => setScanOpen(false)} t={t} />
     </div>
   );
 }

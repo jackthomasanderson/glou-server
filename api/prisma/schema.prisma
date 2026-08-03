@@ -77,6 +77,7 @@ model User {
   inventoryCountSessions InventoryCountSession[]
   wishlistItems       WishlistItem[]
   budgetEnvelopes     BudgetEnvelope[]
+  scanJobs            ScanJob[]
 }
 
 enum Theme {
@@ -638,4 +639,34 @@ model InventoryCountEntry {
   @@index([sessionId])
   @@unique([sessionId, itemId])
   @@map("inventory_count_entries")
+}
+
+// ─── FEAT-04: Scan Étiquette & Ajout Express ─────────────────────────────────
+// Lightweight DB-persisted job queue (design.md "Services OCR ... Traitement
+// asynchrone (Job Queue)") — deliberately NOT Redis/BullMQ, this instance has
+// no such infra and a home-lab single-node deployment doesn't need it: a
+// Postgres row polled by the client every ~1.5s is enough throughput for
+// "one photo at a time" scanning. See ocr.service.ts / scan.service.ts.
+//
+// `userId` here is who is running the scan/polling for it — NOT an inventory
+// access filter. A ScanJob is a transient processing artifact tied to one
+// scanning session, not shared-inventory data, so scoping GET /scan/jobs/:id
+// by userId does not violate the design.md "userId = audit only" invariant
+// (that invariant governs InventoryItem/Cellar/etc., not this). The
+// InventoryItem eventually created FROM the extracted data is, as always,
+// fully shared inventory like everything else.
+model ScanJob {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  imagePath     String
+  status        String    @default("pending") // 'pending' | 'processing' | 'done' | 'failed'
+  extractedData Json?
+  errorMessage  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("scan_jobs")
 }

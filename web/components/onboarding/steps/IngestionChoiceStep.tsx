@@ -1,5 +1,5 @@
 'use client';
-import { Button, Card, CardBody, Chip } from '@heroui/react';
+import { Button, Card, CardBody } from '@heroui/react';
 import { Camera, FileUp, PlusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { IngestionMode } from '../OnboardingWizard';
@@ -10,7 +10,7 @@ interface IngestionChoiceStepProps {
   onBack: () => void;
 }
 
-/** Step 3/5 — pick how to bring in the first assets: manual, CSV import, or scan (disabled). */
+/** Step 3/5 — pick how to bring in the first assets: manual, CSV import, or scan (FEAT-04). */
 export function IngestionChoiceStep({ onChoose, onSkip, onBack }: IngestionChoiceStepProps) {
   const { t } = useTranslation();
 
@@ -38,14 +38,12 @@ export function IngestionChoiceStep({ onChoose, onSkip, onBack }: IngestionChoic
           </CardBody>
         </Card>
 
-        {/* TODO(FEAT-04): brancher sur le pipeline OCR une fois le moteur de vision self-hosté disponible.
-            Volontairement pas de backend factice ici — état visuel désactivé uniquement. */}
-        <Card radius="lg" shadow="sm" isDisabled className="border border-divider opacity-60">
+        {/* FEAT-04: scan pipeline (Ollama/moondream) now wired up — activated. */}
+        <Card radius="lg" shadow="sm" isPressable onPress={() => onChoose('scan')} className="border border-divider">
           <CardBody className="items-center text-center gap-2 py-6">
-            <Camera size={28} className="text-foreground-400" />
-            <p className="text-sm font-semibold text-foreground-400">{t('onboarding.ingestion.scan.title')}</p>
+            <Camera size={28} className="text-primary" />
+            <p className="text-sm font-semibold">{t('onboarding.ingestion.scan.title')}</p>
             <p className="text-xs text-foreground-400">{t('onboarding.ingestion.scan.description')}</p>
-            <Chip size="sm" variant="flat" color="default">{t('onboarding.ingestion.scan.unavailable')}</Chip>
           </CardBody>
         </Card>
       </div>

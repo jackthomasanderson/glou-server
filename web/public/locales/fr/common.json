@@ -1463,8 +1463,7 @@
       "skipStep": "Passer cette étape",
       "scan": {
         "title": "Scan Rapide",
-        "description": "Photographiez vos étiquettes pour un ajout automatique.",
-        "unavailable": "Bientôt disponible"
+        "description": "Photographiez vos étiquettes pour un ajout automatique."
       },
       "import": {
         "title": "Import Fichier",
@@ -1617,6 +1616,32 @@
       "serverVersion": "Version du serveur",
       "keepLocal": "Garder ma version",
       "keepServer": "Garder la version serveur"
+    }
+  },
+  "scan": {
+    "launchButton": "Scanner une étiquette",
+    "title": "Scan Étiquette",
+    "finish": "Terminer",
+    "capture": {
+      "title": "Photographiez une étiquette",
+      "subtitle": "Cadrez l'étiquette de la bouteille, du spiritueux ou de la boîte de cigares.",
+      "start": "Scanner une étiquette",
+      "next": "Scanner l'article suivant"
+    },
+    "uploading": "Envoi de la photo…",
+    "processing": "Analyse de l'étiquette en cours… cela peut prendre quelques instants.",
+    "error": "L'analyse de la photo a échoué. Réessayez avec une photo plus nette ou mieux éclairée.",
+    "retry": "Reprendre une photo",
+    "review": {
+      "title": "Vérifiez les informations détectées",
+      "confirm": "Confirmer et ajouter",
+      "moreDetails": "Plus de détails",
+      "setDefaultLocation": "Toujours ranger les {{category}} scannés ici"
+    },
+    "cart": {
+      "title": "À Ranger ({{count}})",
+      "created": "Créé",
+      "incremented": "Incrémenté"
     }
   }
 }

@@ -17,18 +17,48 @@ services:
     ports:
       - "5432:5432"
 
+  # FEAT-04: self-hosted vision LLM (moondream) for the label-scan pipeline —
+  # see docker-compose.yml for the full rationale (not exposed publicly,
+  # `ollama-pull` downloads the ~1.7GB model on first startup).
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: ollama:11434
+    command: ["pull", "moondream"]
+
   api:
     image: ghcr.io/jackthomasanderson/glou-server-api:beta
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+      ollama:
+        condition: service_started
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       DATABASE_URL: postgresql://${DB_USER:-glou}:${DB_PASSWORD:-glou_secret}@db:5432/${DB_NAME:-glou_db}
       JWT_SECRET: ${JWT_SECRET}
       CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY}
       APP_URL: ${APP_URL:-http://localhost:3000}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       PORT: 3001
     ports:
       - "3001:3001"
@@ -53,3 +83,4 @@ volumes:
   db_data:
   api_uploads:
   api_backups:
+  ollama_data:

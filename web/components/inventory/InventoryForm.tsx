@@ -4,7 +4,7 @@ import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Chip, Divider, Input, Select, SelectItem, Autocomplete, AutocompleteItem,
 } from '@heroui/react';
-import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf } from 'lucide-react';
+import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
@@ -24,6 +24,14 @@ interface InventoryFormProps {
   onClose: () => void;
   isSubmitting?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
+  /**
+   * FEAT-04 (ux-ui.md 6.5): when provided, shows a "Scanner une étiquette"
+   * entry point in the header (creation mode only) that hands off to the
+   * scan flow instead of manual entry. Omitted by callers that don't want
+   * the scan option (e.g. the onboarding manual-ingestion step, which has
+   * its own dedicated scan step).
+   */
+  onScanRequested?: () => void;
 }
 
 const EMPTY_FORM: Partial<InventoryItem> = {
@@ -53,7 +61,7 @@ const CATEGORY_COLORS: Record<InventoryCategory, CategoryColor> = {
 };
 
 export function InventoryForm({
-  open, initialValues, onSubmit, onClose, isSubmitting = false, t,
+  open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested,
 }: InventoryFormProps) {
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
@@ -197,15 +205,29 @@ export function InventoryForm({
                   {isEditing ? t('inventory.edit') : t('inventory.add')}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isSubmitting}
-                className="p-1 rounded-lg hover:bg-default-100 transition-colors"
-                aria-label="Close"
-              >
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                {!isEditing && onScanRequested && (
+                  <Button
+                    size="sm"
+                    color="secondary"
+                    variant="flat"
+                    startContent={<Camera size={15} />}
+                    onPress={onScanRequested}
+                    isDisabled={isSubmitting}
+                  >
+                    {t('scan.launchButton')}
+                  </Button>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                  className="p-1 rounded-lg hover:bg-default-100 transition-colors"
+                  aria-label="Close"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </ModalHeader>
 
             <ModalBody className="p-0 flex flex-row items-stretch gap-0 min-h-0 overflow-hidden flex-1">

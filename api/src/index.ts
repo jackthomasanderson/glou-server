@@ -27,6 +27,7 @@ import sharesRouter from './routes/shares.router';
 import guestRouter from './routes/guest.router';
 import { importRouter } from './routes/import.router';
 import wishlistRouter from './routes/wishlist.router';
+import { scanRouter } from './routes/scan.router';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -98,6 +99,7 @@ app.use('/api/shares', sharesRouter);
 app.use('/api/guest/:token', guestRouter);
 app.use('/api/import', importRouter);
 app.use('/api/wishlist', wishlistRouter);
+app.use('/api/scan', scanRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 

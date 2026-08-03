@@ -11,9 +11,10 @@ import { CellarStep } from './steps/CellarStep';
 import { IngestionChoiceStep } from './steps/IngestionChoiceStep';
 import { ManualIngestionStep } from './steps/ManualIngestionStep';
 import { CsvImportStep } from './steps/CsvImportStep';
+import { ScanIngestionStep } from './steps/ScanIngestionStep';
 import { SummaryStep } from './steps/SummaryStep';
 
-export type IngestionMode = 'manual' | 'csv' | null;
+export type IngestionMode = 'manual' | 'csv' | 'scan' | null;
 
 const STEPS = ['welcome', 'cellar', 'ingestion-choice', 'ingestion-execute', 'summary'] as const;
 type Step = (typeof STEPS)[number];
@@ -151,6 +152,14 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
             cellarId={cellarId}
             onImported={(count) => { setItemsAdded((n) => n + count); setStep('summary'); }}
             onBack={() => setStep('ingestion-choice')}
+          />
+        )}
+
+        {step === 'ingestion-execute' && ingestionMode === 'scan' && (
+          <ScanIngestionStep
+            cellarId={cellarId}
+            onItemAdded={() => setItemsAdded((n) => n + 1)}
+            onDone={() => setStep('summary')}
           />
         )}
 

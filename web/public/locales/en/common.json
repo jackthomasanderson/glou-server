@@ -1463,8 +1463,7 @@
       "skipStep": "Skip this step",
       "scan": {
         "title": "Quick Scan",
-        "description": "Photograph your labels for automatic entry.",
-        "unavailable": "Coming soon"
+        "description": "Photograph your labels for automatic entry."
       },
       "import": {
         "title": "File Import",
@@ -1617,6 +1616,32 @@
       "serverVersion": "Server version",
       "keepLocal": "Keep my version",
       "keepServer": "Keep server version"
+    }
+  },
+  "scan": {
+    "launchButton": "Scan a label",
+    "title": "Label Scan",
+    "finish": "Finish",
+    "capture": {
+      "title": "Photograph a label",
+      "subtitle": "Frame the label of the bottle, spirit, or cigar box.",
+      "start": "Scan a label",
+      "next": "Scan the next item"
+    },
+    "uploading": "Uploading photo…",
+    "processing": "Analyzing the label… this can take a few moments.",
+    "error": "Analyzing the photo failed. Try again with a sharper or better-lit photo.",
+    "retry": "Take another photo",
+    "review": {
+      "title": "Review the detected information",
+      "confirm": "Confirm and add",
+      "moreDetails": "More details",
+      "setDefaultLocation": "Always store scanned {{category}} here"
+    },
+    "cart": {
+      "title": "To Shelve ({{count}})",
+      "created": "Created",
+      "incremented": "Incremented"
     }
   }
 }

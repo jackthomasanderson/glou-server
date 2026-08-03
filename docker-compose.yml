@@ -22,18 +22,61 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # FEAT-04: self-hosted vision LLM (moondream) for the label-scan pipeline.
+  # Not exposed publicly (`expose`, not `ports`) — only `api` talks to it, over
+  # the internal compose network. First startup: `ollama-pull` below downloads
+  # the ~1.7GB `moondream` model into the named `ollama_data` volume so it
+  # survives container recreation; this can take a few minutes depending on
+  # bandwidth, during which the scan feature will fail until it completes.
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # One-shot: pulls the `moondream` model once `ollama` is healthy, then
+  # exits (0). Compose leaves it "Exited (0)" afterwards — expected, not an
+  # error. Re-running on an already-pulled model is a fast no-op, so it's
+  # safe to leave in the stack permanently rather than pulling it back out
+  # after first run.
+  ollama-pull:
+    image: ollama/ollama:latest
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: ollama:11434
+    command: ["pull", "moondream"]
+
   api:
     image: ghcr.io/jackthomasanderson/glou-server-api:latest
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+      ollama:
+        condition: service_started
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       DATABASE_URL: postgresql://${DB_USER:-glou}:${DB_PASSWORD:-glou_secret}@db:5432/${DB_NAME:-glou_db}
       JWT_SECRET: ${JWT_SECRET}
       CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY}
       APP_URL: ${APP_URL:-http://localhost:3000}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       PORT: 3001
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}
@@ -76,4 +119,6 @@ volumes:
   api_uploads:
     driver: local
   api_backups:
+    driver: local
+  ollama_data:
     driver: local
