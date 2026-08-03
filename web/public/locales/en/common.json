@@ -24,6 +24,8 @@
     "collections": "Collections",
     "tastings": "Tastings",
     "analytics": "Analyses & Terroirs",
+    "inventoryCount": "Physical Inventory",
+    "wishlist": "Wishlist & Budget",
     "roleAdmin": "Administrator",
     "roleUser": "User"
   },

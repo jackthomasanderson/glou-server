@@ -49,9 +49,15 @@ Open [http://localhost:3000](http://localhost:3000) and click **Register**. The 
 ## 🗺️ Roadmap & Next Steps
 
 ### 🏗️ In Progress (WIP)
-- ⚡ **Express Label Scanning (FEAT-04)**: Session mode for scanning dozens of bottles in one go.
+- 🌡️ **Humidity/Temperature Monitoring & Drift Alerts (FEAT-15)**: IoT sensor integration for live cellar conditions.
 
 ### ✅ Recently Implemented
+- 📸 **Express Label Scanning (FEAT-04)**: Snap a label and a self-hosted vision model (Ollama running `moondream`, no cloud, CPU-only) pre-fills name, producer, category, and vintage in seconds — review and confirm in three taps, chain scans for a whole case without leaving the camera view. Recognition quality depends on photo sharpness and lighting; it's a lightweight local model, not a wine-specific service, so always double-check before saving.
+- 🍽️ **Guided Food Pairing (FEAT-09)**: Type a dish and get a ranked shortlist of bottles from your own cellar, with a one-click "drink it now" that logs the tasting and updates stock.
+- 📅 **Smart Consumption Plan & Stock Rotation (FEAT-08)**: A personal "drink now / drink soon" list built from peak windows, opened bottles, and rotation priority — plus a monthly goal you can track as you go.
+- 🧮 **Assisted Physical Inventory & Reconciliation (FEAT-12)**: Run a guided stock count by cellar or custom zone, pause and resume anytime, and clear every discrepancy (missing, unexpected, misplaced) with one-click corrections at the end.
+- 🎁 **Wishlist & Budget Tracking (FEAT-20)**: Plan future purchases with a price cap, log observed prices to catch good deals, and track a personal spending envelope by period — convert a wish straight into inventory once it's bought.
+- 📴 **Trusted Offline Mode (FEAT-16/23)**: Browse your inventory and edit items you've already loaded even without a connection — changes queue locally and sync automatically once you're back online, with a clear conflict-resolution screen if the same item changed elsewhere meanwhile. Creating or deleting items still requires a connection.
 - 🧹 **Automatic Data Retention & Maintenance (FEAT-39)**: Set how long audit logs, sessions, and unused invitations are kept, and let Glou clean them up every night on its own — or trigger a cleanup on demand and see exactly what ran.
 - 🌐 **Public URL & Network Access Configuration (FEAT-54)**: Tell Glou how it's reached from the outside (direct or behind a reverse proxy) so every generated link and share stays correct, with a one-click consistency check.
 - 🧭 **Guided Onboarding Wizard (FEAT-56)**: A step-by-step walkthrough on first login — create your first cellar and load your first bottles by label scan, CSV import, or manual entry, no setup guesswork required.

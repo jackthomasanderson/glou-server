@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
 import {
   Wine, Leaf, Warehouse, Library, Martini, BarChart3,
-  ChevronLeft, ChevronRight, X, ShieldCheck,
+  ChevronLeft, ChevronRight, X, ShieldCheck, ClipboardCheck, Wallet,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '@/hooks/useAuth';
@@ -49,6 +49,8 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
     { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={18} />, count: cellars?.length ?? 0 },
     { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: collections?.length ?? 0 },
     { label: t('nav.tastings'), href: '/tastings', icon: <Martini size={18} />, count: 0 },
+    { label: t('nav.inventoryCount'), href: '/inventory-count', icon: <ClipboardCheck size={18} />, count: 0 },
+    { label: t('nav.wishlist'), href: '/wishlist', icon: <Wallet size={18} />, count: 0 },
     { label: t('nav.analytics'), href: '/analytics', icon: <BarChart3 size={18} />, count: 0 },
   ];
 

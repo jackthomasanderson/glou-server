@@ -13,11 +13,11 @@ export interface FieldChange {
 /**
  * Origin of a field's current value (FEAT-05). Stored per-field in
  * `InventoryItem.fieldSources` — a field with no entry in that map is
- * implicitly 'manual' (the honest default: no external enrichment source is
- * actually wired up yet, see design.md "APIs Tierces" roadmap). 'ocr' is
- * reserved for the future FEAT-04 scan pipeline and 'enrichment' for a
- * future third-party lookup (Vivino/Whiskybase) — neither is populated by
- * any code today.
+ * implicitly 'manual'. 'ocr' is populated by the FEAT-04 scan pipeline
+ * (see scan.service.ts computeOcrFieldSources) since that feature landed.
+ * 'enrichment' remains reserved for a future third-party lookup
+ * (Vivino/Whiskybase, see design.md "APIs Tierces" roadmap) — not
+ * populated by any code today.
  */
 export type FieldSource = 'manual' | 'ocr' | 'import_csv' | 'enrichment';
 

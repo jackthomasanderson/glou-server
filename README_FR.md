@@ -49,9 +49,15 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **
 ## 🗺️ Roadmap & Prochaines Étapes
 
 ### 🏗️ En Cours (WIP)
-- ⚡ **Scan Express (FEAT-04)** : Mode session pour scanner des dizaines de bouteilles d'affilée.
+- 🌡️ **Monitoring Hygrométrie/Température & Alertes de Dérive (FEAT-15)** : Intégration de capteurs IoT pour suivre en direct les conditions de la cave.
 
 ### ✅ Récemment Ajouté
+- 📸 **Scan Express d'Étiquette (FEAT-04)** : Photographiez une étiquette et un modèle de vision auto-hébergé (Ollama avec `moondream`, sans cloud, sans GPU) pré-remplit nom, producteur, catégorie et millésime en quelques secondes — vérifiez et confirmez en trois gestes, enchaînez les scans pour tout un carton sans quitter l'appareil photo. La qualité de reconnaissance dépend de la netteté et de la luminosité de la photo : c'est un modèle léger auto-hébergé, pas un service spécialisé vin, donc vérifiez toujours avant d'enregistrer.
+- 🍽️ **Accords Mets/Bouteilles Guidés (FEAT-09)** : Tapez un plat et obtenez une sélection classée de bouteilles de votre propre cave, avec un « consommer maintenant » en un clic qui enregistre la dégustation et met à jour le stock.
+- 📅 **Plan de Consommation Intelligent & Rotation de Stock (FEAT-08)** : Une liste personnelle « à boire maintenant / prochainement » construite à partir des fenêtres d'apogée, des bouteilles entamées et de la rotation — plus un objectif mensuel dont vous suivez la progression.
+- 🧮 **Inventaire Physique Assisté & Réconciliation (FEAT-12)** : Réalisez un comptage guidé par cave ou zone libre, mettez en pause et reprenez à tout moment, et corrigez chaque écart (manquant, inattendu, mal rangé) en un clic à la clôture.
+- 🎁 **Liste de Souhaits & Pilotage Budgétaire (FEAT-20)** : Planifiez vos prochains achats avec un prix plafond, notez les prix observés pour repérer les bonnes affaires, et suivez une enveloppe budgétaire personnelle par période — basculez un souhait vers l'inventaire dès qu'il est acquis.
+- 📴 **Mode Hors-Ligne de Confiance (FEAT-16/23)** : Consultez votre inventaire et modifiez les items déjà chargés même sans connexion — les changements se mettent en file localement et se synchronisent automatiquement au retour du réseau, avec un écran clair de résolution de conflit si le même item a changé entre-temps ailleurs. La création ou la suppression d'items nécessite toujours une connexion.
 - 🧹 **Rétention & Maintenance Automatique des Données (FEAT-39)** : Définissez la durée de conservation des logs d'audit, sessions et invitations inutilisées, et laissez Glou les nettoyer chaque nuit tout seul — ou forcez un nettoyage à la demande et consultez exactement ce qui a été fait.
 - 🌐 **Configuration de l'URL Publique & de l'Accès Réseau (FEAT-54)** : Indiquez à Glou comment il est joint depuis l'extérieur (direct ou derrière un reverse proxy) pour que chaque lien et partage généré reste correct, avec une vérification de cohérence en un clic.
 - 🧭 **Assistant d'Onboarding Guidé (FEAT-56)** : Un parcours pas-à-pas à la première connexion — créez votre première cave et chargez vos premières bouteilles par scan d'étiquette, import CSV ou saisie manuelle, sans avoir à deviner quoi que ce soit.

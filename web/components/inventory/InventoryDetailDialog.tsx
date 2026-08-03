@@ -55,9 +55,9 @@ function InfoCard({ icon, label, value, valueColor }: InfoCardProps) {
 }
 
 // ─── FEAT-05: Field source transparency ─────────────────────────────────────
-// Every non-manual source is roadmap-only today (no OCR/enrichment pipeline
-// is actually wired up) but the badge stays generic so it activates for free
-// once FEAT-04 (scan) and a real enrichment source land.
+// 'ocr' is active since FEAT-04 (scan) landed. 'enrichment' remains
+// roadmap-only (no third-party lookup pipeline wired up yet) but the badge
+// stays generic so it activates for free once a real enrichment source lands.
 const SOURCE_ICONS: Record<Exclude<FieldSource, 'manual'>, React.ReactElement> = {
   import_csv: <FileSpreadsheet size={11} />,
   ocr: <ScanLine size={11} />,
