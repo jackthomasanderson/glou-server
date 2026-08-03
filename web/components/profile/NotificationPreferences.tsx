@@ -5,7 +5,7 @@ import { Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, NotificationPrefs } from '@/lib/config/client';
 
-const ALL_CATEGORIES = ['peak', 'temperature', 'consumption', 'shares', 'permissions', 'new_users', 'security'] as const;
+const ALL_CATEGORIES = ['peak', 'temperature', 'consumption', 'shares', 'permissions', 'new_users', 'security', 'wishlist'] as const;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export function NotificationPreferences() {

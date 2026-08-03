@@ -1212,7 +1212,8 @@
       "shares": "Shares & invitations",
       "permissions": "Permission changes",
       "new_users": "New users (admin)",
-      "security": "Account security"
+      "security": "Account security",
+      "wishlist": "Price opportunities (wishlist)"
     },
     "quietHours": {
       "title": "Quiet hours",
@@ -1509,5 +1510,90 @@
     "page": "Page",
     "of": "of",
     "items": "items"
+  },
+  "wishlist": {
+    "title": "Wishlist & Budget",
+    "pageAccess": "Wishlist & Budget",
+    "pageAccessHint": "Plan your next purchases and track your budget",
+    "tabs": {
+      "ariaLabel": "Wishlist sections",
+      "wishlist": "Wishlist",
+      "budget": "Budget"
+    },
+    "empty": "Your wishlist is empty",
+    "emptyHint": "Add a wine, spirit or cigar you'd like to acquire.",
+    "create": "Add a wish",
+    "edit": "Edit wish",
+    "deleteTitle": "Delete this wish?",
+    "deleteConfirm": "« {{name}} » will be permanently removed from your wishlist.",
+    "errors": {
+      "load": "Unable to load the wishlist."
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "E.g.: Château Margaux",
+      "producer": "Producer",
+      "producerPlaceholder": "E.g.: Château Margaux",
+      "category": "Category",
+      "vintage": "Vintage",
+      "targetQuantity": "Target quantity",
+      "maxPrice": "Ceiling price",
+      "maxPriceHint": "You'll be notified if an observed price is at or below this ceiling.",
+      "notes": "Notes"
+    },
+    "status": {
+      "active": "Active",
+      "acquired": "Acquired",
+      "cancelled": "Cancelled"
+    },
+    "categories": {
+      "wine": "Wine",
+      "sparkling": "Sparkling",
+      "spirit": "Spirit",
+      "cigar": "Cigar"
+    },
+    "priceSeen": {
+      "title": "Record an observed price",
+      "description": "Enter the price observed for \"{{name}}\". No external price source is connected: this entry is manual.",
+      "price": "Observed price",
+      "submit": "Save price",
+      "lastSeen": "Last price seen: {{price}} on {{date}}",
+      "opportunity": "Opportunity! This price is below your ceiling of {{maxPrice}}."
+    },
+    "convert": {
+      "action": "Move to inventory",
+      "title": "Complete before adding to inventory",
+      "description": "\"{{name}}\" will be added to the cellar's shared inventory.",
+      "purchasePrice": "Purchase price",
+      "purchasePlace": "Purchase place",
+      "cellar": "Cellar",
+      "cellarPlaceholder": "Select a cellar",
+      "bottleSize": "Bottle size",
+      "quantity": "Quantity (cigars)",
+      "submit": "Add to inventory",
+      "success": "Successfully added to inventory."
+    }
+  },
+  "budget": {
+    "title": "Budget tracking",
+    "empty": "No budget envelope defined",
+    "emptyHint": "Define an amount for a period to track your spending.",
+    "create": "Define an envelope",
+    "deleteTitle": "Delete this envelope?",
+    "deleteConfirm": "This budget envelope will be permanently deleted.",
+    "errors": {
+      "load": "Unable to load budget envelopes."
+    },
+    "form": {
+      "periodStart": "Period start",
+      "periodEnd": "Period end",
+      "amount": "Amount"
+    },
+    "progress": {
+      "spent": "Spent",
+      "remaining": "Remaining",
+      "ofAmount": "of {{amount}}",
+      "label": "{{spent}} spent out of {{amount}} ({{percent}}%)"
+    }
   }
 }

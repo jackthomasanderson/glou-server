@@ -26,6 +26,7 @@ import { analyticsRouter } from './routes/analytics.router';
 import sharesRouter from './routes/shares.router';
 import guestRouter from './routes/guest.router';
 import { importRouter } from './routes/import.router';
+import wishlistRouter from './routes/wishlist.router';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -96,6 +97,7 @@ app.use('/api/analytics', analyticsRouter);
 app.use('/api/shares', sharesRouter);
 app.use('/api/guest/:token', guestRouter);
 app.use('/api/import', importRouter);
+app.use('/api/wishlist', wishlistRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 

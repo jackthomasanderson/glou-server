@@ -1212,7 +1212,8 @@
       "shares": "Partages & invitations",
       "permissions": "Changements de permissions",
       "new_users": "Nouveaux utilisateurs (admin)",
-      "security": "Sécurité du compte"
+      "security": "Sécurité du compte",
+      "wishlist": "Opportunités tarifaires (liste de souhaits)"
     },
     "quietHours": {
       "title": "Plage silencieuse",
@@ -1509,5 +1510,90 @@
     "page": "Page",
     "of": "sur",
     "items": "éléments"
+  },
+  "wishlist": {
+    "title": "Liste de souhaits & Budget",
+    "pageAccess": "Liste de souhaits & Budget",
+    "pageAccessHint": "Planifiez vos prochains achats et suivez votre budget",
+    "tabs": {
+      "ariaLabel": "Sections de la liste de souhaits",
+      "wishlist": "Souhaits",
+      "budget": "Budget"
+    },
+    "empty": "Votre liste de souhaits est vide",
+    "emptyHint": "Ajoutez un vin, spiritueux ou cigare que vous souhaitez acquérir.",
+    "create": "Ajouter un souhait",
+    "edit": "Modifier le souhait",
+    "deleteTitle": "Supprimer ce souhait ?",
+    "deleteConfirm": "« {{name}} » sera définitivement retiré de votre liste de souhaits.",
+    "errors": {
+      "load": "Impossible de charger la liste de souhaits."
+    },
+    "form": {
+      "name": "Nom",
+      "namePlaceholder": "Ex. : Château Margaux",
+      "producer": "Producteur",
+      "producerPlaceholder": "Ex. : Château Margaux",
+      "category": "Catégorie",
+      "vintage": "Millésime",
+      "targetQuantity": "Quantité cible",
+      "maxPrice": "Prix plafond",
+      "maxPriceHint": "Vous serez notifié si un prix observé est inférieur ou égal à ce plafond.",
+      "notes": "Notes"
+    },
+    "status": {
+      "active": "Actif",
+      "acquired": "Acquis",
+      "cancelled": "Annulé"
+    },
+    "categories": {
+      "wine": "Vin",
+      "sparkling": "Bulles",
+      "spirit": "Spiritueux",
+      "cigar": "Cigare"
+    },
+    "priceSeen": {
+      "title": "Marquer un prix observé",
+      "description": "Saisissez le prix constaté pour « {{name}} ». Aucune source de prix externe n'est connectée : cette saisie est manuelle.",
+      "price": "Prix observé",
+      "submit": "Enregistrer le prix",
+      "lastSeen": "Dernier prix vu : {{price}} le {{date}}",
+      "opportunity": "Opportunité ! Ce prix est sous votre plafond de {{maxPrice}}."
+    },
+    "convert": {
+      "action": "Basculer vers l'inventaire",
+      "title": "Compléter avant l'ajout à l'inventaire",
+      "description": "« {{name}} » sera ajouté à l'inventaire partagé de la cave.",
+      "purchasePrice": "Prix d'achat",
+      "purchasePlace": "Lieu d'achat",
+      "cellar": "Cave",
+      "cellarPlaceholder": "Sélectionner une cave",
+      "bottleSize": "Format",
+      "quantity": "Quantité (cigares)",
+      "submit": "Ajouter à l'inventaire",
+      "success": "Ajouté à l'inventaire avec succès."
+    }
+  },
+  "budget": {
+    "title": "Pilotage budgétaire",
+    "empty": "Aucune enveloppe budgétaire définie",
+    "emptyHint": "Définissez un montant pour une période afin de suivre vos dépenses.",
+    "create": "Définir une enveloppe",
+    "deleteTitle": "Supprimer cette enveloppe ?",
+    "deleteConfirm": "Cette enveloppe budgétaire sera définitivement supprimée.",
+    "errors": {
+      "load": "Impossible de charger les enveloppes budgétaires."
+    },
+    "form": {
+      "periodStart": "Début de période",
+      "periodEnd": "Fin de période",
+      "amount": "Montant"
+    },
+    "progress": {
+      "spent": "Dépensé",
+      "remaining": "Restant",
+      "ofAmount": "sur {{amount}}",
+      "label": "{{spent}} dépensés sur {{amount}} ({{percent}}%)"
+    }
   }
 }

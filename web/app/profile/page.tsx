@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button, Input, Select, SelectItem, CircularProgress } from '@heroui/react';
-import { User, Settings, ShieldCheck, Compass } from 'lucide-react';
+import { User, Settings, ShieldCheck, Compass, Gift } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
@@ -87,6 +87,23 @@ export default function ProfilePage() {
         {successMsg && (
           <div className="bg-success-50 border border-success-200 text-success text-sm rounded-xl px-4 py-3 mb-5">{successMsg}</div>
         )}
+
+        {/* Wishlist & Budget (FEAT-20) — personal per-user feature, not part of
+            the fixed sidebar nav (ux-ui.md 3.1's 6-item list is normative),
+            so it's surfaced here instead, same treatment as the admin panel
+            shortcut below. */}
+        <Button
+          as={Link}
+          href="/wishlist"
+          color="secondary"
+          variant="bordered"
+          startContent={<Gift size={16} />}
+          radius="md"
+          fullWidth
+          className="mb-6"
+        >
+          {t('wishlist.pageAccess')}
+        </Button>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Personal Info */}
