@@ -1,5 +1,16 @@
 import withPWAInit from '@ducanh2912/next-pwa';
 
+// IMPORTANT: Next.js 16 defaults to Turbopack, which does not run webpack
+// plugins — @ducanh2912/next-pwa generates the service worker via a Workbox
+// *webpack* plugin, so under plain Turbopack the SW would either fail to
+// build (hard error, no turbopack config present) or, if silenced with an
+// empty `turbopack: {}`, silently never emit sw.js at all. The production
+// build is therefore forced back onto webpack via `next build --webpack`
+// in package.json's "build" script (see CI run #146 for the Turbopack
+// failure this fixes). `next dev` is unaffected: the PWA plugin is fully
+// disabled below in development, so there is no webpack config to conflict
+// with Turbopack there.
+
 // ─── PWA / Service Worker (FEAT-16 & FEAT-23 — merged offline-first spec) ───
 // Scope is deliberately bounded: offline support covers CONSULTING the
 // already-loaded inventory and the common inventory mutations queued via
