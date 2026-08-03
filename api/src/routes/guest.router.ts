@@ -103,6 +103,14 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
       return;
     }
+    if ('conflict' in result) {
+      // Structurally unreachable: `guestInventoryUpdateSchema` is `.strict()`
+      // and never carries `expectedUpdatedAt` (FEAT-16/23 offline sync is
+      // scoped to the authenticated app, not the guest share routes). Kept
+      // exhaustive for type-safety against `InventoryService.updateItem`.
+      res.status(409).json({ error: 'CONFLICT', data: result.serverItem });
+      return;
+    }
 
     void auditLog({
       userId: share.createdBy,

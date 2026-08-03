@@ -91,4 +91,53 @@ describe('InventoryService', () => {
     expect(updateData.data.name).toBeUndefined();
     expect(updateData.data.producer).toBe('New Producer');
   });
+
+  // ─── FEAT-16/23: offline sync optimistic concurrency ──────────────────────
+
+  it('updateItem - returns a conflict when expectedUpdatedAt no longer matches the server value', async () => {
+    const serverUpdatedAt = new Date('2026-08-01T10:00:00.000Z');
+    const existingItem = {
+      id: 'b1',
+      userId: 'u1',
+      lockedFields: [],
+      deletedAt: null,
+      updatedAt: serverUpdatedAt,
+    };
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
+
+    const result = await service.updateItem('u1', 'b1', {
+      isOpened: true,
+      // Stale timestamp: the item was modified server-side after this
+      // mutation was queued offline.
+      expectedUpdatedAt: '2026-08-01T09:00:00.000Z',
+    } as never);
+
+    expect(result).toEqual({ conflict: true, serverItem: existingItem });
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+
+  it('updateItem - applies the patch when expectedUpdatedAt matches the server value', async () => {
+    const serverUpdatedAt = new Date('2026-08-01T10:00:00.000Z');
+    const existingItem = {
+      id: 'b1',
+      userId: 'u1',
+      lockedFields: [],
+      deletedAt: null,
+      updatedAt: serverUpdatedAt,
+    };
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
+    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, isOpened: true } as never);
+
+    const result = await service.updateItem('u1', 'b1', {
+      isOpened: true,
+      expectedUpdatedAt: serverUpdatedAt.toISOString(),
+    } as never);
+
+    expect(result && 'conflict' in result).toBe(false);
+    const updateCall = vi.mocked(prisma.inventoryItem.update).mock.calls[0];
+    const updateData = updateCall?.[0] as { data: Record<string, unknown> };
+    // `expectedUpdatedAt` must never leak into the Prisma write payload.
+    expect(updateData.data.expectedUpdatedAt).toBeUndefined();
+    expect(updateData.data.isOpened).toBe(true);
+  });
 });

@@ -27,6 +27,20 @@ export type RollbackFieldResult =
   | { status: 'slot_conflict' }
   | { status: 'success'; item: InventoryItem; changes: FieldChange[] };
 
+/**
+ * Result of `InventoryService.updateItem` (FEAT-16/23 offline sync).
+ * The `conflict` branch is only reachable when the caller supplies
+ * `expectedUpdatedAt` in the patch (opt-in optimistic concurrency check —
+ * see `updateItem`) AND that value no longer matches the item's current
+ * `updatedAt` in the database, meaning another actor modified the item in
+ * the meantime. `serverItem` carries the current server-side state so the
+ * caller (offline sync queue) can present a conflict-resolution choice
+ * instead of silently overwriting it.
+ */
+export type UpdateItemResult =
+  | { item: InventoryItem; changes: FieldChange[]; slotConflict?: boolean }
+  | { conflict: true; serverItem: InventoryItem };
+
 export interface InventoryHistoryEntry {
   id: number;
   action: string;
@@ -180,7 +194,7 @@ export class InventoryService {
   async updateItem(
     userId: string,
     id: string,
-    patch: InventoryPatch,
+    rawPatch: InventoryPatch,
     options?: {
       fieldSources?: Partial<Record<string, FieldSource>>;
       isManualEdit?: boolean;
@@ -193,12 +207,28 @@ export class InventoryService {
        */
       bypassFieldLock?: boolean;
     },
-  ): Promise<{ item: InventoryItem; changes: FieldChange[]; slotConflict?: boolean } | null> {
+  ): Promise<UpdateItemResult | null> {
     const { fieldSources, isManualEdit = true, bypassFieldLock = false } = options ?? {};
+    // `expectedUpdatedAt` (FEAT-16/23) is a sync-protocol field, not a real
+    // InventoryItem column — strip it before it reaches `mapInputToDb`/Prisma.
+    const { expectedUpdatedAt, ...patch } = rawPatch;
     const existing = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) return null;
+
+    // ─── Optimistic concurrency check (FEAT-16/23) ───────────────────────────
+    // Opt-in: only the offline sync queue sends `expectedUpdatedAt` (the
+    // item's `updatedAt` as known when the mutation was queued, possibly
+    // while offline). Every other caller omits it and keeps today's
+    // unconditional last-write-wins behavior. Compared in milliseconds since
+    // the wire format is an ISO string round-tripped through JSON.
+    if (
+      expectedUpdatedAt !== undefined &&
+      new Date(expectedUpdatedAt).getTime() !== existing.updatedAt.getTime()
+    ) {
+      return { conflict: true, serverItem: existing as unknown as InventoryItem };
+    }
 
     // Slot uniqueness: if assigning a grid slot, verify it is not occupied by another item
     const targetCellarId = 'cellarId' in patch ? patch.cellarId : existing.cellarId;
@@ -326,6 +356,12 @@ export class InventoryService {
     const patch = { [field]: toValue } as unknown as InventoryPatch;
     const result = await this.updateItem(userId, itemId, patch, { isManualEdit: true, bypassFieldLock: true });
     if (!result) return { status: 'not_found' };
+    if ('conflict' in result) {
+      // Defensive narrowing only: rollbackField never sets `expectedUpdatedAt`
+      // on the patch above, so the conflict branch of `updateItem` cannot
+      // actually trigger here. Kept exhaustive for type-safety.
+      return { status: 'invalid_value' };
+    }
     if (result.slotConflict) return { status: 'slot_conflict' };
 
     return { status: 'success', item: result.item, changes: result.changes };

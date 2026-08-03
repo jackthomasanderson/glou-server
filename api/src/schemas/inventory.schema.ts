@@ -154,6 +154,13 @@ export const inventoryPatchSchema = z.object({
   // Grid slot assignment (FEAT-68)
   slotColumn: z.number().int().min(1).max(100).optional().nullable(),
   slotRow: z.number().int().min(1).max(100).optional().nullable(),
+  // ─── Offline sync optimistic concurrency (FEAT-16/23) ──────────────────────
+  // Set by the web app's offline sync queue: the `updatedAt` of the item AS
+  // KNOWN when the mutation was queued (possibly while offline). Opt-in — if
+  // omitted, `InventoryService.updateItem` applies the patch unconditionally
+  // exactly like before this field existed (last-write-wins, unchanged
+  // behavior for every caller that doesn't send it).
+  expectedUpdatedAt: z.string().datetime().optional(),
 });
 
 export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;

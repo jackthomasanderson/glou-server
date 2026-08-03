@@ -170,6 +170,15 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
       return;
     }
+    if ('conflict' in result) {
+      // FEAT-16/23: the offline sync queue sent `expectedUpdatedAt` and it no
+      // longer matches — someone else modified this item in the meantime.
+      // Return the current server state so the client can offer conflict
+      // resolution instead of silently overwriting it.
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: 'CONFLICT' } });
+      res.status(409).json({ error: 'CONFLICT', data: result.serverItem });
+      return;
+    }
     if (result.slotConflict) {
       void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: 'SLOT_OCCUPIED' } });
       res.status(409).json({ error: 'SLOT_OCCUPIED' });
