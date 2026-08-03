@@ -29,6 +29,9 @@ export const updatePreferencesSchema = z.object({
   accentColor: z.string().startsWith('#').optional(),
   dateFormat: z.enum(['SYSTEM', 'H24', 'H12']).optional(),
   autoLockDelayMin: z.union([z.literal(5), z.literal(15), z.literal(30)]).nullable().optional(),
+  // "Mode expert / collectionneur" (data-model audit, Task 1) — reveals
+  // advanced/collector sections client-side. OFF by default (see schema.prisma).
+  expertMode: z.boolean().optional(),
 });
 
 export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;

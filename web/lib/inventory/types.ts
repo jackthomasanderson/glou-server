@@ -46,6 +46,10 @@ export interface InventoryItem {
   serviceTemp?: string | null;
   lotNumber?: string | null;
 
+  // Wine collector fields (data-model audit, Task 2, expert mode only)
+  appellation?: string | null;
+  classification?: string | null;
+
   // Sparkling extras
   sparklingType?: string | null;
   sugarLevel?: string | null;
@@ -59,6 +63,12 @@ export interface InventoryItem {
   caskType?: string | null;
   additions?: string | null;
   aromaticProfile?: string | null;
+
+  // Spirit cask/batch collector fields (data-model audit, Task 3, expert mode only)
+  batchDate?: string | null;
+  isSingleCask?: boolean | null;
+  caskNumber?: string | null;
+  caskProof?: number | null;
 
   // Cigar
   format?: string | null;

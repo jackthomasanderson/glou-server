@@ -8,6 +8,13 @@ const zonesValid = (data: { rows?: number | null; hotZoneRows?: number | null; c
   return true;
 };
 
+const humidityRangeValid = (data: { targetHumidityMin?: number | null; targetHumidityMax?: number | null }) => {
+  if (data.targetHumidityMin != null && data.targetHumidityMax != null) {
+    return data.targetHumidityMin <= data.targetHumidityMax;
+  }
+  return true;
+};
+
 const cellarFields = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   description: z.string().max(500).optional().nullable(),
@@ -17,19 +24,34 @@ const cellarFields = z.object({
   rows: z.number().int().min(1).max(100).optional().nullable(),
   hotZoneRows: z.number().int().min(0).max(100).optional().nullable(),
   coldZoneRows: z.number().int().min(0).max(100).optional().nullable(),
+  // Humidor monitoring (Task 4, expert mode only) — target hygrometry range
+  // used to flag drift on the latest HumidorReading.
+  targetHumidityMin: z.number().min(0).max(100).optional().nullable(),
+  targetHumidityMax: z.number().min(0).max(100).optional().nullable(),
 });
 
-export const cellarBaseSchema = cellarFields.refine(zonesValid, {
-  message: 'Hot zone and cold zone rows cannot exceed total rows',
-  path: ['hotZoneRows'],
-});
+export const cellarBaseSchema = cellarFields
+  .refine(zonesValid, {
+    message: 'Hot zone and cold zone rows cannot exceed total rows',
+    path: ['hotZoneRows'],
+  })
+  .refine(humidityRangeValid, {
+    message: 'targetHumidityMin cannot exceed targetHumidityMax',
+    path: ['targetHumidityMin'],
+  });
 
 export const createCellarSchema = cellarBaseSchema;
 
-export const updateCellarSchema = cellarFields.partial().refine(zonesValid, {
-  message: 'Hot zone and cold zone rows cannot exceed total rows',
-  path: ['hotZoneRows'],
-});
+export const updateCellarSchema = cellarFields
+  .partial()
+  .refine(zonesValid, {
+    message: 'Hot zone and cold zone rows cannot exceed total rows',
+    path: ['hotZoneRows'],
+  })
+  .refine(humidityRangeValid, {
+    message: 'targetHumidityMin cannot exceed targetHumidityMax',
+    path: ['targetHumidityMin'],
+  });
 
 export type CreateCellarInput = z.infer<typeof createCellarSchema>;
 export type UpdateCellarInput = z.infer<typeof updateCellarSchema>;

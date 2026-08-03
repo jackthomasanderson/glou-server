@@ -28,6 +28,7 @@ import guestRouter from './routes/guest.router';
 import { importRouter } from './routes/import.router';
 import wishlistRouter from './routes/wishlist.router';
 import { scanRouter } from './routes/scan.router';
+import humidorRouter from './routes/humidor.router';
 
 // ─── Startup secret guard ────────────────────────────────────────────────────
 // Security hardening: `.env.example` ships two placeholder secrets
@@ -139,6 +140,7 @@ app.use('/api/guest/:token', guestRouter);
 app.use('/api/import', importRouter);
 app.use('/api/wishlist', wishlistRouter);
 app.use('/api/scan', scanRouter);
+app.use('/api/humidor', humidorRouter);
 
 // ─── 404 handler ────────────────────────────────────────────────────────────
 

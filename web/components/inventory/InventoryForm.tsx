@@ -4,7 +4,7 @@ import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Chip, Divider, Input, Select, SelectItem, Autocomplete, AutocompleteItem,
 } from '@heroui/react';
-import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera } from 'lucide-react';
+import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
@@ -16,6 +16,7 @@ import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
 import { ImageResult } from './ImagePicker';
 import { ItemImageSection } from './ItemImageSection';
+import { useExpertMode } from '@/hooks/useExpertMode';
 
 interface InventoryFormProps {
   open: boolean;
@@ -65,6 +66,7 @@ export function InventoryForm({
 }: InventoryFormProps) {
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
+  const isExpert = useExpertMode();
   const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? EMPTY_FORM);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [showOptionals, setShowOptionals] = useState(false);

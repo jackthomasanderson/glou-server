@@ -26,6 +26,13 @@ export interface TastingNote {
   notes?: string | null;
   foodPairing?: string | null;
   photoUrl?: string | null;
+  // Structured wine tasting grid (data-model audit, Task 2, expert mode only)
+  robe?: string | null;
+  nez?: string | null;
+  bouche?: string | null;
+  tanin?: number | null;
+  acidite?: number | null;
+  longueurBouche?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -46,6 +53,13 @@ export interface TastingFormValues {
   notes?: string;
   foodPairing?: string;
   photoUrl?: string | null;
+  // Structured wine tasting grid (data-model audit, Task 2, expert mode only)
+  robe?: string | null;
+  nez?: string | null;
+  bouche?: string | null;
+  tanin?: number | null;
+  acidite?: number | null;
+  longueurBouche?: number | null;
 }
 
 export interface TastingItemStats {

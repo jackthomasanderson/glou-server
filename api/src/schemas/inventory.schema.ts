@@ -38,6 +38,11 @@ export const wineInventorySchema = commonInventorySchema.extend({
   needsAeration: z.boolean().optional(),
   serviceTemp: z.string().max(50).optional(),
   lotNumber: z.string().max(50).optional(),
+  // Wine collector fields (data-model audit, Task 2, expert mode only) —
+  // free text, appellations/classifications are too numerous/jurisdiction-
+  // specific for a closed enum (same reasoning as `region` above).
+  appellation: z.string().max(200).optional(),
+  classification: z.string().max(200).optional(),
 });
 
 // ─── Sparkling-specific schema ───────────────────────────────────────────────
@@ -69,6 +74,13 @@ export const spiritInventorySchema = commonInventorySchema.extend({
   aromaticProfile: z.string().max(500).optional(),
   lotNumber: z.string().max(50).optional(),
   bottleSize: z.string().max(50).optional(),
+  // Spirit cask/batch collector fields (data-model audit, Task 3, expert
+  // mode only). `batchDate` existed in the DB since the first migration but
+  // was never validated/exposed anywhere before this.
+  batchDate: z.coerce.date().optional(),
+  isSingleCask: z.boolean().optional(),
+  caskNumber: z.string().max(100).optional(),
+  caskProof: z.number().min(0).max(100).optional(),
 });
 
 // ─── Cigar-specific schema ───────────────────────────────────────────────────
@@ -135,6 +147,9 @@ export const inventoryPatchSchema = z.object({
   sugarLevel: z.enum(['extra-brut', 'brut', 'extra-sec', 'sec', 'demi-sec', 'doux']).optional().nullable(),
   disgorgingDate: z.coerce.date().optional().nullable(),
   baseYear: z.number().int().optional().nullable(),
+  // Wine collector fields (Task 2, expert mode only)
+  appellation: z.string().max(200).optional().nullable(),
+  classification: z.string().max(200).optional().nullable(),
   // Spirit
   spiritType: z.string().max(50).optional().nullable(),
   edition: z.string().max(200).optional().nullable(),
@@ -142,6 +157,11 @@ export const inventoryPatchSchema = z.object({
   caskType: z.string().max(100).optional().nullable(),
   additions: z.string().max(500).optional().nullable(),
   aromaticProfile: z.string().max(500).optional().nullable(),
+  // Spirit cask/batch collector fields (Task 3, expert mode only)
+  batchDate: z.coerce.date().optional().nullable(),
+  isSingleCask: z.boolean().optional().nullable(),
+  caskNumber: z.string().max(100).optional().nullable(),
+  caskProof: z.number().min(0).max(100).optional().nullable(),
   // Cigar
   format: z.string().max(100).optional().nullable(),
   quantity: z.number().int().min(1).max(1000).optional().nullable(),

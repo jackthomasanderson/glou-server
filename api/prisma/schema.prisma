@@ -31,6 +31,15 @@ model User {
   accentColor  String     @default("#6366f1")
   dateFormat   DateFormat @default(SYSTEM)
 
+  // "Mode expert / collectionneur" (data-model audit) — OFF by default so the
+  // app stays approachable for the general-public default use case. When
+  // true, reveals advanced/collector-only sections client-side (structured
+  // wine tasting grid, spirit cask/batch fields, cigar humidor monitoring)
+  // that are otherwise hidden from the add/edit forms. Same
+  // personal-preference pattern as theme/language/tempUnit above — never an
+  // access-control flag, purely a display preference.
+  expertMode   Boolean    @default(false)
+
   // Security (2FA)
   isTwoFactorEnabled Boolean    @default(false)
   twoFactorSecret    String?
@@ -78,6 +87,7 @@ model User {
   wishlistItems       WishlistItem[]
   budgetEnvelopes     BudgetEnvelope[]
   scanJobs            ScanJob[]
+  humidorReadings     HumidorReading[]
 }
 
 enum Theme {
@@ -105,6 +115,7 @@ enum CellarType {
   VINTAGE // Cave de vieillissement/enterrée
   COOLER // Armoire de mise à température / de service
   SHELF // Étagère / Vitrine / Stockage passif
+  HUMIDOR // Cave/armoire dédiée cigares, avec monitoring hygrométrique (Task 4 audit) — see HumidorReading
 }
 
 model Cellar {
@@ -119,10 +130,21 @@ model Cellar {
   hotZoneRows  Int? // Number of rows from top with higher temperature
   coldZoneRows Int? // Number of rows from bottom with lower temperature
 
+  // Humidor monitoring (Task 4, expert mode only) — target hygrometry range
+  // used to flag "drift" on the latest HumidorReading (see
+  // humidor.service.ts#evaluateDrift). Both null = monitoring simply stays
+  // inactive for this cellar (no target configured yet). Not restricted to
+  // type=HUMIDOR at the DB level — a cellar created before this feature
+  // (e.g. type=SHELF holding cigars) can still opt in without a data
+  // migration, see cellars/[id]/page.tsx for the display condition.
+  targetHumidityMin Float?
+  targetHumidityMax Float?
+
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  inventory InventoryItem[]
+  inventory       InventoryItem[]
+  humidorReadings HumidorReading[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -169,6 +191,13 @@ model InventoryItem {
   lotNumber      String?
   batchDate      DateTime?
 
+  // Wine collector fields (Task 2 audit, expert mode only) — free text on
+  // purpose: appellations/classifications are far too numerous and
+  // jurisdiction-specific (AOC/AOP, DOCG, Grand Cru, 1er Cru...) for a
+  // closed enum, same reasoning as `region` just above.
+  appellation    String?
+  classification String?
+
   // Contextual — Sparkling extras
   sparklingType  String? // Champagne, Crémant, Prosecco...
   sugarLevel     String? // extra-brut, brut, extra-sec, sec, demi-sec, doux
@@ -182,6 +211,15 @@ model InventoryItem {
   caskType        String?
   additions       String?
   aromaticProfile String?
+
+  // Spirit cask/batch collector fields (Task 3 audit, expert mode only) —
+  // `lotNumber`/`batchDate`/`caskType` above already existed on this model
+  // but `lotNumber` was only ever surfaced in the UI for category='wine' and
+  // `batchDate` for no category at all (dead column since the very first
+  // migration). The three below are net-new, single-cask-specific.
+  isSingleCask Boolean? // true = single cask bottling, false/null = vatted/blended
+  caskNumber   String?
+  caskProof    Float?   // ABV at cask strength, when different from the bottled alcoholDegree
 
   // Contextual — Cigar
   format               String? // Corona, Robusto...
@@ -382,6 +420,23 @@ model TastingNote {
   notes       String?
   foodPairing String?
   photoUrl    String?
+
+  // Structured wine tasting grid (Task 2 audit, expert mode only, wine/
+  // sparkling items). Deliberately added HERE rather than on InventoryItem:
+  // a tasting perception (robe/nez/bouche/tanin/acidité/longueur) is tied to
+  // a specific tasting EVENT — exactly like `rating`/`readiness`/`notes`
+  // just above, which already live on this model for the same reason — not
+  // a permanent property of the bottle. `robe`/`nez`/`bouche` stay free text
+  // (too subjective/varied for a closed scale); `tanin`/`acidite` use the
+  // standard 1-5 collector shorthand; `longueurBouche` is the finish length
+  // in seconds, an objective measure some collectors time ("caudalies").
+  robe           String?
+  nez            String?
+  bouche         String?
+  tanin          Int? // 1-5 scale
+  acidite        Int? // 1-5 scale
+  longueurBouche Int? // finish length, in seconds
+
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
@@ -731,4 +786,48 @@ model ScanJob {
   @@index([userId])
   @@index([status])
   @@map("scan_jobs")
+}
+
+// ─── Task 4: Humidor Hygrometric Monitoring ──────────────────────────────────
+// Data-model audit finding: the schema has no dedicated "cigar humidor"
+// concept — `Cellar` is a generic container (VINTAGE/COOLER/SHELF) reused
+// for every category, cigars included. Rather than invent a parallel
+// standalone concept, this attaches readings to `Cellar` (now with an added
+// `HUMIDOR` type value, see CellarType) — a physical hygrometer monitors the
+// whole storage container, not one individual cigar box, so the cellar is
+// the right granularity here, not InventoryItem. The existing cellar detail
+// page (web/app/cellars/[id]/page.tsx) doubles as the humidor page for any
+// cellar of this type (or any cellar that already holds cigar items — see
+// that page's display condition, not gated strictly on `type` to avoid
+// forcing a migration of pre-existing SHELF/VINTAGE cellars used for cigars
+// today).
+//
+// Ingestion is generic on purpose (`source: manual | sensor`): only the
+// manual entry path (web UI) is actually built here — `sensor` is reserved
+// for a future physical bridge posting to the same POST /api/humidor/readings
+// endpoint, not built in this pass (see feature note, out of scope).
+enum HumidorReadingSource {
+  manual
+  sensor
+}
+
+model HumidorReading {
+  id       String @id @default(uuid())
+  cellarId String
+  cellar   Cellar @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+
+  // Who recorded this reading — audit-only (same invariant as everywhere
+  // else on shared-inventory-adjacent models), NOT an access filter. For a
+  // 'sensor' source this is still whichever authenticated user's session
+  // posted it (no separate device/API-key auth was built for this pass).
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  humidityPercent    Float
+  temperatureCelsius Float? // informational only — drift is evaluated on humidity alone (Cellar.targetHumidityMin/Max)
+  source             HumidorReadingSource @default(manual)
+  recordedAt         DateTime             @default(now())
+
+  @@index([cellarId, recordedAt])
+  @@map("humidor_readings")
 }

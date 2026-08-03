@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Button, Input, Select, SelectItem, CircularProgress } from '@heroui/react';
-import { User, Settings, ShieldCheck, Compass, Gift } from 'lucide-react';
+import { Button, Input, Select, SelectItem, Switch, CircularProgress } from '@heroui/react';
+import { User, Settings, ShieldCheck, Compass, Gift, FlaskConical } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
@@ -38,6 +38,7 @@ export default function ProfilePage() {
     tempUnit: 'CELSIUS' as 'CELSIUS' | 'FAHRENHEIT',
     dateFormat: 'SYSTEM' as 'SYSTEM' | 'H24' | 'H12',
     accentColor: '#6366f1',
+    expertMode: false,
   });
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -50,6 +51,7 @@ export default function ProfilePage() {
         tempUnit: user.tempUnit || 'CELSIUS',
         dateFormat: user.dateFormat || 'SYSTEM',
         accentColor: user.accentColor || '#6366f1',
+        expertMode: user.expertMode ?? false,
       });
     }
   }, [user]);
@@ -63,6 +65,14 @@ export default function ProfilePage() {
 
   const handlePrefsChange = (field: string, value: string) => {
     const newPrefs = { ...prefsData, [field]: value };
+    setPrefsData(newPrefs);
+    updatePrefs.mutate(newPrefs, {
+      onSuccess: () => { setSuccessMsg(t('profile.saveSuccess')); setTimeout(() => setSuccessMsg(null), 3000); },
+    });
+  };
+
+  const handleExpertModeChange = (value: boolean) => {
+    const newPrefs = { ...prefsData, expertMode: value };
     setPrefsData(newPrefs);
     updatePrefs.mutate(newPrefs, {
       onSuccess: () => { setSuccessMsg(t('profile.saveSuccess')); setTimeout(() => setSuccessMsg(null), 3000); },
@@ -229,6 +239,23 @@ export default function ProfilePage() {
                     />
                   ))}
                 </div>
+              </div>
+
+              {/* Mode expert / collectionneur (data-model audit) */}
+              <div className="flex items-start justify-between gap-3 pt-4 border-t border-divider">
+                <div className="flex items-start gap-2">
+                  <FlaskConical size={16} className="text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium">{t('profile.expertMode.title')}</p>
+                    <p className="text-xs text-foreground-400">{t('profile.expertMode.description')}</p>
+                  </div>
+                </div>
+                <Switch
+                  isSelected={prefsData.expertMode}
+                  onValueChange={handleExpertModeChange}
+                  size="sm"
+                  aria-label={t('profile.expertMode.title')}
+                />
               </div>
             </div>
 

@@ -65,6 +65,9 @@ export interface PublicUser {
   tempUnit: TempUnit;
   accentColor: string;
   dateFormat: DateFormat;
+  // "Mode expert / collectionneur" (data-model audit, Task 1) — OFF by
+  // default, reveals advanced/collector sections client-side.
+  expertMode: boolean;
   isAdmin: boolean;
   createdAt: Date;
   deletionRequestedAt?: Date | null;
@@ -89,6 +92,7 @@ interface RawUserForPublic {
   tempUnit: TempUnit;
   accentColor: string;
   dateFormat: DateFormat;
+  expertMode: boolean;
   isAdmin: boolean;
   createdAt: Date;
   deletionRequestedAt: Date | null;
@@ -145,6 +149,7 @@ export class AuthService {
       tempUnit: user.tempUnit,
       accentColor: user.accentColor,
       dateFormat: user.dateFormat,
+      expertMode: user.expertMode,
       isAdmin: user.isAdmin,
       createdAt: user.createdAt,
       deletionRequestedAt: user.deletionRequestedAt,
@@ -324,6 +329,7 @@ export class AuthService {
         tempUnit: true,
         accentColor: true,
         dateFormat: true,
+        expertMode: true,
         isAdmin: true,
         createdAt: true,
         deletionRequestedAt: true,
@@ -423,6 +429,7 @@ export class AuthService {
         tempUnit: true,
         accentColor: true,
         dateFormat: true,
+        expertMode: true,
         isAdmin: true,
         createdAt: true,
         deletionRequestedAt: true,
@@ -461,6 +468,7 @@ export class AuthService {
         tempUnit: true,
         accentColor: true,
         dateFormat: true,
+        expertMode: true,
         isAdmin: true,
         createdAt: true,
         deletionRequestedAt: true,
@@ -524,6 +532,7 @@ export class AuthService {
         tempUnit: true,
         accentColor: true,
         dateFormat: true,
+        expertMode: true,
         isAdmin: true,
         createdAt: true,
         deletionRequestedAt: true,
@@ -574,6 +583,7 @@ export class AuthService {
         tempUnit: true,
         accentColor: true,
         dateFormat: true,
+        expertMode: true,
         isAdmin: true,
         createdAt: true,
         deletionRequestedAt: true,
@@ -830,6 +840,7 @@ export class AuthService {
         tempUnit: true,
         accentColor: true,
         dateFormat: true,
+        expertMode: true,
         isAdmin: true,
         createdAt: true,
         deletionRequestedAt: true,

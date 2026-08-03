@@ -15,6 +15,9 @@ export interface PublicUser {
   tempUnit: 'CELSIUS' | 'FAHRENHEIT';
   accentColor: string;
   dateFormat: 'SYSTEM' | 'H24' | 'H12';
+  // "Mode expert / collectionneur" (data-model audit) — OFF by default,
+  // reveals advanced/collector sections. See hooks/useExpertMode.ts.
+  expertMode: boolean;
   isAdmin: boolean;
   isTwoFactorEnabled?: boolean;
   createdAt: string;
@@ -245,6 +248,7 @@ export function useUpdatePreferences() {
       accentColor?: string;
       dateFormat?: 'SYSTEM' | 'H24' | 'H12';
       autoLockDelayMin?: 5 | 15 | 30 | null;
+      expertMode?: boolean;
     }
   >({
     mutationFn: (data) =>
