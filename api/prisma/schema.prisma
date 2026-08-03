@@ -36,6 +36,10 @@ model User {
   twoFactorSecret    String?
   backupCodes        String[]   @default([])
 
+  // Quick Lock & Auto-Lock (FEAT-30) — client-side lock, no impact on Session validity
+  pinHash            String?    // bcrypt hash of a 4-6 digit unlock PIN, optional
+  autoLockDelayMin   Int?       // 5, 15, 30 or null = never
+
   // Admin
   isAdmin            Boolean    @default(false)
   isActive           Boolean    @default(true)
@@ -61,6 +65,8 @@ model User {
   tastingNotes TastingNote[]
   passwordResetTokens PasswordResetToken[]
   configChangeLogs ConfigChangeLog[]
+  sessions            Session[]
+  trustedDevices      TrustedDevice[]
 }
 
 enum Theme {
@@ -300,11 +306,15 @@ model GuestShare {
   id            String    @id @default(cuid())
   token         String    @unique @default(cuid())
   label         String?
+  inviteeName   String? // Display name of the invited person (FEAT-37), distinct from `label`
   expiresAt     DateTime?
   revokedAt     DateTime?
   hidePrices    Boolean   @default(false)
   hideNotes     Boolean   @default(false)
   cellarIds     String[]
+  // Subset of cellarIds granted read/write access (FEAT-37). Cellars in cellarIds
+  // but absent here remain read-only. Never a superset of cellarIds.
+  writeCellarIds String[] @default([])
   collectionIds String[]
   createdBy     String
   createdAt     DateTime  @default(now())
@@ -356,6 +366,42 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+// ─── FEAT-25: Sessions & Trusted Devices ──────────────────────────────────────
+
+model Session {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent    String?
+  ip           String?
+  rememberMe   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  lastActiveAt DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+
+  @@index([userId])
+  @@index([userId, revokedAt])
+  @@map("sessions")
+}
+
+model TrustedDevice {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  userAgent  String?
+  ip         String?
+  country    String? // ISO country code at creation time, for anomaly detection
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  @@index([userId])
+  @@map("trusted_devices")
 }
 
 // ─── FEAT-34/53: System Configuration (singleton) ────────────────────────────

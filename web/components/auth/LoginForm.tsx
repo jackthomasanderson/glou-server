@@ -27,6 +27,7 @@ export function LoginForm() {
   const [step, setStep] = useState<'login' | '2fa'>('login');
   const [code, setCode] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [trustDevice, setTrustDevice] = useState(false);
   const [smtpEnabled, setSmtpEnabled] = useState(false);
 
   const loginMutation = useLogin();
@@ -59,7 +60,7 @@ export function LoginForm() {
     e.preventDefault();
     if (!code || code.length < 6) return;
     setApiError(null);
-    verifyMutation.mutate({ code }, {
+    verifyMutation.mutate({ code, trustDevice }, {
       onError: (error) => {
         const msgKey = `auth.errors.${error.message}`;
         const translated = t(msgKey);
@@ -102,6 +103,14 @@ export function LoginForm() {
               isDisabled={isPending}
               autoFocus
             />
+            <Checkbox
+              isSelected={trustDevice}
+              onValueChange={setTrustDevice}
+              size="sm"
+              isDisabled={isPending}
+            >
+              <span className="text-sm">{t('auth.trustDevice')}</span>
+            </Checkbox>
             <Button
               type="submit"
               color="primary"

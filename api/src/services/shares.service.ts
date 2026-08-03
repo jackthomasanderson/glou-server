@@ -12,10 +12,12 @@ export const sharesService = {
     return prisma.guestShare.create({
       data: {
         label: data.label,
+        inviteeName: data.inviteeName,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
         hidePrices: data.hidePrices,
         hideNotes: data.hideNotes,
         cellarIds: data.cellarIds,
+        writeCellarIds: data.writeCellarIds,
         collectionIds: data.collectionIds,
         createdBy: userId,
       },
@@ -130,6 +132,15 @@ export const sharesService = {
   ) {
     const items = await this.getInventoryForShare(share);
     return items.find((i) => i.id === itemId) ?? null;
+  },
+
+  /**
+   * Whether a guest share grants write access on a given cellar (FEAT-37).
+   * A null/undefined cellarId (item not assigned to any cellar) is never writable.
+   */
+  canWriteCellar(share: { writeCellarIds: string[] }, cellarId: string | null | undefined): boolean {
+    if (!cellarId) return false;
+    return share.writeCellarIds.includes(cellarId);
   },
 
   isShareValid,

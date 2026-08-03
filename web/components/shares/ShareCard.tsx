@@ -50,6 +50,11 @@ export function ShareCard({ share, onRevoke, isRevoking }: ShareCardProps) {
           <p className="text-sm font-semibold truncate">
             {share.label ?? t('shares.guest.badge')}
           </p>
+          {share.inviteeName && (
+            <p className="text-xs text-primary truncate mt-0.5">
+              {t('shares.inviteeLabel', { name: share.inviteeName })}
+            </p>
+          )}
           <p className="text-xs text-foreground-400 mt-0.5">{scopeLabel}</p>
         </div>
         <Chip color={STATUS_COLOR[status]} variant="flat" size="sm" className="shrink-0">
@@ -69,6 +74,11 @@ export function ShareCard({ share, onRevoke, isRevoking }: ShareCardProps) {
         )}
         {share.hideNotes && (
           <span className="text-warning-500">{t('shares.guest.notesHidden')}</span>
+        )}
+        {share.writeCellarIds.length > 0 && (
+          <span className="text-primary">
+            {t('shares.writeAccessCount', { count: share.writeCellarIds.length })}
+          </span>
         )}
       </div>
 

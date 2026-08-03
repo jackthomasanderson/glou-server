@@ -28,6 +28,34 @@ export const updatePreferencesSchema = z.object({
   tempUnit: z.enum(['CELSIUS', 'FAHRENHEIT']).optional(),
   accentColor: z.string().startsWith('#').optional(),
   dateFormat: z.enum(['SYSTEM', 'H24', 'H12']).optional(),
+  autoLockDelayMin: z.union([z.literal(5), z.literal(15), z.literal(30)]).nullable().optional(),
 });
 
 export type UpdatePreferencesInput = z.infer<typeof updatePreferencesSchema>;
+
+// ─── FEAT-30: Quick Lock & Auto-Lock ─────────────────────────────────────────
+
+export const setPinSchema = z.object({
+  password: z.string().min(1),
+  pin: z.string().regex(/^\d{4,6}$/),
+});
+
+export type SetPinInput = z.infer<typeof setPinSchema>;
+
+export const removePinSchema = z.object({
+  password: z.string().min(1),
+});
+
+export type RemovePinInput = z.infer<typeof removePinSchema>;
+
+export const unlockSchema = z
+  .object({
+    password: z.string().min(1).optional(),
+    pin: z.string().min(1).optional(),
+  })
+  .refine((data) => !!data.password || !!data.pin, {
+    message: 'PASSWORD_OR_PIN_REQUIRED',
+    path: ['password'],
+  });
+
+export type UnlockInput = z.infer<typeof unlockSchema>;

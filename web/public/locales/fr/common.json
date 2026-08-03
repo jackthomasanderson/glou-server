@@ -309,7 +309,8 @@
       "USERNAME_TOO_SHORT": "Le nom d'utilisateur doit contenir au moins 3 caractères.",
       "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 12 caractères.",
       "USERNAME_INVALID_CHARS": "Caractères autorisés : lettres, chiffres, - et _.",
-      "PASSWORDS_DO_NOT_MATCH": "Les mots de passe ne correspondent pas."
+      "PASSWORDS_DO_NOT_MATCH": "Les mots de passe ne correspondent pas.",
+      "SESSION_REVOKED": "Votre session a été déconnectée à distance. Merci de vous reconnecter."
     },
     "passwordStrength": {
       "weak": "Faible",
@@ -323,7 +324,21 @@
         "special": "Ajoutez des caractères spéciaux"
       }
     },
-    "rememberMe": "Se souvenir de moi (30 jours)"
+    "rememberMe": "Se souvenir de moi (30 jours)",
+    "trustDevice": "Faire confiance à cet appareil (30 jours)"
+  },
+  "lock": {
+    "buttonLabel": "Verrouiller",
+    "screenTitle": "Application verrouillée",
+    "subtitle": "Saisissez votre mot de passe ou votre code PIN pour continuer",
+    "unlockMethod": "Méthode de déverrouillage",
+    "unlockWithPassword": "Mot de passe",
+    "unlockWithPin": "Code PIN",
+    "passwordLabel": "Mot de passe",
+    "pinLabel": "Code PIN",
+    "unlockButton": "Déverrouiller",
+    "error": "Mot de passe ou code PIN incorrect.",
+    "backToLogin": "Se déconnecter"
   },
   "cellars": {
     "title": "Mes Caves",
@@ -466,6 +481,23 @@
     "emailLabel": "Adresse email",
     "passwordLabel": "Mot de passe",
     "avatarHint": "Cliquez ou glissez une image\n(Recommandé : 400×400px, max 5 Mo)",
+    "autoLockDelay": "Verrouillage automatique",
+    "autoLockHint": "Verrouille l'application après une période d'inactivité",
+    "autoLockNever": "Jamais",
+    "autoLockMinutes": "{{count}} min",
+    "pinLabel": "Code PIN de déverrouillage",
+    "pinSet": "Configuré",
+    "pinNotSet": "Non configuré",
+    "setPin": "Définir un code PIN",
+    "changePin": "Modifier le code PIN",
+    "pinModalHint": "Le code doit contenir entre 4 et 6 chiffres. Il permet un déverrouillage rapide sans ressaisir votre mot de passe.",
+    "newPin": "Nouveau code PIN",
+    "pinInvalidFormat": "Le code doit contenir entre 4 et 6 chiffres.",
+    "pinSuccess": "Code PIN mis à jour",
+    "pinRemoveConfirmTitle": "Supprimer le code PIN ?",
+    "pinRemoveConfirmBody": "Vous ne pourrez plus déverrouiller l'application avec un code PIN, seul le mot de passe restera possible.",
+    "pinRemoveSuccess": "Code PIN supprimé",
+    "pinError": "Impossible de mettre à jour le code PIN",
     "twoFactor": {
       "title": "Sécurité & Authentification",
       "description": "Protégez votre compte en activant la double authentification (2FA). Cela nécessitera un code généré par votre application lors de la connexion.",
@@ -486,6 +518,23 @@
       "disableTitle": "Désactiver la double authentification",
       "disableHint": "Pour des raisons de sécurité, veuillez renseigner votre mot de passe actuel ainsi qu'un code 2FA valide.",
       "codeOrBackup": "Code 2FA ou code de secours"
+    },
+    "sessions": {
+      "title": "Sessions actives",
+      "current": "Session actuelle",
+      "lastActive": "Dernière activité",
+      "unknownLocation": "Localisation inconnue",
+      "revoke": "Déconnecter",
+      "revokeConfirmTitle": "Déconnecter cette session ?",
+      "revokeConfirmBody": "L'appareil concerné sera immédiatement déconnecté de votre compte.",
+      "loadError": "Impossible de charger vos sessions actives.",
+      "empty": "Aucune session active.",
+      "trustDescription": "Faites confiance à cet appareil pour ne plus avoir à saisir de code de double authentification pendant 30 jours. Cette confiance est automatiquement révoquée en cas de connexion suspecte.",
+      "trustDevice": "Faire confiance à cet appareil",
+      "untrustDevice": "Ne plus faire confiance",
+      "trustSuccess": "Cet appareil est désormais de confiance.",
+      "untrustSuccess": "La confiance accordée à cet appareil a été révoquée.",
+      "trustError": "Une erreur est survenue lors de la mise à jour de la confiance."
     }
   },
   "admin": {
@@ -851,18 +900,27 @@
     "collectionCount": "{{count}} collection(s)",
     "hidePrices": "Masquer les prix et valeurs",
     "hideNotes": "Masquer les notes personnelles",
+    "inviteeLabel": "Invité·e : {{name}}",
+    "writeAccessCount": "{{count}} cave(s) en écriture",
     "fields": {
       "label": "Nom descriptif",
       "labelPlaceholder": "Ex : Pour Pierre, Accès temporaire…",
+      "inviteeName": "Nom de la personne invitée",
+      "inviteeNamePlaceholder": "Ex : Marie",
       "duration": "Durée de validité",
+      "customDate": "Date d'expiration",
       "scope": "Périmètre visible",
       "allCellars": "Toutes les caves",
       "selectCellars": "Caves spécifiques",
       "selectCollections": "Collections spécifiques",
+      "readOnly": "Lecture seule",
+      "readWrite": "Lecture/écriture",
+      "cellarWriteAccessAria": "Accès en lecture/écriture pour la cave {{name}}",
       "durations": {
         "1d": "24 heures",
         "7d": "7 jours",
         "30d": "30 jours",
+        "custom": "Date personnalisée",
         "unlimited": "Illimité"
       }
     },
@@ -874,13 +932,22 @@
     "guest": {
       "badge": "Vue partagée",
       "readOnly": "Lecture seule",
+      "partialWrite": "Lecture/écriture partielle",
       "pricesHidden": "Prix et valeurs masqués",
       "notesHidden": "Notes personnelles masquées",
       "expired": "Ce lien de partage a expiré ou a été révoqué.",
       "loading": "Chargement de la collection partagée…",
       "empty": "Aucun article dans ce partage.",
       "scopeAll": "Collection complète",
-      "scopePartial": "Vue partielle"
+      "scopePartial": "Vue partielle",
+      "edit": {
+        "action": "Modifier",
+        "opened": "Bouteille entamée",
+        "openedBadge": "Entamée",
+        "fillLevel": "Niveau restant (%)",
+        "notes": "Notes",
+        "error": "Impossible d'enregistrer la modification."
+      }
     }
   },
   "forgotPassword": {
@@ -944,7 +1011,8 @@
       "consumption": "Consommation planifiée",
       "shares": "Partages & invitations",
       "permissions": "Changements de permissions",
-      "new_users": "Nouveaux utilisateurs (admin)"
+      "new_users": "Nouveaux utilisateurs (admin)",
+      "security": "Sécurité du compte"
     },
     "quietHours": {
       "title": "Plage silencieuse",

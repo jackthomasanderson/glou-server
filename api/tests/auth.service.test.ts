@@ -12,8 +12,19 @@ vi.mock('../src/lib/prisma', () => ({
       create: vi.fn(),
       count: vi.fn(),
     },
+    session: {
+      create: vi.fn(),
+    },
+    trustedDevice: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }));
+
+// A neutral device fingerprint reused across register/login test cases (FEAT-25).
+const deviceInfo = { userAgent: 'test-agent', ip: '127.0.0.1' };
 
 vi.mock('bcryptjs', () => ({
   default: {
@@ -84,9 +95,10 @@ describe('AuthService', () => {
         updatedAt: new Date(),
       };
       vi.mocked(prisma.user.create).mockResolvedValue(mockCreatedUser);
+      vi.mocked(prisma.session.create).mockResolvedValue({ id: 'session-1' } as any);
       vi.mocked(jwt.sign).mockReturnValue('mock-jwt-token' as never);
 
-      const result = await authService.register(validData);
+      const result = await authService.register(validData, deviceInfo);
 
       expect(prisma.user.findFirst).toHaveBeenCalledWith({
         where: { OR: [{ username: validData.username }, { email: validData.email }] },
@@ -101,13 +113,13 @@ describe('AuthService', () => {
     it('should throw USERNAME_ALREADY_TAKEN if username exists', async () => {
       vi.mocked(prisma.user.findFirst).mockResolvedValue({ username: validData.username, email: 'other@example.com' } as any);
 
-      await expect(authService.register(validData)).rejects.toThrow('USERNAME_ALREADY_TAKEN');
+      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('USERNAME_ALREADY_TAKEN');
     });
 
     it('should throw EMAIL_ALREADY_TAKEN if email exists', async () => {
       vi.mocked(prisma.user.findFirst).mockResolvedValue({ username: 'other', email: validData.email } as any);
 
-      await expect(authService.register(validData)).rejects.toThrow('EMAIL_ALREADY_TAKEN');
+      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('EMAIL_ALREADY_TAKEN');
     });
   });
 
@@ -153,9 +165,10 @@ describe('AuthService', () => {
     it('should return user and token for valid credentials', async () => {
       vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
       vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(prisma.session.create).mockResolvedValue({ id: 'session-1' } as any);
       vi.mocked(jwt.sign).mockReturnValue('mock-jwt-token' as never);
 
-      const result = await authService.login(loginData);
+      const result = await authService.login(loginData, deviceInfo);
 
       expect(prisma.user.findFirst).toHaveBeenCalledWith({
         where: { OR: [{ username: loginData.identifier }, { email: loginData.identifier }] },
@@ -168,14 +181,14 @@ describe('AuthService', () => {
     it('should throw INVALID_CREDENTIALS if user not found', async () => {
       vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
 
-      await expect(authService.login(loginData)).rejects.toThrow('INVALID_CREDENTIALS');
+      await expect(authService.login(loginData, deviceInfo)).rejects.toThrow('INVALID_CREDENTIALS');
     });
 
     it('should throw INVALID_CREDENTIALS if password does not match', async () => {
       vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
-      await expect(authService.login(loginData)).rejects.toThrow('INVALID_CREDENTIALS');
+      await expect(authService.login(loginData, deviceInfo)).rejects.toThrow('INVALID_CREDENTIALS');
     });
   });
 });

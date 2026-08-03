@@ -1,5 +1,5 @@
 import { client } from '../api';
-import { GuestShare, ShareFormValues } from './types';
+import { GuestInventoryUpdatePayload, GuestShare, ShareFormValues } from './types';
 
 export const sharesClient = {
   async list(): Promise<GuestShare[]> {
@@ -42,6 +42,21 @@ export const guestClient = {
 
   async getItem(token: string, itemId: string): Promise<unknown> {
     const res = await fetch(`/api/guest/${token}/inventory/${itemId}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'NETWORK_ERROR' })) as { error: string };
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
+    const body = await res.json() as { data: unknown };
+    return body.data;
+  },
+
+  /** Restricted item edit for guests with write access on the item's cellar (FEAT-37). */
+  async updateItem(token: string, itemId: string, patch: GuestInventoryUpdatePayload): Promise<unknown> {
+    const res = await fetch(`/api/guest/${token}/inventory/${itemId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: 'NETWORK_ERROR' })) as { error: string };
       throw new Error(body.error ?? `HTTP ${res.status}`);

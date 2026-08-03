@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { authService } from '../services/auth.service';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { avatarUpload } from '../middleware/upload.middleware';
 import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema } from '../schemas/user.schema';
 import { prisma } from '../lib/prisma';
@@ -104,7 +104,8 @@ router.patch('/email', authMiddleware, async (req: Request, res: Response) => {
 router.patch('/password', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { currentPassword, newPassword } = updatePasswordSchema.parse(req.body);
-    await authService.updatePassword(req.userId, currentPassword, newPassword);
+    const deviceInfo = { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
+    await authService.updatePassword(req.userId, currentPassword, newPassword, deviceInfo);
     res.json({ success: true });
   } catch (err: unknown) {
     if (err instanceof ZodError) {

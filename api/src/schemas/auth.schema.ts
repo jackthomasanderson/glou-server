@@ -43,6 +43,7 @@ export const turnOff2faSchema = z.object({
 export const verify2faSchema = z.object({
   code: z.string().min(6, 'INVALID_CODE_LENGTH').max(10, 'INVALID_CODE_LENGTH'),
   // We don't need token here if we read the glou_token cookie directly
+  trustDevice: z.boolean().optional().default(false),
 });
 
 export type TurnOn2faInput = z.infer<typeof turnOn2faSchema>;

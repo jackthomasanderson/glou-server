@@ -1,9 +1,9 @@
 'use client';
 
-import React, { use } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Chip, Spinner } from '@heroui/react';
-import { Eye, EyeOff, Lock } from 'lucide-react';
+import React, { use, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Button, Chip, Input, Spinner, Switch, Textarea } from '@heroui/react';
+import { Eye, EyeOff, Lock, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { guestClient } from '@/lib/shares/client';
 import { GuestShareMeta } from '@/lib/shares/types';
@@ -23,12 +23,34 @@ interface GuestItem {
   purchasePrice?: number | null;
   estimatedValue?: number | null;
   isOpened: boolean;
+  fillLevel?: number | null;
+  cellarId?: string | null;
   alertStatus?: string | null;
 }
 
 // ─── Item card ───────────────────────────────────────────────────────────────
 
-function GuestItemCard({ item }: { item: GuestItem }) {
+function GuestItemCard({ item, token, editable }: { item: GuestItem; token: string; editable: boolean }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [isEditing, setIsEditing] = useState(false);
+  const [isOpened, setIsOpened] = useState(item.isOpened);
+  const [fillLevel, setFillLevel] = useState(item.fillLevel != null ? String(item.fillLevel) : '');
+  const [notes, setNotes] = useState(item.notes ?? '');
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      guestClient.updateItem(token, item.id, {
+        isOpened,
+        fillLevel: fillLevel.trim() === '' ? null : Number(fillLevel),
+        notes: notes.trim() === '' ? null : notes,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['guest', token, 'inventory'] });
+      setIsEditing(false);
+    },
+  });
+
   return (
     <div className="bg-content1 border border-divider rounded-2xl p-4 flex flex-col gap-2">
       {item.photoUrl && (
@@ -54,8 +76,79 @@ function GuestItemCard({ item }: { item: GuestItem }) {
       {item.estimatedValue != null && (
         <p className="text-xs font-medium text-primary">{item.estimatedValue.toFixed(2)} €</p>
       )}
-      {item.notes && (
+      {item.isOpened && (
+        <Chip color="secondary" variant="bordered" size="sm" radius="full" className="w-fit">
+          {t('shares.guest.edit.openedBadge')}
+        </Chip>
+      )}
+      {!isEditing && item.notes && (
         <p className="text-xs text-foreground-500 italic line-clamp-2">{item.notes}</p>
+      )}
+
+      {editable && (
+        <div className="pt-2 mt-1 border-t border-divider">
+          {!isEditing ? (
+            <Button
+              size="sm"
+              variant="light"
+              color="primary"
+              startContent={<Pencil size={13} />}
+              onPress={() => setIsEditing(true)}
+              fullWidth
+            >
+              {t('shares.guest.edit.action')}
+            </Button>
+          ) : (
+            <div className="flex flex-col gap-3 mt-1">
+              <Switch isSelected={isOpened} onValueChange={setIsOpened} size="sm">
+                <span className="text-xs">{t('shares.guest.edit.opened')}</span>
+              </Switch>
+              <Input
+                type="number"
+                label={t('shares.guest.edit.fillLevel')}
+                value={fillLevel}
+                onValueChange={setFillLevel}
+                min={0}
+                max={100}
+                size="sm"
+                variant="bordered"
+                radius="md"
+                labelPlacement="outside"
+              />
+              <Textarea
+                label={t('shares.guest.edit.notes')}
+                value={notes}
+                onValueChange={setNotes}
+                size="sm"
+                variant="bordered"
+                radius="md"
+                labelPlacement="outside"
+                maxLength={2000}
+              />
+              {updateMutation.isError && (
+                <p className="text-xs text-danger">{t('shares.guest.edit.error')}</p>
+              )}
+              <div className="flex gap-2 justify-end">
+                <Button
+                  size="sm"
+                  variant="light"
+                  onPress={() => setIsEditing(false)}
+                  isDisabled={updateMutation.isPending}
+                >
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  size="sm"
+                  color="primary"
+                  isLoading={updateMutation.isPending}
+                  onPress={() => updateMutation.mutate()}
+                >
+                  {t('actions.save')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -114,7 +207,9 @@ function GuestPageContent({ token }: { token: string }) {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Chip color="primary" variant="flat" size="sm">
-            {t('shares.guest.readOnly')}
+            {meta && meta.writeCellarIds.length > 0
+              ? t('shares.guest.partialWrite')
+              : t('shares.guest.readOnly')}
           </Chip>
           {meta?.hidePrices && (
             <Chip color="warning" variant="flat" size="sm" startContent={<EyeOff size={10} />}>
@@ -154,7 +249,12 @@ function GuestPageContent({ token }: { token: string }) {
         {items.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {items.map((item) => (
-              <GuestItemCard key={item.id} item={item} />
+              <GuestItemCard
+                key={item.id}
+                item={item}
+                token={token}
+                editable={!!meta?.writeCellarIds.includes(item.cellarId ?? '')}
+              />
             ))}
           </div>
         )}

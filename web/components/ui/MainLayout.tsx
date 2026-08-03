@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Avatar, Button } from '@heroui/react';
-import { Search } from 'lucide-react';
+import { Avatar, Button, Tooltip } from '@heroui/react';
+import { Search, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
@@ -11,6 +11,7 @@ import { GlobalSearch, MobileSearch } from './GlobalSearch';
 import { NotificationBell } from './NotificationBell';
 import { AuthGuard } from '../auth/AuthGuard';
 import { useMe } from '@/hooks/useAuth';
+import { useAutoLock } from '@/hooks/useAutoLock';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -33,6 +34,31 @@ function usePageTitle() {
   const { t } = useTranslation();
   const key = Object.keys(PAGE_TITLES).find(k => pathname.startsWith(k));
   return key ? { label: t(PAGE_TITLES[key], key.slice(1)), href: key } : null;
+}
+
+/**
+ * FEAT-30: quick-lock button, accessible from any screen. Only rendered when
+ * `MainLayout` is protected (wrapped by `AuthGuard`/`AutoLockProvider`) —
+ * `useAutoLock` requires that provider to be mounted above it.
+ */
+function QuickLockButton() {
+  const { t } = useTranslation();
+  const { lockNow } = useAutoLock();
+  return (
+    <Tooltip content={t('lock.buttonLabel')} placement="bottom" delay={500}>
+      <Button
+        isIconOnly
+        size="sm"
+        variant="light"
+        color="default"
+        radius="full"
+        onPress={lockNow}
+        aria-label={t('lock.buttonLabel')}
+      >
+        <Lock size={18} />
+      </Button>
+    </Tooltip>
+  );
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isProtected = true }) => {
@@ -81,6 +107,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
           >
             <Search size={18} />
           </Button>
+          {isProtected && <QuickLockButton />}
           <NotificationBell />
           {/* Mobile: quick profile access */}
           <Avatar

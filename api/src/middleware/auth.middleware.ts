@@ -6,6 +6,7 @@ export interface AuthPayload {
   userId: string;
   email: string;
   scope?: 'full' | '2fa_pending';
+  sessionId?: string;
 }
 
 /** Extend Express Request to carry authenticated user info */
@@ -14,9 +15,15 @@ declare global {
     interface Request {
       userId: string;
       userEmail: string;
+      sessionId: string;
     }
   }
 }
+
+// Throttle session `lastActiveAt` writes to once every 5 minutes per session,
+// to avoid a DB write on every single authenticated request.
+const LAST_ACTIVE_THROTTLE_MS = 5 * 60 * 1000;
+const lastActiveWriteCache = new Map<string, number>();
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   // Extract token from Authorization header (Bearer) or HttpOnly cookie
@@ -54,8 +61,32 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       return;
     }
 
+    // Verify the session backing this token hasn't been revoked or expired
+    // (FEAT-25: instant remote disconnect requires a server-side check).
+    if (payload.sessionId) {
+      const session = await prisma.session.findUnique({
+        where: { id: payload.sessionId },
+        select: { revokedAt: true, expiresAt: true },
+      });
+      if (!session || session.revokedAt || session.expiresAt < new Date()) {
+        res.status(401).json({ error: 'SESSION_REVOKED' });
+        return;
+      }
+
+      const now = Date.now();
+      const lastWrite = lastActiveWriteCache.get(payload.sessionId) ?? 0;
+      if (now - lastWrite > LAST_ACTIVE_THROTTLE_MS) {
+        lastActiveWriteCache.set(payload.sessionId, now);
+        void prisma.session.update({
+          where: { id: payload.sessionId },
+          data: { lastActiveAt: new Date() },
+        }).catch(() => {});
+      }
+    }
+
     req.userId = payload.userId;
     req.userEmail = payload.email;
+    req.sessionId = payload.sessionId ?? '';
     next();
   } catch {
     res.status(401).json({ error: 'TOKEN_INVALID_OR_EXPIRED' });

@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema } from '../schemas/auth.schema';
+import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.schema';
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { auditLog } from '../services/audit.service';
@@ -11,8 +12,30 @@ import { passwordResetService } from '../services/password-reset.service';
 import { systemConfigService } from '../services/system-config.service';
 
 const passwordResetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
+// FEAT-30: a PIN is only 4-6 digits — throttle unlock attempts hard to make brute-force impractical.
+const unlockLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
 
 const router = Router();
+
+// ─── Trusted-device cookie (FEAT-25) ───────────────────────────────────────────
+// Long-lived, scoped to /api/auth only — never sent to the rest of the API and
+// never cleared on logout (the whole point is to survive a disconnection).
+const TRUSTED_DEVICE_COOKIE_NAME = 'glou_trusted_device';
+const TRUSTED_DEVICE_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict' as const,
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+  path: '/api/auth',
+};
+
+function readDeviceInfo(req: Request): { userAgent: string | undefined; ip: string } {
+  return { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
+}
+
+function readTrustedDeviceCookie(req: Request): string | undefined {
+  return (req.cookies as Record<string, string | undefined>)?.[TRUSTED_DEVICE_COOKIE_NAME];
+}
 
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
 
@@ -20,7 +43,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = registerSchema.parse(req.body);
-    const { user, token } = await authService.register(data);
+    const { user, token } = await authService.register(data, readDeviceInfo(req));
 
     res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
     void auditLog({ userId: user.id, action: 'REGISTER', status: 'success', ip });
@@ -43,13 +66,20 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = loginSchema.parse(req.body);
-    const result: LoginResult = await authService.login(data);
+    const trustedDeviceToken = readTrustedDeviceCookie(req);
+    const result: LoginResult = await authService.login(data, readDeviceInfo(req), trustedDeviceToken);
     const { user, token, requires2fa, rememberMe } = result;
 
     const cookieOpts = rememberMe ? COOKIE_OPTIONS : SESSION_COOKIE_OPTIONS;
     res.cookie(COOKIE_NAME, token, cookieOpts);
     if (!requires2fa) {
-      void auditLog({ userId: user.id, action: 'LOGIN', status: 'success', ip });
+      void auditLog({
+        userId: user.id,
+        action: 'LOGIN',
+        status: 'success',
+        ip,
+        details: result.viaTrustedDevice ? { via: 'trusted_device' } : undefined,
+      });
     }
     res.json({ data: { ...user, requires2fa } });
   } catch (error) {
@@ -97,11 +127,14 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const { code } = verify2faSchema.parse(req.body);
-    const result = await authService.verifyTwoFactorLogin(userId, code, rememberMe);
+    const { code, trustDevice } = verify2faSchema.parse(req.body);
+    const result = await authService.verifyTwoFactorLogin(userId, code, rememberMe, readDeviceInfo(req), trustDevice);
 
     const cookieOpts = result.rememberMe ? COOKIE_OPTIONS : SESSION_COOKIE_OPTIONS;
     res.cookie(COOKIE_NAME, result.token, cookieOpts);
+    if (result.trustedDeviceToken) {
+      res.cookie(TRUSTED_DEVICE_COOKIE_NAME, result.trustedDeviceToken, TRUSTED_DEVICE_COOKIE_OPTIONS);
+    }
     void auditLog({ userId: result.user.id, action: 'LOGIN_2FA', status: 'success', ip });
     res.json({ data: result.user });
   } catch (error) {
@@ -131,7 +164,7 @@ router.post('/2fa/generate', authMiddleware, async (req: Request, res: Response)
 router.post('/2fa/turn-on', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const { code } = turnOn2faSchema.parse(req.body);
-    const data = await authService.turnOnTwoFactorAuthentication(req.userId, code);
+    const data = await authService.turnOnTwoFactorAuthentication(req.userId, code, readDeviceInfo(req));
     res.json({ data });
   } catch (error) {
     if (error instanceof ZodError) {
@@ -148,7 +181,7 @@ router.post('/2fa/turn-on', authMiddleware, async (req: Request, res: Response):
 router.post('/2fa/turn-off', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const { password, code } = turnOff2faSchema.parse(req.body);
-    await authService.turnOffTwoFactorAuthentication(req.userId, password, code);
+    await authService.turnOffTwoFactorAuthentication(req.userId, password, readDeviceInfo(req), code);
     res.json({ data: { success: true } });
   } catch (error) {
     if (error instanceof ZodError) {
@@ -161,12 +194,153 @@ router.post('/2fa/turn-off', authMiddleware, async (req: Request, res: Response)
 });
 
 // ─── POST /api/auth/logout ────────────────────────────────────────────────────
+// Note: the trusted-device cookie is intentionally left untouched — trust must
+// survive a logout, that's the entire point of the "remember this device" feature.
 
-router.post('/logout', authMiddleware, (req: Request, res: Response): void => {
+router.post('/logout', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
+  if (req.sessionId) {
+    try {
+      await authService.revokeSession(req.userId, req.sessionId);
+    } catch {
+      // Session already gone/invalid — logout must still succeed client-side.
+    }
+  }
   res.clearCookie(COOKIE_NAME, { path: '/' });
   void auditLog({ userId: req.userId, action: 'LOGOUT', status: 'success', ip });
   res.json({ data: { ok: true } });
+});
+
+// ─── GET /api/auth/sessions ────────────────────────────────────────────────────
+
+router.get('/sessions', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const sessions = await authService.listSessions(req.userId, req.sessionId);
+    res.json({ data: sessions });
+  } catch {
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── DELETE /api/auth/sessions/:id ─────────────────────────────────────────────
+
+router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const ip = getClientIp(req);
+  try {
+    await authService.revokeSession(req.userId, req.params.id);
+    void auditLog({ userId: req.userId, action: 'SESSION_REVOKE', status: 'success', ip, details: { sessionId: req.params.id } });
+    res.json({ data: { ok: true } });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
+    if (msg === 'NOT_FOUND') {
+      res.status(404).json({ error: 'NOT_FOUND' });
+      return;
+    }
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── POST /api/auth/trust-device ───────────────────────────────────────────────
+
+router.post('/trust-device', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const ip = getClientIp(req);
+  try {
+    const { token } = await authService.trustCurrentDevice(req.userId, readDeviceInfo(req));
+    res.cookie(TRUSTED_DEVICE_COOKIE_NAME, token, TRUSTED_DEVICE_COOKIE_OPTIONS);
+    void auditLog({ userId: req.userId, action: 'TRUST_DEVICE', status: 'success', ip });
+    res.json({ data: { ok: true } });
+  } catch {
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── DELETE /api/auth/trust-device ─────────────────────────────────────────────
+
+router.delete('/trust-device', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const ip = getClientIp(req);
+  try {
+    const trustedDeviceToken = readTrustedDeviceCookie(req);
+    if (trustedDeviceToken) {
+      await authService.untrustCurrentDevice(req.userId, trustedDeviceToken);
+    }
+    res.clearCookie(TRUSTED_DEVICE_COOKIE_NAME, { path: '/api/auth' });
+    void auditLog({ userId: req.userId, action: 'UNTRUST_DEVICE', status: 'success', ip });
+    res.json({ data: { ok: true } });
+  } catch {
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── Quick Lock & Auto-Lock (FEAT-30) ─────────────────────────────────────────
+// Client-side lock only: the session/JWT stays valid throughout, these routes
+// never mint a new token. See auth.service.ts (setPin/removePin/verifyUnlock).
+
+// ─── POST /api/auth/pin ────────────────────────────────────────────────────────
+
+router.post('/pin', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const ip = getClientIp(req);
+  try {
+    const { password, pin } = setPinSchema.parse(req.body);
+    await authService.setPin(req.userId, password, pin);
+    void auditLog({ userId: req.userId, action: 'PIN_SET', status: 'success', ip });
+    res.json({ data: { ok: true } });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
+    if (msg === 'INVALID_CREDENTIALS') {
+      res.status(401).json({ error: msg });
+      return;
+    }
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── DELETE /api/auth/pin ───────────────────────────────────────────────────────
+
+router.delete('/pin', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const ip = getClientIp(req);
+  try {
+    const { password } = removePinSchema.parse(req.body);
+    await authService.removePin(req.userId, password);
+    void auditLog({ userId: req.userId, action: 'PIN_REMOVE', status: 'success', ip });
+    res.json({ data: { ok: true } });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
+    if (msg === 'INVALID_CREDENTIALS') {
+      res.status(401).json({ error: msg });
+      return;
+    }
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── POST /api/auth/unlock ───────────────────────────────────────────────────────
+// Verifies password OR PIN to lift the client-side lock. Never touches the
+// Session/JWT — this is a pure secret check, not a re-authentication.
+
+router.post('/unlock', unlockLimiter, authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const data = unlockSchema.parse(req.body);
+    const ok = await authService.verifyUnlock(req.userId, data);
+    if (!ok) {
+      res.status(401).json({ error: 'INVALID_CREDENTIALS' });
+      return;
+    }
+    res.json({ data: { ok: true } });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
 });
 
 // ─── GET /api/auth/me ─────────────────────────────────────────────────────────

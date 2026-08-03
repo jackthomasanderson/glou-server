@@ -9,6 +9,7 @@ import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
 import { useMe, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { AccountSecurity } from '@/components/profile/AccountSecurity';
+import { SessionsPanel } from '@/components/profile/SessionsPanel';
 import { AvatarUploader } from '@/components/profile/AvatarUploader';
 import { GdprSection } from '@/components/profile/GdprSection';
 import { SharesDashboard } from '@/components/shares/SharesDashboard';
@@ -226,9 +227,10 @@ export default function ProfilePage() {
 
         {/* Security sections */}
         {user && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div id="security" className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 scroll-mt-24">
             <AccountSecurity user={user} />
             <TwoFactorSettings user={user} />
+            <SessionsPanel />
           </div>
         )}
 

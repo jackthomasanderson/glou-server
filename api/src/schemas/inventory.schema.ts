@@ -157,3 +157,19 @@ export const inventoryPatchSchema = z.object({
 });
 
 export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
+
+// ─── Guest-restricted update schema (FEAT-37) ────────────────────────────────
+// Guests with write access on a cellar (via GuestShare.writeCellarIds) may only
+// touch consumption/service state — never pricing, structural, or category fields.
+// `.strict()` rejects any unexpected key outright (defense in depth).
+
+export const guestInventoryUpdateSchema = z
+  .object({
+    isOpened: z.boolean().optional(),
+    openedAt: z.coerce.date().optional().nullable(),
+    fillLevel: z.number().int().min(0).max(100).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+  })
+  .strict();
+
+export type GuestInventoryUpdate = z.infer<typeof guestInventoryUpdateSchema>;

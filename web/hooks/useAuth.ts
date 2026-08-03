@@ -18,9 +18,23 @@ export interface PublicUser {
   isTwoFactorEnabled?: boolean;
   createdAt: string;
   deletionRequestedAt?: string | null;
+  // FEAT-30: Quick Lock & Auto-Lock (client-side lock, session/JWT stays valid)
+  hasPin?: boolean;
+  autoLockDelayMin?: number | null;
 }
 
 const ME_KEY = ['auth', 'me'];
+const SESSIONS_KEY = ['auth', 'sessions'];
+
+export interface SessionInfo {
+  id: string;
+  device: string;
+  location: { city: string | null; country: string | null } | null;
+  createdAt: string;
+  lastActiveAt: string;
+  rememberMe: boolean;
+  isCurrent: boolean;
+}
 
 async function apiFetch<T>(
   url: string,
@@ -188,6 +202,7 @@ export function useUpdatePreferences() {
       tempUnit?: 'CELSIUS' | 'FAHRENHEIT';
       accentColor?: string;
       dateFormat?: 'SYSTEM' | 'H24' | 'H12';
+      autoLockDelayMin?: 5 | 15 | 30 | null;
     }
   >({
     mutationFn: (data) =>
@@ -229,11 +244,50 @@ export function useTurnOff2fa() {
 export function useVerify2faLogin() {
   const queryClient = useQueryClient();
   const router = useRouter();
-  return useMutation<PublicUser, Error, { code: string }>({
+  return useMutation<PublicUser, Error, { code: string; trustDevice?: boolean }>({
     mutationFn: (data) => apiFetch<PublicUser>('/api/auth/2fa/verify-login', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
       router.push('/bottles');
+    },
+  });
+}
+
+// ─── Sessions & Trusted Devices (FEAT-25) ───────────────────────────────────
+
+export function useSessions() {
+  return useQuery<SessionInfo[]>({
+    queryKey: SESSIONS_KEY,
+    queryFn: () => apiFetch<SessionInfo[]>('/api/auth/sessions'),
+  });
+}
+
+export function useRevokeSession() {
+  const queryClient = useQueryClient();
+  return useMutation<{ ok: boolean }, Error, string>({
+    mutationFn: (sessionId) => apiFetch<{ ok: boolean }>(`/api/auth/sessions/${sessionId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
+    },
+  });
+}
+
+export function useTrustDevice() {
+  const queryClient = useQueryClient();
+  return useMutation<{ ok: boolean }, Error, void>({
+    mutationFn: () => apiFetch<{ ok: boolean }>('/api/auth/trust-device', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
+    },
+  });
+}
+
+export function useUntrustDevice() {
+  const queryClient = useQueryClient();
+  return useMutation<{ ok: boolean }, Error, void>({
+    mutationFn: () => apiFetch<{ ok: boolean }>('/api/auth/trust-device', { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
     },
   });
 }
@@ -273,5 +327,35 @@ export function useCancelAccountDeletion() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
     },
+  });
+}
+
+// ─── Quick Lock & Auto-Lock (FEAT-30) ───────────────────────────────────────
+// Client-side lock only: unlocking never re-authenticates and never touches
+// the session/JWT — it's a pure password/PIN check (see auth.service.ts).
+
+export function useSetPin() {
+  const queryClient = useQueryClient();
+  return useMutation<{ ok: boolean }, Error, { password: string; pin: string }>({
+    mutationFn: (data) => apiFetch<{ ok: boolean }>('/api/auth/pin', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ME_KEY });
+    },
+  });
+}
+
+export function useRemovePin() {
+  const queryClient = useQueryClient();
+  return useMutation<{ ok: boolean }, Error, { password: string }>({
+    mutationFn: (data) => apiFetch<{ ok: boolean }>('/api/auth/pin', { method: 'DELETE', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ME_KEY });
+    },
+  });
+}
+
+export function useUnlock() {
+  return useMutation<{ ok: boolean }, Error, { password?: string; pin?: string }>({
+    mutationFn: (data) => apiFetch<{ ok: boolean }>('/api/auth/unlock', { method: 'POST', body: JSON.stringify(data) }),
   });
 }

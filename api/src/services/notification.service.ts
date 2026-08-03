@@ -8,13 +8,19 @@ export type NotificationCategory =
   | 'consumption'
   | 'shares'
   | 'permissions'
-  | 'new_users';
+  | 'new_users'
+  | 'security';
 
 interface NotificationPayload {
   userId: string;
   category: NotificationCategory;
   subject: string;
   htmlBody: string;
+  /**
+   * Skip the user's quiet-hours window entirely (FEAT-29). Reserved for the
+   * `security` category: a compromised account must not wait for morning.
+   */
+  bypassQuietHours?: boolean;
 }
 
 export const notificationService = {
@@ -29,7 +35,7 @@ export const notificationService = {
     const hour = now.getHours();
 
     // Check quiet hours
-    if (user.notifQuietStart != null && user.notifQuietEnd != null) {
+    if (!payload.bypassQuietHours && user.notifQuietStart != null && user.notifQuietEnd != null) {
       const inQuiet = user.notifQuietStart <= user.notifQuietEnd
         ? hour >= user.notifQuietStart && hour < user.notifQuietEnd
         : hour >= user.notifQuietStart || hour < user.notifQuietEnd;

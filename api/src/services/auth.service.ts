@@ -9,8 +9,13 @@ import { prisma } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
 import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.schema';
 import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
+import { describeDevice, locateIp, countryOfIp } from '../lib/device';
+import { notificationService } from './notification.service';
 
 const JWT_EXPIRES_IN = '30d';
+// Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
+// (FEAT-25: a Session must not outlive the JWT that references it).
+const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
 
 export interface AuthPayload {
@@ -19,11 +24,28 @@ export interface AuthPayload {
   username: string;
   scope?: 'full' | '2fa_pending';
   rememberMe?: boolean;
+  sessionId?: string;
+}
+
+/** Minimal device/network fingerprint captured at session / trusted-device creation time. */
+export interface DeviceInfo {
+  userAgent?: string | null;
+  ip?: string | null;
 }
 
 export type LoginResult =
-  | { user: PublicUser; token: string; rememberMe: boolean; requires2fa?: never }
+  | { user: PublicUser; token: string; rememberMe: boolean; requires2fa?: never; viaTrustedDevice?: boolean }
   | { user: PublicUser; token: string; rememberMe: boolean; requires2fa: true };
+
+export interface SessionSummary {
+  id: string;
+  device: string;
+  location: { city: string | null; country: string | null } | null;
+  createdAt: Date;
+  lastActiveAt: Date;
+  rememberMe: boolean;
+  isCurrent: boolean;
+}
 
 export interface PublicUser {
   id: string;
@@ -40,6 +62,29 @@ export interface PublicUser {
   isAdmin: boolean;
   createdAt: Date;
   deletionRequestedAt?: Date | null;
+  // FEAT-30: Quick Lock & Auto-Lock
+  hasPin: boolean;
+  autoLockDelayMin: number | null;
+}
+
+/** Shape shared by every Prisma User read used to build a PublicUser (FEAT-30 added pinHash/autoLockDelayMin). */
+interface RawUserForPublic {
+  id: string;
+  username: string;
+  email: string;
+  avatarUrl: string | null;
+  appName: string | null;
+  appSlogan: string | null;
+  theme: Theme;
+  language: Language;
+  tempUnit: TempUnit;
+  accentColor: string;
+  dateFormat: DateFormat;
+  isAdmin: boolean;
+  createdAt: Date;
+  deletionRequestedAt: Date | null;
+  pinHash: string | null;
+  autoLockDelayMin: number | null;
 }
 
 function signToken(payload: AuthPayload): string {
@@ -48,11 +93,157 @@ function signToken(payload: AuthPayload): string {
   return jwt.sign(payload, secret, { expiresIn: JWT_EXPIRES_IN });
 }
 
+// ─── Security Notifications (FEAT-29) ────────────────────────────────────────
+
+type SecurityEventKey = 'newDevice' | 'passwordChanged' | 'twoFactorEnabled' | 'twoFactorDisabled' | 'sessionRevoked';
+
+const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subject: string; intro: string }> = {
+  newDevice: (isEn) => isEn
+    ? { subject: 'Glou — New sign-in detected', intro: "A new sign-in to your account was detected from a device or location we don't recognize." }
+    : { subject: 'Glou — Nouvelle connexion détectée', intro: 'Une connexion à votre compte a été détectée depuis un appareil ou une localisation que nous ne reconnaissons pas.' },
+  passwordChanged: (isEn) => isEn
+    ? { subject: 'Glou — Your password was changed', intro: 'The password of your account was just changed.' }
+    : { subject: 'Glou — Mot de passe modifié', intro: 'Le mot de passe de votre compte vient d’être modifié.' },
+  twoFactorEnabled: (isEn) => isEn
+    ? { subject: 'Glou — Two-factor authentication enabled', intro: 'Two-factor authentication was just enabled on your account.' }
+    : { subject: 'Glou — Double authentification activée', intro: 'La double authentification vient d’être activée sur votre compte.' },
+  twoFactorDisabled: (isEn) => isEn
+    ? { subject: 'Glou — Two-factor authentication disabled', intro: 'Two-factor authentication was just disabled on your account.' }
+    : { subject: 'Glou — Double authentification désactivée', intro: 'La double authentification vient d’être désactivée sur votre compte.' },
+  sessionRevoked: (isEn) => isEn
+    ? { subject: 'Glou — A session was signed out', intro: 'A session on your account was signed out.' }
+    : { subject: 'Glou — Session déconnectée', intro: 'Une session de votre compte a été déconnectée.' },
+};
+
 export class AuthService {
+  /**
+   * Whitelist a raw Prisma User record down to the public, client-safe shape.
+   * Never spreads the raw record — `pinHash` (and any other sensitive column)
+   * must be explicitly excluded, mirroring the explicit-fields discipline
+   * already used for `passwordHash` throughout this file.
+   */
+  private toPublicUser(user: RawUserForPublic): PublicUser {
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      appName: user.appName,
+      appSlogan: user.appSlogan,
+      theme: user.theme,
+      language: user.language,
+      tempUnit: user.tempUnit,
+      accentColor: user.accentColor,
+      dateFormat: user.dateFormat,
+      isAdmin: user.isAdmin,
+      createdAt: user.createdAt,
+      deletionRequestedAt: user.deletionRequestedAt,
+      hasPin: !!user.pinHash,
+      autoLockDelayMin: user.autoLockDelayMin,
+    };
+  }
+
+  /**
+   * Create a new Session row for a user and return its id.
+   * `expiresAt` mirrors the JWT's own expiration (SESSION_DURATION_MS) so the
+   * Session never outlives the token that carries its id.
+   */
+  private async createSession(userId: string, deviceInfo: DeviceInfo, rememberMe: boolean): Promise<{ id: string }> {
+    return prisma.session.create({
+      data: {
+        userId,
+        userAgent: deviceInfo.userAgent ?? null,
+        ip: deviceInfo.ip ?? null,
+        rememberMe,
+        expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
+      },
+      select: { id: true },
+    });
+  }
+
+  /**
+   * Create a TrustedDevice row and return the raw (unhashed) token — only
+   * exposed to the caller once, at creation time.
+   */
+  private async createTrustedDevice(userId: string, deviceInfo: DeviceInfo): Promise<string> {
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    await prisma.trustedDevice.create({
+      data: {
+        userId,
+        tokenHash,
+        userAgent: deviceInfo.userAgent ?? null,
+        ip: deviceInfo.ip ?? null,
+        country: countryOfIp(deviceInfo.ip),
+        expiresAt: new Date(Date.now() + SESSION_DURATION_MS),
+      },
+    });
+    return rawToken;
+  }
+
+  /**
+   * True if `userId` already has a Session on record (regardless of its
+   * revoked/expired status) from the same user-agent AND the same resolved
+   * IP country as `deviceInfo`. Used to detect "new device / unknown
+   * location" logins (FEAT-29).
+   */
+  private async isKnownDeviceLocation(userId: string, deviceInfo: DeviceInfo): Promise<boolean> {
+    const userAgent = deviceInfo.userAgent ?? null;
+    const country = countryOfIp(deviceInfo.ip);
+    const sessions = await prisma.session.findMany({
+      where: { userId },
+      select: { userAgent: true, ip: true },
+    });
+    return sessions.some((s) => s.userAgent === userAgent && countryOfIp(s.ip) === country);
+  }
+
+  /**
+   * Fire-and-forget a security notification (FEAT-29). Never throws and never
+   * blocks its caller — mirrors the rest of the audit/notification pipeline.
+   * Always bypasses quiet hours: a compromised account must not wait for morning.
+   */
+  private notifySecurityEvent(userId: string, eventKey: SecurityEventKey, deviceInfo: DeviceInfo): void {
+    void this.sendSecurityNotification(userId, eventKey, deviceInfo).catch((err) => {
+      console.error(`[auth] Failed to send security notification (${eventKey}):`, err);
+    });
+  }
+
+  private async sendSecurityNotification(userId: string, eventKey: SecurityEventKey, deviceInfo: DeviceInfo): Promise<void> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { language: true, notifLanguage: true } });
+    if (!user) return;
+    const isEn = (user.notifLanguage ?? user.language) === 'EN';
+
+    const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+    const securityUrl = `${appUrl}/profile#security`;
+    const timestamp = new Date().toLocaleString(isEn ? 'en-US' : 'fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+    const device = describeDevice(deviceInfo.userAgent);
+    const location = locateIp(deviceInfo.ip);
+    const locationLabel = location?.city && location?.country
+      ? `${location.city}, ${location.country}`
+      : location?.country ?? (isEn ? 'Unknown location' : 'Localisation inconnue');
+
+    const { subject, intro } = SECURITY_EVENT_CONTENT[eventKey](isEn);
+
+    const htmlBody = [
+      `<p>${intro}</p>`,
+      '<ul>',
+      `<li>Date: ${timestamp}</li>`,
+      `<li>${isEn ? 'Device' : 'Appareil'}: ${device}</li>`,
+      `<li>${isEn ? 'Location' : 'Localisation'}: ${locationLabel}</li>`,
+      '</ul>',
+      `<p><a href="${securityUrl}">${isEn ? 'Review your security settings' : 'Consulter mes paramètres de sécurité'}</a></p>`,
+      `<p style="color:#666;font-size:12px;">${isEn
+        ? 'If this was not you, secure your account immediately: change your password and sign out other sessions.'
+        : "Si vous n'êtes pas à l'origine de cette action, sécurisez votre compte immédiatement : changez votre mot de passe et déconnectez les autres sessions."}</p>`,
+    ].join('');
+
+    await notificationService.send({ userId, category: 'security', subject, htmlBody, bypassQuietHours: true });
+  }
+
   /**
    * Register a new user.
    */
-  async register(data: RegisterInput): Promise<{ user: PublicUser; token: string }> {
+  async register(data: RegisterInput, deviceInfo: DeviceInfo): Promise<{ user: PublicUser; token: string }> {
     const { username, email, password } = data;
 
     // Check uniqueness
@@ -71,7 +262,7 @@ export class AuthService {
     const userCount = await prisma.user.count();
     const isAdmin = userCount === 0;
 
-    const user = await prisma.user.create({
+    const rawUser = await prisma.user.create({
       data: {
         username,
         email,
@@ -92,18 +283,29 @@ export class AuthService {
         dateFormat: true,
         isAdmin: true,
         createdAt: true,
-        deletionRequestedAt: true
+        deletionRequestedAt: true,
+        pinHash: true,
+        autoLockDelayMin: true,
       },
     });
+    const user = this.toPublicUser(rawUser);
 
-    const token = signToken({ userId: user.id, email: user.email, username: user.username });
+    // Registration creates a session directly (scope 'full', no 2FA prompt at signup);
+    // its cookie is persistent (COOKIE_OPTIONS), so the Session is flagged rememberMe=true.
+    const session = await this.createSession(user.id, deviceInfo, true);
+    const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
     return { user, token };
   }
 
   /**
    * Login with username OR email + password.
+   * If the user has 2FA enabled and a valid, non-expired, non-revoked
+   * `trustedDeviceToken` is supplied, the 2FA challenge is bypassed — unless
+   * the connection's country differs from the one recorded on the trusted
+   * device, in which case the trust is silently revoked and the normal 2FA
+   * flow resumes.
    */
-  async login(data: LoginInput): Promise<LoginResult> {
+  async login(data: LoginInput, deviceInfo: DeviceInfo, trustedDeviceToken?: string): Promise<LoginResult> {
     const { identifier, password, rememberMe = false } = data;
 
     // Accept username or email
@@ -119,29 +321,43 @@ export class AuthService {
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) throw new Error('INVALID_CREDENTIALS');
 
-    const publicUser: PublicUser = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      avatarUrl: user.avatarUrl,
-      appName: user.appName,
-      appSlogan: user.appSlogan,
-      theme: user.theme,
-      language: user.language,
-      tempUnit: user.tempUnit,
-      accentColor: user.accentColor,
-      dateFormat: user.dateFormat,
-      isAdmin: user.isAdmin,
-      createdAt: user.createdAt,
-      deletionRequestedAt: user.deletionRequestedAt,
-    };
+    const publicUser: PublicUser = this.toPublicUser(user);
 
     if (user.isTwoFactorEnabled) {
+      if (trustedDeviceToken) {
+        const tokenHash = crypto.createHash('sha256').update(trustedDeviceToken).digest('hex');
+        const trustedDevice = await prisma.trustedDevice.findUnique({ where: { tokenHash } });
+
+        if (trustedDevice && trustedDevice.userId === user.id && !trustedDevice.revokedAt && trustedDevice.expiresAt > new Date()) {
+          const currentCountry = countryOfIp(deviceInfo.ip);
+          const isAnomalous = !!trustedDevice.country && !!currentCountry && trustedDevice.country !== currentCountry;
+
+          if (isAnomalous) {
+            // Suspicious connection environment change: invalidate the trust and fall back to 2FA.
+            await prisma.trustedDevice.update({ where: { id: trustedDevice.id }, data: { revokedAt: new Date() } });
+          } else {
+            // Trusted device confirmed: bypass 2FA and create a full session directly.
+            await prisma.trustedDevice.update({
+              where: { id: trustedDevice.id },
+              data: { lastUsedAt: new Date(), expiresAt: new Date(Date.now() + SESSION_DURATION_MS) },
+            });
+            const isKnownDevice = await this.isKnownDeviceLocation(user.id, deviceInfo);
+            const session = await this.createSession(user.id, deviceInfo, rememberMe);
+            const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
+            if (!isKnownDevice) this.notifySecurityEvent(user.id, 'newDevice', deviceInfo);
+            return { user: publicUser, token, rememberMe, viaTrustedDevice: true };
+          }
+        }
+      }
+
       const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: '2fa_pending', rememberMe });
       return { user: publicUser, token, rememberMe, requires2fa: true };
     }
 
-    const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full' });
+    const isKnownDevice = await this.isKnownDeviceLocation(user.id, deviceInfo);
+    const session = await this.createSession(user.id, deviceInfo, rememberMe);
+    const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
+    if (!isKnownDevice) this.notifySecurityEvent(user.id, 'newDevice', deviceInfo);
     return { user: publicUser, token, rememberMe };
   }
 
@@ -165,10 +381,12 @@ export class AuthService {
         dateFormat: true,
         isAdmin: true,
         createdAt: true,
-        deletionRequestedAt: true
+        deletionRequestedAt: true,
+        pinHash: true,
+        autoLockDelayMin: true,
       },
     });
-    return user;
+    return user ? this.toPublicUser(user) : null;
   }
 
   /**
@@ -200,10 +418,12 @@ export class AuthService {
         dateFormat: true,
         isAdmin: true,
         createdAt: true,
-        deletionRequestedAt: true
+        deletionRequestedAt: true,
+        pinHash: true,
+        autoLockDelayMin: true,
       },
     });
-    return user;
+    return this.toPublicUser(user);
   }
 
   /**
@@ -260,16 +480,18 @@ export class AuthService {
         dateFormat: true,
         isAdmin: true,
         createdAt: true,
-        deletionRequestedAt: true
+        deletionRequestedAt: true,
+        pinHash: true,
+        autoLockDelayMin: true,
       }
     });
-    return user;
+    return this.toPublicUser(user);
   }
 
   /**
    * Update user password
    */
-  async updatePassword(userId: string, currentPass: string, newPass: string): Promise<void> {
+  async updatePassword(userId: string, currentPass: string, newPass: string, deviceInfo: DeviceInfo): Promise<void> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
     const valid = await bcrypt.compare(currentPass, user.passwordHash);
@@ -280,6 +502,8 @@ export class AuthService {
       where: { id: userId },
       data: { passwordHash }
     });
+
+    this.notifySecurityEvent(userId, 'passwordChanged', deviceInfo);
   }
 
   /**
@@ -303,10 +527,59 @@ export class AuthService {
         dateFormat: true,
         isAdmin: true,
         createdAt: true,
-        deletionRequestedAt: true
+        deletionRequestedAt: true,
+        pinHash: true,
+        autoLockDelayMin: true,
       },
     });
-    return user;
+    return this.toPublicUser(user);
+  }
+
+  // ─── Quick Lock & Auto-Lock (FEAT-30) ──────────────────────────────────────
+  // Client-side lock only: the Session/JWT stays valid throughout. These
+  // methods never mint a new session or token — they only verify a secret.
+
+  /**
+   * Set (or replace) the user's unlock PIN. Requires the account password to
+   * confirm identity, mirroring updatePassword's confirmation pattern.
+   */
+  async setPin(userId: string, password: string, pin: string): Promise<void> {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) throw new Error('INVALID_CREDENTIALS');
+
+    const pinHash = await bcrypt.hash(pin, BCRYPT_ROUNDS);
+    await prisma.user.update({ where: { id: userId }, data: { pinHash } });
+  }
+
+  /**
+   * Remove the user's unlock PIN, falling back to password-only unlock.
+   */
+  async removePin(userId: string, password: string): Promise<void> {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) throw new Error('INVALID_CREDENTIALS');
+
+    await prisma.user.update({ where: { id: userId }, data: { pinHash: null } });
+  }
+
+  /**
+   * Verify the password OR PIN supplied to unlock the client-side lock screen.
+   * This is a pure verification — it never issues a new Session or JWT, and
+   * never touches Session.lastActiveAt (already refreshed by authMiddleware).
+   */
+  async verifyUnlock(userId: string, input: { password?: string; pin?: string }): Promise<boolean> {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+    if (input.password) {
+      return bcrypt.compare(input.password, user.passwordHash);
+    }
+    if (input.pin && user.pinHash) {
+      return bcrypt.compare(input.pin, user.pinHash);
+    }
+    return false;
   }
 
   async generateTwoFactorSecret(userId: string): Promise<{ qrCodeUrl: string; secret: string }> {
@@ -337,7 +610,7 @@ export class AuthService {
     return { qrCodeUrl, secret: base32secret };
   }
 
-  async turnOnTwoFactorAuthentication(userId: string, code: string): Promise<{ backupCodes: string[] }> {
+  async turnOnTwoFactorAuthentication(userId: string, code: string, deviceInfo: DeviceInfo): Promise<{ backupCodes: string[] }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (user.isTwoFactorEnabled) throw new Error('2FA_ALREADY_ENABLED');
     if (!user.twoFactorSecret) throw new Error('2FA_SECRET_NOT_GENERATED');
@@ -363,10 +636,12 @@ export class AuthService {
       },
     });
 
+    this.notifySecurityEvent(userId, 'twoFactorEnabled', deviceInfo);
+
     return { backupCodes }; // Return plain codes ONCE
   }
 
-  async turnOffTwoFactorAuthentication(userId: string, password: string, code?: string): Promise<void> {
+  async turnOffTwoFactorAuthentication(userId: string, password: string, deviceInfo: DeviceInfo, code?: string): Promise<void> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
 
@@ -404,6 +679,8 @@ export class AuthService {
         backupCodes: [],
       },
     });
+
+    this.notifySecurityEvent(userId, 'twoFactorDisabled', deviceInfo);
   }
 
   // ─── RGPD Methods (FEAT-38) ─────────────────────────────────────────────────
@@ -460,7 +737,13 @@ export class AuthService {
 
   // ─── 2FA Methods ────────────────────────────────────────────────────────────
 
-  async verifyTwoFactorLogin(userId: string, code: string, rememberMe = false): Promise<{ user: PublicUser; token: string; rememberMe: boolean }> {
+  async verifyTwoFactorLogin(
+    userId: string,
+    code: string,
+    rememberMe: boolean,
+    deviceInfo: DeviceInfo,
+    trustDevice = false,
+  ): Promise<{ user: PublicUser; token: string; rememberMe: boolean; trustedDeviceToken?: string }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
 
@@ -495,25 +778,83 @@ export class AuthService {
       });
     }
 
-    const publicUser: PublicUser = {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      avatarUrl: user.avatarUrl,
-      appName: user.appName,
-      appSlogan: user.appSlogan,
-      theme: user.theme,
-      language: user.language,
-      tempUnit: user.tempUnit,
-      accentColor: user.accentColor,
-      dateFormat: user.dateFormat,
-      isAdmin: user.isAdmin,
-      createdAt: user.createdAt,
-      deletionRequestedAt: user.deletionRequestedAt,
-    };
+    const publicUser: PublicUser = this.toPublicUser(user);
 
-    const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full' });
-    return { user: publicUser, token, rememberMe };
+    const isKnownDevice = await this.isKnownDeviceLocation(user.id, deviceInfo);
+    const session = await this.createSession(user.id, deviceInfo, rememberMe);
+    const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
+    if (!isKnownDevice) this.notifySecurityEvent(user.id, 'newDevice', deviceInfo);
+
+    let trustedDeviceToken: string | undefined;
+    if (trustDevice) {
+      trustedDeviceToken = await this.createTrustedDevice(user.id, deviceInfo);
+    }
+
+    return { user: publicUser, token, rememberMe, trustedDeviceToken };
+  }
+
+  // ─── Sessions & Trusted Devices (FEAT-25) ──────────────────────────────────
+
+  /**
+   * List the user's active (non-revoked, non-expired) sessions, most recently
+   * active first, with a human-readable device label and approximate location.
+   */
+  async listSessions(userId: string, currentSessionId: string): Promise<SessionSummary[]> {
+    const sessions = await prisma.session.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { lastActiveAt: 'desc' },
+    });
+
+    return sessions.map((s) => ({
+      id: s.id,
+      device: describeDevice(s.userAgent),
+      location: locateIp(s.ip),
+      createdAt: s.createdAt,
+      lastActiveAt: s.lastActiveAt,
+      rememberMe: s.rememberMe,
+      isCurrent: s.id === currentSessionId,
+    }));
+  }
+
+  /**
+   * Revoke a session belonging to `userId`, forcing an immediate remote logout.
+   */
+  async revokeSession(userId: string, sessionId: string): Promise<void> {
+    const session = await prisma.session.findUnique({ where: { id: sessionId } });
+    if (!session || session.userId !== userId) throw new Error('NOT_FOUND');
+
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { revokedAt: new Date() },
+    });
+
+    // FEAT-29: notify the account owner a session was closed, using the
+    // closed session's own device/IP as "device concerné" (we don't track
+    // who issued the revocation, hence no "closed by" detail here).
+    this.notifySecurityEvent(userId, 'sessionRevoked', { userAgent: session.userAgent, ip: session.ip });
+  }
+
+  /**
+   * Mark the caller's current device as trusted outside of the 2FA login
+   * flow (e.g. a "Trust this device" button in security settings).
+   */
+  async trustCurrentDevice(userId: string, deviceInfo: DeviceInfo): Promise<{ token: string }> {
+    const token = await this.createTrustedDevice(userId, deviceInfo);
+    return { token };
+  }
+
+  /**
+   * Revoke the TrustedDevice matching the given raw token, if it belongs to `userId`.
+   */
+  async untrustCurrentDevice(userId: string, trustedDeviceToken: string): Promise<void> {
+    const tokenHash = crypto.createHash('sha256').update(trustedDeviceToken).digest('hex');
+    const device = await prisma.trustedDevice.findUnique({ where: { tokenHash } });
+    if (!device || device.userId !== userId) throw new Error('NOT_FOUND');
+
+    await prisma.trustedDevice.update({
+      where: { id: device.id },
+      data: { revokedAt: new Date() },
+    });
   }
 }
 
