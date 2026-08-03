@@ -110,6 +110,19 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
   const [mode, setMode] = useState<MapDisplayMode>('markers');
   const [heatmapType, setHeatmapType] = useState<HeatmapType>('dominant');
 
+  // Single homogeneous options array: HeroUI's `Select` cannot type-check
+  // children that mix a static `<SelectItem>` with a `.map()`-generated
+  // array (`Element[]` isn't assignable to `CollectionElement<object>`) —
+  // this broke the production build (see CI runs #144/#145). Building one
+  // list up front and mapping over it once avoids the mixed-children shape.
+  const heatmapTypeOptions = useMemo(
+    () => [
+      { key: 'dominant' as HeatmapType, label: t('analytics.map.heatmapType.dominant') },
+      ...CATEGORY_ORDER.map((cat) => ({ key: cat as HeatmapType, label: t(`categories.${cat}`) })),
+    ],
+    [t],
+  );
+
   // Detect dark mode via CSS media query
   const isDark =
     typeof window !== 'undefined' &&
@@ -211,9 +224,8 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
             className="w-48"
             aria-label={t('analytics.map.heatmapType.label')}
           >
-            <SelectItem key="dominant">{t('analytics.map.heatmapType.dominant')}</SelectItem>
-            {CATEGORY_ORDER.map((cat) => (
-              <SelectItem key={cat}>{t(`categories.${cat}`)}</SelectItem>
+            {heatmapTypeOptions.map((opt) => (
+              <SelectItem key={opt.key}>{opt.label}</SelectItem>
             ))}
           </Select>
         )}

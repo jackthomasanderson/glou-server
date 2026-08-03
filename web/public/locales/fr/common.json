@@ -412,7 +412,16 @@
     "offline": "Hors connexion",
     "checking": "Vérification...",
     "featuresAffected": "Autocomplétion externe, scan et recherche d'images indisponibles",
-    "degraded": "Autocomplétion externe indisponible — recherche limitée à votre inventaire"
+    "degraded": "Autocomplétion externe indisponible — recherche limitée à votre inventaire",
+    "sync": {
+      "inProgress": "Synchronisation en cours",
+      "pending_one": "{{count}} modification en attente de synchronisation",
+      "pending_other": "{{count}} modifications en attente de synchronisation",
+      "failed_one": "{{count}} échec de synchronisation",
+      "failed_other": "{{count}} échecs de synchronisation",
+      "conflict_one": "{{count}} conflit à résoudre",
+      "conflict_other": "{{count}} conflits à résoudre"
+    }
   },
   "imagePicker": {
     "tooltip": "Rechercher une image",
@@ -1594,6 +1603,20 @@
       "remaining": "Restant",
       "ofAmount": "sur {{amount}}",
       "label": "{{spent}} dépensés sur {{amount}} ({{percent}}%)"
+    }
+  },
+  "offline": {
+    "pendingSyncTooltip": "Modifié hors-ligne — en attente de synchronisation",
+    "conflict": {
+      "title": "Conflit de synchronisation",
+      "description": "Cette modification a été faite hors-ligne, mais l'élément a aussi été modifié depuis un autre appareil entre-temps. Choisissez la version à conserver.",
+      "remaining_one": "{{count}} autre conflit en attente",
+      "remaining_other": "{{count}} autres conflits en attente",
+      "field": "Champ",
+      "yourVersion": "Votre version",
+      "serverVersion": "Version du serveur",
+      "keepLocal": "Garder ma version",
+      "keepServer": "Garder la version serveur"
     }
   }
 }

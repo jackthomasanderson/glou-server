@@ -5,7 +5,7 @@ import {
   Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button,
 } from '@heroui/react';
 import {
-  Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Check,
+  Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Check, Clock,
 } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 
@@ -41,6 +41,9 @@ interface InventoryCardProps {
   isSelected?: boolean;
   isAnchor?: boolean;
   onSelectToggle?: (item: InventoryItem, event?: React.MouseEvent) => void;
+  /** FEAT-16/23: true when this item has one or more offline mutations still
+   * sitting in the local sync queue (not yet confirmed by the server). */
+  hasPendingSync?: boolean;
 }
 
 export function InventoryCard({
@@ -54,6 +57,7 @@ export function InventoryCard({
   isSelected = false,
   isAnchor = false,
   onSelectToggle,
+  hasPendingSync = false,
 }: InventoryCardProps) {
   const isTemp = item.id.startsWith('temp-');
   const hasMounted = useHasMounted();
@@ -101,19 +105,28 @@ export function InventoryCard({
         >
           {categoryLabel.toUpperCase()}
         </Chip>
-        {cellarName && (
-          <Chip
-            startContent={<MapPin size={10} />}
-            size="sm"
-            radius="sm"
-            classNames={{
-              base: 'h-5 bg-danger-50 border border-danger-200 min-w-0',
-              content: 'px-1.5 text-[0.6rem] font-semibold text-danger-700 truncate max-w-[80px]',
-            }}
-          >
-            {cellarName}
-          </Chip>
-        )}
+        <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+          {cellarName && (
+            <Chip
+              startContent={<MapPin size={10} />}
+              size="sm"
+              radius="sm"
+              classNames={{
+                base: 'h-5 bg-danger-50 border border-danger-200 min-w-0',
+                content: 'px-1.5 text-[0.6rem] font-semibold text-danger-700 truncate max-w-[80px]',
+              }}
+            >
+              {cellarName}
+            </Chip>
+          )}
+          {hasPendingSync && (
+            <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
+              <span className="shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-warning-100 text-warning-700">
+                <Clock size={11} aria-label={t('offline.pendingSyncTooltip')} />
+              </span>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
       {/* ── Image / placeholder + fill badge ─────────────────── */}

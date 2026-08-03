@@ -10,6 +10,7 @@ import { BottomNav } from './BottomNav';
 import { GlobalSearch, MobileSearch } from './GlobalSearch';
 import { NotificationBell } from './NotificationBell';
 import { AuthGuard } from '../auth/AuthGuard';
+import { ConflictResolutionModal } from '../offline/ConflictResolutionModal';
 import { useMe } from '@/hooks/useAuth';
 import { useAutoLock } from '@/hooks/useAutoLock';
 
@@ -133,6 +134,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
 
       <BottomNav />
       <MobileSearch isOpen={mobileSearchOpen} onClose={() => setMobileSearchOpen(false)} />
+      {/* FEAT-16/23: mounted once, globally, so an offline-sync conflict
+          surfaces regardless of which page it happens to resolve on. */}
+      <ConflictResolutionModal />
     </div>
   );
 

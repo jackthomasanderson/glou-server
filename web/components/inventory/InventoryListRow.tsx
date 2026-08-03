@@ -3,7 +3,7 @@ import React from 'react';
 import {
   TableRow, TableCell, Chip, Tooltip, Skeleton, Checkbox, Button,
 } from '@heroui/react';
-import { Wine, Sparkles, Dumbbell, Leaf, Pencil, Trash2 } from 'lucide-react';
+import { Wine, Sparkles, Dumbbell, Leaf, Pencil, Trash2, Clock } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
@@ -33,12 +33,16 @@ interface InventoryListRowProps {
   isSelected?: boolean;
   isAnchor?: boolean;
   onSelectToggle?: (item: InventoryItem, event?: React.MouseEvent) => void;
+  /** FEAT-16/23: true when this item has one or more offline mutations still
+   * sitting in the local sync queue (not yet confirmed by the server). */
+  hasPendingSync?: boolean;
 }
 
 export function InventoryListRow({
   item, categoryLabel, cellar,
   onEdit, onDelete, onView, t,
   isSelected = false, isAnchor = false, onSelectToggle,
+  hasPendingSync = false,
 }: InventoryListRowProps) {
   const isTemp = item.id.startsWith('temp-');
 
@@ -92,7 +96,16 @@ export function InventoryListRow({
       </TableCell>
 
       <TableCell>
-        <p className="text-sm font-semibold truncate max-w-[200px]">{item.name}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="text-sm font-semibold truncate max-w-[200px]">{item.name}</p>
+          {hasPendingSync && (
+            <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
+              <span className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700">
+                <Clock size={10} aria-label={t('offline.pendingSyncTooltip')} />
+              </span>
+            </Tooltip>
+          )}
+        </div>
       </TableCell>
 
       <TableCell className="hidden sm:table-cell">

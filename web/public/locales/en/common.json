@@ -412,7 +412,16 @@
     "offline": "Offline",
     "checking": "Checking...",
     "featuresAffected": "External autocomplete, label scan and image search unavailable",
-    "degraded": "External autocomplete unavailable — search limited to your inventory"
+    "degraded": "External autocomplete unavailable — search limited to your inventory",
+    "sync": {
+      "inProgress": "Syncing",
+      "pending_one": "{{count}} change pending sync",
+      "pending_other": "{{count}} changes pending sync",
+      "failed_one": "{{count}} sync failure",
+      "failed_other": "{{count}} sync failures",
+      "conflict_one": "{{count}} conflict to resolve",
+      "conflict_other": "{{count}} conflicts to resolve"
+    }
   },
   "imagePicker": {
     "tooltip": "Search for an image",
@@ -1594,6 +1603,20 @@
       "remaining": "Remaining",
       "ofAmount": "of {{amount}}",
       "label": "{{spent}} spent out of {{amount}} ({{percent}}%)"
+    }
+  },
+  "offline": {
+    "pendingSyncTooltip": "Edited offline — pending sync",
+    "conflict": {
+      "title": "Sync conflict",
+      "description": "This change was made offline, but the item was also modified from another device in the meantime. Choose which version to keep.",
+      "remaining_one": "{{count}} other conflict pending",
+      "remaining_other": "{{count}} other conflicts pending",
+      "field": "Field",
+      "yourVersion": "Your version",
+      "serverVersion": "Server version",
+      "keepLocal": "Keep my version",
+      "keepServer": "Keep server version"
     }
   }
 }

@@ -20,6 +20,7 @@ import {
 } from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections, useAddItemsToCollection, useRemoveItemFromCollection } from '@/hooks/useCollections';
+import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { InventoryCard, InventoryCardSkeleton } from './InventoryCard';
 import { InventoryForm } from './InventoryForm';
 import { UndoToast } from '@/components/ui/UndoToast';
@@ -52,6 +53,14 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const addItemsToCollectionMutation = useAddItemsToCollection();
   const removeItemFromCollectionMutation = useRemoveItemFromCollection();
   const hasMounted = useHasMounted();
+
+  // FEAT-16/23: items with an offline mutation still sitting in the local
+  // sync queue get a small "pending" indicator on their card/row.
+  const { queue: offlineSyncQueue } = useOfflineSync();
+  const pendingSyncItemIds = useMemo(
+    () => new Set(offlineSyncQueue.map((m) => m.itemId)),
+    [offlineSyncQueue]
+  );
 
   const [mode, setMode] = useState<UIMode>('idle');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
@@ -859,6 +868,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                     isSelected={selectedIds.has(item.id)}
                     isAnchor={item.id === anchorId}
                     onSelectToggle={bulkMode ? handleSelectToggle : undefined}
+                    hasPendingSync={pendingSyncItemIds.has(item.id)}
                   />
                 ))}
               </div>
@@ -912,6 +922,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                       isSelected: selectedIds.has(item.id),
                       isAnchor: item.id === anchorId,
                       onSelectToggle: bulkMode ? handleSelectToggle : undefined,
+                      hasPendingSync: pendingSyncItemIds.has(item.id),
                     }),
                     { key: item.id }
                   )}
