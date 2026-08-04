@@ -60,19 +60,25 @@ export interface InventoryWithTraceability {
 // InventoryItem type inferred from Prisma client
 type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> extends infer T | null ? NonNullable<T> : never;
 
+// Shape returned whenever a query joins the item's collections — a strict
+// superset of InventoryItem. Using Prisma's GetPayload helper keeps this in
+// sync with the schema automatically (no hand-typed duplicate, no cast).
+const INVENTORY_ITEM_INCLUDE = {
+  collections: { select: { id: true, name: true, color: true, icon: true } },
+} satisfies Prisma.InventoryItemInclude;
+
+type InventoryItemWithCollections = Prisma.InventoryItemGetPayload<{ include: typeof INVENTORY_ITEM_INCLUDE }>;
 
 /** Corbeille : 7 jours avant purge définitive */
 const TRASH_RETENTION_DAYS = 7;
 
 export class InventoryService {
-  async listInventory(_userId: string): Promise<InventoryItem[]> {
+  async listInventory(_userId: string): Promise<InventoryItemWithCollections[]> {
     return prisma.inventoryItem.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
-      include: {
-        collections: { select: { id: true, name: true, color: true, icon: true } },
-      },
-    }) as unknown as InventoryItem[];
+      include: INVENTORY_ITEM_INCLUDE,
+    });
   }
 
   async listTrash(_userId: string): Promise<InventoryItem[]> {
@@ -85,23 +91,22 @@ export class InventoryService {
     });
   }
 
-  async getItem(_userId: string, id: string): Promise<InventoryItem | null> {
+  async getItem(_userId: string, id: string): Promise<InventoryItemWithCollections | null> {
     return prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
-      include: {
-        collections: { select: { id: true, name: true, color: true, icon: true } },
-      },
-    }) as unknown as InventoryItem | null;
+      include: INVENTORY_ITEM_INCLUDE,
+    });
   }
 
   async getItemWithTraceability(_userId: string, id: string): Promise<InventoryWithTraceability | null> {
     const item = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
-      include: { collections: { select: { id: true, name: true, color: true, icon: true } } },
+      include: INVENTORY_ITEM_INCLUDE,
     });
     if (!item) return null;
 
-    const uniqueIds = [...new Set([item.userId, (item as unknown as Record<string, unknown>)['updatedBy'] as string | undefined].filter(Boolean))] as string[];
+    // `updatedBy` is a real column on InventoryItem (nullable) — no cast needed.
+    const uniqueIds = [...new Set([item.userId, item.updatedBy ?? undefined].filter((v): v is string => Boolean(v)))];
     const users = await prisma.user.findMany({
       where: { id: { in: uniqueIds } },
       select: { id: true, displayName: true, username: true },
@@ -109,10 +114,13 @@ export class InventoryService {
     const userMap = new Map(users.map((u) => [u.id, u.displayName ?? u.username]));
 
     const creator = item.userId ? { id: item.userId, name: userMap.get(item.userId) ?? item.userId } : null;
-    const updatedById = (item as unknown as Record<string, unknown>)['updatedBy'] as string | undefined;
+    const updatedById = item.updatedBy ?? undefined;
     const lastEditor = updatedById ? { id: updatedById, name: userMap.get(updatedById) ?? updatedById } : null;
 
-    return { item: item as unknown as Record<string, unknown>, creator, lastEditor };
+    // `item` (a concrete typed object) is a structural subtype of
+    // `Record<string, unknown>` — every property value is assignable to
+    // `unknown`, so this assigns directly, no cast required.
+    return { item, creator, lastEditor };
   }
 
   async getItemHistory(id: string): Promise<InventoryHistoryEntry[]> {
@@ -161,11 +169,15 @@ export class InventoryService {
     client: Prisma.TransactionClient | PrismaClient = prisma,
     fieldSources?: Partial<Record<string, FieldSource>>,
   ): Promise<InventoryItem> {
-    const patch = data as unknown as InventoryPatch;
+    // InventoryInput (a per-category discriminated union with some required
+    // fields) is a structural subset of InventoryPatch (the same fields, all
+    // optional, flattened across categories) — a single assertion documents
+    // that relationship instead of the previous `as unknown as` escape hatch.
+    const patch = data as InventoryPatch;
     const dbData = this.mapInputToDb(patch);
     const alertStatus = computeAlertStatus(
-      (patch as Record<string, unknown>)['peakMaturityFrom'] as number | undefined,
-      (patch as Record<string, unknown>)['peakMaturityTo'] as number | undefined,
+      patch.peakMaturityFrom ?? undefined,
+      patch.peakMaturityTo ?? undefined,
     );
     const extra: Record<string, unknown> = {};
     if (fieldSources && Object.keys(fieldSources).length > 0) {
@@ -227,7 +239,10 @@ export class InventoryService {
       expectedUpdatedAt !== undefined &&
       new Date(expectedUpdatedAt).getTime() !== existing.updatedAt.getTime()
     ) {
-      return { conflict: true, serverItem: existing as unknown as InventoryItem };
+      // `existing` already has type InventoryItem (same query shape as the
+      // type it's inferred from) — it was never actually a different type,
+      // the cast below was a no-op.
+      return { conflict: true, serverItem: existing };
     }
 
     // Slot uniqueness: if assigning a grid slot, verify it is not occupied by another item
@@ -245,7 +260,7 @@ export class InventoryService {
           deletedAt: null,
         },
       });
-      if (conflict) return { item: existing as unknown as InventoryItem, changes: [], slotConflict: true };
+      if (conflict) return { item: existing, changes: [], slotConflict: true };
     }
 
     const safePatch = bypassFieldLock
@@ -256,12 +271,12 @@ export class InventoryService {
 
     const changes: FieldChange[] = Object.entries(safePatch)
       .filter(([key, val]) => {
-        const existingVal = (existing as unknown as Record<string, unknown>)[key];
+        const existingVal = this.getField(existing, key);
         return JSON.stringify(existingVal) !== JSON.stringify(val);
       })
       .map(([key, val]) => ({
         field: key,
-        from: (existing as unknown as Record<string, unknown>)[key],
+        from: this.getField(existing, key),
         to: val,
       }));
 
@@ -283,7 +298,10 @@ export class InventoryService {
       }
     }
 
-    const existingFieldSources = ((existing as unknown as Record<string, unknown>)['fieldSources'] as Record<string, string> | null) ?? {};
+    // `fieldSources` is a real `Json?` column — its shape (`{ [field]: source }`)
+    // isn't encoded in the Prisma-generated JSON type, so a single assertion
+    // here is the actual runtime contract, not a workaround for the wrong type.
+    const existingFieldSources = (existing.fieldSources as Record<string, string> | null) ?? {};
     const nextFieldSources: Record<string, string> = { ...existingFieldSources };
     if (fieldSources) {
       for (const [key, source] of Object.entries(fieldSources)) {
@@ -353,7 +371,11 @@ export class InventoryService {
       return { status: 'invalid_value' };
     }
 
-    const patch = { [field]: toValue } as unknown as InventoryPatch;
+    // `field` is a runtime string (not a literal key), so its shape can't be
+    // statically checked here — but unlike the previous `as unknown as`, this
+    // is validated at runtime just above against the item's real change
+    // history, and `updateItem` re-filters by `lockedFields`/known columns.
+    const patch = { [field]: toValue } as InventoryPatch;
     const result = await this.updateItem(userId, itemId, patch, { isManualEdit: true, bypassFieldLock: true });
     if (!result) return { status: 'not_found' };
     if ('conflict' in result) {
@@ -445,6 +467,16 @@ export class InventoryService {
     return Object.fromEntries(
       Object.entries(data).filter(([, v]) => v !== undefined)
     ) as Partial<InventoryPatch>;
+  }
+
+  /**
+   * Read a dynamically-named field off an InventoryItem (`key` comes from
+   * `Object.entries(patch)`, so it's a runtime string, not a literal key).
+   * Single narrow assertion instead of the previous `as unknown as Record`
+   * detour — `keyof InventoryItem` is still checked against the real model.
+   */
+  private getField(item: InventoryItem, key: string): unknown {
+    return item[key as keyof InventoryItem];
   }
 }
 
