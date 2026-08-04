@@ -34,12 +34,18 @@ export function ImagePickerButton({
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Sync preloaded results when panel is closed
-  useEffect(() => {
+  // Sync preloaded results when panel is closed — adjusted during render
+  // (React's documented pattern) rather than in an effect, guarded against
+  // the previous render's values so it only fires on an actual change.
+  const [prevPreloadedResults, setPrevPreloadedResults] = useState(preloadedResults);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (preloadedResults !== prevPreloadedResults || isOpen !== prevIsOpen) {
+    setPrevPreloadedResults(preloadedResults);
+    setPrevIsOpen(isOpen);
     if (!isOpen && preloadedResults) {
       setResults(preloadedResults);
     }
-  }, [preloadedResults, isOpen]);
+  }
 
   // Close on outside click
   useEffect(() => {

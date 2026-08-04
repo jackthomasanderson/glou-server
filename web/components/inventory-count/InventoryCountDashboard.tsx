@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Tabs, Tab, CircularProgress, Button } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
 import { ClipboardCheck } from 'lucide-react';
@@ -19,10 +19,14 @@ export function InventoryCountDashboard() {
   const [resumePromptDismissed, setResumePromptDismissed] = useState(false);
 
   // Reset the dismissal so the resume prompt reappears the next time this
-  // (or a future) session transitions back to 'paused'.
-  useEffect(() => {
+  // (or a future) session transitions back to 'paused' — adjusted during
+  // render (React's documented pattern) rather than in an effect, guarded
+  // against the previous render's status so it only fires on a transition.
+  const [prevStatus, setPrevStatus] = useState(session?.status);
+  if (session?.status !== prevStatus) {
+    setPrevStatus(session?.status);
     if (session?.status === 'active') setResumePromptDismissed(false);
-  }, [session?.status]);
+  }
 
   if (isLoading) {
     return (

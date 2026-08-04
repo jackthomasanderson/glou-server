@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useSyncExternalStore } from 'react';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
@@ -41,6 +41,21 @@ type UIMode = 'idle' | 'creating' | 'editing';
 interface InventoryDashboardProps {
   t: (key: string, options?: Record<string, unknown>) => string;
   lockedCategories?: string[];
+}
+
+// Detect mobile via useSyncExternalStore (React's own replacement for the
+// useState+useEffect+matchMedia-listener pattern) rather than local state:
+// avoids a setState-in-effect and gets the SSR default (desktop) for free.
+function subscribeToMobileQuery(callback: () => void) {
+  const mq = window.matchMedia('(max-width: 767px)');
+  mq.addEventListener('change', callback);
+  return () => mq.removeEventListener('change', callback);
+}
+function getIsMobileSnapshot() {
+  return window.matchMedia('(max-width: 767px)').matches;
+}
+function getIsMobileServerSnapshot() {
+  return false;
 }
 
 export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardProps) {
@@ -105,6 +120,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     if (scanParam && items) {
       const found = items.find((i) => i.id === scanParam);
       if (found) {
+        // Paired with the router.replace() below (an external navigation
+        // side effect that must stay in an effect) — splitting this
+        // setState out to render-time would desync it from the URL cleanup.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setViewingItem(found);
         // Remove ?scan= from URL to avoid reopening on refresh
         const next = new URLSearchParams(searchParams.toString());
@@ -130,14 +149,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const [pageSize, setPageSize] = usePageSize(tabKey);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 767px)');
-    setIsMobile(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
+  const isMobile = useSyncExternalStore(subscribeToMobileQuery, getIsMobileSnapshot, getIsMobileServerSnapshot);
 
   const effectiveViewMode = isMobile ? 'grid' : viewMode;
 
@@ -147,16 +159,26 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     [filteredItems, currentPage, pageSize]
   );
 
-  // Reset anchor and page when filters or sort change
-  useEffect(() => {
+  // Reset anchor and page when filters or sort change, and reset page when
+  // page size changes — both adjusted during render (React's documented
+  // pattern) rather than in effects, guarded against the previous render's
+  // values so each reset only fires on an actual change.
+  const filterSortKey = [
+    searchQuery, selectedCategories, selectedCellars, selectedTags,
+    selectedWineColors, minValue, maxValue, sortBy, openedFilter, selectedCollectionId,
+  ];
+  const [prevFilterSortKey, setPrevFilterSortKey] = useState(filterSortKey);
+  if (filterSortKey.some((v, i) => v !== prevFilterSortKey[i])) {
+    setPrevFilterSortKey(filterSortKey);
     setAnchorId(null);
     setCurrentPage(1);
-  }, [searchQuery, selectedCategories, selectedCellars, selectedTags, selectedWineColors, minValue, maxValue, sortBy, openedFilter, selectedCollectionId]);
+  }
 
-  // Reset page when page size changes
-  useEffect(() => {
+  const [prevPageSize, setPrevPageSize] = useState(pageSize);
+  if (pageSize !== prevPageSize) {
+    setPrevPageSize(pageSize);
     setCurrentPage(1);
-  }, [pageSize]);
+  }
 
   const syncCollections = useCallback(
     async (itemId: string, newCollectionIds: string[], oldCollectionIds: string[]) => {

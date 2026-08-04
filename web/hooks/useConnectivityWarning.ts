@@ -12,6 +12,10 @@ export function useConnectivityWarning(featureKey: string) {
   useEffect(() => {
     if (isOnline === true) {
       sessionStorage.removeItem(key);
+      // Reacting to connectivity being restored (an external system, not a
+      // prop/state derivation) — resetting local state here is the effect's
+      // actual purpose, not an avoidable render-time computation.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDismissed(false);
     }
   }, [isOnline, key]);

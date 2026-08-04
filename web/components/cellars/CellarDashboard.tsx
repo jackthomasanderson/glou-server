@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Button,
   Input,
@@ -117,12 +117,16 @@ export const CellarDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<CellarStatusFilter>('all');
   const [deletingCellar, setDeletingCellar] = useState<Cellar | null>(null);
 
-  useEffect(() => {
-    const type = (searchParams.get('type') ?? 'all') as CellarTypeFilter;
-    const status = (searchParams.get('status') ?? 'all') as CellarStatusFilter;
-    setTypeFilter(type);
-    setStatusFilter(status);
-  }, [searchParams]);
+  // Parsing filters out of the URL query string is adjusted during render
+  // (React's documented pattern) rather than in an effect, guarded against
+  // the previous render's searchParams so it only re-parses when navigation
+  // actually changes the query string.
+  const [prevSearchParams, setPrevSearchParams] = useState(searchParams);
+  if (searchParams !== prevSearchParams) {
+    setPrevSearchParams(searchParams);
+    setTypeFilter((searchParams.get('type') ?? 'all') as CellarTypeFilter);
+    setStatusFilter((searchParams.get('status') ?? 'all') as CellarStatusFilter);
+  }
 
   const pushParams = useCallback(
     (type: CellarTypeFilter, status: CellarStatusFilter) => {

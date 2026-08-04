@@ -75,7 +75,19 @@ export function InventoryForm({
   const imageDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isEditing = Boolean(initialValues?.id);
 
-  useEffect(() => {
+  const setField = (field: string, value: unknown) =>
+    setValues((prev) => ({ ...prev, [field]: value }));
+
+  // Resetting form state on open/initialValues change: adjusted during
+  // render (React's documented pattern for this) rather than in an effect,
+  // by comparing against the previous render's values and guarding with
+  // setPrevOpen/setPrevInitialValues so the reset runs at most once per
+  // actual change instead of looping.
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [prevInitialValues, setPrevInitialValues] = useState(initialValues);
+  if (open !== prevOpen || initialValues !== prevInitialValues) {
+    setPrevOpen(open);
+    setPrevInitialValues(initialValues);
     if (open) {
       setValues(initialValues ?? EMPTY_FORM);
       setSelectedCollections(
@@ -88,7 +100,7 @@ export function InventoryForm({
       setPrefetchedImages([]);
       setIsAutoLoading(false);
     }
-  }, [open, initialValues]);
+  }
 
   useEffect(() => {
     if (isEditing || !values.name?.trim() || !values.producer?.trim() || values.photoUrl) return;
@@ -117,9 +129,6 @@ export function InventoryForm({
     return () => { if (imageDebounceRef.current) clearTimeout(imageDebounceRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.name, values.producer, values.photoUrl, isEditing]);
-
-  const setField = (field: string, value: unknown) =>
-    setValues((prev) => ({ ...prev, [field]: value }));
 
   const canSave = Boolean(values.category && values.name?.trim() && values.producer?.trim());
 

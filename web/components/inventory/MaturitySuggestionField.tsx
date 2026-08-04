@@ -25,8 +25,20 @@ export function MaturitySuggestionField({
   const [suggestion, setSuggestion] = useState<MaturitySuggestion | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Clearing the suggestion when the field becomes inactive is adjusted
+  // during render (React's documented pattern) rather than in the fetch
+  // effect below, so the effect itself only needs to handle the actual
+  // async side effect (the debounced suggest() call).
+  const [prevActive, setPrevActive] = useState(active);
+  const [prevCategory, setPrevCategory] = useState(category);
+  if (active !== prevActive || category !== prevCategory) {
+    setPrevActive(active);
+    setPrevCategory(category);
+    if (!active || !category) setSuggestion(null);
+  }
+
   useEffect(() => {
-    if (!active || !category) { setSuggestion(null); return; }
+    if (!active || !category) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
@@ -41,7 +53,6 @@ export function MaturitySuggestionField({
       } catch { setSuggestion(null); }
     }, 600);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, category, region, color, producer, vintage]);
 
   const applySuggestion = () => {

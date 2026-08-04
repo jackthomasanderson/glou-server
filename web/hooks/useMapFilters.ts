@@ -34,6 +34,11 @@ export function useMapFilters(): [MapFiltersState, (next: MapFiltersState) => vo
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
+      // Deferred to after mount rather than a lazy useState initializer:
+      // localStorage isn't available during SSR, so reading it synchronously
+      // in the initializer would make the client's first render diverge
+      // from the server-rendered markup (hydration mismatch).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (stored) setFiltersState(sanitize(JSON.parse(stored)));
     } catch {}
   }, []);

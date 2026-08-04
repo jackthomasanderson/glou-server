@@ -117,7 +117,6 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
       {isOpen && options.length > 0 && (
         <div
           className="absolute z-[1500] left-0 top-full mt-1 w-full bg-background border border-default-200 rounded-xl shadow-xl overflow-hidden"
-          style={{ minWidth: wrapperRef.current?.offsetWidth }}
         >
           <ul className="py-1">
             {options.map((option, idx) => (

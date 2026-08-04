@@ -12,6 +12,11 @@ export function usePageSize(tab: string, defaultSize: PageSizeOption = 25): [Pag
       const stored = localStorage.getItem(storageKey);
       const parsed = Number(stored);
       if ((PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed)) {
+        // Deliberately deferred to after mount rather than a lazy useState
+        // initializer: localStorage isn't available during SSR, so reading
+        // it synchronously in the initializer would make the client's first
+        // render diverge from the server-rendered markup (hydration mismatch).
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSizeState(parsed as PageSizeOption);
       }
     } catch {}

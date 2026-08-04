@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button, Input, Select, SelectItem, Switch, CircularProgress } from '@heroui/react';
 import { User, Settings, ShieldCheck, Compass, Gift, FlaskConical } from 'lucide-react';
 import Link from 'next/link';
@@ -42,7 +42,13 @@ export default function ProfilePage() {
   });
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Seeding form state once the user loads is adjusted during render
+  // (React's documented pattern) rather than in an effect, guarded against
+  // the previous render's user so it only fires when the fetched user
+  // reference actually changes.
+  const [prevUser, setPrevUser] = useState(user);
+  if (user !== prevUser) {
+    setPrevUser(user);
     if (user) {
       setProfileData({ avatarUrl: user.avatarUrl || '', appName: user.appName || '', appSlogan: user.appSlogan || '' });
       setPrefsData({
@@ -54,7 +60,7 @@ export default function ProfilePage() {
         expertMode: user.expertMode ?? false,
       });
     }
-  }, [user]);
+  }
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();

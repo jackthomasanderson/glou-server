@@ -72,10 +72,17 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
   const [form, setForm] = useState<MaturityReferenceInput>(editing ?? EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  // Resetting form state on open/editing change is adjusted during render
+  // (React's documented pattern) rather than in an effect, guarded against
+  // the previous render's values so it only fires on an actual change.
+  const [prevEditing, setPrevEditing] = useState(editing);
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (editing !== prevEditing || open !== prevOpen) {
+    setPrevEditing(editing);
+    setPrevOpen(open);
     setForm(editing ?? EMPTY_FORM);
     setError(null);
-  }, [editing, open]);
+  }
 
   const setField = (field: keyof MaturityReferenceInput, value: unknown) =>
     setForm((prev) => ({ ...prev, [field]: value }));

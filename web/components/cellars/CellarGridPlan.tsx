@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   Button,
   Chip,
@@ -398,9 +398,15 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
   const queryClient = useQueryClient();
   const { cellar, items } = data;
 
-  // Local items for optimistic drag updates
+  // Local items for optimistic drag updates — resynced from the `items`
+  // prop during render (React's documented pattern) rather than in an
+  // effect, guarded against the previous render's items.
   const [localItems, setLocalItems] = useState<GridItem[]>(items);
-  useEffect(() => { setLocalItems(items); }, [items]);
+  const [prevItems, setPrevItems] = useState(items);
+  if (items !== prevItems) {
+    setPrevItems(items);
+    setLocalItems(items);
+  }
 
   const [assignTarget, setAssignTarget] = useState<{ col: number; row: number } | null>(null);
   const [occupiedTarget, setOccupiedTarget] = useState<GridItem | null>(null);

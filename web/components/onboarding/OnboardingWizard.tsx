@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CircularProgress } from '@heroui/react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -48,11 +48,21 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
 
   // Resume logic: skip straight to the ingestion choice if a cellar already
   // exists (created in an earlier, interrupted pass through the wizard).
-  useEffect(() => {
-    if (resumed || cellarsLoading) return;
-    setStep(cellars && cellars.length > 0 ? 'ingestion-choice' : 'welcome');
-    setResumed(true);
-  }, [resumed, cellarsLoading, cellars]);
+  // Adjusted during render (React's documented pattern) rather than in an
+  // effect, guarded against the previous render's values so it only fires
+  // on an actual change.
+  const [prevResumeKey, setPrevResumeKey] = useState([resumed, cellarsLoading, cellars]);
+  if (
+    resumed !== prevResumeKey[0] ||
+    cellarsLoading !== prevResumeKey[1] ||
+    cellars !== prevResumeKey[2]
+  ) {
+    setPrevResumeKey([resumed, cellarsLoading, cellars]);
+    if (!resumed && !cellarsLoading) {
+      setStep(cellars && cellars.length > 0 ? 'ingestion-choice' : 'welcome');
+      setResumed(true);
+    }
+  }
 
   const stepIndex = STEPS.indexOf(step);
 

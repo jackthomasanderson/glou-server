@@ -14,12 +14,15 @@ interface UndoToastProps {
 
 export function UndoToast({ message, undoLabel, onUndo, onExpire }: UndoToastProps) {
   const [progress, setProgress] = useState(100);
-  const startTime = useRef(Date.now());
+  // Date.now() is impure, so it can't be passed directly as useRef's initial
+  // value (react-hooks/purity) — useState's lazy initializer form is the
+  // sanctioned escape hatch: it's only invoked once, on mount.
+  const [startTime] = useState(() => Date.now());
   const frameRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     const animate = () => {
-      const elapsed = Date.now() - startTime.current;
+      const elapsed = Date.now() - startTime;
       const remaining = Math.max(0, 100 - (elapsed / UNDO_TIMEOUT_MS) * 100);
       setProgress(remaining);
       if (remaining > 0) {
@@ -32,7 +35,7 @@ export function UndoToast({ message, undoLabel, onUndo, onExpire }: UndoToastPro
     return () => {
       if (frameRef.current !== undefined) cancelAnimationFrame(frameRef.current);
     };
-  }, [onExpire]);
+  }, [onExpire, startTime]);
 
   return (
     <div

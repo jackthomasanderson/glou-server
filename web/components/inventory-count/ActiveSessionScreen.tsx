@@ -42,6 +42,10 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   useEffect(() => {
     const scanParam = searchParams.get('scan');
     if (scanParam && scanParam !== autoScannedFor && session.status === 'active') {
+      // Paired with the router.replace() below (an external navigation side
+      // effect that must stay in an effect) — splitting this setState out
+      // to render-time would desync it from the URL cleanup.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAutoScannedFor(scanParam);
       scanMutation.mutate(scanParam);
       const next = new URLSearchParams(searchParams.toString());
@@ -184,7 +188,6 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
             {isSearchOpen && searchResults.length > 0 && (
               <div
                 className="absolute z-[1500] left-0 top-full mt-1 w-full bg-background border border-default-200 rounded-xl shadow-xl overflow-hidden"
-                style={{ minWidth: searchWrapperRef.current?.offsetWidth }}
               >
                 <ul className="py-1 max-h-64 overflow-y-auto">
                   {searchResults.map((item) => (

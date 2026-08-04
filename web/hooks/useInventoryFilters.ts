@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
@@ -92,7 +92,13 @@ export function useInventoryFilters({
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
+  // Parsing filters out of the URL query string is adjusted during render
+  // (React's documented pattern) rather than in an effect, guarded against
+  // the previous render's searchParams so it only re-parses when navigation
+  // actually changes the query string.
+  const [prevSearchParams, setPrevSearchParams] = useState(searchParams);
+  if (searchParams !== prevSearchParams) {
+    setPrevSearchParams(searchParams);
     const filterParam = searchParams.get('filter');
     const qParam = searchParams.get('q');
     const collectionParam = searchParams.get('collection');
@@ -107,7 +113,7 @@ export function useInventoryFilters({
     } else {
       setOpenedFilter('all');
     }
-  }, [searchParams]);
+  }
 
   const toggleFilters = useCallback(() => setIsFiltersOpen((prev) => !prev), []);
 

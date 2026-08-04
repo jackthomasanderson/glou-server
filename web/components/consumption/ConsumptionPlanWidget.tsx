@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Card, CardHeader, CardBody, Button, Chip, Avatar, Skeleton, Progress, Input, Select, SelectItem,
 } from '@heroui/react';
@@ -50,12 +50,19 @@ export function ConsumptionPlanWidget() {
   const [targetType, setTargetType] = useState<GoalTargetType>('count');
   const [targetValue, setTargetValue] = useState('12');
 
-  useEffect(() => {
+  // Seeding the edit form from the current goal is adjusted during render
+  // (React's documented pattern) rather than in an effect, guarded against
+  // the previous render's values so it only fires on an actual change.
+  const [prevEditingGoal, setPrevEditingGoal] = useState(editingGoal);
+  const [prevGoal, setPrevGoal] = useState(progress?.goal);
+  if (editingGoal !== prevEditingGoal || progress?.goal !== prevGoal) {
+    setPrevEditingGoal(editingGoal);
+    setPrevGoal(progress?.goal);
     if (editingGoal && progress?.goal) {
       setTargetType(progress.goal.targetType);
       setTargetValue(String(progress.goal.targetValue));
     }
-  }, [editingGoal, progress?.goal]);
+  }
 
   const handleSaveGoal = async () => {
     const value = Number(targetValue);

@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Modal, ModalContent, Button, Chip, Input, Select, SelectItem, Checkbox, CircularProgress,
 } from '@heroui/react';
@@ -88,8 +88,13 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const jobQuery = useScanJob(jobId);
 
   // Reset all local state when the modal is closed/reopened, so a stale
-  // session never bleeds into the next time it's opened.
-  useEffect(() => {
+  // session never bleeds into the next time it's opened. Adjusted during
+  // render (React's documented pattern) rather than in an effect, guarded
+  // against the previous render's `open` so it only fires on the actual
+  // close transition.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) {
       setPhase('capture');
       setJobId(null);
@@ -98,12 +103,15 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       setDuplicateCandidate(null);
       setCart([]);
     }
-  }, [open]);
+  }
 
-  // React to the polled job reaching a terminal state.
-  useEffect(() => {
-    if (!jobQuery.data) return;
-    if (jobQuery.data.status === 'done') {
+  // React to the polled job reaching a terminal state. Same
+  // render-time-adjustment pattern, keyed on the job data reference so it
+  // only re-runs when the polled query result actually changes.
+  const [prevJobData, setPrevJobData] = useState(jobQuery.data);
+  if (jobQuery.data !== prevJobData) {
+    setPrevJobData(jobQuery.data);
+    if (jobQuery.data?.status === 'done') {
       const extracted = jobQuery.data.extractedData ?? {};
       const category = extracted.category ?? 'wine';
       const cellarId = getDefaultCellarForCategory(category) ?? defaultCellarId ?? null;
@@ -123,10 +131,10 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       });
       setSaveAsDefault(false);
       setPhase('review');
-    } else if (jobQuery.data.status === 'failed') {
+    } else if (jobQuery.data?.status === 'failed') {
       setPhase('error');
     }
-  }, [jobQuery.data, defaultCellarId]);
+  }
 
   const resetToCapture = () => {
     setReviewValues(null);

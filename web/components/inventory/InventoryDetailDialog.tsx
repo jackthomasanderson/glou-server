@@ -106,9 +106,16 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const fillLevel = d?.isOpened ? (d?.fillLevel ?? 0) : 100;
   const [localFill, setLocalFill] = useState(fillLevel);
 
-  useEffect(() => {
+  // localFill is a locally-editable copy of fillLevel (the slider below lets
+  // the user drag it before it's saved) that needs to resync whenever the
+  // underlying data or open item changes — adjusted during render (React's
+  // documented pattern) rather than in an effect, guarded against the
+  // previous render's values so it only resyncs on an actual change.
+  const [prevSyncKey, setPrevSyncKey] = useState([d?.fillLevel, d?.isOpened, open]);
+  if (d?.fillLevel !== prevSyncKey[0] || d?.isOpened !== prevSyncKey[1] || open !== prevSyncKey[2]) {
+    setPrevSyncKey([d?.fillLevel, d?.isOpened, open]);
     setLocalFill(d?.isOpened ? (d?.fillLevel ?? 0) : 100);
-  }, [d?.fillLevel, d?.isOpened, open]);
+  }
 
   // This drawer is hand-rolled rather than the shared HeroUI Modal, so
   // Escape-to-close and screen-reader dialog semantics aren't automatic —

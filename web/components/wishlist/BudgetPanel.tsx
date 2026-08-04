@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Card, CardHeader, CardBody, Progress, Skeleton, Spinner,
@@ -70,14 +70,19 @@ export function BudgetPanel() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [deleting, setDeleting] = useState<BudgetEnvelope | null>(null);
 
-  useEffect(() => {
+  // Resetting the form to this month's range on open is adjusted during
+  // render (React's documented pattern) rather than in an effect, guarded
+  // against the previous render's formOpen so it only fires on open.
+  const [prevFormOpen, setPrevFormOpen] = useState(formOpen);
+  if (formOpen !== prevFormOpen) {
+    setPrevFormOpen(formOpen);
     if (formOpen) {
       const now = new Date();
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       setForm({ periodStart: toDateInputValue(start.toISOString()), periodEnd: toDateInputValue(end.toISOString()), amount: '' });
     }
-  }, [formOpen]);
+  }
 
   const handleSubmit = async () => {
     const amount = Number(form.amount);

@@ -22,8 +22,18 @@ export default function ResetPasswordPage() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Bailing out when there's no token is adjusted during render (React's
+  // documented pattern) rather than in the effect below, so the effect
+  // itself only needs to handle the actual async side effect (validating
+  // the token against the API).
+  const [prevToken, setPrevToken] = useState(token);
+  if (token !== prevToken) {
+    setPrevToken(token);
+    if (!token) setValidating(false);
+  }
+
   useEffect(() => {
-    if (!token) { setValidating(false); return; }
+    if (!token) return;
     configClient.validateResetToken(token).then(({ valid }) => {
       setTokenValid(valid);
     }).catch(() => {

@@ -9,6 +9,11 @@ export function useViewMode(key: string, defaultMode: ViewMode = 'grid'): [ViewM
   useEffect(() => {
     try {
       const stored = localStorage.getItem(storageKey);
+      // Deferred to after mount rather than a lazy useState initializer:
+      // localStorage isn't available during SSR, so reading it synchronously
+      // in the initializer would make the client's first render diverge
+      // from the server-rendered markup (hydration mismatch).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (stored === 'grid' || stored === 'list') setModeState(stored);
     } catch {}
   }, [storageKey]);
