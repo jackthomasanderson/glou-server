@@ -51,6 +51,9 @@ describe('InventoryService', () => {
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
+      include: {
+        collections: { select: { id: true, name: true, color: true, icon: true } },
+      },
     });
     expect(result).toEqual(mockItems);
   });

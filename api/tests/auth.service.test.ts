@@ -14,6 +14,7 @@ vi.mock('../src/lib/prisma', () => ({
     },
     session: {
       create: vi.fn(),
+      findMany: vi.fn(),
     },
     trustedDevice: {
       findUnique: vi.fn(),
@@ -166,6 +167,11 @@ describe('AuthService', () => {
       vi.mocked(prisma.user.findFirst).mockResolvedValue(mockUser);
       vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
       vi.mocked(prisma.session.create).mockResolvedValue({ id: 'session-1' } as any);
+      // login() now calls isKnownDeviceLocation() (FEAT-29, new-device
+      // notification), which reads prisma.session.findMany — added to the
+      // service after this mock was written. Empty array = no known
+      // sessions yet, matching a fresh test user.
+      vi.mocked(prisma.session.findMany).mockResolvedValue([]);
       vi.mocked(jwt.sign).mockReturnValue('mock-jwt-token' as never);
 
       const result = await authService.login(loginData, deviceInfo);
