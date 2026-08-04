@@ -32,6 +32,23 @@
 4. Open [http://localhost:3000](http://localhost:3000) and click **Register**.
    The first account you create is automatically granted admin privileges.
 
+5. *(Optional)* Configure the instance from **Administration → System Configuration**.
+   None of this is required to use the app — each section stays inactive until explicitly configured. Set up later, as needed:
+
+   | Section | Purpose |
+   | :--- | :--- |
+   | **SMTP / Email** | SMTP server for outgoing emails (password reset, email notifications). |
+   | **Notif policy** | Instance-wide switches (in-app / email / webhook) — a channel disabled here stays unavailable in every user's personal preferences. |
+   | **Webhook / Gotify** | URL and token for a [Gotify](https://gotify.net/) instance to receive notifications outside the app. |
+   | **API Integrations** | Optional third-party API keys (Vivino, Whiskybase) and an external OCR service URL for label scanning. |
+   | **Retention** | How long to keep expired audit logs, sessions/trusted devices, and guest shares before permanent deletion. |
+   | **Backups** | Daily automated database backup (`pg_dump`), with configurable retention and run time. |
+   | **Network** | The instance's canonical public URL and access mode (direct or behind a reverse proxy). |
+   | **History** | Change log for this configuration (who, when, which section). |
+
+   > [!NOTE]
+   > This panel is admin-only (`/admin`, access denied otherwise).
+
 **Updating to a new version**:
 ```bash
 docker compose pull && docker compose up -d

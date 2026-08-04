@@ -1583,6 +1583,11 @@
       "noCellar": "Aucune cave créée pour l'instant",
       "itemsAdded": "{{count}} actif(s) ajouté(s) à votre inventaire",
       "noItems": "Aucun actif ajouté pour le moment",
+      "adminConfig": {
+        "title": "Configuration système (facultatif)",
+        "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer SMTP, politique de notifs, webhook/Gotify, intégrations API, rétention, sauvegardes et réseau.",
+        "link": "Administration → Configuration Système"
+      },
       "finishButton": "Accéder au tableau de bord"
     }
   },

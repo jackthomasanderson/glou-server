@@ -1583,6 +1583,11 @@
       "noCellar": "No cellar created yet",
       "itemsAdded": "{{count}} asset(s) added to your inventory",
       "noItems": "No asset added yet",
+      "adminConfig": {
+        "title": "System configuration (optional)",
+        "description": "As an admin, you'll be able to set up SMTP, notif policy, webhook/Gotify, API integrations, retention, backups and network later.",
+        "link": "Administration → System Configuration"
+      },
       "finishButton": "Go to dashboard"
     }
   },

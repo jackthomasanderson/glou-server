@@ -1,18 +1,31 @@
 'use client';
 import { Button } from '@heroui/react';
-import { CheckCircle2, Package, Warehouse } from 'lucide-react';
+import { CheckCircle2, Package, Settings, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'next/navigation';
 
 interface SummaryStepProps {
   cellarName: string | null;
   itemsAdded: number;
+  /** Only admins see the (optional) System Configuration pointer below — the panel itself is admin-only (see AdminPage). */
+  isAdmin: boolean;
   isFinishing: boolean;
   onFinish: () => void;
 }
 
 /** Step 5/5 — recap of what the wizard set up, then hand off to the dashboard. */
-export function SummaryStep({ cellarName, itemsAdded, isFinishing, onFinish }: SummaryStepProps) {
+export function SummaryStep({ cellarName, itemsAdded, isAdmin, isFinishing, onFinish }: SummaryStepProps) {
   const { t } = useTranslation();
+  const router = useRouter();
+
+  const goToSystemConfig = () => {
+    // Same as the regular Finish action (marks onboarding complete, closes
+    // the wizard) — just followed by a redirect to /admin instead of staying
+    // on the dashboard, since neither cellar nor items are prerequisites for
+    // this optional step.
+    onFinish();
+    router.push('/admin');
+  };
 
   return (
     <div className="flex flex-col items-center gap-5 py-8 px-6 text-center">
@@ -40,6 +53,24 @@ export function SummaryStep({ cellarName, itemsAdded, isFinishing, onFinish }: S
           </span>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="w-full max-w-sm flex items-start gap-3 bg-default-50 border border-divider rounded-lg px-4 py-3 text-left">
+          <Settings size={18} className="text-foreground-500 shrink-0 mt-0.5" />
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium">{t('onboarding.summary.adminConfig.title')}</span>
+            <span className="text-xs text-foreground-500">{t('onboarding.summary.adminConfig.description')}</span>
+            <button
+              type="button"
+              onClick={goToSystemConfig}
+              disabled={isFinishing}
+              className="text-xs font-medium text-primary hover:underline text-left mt-1 disabled:opacity-50"
+            >
+              {t('onboarding.summary.adminConfig.link')}
+            </button>
+          </div>
+        </div>
+      )}
 
       <Button
         color="primary"

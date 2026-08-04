@@ -32,6 +32,23 @@
 4. Ouvrir [http://localhost:3000](http://localhost:3000) et cliquer sur **S'inscrire**.
    Le premier compte créé reçoit automatiquement les droits administrateur.
 
+5. *(Facultatif)* Configurer l'instance depuis **Administration → Configuration Système**.
+   Rien ici n'est requis pour utiliser l'application — chaque section reste inactive tant qu'elle n'est pas explicitement configurée. À paramétrer plus tard, si besoin :
+
+   | Section | Rôle |
+   | :--- | :--- |
+   | **SMTP / Email** | Serveur SMTP pour l'envoi d'emails (réinitialisation de mot de passe, notifications par email). |
+   | **Politique de notifs** | Interrupteurs globaux (dans l'app / email / webhook) pour toute l'instance — un canal désactivé ici reste indisponible dans les préférences de chaque utilisateur. |
+   | **Webhook / Gotify** | URL et token d'une instance [Gotify](https://gotify.net/) pour recevoir les notifications hors de l'application. |
+   | **Intégrations API** | Clés API tierces optionnelles (Vivino, Whiskybase) et URL d'un service OCR externe pour le scan d'étiquette. |
+   | **Rétention** | Délai de conservation avant suppression définitive des logs d'audit, sessions/appareils expirés et partages invités expirés. |
+   | **Sauvegardes** | Sauvegarde automatique quotidienne de la base (`pg_dump`), avec rétention et heure d'exécution configurables. |
+   | **Réseau** | URL publique de référence de l'instance et mode d'accès (direct ou via reverse proxy). |
+   | **Historique** | Journal des modifications apportées à cette configuration (qui, quand, quelle section). |
+
+   > [!NOTE]
+   > Ce panneau est réservé aux comptes administrateur (`/admin`, accès refusé sinon).
+
 **Mise à jour vers une nouvelle version** :
 ```bash
 docker compose pull && docker compose up -d

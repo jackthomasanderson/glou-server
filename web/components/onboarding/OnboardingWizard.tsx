@@ -4,7 +4,7 @@ import { CircularProgress } from '@heroui/react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCellars } from '@/hooks/useCellars';
-import { useCompleteOnboarding } from '@/hooks/useAuth';
+import { useCompleteOnboarding, useMe } from '@/hooks/useAuth';
 import { Cellar } from '@/lib/cellars/types';
 import { WelcomeStep } from './steps/WelcomeStep';
 import { CellarStep } from './steps/CellarStep';
@@ -37,6 +37,7 @@ interface OnboardingWizardProps {
 export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardProps) {
   const { t } = useTranslation();
   const { data: cellars, isLoading: cellarsLoading } = useCellars();
+  const { data: user } = useMe();
   const completeOnboarding = useCompleteOnboarding();
 
   const [step, setStep] = useState<Step>('welcome');
@@ -177,6 +178,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
           <SummaryStep
             cellarName={cellarName}
             itemsAdded={itemsAdded}
+            isAdmin={user?.isAdmin ?? false}
             isFinishing={completeOnboarding.isPending}
             onFinish={finish}
           />
