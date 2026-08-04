@@ -23,6 +23,7 @@ export function TastingsClient() {
           color="primary"
           size="md"
           aria-label={t('tastings.tabs.ariaLabel')}
+          classNames={{ base: 'w-full min-w-0', tabList: 'w-full overflow-x-auto flex-nowrap' }}
         >
           <Tab key="journal" title={t('tastings.tabs.journal')} />
           <Tab key="pairing" title={t('tastings.tabs.pairing')} />

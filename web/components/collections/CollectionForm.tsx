@@ -94,7 +94,7 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
                       title={color}
                       aria-label={color}
                       onClick={() => setValue('color', color)}
-                      className="w-7 h-7 rounded-full transition-all focus:outline-none"
+                      className="w-7 h-7 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus"
                       style={{
                         backgroundColor: color,
                         border: selectedColor === color
@@ -117,7 +117,7 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
                       type="button"
                       onClick={() => setValue('icon', selectedIcon === icon ? '' : icon)}
                       className={[
-                        'w-9 h-9 flex items-center justify-center text-xl rounded-lg transition-all focus:outline-none',
+                        'w-9 h-9 flex items-center justify-center text-xl rounded-lg transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus',
                         selectedIcon === icon
                           ? 'bg-primary/20 border-2 border-primary'
                           : 'bg-default-100 border-2 border-transparent hover:bg-default-200',

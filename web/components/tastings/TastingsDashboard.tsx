@@ -66,7 +66,7 @@ export function TastingsDashboard() {
   const totalPages = data ? Math.ceil(data.total / data.limit) : 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-4 pt-6 pb-24 md:pb-6">
       {/* Header */}
       <div className="flex items-center gap-2 mb-6">
         <Wine size={22} className="text-primary" />

@@ -78,19 +78,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
         {/* Content header */}
         <header className="sticky top-0 z-20 flex items-center gap-3 px-4 md:px-6 py-2.5 bg-content1 border-b border-divider">
           {/* Breadcrumb */}
-          <span className="text-[0.65rem] font-bold tracking-[.1rem] uppercase whitespace-nowrap flex items-center gap-1">
-            <Link href="/" className="text-foreground-500 hover:text-foreground transition-colors">
+          <span className="min-w-0 text-[0.65rem] font-bold tracking-[.1rem] uppercase flex items-center gap-1">
+            <Link href="/" className="shrink-0 text-foreground-500 hover:text-foreground transition-colors">
               {user?.appName || 'Glou'}
             </Link>
             {pageTitle && (
               <>
-                <span className="text-foreground-400">&gt;</span>
+                <span className="shrink-0 text-foreground-400">&gt;</span>
                 {pageTitle.href !== pathname ? (
-                  <Link href={pageTitle.href} className="text-foreground-500 hover:text-foreground transition-colors">
+                  <Link href={pageTitle.href} className="truncate text-foreground-500 hover:text-foreground transition-colors">
                     {pageTitle.label}
                   </Link>
                 ) : (
-                  <span className="text-foreground">{pageTitle.label}</span>
+                  <span className="truncate text-foreground">{pageTitle.label}</span>
                 )}
               </>
             )}

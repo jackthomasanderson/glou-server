@@ -84,6 +84,7 @@ export function InventoryCountDashboard() {
             size="md"
             aria-label={t('inventoryCount.tabsAria')}
             className="mb-5"
+            classNames={{ base: 'w-full min-w-0', tabList: 'w-full overflow-x-auto flex-nowrap' }}
           >
             <Tab key="counting" title={t('inventoryCount.tabs.counting')} />
             <Tab key="summary" title={t('inventoryCount.tabs.summary')} />

@@ -22,6 +22,7 @@ export function WishlistClient() {
           color="primary"
           size="md"
           aria-label={t('wishlist.tabs.ariaLabel')}
+          classNames={{ base: 'w-full min-w-0', tabList: 'w-full overflow-x-auto flex-nowrap' }}
         >
           <Tab key="wishlist" title={t('wishlist.tabs.wishlist')} />
           <Tab key="budget" title={t('wishlist.tabs.budget')} />

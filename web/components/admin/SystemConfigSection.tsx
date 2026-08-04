@@ -339,13 +339,15 @@ export function SystemConfigSection() {
           contrainte, HeroUI les laisse déborder hors de la carte plutôt que
           de les faire défiler. `overflow-x-auto` + `flex-nowrap` les
           maintient sur une seule ligne, défilable horizontalement, bornée
-          par la carte. */}
+          par la carte. `base` doit aussi être contraint (`w-full min-w-0`) :
+          sinon le wrapper `inline-flex` de HeroUI grandit pour accueillir
+          tous les onglets et l'overflow remonte jusqu'à la page entière. */}
       <Tabs
         variant="underlined"
         color="primary"
         size="md"
         aria-label={t('adminConfig.tabsAriaLabel')}
-        classNames={{ tabList: 'w-full overflow-x-auto flex-nowrap' }}
+        classNames={{ base: 'w-full min-w-0', tabList: 'w-full overflow-x-auto flex-nowrap' }}
       >
         {/* ── SMTP ── */}
         <Tab key="smtp" title={<span className="flex items-center gap-1.5"><Mail size={14} />{t('adminConfig.tabs.smtp')}</span>}>

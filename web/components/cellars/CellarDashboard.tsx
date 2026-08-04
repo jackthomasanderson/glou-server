@@ -115,6 +115,7 @@ export const CellarDashboard: React.FC = () => {
 
   const [typeFilter, setTypeFilter] = useState<CellarTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<CellarStatusFilter>('all');
+  const [deletingCellar, setDeletingCellar] = useState<Cellar | null>(null);
 
   useEffect(() => {
     const type = (searchParams.get('type') ?? 'all') as CellarTypeFilter;
@@ -248,10 +249,14 @@ export const CellarDashboard: React.FC = () => {
     handleCloseForm();
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm(t('cellars.deleteConfirm'))) {
-      await deleteMutation.mutateAsync(id);
-    }
+  const handleDelete = (cellar: Cellar) => {
+    setDeletingCellar(cellar);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingCellar) return;
+    await deleteMutation.mutateAsync(deletingCellar.id);
+    setDeletingCellar(null);
   };
 
   if (isLoading) {
@@ -430,7 +435,7 @@ export const CellarDashboard: React.FC = () => {
                     size="sm"
                     variant="light"
                     color="danger"
-                    onPress={() => handleDelete(cellar.id)}
+                    onPress={() => handleDelete(cellar)}
                     aria-label={t('actions.delete')}
                   >
                     <Trash2 size={14} />
@@ -521,7 +526,7 @@ export const CellarDashboard: React.FC = () => {
                         size="sm"
                         variant="light"
                         color="danger"
-                        onPress={() => handleDelete(cellar.id)}
+                        onPress={() => handleDelete(cellar)}
                         aria-label={t('actions.delete')}
                       >
                         <Trash2 size={14} />
@@ -683,6 +688,41 @@ export const CellarDashboard: React.FC = () => {
               {editingCellar ? t('actions.save') : t('actions.add')}
             </Button>
           </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Delete confirm */}
+      <Modal
+        isOpen={!!deletingCellar}
+        onClose={() => setDeletingCellar(null)}
+        size="sm"
+        radius="lg"
+        backdrop="opaque"
+        placement="center"
+      >
+        <ModalContent>
+          {() => (
+            <>
+              <ModalHeader>{t('cellars.deleteTitle')}</ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-default-600">{t('cellars.deleteConfirm')}</p>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="default" variant="light" onPress={() => setDeletingCellar(null)}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  color="danger"
+                  variant="solid"
+                  onPress={confirmDelete}
+                  isLoading={deleteMutation.isPending}
+                  isDisabled={deleteMutation.isPending}
+                >
+                  {t('actions.delete')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
         </ModalContent>
       </Modal>
     </div>

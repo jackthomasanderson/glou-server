@@ -692,7 +692,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   );
 
   return (
-    <div className="p-4 sm:p-6">
+    <div className="p-4 pb-24 sm:p-6">
       {/* Header */}
       <div className="flex items-center justify-between gap-2 mb-6">
         <div className="flex items-center gap-2">
@@ -762,8 +762,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         {/* Content column */}
         <div className="flex-1 min-w-0">
           {/* Toolbar */}
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+            <div className="flex flex-wrap gap-2 items-center">
               <button
                 className={`md:hidden p-1.5 border border-divider rounded-xl transition-colors ${isFiltersOpen || hasActiveFilters ? 'border-secondary text-secondary' : ''}`}
                 onClick={toggleFilters}
@@ -775,7 +775,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               {!isMobile && <div className="w-px h-5 bg-divider" />}
               <PageSizeToggle value={pageSize} onChange={setPageSize} />
             </div>
-            <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center">
               {items && items.length > 0 && (
                 <Button
                   variant={bulkMode ? 'solid' : 'bordered'}

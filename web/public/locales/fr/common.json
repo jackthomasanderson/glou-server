@@ -397,6 +397,7 @@
         "sensor": "Capteur"
       }
     },
+    "deleteTitle": "Supprimer la cave",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les bouteilles qu'elle contient deviendront orphelines.",
     "stats": {
       "items": "actifs",
