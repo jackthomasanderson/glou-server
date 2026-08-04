@@ -6,7 +6,7 @@ import {
   Button, Chip,
   Table, TableHeader, TableColumn, TableBody,
 } from '@heroui/react';
-import { Plus, X, List, Filter, Search, Warehouse, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
+import { Plus, Search, Warehouse, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
 import Link from 'next/link';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
@@ -24,7 +24,8 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { InventoryCard, InventoryCardSkeleton } from './InventoryCard';
 import { InventoryForm } from './InventoryForm';
 import { UndoToast } from '@/components/ui/UndoToast';
-import { BulkActionDialog } from './BulkActionDialog';
+import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
+import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
 import { InventoryDetailDialog } from './InventoryDetailDialog';
 import { InventoryListRow, InventoryListRowSkeleton } from './InventoryListRow';
 import { ViewToggle } from '@/components/ui/ViewToggle';
@@ -143,18 +144,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const toggleFilters = useCallback(() => setIsFiltersOpen((prev) => !prev), []);
 
-  const toggleCategory = useCallback((category: string) => {
-    setSelectedCategories((prev) =>
-      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
-    );
-  }, []);
-
-  const toggleCellar = useCallback((cellarId: string) => {
-    setSelectedCellars((prev) =>
-      prev.includes(cellarId) ? prev.filter((id) => id !== cellarId) : [...prev, cellarId]
-    );
-  }, []);
-
   const clearFilters = useCallback(() => {
     setSearchQuery('');
     setSelectedCategories([]);
@@ -168,30 +157,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     router.push(pathname);
   }, [router, pathname]);
 
-  // Tags sorted by usage frequency (most used first, alphabetical as tiebreaker).
-  const tagUsage = useMemo(() => {
-    if (!items) return [];
-    const counts = new Map<string, number>();
-    items.forEach((b: InventoryItem) => (b.tags || []).forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1)));
-    return Array.from(counts.entries())
-      .map(([tag, count]) => ({ tag, count }))
-      .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-  }, [items]);
-
-  const TAG_DISPLAY_LIMIT = 15;
+  // Tags filter UI (search box + "show more") owns its own state; the raw
+  // usage counts are computed inside InventoryFilterBar from `items`.
   const [tagSearchQuery, setTagSearchQuery] = useState('');
   const [showAllTags, setShowAllTags] = useState(false);
-
-  const filteredTagUsage = useMemo(() => {
-    if (!tagSearchQuery.trim()) return tagUsage;
-    const q = tagSearchQuery.trim().toLowerCase();
-    return tagUsage.filter(({ tag }) => tag.toLowerCase().includes(q));
-  }, [tagUsage, tagSearchQuery]);
-
-  const hasMoreTags = !tagSearchQuery.trim() && tagUsage.length > TAG_DISPLAY_LIMIT;
-  const visibleTagUsage = !tagSearchQuery.trim() && !showAllTags
-    ? filteredTagUsage.slice(0, TAG_DISPLAY_LIMIT)
-    : filteredTagUsage;
 
   const baseItems = useMemo(() => {
     if (!items) return [];
@@ -467,230 +436,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const hasActiveFilters = selectedCategories.length > 0 || selectedWineColors.length > 0 || selectedCellars.length > 0 || openedFilter !== 'all' || !!searchQuery || !!selectedCollectionId || selectedTags.length > 0 || minValue !== '' || maxValue !== '' || sortBy !== 'default';
   const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
 
-  const filterContent = (
-    <div className="flex flex-col gap-4">
-      {/* Cellar filter */}
-      {(cellars?.length ?? 0) > 0 && (
-        <div>
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-            {t('inventory.filterByCellar')}
-          </p>
-          <div className="flex flex-wrap gap-1">
-            <Chip
-              size="sm"
-              variant={selectedCellars.length === 0 ? 'solid' : 'bordered'}
-              color={selectedCellars.length === 0 ? 'primary' : 'default'}
-              className="cursor-pointer text-[0.7rem]"
-              onClick={() => setSelectedCellars([])}
-            >
-              {t('filters.all')}
-            </Chip>
-            {cellars?.map((cellar) => (
-              <Chip
-                key={cellar.id}
-                size="sm"
-                variant={selectedCellars.includes(cellar.id) ? 'solid' : 'bordered'}
-                color={selectedCellars.includes(cellar.id) ? 'primary' : 'default'}
-                className="cursor-pointer text-[0.7rem]"
-                onClick={() => toggleCellar(cellar.id)}
-              >
-                {cellar.name}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Opened filter */}
-      <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-          {lockedCategories?.includes('cigar') ? t('inventory.fields.isOpenedCigar') : t('inventory.fields.isOpened')}
-        </p>
-        <div className="flex flex-col gap-0.5">
-          {(['all', 'full', 'opened', 'alerts'] as const).map((f) => {
-            const isCigar = lockedCategories?.includes('cigar');
-            const label = isCigar && (f === 'full' || f === 'opened')
-              ? t(`inventory.filters.${f}Cigar`)
-              : t(`inventory.filters.${f}`);
-            return (
-              <div
-                key={f}
-                onClick={() => setOpenedFilter(f)}
-                className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${openedFilter === f ? 'bg-default-100' : 'hover:bg-default-50'}`}
-              >
-                <span className={`text-[0.75rem] ${openedFilter === f ? 'font-semibold' : 'font-normal'}`}>
-                  {label}
-                </span>
-                {openedFilter === f && (
-                  <span className="text-[0.7rem] text-primary font-bold">✓</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Category filter */}
-      {!lockedCategories && (
-        <div>
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-            {t('inventory.filterByCategory')}
-          </p>
-          <div className="flex flex-col gap-0.5">
-            <div
-              onClick={() => setSelectedCategories([])}
-              className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${selectedCategories.length === 0 ? 'bg-default-100' : 'hover:bg-default-50'}`}
-            >
-              <span className={`text-[0.75rem] ${selectedCategories.length === 0 ? 'font-semibold' : 'font-normal'}`}>
-                {t('filters.allCategories')}
-              </span>
-              {selectedCategories.length === 0 && (
-                <span className="text-[0.7rem] text-primary font-bold">✓</span>
-              )}
-            </div>
-            {['wine', 'sparkling', 'spirit', 'cigar'].map((cat) => (
-              <div
-                key={cat}
-                onClick={() => toggleCategory(cat)}
-                className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${selectedCategories.includes(cat) ? 'bg-default-100' : 'hover:bg-default-50'}`}
-              >
-                <span className={`text-[0.75rem] ${selectedCategories.includes(cat) ? 'font-semibold' : 'font-normal'}`}>
-                  {t(`categories.${cat}`)}
-                </span>
-                {selectedCategories.includes(cat) && (
-                  <span className="text-[0.7rem] text-primary font-bold">✓</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Wine color filter */}
-      {!lockedCategories?.includes('cigar') && (selectedCategories.length === 0 || selectedCategories.includes('wine')) && (
-        <div>
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-            {t('inventory.filterByWineColor')}
-          </p>
-          <div className="flex flex-wrap gap-1">
-            {(['red', 'white', 'rosé', 'orange'] as const).map((c) => (
-              <Chip
-                key={c}
-                size="sm"
-                variant={selectedWineColors.includes(c) ? 'solid' : 'bordered'}
-                color={selectedWineColors.includes(c) ? 'primary' : 'default'}
-                className="cursor-pointer text-[0.7rem]"
-                onClick={() =>
-                  setSelectedWineColors((prev) =>
-                    prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
-                  )
-                }
-              >
-                {t(`inventory.color.${c}`)}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Value range */}
-      <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-          {t('inventory.filterByValue')}
-        </p>
-        <div className="flex gap-2">
-          <input
-            type="number"
-            min={0}
-            aria-label={t('inventory.filters.minValue')}
-            placeholder={t('inventory.filters.minValue')}
-            value={minValue}
-            onChange={(e) => setMinValue(e.target.value)}
-            className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
-          />
-          <input
-            type="number"
-            min={0}
-            aria-label={t('inventory.filters.maxValue')}
-            placeholder={t('inventory.filters.maxValue')}
-            value={maxValue}
-            onChange={(e) => setMaxValue(e.target.value)}
-            className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
-          />
-        </div>
-      </div>
-
-      {/* Sort */}
-      <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-          {t('inventory.filters.sortBy')}
-        </p>
-        <div className="flex flex-col gap-0.5">
-          {(['default', 'value', 'urgency', 'name'] as const).map((s) => (
-            <div
-              key={s}
-              onClick={() => setSortBy(s)}
-              className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${sortBy === s ? 'bg-default-100' : 'hover:bg-default-50'}`}
-            >
-              <span className={`text-[0.75rem] ${sortBy === s ? 'font-semibold' : 'font-normal'}`}>
-                {t(`inventory.filters.sortOptions.${s}`)}
-              </span>
-              {sortBy === s && <span className="text-[0.7rem] text-primary font-bold">✓</span>}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Tags filter */}
-      {tagUsage.length > 0 && (
-        <div>
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
-            {t('inventory.filterByTags')}
-          </p>
-          {tagUsage.length > TAG_DISPLAY_LIMIT && (
-            <input
-              type="text"
-              aria-label={t('inventory.filters.tagSearchPlaceholder')}
-              placeholder={t('inventory.filters.tagSearchPlaceholder')}
-              value={tagSearchQuery}
-              onChange={(e) => setTagSearchQuery(e.target.value)}
-              className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary mb-2"
-            />
-          )}
-          <div className="flex flex-wrap gap-1">
-            {visibleTagUsage.map(({ tag }) => (
-              <Chip
-                key={tag}
-                size="sm"
-                variant={selectedTags.includes(tag) ? 'solid' : 'bordered'}
-                color={selectedTags.includes(tag) ? 'primary' : 'default'}
-                className="cursor-pointer text-[0.7rem]"
-                onClick={() =>
-                  setSelectedTags((prev) =>
-                    prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-                  )
-                }
-              >
-                {tag}
-              </Chip>
-            ))}
-            {visibleTagUsage.length === 0 && tagSearchQuery.trim() && (
-              <p className="text-[0.7rem] text-default-400">{t('inventory.filters.noTagsFound')}</p>
-            )}
-          </div>
-          {hasMoreTags && (
-            <button
-              onClick={() => setShowAllTags((prev) => !prev)}
-              className="text-[0.7rem] text-primary font-semibold hover:underline mt-2"
-            >
-              {showAllTags ? t('inventory.filters.tagsShowLess') : t('inventory.filters.tagsShowMore')}
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="p-4 pb-24 sm:p-6">
       {/* Header */}
@@ -737,55 +482,54 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       {/* Main layout */}
       <div className="flex gap-5 items-start">
         {/* Desktop filter panel */}
-        <div className="hidden md:block w-[200px] shrink-0">
-          <div className="border border-divider rounded-xl p-4 sticky top-[72px]">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-1.5">
-                <Filter size={13} className="text-default-400" />
-                <span className="text-[0.65rem] font-bold uppercase tracking-widest text-default-400">
-                  {t('actions.filter')}
-                </span>
-              </div>
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="text-[0.65rem] text-primary font-semibold hover:underline"
-                >
-                  ↺ {t('actions.clearAll')}
-                </button>
-              )}
-            </div>
-            {filterContent}
-          </div>
-        </div>
+        <InventoryFilterBar
+          variant="desktop"
+          t={t}
+          lockedCategories={lockedCategories}
+          cellars={cellars}
+          items={items}
+          isFiltersOpen={isFiltersOpen}
+          hasActiveFilters={hasActiveFilters}
+          onClearFilters={clearFilters}
+          selectedCategories={selectedCategories}
+          setSelectedCategories={setSelectedCategories}
+          selectedCellars={selectedCellars}
+          setSelectedCellars={setSelectedCellars}
+          selectedWineColors={selectedWineColors}
+          setSelectedWineColors={setSelectedWineColors}
+          selectedTags={selectedTags}
+          setSelectedTags={setSelectedTags}
+          minValue={minValue}
+          setMinValue={setMinValue}
+          maxValue={maxValue}
+          setMaxValue={setMaxValue}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          openedFilter={openedFilter}
+          setOpenedFilter={setOpenedFilter}
+          tagSearchQuery={tagSearchQuery}
+          setTagSearchQuery={setTagSearchQuery}
+          showAllTags={showAllTags}
+          setShowAllTags={setShowAllTags}
+        />
 
         {/* Content column */}
         <div className="flex-1 min-w-0">
           {/* Toolbar */}
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <div className="flex flex-wrap gap-2 items-center">
-              <button
-                className={`md:hidden p-1.5 border border-divider rounded-xl transition-colors ${isFiltersOpen || hasActiveFilters ? 'border-secondary text-secondary' : ''}`}
-                onClick={toggleFilters}
-                aria-label="Filters"
-              >
-                <Filter size={16} />
-              </button>
+              <InventoryFilterToggleButton
+                isFiltersOpen={isFiltersOpen}
+                hasActiveFilters={hasActiveFilters}
+                onToggle={toggleFilters}
+              />
               {!isMobile && <ViewToggle value={viewMode} onChange={setViewMode} />}
               {!isMobile && <div className="w-px h-5 bg-divider" />}
               <PageSizeToggle value={pageSize} onChange={setPageSize} />
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               {items && items.length > 0 && (
-                <Button
-                  variant={bulkMode ? 'solid' : 'bordered'}
-                  color={bulkMode ? 'secondary' : 'primary'}
-                  startContent={bulkMode ? <X size={14} /> : <List size={14} />}
-                  onPress={toggleBulkMode}
-                  size="sm"
-                >
-                  {bulkMode ? t('actions.cancel') : t('actions.select')}
-                </Button>
+                <InventoryBulkToggleButton bulkMode={bulkMode} onToggle={toggleBulkMode} t={t} />
               )}
               <Button
                 color="secondary"
@@ -812,11 +556,36 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           </div>
 
           {/* Mobile: collapsible filter */}
-          {isFiltersOpen && (
-            <div className="md:hidden border border-divider rounded-xl p-4 mb-5">
-              {filterContent}
-            </div>
-          )}
+          <InventoryFilterBar
+            variant="mobile"
+            t={t}
+            lockedCategories={lockedCategories}
+            cellars={cellars}
+            items={items}
+            isFiltersOpen={isFiltersOpen}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={clearFilters}
+            selectedCategories={selectedCategories}
+            setSelectedCategories={setSelectedCategories}
+            selectedCellars={selectedCellars}
+            setSelectedCellars={setSelectedCellars}
+            selectedWineColors={selectedWineColors}
+            setSelectedWineColors={setSelectedWineColors}
+            selectedTags={selectedTags}
+            setSelectedTags={setSelectedTags}
+            minValue={minValue}
+            setMinValue={setMinValue}
+            maxValue={maxValue}
+            setMaxValue={setMaxValue}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            openedFilter={openedFilter}
+            setOpenedFilter={setOpenedFilter}
+            tagSearchQuery={tagSearchQuery}
+            setTagSearchQuery={setTagSearchQuery}
+            showAllTags={showAllTags}
+            setShowAllTags={setShowAllTags}
+          />
 
           {/* Error */}
           {isError && (
@@ -1019,32 +788,18 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           onExpire={() => setUndoTarget(null)}
         />
       )}
-      {bulkSuccessCount !== null && (
-        <UndoToast
-          message={t('bulk.success', { count: bulkSuccessCount })}
-          undoLabel={t('actions.close')}
-          onUndo={() => setBulkSuccessCount(null)}
-          onExpire={() => setBulkSuccessCount(null)}
-        />
-      )}
-
-      {/* Bulk floating bar */}
-      {bulkMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-[80px] md:bottom-6 left-1/2 -translate-x-1/2 z-[1200] bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">
-          <span className="font-bold text-primary">{t('bulk.selected', { count: selectedIds.size })}</span>
-          <Button color="primary" onPress={() => setIsBulkDialogOpen(true)}>
-            {t('bulk.title')}
-          </Button>
-        </div>
-      )}
-
-      <BulkActionDialog
-        open={isBulkDialogOpen}
-        onClose={() => setIsBulkDialogOpen(false)}
-        selectedItems={items?.filter(b => selectedIds.has(b.id)) || []}
+      <InventoryBulkBar
+        t={t}
+        bulkMode={bulkMode}
+        selectedIds={selectedIds}
+        items={items}
+        isBulkDialogOpen={isBulkDialogOpen}
+        onOpenDialog={() => setIsBulkDialogOpen(true)}
+        onCloseDialog={() => setIsBulkDialogOpen(false)}
         onApply={handleBulkApply}
         isSubmitting={bulkUpdateMutation.isPending}
-        t={t}
+        bulkSuccessCount={bulkSuccessCount}
+        onCloseSuccessToast={() => setBulkSuccessCount(null)}
       />
 
       <InventoryDetailDialog
