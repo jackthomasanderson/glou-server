@@ -37,6 +37,18 @@ jobs:
         working-directory: api
         run: npm run typecheck
 
+      # New: api/ had zero lint tooling before this. Config is
+      # api/eslint.config.mjs (typescript-eslint recommended +
+      # no-explicit-any, matching instructions.md's "aucun any toléré";
+      # no-unused-vars with an _-prefix / err(or) allowance matching the
+      # existing catch-block convention; no-explicit-any relaxed for
+      # tests/** where it's Prisma-mock scaffolding, not app logic).
+      # Verified clean (0 errors) against the current src/ and tests/ via a
+      # standalone eslint install — not run through npm here.
+      - name: Lint API
+        working-directory: api
+        run: npm run lint
+
       - name: Run API tests
         working-directory: api
         run: npm test

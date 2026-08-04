@@ -85,22 +85,29 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
     store = null;
     process.env.JWT_SECRET = 'smoke-test-secret';
 
+    // The mocked prisma import still carries @prisma/client's real method
+    // types, whose return type (Prisma__UserClient<...>) is a chainable
+    // thenable, not a plain Promise — a plain async mock implementation is
+    // structurally missing those extra methods. Casting the *implementation
+    // function itself* to `never` (same convention already used below for
+    // the resolved values) sidesteps that mismatch; the actual runtime
+    // behavior (an in-memory store, not real Prisma) is unaffected.
     vi.mocked(prisma.user.count).mockResolvedValue(0);
-    vi.mocked(prisma.user.findFirst).mockImplementation(async () => store as never);
-    vi.mocked(prisma.user.findUnique).mockImplementation(async () => store as never);
-    vi.mocked(prisma.user.findUniqueOrThrow).mockImplementation(async () => {
+    vi.mocked(prisma.user.findFirst).mockImplementation((async () => store) as never);
+    vi.mocked(prisma.user.findUnique).mockImplementation((async () => store) as never);
+    vi.mocked(prisma.user.findUniqueOrThrow).mockImplementation((async () => {
       if (!store) throw new Error('NOT_FOUND');
-      return store as never;
-    });
-    vi.mocked(prisma.user.create).mockImplementation(async ({ data }: any) => {
+      return store;
+    }) as never);
+    vi.mocked(prisma.user.create).mockImplementation((async ({ data }: any) => {
       store = baseUserRecord({ ...data });
-      return store as never;
-    });
-    vi.mocked(prisma.user.update).mockImplementation(async ({ data }: any) => {
+      return store;
+    }) as never);
+    vi.mocked(prisma.user.update).mockImplementation((async ({ data }: any) => {
       if (!store) throw new Error('NOT_FOUND');
       store = { ...store, ...data };
-      return store as never;
-    });
+      return store;
+    }) as never);
     vi.mocked(prisma.session.create).mockResolvedValue({ id: 'session-1' } as never);
     vi.mocked(prisma.session.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue(null as never);
