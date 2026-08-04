@@ -28,6 +28,15 @@ jobs:
         working-directory: api
         run: npx prisma generate
 
+      # Fails fast on type errors before the (slower) test suite runs. This
+      # was previously only caught later, inside the Docker build stage of
+      # build-and-push (`npm run build` -> tsc) — same compiler, same
+      # tsconfig, just surfaced ~a build later than necessary. No new
+      # dependency: uses the `typescript` devDependency already installed.
+      - name: Typecheck API
+        working-directory: api
+        run: npm run typecheck
+
       - name: Run API tests
         working-directory: api
         run: npm test
@@ -35,6 +44,14 @@ jobs:
       - name: Install web dependencies
         working-directory: web
         run: npm ci
+
+      # `next build` already runs ESLint by default and fails the build on
+      # errors (no eslint.ignoreDuringBuilds override in next.config.mjs),
+      # so this was already an implicit gate inside build-and-push — this
+      # just surfaces it earlier, in the fast job, with a clearer failure.
+      - name: Lint web
+        working-directory: web
+        run: npm run lint
 
       - name: Run web tests
         working-directory: web

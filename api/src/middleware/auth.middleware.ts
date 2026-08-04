@@ -25,6 +25,17 @@ declare global {
 const LAST_ACTIVE_THROTTLE_MS = 5 * 60 * 1000;
 const lastActiveWriteCache = new Map<string, number>();
 
+// This Map has no natural eviction: sessions eventually roll out of the DB
+// via MaintenanceService.runRetentionCleanup (FEAT-39), but nothing here
+// mirrors that, so every distinct sessionId ever seen since process start
+// stays in memory forever — an unbounded-growth leak on a long-lived
+// process. Defensive cap rather than a real LRU (YAGNI for a self-hosted,
+// low-session-count instance): once the map gets implausibly large for a
+// single instance, drop it and let it rebuild. Worst case is one extra
+// `lastActiveAt` write per active session on the next request — not a
+// correctness issue, just re-arms the throttle.
+const LAST_ACTIVE_CACHE_MAX_ENTRIES = 2000;
+
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   // Extract token from Authorization header (Bearer) or HttpOnly cookie
   const authHeader = req.headers.authorization;
@@ -76,6 +87,9 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       const now = Date.now();
       const lastWrite = lastActiveWriteCache.get(payload.sessionId) ?? 0;
       if (now - lastWrite > LAST_ACTIVE_THROTTLE_MS) {
+        if (lastActiveWriteCache.size >= LAST_ACTIVE_CACHE_MAX_ENTRIES) {
+          lastActiveWriteCache.clear();
+        }
         lastActiveWriteCache.set(payload.sessionId, now);
         void prisma.session.update({
           where: { id: payload.sessionId },
