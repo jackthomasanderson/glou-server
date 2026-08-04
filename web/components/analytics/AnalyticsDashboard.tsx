@@ -27,7 +27,7 @@ import {
   PackageCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { subDays, subMonths, subYears, format } from 'date-fns';
+import { subDays, subYears, format } from 'date-fns';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import { AnalyticsStats, CategoryStat, RegionStat, GardePoint, CavePoint } from '@/lib/analytics/types';

@@ -1,6 +1,5 @@
 'use client';
 import React from 'react';
-import { useHasMounted } from '@/hooks/useHasMounted';
 import {
   Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button,
 } from '@heroui/react';
@@ -59,7 +58,6 @@ export function InventoryCard({
   hasPendingSync = false,
 }: InventoryCardProps) {
   const isTemp = item.id.startsWith('temp-');
-  const hasMounted = useHasMounted();
   const fillLevel = item.isOpened ? (item.fillLevel ?? 0) : 100;
 
   const drinkingWindow =

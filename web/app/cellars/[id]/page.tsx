@@ -42,7 +42,7 @@ export default function CellarDetailPage() {
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
 
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
-  const { data: allInventory, isLoading: inventoryLoading } = useInventory();
+  const { data: allInventory } = useInventory();
   const { data: gridData, isLoading: gridLoading } = useCellarGrid(cellarId);
   const isExpert = useExpertMode();
 

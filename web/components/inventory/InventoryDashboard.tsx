@@ -93,7 +93,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const pathname = usePathname();
 
   const {
-    searchQuery, setSearchQuery,
+    searchQuery,
     selectedCategories, setSelectedCategories,
     selectedCellars, setSelectedCellars,
     selectedCollectionId,
@@ -131,7 +131,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         router.replace(`${pathname}${next.toString() ? `?${next.toString()}` : ''}`);
       }
     }
-  }, [searchParams, items]);
+  }, [searchParams, items, pathname, router]);
 
   const {
     bulkMode, setBulkMode,

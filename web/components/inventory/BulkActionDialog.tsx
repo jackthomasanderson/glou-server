@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  Button, Checkbox, Chip, Divider, Input, Select, SelectItem, Slider,
+  Button, Checkbox, Chip, Divider, Input, Select, SelectItem,
 } from '@heroui/react';
 import { Save, Trash2 } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';

@@ -110,7 +110,6 @@ interface DraggableBottleProps {
 }
 
 function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: DraggableBottleProps) {
-  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `bottle-${item.id}`,
     data: { item, fromCol, fromRow },

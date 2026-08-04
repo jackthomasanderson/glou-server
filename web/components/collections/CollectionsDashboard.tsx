@@ -159,7 +159,7 @@ export function CollectionsDashboard() {
         placement="center"
       >
         <ModalContent>
-          {(onModalClose) => (
+          {() => (
             <>
               <ModalHeader>{t('collections.deleteTitle')}</ModalHeader>
               <ModalBody>

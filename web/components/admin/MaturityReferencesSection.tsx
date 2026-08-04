@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import {
   Button, Chip, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
-  Skeleton, Tooltip, Divider, ButtonGroup,
+  Skeleton, Tooltip, ButtonGroup,
 } from '@heroui/react';
 import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays } from 'lucide-react';
 import { useTranslation } from 'react-i18next';

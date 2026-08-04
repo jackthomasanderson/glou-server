@@ -127,7 +127,6 @@ export function InventoryForm({
       }
     }, 1200);
     return () => { if (imageDebounceRef.current) clearTimeout(imageDebounceRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values.name, values.producer, values.photoUrl, isEditing]);
 
   const canSave = Boolean(values.category && values.name?.trim() && values.producer?.trim());

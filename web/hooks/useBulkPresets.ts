@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { bulkPresetClient, BulkPreset } from '@/lib/bulk-presets/client';
+import { bulkPresetClient } from '@/lib/bulk-presets/client';
 import { InventoryItem } from '@/lib/inventory/types';
 
 export function useBulkPresets() {

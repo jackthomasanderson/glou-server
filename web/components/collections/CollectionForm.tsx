@@ -62,7 +62,7 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
       placement="center"
     >
       <ModalContent>
-        {(onModalClose) => (
+        {() => (
           <form onSubmit={handleSubmit(onSubmit)}>
             <ModalHeader>
               {initial?.id ? t('collections.edit') : t('collections.create')}
