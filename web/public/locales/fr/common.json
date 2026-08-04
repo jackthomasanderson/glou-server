@@ -177,7 +177,19 @@
       "leafOrigin": "Origine des feuilles",
       "factoryCode": "Code usine",
       "recommendedHumidity": "Humidité recommandée (%)",
-      "humidificationSystem": "Système d'humidification"
+      "humidificationSystem": "Système d'humidification",
+      "appellation": "Appellation",
+      "classification": "Classification",
+      "classificationPlaceholder": "Ex : Grand Cru, 1er Cru...",
+      "batchDate": "Date de mise en fût / d'embouteillage du lot",
+      "caskTypePlaceholder": "Ex : Bourbon, Sherry, Porto...",
+      "caskNumber": "Numéro de fût",
+      "caskProof": "Degré au fût (%)",
+      "isSingleCask": "Single cask"
+    },
+    "expertSection": {
+      "wineTitle": "Dégustation avancée",
+      "spiritTitle": "Fût & batch (collectionneur)"
     },
     "color": {
       "red": "Rouge",
@@ -360,7 +372,29 @@
     "types": {
       "VINTAGE": "Vieillissement / Enterrée",
       "COOLER": "Armoire Climatisée / Service",
-      "SHELF": "Vitrines / Étagères"
+      "SHELF": "Vitrines / Étagères",
+      "HUMIDOR": "Humidor (cigares)"
+    },
+    "humidor": {
+      "title": "Monitoring hygrométrique",
+      "targetRangeHint": "Plage cible d'hygrométrie (ex : 68-72%) utilisée pour détecter une dérive.",
+      "targetHumidityMin": "Humidité min. (%)",
+      "targetHumidityMax": "Humidité max. (%)",
+      "status": {
+        "in_range": "Dans la plage",
+        "out_of_range": "Hors plage",
+        "unconfigured": "Non configuré"
+      },
+      "noTargetHint": "Aucune plage cible configurée — modifiez la cave pour en définir une et activer les alertes de dérive.",
+      "latestReading": "Dernière lecture : {{humidity}}% le {{date}}",
+      "empty": "Aucune lecture enregistrée pour le moment.",
+      "humidityPercent": "Humidité (%)",
+      "temperatureCelsius": "Température (°C)",
+      "addReading": "Ajouter une lecture",
+      "source": {
+        "manual": "Manuel",
+        "sensor": "Capteur"
+      }
     },
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les bouteilles qu'elle contient deviendront orphelines.",
     "stats": {
@@ -475,6 +509,10 @@
       "SYSTEM": "Système",
       "H24": "24 heures",
       "H12": "12 heures (AM/PM)"
+    },
+    "expertMode": {
+      "title": "Mode expert / collectionneur",
+      "description": "Affiche les champs avancés (dégustation structurée, fût/batch spiritueux, monitoring d'humidor) dans les formulaires."
     },
     "accentColor": "Couleur d'accentuation",
     "colors": {
@@ -746,7 +784,16 @@
       "readiness": "Maturité perçue",
       "context": "Contexte",
       "notes": "Notes de dégustation",
-      "foodPairing": "Accord mets"
+      "foodPairing": "Accord mets",
+      "robe": "Robe",
+      "nez": "Nez",
+      "bouche": "Bouche",
+      "tanin": "Tanin (1-5)",
+      "acidite": "Acidité (1-5)",
+      "longueurBouche": "Longueur en bouche"
+    },
+    "expertSection": {
+      "title": "Grille de dégustation structurée"
     },
     "readiness": {
       "TOO_YOUNG": "Trop jeune",

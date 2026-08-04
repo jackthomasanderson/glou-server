@@ -4,7 +4,7 @@ import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Textarea, Select, SelectItem, Autocomplete, AutocompleteItem,
 } from '@heroui/react';
-import { Star } from 'lucide-react';
+import { Star, FlaskConical } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { TastingFormValues, TastingReadiness } from '@/lib/tastings/types';
 import { useCreateTasting, useUpdateTasting } from '@/hooks/useTastings';
@@ -12,6 +12,7 @@ import { useInventory, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { ServiceRecommendations } from './ServiceRecommendations';
 import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
+import { useExpertMode } from '@/hooks/useExpertMode';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
@@ -32,6 +33,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   const createMutation = useCreateTasting();
   const updateMutation = useUpdateTasting();
   const updateInventory = useUpdateInventoryItem();
+  const isExpert = useExpertMode();
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [stockDialogItemId, setStockDialogItemId] = useState<string | null>(null);
 
@@ -50,6 +52,12 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
       context: '',
       foodPairing: initialFoodPairing ?? '',
       tastedAt: new Date().toISOString().split('T')[0],
+      robe: null,
+      nez: null,
+      bouche: null,
+      tanin: null,
+      acidite: null,
+      longueurBouche: null,
     },
   });
 
@@ -68,6 +76,12 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
           context: '',
           foodPairing: initialFoodPairing ?? '',
           tastedAt: new Date().toISOString().split('T')[0],
+          robe: null,
+          nez: null,
+          bouche: null,
+          tanin: null,
+          acidite: null,
+          longueurBouche: null,
         });
       }
     }
@@ -296,6 +310,83 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                     />
                   )}
                 />
+
+                {/* Structured wine tasting grid (data-model audit, Task 2) —
+                    "Mode expert" only, and only for wine items. Lives here
+                    (TastingNote) rather than on the bottle itself: a tasting
+                    perception is tied to THIS tasting event, not a permanent
+                    property of the bottle. */}
+                {isExpert && selectedItem?.category === 'wine' && (
+                  <div className="flex flex-col gap-3 pt-3 border-t border-divider">
+                    <div className="flex items-center gap-1.5">
+                      <FlaskConical size={14} className="text-primary" />
+                      <p className="text-xs font-semibold text-primary">{t('tastings.expertSection.title')}</p>
+                    </div>
+                    <Controller
+                      name="robe"
+                      control={control}
+                      render={({ field }) => (
+                        <Input {...field} value={field.value ?? ''} label={t('tastings.fields.robe')} variant="bordered" />
+                      )}
+                    />
+                    <Controller
+                      name="nez"
+                      control={control}
+                      render={({ field }) => (
+                        <Input {...field} value={field.value ?? ''} label={t('tastings.fields.nez')} variant="bordered" />
+                      )}
+                    />
+                    <Controller
+                      name="bouche"
+                      control={control}
+                      render={({ field }) => (
+                        <Input {...field} value={field.value ?? ''} label={t('tastings.fields.bouche')} variant="bordered" />
+                      )}
+                    />
+                    <div className="grid grid-cols-3 gap-2">
+                      <Controller
+                        name="tanin"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            type="number" min={1} max={5}
+                            value={field.value != null ? String(field.value) : ''}
+                            onValueChange={(v) => field.onChange(v ? Number(v) : null)}
+                            label={t('tastings.fields.tanin')}
+                            variant="bordered"
+                          />
+                        )}
+                      />
+                      <Controller
+                        name="acidite"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            type="number" min={1} max={5}
+                            value={field.value != null ? String(field.value) : ''}
+                            onValueChange={(v) => field.onChange(v ? Number(v) : null)}
+                            label={t('tastings.fields.acidite')}
+                            variant="bordered"
+                          />
+                        )}
+                      />
+                      <Controller
+                        name="longueurBouche"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            type="number" min={0} max={600}
+                            value={field.value != null ? String(field.value) : ''}
+                            onValueChange={(v) => field.onChange(v ? Number(v) : null)}
+                            label={t('tastings.fields.longueurBouche')}
+                            variant="bordered"
+                            endContent={<span className="text-xs text-default-400">s</span>}
+                          />
+                        )}
+                      />
+                    </div>
+                  </div>
+                )}
               </ModalBody>
               <ModalFooter>
                 <Button

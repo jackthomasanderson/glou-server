@@ -39,9 +39,10 @@ import { useTranslation } from 'react-i18next';
 import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
-import { Cellar } from '@/lib/cellars/types';
+import { Cellar, CellarType } from '@/lib/cellars/types';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { useExpertMode } from '@/hooks/useExpertMode';
 
 interface GridFormData {
   columns: string;
@@ -50,11 +51,17 @@ interface GridFormData {
   coldZoneRows: string;
 }
 
+interface HumidorFormData {
+  targetHumidityMin: string;
+  targetHumidityMax: string;
+}
+
 interface FormData {
   name: string;
   description: string;
-  type: 'VINTAGE' | 'COOLER' | 'SHELF';
+  type: CellarType;
   grid: GridFormData;
+  humidor: HumidorFormData;
 }
 
 function parseOptionalInt(value: string): number | null {
@@ -63,7 +70,7 @@ function parseOptionalInt(value: string): number | null {
 }
 
 type CellarStatusFilter = 'all' | 'alerts' | 'no-alerts' | 'empty';
-type CellarTypeFilter = 'all' | 'VINTAGE' | 'COOLER' | 'SHELF';
+type CellarTypeFilter = 'all' | CellarType;
 
 
 export const CellarDashboard: React.FC = () => {
@@ -75,6 +82,7 @@ export const CellarDashboard: React.FC = () => {
   const createMutation = useCreateCellar();
   const updateMutation = useUpdateCellar();
   const deleteMutation = useDeleteCellar();
+  const isExpert = useExpertMode();
 
   const [viewMode, setViewMode] = useViewMode('cellars');
   const [openForm, setOpenForm] = useState(false);
@@ -141,6 +149,7 @@ export const CellarDashboard: React.FC = () => {
     description: '',
     type: 'VINTAGE',
     grid: { columns: '', rows: '', hotZoneRows: '', coldZoneRows: '' },
+    humidor: { targetHumidityMin: '', targetHumidityMax: '' },
   });
 
   const hotZone = parseOptionalInt(formData.grid.hotZoneRows) ?? 0;
@@ -163,6 +172,10 @@ export const CellarDashboard: React.FC = () => {
           hotZoneRows: cellar.hotZoneRows?.toString() ?? '',
           coldZoneRows: cellar.coldZoneRows?.toString() ?? '',
         },
+        humidor: {
+          targetHumidityMin: cellar.targetHumidityMin?.toString() ?? '',
+          targetHumidityMax: cellar.targetHumidityMax?.toString() ?? '',
+        },
       });
     } else {
       setEditingCellar(null);
@@ -172,6 +185,7 @@ export const CellarDashboard: React.FC = () => {
         description: '',
         type: 'VINTAGE',
         grid: { columns: '', rows: '', hotZoneRows: '', coldZoneRows: '' },
+        humidor: { targetHumidityMin: '', targetHumidityMax: '' },
       });
     }
     setOpenForm(true);
@@ -180,6 +194,13 @@ export const CellarDashboard: React.FC = () => {
   const handleCloseForm = () => {
     setOpenForm(false);
   };
+
+  const parseOptionalFloat = (value: string): number | null => {
+    const n = parseFloat(value);
+    return isNaN(n) || value.trim() === '' ? null : n;
+  };
+
+  const isHumidorType = formData.type === 'HUMIDOR';
 
   const handleSubmit = async () => {
     const payload = {
@@ -190,6 +211,9 @@ export const CellarDashboard: React.FC = () => {
       rows: showGridConfig ? parseOptionalInt(formData.grid.rows) : null,
       hotZoneRows: showGridConfig ? parseOptionalInt(formData.grid.hotZoneRows) : null,
       coldZoneRows: showGridConfig ? parseOptionalInt(formData.grid.coldZoneRows) : null,
+      // Task 4 (data-model audit) — humidor monitoring target range, expert mode only.
+      targetHumidityMin: isHumidorType ? parseOptionalFloat(formData.humidor.targetHumidityMin) : null,
+      targetHumidityMax: isHumidorType ? parseOptionalFloat(formData.humidor.targetHumidityMax) : null,
     };
 
     if (editingCellar) {
@@ -266,6 +290,7 @@ export const CellarDashboard: React.FC = () => {
             <SelectItem key="VINTAGE">{t('cellars.types.VINTAGE')}</SelectItem>
             <SelectItem key="COOLER">{t('cellars.types.COOLER')}</SelectItem>
             <SelectItem key="SHELF">{t('cellars.types.SHELF')}</SelectItem>
+            {isExpert && <SelectItem key="HUMIDOR">{t('cellars.types.HUMIDOR')}</SelectItem>}
           </Select>
           <Select
             size="sm"
@@ -507,13 +532,14 @@ export const CellarDashboard: React.FC = () => {
                 label={t('cellars.type')}
                 selectedKeys={[formData.type]}
                 onSelectionChange={(keys) => {
-                  const val = Array.from(keys)[0] as 'VINTAGE' | 'COOLER' | 'SHELF';
+                  const val = Array.from(keys)[0] as CellarType;
                   if (val) setFormData({ ...formData, type: val });
                 }}
               >
                 <SelectItem key="VINTAGE">{t('cellars.types.VINTAGE')}</SelectItem>
                 <SelectItem key="COOLER">{t('cellars.types.COOLER')}</SelectItem>
                 <SelectItem key="SHELF">{t('cellars.types.SHELF')}</SelectItem>
+                {isExpert && <SelectItem key="HUMIDOR">{t('cellars.types.HUMIDOR')}</SelectItem>}
               </Select>
 
               <Input
@@ -521,6 +547,29 @@ export const CellarDashboard: React.FC = () => {
                 value={formData.description}
                 onValueChange={(v) => setFormData({ ...formData, description: v })}
               />
+
+              {/* Humidor target hygrometry (Task 4, expert mode only) */}
+              {isExpert && isHumidorType && (
+                <div className="flex flex-col gap-2 p-3 bg-default-50 rounded-xl">
+                  <p className="text-xs text-default-500">{t('cellars.humidor.targetRangeHint')}</p>
+                  <div className="flex gap-3">
+                    <Input
+                      label={t('cellars.humidor.targetHumidityMin')}
+                      type="number" min={0} max={100}
+                      value={formData.humidor.targetHumidityMin}
+                      onValueChange={(v) => setFormData({ ...formData, humidor: { ...formData.humidor, targetHumidityMin: v } })}
+                      placeholder="68"
+                    />
+                    <Input
+                      label={t('cellars.humidor.targetHumidityMax')}
+                      type="number" min={0} max={100}
+                      value={formData.humidor.targetHumidityMax}
+                      onValueChange={(v) => setFormData({ ...formData, humidor: { ...formData.humidor, targetHumidityMax: v } })}
+                      placeholder="72"
+                    />
+                  </div>
+                </div>
+              )}
 
               <Divider />
 

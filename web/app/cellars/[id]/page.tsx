@@ -9,8 +9,10 @@ import { MainLayout } from '@/components/ui/MainLayout';
 import { useCellar, useCellarGrid } from '@/hooks/useCellars';
 import { useInventory } from '@/hooks/useInventory';
 import { CellarGridPlan } from '@/components/cellars/CellarGridPlan';
+import { HumidorPanel } from '@/components/cellars/HumidorPanel';
 import { InventoryDetailDialog } from '@/components/inventory/InventoryDetailDialog';
 import { InventoryItem } from '@/lib/inventory/types';
+import { useExpertMode } from '@/hooks/useExpertMode';
 
 type DetailView = 'grid' | 'list' | 'map';
 
@@ -42,9 +44,15 @@ export default function CellarDetailPage() {
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
   const { data: allInventory, isLoading: inventoryLoading } = useInventory();
   const { data: gridData, isLoading: gridLoading } = useCellarGrid(cellarId);
+  const isExpert = useExpertMode();
 
   const hasGrid = !!(cellar?.columns && cellar?.rows);
   const cellarItems = allInventory?.filter((item) => item.cellarId === cellarId && !item.deletedAt) ?? [];
+  // Task 4: humidor monitoring shows for any cellar explicitly typed HUMIDOR,
+  // or (data-model constat: no dedicated "cigar cellar" concept pre-existed)
+  // any cellar that already holds cigar items, so pre-existing SHELF/VINTAGE
+  // cellars used for cigars don't need a data migration to opt in.
+  const isHumidorEligible = cellar?.type === 'HUMIDOR' || cellarItems.some((item) => item.category === 'cigar');
 
   if (cellarLoading) {
     return (
@@ -192,6 +200,9 @@ export default function CellarDetailPage() {
             <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
           )
         )}
+
+        {/* Humidor monitoring (Task 4, data-model audit) — expert mode only */}
+        {isExpert && isHumidorEligible && <HumidorPanel cellarId={cellarId} />}
       </div>
 
       <InventoryDetailDialog

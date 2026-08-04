@@ -177,7 +177,19 @@
       "leafOrigin": "Leaf origin",
       "factoryCode": "Factory code",
       "recommendedHumidity": "Recommended humidity (%)",
-      "humidificationSystem": "Humidification system"
+      "humidificationSystem": "Humidification system",
+      "appellation": "Appellation",
+      "classification": "Classification",
+      "classificationPlaceholder": "E.g. Grand Cru, 1er Cru...",
+      "batchDate": "Cask filling / batch bottling date",
+      "caskTypePlaceholder": "E.g. Bourbon, Sherry, Port...",
+      "caskNumber": "Cask number",
+      "caskProof": "Cask strength (%)",
+      "isSingleCask": "Single cask"
+    },
+    "expertSection": {
+      "wineTitle": "Advanced tasting",
+      "spiritTitle": "Cask & batch (collector)"
     },
     "color": {
       "red": "Red",
@@ -360,7 +372,29 @@
     "types": {
       "VINTAGE": "Aging / Underground",
       "COOLER": "Wine Cooler / Service",
-      "SHELF": "Display / Shelves"
+      "SHELF": "Display / Shelves",
+      "HUMIDOR": "Humidor (cigars)"
+    },
+    "humidor": {
+      "title": "Hygrometric monitoring",
+      "targetRangeHint": "Target hygrometry range (e.g. 68-72%) used to detect drift.",
+      "targetHumidityMin": "Min. humidity (%)",
+      "targetHumidityMax": "Max. humidity (%)",
+      "status": {
+        "in_range": "In range",
+        "out_of_range": "Out of range",
+        "unconfigured": "Not configured"
+      },
+      "noTargetHint": "No target range configured — edit the cellar to set one and enable drift alerts.",
+      "latestReading": "Latest reading: {{humidity}}% on {{date}}",
+      "empty": "No reading recorded yet.",
+      "humidityPercent": "Humidity (%)",
+      "temperatureCelsius": "Temperature (°C)",
+      "addReading": "Add a reading",
+      "source": {
+        "manual": "Manual",
+        "sensor": "Sensor"
+      }
     },
     "deleteConfirm": "Are you sure you want to delete this cellar? The bottles inside will become orphans.",
     "stats": {
@@ -475,6 +509,10 @@
       "SYSTEM": "System Default",
       "H24": "24 hours",
       "H12": "12 hours (AM/PM)"
+    },
+    "expertMode": {
+      "title": "Expert / collector mode",
+      "description": "Shows advanced fields (structured tasting grid, spirit cask/batch, humidor monitoring) in the forms."
     },
     "accentColor": "Accent Color",
     "colors": {
@@ -746,7 +784,16 @@
       "readiness": "Perceived maturity",
       "context": "Context",
       "notes": "Tasting notes",
-      "foodPairing": "Food pairing"
+      "foodPairing": "Food pairing",
+      "robe": "Appearance",
+      "nez": "Nose",
+      "bouche": "Palate",
+      "tanin": "Tannin (1-5)",
+      "acidite": "Acidity (1-5)",
+      "longueurBouche": "Finish length"
+    },
+    "expertSection": {
+      "title": "Structured tasting grid"
     },
     "readiness": {
       "TOO_YOUNG": "Too young",

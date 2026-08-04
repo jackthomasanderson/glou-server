@@ -540,6 +540,104 @@ export function InventoryForm({
                     )}
                   </div>
 
+                  {/* Section 2.5: Expert / collector fields — "Mode expert" (data-model
+                      audit) only, hidden entirely otherwise (never gated behind
+                      "Show more" too — expert mode alone decides visibility). */}
+                  {isExpert && (isWine || isSpirit) && (
+                    <>
+                      <Divider />
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-3">
+                          <FlaskConical size={13} className="text-primary" />
+                          <p className="text-xs font-semibold text-primary">
+                            {isWine ? t('inventory.expertSection.wineTitle') : t('inventory.expertSection.spiritTitle')}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {isWine && (
+                            <>
+                              <div className="col-span-2">
+                                <Input
+                                  label={t('inventory.fields.appellation')}
+                                  variant="bordered"
+                                  size="sm"
+                                  value={values.appellation ?? ''}
+                                  onValueChange={(v) => setField('appellation', v)}
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <Input
+                                  label={t('inventory.fields.classification')}
+                                  placeholder={t('inventory.fields.classificationPlaceholder')}
+                                  variant="bordered"
+                                  size="sm"
+                                  value={values.classification ?? ''}
+                                  onValueChange={(v) => setField('classification', v)}
+                                />
+                              </div>
+                            </>
+                          )}
+                          {isSpirit && (
+                            <>
+                              <Input
+                                label={t('inventory.fields.lotNumber')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.lotNumber ?? ''}
+                                onValueChange={(v) => setField('lotNumber', v)}
+                              />
+                              <Input
+                                label={t('inventory.fields.batchDate')}
+                                type="date"
+                                variant="bordered"
+                                size="sm"
+                                value={typeof values.batchDate === 'string' ? values.batchDate.split('T')[0] : ''}
+                                onValueChange={(v) => setField('batchDate', v || null)}
+                              />
+                              <div className="col-span-2">
+                                <Input
+                                  label={t('inventory.fields.caskType')}
+                                  placeholder={t('inventory.fields.caskTypePlaceholder')}
+                                  variant="bordered"
+                                  size="sm"
+                                  value={values.caskType ?? ''}
+                                  onValueChange={(v) => setField('caskType', v)}
+                                />
+                              </div>
+                              <Input
+                                label={t('inventory.fields.caskNumber')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.caskNumber ?? ''}
+                                onValueChange={(v) => setField('caskNumber', v)}
+                              />
+                              <Input
+                                label={t('inventory.fields.caskProof')}
+                                type="number"
+                                variant="bordered"
+                                size="sm"
+                                value={String(values.caskProof ?? '')}
+                                onValueChange={(v) => setField('caskProof', numField(v))}
+                                endContent={<span className="text-xs text-default-400">%</span>}
+                                min={0} max={100} step={0.1}
+                              />
+                              <div className="flex items-center">
+                                <Chip
+                                  variant={values.isSingleCask ? 'solid' : 'bordered'}
+                                  color={values.isSingleCask ? 'primary' : 'default'}
+                                  className="cursor-pointer"
+                                  onClick={() => setField('isSingleCask', !values.isSingleCask)}
+                                >
+                                  {t('inventory.fields.isSingleCask')}
+                                </Chip>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                   <Divider />
 
                   {/* Section 3: Optionals */}
@@ -719,18 +817,11 @@ export function InventoryForm({
                           </>
                         )}
 
-                        {/* Spirit optionals */}
+                        {/* Spirit optionals — caskType lives in the "Section 2.5" expert
+                            block above now (grouped with the other fût/batch fields,
+                            data-model audit Task 3), not duplicated here. */}
                         {isSpirit && (
                           <>
-                            <div className="col-span-2">
-                              <Input
-                                label={t('inventory.fields.caskType')}
-                                variant="bordered"
-                                size="sm"
-                                value={values.caskType ?? ''}
-                                onValueChange={(v) => setField('caskType', v)}
-                              />
-                            </div>
                             <div className="col-span-2">
                               <Input
                                 label={t('inventory.fields.aromaticProfile')}
