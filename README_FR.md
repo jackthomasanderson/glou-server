@@ -49,9 +49,11 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **
 ## 🗺️ Roadmap & Prochaines Étapes
 
 ### 🏗️ En Cours (WIP)
-- 🌡️ **Monitoring Hygrométrie/Température & Alertes de Dérive (FEAT-15)** : Intégration de capteurs IoT pour suivre en direct les conditions de la cave.
+Rien en chantier activement pour le moment — voir la section « À Venir » ci-dessous pour la suite.
 
 ### ✅ Récemment Ajouté
+- 🎓 **Mode Expert / Collectionneur (FEAT-85)** : Un interrupteur dans votre profil qui révèle une grille de dégustation digne d'un sommelier, les champs appellation/classification, les détails de fût/batch, et le panneau de monitoring d'humidor — sur n'importe quel objet, pas seulement le vin ou les spiritueux, pour qu'une bouteille élevée en fût ou une boîte de cigares numérotée bénéficie du même traitement. C'est un réglage individuel — invisible pour le reste de la famille tant qu'elle ne l'active pas elle-même — et réversible à tout moment sans perdre la moindre valeur déjà saisie.
+- 🌡️ **Suivi Hygrométrique d'Humidor & Alertes de Dérive (FEAT-15)** : Consignez à la main les relevés d'humidité de votre humidor, suivez la tendance sur un mini historique, et soyez alerté dès que votre dernier relevé sort de la plage que vous avez définie — la température peut aussi être notée, à titre purement indicatif. Saisie manuelle uniquement pour l'instant (pas de capteur physique supporté), réservé au Mode Expert.
 - 📸 **Scan Express d'Étiquette (FEAT-04)** : Photographiez une étiquette et un modèle de vision auto-hébergé (Ollama avec `moondream`, sans cloud, sans GPU) pré-remplit nom, producteur, catégorie et millésime en quelques secondes — vérifiez et confirmez en trois gestes, enchaînez les scans pour tout un carton sans quitter l'appareil photo. La qualité de reconnaissance dépend de la netteté et de la luminosité de la photo : c'est un modèle léger auto-hébergé, pas un service spécialisé vin, donc vérifiez toujours avant d'enregistrer.
 - 🍽️ **Accords Mets/Bouteilles Guidés (FEAT-09)** : Tapez un plat et obtenez une sélection classée de bouteilles de votre propre cave, avec un « consommer maintenant » en un clic qui enregistre la dégustation et met à jour le stock.
 - 📅 **Plan de Consommation Intelligent & Rotation de Stock (FEAT-08)** : Une liste personnelle « à boire maintenant / prochainement » construite à partir des fenêtres d'apogée, des bouteilles entamées et de la rotation — plus un objectif mensuel dont vous suivez la progression.

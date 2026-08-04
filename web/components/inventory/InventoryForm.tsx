@@ -542,44 +542,49 @@ export function InventoryForm({
 
                   {/* Section 2.5: Expert / collector fields — "Mode expert" (data-model
                       audit) only, hidden entirely otherwise (never gated behind
-                      "Show more" too — expert mode alone decides visibility). */}
-                  {isExpert && (isWine || isSpirit) && (
+                      "Show more" too — expert mode alone decides visibility).
+                      Extended to every category (not just wine/spirit): these
+                      fields are relevant beyond their originally-assumed
+                      category too (appellation/classification apply to
+                      protected-designation spirits like Cognac/Scotch, and
+                      lot/batch/cask info applies to barrel-aged wine or
+                      cigar box codes) — left optional and blank by default,
+                      so showing them for every category costs nothing and
+                      avoids re-litigating category boundaries per field. */}
+                  {isExpert && (
                     <>
                       <Divider />
                       <div>
                         <div className="flex items-center gap-1.5 mb-3">
                           <FlaskConical size={13} className="text-primary" />
                           <p className="text-xs font-semibold text-primary">
-                            {isWine ? t('inventory.expertSection.wineTitle') : t('inventory.expertSection.spiritTitle')}
+                            {t('inventory.expertSection.title')}
                           </p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          {isWine && (
-                            <>
-                              <div className="col-span-2">
-                                <Input
-                                  label={t('inventory.fields.appellation')}
-                                  variant="bordered"
-                                  size="sm"
-                                  value={values.appellation ?? ''}
-                                  onValueChange={(v) => setField('appellation', v)}
-                                />
-                              </div>
-                              <div className="col-span-2">
-                                <Input
-                                  label={t('inventory.fields.classification')}
-                                  placeholder={t('inventory.fields.classificationPlaceholder')}
-                                  variant="bordered"
-                                  size="sm"
-                                  value={values.classification ?? ''}
-                                  onValueChange={(v) => setField('classification', v)}
-                                />
-                              </div>
-                            </>
-                          )}
-                          {isSpirit && (
-                            <>
+                          <>
+                            <div className="col-span-2">
                               <Input
+                                label={t('inventory.fields.appellation')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.appellation ?? ''}
+                                onValueChange={(v) => setField('appellation', v)}
+                              />
+                            </div>
+                            <div className="col-span-2">
+                              <Input
+                                label={t('inventory.fields.classification')}
+                                placeholder={t('inventory.fields.classificationPlaceholder')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.classification ?? ''}
+                                onValueChange={(v) => setField('classification', v)}
+                              />
+                            </div>
+                          </>
+                          <>
+                            <Input
                                 label={t('inventory.fields.lotNumber')}
                                 variant="bordered"
                                 size="sm"
@@ -631,8 +636,7 @@ export function InventoryForm({
                                   {t('inventory.fields.isSingleCask')}
                                 </Chip>
                               </div>
-                            </>
-                          )}
+                          </>
                         </div>
                       </div>
                     </>

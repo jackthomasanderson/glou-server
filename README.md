@@ -49,9 +49,11 @@ Open [http://localhost:3000](http://localhost:3000) and click **Register**. The 
 ## 🗺️ Roadmap & Next Steps
 
 ### 🏗️ In Progress (WIP)
-- 🌡️ **Humidity/Temperature Monitoring & Drift Alerts (FEAT-15)**: IoT sensor integration for live cellar conditions.
+Nothing actively in the pipeline right now — check the "Next Up" section below for what's queued.
 
 ### ✅ Recently Implemented
+- 🎓 **Expert / Collector Mode (FEAT-85)**: Flip one switch in your profile to unlock a sommelier-grade structured tasting grid, appellation & classification fields, cask/batch details, and the humidor monitoring panel — on every item, not just wine or spirits, so a barrel-aged bottle or a numbered cigar box gets the same treatment. It's a per-user setting — invisible to the rest of your household until they opt in too — and reversible any time without losing a single value you've already entered.
+- 🌡️ **Humidor Hygrometry Log & Drift Alerts (FEAT-15)**: Log your humidor's humidity readings by hand, watch the trend on a mini history chart, and get an alert the moment your latest reading drifts outside the range you set — temperature can be logged too, purely for reference. Manual entry only for now (no physical probe support), tucked behind Expert Mode.
 - 📸 **Express Label Scanning (FEAT-04)**: Snap a label and a self-hosted vision model (Ollama running `moondream`, no cloud, CPU-only) pre-fills name, producer, category, and vintage in seconds — review and confirm in three taps, chain scans for a whole case without leaving the camera view. Recognition quality depends on photo sharpness and lighting; it's a lightweight local model, not a wine-specific service, so always double-check before saving.
 - 🍽️ **Guided Food Pairing (FEAT-09)**: Type a dish and get a ranked shortlist of bottles from your own cellar, with a one-click "drink it now" that logs the tasting and updates stock.
 - 📅 **Smart Consumption Plan & Stock Rotation (FEAT-08)**: A personal "drink now / drink soon" list built from peak windows, opened bottles, and rotation priority — plus a monthly goal you can track as you go.

@@ -21,6 +21,22 @@ export const commonInventorySchema = z.object({
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
   cellarId: z.string().optional().nullable(),
   lockedFields: z.array(z.string()).default([]),
+  // Collector/expert-mode fields (data-model audit, Tasks 2/3), available on
+  // every category — not just their originally-assumed one. Appellation and
+  // classification apply to protected-designation spirits too (Cognac AOC,
+  // Scotch geographical indication...), and lot/batch/cask info is relevant
+  // for barrel-aged wine or cigar box/production codes, not just spirits.
+  // Free text throughout: jurisdictions and cask conventions are too varied
+  // for a closed enum (same reasoning as `region` below). All optional and
+  // blank by default — mode expert only decides whether the UI shows them.
+  lotNumber: z.string().max(50).optional(),
+  appellation: z.string().max(200).optional(),
+  classification: z.string().max(200).optional(),
+  caskType: z.string().max(100).optional(),
+  batchDate: z.coerce.date().optional(),
+  isSingleCask: z.boolean().optional(),
+  caskNumber: z.string().max(100).optional(),
+  caskProof: z.number().min(0).max(100).optional(),
 });
 
 // ─── Wine-specific schema ────────────────────────────────────────────────────
@@ -37,12 +53,8 @@ export const wineInventorySchema = commonInventorySchema.extend({
   peakMaturityTo: z.number().int().min(1800).max(2200).optional().nullable(),
   needsAeration: z.boolean().optional(),
   serviceTemp: z.string().max(50).optional(),
-  lotNumber: z.string().max(50).optional(),
-  // Wine collector fields (data-model audit, Task 2, expert mode only) —
-  // free text, appellations/classifications are too numerous/jurisdiction-
-  // specific for a closed enum (same reasoning as `region` above).
-  appellation: z.string().max(200).optional(),
-  classification: z.string().max(200).optional(),
+  // lotNumber/appellation/classification/cask fields moved to
+  // commonInventorySchema (available on every category, see there).
 });
 
 // ─── Sparkling-specific schema ───────────────────────────────────────────────
@@ -69,18 +81,11 @@ export const spiritInventorySchema = commonInventorySchema.extend({
   edition: z.string().max(200).optional(),
   alcoholDegree: z.number().min(0).max(100),
   declaredAge: z.number().int().min(0).max(200).optional(),
-  caskType: z.string().max(100).optional(),
   additions: z.string().max(500).optional(),
   aromaticProfile: z.string().max(500).optional(),
-  lotNumber: z.string().max(50).optional(),
   bottleSize: z.string().max(50).optional(),
-  // Spirit cask/batch collector fields (data-model audit, Task 3, expert
-  // mode only). `batchDate` existed in the DB since the first migration but
-  // was never validated/exposed anywhere before this.
-  batchDate: z.coerce.date().optional(),
-  isSingleCask: z.boolean().optional(),
-  caskNumber: z.string().max(100).optional(),
-  caskProof: z.number().min(0).max(100).optional(),
+  // lotNumber/caskType/batchDate/isSingleCask/caskNumber/caskProof moved to
+  // commonInventorySchema (available on every category, see there).
 });
 
 // ─── Cigar-specific schema ───────────────────────────────────────────────────

@@ -188,6 +188,7 @@
       "isSingleCask": "Single cask"
     },
     "expertSection": {
+      "title": "Advanced fields (collector)",
       "wineTitle": "Advanced tasting",
       "spiritTitle": "Cask & batch (collector)"
     },

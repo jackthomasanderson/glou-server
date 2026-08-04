@@ -311,12 +311,17 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                   )}
                 />
 
-                {/* Structured wine tasting grid (data-model audit, Task 2) —
-                    "Mode expert" only, and only for wine items. Lives here
-                    (TastingNote) rather than on the bottle itself: a tasting
-                    perception is tied to THIS tasting event, not a permanent
-                    property of the bottle. */}
-                {isExpert && selectedItem?.category === 'wine' && (
+                {/* Structured tasting grid (data-model audit, Task 2) —
+                    "Mode expert" only. Extended to every category, not just
+                    wine: the vocabulary (robe/nez/bouche/tanin/acidité/
+                    longueur) reads as wine-specific but the same structured
+                    slots are useful for any spirit or cigar tasting note too
+                    (color, nose, palate, "bite"/finish) — left optional, so
+                    nothing forces a taster to fill fields that don't fit
+                    their product. Lives here (TastingNote) rather than on
+                    the bottle itself: a tasting perception is tied to THIS
+                    tasting event, not a permanent property of the bottle. */}
+                {isExpert && (
                   <div className="flex flex-col gap-3 pt-3 border-t border-divider">
                     <div className="flex items-center gap-1.5">
                       <FlaskConical size={14} className="text-primary" />
