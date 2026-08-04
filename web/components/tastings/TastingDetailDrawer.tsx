@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Avatar, Button, Chip } from '@heroui/react';
 import { X, Pencil, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
@@ -17,6 +17,18 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
   const { t } = useTranslation();
   const hasMounted = useHasMounted();
 
+  // Hand-rolled drawer (not the shared HeroUI Modal) — Escape-to-close isn't
+  // automatic here, added explicitly. Hook must run before the early return
+  // below (rules of hooks), so the "only when open" guard lives inside it.
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   if (!hasMounted || !open || !note) return null;
 
   const readinessColor =
@@ -29,14 +41,19 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      <div className="relative w-full sm:w-[420px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl">
+      <div
+        className="relative w-full sm:w-[420px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tasting-detail-title"
+      >
         {/* Header */}
         <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
           <p className="text-[0.6rem] font-bold uppercase tracking-widest text-secondary mb-0.5">
             {t('tastings.title')}
           </p>
           <div className="flex justify-between items-start">
-            <h2 className="text-lg font-bold leading-tight pr-8">
+            <h2 id="tasting-detail-title" className="text-lg font-bold leading-tight pr-8">
               {note.item
                 ? `${note.item.name} — ${note.item.producer}`
                 : t('tastings.noItem')}

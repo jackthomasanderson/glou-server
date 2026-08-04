@@ -30,18 +30,25 @@ import { useTranslation } from 'react-i18next';
 import { GridItem, CellarGridData } from '@/lib/cellars/types';
 import { useAssignSlot } from '@/hooks/useCellars';
 import { client } from '@/lib/api';
+import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 
 // ─── Color mapping ────────────────────────────────────────────────────────────
+// Wine gets its own per-varietal-color dots (red/white/rosé/orange — that's
+// a wine attribute, not a category badge color, so it isn't part of the
+// category-color duplication). Sparkling/spirit/cigar, and the wine
+// fallback when no color is set, now read from the single shared
+// CATEGORY_HEX (lib/analytics/categoryColors.ts) instead of a 5th
+// independent copy of "the" category palette.
 
 const CATEGORY_COLORS: Record<string, string> = {
   'wine:red': '#C62828',
   'wine:white': '#F9A825',
   'wine:rosé': '#E91E63',
   'wine:orange': '#E65100',
-  'wine:': '#7B1FA2',
-  sparkling: '#FDD835',
-  spirit: '#6D4C41',
-  cigar: '#4E342E',
+  'wine:': CATEGORY_HEX.wine,
+  sparkling: CATEGORY_HEX.sparkling,
+  spirit: CATEGORY_HEX.spirit,
+  cigar: CATEGORY_HEX.cigar,
 };
 
 function getCellColor(item: GridItem): string {

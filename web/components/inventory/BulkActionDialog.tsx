@@ -51,6 +51,7 @@ export function BulkActionDialog({
 
   const [presetName, setPresetName] = useState('');
   const [showSavePreset, setShowSavePreset] = useState(false);
+  const [deletingPresetId, setDeletingPresetId] = useState<string | null>(null);
 
   const toggleField = (field: keyof typeof enabledFields) => {
     setEnabledFields((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -128,6 +129,7 @@ export function BulkActionDialog({
   const hasChanges = Object.values(enabledFields).some(v => v);
 
   return (
+    <>
     <Modal isOpen={open} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="center" scrollBehavior="inside">
       <ModalContent>
         {() => (
@@ -160,7 +162,8 @@ export function BulkActionDialog({
                         endContent={
                           <button
                             className="text-danger hover:opacity-70"
-                            onClick={(e) => { e.stopPropagation(); deletePresetMutation.mutate(p.id); }}
+                            onClick={(e) => { e.stopPropagation(); setDeletingPresetId(p.id); }}
+                            aria-label={t('bulk.deletePreset')}
                           >
                             <Trash2 size={13} />
                           </button>
@@ -391,5 +394,46 @@ export function BulkActionDialog({
         )}
       </ModalContent>
     </Modal>
+
+    {/* Delete preset confirm — was a bare click-to-delete with no
+        confirmation, inconsistent with every other destructive action in
+        the app. Sibling of the main Modal, not nested inside it. */}
+    <Modal
+      isOpen={!!deletingPresetId}
+      onClose={() => setDeletingPresetId(null)}
+      size="sm"
+      radius="lg"
+      backdrop="opaque"
+      placement="center"
+    >
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader>{t('bulk.deletePreset')}</ModalHeader>
+            <ModalBody>
+              <p className="text-sm text-default-600">{t('bulk.deletePresetConfirm')}</p>
+            </ModalBody>
+            <ModalFooter>
+              <Button color="default" variant="light" onPress={() => setDeletingPresetId(null)}>
+                {t('actions.cancel')}
+              </Button>
+              <Button
+                color="danger"
+                variant="solid"
+                onPress={() => {
+                  if (deletingPresetId) deletePresetMutation.mutate(deletingPresetId);
+                  setDeletingPresetId(null);
+                }}
+                isLoading={deletePresetMutation.isPending}
+                isDisabled={deletePresetMutation.isPending}
+              >
+                {t('actions.delete')}
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
+    </>
   );
 }

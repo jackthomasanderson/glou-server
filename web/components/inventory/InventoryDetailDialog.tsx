@@ -16,12 +16,7 @@ import { TastingStatsSummary } from '@/components/tastings/TastingStatsSummary';
 import { QrCodeModal } from './QrCodeModal';
 import { CollectionPickerInline } from '@/components/collections/CollectionPickerInline';
 
-const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
-  wine: 'linear-gradient(160deg, #3D1A1A 0%, #6B2C2C 100%)',
-  sparkling: 'linear-gradient(160deg, #1A2A3D 0%, #2C4A6B 100%)',
-  spirit: 'linear-gradient(160deg, #2D2010 0%, #5C4020 100%)',
-  cigar: 'linear-gradient(160deg, #2A1A0A 0%, #5C3A1A 100%)',
-};
+import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
@@ -115,6 +110,19 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
     setLocalFill(d?.isOpened ? (d?.fillLevel ?? 0) : 100);
   }, [d?.fillLevel, d?.isOpened, open]);
 
+  // This drawer is hand-rolled rather than the shared HeroUI Modal, so
+  // Escape-to-close and screen-reader dialog semantics aren't automatic —
+  // added explicitly here instead of switching component to keep the
+  // existing layout/behavior otherwise unchanged.
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   const handleFillCommit = useCallback(
     (value: number) => {
       if (!item) return;
@@ -198,15 +206,26 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
           <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
           {/* Drawer panel */}
-          <div className="relative w-full sm:w-[400px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl">
+          <div
+            className="relative w-full sm:w-[400px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inventory-detail-title"
+          >
             {/* Header */}
             <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
               <p className="text-[0.6rem] font-bold uppercase tracking-widest text-secondary mb-0.5">
-                {isCigar ? t('inventory.detail.titleCigar') : t('inventory.detail.titleWine')}
+                {/* Was wine/cigar binary (t('inventory.detail.titleWine') for
+                    "everything that isn't a cigar"), which mislabeled
+                    sparkling/spirit items as "Bottle details" too narrowly
+                    when they're not wine either. titleCigar's copy ("Asset
+                    details") is already category-neutral — use it for all
+                    four categories instead of branching. */}
+                {t('inventory.detail.titleCigar')}
               </p>
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-1.5 flex-wrap pr-8">
-                  <h2 className="text-lg font-bold leading-tight">{d.name}</h2>
+                  <h2 id="inventory-detail-title" className="text-lg font-bold leading-tight">{d.name}</h2>
                   <FieldSourceBadge source={fieldSources.name} t={t} />
                 </div>
                 <div className="flex items-center gap-1">
@@ -261,7 +280,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 {/* Image + fill badge */}
                 <div
                   className="relative h-40 rounded-xl overflow-hidden mb-3 flex items-center justify-center border border-divider"
-                  style={d.photoUrl ? undefined : { background: PLACEHOLDER_BG[d.category] }}
+                  style={d.photoUrl ? undefined : { background: getCategoryPlaceholderGradient(d.category) }}
                 >
                   {d.photoUrl ? (
                     <img src={d.photoUrl} alt={d.name} className="max-h-full max-w-full object-contain" />

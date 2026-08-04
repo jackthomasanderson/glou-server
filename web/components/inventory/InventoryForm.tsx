@@ -232,9 +232,13 @@ export function InventoryForm({
               </div>
             </ModalHeader>
 
-            <ModalBody className="p-0 flex flex-row items-stretch gap-0 min-h-0 overflow-hidden flex-1">
-              {/* Left image panel — hidden on mobile */}
-              <div className="hidden sm:block w-[170px] shrink-0 border-r border-divider px-4 py-5">
+            <ModalBody className="p-0 flex flex-col sm:flex-row items-stretch gap-0 min-h-0 overflow-hidden flex-1">
+              {/* Image panel — used to be `hidden sm:block`, i.e. entirely
+                  unreachable on mobile (no way to edit/upload a photo at
+                  all below the sm breakpoint). Now stacks on top, centered,
+                  same compact size as the desktop column, instead of being
+                  hidden. */}
+              <div className="w-[170px] mx-auto sm:mx-0 shrink-0 border-b sm:border-b-0 sm:border-r border-divider px-4 py-5">
                 <ItemImageSection
                   photoUrl={values.photoUrl ?? ''}
                   onPhotoChange={(url) => setField('photoUrl', url)}
@@ -246,7 +250,7 @@ export function InventoryForm({
               </div>
 
               {/* Right form fields */}
-              <div className="flex-1 min-w-0 px-5 py-5 overflow-y-auto">
+              <div className="flex-1 min-w-0 min-h-0 px-5 py-5 overflow-y-auto">
                 <div className="flex flex-col gap-6">
 
                   {/* Section 1: Identity */}

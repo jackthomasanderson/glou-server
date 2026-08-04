@@ -5,13 +5,7 @@ import { Camera, Link2, Trash2, Check, X, Wine, Sparkles, Dumbbell, Leaf, Loader
 import { useTranslation } from 'react-i18next';
 import { ImagePickerButton, ImageResult } from './ImagePicker';
 import { InventoryCategory } from '@/lib/inventory/types';
-
-const PLACEHOLDER_BG: Record<InventoryCategory, string> = {
-  wine: '#3D1A1A',
-  sparkling: '#1A2A3D',
-  spirit: '#2D2010',
-  cigar: '#2A1A0A',
-};
+import { getCategoryPlaceholderSolid } from '@/lib/analytics/categoryColors';
 
 const PLACEHOLDER_ICON: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={40} className="opacity-30 text-white" />,
@@ -104,7 +98,7 @@ export function ItemImageSection({
         className="relative w-full rounded-xl overflow-hidden border border-default-200 flex items-center justify-center mb-3"
         style={{
           aspectRatio: '3 / 4',
-          backgroundColor: hasPhoto ? undefined : PLACEHOLDER_BG[category],
+          backgroundColor: hasPhoto ? undefined : getCategoryPlaceholderSolid(category),
         }}
       >
         {(saving || isAutoLoading) && (

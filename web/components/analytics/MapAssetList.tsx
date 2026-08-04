@@ -5,6 +5,7 @@ import { Chip } from '@heroui/react';
 import { Wine, Sparkles, Dumbbell, Leaf, MapPin, Search } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { getItemMapRegion } from '@/lib/analytics/mapFilters';
+import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 
 // FEAT-42: filtered asset list — populated by a marker click (region scope)
 // and/or the sidebar filters (MapFiltersPanel), combined in MapExplorer.
@@ -24,12 +25,8 @@ const CATEGORY_COLORS: Record<InventoryCategory, 'danger' | 'primary' | 'warning
   cigar: 'secondary',
 };
 
-const CATEGORY_PLACEHOLDER_GRADIENT: Record<InventoryCategory, string> = {
-  wine: 'from-[#6B1A2A] to-[#A83254]',
-  sparkling: 'from-[#1A4A7A] to-[#3B7CC4]',
-  spirit: 'from-[#3A3A2A] to-[#7A7A4A]',
-  cigar: 'from-[#4A2E1A] to-[#8B5C2A]',
-};
+// Placeholder gradient (no photo yet) — see InventoryCard.tsx comment,
+// derived from the shared CATEGORY_HEX instead of a local palette copy.
 
 interface MapAssetListProps {
   items: InventoryItem[];
@@ -70,7 +67,8 @@ export function MapAssetList({ items, onSelect, t }: MapAssetListProps) {
               />
             ) : (
               <div
-                className={`w-10 h-10 rounded-lg bg-gradient-to-br ${CATEGORY_PLACEHOLDER_GRADIENT[item.category]} flex items-center justify-center text-white/60 shrink-0`}
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-white/60 shrink-0"
+                style={{ background: getCategoryPlaceholderGradient(item.category) }}
               >
                 {React.cloneElement(CATEGORY_ICONS[item.category], { size: 16 })}
               </div>

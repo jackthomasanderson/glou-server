@@ -8,6 +8,7 @@ import {
   Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Check, Clock,
 } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={12} />,
@@ -23,12 +24,10 @@ const CATEGORY_COLORS: Record<InventoryCategory, 'danger' | 'primary' | 'warning
   cigar: 'secondary',
 };
 
-const CATEGORY_PLACEHOLDER_GRADIENT: Record<InventoryCategory, string> = {
-  wine: 'from-[#6B1A2A] to-[#A83254]',
-  sparkling: 'from-[#1A4A7A] to-[#3B7CC4]',
-  spirit: 'from-[#3A3A2A] to-[#7A7A4A]',
-  cigar: 'from-[#4A2E1A] to-[#8B5C2A]',
-};
+// Placeholder gradient (no photo yet) — derived from the shared
+// CATEGORY_HEX (lib/analytics/categoryColors.ts) instead of a locally
+// hand-picked palette, so wine/sparkling/spirit/cigar placeholders look the
+// same here as in the map asset list, item detail dialog, and image picker.
 
 interface InventoryCardProps {
   item: InventoryItem;
@@ -146,8 +145,8 @@ export function InventoryCard({
           />
         ) : (
           <div
-            className={`w-full bg-gradient-to-br ${CATEGORY_PLACEHOLDER_GRADIENT[item.category]} flex items-center justify-center text-white/35`}
-            style={{ height: 120, fontSize: '2.5rem' }}
+            className="w-full flex items-center justify-center text-white/35"
+            style={{ height: 120, fontSize: '2.5rem', background: getCategoryPlaceholderGradient(item.category) }}
           >
             {React.cloneElement(CATEGORY_ICONS[item.category], { size: 40 } as React.SVGProps<SVGSVGElement>)}
           </div>

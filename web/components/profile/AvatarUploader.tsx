@@ -1,6 +1,9 @@
 'use client';
 import React, { useRef, useState } from 'react';
-import { Avatar, Button, Input, CircularProgress } from '@heroui/react';
+import {
+  Avatar, Button, Input, CircularProgress,
+  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+} from '@heroui/react';
 import { Camera, Trash2, Pencil, Check, X } from 'lucide-react';
 import { useUploadAvatar, useDeleteAvatar, useUpdateProfile, PublicUser } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +19,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
   const [editingUsername, setEditingUsername] = useState(false);
   const [usernameValue, setUsernameValue] = useState(user.username);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const handleUsernameConfirm = () => {
     const trimmed = usernameValue.trim();
@@ -43,6 +47,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
     deleteAvatar.mutate(undefined, {
       onSuccess: () => setFeedback({ type: 'success', msg: t('profile.deleteAvatarSuccess') }),
       onError: () => setFeedback({ type: 'error', msg: t('profile.deleteAvatarError') }),
+      onSettled: () => setConfirmingDelete(false),
     });
   };
 
@@ -92,8 +97,9 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
         {user?.avatarUrl && !uploadAvatar.isPending && (
           <button
             className="absolute top-0 right-0 w-6 h-6 bg-content1 rounded-full shadow flex items-center justify-center text-danger hover:bg-default-100"
-            onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+            onClick={(e) => { e.stopPropagation(); setConfirmingDelete(true); }}
             title={t('profile.deleteAvatar')}
+            aria-label={t('profile.deleteAvatar')}
           >
             <Trash2 size={12} />
           </button>
@@ -153,6 +159,40 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
         style={{ display: 'none' }}
         accept="image/*"
       />
+
+      <Modal
+        isOpen={confirmingDelete}
+        onClose={() => setConfirmingDelete(false)}
+        size="sm"
+        radius="lg"
+        backdrop="opaque"
+        placement="center"
+      >
+        <ModalContent>
+          {() => (
+            <>
+              <ModalHeader>{t('profile.deleteAvatar')}</ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-default-600">{t('profile.deleteAvatarConfirm')}</p>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="default" variant="light" onPress={() => setConfirmingDelete(false)}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  color="danger"
+                  variant="solid"
+                  onPress={handleDelete}
+                  isLoading={deleteAvatar.isPending}
+                  isDisabled={deleteAvatar.isPending}
+                >
+                  {t('actions.delete')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
