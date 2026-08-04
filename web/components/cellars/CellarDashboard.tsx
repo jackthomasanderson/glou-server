@@ -84,6 +84,30 @@ export const CellarDashboard: React.FC = () => {
   const deleteMutation = useDeleteCellar();
   const isExpert = useExpertMode();
 
+  // HeroUI's Select can't type-check children that mix static <SelectItem>
+  // elements with a conditionally-rendered one (`{isExpert && <SelectItem/>}`
+  // evaluates to `false | Element`, not assignable to CollectionElement) —
+  // same issue as WorldHeatmap.tsx. Build one homogeneous options array per
+  // Select instead and map over it once.
+  const typeFilterOptions = useMemo(() => {
+    const base = [
+      { key: 'all', label: t('filters.all') },
+      { key: 'VINTAGE', label: t('cellars.types.VINTAGE') },
+      { key: 'COOLER', label: t('cellars.types.COOLER') },
+      { key: 'SHELF', label: t('cellars.types.SHELF') },
+    ];
+    return isExpert ? [...base, { key: 'HUMIDOR', label: t('cellars.types.HUMIDOR') }] : base;
+  }, [isExpert, t]);
+
+  const cellarTypeOptions = useMemo(() => {
+    const base = [
+      { key: 'VINTAGE', label: t('cellars.types.VINTAGE') },
+      { key: 'COOLER', label: t('cellars.types.COOLER') },
+      { key: 'SHELF', label: t('cellars.types.SHELF') },
+    ];
+    return isExpert ? [...base, { key: 'HUMIDOR', label: t('cellars.types.HUMIDOR') }] : base;
+  }, [isExpert, t]);
+
   const [viewMode, setViewMode] = useViewMode('cellars');
   const [openForm, setOpenForm] = useState(false);
   const [showGridConfig, setShowGridConfig] = useState(false);
@@ -286,11 +310,9 @@ export const CellarDashboard: React.FC = () => {
             className="w-full sm:w-44"
             aria-label={t('cellars.filterByType')}
           >
-            <SelectItem key="all">{t('filters.all')}</SelectItem>
-            <SelectItem key="VINTAGE">{t('cellars.types.VINTAGE')}</SelectItem>
-            <SelectItem key="COOLER">{t('cellars.types.COOLER')}</SelectItem>
-            <SelectItem key="SHELF">{t('cellars.types.SHELF')}</SelectItem>
-            {isExpert && <SelectItem key="HUMIDOR">{t('cellars.types.HUMIDOR')}</SelectItem>}
+            {typeFilterOptions.map((opt) => (
+              <SelectItem key={opt.key}>{opt.label}</SelectItem>
+            ))}
           </Select>
           <Select
             size="sm"
@@ -536,10 +558,9 @@ export const CellarDashboard: React.FC = () => {
                   if (val) setFormData({ ...formData, type: val });
                 }}
               >
-                <SelectItem key="VINTAGE">{t('cellars.types.VINTAGE')}</SelectItem>
-                <SelectItem key="COOLER">{t('cellars.types.COOLER')}</SelectItem>
-                <SelectItem key="SHELF">{t('cellars.types.SHELF')}</SelectItem>
-                {isExpert && <SelectItem key="HUMIDOR">{t('cellars.types.HUMIDOR')}</SelectItem>}
+                {cellarTypeOptions.map((opt) => (
+                  <SelectItem key={opt.key}>{opt.label}</SelectItem>
+                ))}
               </Select>
 
               <Input

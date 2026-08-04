@@ -29,3 +29,4 @@ Bienvenue sur le wiki de Glou. Cette documentation est strictement focalisée su
 24. [Liste de Souhaits & Budget](./24-Liste-De-Souhaits-Budget.md)
 25. [Mode Hors-Ligne](./25-Mode-Hors-Ligne.md)
 26. [Scan Étiquette](./26-Scan-Etiquette.md)
+27. [Mode Expert](./27-Mode-Expert.md)
