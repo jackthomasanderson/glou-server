@@ -9,6 +9,7 @@ vi.mock('../src/lib/prisma', () => ({
   prisma: {
     user: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       create: vi.fn(),
       count: vi.fn(),
     },
@@ -20,6 +21,15 @@ vi.mock('../src/lib/prisma', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+    },
+    // login() fire-and-forgets a "new device" security notification, which
+    // reads prisma.user.findUnique + prisma.systemConfig (via
+    // systemConfigService.getEffectivePublicUrl). Without these, that
+    // pipeline throws internally — harmless (caught) but it was printing a
+    // misleading stack trace on every test run.
+    systemConfig: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
     },
   },
 }));
@@ -172,6 +182,10 @@ describe('AuthService', () => {
       // service after this mock was written. Empty array = no known
       // sessions yet, matching a fresh test user.
       vi.mocked(prisma.session.findMany).mockResolvedValue([]);
+      // Fire-and-forget "new device" notification path (not asserted on
+      // directly here, just needs to resolve instead of throwing).
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ language: mockUser.language, notifLanguage: null } as never);
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ id: 'singleton', publicUrl: null } as never);
       vi.mocked(jwt.sign).mockReturnValue('mock-jwt-token' as never);
 
       const result = await authService.login(loginData, deviceInfo);

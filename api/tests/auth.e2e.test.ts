@@ -29,6 +29,15 @@ vi.mock('../src/lib/prisma', () => ({
       findUnique: vi.fn(),
       create: vi.fn(),
     },
+    // login()/verifyTwoFactorLogin() fire-and-forget a "new device" security
+    // notification, which reads this model via systemConfigService — without
+    // it, `prisma.systemConfig` is undefined and the notification pipeline
+    // throws (caught internally, but it pollutes CI logs with a misleading
+    // stack trace and is worth mocking cleanly).
+    systemConfig: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+    },
   },
 }));
 
@@ -95,8 +104,15 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
     vi.mocked(prisma.session.create).mockResolvedValue({ id: 'session-1' } as never);
     vi.mocked(prisma.session.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue(null as never);
+    vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ id: 'singleton', publicUrl: null } as never);
+    vi.mocked(prisma.systemConfig.create).mockResolvedValue({ id: 'singleton', publicUrl: null } as never);
   });
 
+  // This test runs real bcrypt (cost 12) several times over — one hash on
+  // register, a handful of compares across the two logins, and 10 concurrent
+  // hashes for the 2FA backup codes. That's deliberate (see the file header),
+  // but it's real CPU work, not a mock — comfortably over Vitest's 5s default
+  // on a slower/shared CI runner, hence the explicit timeout below.
   it('registers, logs in, enables 2FA, and logs back in with a TOTP code', async () => {
     // 1. Register
     const { user: registeredUser, token: registerToken } = await authService.register(
@@ -155,5 +171,5 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
     await expect(
       authService.verifyTwoFactorLogin(store!.id, '000000', false, deviceInfo),
     ).rejects.toThrow('INVALID_TOTP_CODE');
-  });
+  }, 20000);
 });
