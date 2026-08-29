@@ -123,15 +123,6 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
     [t],
   );
 
-  // Detect dark mode via CSS media query
-  const isDark =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-  const tileUrl = isDark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-
   // `unmapped` counts, within the *current view's* candidate regions, how
   // many lack known coordinates — not regions hidden by the type filter
   // itself (that would misleadingly inflate the count).
@@ -271,9 +262,16 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
           worldCopyJump
         >
           <MapResizer />
+          {/* CARTO's free raster basemaps (basemaps.cartocdn.com) started requiring
+              an API key in August 2026 and now watermark unauthenticated requests
+              ("API KEY REQUIRED") — a self-hosted app can't assume every instance
+              owner has (or wants) a CARTO key, so this uses the standard anonymous
+              OpenStreetMap tile server instead. No dark-mode variant is available
+              without a keyed provider; the map falls back to the light style in
+              both themes. */}
           <TileLayer
-            url={tileUrl}
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
           {markers.map((marker) => (
             <CircleMarker
