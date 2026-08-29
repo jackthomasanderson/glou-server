@@ -15,6 +15,16 @@
 
 ---
 
+## 📸 Captures d'écran
+
+<div align="center">
+  <img src="docs/screenshots/dashboard-fr.png" alt="Tableau de bord de l'inventaire" width="32%" />
+  <img src="docs/screenshots/detail-fr.png" alt="Détail d'un actif avec traçabilité" width="32%" />
+  <img src="docs/screenshots/analytics-fr.png" alt="Tableau de bord des analyses" width="32%" />
+</div>
+
+---
+
 ## 🚀 L'Autoroute (Quick Start)
 
 **Prérequis :**

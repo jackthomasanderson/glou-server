@@ -15,6 +15,16 @@
 
 ---
 
+## 📸 Screenshots
+
+<div align="center">
+  <img src="docs/screenshots/dashboard-en.png" alt="Inventory dashboard" width="32%" />
+  <img src="docs/screenshots/detail-en.png" alt="Item detail with traceability" width="32%" />
+  <img src="docs/screenshots/analytics-en.png" alt="Analytics dashboard" width="32%" />
+</div>
+
+---
+
 ## 🚀 Quick Start
 
 **Prerequisites:**
