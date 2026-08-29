@@ -3,6 +3,12 @@ name: Build & Publish Docker Images
 on:
   push:
     branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   IMAGE_API: ghcr.io/jackthomasanderson/glou-server-api
@@ -71,6 +77,9 @@ jobs:
 
   build-and-push:
     needs: test
+    # Pull requests only run `test`; images are built and pushed on merge to
+    # dev/main, not from PR branches (and a forked PR has no GHCR write token).
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -1,0 +1,38 @@
+name: ✨ Feature request / Proposition de fonctionnalité
+description: Suggest an idea or improvement. / Proposer une idée ou une amélioration.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the roadmap in the README and existing issues first. / Merci de consulter la roadmap du README et les issues existantes au préalable.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / Problème
+      description: What are you trying to do that Glou doesn't support well today? / Qu'essayez-vous de faire que Glou ne gère pas bien aujourd'hui ?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution / Solution proposée
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / Alternatives envisagées
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context / Contexte additionnel
+      description: Mockups, links, similar features elsewhere… / Maquettes, liens, fonctionnalités similaires ailleurs…
+    validations:
+      required: false

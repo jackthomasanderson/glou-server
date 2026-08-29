@@ -1,0 +1,73 @@
+name: 🐛 Bug report / Rapport de bug
+description: Report something that isn't working as expected. / Signaler un comportement inattendu.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. / Merci de prendre le temps de signaler ce bug.
+        Please search existing issues first to avoid duplicates. / Merci de vérifier d'abord les issues existantes pour éviter les doublons.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug. / Une description claire du problème.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce / Étapes pour reproduire
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour / Comportement attendu
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / image tag
+      description: e.g. latest, beta, or a commit SHA. / ex. latest, beta, ou un SHA de commit.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area / Périmètre
+      options:
+        - Web (Next.js frontend)
+        - API (Node.js backend)
+        - Database / migrations
+        - Docker / deployment
+        - Not sure / Je ne sais pas
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment / Environnement
+      description: OS, Docker version, browser, reverse proxy… / OS, version de Docker, navigateur, reverse proxy…
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / Logs pertinents
+      description: Paste `docker compose logs` output. Redact any secrets. / Collez la sortie de `docker compose logs`. Masquez tout secret.
+      render: shell
+    validations:
+      required: false

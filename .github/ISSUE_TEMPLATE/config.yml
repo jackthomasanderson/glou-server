@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & discussions / Questions et discussions
+    url: https://github.com/jackthomasanderson/glou-server/discussions
+    about: Ask usage questions or share ideas here. / Posez vos questions d'usage ou partagez vos idées ici.
+  - name: 📖 Documentation / Wiki
+    url: https://github.com/jackthomasanderson/glou-server/tree/main/docs/wiki
+    about: Installation, configuration and troubleshooting guides. / Guides d'installation, de configuration et de dépannage.
+  - name: 🔒 Report a security vulnerability / Signaler une faille de sécurité
+    url: https://github.com/jackthomasanderson/glou-server/security/advisories/new
+    about: Please report vulnerabilities privately, never in a public issue. / Merci de signaler les failles en privé, jamais dans une issue publique.
