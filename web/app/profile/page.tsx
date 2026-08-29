@@ -131,7 +131,7 @@ export default function ProfilePage() {
               </div>
               {user && (
                 <span className={`text-xs font-bold px-2 py-1 rounded-lg ${user.isAdmin ? 'bg-primary text-white' : 'bg-default-100 text-foreground-500 border border-divider'}`}>
-                  {user.isAdmin ? 'Admin' : 'Utilisateur'}
+                  {user.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}
                 </span>
               )}
             </div>
@@ -267,7 +267,7 @@ export default function ProfilePage() {
 
             <div className="mt-6 p-3 bg-default-50 rounded-xl">
               <p className="text-xs text-foreground-400">
-                Les changements de thème et de langue s&apos;appliquent instantanément et sont sauvegardés sur votre compte.
+                {t('profile.preferencesHint')}
               </p>
             </div>
           </div>

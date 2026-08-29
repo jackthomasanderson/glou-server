@@ -517,6 +517,7 @@
       "description": "Shows advanced fields (structured tasting grid, spirit cask/batch, humidor monitoring) in the forms."
     },
     "accentColor": "Accent Color",
+    "preferencesHint": "Theme and language changes apply instantly and are saved to your account.",
     "colors": {
       "indigo": "Indigo",
       "rose": "Rose",

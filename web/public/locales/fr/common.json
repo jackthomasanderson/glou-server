@@ -517,6 +517,7 @@
       "description": "Affiche les champs avancés (dégustation structurée, fût/batch spiritueux, monitoring d'humidor) dans les formulaires."
     },
     "accentColor": "Couleur d'accentuation",
+    "preferencesHint": "Les changements de thème et de langue s'appliquent instantanément et sont sauvegardés sur votre compte.",
     "colors": {
       "indigo": "Indigo",
       "rose": "Rose",
