@@ -17,11 +17,22 @@
 
 ## 📸 Screenshots
 
-<div align="center">
-  <img src="docs/screenshots/dashboard-en.png" alt="Inventory dashboard" width="32%" />
-  <img src="docs/screenshots/detail-en.png" alt="Item detail with traceability" width="32%" />
-  <img src="docs/screenshots/analytics-en.png" alt="Analytics dashboard" width="32%" />
-</div>
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/dashboard-en.png" alt="Shared inventory dashboard" /></td>
+    <td width="50%"><img src="docs/screenshots/detail-en.png" alt="Item detail with traceability" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Shared inventory dashboard</strong><br/><sub>Rich cards, faceted filters, and live stock stats.</sub></td>
+    <td align="center"><strong>Item detail &amp; traceability</strong><br/><sub>Tactile fill level, tasting journal, and per-field history with one-click rollback.</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/analytics-en.png" alt="Analytics &amp; Terroir dashboard" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><strong>Analytics &amp; Terroir</strong><br/><sub>Valuation, movement flows, drinking-window urgency, and a geographic view of your cellar.</sub></td>
+  </tr>
+</table>
 
 ---
 

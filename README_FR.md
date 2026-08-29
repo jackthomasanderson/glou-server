@@ -17,11 +17,22 @@
 
 ## 📸 Captures d'écran
 
-<div align="center">
-  <img src="docs/screenshots/dashboard-fr.png" alt="Tableau de bord de l'inventaire" width="32%" />
-  <img src="docs/screenshots/detail-fr.png" alt="Détail d'un actif avec traçabilité" width="32%" />
-  <img src="docs/screenshots/analytics-fr.png" alt="Tableau de bord des analyses" width="32%" />
-</div>
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/dashboard-fr.png" alt="Tableau de bord de l'inventaire partagé" /></td>
+    <td width="50%"><img src="docs/screenshots/detail-fr.png" alt="Détail d'un actif avec traçabilité" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Inventaire partagé</strong><br/><sub>Cartes détaillées, filtres à facettes et statistiques de stock en direct.</sub></td>
+    <td align="center"><strong>Détail d'un actif &amp; traçabilité</strong><br/><sub>Niveau tactile, journal de dégustation et historique par champ avec restauration en un clic.</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/screenshots/analytics-fr.png" alt="Tableau de bord Analyses &amp; Terroir" /></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><strong>Analyses &amp; Terroir</strong><br/><sub>Valorisation, flux de mouvements, urgence de dégustation et vue géographique de votre cave.</sub></td>
+  </tr>
+</table>
 
 ---
 
