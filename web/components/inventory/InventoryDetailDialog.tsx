@@ -437,6 +437,18 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                   </>
                 )}
 
+                {/* Quantity — not cigar-specific: it's also how the duplicate-detection
+                    "increment existing bottle" flow (DuplicateDialog) surfaces its result,
+                    so it must stay visible once it exceeds the implicit default of 1. */}
+                {!isCigar && d.quantity != null && d.quantity > 1 && (
+                  <div className="flex items-center justify-between p-2 border border-divider rounded-xl mb-5">
+                    <span className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
+                      {t('inventory.fields.quantity')}
+                    </span>
+                    <span className="text-[0.8rem] font-bold">{d.quantity}</span>
+                  </div>
+                )}
+
                 {/* Notes */}
                 {d.notes && (
                   <>

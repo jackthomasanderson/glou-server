@@ -374,6 +374,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <div className="flex flex-wrap gap-2 items-center">
               <InventoryFilterToggleButton
+                t={t}
                 isFiltersOpen={isFiltersOpen}
                 hasActiveFilters={hasActiveFilters}
                 onToggle={toggleFilters}

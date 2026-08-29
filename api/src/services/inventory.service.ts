@@ -263,7 +263,12 @@ export class InventoryService {
       if (conflict) return { item: existing, changes: [], slotConflict: true };
     }
 
-    const safePatch = bypassFieldLock
+    // `lockedFields` exists to stop a *later automated* update (OCR/enrichment)
+    // from silently overwriting a manual edit — it must never block the user
+    // from manually editing that same field again (e.g. bumping the quantity
+    // of an already-locked duplicate, or resetting a bottle from "empty" back
+    // to "full"). Only a non-manual caller is filtered against it.
+    const safePatch = bypassFieldLock || isManualEdit
       ? patch
       : (Object.fromEntries(
           Object.entries(patch).filter(([key]) => !existing.lockedFields.includes(key))

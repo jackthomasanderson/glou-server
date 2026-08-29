@@ -374,18 +374,19 @@ export function InventoryFilterBar({
 }
 
 export interface InventoryFilterToggleButtonProps {
+  t: (key: string, options?: Record<string, unknown>) => string;
   isFiltersOpen: boolean;
   hasActiveFilters: boolean;
   onToggle: () => void;
 }
 
 /** The mobile "open/close filters" button, shown inline in the toolbar. */
-export function InventoryFilterToggleButton({ isFiltersOpen, hasActiveFilters, onToggle }: InventoryFilterToggleButtonProps) {
+export function InventoryFilterToggleButton({ t, isFiltersOpen, hasActiveFilters, onToggle }: InventoryFilterToggleButtonProps) {
   return (
     <button
       className={`md:hidden p-1.5 border border-divider rounded-xl transition-colors ${isFiltersOpen || hasActiveFilters ? 'border-secondary text-secondary' : ''}`}
       onClick={onToggle}
-      aria-label="Filters"
+      aria-label={t('actions.filter')}
     >
       <Filter size={16} />
     </button>

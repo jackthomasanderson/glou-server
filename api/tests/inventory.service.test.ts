@@ -72,7 +72,34 @@ describe('InventoryService', () => {
     expect(result).toBeNull();
   });
 
-  it('updateItem - respects lockedFields', async () => {
+  it('updateItem - a manual edit overrides lockedFields (manual entry has priority)', async () => {
+    const existingItem = {
+      id: 'b1',
+      userId: 'u1',
+      lockedFields: ['name', 'vintage'],
+      deletedAt: null,
+    };
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
+    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, name: 'New Name', producer: 'New Producer' } as never);
+
+    // Default options → isManualEdit: true, matching the regular PATCH /:id
+    // and guest write routes: a locked field must still accept a fresh
+    // manual edit (e.g. re-editing quantity, or resetting fillLevel/isOpened
+    // back to "full" after it was previously set to "empty").
+    await service.updateItem('u1', 'b1', {
+      category: 'wine',
+      name: 'New Name',
+      producer: 'New Producer',
+    });
+
+    const updateCall = vi.mocked(prisma.inventoryItem.update).mock.calls[0];
+    expect(updateCall).toBeDefined();
+    const updateData = updateCall?.[0] as { data: Record<string, unknown> };
+    expect(updateData.data.name).toBe('New Name');
+    expect(updateData.data.producer).toBe('New Producer');
+  });
+
+  it('updateItem - a non-manual (automated) update still respects lockedFields', async () => {
     const existingItem = {
       id: 'b1',
       userId: 'u1',
@@ -82,11 +109,16 @@ describe('InventoryService', () => {
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
     vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, producer: 'New Producer' } as never);
 
-    await service.updateItem('u1', 'b1', {
-      category: 'wine',
-      name: 'Should Not Change',  // locked
-      producer: 'New Producer',    // not locked → allowed
-    });
+    await service.updateItem(
+      'u1',
+      'b1',
+      {
+        category: 'wine',
+        name: 'Should Not Change', // locked, and this call isn't manual → stripped
+        producer: 'New Producer',   // not locked → allowed
+      },
+      { isManualEdit: false }
+    );
 
     const updateCall = vi.mocked(prisma.inventoryItem.update).mock.calls[0];
     expect(updateCall).toBeDefined();
