@@ -1,24 +1,29 @@
-<!-- English below / Français plus bas -->
+<!-- English first / Français ensuite -->
 
-## What / Quoi
+## What & why
 
-<!-- Describe the change and the motivation. / Décrivez le changement et sa motivation. -->
+<!-- What changes, and what for. Link issues: Closes #123 -->
 
-## Related issues / Issues liées
+## For reviewers
 
-<!-- e.g. Closes #123 -->
+- [ ] New user-facing strings have **both** FR and EN i18n keys
+- [ ] No secrets, `.env` values or private files committed
+- [ ] Docs / wiki updated if behaviour changed
+- [ ] Screenshots below (UI changes)
 
-## Checklist
+<!-- The CI already checks typecheck, lint, tests and strict TypeScript — no need to tick those by hand. PRs should be based on `dev` and target `dev`. -->
 
-- [ ] Branch based on `dev` and PR targets `dev` / Branche basée sur `dev` et PR ciblant `dev`
-- [ ] `npm run typecheck` passes in `api/` / passe dans `api/`
-- [ ] `npm run lint` passes in `api/` and `web/` / passe dans `api/` et `web/`
-- [ ] `npm test` passes in `api/` and `web/` / passe dans `api/` et `web/`
-- [ ] No `any` added; TypeScript stays strict / Aucun `any` ajouté ; TypeScript reste strict
-- [ ] New user-facing strings have FR **and** EN i18n keys / Les nouveaux textes ont des clés i18n FR **et** EN
-- [ ] Docs / wiki updated if behaviour changed / Docs / wiki mis à jour si le comportement change
-- [ ] No secrets, `.env` values or private files committed / Aucun secret, valeur `.env` ou fichier privé commité
+---
 
-## Screenshots / Captures
+## Quoi & pourquoi
 
-<!-- For UI changes. / Pour les changements d'interface. -->
+<!-- Ce qui change, et dans quel but. Lien issue : Closes #123 -->
+
+## Pour les relecteurs
+
+- [ ] Les nouveaux textes ont des clés i18n FR **et** EN
+- [ ] Aucun secret, valeur `.env` ou fichier privé commité
+- [ ] Docs / wiki mis à jour si le comportement change
+- [ ] Captures ci-dessous (changements d'UI)
+
+<!-- La CI vérifie déjà typecheck, lint, tests et TypeScript strict — inutile de les cocher à la main. La PR doit être basée sur `dev` et cibler `dev`. -->

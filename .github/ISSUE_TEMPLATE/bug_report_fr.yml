@@ -1,0 +1,56 @@
+name: 🐛 Rapport de bug (français)
+description: Un comportement ne fonctionne pas comme prévu
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de prendre le temps de signaler ce bug. Un coup d'œil aux issues
+        existantes aide à éviter les doublons — sans en faire une obsession.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Que s'est-il passé ?
+      description: >
+        Décrivez le problème. Si vous le pouvez, ajoutez les étapes qui y mènent et
+        ce que vous attendiez à la place — mais une simple description suffit déjà.
+      placeholder: |
+        La carte du monde est vide sur la page /analytics, juste après connexion.
+        Je m'attendais à voir la heatmap.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Quelle partie ?
+      description: Une estimation approximative suffit.
+      options:
+        - Je ne sais pas
+        - Web (frontend)
+        - API (backend)
+        - Base de données / migrations
+        - Docker / déploiement
+      default: 0
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / tag d'image
+      description: ex. latest, beta, ou un SHA de commit. Laissez vide si vous ne savez pas.
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environnement & logs
+      description: >
+        Tout ce qui peut aider — OS, navigateur, version de Docker, reverse proxy,
+        et la sortie de `docker compose logs`. Merci de masquer tout secret.
+      render: shell
+    validations:
+      required: false
