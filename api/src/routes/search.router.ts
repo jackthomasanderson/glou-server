@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth.middleware';
 import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
+import { assertUrlAllowed, resolveSafeUrl } from '../lib/ssrf';
 
 const router = Router();
 
@@ -163,43 +164,6 @@ function extFromUrl(url: string): string | null {
   }
 }
 
-// Covers loopback/private IPv4 ranges, link-local (169.254.0.0/16 — notably
-// 169.254.169.254, the cloud metadata endpoint), and common IPv6
-// loopback/private/link-local forms (::1, fc00::/7 unique local, fe80::/10
-// link-local), plus the [bracketed] literal form used in URL hostnames.
-const PRIVATE_HOST_RE =
-  /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|\[?::1\]?$|\[?fe80:|\[?f[cd][0-9a-f]{2}:)/i;
-
-async function resolveSafeUrl(
-  initialUrl: string,
-  headers: Record<string, string>,
-  maxRedirects = 3
-): Promise<Response> {
-  let currentUrl = initialUrl;
-  for (let i = 0; i <= maxRedirects; i++) {
-    const parsed = new URL(currentUrl);
-    if (parsed.protocol !== 'https:' || PRIVATE_HOST_RE.test(parsed.hostname)) {
-      throw new Error('INVALID_URL');
-    }
-
-    const response = await fetch(currentUrl, {
-      signal: AbortSignal.timeout(10000),
-      redirect: 'manual',
-      headers: { ...headers, Referer: parsed.origin + '/' },
-    });
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-      if (!location) throw new Error('FETCH_FAILED');
-      currentUrl = new URL(location, currentUrl).toString();
-      continue;
-    }
-
-    return response;
-  }
-  throw new Error('TOO_MANY_REDIRECTS');
-}
-
 const productImageUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, PRODUCTS_UPLOAD_DIR),
@@ -285,15 +249,13 @@ router.post('/images/save', authMiddleware, async (req, res) => {
   }
 
   try {
-    const parsed = new URL(url);
-    if (PRIVATE_HOST_RE.test(parsed.hostname)) {
-      return res.status(400).json({ error: 'INVALID_URL' });
-    }
+    // Fast reject before any network call; resolveSafeUrl re-checks this plus
+    // every redirect hop (DNS-resolved, against all IANA special-use ranges),
+    // so an authenticated member cannot use this endpoint as an SSRF pivot
+    // into the Docker network (e.g. a remote host 3xx-redirecting to
+    // http://ollama:11434/...).
+    await assertUrlAllowed(url);
 
-    // `redirect: 'manual'` + `resolveSafeUrl` re-validates every redirect hop
-    // against PRIVATE_HOST_RE before following it, so an authenticated member
-    // cannot use this endpoint as an open SSRF pivot into the Docker network
-    // (e.g. a remote host redirecting to http://ollama:11434/...).
     const response = await resolveSafeUrl(url, {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',

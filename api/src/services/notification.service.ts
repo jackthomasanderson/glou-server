@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { emailService } from './email.service';
 import { systemConfigService } from './system-config.service';
+import { htmlToPlainText } from '../lib/html';
 
 export type NotificationCategory =
   | 'peak'
@@ -63,7 +64,7 @@ export const notificationService = {
         await fetch(user.webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: payload.subject, message: payload.htmlBody.replace(/<[^>]+>/g, '') }),
+          body: JSON.stringify({ title: payload.subject, message: htmlToPlainText(payload.htmlBody) }),
           signal: AbortSignal.timeout(5000),
         });
       } catch {

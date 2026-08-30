@@ -33,8 +33,36 @@ function readDeviceInfo(req: Request): { userAgent: string | undefined; ip: stri
   return { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
 }
 
+// The trusted-device cookie carries a signed wrapper, not the raw device
+// token: like the session cookie, its value is a JWT rather than a bearer
+// secret sitting in clear text in the browser's cookie jar. The random token
+// inside is still what auth.service matches (hashed) against the TrustedDevice
+// table — the JWT layer just makes the cookie tamper-evident and gives it an
+// independent expiry. A pre-existing raw-token cookie simply fails to verify
+// and the device falls back to a one-time 2FA challenge.
+const TRUSTED_DEVICE_TOKEN_TTL = '30d';
+
+function packTrustedDeviceToken(rawToken: string): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET_NOT_SET');
+  return jwt.sign({ tdt: rawToken }, secret, { expiresIn: TRUSTED_DEVICE_TOKEN_TTL });
+}
+
 function readTrustedDeviceCookie(req: Request): string | undefined {
-  return (req.cookies as Record<string, string | undefined>)?.[TRUSTED_DEVICE_COOKIE_NAME];
+  const wrapped = (req.cookies as Record<string, string | undefined>)?.[TRUSTED_DEVICE_COOKIE_NAME];
+  if (!wrapped) return undefined;
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return undefined;
+  try {
+    const payload = jwt.verify(wrapped, secret);
+    if (typeof payload === 'object' && payload !== null) {
+      const tdt = (payload as { tdt?: unknown }).tdt;
+      if (typeof tdt === 'string') return tdt;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
@@ -133,7 +161,7 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
     const cookieOpts = result.rememberMe ? COOKIE_OPTIONS : SESSION_COOKIE_OPTIONS;
     res.cookie(COOKIE_NAME, result.token, cookieOpts);
     if (result.trustedDeviceToken) {
-      res.cookie(TRUSTED_DEVICE_COOKIE_NAME, result.trustedDeviceToken, TRUSTED_DEVICE_COOKIE_OPTIONS);
+      res.cookie(TRUSTED_DEVICE_COOKIE_NAME, packTrustedDeviceToken(result.trustedDeviceToken), TRUSTED_DEVICE_COOKIE_OPTIONS);
     }
     void auditLog({ userId: result.user.id, action: 'LOGIN_2FA', status: 'success', ip });
     res.json({ data: result.user });
@@ -246,7 +274,7 @@ router.post('/trust-device', authMiddleware, async (req: Request, res: Response)
   const ip = getClientIp(req);
   try {
     const { token } = await authService.trustCurrentDevice(req.userId, readDeviceInfo(req));
-    res.cookie(TRUSTED_DEVICE_COOKIE_NAME, token, TRUSTED_DEVICE_COOKIE_OPTIONS);
+    res.cookie(TRUSTED_DEVICE_COOKIE_NAME, packTrustedDeviceToken(token), TRUSTED_DEVICE_COOKIE_OPTIONS);
     void auditLog({ userId: req.userId, action: 'TRUST_DEVICE', status: 'success', ip });
     res.json({ data: { ok: true } });
   } catch {

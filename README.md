@@ -67,44 +67,19 @@ Open [http://localhost:3000](http://localhost:3000) and click **Register**. The 
 
 ---
 
-## 🗺️ Roadmap & Next Steps
+## 🗺️ Roadmap
 
-### 🏗️ In Progress (WIP)
-Nothing actively in the pipeline right now — check the "Next Up" section below for what's queued.
+### ✅ Recently Added
+- 🎓 **Expert / Collector Mode** — sommelier-grade tasting grid, appellation & cask fields, and the humidor panel on every item; a reversible per-user toggle.
+- 📸 **Express Label Scanning** — a self-hosted, CPU-only vision model pre-fills name, producer, category, and vintage from a label photo.
+- 🍽️ **Guided Food Pairing** — type a dish, get a ranked shortlist from your own cellar with one-click "drink it now".
+- 📅 **Smart Consumption Plan** — a personal "drink now / drink soon" list from peak windows and rotation, plus a monthly goal.
+- 🎁 **Wishlist & Budget Tracking** — price caps, observed-price deal alerts, and a spending envelope per period.
+- 📴 **Trusted Offline Mode** — browse and edit loaded items offline; changes queue and auto-sync with conflict resolution.
+- 🗺️ **World Map, Heatmap & Filters** — explore the collection geographically and filter by price, vintage, rating, or state.
+- 💾 **Scheduled Backups & Data Portability** — nightly database backups with one-click restore, plus full or filtered exports.
 
-### ✅ Recently Implemented
-- 🎓 **Expert / Collector Mode (FEAT-85)**: Flip one switch in your profile to unlock a sommelier-grade structured tasting grid, appellation & classification fields, cask/batch details, and the humidor monitoring panel — on every item, not just wine or spirits, so a barrel-aged bottle or a numbered cigar box gets the same treatment. It's a per-user setting — invisible to the rest of your household until they opt in too — and reversible any time without losing a single value you've already entered.
-- 🌡️ **Humidor Hygrometry Log & Drift Alerts (FEAT-15)**: Log your humidor's humidity readings by hand, watch the trend on a mini history chart, and get an alert the moment your latest reading drifts outside the range you set — temperature can be logged too, purely for reference. Manual entry only for now (no physical probe support), tucked behind Expert Mode.
-- 📸 **Express Label Scanning (FEAT-04)**: Snap a label and a self-hosted vision model (Ollama running `moondream`, no cloud, CPU-only) pre-fills name, producer, category, and vintage in seconds — review and confirm in three taps, chain scans for a whole case without leaving the camera view. Recognition quality depends on photo sharpness and lighting; it's a lightweight local model, not a wine-specific service, so always double-check before saving.
-- 🍽️ **Guided Food Pairing (FEAT-09)**: Type a dish and get a ranked shortlist of bottles from your own cellar, with a one-click "drink it now" that logs the tasting and updates stock.
-- 📅 **Smart Consumption Plan & Stock Rotation (FEAT-08)**: A personal "drink now / drink soon" list built from peak windows, opened bottles, and rotation priority — plus a monthly goal you can track as you go.
-- 🧮 **Assisted Physical Inventory & Reconciliation (FEAT-12)**: Run a guided stock count by cellar or custom zone, pause and resume anytime, and clear every discrepancy (missing, unexpected, misplaced) with one-click corrections at the end.
-- 🎁 **Wishlist & Budget Tracking (FEAT-20)**: Plan future purchases with a price cap, log observed prices to catch good deals, and track a personal spending envelope by period — convert a wish straight into inventory once it's bought.
-- 📴 **Trusted Offline Mode (FEAT-16/23)**: Browse your inventory and edit items you've already loaded even without a connection — changes queue locally and sync automatically once you're back online, with a clear conflict-resolution screen if the same item changed elsewhere meanwhile. Creating or deleting items still requires a connection.
-- 🧹 **Automatic Data Retention & Maintenance (FEAT-39)**: Set how long audit logs, sessions, and unused invitations are kept, and let Glou clean them up every night on its own — or trigger a cleanup on demand and see exactly what ran.
-- 🌐 **Public URL & Network Access Configuration (FEAT-54)**: Tell Glou how it's reached from the outside (direct or behind a reverse proxy) so every generated link and share stays correct, with a one-click consistency check.
-- 🧭 **Guided Onboarding Wizard (FEAT-56)**: A step-by-step walkthrough on first login — create your first cellar and load your first bottles by label scan, CSV import, or manual entry, no setup guesswork required.
-- 🔎 **Source Transparency & Change History (FEAT-05)**: See exactly where every field on an item came from and roll it back to any earlier value in one click — your manual edits always win over automatic suggestions.
-- 💾 **Scheduled Backups & Data Portability (FEAT-18)**: Automatic nightly database backups you can restore in one click, plus full or category-filtered exports of your entire collection whenever you want.
-- 🗺️ **World Map with Geolocation (FEAT-40)**: Explore your entire collection on an interactive world map grouped by country and region, with a category filter to focus on wines, spirits, or cigars.
-- 🔥 **Heatmap by Asset Type (FEAT-41)**: Switch the world map to a heatmap that reveals which regions dominate your collection for a chosen type — wine, whisky, cigars, and more.
-- 🧮 **Advanced Map Filters & Asset List (FEAT-42)**: Narrow the world map by price, vintage, rating, or opened state, then click straight from the filtered list into any item's detail card.
-- 🔐 **Session & Trusted Device Management (FEAT-25)**: See every device logged into your account, disconnect any of them remotely, and skip repeated 2FA prompts on devices you trust.
-- 🚨 **Security Notifications (FEAT-29)**: Get alerted instantly by email or in-app when a new device logs in, your password changes, or 2FA is toggled — with a direct link to your security settings.
-- 🔒 **Quick Lock & Auto-Lock (FEAT-30)**: Lock the app in one click or let it lock itself after inactivity, then unlock with your password or a short PIN — no need to log back in.
-- ✍️ **Guest Sharing with Write Access (FEAT-37)**: Let friends log tastings and update fill levels on specific cellars you share with them, without giving them a full account.
-- 📸 **Graphical Item Visualization (FEAT-69)**: Auto image search as soon as name and producer are filled (DuckDuckGo, local storage). Photo displayed at the top of inventory cards and in the detail view, Vivino-style. Replace via manual search, URL paste, or file upload.
-- 🗺️ **Visual Cellar Map (FEAT-68)**: Grid-based occupancy view of cellar slots, drag & drop bottle placement, color-coded by product category.
-- ✨ **Smart Autocomplete (FEAT-66)**: Google-powered suggestions for name and producer when adding a bottle — vintage auto-extracted from suggestions.
-- 🔍 **Global Search (FEAT-64)**: Instant navbar search across your entire inventory by name, producer, vintage, or category.
-- 🔗 **Duplicate Detection (FEAT-65)**: Automatic duplicate warning before saving a bottle that already exists in your cellar.
-- 📡 **Connectivity Indicator (FEAT-67)**: Live internet status in the navbar — external features (autocomplete, images) degrade gracefully when offline.
-- 👥 **Member Roles & Access Control (FEAT-61)**: Admins can activate/deactivate user accounts with immediate effect (live JWT invalidation) and browse a paginated audit log.
-- 🔔 **Peak Maturity Alerts (FEAT-06)**: Automated alerts when a bottle enters its optimal drinking window.
-- 🎨 **User Profiles & Personalization (FEAT-03)**: Theme, accent color, language (FR/EN), and date format — applied instantly.
-- 🏷️ **Contextual Asset CRUD (FEAT-01)**: Adaptive creation workflows for wines, bubbles, spirits, and cigars.
-- 🔍 **Advanced Search & Faceted Filtering (FEAT-48)**: Find any bottle by name, producer, vintage, category, or cellar in real time.
-- 📦 **Bulk Actions & Presets (FEAT-11)**: Update your collection in bulk and save action presets to automate routine tasks.
+Dozens of smaller features ship regularly — see the [closed pull requests](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) for the full history.
 
 ### 🔮 Next Up
 - Predictive analytics for collection valuation.

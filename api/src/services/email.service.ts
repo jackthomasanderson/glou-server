@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { systemConfigService } from './system-config.service';
+import { htmlToPlainText } from '../lib/html';
 
 interface SendMailOptions {
   to: string;
@@ -34,7 +35,7 @@ export const emailService = {
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
-      text: opts.text ?? opts.html.replace(/<[^>]+>/g, ''),
+      text: opts.text ?? htmlToPlainText(opts.html),
     });
   },
 
