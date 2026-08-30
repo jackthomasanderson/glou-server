@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint ."
@@ -40,6 +41,10 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20.14.9",
     "@types/react": "^18.3.3",
@@ -49,6 +54,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.3.3",
+    "fast-check": "^3.23.2",
     "jsdom": "^25.0.1",
     "postcss": "^8.5.23",
     "tailwindcss": "^3.4.17",

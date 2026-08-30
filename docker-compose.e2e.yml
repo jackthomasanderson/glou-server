@@ -1,0 +1,65 @@
+name: glou-e2e
+
+# E2E stack — builds the API and web images from the local source (so the
+# suite tests the current branch, not a published :beta/:latest tag), backed
+# by an ephemeral Postgres. No `ollama` service: the label-scan feature is out
+# of scope for the E2E suite. Throwaway secrets are inline on purpose.
+#
+#   docker compose -f docker-compose.e2e.yml up -d --build
+#   # wait for http://localhost:3000, then:  cd e2e && npx playwright test
+#   docker compose -f docker-compose.e2e.yml down -v
+
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: glou
+      POSTGRES_PASSWORD: e2e_db_password
+      POSTGRES_DB: glou_e2e
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U glou -d glou_e2e']
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: ./api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://glou:e2e_db_password@db:5432/glou_e2e
+      JWT_SECRET: e2e-only-throwaway-jwt-secret-not-used-anywhere-real-000000000000
+      CONFIG_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      APP_URL: http://localhost:3000
+      CORS_ORIGIN: http://localhost:3000
+      PORT: 3001
+    ports:
+      - '3001:3001'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://127.0.0.1:3001/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      # `npx prisma migrate deploy` runs ~40 migrations on a cold container
+      # before the server binds — don't count failing checks during that window.
+      start_period: 90s
+
+  web:
+    build:
+      context: ./web
+      args:
+        NEXT_PUBLIC_API_URL: http://api:3001
+    # Plain ordering dependency — the CI step polls the web app for readiness,
+    # so `up -d` shouldn't hard-fail while the api is still applying migrations.
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://api:3001
+    ports:
+      - '3000:3000'

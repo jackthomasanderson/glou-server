@@ -1,0 +1,31 @@
+name: ✨ Proposition de fonctionnalité (français)
+description: Proposer une idée ou une amélioration
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Un coup d'œil à la roadmap du README et aux issues existantes aide —
+        sans avoir à fouiller.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Que voudriez-vous faire ?
+      description: >
+        Décrivez le besoin ou le problème. Si vous avez déjà une solution en tête,
+        décrivez-la aussi — mais cette partie est optionnelle.
+      placeholder: |
+        Je veux voir combien de bouteilles j'ai ouvertes par mois, mais aucune vue ne le permet.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Autre chose ?
+      description: >
+        Maquettes, liens, la façon dont d'autres apps le gèrent, alternatives
+        envisagées — tout est optionnel.
+    validations:
+      required: false

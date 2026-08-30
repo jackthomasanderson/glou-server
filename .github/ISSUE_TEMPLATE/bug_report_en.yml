@@ -1,0 +1,56 @@
+name: 🐛 Bug report (English)
+description: Something isn't working as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. A quick look at existing issues
+        helps avoid duplicates — but don't worry too much about it.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: >
+        Describe the bug. If you can, add the steps that led to it and what you
+        expected instead — but a plain description is already enough to get started.
+      placeholder: |
+        The world map is blank on the /analytics page, right after login.
+        I expected to see the heatmap.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part?
+      description: A rough guess is fine.
+      options:
+        - Not sure
+        - Web (frontend)
+        - API (backend)
+        - Database / migrations
+        - Docker / deployment
+      default: 0
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / image tag
+      description: e.g. latest, beta, or a commit SHA. Leave blank if you don't know.
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment & logs
+      description: >
+        Anything useful — OS, browser, Docker version, reverse proxy, and the
+        output of `docker compose logs`. Please redact any secrets.
+      render: shell
+    validations:
+      required: false

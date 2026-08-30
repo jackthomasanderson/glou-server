@@ -1,0 +1,31 @@
+name: ✨ Feature request (English)
+description: Suggest an idea or improvement
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A glance at the roadmap in the README and at existing issues helps —
+        no need to dig deep.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: >
+        Describe the need or the problem. If you already have a solution in mind,
+        describe it too — but that part is optional.
+      placeholder: |
+        I want to see how many bottles I've opened per month, but there's no view for that.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else?
+      description: >
+        Mockups, links, how other apps handle it, alternatives you considered —
+        all optional.
+    validations:
+      required: false
