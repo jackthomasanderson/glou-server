@@ -127,15 +127,19 @@ describe('flushQueue — failure isolation', () => {
 
   it('is re-entrancy safe — a second call while flushing is a no-op', async () => {
     queue({ id: 'm1', itemId: 'A', createdAt: 't1' });
-    let resolveFetch: (r: Response) => void = () => {};
-    const fetchMock = vi.fn(() => new Promise<Response>((res) => { resolveFetch = res; }));
+
+    // A single gate promise, its resolver captured synchronously up front so
+    // the timing of when we release it doesn't matter.
+    let releaseFetch!: (r: Response) => void;
+    const gate = new Promise<Response>((res) => { releaseFetch = res; });
+    const fetchMock = vi.fn(() => gate);
     vi.stubGlobal('fetch', fetchMock);
 
     const qc = fakeQueryClient();
     const first = flushQueue(qc);
-    const second = flushQueue(qc); // should bail immediately on the isFlushing guard
+    const second = flushQueue(qc); // bails immediately on the isFlushing guard
 
-    resolveFetch(okResponse({ id: 'A', updatedAt: 'x' }));
+    releaseFetch(okResponse({ id: 'A', updatedAt: 'x' }));
     await Promise.all([first, second]);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
