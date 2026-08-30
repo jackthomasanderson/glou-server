@@ -23,7 +23,13 @@ export default defineConfig({
     // — a strict superset of what the existing plain-function tests need, so
     // this is safe as the single global environment.
     environment: 'jsdom',
-    include: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx', '**/*.test.ts'],
-    exclude: ['node_modules', '.next'],
+    setupFiles: ['./vitest.setup.ts'],
+    include: [
+      '**/__tests__/**/*.test.ts',
+      '**/__tests__/**/*.test.tsx',
+      '**/*.test.ts',
+      '**/*.test.tsx',
+    ],
+    exclude: ['node_modules', '.next', 'e2e/**'],
   },
 });
