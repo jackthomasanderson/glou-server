@@ -16,6 +16,7 @@ import { consumptionPlanRouter } from './routes/consumption-plan.router';
 import { inventoryCountRouter } from './routes/inventory-count.router';
 import { maturityReferencesRouter } from './routes/maturity-references.router';
 import { errorMiddleware } from './middleware/error.middleware';
+import { csrfGuard } from './middleware/csrf.middleware';
 import { inventoryService } from './services/inventory.service';
 import { MaintenanceService } from './services/maintenance.service';
 import { backupService } from './services/backup.service';
@@ -72,6 +73,12 @@ assertSecretsConfigured();
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
 
+// A self-hosted deployment sits behind exactly one reverse proxy (the compose
+// file's, or the operator's own). Trust a single hop so `req.ip` and the
+// rate-limiter below see the real client address from X-Forwarded-For rather
+// than the proxy's — without trusting a longer, spoofable forwarding chain.
+app.set('trust proxy', 1);
+
 // ─── Security middleware ─────────────────────────────────────────────────────
 
 app.use(helmet({
@@ -83,6 +90,25 @@ app.use(cors({
 }));
 app.use(cookieParser());
 app.use(express.json({ limit: '2mb' }));
+
+// CSRF: reject clearly cross-site state-changing requests (see middleware).
+app.use('/api', csrfGuard);
+
+// ─── Rate limiting ──────────────────────────────────────────────────────────
+// Baseline limiter across the whole API surface: every route sits behind
+// cookie auth and touches the database, so an unbounded request rate is a
+// DoS / brute-force vector regardless of the specific endpoint. Generous
+// enough not to interfere with normal interactive use (and the offline sync
+// engine replaying a backlog); `/api/auth/*` keeps its own much tighter
+// limiter below. Keyed on `req.ip`, which is the real client address thanks
+// to the `trust proxy` setting above.
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', apiLimiter);
 
 // ─── Health check ────────────────────────────────────────────────────────────
 

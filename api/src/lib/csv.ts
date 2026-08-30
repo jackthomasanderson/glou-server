@@ -12,7 +12,17 @@
  * spreadsheet exports is a small amount of code, so no dependency is
  * justified here.
  */
+// Defensive upper bound on the raw input length. The HTTP upload path already
+// caps the file at 2 MB (`csvUpload` in upload.middleware.ts); this guards the
+// char-by-char parser below — whose main loop runs once per input character —
+// against ever being handed an unbounded string by some future caller that
+// forgets to. ~5M chars comfortably clears any legitimate onboarding export.
+const MAX_CSV_CHARS = 5_000_000;
+
 export function parseCsv(text: string): Record<string, string>[] {
+  if (text.length > MAX_CSV_CHARS) {
+    throw new Error('CSV_TOO_LARGE');
+  }
   const rows = parseCsvRows(text);
   if (rows.length === 0) return [];
 
@@ -44,7 +54,11 @@ function parseCsvRows(text: string): string[][] {
   // char-by-char so a newline inside a quoted field is preserved as data.
   const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  for (let i = 0; i < normalized.length; i++) {
+  // Hard clamp on the iteration count — `parseCsv` already rejects anything
+  // over MAX_CSV_CHARS, this keeps the loop bound provably constant-bounded
+  // even if the function is ever called from elsewhere.
+  const len = Math.min(normalized.length, MAX_CSV_CHARS);
+  for (let i = 0; i < len; i++) {
     const char = normalized[i];
 
     if (inQuotes) {

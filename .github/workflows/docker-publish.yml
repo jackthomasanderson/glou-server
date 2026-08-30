@@ -10,6 +10,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Least-privilege default for GITHUB_TOKEN: the `test` job only needs to read
+# the checked-out code. `build-and-push` re-grants `packages: write` for itself.
+permissions:
+  contents: read
+
 env:
   IMAGE_API: ghcr.io/jackthomasanderson/glou-server-api
   IMAGE_WEB: ghcr.io/jackthomasanderson/glou-server-web
