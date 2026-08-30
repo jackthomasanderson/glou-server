@@ -100,16 +100,25 @@ jobs:
         with:
           node-version: 20
 
-      - name: Build & start the E2E stack
-        run: docker compose -f docker-compose.e2e.yml up -d --build
+      - name: Build the E2E images
+        run: docker compose -f docker-compose.e2e.yml build
 
-      - name: Wait for the web app to come up
+      - name: Start the E2E stack
+        run: docker compose -f docker-compose.e2e.yml up -d
+
+      - name: Wait for the API and web app to come up
         run: |
-          for i in $(seq 1 60); do
-            if curl -sf -o /dev/null http://localhost:3000/login; then echo "web is up"; exit 0; fi
+          ok_api=0; ok_web=0
+          for i in $(seq 1 80); do
+            [ "$ok_api" = 0 ] && curl -sf -o /dev/null http://localhost:3001/health && { echo "api up ($i)"; ok_api=1; }
+            [ "$ok_web" = 0 ] && curl -sf -o /dev/null http://localhost:3000/login && { echo "web up ($i)"; ok_web=1; }
+            [ "$ok_api" = 1 ] && [ "$ok_web" = 1 ] && exit 0
             sleep 3
           done
-          echo "web did not come up in time"; docker compose -f docker-compose.e2e.yml logs --tail=100; exit 1
+          echo "stack did not come up in time"
+          docker compose -f docker-compose.e2e.yml ps
+          docker compose -f docker-compose.e2e.yml logs --tail=150
+          exit 1
 
       - name: Install E2E dependencies
         working-directory: e2e

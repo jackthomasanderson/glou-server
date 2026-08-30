@@ -36,13 +36,15 @@ test('a valid login lands in the app, and logout returns to /login', async ({ pa
   await expect(page).toHaveURL(/\/login/);
 });
 
-test('register and forgot-password pages are reachable from the login page', async ({ page }) => {
+test('the register and forgot-password pages are reachable', async ({ page }) => {
   await page.goto('/login');
   await page.getByRole('link', { name: /S'inscrire/ }).click();
   await expect(page).toHaveURL(/\/register/);
   await expect(page.getByRole('button', { name: /inscrire|créer/i })).toBeVisible();
 
-  await page.goto('/login');
-  await page.getByRole('link', { name: /Mot de passe oublié/ }).click();
+  // The login page only shows the forgot-password link when SMTP is
+  // configured, but the page itself must always render.
+  await page.goto('/forgot-password');
   await expect(page).toHaveURL(/\/forgot-password/);
+  await expect(page.getByRole('heading', { name: /Récupération/ })).toBeVisible();
 });
