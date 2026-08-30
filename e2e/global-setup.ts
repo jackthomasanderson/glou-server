@@ -72,12 +72,18 @@ export default async function globalSetup(config: FullConfig) {
   const existing = await ctx.get('/api/inventory');
   const count = existing.ok() ? ((await existing.json())?.data?.length ?? (await existing.json())?.length ?? 0) : 0;
   if (!count) {
+    // A cellar so the guest-share spec has something scoped to link, and so
+    // the analytics "caves" widget isn't empty.
+    let cellarId: string | undefined;
+    const cellarRes = await ctx.post('/api/cellars', { data: { name: 'E2E Cave', columns: 4, rows: 4 } });
+    if (cellarRes.ok()) cellarId = (await cellarRes.json())?.data?.id ?? (await cellarRes.json())?.id;
+
     const now = new Date().getFullYear();
     const fixtures = [
-      { category: 'wine', name: 'E2E Bordeaux', producer: 'E2E Domaine', region: 'Bordeaux', vintage: now - 6, estimatedValue: 90, peakMaturityFrom: now, peakMaturityTo: now + 8 },
-      { category: 'wine', name: 'E2E Bourgogne', producer: 'E2E Domaine', region: 'Bourgogne', vintage: now - 4, estimatedValue: 140, peakMaturityFrom: now + 1, peakMaturityTo: now + 6 },
-      { category: 'spirit', name: 'E2E Whisky', producer: 'E2E Distillery', region: 'Speyside', alcoholDegree: 43, estimatedValue: 70 },
-      { category: 'cigar', name: 'E2E Cigar', producer: 'E2E Factory', leafOrigin: 'Cuba', quantity: 10, estimatedValue: 25 },
+      { category: 'wine', name: 'E2E Bordeaux', producer: 'E2E Domaine', region: 'Bordeaux', vintage: now - 6, estimatedValue: 90, peakMaturityFrom: now, peakMaturityTo: now + 8, cellarId },
+      { category: 'wine', name: 'E2E Bourgogne', producer: 'E2E Domaine', region: 'Bourgogne', vintage: now - 4, estimatedValue: 140, peakMaturityFrom: now + 1, peakMaturityTo: now + 6, cellarId },
+      { category: 'spirit', name: 'E2E Whisky', producer: 'E2E Distillery', region: 'Speyside', alcoholDegree: 43, estimatedValue: 70, cellarId },
+      { category: 'cigar', name: 'E2E Cigar', producer: 'E2E Factory', leafOrigin: 'Cuba', quantity: 10, estimatedValue: 25, cellarId },
     ];
     for (const f of fixtures) await ctx.post('/api/inventory', { data: f });
   }

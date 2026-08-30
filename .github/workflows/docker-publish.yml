@@ -128,7 +128,10 @@ jobs:
         working-directory: e2e
         run: npx playwright install --with-deps chromium
 
-      - name: Run Playwright + gremlins suite
+      # Deterministic user-journey specs only. The gremlins fuzz
+      # (monkey.spec.ts) is gated behind E2E_MONKEY and runs in the
+      # `nightly-e2e-fuzz` workflow instead — it's slow and non-deterministic.
+      - name: Run Playwright user-journey suite
         working-directory: e2e
         env:
           CI: 'true'

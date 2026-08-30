@@ -12,8 +12,9 @@ const GREMLINS_PATH = fileURLToPath(
  * exception, logged a console error, or navigated to an error screen.
  *
  * Gremlins genuinely click destructive controls (delete buttons, …), so this
- * only runs where a wipe-and-reseed is cheap: CI (ephemeral DB), or locally
- * with E2E_ALLOW_MONKEY=1.
+ * runs on its own schedule against a throwaway stack — the nightly
+ * `nightly-e2e-fuzz` workflow (E2E_MONKEY=1), or locally with E2E_ALLOW_MONKEY=1.
+ * The per-PR `e2e` job skips it (fast, deterministic parcours only).
  */
 const SEED = Number(process.env.E2E_MONKEY_SEED ?? 202608);
 const GREMLIN_COUNT = Number(process.env.E2E_MONKEY_NB ?? 250);
@@ -21,8 +22,8 @@ const ROUTES = ['/bottles', '/cigars', '/collections', '/cellars', '/tastings', 
 
 test.describe('gremlins UI fuzz', () => {
   test.skip(
-    !process.env.CI && !process.env.E2E_ALLOW_MONKEY,
-    'monkey fuzz mutates data — runs on CI or with E2E_ALLOW_MONKEY=1',
+    !process.env.E2E_MONKEY && !process.env.E2E_ALLOW_MONKEY,
+    'monkey fuzz — nightly workflow only (E2E_MONKEY), or local with E2E_ALLOW_MONKEY=1',
   );
 
   for (const route of ROUTES) {
