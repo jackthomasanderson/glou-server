@@ -2,6 +2,7 @@
   "name": "glou-e2e",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "End-to-end (Playwright) + UI fuzz (gremlins.js) tests for the Glou web app. Runs against an already-running stack (docker-compose), not its own dev server.",
   "scripts": {
     "test": "playwright test",

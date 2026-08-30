@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
-const require = createRequire(import.meta.url);
-const GREMLINS_PATH = require.resolve('gremlins.js/dist/gremlins.min.js');
+// gremlins.js ships a single UMD bundle exposing `window.gremlins`.
+const GREMLINS_PATH = fileURLToPath(
+  new URL('../node_modules/gremlins.js/dist/gremlins.min.js', import.meta.url),
+);
 
 /**
  * UI fuzzing (gremlins.js) — turns a horde loose on each page: random clicks,
