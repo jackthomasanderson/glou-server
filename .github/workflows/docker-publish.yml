@@ -76,6 +76,15 @@ jobs:
         working-directory: web
         run: npm run lint
 
+      # `next build` type-checks the project (test files included, per
+      # tsconfig's `**/*.ts(x)` globs) and fails the build on any error — an
+      # implicit gate inside build-and-push / the e2e stack build. Surfacing
+      # it here, in the fast job, catches a broken test-file type before a
+      # ~4-min Docker build does. Same rationale as "Typecheck API" above.
+      - name: Typecheck web
+        working-directory: web
+        run: npm run typecheck
+
       - name: Run web tests
         working-directory: web
         run: npm test

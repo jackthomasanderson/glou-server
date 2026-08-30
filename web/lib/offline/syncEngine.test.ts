@@ -85,7 +85,8 @@ describe('flushQueue — FIFO replay', () => {
 
     await flushQueue(fakeQueryClient());
 
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(String(init?.body ?? ''));
     expect(body).toEqual({ fillLevel: 40, expectedUpdatedAt: 'ts-1' });
   });
 });
