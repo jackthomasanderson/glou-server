@@ -75,7 +75,10 @@ describe('maturityReferenceService.reorder — FEAT-86', () => {
     vi.mocked(prisma.maturityReference.findMany).mockResolvedValue([
       { id: 'a' }, { id: 'b' },
     ] as never);
-    vi.mocked(prisma.maturityReference.update).mockImplementation((args: never) => args as never);
+    // No mockImplementation needed — `$transaction` (mocked as Promise.all)
+    // tolerates the `undefined` each bare `update()` returns, and we only
+    // assert on the recorded call arguments.
+    vi.mocked(prisma.maturityReference.update).mockResolvedValue({} as never);
 
     await maturityReferenceService.reorder(['b', 'ghost', 'a']);
 
