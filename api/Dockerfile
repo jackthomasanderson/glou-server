@@ -6,6 +6,11 @@ COPY package*.json ./
 RUN npm ci
 
 COPY prisma ./prisma
+# Prisma 7: prisma.config.ts holds the datasource URL + migration/seed config
+# that used to live in schema.prisma / package.json. The CLI loads it for every
+# command, including `generate` (which needs no live DB — the config reads
+# DATABASE_URL defensively via process.env).
+COPY prisma.config.ts ./
 RUN npx prisma generate
 
 COPY tsconfig.json ./
@@ -38,6 +43,8 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/prisma ./prisma
+# Required by `npx prisma migrate deploy` in the CMD below (Prisma 7).
+COPY --from=builder /app/prisma.config.ts ./
 
 # /app/backups (FEAT-18): destination of scheduled pg_dump files. Mounted on
 # its own named volume (see docker-compose.yml), distinct from /app/uploads,

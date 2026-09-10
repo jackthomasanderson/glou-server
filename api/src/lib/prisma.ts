@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 2000;
@@ -7,7 +8,13 @@ const RETRY_DELAY_MS = 2000;
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function createPrismaClient(): PrismaClient {
+  // Prisma 7 is "Rust-free" and requires an explicit driver adapter — the
+  // connection string now lives in application code (and prisma.config.ts for
+  // the CLI), no longer in schema.prisma's datasource block.
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
+
   return new PrismaClient({
+    adapter,
     log: process.env.NODE_ENV === 'development'
       ? ['query', 'info', 'warn', 'error']
       : ['warn', 'error'],
