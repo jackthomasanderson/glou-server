@@ -55,7 +55,9 @@ describe('InventoryService', () => {
         collections: { select: { id: true, name: true, color: true, icon: true } },
       },
     });
-    expect(result).toEqual(mockItems);
+    // FEAT-86: every row is decorated with a computed `readiness` (null here —
+    // the mock items carry no peak-maturity window).
+    expect(result).toEqual(mockItems.map((i) => ({ ...i, readiness: null })));
   });
 
   it('softDelete - returns null when item not found', async () => {

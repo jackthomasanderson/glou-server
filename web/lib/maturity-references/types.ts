@@ -1,3 +1,5 @@
+import type { CurveShape } from './curve';
+
 export type MaturityMode = 'ABSOLUTE' | 'RELATIVE';
 
 export interface MaturityReference {
@@ -7,6 +9,9 @@ export interface MaturityReference {
   mode: MaturityMode;
   windowFrom: number;
   windowTo: number;
+  // FEAT-86
+  curveShape: CurveShape;
+  priority: number;
   region?: string | null;
   color?: string | null;
   producer?: string | null;
@@ -21,6 +26,8 @@ export interface MaturitySuggestion {
   reference: Omit<MaturityReference, 'bottleCount'>;
   peakMaturityFrom: number | null;
   peakMaturityTo: number | null;
+  // FEAT-86: curve shape the add form pre-fills alongside the window.
+  curveShape: CurveShape;
 }
 
 export interface MaturityReferenceInput {
@@ -29,6 +36,8 @@ export interface MaturityReferenceInput {
   mode: MaturityMode;
   windowFrom: number;
   windowTo: number;
+  curveShape: CurveShape;
+  priority?: number;
   region?: string | null;
   color?: string | null;
   producer?: string | null;

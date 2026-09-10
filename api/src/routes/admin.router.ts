@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { authMiddleware, adminMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
-import { maturityReferenceSchema, maturityReferencePatchSchema } from '../schemas/maturity-reference.schema';
+import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenceReorderSchema } from '../schemas/maturity-reference.schema';
 import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/retention.schema';
 import { networkConfigSchema } from '../schemas/network-config.schema';
 import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema } from '../schemas/backup.schema';
@@ -260,6 +260,22 @@ adminRouter.post('/maturity-references', async (req: Request, res: Response): Pr
     const data = maturityReferenceSchema.parse(req.body);
     const ref = await maturityReferenceService.create(data);
     res.status(201).json({ data: ref });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      return;
+    }
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+// FEAT-86: rewrite the cascade priority order. Registered BEFORE the
+// `/:id` PATCH so Express doesn't match `:id = "reorder"`.
+adminRouter.patch('/maturity-references/reorder', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { ids } = maturityReferenceReorderSchema.parse(req.body);
+    await maturityReferenceService.reorder(ids);
+    res.json({ data: { reordered: true } });
   } catch (error) {
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });

@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { MaturityReferenceInput, MaturityReferencePatch, SuggestQuery } from '../schemas/maturity-reference.schema';
+import { CurveShape, DEFAULT_CURVE_SHAPE } from '../lib/maturity-curve';
 
 type MaturityReference = Awaited<ReturnType<typeof prisma.maturityReference.findFirst>> extends infer T | null
   ? NonNullable<T>
@@ -9,6 +10,10 @@ export interface MaturitySuggestion {
   reference: MaturityReference;
   peakMaturityFrom: number | null;
   peakMaturityTo: number | null;
+  // FEAT-86: curve shape carried by the winning reference — the add form
+  // pre-fills the bottle's `curveShape` with it, same "visible, editable
+  // default" contract as the window bounds.
+  curveShape: CurveShape;
 }
 
 function scoreMatch(ref: MaturityReference, params: SuggestQuery): number {
@@ -35,7 +40,11 @@ function computeWindow(ref: MaturityReference, vintage?: number): { from: number
 
 export class MaturityReferenceService {
   async list(): Promise<(MaturityReference & { bottleCount: number })[]> {
-    const refs = await prisma.maturityReference.findMany({ orderBy: { createdAt: 'desc' } });
+    // FEAT-86: cascade order — highest priority first, so the admin table
+    // reads top-to-bottom as "first matching rule wins".
+    const refs = await prisma.maturityReference.findMany({
+      orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+    });
 
     const counts = await Promise.all(
       refs.map((r) => this.countMatchingBottles(r))
@@ -65,6 +74,30 @@ export class MaturityReferenceService {
     }
   }
 
+  /**
+   * FEAT-86: rewrite the whole cascade priority in one transaction. `ids` is
+   * the references top-to-bottom in their new order — the first gets the
+   * highest priority. Ids not present are left untouched; unknown ids are
+   * skipped rather than failing the batch.
+   */
+  async reorder(ids: string[]): Promise<void> {
+    const existing = await prisma.maturityReference.findMany({
+      where: { id: { in: ids } },
+      select: { id: true },
+    });
+    const known = new Set(existing.map((r) => r.id));
+    const ordered = ids.filter((id) => known.has(id));
+
+    await prisma.$transaction(
+      ordered.map((id, index) =>
+        prisma.maturityReference.update({
+          where: { id },
+          data: { priority: ordered.length - index },
+        }),
+      ),
+    );
+  }
+
   async suggest(params: SuggestQuery): Promise<MaturitySuggestion | null> {
     const refs = await prisma.maturityReference.findMany({
       where: { category: params.category as never },
@@ -72,9 +105,16 @@ export class MaturityReferenceService {
 
     if (refs.length === 0) return null;
 
+    // FEAT-86 cascade resolution: explicit `priority` first (the admin's
+    // ordered rules), then criteria specificity (`score`), then recency.
     const scored = refs
       .map((r) => ({ ref: r, score: scoreMatch(r, params) }))
-      .sort((a, b) => b.score - a.score);
+      .sort(
+        (a, b) =>
+          b.ref.priority - a.ref.priority ||
+          b.score - a.score ||
+          b.ref.createdAt.getTime() - a.ref.createdAt.getTime(),
+      );
 
     const best = scored[0];
     const window = computeWindow(best.ref, params.vintage);
@@ -83,6 +123,7 @@ export class MaturityReferenceService {
       reference: best.ref,
       peakMaturityFrom: window.from,
       peakMaturityTo: window.to,
+      curveShape: (best.ref.curveShape as CurveShape | null) ?? DEFAULT_CURVE_SHAPE,
     };
   }
 

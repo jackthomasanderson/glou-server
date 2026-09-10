@@ -75,6 +75,40 @@
     "spirit": "Spirit",
     "cigar": "Cigar / Box"
   },
+  "maturity": {
+    "readiness": "Readiness",
+    "curveSource": {
+      "manual": "set manually",
+      "reference": "from a cave reference",
+      "default": "linear default"
+    },
+    "curveShapes": {
+      "LINEAR": {
+        "label": "Linear",
+        "description": "Steady rise, then holds — the safe default when nothing else fits."
+      },
+      "BELL": {
+        "label": "Bell",
+        "description": "Rises to a peak in the middle of the window, then declines."
+      },
+      "EARLY_BELL": {
+        "label": "Early bell",
+        "description": "Peaks early in the window — young-and-fruity styles, Beaujolais, crisp whites."
+      },
+      "LATE_BELL": {
+        "label": "Late bell",
+        "description": "Peaks near the end of the window — Bordeaux for keeping, some Grand Crus."
+      },
+      "TWIN_PEAK": {
+        "label": "Twin peak",
+        "description": "A burst in youth, an awkward dip, then a second peak — Loire Chenin."
+      },
+      "PLATEAU": {
+        "label": "Plateau",
+        "description": "Flat readiness across the whole window — shape doesn't really matter."
+      }
+    }
+  },
   "inventory": {
     "detail": {
       "titleWine": "Bottle details",
@@ -156,6 +190,8 @@
       "alcoholDegree": "Alcohol degree (%)",
       "bottleSize": "Bottle size",
       "peakMaturity": "Ideal tasting window",
+      "curveShape": "Consumption curve",
+      "curveShapeHint": "How readiness evolves across the window. Overrides the cave reference for this bottle only.",
       "needsAeration": "Needs aeration",
       "serviceTemp": "Service temperature",
       "lotNumber": "Lot number",
@@ -634,17 +670,22 @@
     "maturityRefs": {
       "title": "Peak Maturity References",
       "subtitle": "Define reference drinking windows by category, region, color, or producer.",
+      "cascadeHint": "Rules are evaluated top to bottom — the first one that matches a bottle wins. Put your most specific rules above the general ones.",
       "add": "Add reference",
       "addTitle": "New peak maturity reference",
       "editTitle": "Edit reference",
       "empty": "No references configured.",
+      "moveUp": "Move up (higher priority)",
+      "moveDown": "Move down (lower priority)",
       "deleteConfirmTitle": "Delete reference?",
       "deleteConfirmBody": "The reference \"{{name}}\" will be permanently deleted.",
       "columns": {
+        "priority": "Order",
         "name": "Name",
         "category": "Category",
         "criteria": "Criteria",
         "window": "Window",
+        "curve": "Curve",
         "bottles": "Bottles",
         "actions": "Actions"
       },
@@ -655,6 +696,7 @@
         "windowToRelative": "Declining after (yrs)",
         "windowFromAbsolute": "First year",
         "windowToAbsolute": "Last year",
+        "curveShape": "Consumption curve",
         "vintageFrom": "Vintage from",
         "vintageTo": "Vintage to"
       },
@@ -667,6 +709,7 @@
         "criteria": "Optional matching criteria",
         "windowRelative": "E.g. 5 → 15 for a bottle drinkable 5 to 15 years after vintage",
         "windowAbsolute": "E.g. 2010 → 2030 for a fixed calendar window",
+        "curveShape": "Shape of the readiness curve applied to matching bottles",
         "colorPlaceholder": "Red, White, Rosé…"
       },
       "errors": {

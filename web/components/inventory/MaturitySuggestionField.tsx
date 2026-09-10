@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { InventoryCategory } from '@/lib/inventory/types';
 import { maturityReferenceClient } from '@/lib/maturity-references/client';
 import { MaturitySuggestion } from '@/lib/maturity-references/types';
+import { curveShapeLabelKey, type CurveShape } from '@/lib/maturity-references/curve';
+import { CurveGlyph } from '@/components/ui/CurveGlyph';
 
 interface MaturitySuggestionFieldProps {
   /** Whether the current category supports peak-maturity suggestions (wine/sparkling). */
@@ -15,7 +17,11 @@ interface MaturitySuggestionFieldProps {
   color?: string | null;
   producer?: string | null;
   vintage?: number | null;
-  onApply: (peakMaturityFrom: number | null, peakMaturityTo: number | null) => void;
+  onApply: (
+    peakMaturityFrom: number | null,
+    peakMaturityTo: number | null,
+    curveShape: CurveShape | null,
+  ) => void;
 }
 
 export function MaturitySuggestionField({
@@ -57,7 +63,7 @@ export function MaturitySuggestionField({
 
   const applySuggestion = () => {
     if (!suggestion) return;
-    onApply(suggestion.peakMaturityFrom, suggestion.peakMaturityTo);
+    onApply(suggestion.peakMaturityFrom, suggestion.peakMaturityTo, suggestion.curveShape ?? null);
     setSuggestion(null);
   };
 
@@ -68,14 +74,22 @@ export function MaturitySuggestionField({
   return (
     <div className="mt-3 flex items-center gap-3 bg-primary-50 border border-primary-200 rounded-xl px-3 py-2">
       <Sparkles size={15} className="text-primary shrink-0" />
-      <p className="flex-1 text-xs text-primary-700">
-        <strong>{suggestion.reference.name}</strong>
-        {' — '}
-        {t('inventory.maturitySuggestion.window', {
-          from: suggestion.peakMaturityFrom,
-          to: suggestion.peakMaturityTo,
-        })}
-      </p>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-primary-700">
+          <strong>{suggestion.reference.name}</strong>
+          {' — '}
+          {t('inventory.maturitySuggestion.window', {
+            from: suggestion.peakMaturityFrom,
+            to: suggestion.peakMaturityTo,
+          })}
+        </p>
+        {suggestion.curveShape && (
+          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-primary-600">
+            <CurveGlyph shape={suggestion.curveShape} width={30} />
+            {t(curveShapeLabelKey(suggestion.curveShape))}
+          </span>
+        )}
+      </div>
       <Button size="sm" variant="flat" color="primary" onPress={applySuggestion}>
         {t('inventory.maturitySuggestion.apply')}
       </Button>

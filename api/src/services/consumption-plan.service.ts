@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { getAlerts } from './alert.service';
+import { getAlerts, computeReadiness } from './alert.service';
+import { CurveShape } from '../lib/maturity-curve';
 import { SetGoalInput } from '../schemas/consumption-plan.schema';
 
 /**
@@ -49,6 +50,9 @@ const SUGGESTION_SELECT = {
   alertStatus: true,
   isOpened: true,
   fillLevel: true,
+  peakMaturityFrom: true,
+  peakMaturityTo: true,
+  curveShape: true,
   consumptionPostponedUntil: true,
   createdAt: true,
 } satisfies Prisma.InventoryItemSelect;
@@ -120,7 +124,12 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
 
   const alertExtraMap = new Map(alertExtra.map((item) => [item.id, item]));
 
-  const weighted: Array<{ suggestion: ConsumptionSuggestion; weight: number }> = [];
+  // FEAT-86: `readiness` (0-100, or -1 when the curve model has nothing to
+  // say) is a secondary sort key WITHIN each coarse urgency bucket — a
+  // twin-peak wine sitting in its mid-window trough is not surfaced ahead of
+  // one that is genuinely at its best, without ever letting a merely-riper
+  // 'approaching' bottle jump the 'past'/'peak' queue.
+  const weighted: Array<{ suggestion: ConsumptionSuggestion; weight: number; readiness: number }> = [];
 
   for (const alert of alerts) {
     const extra = alertExtraMap.get(alert.id);
@@ -128,15 +137,25 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
     weighted.push({
       suggestion: toSuggestion(extra, 'peak_window'),
       weight: REASON_WEIGHT[alert.alertStatus ?? 'approaching'] ?? REASON_WEIGHT.approaching,
+      readiness: alert.readiness ?? -1,
     });
   }
 
   for (const opened of openedItems) {
     if (isPostponed(opened, now)) continue;
-    weighted.push({ suggestion: toSuggestion(opened, 'opened'), weight: REASON_WEIGHT.opened });
+    weighted.push({
+      suggestion: toSuggestion(opened, 'opened'),
+      weight: REASON_WEIGHT.opened,
+      readiness:
+        computeReadiness(
+          opened.curveShape as CurveShape | null,
+          opened.peakMaturityFrom,
+          opened.peakMaturityTo,
+        ) ?? -1,
+    });
   }
 
-  weighted.sort((a, b) => a.weight - b.weight);
+  weighted.sort((a, b) => a.weight - b.weight || b.readiness - a.readiness);
   let result = weighted.slice(0, limit).map((w) => w.suggestion);
 
   // 3) Rotation fillers (the literal "Rotation de Stock" from the feature

@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { CurveShape, readinessIndex } from '../lib/maturity-curve';
 
 export interface CategoryStat {
   category: string;
@@ -109,6 +110,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
         alertStatus: true,
         peakMaturityFrom: true,
         peakMaturityTo: true,
+        curveShape: true,
         cellarId: true,
       },
     }),
@@ -185,14 +187,30 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       readyNow += 1;
     }
 
-    // Garde histogram: distribute item across its peak window years
+    // Garde histogram: distribute the bottle across the years of its peak
+    // window, but shaped by its FEAT-86 consumption curve — a bottle counts
+    // only in the years where its readiness is within half of its own best
+    // year, so a bell wine clusters around its peak and a twin-peak wine
+    // shows two humps. PLATEAU/LINEAR keep spanning (nearly) the whole
+    // window, matching the pre-FEAT-86 behaviour. The bottle never vanishes:
+    // the argmax year always clears the half-of-best bar.
     if (item.peakMaturityFrom != null || item.peakMaturityTo != null) {
       const from = item.peakMaturityFrom ?? item.peakMaturityTo!;
       const to = item.peakMaturityTo ?? item.peakMaturityFrom!;
       const startYear = Math.max(from, currentYear - GARDE_HORIZON_PAST);
       const endYear = Math.min(to, currentYear + GARDE_HORIZON_FUTURE);
+
+      const shape = (item.curveShape as CurveShape | null) ?? undefined;
+      const weights: { year: number; w: number }[] = [];
+      let maxW = 0;
       for (let y = startYear; y <= endYear; y++) {
-        gardeMap[y] = (gardeMap[y] ?? 0) + 1;
+        const w = readinessIndex({ shape, from, to, year: y }) ?? 0;
+        weights.push({ year: y, w });
+        if (w > maxW) maxW = w;
+      }
+      const cutoff = maxW * 0.5;
+      for (const { year, w } of weights) {
+        if (w >= cutoff) gardeMap[year] = (gardeMap[year] ?? 0) + 1;
       }
     }
 

@@ -144,6 +144,7 @@ export function InventoryListRow({
               alertsPaused={item.alertsPaused}
               peakMaturityFrom={item.peakMaturityFrom}
               peakMaturityTo={item.peakMaturityTo}
+              readiness={item.readiness}
               t={t}
             />
           </div>

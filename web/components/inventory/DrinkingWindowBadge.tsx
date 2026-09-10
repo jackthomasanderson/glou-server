@@ -10,6 +10,8 @@ interface DrinkingWindowBadgeProps {
   alertsPaused?: boolean;
   peakMaturityFrom?: number | null;
   peakMaturityTo?: number | null;
+  /** FEAT-86: server-computed readiness percentage for the current year. */
+  readiness?: number | null;
   t: (key: string) => string;
   size?: 'sm' | 'md';
 }
@@ -26,6 +28,7 @@ export function DrinkingWindowBadge({
   alertsPaused,
   peakMaturityFrom,
   peakMaturityTo,
+  readiness,
   t,
   size = 'sm',
 }: DrinkingWindowBadgeProps) {
@@ -46,6 +49,9 @@ export function DrinkingWindowBadge({
     <div>
       <p className="text-xs font-semibold">{t(`inventory.alertStatus.${status}`)}</p>
       {windowLabel && <p className="text-xs text-foreground-400">{windowLabel}</p>}
+      {!alertsPaused && readiness != null && (
+        <p className="text-xs text-foreground-400">{t('maturity.readiness')}: {readiness}%</p>
+      )}
       {alertsPaused && <p className="text-xs text-foreground-400">{t('alerts.paused')}</p>}
     </div>
   );

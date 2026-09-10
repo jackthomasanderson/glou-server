@@ -233,6 +233,12 @@ model InventoryItem {
   // Peak maturity window (structured, year-based)
   peakMaturityFrom Int?    // Start year of optimal drinking window
   peakMaturityTo   Int?    // End year of optimal drinking window
+  // FEAT-86: consumption-curve shape for this bottle's drinking window.
+  // Copied from the matching MaturityReference when the bottle is added
+  // (FEAT-63 semantics: a later reference edit never retroactively rewrites
+  // stored bottles), then freely user-overridable. null = treated as LINEAR.
+  // See api/src/lib/maturity-curve.ts.
+  curveShape       CurveShape?
   alertsPaused     Boolean @default(false) // User-paused alerts for this bottle
 
   // FEAT-08: Consumption Plan — "reporter" a suggestion. Same pattern as
@@ -319,6 +325,19 @@ enum MaturityMode {
   RELATIVE
 }
 
+// FEAT-86: consumption / aging curve shape. Describes how drink-ability
+// evolves inside (and just before) the peak window. Never auto-input from a
+// third party — chosen by the admin on a MaturityReference or overridden per
+// bottle. See api/src/lib/maturity-curve.ts for the readiness model.
+enum CurveShape {
+  LINEAR
+  BELL
+  EARLY_BELL
+  LATE_BELL
+  TWIN_PEAK
+  PLATEAU
+}
+
 model MaturityReference {
   id          String         @id @default(uuid())
   name        String
@@ -335,6 +354,12 @@ model MaturityReference {
   mode        MaturityMode
   windowFrom  Int
   windowTo    Int
+
+  // FEAT-86: curve shape applied to bottles matching this reference, plus an
+  // explicit cascade priority (higher wins; ties broken by criteria
+  // specificity, then recency — see maturity-reference.service.ts).
+  curveShape  CurveShape     @default(LINEAR)
+  priority    Int            @default(0)
 
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt

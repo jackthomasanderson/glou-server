@@ -3,18 +3,21 @@ import React, { useState } from 'react';
 import {
   Button, Chip, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
-  Skeleton, Tooltip, ButtonGroup,
+  Skeleton, Tooltip, ButtonGroup, Select, SelectItem,
 } from '@heroui/react';
-import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays } from 'lucide-react';
+import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays, ArrowUp, ArrowDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   useMaturityReferences,
   useCreateMaturityReference,
   useUpdateMaturityReference,
   useDeleteMaturityReference,
+  useReorderMaturityReferences,
   MaturityReference,
   MaturityReferenceInput,
 } from '@/hooks/useAdmin';
+import { CurveGlyph } from '@/components/ui/CurveGlyph';
+import { CURVE_SHAPES, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
 
 const CATEGORY_CONFIG = {
   wine:      { hasColor: true,  hasVintage: true,  forceAbsolute: false },
@@ -36,6 +39,7 @@ const EMPTY_FORM: MaturityReferenceInput = {
   mode: 'RELATIVE',
   windowFrom: 0,
   windowTo: 0,
+  curveShape: 'LINEAR',
   region: null,
   color: null,
   producer: null,
@@ -233,6 +237,33 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                 <p className="text-xs text-foreground-400">{windowHint}</p>
               </div>
 
+              {/* FEAT-86: consumption-curve shape */}
+              <Select
+                label={t('admin.maturityRefs.fields.curveShape')}
+                description={t('admin.maturityRefs.hints.curveShape')}
+                variant="bordered"
+                size="sm"
+                labelPlacement="outside"
+                selectedKeys={[form.curveShape]}
+                onSelectionChange={(keys) => {
+                  const next = Array.from(keys)[0];
+                  if (next) setField('curveShape', next);
+                }}
+                startContent={<CurveGlyph shape={form.curveShape} width={34} className="text-primary shrink-0" />}
+              >
+                {CURVE_SHAPES.map((shape) => (
+                  <SelectItem key={shape} textValue={t(curveShapeLabelKey(shape))}>
+                    <div className="flex items-center gap-2">
+                      <CurveGlyph shape={shape} width={34} className="text-default-500 shrink-0" />
+                      <div className="flex flex-col">
+                        <span className="text-sm">{t(curveShapeLabelKey(shape))}</span>
+                        <span className="text-xs text-foreground-400">{t(curveShapeDescriptionKey(shape))}</span>
+                      </div>
+                    </div>
+                  </SelectItem>
+                ))}
+              </Select>
+
               <div className="relative flex items-center gap-2">
                 <div className="flex-1 h-px bg-divider" />
                 <span className="text-xs text-foreground-400">{t('admin.maturityRefs.hints.criteria')}</span>
@@ -302,6 +333,7 @@ export function MaturityReferencesSection() {
   const { t } = useTranslation();
   const { data: refs, isLoading } = useMaturityReferences();
   const { mutate: deleteRef } = useDeleteMaturityReference();
+  const { mutate: reorderRefs, isPending: isReordering } = useReorderMaturityReferences();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MaturityReference | null>(null);
@@ -311,6 +343,17 @@ export function MaturityReferencesSection() {
   const openEdit = (ref: MaturityReference) => { setEditing(ref); setDialogOpen(true); };
   const confirmDelete = () => {
     if (deleteTarget) deleteRef(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
+  };
+
+  // FEAT-86: the list arrives sorted by priority desc — moving a row swaps it
+  // with its neighbour and re-sends the whole id order (first = top priority).
+  const move = (index: number, direction: -1 | 1) => {
+    if (!refs) return;
+    const target = index + direction;
+    if (target < 0 || target >= refs.length) return;
+    const ids = refs.map((r) => r.id);
+    [ids[index], ids[target]] = [ids[target], ids[index]];
+    reorderRefs(ids);
   };
 
   return (
@@ -326,6 +369,8 @@ export function MaturityReferencesSection() {
           </Button>
         </div>
 
+        <p className="text-xs text-foreground-400 mb-3">{t('admin.maturityRefs.cascadeHint')}</p>
+
         <Table
           isCompact
           shadow="none"
@@ -334,10 +379,12 @@ export function MaturityReferencesSection() {
           aria-label={t('admin.maturityRefs.title')}
         >
           <TableHeader>
+            <TableColumn>{t('admin.maturityRefs.columns.priority')}</TableColumn>
             <TableColumn>{t('admin.maturityRefs.columns.name')}</TableColumn>
             <TableColumn>{t('admin.maturityRefs.columns.category')}</TableColumn>
             <TableColumn>{t('admin.maturityRefs.columns.criteria')}</TableColumn>
             <TableColumn>{t('admin.maturityRefs.columns.window')}</TableColumn>
+            <TableColumn>{t('admin.maturityRefs.columns.curve')}</TableColumn>
             <TableColumn className="text-center">{t('admin.maturityRefs.columns.bottles')}</TableColumn>
             <TableColumn className="text-right">{t('admin.maturityRefs.columns.actions')}</TableColumn>
           </TableHeader>
@@ -345,7 +392,7 @@ export function MaturityReferencesSection() {
             <>{isLoading
               ? Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 6 }).map((__, c) => (
+                    {Array.from({ length: 8 }).map((__, c) => (
                       <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
                     ))}
                   </TableRow>
@@ -353,13 +400,33 @@ export function MaturityReferencesSection() {
               : refs?.length === 0
               ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-6 text-sm text-foreground-400">
+                  <TableCell colSpan={8} className="text-center py-6 text-sm text-foreground-400">
                     {t('admin.maturityRefs.empty')}
                   </TableCell>
                 </TableRow>
               )
-              : refs?.map((ref) => (
+              : refs?.map((ref, index) => (
                 <TableRow key={ref.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-0.5">
+                      <Button
+                        isIconOnly size="sm" variant="light" radius="full"
+                        isDisabled={index === 0 || isReordering}
+                        onPress={() => move(index, -1)}
+                        aria-label={t('admin.maturityRefs.moveUp')}
+                      >
+                        <ArrowUp size={13} />
+                      </Button>
+                      <Button
+                        isIconOnly size="sm" variant="light" radius="full"
+                        isDisabled={index === (refs?.length ?? 0) - 1 || isReordering}
+                        onPress={() => move(index, 1)}
+                        aria-label={t('admin.maturityRefs.moveDown')}
+                      >
+                        <ArrowDown size={13} />
+                      </Button>
+                    </div>
+                  </TableCell>
                   <TableCell className="font-medium text-sm">{ref.name}</TableCell>
                   <TableCell>
                     <Chip size="sm" variant="bordered" radius="sm">{t(`categories.${ref.category}`)}</Chip>
@@ -375,6 +442,14 @@ export function MaturityReferencesSection() {
                     >
                       {ref.mode === 'RELATIVE' ? '±' : ''}{windowLabel(ref)}
                     </Chip>
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip content={t(curveShapeDescriptionKey(ref.curveShape))} delay={500}>
+                      <span className="flex items-center gap-1.5 text-xs text-foreground-500">
+                        <CurveGlyph shape={ref.curveShape} width={30} />
+                        {t(curveShapeLabelKey(ref.curveShape))}
+                      </span>
+                    </Tooltip>
                   </TableCell>
                   <TableCell className="text-center text-sm text-foreground-400">{ref.bottleCount}</TableCell>
                   <TableCell className="text-right">

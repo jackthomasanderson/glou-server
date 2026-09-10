@@ -17,6 +17,10 @@ import { ItemImageSection } from './ItemImageSection';
 import { MaturitySuggestionField } from './MaturitySuggestionField';
 import { CollectionSelector } from './CollectionSelector';
 import { useExpertMode } from '@/hooks/useExpertMode';
+import { CurveGlyph } from '@/components/ui/CurveGlyph';
+import {
+  CURVE_SHAPES, DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey,
+} from '@/lib/maturity-references/curve';
 
 interface InventoryFormProps {
   open: boolean;
@@ -135,9 +139,10 @@ export function InventoryForm({
     e.preventDefault();
     if (!canSave) return;
     // alertStatus is recomputed server-side from peakMaturity — never send it as-is.
+    // readiness (FEAT-86) is a server-computed, read-only projection — drop it too.
     // cellarId 'none' is a UI sentinel → null.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { alertStatus: _drop, ...rest } = values;
+    const { alertStatus: _drop, readiness: _drop2, ...rest } = values;
     const patch = {
       ...rest,
       cellarId: rest.cellarId === ('none' as string) || rest.cellarId === '' ? null : rest.cellarId,
@@ -498,6 +503,31 @@ export function InventoryForm({
                             onValueChange={(v) => setField('peakMaturityTo', v ? Number(v) : null)}
                             min={1800} max={2200}
                           />
+                          {/* FEAT-86: consumption-curve shape override */}
+                          <Select
+                            className="col-span-2 sm:col-span-4"
+                            label={t('inventory.fields.curveShape')}
+                            description={t('inventory.fields.curveShapeHint')}
+                            variant="bordered"
+                            size="sm"
+                            selectedKeys={[values.curveShape ?? DEFAULT_CURVE_SHAPE]}
+                            onSelectionChange={(keys) => setField('curveShape', Array.from(keys)[0] ?? null)}
+                            startContent={
+                              <CurveGlyph shape={values.curveShape ?? DEFAULT_CURVE_SHAPE} width={34} className="text-primary shrink-0" />
+                            }
+                          >
+                            {CURVE_SHAPES.map((shape) => (
+                              <SelectItem key={shape} textValue={t(curveShapeLabelKey(shape))}>
+                                <div className="flex items-center gap-2">
+                                  <CurveGlyph shape={shape} width={34} className="text-default-500 shrink-0" />
+                                  <div className="flex flex-col">
+                                    <span className="text-sm">{t(curveShapeLabelKey(shape))}</span>
+                                    <span className="text-xs text-default-400">{t(curveShapeDescriptionKey(shape))}</span>
+                                  </div>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </Select>
                         </>
                       )}
                     </div>
@@ -510,11 +540,12 @@ export function InventoryForm({
                       color={values.color}
                       producer={values.producer}
                       vintage={values.vintage}
-                      onApply={(from, to) =>
+                      onApply={(from, to, curveShape) =>
                         setValues((prev) => ({
                           ...prev,
                           peakMaturityFrom: from ?? prev.peakMaturityFrom,
                           peakMaturityTo: to ?? prev.peakMaturityTo,
+                          curveShape: curveShape ?? prev.curveShape,
                         }))
                       }
                     />

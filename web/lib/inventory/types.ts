@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { CURVE_SHAPES, type CurveShape } from '../maturity-references/curve';
+
+export type { CurveShape };
 
 // ─── Types miroirs du backend ────────────────────────────────────────────────
 
@@ -42,6 +45,8 @@ export interface InventoryItem {
   bottleSize?: string | null;
   peakMaturityFrom?: number | null;
   peakMaturityTo?: number | null;
+  // FEAT-86: consumption-curve shape for the drinking window (null = LINEAR).
+  curveShape?: CurveShape | null;
   needsAeration?: boolean | null;
   serviceTemp?: string | null;
   lotNumber?: string | null;
@@ -91,6 +96,9 @@ export interface InventoryItem {
   openedAt?: string | null;
   reminderDate?: string | null;
   alertStatus?: AlertStatus | null;
+  // FEAT-86: readiness percentage (0-100) for the current year, pre-computed
+  // server-side from `curveShape` + the window. null when there is no window.
+  readiness?: number | null;
   alertsPaused?: boolean;
   lockedFields: string[];
   // Per-field source tag (FEAT-05) — absent field = implicit 'manual'
@@ -142,6 +150,7 @@ export const inventoryFormSchema = z.object({
   openedAt: z.string().optional().nullable(),
   reminderDate: z.string().optional().nullable(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
+  curveShape: z.enum(CURVE_SHAPES).optional().nullable(),
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
   quantity: z.number().int().min(1).optional(),
   alcoholDegree: z.number().min(0).max(100).optional(),

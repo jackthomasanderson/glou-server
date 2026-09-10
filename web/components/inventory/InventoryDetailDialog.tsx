@@ -8,8 +8,10 @@ import { Button, Chip, Divider, Modal, ModalBody, ModalContent, ModalFooter, Mod
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
   Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode, Euro,
-  FileSpreadsheet, ScanLine, Wand2, History as HistoryIcon,
+  FileSpreadsheet, ScanLine, Wand2, History as HistoryIcon, TrendingUp,
 } from 'lucide-react';
+import { CurveGlyph } from '@/components/ui/CurveGlyph';
+import { DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
 import { InventoryItem, InventoryCategory, InventoryFieldChange, InventoryHistoryEntry, FieldSource } from '@/lib/inventory/types';
 import { TastingForm } from '@/components/tastings/TastingForm';
 import { TastingStatsSummary } from '@/components/tastings/TastingStatsSummary';
@@ -176,6 +178,17 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
       : d.peakMaturityTo
       ? `≤ ${d.peakMaturityTo}`
       : null;
+
+  // FEAT-86: which consumption curve is in force, and where it came from.
+  // `lockedFields` (FEAT-05) is the honest signal of a hand edit; a set-but-
+  // unlocked shape came from a cave reference at entry time; nothing = the
+  // linear default.
+  const curveShape = d.curveShape ?? DEFAULT_CURVE_SHAPE;
+  const curveSource = (d.lockedFields ?? []).includes('curveShape')
+    ? t('maturity.curveSource.manual')
+    : d.curveShape
+    ? t('maturity.curveSource.reference')
+    : t('maturity.curveSource.default');
 
   const sectionLabel = isCigar
     ? t('inventory.detail.cigarLevel')
@@ -364,6 +377,26 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                       label={isCigar ? t('inventory.detail.agingEstimate') : t('inventory.fields.peakMaturity')}
                       value={drinkingWindow}
                       valueColor="#B45309"
+                    />
+                  )}
+                  {isWineOrSparkling && drinkingWindow && (
+                    <InfoCard
+                      icon={<TrendingUp />}
+                      label={t('inventory.fields.curveShape')}
+                      value={
+                        <span className="flex flex-col gap-1">
+                          <span className="flex items-center gap-1.5">
+                            <CurveGlyph shape={curveShape} width={32} className="text-primary shrink-0" />
+                            {t(curveShapeLabelKey(curveShape))}
+                            {d.readiness != null && (
+                              <span className="text-primary">· {d.readiness}%</span>
+                            )}
+                          </span>
+                          <span className="text-[0.65rem] font-normal text-default-400">
+                            {t(curveShapeDescriptionKey(curveShape))} — {curveSource}
+                          </span>
+                        </span>
+                      }
                     />
                   )}
                   {d.serviceTemp && (
