@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
 import {
   getActiveSession,
@@ -102,7 +103,7 @@ router.post('/sessions', async (req: Request, res: Response): Promise<void> => {
 // ─── PATCH /api/inventory-count/sessions/:id/pause ───────────────────────────
 
 router.patch('/sessions/:id/pause', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const result = await pauseSession(id);
@@ -137,7 +138,7 @@ router.patch('/sessions/:id/pause', async (req: Request, res: Response): Promise
 // ─── PATCH /api/inventory-count/sessions/:id/resume ──────────────────────────
 
 router.patch('/sessions/:id/resume', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const result = await resumeSession(id);
@@ -172,7 +173,7 @@ router.patch('/sessions/:id/resume', async (req: Request, res: Response): Promis
 // ─── POST /api/inventory-count/sessions/:id/scan ─────────────────────────────
 
 router.post('/sessions/:id/scan', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const { itemId } = scanSchema.parse(req.body ?? {});
@@ -222,7 +223,7 @@ router.post('/sessions/:id/scan', async (req: Request, res: Response): Promise<v
 // InventoryItem only later, at closure (see /complete below).
 
 router.post('/sessions/:id/found', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const input = recordFoundItemSchema.parse(req.body ?? {});
@@ -264,7 +265,7 @@ router.post('/sessions/:id/found', async (req: Request, res: Response): Promise<
 // ─── GET /api/inventory-count/sessions/:id/report ────────────────────────────
 
 router.get('/sessions/:id/report', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const report = await getSessionReport(id);
@@ -295,7 +296,7 @@ router.get('/sessions/:id/report', async (req: Request, res: Response): Promise<
 // ─── POST /api/inventory-count/sessions/:id/complete ─────────────────────────
 
 router.post('/sessions/:id/complete', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const { corrections } = completeSessionSchema.parse(req.body ?? {});

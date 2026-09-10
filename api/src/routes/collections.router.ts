@@ -6,6 +6,7 @@ import {
   collectionItemsSchema,
 } from '../schemas/collections.schema';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
 
 const router = Router();
@@ -38,7 +39,7 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.patch('/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const validation = collectionPatchSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
@@ -55,7 +56,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
 router.delete('/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   try {
     const deleted = await collectionsService.delete(id, userId);
     if (!deleted) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
@@ -68,7 +69,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
 router.post('/:id/items', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const validation = collectionItemsSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
@@ -84,7 +85,8 @@ router.post('/:id/items', async (req: Request, res: Response) => {
 
 router.delete('/:id/items/:itemId', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { id, itemId } = req.params;
+  const id = routeParam(req.params.id);
+  const itemId = routeParam(req.params.itemId);
   try {
     const collection = await collectionsService.removeItem(id, userId, itemId);
     if (!collection) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
