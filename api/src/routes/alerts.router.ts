@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { getAlerts, toggleAlertPause } from '../services/alert.service';
 import { auditLog } from '../services/audit.service';
 
@@ -24,7 +25,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 // ─── PATCH /api/alerts/:id/pause ─────────────────────────────────────────────
 
 router.patch('/:id/pause', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const success = await toggleAlertPause(id);
