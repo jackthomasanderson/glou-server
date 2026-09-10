@@ -16,11 +16,9 @@
     "db:studio": "prisma studio",
     "db:seed": "npx ts-node --transpile-only prisma/seed.ts"
   },
-  "prisma": {
-    "seed": "npx ts-node --transpile-only prisma/seed.ts"
-  },
   "dependencies": {
-    "@prisma/client": "^5.14.0",
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -33,6 +31,7 @@
     "multer": "^2.1.1",
     "node-cron": "^3.0.3",
     "nodemailer": "^9.1.1",
+    "pg": "^8.16.3",
     "qrcode": "^1.5.4",
     "speakeasy": "^2.0.0",
     "ua-parser-js": "^1.0.39",
@@ -51,12 +50,13 @@
     "@types/node": "^20.14.9",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^8.0.1",
+    "@types/pg": "^8.16.0",
     "@types/qrcode": "^1.5.6",
     "@types/speakeasy": "^2.0.10",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
     "eslint": "^9.39.5",
-    "prisma": "^5.14.0",
+    "prisma": "^7.10.0",
     "supertest": "^7.0.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.5.3",
