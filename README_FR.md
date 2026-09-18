@@ -56,6 +56,9 @@ docker compose up -d
 ```
 Docker télécharge les images pré-construites et démarre la stack. Aucune compilation requise.
 
+> [!NOTE]
+> Le scan d'étiquette par IA est optionnel et désactivé par défaut (~9 Go de disque, ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d`.
+
 **Étape 3 — Créer votre compte**
 
 Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **S'inscrire**. Le premier compte créé reçoit automatiquement les droits administrateur.
