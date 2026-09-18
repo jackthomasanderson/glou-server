@@ -1069,12 +1069,8 @@
       "spirit": "Spiritueux Fins",
       "cigar": "Cigares de Prestige",
       "unit": {
-        "wine_one": "bouteille",
-        "wine_other": "bouteilles",
-        "sparkling_one": "bouteille",
-        "sparkling_other": "bouteilles",
-        "spirit_one": "bouteille",
-        "spirit_other": "bouteilles",
+        "bottle_one": "bouteille",
+        "bottle_other": "bouteilles",
         "cigar_one": "cigare",
         "cigar_other": "cigares"
       }

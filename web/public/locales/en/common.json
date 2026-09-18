@@ -1069,12 +1069,8 @@
       "spirit": "Fine Spirits",
       "cigar": "Prestige Cigars",
       "unit": {
-        "wine_one": "bottle",
-        "wine_other": "bottles",
-        "sparkling_one": "bottle",
-        "sparkling_other": "bottles",
-        "spirit_one": "bottle",
-        "spirit_other": "bottles",
+        "bottle_one": "bottle",
+        "bottle_other": "bottles",
         "cigar_one": "cigar",
         "cigar_other": "cigars"
       }
