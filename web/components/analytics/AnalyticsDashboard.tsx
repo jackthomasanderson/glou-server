@@ -273,7 +273,7 @@ function CategoryBreakdown({
 }: {
   items: CategoryStat[];
   total: number;
-  t: (k: string) => string;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }) {
   const segments = items.map((item) => ({
     value: item.count,
@@ -300,7 +300,9 @@ function CategoryBreakdown({
           <div className="flex-1 min-w-0 overflow-hidden">
             {items.map((item) => {
               const cfg = CATEGORY_CONFIG[item.category];
-              const unit = t(`analytics.categories.unit.${item.category}`);
+              const unit = item.category === 'cigar'
+                ? t('analytics.categories.unit.cigar', { count: item.count })
+                : t('analytics.categories.unit.bottle', { count: item.count });
               return (
                 <div key={item.category} className="flex items-center gap-1.5 mb-2">
                   <div

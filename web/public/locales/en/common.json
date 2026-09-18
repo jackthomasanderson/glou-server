@@ -1069,10 +1069,10 @@
       "spirit": "Fine Spirits",
       "cigar": "Prestige Cigars",
       "unit": {
-        "wine": "bottles",
-        "sparkling": "bottles",
-        "spirit": "bottles",
-        "cigar": "vitolas"
+        "bottle_one": "bottle",
+        "bottle_other": "bottles",
+        "cigar_one": "cigar",
+        "cigar_other": "cigars"
       }
     },
     "garde": {
@@ -1092,7 +1092,8 @@
       "preserve": "To preserve in cellar / humidor",
       "atPeak": "At peak (Drink with priority)",
       "pastPeak": "Past peak (Drink urgently)",
-      "countLabel": "{{count}} bottles ({{percent}}%)",
+      "countLabel_one": "{{count}} item ({{percent}}%)",
+      "countLabel_other": "{{count}} items ({{percent}}%)",
       "humidorTip": "Humidor Tip",
       "humidorTipText": "Cuban cigars benefit from stable humidity at 70%. Avoid thermal shocks to preserve the wrapper's suppleness."
     },
