@@ -111,7 +111,7 @@
   },
   "inventory": {
     "detail": {
-      "titleWine": "Détails du flacon",
+      "titleWine": "Détails de la bouteille",
       "titleCigar": "Détails de l'actif",
       "wineLevel": "Ajustement tactile du niveau",
       "cigarLevel": "Capacité de la boite / Humidité",
@@ -126,7 +126,7 @@
       "location": "Emplacement",
       "sommelierNotes": "Notes du sommelier",
       "tastingNotes": "Notes de dégustation & arômes",
-      "vitole": "Fiche technique du vitole",
+      "vitole": "Fiche technique de la vitole",
       "agingEstimate": "Apogée estimée",
       "levelAdjusted": "Niveau ajusté à"
     },
@@ -1015,7 +1015,7 @@
       "cigarHumidor": "Cigares en humidor",
       "cigarHumidorHint": "Préservés sous hygrométrie contrôlée",
       "urgentDegustation": "Urgence de dégustation",
-      "urgentDegustationHint": "Flacons à l'apogée ou l'ayant dépassée"
+      "urgentDegustationHint": "Bouteilles à l'apogée ou l'ayant dépassée"
     },
     "regionMap": {
       "title": "Répartition géographique",
@@ -1069,10 +1069,14 @@
       "spirit": "Spiritueux Fins",
       "cigar": "Cigares de Prestige",
       "unit": {
-        "wine": "flacons",
-        "sparkling": "flacons",
-        "spirit": "flacons",
-        "cigar": "vitoles"
+        "wine_one": "bouteille",
+        "wine_other": "bouteilles",
+        "sparkling_one": "bouteille",
+        "sparkling_other": "bouteilles",
+        "spirit_one": "bouteille",
+        "spirit_other": "bouteilles",
+        "cigar_one": "cigare",
+        "cigar_other": "cigares"
       }
     },
     "garde": {
@@ -1087,12 +1091,13 @@
     "maturity": {
       "title": "Planning optimal de consommation (Apogée)",
       "season": "Saison {{year}}",
-      "description": "Cette projection indique la période idéale pour consommer vos flacons ou apprécier vos cigares afin de préserver l'intégrité de leurs arômes.",
+      "description": "Cette projection indique la période idéale pour consommer vos bouteilles ou apprécier vos cigares afin de préserver l'intégrité de leurs arômes.",
       "readyNow": "Prêts à déguster immédiatement",
       "preserve": "À préserver en cave / humidor",
       "atPeak": "À l'apogée (À consommer en priorité)",
       "pastPeak": "Apogée dépassé (À consommer d'urgence)",
-      "countLabel": "{{count}} flacons ({{percent}}%)",
+      "countLabel_one": "{{count}} actif ({{percent}}%)",
+      "countLabel_other": "{{count}} actifs ({{percent}}%)",
       "humidorTip": "Conseil de l'Humidor",
       "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70%. Évitez les chocs thermiques pour préserver la souplesse de la cape."
     },

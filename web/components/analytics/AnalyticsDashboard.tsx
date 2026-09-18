@@ -300,7 +300,7 @@ function CategoryBreakdown({
           <div className="flex-1 min-w-0 overflow-hidden">
             {items.map((item) => {
               const cfg = CATEGORY_CONFIG[item.category];
-              const unit = t(`analytics.categories.unit.${item.category}`);
+              const unit = t(`analytics.categories.unit.${item.category}`, { count: item.count });
               return (
                 <div key={item.category} className="flex items-center gap-1.5 mb-2">
                   <div
