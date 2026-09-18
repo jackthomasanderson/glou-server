@@ -56,6 +56,9 @@ docker compose up -d
 ```
 Docker pulls the pre-built images and starts the stack. No compilation required.
 
+> [!NOTE]
+> The AI label scan is optional and off by default (~9 GB of disk, ~3 GB of RAM). Enable it with `docker compose --profile scan up -d`.
+
 **Step 3 — Create your account**
 
 Open [http://localhost:3000](http://localhost:3000) and click **Register**. The first account you create is automatically granted admin privileges.
