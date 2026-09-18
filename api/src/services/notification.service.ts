@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma';
 import { emailService } from './email.service';
 import { systemConfigService } from './system-config.service';
 import { htmlToPlainText } from '../lib/html';
+import { normalizeGotifyUrl } from '../lib/gotify-url';
 
 export type NotificationCategory =
   | 'peak'
@@ -61,7 +62,7 @@ export const notificationService = {
     // Webhook (Gotify) channel
     if (user.notifWebhook && user.webhookUrl) {
       try {
-        await fetch(user.webhookUrl, {
+        await fetch(normalizeGotifyUrl(user.webhookUrl), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: payload.subject, message: htmlToPlainText(payload.htmlBody) }),
@@ -84,7 +85,7 @@ export const notificationService = {
     if (channel === 'webhook') {
       if (!user.webhookUrl) return { success: false, error: 'NO_WEBHOOK_URL' };
       try {
-        const res = await fetch(user.webhookUrl, {
+        const res = await fetch(normalizeGotifyUrl(user.webhookUrl), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: 'Glou — Test', message: 'Notification de test Glou.' }),
