@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { ZodError } from 'zod';
 import { guestMiddleware } from '../middleware/guest.middleware';
+import { routeParam } from '../lib/http';
 import { sharesService } from '../services/shares.service';
 import { guestInventoryUpdateSchema } from '../schemas/inventory.schema';
 import { inventoryService } from '../services/inventory.service';
@@ -72,7 +73,7 @@ router.get('/inventory', async (req: Request, res: Response): Promise<void> => {
 
 router.get('/inventory/:itemId', async (req: Request, res: Response): Promise<void> => {
   const share = req.guestShare!;
-  const { itemId } = req.params;
+  const itemId = routeParam(req.params.itemId);
   try {
     const item = await sharesService.getItemForShare(share, itemId);
     if (!item) {
@@ -93,7 +94,7 @@ router.get('/inventory/:itemId', async (req: Request, res: Response): Promise<vo
 
 router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<void> => {
   const share = req.guestShare!;
-  const { itemId } = req.params;
+  const itemId = routeParam(req.params.itemId);
   const ip = getClientIp(req);
 
   try {

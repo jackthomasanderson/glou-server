@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { sharesService } from '../services/shares.service';
 import { shareCreateSchema } from '../schemas/shares.schema';
 
@@ -44,7 +45,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   const userId = req.userId!;
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   try {
     const share = await sharesService.revoke(id, userId);
     if (!share) {

@@ -43,6 +43,9 @@ Thumbs.db
 # Vibe (AI feature specs — internal, not for public repo)
 .vibe/
 
+# Agent (AI rules & workflows — internal, not for public repo)
+.agent/
+
 # Temporary files
 *.tmp
 *.bak

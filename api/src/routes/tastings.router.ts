@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { tastingsService } from '../services/tastings.service';
 import { tastingCreateSchema, tastingPatchSchema } from '../schemas/tastings.schema';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 
 const router = Router();
 router.use(authMiddleware);
@@ -37,7 +38,7 @@ router.post('/', async (req: Request, res: Response) => {
 
 router.patch('/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const validation = tastingPatchSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
@@ -53,7 +54,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
 router.delete('/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   try {
     const deleted = await tastingsService.delete(id, userId);
     if (!deleted) return res.status(404).json({ error: 'TASTING_NOT_FOUND' });
@@ -65,7 +66,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
 
 router.get('/stats/:itemId', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { itemId } = req.params;
+  const itemId = routeParam(req.params.itemId);
   try {
     const stats = await tastingsService.itemStats(userId, itemId);
     res.json({ data: stats });

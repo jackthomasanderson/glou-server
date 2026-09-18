@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { sharesService } from '../services/shares.service';
 import { GuestShare } from '@prisma/client';
+import { routeParam } from '../lib/http';
 
 /** Extend Express Request to carry the resolved GuestShare context */
 declare global {
@@ -21,7 +22,7 @@ export async function guestMiddleware(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const { token } = req.params;
+  const token = routeParam(req.params.token);
 
   if (!token) {
     res.status(400).json({ error: 'MISSING_TOKEN' });

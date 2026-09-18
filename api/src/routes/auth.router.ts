@@ -6,6 +6,7 @@ import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2
 import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.schema';
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
 import { AuthPayload } from '../services/auth.service';
 import { passwordResetService } from '../services/password-reset.service';
@@ -255,8 +256,8 @@ router.get('/sessions', authMiddleware, async (req: Request, res: Response): Pro
 router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
-    await authService.revokeSession(req.userId, req.params.id);
-    void auditLog({ userId: req.userId, action: 'SESSION_REVOKE', status: 'success', ip, details: { sessionId: req.params.id } });
+    await authService.revokeSession(req.userId, routeParam(req.params.id));
+    void auditLog({ userId: req.userId, action: 'SESSION_REVOKE', status: 'success', ip, details: { sessionId: routeParam(req.params.id) } });
     res.json({ data: { ok: true } });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';

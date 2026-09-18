@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { CellarService } from '../services/cellar.service';
 import { createCellarSchema, updateCellarSchema } from '../schemas/cellar.schema';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
 
 const router = Router();
@@ -29,7 +30,7 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.get('/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   try {
     const cellar = await CellarService.getCellar(userId, id);
     if (!cellar) {
@@ -88,7 +89,7 @@ router.post('/', async (req: Request, res: Response) => {
  */
 router.patch('/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const validation = updateCellarSchema.safeParse(req.body);
 
   if (!validation.success) {
@@ -119,7 +120,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
  */
 router.get('/:id/grid', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   try {
     const data = await CellarService.getGridData(userId, id);
     if (!data) {
@@ -137,7 +138,7 @@ router.get('/:id/grid', async (req: Request, res: Response) => {
  */
 router.delete('/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
 
   try {
     const cellar = await CellarService.deleteCellar(userId, id);

@@ -1,7 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
-import { computeAlertStatus } from './alert.service';
+import { computeAlertStatus, computeReadiness } from './alert.service';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface FieldChange {
@@ -69,16 +69,40 @@ const INVENTORY_ITEM_INCLUDE = {
 
 type InventoryItemWithCollections = Prisma.InventoryItemGetPayload<{ include: typeof INVENTORY_ITEM_INCLUDE }>;
 
+// FEAT-86: list/detail payloads carry a computed `readiness` percentage
+// (null when the curve model has no window to work with). Computed on read
+// rather than stored — it is time-dependent (it shifts every new year), so
+// denormalising it would immediately go stale.
+type WithReadiness<T> = T & { readiness: number | null };
+
+function attachReadiness<
+  T extends {
+    curveShape: unknown;
+    peakMaturityFrom: number | null;
+    peakMaturityTo: number | null;
+  },
+>(item: T): WithReadiness<T> {
+  return {
+    ...item,
+    readiness: computeReadiness(
+      item.curveShape as Parameters<typeof computeReadiness>[0],
+      item.peakMaturityFrom,
+      item.peakMaturityTo,
+    ),
+  };
+}
+
 /** Corbeille : 7 jours avant purge définitive */
 const TRASH_RETENTION_DAYS = 7;
 
 export class InventoryService {
-  async listInventory(_userId: string): Promise<InventoryItemWithCollections[]> {
-    return prisma.inventoryItem.findMany({
+  async listInventory(_userId: string): Promise<WithReadiness<InventoryItemWithCollections>[]> {
+    const items = await prisma.inventoryItem.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
       include: INVENTORY_ITEM_INCLUDE,
     });
+    return items.map(attachReadiness);
   }
 
   async listTrash(_userId: string): Promise<InventoryItem[]> {
@@ -119,8 +143,9 @@ export class InventoryService {
 
     // `item` (a concrete typed object) is a structural subtype of
     // `Record<string, unknown>` — every property value is assignable to
-    // `unknown`, so this assigns directly, no cast required.
-    return { item, creator, lastEditor };
+    // `unknown`, so this assigns directly, no cast required. FEAT-86:
+    // `readiness` is folded in here so the single-item route exposes it too.
+    return { item: attachReadiness(item), creator, lastEditor };
   }
 
   async getItemHistory(id: string): Promise<InventoryHistoryEntry[]> {

@@ -2,9 +2,10 @@ import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { routeParam } from '../lib/http';
 import { authMiddleware, adminMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
-import { maturityReferenceSchema, maturityReferencePatchSchema } from '../schemas/maturity-reference.schema';
+import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenceReorderSchema } from '../schemas/maturity-reference.schema';
 import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/retention.schema';
 import { networkConfigSchema } from '../schemas/network-config.schema';
 import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema } from '../schemas/backup.schema';
@@ -50,7 +51,7 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
  * @access  Admin Private
  */
 adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Promise<void> => {
-    const { userId } = req.params;
+    const userId = routeParam(req.params.userId);
     const { isAdmin } = req.body;
 
     if (typeof isAdmin !== 'boolean') {
@@ -93,7 +94,7 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
  * @access  Admin Private
  */
 adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): Promise<void> => {
-    const { userId } = req.params;
+    const userId = routeParam(req.params.userId);
     const { isActive } = req.body;
 
     if (typeof isActive !== 'boolean') {
@@ -269,8 +270,24 @@ adminRouter.post('/maturity-references', async (req: Request, res: Response): Pr
   }
 });
 
+// FEAT-86: rewrite the cascade priority order. Registered BEFORE the
+// `/:id` PATCH so Express doesn't match `:id = "reorder"`.
+adminRouter.patch('/maturity-references/reorder', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { ids } = maturityReferenceReorderSchema.parse(req.body);
+    await maturityReferenceService.reorder(ids);
+    res.json({ data: { reordered: true } });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      return;
+    }
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
 adminRouter.patch('/maturity-references/:id', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   try {
     const patch = maturityReferencePatchSchema.parse(req.body);
     const ref = await maturityReferenceService.update(id, patch);
@@ -286,7 +303,7 @@ adminRouter.patch('/maturity-references/:id', async (req: Request, res: Response
 });
 
 adminRouter.delete('/maturity-references/:id', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   try {
     const ok = await maturityReferenceService.delete(id);
     if (!ok) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
@@ -517,7 +534,7 @@ adminRouter.post('/backups/run', async (req: Request, res: Response): Promise<vo
  * @access  Admin Private
  */
 adminRouter.post('/backups/:id/restore', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   try {
     backupRestoreSchema.parse(req.body);
     const run = await prisma.backupRun.findUnique({ where: { id } });
@@ -544,7 +561,7 @@ adminRouter.post('/backups/:id/restore', async (req: Request, res: Response): Pr
  * @access  Admin Private
  */
 adminRouter.get('/backups/:id/download', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   try {
     const { path: filePath, filename } = await backupService.getDownloadTarget(id);
     res.download(filePath, filename, (err) => {

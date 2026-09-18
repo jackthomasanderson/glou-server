@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { recordHumidorReadingSchema } from '../schemas/humidor.schema';
 import { humidorService } from '../services/humidor.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
 
 const router = Router();
@@ -52,7 +53,7 @@ router.post('/readings', async (req: Request, res: Response) => {
  * cellar's humidor readings.
  */
 router.get('/cellars/:cellarId/readings', async (req: Request, res: Response) => {
-  const { cellarId } = req.params;
+  const cellarId = routeParam(req.params.cellarId);
   const rawLimit = Number(req.query.limit);
   const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 30;
 

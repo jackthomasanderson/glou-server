@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
 import {
   listWishlist,
@@ -58,7 +59,7 @@ router.get('/items', async (req: Request, res: Response) => {
 router.get('/items/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
   try {
-    const item = await getWishlistItem(userId, req.params.id);
+    const item = await getWishlistItem(userId, routeParam(req.params.id));
     if (!item) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND' });
     res.json({ data: item });
   } catch {
@@ -86,7 +87,7 @@ router.patch('/items/:id', async (req: Request, res: Response) => {
   const ip = getClientIp(req);
   try {
     const input = wishlistPatchSchema.parse(req.body);
-    const item = await updateWishlistItem(userId, req.params.id, input);
+    const item = await updateWishlistItem(userId, routeParam(req.params.id), input);
     if (!item) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND' });
     void auditLog({ userId, ip, action: 'UPDATE', status: 'success', details: { scope: 'wishlist-item', id: item.id } });
     res.json({ data: item });
@@ -101,9 +102,9 @@ router.delete('/items/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
   try {
-    const deleted = await deleteWishlistItem(userId, req.params.id);
+    const deleted = await deleteWishlistItem(userId, routeParam(req.params.id));
     if (!deleted) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND' });
-    void auditLog({ userId, ip, action: 'DELETE', status: 'success', details: { scope: 'wishlist-item', id: req.params.id } });
+    void auditLog({ userId, ip, action: 'DELETE', status: 'success', details: { scope: 'wishlist-item', id: routeParam(req.params.id) } });
     res.status(204).send();
   } catch {
     res.status(500).json({ error: 'FAILED_TO_DELETE_WISHLIST_ITEM' });
@@ -117,7 +118,7 @@ router.patch('/items/:id/price-seen', async (req: Request, res: Response) => {
   const ip = getClientIp(req);
   try {
     const { price } = priceSeenSchema.parse(req.body);
-    const item = await recordPriceSeen(userId, req.params.id, price);
+    const item = await recordPriceSeen(userId, routeParam(req.params.id), price);
     if (!item) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND' });
     void auditLog({ userId, ip, action: 'UPDATE', status: 'success', details: { scope: 'wishlist-price-seen', id: item.id, price } });
     res.json({ data: item });
@@ -135,7 +136,7 @@ router.post('/items/:id/convert', async (req: Request, res: Response) => {
   const ip = getClientIp(req);
   try {
     const input = convertToInventorySchema.parse(req.body ?? {});
-    const result = await convertToInventory(userId, req.params.id, input);
+    const result = await convertToInventory(userId, routeParam(req.params.id), input);
     if (!result) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND_OR_NOT_ACTIVE' });
     void auditLog({
       userId, ip, action: 'CREATE', status: 'success',
@@ -165,7 +166,7 @@ router.get('/budget-envelopes', async (req: Request, res: Response) => {
 router.get('/budget-envelopes/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
   try {
-    const envelope = await getBudgetEnvelope(userId, req.params.id);
+    const envelope = await getBudgetEnvelope(userId, routeParam(req.params.id));
     if (!envelope) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
     res.json({ data: envelope });
   } catch {
@@ -193,7 +194,7 @@ router.patch('/budget-envelopes/:id', async (req: Request, res: Response) => {
   const ip = getClientIp(req);
   try {
     const input = budgetEnvelopePatchSchema.parse(req.body);
-    const envelope = await updateBudgetEnvelope(userId, req.params.id, input);
+    const envelope = await updateBudgetEnvelope(userId, routeParam(req.params.id), input);
     if (!envelope) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
     void auditLog({ userId, ip, action: 'UPDATE', status: 'success', details: { scope: 'budget-envelope', id: envelope.id } });
     res.json({ data: envelope });
@@ -208,9 +209,9 @@ router.delete('/budget-envelopes/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
   try {
-    const deleted = await deleteBudgetEnvelope(userId, req.params.id);
+    const deleted = await deleteBudgetEnvelope(userId, routeParam(req.params.id));
     if (!deleted) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
-    void auditLog({ userId, ip, action: 'DELETE', status: 'success', details: { scope: 'budget-envelope', id: req.params.id } });
+    void auditLog({ userId, ip, action: 'DELETE', status: 'success', details: { scope: 'budget-envelope', id: routeParam(req.params.id) } });
     res.status(204).send();
   } catch {
     res.status(500).json({ error: 'FAILED_TO_DELETE_BUDGET_ENVELOPE' });
@@ -220,7 +221,7 @@ router.delete('/budget-envelopes/:id', async (req: Request, res: Response) => {
 router.get('/budget-envelopes/:id/progress', async (req: Request, res: Response) => {
   const userId = req.userId!;
   try {
-    const progress = await getBudgetProgress(userId, req.params.id);
+    const progress = await getBudgetProgress(userId, routeParam(req.params.id));
     if (!progress) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
     res.json({ data: progress });
   } catch {

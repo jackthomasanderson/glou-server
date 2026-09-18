@@ -1,7 +1,12 @@
+import 'dotenv/config';
 import { PrismaClient, CellarType, BottleCategory } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+// Prisma 7 requires an explicit driver adapter (connection string no longer
+// lives in schema.prisma).
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' });
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log('🌱 Seeding database...');

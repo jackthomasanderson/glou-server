@@ -29,6 +29,11 @@ export const maturityReferenceClient = {
     await client.delete<{ deleted: boolean }>(`/admin/maturity-references/${id}`);
   },
 
+  // FEAT-86: `ids` top-to-bottom in their new cascade order (first = highest priority).
+  async reorder(ids: string[]): Promise<void> {
+    await client.patch<{ reordered: boolean }>('/admin/maturity-references/reorder', { ids });
+  },
+
   async suggest(params: SuggestParams): Promise<MaturitySuggestion | null> {
     const qs = new URLSearchParams();
     qs.set('category', params.category);

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { bulkPresetService } from '../services/bulk-preset.service';
 import { bulkPresetCreateSchema } from '../schemas/bulk-preset.schema';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { ZodError } from 'zod';
 
 const router = Router();
@@ -37,7 +38,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 // DELETE /api/bulk-presets/:id
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
-    await bulkPresetService.deletePreset(req.userId, req.params.id);
+    await bulkPresetService.deletePreset(req.userId, routeParam(req.params.id));
     res.status(204).end();
   } catch (error) {
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });

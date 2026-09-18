@@ -158,3 +158,34 @@ export function useDeleteMaturityReference() {
         },
     });
 }
+
+// FEAT-86: rewrite the whole cascade priority order in one call. Optimistic —
+// the table reorders instantly, rolling back to the server list on failure.
+export function useReorderMaturityReferences() {
+    const queryClient = useQueryClient();
+    const key = ['admin_maturity_references'];
+    return useMutation({
+        mutationFn: (ids: string[]) => maturityReferenceClient.reorder(ids),
+        onMutate: async (ids: string[]) => {
+            await queryClient.cancelQueries({ queryKey: key });
+            const previous = queryClient.getQueryData<MaturityReference[]>(key);
+            if (previous) {
+                const byId = new Map(previous.map((r) => [r.id, r]));
+                const reordered = ids
+                    .map((id, index) => {
+                        const ref = byId.get(id);
+                        return ref ? { ...ref, priority: ids.length - index } : null;
+                    })
+                    .filter((r): r is MaturityReference => r !== null);
+                queryClient.setQueryData<MaturityReference[]>(key, reordered);
+            }
+            return { previous };
+        },
+        onError: (_err, _ids, context) => {
+            if (context?.previous) queryClient.setQueryData(key, context.previous);
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: key });
+        },
+    });
+}

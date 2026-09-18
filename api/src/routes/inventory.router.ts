@@ -8,6 +8,7 @@ import { scanService } from '../services/scan.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { systemConfigService } from '../services/system-config.service';
+import { routeParam } from '../lib/http';
 
 const router = Router();
 
@@ -45,7 +46,7 @@ router.get('/trash', async (req: Request, res: Response): Promise<void> => {
 // ─── GET /api/inventory/:id/qr ──────────────────────────────────────────────
 
 router.get('/:id/qr', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   try {
     // Verify the item belongs to this user before issuing a QR
     const result = await inventoryService.getItemWithTraceability(req.userId, id);
@@ -75,7 +76,7 @@ router.get('/:id/qr', async (req: Request, res: Response): Promise<void> => {
 // ─── GET /api/inventory/:id ──────────────────────────────────────────────────
 
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const result = await inventoryService.getItemWithTraceability(req.userId, id);
@@ -95,7 +96,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 // ─── GET /api/inventory/:id/history ─────────────────────────────────────────
 
 router.get('/:id/history', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const item = await inventoryService.getItem(req.userId, id);
@@ -173,7 +174,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 // ─── PATCH /api/inventory/:id ────────────────────────────────────────────────
 
 router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const patch = inventoryPatchSchema.parse(req.body);
@@ -214,7 +215,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
 // ─── DELETE /api/inventory/:id ───────────────────────────────────────────────
 
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const item = await inventoryService.softDelete(req.userId, id);
@@ -235,7 +236,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
 // ─── POST /api/inventory/:id/restore ────────────────────────────────────────
 
 router.post('/:id/restore', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const item = await inventoryService.restore(req.userId, id);
@@ -258,7 +259,7 @@ router.post('/:id/restore', async (req: Request, res: Response): Promise<void> =
 // history UI can distinguish "value restored" from a regular edit.
 
 router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const { field, toValue } = rollbackFieldSchema.parse(req.body);

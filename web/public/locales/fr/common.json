@@ -75,6 +75,40 @@
     "spirit": "Spiritueux",
     "cigar": "Cigare / Boîte"
   },
+  "maturity": {
+    "readiness": "Maturité",
+    "curveSource": {
+      "manual": "réglage manuel",
+      "reference": "référence de cave",
+      "default": "linéaire par défaut"
+    },
+    "curveShapes": {
+      "LINEAR": {
+        "label": "Linéaire",
+        "description": "Montée régulière puis maintien — le choix sûr par défaut."
+      },
+      "BELL": {
+        "label": "Cloche",
+        "description": "Monte vers un pic au centre de la fenêtre, puis décline."
+      },
+      "EARLY_BELL": {
+        "label": "Cloche précoce",
+        "description": "Pic tôt dans la fenêtre — vins de soif, Beaujolais, blancs vifs."
+      },
+      "LATE_BELL": {
+        "label": "Cloche tardive",
+        "description": "Pic en fin de fenêtre — Bordeaux de garde, certains grands crus."
+      },
+      "TWIN_PEAK": {
+        "label": "Double pic",
+        "description": "Un éclat de jeunesse, un creux, puis un second pic — Chenin de Loire."
+      },
+      "PLATEAU": {
+        "label": "Plateau",
+        "description": "Maturité constante sur toute la fenêtre — la forme importe peu."
+      }
+    }
+  },
   "inventory": {
     "detail": {
       "titleWine": "Détails du flacon",
@@ -156,6 +190,8 @@
       "alcoholDegree": "Degré d'alcool (%)",
       "bottleSize": "Taille de bouteille",
       "peakMaturity": "Période idéale de dégustation",
+      "curveShape": "Courbe de consommation",
+      "curveShapeHint": "Comment la maturité évolue dans la fenêtre. Remplace la référence de cave pour cette bouteille uniquement.",
       "needsAeration": "Nécessite aération",
       "serviceTemp": "Température de service",
       "lotNumber": "Numéro de lot",
@@ -634,17 +670,22 @@
     "maturityRefs": {
       "title": "Références d'apogée",
       "subtitle": "Définissez des fenêtres de dégustation de référence par catégorie, région, couleur ou producteur.",
+      "cascadeHint": "Les règles sont évaluées de haut en bas — la première qui correspond à une bouteille l'emporte. Placez vos règles les plus spécifiques au-dessus des règles générales.",
       "add": "Ajouter une référence",
       "addTitle": "Nouvelle référence d'apogée",
       "editTitle": "Modifier la référence",
       "empty": "Aucune référence configurée.",
+      "moveUp": "Monter (priorité supérieure)",
+      "moveDown": "Descendre (priorité inférieure)",
       "deleteConfirmTitle": "Supprimer la référence ?",
       "deleteConfirmBody": "La référence « {{name}} » sera supprimée définitivement.",
       "columns": {
+        "priority": "Ordre",
         "name": "Nom",
         "category": "Catégorie",
         "criteria": "Critères",
         "window": "Fenêtre",
+        "curve": "Courbe",
         "bottles": "Bouteilles",
         "actions": "Actions"
       },
@@ -655,6 +696,7 @@
         "windowToRelative": "Décline après (ans)",
         "windowFromAbsolute": "Première année",
         "windowToAbsolute": "Dernière année",
+        "curveShape": "Courbe de consommation",
         "vintageFrom": "Millésime de",
         "vintageTo": "Millésime à"
       },
@@ -667,6 +709,7 @@
         "criteria": "Correspondance optionnelle",
         "windowRelative": "Ex : 5 → 15 pour une bouteille buvable de 5 à 15 ans après le millésime",
         "windowAbsolute": "Ex : 2010 → 2030 pour une fenêtre calendaire fixe",
+        "curveShape": "Forme de la courbe de maturité appliquée aux bouteilles correspondantes",
         "colorPlaceholder": "Rouge, Blanc, Rosé…"
       },
       "errors": {

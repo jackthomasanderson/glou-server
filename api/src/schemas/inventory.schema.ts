@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CURVE_SHAPES } from '../lib/maturity-curve';
 
 // ─── Common fields (all categories) ─────────────────────────────────────────
 
@@ -19,6 +20,10 @@ export const commonInventorySchema = z.object({
   openedAt: z.coerce.date().optional().nullable(),
   reminderDate: z.coerce.date().optional().nullable(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
+  // FEAT-86: consumption-curve shape for this bottle's drinking window.
+  // null/omitted = inherit the LINEAR default. Wine/sparkling in practice,
+  // but harmless (and simplest) to accept on the common schema.
+  curveShape: z.enum(CURVE_SHAPES).optional().nullable(),
   cellarId: z.string().optional().nullable(),
   lockedFields: z.array(z.string()).default([]),
   // Collector/expert-mode fields (data-model audit, Tasks 2/3), available on
@@ -145,6 +150,7 @@ export const inventoryPatchSchema = z.object({
   bottleSize: z.string().max(50).optional().nullable(),
   peakMaturityFrom: z.number().int().min(1800).max(2200).optional().nullable(),
   peakMaturityTo: z.number().int().min(1800).max(2200).optional().nullable(),
+  curveShape: z.enum(CURVE_SHAPES).optional().nullable(),
   needsAeration: z.boolean().optional().nullable(),
   serviceTemp: z.string().max(50).optional().nullable(),
   lotNumber: z.string().max(50).optional().nullable(),

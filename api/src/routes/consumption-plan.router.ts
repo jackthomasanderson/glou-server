@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
 import {
   getSuggestions,
@@ -49,7 +50,7 @@ router.get('/suggestions', async (req: Request, res: Response): Promise<void> =>
 // ─── PATCH /api/consumption-plan/items/:id/postpone ──────────────────────────
 
 router.patch('/items/:id/postpone', async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
     const { days } = postponeSchema.parse(req.body ?? {});

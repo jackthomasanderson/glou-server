@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { authService, ExportCategory } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
 import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema } from '../schemas/user.schema';
 import { prisma } from '../lib/prisma';
@@ -289,7 +290,7 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
  * Test a notification channel (email or webhook)
  */
 router.post('/notifications/test/:channel', authMiddleware, async (req: Request, res: Response) => {
-  const { channel } = req.params;
+  const channel = routeParam(req.params.channel);
   if (channel !== 'email' && channel !== 'webhook') {
     res.status(400).json({ error: 'UNKNOWN_CHANNEL' });
     return;
