@@ -273,7 +273,7 @@ function CategoryBreakdown({
 }: {
   items: CategoryStat[];
   total: number;
-  t: (k: string) => string;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }) {
   const segments = items.map((item) => ({
     value: item.count,
