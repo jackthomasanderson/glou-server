@@ -8,10 +8,9 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 export const metadata: Metadata = {
   title: 'Glou — Gestionnaire de Cave',
   description: 'Gérez votre cave à vin, spiritueux et cigares. Application self-hosted, souveraine et privée.',
-  // FEAT-16/23: PWA manifest — see web/public/manifest.json. No app icons
-  // exist in the repo yet (public/ only holds locales/), so the manifest has
-  // no `icons` entry; the browser install prompt/criteria will stay
-  // incomplete until real icon assets are supplied — documented, not faked.
+  // FEAT-16/23: PWA manifest — see web/public/manifest.json. Icons live in
+  // public/icons/; app/icon.png, app/apple-icon.png and app/favicon.ico are
+  // picked up by Next's file conventions.
   manifest: '/manifest.json',
 };
 

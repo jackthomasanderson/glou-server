@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { routeParam } from '../lib/http';
+import { normalizeGotifyUrl } from '../lib/gotify-url';
 import { authMiddleware, adminMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
 import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenceReorderSchema } from '../schemas/maturity-reference.schema';
@@ -432,7 +433,7 @@ adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Pro
       return;
     }
     const gotifyFull = await systemConfigService.getGotify();
-    const url = gotifyFull.gotifyUrl!;
+    const url = normalizeGotifyUrl(gotifyFull.gotifyUrl!);
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (gotifyFull.gotifyToken) headers['X-Gotify-Key'] = gotifyFull.gotifyToken;
 
@@ -442,7 +443,11 @@ adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Pro
       body: JSON.stringify({ title: 'Glou — Test', message: 'Notification de test depuis le panneau admin.' }),
       signal: AbortSignal.timeout(5000),
     });
-    res.json({ data: { success: response.ok, status: response.status } });
+    if (response.ok) {
+      res.json({ data: { success: true, status: response.status } });
+      return;
+    }
+    res.json({ data: { success: false, status: response.status, error: `HTTP ${response.status}` } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'FETCH_ERROR';
     res.json({ data: { success: false, error: msg } });
