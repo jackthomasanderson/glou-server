@@ -4,7 +4,7 @@
 Le bouton « Scanner une étiquette » ouvre l'appareil photo, envoie la photo à un modèle de vision léger auto-hébergé (Ollama + moondream) qui pré-remplit nom, producteur, catégorie et millésime, à valider en 3 actions maximum.
 
 ## Prérequis
-* Le service `ollama` doit tourner via Docker Compose, avec le modèle `moondream` téléchargé — automatique au premier démarrage via le service `ollama-pull` (~1,7 Go, voir Troubleshooting si le premier scan échoue).
+* Le scan d'étiquette est **optionnel et désactivé par défaut** (~9 Go de disque et ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d` : cela démarre le service `ollama` et le service ponctuel `ollama-pull`, qui télécharge le modèle `moondream` (~1,7 Go) au premier démarrage. Sans le profil `scan`, le reste de l'application fonctionne normalement et un scan échoue simplement avec le message générique « analyse échouée ».
 * Aucune configuration côté client : le scan utilise la caméra ou la galerie de l'appareil.
 
 ## Action
@@ -33,6 +33,7 @@ Le bouton « Scanner une étiquette » ouvre l'appareil photo, envoie la photo �
 
 | Erreur / Comportement | Solution |
 | :--- | :--- |
+| **Le scan échoue systématiquement** | Le profil `scan` n'est pas démarré : lancez `docker compose --profile scan up -d`. |
 | **Le scan reste bloqué sur « Analyse en cours » très longtemps** | Au tout premier démarrage de l'instance, le modèle `moondream` (~1,7 Go) doit être téléchargé par le service `ollama-pull` avant que le scan ne fonctionne — patientez quelques minutes puis réessayez. Sur du matériel modeste, un scan peut légitimement prendre jusqu'à 2 minutes (timeout serveur fixé à 120 s). |
 | **« L'analyse de la photo a échoué »** | Réessayez avec une photo plus nette ou mieux éclairée — c'est le message générique renvoyé en cas d'échec du modèle ou de timeout. |
 | **Les informations détectées sont fausses ou incomplètes** | Attendu avec un modèle de vision léger : corrigez manuellement les champs avant de cliquer « Confirmer et ajouter ». Rien n'est jamais enregistré sans validation explicite de votre part. |

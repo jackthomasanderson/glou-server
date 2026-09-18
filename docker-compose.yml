@@ -4,25 +4,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-glou}
-      # Security hardening: no fallback secret. `${DB_PASSWORD:?...}` makes
-      # `docker compose up`/`config` fail immediately with this message if
-      # DB_PASSWORD is unset or empty in .env, instead of silently starting
-      # Postgres with the publicly-known "glou_secret" default that used to
-      # live here (and in this repo's history/README).
+      # No fallback secret: compose fails fast if DB_PASSWORD is unset.
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set. Copy .env.example to .env and set a real DB_PASSWORD before starting.}
       POSTGRES_DB: ${DB_NAME:-glou_db}
-    # Memory tuning (home-lab, few concurrent household users):
-    # Postgres 15 defaults are sized for a generic server — max_connections=100
-    # and shared_buffers=128MB (confirmed against upstream docs, not guessed).
-    # A single-instance household app realistically needs far fewer
-    # connections (Prisma's pool + occasional manual `psql` debugging), so:
-    #   - max_connections=20: comfortably above Prisma's pool size, still
-    #     leaves room for ad-hoc `docker compose exec db psql` sessions.
-    #   - shared_buffers=64MB: half the image default; still ample for light
-    #     OLTP reads/writes on a shared inventory of a few thousand rows.
-    # If you notice slow queries on a large import/export or heavy analytics
-    # use, raise these back up (e.g. shared_buffers=128MB) — they're cheap to
-    # revert, this is a conservative starting point, not a hard limit.
+    # Small household instance: fewer connections / buffers than Postgres defaults.
     command: ["postgres", "-c", "max_connections=20", "-c", "shared_buffers=64MB"]
     volumes:
       - db_data:/var/lib/postgresql/data
@@ -32,49 +17,60 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
-    # Security hardening: was `ports: ["5432:5432"]`, exposing Postgres to the
-    # whole LAN (anyone on the network could reach it, password permitting).
-    # `expose` keeps it reachable only from other containers on this compose
-    # network (i.e. `api`) — not from the Docker host or LAN at all. For
-    # occasional debugging from the host, use the already-documented pattern
-    # instead of reopening the port permanently:
-    #   docker compose exec db psql -U ${DB_USER:-glou} -d ${DB_NAME:-glou_db}
+    # Not published to the host/LAN. Debug: docker compose exec db psql -U glou -d glou_db
     expose:
       - "5432"
-    # Memory safety net: caps this container so a leak/runaway query can't
-    # consume all host RAM. 512M is generous headroom above the ~150-250MB a
-    # Postgres 15-alpine instance typically uses at this scale (shared
-    # buffers above + connection overhead + maintenance_work_mem spikes
-    # during VACUUM/backup). Adjust via DB_MEM_LIMIT in .env if needed.
-    mem_limit: ${DB_MEM_LIMIT:-512m}
-    logging:
+    logging: &logging
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
 
-  # FEAT-04: self-hosted vision LLM (moondream) for the label-scan pipeline.
-  # Not exposed publicly (`expose`, not `ports`) — only `api` talks to it, over
-  # the internal compose network. First startup: `ollama-pull` below downloads
-  # the ~1.7GB `moondream` model into the named `ollama_data` volume so it
-  # survives container recreation; this can take a few minutes depending on
-  # bandwidth, during which the scan feature will fail until it completes.
+  api:
+    image: ghcr.io/jackthomasanderson/glou-server-api:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DATABASE_URL: postgresql://${DB_USER:-glou}:${DB_PASSWORD:?DB_PASSWORD is not set. Copy .env.example to .env and set a real DB_PASSWORD before starting.}@db:5432/${DB_NAME:-glou_db}
+      JWT_SECRET: ${JWT_SECRET}
+      CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      # Only used by label scan; see the `scan` profile below.
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
+      PORT: 3001
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+    ports:
+      - "3001:3001"
+    volumes:
+      - api_logs:/app/logs
+      - api_uploads:/app/uploads
+      - api_backups:/app/backups
+    logging: *logging
+
+  web:
+    image: ghcr.io/jackthomasanderson/glou-server-web:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
+    ports:
+      - "3000:3000"
+    logging: *logging
+
+  # Optional label scan (moondream vision model). Heavy: ~9 GB of disk,
+  # ~3 GB of RAM. Enable with: docker compose --profile scan up -d
   ollama:
+    profiles: ["scan"]
     image: ollama/ollama:latest
     restart: unless-stopped
-    # Memory tuning: label-scan (FEAT-04) is a one-off, low-frequency action
-    # (user photographs a bottle occasionally), not a sustained workload — no
-    # reason to keep the vision model resident in RAM between scans.
-    #   - OLLAMA_KEEP_ALIVE=5m: unload the model after 5 minutes idle instead
-    #     of the default (keeps it loaded indefinitely / until a new pull).
-    #     First request after an idle period pays a reload cost (a few
-    #     seconds for moondream), which is an acceptable trade for a
-    #     home-lab instance that isn't scanning back-to-back.
-    #   - OLLAMA_MAX_LOADED_MODELS=1 / OLLAMA_NUM_PARALLEL=1: this instance
-    #     only ever loads one model (moondream) and only ever serves one
-    #     scan request at a time (single household, no concurrent OCR
-    #     traffic) — no reason to reserve RAM for parallel model instances.
     environment:
+      # Unload the model after 5 min idle; one model, one scan at a time.
       OLLAMA_KEEP_ALIVE: 5m
       OLLAMA_MAX_LOADED_MODELS: 1
       OLLAMA_NUM_PARALLEL: 1
@@ -88,26 +84,11 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
-    # Memory safety net: moondream itself is small, but Ollama's runtime plus
-    # model weights/context comfortably fit under ~2-3GB in practice; 3GB
-    # gives headroom without reserving so much that a low-RAM NAS can't run
-    # the rest of the stack alongside it. This is the least certain of the
-    # four limits in this file (memory footprint depends on the exact model
-    # and quantization) — raise OLLAMA_MEM_LIMIT in .env if scans start
-    # failing/OOM-killing after this change.
-    mem_limit: ${OLLAMA_MEM_LIMIT:-3072m}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *logging
 
-  # One-shot: pulls the `moondream` model once `ollama` is healthy, then
-  # exits (0). Compose leaves it "Exited (0)" afterwards — expected, not an
-  # error. Re-running on an already-pulled model is a fast no-op, so it's
-  # safe to leave in the stack permanently rather than pulling it back out
-  # after first run.
+  # One-shot: downloads the model (~1.7 GB) into ollama_data, then exits (0).
   ollama-pull:
+    profiles: ["scan"]
     image: ollama/ollama:latest
     restart: "no"
     depends_on:
@@ -115,88 +96,11 @@ services:
         condition: service_healthy
     environment:
       OLLAMA_HOST: ollama:11434
-    command: ["pull", "moondream"]
-
-  api:
-    image: ghcr.io/jackthomasanderson/glou-server-api:latest
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-      ollama:
-        condition: service_started
-    environment:
-      NODE_ENV: ${NODE_ENV:-production}
-      # Security hardening: matches the `db` service — DATABASE_URL embeds
-      # the same password, so it must fail the same way if unset (no silent
-      # fallback to the known "glou_secret" default).
-      DATABASE_URL: postgresql://${DB_USER:-glou}:${DB_PASSWORD:?DB_PASSWORD is not set. Copy .env.example to .env and set a real DB_PASSWORD before starting.}@db:5432/${DB_NAME:-glou_db}
-      JWT_SECRET: ${JWT_SECRET}
-      CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY}
-      APP_URL: ${APP_URL:-http://localhost:3000}
-      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
-      PORT: 3001
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-      # Memory tuning: caps V8's old-space growth so a slow leak degrades
-      # loudly (OOM crash + restart via `restart: unless-stopped`) instead of
-      # silently eating host RAM forever. 256MB is safe for this app's actual
-      # heavy paths — pg_dump/psql backup & restore run as separate spawned
-      # OS processes (api/src/services/backup.service.ts), not buffered in
-      # V8 heap; CSV import is capped at 500 rows
-      # (api/src/services/import.service.ts); the RGPD JSON export
-      # (api/src/services/auth.service.ts#exportUserData) reads a bounded,
-      # text-only household inventory, no embedded images. Raise
-      # API_MAX_OLD_SPACE_MB in .env if a future feature needs a bigger heap.
-      NODE_OPTIONS: --max-old-space-size=${API_MAX_OLD_SPACE_MB:-256}
-    ports:
-      - "3001:3001"
-    volumes:
-      - api_logs:/app/logs
-      - api_uploads:/app/uploads
-      # FEAT-18: scheduled pg_dump backups, on their own named volume so they
-      # persist independently of the app data/upload volumes and outside the
-      # container filesystem (design.md "Sauvegarde & Migration").
-      - api_backups:/app/backups
-    # Memory safety net: container ceiling sits above the 256MB V8 heap cap
-    # above to leave room for non-heap Node overhead (native addons, buffers,
-    # HTTP/thread-pool machinery) plus the spawned pg_dump/psql child
-    # processes during backups. Adjust via API_MEM_LIMIT in .env.
-    mem_limit: ${API_MEM_LIMIT:-512m}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  web:
-    image: ghcr.io/jackthomasanderson/glou-server-web:latest
-    restart: unless-stopped
-    depends_on:
-      - api
-    environment:
-      NODE_ENV: ${NODE_ENV:-production}
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
-    ports:
-      - "3000:3000"
-    # Memory safety net: Next.js SSR for a handful of household users doesn't
-    # need much; 512M leaves comfortable headroom over typical usage while
-    # still bounding a runaway leak. Adjust via WEB_MEM_LIMIT in .env.
-    mem_limit: ${WEB_MEM_LIMIT:-512m}
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+    command: ["pull", "${OLLAMA_MODEL:-moondream}"]
 
 volumes:
   db_data:
-    driver: local
   api_logs:
-    driver: local
   api_uploads:
-    driver: local
   api_backups:
-    driver: local
   ollama_data:
-    driver: local

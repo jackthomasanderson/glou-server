@@ -27,7 +27,7 @@
    ```bash
    docker compose up -d
    ```
-   Docker pulls `glou-server-api` and `glou-server-web` from GHCR automatically.
+   Docker pulls `glou-server-api` and `glou-server-web` from GHCR automatically. This starts the database, API and web only (~1.5 GB of RAM). For the optional label scan (~9 GB of disk, ~3 GB of RAM more), use `docker compose --profile scan up -d` instead.
 
 4. Open [http://localhost:3000](http://localhost:3000) and click **Register**.
    The first account you create is automatically granted admin privileges.
