@@ -4,7 +4,7 @@
 The "Scan a label" button opens the camera, sends the photo to a lightweight self-hosted vision model (Ollama + moondream) that pre-fills name, producer, category, and vintage, ready to confirm in 3 actions max.
 
 ## Prerequisites
-* The `ollama` service must be running via Docker Compose, with the `moondream` model pulled — this happens automatically on first startup via the `ollama-pull` service (~1.7 GB, see Troubleshooting if the first scan fails).
+* Label scan is **optional and off by default** (it needs ~9 GB of disk and ~3 GB of RAM). Enable it with `docker compose --profile scan up -d`: this starts the `ollama` service and the one-shot `ollama-pull`, which downloads the `moondream` model (~1.7 GB) on first start. Without the `scan` profile, the rest of the app works normally and a scan attempt simply fails with the generic "analysis failed" message.
 * No client-side setup needed: scanning uses the device's camera or photo gallery.
 
 ## Action
@@ -33,6 +33,7 @@ The "Scan a label" button opens the camera, sends the photo to a lightweight sel
 
 | Error / Behavior | Fix |
 | :--- | :--- |
+| **Scan always fails** | The `scan` profile isn't running: start it with `docker compose --profile scan up -d`. |
 | **Scan stays stuck on "Analyzing…" for a long time** | On the instance's very first startup, the `moondream` model (~1.7 GB) needs to be pulled by the `ollama-pull` service before scanning works — wait a few minutes and retry. On modest hardware, a scan can legitimately take up to 2 minutes (server timeout is 120s). |
 | **"Label analysis failed"** | Retry with a sharper or better-lit photo — this is the generic message returned on model failure or timeout. |
 | **Detected info is wrong or incomplete** | Expected with a lightweight vision model: manually correct the fields before clicking "Confirm and add". Nothing is ever saved without your explicit confirmation. |
