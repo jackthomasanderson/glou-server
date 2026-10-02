@@ -11,6 +11,7 @@ vi.mock('../src/lib/prisma', () => ({
       update: vi.fn(),
       deleteMany: vi.fn(),
     },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -176,5 +177,67 @@ describe('InventoryService', () => {
     // `expectedUpdatedAt` must never leak into the Prisma write payload.
     expect(updateData.data.expectedUpdatedAt).toBeUndefined();
     expect(updateData.data.isOpened).toBe(true);
+  });
+
+  // ─── ISSUE_034: bulk actions must not be neutralised by lockedFields ──────
+
+  /**
+   * Wires the mocked `$transaction` to run its callback against a fake
+   * transaction client and returns that client's `update` spy.
+   */
+  function mockTransactionClient() {
+    const update = vi.fn().mockResolvedValue({} as never);
+    vi.mocked(prisma.$transaction).mockImplementation(
+      ((callback: (tx: unknown) => unknown) => callback({ inventoryItem: { update } })) as never,
+    );
+    return update;
+  }
+
+  it('bulkUpdate - applies the patch to locked fields (a bulk action is a user action)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      {
+        id: 'b1',
+        lockedFields: ['fillLevel', 'isOpened'],
+        isOpened: false,
+        fillLevel: 100,
+        deletedAt: null,
+      },
+    ] as never);
+    const txUpdate = mockTransactionClient();
+
+    const count = await service.bulkUpdate('u1', ['b1'], { isOpened: true, fillLevel: 0 } as never);
+
+    expect(count).toBe(1);
+    expect(txUpdate).toHaveBeenCalledTimes(1);
+    const data = (txUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> }).data;
+    expect(data.isOpened).toBe(true);
+    expect(data.fillLevel).toBe(0);
+  });
+
+  it('bulkUpdate - only counts the items it really changed', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      // Already opened and empty → the patch is a no-op for this one.
+      { id: 'noop', lockedFields: [], isOpened: true, fillLevel: 0, deletedAt: null },
+      { id: 'changed', lockedFields: [], isOpened: false, fillLevel: 80, deletedAt: null },
+    ] as never);
+    const txUpdate = mockTransactionClient();
+
+    const count = await service.bulkUpdate('u1', ['noop', 'changed'], {
+      isOpened: true,
+      fillLevel: 0,
+    } as never);
+
+    expect(count).toBe(1);
+    expect(txUpdate).toHaveBeenCalledTimes(1);
+    expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({ where: { id: 'changed' } });
+  });
+
+  it('bulkUpdate - returns 0 and writes nothing when no item matches', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    const count = await service.bulkUpdate('u1', ['unknown'], { isOpened: true } as never);
+
+    expect(count).toBe(0);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

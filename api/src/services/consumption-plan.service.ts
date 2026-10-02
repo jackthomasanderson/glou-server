@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { getAlerts, computeReadiness } from './alert.service';
+import { getAlerts, computeAlertStatus, computeReadiness } from './alert.service';
 import { CurveShape } from '../lib/maturity-curve';
 import { SetGoalInput } from '../schemas/consumption-plan.schema';
 
@@ -47,7 +47,6 @@ const SUGGESTION_SELECT = {
   photoUrl: true,
   cellarId: true,
   collection: true,
-  alertStatus: true,
   isOpened: true,
   fillLevel: true,
   peakMaturityFrom: true,
@@ -85,7 +84,10 @@ function toSuggestion(item: SourceItem, reason: SuggestionReason): ConsumptionSu
     photoUrl: item.photoUrl,
     cellarId: item.cellarId,
     collection: item.collection,
-    alertStatus: item.alertStatus,
+    // Computed on read, never read back from the denormalised column: that
+    // column is only refreshed on edit and on the daily maintenance pass, so
+    // it can lag behind the current year (ISSUE_033).
+    alertStatus: computeAlertStatus(item.peakMaturityFrom, item.peakMaturityTo),
     isOpened: item.isOpened,
     fillLevel: item.fillLevel,
     reason,
@@ -136,7 +138,7 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
     if (!extra || isPostponed(extra, now)) continue;
     weighted.push({
       suggestion: toSuggestion(extra, 'peak_window'),
-      weight: REASON_WEIGHT[alert.alertStatus ?? 'approaching'] ?? REASON_WEIGHT.approaching,
+      weight: REASON_WEIGHT[alert.alertStatus] ?? REASON_WEIGHT.approaching,
       readiness: alert.readiness ?? -1,
     });
   }

@@ -433,13 +433,23 @@ export class InventoryService {
     let updatedCount = 0;
     await prisma.$transaction(async (tx) => {
       for (const item of existing) {
-        const safePatch = Object.fromEntries(
-          Object.entries(patch).filter(([key]) => !item.lockedFields.includes(key))
+        // A bulk action is an explicit user action, exactly like the regular
+        // single-item PATCH: `lockedFields` only shields a field from a later
+        // *automated* pass (see `updateItem`), never from the user. Filtering
+        // the patch here silently turned "mark as opened" / "set fill level"
+        // into a no-op on every bottle whose level had once been adjusted by
+        // hand — and still counted it as updated (ISSUE_034).
+        const changedEntries = Object.entries(patch).filter(
+          ([key, value]) => JSON.stringify(this.getField(item, key)) !== JSON.stringify(value)
         );
+        // Only items this call really changes are applied and counted, so the
+        // "N items updated" confirmation tells the truth.
+        if (changedEntries.length === 0) continue;
+
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
-            ...this.mapInputToDb(safePatch as InventoryPatch),
+            ...this.mapInputToDb(Object.fromEntries(changedEntries) as InventoryPatch),
             updatedAt: new Date(),
             updatedBy: userId,
           } as never,

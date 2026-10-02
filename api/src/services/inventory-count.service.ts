@@ -88,7 +88,7 @@ export interface SessionReport {
 export interface SkippedCorrection {
   targetId: string;
   action: string;
-  reason: 'item_not_found' | 'fields_locked' | 'field_locked' | 'session_has_no_cellar' | 'entry_not_found';
+  reason: 'item_not_found' | 'session_has_no_cellar' | 'entry_not_found';
 }
 
 // Row type inferred from the Prisma client (same pattern as inventory.service.ts).
@@ -467,16 +467,17 @@ async function applyCorrectionsInternal(
     if (correction.action === 'mark_consumed') {
       // Same semantics as the existing FEAT-77 stock-update flow (see
       // consumption-plan.service.ts header): isOpened=true, fillLevel=0.
-      const patch: Prisma.InventoryItemUpdateInput = {};
-      if (!item.lockedFields.includes('isOpened')) patch.isOpened = true;
-      if (!item.lockedFields.includes('fillLevel')) patch.fillLevel = 0;
-      if (Object.keys(patch).length === 0) {
-        skipped.push({ targetId: correction.itemId, action: correction.action, reason: 'fields_locked' });
-        continue;
-      }
+      //
+      // `lockedFields` is deliberately NOT consulted: closing a count session
+      // is an explicit user decision, and the lock only exists to stop a later
+      // *automated* pass from overwriting a manual value (see
+      // inventory.service.ts#updateItem). Honouring it here made the
+      // correction a silent no-op on every bottle whose level had once been
+      // adjusted by hand, so those items came back as "missing" at every
+      // subsequent count (ISSUE_034).
       await tx.inventoryItem.update({
         where: { id: item.id },
-        data: { ...patch, updatedAt: new Date(), updatedBy: actingUserId },
+        data: { isOpened: true, fillLevel: 0, updatedAt: new Date(), updatedBy: actingUserId },
       });
       appliedCount++;
       continue;
@@ -485,10 +486,6 @@ async function applyCorrectionsInternal(
     // move_to_scope
     if (!session.cellarId) {
       skipped.push({ targetId: correction.itemId, action: correction.action, reason: 'session_has_no_cellar' });
-      continue;
-    }
-    if (item.lockedFields.includes('cellarId')) {
-      skipped.push({ targetId: correction.itemId, action: correction.action, reason: 'field_locked' });
       continue;
     }
     await tx.inventoryItem.update({
