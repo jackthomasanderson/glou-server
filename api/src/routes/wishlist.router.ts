@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
@@ -36,38 +36,22 @@ import { budgetEnvelopeCreateSchema, budgetEnvelopePatchSchema } from '../schema
 const router = Router();
 router.use(authMiddleware);
 
-function handleZodError(res: Response, error: unknown): boolean {
-  if (error instanceof ZodError) {
-    res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
-    return true;
-  }
-  return false;
-}
-
 // ─── Wishlist items ───────────────────────────────────────────────────────────
 
 router.get('/items', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  try {
-    const items = await listWishlist(userId);
-    res.json({ data: items });
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_FETCH_WISHLIST' });
-  }
+  const items = await listWishlist(userId);
+  res.json({ data: items });
 });
 
 router.get('/items/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  try {
-    const item = await getWishlistItem(userId, routeParam(req.params.id));
-    if (!item) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND' });
-    res.json({ data: item });
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_FETCH_WISHLIST_ITEM' });
-  }
+  const item = await getWishlistItem(userId, routeParam(req.params.id));
+  if (!item) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND' });
+  res.json({ data: item });
 });
 
-router.post('/items', async (req: Request, res: Response) => {
+router.post('/items', async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
   try {
@@ -76,13 +60,16 @@ router.post('/items', async (req: Request, res: Response) => {
     void auditLog({ userId, ip, action: 'CREATE', status: 'success', details: { scope: 'wishlist-item', id: item.id } });
     res.status(201).json({ data: item });
   } catch (error) {
-    if (handleZodError(res, error)) return;
-    void auditLog({ userId, ip, action: 'CREATE', status: 'error', details: { scope: 'wishlist-item', message: String(error) } });
-    res.status(500).json({ error: 'FAILED_TO_CREATE_WISHLIST_ITEM' });
+    // A validation failure is the caller's doing, not a failed attempt worth
+    // auditing; anything else is recorded, then handed to the global handler.
+    if (!(error instanceof ZodError)) {
+      void auditLog({ userId, ip, action: 'CREATE', status: 'error', details: { scope: 'wishlist-item', message: String(error) } });
+    }
+    next(error);
   }
 });
 
-router.patch('/items/:id', async (req: Request, res: Response) => {
+router.patch('/items/:id', async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
   try {
@@ -92,28 +79,27 @@ router.patch('/items/:id', async (req: Request, res: Response) => {
     void auditLog({ userId, ip, action: 'UPDATE', status: 'success', details: { scope: 'wishlist-item', id: item.id } });
     res.json({ data: item });
   } catch (error) {
-    if (handleZodError(res, error)) return;
-    void auditLog({ userId, ip, action: 'UPDATE', status: 'error', details: { scope: 'wishlist-item', message: String(error) } });
-    res.status(500).json({ error: 'FAILED_TO_UPDATE_WISHLIST_ITEM' });
+    // A validation failure is the caller's doing, not a failed attempt worth
+    // auditing; anything else is recorded, then handed to the global handler.
+    if (!(error instanceof ZodError)) {
+      void auditLog({ userId, ip, action: 'UPDATE', status: 'error', details: { scope: 'wishlist-item', message: String(error) } });
+    }
+    next(error);
   }
 });
 
 router.delete('/items/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
-  try {
-    const deleted = await deleteWishlistItem(userId, routeParam(req.params.id));
-    if (!deleted) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND' });
-    void auditLog({ userId, ip, action: 'DELETE', status: 'success', details: { scope: 'wishlist-item', id: routeParam(req.params.id) } });
-    res.status(204).send();
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_DELETE_WISHLIST_ITEM' });
-  }
+  const deleted = await deleteWishlistItem(userId, routeParam(req.params.id));
+  if (!deleted) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND' });
+  void auditLog({ userId, ip, action: 'DELETE', status: 'success', details: { scope: 'wishlist-item', id: routeParam(req.params.id) } });
+  res.status(204).send();
 });
 
 // ─── PATCH /items/:id/price-seen — manual price entry, see wishlist.service.ts
 
-router.patch('/items/:id/price-seen', async (req: Request, res: Response) => {
+router.patch('/items/:id/price-seen', async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
   try {
@@ -123,15 +109,18 @@ router.patch('/items/:id/price-seen', async (req: Request, res: Response) => {
     void auditLog({ userId, ip, action: 'UPDATE', status: 'success', details: { scope: 'wishlist-price-seen', id: item.id, price } });
     res.json({ data: item });
   } catch (error) {
-    if (handleZodError(res, error)) return;
-    void auditLog({ userId, ip, action: 'UPDATE', status: 'error', details: { scope: 'wishlist-price-seen', message: String(error) } });
-    res.status(500).json({ error: 'FAILED_TO_RECORD_PRICE' });
+    // A validation failure is the caller's doing, not a failed attempt worth
+    // auditing; anything else is recorded, then handed to the global handler.
+    if (!(error instanceof ZodError)) {
+      void auditLog({ userId, ip, action: 'UPDATE', status: 'error', details: { scope: 'wishlist-price-seen', message: String(error) } });
+    }
+    next(error);
   }
 });
 
 // ─── POST /items/:id/convert — bascule souhait → inventaire ──────────────────
 
-router.post('/items/:id/convert', async (req: Request, res: Response) => {
+router.post('/items/:id/convert', async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
   try {
@@ -145,9 +134,12 @@ router.post('/items/:id/convert', async (req: Request, res: Response) => {
     });
     res.status(201).json({ data: result });
   } catch (error) {
-    if (handleZodError(res, error)) return;
-    void auditLog({ userId, ip, action: 'CREATE', status: 'error', details: { scope: 'wishlist-convert', message: String(error) } });
-    res.status(500).json({ error: 'FAILED_TO_CONVERT_WISHLIST_ITEM' });
+    // A validation failure is the caller's doing, not a failed attempt worth
+    // auditing; anything else is recorded, then handed to the global handler.
+    if (!(error instanceof ZodError)) {
+      void auditLog({ userId, ip, action: 'CREATE', status: 'error', details: { scope: 'wishlist-convert', message: String(error) } });
+    }
+    next(error);
   }
 });
 
@@ -155,26 +147,18 @@ router.post('/items/:id/convert', async (req: Request, res: Response) => {
 
 router.get('/budget-envelopes', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  try {
-    const envelopes = await listBudgetEnvelopes(userId);
-    res.json({ data: envelopes });
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_FETCH_BUDGET_ENVELOPES' });
-  }
+  const envelopes = await listBudgetEnvelopes(userId);
+  res.json({ data: envelopes });
 });
 
 router.get('/budget-envelopes/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  try {
-    const envelope = await getBudgetEnvelope(userId, routeParam(req.params.id));
-    if (!envelope) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
-    res.json({ data: envelope });
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_FETCH_BUDGET_ENVELOPE' });
-  }
+  const envelope = await getBudgetEnvelope(userId, routeParam(req.params.id));
+  if (!envelope) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
+  res.json({ data: envelope });
 });
 
-router.post('/budget-envelopes', async (req: Request, res: Response) => {
+router.post('/budget-envelopes', async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
   try {
@@ -183,13 +167,16 @@ router.post('/budget-envelopes', async (req: Request, res: Response) => {
     void auditLog({ userId, ip, action: 'CREATE', status: 'success', details: { scope: 'budget-envelope', id: envelope.id } });
     res.status(201).json({ data: envelope });
   } catch (error) {
-    if (handleZodError(res, error)) return;
-    void auditLog({ userId, ip, action: 'CREATE', status: 'error', details: { scope: 'budget-envelope', message: String(error) } });
-    res.status(500).json({ error: 'FAILED_TO_CREATE_BUDGET_ENVELOPE' });
+    // A validation failure is the caller's doing, not a failed attempt worth
+    // auditing; anything else is recorded, then handed to the global handler.
+    if (!(error instanceof ZodError)) {
+      void auditLog({ userId, ip, action: 'CREATE', status: 'error', details: { scope: 'budget-envelope', message: String(error) } });
+    }
+    next(error);
   }
 });
 
-router.patch('/budget-envelopes/:id', async (req: Request, res: Response) => {
+router.patch('/budget-envelopes/:id', async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
   try {
@@ -199,34 +186,29 @@ router.patch('/budget-envelopes/:id', async (req: Request, res: Response) => {
     void auditLog({ userId, ip, action: 'UPDATE', status: 'success', details: { scope: 'budget-envelope', id: envelope.id } });
     res.json({ data: envelope });
   } catch (error) {
-    if (handleZodError(res, error)) return;
-    void auditLog({ userId, ip, action: 'UPDATE', status: 'error', details: { scope: 'budget-envelope', message: String(error) } });
-    res.status(500).json({ error: 'FAILED_TO_UPDATE_BUDGET_ENVELOPE' });
+    // A validation failure is the caller's doing, not a failed attempt worth
+    // auditing; anything else is recorded, then handed to the global handler.
+    if (!(error instanceof ZodError)) {
+      void auditLog({ userId, ip, action: 'UPDATE', status: 'error', details: { scope: 'budget-envelope', message: String(error) } });
+    }
+    next(error);
   }
 });
 
 router.delete('/budget-envelopes/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
-  try {
-    const deleted = await deleteBudgetEnvelope(userId, routeParam(req.params.id));
-    if (!deleted) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
-    void auditLog({ userId, ip, action: 'DELETE', status: 'success', details: { scope: 'budget-envelope', id: routeParam(req.params.id) } });
-    res.status(204).send();
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_DELETE_BUDGET_ENVELOPE' });
-  }
+  const deleted = await deleteBudgetEnvelope(userId, routeParam(req.params.id));
+  if (!deleted) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
+  void auditLog({ userId, ip, action: 'DELETE', status: 'success', details: { scope: 'budget-envelope', id: routeParam(req.params.id) } });
+  res.status(204).send();
 });
 
 router.get('/budget-envelopes/:id/progress', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  try {
-    const progress = await getBudgetProgress(userId, routeParam(req.params.id));
-    if (!progress) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
-    res.json({ data: progress });
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_FETCH_BUDGET_PROGRESS' });
-  }
+  const progress = await getBudgetProgress(userId, routeParam(req.params.id));
+  if (!progress) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
+  res.json({ data: progress });
 });
 
 export default router;

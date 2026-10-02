@@ -20,9 +20,13 @@ export default tseslint.config(
         {
           argsIgnorePattern: '^_',
           varsIgnorePattern: '^_',
-          // Matches the existing codebase convention: `catch (err)` /
-          // `catch (error)` where the error is intentionally unused (already
-          // logged or handled elsewhere), plus explicit `_`-prefixed names.
+          // Tolerates the historical `catch (err)` / `catch (error)` spelling where
+          // the binding is left unused, plus explicit `_`-prefixed names. This is
+          // a transitional allowance, NOT a statement that such errors are handled
+          // elsewhere: a catch block that neither logs the error nor forwards it to
+          // `errorMiddleware` is a bug (ISSUE_063). New code should either let the
+          // error bubble up (Express 5 forwards rejected handler promises to the
+          // global handler) or call `next(error)`.
           caughtErrorsIgnorePattern: '^_|^e(rr(or)?)?$',
         },
       ],

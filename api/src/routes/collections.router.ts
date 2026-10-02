@@ -14,12 +14,8 @@ router.use(authMiddleware);
 
 router.get('/', async (req: Request, res: Response) => {
   const userId = req.userId!;
-  try {
-    const collections = await collectionsService.list(userId);
-    res.json({ data: collections });
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_FETCH_COLLECTIONS' });
-  }
+  const collections = await collectionsService.list(userId);
+  res.json({ data: collections });
 });
 
 router.post('/', async (req: Request, res: Response) => {
@@ -28,13 +24,9 @@ router.post('/', async (req: Request, res: Response) => {
   if (!validation.success) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
   }
-  try {
-    const collection = await collectionsService.create(userId, validation.data);
-    void auditLog({ userId, ip: req.ip || '0.0.0.0', action: 'COLLECTION_CREATE', status: 'success', details: { id: collection.id } });
-    res.status(201).json({ data: collection });
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_CREATE_COLLECTION' });
-  }
+  const collection = await collectionsService.create(userId, validation.data);
+  void auditLog({ userId, ip: req.ip || '0.0.0.0', action: 'COLLECTION_CREATE', status: 'success', details: { id: collection.id } });
+  res.status(201).json({ data: collection });
 });
 
 router.patch('/:id', async (req: Request, res: Response) => {
@@ -44,27 +36,19 @@ router.patch('/:id', async (req: Request, res: Response) => {
   if (!validation.success) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
   }
-  try {
-    const collection = await collectionsService.update(id, userId, validation.data);
-    if (!collection) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
-    void auditLog({ userId, ip: req.ip || '0.0.0.0', action: 'COLLECTION_UPDATE', status: 'success', details: { id } });
-    res.json({ data: collection });
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_UPDATE_COLLECTION' });
-  }
+  const collection = await collectionsService.update(id, userId, validation.data);
+  if (!collection) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
+  void auditLog({ userId, ip: req.ip || '0.0.0.0', action: 'COLLECTION_UPDATE', status: 'success', details: { id } });
+  res.json({ data: collection });
 });
 
 router.delete('/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const id = routeParam(req.params.id);
-  try {
-    const deleted = await collectionsService.delete(id, userId);
-    if (!deleted) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
-    void auditLog({ userId, ip: req.ip || '0.0.0.0', action: 'COLLECTION_DELETE', status: 'success', details: { id } });
-    res.status(204).send();
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_DELETE_COLLECTION' });
-  }
+  const deleted = await collectionsService.delete(id, userId);
+  if (!deleted) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
+  void auditLog({ userId, ip: req.ip || '0.0.0.0', action: 'COLLECTION_DELETE', status: 'success', details: { id } });
+  res.status(204).send();
 });
 
 router.post('/:id/items', async (req: Request, res: Response) => {
@@ -74,26 +58,18 @@ router.post('/:id/items', async (req: Request, res: Response) => {
   if (!validation.success) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
   }
-  try {
-    const collection = await collectionsService.addItems(id, userId, validation.data.itemIds);
-    if (!collection) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
-    res.json({ data: collection });
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_ADD_ITEMS' });
-  }
+  const collection = await collectionsService.addItems(id, userId, validation.data.itemIds);
+  if (!collection) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
+  res.json({ data: collection });
 });
 
 router.delete('/:id/items/:itemId', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const id = routeParam(req.params.id);
   const itemId = routeParam(req.params.itemId);
-  try {
-    const collection = await collectionsService.removeItem(id, userId, itemId);
-    if (!collection) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
-    res.json({ data: collection });
-  } catch {
-    res.status(500).json({ error: 'FAILED_TO_REMOVE_ITEM' });
-  }
+  const collection = await collectionsService.removeItem(id, userId, itemId);
+  if (!collection) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
+  res.json({ data: collection });
 });
 
 export default router;

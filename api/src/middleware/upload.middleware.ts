@@ -2,7 +2,11 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { Request } from 'express';
+import { AppError } from '../lib/errors';
 
+// A rejected upload is the caller's mistake, so every `fileFilter` below hands
+// back an AppError carrying its own 400; multer's own LIMIT_FILE_SIZE becomes a
+// 413 in error.middleware.ts. Neither is a 500 any more (ISSUE_105).
 const uploadDir = path.join(process.cwd(), 'uploads', 'avatars');
 
 if (!fs.existsSync(uploadDir)) {
@@ -40,11 +44,11 @@ export const avatarUpload = multer({
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     fileFilter: (_req, file, cb) => {
         if (file.mimetype === 'image/svg+xml') {
-            cb(new Error('SVG_NOT_ALLOWED'));
+            cb(new AppError(400, 'SVG_NOT_ALLOWED'));
         } else if (file.mimetype.startsWith('image/')) {
             cb(null, true);
         } else {
-            cb(new Error('INVALID_FILE_TYPE'));
+            cb(new AppError(400, 'INVALID_FILE_TYPE'));
         }
     }
 });
@@ -64,7 +68,7 @@ const csvUpload = multer({
         if (isCsv) {
             cb(null, true);
         } else {
-            cb(new Error('INVALID_FILE_TYPE'));
+            cb(new AppError(400, 'INVALID_FILE_TYPE'));
         }
     }
 });
@@ -92,11 +96,11 @@ const scanUpload = multer({
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB — label photos from a phone camera
     fileFilter: (_req, file, cb) => {
         if (file.mimetype === 'image/svg+xml') {
-            cb(new Error('SVG_NOT_ALLOWED'));
+            cb(new AppError(400, 'SVG_NOT_ALLOWED'));
         } else if (file.mimetype.startsWith('image/')) {
             cb(null, true);
         } else {
-            cb(new Error('INVALID_FILE_TYPE'));
+            cb(new AppError(400, 'INVALID_FILE_TYPE'));
         }
     },
 });

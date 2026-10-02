@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { MaturityReferenceInput, MaturityReferencePatch, SuggestQuery } from '../schemas/maturity-reference.schema';
 import { CurveShape, DEFAULT_CURVE_SHAPE } from '../lib/maturity-curve';
+import { isRecordNotFound } from '../lib/errors';
 
 type MaturityReference = Awaited<ReturnType<typeof prisma.maturityReference.findFirst>> extends infer T | null
   ? NonNullable<T>
@@ -57,20 +58,30 @@ export class MaturityReferenceService {
     return prisma.maturityReference.create({ data });
   }
 
+  /**
+   * `null` means "no such reference" and nothing else. Any other failure
+   * (database unreachable, constraint violation) is rethrown so the global
+   * error handler reports it as the outage it is — swallowing everything here
+   * used to make a transient database failure read as "this reference does not
+   * exist" (ISSUE_107).
+   */
   async update(id: string, patch: MaturityReferencePatch): Promise<MaturityReference | null> {
     try {
       return await prisma.maturityReference.update({ where: { id }, data: patch });
-    } catch {
-      return null;
+    } catch (error) {
+      if (isRecordNotFound(error)) return null;
+      throw error;
     }
   }
 
+  /** `false` means "no such reference"; see `update` above. */
   async delete(id: string): Promise<boolean> {
     try {
       await prisma.maturityReference.delete({ where: { id } });
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if (isRecordNotFound(error)) return false;
+      throw error;
     }
   }
 

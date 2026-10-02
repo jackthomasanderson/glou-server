@@ -109,6 +109,91 @@ describe('authenticated request plumbing', () => {
   });
 });
 
+describe('error handling contract', () => {
+  it('reports a malformed JSON body as 400, not 500', async () => {
+    const res = await request(app)
+      .post('/api/tastings')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .set('Content-Type', 'application/json')
+      .send('{"rating": 4,');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('MALFORMED_JSON');
+  });
+
+  it('reports an oversized JSON body as 413, not 500', async () => {
+    const res = await request(app)
+      .post('/api/tastings')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .set('Content-Type', 'application/json')
+      .send(JSON.stringify({ notes: 'x'.repeat(3 * 1024 * 1024) }));
+    expect(res.status).toBe(413);
+    expect(res.body.error).toBe('PAYLOAD_TOO_LARGE');
+  });
+
+  it('rejects a non-numeric pagination parameter with 400 instead of failing deep down', async () => {
+    // ISSUE_108: `parseInt('abc')` produced NaN, which reached Prisma as `skip`.
+    const res = await request(app)
+      .get('/api/tastings?page=abc')
+      .set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(prisma.tastingNote.findMany).not.toHaveBeenCalled();
+  });
+
+  it('serves the first page for a blank pagination parameter', async () => {
+    vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.tastingNote.count).mockResolvedValue(0 as never);
+    const res = await request(app)
+      .get('/api/tastings?page=')
+      .set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.page).toBe(1);
+  });
+
+  it('reports an oversized avatar as 413, the headline ISSUE_105 scenario', async () => {
+    // A phone photo over the 5MB multer limit used to answer 500 "unexpected
+    // error", so neither the member nor the operator could tell what went wrong.
+    const res = await request(app)
+      .post('/api/user/avatar')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .attach('avatar', Buffer.alloc(6 * 1024 * 1024), { filename: 'photo.png', contentType: 'image/png' });
+    expect(res.status).toBe(413);
+    expect(res.body.error).toBe('FILE_TOO_LARGE');
+  });
+
+  it('rejects a disallowed upload type as 400, not 500', async () => {
+    const res = await request(app)
+      .post('/api/user/avatar')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .attach('avatar', Buffer.from('<svg/>'), { filename: 'x.svg', contentType: 'image/svg+xml' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('SVG_NOT_ALLOWED');
+  });
+
+  it('turns an unexpected service failure into a logged, opaque 500', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(prisma.tastingNote.findMany).mockRejectedValue(
+      new Error('relation "TastingNote" does not exist'),
+    );
+    vi.mocked(prisma.tastingNote.count).mockResolvedValue(0 as never);
+
+    const res = await request(app)
+      .get('/api/tastings')
+      .set('Authorization', `Bearer ${authToken()}`);
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'UNEXPECTED_ERROR' });
+    // ISSUE_063: the real cause must reach the logs; ISSUE_051: never the client.
+    expect(consoleError).toHaveBeenCalled();
+    expect(JSON.stringify(res.body)).not.toContain('relation');
+    consoleError.mockRestore();
+  });
+});
+
 describe('unknown routes', () => {
   it('returns the JSON 404 shape', async () => {
     const res = await request(app).get('/api/does-not-exist');
