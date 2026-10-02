@@ -15,6 +15,12 @@ export interface CsvPreviewResult {
   errors: CsvPreviewError[];
 }
 
+// Columns the importer knows about. If a file carries none of them, its
+// header line was almost certainly not understood (unsupported delimiter,
+// missing header row, wrong file) — reporting that once is far more useful
+// than one NAME_REQUIRED per data row.
+const KNOWN_COLUMNS = ['name', 'producer', 'category', 'vintage'];
+
 // Defensive cap: this is an onboarding convenience import, not a bulk data
 // migration tool. Rows beyond this are silently ignored at preview time.
 const MAX_ROWS = 500;
@@ -27,6 +33,14 @@ export class ImportService {
 
     const valid: CsvImportRow[] = [];
     const errors: CsvPreviewError[] = [];
+
+    if (records.length > 0) {
+      const columns = Object.keys(records[0]);
+      if (!columns.some((column) => KNOWN_COLUMNS.includes(column))) {
+        // Row 1 = the header line itself, which is what is actually wrong.
+        return { valid, errors: [{ row: 1, reason: 'UNRECOGNIZED_COLUMNS' }] };
+      }
+    }
 
     records.forEach((record, index) => {
       const rowNumber = index + 2; // +1 for the header row, +1 for 1-based numbering

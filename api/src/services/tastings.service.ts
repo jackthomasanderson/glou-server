@@ -15,6 +15,12 @@ const ITEM_SELECT = {
 
 const DEFAULT_PAGE_SIZE = 20;
 
+// Analytics top/flop item rankings.
+const TOP_ITEMS_SIZE = 5;
+// Minimum number of distinct rated items before a "lowest-rated" list is
+// worth showing at all (ISSUE_038).
+const MIN_ITEMS_FOR_FLOP = 10;
+
 export const tastingsService = {
   // `search` (FEAT-09) filters the consumption history by dish (foodPairing)
   // or bottle (item name/producer) — a single free-text field covers both
@@ -160,8 +166,15 @@ export const tastingsService = {
       .filter((i) => i.count >= 1)
       .sort((a, b) => b.avgRating - a.avgRating);
 
-    const topItems = itemStats.slice(0, 5);
-    const flopItems = itemStats.slice(-5).reverse();
+    const topItems = itemStats.slice(0, TOP_ITEMS_SIZE);
+    // The two lists are cut from the same sorted array, so they would overlap
+    // on a small cellar — with a single rated item it would be both the best
+    // and the worst. Below MIN_ITEMS_FOR_FLOP the flop list carries no
+    // information, so it stays empty and the client hides the card; above it,
+    // the top slice is excluded before taking the tail.
+    const flopItems = itemStats.length >= MIN_ITEMS_FOR_FLOP
+      ? itemStats.slice(TOP_ITEMS_SIZE).slice(-TOP_ITEMS_SIZE).reverse()
+      : [];
 
     // Readiness distribution
     const readinessCounts = { TOO_YOUNG: 0, PERFECT: 0, PEAK: 0, PAST: 0 };

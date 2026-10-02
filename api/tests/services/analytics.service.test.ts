@@ -2,14 +2,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    inventoryItem: { findMany: vi.fn() },
+    inventoryItem: { findMany: vi.fn(), count: vi.fn() },
     cellar: { findMany: vi.fn() },
     auditLog: { groupBy: vi.fn() },
   },
 }));
 
 import { prisma } from '../../src/lib/prisma';
-import { getAnalytics } from '../../src/services/analytics.service';
+import { ANALYTICS_PERIOD_SCOPE, getAnalytics } from '../../src/services/analytics.service';
 
 type ItemRow = {
   category: string;
@@ -54,6 +54,7 @@ describe('getAnalytics — aggregation invariants', () => {
       { action: 'CREATE', _count: { action: 5 } },
       { action: 'DELETE', _count: { action: 2 } },
     ] as never);
+    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(3 as never);
   });
 
   it('category counts and maturity buckets each sum to the active item total', async () => {
@@ -114,10 +115,16 @@ describe('getAnalytics — aggregation invariants', () => {
     expect(Math.max(...years)).toBeLessThanOrEqual(thisYear + 20);
   });
 
-  it('maps audit groupBy rows onto movement counters', async () => {
+  it('maps audit groupBy rows onto movement counters, consumed coming from item state', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
     const stats = await getAnalytics();
-    expect(stats.movements).toEqual({ added: 5, consumed: 2, restored: 0 });
+    // ISSUE_040: `consumed` counts finished bottles (isOpened + fillLevel 0),
+    // NOT the DELETE audit rows, which are reported separately as `deleted`.
+    expect(stats.movements).toEqual({ added: 5, consumed: 3, deleted: 2, restored: 0 });
+    const countCall = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(countCall.where).toMatchObject({ deletedAt: null, isOpened: true, fillLevel: 0 });
     // Empty inventory → every percentage is 0, not NaN
     expect(stats.maturityPlanning.readyNow.percent).toBe(0);
   });
@@ -129,5 +136,34 @@ describe('getAnalytics — aggregation invariants', () => {
     await getAnalytics(from, to);
     const call = vi.mocked(prisma.auditLog.groupBy).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
     expect(call.where.createdAt).toEqual({ gte: from, lte: to });
+    // The consumed counter is dated by the item's own updatedAt stamp.
+    const countCall = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(countCall.where.updatedAt).toEqual({ gte: from, lte: to });
+    // ...and the inventory aggregate query itself stays unfiltered.
+    const findCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(findCall.where).toEqual({ deletedAt: null });
+  });
+
+  // ISSUE_035/ISSUE_104: the payload states which part of itself the range
+  // filters, so the UI never presents the period as a page-wide filter.
+  it('echoes the applied range and its movements-only scope', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+    const from = new Date('2026-01-01T00:00:00.000Z');
+    const to = new Date('2026-06-30T00:00:00.000Z');
+
+    const bounded = await getAnalytics(from, to);
+    expect(bounded.period).toEqual({
+      from: from.toISOString(),
+      to: to.toISOString(),
+      scope: ANALYTICS_PERIOD_SCOPE,
+    });
+    expect(ANALYTICS_PERIOD_SCOPE).toBe('movements');
+
+    const unbounded = await getAnalytics();
+    expect(unbounded.period).toEqual({ from: null, to: null, scope: ANALYTICS_PERIOD_SCOPE });
   });
 });
