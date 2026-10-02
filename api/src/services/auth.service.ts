@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import type { SignOptions } from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import crypto from 'crypto';
@@ -19,6 +20,18 @@ const JWT_EXPIRES_IN = '30d';
 // (FEAT-25: a Session must not outlive the JWT that references it).
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
+
+// ISSUE_043: the `2fa_pending` token only proves the first factor was passed.
+// It must not inherit the 30-day session lifetime — a stolen/leaked password
+// would otherwise hand an attacker a month-long window to brute-force the
+// 6-digit code. Ten minutes is enough to read a code from an authenticator
+// app or fetch a backup code.
+const TWO_FACTOR_PENDING_EXPIRES_IN = '10m';
+// Consecutive failed 2FA codes tolerated per account before the challenge is
+// temporarily locked. Complements the per-IP rate limiter in app.ts, which an
+// attacker can sidestep by rotating addresses.
+const TWO_FACTOR_MAX_FAILED_ATTEMPTS = 5;
+const TWO_FACTOR_LOCK_DURATION_MS = 15 * 60 * 1000;
 
 export interface AuthPayload {
   userId: string;
@@ -101,15 +114,22 @@ interface RawUserForPublic {
   onboardingCompletedAt: Date | null;
 }
 
-function signToken(payload: AuthPayload): string {
+function signToken(payload: AuthPayload, expiresIn: SignOptions['expiresIn'] = JWT_EXPIRES_IN): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error('JWT_SECRET_NOT_SET');
-  return jwt.sign(payload, secret, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign(payload, secret, { expiresIn });
 }
 
 // ─── Security Notifications (FEAT-29) ────────────────────────────────────────
 
-type SecurityEventKey = 'newDevice' | 'passwordChanged' | 'twoFactorEnabled' | 'twoFactorDisabled' | 'sessionRevoked';
+export type SecurityEventKey =
+  | 'newDevice'
+  | 'passwordChanged'
+  | 'twoFactorEnabled'
+  | 'twoFactorDisabled'
+  | 'sessionRevoked'
+  | 'emailChanged'
+  | 'twoFactorLocked';
 
 const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subject: string; intro: string }> = {
   newDevice: (isEn) => isEn
@@ -127,6 +147,15 @@ const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subj
   sessionRevoked: (isEn) => isEn
     ? { subject: 'Glou — A session was signed out', intro: 'A session on your account was signed out.' }
     : { subject: 'Glou — Session déconnectée', intro: 'Une session de votre compte a été déconnectée.' },
+  // ISSUE_042 — sent to the PREVIOUS address, which is the only one the
+  // legitimate owner still controls once the change went through.
+  emailChanged: (isEn) => isEn
+    ? { subject: 'Glou — Your account email was changed', intro: 'The email address of your account was just changed. This message was sent to the previous address.' }
+    : { subject: 'Glou — Adresse e-mail modifiée', intro: 'L’adresse e-mail de votre compte vient d’être modifiée. Ce message est envoyé à l’ancienne adresse.' },
+  // ISSUE_043 — repeated wrong 2FA codes on an account.
+  twoFactorLocked: (isEn) => isEn
+    ? { subject: 'Glou — Two-factor verification temporarily locked', intro: 'Too many incorrect two-factor codes were submitted on your account, so the verification step has been temporarily locked.' }
+    : { subject: 'Glou — Vérification en deux étapes temporairement bloquée', intro: 'Trop de codes de double authentification incorrects ont été saisis sur votre compte : l’étape de vérification est temporairement bloquée.' },
 };
 
 export class AuthService {
@@ -246,17 +275,40 @@ export class AuthService {
   }
 
   /**
+   * Revoke every TrustedDevice of `userId` (ISSUE_044). A trusted device
+   * skips the 2FA challenge for 30 days, so it is a credential in its own
+   * right: it must not survive a password change, a password reset or a 2FA
+   * disable. Returns the number of devices actually revoked.
+   */
+  private async revokeAllTrustedDevices(userId: string): Promise<number> {
+    const result = await prisma.trustedDevice.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return result.count;
+  }
+
+  /**
    * Fire-and-forget a security notification (FEAT-29). Never throws and never
    * blocks its caller — mirrors the rest of the audit/notification pipeline.
    * Always bypasses quiet hours: a compromised account must not wait for morning.
    */
-  private notifySecurityEvent(userId: string, eventKey: SecurityEventKey, deviceInfo: DeviceInfo): void {
-    void this.sendSecurityNotification(userId, eventKey, deviceInfo).catch((err) => {
+  private notifySecurityEvent(userId: string, eventKey: SecurityEventKey, deviceInfo: DeviceInfo, emailOverride?: string): void {
+    void this.sendSecurityNotification(userId, eventKey, deviceInfo, emailOverride).catch((err) => {
       console.error(`[auth] Failed to send security notification (${eventKey}):`, err);
     });
   }
 
-  private async sendSecurityNotification(userId: string, eventKey: SecurityEventKey, deviceInfo: DeviceInfo): Promise<void> {
+  /**
+   * Public entry point for security notifications raised by sibling services
+   * that share this account-security pipeline (ISSUE_044: the password-reset
+   * flow). Same fire-and-forget contract as the internal callers.
+   */
+  notifyAccountSecurityEvent(userId: string, eventKey: SecurityEventKey, deviceInfo: DeviceInfo): void {
+    this.notifySecurityEvent(userId, eventKey, deviceInfo);
+  }
+
+  private async sendSecurityNotification(userId: string, eventKey: SecurityEventKey, deviceInfo: DeviceInfo, emailOverride?: string): Promise<void> {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { language: true, notifLanguage: true } });
     if (!user) return;
     const isEn = (user.notifLanguage ?? user.language) === 'EN';
@@ -285,7 +337,7 @@ export class AuthService {
         : "Si vous n'êtes pas à l'origine de cette action, sécurisez votre compte immédiatement : changez votre mot de passe et déconnectez les autres sessions."}</p>`,
     ].join('');
 
-    await notificationService.send({ userId, category: 'security', subject, htmlBody, bypassQuietHours: true });
+    await notificationService.send({ userId, category: 'security', subject, htmlBody, bypassQuietHours: true, emailOverride });
   }
 
   /**
@@ -400,7 +452,10 @@ export class AuthService {
         }
       }
 
-      const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: '2fa_pending', rememberMe });
+      const token = signToken(
+        { userId: user.id, email: user.email, username: user.username, scope: '2fa_pending', rememberMe },
+        TWO_FACTOR_PENDING_EXPIRES_IN,
+      );
       return { user: publicUser, token, rememberMe, requires2fa: true };
     }
 
@@ -509,13 +564,30 @@ export class AuthService {
   }
 
   /**
-   * Update user email
+   * Update user email.
+   *
+   * ISSUE_042: changing the account's email reroutes the whole password-reset
+   * channel, so it is treated like every other sensitive account change —
+   * the current password is required (same pattern as `updatePassword`,
+   * `setPin` and `turnOffTwoFactorAuthentication`) — and a security
+   * notification is sent to the PREVIOUS address, the only one the
+   * legitimate owner still controls afterwards.
    */
-  async updateEmail(userId: string, email: string): Promise<PublicUser> {
+  async updateEmail(userId: string, email: string, currentPassword: string, deviceInfo: DeviceInfo): Promise<PublicUser> {
+    const account = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { passwordHash: true, email: true },
+    });
+
+    const valid = await bcrypt.compare(currentPassword, account.passwordHash);
+    if (!valid) throw new Error('INVALID_CREDENTIALS');
+
     const existing = await prisma.user.findFirst({
       where: { email, NOT: { id: userId } }
     });
     if (existing) throw new Error('EMAIL_ALREADY_TAKEN');
+
+    const previousEmail = account.email;
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -541,6 +613,11 @@ export class AuthService {
         onboardingCompletedAt: true,
       }
     });
+
+    if (previousEmail !== user.email) {
+      this.notifySecurityEvent(userId, 'emailChanged', deviceInfo, previousEmail);
+    }
+
     return this.toPublicUser(user);
   }
 
@@ -562,6 +639,8 @@ export class AuthService {
     this.notifySecurityEvent(userId, 'passwordChanged', deviceInfo);
     // A stolen session must not survive a password change.
     await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown');
+    // ISSUE_044: neither must a trusted device, which skips the 2FA challenge.
+    await this.revokeAllTrustedDevices(userId);
   }
 
   /**
@@ -744,6 +823,9 @@ export class AuthService {
     // A stolen session must not survive 2FA being turned off (it weakens the
     // account's remaining auth factor, same rationale as a password change).
     await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown');
+    // ISSUE_044: drop the trusted devices as well — they were only ever a
+    // shortcut around the 2FA challenge that no longer exists.
+    await this.revokeAllTrustedDevices(userId);
   }
 
   // ─── RGPD Methods (FEAT-38 / FEAT-18) ────────────────────────────────────────
@@ -854,6 +936,40 @@ export class AuthService {
 
   // ─── 2FA Methods ────────────────────────────────────────────────────────────
 
+  /**
+   * Record one wrong 2FA code for `userId`. Once the consecutive-failure
+   * budget is spent, lock the challenge for a cooling-off period, reset the
+   * counter and warn the account owner (ISSUE_043).
+   */
+  private async registerFailedTwoFactorAttempt(userId: string, deviceInfo: DeviceInfo): Promise<void> {
+    // Atomic increment rather than read-then-write: concurrent guesses (the
+    // very shape of a brute-force attempt) must not overwrite each other's
+    // count and silently refill the budget.
+    const { twoFactorFailedAttempts: failures } = await prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorFailedAttempts: { increment: 1 } },
+      select: { twoFactorFailedAttempts: true },
+    });
+
+    if (failures < TWO_FACTOR_MAX_FAILED_ATTEMPTS) return;
+
+    // Budget spent: start the cooling-off period and reset the counter, so
+    // the next window starts from a clean slate once the lock expires.
+    await prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorFailedAttempts: 0, twoFactorLockedUntil: new Date(Date.now() + TWO_FACTOR_LOCK_DURATION_MS) },
+    });
+    this.notifySecurityEvent(userId, 'twoFactorLocked', deviceInfo);
+  }
+
+  /**
+   * ISSUE_043: per-account throttling of the second factor. The per-IP rate
+   * limiter in app.ts is trivially sidestepped by rotating addresses, so the
+   * consecutive-failure counter lives on the account itself: after
+   * TWO_FACTOR_MAX_FAILED_ATTEMPTS wrong codes the challenge is locked for
+   * TWO_FACTOR_LOCK_DURATION_MS and the owner is notified. Any successful
+   * verification clears the counter.
+   */
   async verifyTwoFactorLogin(
     userId: string,
     code: string,
@@ -863,6 +979,10 @@ export class AuthService {
   ): Promise<{ user: PublicUser; token: string; rememberMe: boolean; trustedDeviceToken?: string }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
+
+    if (user.twoFactorLockedUntil && user.twoFactorLockedUntil > new Date()) {
+      throw new Error('2FA_TEMPORARILY_LOCKED');
+    }
 
     let validCode = false;
     let usedBackupCodeHash: string | null = null;
@@ -884,16 +1004,24 @@ export class AuthService {
       }
     }
 
-    if (!validCode) throw new Error('INVALID_TOTP_CODE');
-
-    // If backup code used, remove it
-    if (usedBackupCodeHash) {
-      const remainingCodes = user.backupCodes.filter(c => c !== usedBackupCodeHash);
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { backupCodes: remainingCodes }
-      });
+    if (!validCode) {
+      await this.registerFailedTwoFactorAttempt(user.id, deviceInfo);
+      throw new Error('INVALID_TOTP_CODE');
     }
+
+    // Successful verification clears the brute-force counter (ISSUE_043) and,
+    // if a backup code was used, consumes it — both in a single write.
+    const remainingCodes = usedBackupCodeHash
+      ? user.backupCodes.filter(c => c !== usedBackupCodeHash)
+      : undefined;
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        twoFactorFailedAttempts: 0,
+        twoFactorLockedUntil: null,
+        ...(remainingCodes ? { backupCodes: remainingCodes } : {}),
+      },
+    });
 
     const publicUser: PublicUser = this.toPublicUser(user);
 

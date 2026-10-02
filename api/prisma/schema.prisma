@@ -44,6 +44,14 @@ model User {
   twoFactorSecret    String?
   backupCodes        String[]   @default([])
 
+  // 2FA brute-force throttling (ISSUE_043) — the per-IP rate limiter alone
+  // can be sidestepped by rotating addresses, so consecutive wrong codes are
+  // counted on the account itself. `twoFactorLockedUntil` is set once the
+  // budget is spent and the counter is reset at the same time; any
+  // successful verification clears both.
+  twoFactorFailedAttempts Int      @default(0)
+  twoFactorLockedUntil    DateTime?
+
   // Quick Lock & Auto-Lock (FEAT-30) — client-side lock, no impact on Session validity
   pinHash            String?    // bcrypt hash of a 4-6 digit unlock PIN, optional
   autoLockDelayMin   Int?       // 5, 15, 30 or null = never
@@ -251,7 +259,12 @@ model InventoryItem {
   fillLevel    Int?      // 0-100 (%)
   openedAt     DateTime?
   reminderDate DateTime?
-  alertStatus  AlertStatus? // auto-computed from peakMaturityFrom/To, see alert.service.ts#computeAlertStatus
+  // Denormalised drinking-window status, auto-computed from
+  // peakMaturityFrom/To — see alert.service.ts#computeAlertStatus. It is
+  // year-dependent, so it is written on create/update AND realigned by the
+  // daily maintenance pass (alert.service.ts#recomputeAlertStatuses); read
+  // paths that must be exact compute it instead of reading this column.
+  alertStatus  AlertStatus?
 
   // Traceability
   updatedBy    String?   // userId of the last editor (null = no edits yet)

@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
@@ -29,6 +29,33 @@ const TRUSTED_DEVICE_COOKIE_OPTIONS = {
   maxAge: 30 * 24 * 60 * 60 * 1000,
   path: '/api/auth',
 };
+
+// ─── Public error codes (ISSUE_051) ──────────────────────────────────────────
+// `/reset-password` and `/2fa/verify-login` are reachable without a session, and
+// both used to echo `error.message` straight back. As long as the exception comes
+// from business code that message is a curated code, but a failure raised by the
+// data layer (a Prisma `findUniqueOrThrow`, for instance) describes the model and
+// operation involved. Only the codes listed here may leave the process; anything
+// else becomes UNEXPECTED_ERROR and is logged server-side only.
+const PUBLIC_AUTH_ERROR_CODES = new Set([
+  '2FA_NOT_ENABLED',
+  '2FA_TEMPORARILY_LOCKED',
+  'INVALID_CREDENTIALS',
+  'INVALID_OR_EXPIRED_TOKEN',
+  'INVALID_TOTP_CODE',
+  'NOT_A_PENDING_TOKEN',
+  'PASSWORD_TOO_SHORT',
+  'TOKEN_INVALID_OR_EXPIRED',
+  'VALIDATION_ERROR',
+]);
+
+/** Allow-listed error code for an unauthenticated caller, never a raw message. */
+function publicAuthError(error: unknown, route: string): string {
+  const message = error instanceof Error ? error.message : '';
+  if (PUBLIC_AUTH_ERROR_CODES.has(message)) return message;
+  console.error(`[auth] ${route} failed with a non-public error:`, error);
+  return 'UNEXPECTED_ERROR';
+}
 
 function readDeviceInfo(req: Request): { userAgent: string | undefined; ip: string } {
   return { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
@@ -126,6 +153,9 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 
 router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
+  // Hoisted out of the try so the catch block can audit a lockout against the
+  // right account (ISSUE_043). Empty until the pending token is decoded.
+  let userId = '';
   try {
     // Get the pending token from headers or cookies
     const authHeader = req.headers.authorization;
@@ -141,7 +171,6 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
     const secret = process.env.JWT_SECRET;
     if (!secret) throw new Error('SERVER_CONFIGURATION_ERROR');
 
-    let userId = '';
     let rememberMe = false;
     try {
       // Decode the pending token to extract userId and rememberMe
@@ -171,7 +200,14 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
+    const msg = publicAuthError(error, 'POST /2fa/verify-login');
+    // ISSUE_043: a locked account is a throttling decision, not a credential
+    // rejection — 429 so clients (and operators reading logs) can tell them apart.
+    if (msg === '2FA_TEMPORARILY_LOCKED') {
+      if (userId) void auditLog({ userId, action: 'LOGIN_2FA', status: 'error', ip, details: { reason: '2fa_locked' } });
+      res.status(429).json({ error: msg });
+      return;
+    }
     res.status(401).json({ error: msg });
   }
 });
@@ -243,17 +279,13 @@ router.post('/logout', authMiddleware, async (req: Request, res: Response): Prom
 // ─── GET /api/auth/sessions ────────────────────────────────────────────────────
 
 router.get('/sessions', authMiddleware, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const sessions = await authService.listSessions(req.userId, req.sessionId);
-    res.json({ data: sessions });
-  } catch {
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const sessions = await authService.listSessions(req.userId, req.sessionId);
+  res.json({ data: sessions });
 });
 
 // ─── DELETE /api/auth/sessions/:id ─────────────────────────────────────────────
 
-router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const ip = getClientIp(req);
   try {
     await authService.revokeSession(req.userId, routeParam(req.params.id));
@@ -265,7 +297,7 @@ router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Respons
       res.status(404).json({ error: 'NOT_FOUND' });
       return;
     }
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+    next(error);
   }
 });
 
@@ -273,31 +305,23 @@ router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Respons
 
 router.post('/trust-device', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
-  try {
-    const { token } = await authService.trustCurrentDevice(req.userId, readDeviceInfo(req));
-    res.cookie(TRUSTED_DEVICE_COOKIE_NAME, packTrustedDeviceToken(token), TRUSTED_DEVICE_COOKIE_OPTIONS);
-    void auditLog({ userId: req.userId, action: 'TRUST_DEVICE', status: 'success', ip });
-    res.json({ data: { ok: true } });
-  } catch {
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const { token } = await authService.trustCurrentDevice(req.userId, readDeviceInfo(req));
+  res.cookie(TRUSTED_DEVICE_COOKIE_NAME, packTrustedDeviceToken(token), TRUSTED_DEVICE_COOKIE_OPTIONS);
+  void auditLog({ userId: req.userId, action: 'TRUST_DEVICE', status: 'success', ip });
+  res.json({ data: { ok: true } });
 });
 
 // ─── DELETE /api/auth/trust-device ─────────────────────────────────────────────
 
 router.delete('/trust-device', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
-  try {
-    const trustedDeviceToken = readTrustedDeviceCookie(req);
-    if (trustedDeviceToken) {
-      await authService.untrustCurrentDevice(req.userId, trustedDeviceToken);
-    }
-    res.clearCookie(TRUSTED_DEVICE_COOKIE_NAME, { path: '/api/auth' });
-    void auditLog({ userId: req.userId, action: 'UNTRUST_DEVICE', status: 'success', ip });
-    res.json({ data: { ok: true } });
-  } catch {
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  const trustedDeviceToken = readTrustedDeviceCookie(req);
+  if (trustedDeviceToken) {
+    await authService.untrustCurrentDevice(req.userId, trustedDeviceToken);
   }
+  res.clearCookie(TRUSTED_DEVICE_COOKIE_NAME, { path: '/api/auth' });
+  void auditLog({ userId: req.userId, action: 'UNTRUST_DEVICE', status: 'success', ip });
+  res.json({ data: { ok: true } });
 });
 
 // ─── Quick Lock & Auto-Lock (FEAT-30) ─────────────────────────────────────────
@@ -306,7 +330,7 @@ router.delete('/trust-device', authMiddleware, async (req: Request, res: Respons
 
 // ─── POST /api/auth/pin ────────────────────────────────────────────────────────
 
-router.post('/pin', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.post('/pin', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const { password, pin } = setPinSchema.parse(req.body);
@@ -323,13 +347,13 @@ router.post('/pin', authMiddleware, async (req: Request, res: Response): Promise
       res.status(401).json({ error: msg });
       return;
     }
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+    next(error);
   }
 });
 
 // ─── DELETE /api/auth/pin ───────────────────────────────────────────────────────
 
-router.delete('/pin', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.delete('/pin', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const { password } = removePinSchema.parse(req.body);
@@ -346,7 +370,7 @@ router.delete('/pin', authMiddleware, async (req: Request, res: Response): Promi
       res.status(401).json({ error: msg });
       return;
     }
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+    next(error);
   }
 });
 
@@ -354,7 +378,7 @@ router.delete('/pin', authMiddleware, async (req: Request, res: Response): Promi
 // Verifies password OR PIN to lift the client-side lock. Never touches the
 // Session/JWT — this is a pure secret check, not a re-authentication.
 
-router.post('/unlock', unlockLimiter, authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.post('/unlock', unlockLimiter, authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const data = unlockSchema.parse(req.body);
     const ok = await authService.verifyUnlock(req.userId, data);
@@ -368,23 +392,19 @@ router.post('/unlock', unlockLimiter, authMiddleware, async (req: Request, res: 
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+    next(error);
   }
 });
 
 // ─── GET /api/auth/me ─────────────────────────────────────────────────────────
 
 router.get('/me', authMiddleware, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const user = await authService.me(req.userId);
-    if (!user) {
-      res.status(404).json({ error: 'USER_NOT_FOUND' });
-      return;
-    }
-    res.json({ data: user });
-  } catch {
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  const user = await authService.me(req.userId);
+  if (!user) {
+    res.status(404).json({ error: 'USER_NOT_FOUND' });
+    return;
   }
+  res.json({ data: user });
 });
 
 // ─── GET /api/auth/smtp-status ────────────────────────────────────────────────
@@ -440,11 +460,10 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
       res.status(400).json({ error: 'PASSWORD_TOO_SHORT' });
       return;
     }
-    await passwordResetService.resetPassword(token, newPassword);
+    await passwordResetService.resetPassword(token, newPassword, readDeviceInfo(req));
     res.json({ data: { ok: true } });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'UNEXPECTED_ERROR';
-    res.status(400).json({ error: msg });
+    res.status(400).json({ error: publicAuthError(err, 'POST /reset-password') });
   }
 });
 

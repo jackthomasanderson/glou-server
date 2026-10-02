@@ -24,6 +24,13 @@ interface NotificationPayload {
    * `security` category: a compromised account must not wait for morning.
    */
   bypassQuietHours?: boolean;
+  /**
+   * Deliver the email channel to this address instead of the account's
+   * current one. Reserved for security events whose whole point is to warn
+   * the *previous* recipient (e.g. an email change, ISSUE_042). The in-app /
+   * webhook channels are unaffected.
+   */
+  emailOverride?: string;
 }
 
 export const notificationService = {
@@ -53,9 +60,11 @@ export const notificationService = {
     // Email channel
     if (user.notifEmail && policy.smtpEnabled) {
       try {
-        await emailService.send({ to: user.email, subject: payload.subject, html: payload.htmlBody });
-      } catch {
-        // Email failure must not block other channels
+        await emailService.send({ to: payload.emailOverride ?? user.email, subject: payload.subject, html: payload.htmlBody });
+      } catch (error) {
+        // An email failure must not block the other channels, but a notification
+        // that never left still has to leave a trace (ISSUE_063).
+        console.error('[notification] email delivery failed:', error);
       }
     }
 
@@ -68,8 +77,9 @@ export const notificationService = {
           body: JSON.stringify({ title: payload.subject, message: htmlToPlainText(payload.htmlBody) }),
           signal: AbortSignal.timeout(5000),
         });
-      } catch {
-        // Webhook failure must not propagate
+      } catch (error) {
+        // Same contract as the email channel above: swallowed, never silent.
+        console.error('[notification] webhook delivery failed:', error);
       }
     }
   },

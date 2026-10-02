@@ -9,8 +9,11 @@ export const updateProfileSchema = z.object({
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
+// ISSUE_042: changing the account email reroutes the password-reset channel,
+// so it requires the current password, like every other sensitive change.
 export const updateEmailSchema = z.object({
   email: z.string().email(),
+  currentPassword: z.string().min(1),
 });
 
 export type UpdateEmailInput = z.infer<typeof updateEmailSchema>;
