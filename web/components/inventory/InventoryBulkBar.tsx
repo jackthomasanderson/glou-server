@@ -3,7 +3,6 @@ import React from 'react';
 import { Button } from '@heroui/react';
 import { List, X } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
-import { UndoToast } from '@/components/ui/UndoToast';
 import { BulkActionDialog } from './BulkActionDialog';
 
 export interface InventoryBulkToggleButtonProps {
@@ -37,14 +36,17 @@ export interface InventoryBulkBarProps {
   onCloseDialog: () => void;
   onApply: (patch: Partial<InventoryItem>) => void;
   isSubmitting: boolean;
-  bulkSuccessCount: number | null;
-  onCloseSuccessToast: () => void;
 }
 
 /**
  * Floating bulk-selection action bar: shows the "N selected" pill + the
- * button that opens the bulk edit dialog, the dialog itself, and the
- * post-bulk-update success toast.
+ * button that opens the bulk edit dialog, and the dialog itself.
+ *
+ * The post-update confirmation is a plain success toast raised by the
+ * dashboard through the shared notification system. It deliberately does NOT
+ * use `UndoToast`: that component's countdown bar reads as "you have a few
+ * seconds to undo", and a bulk update cannot be undone (ISSUE_124). The
+ * before/after recap in `BulkActionDialog` is the safeguard instead.
  */
 export function InventoryBulkBar({
   t,
@@ -56,20 +58,9 @@ export function InventoryBulkBar({
   onCloseDialog,
   onApply,
   isSubmitting,
-  bulkSuccessCount,
-  onCloseSuccessToast,
 }: InventoryBulkBarProps) {
   return (
     <>
-      {bulkSuccessCount !== null && (
-        <UndoToast
-          message={t('bulk.success', { count: bulkSuccessCount })}
-          undoLabel={t('actions.close')}
-          onUndo={onCloseSuccessToast}
-          onExpire={onCloseSuccessToast}
-        />
-      )}
-
       {/* Bulk floating bar */}
       {bulkMode && selectedIds.size > 0 && (
         <div className="fixed bottom-[80px] md:bottom-6 left-1/2 -translate-x-1/2 z-[1200] bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">

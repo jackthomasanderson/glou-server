@@ -33,6 +33,38 @@ describe('parseCsv', () => {
     expect(parseCsv('')).toEqual([]);
   });
 
+  it('detects a semicolon delimiter (French Excel export)', () => {
+    const out = parseCsv('name;producer;category\nP\u00e9trus;Ch\u00e2teau P\u00e9trus;wine\n');
+    expect(out).toEqual([{ name: 'P\u00e9trus', producer: 'Ch\u00e2teau P\u00e9trus', category: 'wine' }]);
+  });
+
+  it('parses a French Excel export: UTF-8 BOM, semicolons and CRLF', () => {
+    const csv = '\uFEFFname;producer;category;vintage\r\nP\u00e9trus;Ch\u00e2teau P\u00e9trus;wine;2015\r\n"Clos; A";Dom. B;wine;\r\n';
+    expect(parseCsv(csv)).toEqual([
+      { name: 'P\u00e9trus', producer: 'Ch\u00e2teau P\u00e9trus', category: 'wine', vintage: '2015' },
+      { name: 'Clos; A', producer: 'Dom. B', category: 'wine', vintage: '' },
+    ]);
+  });
+
+  it('strips the BOM from a comma-separated export too', () => {
+    expect(parseCsv('\uFEFFname,producer\nA,B\n')).toEqual([{ name: 'A', producer: 'B' }]);
+  });
+
+  it('keeps the comma as delimiter when commas dominate the header', () => {
+    // A comma-separated file whose data happens to contain semicolons.
+    const out = parseCsv('name,notes\nA,"x; y; z"\n');
+    expect(out).toEqual([{ name: 'A', notes: 'x; y; z' }]);
+  });
+
+  it('ignores delimiters quoted inside the header when detecting', () => {
+    const out = parseCsv('"a;b;c;d";"e;f"\n1;2\n');
+    expect(out).toEqual([{ 'a;b;c;d': '1', 'e;f': '2' }]);
+  });
+
+  it('falls back to the comma for a single-column file', () => {
+    expect(parseCsv('name\nA\n')).toEqual([{ name: 'A' }]);
+  });
+
   it('throws CSV_TOO_LARGE past the hard character cap', () => {
     expect(() => parseCsv('a\n' + 'x'.repeat(5_000_001))).toThrow('CSV_TOO_LARGE');
   });

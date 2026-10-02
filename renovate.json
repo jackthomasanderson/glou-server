@@ -1,0 +1,62 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommitTypeAll(chore)"],
+  "baseBranches": ["dev"],
+  "timezone": "Europe/Paris",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 4,
+  "rebaseWhen": "conflicted",
+  "dependencyDashboard": true,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"]
+  },
+  "packageRules": [
+    {
+      "description": "npm minor/patch: un seul PR par projet (api, web, e2e)",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "{{packageFileDir}} minor and patch"
+    },
+    {
+      "description": "Prisma : client, adapter et CLI doivent rester alignés, majeures comprises",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["prisma", "/^@prisma//"],
+      "groupName": "prisma"
+    },
+    {
+      "description": "React et ses types évoluent ensemble",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["react", "react-dom", "@types/react", "@types/react-dom"],
+      "groupName": "react"
+    },
+    {
+      "description": "@types/node suit la version de Node utilisée par les Dockerfiles / la CI",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["@types/node"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "GitHub Actions : minor/patch groupées",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "github actions"
+    },
+    {
+      "description": "Images Docker de base (node:*-alpine) : minor/patch groupées",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "docker base images"
+    },
+    {
+      "description": "Postgres : montée de version majeure = migration de données, jamais automatique",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["postgres"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ]
+}

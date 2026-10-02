@@ -43,6 +43,10 @@ import { Cellar, CellarType } from '@/lib/cellars/types';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useExpertMode } from '@/hooks/useExpertMode';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
+import { isFormDirty } from '@/lib/forms/dirtyState';
 
 interface GridFormData {
   columns: string;
@@ -64,6 +68,14 @@ interface FormData {
   humidor: HumidorFormData;
 }
 
+const EMPTY_CELLAR_FORM: FormData = {
+  name: '',
+  description: '',
+  type: 'VINTAGE',
+  grid: { columns: '', rows: '', hotZoneRows: '', coldZoneRows: '' },
+  humidor: { targetHumidityMin: '', targetHumidityMax: '' },
+};
+
 function parseOptionalInt(value: string): number | null {
   const n = parseInt(value, 10);
   return isNaN(n) || value.trim() === '' ? null : n;
@@ -78,7 +90,7 @@ export const CellarDashboard: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { data: cellars, isLoading, isError } = useCellars();
+  const { data: cellars, isLoading, isError, refetch, isRefetching } = useCellars();
   const createMutation = useCreateCellar();
   const updateMutation = useUpdateCellar();
   const deleteMutation = useDeleteCellar();
@@ -173,13 +185,9 @@ export const CellarDashboard: React.FC = () => {
 
     return result;
   }, [cellars, typeFilter, statusFilter]);
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
-    description: '',
-    type: 'VINTAGE',
-    grid: { columns: '', rows: '', hotZoneRows: '', coldZoneRows: '' },
-    humidor: { targetHumidityMin: '', targetHumidityMax: '' },
-  });
+  const [formData, setFormData] = useState<FormData>(EMPTY_CELLAR_FORM);
+  // ISSUE_119: values the form opened with, to detect unsaved input on close.
+  const [formBaseline, setFormBaseline] = useState<FormData>(EMPTY_CELLAR_FORM);
 
   const hotZone = parseOptionalInt(formData.grid.hotZoneRows) ?? 0;
   const coldZone = parseOptionalInt(formData.grid.coldZoneRows) ?? 0;
@@ -191,7 +199,7 @@ export const CellarDashboard: React.FC = () => {
       setEditingCellar(cellar);
       const hasGrid = cellar.columns != null || cellar.rows != null;
       setShowGridConfig(hasGrid);
-      setFormData({
+      const nextForm: FormData = {
         name: cellar.name,
         description: cellar.description || '',
         type: cellar.type,
@@ -205,17 +213,14 @@ export const CellarDashboard: React.FC = () => {
           targetHumidityMin: cellar.targetHumidityMin?.toString() ?? '',
           targetHumidityMax: cellar.targetHumidityMax?.toString() ?? '',
         },
-      });
+      };
+      setFormData(nextForm);
+      setFormBaseline(nextForm);
     } else {
       setEditingCellar(null);
       setShowGridConfig(false);
-      setFormData({
-        name: '',
-        description: '',
-        type: 'VINTAGE',
-        grid: { columns: '', rows: '', hotZoneRows: '', coldZoneRows: '' },
-        humidor: { targetHumidityMin: '', targetHumidityMax: '' },
-      });
+      setFormData(EMPTY_CELLAR_FORM);
+      setFormBaseline(EMPTY_CELLAR_FORM);
     }
     setOpenForm(true);
   };
@@ -223,6 +228,14 @@ export const CellarDashboard: React.FC = () => {
   const handleCloseForm = () => {
     setOpenForm(false);
   };
+
+  // ISSUE_119: a backdrop click or Escape must not silently drop a started entry.
+  const formGuard = useUnsavedChangesGuard({
+    isOpen: openForm,
+    isDirty: isFormDirty(formBaseline, formData),
+    onClose: handleCloseForm,
+    isLocked: createMutation.isPending || updateMutation.isPending,
+  });
 
   const parseOptionalFloat = (value: string): number | null => {
     const n = parseFloat(value);
@@ -245,12 +258,16 @@ export const CellarDashboard: React.FC = () => {
       targetHumidityMax: isHumidorType ? parseOptionalFloat(formData.humidor.targetHumidityMax) : null,
     };
 
-    if (editingCellar) {
-      await updateMutation.mutateAsync({ id: editingCellar.id, data: payload });
-    } else {
-      await createMutation.mutateAsync(payload);
+    try {
+      if (editingCellar) {
+        await updateMutation.mutateAsync({ id: editingCellar.id, data: payload });
+      } else {
+        await createMutation.mutateAsync(payload);
+      }
+      handleCloseForm();
+    } catch {
+      /* toast raised by useCreateCellar / useUpdateCellar */
     }
-    handleCloseForm();
   };
 
   const handleDelete = (cellar: Cellar) => {
@@ -259,8 +276,12 @@ export const CellarDashboard: React.FC = () => {
 
   const confirmDelete = async () => {
     if (!deletingCellar) return;
-    await deleteMutation.mutateAsync(deletingCellar.id);
-    setDeletingCellar(null);
+    try {
+      await deleteMutation.mutateAsync(deletingCellar.id);
+      setDeletingCellar(null);
+    } catch {
+      /* toast raised by useDeleteCellar */
+    }
   };
 
   if (isLoading) {
@@ -272,9 +293,11 @@ export const CellarDashboard: React.FC = () => {
   }
   if (isError) {
     return (
-      <div className="rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-danger-700 text-sm">
-        {t('status.error')}
-      </div>
+      <ErrorState
+        message={t('cellars.errors.load')}
+        onRetry={() => { void refetch(); }}
+        isRetrying={isRefetching}
+      />
     );
   }
 
@@ -545,7 +568,12 @@ export const CellarDashboard: React.FC = () => {
       )}
 
       {/* Form Modal */}
-      <Modal isOpen={openForm} onClose={handleCloseForm} size="md">
+      <Modal
+        isOpen={openForm && !formGuard.isConfirmOpen}
+        onClose={formGuard.requestClose}
+        {...formGuard.dismissProps}
+        size="md"
+      >
         <ModalContent>
           <ModalHeader>
             {editingCellar ? t('cellars.editCellar') : t('cellars.addCellar')}
@@ -681,7 +709,7 @@ export const CellarDashboard: React.FC = () => {
             </div>
           </ModalBody>
           <ModalFooter>
-            <Button variant="light" onPress={handleCloseForm}>
+            <Button variant="light" onPress={formGuard.requestClose}>
               {t('actions.cancel')}
             </Button>
             <Button
@@ -694,6 +722,12 @@ export const CellarDashboard: React.FC = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      <DiscardChangesDialog
+        isOpen={formGuard.isConfirmOpen}
+        onCancel={formGuard.cancelDiscard}
+        onConfirm={formGuard.confirmDiscard}
+      />
 
       {/* Delete confirm */}
       <Modal

@@ -90,6 +90,9 @@ describe('AuthService', () => {
         isTwoFactorEnabled: false,
         twoFactorSecret: null,
         backupCodes: [],
+        // ISSUE_043: per-account 2FA brute-force counters.
+        twoFactorFailedAttempts: 0,
+        twoFactorLockedUntil: null,
         isAdmin: false,
         isActive: true,
         passwordHash: 'hashedPassword',
@@ -162,6 +165,9 @@ describe('AuthService', () => {
       isTwoFactorEnabled: false,
       twoFactorSecret: null,
       backupCodes: [],
+      // ISSUE_043: per-account 2FA brute-force counters.
+      twoFactorFailedAttempts: 0,
+      twoFactorLockedUntil: null,
       isAdmin: false,
       isActive: true,
       deletionRequestedAt: null,

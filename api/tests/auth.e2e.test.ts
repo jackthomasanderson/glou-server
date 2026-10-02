@@ -64,6 +64,9 @@ function baseUserRecord(overrides: Record<string, unknown> = {}) {
     isTwoFactorEnabled: false,
     twoFactorSecret: null as string | null,
     backupCodes: [] as string[],
+    // ISSUE_043: per-account 2FA brute-force counters.
+    twoFactorFailedAttempts: 0,
+    twoFactorLockedUntil: null as Date | null,
     deletionRequestedAt: null,
     pinHash: null,
     autoLockDelayMin: null,
@@ -105,7 +108,21 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
     }) as never);
     vi.mocked(prisma.user.update).mockImplementation((async ({ data }: any) => {
       if (!store) throw new Error('NOT_FOUND');
-      store = { ...store, ...data };
+      // Resolve Prisma's atomic-number operators the same way the real client
+      // would, so `{ increment: 1 }` lands as a number and not as the operator
+      // object itself (ISSUE_043 counts 2FA failures that way).
+      const resolved: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+        if (value && typeof value === 'object' && 'increment' in (value as object)) {
+          const current = (store as Record<string, unknown>)[key];
+          resolved[key] = (typeof current === 'number' ? current : 0) + Number((value as { increment: number }).increment);
+        } else {
+          resolved[key] = value;
+        }
+      }
+      // `resolved` is an untyped bag by construction, hence the cast (same
+      // scaffolding convention as the `as never` implementations around it).
+      store = { ...store, ...resolved } as any;
       return store;
     }) as never);
     vi.mocked(prisma.session.create).mockResolvedValue({ id: 'session-1' } as never);

@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma';
 import { emailService } from './email.service';
 import { systemConfigService } from './system-config.service';
+import { authService, DeviceInfo } from './auth.service';
+import { auditLog } from './audit.service';
 
 const TOKEN_TTL_MINUTES = 15;
 
@@ -46,7 +48,15 @@ export const passwordResetService = {
     return { valid: true, userId: record.userId };
   },
 
-  async resetPassword(rawToken: string, newPassword: string): Promise<void> {
+  /**
+   * ISSUE_044: a "forgot password" reset is the path taken by someone who
+   * believes their account is compromised, so it must cut every other way in
+   * — exactly like the in-profile password change does. In the same
+   * transaction we therefore revoke all sessions (including the one the
+   * intruder may be holding) and all trusted devices (which skip the 2FA
+   * challenge for 30 days), then warn the owner.
+   */
+  async resetPassword(rawToken: string, newPassword: string, deviceInfo: DeviceInfo = {}): Promise<void> {
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
 
@@ -55,10 +65,25 @@ export const passwordResetService = {
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
+    const now = new Date();
 
     await prisma.$transaction([
       prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
-      prisma.passwordResetToken.update({ where: { tokenHash }, data: { usedAt: new Date() } }),
+      prisma.passwordResetToken.update({ where: { tokenHash }, data: { usedAt: now } }),
+      // No session is spared: the reset happens outside any authenticated
+      // session, so there is no "current" one to keep alive.
+      prisma.session.updateMany({ where: { userId: record.userId, revokedAt: null }, data: { revokedAt: now } }),
+      prisma.trustedDevice.updateMany({ where: { userId: record.userId, revokedAt: null }, data: { revokedAt: now } }),
     ]);
+
+    void auditLog({
+      userId: record.userId,
+      action: 'SESSION_REVOKE',
+      status: 'success',
+      ip: deviceInfo.ip ?? 'unknown',
+      details: { reason: 'password_reset', trustedDevicesRevoked: true },
+    });
+
+    authService.notifyAccountSecurityEvent(record.userId, 'passwordChanged', deviceInfo);
   },
 };

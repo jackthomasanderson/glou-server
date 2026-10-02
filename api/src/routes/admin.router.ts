@@ -6,6 +6,7 @@ import { routeParam } from '../lib/http';
 import { normalizeGotifyUrl } from '../lib/gotify-url';
 import { authMiddleware, adminMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
+import { paginationQuerySchema } from '../schemas/pagination.schema';
 import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenceReorderSchema } from '../schemas/maturity-reference.schema';
 import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/retention.schema';
 import { networkConfigSchema } from '../schemas/network-config.schema';
@@ -16,6 +17,9 @@ import { emailService } from '../services/email.service';
 import { backupService } from '../services/backup.service';
 
 const adminRouter = Router();
+
+// Audit log pages are bigger than the member-facing lists.
+const auditLogsQuerySchema = paginationQuerySchema({ defaultLimit: 50, maxLimit: 100 });
 
 adminRouter.use(authMiddleware);
 adminRouter.use(adminMiddleware);
@@ -155,8 +159,12 @@ adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): 
  * @access  Admin Private
  */
 adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void> => {
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+    const query = auditLogsQuerySchema.safeParse(req.query);
+    if (!query.success) {
+        res.status(400).json({ error: 'VALIDATION_ERROR', details: query.error.format() });
+        return;
+    }
+    const { page, limit } = query.data;
     const skip = (page - 1) * limit;
 
     try {
@@ -249,80 +257,44 @@ adminRouter.post('/maintenance/run', async (req: Request, res: Response): Promis
 // ─── Maturity References ──────────────────────────────────────────────────────
 
 adminRouter.get('/maturity-references', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const refs = await maturityReferenceService.list();
-    res.json({ data: refs });
-  } catch {
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const refs = await maturityReferenceService.list();
+  res.json({ data: refs });
 });
 
 adminRouter.post('/maturity-references', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const data = maturityReferenceSchema.parse(req.body);
-    const ref = await maturityReferenceService.create(data);
-    res.status(201).json({ data: ref });
-  } catch (error) {
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const data = maturityReferenceSchema.parse(req.body);
+  const ref = await maturityReferenceService.create(data);
+  res.status(201).json({ data: ref });
 });
 
 // FEAT-86: rewrite the cascade priority order. Registered BEFORE the
 // `/:id` PATCH so Express doesn't match `:id = "reorder"`.
 adminRouter.patch('/maturity-references/reorder', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { ids } = maturityReferenceReorderSchema.parse(req.body);
-    await maturityReferenceService.reorder(ids);
-    res.json({ data: { reordered: true } });
-  } catch (error) {
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const { ids } = maturityReferenceReorderSchema.parse(req.body);
+  await maturityReferenceService.reorder(ids);
+  res.json({ data: { reordered: true } });
 });
 
 adminRouter.patch('/maturity-references/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  try {
-    const patch = maturityReferencePatchSchema.parse(req.body);
-    const ref = await maturityReferenceService.update(id, patch);
-    if (!ref) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
-    res.json({ data: ref });
-  } catch (error) {
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const patch = maturityReferencePatchSchema.parse(req.body);
+  const ref = await maturityReferenceService.update(id, patch);
+  if (!ref) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+  res.json({ data: ref });
 });
 
 adminRouter.delete('/maturity-references/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  try {
-    const ok = await maturityReferenceService.delete(id);
-    if (!ok) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
-    res.json({ data: { deleted: true } });
-  } catch {
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const ok = await maturityReferenceService.delete(id);
+  if (!ok) { res.status(404).json({ error: 'NOT_FOUND' }); return; }
+  res.json({ data: { deleted: true } });
 });
 
 // ─── System Configuration (FEAT-34/53) ───────────────────────────────────────
 
 adminRouter.get('/config', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const config = await systemConfigService.getPublic();
-    res.json({ data: config });
-  } catch {
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const config = await systemConfigService.getPublic();
+  res.json({ data: config });
 });
 
 adminRouter.put('/config/smtp', async (req: Request, res: Response): Promise<void> => {
@@ -482,12 +454,8 @@ adminRouter.post('/config/network/check', async (_req: Request, res: Response): 
 });
 
 adminRouter.get('/config/history', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const history = await systemConfigService.getHistory(100);
-    res.json({ data: history });
-  } catch {
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const history = await systemConfigService.getHistory(100);
+  res.json({ data: history });
 });
 
 // ─── Scheduled Backups (FEAT-18) ─────────────────────────────────────────────

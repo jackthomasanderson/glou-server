@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import multer from 'multer';
 import { assertUrlAllowed, resolveSafeUrl } from '../lib/ssrf';
+import { AppError } from '../lib/errors';
 
 const router = Router();
 
@@ -99,7 +100,10 @@ router.get('/products', authMiddleware, async (req, res) => {
       });
 
     res.json({ data: results });
-  } catch {
+  } catch (error) {
+    // Best-effort enrichment: an empty list is a valid answer, but the upstream
+    // failure still has to be visible in the logs (ISSUE_063).
+    console.warn('[search] product suggestions unavailable:', error);
     res.json({ data: [] });
   }
 });
@@ -134,7 +138,8 @@ router.get('/producers', authMiddleware, async (req, res) => {
       .slice(0, 6);
 
     res.json({ data: results });
-  } catch {
+  } catch (error) {
+    console.warn('[search] producer suggestions unavailable:', error);
     res.json({ data: [] });
   }
 });
@@ -177,7 +182,7 @@ const productImageUpload = multer({
     if (file.mimetype.startsWith('image/') && file.mimetype !== 'image/svg+xml') {
       cb(null, true);
     } else {
-      cb(new Error('INVALID_FILE_TYPE'));
+      cb(new AppError(400, 'INVALID_FILE_TYPE'));
     }
   },
 });
@@ -235,7 +240,8 @@ router.get('/images', authMiddleware, async (req, res) => {
       .map((r) => ({ url: r.image, thumb: r.thumbnail, title: r.title ?? '' }));
 
     res.json({ data: results });
-  } catch {
+  } catch (error) {
+    console.warn('[search] image search unavailable:', error);
     res.json({ data: [] });
   }
 });
@@ -277,7 +283,10 @@ router.post('/images/save', authMiddleware, async (req, res) => {
     fs.writeFileSync(path.join(PRODUCTS_UPLOAD_DIR, filename), Buffer.from(buffer));
 
     res.json({ data: { path: `/uploads/products/${filename}` } });
-  } catch {
+  } catch (error) {
+    // Covers both an SSRF rejection and an unreachable host — the distinction is
+    // deliberately not exposed to the caller, only logged.
+    console.warn('[search] image download failed:', error);
     res.status(502).json({ error: 'FETCH_FAILED' });
   }
 });

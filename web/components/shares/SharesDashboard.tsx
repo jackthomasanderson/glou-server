@@ -17,10 +17,11 @@ import { useShares, useCreateShare, useRevokeShare } from '@/hooks/useShares';
 import { CreatedGuestShare, ShareFormValues } from '@/lib/shares/types';
 import { ShareCard } from './ShareCard';
 import { ShareForm } from './ShareForm';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export function SharesDashboard() {
   const { t } = useTranslation();
-  const { data: shares, isLoading, isError } = useShares();
+  const { data: shares, isLoading, isError, refetch, isRefetching } = useShares();
   const createMutation = useCreateShare();
   const revokeMutation = useRevokeShare();
   const [formOpen, setFormOpen] = useState(false);
@@ -88,9 +89,12 @@ export function SharesDashboard() {
 
           {/* Error */}
           {isError && (
-            <div className="rounded-lg bg-danger-50 border border-danger-200 text-danger px-3 py-2 text-xs">
-              {t('shares.errors.load')}
-            </div>
+            <ErrorState
+              compact
+              message={t('shares.errors.load')}
+              onRetry={() => { void refetch(); }}
+              isRetrying={isRefetching}
+            />
           )}
 
           {/* Loading */}

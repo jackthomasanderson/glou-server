@@ -28,7 +28,9 @@
     "wishlist": "Wishlist & Budget",
     "more": "More",
     "roleAdmin": "Administrator",
-    "roleUser": "User"
+    "roleUser": "User",
+    "collapse": "Collapse",
+    "expand": "Expand"
   },
   "actions": {
     "add": "Add",
@@ -67,6 +69,7 @@
     "saving": "Saving…",
     "deleting": "Deleting…",
     "error": "An error occurred",
+    "retry": "Retry",
     "empty": "No items"
   },
   "categories": {
@@ -146,6 +149,12 @@
     "noCellar": "No cellar",
     "searchPlaceholder": "Search (name, producer, vintage...)",
     "noResults": "No results for \"{{query}}\"",
+    "noResultsFilters": "No results for these filters",
+    "noResultsFiltersDesc": "Try widening or removing a filter.",
+    "resetFilters": "Reset filters",
+    "errors": {
+      "load": "Could not load the inventory."
+    },
     "filterByCategory": "By category",
     "filterByCellar": "By cellar",
     "activeFilters": "Active filters",
@@ -339,7 +348,43 @@
     "createError": "Could not add the bottle",
     "updateError": "Could not update the bottle",
     "deleteError": "Could not delete the bottle",
-    "restoreError": "Could not restore the bottle"
+    "restoreError": "Could not restore the bottle",
+    "collection": {
+      "createSuccess": "Collection created",
+      "updateSuccess": "Collection updated",
+      "deleteSuccess": "Collection deleted",
+      "createError": "Could not create the collection",
+      "updateError": "Could not update the collection",
+      "deleteError": "Could not delete the collection"
+    },
+    "cellar": {
+      "createSuccess": "Cellar created",
+      "updateSuccess": "Cellar updated",
+      "deleteSuccess": "Cellar deleted",
+      "createError": "Could not create the cellar",
+      "updateError": "Could not update the cellar",
+      "deleteError": "Could not delete the cellar"
+    },
+    "tasting": {
+      "createSuccess": "Tasting saved",
+      "updateSuccess": "Tasting updated",
+      "deleteSuccess": "Tasting deleted",
+      "createError": "Could not save the tasting",
+      "updateError": "Could not update the tasting",
+      "deleteError": "Could not delete the tasting"
+    },
+    "wishlist": {
+      "createSuccess": "Wish added",
+      "updateSuccess": "Wish updated",
+      "deleteSuccess": "Wish deleted",
+      "priceSuccess": "Observed price saved",
+      "convertSuccess": "Wish turned into an inventory item",
+      "createError": "Could not add the wish",
+      "updateError": "Could not update the wish",
+      "deleteError": "Could not delete the wish",
+      "priceError": "Could not save the observed price",
+      "convertError": "Could not turn the wish into an inventory item"
+    }
   },
   "auth": {
     "login": "Login",
@@ -366,7 +411,10 @@
       "PASSWORD_TOO_SHORT": "Password must be at least 12 characters long.",
       "USERNAME_INVALID_CHARS": "Allowed characters: letters, numbers, - and _.",
       "PASSWORDS_DO_NOT_MATCH": "Passwords do not match.",
-      "SESSION_REVOKED": "Your session was disconnected remotely. Please sign in again."
+      "SESSION_REVOKED": "Your session was disconnected remotely. Please sign in again.",
+      "INVALID_TOTP_CODE": "Incorrect verification code.",
+      "2FA_TEMPORARILY_LOCKED": "Too many incorrect codes. Verification is locked for 15 minutes.",
+      "TOKEN_INVALID_OR_EXPIRED": "Your sign-in request has expired. Please sign in again."
     },
     "passwordStrength": {
       "weak": "Weak",
@@ -469,6 +517,9 @@
     "filterByType": "Filter by type",
     "filterByStatus": "Filter by status",
     "noResults": "No cellar found matching these criteria",
+    "errors": {
+      "load": "Could not load the cellars."
+    },
     "nFound": "{{count}} cellar(s) found",
     "status": {
       "withAlerts": "With alerts",
@@ -630,7 +681,8 @@
       "trustSuccess": "This device is now trusted.",
       "untrustSuccess": "Trust for this device has been revoked.",
       "trustError": "An error occurred while updating device trust."
-    }
+    },
+    "emailPasswordHint": "Confirm with your account password. An alert will be sent to the previous address."
   },
   "admin": {
     "title": "Administration",
@@ -1004,6 +1056,9 @@
     }
   },
   "analytics": {
+    "errors": {
+      "load": "Could not load the analytics."
+    },
     "pageTitle": "Analytics & Terroir",
     "pageSubtitle": "Financial, temporal, volumetric and geographic analysis of your cellar.",
     "exportButton": "Export report",
@@ -1122,8 +1177,10 @@
     "movements": {
       "title": "Movement flows",
       "added": "Added",
-      "consumed": "Out / Consumed",
-      "restored": "Restored"
+      "consumed": "Consumed",
+      "restored": "Restored",
+      "scopeHint": "The period applies to the movement counters below only — every other indicator covers the whole cellar.",
+      "deleted": "Moved to trash"
     }
   },
   "storageZones": {
@@ -1618,7 +1675,8 @@
         "PRODUCER_TOO_LONG": "Producer exceeds 200 characters",
         "INVALID_CATEGORY": "Invalid category (expected: wine, sparkling, spirit or cigar)",
         "INVALID_VINTAGE": "Invalid vintage",
-        "INVALID_ROW": "Invalid row"
+        "INVALID_ROW": "Invalid row",
+        "UNRECOGNIZED_COLUMNS": "Unrecognised header: none of the expected columns (name, producer, category, vintage) were found"
       }
     },
     "summary": {
@@ -1766,5 +1824,17 @@
       "created": "Created",
       "incremented": "Incremented"
     }
+  },
+  "unsavedChanges": {
+    "title": "Discard this entry?",
+    "description": "Everything you have filled in will be permanently lost if you close this form now.",
+    "keepEditing": "Keep editing",
+    "discard": "Discard"
+  },
+  "theme": {
+    "switchToDark": "Switch to dark mode",
+    "switchToLight": "Switch to light mode",
+    "activeDark": "Dark mode enabled",
+    "activeLight": "Light mode enabled"
   }
 }

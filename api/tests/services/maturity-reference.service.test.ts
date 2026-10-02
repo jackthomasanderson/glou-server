@@ -5,11 +5,14 @@ vi.mock('../../src/lib/prisma', () => ({
     maturityReference: {
       findMany: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
     },
     inventoryItem: { count: vi.fn() },
     $transaction: vi.fn((ops: unknown[]) => Promise.all(ops)),
   },
 }));
+
+import { Prisma } from '@prisma/client';
 
 import { prisma } from '../../src/lib/prisma';
 import { maturityReferenceService } from '../../src/services/maturity-reference.service';
@@ -88,5 +91,37 @@ describe('maturityReferenceService.reorder — FEAT-86', () => {
       { where: { id: 'b' }, data: { priority: 2 } },
       { where: { id: 'a' }, data: { priority: 1 } },
     ]);
+  });
+});
+
+describe('maturityReferenceService update/delete — ISSUE_107', () => {
+  function prismaError(code: string) {
+    return new Prisma.PrismaClientKnownRequestError('prisma detail', {
+      code,
+      clientVersion: '7.0.0',
+    });
+  }
+
+  it('returns null / false only for a genuine "record not found" (P2025)', async () => {
+    vi.mocked(prisma.maturityReference.update).mockRejectedValue(prismaError('P2025'));
+    vi.mocked(prisma.maturityReference.delete).mockRejectedValue(prismaError('P2025'));
+
+    await expect(maturityReferenceService.update('r1', {})).resolves.toBeNull();
+    await expect(maturityReferenceService.delete('r1')).resolves.toBe(false);
+  });
+
+  it('rethrows a database outage instead of reporting "not found"', async () => {
+    // The admin router turns `null`/`false` into a 404, so swallowing this here
+    // made a transient failure read as "this reference was deleted".
+    vi.mocked(prisma.maturityReference.update).mockRejectedValue(prismaError('P1001'));
+    vi.mocked(prisma.maturityReference.delete).mockRejectedValue(prismaError('P1001'));
+
+    await expect(maturityReferenceService.update('r1', {})).rejects.toMatchObject({ code: 'P1001' });
+    await expect(maturityReferenceService.delete('r1')).rejects.toMatchObject({ code: 'P1001' });
+  });
+
+  it('rethrows a constraint violation as well', async () => {
+    vi.mocked(prisma.maturityReference.update).mockRejectedValue(prismaError('P2002'));
+    await expect(maturityReferenceService.update('r1', {})).rejects.toMatchObject({ code: 'P2002' });
   });
 });

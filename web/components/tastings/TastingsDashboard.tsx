@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { usePageSize } from '@/hooks/usePageSize';
 import { PaginationBar } from '@/components/ui/PaginationBar';
 import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export function TastingsDashboard() {
   const { t } = useTranslation();
@@ -37,15 +38,19 @@ export function TastingsDashboard() {
     return () => clearTimeout(handle);
   }, [searchInput]);
 
-  const { data, isLoading, isError } = useTastings(page, pageSize, undefined, search);
+  const { data, isLoading, isError, refetch, isRefetching } = useTastings(page, pageSize, undefined, search);
   const deleteMutation = useDeleteTasting();
 
   const handleEdit = (note: TastingNote) => setEditing(note);
 
   const handleDelete = async () => {
     if (!deleting) return;
-    await deleteMutation.mutateAsync(deleting.id);
-    setDeleting(null);
+    try {
+      await deleteMutation.mutateAsync(deleting.id);
+      setDeleting(null);
+    } catch {
+      /* toast raised by useDeleteTasting */
+    }
   };
 
   const editValues: { id: string; values: TastingFormValues } | undefined = editing
@@ -98,9 +103,12 @@ export function TastingsDashboard() {
 
       {/* Error banner */}
       {isError && (
-        <div className="mb-4 rounded-lg bg-danger-50 border border-danger-200 text-danger px-4 py-3 text-sm">
-          {t('tastings.errors.load')}
-        </div>
+        <ErrorState
+          className="mb-4"
+          message={t('tastings.errors.load')}
+          onRetry={() => { void refetch(); }}
+          isRetrying={isRefetching}
+        />
       )}
 
       {/* Loading */}

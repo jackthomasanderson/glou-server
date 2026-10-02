@@ -5,6 +5,7 @@ import { HeroUIProvider } from '@heroui/react';
 import { useMe } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { ThemeModeProvider } from '@/hooks/useThemeMode';
 
 function hexToHsl(hex: string): { h: number; s: number; l: number } {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -70,17 +71,6 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hasMounted) return;
-    const isDark = user?.theme?.toLowerCase() === 'dark';
-    const html = document.documentElement;
-    if (isDark) {
-      html.classList.add('dark');
-    } else {
-      html.classList.remove('dark');
-    }
-  }, [user?.theme, hasMounted]);
-
-  useEffect(() => {
-    if (!hasMounted) return;
     const accent = user?.accentColor || '#6366f1';
     const { h, s, l } = hexToHsl(accent);
     const root = document.documentElement.style;
@@ -91,12 +81,18 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
   }, [user?.accentColor, hasMounted]);
 
   if (!hasMounted) {
-    return <div className="invisible">{children}</div>;
+    return (
+      <ThemeModeProvider>
+        <div className="invisible">{children}</div>
+      </ThemeModeProvider>
+    );
   }
 
   return (
-    <HeroUIProvider>
-      {children}
-    </HeroUIProvider>
+    <ThemeModeProvider>
+      <HeroUIProvider>
+        {children}
+      </HeroUIProvider>
+    </ThemeModeProvider>
   );
 }

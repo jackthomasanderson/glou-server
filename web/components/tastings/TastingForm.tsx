@@ -13,6 +13,8 @@ import { ServiceRecommendations } from './ServiceRecommendations';
 import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useExpertMode } from '@/hooks/useExpertMode';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
@@ -42,7 +44,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
     handleSubmit,
     reset,
     watch,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<TastingFormValues>({
     defaultValues: {
       itemId: initialItemId,
@@ -96,9 +98,17 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
     }
   }, [watchedItemId, items]);
 
-  const handleClose = () => {
-    if (!createMutation.isPending && !updateMutation.isPending) onClose();
-  };
+  const isSaving = createMutation.isPending || updateMutation.isPending;
+
+  // ISSUE_119: once a field has been edited, the modal can no longer be
+  // dismissed by a backdrop click or Escape, and the explicit cancel
+  // control asks for confirmation before throwing the note away.
+  const guard = useUnsavedChangesGuard({
+    isOpen: open,
+    isDirty,
+    onClose,
+    isLocked: isSaving,
+  });
 
   const onSubmit = async (values: TastingFormValues) => {
     try {
@@ -135,7 +145,6 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
     onClose();
   };
 
-  const isLoading = createMutation.isPending || updateMutation.isPending;
   const inventoryOptions = items?.filter((i) => !i.deletedAt) ?? [];
   const hasError = !!(createMutation.error || updateMutation.error);
   const showStockDialog = !!stockDialogItemId;
@@ -143,8 +152,9 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   return (
     <>
       <Modal
-        isOpen={open && !showStockDialog}
-        onClose={handleClose}
+        isOpen={open && !showStockDialog && !guard.isConfirmOpen}
+        onClose={guard.requestClose}
+        {...guard.dismissProps}
         size="md"
         radius="lg"
         backdrop="opaque"
@@ -397,8 +407,8 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                 <Button
                   color="danger"
                   variant="light"
-                  onPress={handleClose}
-                  isDisabled={isLoading}
+                  onPress={guard.requestClose}
+                  isDisabled={isSaving}
                 >
                   {t('actions.cancel')}
                 </Button>
@@ -406,10 +416,10 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                   color="primary"
                   variant="solid"
                   type="submit"
-                  isLoading={isLoading}
-                  isDisabled={isLoading}
+                  isLoading={isSaving}
+                  isDisabled={isSaving}
                 >
-                  {isLoading ? t('actions.saving') : t('actions.save')}
+                  {isSaving ? t('actions.saving') : t('actions.save')}
                 </Button>
               </ModalFooter>
             </form>
@@ -468,6 +478,12 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
           )}
         </ModalContent>
       </Modal>
+
+      <DiscardChangesDialog
+        isOpen={guard.isConfirmOpen}
+        onCancel={guard.cancelDiscard}
+        onConfirm={guard.confirmDiscard}
+      />
     </>
   );
 }

@@ -25,6 +25,7 @@ import {
   PackagePlus,
   PackageMinus,
   PackageCheck,
+  Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { subDays, subYears, format } from 'date-fns';
@@ -34,6 +35,7 @@ import { AnalyticsStats, CategoryStat, RegionStat, GardePoint, CavePoint } from 
 import dynamic from 'next/dynamic';
 import { GardeHistogram } from './GardeHistogram';
 import { TastingInsights } from './TastingInsights';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 type Period = '30d' | '90d' | '1y' | 'all';
 
@@ -517,7 +519,7 @@ export function AnalyticsDashboard() {
   const { t } = useTranslation();
   const [period, setPeriod] = useState<Period>('all');
   const { from, to } = periodToDates(period);
-  const { data, isLoading, isError } = useAnalytics(from, to);
+  const { data, isLoading, isError, refetch, isRefetching } = useAnalytics(from, to);
 
   const handlePrint = useCallback(() => window.print(), []);
 
@@ -525,9 +527,11 @@ export function AnalyticsDashboard() {
     return (
       <MainLayout>
         <div className="max-w-5xl mx-auto py-6 px-4">
-          <div className="rounded-lg bg-danger-50 border border-danger-200 px-4 py-3 text-danger-700 text-sm">
-            {t('status.error')}
-          </div>
+          <ErrorState
+            message={t('analytics.errors.load')}
+            onRetry={() => { void refetch(); }}
+            isRetrying={isRefetching}
+          />
         </div>
       </MainLayout>
     );
@@ -552,20 +556,6 @@ export function AnalyticsDashboard() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Select
-                size="sm"
-                radius="md"
-                variant="bordered"
-                selectedKeys={[period]}
-                onSelectionChange={(keys) => setPeriod(Array.from(keys)[0] as Period)}
-                className="w-36"
-                aria-label={t('analytics.period.label')}
-              >
-                <SelectItem key="30d">{t('analytics.period.30d')}</SelectItem>
-                <SelectItem key="90d">{t('analytics.period.90d')}</SelectItem>
-                <SelectItem key="1y">{t('analytics.period.1y')}</SelectItem>
-                <SelectItem key="all">{t('analytics.period.all')}</SelectItem>
-              </Select>
               <Button
                 size="sm"
                 variant="flat"
@@ -618,41 +608,73 @@ export function AnalyticsDashboard() {
         )}
       </div>
 
-      {/* Movements */}
-      {!isLoading && data?.movements && (
-        <Card className="border border-default-200" shadow="none">
-          <CardBody className="p-5">
-            <div className="flex items-center gap-2 mb-4">
+      {/* Movements — ISSUE_035/ISSUE_104: the period selector lives inside
+          this card because the range only narrows these counters (the API
+          echoes `period.scope === 'movements'`); every other card describes
+          the whole cellar as it stands today. The card always renders so the
+          selector never disappears while the query is in flight. */}
+      <Card className="border border-default-200" shadow="none">
+        <CardBody className="p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
               <PackagePlus size={18} className="text-primary" />
               <p className="text-[0.7rem] font-bold uppercase tracking-wider">
                 {t('analytics.movements.title')}
               </p>
-              {period !== 'all' && (
-                <Chip size="sm" variant="flat" color="default" className="text-[0.6rem] font-bold h-5 ml-1">
-                  {t(`analytics.period.${period}`)}
-                </Chip>
-              )}
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <Select
+              size="sm"
+              radius="md"
+              variant="bordered"
+              selectedKeys={[period]}
+              onSelectionChange={(keys) => {
+                const next = Array.from(keys)[0] as Period | undefined;
+                if (next) setPeriod(next);
+              }}
+              className="w-44 print:hidden"
+              aria-label={t('analytics.period.label')}
+            >
+              <SelectItem key="30d">{t('analytics.period.30d')}</SelectItem>
+              <SelectItem key="90d">{t('analytics.period.90d')}</SelectItem>
+              <SelectItem key="1y">{t('analytics.period.1y')}</SelectItem>
+              <SelectItem key="all">{t('analytics.period.all')}</SelectItem>
+            </Select>
+          </div>
+          <p className="text-[0.68rem] text-default-400 mt-1 mb-4">
+            {t('analytics.movements.scopeHint')}
+          </p>
+          {isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-[104px] rounded-xl bg-default-100 animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="flex flex-col items-center gap-1 p-3 bg-success-50 border border-success-200 rounded-xl">
                 <PackagePlus size={18} className="text-success" />
-                <p className="text-[1.5rem] font-extrabold leading-tight">{data.movements.added}</p>
+                <p className="text-[1.5rem] font-extrabold leading-tight">{data?.movements?.added ?? 0}</p>
                 <p className="text-[0.65rem] font-bold uppercase tracking-wider text-success-700">{t('analytics.movements.added')}</p>
               </div>
               <div className="flex flex-col items-center gap-1 p-3 bg-warning-50 border border-warning-200 rounded-xl">
                 <PackageMinus size={18} className="text-warning" />
-                <p className="text-[1.5rem] font-extrabold leading-tight">{data.movements.consumed}</p>
+                <p className="text-[1.5rem] font-extrabold leading-tight">{data?.movements?.consumed ?? 0}</p>
                 <p className="text-[0.65rem] font-bold uppercase tracking-wider text-warning-700">{t('analytics.movements.consumed')}</p>
+              </div>
+              <div className="flex flex-col items-center gap-1 p-3 bg-danger-50 border border-danger-200 rounded-xl">
+                <Trash2 size={18} className="text-danger" />
+                <p className="text-[1.5rem] font-extrabold leading-tight">{data?.movements?.deleted ?? 0}</p>
+                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-danger-700">{t('analytics.movements.deleted')}</p>
               </div>
               <div className="flex flex-col items-center gap-1 p-3 bg-primary-50 border border-primary-200 rounded-xl">
                 <PackageCheck size={18} className="text-primary" />
-                <p className="text-[1.5rem] font-extrabold leading-tight">{data.movements.restored}</p>
+                <p className="text-[1.5rem] font-extrabold leading-tight">{data?.movements?.restored ?? 0}</p>
                 <p className="text-[0.65rem] font-bold uppercase tracking-wider text-primary-700">{t('analytics.movements.restored')}</p>
               </div>
             </div>
-          </CardBody>
-        </Card>
-      )}
+          )}
+        </CardBody>
+      </Card>
 
       {/* Valuation breakdown — only shown if there's purchase or estimated data */}
       {!isLoading && (data?.totalPurchasePrice ?? 0) > 0 && (

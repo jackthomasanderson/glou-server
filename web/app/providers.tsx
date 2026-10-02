@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { ToastProvider } from '@heroui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { I18nProvider } from './I18nProvider';
@@ -19,6 +20,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <I18nProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeWrapper>
+          {/* Single, app-wide feedback outlet (ux-ui.md 9.4: top-right).
+              Every success/error notification goes through lib/toast.ts. */}
+          <ToastProvider placement="top-right" />
           {children}
           {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
         </ThemeWrapper>

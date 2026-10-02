@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { clearOfflineData } from '@/lib/offline/db';
+import { notifyError } from '@/lib/toast';
 
 export interface PublicUser {
   id: string;
@@ -174,6 +175,9 @@ export function useUpdateProfile() {
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
+    // Success is already acknowledged inline by the profile page; only the
+    // failure path was silent (ISSUE_120).
+    onError: () => notifyError('profile.saveError'),
   });
 }
 
@@ -216,7 +220,9 @@ export function useDeleteAvatar() {
 
 export function useUpdateEmail() {
   const queryClient = useQueryClient();
-  return useMutation<PublicUser, Error, { email: string }>({
+  // The current password is required server-side (ISSUE_042): changing the
+  // account email reroutes the password-reset channel.
+  return useMutation<PublicUser, Error, { email: string; currentPassword: string }>({
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/user/email', { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: (updatedUser) => {
@@ -256,6 +262,7 @@ export function useUpdatePreferences() {
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
+    onError: () => notifyError('profile.saveError'),
   });
 }
 

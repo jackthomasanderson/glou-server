@@ -17,7 +17,10 @@ import { ItemImageSection } from './ItemImageSection';
 import { MaturitySuggestionField } from './MaturitySuggestionField';
 import { CollectionSelector } from './CollectionSelector';
 import { useExpertMode } from '@/hooks/useExpertMode';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
+import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import {
   CURVE_SHAPES, DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey,
 } from '@/lib/maturity-references/curve';
@@ -72,6 +75,9 @@ export function InventoryForm({
   const { data: allCollections } = useCollections();
   const isExpert = useExpertMode();
   const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? EMPTY_FORM);
+  // ISSUE_119: snapshot of the values the form opened with, used to tell
+  // whether closing now would throw away something the user typed.
+  const [baseline, setBaseline] = useState<Partial<InventoryItem>>(initialValues ?? EMPTY_FORM);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [showOptionals, setShowOptionals] = useState(false);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
@@ -94,6 +100,7 @@ export function InventoryForm({
     setPrevInitialValues(initialValues);
     if (open) {
       setValues(initialValues ?? EMPTY_FORM);
+      setBaseline(initialValues ?? EMPTY_FORM);
       setSelectedCollections(
         initialValues?.collections?.map(ic => ({
           id: ic.id, name: ic.name, color: ic.color, icon: ic.icon ?? undefined,
@@ -135,6 +142,17 @@ export function InventoryForm({
 
   const canSave = Boolean(values.category && values.name?.trim() && values.producer?.trim());
 
+  // ISSUE_119: closing a half-filled form must never discard the entry silently.
+  const baselineCollectionIds = initialValues?.collections?.map(c => c.id) ?? [];
+  const isDirty = isFormDirty(baseline, values)
+    || !haveSameIds(baselineCollectionIds, selectedCollections.map(c => c.id));
+  const guard = useUnsavedChangesGuard({
+    isOpen: open,
+    isDirty,
+    onClose,
+    isLocked: isSubmitting,
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSave) return;
@@ -162,9 +180,11 @@ export function InventoryForm({
   const numField = (val: string, fallback?: number) => (val ? Number(val) : fallback);
 
   return (
+    <>
     <Modal
-      isOpen={open}
-      onClose={onClose}
+      isOpen={open && !guard.isConfirmOpen}
+      onClose={guard.requestClose}
+      {...guard.dismissProps}
       size="4xl"
       radius="lg"
       backdrop="opaque"
@@ -204,10 +224,10 @@ export function InventoryForm({
                 )}
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={guard.requestClose}
                   disabled={isSubmitting}
                   className="p-1 rounded-lg hover:bg-default-100 transition-colors"
-                  aria-label="Close"
+                  aria-label={t('actions.close')}
                 >
                   <X size={16} />
                 </button>
@@ -932,7 +952,7 @@ export function InventoryForm({
             </ModalBody>
 
             <ModalFooter className="gap-2 pt-3 shrink-0">
-              <Button variant="bordered" onPress={onClose} isDisabled={isSubmitting}>
+              <Button variant="bordered" onPress={guard.requestClose} isDisabled={isSubmitting}>
                 {t('actions.cancel')}
               </Button>
               <Button
@@ -953,5 +973,12 @@ export function InventoryForm({
         )}
       </ModalContent>
     </Modal>
+
+    <DiscardChangesDialog
+      isOpen={guard.isConfirmOpen}
+      onCancel={guard.cancelDiscard}
+      onConfirm={guard.confirmDiscard}
+    />
+    </>
   );
 }

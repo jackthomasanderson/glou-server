@@ -1,6 +1,7 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { collectionsClient } from '@/lib/collections/client';
+import { notifyError, notifySuccess } from '@/lib/toast';
 import { Collection, CollectionFormValues } from '@/lib/collections/types';
 
 export const COLLECTIONS_KEY = ['collections'];
@@ -21,7 +22,9 @@ export function useCreateCollection() {
       queryClient.setQueryData<Collection[]>(COLLECTIONS_KEY, (old) =>
         old ? [...old, created] : [created]
       );
+      notifySuccess('toast.collection.createSuccess');
     },
+    onError: () => notifyError('toast.collection.createError'),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY }),
   });
 }
@@ -30,6 +33,8 @@ export function useUpdateCollection() {
   const queryClient = useQueryClient();
   return useMutation<Collection, Error, { id: string; data: Partial<CollectionFormValues> }>({
     mutationFn: ({ id, data }) => collectionsClient.update(id, data),
+    onSuccess: () => notifySuccess('toast.collection.updateSuccess'),
+    onError: () => notifyError('toast.collection.updateError'),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY }),
   });
 }
@@ -42,7 +47,9 @@ export function useDeleteCollection() {
       queryClient.setQueryData<Collection[]>(COLLECTIONS_KEY, (old) =>
         old ? old.filter((c) => c.id !== id) : []
       );
+      notifySuccess('toast.collection.deleteSuccess');
     },
+    onError: () => notifyError('toast.collection.deleteError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY });
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });

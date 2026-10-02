@@ -5,12 +5,13 @@ import { Monitor, MapPin, ShieldCheck, ShieldOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSessions, useRevokeSession, useTrustDevice, useUntrustDevice, SessionInfo } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export function SessionsPanel() {
   const { t } = useTranslation();
   const hasMounted = useHasMounted();
 
-  const { data: sessions, isLoading, isError } = useSessions();
+  const { data: sessions, isLoading, isError, refetch, isRefetching } = useSessions();
   const revokeSession = useRevokeSession();
   const trustDevice = useTrustDevice();
   const untrustDevice = useUntrustDevice();
@@ -67,9 +68,11 @@ export function SessionsPanel() {
       )}
 
       {!isLoading && isError && (
-        <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">
-          {t('profile.sessions.loadError')}
-        </div>
+        <ErrorState
+          message={t('profile.sessions.loadError')}
+          onRetry={() => { void refetch(); }}
+          isRetrying={isRefetching}
+        />
       )}
 
       {!isLoading && !isError && sessions && sessions.length === 0 && (

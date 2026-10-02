@@ -10,6 +10,7 @@ import {
   useBudgetEnvelopes, useCreateBudgetEnvelope, useDeleteBudgetEnvelope, useBudgetProgress,
 } from '@/hooks/useBudget';
 import { BudgetEnvelope } from '@/lib/budget/types';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 function toDateInputValue(iso: string): string {
   return iso.slice(0, 10);
@@ -62,7 +63,7 @@ function EnvelopeCard({ envelope, onDelete }: { envelope: BudgetEnvelope; onDele
 
 export function BudgetPanel() {
   const { t } = useTranslation();
-  const { data: envelopes, isLoading, isError } = useBudgetEnvelopes();
+  const { data: envelopes, isLoading, isError, refetch, isRefetching } = useBudgetEnvelopes();
   const createMutation = useCreateBudgetEnvelope();
   const deleteMutation = useDeleteBudgetEnvelope();
 
@@ -112,9 +113,12 @@ export function BudgetPanel() {
       </div>
 
       {isError && (
-        <div className="mb-4 rounded-lg bg-danger-50 border border-danger-200 text-danger px-4 py-3 text-sm">
-          {t('budget.errors.load')}
-        </div>
+        <ErrorState
+          className="mb-4"
+          message={t('budget.errors.load')}
+          onRetry={() => { void refetch(); }}
+          isRetrying={isRefetching}
+        />
       )}
 
       {isLoading ? (

@@ -51,6 +51,9 @@ export function createApp(): express.Express {
     credentials: true,
   }));
   app.use(cookieParser());
+  // A body over the limit, or one that is not valid JSON, is rejected by
+  // body-parser with a tagged error; `errorMiddleware` turns those into 413 /
+  // 400 rather than the blanket 500 they used to produce (ISSUE_105).
   app.use(express.json({ limit: '2mb' }));
 
   // CSRF: reject clearly cross-site state-changing requests (see middleware).
@@ -136,6 +139,10 @@ export function createApp(): express.Express {
   });
 
   // ─── Global error handler ─────────────────────────────────────────────────
+  // Must stay last: it is the only place that turns a thrown value into a
+  // response, and the only place that logs server-side failures. Routers are
+  // expected to let errors reach it (Express 5 forwards a rejected handler
+  // promise on its own) instead of answering 500 themselves.
 
   app.use(errorMiddleware);
 

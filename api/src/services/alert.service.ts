@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessPercent } from '../lib/maturity-curve';
 
@@ -40,19 +41,34 @@ export function computeReadiness(
 }
 
 /**
+ * Matches every active item that has at least one end of a drinking window
+ * defined — i.e. exactly the population for which `computeAlertStatus` can
+ * return something other than 'none'. Shared by `getAlerts` (read path) and
+ * `recomputeAlertStatuses` (maintenance path) so both always agree on the
+ * set of items an alert can possibly apply to.
+ */
+const HAS_MATURITY_WINDOW = {
+  deletedAt: null,
+  OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
+} satisfies Prisma.InventoryItemWhereInput;
+
+/**
  * Returns all active (non-deleted) inventory items with a computed alert status,
  * excluding paused alerts and 'none' status.
  * Sorted by urgency: past → peak → approaching.
  * Each row also carries a FEAT-86 `readiness` percentage (null when the curve
  * model has nothing to work with).
+ *
+ * The status is computed on read and never taken from the denormalised
+ * `InventoryItem.alertStatus` column: that column only changes when someone
+ * edits the item, so a bottle whose window opens next January would otherwise
+ * stay invisible here until it happens to be edited (ISSUE_033). The column is
+ * still maintained — see `recomputeAlertStatuses` — for the consumers that
+ * aggregate it in SQL, but this user-facing list is always exact.
  */
 export async function getAlerts() {
   const items = await prisma.inventoryItem.findMany({
-    where: {
-      deletedAt: null,
-      alertStatus: { in: ['approaching', 'peak', 'past'] },
-      alertsPaused: false,
-    },
+    where: { ...HAS_MATURITY_WINDOW, alertsPaused: false },
     orderBy: [{ updatedAt: 'desc' }],
     select: {
       id: true,
@@ -63,7 +79,6 @@ export async function getAlerts() {
       peakMaturityFrom: true,
       peakMaturityTo: true,
       curveShape: true,
-      alertStatus: true,
       alertsPaused: true,
       cellarId: true,
       collection: true,
@@ -71,15 +86,63 @@ export async function getAlerts() {
     },
   });
 
-  const urgencyOrder: Record<string, number> = { past: 0, peak: 1, approaching: 2 };
+  const urgencyOrder: Record<AlertStatus, number> = { past: 0, peak: 1, approaching: 2, none: 3 };
   return items
     .map((item) => ({
       ...item,
+      alertStatus: computeAlertStatus(item.peakMaturityFrom, item.peakMaturityTo),
       readiness: computeReadiness(item.curveShape, item.peakMaturityFrom, item.peakMaturityTo),
     }))
-    .sort(
-      (a, b) => (urgencyOrder[a.alertStatus ?? 'approaching'] ?? 2) - (urgencyOrder[b.alertStatus ?? 'approaching'] ?? 2),
-    );
+    .filter((item) => item.alertStatus !== 'none')
+    .sort((a, b) => urgencyOrder[a.alertStatus] - urgencyOrder[b.alertStatus]);
+}
+
+export interface AlertStatusRecomputeResult {
+  /** Items carrying a drinking window, i.e. the rows actually examined. */
+  scanned: number;
+  /** Rows whose stored status no longer matched the current year. */
+  updated: number;
+}
+
+/**
+ * Realigns the denormalised `InventoryItem.alertStatus` column with the
+ * current year (ISSUE_033).
+ *
+ * `alertStatus` is a time-dependent value — it shifts on every 1st of January
+ * — but it is only written when an item is created or edited, so without this
+ * pass the stored value silently rots and the consumers that read it straight
+ * from SQL (analytics, guest shares) keep reporting last year's picture. Run
+ * at startup and once a day; only rows whose status actually changed are
+ * written, which in practice is a handful per year.
+ *
+ * `updatedAt` is carried over explicitly so this maintenance pass never looks
+ * like a user edit: bumping it would reorder user-facing lists and trigger
+ * spurious conflicts in the FEAT-16/23 offline-sync concurrency check.
+ */
+export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResult> {
+  const items = await prisma.inventoryItem.findMany({
+    where: HAS_MATURITY_WINDOW,
+    select: {
+      id: true,
+      alertStatus: true,
+      peakMaturityFrom: true,
+      peakMaturityTo: true,
+      updatedAt: true,
+    },
+  });
+
+  let updated = 0;
+  for (const item of items) {
+    const nextStatus = computeAlertStatus(item.peakMaturityFrom, item.peakMaturityTo);
+    if (item.alertStatus === nextStatus) continue;
+    await prisma.inventoryItem.update({
+      where: { id: item.id },
+      data: { alertStatus: nextStatus, updatedAt: item.updatedAt },
+    });
+    updated += 1;
+  }
+
+  return { scanned: items.length, updated };
 }
 
 /**

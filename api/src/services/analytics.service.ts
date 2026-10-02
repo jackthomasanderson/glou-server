@@ -45,11 +45,40 @@ export interface CavePoint {
 
 export interface MovementStats {
   added: number;
+  /**
+   * Bottles actually finished during the period — same criterion as
+   * everywhere else in the app (isOpened = true, fillLevel = 0; see
+   * consumption-plan.service.ts `getGoalProgress` and
+   * inventory-count.service.ts `mark_consumed`), dated by `updatedAt`.
+   * This is NOT the number of items moved to the trash: those are counted
+   * by `deleted` below.
+   */
   consumed: number;
+  /** Items moved to the trash during the period (audit action DELETE). */
+  deleted: number;
   restored: number;
 }
 
+// ISSUE_035/ISSUE_104: the `from`/`to` range narrows the movement counters
+// only. Inventory aggregates (valuation, breakdowns, garde histogram,
+// maturity planning) describe the cellar as it stands right now — a bottle
+// bought in 2019 is still in the cellar today, so excluding it from the
+// valuation because it was not *added* during the range would be misleading.
+// The scope is part of the contract so clients can state it instead of
+// implying a page-wide filter.
+export const ANALYTICS_PERIOD_SCOPE = 'movements' as const;
+
+export interface AnalyticsPeriod {
+  /** Lower bound as an ISO 8601 timestamp, or null when unbounded. */
+  from: string | null;
+  /** Upper bound as an ISO 8601 timestamp, or null when unbounded. */
+  to: string | null;
+  /** Which part of the payload the range actually filters. */
+  scope: typeof ANALYTICS_PERIOD_SCOPE;
+}
+
 export interface AnalyticsStats {
+  period: AnalyticsPeriod;
   totalValuation: number;
   totalPurchasePrice: number;
   totalLiquidLiters: number;
@@ -96,7 +125,16 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     ? { createdAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
     : {};
 
-  const [items, cellars, auditMovements] = await Promise.all([
+  // "Consumed" is a state of the item itself, not an audit action, so it is
+  // dated by `updatedAt` (every write stamps it) rather than by the audit
+  // log's `createdAt`.
+  const consumedDateFilter = from || to
+    ? { updatedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
+    : {};
+
+  // Deliberately not spread into the inventory query — see
+  // ANALYTICS_PERIOD_SCOPE above.
+  const [items, cellars, auditMovements, consumedCount] = await Promise.all([
     prisma.inventoryItem.findMany({
       where: { deletedAt: null },
       select: {
@@ -125,6 +163,17 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
         ...dateFilter,
       },
       _count: { action: true },
+    }),
+    // Bottles finished during the period — the app-wide "consumed" criterion
+    // (isOpened = true, fillLevel = 0), shared with consumption-plan.service
+    // and inventory-count.service.
+    prisma.inventoryItem.count({
+      where: {
+        deletedAt: null,
+        isOpened: true,
+        fillLevel: 0,
+        ...consumedDateFilter,
+      },
     }),
   ]);
 
@@ -227,7 +276,8 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
 
   const movements: MovementStats = {
     added: auditMovements.find(r => r.action === 'CREATE')?._count.action ?? 0,
-    consumed: auditMovements.find(r => r.action === 'DELETE')?._count.action ?? 0,
+    consumed: consumedCount,
+    deleted: auditMovements.find(r => r.action === 'DELETE')?._count.action ?? 0,
     restored: auditMovements.find(r => r.action === 'RESTORE')?._count.action ?? 0,
   };
 
@@ -249,6 +299,11 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     .sort((a, b) => b.count - a.count);
 
   return {
+    period: {
+      from: from ? from.toISOString() : null,
+      to: to ? to.toISOString() : null,
+      scope: ANALYTICS_PERIOD_SCOPE,
+    },
     totalValuation: Math.round(totalValuation),
     totalPurchasePrice: Math.round(totalPurchasePrice),
     totalLiquidLiters: Math.round(totalLiquidLiters * 100) / 100,

@@ -41,11 +41,24 @@ export interface MaturityPlanning {
 
 export interface MovementStats {
   added: number;
+  /** Bottles actually finished in the period, not items moved to the trash. */
   consumed: number;
+  /** Items moved to the trash in the period, counted separately. */
+  deleted: number;
   restored: number;
 }
 
+// ISSUE_035/ISSUE_104: the `from`/`to` range narrows the movement counters
+// only — every other aggregate describes the cellar as it stands today. The
+// API echoes the applied range and its scope so the UI can say so explicitly.
+export interface AnalyticsPeriod {
+  from: string | null;
+  to: string | null;
+  scope: 'movements';
+}
+
 export interface AnalyticsStats {
+  period: AnalyticsPeriod;
   totalValuation: number;
   totalPurchasePrice: number;
   totalLiquidLiters: number;

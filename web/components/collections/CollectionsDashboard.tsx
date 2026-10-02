@@ -14,11 +14,12 @@ import { useRouter } from 'next/navigation';
 import { usePageSize } from '@/hooks/usePageSize';
 import { PaginationBar } from '@/components/ui/PaginationBar';
 import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export function CollectionsDashboard() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { data: collections, isLoading, isError } = useCollections();
+  const { data: collections, isLoading, isError, refetch, isRefetching } = useCollections();
   const createMutation = useCreateCollection();
   const updateMutation = useUpdateCollection();
   const deleteMutation = useDeleteCollection();
@@ -35,21 +36,36 @@ export function CollectionsDashboard() {
     [collections, currentPage, pageSize]
   );
 
+  // Failures are reported by the mutation hooks through the shared toast
+  // system; catching here keeps the dialog open on error (instead of closing
+  // it as if the write had succeeded) and avoids an unhandled rejection.
   const handleCreate = async (values: CollectionFormValues) => {
-    await createMutation.mutateAsync(values);
-    setFormOpen(false);
+    try {
+      await createMutation.mutateAsync(values);
+      setFormOpen(false);
+    } catch {
+      /* toast raised by useCreateCollection */
+    }
   };
 
   const handleUpdate = async (values: CollectionFormValues) => {
     if (!editing) return;
-    await updateMutation.mutateAsync({ id: editing.id, data: values });
-    setEditing(null);
+    try {
+      await updateMutation.mutateAsync({ id: editing.id, data: values });
+      setEditing(null);
+    } catch {
+      /* toast raised by useUpdateCollection */
+    }
   };
 
   const handleDelete = async () => {
     if (!deleting) return;
-    await deleteMutation.mutateAsync(deleting.id);
-    setDeleting(null);
+    try {
+      await deleteMutation.mutateAsync(deleting.id);
+      setDeleting(null);
+    } catch {
+      /* toast raised by useDeleteCollection */
+    }
   };
 
   return (
@@ -65,9 +81,12 @@ export function CollectionsDashboard() {
 
       {/* Error banner */}
       {isError && (
-        <div className="mb-4 rounded-lg bg-danger-50 border border-danger-200 text-danger px-4 py-3 text-sm">
-          {t('collections.errors.load')}
-        </div>
+        <ErrorState
+          className="mb-4"
+          message={t('collections.errors.load')}
+          onRetry={() => { void refetch(); }}
+          isRetrying={isRefetching}
+        />
       )}
 
       {/* Loading */}

@@ -14,6 +14,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isRemovePinModalOpen, setIsRemovePinModalOpen] = useState(false);
   const [email, setEmail] = useState(user.email);
+  const [emailPassword, setEmailPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [pinPassword, setPinPassword] = useState('');
@@ -89,6 +90,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
 
   const handleOpenEmail = () => {
     setEmail(user.email);
+    setEmailPassword('');
     setErrorMsg(null);
     setSuccessMsg(null);
     setIsEmailModalOpen(true);
@@ -96,14 +98,19 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
 
   const handleConfirmEmail = () => {
     setErrorMsg(null);
-    updateEmail.mutate({ email }, {
+    updateEmail.mutate({ email, currentPassword: emailPassword }, {
       onSuccess: () => {
         setIsEmailModalOpen(false);
+        setEmailPassword('');
         setSuccessMsg(t('profile.emailSuccess'));
         setTimeout(() => setSuccessMsg(null), 3000);
       },
       onError: (err: Error) => {
-        setErrorMsg(err.message === 'EMAIL_ALREADY_TAKEN' ? t('auth.errors.EMAIL_ALREADY_TAKEN') : t('status.error'));
+        if (err.message === 'EMAIL_ALREADY_TAKEN') {
+          setErrorMsg(t('auth.errors.EMAIL_ALREADY_TAKEN'));
+          return;
+        }
+        setErrorMsg(err.message === 'INVALID_CREDENTIALS' ? t('profile.passwordError') : t('status.error'));
       },
     });
   };
@@ -209,7 +216,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
           {(onClose) => (
             <>
               <ModalHeader>{t('profile.changeEmail')}</ModalHeader>
-              <ModalBody>
+              <ModalBody className="flex flex-col gap-3">
                 {errorMsg && (
                   <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3 mb-2">{errorMsg}</div>
                 )}
@@ -225,6 +232,20 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
                   autoComplete="off"
                   autoFocus
                 />
+                {/* ISSUE_042: the account password confirms the identity of
+                    whoever reroutes the password-reset channel. */}
+                <Input
+                  label={t('profile.currentPassword')}
+                  description={t('profile.emailPasswordHint')}
+                  type="password"
+                  value={emailPassword}
+                  onValueChange={setEmailPassword}
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                  autoComplete="current-password"
+                />
               </ModalBody>
               <ModalFooter>
                 <Button color="danger" variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
@@ -232,7 +253,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
                   color="primary"
                   variant="solid"
                   onPress={handleConfirmEmail}
-                  isDisabled={!email || email === user.email || updateEmail.isPending}
+                  isDisabled={!email || email === user.email || !emailPassword || updateEmail.isPending}
                   isLoading={updateEmail.isPending}
                 >
                   {t('actions.confirm')}

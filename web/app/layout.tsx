@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from './providers';
+import { THEME_INIT_SCRIPT } from '@/lib/theme-mode';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -27,6 +28,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+        {/*
+          ISSUE_112: resolves light/dark before the first paint (stored choice,
+          then prefers-color-scheme), so a reload no longer flashes white and
+          the logged-out pages (login, register, guest share) honour the OS
+          preference too. Blocking inline script on purpose, parsed before any
+          content is painted — see lib/theme-mode.ts for the shared logic.
+        */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <Providers>
           {children}
         </Providers>

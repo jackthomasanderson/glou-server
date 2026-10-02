@@ -28,7 +28,9 @@
     "wishlist": "Souhaits & Budget",
     "more": "Plus",
     "roleAdmin": "Administrateur",
-    "roleUser": "Utilisateur"
+    "roleUser": "Utilisateur",
+    "collapse": "Réduire",
+    "expand": "Développer"
   },
   "actions": {
     "add": "Ajouter",
@@ -67,6 +69,7 @@
     "saving": "Enregistrement…",
     "deleting": "Suppression…",
     "error": "Une erreur est survenue",
+    "retry": "Réessayer",
     "empty": "Aucun élément"
   },
   "categories": {
@@ -146,6 +149,12 @@
     "noCellar": "Aucune cave",
     "searchPlaceholder": "Rechercher (nom, producteur, millésime...)",
     "noResults": "Aucun résultat pour \"{{query}}\"",
+    "noResultsFilters": "Aucun résultat pour ces filtres",
+    "noResultsFiltersDesc": "Essayez d'élargir ou de retirer un filtre.",
+    "resetFilters": "Réinitialiser les filtres",
+    "errors": {
+      "load": "Impossible de charger l'inventaire."
+    },
     "filterByCategory": "Par catégorie",
     "filterByCellar": "Par cave",
     "activeFilters": "Filtres actifs",
@@ -339,7 +348,43 @@
     "createError": "Impossible d'ajouter la bouteille",
     "updateError": "Impossible de mettre à jour la bouteille",
     "deleteError": "Impossible de supprimer la bouteille",
-    "restoreError": "Impossible de restaurer la bouteille"
+    "restoreError": "Impossible de restaurer la bouteille",
+    "collection": {
+      "createSuccess": "Collection créée",
+      "updateSuccess": "Collection mise à jour",
+      "deleteSuccess": "Collection supprimée",
+      "createError": "Impossible de créer la collection",
+      "updateError": "Impossible de mettre à jour la collection",
+      "deleteError": "Impossible de supprimer la collection"
+    },
+    "cellar": {
+      "createSuccess": "Cave créée",
+      "updateSuccess": "Cave mise à jour",
+      "deleteSuccess": "Cave supprimée",
+      "createError": "Impossible de créer la cave",
+      "updateError": "Impossible de mettre à jour la cave",
+      "deleteError": "Impossible de supprimer la cave"
+    },
+    "tasting": {
+      "createSuccess": "Dégustation enregistrée",
+      "updateSuccess": "Dégustation mise à jour",
+      "deleteSuccess": "Dégustation supprimée",
+      "createError": "Impossible d'enregistrer la dégustation",
+      "updateError": "Impossible de mettre à jour la dégustation",
+      "deleteError": "Impossible de supprimer la dégustation"
+    },
+    "wishlist": {
+      "createSuccess": "Souhait ajouté",
+      "updateSuccess": "Souhait mis à jour",
+      "deleteSuccess": "Souhait supprimé",
+      "priceSuccess": "Prix observé enregistré",
+      "convertSuccess": "Souhait transformé en article de l'inventaire",
+      "createError": "Impossible d'ajouter le souhait",
+      "updateError": "Impossible de mettre à jour le souhait",
+      "deleteError": "Impossible de supprimer le souhait",
+      "priceError": "Impossible d'enregistrer le prix observé",
+      "convertError": "Impossible de transformer le souhait en article de l'inventaire"
+    }
   },
   "auth": {
     "login": "Connexion",
@@ -366,7 +411,10 @@
       "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 12 caractères.",
       "USERNAME_INVALID_CHARS": "Caractères autorisés : lettres, chiffres, - et _.",
       "PASSWORDS_DO_NOT_MATCH": "Les mots de passe ne correspondent pas.",
-      "SESSION_REVOKED": "Votre session a été déconnectée à distance. Merci de vous reconnecter."
+      "SESSION_REVOKED": "Votre session a été déconnectée à distance. Merci de vous reconnecter.",
+      "INVALID_TOTP_CODE": "Code de vérification incorrect.",
+      "2FA_TEMPORARILY_LOCKED": "Trop de codes incorrects. La vérification est bloquée pendant 15 minutes.",
+      "TOKEN_INVALID_OR_EXPIRED": "Votre demande de connexion a expiré. Merci de vous identifier à nouveau."
     },
     "passwordStrength": {
       "weak": "Faible",
@@ -469,6 +517,9 @@
     "filterByType": "Filtrer par type",
     "filterByStatus": "Filtrer par état",
     "noResults": "Aucune cave trouvée avec ces critères",
+    "errors": {
+      "load": "Impossible de charger les caves."
+    },
     "nFound": "{{count}} cave(s) trouvée(s)",
     "status": {
       "withAlerts": "Avec alertes",
@@ -630,7 +681,8 @@
       "trustSuccess": "Cet appareil est désormais de confiance.",
       "untrustSuccess": "La confiance accordée à cet appareil a été révoquée.",
       "trustError": "Une erreur est survenue lors de la mise à jour de la confiance."
-    }
+    },
+    "emailPasswordHint": "Confirmez avec le mot de passe de votre compte. Une alerte sera envoyée à l'ancienne adresse."
   },
   "admin": {
     "title": "Administration",
@@ -1004,6 +1056,9 @@
     }
   },
   "analytics": {
+    "errors": {
+      "load": "Impossible de charger les analyses."
+    },
     "pageTitle": "Analyses & Terroirs",
     "pageSubtitle": "Analyse financière, temporelle, volumétrique et géographique de la cave.",
     "exportButton": "Exporter le bilan",
@@ -1122,8 +1177,10 @@
     "movements": {
       "title": "Flux de mouvements",
       "added": "Ajoutés",
-      "consumed": "Sortis / Consommés",
-      "restored": "Restaurés"
+      "consumed": "Consommés",
+      "restored": "Restaurés",
+      "scopeHint": "La période ne s'applique qu'aux mouvements ci-dessous ; les autres indicateurs portent sur l'intégralité de la cave.",
+      "deleted": "Mis à la corbeille"
     }
   },
   "storageZones": {
@@ -1618,7 +1675,8 @@
         "PRODUCER_TOO_LONG": "Le producteur dépasse 200 caractères",
         "INVALID_CATEGORY": "Catégorie invalide (attendu : wine, sparkling, spirit ou cigar)",
         "INVALID_VINTAGE": "Millésime invalide",
-        "INVALID_ROW": "Ligne invalide"
+        "INVALID_ROW": "Ligne invalide",
+        "UNRECOGNIZED_COLUMNS": "En-tête non reconnu : aucune colonne attendue (name, producer, category, vintage) n'a été trouvée"
       }
     },
     "summary": {
@@ -1766,5 +1824,17 @@
       "created": "Créé",
       "incremented": "Incrémenté"
     }
+  },
+  "unsavedChanges": {
+    "title": "Abandonner la saisie ?",
+    "description": "Les informations déjà saisies seront définitivement perdues si vous fermez ce formulaire maintenant.",
+    "keepEditing": "Continuer la saisie",
+    "discard": "Abandonner"
+  },
+  "theme": {
+    "switchToDark": "Passer en mode sombre",
+    "switchToLight": "Passer en mode clair",
+    "activeDark": "Mode sombre activé",
+    "activeLight": "Mode clair activé"
   }
 }

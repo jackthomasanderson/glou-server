@@ -16,6 +16,7 @@ import { useActiveCountSession } from '@/hooks/useInventoryCount';
 import { useWishlist } from '@/hooks/useWishlist';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ConnectivityIndicator } from './ConnectivityIndicator';
+import { ThemeToggle } from './ThemeToggle';
 
 export const SIDEBAR_WIDTH = 220;
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
@@ -98,7 +99,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         </div>
 
         <Tooltip
-          content={expanded ? t('nav.collapse', 'Réduire') : t('nav.expand', 'Développer')}
+          content={expanded ? t('nav.collapse') : t('nav.expand')}
           placement="right"
           delay={500}
         >
@@ -109,7 +110,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
             color="default"
             radius="md"
             onClick={onToggle}
-            aria-label={expanded ? t('nav.collapse', 'Réduire') : t('nav.expand', 'Développer')}
+            aria-label={expanded ? t('nav.collapse') : t('nav.expand')}
           >
             {expanded ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
           </Button>
@@ -218,17 +219,19 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         </div>
       )}
 
-      {/* User footer */}
+      {/* User footer — theme toggle + connectivity + avatar (ux-ui.md §3.1) */}
       <Divider />
-      <Tooltip
-        content={!expanded ? `${user?.username ?? ''} · ${user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}` : ''}
-        placement="right"
-        isDisabled={expanded}
+      <div
+        className={`flex py-3 transition-all duration-200 ${
+          expanded ? 'px-3 items-center gap-2' : 'px-0 flex-col items-center gap-2'
+        }`}
       >
-        <div
-          className={`flex items-center py-3 transition-all duration-200 ${
-            expanded ? 'px-3 gap-2' : 'px-0 justify-center'
-          }`}
+        <ThemeToggle />
+
+        <Tooltip
+          content={`${user?.username ?? ''} · ${user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}`}
+          placement="right"
+          isDisabled={expanded}
         >
           <Avatar
             src={user?.avatarUrl || undefined}
@@ -241,23 +244,23 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
             as={Link}
             href="/profile"
           />
+        </Tooltip>
 
-          <div
-            className={`overflow-hidden transition-all duration-200 flex-1 min-w-0 ${
-              expanded ? 'max-w-[200px] opacity-100' : 'max-w-0 opacity-0'
-            }`}
-          >
-            <p className="text-xs font-semibold leading-tight truncate whitespace-nowrap">
-              {user?.username}
-            </p>
-            <p className="text-[0.65rem] text-foreground-500 leading-tight truncate whitespace-nowrap">
-              {user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}
-            </p>
-          </div>
+        {expanded && (
+          <>
+            <div className="overflow-hidden flex-1 min-w-0">
+              <p className="text-xs font-semibold leading-tight truncate whitespace-nowrap">
+                {user?.username}
+              </p>
+              <p className="text-[0.65rem] text-foreground-500 leading-tight truncate whitespace-nowrap">
+                {user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}
+              </p>
+            </div>
 
-          {expanded && <ConnectivityIndicator />}
-        </div>
-      </Tooltip>
+            <ConnectivityIndicator />
+          </>
+        )}
+      </div>
     </div>
   );
 }
