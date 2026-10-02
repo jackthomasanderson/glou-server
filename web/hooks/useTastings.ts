@@ -1,6 +1,7 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tastingsClient } from '@/lib/tastings/client';
+import { notifyError, notifySuccess } from '@/lib/toast';
 import { TastingNote, TastingFormValues, TastingListResult, TastingItemStats, TastingAnalytics } from '@/lib/tastings/types';
 
 export const TASTINGS_KEY = ['tastings'];
@@ -17,6 +18,8 @@ export function useCreateTasting() {
   const queryClient = useQueryClient();
   return useMutation<TastingNote, Error, TastingFormValues>({
     mutationFn: tastingsClient.create,
+    onSuccess: () => notifySuccess('toast.tasting.createSuccess'),
+    onError: () => notifyError('toast.tasting.createError'),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: TASTINGS_KEY }),
   });
 }
@@ -25,6 +28,8 @@ export function useUpdateTasting() {
   const queryClient = useQueryClient();
   return useMutation<TastingNote, Error, { id: string; data: Partial<TastingFormValues> }>({
     mutationFn: ({ id, data }) => tastingsClient.update(id, data),
+    onSuccess: () => notifySuccess('toast.tasting.updateSuccess'),
+    onError: () => notifyError('toast.tasting.updateError'),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: TASTINGS_KEY }),
   });
 }
@@ -33,6 +38,8 @@ export function useDeleteTasting() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
     mutationFn: tastingsClient.delete,
+    onSuccess: () => notifySuccess('toast.tasting.deleteSuccess'),
+    onError: () => notifyError('toast.tasting.deleteError'),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: TASTINGS_KEY }),
   });
 }

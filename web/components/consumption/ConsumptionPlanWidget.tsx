@@ -10,6 +10,7 @@ import {
 } from '@/hooks/useConsumptionPlan';
 import { ConsumptionSuggestion, GoalTargetType, SuggestionReason } from '@/lib/consumption-plan/types';
 import { TastingForm } from '@/components/tastings/TastingForm';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 const SUGGESTIONS_LIMIT = 7;
 
@@ -40,7 +41,7 @@ function endOfMonthISO(): string {
 
 export function ConsumptionPlanWidget() {
   const { t } = useTranslation();
-  const { data: suggestions, isLoading, isError } = useConsumptionSuggestions(SUGGESTIONS_LIMIT);
+  const { data: suggestions, isLoading, isError, refetch, isRefetching } = useConsumptionSuggestions(SUGGESTIONS_LIMIT);
   const postpone = usePostponeSuggestion(SUGGESTIONS_LIMIT);
   const { data: progress, isLoading: goalLoading } = useGoalProgress();
   const setGoal = useSetGoal();
@@ -177,9 +178,12 @@ export function ConsumptionPlanWidget() {
         <h2 className="text-sm font-semibold mb-3">{t('consumptionPlan.suggestions.title')}</h2>
 
         {isError && (
-          <div className="mb-4 rounded-lg bg-danger-50 border border-danger-200 text-danger px-4 py-3 text-sm">
-            {t('consumptionPlan.suggestions.loadError')}
-          </div>
+          <ErrorState
+            className="mb-4"
+            message={t('consumptionPlan.suggestions.loadError')}
+            onRetry={() => { void refetch(); }}
+            isRetrying={isRefetching}
+          />
         )}
 
         {isLoading ? (

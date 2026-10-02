@@ -8,6 +8,7 @@ import { InventoryItem } from '@/lib/inventory/types';
 import { matchDishToPairings, pickBestPairingLabel } from '@/lib/tastings/pairingEngine';
 import { getRecommendations } from '@/lib/tastings/recommendations';
 import { TastingForm } from './TastingForm';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 // Quick-pick chips: derived from the vocabulary already present in the
 // RECOS food pairing catalog (recommendations.ts). The catalog itself is
@@ -66,7 +67,7 @@ interface PairingSuggestion {
 
 export function PairingExplorer() {
   const { t, i18n } = useTranslation();
-  const { data: inventory, isLoading, isError } = useInventory();
+  const { data: inventory, isLoading, isError, refetch, isRefetching } = useInventory();
   const [query, setQuery] = useState('');
   const [consumeTarget, setConsumeTarget] = useState<{ itemId: string; foodPairing: string } | null>(null);
   const chipLocale: 'fr' | 'en' = i18n.language?.startsWith('en') ? 'en' : 'fr';
@@ -155,9 +156,12 @@ export function PairingExplorer() {
 
       {/* Error banner */}
       {isError && (
-        <div className="mb-4 rounded-lg bg-danger-50 border border-danger-200 text-danger px-4 py-3 text-sm">
-          {t('tastings.pairing.inventoryLoadError')}
-        </div>
+        <ErrorState
+          className="mb-4"
+          message={t('tastings.pairing.inventoryLoadError')}
+          onRetry={() => { void refetch(); }}
+          isRetrying={isRefetching}
+        />
       )}
 
       {/* Loading */}

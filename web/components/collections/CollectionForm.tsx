@@ -7,6 +7,8 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { CollectionFormValues, Collection } from '@/lib/collections/types';
 import { useTranslation } from 'react-i18next';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 
 const PRESET_COLORS = [
   '#6366f1', '#ec4899', '#f59e0b', '#10b981',
@@ -31,7 +33,10 @@ interface CollectionFormProps {
 
 export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: CollectionFormProps) {
   const { t } = useTranslation();
-  const { control, handleSubmit, reset, watch, setValue } = useForm<CollectionFormValues>({
+  const {
+    control, handleSubmit, reset, watch, setValue,
+    formState: { isDirty },
+  } = useForm<CollectionFormValues>({
     defaultValues: { name: '', color: '#6366f1', icon: '' },
   });
 
@@ -48,14 +53,20 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
     }
   }, [open, initial, reset]);
 
-  const handleClose = () => {
-    if (!isLoading) onClose();
-  };
+  // ISSUE_119: don't let a backdrop click or Escape wipe a started entry.
+  const guard = useUnsavedChangesGuard({
+    isOpen: open,
+    isDirty,
+    onClose,
+    isLocked: !!isLoading,
+  });
 
   return (
+    <>
     <Modal
-      isOpen={open}
-      onClose={handleClose}
+      isOpen={open && !guard.isConfirmOpen}
+      onClose={guard.requestClose}
+      {...guard.dismissProps}
       size="sm"
       radius="lg"
       backdrop="opaque"
@@ -133,7 +144,7 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
               <Button
                 color="danger"
                 variant="light"
-                onPress={handleClose}
+                onPress={guard.requestClose}
                 isDisabled={isLoading}
               >
                 {t('actions.cancel')}
@@ -152,5 +163,12 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
         )}
       </ModalContent>
     </Modal>
+
+    <DiscardChangesDialog
+      isOpen={guard.isConfirmOpen}
+      onCancel={guard.cancelDiscard}
+      onConfirm={guard.confirmDiscard}
+    />
+    </>
   );
 }

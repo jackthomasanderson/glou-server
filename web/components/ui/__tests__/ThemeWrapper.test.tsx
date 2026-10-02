@@ -19,6 +19,8 @@ let mockUser: { accentColor?: string; theme?: string; language?: string } | null
 
 vi.mock('@/hooks/useAuth', () => ({
   useMe: () => ({ data: mockUser }),
+  // ISSUE_112: ThemeModeProvider persists an explicit toggle to the account.
+  useUpdatePreferences: () => ({ mutate: vi.fn() }),
 }));
 
 vi.mock('react-i18next', () => ({
@@ -58,6 +60,8 @@ describe('ThemeWrapper', () => {
     container.remove();
     document.documentElement.style.cssText = '';
     document.documentElement.classList.remove('dark');
+    document.documentElement.style.colorScheme = '';
+    window.localStorage.clear();
     mockUser = null;
   });
 

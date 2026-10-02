@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/lib/api';
+import { notifyError, notifySuccess } from '@/lib/toast';
 
 import { Cellar, CellarGridData, CreateCellarInput, UpdateCellarInput } from '@/lib/cellars/types';
 
@@ -56,7 +57,9 @@ export function useCreateCellar() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      notifySuccess('toast.cellar.createSuccess');
     },
+    onError: () => notifyError('toast.cellar.createError'),
   });
 }
 
@@ -72,7 +75,9 @@ export function useUpdateCellar() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      notifySuccess('toast.cellar.updateSuccess');
     },
+    onError: () => notifyError('toast.cellar.updateError'),
   });
 }
 
@@ -87,7 +92,9 @@ export function useDeleteCellar() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      notifySuccess('toast.cellar.deleteSuccess');
     },
+    onError: () => notifyError('toast.cellar.deleteError'),
   });
 }
 

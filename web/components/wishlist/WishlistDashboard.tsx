@@ -12,6 +12,10 @@ import {
 } from '@/hooks/useWishlist';
 import { useCellars } from '@/hooks/useCellars';
 import { WishlistItem, WishlistCategory, WishlistCreateInput } from '@/lib/wishlist/types';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
+import { isFormDirty } from '@/lib/forms/dirtyState';
 
 const CATEGORIES: WishlistCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
 
@@ -27,7 +31,7 @@ const EMPTY_FORM: WishlistCreateInput = {
 
 export function WishlistDashboard() {
   const { t } = useTranslation();
-  const { data: items, isLoading, isError } = useWishlist();
+  const { data: items, isLoading, isError, refetch, isRefetching } = useWishlist();
   const createMutation = useCreateWishlistItem();
   const updateMutation = useUpdateWishlistItem();
   const deleteMutation = useDeleteWishlistItem();
@@ -38,37 +42,62 @@ export function WishlistDashboard() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<WishlistItem | null>(null);
   const [form, setForm] = useState<WishlistCreateInput>(EMPTY_FORM);
+  // ISSUE_119: values the form opened with, to detect unsaved input on close.
+  const [formBaseline, setFormBaseline] = useState<WishlistCreateInput>(EMPTY_FORM);
   const [deleting, setDeleting] = useState<WishlistItem | null>(null);
   const [priceTarget, setPriceTarget] = useState<WishlistItem | null>(null);
   const [priceValue, setPriceValue] = useState('');
   const [convertTarget, setConvertTarget] = useState<WishlistItem | null>(null);
   const [convertForm, setConvertForm] = useState({ purchasePrice: '', purchasePlace: '', cellarId: '', bottleSize: '', quantity: '' });
 
-  const openCreate = () => { setForm(EMPTY_FORM); setFormOpen(true); };
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setFormBaseline(EMPTY_FORM);
+    setFormOpen(true);
+  };
   const openEdit = (item: WishlistItem) => {
     setEditing(item);
-    setForm({
+    const nextForm: WishlistCreateInput = {
       name: item.name, producer: item.producer ?? '', category: item.category,
       vintage: item.vintage, targetQuantity: item.targetQuantity, maxPrice: item.maxPrice, notes: item.notes ?? '',
-    });
+    };
+    setForm(nextForm);
+    setFormBaseline(nextForm);
     setFormOpen(true);
   };
   const closeForm = () => { setFormOpen(false); setEditing(null); };
 
+  // ISSUE_119: a backdrop click or Escape must not silently drop a started entry.
+  const formGuard = useUnsavedChangesGuard({
+    isOpen: formOpen,
+    isDirty: isFormDirty(formBaseline, form),
+    onClose: closeForm,
+    isLocked: createMutation.isPending || updateMutation.isPending,
+  });
+
   const handleSubmit = async () => {
     if (!form.name.trim()) return;
-    if (editing) {
-      await updateMutation.mutateAsync({ id: editing.id, data: form });
-    } else {
-      await createMutation.mutateAsync(form);
+    try {
+      if (editing) {
+        await updateMutation.mutateAsync({ id: editing.id, data: form });
+      } else {
+        await createMutation.mutateAsync(form);
+      }
+      closeForm();
+    } catch {
+      /* toast raised by useCreateWishlistItem / useUpdateWishlistItem */
     }
-    closeForm();
   };
 
   const handleDelete = async () => {
     if (!deleting) return;
-    await deleteMutation.mutateAsync(deleting.id);
-    setDeleting(null);
+    try {
+      await deleteMutation.mutateAsync(deleting.id);
+      setDeleting(null);
+    } catch {
+      /* toast raised by useDeleteWishlistItem */
+    }
   };
 
   const openPriceSeen = (item: WishlistItem) => { setPriceTarget(item); setPriceValue(String(item.lastSeenPrice ?? '')); };
@@ -76,8 +105,12 @@ export function WishlistDashboard() {
     if (!priceTarget) return;
     const price = Number(priceValue);
     if (!Number.isFinite(price) || price < 0) return;
-    await priceSeenMutation.mutateAsync({ id: priceTarget.id, price });
-    setPriceTarget(null);
+    try {
+      await priceSeenMutation.mutateAsync({ id: priceTarget.id, price });
+      setPriceTarget(null);
+    } catch {
+      /* toast raised by useRecordPriceSeen */
+    }
   };
 
   const openConvert = (item: WishlistItem) => {
@@ -89,17 +122,21 @@ export function WishlistDashboard() {
   };
   const handleConvertSubmit = async () => {
     if (!convertTarget) return;
-    await convertMutation.mutateAsync({
-      id: convertTarget.id,
-      data: {
-        purchasePrice: convertForm.purchasePrice ? Number(convertForm.purchasePrice) : null,
-        purchasePlace: convertForm.purchasePlace || null,
-        cellarId: convertForm.cellarId || null,
-        bottleSize: convertForm.bottleSize || null,
-        quantity: convertForm.quantity ? Number(convertForm.quantity) : null,
-      },
-    });
-    setConvertTarget(null);
+    try {
+      await convertMutation.mutateAsync({
+        id: convertTarget.id,
+        data: {
+          purchasePrice: convertForm.purchasePrice ? Number(convertForm.purchasePrice) : null,
+          purchasePlace: convertForm.purchasePlace || null,
+          cellarId: convertForm.cellarId || null,
+          bottleSize: convertForm.bottleSize || null,
+          quantity: convertForm.quantity ? Number(convertForm.quantity) : null,
+        },
+      });
+      setConvertTarget(null);
+    } catch {
+      /* toast raised by useConvertToInventory */
+    }
   };
 
   const activeItems = (items ?? []).filter((i) => i.status !== 'cancelled');
@@ -121,9 +158,12 @@ export function WishlistDashboard() {
       </div>
 
       {isError && (
-        <div className="mb-4 rounded-lg bg-danger-50 border border-danger-200 text-danger px-4 py-3 text-sm">
-          {t('wishlist.errors.load')}
-        </div>
+        <ErrorState
+          className="mb-4"
+          message={t('wishlist.errors.load')}
+          onRetry={() => { void refetch(); }}
+          isRetrying={isRefetching}
+        />
       )}
 
       {isLoading ? (
@@ -193,7 +233,12 @@ export function WishlistDashboard() {
       )}
 
       {/* Create / Edit form */}
-      <Modal isOpen={formOpen} onClose={closeForm} size="2xl" radius="lg" backdrop="opaque" placement="center">
+      <Modal
+        isOpen={formOpen && !formGuard.isConfirmOpen}
+        onClose={formGuard.requestClose}
+        {...formGuard.dismissProps}
+        size="2xl" radius="lg" backdrop="opaque" placement="center"
+      >
         <ModalContent>
           {() => (
             <>
@@ -255,7 +300,7 @@ export function WishlistDashboard() {
                 />
               </ModalBody>
               <ModalFooter>
-                <Button color="danger" variant="light" onPress={closeForm}>{t('actions.cancel')}</Button>
+                <Button color="danger" variant="light" onPress={formGuard.requestClose}>{t('actions.cancel')}</Button>
                 <Button
                   color="primary" variant="solid"
                   isLoading={createMutation.isPending || updateMutation.isPending}
@@ -269,6 +314,12 @@ export function WishlistDashboard() {
           )}
         </ModalContent>
       </Modal>
+
+      <DiscardChangesDialog
+        isOpen={formGuard.isConfirmOpen}
+        onCancel={formGuard.cancelDiscard}
+        onConfirm={formGuard.confirmDiscard}
+      />
 
       {/* Price seen */}
       <Modal isOpen={!!priceTarget} onClose={() => setPriceTarget(null)} size="sm" radius="lg" backdrop="opaque" placement="center">

@@ -23,6 +23,7 @@ import { useDuplicateResolution } from '@/hooks/useDuplicateResolution';
 import { InventoryCardSkeleton } from './InventoryCard';
 import { InventoryForm } from './InventoryForm';
 import { UndoToast } from '@/components/ui/UndoToast';
+import { notifySuccess } from '@/lib/toast';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
 import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
 import { InventoryDetailDialog } from './InventoryDetailDialog';
@@ -30,6 +31,8 @@ import { InventoryListRowSkeleton } from './InventoryListRow';
 import { InventoryGridView } from './InventoryGridView';
 import { InventoryListView } from './InventoryListView';
 import { ViewToggle } from '@/components/ui/ViewToggle';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { useViewMode } from '@/hooks/useViewMode';
 import { usePageSize } from '@/hooks/usePageSize';
 import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
@@ -59,7 +62,7 @@ function getIsMobileServerSnapshot() {
 }
 
 export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardProps) {
-  const { data: items, isLoading, isError } = useInventory();
+  const { data: items, isLoading, isError, refetch, isRefetching } = useInventory();
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
   const createMutation = useCreateInventoryItem();
@@ -86,7 +89,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const bulkUpdateMutation = useBulkUpdateInventoryItem();
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
-  const [bulkSuccessCount, setBulkSuccessCount] = useState<number | null>(null);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -215,7 +217,9 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         { ids: Array.from(selectedIds), patch },
         {
           onSuccess: (res) => {
-            setBulkSuccessCount(res.updatedCount);
+            // Plain success toast, not an UndoToast: a bulk update has no
+            // undo window, so no countdown bar should suggest one (ISSUE_124).
+            notifySuccess('bulk.success', { count: res.updatedCount });
             setBulkMode(false);
             clearSelection();
             setIsBulkDialogOpen(false);
@@ -416,9 +420,12 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Error */}
           {isError && (
-            <div className="bg-danger-50 border border-danger-200 text-danger-700 rounded-xl px-4 py-3 mb-4 text-sm">
-              {t('status.error')}
-            </div>
+            <ErrorState
+              className="mb-4"
+              message={t('inventory.errors.load')}
+              onRetry={() => { void refetch(); }}
+              isRetrying={isRefetching}
+            />
           )}
 
           {/* Active collection banner */}
@@ -467,34 +474,52 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           {/* Empty states */}
           {!isLoading && !isError && mode === 'idle' && (
             <>
-              {items?.length === 0 ? (
-                <div className="text-center py-16 border-2 border-dashed border-divider rounded-xl bg-default-50">
-                  {hasCellars ? (
-                    <>
-                      <p className="text-lg font-semibold text-default-500 mb-1">{t('inventory.noBottles')}</p>
-                      <p className="text-sm text-default-400 mb-4">{t('inventory.noBottlesDesc')}</p>
+              {/* `baseItems` (not `items`) so a category-scoped page — /cigars
+                  with a wine-only inventory — gets the empty state instead of
+                  a blank zone. */}
+              {items && baseItems.length === 0 ? (
+                hasCellars ? (
+                  <EmptyState
+                    bordered
+                    title={t('inventory.noBottles')}
+                    description={t('inventory.noBottlesDesc')}
+                    action={
                       <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
                         {t('inventory.add')}
                       </Button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-lg font-semibold text-default-500 mb-1">{t('inventory.createCellarFirst')}</p>
-                      <p className="text-sm text-default-400 mb-5">{t('inventory.createCellarFirstDesc')}</p>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    bordered
+                    title={t('inventory.createCellarFirst')}
+                    description={t('inventory.createCellarFirstDesc')}
+                    action={
                       <Button color="primary" startContent={<Warehouse size={16} />} as={Link} href="/cellars">
                         {t('nav.caves')}
                       </Button>
-                    </>
-                  )}
-                </div>
+                    }
+                  />
+                )
               ) : (
-                searchQuery.trim() && filteredItems.length === 0 && (
-                  <div className="text-center py-16">
-                    <Search size={56} className="text-default-200 mx-auto mb-4" />
-                    <p className="text-lg font-semibold text-default-500">
-                      {t('inventory.noResults', { query: searchQuery })}
-                    </p>
-                  </div>
+                // Any active filter (category, cellar, tag, price range, opened
+                // status...) can empty the list, not just the search box — all
+                // of them must get the "no result" state and a way out.
+                hasActiveFilters && filteredItems.length === 0 && (
+                  <EmptyState
+                    icon={<Search size={56} className="text-default-200" />}
+                    title={
+                      searchQuery.trim()
+                        ? t('inventory.noResults', { query: searchQuery })
+                        : t('inventory.noResultsFilters')
+                    }
+                    description={t('inventory.noResultsFiltersDesc')}
+                    action={
+                      <Button variant="light" color="primary" onPress={clearFilters}>
+                        {t('inventory.resetFilters')}
+                      </Button>
+                    }
+                  />
                 )
               )}
             </>
@@ -545,8 +570,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         onCloseDialog={() => setIsBulkDialogOpen(false)}
         onApply={handleBulkApply}
         isSubmitting={bulkUpdateMutation.isPending}
-        bulkSuccessCount={bulkSuccessCount}
-        onCloseSuccessToast={() => setBulkSuccessCount(null)}
       />
 
       <InventoryDetailDialog
