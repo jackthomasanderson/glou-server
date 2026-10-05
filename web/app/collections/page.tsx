@@ -3,7 +3,7 @@ import { CollectionsClient } from './CollectionsClient';
 
 export const metadata: Metadata = {
   title: 'Collections — Glou',
-  description: 'Organisez vos articles en collections thématiques.',
+  description: 'Organise your items into themed collections. · Organisez vos articles en collections thématiques.',
 };
 
 export default function CollectionsPage() {

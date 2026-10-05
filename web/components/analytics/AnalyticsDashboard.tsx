@@ -36,10 +36,12 @@ import dynamic from 'next/dynamic';
 import { GardeHistogram } from './GardeHistogram';
 import { TastingInsights } from './TastingInsights';
 import { ErrorState } from '@/components/ui/ErrorState';
+import i18n from '@/lib/i18n';
+import { formatNumber } from '@/lib/format';
 
 type Period = '30d' | '90d' | '1y' | 'all';
 
-const fmtNum = (n: number) => n.toLocaleString('fr-FR');
+const fmtNum = (n: number) => formatNumber(n, i18n.language);
 const fmtCurrency = (n: number) => `${fmtNum(n)} €`;
 
 function periodToDates(period: Period): { from?: string; to?: string } {

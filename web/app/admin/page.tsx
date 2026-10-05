@@ -17,9 +17,10 @@ import { useHasMounted } from '@/hooks/useHasMounted';
 import { MaturityReferencesSection } from '@/components/admin/MaturityReferencesSection';
 import { SystemConfigSection } from '@/components/admin/SystemConfigSection';
 import { MainLayout } from '@/components/ui/MainLayout';
+import { formatDate, formatDateTime } from '@/lib/format';
 
 export default function AdminPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: user, isLoading: isAuthLoading } = useMe();
   const router = useRouter();
   const hasMounted = useHasMounted();
@@ -143,7 +144,7 @@ export default function AdminPage() {
                     </Tooltip>
                   </TableCell>
                   <TableCell className="text-sm text-foreground-400">
-                    {hasMounted ? new Date(u.createdAt).toLocaleDateString() : ''}
+                    {hasMounted ? formatDate(u.createdAt, i18n.language) : ''}
                   </TableCell>
                 </TableRow>
               ))
@@ -182,7 +183,7 @@ export default function AdminPage() {
               ? (<TableRow><TableCell colSpan={5} className="text-center py-4 text-sm text-foreground-400">{t('admin.auditLog.noLogs')}</TableCell></TableRow>)
               : auditResponse?.items.map((entry: AuditLogEntry) => (
                 <TableRow key={entry.id}>
-                  <TableCell className="whitespace-nowrap text-xs">{hasMounted ? new Date(entry.createdAt).toLocaleString() : ''}</TableCell>
+                  <TableCell className="whitespace-nowrap text-xs">{hasMounted ? formatDateTime(entry.createdAt, i18n.language) : ''}</TableCell>
                   <TableCell className="text-sm">{entry.user?.username || '—'}</TableCell>
                   <TableCell><Chip size="sm" variant="bordered" radius="sm">{entry.action}</Chip></TableCell>
                   <TableCell>

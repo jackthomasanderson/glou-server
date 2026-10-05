@@ -90,10 +90,10 @@ export function LoginForm() {
         {step === '2fa' ? (
           <form onSubmit={handle2faSubmit} className="flex flex-col gap-4" noValidate>
             <p className="text-sm text-center text-foreground-600">
-              {`Veuillez entrer le code à 6 chiffres de votre application d'authentification ou l'un de vos codes de secours.`}
+              {t('auth.twoFactor.hint')}
             </p>
             <Input
-              label="Code d'authentification"
+              label={t('auth.twoFactor.codeLabel')}
               value={code}
               onValueChange={setCode}
               variant="bordered"
@@ -122,10 +122,10 @@ export function LoginForm() {
               isDisabled={isPending || code.length < 6}
               spinnerPlacement="start"
             >
-              Vérifier
+              {t('auth.twoFactor.verify')}
             </Button>
             <Button variant="light" color="default" size="sm" onClick={() => setStep('login')} isDisabled={isPending}>
-              Retour
+              {t('auth.twoFactor.back')}
             </Button>
           </form>
         ) : (

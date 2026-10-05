@@ -16,6 +16,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
+import { formatDate } from '@/lib/format';
 
 const CATEGORIES: WishlistCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
 
@@ -30,7 +31,7 @@ const EMPTY_FORM: WishlistCreateInput = {
 };
 
 export function WishlistDashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: items, isLoading, isError, refetch, isRefetching } = useWishlist();
   const createMutation = useCreateWishlistItem();
   const updateMutation = useUpdateWishlistItem();
@@ -200,7 +201,7 @@ export function WishlistDashboard() {
                       <span className="text-xs text-foreground-400">
                         {t('wishlist.priceSeen.lastSeen', {
                           price: `${item.lastSeenPrice} €`,
-                          date: new Date(item.lastSeenAt).toLocaleDateString(),
+                          date: formatDate(item.lastSeenAt, i18n.language),
                         })}
                       </span>
                     )}

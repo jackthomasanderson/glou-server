@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { WishlistClient } from './WishlistClient';
 
 export const metadata: Metadata = {
-  title: 'Liste de souhaits & Budget — Glou',
-  description: 'Planification des acquisitions et pilotage budgétaire personnel.',
+  title: 'Wishlist & Budget · Souhaits & Budget — Glou',
+  description: 'Plan purchases and track your budget. · Planification des acquisitions et pilotage du budget.',
 };
 
 export default function WishlistPage() {
