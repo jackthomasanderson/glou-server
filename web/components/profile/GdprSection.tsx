@@ -4,16 +4,19 @@ import { Button, Card, CardBody, Checkbox, Modal, ModalContent, ModalHeader, Mod
 import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useExportData, useRequestAccountDeletion, useCancelAccountDeletion, PublicUser, ExportCategory } from '@/hooks/useAuth';
-import { addDays, format, parseISO } from 'date-fns';
+import { formatDate } from '@/lib/format';
 
 interface GdprSectionProps {
   user: PublicUser;
 }
 
-const EXPORT_CATEGORIES: ExportCategory[] = ['inventory', 'cellars', 'collections', 'tastings', 'activity'];
+const EXPORT_CATEGORIES: ExportCategory[] = [
+  'inventory', 'cellars', 'collections', 'tastings', 'activity',
+  'wishlist', 'budget', 'goals', 'counts', 'humidor',
+];
 
 export function GdprSection({ user }: GdprSectionProps) {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -28,8 +31,10 @@ export function GdprSection({ user }: GdprSectionProps) {
   };
 
   const isDeletionPending = !!user.deletionRequestedAt;
-  const deletionDeadline = isDeletionPending
-    ? format(addDays(parseISO(user.deletionRequestedAt!), 30), 'dd/MM/yyyy')
+  // No automatic purge exists yet (#222): the request is handled by the instance
+  // administrator, so only the request date is shown, never a deadline.
+  const deletionRequestedOn = isDeletionPending
+    ? formatDate(user.deletionRequestedAt, i18n.language)
     : null;
 
   const handleConfirmDelete = () => {
@@ -53,7 +58,7 @@ export function GdprSection({ user }: GdprSectionProps) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-warning-700">{t('gdpr.deletionPending')}</p>
                 <p className="text-xs text-warning-600 mt-0.5">
-                  {t('gdpr.deletionDeadline', { date: deletionDeadline })}
+                  {t('gdpr.deletionRequestedOn', { date: deletionRequestedOn })}
                 </p>
               </div>
               <Button
