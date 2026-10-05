@@ -1,6 +1,5 @@
 'use client';
 import { addToast } from '@heroui/react';
-import type { TOptions } from 'i18next';
 import i18n from '@/lib/i18n';
 
 /**
@@ -25,17 +24,22 @@ const SUCCESS_TIMEOUT_MS = 3000;
  */
 const PERSISTENT_TIMEOUT = 0;
 
-export function notifySuccess(messageKey: string, values?: TOptions): void {
+// i18next >= 25.10 types `t(key, undefined)` as the (key, defaultValue) overload.
+function translate(messageKey: string, values?: Record<string, unknown>): string {
+  return values ? i18n.t(messageKey, values) : i18n.t(messageKey);
+}
+
+export function notifySuccess(messageKey: string, values?: Record<string, unknown>): void {
   addToast({
-    title: i18n.t(messageKey, values),
+    title: translate(messageKey, values),
     color: 'success',
     timeout: SUCCESS_TIMEOUT_MS,
   });
 }
 
-export function notifyError(messageKey: string, values?: TOptions): void {
+export function notifyError(messageKey: string, values?: Record<string, unknown>): void {
   addToast({
-    title: i18n.t(messageKey, values),
+    title: translate(messageKey, values),
     color: 'danger',
     timeout: PERSISTENT_TIMEOUT,
   });
