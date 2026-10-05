@@ -5,40 +5,30 @@ import { inventoryService } from './services/inventory.service';
 import { MaintenanceService } from './services/maintenance.service';
 import { recomputeAlertStatuses } from './services/alert.service';
 import { backupService } from './services/backup.service';
+import { findSecretProblems, describeSecretProblem } from './lib/startup-secrets';
 
 // ─── Startup secret guard ────────────────────────────────────────────────────
 // Security hardening: `.env.example` ships two placeholder secrets
 // (JWT_SECRET, CONFIG_ENCRYPTION_KEY) that are public — committed to this
 // repo, printed in the README/wiki. An instance still running on either of
 // them is trivially compromised (forgeable auth tokens / decryptable stored
-// config secrets). In production, refuse to accept any request until real
-// values are set. In development, only warn — `docker compose up` (dev
-// compose) must keep working out of the box for local hacking without
-// forcing every contributor to mint fresh secrets first.
-const PLACEHOLDER_JWT_SECRET =
-  'change_me_with_a_strong_random_secret_of_at_least_64_chars_long_xxxxxxxxxxx';
-const PLACEHOLDER_CONFIG_ENCRYPTION_KEY =
-  '0000000000000000000000000000000000000000000000000000000000000000';
-
+// config secrets). An instance with either of them missing or malformed
+// cannot even sign a session (ISSUE #247). In production, refuse to accept
+// any request until real values are set. In development, only warn —
+// `docker compose up` (dev compose) must keep working out of the box for
+// local hacking without forcing every contributor to mint fresh secrets first.
 function assertSecretsConfigured(): void {
-  const offenders: string[] = [];
-  if (process.env.JWT_SECRET === PLACEHOLDER_JWT_SECRET) offenders.push('JWT_SECRET');
-  if (process.env.CONFIG_ENCRYPTION_KEY === PLACEHOLDER_CONFIG_ENCRYPTION_KEY) {
-    offenders.push('CONFIG_ENCRYPTION_KEY');
-  }
-  if (offenders.length === 0) return;
+  const problems = findSecretProblems(process.env);
+  if (problems.length === 0) return;
 
   const isDev = process.env.NODE_ENV === 'development';
-  for (const name of offenders) {
-    const msg =
-      `🛑 ${name} still has its .env.example placeholder value — generate a real secret ` +
-      `before starting (e.g. \`openssl rand -base64 32\`). ` +
-      `See docs/wiki/EN/01-Installation.md (FR: docs/wiki/FR/01-Installation.md).`;
+  for (const problem of problems) {
+    const msg = `🛑 ${describeSecretProblem(problem)}`;
     if (isDev) console.warn(`[startup] WARNING: ${msg}`);
     else console.error(`[startup] FATAL: ${msg}`);
   }
   if (!isDev) {
-    console.error('[startup] Refusing to start with example secrets outside development. Set NODE_ENV=development to bypass locally.');
+    console.error('[startup] Refusing to start with missing or example secrets outside development. Set NODE_ENV=development to bypass locally.');
     process.exit(1);
   }
 }
