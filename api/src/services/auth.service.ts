@@ -14,6 +14,7 @@ import { describeDevice, locateIp, countryOfIp } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
 import { auditLog } from './audit.service';
+import { isCookieSecure } from '../lib/cookie-secure';
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -49,8 +50,16 @@ export interface DeviceInfo {
 }
 
 // FEAT-18: categories selectable for a filtered personal data export.
-export type ExportCategory = 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity';
-const ALL_EXPORT_CATEGORIES: ExportCategory[] = ['inventory', 'cellars', 'collections', 'tastings', 'activity'];
+// #224: wishlist / budget / goals / counts / humidor were missing, so the
+// "full" export was not. Security records (sessions, trusted devices, secrets)
+// are deliberately not exportable.
+export type ExportCategory =
+  | 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity'
+  | 'wishlist' | 'budget' | 'goals' | 'counts' | 'humidor';
+export const ALL_EXPORT_CATEGORIES: ExportCategory[] = [
+  'inventory', 'cellars', 'collections', 'tastings', 'activity',
+  'wishlist', 'budget', 'goals', 'counts', 'humidor',
+];
 
 export type LoginResult =
   | { user: PublicUser; token: string; rememberMe: boolean; requires2fa?: never; viaTrustedDevice?: boolean }
@@ -845,7 +854,12 @@ export class AuthService {
         cellars: true,
         collections: { include: { items: { select: { id: true, name: true } } } },
         tastingNotes: true,
-        auditLogs: { orderBy: { createdAt: 'desc' }, take: 500 },
+        auditLogs: { orderBy: { createdAt: 'desc' } },
+        wishlistItems: true,
+        budgetEnvelopes: true,
+        consumptionGoals: true,
+        inventoryCountSessions: { include: { entries: true } },
+        humidorReadings: true,
       },
     });
 
@@ -870,6 +884,11 @@ export class AuthService {
     if (includes('cellars')) result.cellars = user.cellars;
     if (includes('collections')) result.collections = user.collections;
     if (includes('tastings')) result.tastingNotes = user.tastingNotes;
+    if (includes('wishlist')) result.wishlist = user.wishlistItems;
+    if (includes('budget')) result.budgetEnvelopes = user.budgetEnvelopes;
+    if (includes('goals')) result.consumptionGoals = user.consumptionGoals;
+    if (includes('counts')) result.inventoryCounts = user.inventoryCountSessions;
+    if (includes('humidor')) result.humidorReadings = user.humidorReadings;
     if (includes('activity')) {
       result.activityLog = user.auditLogs.map(l => ({
         action: l.action,
@@ -879,6 +898,7 @@ export class AuthService {
       }));
     }
 
+    result.included = selected;
     result.exportedAt = new Date().toISOString();
     return result;
   }
@@ -1111,7 +1131,7 @@ export const COOKIE_NAME = 'glou_token';
 // Persistent cookie (rememberMe=true) — 30 days
 export const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: isCookieSecure(),
   sameSite: 'strict' as const,
   maxAge: 30 * 24 * 60 * 60 * 1000,
   path: '/',
@@ -1120,7 +1140,7 @@ export const COOKIE_OPTIONS = {
 // Session cookie (rememberMe=false) — expires when browser closes
 export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: isCookieSecure(),
   sameSite: 'strict' as const,
   path: '/',
 };
