@@ -15,6 +15,8 @@ import { InventoryItem } from '@/lib/inventory/types';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
+import { notifyError } from '@/lib/toast';
+import { applyStockChoice, type StockChoice } from '@/lib/tastings/stockChoice';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
@@ -128,19 +130,15 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
     }
   };
 
-  const handleStockChoice = async (choice: 'opened' | 'consumed' | 'ignore') => {
-    if (stockDialogItemId && choice !== 'ignore') {
-      try {
-        await updateInventory.mutateAsync({
-          id: stockDialogItemId,
-          patch: choice === 'consumed'
-            ? { isOpened: true, fillLevel: 0 }
-            : { isOpened: true, fillLevel: 50, openedAt: new Date().toISOString() },
-        });
-      } catch {
-        // stock update failure is non-blocking
-      }
-    }
+  const handleStockChoice = async (choice: StockChoice) => {
+    const canClose = stockDialogItemId
+      ? await applyStockChoice(
+          choice,
+          (patch) => updateInventory.mutateAsync({ id: stockDialogItemId, patch }),
+          () => notifyError('tastings.stockUpdate.error'),
+        )
+      : true;
+    if (!canClose) return;
     setStockDialogItemId(null);
     onClose();
   };
