@@ -21,7 +21,7 @@
    Paste each result as the corresponding value in `.env`.
 
    > [!CAUTION]
-   > Do not skip this step. `docker compose up` now refuses to start Postgres if `DB_PASSWORD` is empty or unset (no more insecure fallback), and the API refuses to accept any request in production if `JWT_SECRET` or `CONFIG_ENCRYPTION_KEY` still hold their exact `.env.example` placeholder values — it logs a `🛑 [startup] FATAL` message and exits. This check only applies when `NODE_ENV` is not `development` — local dev keeps working with a console warning so contributors aren't forced to mint secrets just to hack on the app.
+   > Do not skip this step. `docker compose up` now refuses to start Postgres if `DB_PASSWORD` is empty or unset (no more insecure fallback), and the API refuses to accept any request in production if `JWT_SECRET` or `CONFIG_ENCRYPTION_KEY` is unset, empty, still holds its exact `.env.example` placeholder value, or (for `CONFIG_ENCRYPTION_KEY`) is not 64 hexadecimal characters — it logs a `🛑 [startup] FATAL` message and exits. This check only applies when `NODE_ENV` is not `development` — local dev keeps working with a console warning so contributors aren't forced to mint secrets just to hack on the app.
 
 3. Start the stack:
    ```bash
@@ -62,7 +62,7 @@ docker compose pull && docker compose up -d
 | `docker compose: command not found` | Your Docker installation uses the old CLI. Replace `docker compose` with `docker-compose` (hyphen). |
 | API returns 401 on all requests | `JWT_SECRET` is empty or uses the placeholder. Set a real value in `.env` and restart: `docker compose up -d`. |
 | `docker compose up` fails with `DB_PASSWORD is not set` | `DB_PASSWORD` is empty or missing in `.env`. Set a real password (`openssl rand -base64 24`) and retry — there is intentionally no insecure fallback anymore. |
-| API logs `🛑 [startup] FATAL ... still has its .env.example placeholder value` and exits | `JWT_SECRET` or `CONFIG_ENCRYPTION_KEY` in `.env` still match the placeholder in `.env.example` exactly. Generate real values (step 2 above) and restart. |
+| API logs `🛑 [startup] FATAL ... still has its .env.example placeholder value` or `... is not set (or empty)` or `... is malformed`, then exits | `JWT_SECRET` or `CONFIG_ENCRYPTION_KEY` is missing/empty, matches the placeholder in `.env.example`, or (`CONFIG_ENCRYPTION_KEY`) is not 64 hex characters. Generate real values (step 2 above) and restart. On a NAS UI (Synology Container Manager, Portainer...), make sure the variables are actually passed to the `api` container: an unset variable reaches it as an empty string. |
 | `image not found` / pull error | The GHCR packages may be private. Authenticate first: `docker login ghcr.io -u YOUR_GITHUB_USERNAME`. |
 | Prisma migration error on startup | The `db` container was not ready. Run `docker compose restart api` to retry the migration. |
 | Need a one-off `psql` shell on the database | Postgres is intentionally not exposed to the LAN/host (`expose`, not `ports`, in `docker-compose.yml`). Use `docker compose exec db psql -U glou -d glou_db` instead of opening the port. |

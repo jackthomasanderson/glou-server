@@ -46,8 +46,12 @@ const PUBLIC_AUTH_ERROR_CODES = new Set([
   'NOT_A_PENDING_TOKEN',
   'PASSWORD_TOO_SHORT',
   'TOKEN_INVALID_OR_EXPIRED',
+  'USERNAME_ALREADY_TAKEN',
+  'EMAIL_ALREADY_TAKEN',
   'VALIDATION_ERROR',
 ]);
+
+const CONFLICT_REGISTER_CODES = new Set(['USERNAME_ALREADY_TAKEN', 'EMAIL_ALREADY_TAKEN']);
 
 /** Allow-listed error code for an unauthenticated caller, never a raw message. */
 function publicAuthError(error: unknown, route: string): string {
@@ -110,9 +114,8 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
       return;
     }
-    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
-    const status = ['USERNAME_ALREADY_TAKEN', 'EMAIL_ALREADY_TAKEN'].includes(msg) ? 409 : 500;
-    res.status(status).json({ error: msg });
+    const msg = publicAuthError(error, 'POST /register');
+    res.status(CONFLICT_REGISTER_CODES.has(msg) ? 409 : 500).json({ error: msg });
   }
 });
 
