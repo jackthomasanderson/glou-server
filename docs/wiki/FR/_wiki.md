@@ -31,3 +31,6 @@ Bienvenue sur le wiki de Glou. Cette documentation est strictement focalisée su
 26. [Scan Étiquette](./26-Scan-Etiquette.md)
 27. [Mode Expert](./27-Mode-Expert.md)
 28. [Authentification (API)](./01-Authentification.md)
+29. [Changer les secrets](./29-Rotation-Des-Secrets.md)
+30. [Reprise après sinistre](./30-Reprise-Apres-Sinistre.md)
+31. [Mettre à jour & revenir en arrière](./31-Mises-A-Jour-Et-Retour-Arriere.md)

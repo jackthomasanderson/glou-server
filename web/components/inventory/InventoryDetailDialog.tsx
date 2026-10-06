@@ -19,7 +19,7 @@ import { QrCodeModal } from './QrCodeModal';
 import { CollectionPickerInline } from '@/components/collections/CollectionPickerInline';
 
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
-import { formatDate } from '@/lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
@@ -428,7 +428,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                       label={t('inventory.fields.purchasePrice')}
                       value={
                         <span className="flex items-center gap-1.5">
-                          {d.purchasePrice} €
+                          {formatCurrency(d.purchasePrice, i18n.language)}
                           <FieldSourceBadge source={fieldSources.purchasePrice} t={t} />
                         </span>
                       }

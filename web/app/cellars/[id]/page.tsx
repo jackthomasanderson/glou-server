@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button, Chip, CircularProgress, Tooltip, ButtonGroup, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Card, CardBody } from '@heroui/react';
 import { ArrowLeft, LayoutGrid, List, Map, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { formatCurrency } from '@/lib/format';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { useCellar, useCellarGrid } from '@/hooks/useCellars';
 import { useInventory } from '@/hooks/useInventory';
@@ -34,7 +35,7 @@ function BottleCard({ item, onPress }: { item: InventoryItem; onPress: () => voi
 }
 
 export default function CellarDetailPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const params = useParams();
   const cellarId = params.id as string;
@@ -100,7 +101,7 @@ export default function CellarDetailPage() {
               <Chip size="sm" color="warning" variant="flat">{cellar.stats.alertCount} {t('cellars.stats.alerts')}</Chip>
             )}
             {cellar.stats.estimatedValue != null && (
-              <Chip size="sm" variant="bordered">~{Math.round(cellar.stats.estimatedValue)} €</Chip>
+              <Chip size="sm" variant="bordered">~{formatCurrency(Math.round(cellar.stats.estimatedValue), i18n.language, 0)}</Chip>
             )}
           </div>
         )}

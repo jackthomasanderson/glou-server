@@ -9,6 +9,8 @@ import { getRegionCoordinates } from '@/lib/analytics/regionCoordinates';
 import { RegionCategoryStat } from '@/lib/analytics/types';
 import { CATEGORY_HEX, CATEGORY_ORDER } from '@/lib/analytics/categoryColors';
 import { InventoryCategory } from '@/lib/inventory/types';
+import i18n from '@/lib/i18n';
+import { formatCurrency } from '@/lib/format';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -61,7 +63,7 @@ interface MarkerData {
 
 // ─── Popup content ────────────────────────────────────────────────────────────
 
-function RegionPopup({ marker, t }: { marker: MarkerData; t: (k: string, o?: Record<string, unknown>) => string }) {
+function RegionPopup({ marker, t, lang }: { marker: MarkerData; t: (k: string, o?: Record<string, unknown>) => string; lang: string }) {
   return (
     <div className="min-w-[130px] font-[Inter,sans-serif]">
       <div className="font-extrabold text-[0.72rem] uppercase tracking-wider text-blue-600 mb-1">
@@ -72,7 +74,7 @@ function RegionPopup({ marker, t }: { marker: MarkerData; t: (k: string, o?: Rec
       </div>
       <div className="text-[0.75rem] text-gray-500 mt-0.5">
         {t('analytics.regionMap.valuation')}{' '}
-        <strong>{marker.valuation} €</strong>
+        <strong>{formatCurrency(marker.valuation, lang)}</strong>
       </div>
       {marker.categoryLabel && (
         <div className="text-[0.7rem] text-gray-400 mt-0.5">{marker.categoryLabel}</div>
@@ -289,7 +291,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
               }
             >
               <Tooltip sticky>
-                <RegionPopup marker={marker} t={t} />
+                <RegionPopup marker={marker} t={t} lang={i18n.language} />
               </Tooltip>
             </CircleMarker>
           ))}

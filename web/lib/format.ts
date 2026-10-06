@@ -30,6 +30,29 @@ export function formatDateTime(
   return date ? date.toLocaleString(toLocale(lang), options) : '';
 }
 
+/**
+ * Amount in euros with the language's own typography ("12,50 €" in French,
+ * "€12.50" in English) instead of a hand-glued " €" (#221). Whole amounts keep
+ * no decimals, like before; `fractionDigits` forces a fixed number of them.
+ */
+export function formatCurrency(n: number, lang: string | undefined, fractionDigits?: number): string {
+  return n.toLocaleString(toLocale(lang), {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: fractionDigits ?? 0,
+    maximumFractionDigits: fractionDigits ?? 2,
+  });
+}
+
+/** The currency symbol alone, for input suffixes. */
+export function currencySymbol(lang: string | undefined): string {
+  return (
+    new Intl.NumberFormat(toLocale(lang), { style: 'currency', currency: 'EUR' })
+      .formatToParts(0)
+      .find((p) => p.type === 'currency')?.value ?? '€'
+  );
+}
+
 export function formatNumber(n: number, lang: string | undefined, options?: Intl.NumberFormatOptions): string {
   return n.toLocaleString(toLocale(lang), options);
 }
