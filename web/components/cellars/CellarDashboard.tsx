@@ -36,6 +36,7 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { formatCurrency } from '@/lib/format';
 import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
@@ -86,7 +87,7 @@ type CellarTypeFilter = 'all' | CellarType;
 
 
 export const CellarDashboard: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -437,7 +438,7 @@ export const CellarDashboard: React.FC = () => {
                     )}
                     {cellar.stats.estimatedValue != null && (
                       <Chip size="sm" variant="bordered">
-                        ~{Math.round(cellar.stats.estimatedValue)} €
+                        ~{formatCurrency(Math.round(cellar.stats.estimatedValue), i18n.language, 0)}
                       </Chip>
                     )}
                   </div>

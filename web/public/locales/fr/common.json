@@ -34,7 +34,8 @@
     "roleAdmin": "Administrateur",
     "roleUser": "Utilisateur",
     "collapse": "Réduire",
-    "expand": "Développer"
+    "expand": "Développer",
+    "openSearch": "Ouvrir la recherche"
   },
   "actions": {
     "add": "Ajouter",
@@ -234,7 +235,8 @@
       "caskTypePlaceholder": "Ex : Bourbon, Sherry, Porto...",
       "caskNumber": "Numéro de fût",
       "caskProof": "Degré au fût (%)",
-      "isSingleCask": "Single cask"
+      "isSingleCask": "Single cask",
+      "yearExample": "ex : {{year}}"
     },
     "expertSection": {
       "title": "Champs avancés (collectionneur)",
@@ -1743,7 +1745,9 @@
     "perPage": "Éléments par page",
     "page": "Page",
     "of": "sur",
-    "items": "éléments"
+    "items": "éléments",
+    "previous": "Page précédente",
+    "next": "Page suivante"
   },
   "wishlist": {
     "title": "Liste de souhaits & Budget",

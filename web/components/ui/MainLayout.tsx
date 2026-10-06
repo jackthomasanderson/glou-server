@@ -115,7 +115,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
             variant="light"
             radius="full"
             onClick={() => setMobileSearchOpen(true)}
-            aria-label="open search"
+            aria-label={t('nav.openSearch')}
             className="sm:hidden"
           >
             <Search size={18} />

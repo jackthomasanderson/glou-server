@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Chip, Input, Spinner, Switch, Textarea } from '@heroui/react';
 import { Eye, EyeOff, Lock, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { formatCurrency } from '@/lib/format';
 import { guestClient } from '@/lib/shares/client';
 import { GuestShareMeta } from '@/lib/shares/types';
 
@@ -31,7 +32,7 @@ interface GuestItem {
 // ─── Item card ───────────────────────────────────────────────────────────────
 
 function GuestItemCard({ item, token, editable }: { item: GuestItem; token: string; editable: boolean }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isOpened, setIsOpened] = useState(item.isOpened);
@@ -74,7 +75,7 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
         <p className="text-xs text-foreground-400">{item.region}</p>
       )}
       {item.estimatedValue != null && (
-        <p className="text-xs font-medium text-primary">{item.estimatedValue.toFixed(2)} €</p>
+        <p className="text-xs font-medium text-primary">{formatCurrency(item.estimatedValue, i18n.language, 2)}</p>
       )}
       {item.isOpened && (
         <Chip color="secondary" variant="bordered" size="sm" radius="full" className="w-fit">
