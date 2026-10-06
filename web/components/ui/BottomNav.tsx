@@ -45,8 +45,9 @@ export function BottomNav() {
 
   return (
     <>
-      <div
-        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-content1 border-t border-divider"
+      <nav
+        aria-label={t('nav.primary')}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-content1 border-t border-divider print:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="flex items-stretch justify-around h-16">
@@ -55,39 +56,45 @@ export function BottomNav() {
             return (
               <button
                 key={link.href}
+                type="button"
                 onClick={() => router.push(link.href)}
                 aria-label={link.label}
-                className={`flex flex-col items-center justify-center flex-1 gap-0.5 min-w-0 py-1 transition-colors ${
+                aria-current={active ? 'page' : undefined}
+                className={`relative flex flex-col items-center justify-center flex-1 gap-0.5 min-w-0 py-1 transition-colors ${
                   active ? 'text-primary' : 'text-default-400'
                 }`}
               >
+                {/* #204: the active tab used to differ by colour only. */}
+                {active && <span aria-hidden="true" className="absolute top-0 h-0.5 w-8 rounded-full bg-primary" />}
                 <span className={active ? 'text-primary' : 'text-default-400'}>
                   {link.icon}
                 </span>
-                <span className="text-[0.55rem] font-semibold leading-tight truncate max-w-full px-1">
+                <span className={`text-[0.55rem] leading-tight truncate max-w-full px-1 ${active ? 'font-extrabold' : 'font-semibold'}`}>
                   {link.label}
                 </span>
               </button>
             );
           })}
           <button
+            type="button"
             onClick={() => setMoreOpen(true)}
             aria-label={t('nav.more')}
             aria-haspopup="true"
             aria-expanded={moreOpen}
-            className={`flex flex-col items-center justify-center flex-1 gap-0.5 min-w-0 py-1 transition-colors ${
+            className={`relative flex flex-col items-center justify-center flex-1 gap-0.5 min-w-0 py-1 transition-colors ${
               isMoreActive ? 'text-primary' : 'text-default-400'
             }`}
           >
+            {isMoreActive && <span aria-hidden="true" className="absolute top-0 h-0.5 w-8 rounded-full bg-primary" />}
             <span className={isMoreActive ? 'text-primary' : 'text-default-400'}>
               <MoreHorizontal size={22} />
             </span>
-            <span className="text-[0.55rem] font-semibold leading-tight truncate max-w-full px-1">
+            <span className={`text-[0.55rem] leading-tight truncate max-w-full px-1 ${isMoreActive ? 'font-extrabold' : 'font-semibold'}`}>
               {t('nav.more')}
             </span>
           </button>
         </div>
-      </div>
+      </nav>
 
       <Modal
         isOpen={moreOpen}
@@ -115,6 +122,7 @@ export function BottomNav() {
                     </span>
                   }
                   onPress={() => goTo(link.href)}
+                  aria-current={active ? 'page' : undefined}
                 >
                   {link.label}
                 </Button>

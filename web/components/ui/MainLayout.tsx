@@ -9,6 +9,7 @@ import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { GlobalSearch, MobileSearch } from './GlobalSearch';
 import { NotificationBell } from './NotificationBell';
+import { ConnectivityIndicator } from './ConnectivityIndicator';
 import { AuthGuard } from '../auth/AuthGuard';
 import { ConflictResolutionModal } from '../offline/ConflictResolutionModal';
 import { useMe } from '@/hooks/useAuth';
@@ -68,10 +69,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { data: user } = useMe();
   const pageTitle = usePageTitle();
+  const { t } = useTranslation();
   const pathname = usePathname();
 
   const content = (
     <div className="flex min-h-screen bg-background">
+      {/* #203: first focusable element, visible only when focused, so keyboard
+          users can jump past the navigation, header and search. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[10000] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg"
+      >
+        {t('nav.skipToContent')}
+      </a>
       <Sidebar />
 
       <div className="flex-1 min-w-0 flex flex-col">
@@ -111,6 +121,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
             <Search size={18} />
           </Button>
           {isProtected && <QuickLockButton />}
+          {/* #195: header = visible at every screen size, unlike the sidebar. */}
+          <ConnectivityIndicator />
           <NotificationBell />
           {/* Mobile: quick profile access */}
           <Avatar
@@ -127,7 +139,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
         </header>
 
         {/* Page content */}
-        <main className="flex-1 pb-16 md:pb-0">
+        <main id="main-content" tabIndex={-1} className="flex-1 pb-16 md:pb-0 outline-none">
           {children}
         </main>
       </div>
