@@ -10,8 +10,11 @@ Turn on scheduled database backups from Admin, restore one when things go wrong,
 ## Action
 
 ### Schedule automatic backups (admin)
+> [!IMPORTANT]
+> Backups are **on by default on new installations**. An instance installed before this default existed keeps its previous setting, which was **off**: open the panel below and check that **Enabled** is on.
+
 1. Go to **Admin → System Configuration → Backups**.
-2. Flip the **Enabled** switch on.
+2. Make sure the **Enabled** switch is on.
 3. Set **Retention** (days to keep old backup files — default `7`) and **Hour (UTC)** (the hour of day the daily backup runs — default `3`).
 4. Click **Save**.
 
@@ -29,7 +32,8 @@ Turn on scheduled database backups from Admin, restore one when things go wrong,
    > Restoring is destructive: it overwrites **all current data** with the content of that backup file. There is no undo. The dialog requires you to type a confirmation keyword before the **Confirm** button becomes clickable — read it carefully before typing.
 
 2. Confirm. The restore is logged in the audit trail regardless of whether it succeeds or fails.
-3. You can also **Download** a backup file directly from the history list instead of restoring it in place.
+3. The restore is all-or-nothing: if the backup file is damaged or incomplete, it fails and your current data is left untouched. After restoring a backup made by an **older version** of Glou, restart the API (`docker compose restart api`) so it applies any database update the backup predates.
+4. You can also **Download** a backup file directly from the history list instead of restoring it in place.
 
 ### Export your data (full or filtered by category)
 1. Go to **Profile → Data & Privacy (GDPR section)**.

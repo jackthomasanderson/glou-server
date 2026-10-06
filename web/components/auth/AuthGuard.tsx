@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { CircularProgress } from '@heroui/react';
@@ -63,9 +63,32 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
 
   // FEAT-30: the app tree stays mounted underneath — locking is a client-side
   // overlay only, the session/JWT is untouched. Same principle for onboarding.
+  //
+  // But "mounted" must not mean "reachable": the veil is only visual, so Tab
+  // walked straight through it and Enter activated the inventory buttons behind
+  // it — the lock was bypassable with a keyboard (#200). While an overlay is
+  // up, the app tree is made `inert` (unfocusable, unclickable, hidden from
+  // screen readers). It is set through the DOM because React 18 has no `inert`
+  // prop; `display: contents` keeps the wrapper out of the layout.
+  const appRef = useRef<HTMLDivElement>(null);
+  const covered = isLocked || showOnboarding;
+  useEffect(() => {
+    const el = appRef.current;
+    if (!el) return;
+    if (covered) {
+      el.setAttribute('inert', '');
+      el.setAttribute('aria-hidden', 'true');
+    } else {
+      el.removeAttribute('inert');
+      el.removeAttribute('aria-hidden');
+    }
+  }, [covered]);
+
   return (
     <>
-      {children}
+      <div ref={appRef} style={{ display: 'contents' }}>
+        {children}
+      </div>
       {isLocked && <LockScreen unlock={unlock} isUnlocking={isUnlocking} />}
       {showOnboarding && <OnboardingWizard forced={forcedOnboarding} onClose={closeOnboarding} />}
     </>
