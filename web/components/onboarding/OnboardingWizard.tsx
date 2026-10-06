@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CircularProgress } from '@heroui/react';
 import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useRestoreFocus } from '@/hooks/useRestoreFocus';
 import { useCellars } from '@/hooks/useCellars';
 import { useCompleteOnboarding, useMe } from '@/hooks/useAuth';
 import { Cellar } from '@/lib/cellars/types';
@@ -36,6 +37,11 @@ interface OnboardingWizardProps {
  */
 export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardProps) {
   const { t } = useTranslation();
+  useRestoreFocus();
+  // Focus lands on the dialog itself so a screen reader announces it; the app
+  // behind is `inert` (AuthGuard), so Tab can only move within the wizard (#200).
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { dialogRef.current?.focus(); }, []);
   const { data: cellars, isLoading: cellarsLoading } = useCellars();
   const { data: user } = useMe();
   const completeOnboarding = useCompleteOnboarding();
@@ -85,14 +91,28 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
 
   if (!resumed) {
     return (
-      <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-background/95 backdrop-blur-md p-4">
+      <div
+      ref={dialogRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('onboarding.dialogLabel')}
+      className="outline-none fixed inset-0 z-[9990] flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
+    >
         <CircularProgress color="primary" size="md" isIndeterminate aria-label={t('status.loading')} />
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-background/95 backdrop-blur-md p-4">
+    <div
+      ref={dialogRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('onboarding.dialogLabel')}
+      className="outline-none fixed inset-0 z-[9990] flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
+    >
       <div className="max-w-2xl w-full bg-content1 border border-divider rounded-2xl shadow-lg overflow-hidden">
         {/* Header: step progress + skip / close */}
         <div className="flex items-center justify-between px-6 pt-5 pb-1">
