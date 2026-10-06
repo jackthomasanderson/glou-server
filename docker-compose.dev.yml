@@ -37,6 +37,8 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       CONFIG_ENCRYPTION_KEY: ${CONFIG_ENCRYPTION_KEY}
       APP_URL: ${APP_URL:-http://localhost:3000}
+      # Extra browser addresses allowed to send requests (comma-separated), e.g. a second hostname. Empty = APP_URL only (plus the host the request was addressed to).
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       PORT: 3001
     ports:
