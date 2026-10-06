@@ -253,8 +253,14 @@ export const backupService = {
    * is true AND the current UTC hour matches `backupHourUtc`.
    */
   async runScheduledIfDue(): Promise<BackupRun | null> {
-    const config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
-    if (!config?.backupEnabled) return null;
+    // The row is otherwise only created when an admin first opens the settings:
+    // on a fresh install nobody has, and without it no backup would ever run (#233).
+    const config = await prisma.systemConfig.upsert({
+      where: { id: 'singleton' },
+      update: {},
+      create: { id: 'singleton' },
+    });
+    if (!config.backupEnabled) return null;
     const targetHour = config.backupHourUtc ?? 3;
     if (new Date().getUTCHours() !== targetHour) return null;
     return this.runBackup('scheduled');
