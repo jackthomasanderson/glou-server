@@ -65,7 +65,7 @@ export function RegisterForm() {
         </div>
 
         {apiError && (
-          <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">
+          <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">
             {apiError}
           </div>
         )}

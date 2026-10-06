@@ -169,7 +169,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
               <ModalBody className="flex flex-col gap-4 min-h-0">
                 {/* Error banner */}
                 {hasError && (
-                  <div className="rounded-lg bg-danger-50 border border-danger-200 text-danger px-3 py-2 text-sm">
+                  <div role="alert" className="rounded-lg bg-danger-50 border border-danger-200 text-danger px-3 py-2 text-sm">
                     {t('tastings.errors.saveFailed')}
                   </div>
                 )}

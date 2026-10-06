@@ -101,7 +101,7 @@ export function StartSessionScreen() {
           )}
 
           {errorKey && (
-            <div className="rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-sm">
+            <div role="alert" className="rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-sm">
               {t(errorKey)}
             </div>
           )}

@@ -226,7 +226,7 @@ export default function AdminPage() {
         )}
 
         {purgeError && (
-          <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3 mb-4">
+          <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3 mb-4">
             {t('admin.maintenance.purge.error')} ({purgeError})
           </div>
         )}

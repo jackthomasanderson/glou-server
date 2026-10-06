@@ -102,7 +102,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
               <ModalHeader>{t('profile.twoFactor.enableTitle')}</ModalHeader>
               <ModalBody className="flex flex-col gap-4">
                 {errorMsg && (
-                  <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
+                  <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
                 )}
                 {backupCodes ? (
                   <div>
@@ -204,7 +204,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                   {t('profile.twoFactor.disableHint')}
                 </p>
                 {errorMsg && (
-                  <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
+                  <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
                 )}
                 <Input
                   label={t('profile.passwordLabel')}
