@@ -1643,6 +1643,7 @@
   },
   "onboarding": {
     "dialogLabel": "Setup wizard",
+    "stepProgress": "Step {{current}} of {{total}}",
     "skip": "Skip the wizard",
     "back": "Back",
     "welcome": {

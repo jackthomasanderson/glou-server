@@ -113,30 +113,47 @@ export const scanService = {
     retentionHours = 24,
     client: Prisma.TransactionClient | PrismaClient = prisma,
   ): Promise<number> {
+    const { count, imagePaths } = await this.markExpiredScanJobs(retentionHours, client);
+    await this.deleteScanFiles(imagePaths);
+    return count;
+  },
+
+  /**
+   * Database half of the purge: flags the stale jobs as 'expired' and returns
+   * the files to remove. Safe to run inside a transaction; the files must only
+   * be deleted once it has committed (#183), otherwise a rollback leaves rows
+   * that still point at photos that are already gone.
+   */
+  async markExpiredScanJobs(
+    retentionHours = 24,
+    client: Prisma.TransactionClient | PrismaClient = prisma,
+  ): Promise<{ count: number; imagePaths: string[] }> {
     const cutoff = new Date(Date.now() - retentionHours * 60 * 60 * 1000);
     const staleJobs = await client.scanJob.findMany({
       where: { createdAt: { lt: cutoff }, status: { not: 'expired' } },
       select: { id: true, imagePath: true },
     });
-    if (staleJobs.length === 0) return 0;
-
-    for (const job of staleJobs) {
-      try {
-        await fs.unlink(job.imagePath);
-      } catch (err) {
-        // ENOENT (file already gone) is expected and fine. Anything else is
-        // logged but must not block marking the row 'expired', otherwise a
-        // permission error would make this job retried forever.
-        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-          console.error(`[scan] Failed to purge scan file ${job.imagePath}:`, err);
-        }
-      }
-    }
+    if (staleJobs.length === 0) return { count: 0, imagePaths: [] };
 
     const result = await client.scanJob.updateMany({
       where: { id: { in: staleJobs.map((j) => j.id) } },
       data: { status: 'expired', errorMessage: 'Scan photo purged after the 24h retention window.' },
     });
-    return result.count;
+    return { count: result.count, imagePaths: staleJobs.map((j) => j.imagePath) };
+  },
+
+  /** File half of the purge. Never throws: a stuck file must not block the others. */
+  async deleteScanFiles(imagePaths: string[]): Promise<void> {
+    for (const imagePath of imagePaths) {
+      try {
+        await fs.unlink(imagePath);
+      } catch (err) {
+        // ENOENT (file already gone) is expected and fine. Anything else is
+        // logged but must not block the rest, nor make the job retried forever.
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.error(`[scan] Failed to purge scan file ${imagePath}:`, err);
+        }
+      }
+    }
   },
 };

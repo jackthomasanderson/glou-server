@@ -1643,6 +1643,7 @@
   },
   "onboarding": {
     "dialogLabel": "Assistant de démarrage",
+    "stepProgress": "Étape {{current}} sur {{total}}",
     "skip": "Passer l'assistant",
     "back": "Retour",
     "welcome": {

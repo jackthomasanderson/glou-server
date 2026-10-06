@@ -30,3 +30,4 @@ Bienvenue sur le wiki de Glou. Cette documentation est strictement focalisée su
 25. [Mode Hors-Ligne](./25-Mode-Hors-Ligne.md)
 26. [Scan Étiquette](./26-Scan-Etiquette.md)
 27. [Mode Expert](./27-Mode-Expert.md)
+28. [Authentification (API)](./01-Authentification.md)

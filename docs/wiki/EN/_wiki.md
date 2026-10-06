@@ -30,3 +30,4 @@ Welcome to the Glou wiki. This documentation strictly focuses on setup, configur
 25. [Offline Mode](./25-Offline-Mode.md)
 26. [Label Scan](./26-Label-Scan.md)
 27. [Expert Mode](./27-Expert-Mode.md)
+28. [Authentication (API)](./01-Authentication.md)
