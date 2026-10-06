@@ -4,6 +4,7 @@ import { Avatar, Button, Card, CardBody, Input, Tabs, Tab } from '@heroui/react'
 import { Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useLogout } from '@/hooks/useAuth';
+import { useRestoreFocus } from '@/hooks/useRestoreFocus';
 
 interface LockScreenProps {
   unlock: (password?: string, pin?: string) => Promise<boolean>;
@@ -14,6 +15,7 @@ export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
   const { t } = useTranslation();
   const { data: user } = useMe();
   const logoutMutation = useLogout();
+  useRestoreFocus();
 
   const hasPin = !!user?.hasPin;
   const [mode, setMode] = useState<'password' | 'pin'>('password');
@@ -36,7 +38,12 @@ export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 backdrop-blur-md p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="lock-screen-title"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
+    >
       <Card radius="lg" shadow="sm" className="max-w-sm w-full border border-divider">
         <CardBody className="px-6 py-8 flex flex-col gap-5 items-center">
           <Avatar
@@ -50,7 +57,7 @@ export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Lock size={18} className="text-primary" />
-              <h1 className="text-lg font-bold">{t('lock.screenTitle')}</h1>
+              <h1 id="lock-screen-title" className="text-lg font-bold">{t('lock.screenTitle')}</h1>
             </div>
             <p className="text-sm text-foreground-500">{user?.username}</p>
             <p className="text-xs text-foreground-400 mt-1">{t('lock.subtitle')}</p>

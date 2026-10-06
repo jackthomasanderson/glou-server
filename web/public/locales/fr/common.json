@@ -1630,6 +1630,7 @@
     }
   },
   "onboarding": {
+    "dialogLabel": "Assistant de démarrage",
     "skip": "Passer l'assistant",
     "back": "Retour",
     "welcome": {

@@ -1630,6 +1630,7 @@
     }
   },
   "onboarding": {
+    "dialogLabel": "Setup wizard",
     "skip": "Skip the wizard",
     "back": "Back",
     "welcome": {
