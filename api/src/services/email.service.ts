@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
 import { systemConfigService } from './system-config.service';
 import { htmlToPlainText } from '../lib/html';
 
@@ -9,20 +9,36 @@ interface SendMailOptions {
   text?: string;
 }
 
+// A dead SMTP server must not hang a request (or the notification loop) for
+// the OS default of several minutes (#170).
+const SMTP_TIMEOUT_MS = 15_000;
+
+let cached: { key: string; transporter: Transporter } | null = null;
+
 async function createTransporter() {
   const smtp = await systemConfigService.getSmtp();
   if (!smtp.smtpEnabled || !smtp.smtpHost || !smtp.smtpPort) {
     throw new Error('SMTP_NOT_CONFIGURED');
   }
 
-  return nodemailer.createTransport({
+  // One transporter per SMTP configuration instead of a fresh connection setup
+  // per message; an admin editing the settings changes the key and gets a new one.
+  const key = JSON.stringify([smtp.smtpHost, smtp.smtpPort, smtp.smtpSecure, smtp.smtpUser, smtp.smtpPass]);
+  if (cached?.key === key) return cached.transporter;
+
+  const transporter = nodemailer.createTransport({
     host: smtp.smtpHost,
     port: smtp.smtpPort,
     secure: smtp.smtpSecure,
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
     auth: smtp.smtpUser && smtp.smtpPass
       ? { user: smtp.smtpUser, pass: smtp.smtpPass }
       : undefined,
   });
+  cached = { key, transporter };
+  return transporter;
 }
 
 export const emailService = {

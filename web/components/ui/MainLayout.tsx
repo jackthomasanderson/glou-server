@@ -86,7 +86,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Content header */}
-        <header className="sticky top-0 z-20 flex items-center gap-3 px-4 md:px-6 py-2.5 bg-content1 border-b border-divider">
+        <header className="print:hidden sticky top-0 z-20 flex items-center gap-3 px-4 md:px-6 py-2.5 bg-content1 border-b border-divider">
           {/* Breadcrumb */}
           <span className="min-w-0 text-[0.65rem] font-bold tracking-[.1rem] uppercase flex items-center gap-1">
             <Link href="/" className="shrink-0 text-foreground-500 hover:text-foreground transition-colors">

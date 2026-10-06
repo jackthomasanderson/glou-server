@@ -82,6 +82,7 @@ export function RegisterForm() {
                 size="md"
                 radius="md"
                 labelPlacement="outside"
+                isRequired
                 isInvalid={!!errors.username}
                 errorMessage={errors.username?.message}
                 isDisabled={isPending}
@@ -101,6 +102,7 @@ export function RegisterForm() {
                 size="md"
                 radius="md"
                 labelPlacement="outside"
+                isRequired
                 isInvalid={!!errors.email}
                 errorMessage={errors.email?.message}
                 isDisabled={isPending}
@@ -121,6 +123,7 @@ export function RegisterForm() {
                   size="md"
                   radius="md"
                   labelPlacement="outside"
+                  isRequired
                   isInvalid={!!errors.password}
                   errorMessage={errors.password?.message}
                   isDisabled={isPending}
@@ -143,6 +146,7 @@ export function RegisterForm() {
                 size="md"
                 radius="md"
                 labelPlacement="outside"
+                isRequired
                 isInvalid={!!errors.confirmPassword}
                 errorMessage={errors.confirmPassword?.message}
                 isDisabled={isPending}

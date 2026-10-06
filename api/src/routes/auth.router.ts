@@ -430,7 +430,10 @@ router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: 
     // Always returns 200 to prevent user enumeration
     await passwordResetService.requestReset(email.trim().toLowerCase());
     res.json({ data: { ok: true } });
-  } catch {
+  } catch (err) {
+    // The answer stays "ok" so the endpoint cannot be used to find out which
+    // addresses have an account, but a failed send must leave a trace (#184).
+    console.error('[auth] POST /forgot-password failed:', err);
     res.json({ data: { ok: true } });
   }
 });

@@ -58,7 +58,7 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
                 style={{ top: -44, left: Math.min(x, totalWidth - 100) }}
               >
                 <span className="text-[11px] font-bold">
-                  {pt.year} — {pt.count} {t('analytics.garde.bottles')}
+                  {pt.year} — {pt.count} {t('analytics.garde.bottles', { count: pt.count })}
                 </span>
               </div>
             ) : null;
