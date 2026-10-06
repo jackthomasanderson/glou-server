@@ -304,7 +304,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                   style={d.photoUrl ? undefined : { background: getCategoryPlaceholderGradient(d.category) }}
                 >
                   {d.photoUrl ? (
-                    <img src={d.photoUrl} alt={d.name} className="max-h-full max-w-full object-contain" />
+                    <img loading="lazy" decoding="async" src={d.photoUrl} alt={d.name} className="max-h-full max-w-full object-contain" />
                   ) : (
                     CATEGORY_ICONS_LG[d.category]
                   )}

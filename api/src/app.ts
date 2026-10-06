@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { inventoryRouter } from './routes/inventory.router';
 import { authRouter } from './routes/auth.router';
 import cellarsRouter from './routes/cellars.router';
+import statsRouter from './routes/stats.router';
 import userRouter from './routes/user.router';
 import adminRouter from './routes/admin.router';
 import bulkPresetsRouter from './routes/bulk-presets.router';
@@ -113,6 +114,7 @@ export function createApp(): express.Express {
 
   app.use('/api/auth', authRouter);
   app.use('/api/cellars', cellarsRouter);
+  app.use('/api/stats', statsRouter);
   app.use('/api/inventory', inventoryRouter);
   app.use('/api/bulk-presets', bulkPresetsRouter);
   app.use('/api/alerts', alertsRouter);
