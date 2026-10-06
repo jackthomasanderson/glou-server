@@ -4,6 +4,7 @@ import { Card, CardBody, CardFooter, Avatar, Chip, Button, Tooltip } from '@hero
 import { Pencil, Trash2, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
+import { formatDate } from '@/lib/format';
 
 interface TastingCardProps {
   note: TastingNote;
@@ -13,7 +14,7 @@ interface TastingCardProps {
 }
 
 export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   return (
     <Card className="transition-shadow hover:shadow-lg w-full" radius="lg">
@@ -34,7 +35,7 @@ export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps
                   : t('tastings.noItem')}
               </p>
               <p className="text-xs text-default-400">
-                {new Date(note.tastedAt).toLocaleDateString()}
+                {formatDate(note.tastedAt, i18n.language)}
                 {note.context ? ` · ${note.context}` : ''}
               </p>
             </div>

@@ -1,5 +1,6 @@
 'use client';
 import type { QueryClient } from '@tanstack/react-query';
+import { randomId } from '@/lib/uuid';
 import type { InventoryItem } from '@/lib/inventory/types';
 import {
   type QueuedMutation,
@@ -61,7 +62,7 @@ export async function enqueueMutation(
   expectedUpdatedAt: string,
 ): Promise<QueuedMutation> {
   const mutation: QueuedMutation = {
-    id: crypto.randomUUID(),
+    id: randomId(),
     itemId,
     patch,
     expectedUpdatedAt,

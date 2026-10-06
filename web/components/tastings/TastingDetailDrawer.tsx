@@ -5,6 +5,7 @@ import { X, Pencil, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { formatDate } from '@/lib/format';
 
 interface TastingDetailDrawerProps {
   note: TastingNote | null;
@@ -14,7 +15,7 @@ interface TastingDetailDrawerProps {
 }
 
 export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDetailDrawerProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
 
   // Hand-rolled drawer (not the shared HeroUI Modal) — Escape-to-close isn't
@@ -92,7 +93,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
                 </div>
               )}
               <p className="text-sm text-default-500">
-                {new Date(note.tastedAt).toLocaleDateString('fr-FR', {
+                {formatDate(note.tastedAt, i18n.language, {
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric',

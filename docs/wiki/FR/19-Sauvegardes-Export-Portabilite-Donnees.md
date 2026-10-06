@@ -33,7 +33,7 @@ Activez les sauvegardes automatiques de la base depuis l'Admin, restaurez-en une
 
 ### Exporter vos données (complètes ou filtrées par catégorie)
 1. Allez dans **Profil → Données & Confidentialité (section RGPD)**.
-2. Cliquez sur **Exporter** pour un export complet de vos données, ou sur **Filtrer** pour déployer un sélecteur de catégories et ne choisir que ce dont vous avez besoin : **inventaire**, **caves**, **collections**, **dégustations**, **activité**.
+2. Cliquez sur **Exporter** pour un export complet de vos données, ou sur **Filtrer** pour déployer un sélecteur de catégories et ne choisir que ce dont vous avez besoin : **inventaire**, **caves**, **collections**, **dégustations**, **activité**, **liste de souhaits**, **budgets**, **objectifs de consommation**, **inventaires physiques**, **relevés d'humidor**. Le fichier contient une clé `included` qui liste les catégories réellement exportées. Les sessions, appareils de confiance et secrets (mot de passe, 2FA) ne sont jamais exportés.
 3. Cliquez sur **Exporter la sélection**. Le fichier se télécharge sous le nom `glou-export.json` — du JSON brut, lisible par n'importe quel éditeur de texte ou script.
 
 ### Consulter le panneau de transparence des accès

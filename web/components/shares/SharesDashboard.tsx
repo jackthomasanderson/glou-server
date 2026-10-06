@@ -1,4 +1,6 @@
 'use client';
+import { copyText } from '@/lib/clipboard';
+import { notifyError } from '@/lib/toast';
 import React, { useState } from 'react';
 import {
   Button,
@@ -45,7 +47,12 @@ export function SharesDashboard() {
     : '';
 
   const handleCopyCreatedLink = async () => {
-    await navigator.clipboard.writeText(shareUrl);
+    if (!(await copyText(shareUrl))) {
+      // Over plain HTTP the browser may refuse every copy method (#213):
+      // the link stays visible and selectable in the modal.
+      notifyError('shares.copyFailed');
+      return;
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -149,7 +156,7 @@ export function SharesDashboard() {
           <ModalHeader>{t('shares.createdModal.title')}</ModalHeader>
           <ModalBody>
             <p className="text-sm text-warning-600">{t('shares.createdModal.warning')}</p>
-            <div className="rounded-lg bg-content2 border border-divider px-3 py-2 text-xs break-all font-mono">
+            <div className="rounded-lg bg-content2 border border-divider px-3 py-2 text-xs break-all font-mono select-all">
               {shareUrl}
             </div>
           </ModalBody>

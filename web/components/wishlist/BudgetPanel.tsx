@@ -11,6 +11,7 @@ import {
 } from '@/hooks/useBudget';
 import { BudgetEnvelope } from '@/lib/budget/types';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { formatDate } from '@/lib/format';
 
 function toDateInputValue(iso: string): string {
   return iso.slice(0, 10);
@@ -19,14 +20,14 @@ function toDateInputValue(iso: string): string {
 const EMPTY_FORM = { periodStart: '', periodEnd: '', amount: '' };
 
 function EnvelopeCard({ envelope, onDelete }: { envelope: BudgetEnvelope; onDelete: (e: BudgetEnvelope) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: progress, isLoading } = useBudgetProgress(envelope.id);
 
   return (
     <Card radius="lg" shadow="sm">
       <CardHeader className="flex items-center justify-between">
         <span className="text-sm font-semibold">
-          {new Date(envelope.periodStart).toLocaleDateString()} — {new Date(envelope.periodEnd).toLocaleDateString()}
+          {formatDate(envelope.periodStart, i18n.language)} — {formatDate(envelope.periodEnd, i18n.language)}
         </span>
         <Button size="sm" variant="light" color="danger" onPress={() => onDelete(envelope)}>
           {t('actions.delete')}

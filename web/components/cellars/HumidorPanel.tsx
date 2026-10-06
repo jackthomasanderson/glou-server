@@ -5,6 +5,7 @@ import { Button, Input, Chip, CircularProgress } from '@heroui/react';
 import { Droplets, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useHumidorHistory, useRecordHumidorReading, HumidorDriftStatus } from '@/hooks/useHumidor';
+import { formatDateTime } from '@/lib/format';
 
 interface HumidorPanelProps {
   cellarId: string;
@@ -26,7 +27,7 @@ const DRIFT_COLOR: Record<HumidorDriftStatus, 'success' | 'danger' | 'default'> 
  * pulling a new dependency for one small add-on panel.
  */
 export function HumidorPanel({ cellarId }: HumidorPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data, isLoading } = useHumidorHistory(cellarId);
   const recordMutation = useRecordHumidorReading(cellarId);
   const [humidity, setHumidity] = useState('');
@@ -73,7 +74,7 @@ export function HumidorPanel({ cellarId }: HumidorPanelProps) {
         <p className="text-xs text-foreground-500 mb-3">
           {t('cellars.humidor.latestReading', {
             humidity: data.latest.humidityPercent,
-            date: new Date(data.latest.recordedAt).toLocaleString(),
+            date: formatDateTime(data.latest.recordedAt, i18n.language),
           })}
         </p>
       )}
@@ -92,7 +93,7 @@ export function HumidorPanel({ cellarId }: HumidorPanelProps) {
         <div className="mt-1 flex flex-col gap-1 max-h-48 overflow-y-auto">
           {data.readings.slice(0, 10).map((r) => (
             <div key={r.id} className="flex items-center justify-between gap-2 text-xs border-b border-divider py-1 last:border-b-0">
-              <span className="text-foreground-400 shrink-0">{new Date(r.recordedAt).toLocaleString()}</span>
+              <span className="text-foreground-400 shrink-0">{formatDateTime(r.recordedAt, i18n.language)}</span>
               <span className="font-semibold flex-1 text-right">
                 {r.humidityPercent}%{r.temperatureCelsius != null ? ` · ${r.temperatureCelsius}°C` : ''}
               </span>

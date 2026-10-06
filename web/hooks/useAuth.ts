@@ -349,7 +349,9 @@ export function useUntrustDevice() {
 
 // FEAT-18: categories are optional — omitted/empty means "export everything",
 // preserving the original FEAT-38 full-export behavior.
-export type ExportCategory = 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity';
+export type ExportCategory =
+  | 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity'
+  | 'wishlist' | 'budget' | 'goals' | 'counts' | 'humidor';
 
 export function useExportData() {
   return useMutation<void, Error, ExportCategory[] | void>({
