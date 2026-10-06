@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
@@ -9,11 +9,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '@/hooks/useAuth';
-import { useInventory } from '@/hooks/useInventory';
-import { useCellars } from '@/hooks/useCellars';
-import { useCollections } from '@/hooks/useCollections';
-import { useActiveCountSession } from '@/hooks/useInventoryCount';
-import { useWishlist } from '@/hooks/useWishlist';
+import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -30,46 +26,20 @@ interface SidebarContentProps {
 function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   const { t } = useTranslation();
   const { data: user } = useMe();
-  const { data: items } = useInventory();
-  const { data: cellars } = useCellars();
-  const { data: collections } = useCollections();
-  // Reuse the same hooks the Wishlist and Inventaire Physique pages already
-  // fetch with — React Query caches/dedupes on queryKey, so mounting the
-  // sidebar doesn't add a dedicated network round-trip just for a badge.
-  const { data: activeCountSession } = useActiveCountSession();
-  const { data: wishlistItems } = useWishlist();
+  const { data: counts } = useSidebarCounts();
   const pathname = usePathname();
   const hasMounted = useHasMounted();
 
-  const bottleCount = useMemo(
-    () => items?.filter(i => ['wine', 'sparkling', 'spirit'].includes(i.category)).length ?? 0,
-    [items]
-  );
-  const cigarCount = useMemo(
-    () => items?.filter(i => i.category === 'cigar').length ?? 0,
-    [items]
-  );
-  // Inventaire physique : 1 si une session de comptage est active/en pause, 0 sinon.
-  const inventoryCountBadge = activeCountSession && activeCountSession.status !== 'completed' ? 1 : 0;
-  // Wishlist : articles pour lesquels le dernier prix observé est déjà ≤ prix
-  // plafond — prêts à être convertis en inventaire.
-  const wishlistReadyCount = useMemo(
-    () => (wishlistItems ?? []).filter(
-      (w) => w.status === 'active' && w.lastSeenPrice != null && w.maxPrice != null && w.lastSeenPrice <= w.maxPrice
-    ).length,
-    [wishlistItems]
-  );
-
   const navLinks = [
-    { label: t('nav.bottles'), href: '/bottles', icon: <Wine size={18} />, count: bottleCount },
-    { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={18} />, count: cigarCount },
-    { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={18} />, count: cellars?.length ?? 0 },
-    { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: collections?.length ?? 0 },
+    { label: t('nav.bottles'), href: '/bottles', icon: <Wine size={18} />, count: counts?.bottles ?? 0 },
+    { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={18} />, count: counts?.cigars ?? 0 },
+    { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={18} />, count: counts?.cellars ?? 0 },
+    { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: counts?.collections ?? 0 },
     // Pas de métrique naturelle et peu coûteuse pour les dégustations : le
     // badge reste à 0 (donc masqué) plutôt que d'inventer un chiffre artificiel.
     { label: t('nav.tastings'), href: '/tastings', icon: <Martini size={18} />, count: 0 },
-    { label: t('nav.inventoryCount'), href: '/inventory-count', icon: <ClipboardCheck size={18} />, count: inventoryCountBadge },
-    { label: t('nav.wishlist'), href: '/wishlist', icon: <Wallet size={18} />, count: wishlistReadyCount },
+    { label: t('nav.inventoryCount'), href: '/inventory-count', icon: <ClipboardCheck size={18} />, count: counts?.countSessionActive ? 1 : 0 },
+    { label: t('nav.wishlist'), href: '/wishlist', icon: <Wallet size={18} />, count: counts?.wishlistReady ?? 0 },
     { label: t('nav.analytics'), href: '/analytics', icon: <BarChart3 size={18} />, count: 0 },
   ];
 

@@ -55,7 +55,7 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
     <div className="bg-content1 border border-divider rounded-2xl p-4 flex flex-col gap-2">
       {item.photoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <img loading="lazy" decoding="async"
           src={item.photoUrl}
           alt={item.name}
           className="w-full h-32 object-cover rounded-xl mb-1"
