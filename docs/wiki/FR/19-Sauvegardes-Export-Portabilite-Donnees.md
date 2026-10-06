@@ -10,8 +10,11 @@ Activez les sauvegardes automatiques de la base depuis l'Admin, restaurez-en une
 ## Action
 
 ### Planifier des sauvegardes automatiques (admin)
+> [!IMPORTANT]
+> Les sauvegardes sont **activées par défaut sur les nouvelles installations**. Une instance installée avant ce changement garde son réglage précédent, qui était **désactivé** : ouvrez le panneau ci-dessous et vérifiez que **Activé** est bien sur ON.
+
 1. Allez dans **Admin → Configuration Système → Sauvegardes**.
-2. Activez l'interrupteur **Activé**.
+2. Vérifiez que l'interrupteur **Activé** est bien activé.
 3. Réglez la **Rétention** (jours de conservation des fichiers de sauvegarde — défaut `7`) et l'**Heure (UTC)** (heure de déclenchement quotidien — défaut `3`).
 4. Cliquez sur **Enregistrer**.
 
@@ -29,7 +32,8 @@ Activez les sauvegardes automatiques de la base depuis l'Admin, restaurez-en une
    > La restauration est destructrice : elle écrase **toutes les données actuelles** avec le contenu de ce fichier de sauvegarde. Aucun retour en arrière possible. La boîte de dialogue exige la saisie d'un mot de confirmation exact avant que le bouton **Confirmer** ne devienne cliquable — lisez-la attentivement avant de saisir.
 
 2. Confirmez. La restauration est enregistrée dans le journal d'audit, qu'elle réussisse ou échoue.
-3. Vous pouvez aussi **Télécharger** un fichier de sauvegarde directement depuis l'historique au lieu de le restaurer sur place.
+3. La restauration est tout ou rien : si le fichier de sauvegarde est endommagé ou incomplet, elle échoue et vos données actuelles restent intactes. Après avoir restauré une sauvegarde faite par une **version plus ancienne** de Glou, redémarrez l'API (`docker compose restart api`) pour qu'elle applique les mises à jour de base de données postérieures à la sauvegarde.
+4. Vous pouvez aussi **Télécharger** un fichier de sauvegarde directement depuis l'historique au lieu de le restaurer sur place.
 
 ### Exporter vos données (complètes ou filtrées par catégorie)
 1. Allez dans **Profil → Données & Confidentialité (section RGPD)**.
