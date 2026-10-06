@@ -12,7 +12,8 @@ export type NotificationCategory =
   | 'permissions'
   | 'new_users'
   | 'security'
-  | 'wishlist';
+  | 'wishlist'
+  | 'backup';
 
 interface NotificationPayload {
   userId: string;

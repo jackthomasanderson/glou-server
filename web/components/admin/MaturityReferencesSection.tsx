@@ -140,7 +140,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
             <ModalHeader>{editing ? t('admin.maturityRefs.editTitle') : t('admin.maturityRefs.addTitle')}</ModalHeader>
             <ModalBody className="flex flex-col gap-4">
               {error && (
-                <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{error}</div>
+                <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{error}</div>
               )}
 
               <Input

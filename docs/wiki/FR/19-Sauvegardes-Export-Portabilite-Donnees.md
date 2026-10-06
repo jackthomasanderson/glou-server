@@ -19,7 +19,11 @@ Activez les sauvegardes automatiques de la base depuis l'Admin, restaurez-en une
 4. Cliquez sur **Enregistrer**.
 
 > [!TIP]
-> Le planificateur vérifie chaque heure et ne produit un dump que si l'interrupteur est activé ET que l'heure UTC courante correspond à l'heure configurée — il s'exécute donc en pratique une fois par jour, et activer/désactiver **Activé** prend effet dès la prochaine vérification horaire, sans redémarrage.
+> Le planificateur vérifie chaque heure et produit un dump si l'interrupteur est activé ET que l'heure UTC courante correspond à l'heure configurée — il s'exécute donc en pratique une fois par jour, et activer/désactiver **Activé** prend effet dès la prochaine vérification horaire, sans redémarrage.
+>
+> **Les sauvegardes manquées sont rattrapées.** Si le conteneur était arrêté ou en redémarrage à l'heure configurée, la sauvegarde est faite à la vérification horaire suivante : dès que la dernière sauvegarde réussie a plus de 25 heures, une nouvelle est lancée.
+>
+> **Les échecs sont signalés.** Si une sauvegarde planifiée échoue (disque plein, base injoignable…), chaque administrateur est prévenu par ses canaux activés (email, Gotify/webhook) — une seule fois par série d'échecs, puis de nouveau après 24 heures si l'échec persiste, pas toutes les heures. La catégorie s'appelle **Échec des sauvegardes (admin)** dans Profil → Notifications. Les anciens fichiers ne sont supprimés qu'après une sauvegarde **réussie** : un échec n'efface jamais le dernier bon dump.
 
 ### Lancer une sauvegarde immédiate
 1. Dans le même onglet, cliquez sur **Exécuter maintenant**.

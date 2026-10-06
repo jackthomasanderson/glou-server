@@ -5,7 +5,7 @@ import { Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, NotificationPrefs } from '@/lib/config/client';
 
-const ALL_CATEGORIES = ['peak', 'temperature', 'consumption', 'shares', 'permissions', 'new_users', 'security', 'wishlist'] as const;
+const ALL_CATEGORIES = ['peak', 'temperature', 'consumption', 'shares', 'permissions', 'new_users', 'security', 'wishlist', 'backup'] as const;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export function NotificationPreferences() {
@@ -82,7 +82,7 @@ export function NotificationPreferences() {
       <p className="text-sm text-foreground-500 mb-5">{t('notifications.subtitle')}</p>
 
       {feedback && (
-        <div className={`mb-4 px-3 py-2 rounded-lg text-xs border ${feedback.type === 'success' ? 'bg-success-50 border-success-200 text-success-700' : 'bg-danger-50 border-danger-200 text-danger-700'}`}>
+        <div role={feedback.type === 'success' ? 'status' : 'alert'} className={`mb-4 px-3 py-2 rounded-lg text-xs border ${feedback.type === 'success' ? 'bg-success-50 border-success-200 text-success-700' : 'bg-danger-50 border-danger-200 text-danger-700'}`}>
           {feedback.msg}
         </div>
       )}

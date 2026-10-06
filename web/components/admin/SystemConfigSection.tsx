@@ -331,7 +331,7 @@ export function SystemConfigSection() {
       <p className="text-sm text-foreground-500 mb-4">{t('adminConfig.subtitle')}</p>
 
       {feedback && (
-        <div className={`mb-4 px-4 py-3 rounded-xl text-sm border ${feedback.type === 'success' ? 'bg-success-50 border-success-200 text-success-700' : 'bg-danger-50 border-danger-200 text-danger-700'}`}>
+        <div role={feedback.type === 'success' ? 'status' : 'alert'} className={`mb-4 px-4 py-3 rounded-xl text-sm border ${feedback.type === 'success' ? 'bg-success-50 border-success-200 text-success-700' : 'bg-danger-50 border-danger-200 text-danger-700'}`}>
           {feedback.msg}
         </div>
       )}
@@ -692,7 +692,7 @@ export function SystemConfigSection() {
               </Button>
               {checkResult && (
                 <div className="flex flex-col gap-2">
-                  <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm border font-medium ${checkResult.ok ? 'bg-success-50 border-success-200 text-success-700' : 'bg-danger-50 border-danger-200 text-danger-700'}`}>
+                  <div role={checkResult.ok ? 'status' : 'alert'} className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm border font-medium ${checkResult.ok ? 'bg-success-50 border-success-200 text-success-700' : 'bg-danger-50 border-danger-200 text-danger-700'}`}>
                     {checkResult.ok ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
                     {checkResult.ok ? t('adminConfig.network.check.success') : t('adminConfig.network.check.failure')}
                   </div>

@@ -5,6 +5,7 @@ import zlib from 'zlib';
 import { prisma } from '../lib/prisma';
 import { BackupRun } from '@prisma/client';
 import { auditLog } from './audit.service';
+import { notificationService } from './notification.service';
 
 // FEAT-18: Portabilité & Souveraineté des Données — Scheduled Backups.
 // design.md "Sauvegarde & Migration": `pg_dump` planifié (cron quotidien),
@@ -25,6 +26,40 @@ export const BACKUPS_DIR = path.resolve(process.cwd(), 'backups');
 const FILENAME_PREFIX = 'glou-backup-';
 const FILENAME_SUFFIX = '.sql.gz';
 const DAY_MS = 24 * 60 * 60 * 1000;
+/**
+ * A backup is overdue once the last successful one is older than a day plus a
+ * margin: a normal daily run is ~24 h apart and must not trip it, a run missed
+ * because the container was stopped at the configured hour must (#234).
+ */
+const OVERDUE_AFTER_MS = 25 * 60 * 60 * 1000;
+
+/**
+ * Tells the administrators that backups are failing (#234). Before this, a failed
+ * run was visible only in the container logs and in a history table nobody opens,
+ * so a full disk could go unnoticed until the retention window had erased the
+ * last good dump. Throttled: one message per failure streak, not one per hourly
+ * retry.
+ */
+async function notifyAdminsOfBackupFailure(error: string): Promise<void> {
+  try {
+    const admins = await prisma.user.findMany({ where: { isAdmin: true }, select: { id: true, language: true } });
+    await Promise.all(admins.map((admin) => {
+      const en = String(admin.language).toLowerCase() === 'en';
+      const subject = en ? 'Glou — database backup failed' : 'Glou — échec de la sauvegarde de la base';
+      const htmlBody = en
+        ? `<p>The scheduled database backup failed:</p><pre>${escapeHtml(error)}</pre><p>No new backup is being produced. Check the disk space and the API logs, then use <b>Run now</b> in Admin → System Configuration → Backups.</p>`
+        : `<p>La sauvegarde planifiée de la base a échoué :</p><pre>${escapeHtml(error)}</pre><p>Aucune nouvelle sauvegarde n'est produite. Vérifiez l'espace disque et les logs de l'API, puis utilisez <b>Exécuter maintenant</b> dans Admin → Configuration système → Sauvegardes.</p>`;
+      return notificationService.send({ userId: admin.id, category: 'backup', subject, htmlBody, bypassQuietHours: true });
+    }));
+  } catch (err) {
+    // Never let the alert path break the backup bookkeeping.
+    console.error('[backup] Could not notify administrators of the failure:', err);
+  }
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 export type BackupTrigger = 'scheduled' | 'manual';
 
@@ -234,7 +269,10 @@ export const backupService = {
     } catch (error) {
       console.error('[backup] Backup run failed:', error);
       const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
-      return prisma.backupRun.create({
+      // Read the previous run BEFORE recording this failure, to tell a new
+      // failure streak from the hourly retry of an already reported one.
+      const previous = await prisma.backupRun.findFirst({ orderBy: { runAt: 'desc' } });
+      const run = await prisma.backupRun.create({
         data: {
           trigger,
           userId: userId ?? null,
@@ -243,6 +281,9 @@ export const backupService = {
           durationMs: Date.now() - startedAt,
         },
       });
+      const alreadyReported = previous && !previous.success && Date.now() - previous.runAt.getTime() < DAY_MS;
+      if (!alreadyReported) await notifyAdminsOfBackupFailure(message);
+      return run;
     }
   },
 
@@ -262,7 +303,15 @@ export const backupService = {
     });
     if (!config.backupEnabled) return null;
     const targetHour = config.backupHourUtc ?? 3;
-    if (new Date().getUTCHours() !== targetHour) return null;
+    const atScheduledHour = new Date().getUTCHours() === targetHour;
+    if (!atScheduledHour) {
+      // Catch-up (#234): the hourly tick used to compare the hour only, so a
+      // container stopped or restarting at the configured hour skipped that
+      // day's backup with no trace. Run it at the next tick instead.
+      const lastOk = await prisma.backupRun.findFirst({ where: { success: true }, orderBy: { runAt: 'desc' } });
+      const overdue = !lastOk || Date.now() - lastOk.runAt.getTime() > OVERDUE_AFTER_MS;
+      if (!overdue) return null;
+    }
     return this.runBackup('scheduled');
   },
 

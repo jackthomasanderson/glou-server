@@ -206,7 +206,7 @@ export function ImagePickerButton({
           )}
 
           {saveError && !saving && (
-            <div className="flex items-center justify-between bg-danger-50 border border-danger-200 text-danger-700 text-xs rounded-lg px-3 py-2 mb-3">
+            <div role="alert" className="flex items-center justify-between bg-danger-50 border border-danger-200 text-danger-700 text-xs rounded-lg px-3 py-2 mb-3">
               <span>{t('imagePicker.saveError')}</span>
               <button type="button" onClick={() => setSaveError(false)} className="ml-2 hover:opacity-70">
                 <X size={12} />

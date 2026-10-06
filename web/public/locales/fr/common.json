@@ -1414,7 +1414,8 @@
       "permissions": "Changements de permissions",
       "new_users": "Nouveaux utilisateurs (admin)",
       "security": "Sécurité du compte",
-      "wishlist": "Opportunités tarifaires (liste de souhaits)"
+      "wishlist": "Opportunités tarifaires (liste de souhaits)",
+      "backup": "Échec des sauvegardes (admin)"
     },
     "quietHours": {
       "title": "Plage silencieuse",
