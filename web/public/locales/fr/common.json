@@ -411,6 +411,8 @@
       "EMAIL_ALREADY_TAKEN": "Cette adresse email est déjà utilisée.",
       "VALIDATION_ERROR": "Veuillez vérifier vos saisies.",
       "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
+      "CSRF_ORIGIN_REJECTED": "Cette adresse n'est pas autorisée par le serveur. Renseignez APP_URL avec l'adresse saisie dans votre navigateur, puis redémarrez.",
+      "CSRF_CROSS_SITE_REJECTED": "La requête a été bloquée comme inter-sites. Ouvrez Glou directement à sa propre adresse.",
       "USERNAME_TOO_SHORT": "Le nom d'utilisateur doit contenir au moins 3 caractères.",
       "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 12 caractères.",
       "USERNAME_INVALID_CHARS": "Caractères autorisés : lettres, chiffres, - et _.",
