@@ -68,7 +68,7 @@ export default function CellarDetailPage() {
     return (
       <MainLayout>
         <div className="max-w-6xl mx-auto px-4 mt-8">
-          <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
+          <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
         </div>
       </MainLayout>
     );
@@ -197,7 +197,7 @@ export default function CellarDetailPage() {
           ) : gridData ? (
             <CellarGridPlan data={gridData} />
           ) : (
-            <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
+            <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
           )
         )}
 

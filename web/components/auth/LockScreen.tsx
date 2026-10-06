@@ -64,7 +64,7 @@ export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
           </div>
 
           {errorMsg && (
-            <div className="w-full bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">
+            <div role="alert" className="w-full bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">
               {errorMsg}
             </div>
           )}

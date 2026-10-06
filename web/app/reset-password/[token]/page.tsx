@@ -81,7 +81,7 @@ export default function ResetPasswordPage() {
 
           {!tokenValid ? (
             <div className="flex flex-col gap-4 text-center">
-              <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-4">
+              <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-4">
                 {t('resetPassword.invalidToken')}
               </div>
               <Link href="/forgot-password" className="text-sm text-primary hover:underline">
@@ -101,7 +101,7 @@ export default function ResetPasswordPage() {
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
               {error && (
-                <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">
+                <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">
                   {error}
                 </div>
               )}
