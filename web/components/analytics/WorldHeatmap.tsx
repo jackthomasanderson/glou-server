@@ -61,14 +61,14 @@ interface MarkerData {
 
 // ─── Popup content ────────────────────────────────────────────────────────────
 
-function RegionPopup({ marker, t }: { marker: MarkerData; t: (k: string) => string }) {
+function RegionPopup({ marker, t }: { marker: MarkerData; t: (k: string, o?: Record<string, unknown>) => string }) {
   return (
     <div className="min-w-[130px] font-[Inter,sans-serif]">
       <div className="font-extrabold text-[0.72rem] uppercase tracking-wider text-blue-600 mb-1">
         {marker.region}
       </div>
       <div className="text-[0.82rem] font-bold">
-        {marker.count} {t('analytics.regionMap.items')}
+        {marker.count} {t('analytics.regionMap.items', { count: marker.count })}
       </div>
       <div className="text-[0.75rem] text-gray-500 mt-0.5">
         {t('analytics.regionMap.valuation')}{' '}

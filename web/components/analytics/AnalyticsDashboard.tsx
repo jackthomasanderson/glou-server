@@ -434,7 +434,7 @@ function MaturityPlanning({
 
 // ─── Region cards ─────────────────────────────────────────────────────────────
 
-function RegionCards({ regions, t }: { regions: RegionStat[]; t: (k: string) => string }) {
+function RegionCards({ regions, t }: { regions: RegionStat[]; t: (k: string, o?: Record<string, unknown>) => string }) {
   if (regions.length === 0) return null;
   return (
     <div className="flex gap-3 flex-wrap">
@@ -445,7 +445,7 @@ function RegionCards({ regions, t }: { regions: RegionStat[]; t: (k: string) => 
               {r.region}
             </p>
             <p className="text-[1.5rem] font-extrabold leading-tight">{r.count}</p>
-            <p className="text-[0.7rem] text-default-400 mb-2">{t('analytics.regionMap.items')}</p>
+            <p className="text-[0.7rem] text-default-400 mb-2">{t('analytics.regionMap.items', { count: r.count })}</p>
             <div className="flex justify-between">
               <span className="text-[0.7rem] text-default-400">{t('analytics.regionMap.valuation')}</span>
               <span className="text-[0.7rem] font-bold">{fmtCurrency(r.valuation)}</span>

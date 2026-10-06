@@ -511,8 +511,10 @@
       "zonesExceedError": "Zone chaude + zone froide dépassent le nombre total de rangées",
       "configured": "Grille : {{cols}} × {{rows}}",
       "notConfigured": "Aucun plan configuré pour cette cave.",
-      "occupied": "occupé(s)",
-      "free": "libre(s)",
+      "occupied_one": "occupé",
+      "occupied_other": "occupés",
+      "free_one": "libre",
+      "free_other": "libres",
       "hotZone": "Zone chaude ({{count}} rangées)",
       "coldZone": "Zone froide ({{count}} rangées)",
       "hotZoneLabel": "Zone chaude",
@@ -537,7 +539,8 @@
     "errors": {
       "load": "Impossible de charger les caves."
     },
-    "nFound": "{{count}} cave(s) trouvée(s)",
+    "nFound_one": "{{count}} cave trouvée",
+    "nFound_other": "{{count}} caves trouvées",
     "status": {
       "withAlerts": "Avec alertes",
       "noAlerts": "Sans alertes",
@@ -1039,7 +1042,8 @@
       "progressAria": "Progression du comptage",
       "progressCount": "{{confirmed}} / {{expected}} confirmés",
       "noTheoreticalList": "Ce périmètre libre n'est lié à aucune cave : aucune liste théorique n'est disponible. Tout actif confirmé ici sera enregistré comme trouvé.",
-      "unexpectedFound": "{{count}} actif(s) trouvé(s) hors périmètre",
+      "unexpectedFound_one": "{{count}} actif trouvé hors périmètre",
+      "unexpectedFound_other": "{{count}} actifs trouvés hors périmètre",
       "searchLabel": "Rechercher un actif",
       "searchPlaceholder": "Nom ou producteur...",
       "emptyList": "Aucun actif à vérifier pour ce périmètre.",
@@ -1096,8 +1100,10 @@
       "mapTitle": "Carte du Monde — Heatmap des Goûts",
       "mapSubtitle": "Survolez un hotspot géographique pour voir sa valorisation et sa composition.",
       "legendActive": "Activité intense",
-      "unmapped": "{{count}} terroir(s) non géolocalisé(s)",
-      "items": "élément(s) en stock",
+      "unmapped_one": "{{count}} terroir non géolocalisé",
+      "unmapped_other": "{{count}} terroirs non géolocalisés",
+      "items_one": "élément en stock",
+      "items_other": "éléments en stock",
       "valuation": "Valorisation :",
       "noRegions": "Aucune région renseignée dans votre inventaire."
     },
@@ -1130,7 +1136,8 @@
         "title": "Actifs de la région sélectionnée",
         "titleAll": "Actifs correspondant aux filtres",
         "empty": "Aucun actif ne correspond aux filtres sélectionnés.",
-        "itemCount": "{{count}} actif(s)"
+        "itemCount_one": "{{count}} actif",
+        "itemCount_other": "{{count}} actifs"
       },
       "regionSelected": "Région sélectionnée : {{region}}"
     },
@@ -1152,7 +1159,8 @@
       "title": "Planning de Garde (Histogramme)",
       "subtitle": "Distribution temporelle des bouteilles par année d'apogée optimale",
       "noData": "Aucune fenêtre d'apogée renseignée dans votre inventaire.",
-      "bottles": "bouteille(s) à l'apogée"
+      "bottles_one": "bouteille à l'apogée",
+      "bottles_other": "bouteilles à l'apogée"
     },
     "caves": {
       "title": "Répartition par cave"
@@ -1210,7 +1218,8 @@
     "emptyHint": "Créez des zones pour organiser votre cave (étagères, casiers, tiroirs…)",
     "deleteTitle": "Supprimer l'emplacement",
     "deleteConfirm": "Supprimer la zone « {{name}} » ?",
-    "deleteItemsWarning": "{{count}} article(s) seront déplacés vers « Non classés ».",
+    "deleteItemsWarning_one": "{{count}} article sera déplacé vers « Non classés ».",
+    "deleteItemsWarning_other": "{{count}} articles seront déplacés vers « Non classés ».",
     "selectorLabel": "Zone de rangement",
     "unclassified": "Non classé",
     "fields": {
@@ -1302,12 +1311,15 @@
     "noExpiry": "Sans expiration",
     "allCellars": "Toutes les caves",
     "allCollections": "Toutes les collections",
-    "cellarCount": "{{count}} cave(s)",
-    "collectionCount": "{{count}} collection(s)",
+    "cellarCount_one": "{{count}} cave",
+    "cellarCount_other": "{{count}} caves",
+    "collectionCount_one": "{{count}} collection",
+    "collectionCount_other": "{{count}} collections",
     "hidePrices": "Masquer les prix et valeurs",
     "hideNotes": "Masquer les notes personnelles",
     "inviteeLabel": "Invité·e : {{name}}",
-    "writeAccessCount": "{{count}} cave(s) en écriture",
+    "writeAccessCount_one": "{{count}} cave en écriture",
+    "writeAccessCount_other": "{{count}} caves en écriture",
     "fields": {
       "label": "Nom descriptif",
       "labelPlaceholder": "Ex : Pour Pierre, Accès temporaire…",
@@ -1680,7 +1692,8 @@
       "title": "Ajout manuel",
       "subtitle": "Ajoutez autant d'actifs que vous le souhaitez, puis continuez.",
       "addButton": "Ajouter un actif",
-      "itemsAdded": "{{count}} actif(s) ajouté(s) pour l'instant",
+      "itemsAdded_one": "{{count}} actif ajouté pour l'instant",
+      "itemsAdded_other": "{{count}} actifs ajoutés pour l'instant",
       "doneButton": "Terminer l'ajout"
     },
     "csv": {
@@ -1690,8 +1703,10 @@
       "chooseFile": "Choisir un fichier CSV",
       "chooseAnother": "Choisir un autre fichier",
       "parsing": "Analyse du fichier en cours…",
-      "validRows": "{{count}} ligne(s) valide(s)",
-      "errorRows": "{{count}} ligne(s) ignorée(s)",
+      "validRows_one": "{{count}} ligne valide",
+      "validRows_other": "{{count}} lignes valides",
+      "errorRows_one": "{{count}} ligne ignorée",
+      "errorRows_other": "{{count}} lignes ignorées",
       "errorReason": "Ligne {{row}} : {{reason}}",
       "noValidRows": "Aucune ligne valide à importer.",
       "confirmButton": "Confirmer l'import",
@@ -1711,7 +1726,8 @@
       "subtitle": "Voici un résumé de votre configuration initiale.",
       "cellarCreated": "Cave créée : {{name}}",
       "noCellar": "Aucune cave créée pour l'instant",
-      "itemsAdded": "{{count}} actif(s) ajouté(s) à votre inventaire",
+      "itemsAdded_one": "{{count}} actif ajouté à votre inventaire",
+      "itemsAdded_other": "{{count}} actifs ajoutés à votre inventaire",
       "noItems": "Aucun actif ajouté pour le moment",
       "adminConfig": {
         "title": "Configuration système (facultatif)",

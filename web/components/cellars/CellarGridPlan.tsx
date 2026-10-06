@@ -567,10 +567,10 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
       {/* Occupancy summary */}
       <div className="flex gap-2 flex-wrap mb-4 items-center">
         <Chip size="sm" color="primary" variant="bordered">
-          {assignedCount} / {totalSlots} {t('cellars.grid.occupied')}
+          {assignedCount} / {totalSlots} {t('cellars.grid.occupied', { count: assignedCount })}
         </Chip>
         <Chip size="sm" variant="bordered">
-          {freeSlots} {t('cellars.grid.free')}
+          {freeSlots} {t('cellars.grid.free', { count: freeSlots })}
         </Chip>
         {hotZoneRows > 0 && (
           <Chip
