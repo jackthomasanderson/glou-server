@@ -483,9 +483,26 @@ export class InventoryService {
     });
     if (!existing) return null;
 
+    // A trashed bottle keeps its grid slot, which may have been given to another
+    // bottle since (#174). Restore it unplaced rather than assign the slot twice.
+    let slotTaken = false;
+    if (existing.cellarId && existing.slotColumn != null && existing.slotRow != null) {
+      const occupant = await prisma.inventoryItem.findFirst({
+        where: {
+          cellarId: existing.cellarId,
+          slotColumn: existing.slotColumn,
+          slotRow: existing.slotRow,
+          id: { not: id },
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      slotTaken = occupant !== null;
+    }
+
     return prisma.inventoryItem.update({
       where: { id },
-      data: { deletedAt: null },
+      data: slotTaken ? { deletedAt: null, slotColumn: null, slotRow: null } : { deletedAt: null },
     });
   }
 

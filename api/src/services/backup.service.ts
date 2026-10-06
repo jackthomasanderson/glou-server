@@ -243,13 +243,14 @@ export const backupService = {
    */
   async runBackup(trigger: BackupTrigger, userId?: string): Promise<BackupRun> {
     const startedAt = Date.now();
+    let destPath: string | undefined;
 
     try {
       ensureBackupsDir();
       const conn = parseDatabaseUrl();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `${FILENAME_PREFIX}${timestamp}${FILENAME_SUFFIX}`;
-      const destPath = path.join(BACKUPS_DIR, filename);
+      destPath = path.join(BACKUPS_DIR, filename);
 
       await execPgDump(conn, destPath);
       const stats = fs.statSync(destPath);
@@ -268,6 +269,9 @@ export const backupService = {
       });
     } catch (error) {
       console.error('[backup] Backup run failed:', error);
+      // pg_dump creates the file before it finishes: a failed run leaves a
+      // truncated dump that looks like a valid backup (#182).
+      if (destPath) fs.rmSync(destPath, { force: true });
       const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
       // Read the previous run BEFORE recording this failure, to tell a new
       // failure streak from the hourly retry of an already reported one.

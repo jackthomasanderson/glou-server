@@ -75,6 +75,35 @@ describe('InventoryService', () => {
     expect(result).toBeNull();
   });
 
+  describe('restore - grid slot (#174)', () => {
+    const trashed = { id: 'b1', cellarId: 'c1', slotColumn: 2, slotRow: 3, deletedAt: new Date() };
+
+    it('restores unplaced when another bottle took the slot meanwhile', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst)
+        .mockResolvedValueOnce(trashed as never)
+        .mockResolvedValueOnce({ id: 'other' } as never);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
+
+      await service.restore('u1', 'b1');
+
+      expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
+        where: { id: 'b1' },
+        data: { deletedAt: null, slotColumn: null, slotRow: null },
+      });
+    });
+
+    it('keeps the slot when it is still free', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst)
+        .mockResolvedValueOnce(trashed as never)
+        .mockResolvedValueOnce(null);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
+
+      await service.restore('u1', 'b1');
+
+      expect(prisma.inventoryItem.update).toHaveBeenCalledWith({ where: { id: 'b1' }, data: { deletedAt: null } });
+    });
+  });
+
   it('updateItem - a manual edit overrides lockedFields (manual entry has priority)', async () => {
     const existingItem = {
       id: 'b1',

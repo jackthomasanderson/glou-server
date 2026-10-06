@@ -74,9 +74,10 @@ export class MaintenanceService {
      */
     static async runRetentionCleanup(trigger: MaintenanceTrigger, userId?: string): Promise<MaintenanceRun> {
         const startedAt = Date.now();
+        let scanFilesToDelete: string[] = [];
 
         try {
-            return await prisma.$transaction(async (tx) => {
+            const run = await prisma.$transaction(async (tx) => {
                 const config = await tx.systemConfig.findUnique({ where: { id: 'singleton' } });
                 const logRetentionDays = config?.logRetentionDays ?? 90;
                 const sessionRetentionDays = config?.sessionRetentionDays ?? 30;
@@ -119,7 +120,10 @@ export class MaintenanceService {
                     },
                 });
 
-                const scanFilesCount = await scanService.purgeExpiredScanFiles(SCAN_FILE_RETENTION_HOURS, tx);
+                // Rows only: the photos are deleted after the commit (#183).
+                const scanPurge = await scanService.markExpiredScanJobs(SCAN_FILE_RETENTION_HOURS, tx);
+                scanFilesToDelete = scanPurge.imagePaths;
+                const scanFilesCount = scanPurge.count;
 
                 const counts: RetentionCounts = {
                     auditLogs: auditLogsCount,
@@ -139,6 +143,9 @@ export class MaintenanceService {
                     },
                 });
             });
+            // The rows are committed: now the photos they pointed at can go.
+            await scanService.deleteScanFiles(scanFilesToDelete);
+            return run;
         } catch (error) {
             console.error('[maintenance] Retention cleanup failed:', error);
             const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR';

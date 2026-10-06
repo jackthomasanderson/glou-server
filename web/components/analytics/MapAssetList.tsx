@@ -55,7 +55,11 @@ export function MapAssetList({ items, onSelect, t }: MapAssetListProps) {
             tabIndex={0}
             onClick={() => onSelect(item)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') onSelect(item);
+              if (e.key === 'Enter' || e.key === ' ') {
+                // Space would otherwise also scroll the page (#208).
+                e.preventDefault();
+                onSelect(item);
+              }
             }}
             className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-default-50 transition-colors"
           >

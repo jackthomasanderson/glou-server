@@ -116,15 +116,20 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
       <div className="max-w-2xl w-full bg-content1 border border-divider rounded-2xl shadow-lg overflow-hidden">
         {/* Header: step progress + skip / close */}
         <div className="flex items-center justify-between px-6 pt-5 pb-1">
-          <div className="flex gap-1.5" aria-hidden="true">
+          <div className="flex gap-1.5">
             {STEPS.map((s, i) => (
               <span
                 key={s}
+                aria-hidden="true"
                 className={`h-1.5 rounded-full transition-all duration-200 ${
                   i <= stepIndex ? 'bg-primary w-6' : 'bg-default-200 w-3'
                 }`}
               />
             ))}
+            {/* The dots are decoration: this is what a screen reader gets (#207). */}
+            <span role="status" className="sr-only">
+              {t('onboarding.stepProgress', { current: stepIndex + 1, total: STEPS.length })}
+            </span>
           </div>
           <div className="flex items-center gap-1">
             {step !== 'summary' && (

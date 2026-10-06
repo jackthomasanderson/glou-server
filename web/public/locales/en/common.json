@@ -537,7 +537,8 @@
     "errors": {
       "load": "Could not load the cellars."
     },
-    "nFound": "{{count}} cellar(s) found",
+    "nFound_one": "{{count}} cellar found",
+    "nFound_other": "{{count}} cellars found",
     "status": {
       "withAlerts": "With alerts",
       "noAlerts": "No alerts",
@@ -1039,7 +1040,8 @@
       "progressAria": "Counting progress",
       "progressCount": "{{confirmed}} / {{expected}} confirmed",
       "noTheoreticalList": "This free-form scope isn't linked to any cellar: no theoretical list is available. Anything confirmed here will be recorded as found.",
-      "unexpectedFound": "{{count}} item(s) found outside their expected scope",
+      "unexpectedFound_one": "{{count}} item found outside its expected scope",
+      "unexpectedFound_other": "{{count}} items found outside their expected scope",
       "searchLabel": "Search for an item",
       "searchPlaceholder": "Name or producer...",
       "emptyList": "No item to check for this scope.",
@@ -1096,8 +1098,10 @@
       "mapTitle": "World Map — Taste Heatmap",
       "mapSubtitle": "Hover over a geographic hotspot to see its valuation and composition.",
       "legendActive": "Intense activity",
-      "unmapped": "{{count}} region(s) not geolocated",
-      "items": "item(s) in stock",
+      "unmapped_one": "{{count}} region not geolocated",
+      "unmapped_other": "{{count}} regions not geolocated",
+      "items_one": "item in stock",
+      "items_other": "items in stock",
       "valuation": "Valuation:",
       "noRegions": "No regions set in your inventory."
     },
@@ -1130,7 +1134,8 @@
         "title": "Assets in the selected region",
         "titleAll": "Assets matching the filters",
         "empty": "No assets match the selected filters.",
-        "itemCount": "{{count}} asset(s)"
+        "itemCount_one": "{{count}} asset",
+        "itemCount_other": "{{count}} assets"
       },
       "regionSelected": "Selected region: {{region}}"
     },
@@ -1152,7 +1157,8 @@
       "title": "Garde Planning (Histogram)",
       "subtitle": "Temporal distribution of bottles by optimal peak year",
       "noData": "No peak maturity windows set in your inventory.",
-      "bottles": "bottle(s) at peak"
+      "bottles_one": "bottle at peak",
+      "bottles_other": "bottles at peak"
     },
     "caves": {
       "title": "Distribution by cellar"
@@ -1210,7 +1216,8 @@
     "emptyHint": "Create zones to organize your cellar (shelves, racks, drawers…)",
     "deleteTitle": "Delete storage zone",
     "deleteConfirm": "Delete zone \"{{name}}\"?",
-    "deleteItemsWarning": "{{count}} item(s) will be moved to Unclassified.",
+    "deleteItemsWarning_one": "{{count}} item will be moved to Unclassified.",
+    "deleteItemsWarning_other": "{{count}} items will be moved to Unclassified.",
     "selectorLabel": "Storage zone",
     "unclassified": "Unclassified",
     "fields": {
@@ -1302,12 +1309,15 @@
     "noExpiry": "No expiration",
     "allCellars": "All cellars",
     "allCollections": "All collections",
-    "cellarCount": "{{count}} cellar(s)",
-    "collectionCount": "{{count}} collection(s)",
+    "cellarCount_one": "{{count}} cellar",
+    "cellarCount_other": "{{count}} cellars",
+    "collectionCount_one": "{{count}} collection",
+    "collectionCount_other": "{{count}} collections",
     "hidePrices": "Hide prices and values",
     "hideNotes": "Hide personal notes",
     "inviteeLabel": "Guest: {{name}}",
-    "writeAccessCount": "{{count}} cellar(s) with write access",
+    "writeAccessCount_one": "{{count}} cellar with write access",
+    "writeAccessCount_other": "{{count}} cellars with write access",
     "fields": {
       "label": "Descriptive name",
       "labelPlaceholder": "E.g. For Pierre, Temporary access…",
@@ -1643,6 +1653,7 @@
   },
   "onboarding": {
     "dialogLabel": "Setup wizard",
+    "stepProgress": "Step {{current}} of {{total}}",
     "skip": "Skip the wizard",
     "back": "Back",
     "welcome": {
@@ -1679,7 +1690,8 @@
       "title": "Manual entry",
       "subtitle": "Add as many assets as you like, then continue.",
       "addButton": "Add an asset",
-      "itemsAdded": "{{count}} asset(s) added so far",
+      "itemsAdded_one": "{{count}} asset added so far",
+      "itemsAdded_other": "{{count}} assets added so far",
       "doneButton": "Finish adding"
     },
     "csv": {
@@ -1689,8 +1701,10 @@
       "chooseFile": "Choose a CSV file",
       "chooseAnother": "Choose another file",
       "parsing": "Analyzing the file…",
-      "validRows": "{{count}} valid row(s)",
-      "errorRows": "{{count}} skipped row(s)",
+      "validRows_one": "{{count}} valid row",
+      "validRows_other": "{{count}} valid rows",
+      "errorRows_one": "{{count}} skipped row",
+      "errorRows_other": "{{count}} skipped rows",
       "errorReason": "Row {{row}}: {{reason}}",
       "noValidRows": "No valid row to import.",
       "confirmButton": "Confirm import",
@@ -1710,7 +1724,8 @@
       "subtitle": "Here's a recap of your initial setup.",
       "cellarCreated": "Cellar created: {{name}}",
       "noCellar": "No cellar created yet",
-      "itemsAdded": "{{count}} asset(s) added to your inventory",
+      "itemsAdded_one": "{{count}} asset added to your inventory",
+      "itemsAdded_other": "{{count}} assets added to your inventory",
       "noItems": "No asset added yet",
       "adminConfig": {
         "title": "System configuration (optional)",
