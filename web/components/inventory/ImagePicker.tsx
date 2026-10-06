@@ -222,7 +222,7 @@ export function ImagePickerButton({
             <div className="grid grid-cols-4 gap-2">
               {results.map((img) => (
                 <Tooltip key={img.url} content={img.title} delay={500}>
-                  <img
+                  <img loading="lazy" decoding="async"
                     src={img.thumb}
                     alt={img.title}
                     onClick={() => handleSelect(img.url)}

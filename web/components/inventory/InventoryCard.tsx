@@ -135,7 +135,7 @@ export function InventoryCard({
         }}
       >
         {item.photoUrl ? (
-          <img
+          <img loading="lazy" decoding="async"
             src={item.photoUrl}
             alt={item.name}
             className="w-full object-contain bg-background"

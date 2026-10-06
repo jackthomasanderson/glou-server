@@ -108,7 +108,7 @@ export function ItemImageSection({
         )}
 
         {hasPhoto ? (
-          <img
+          <img loading="lazy" decoding="async"
             src={photoUrl}
             alt=""
             className="w-full h-full object-contain"
