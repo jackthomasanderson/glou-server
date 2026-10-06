@@ -7,8 +7,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'Glou — Gestionnaire de Cave',
-  description: 'Gérez votre cave à vin, spiritueux et cigares. Application self-hosted, souveraine et privée.',
+  title: 'Glou — Cellar manager · Gestionnaire de cave',
+  description: 'Manage your wine, spirits and cigar cellar. Self-hosted, private. · Gérez votre cave à vin, spiritueux et cigares. Application auto-hébergée et privée.',
   // FEAT-16/23: PWA manifest — see web/public/manifest.json. Icons live in
   // public/icons/; app/icon.png, app/apple-icon.png and app/favicon.ico are
   // picked up by Next's file conventions.

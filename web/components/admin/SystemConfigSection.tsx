@@ -8,9 +8,10 @@ import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle, Glob
 import { useTranslation } from 'react-i18next';
 import { configClient, SystemConfigPublic, MaintenanceRunEntry, NetworkCheckResult, BackupRunEntry } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { formatDateTime } from '@/lib/format';
 
 export function SystemConfigSection() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
   const [config, setConfig] = useState<SystemConfigPublic | null>(null);
   const [loading, setLoading] = useState(true);
@@ -507,7 +508,7 @@ export function SystemConfigSection() {
                         ) : null}
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-xs text-foreground-400">{hasMounted ? new Date(run.runAt).toLocaleString() : ''}</p>
+                        <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(run.runAt, i18n.language) : ''}</p>
                         {run.durationMs != null && <p className="text-xs text-foreground-300">{run.durationMs} ms</p>}
                       </div>
                     </div>
@@ -590,7 +591,7 @@ export function SystemConfigSection() {
                         ) : null}
                       </div>
                       <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                        <p className="text-xs text-foreground-400">{hasMounted ? new Date(run.runAt).toLocaleString() : ''}</p>
+                        <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(run.runAt, i18n.language) : ''}</p>
                         {run.durationMs != null && <p className="text-xs text-foreground-300">{run.durationMs} ms</p>}
                         {run.success && (
                           <div className="flex gap-1 mt-1">
@@ -731,7 +732,7 @@ export function SystemConfigSection() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs text-foreground-400">{entry.user?.username}</p>
-                      <p className="text-xs text-foreground-300">{hasMounted ? new Date(entry.createdAt).toLocaleString() : ''}</p>
+                      <p className="text-xs text-foreground-300">{hasMounted ? formatDateTime(entry.createdAt, i18n.language) : ''}</p>
                     </div>
                   </div>
                 ))}
@@ -774,7 +775,7 @@ export function SystemConfigSection() {
           <ModalBody className="flex flex-col gap-4">
             <p className="text-sm text-foreground-600">{t('adminConfig.backup.restore.modalBody')}</p>
             {restoreTarget && (
-              <p className="text-xs text-foreground-400">{hasMounted ? new Date(restoreTarget.runAt).toLocaleString() : ''}</p>
+              <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(restoreTarget.runAt, i18n.language) : ''}</p>
             )}
             <p className="text-xs text-default-400">{t('adminConfig.backup.restore.modalHint', { keyword: t('adminConfig.backup.restore.keyword') })}</p>
             <input

@@ -429,7 +429,13 @@
       }
     },
     "rememberMe": "Se souvenir de moi (30 jours)",
-    "trustDevice": "Faire confiance à cet appareil (30 jours)"
+    "trustDevice": "Faire confiance à cet appareil (30 jours)",
+    "twoFactor": {
+      "hint": "Veuillez entrer le code à 6 chiffres de votre application d'authentification ou l'un de vos codes de secours.",
+      "codeLabel": "Code d'authentification",
+      "verify": "Vérifier",
+      "back": "Retour"
+    }
   },
   "lock": {
     "buttonLabel": "Verrouiller",
@@ -906,7 +912,8 @@
       "description": "Cette dégustation a-t-elle modifié l'état de la bouteille dans votre cave ?",
       "opened": "Bouteille entamée",
       "consumed": "Bouteille consommée (vide)",
-      "ignore": "Ne pas modifier le stock"
+      "ignore": "Ne pas modifier le stock",
+      "error": "La mise à jour du stock a échoué. Réessayez."
     },
     "stats": {
       "count": "Dégustations",
@@ -1225,18 +1232,23 @@
       "cellars": "Caves",
       "collections": "Collections",
       "tastings": "Dégustations",
-      "activity": "Journal d'activité"
+      "activity": "Journal d'activité",
+      "wishlist": "Liste de souhaits",
+      "budget": "Budgets",
+      "goals": "Objectifs de consommation",
+      "counts": "Inventaires physiques",
+      "humidor": "Relevés d'humidor"
     },
     "deleteTitle": "Supprimer mon compte",
-    "deleteDescription": "Votre compte sera marqué pour suppression définitive après un délai de grâce de 30 jours.",
+    "deleteDescription": "Envoie une demande de suppression de votre compte à l'administrateur de l'instance, qui la traitera. Vous pouvez l'annuler tant qu'elle n'a pas été traitée.",
     "deleteButton": "Supprimer le compte",
     "deleteModalTitle": "Confirmer la suppression",
-    "deleteModalBody": "Cette action est irréversible. Votre compte et toutes vos données seront supprimés définitivement dans 30 jours.",
+    "deleteModalBody": "Votre demande sera transmise à l'administrateur de l'instance. Une fois traitée, la suppression de votre compte est irréversible.",
     "deleteModalHint": "Saisissez « {{keyword}} » pour confirmer :",
     "deleteKeyword": "SUPPRIMER",
     "deleteConfirm": "Confirmer la suppression",
-    "deletionPending": "Suppression planifiée",
-    "deletionDeadline": "Votre compte sera supprimé le {{date}} sauf annulation.",
+    "deletionPending": "Suppression demandée",
+    "deletionRequestedOn": "Demande envoyée le {{date}}. Elle sera traitée par l'administrateur, sauf annulation de votre part.",
     "cancelDeletion": "Annuler la suppression"
   },
   "accessTransparency": {
@@ -1264,6 +1276,7 @@
     "emptyHint": "Créez un lien de partage pour inviter quelqu'un à consulter votre cave.",
     "copyLink": "Copier le lien",
     "linkCopied": "Lien copié !",
+    "copyFailed": "Copie impossible ici (connexion non sécurisée). Sélectionnez le lien et copiez-le à la main.",
     "createdModal": {
       "title": "Lien de partage créé",
       "warning": "Copiez ce lien maintenant : pour des raisons de sécurité, il ne sera plus jamais affiché.",

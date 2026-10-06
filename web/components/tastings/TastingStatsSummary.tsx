@@ -5,6 +5,7 @@ import { Chip } from '@heroui/react';
 import { useTastingItemStats } from '@/hooks/useTastings';
 import { useTranslation } from 'react-i18next';
 import { TastingReadiness } from '@/lib/tastings/types';
+import { formatDate } from '@/lib/format';
 
 const READINESS_COLOR: Record<TastingReadiness, 'default' | 'success' | 'warning' | 'danger'> = {
   TOO_YOUNG: 'default',
@@ -19,7 +20,7 @@ interface TastingStatsSummaryProps {
 }
 
 export function TastingStatsSummary({ itemId, onViewAll }: TastingStatsSummaryProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: stats, isLoading } = useTastingItemStats(itemId);
 
   if (isLoading) {
@@ -68,7 +69,7 @@ export function TastingStatsSummary({ itemId, onViewAll }: TastingStatsSummaryPr
               {t('tastings.stats.lastTasted')}
             </span>
             <span className="text-xs font-semibold">
-              {new Date(stats.lastTastedAt).toLocaleDateString()}
+              {formatDate(stats.lastTastedAt, i18n.language)}
             </span>
           </div>
         </div>

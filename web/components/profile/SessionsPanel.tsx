@@ -6,9 +6,10 @@ import { useTranslation } from 'react-i18next';
 import { useSessions, useRevokeSession, useTrustDevice, useUntrustDevice, SessionInfo } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { formatDateTime } from '@/lib/format';
 
 export function SessionsPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
 
   const { data: sessions, isLoading, isError, refetch, isRefetching } = useSessions();
@@ -43,7 +44,7 @@ export function SessionsPanel() {
     });
   };
 
-  const formatDate = (value: string) => (hasMounted ? new Date(value).toLocaleString() : '');
+  const formatDate = (value: string) => (hasMounted ? formatDateTime(value, i18n.language) : '');
 
   const formatLocation = (location: SessionInfo['location']) => {
     if (!location || (!location.city && !location.country)) return t('profile.sessions.unknownLocation');

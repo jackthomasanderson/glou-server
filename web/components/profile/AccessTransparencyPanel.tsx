@@ -8,6 +8,7 @@ import { useSessions } from '@/hooks/useAuth';
 import { useShares } from '@/hooks/useShares';
 import { getShareStatus } from '@/lib/shares/types';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { formatDateTime } from '@/lib/format';
 
 /**
  * FEAT-18: "Journal de transparence" — read-only view of who currently has
@@ -18,13 +19,13 @@ import { useHasMounted } from '@/hooks/useHasMounted';
  * those mutations.
  */
 export function AccessTransparencyPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
   const { data: sessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
   const { data: shares, isLoading: sharesLoading, isError: sharesError } = useShares();
 
   const activeShares = (shares ?? []).filter((s) => getShareStatus(s) === 'active');
-  const formatDate = (value: string) => (hasMounted ? new Date(value).toLocaleString() : '');
+  const formatDate = (value: string) => (hasMounted ? formatDateTime(value, i18n.language) : '');
 
   return (
     <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">

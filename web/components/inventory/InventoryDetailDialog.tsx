@@ -19,6 +19,7 @@ import { QrCodeModal } from './QrCodeModal';
 import { CollectionPickerInline } from '@/components/collections/CollectionPickerInline';
 
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
+import { formatDate } from '@/lib/format';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
@@ -92,7 +93,7 @@ interface InventoryDetailDialogProps {
 }
 
 export function InventoryDetailDialog({ item, open, onClose, onEdit }: InventoryDetailDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
   const { data: cellars } = useCellars();
   const updateMutation = useUpdateInventoryItem();
@@ -554,7 +555,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                                 {formatHistoryEntry(entry)}
                               </span>
                               <span className="shrink-0 text-[0.65rem] text-default-300">
-                                {hasMounted ? new Date(entry.createdAt).toLocaleDateString() : ''}
+                                {hasMounted ? formatDate(entry.createdAt, i18n.language) : ''}
                               </span>
                             </div>
                             {restorableChanges.length > 0 && (

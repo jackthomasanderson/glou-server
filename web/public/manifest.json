@@ -1,14 +1,13 @@
 {
-  "name": "Glou — Gestionnaire de Cave",
+  "name": "Glou",
   "short_name": "Glou",
-  "description": "Gérez votre cave à vin, spiritueux et cigares. Application self-hosted, souveraine et privée.",
+  "description": "Manage your wine, spirits and cigar cellar. Self-hosted, private. · Gérez votre cave à vin, spiritueux et cigares. Application auto-hébergée et privée.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FAFAFA",
   "theme_color": "#2563EB",
-  "lang": "fr",
   "id": "/",
   "icons": [
     {

@@ -33,7 +33,7 @@ Turn on scheduled database backups from Admin, restore one when things go wrong,
 
 ### Export your data (full or filtered by category)
 1. Go to **Profile → Data & Privacy (GDPR section)**.
-2. Click **Export** for a complete export of your data, or click **Filter** to expand a category picker and select only what you need: **inventory**, **cellars**, **collections**, **tastings**, **activity**.
+2. Click **Export** for a complete export of your data, or click **Filter** to expand a category picker and select only what you need: **inventory**, **cellars**, **collections**, **tastings**, **activity**, **wishlist**, **budgets**, **consumption goals**, **stock counts**, **humidor readings**. The file has an `included` key listing the categories actually exported. Sessions, trusted devices and secrets (password, 2FA) are never exported.
 3. Click **Export selection**. The file downloads as `glou-export.json` — plain JSON, readable by any text editor or script.
 
 ### Check the access transparency panel

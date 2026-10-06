@@ -11,6 +11,7 @@ import { auditLog } from '../services/audit.service';
 import { AuthPayload } from '../services/auth.service';
 import { passwordResetService } from '../services/password-reset.service';
 import { systemConfigService } from '../services/system-config.service';
+import { isCookieSecure } from '../lib/cookie-secure';
 
 const passwordResetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
 // FEAT-30: a PIN is only 4-6 digits — throttle unlock attempts hard to make brute-force impractical.
@@ -24,7 +25,7 @@ const router = Router();
 const TRUSTED_DEVICE_COOKIE_NAME = 'glou_trusted_device';
 const TRUSTED_DEVICE_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: isCookieSecure(),
   sameSite: 'strict' as const,
   maxAge: 30 * 24 * 60 * 60 * 1000,
   path: '/api/auth',

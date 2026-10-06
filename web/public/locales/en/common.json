@@ -429,7 +429,13 @@
       }
     },
     "rememberMe": "Remember me (30 days)",
-    "trustDevice": "Trust this device (30 days)"
+    "trustDevice": "Trust this device (30 days)",
+    "twoFactor": {
+      "hint": "Please enter the 6-digit code from your authenticator app, or one of your backup codes.",
+      "codeLabel": "Authentication code",
+      "verify": "Verify",
+      "back": "Back"
+    }
   },
   "lock": {
     "buttonLabel": "Lock",
@@ -906,7 +912,8 @@
       "description": "Did this tasting change the state of the bottle in your cellar?",
       "opened": "Bottle opened",
       "consumed": "Bottle consumed (empty)",
-      "ignore": "Do not update stock"
+      "ignore": "Do not update stock",
+      "error": "Stock update failed. Please try again."
     },
     "stats": {
       "count": "Tastings",
@@ -1225,18 +1232,23 @@
       "cellars": "Cellars",
       "collections": "Collections",
       "tastings": "Tastings",
-      "activity": "Activity log"
+      "activity": "Activity log",
+      "wishlist": "Wishlist",
+      "budget": "Budgets",
+      "goals": "Consumption goals",
+      "counts": "Stock counts",
+      "humidor": "Humidor readings"
     },
     "deleteTitle": "Delete my account",
-    "deleteDescription": "Your account will be scheduled for permanent deletion after a 30-day grace period.",
+    "deleteDescription": "Sends a request to delete your account to the instance administrator, who will process it. You can cancel it until it has been processed.",
     "deleteButton": "Delete account",
     "deleteModalTitle": "Confirm deletion",
-    "deleteModalBody": "This action is irreversible. Your account and all your data will be permanently deleted in 30 days.",
+    "deleteModalBody": "Your request will be sent to the instance administrator. Once processed, deleting your account is irreversible.",
     "deleteModalHint": "Type \"{{keyword}}\" to confirm:",
     "deleteKeyword": "DELETE",
     "deleteConfirm": "Confirm deletion",
-    "deletionPending": "Deletion scheduled",
-    "deletionDeadline": "Your account will be deleted on {{date}} unless cancelled.",
+    "deletionPending": "Deletion requested",
+    "deletionRequestedOn": "Request sent on {{date}}. The administrator will process it unless you cancel.",
     "cancelDeletion": "Cancel deletion"
   },
   "accessTransparency": {
@@ -1264,6 +1276,7 @@
     "emptyHint": "Create a share link to invite someone to browse your cellar.",
     "copyLink": "Copy link",
     "linkCopied": "Link copied!",
+    "copyFailed": "Copy is not possible here (insecure connection). Select the link and copy it manually.",
     "createdModal": {
       "title": "Share link created",
       "warning": "Copy this link now — for security, it will never be shown again.",
