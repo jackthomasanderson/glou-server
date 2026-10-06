@@ -17,12 +17,14 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
   useDraggable,
   useDroppable,
   type DragStartEvent,
   type DragEndEvent,
+  type Announcements,
 } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useQueryClient } from '@tanstack/react-query';
@@ -31,6 +33,7 @@ import { GridItem, CellarGridData } from '@/lib/cellars/types';
 import { useAssignSlot } from '@/hooks/useCellars';
 import { client } from '@/lib/api';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
+import { gridCoordinateGetter } from '@/lib/cellars/gridKeyboard';
 
 // ─── Color mapping ────────────────────────────────────────────────────────────
 // Wine gets its own per-varietal-color dots (red/white/rosé/orange — that's
@@ -110,6 +113,7 @@ interface DraggableBottleProps {
 }
 
 function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: DraggableBottleProps) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `bottle-${item.id}`,
     data: { item, fromCol, fromRow },
@@ -127,8 +131,19 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
         ref={setNodeRef}
         {...attributes}
         {...listeners}
+        aria-label={t('cellars.grid.cellLabelOccupied', { col: fromCol, row: fromRow, name: tooltipContent })}
         onClick={() => onClickOccupied(item)}
-        className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-none"
+        // Space picks the bottle up (dnd-kit's KeyboardSensor); Enter opens its
+        // details, the keyboard equivalent of the click. Not while dragging:
+        // there Enter is swallowed by the drop, and must not also open the dialog.
+        onKeyDown={(e) => {
+          listeners?.onKeyDown?.(e);
+          if (e.key === 'Enter' && !isDragging) {
+            e.preventDefault();
+            onClickOccupied(item);
+          }
+        }}
+        className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-none outline-none focus-visible:ring-2 focus-visible:ring-primary"
         style={{
           backgroundColor: getCellColor(item),
           cursor: isDragging ? 'grabbing' : 'grab',
@@ -194,8 +209,17 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied }: 
       ) : (
         <Tooltip content={t('cellars.grid.cellEmpty')} placement="top">
           <div
+            role="button"
+            tabIndex={0}
+            aria-label={t('cellars.grid.cellLabelEmpty', { col, row })}
             onClick={onClickEmpty}
-            className="w-full h-full cursor-pointer hover:bg-default-100 rounded"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClickEmpty();
+              }
+            }}
+            className="w-full h-full cursor-pointer hover:bg-default-100 rounded outline-none focus-visible:ring-2 focus-visible:ring-primary"
           />
         </Tooltip>
       )}
@@ -445,8 +469,37 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
+    }),
+    // #199: without it the grid was mouse/touch only (WCAG 2.1.1).
+    useSensor(KeyboardSensor, {
+      coordinateGetter: gridCoordinateGetter,
+      // Enter is left to the bottle (open details); Space picks up and drops.
+      keyboardCodes: { start: ['Space'], cancel: ['Escape'], end: ['Space'] },
     })
   );
+
+  // dnd-kit's default screen-reader texts are English only.
+  const announcements = useMemo<Announcements>(() => {
+    const slotOf = (over: { data: { current?: unknown } } | null) =>
+      over?.data.current as { col: number; row: number } | undefined;
+    const nameOf = (active: { data: { current?: unknown } }) =>
+      (active.data.current as { item: GridItem }).item.name;
+    return {
+      onDragStart: ({ active }) => {
+        const d = active.data.current as { item: GridItem; fromCol: number; fromRow: number };
+        return t('cellars.grid.announceStart', { name: d.item.name, col: d.fromCol, row: d.fromRow });
+      },
+      onDragOver: ({ active, over }) => {
+        const slot = slotOf(over);
+        return slot ? t('cellars.grid.announceOver', { name: nameOf(active), ...slot }) : undefined;
+      },
+      onDragEnd: ({ active, over }) => {
+        const slot = slotOf(over);
+        return slot ? t('cellars.grid.announceDrop', { name: nameOf(active), ...slot }) : t('cellars.grid.announceCancel', { name: nameOf(active) });
+      },
+      onDragCancel: ({ active }) => t('cellars.grid.announceCancel', { name: nameOf(active) }),
+    };
+  }, [t]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { item, fromCol, fromRow } = event.active.data.current as { item: GridItem; fromCol: number; fromRow: number };
@@ -544,7 +597,15 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
       </div>
 
       {/* Grid */}
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        accessibility={{
+          announcements,
+          screenReaderInstructions: { draggable: t('cellars.grid.dragInstructions') },
+        }}
+      >
         <div className="overflow-x-auto pb-1">
           <div
             className="inline-grid"
