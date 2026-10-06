@@ -127,11 +127,21 @@ async function execPgDump(conn: DbConnParams, destPath: string): Promise<void> {
 }
 
 /**
+ * The dump only holds `CREATE ...` statements (plain `pg_dump`, no `--clean`),
+ * so replaying it on top of the live schema fails at the first object that
+ * already exists (`type "AccessMode" already exists`, #232). The restore
+ * therefore starts from an empty `public` schema; the dump recreates every
+ * table, enum and the `_prisma_migrations` history from scratch.
+ */
+const RESET_SCHEMA_SQL = 'DROP SCHEMA IF EXISTS public CASCADE;\nCREATE SCHEMA public;\n';
+
+/**
  * Restores a `.sql.gz` dump by streaming it through `zlib.createGunzip()`
  * into `psql`'s stdin — again `spawn` with array argv, no shell, password
- * via `PGPASSWORD`. `ON_ERROR_STOP=on` makes `psql` abort (non-zero exit) on
- * the first SQL error instead of silently continuing through a partially
- * broken restore.
+ * via `PGPASSWORD`. The schema reset and the dump run in ONE transaction
+ * (`--single-transaction`): `ON_ERROR_STOP=on` aborts on the first SQL error
+ * and the whole thing rolls back, so a bad or truncated dump leaves the
+ * current data untouched instead of a half-restored (or empty) database.
  */
 async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -142,6 +152,8 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
       '--no-password',
       '--dbname', conn.database,
       '--set', 'ON_ERROR_STOP=on',
+      '--single-transaction',
+      '--file', '-',
     ];
     const child = spawn('psql', args, {
       env: { ...process.env, PGPASSWORD: conn.password },
@@ -156,6 +168,10 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
     const fail = (err: Error) => {
       if (settled) return;
       settled = true;
+      // A broken dump stream must not leave psql waiting on stdin inside an
+      // open transaction (it would hold its locks and freeze the app): killing
+      // it drops the connection and Postgres rolls the transaction back.
+      child.kill('SIGKILL');
       reject(err);
     };
 
@@ -166,6 +182,8 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
     src.on('error', (err) => fail(new Error(`READ_FAILED: ${err.message}`)));
     gunzip.on('error', (err) => fail(new Error(`GUNZIP_FAILED: ${err.message}`)));
 
+    child.stdin.on('error', () => { /* psql exited early: its exit code + stderr are reported on 'close' */ });
+    child.stdin.write(RESET_SCHEMA_SQL);
     src.pipe(gunzip).pipe(child.stdin);
 
     child.on('close', (code) => {
