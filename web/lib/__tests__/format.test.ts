@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate, formatDateTime, formatNumber } from '../format';
+import { currencySymbol, formatCurrency, formatDate, formatDateTime, formatNumber } from '../format';
 
 describe('format (#217)', () => {
   it('formats dates in the app language, not the browser one', () => {
@@ -29,5 +29,20 @@ describe('format (#217)', () => {
   it('formats numbers with the language separators', () => {
     expect(formatNumber(1234567.5, 'en')).toBe('1,234,567.5');
     expect(formatNumber(1234567.5, 'fr').replace(/\s/g, ' ')).toBe('1 234 567,5');
+  });
+
+  // #221 — amounts were glued as `${n} €`: one typography for both languages.
+  it('formats amounts with the language typography (#221)', () => {
+    const nbsp = (v: string) => v.replace(/[\u00a0\u202f]/g, ' ');
+    expect(nbsp(formatCurrency(12.5, 'fr'))).toBe('12,5 €');
+    expect(nbsp(formatCurrency(12.5, 'fr', 2))).toBe('12,50 €');
+    expect(formatCurrency(12.5, 'en', 2)).toBe('€12.50');
+    expect(nbsp(formatCurrency(1234, 'fr'))).toBe('1 234 €');
+    expect(formatCurrency(1234, 'en')).toBe('€1,234');
+  });
+
+  it('exposes the currency symbol for input suffixes', () => {
+    expect(currencySymbol('fr')).toBe('€');
+    expect(currencySymbol('en')).toBe('€');
   });
 });

@@ -31,3 +31,6 @@ Welcome to the Glou wiki. This documentation strictly focuses on setup, configur
 26. [Label Scan](./26-Label-Scan.md)
 27. [Expert Mode](./27-Expert-Mode.md)
 28. [Authentication (API)](./01-Authentication.md)
+29. [Rotate the Secrets](./29-Secret-Rotation.md)
+30. [Disaster Recovery](./30-Disaster-Recovery.md)
+31. [Upgrade & Roll Back](./31-Upgrades-And-Rollback.md)

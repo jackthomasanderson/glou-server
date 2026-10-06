@@ -1,6 +1,7 @@
 'use client';
 import { Button } from '@heroui/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface PaginationBarProps {
   page: number;
@@ -23,6 +24,7 @@ export function PaginationBar({
   labelOf,
   labelItems,
 }: PaginationBarProps) {
+  const { t } = useTranslation();
   if (totalPages <= 1) return null;
 
   return (
@@ -37,7 +39,7 @@ export function PaginationBar({
           variant="flat"
           isDisabled={page <= 1}
           onPress={onPrev}
-          aria-label="Page précédente"
+          aria-label={t('pagination.previous')}
         >
           <ChevronLeft size={16} />
         </Button>
@@ -50,7 +52,7 @@ export function PaginationBar({
           variant="flat"
           isDisabled={page >= totalPages}
           onPress={onNext}
-          aria-label="Page suivante"
+          aria-label={t('pagination.next')}
         >
           <ChevronRight size={16} />
         </Button>

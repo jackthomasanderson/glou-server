@@ -37,12 +37,12 @@ import { GardeHistogram } from './GardeHistogram';
 import { TastingInsights } from './TastingInsights';
 import { ErrorState } from '@/components/ui/ErrorState';
 import i18n from '@/lib/i18n';
-import { formatNumber } from '@/lib/format';
+import { formatCurrency, formatNumber } from '@/lib/format';
 
 type Period = '30d' | '90d' | '1y' | 'all';
 
 const fmtNum = (n: number) => formatNumber(n, i18n.language);
-const fmtCurrency = (n: number) => `${fmtNum(n)} €`;
+const fmtCurrency = (n: number) => formatCurrency(n, i18n.language);
 
 function periodToDates(period: Period): { from?: string; to?: string } {
   const now = new Date();
@@ -120,7 +120,7 @@ function ValuationBreakdown({
                   className="text-[1.4rem] font-extrabold leading-tight"
                   style={{ color: isPositive ? '#22C55E' : '#EF4444' }}
                 >
-                  {isPositive ? '+' : ''}{fmtNum(delta)} €
+                  {isPositive ? '+' : ''}{fmtCurrency(delta)}
                 </p>
                 {roiPercent !== null && (
                   <span

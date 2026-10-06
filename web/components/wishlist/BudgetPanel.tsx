@@ -11,7 +11,7 @@ import {
 } from '@/hooks/useBudget';
 import { BudgetEnvelope } from '@/lib/budget/types';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { formatDate } from '@/lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
 
 function toDateInputValue(iso: string): string {
   return iso.slice(0, 10);
@@ -40,8 +40,8 @@ function EnvelopeCard({ envelope, onDelete }: { envelope: BudgetEnvelope; onDele
           <>
             <p className="text-sm text-default-500">
               {t('budget.progress.label', {
-                spent: `${progress.spent} €`,
-                amount: `${envelope.amount} €`,
+                spent: formatCurrency(progress.spent, i18n.language),
+                amount: formatCurrency(envelope.amount, i18n.language),
                 percent: progress.percent,
               })}
             </p>
@@ -53,7 +53,7 @@ function EnvelopeCard({ envelope, onDelete }: { envelope: BudgetEnvelope; onDele
               aria-label={t('budget.title')}
             />
             <p className="text-xs text-foreground-400">
-              {t('budget.progress.remaining')}: {progress.remaining} €
+              {t('budget.progress.remaining')}: {formatCurrency(progress.remaining, i18n.language)}
             </p>
           </>
         )}

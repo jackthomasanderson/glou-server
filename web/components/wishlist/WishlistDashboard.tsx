@@ -16,7 +16,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
-import { formatDate } from '@/lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
 
 const CATEGORIES: WishlistCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
 
@@ -195,12 +195,12 @@ export function WishlistDashboard() {
                       {t(`wishlist.status.${item.status}`)}
                     </Chip>
                     {item.maxPrice != null && (
-                      <span className="text-xs text-foreground-400">{t('wishlist.form.maxPrice')}: {item.maxPrice} €</span>
+                      <span className="text-xs text-foreground-400">{t('wishlist.form.maxPrice')}: {formatCurrency(item.maxPrice, i18n.language)}</span>
                     )}
                     {item.lastSeenPrice != null && item.lastSeenAt && (
                       <span className="text-xs text-foreground-400">
                         {t('wishlist.priceSeen.lastSeen', {
-                          price: `${item.lastSeenPrice} €`,
+                          price: formatCurrency(item.lastSeenPrice, i18n.language),
                           date: formatDate(item.lastSeenAt, i18n.language),
                         })}
                       </span>

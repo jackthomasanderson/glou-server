@@ -34,7 +34,8 @@
     "roleAdmin": "Administrator",
     "roleUser": "User",
     "collapse": "Collapse",
-    "expand": "Expand"
+    "expand": "Expand",
+    "openSearch": "Open search"
   },
   "actions": {
     "add": "Add",
@@ -234,7 +235,8 @@
       "caskTypePlaceholder": "E.g. Bourbon, Sherry, Port...",
       "caskNumber": "Cask number",
       "caskProof": "Cask strength (%)",
-      "isSingleCask": "Single cask"
+      "isSingleCask": "Single cask",
+      "yearExample": "e.g. {{year}}"
     },
     "expertSection": {
       "title": "Advanced fields (collector)",
@@ -1741,7 +1743,9 @@
     "perPage": "Items per page",
     "page": "Page",
     "of": "of",
-    "items": "items"
+    "items": "items",
+    "previous": "Previous page",
+    "next": "Next page"
   },
   "wishlist": {
     "title": "Wishlist & Budget",
