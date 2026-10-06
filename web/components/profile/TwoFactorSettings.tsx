@@ -130,7 +130,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                     <p className="text-sm text-center text-foreground-600">
                       {t('profile.twoFactor.step1')}
                     </p>
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={setupData.qrCodeUrl}
                       alt="QR Code 2FA"
                       className="w-48 h-48 rounded-xl border border-divider"

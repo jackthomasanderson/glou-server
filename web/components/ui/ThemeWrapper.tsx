@@ -83,6 +83,19 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
   if (!hasMounted) {
     return (
       <ThemeModeProvider>
+        {/* Server-rendered and visible: before hydration the page was an empty
+            screen (#210). The children stay laid out but hidden so nothing flashes. */}
+        <div
+          data-testid="app-boot-placeholder"
+          role="status"
+          aria-label="Glou"
+          className="fixed inset-0 flex items-center justify-center"
+        >
+          <span
+            aria-hidden="true"
+            className="h-8 w-8 animate-spin rounded-full border-4 border-default-200 border-t-primary"
+          />
+        </div>
         <div className="invisible">{children}</div>
       </ThemeModeProvider>
     );

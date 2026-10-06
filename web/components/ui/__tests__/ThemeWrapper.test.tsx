@@ -29,8 +29,9 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+let mockMounted = true;
 vi.mock('@/hooks/useHasMounted', () => ({
-  useHasMounted: () => true,
+  useHasMounted: () => mockMounted,
 }));
 
 // HeroUIProvider pulls in react-aria's overlay/focus-scope internals, which
@@ -63,6 +64,20 @@ describe('ThemeWrapper', () => {
     document.documentElement.style.colorScheme = '';
     window.localStorage.clear();
     mockUser = null;
+    mockMounted = true;
+  });
+
+  it('shows a visible placeholder, not a blank screen, until mounted (#210)', () => {
+    mockMounted = false;
+    mount(<span>content</span>);
+    const placeholder = container.querySelector('[data-testid="app-boot-placeholder"]');
+    expect(placeholder).not.toBeNull();
+    expect(placeholder?.closest('.invisible')).toBeNull();
+  });
+
+  it('removes the placeholder once mounted', () => {
+    mount(<span>content</span>);
+    expect(container.querySelector('[data-testid="app-boot-placeholder"]')).toBeNull();
   });
 
   it('renders its children without crashing', () => {

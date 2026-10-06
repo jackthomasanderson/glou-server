@@ -60,7 +60,7 @@ export function MapAssetList({ items, onSelect, t }: MapAssetListProps) {
             className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-default-50 transition-colors"
           >
             {item.photoUrl ? (
-              <img
+              <img loading="lazy" decoding="async"
                 src={item.photoUrl}
                 alt={item.name}
                 className="w-10 h-10 rounded-lg object-cover bg-background shrink-0"
