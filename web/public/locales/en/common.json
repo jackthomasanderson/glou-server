@@ -411,6 +411,8 @@
       "EMAIL_ALREADY_TAKEN": "This email address is already in use.",
       "VALIDATION_ERROR": "Please check your inputs.",
       "UNEXPECTED_ERROR": "An unexpected error occurred.",
+      "CSRF_ORIGIN_REJECTED": "This address is not allowed by the server. Set APP_URL to the address you type in your browser, then restart.",
+      "CSRF_CROSS_SITE_REJECTED": "The request was blocked as cross-site. Open Glou directly at its own address.",
       "USERNAME_TOO_SHORT": "Username must be at least 3 characters long.",
       "PASSWORD_TOO_SHORT": "Password must be at least 12 characters long.",
       "USERNAME_INVALID_CHARS": "Allowed characters: letters, numbers, - and _.",
