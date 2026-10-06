@@ -277,7 +277,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
         </ModalHeader>
         <ModalBody className="px-0 py-0">
           {error && (
-            <div className="mx-4 mt-2 rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-sm">
+            <div role="alert" className="mx-4 mt-2 rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-sm">
               {error}
             </div>
           )}
@@ -353,7 +353,7 @@ function OccupiedDialog({ open, item, cellarId, onClose }: OccupiedDialogProps) 
         <ModalHeader>{item.name}</ModalHeader>
         <ModalBody>
           {error && (
-            <div className="rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-sm mb-2">
+            <div role="alert" className="rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-sm mb-2">
               {error}
             </div>
           )}

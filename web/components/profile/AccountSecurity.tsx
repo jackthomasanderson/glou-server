@@ -218,7 +218,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
               <ModalHeader>{t('profile.changeEmail')}</ModalHeader>
               <ModalBody className="flex flex-col gap-3">
                 {errorMsg && (
-                  <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3 mb-2">{errorMsg}</div>
+                  <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3 mb-2">{errorMsg}</div>
                 )}
                 <Input
                   label={t('auth.email')}
@@ -272,7 +272,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
               <ModalHeader>{t('profile.changePassword')}</ModalHeader>
               <ModalBody className="flex flex-col gap-3">
                 {errorMsg && (
-                  <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
+                  <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
                 )}
                 <Input
                   label={t('profile.currentPassword')}
@@ -326,7 +326,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
               <ModalHeader>{hasPin ? t('profile.changePin') : t('profile.setPin')}</ModalHeader>
               <ModalBody className="flex flex-col gap-3">
                 {errorMsg && (
-                  <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
+                  <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
                 )}
                 <p className="text-xs text-foreground-400">{t('profile.pinModalHint')}</p>
                 <Input
@@ -383,7 +383,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
               <ModalHeader>{t('profile.pinRemoveConfirmTitle')}</ModalHeader>
               <ModalBody className="flex flex-col gap-3">
                 {errorMsg && (
-                  <div className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
+                  <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
                 )}
                 <p className="text-sm text-foreground-500">{t('profile.pinRemoveConfirmBody')}</p>
                 <Input

@@ -122,6 +122,7 @@ export function SessionsPanel() {
         <p className="text-xs text-foreground-500 mb-3">{t('profile.sessions.trustDescription')}</p>
         {trustMsg && (
           <div
+            role={trustMsg.type === 'success' ? 'status' : 'alert'}
             className={`text-sm rounded-lg px-4 py-3 mb-3 border ${
               trustMsg.type === 'success'
                 ? 'bg-success-50 border-success-200 text-success'

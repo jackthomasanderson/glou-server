@@ -107,7 +107,7 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
               labelPlacement="outside"
             />
             {error && (
-              <div className="rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-xs">
+              <div role="alert" className="rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-xs">
                 {error}
               </div>
             )}

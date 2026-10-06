@@ -19,7 +19,11 @@ Turn on scheduled database backups from Admin, restore one when things go wrong,
 4. Click **Save**.
 
 > [!TIP]
-> The scheduler ticks every hour and only produces a dump when both the switch is on and the current UTC hour matches your configured hour — so it effectively runs once a day, and toggling **Enabled** takes effect on the very next tick, no restart needed.
+> The scheduler ticks every hour and produces a dump when the switch is on and the current UTC hour matches your configured hour — so it effectively runs once a day, and toggling **Enabled** takes effect on the very next tick, no restart needed.
+>
+> **Missed backups are caught up.** If the container was stopped or restarting at your configured hour, the backup runs at the next hourly tick: any time the last successful backup is more than 25 hours old, a new one is taken.
+>
+> **Failures are reported.** If a scheduled backup fails (full disk, database unreachable…), every administrator is notified through their enabled channels (email, Gotify/webhook) — once per failure streak, then again after 24 hours if it keeps failing, not every hour. The category is called **Backup failures (admin)** in Profile → Notifications. Old backup files are only deleted after a *successful* backup, so a failing run never wipes the last good dump.
 
 ### Run a backup immediately
 1. In the same tab, click **Run now**.

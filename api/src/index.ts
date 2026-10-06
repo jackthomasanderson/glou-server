@@ -87,9 +87,11 @@ async function bootstrap(): Promise<void> {
   // FEAT-18: scheduled database backups (pg_dump). Ticks hourly and re-reads
   // SystemConfig (backupEnabled/backupHourUtc) on every tick — see
   // backupService.runScheduledIfDue — so an admin can enable/disable or
-  // change the target hour without restarting the container. Only produces
-  // an actual backup once, when the current UTC hour matches the configured
-  // one, so it behaves as a once-a-day job despite the hourly tick.
+  // change the target hour without restarting the container. It produces a
+  // backup when the current UTC hour matches the configured one — a
+  // once-a-day job despite the hourly tick — or, as a catch-up, when the last
+  // successful backup is more than 25 h old (a run missed while the container
+  // was down, or failing runs being retried hourly).
   cron.schedule('0 * * * *', () => {
     void backupService.runScheduledIfDue()
       .then((run) => {
