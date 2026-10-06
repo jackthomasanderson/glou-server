@@ -70,6 +70,16 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   serverExternalPackages: [],
+  // Private app: keep every page, guest-share links included, out of search
+  // engines (#209). Paired with app/robots.ts, which crawlers may ignore.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' }],
+      },
+    ];
+  },
   async rewrites() {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     return [
