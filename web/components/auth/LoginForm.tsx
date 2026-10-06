@@ -100,6 +100,7 @@ export function LoginForm() {
               size="md"
               radius="md"
               labelPlacement="outside"
+              isRequired
               isDisabled={isPending}
               autoFocus
             />
@@ -142,6 +143,7 @@ export function LoginForm() {
                   size="md"
                   radius="md"
                   labelPlacement="outside"
+                  isRequired
                   isInvalid={!!errors.identifier}
                   errorMessage={errors.identifier?.message}
                   isDisabled={isPending}
@@ -161,6 +163,7 @@ export function LoginForm() {
                   size="md"
                   radius="md"
                   labelPlacement="outside"
+                  isRequired
                   isInvalid={!!errors.password}
                   errorMessage={errors.password?.message}
                   isDisabled={isPending}

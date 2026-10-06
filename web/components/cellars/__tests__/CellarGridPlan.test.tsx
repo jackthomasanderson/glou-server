@@ -14,6 +14,23 @@ vi.mock('react-i18next', () => ({
     t: (k: string, o?: Record<string, unknown>) => (o ? `${k}|${Object.values(o).join(',')}` : k),
   }),
 }));
+// HeroUI's Modal loads framer-motion features asynchronously: that work outlives
+// the test and throws "window is not defined" once jsdom is torn down. These
+// tests are about the grid, not the modal chrome, so it is replaced by a plain box.
+vi.mock('@heroui/react', async (importActual) => {
+  const actual = await importActual<typeof import('@heroui/react')>();
+  const Box = ({ children }: { children?: React.ReactNode | ((close: () => void) => React.ReactNode) }) => (
+    <div>{typeof children === 'function' ? children(() => {}) : children}</div>
+  );
+  return {
+    ...actual,
+    Modal: ({ isOpen, children }: { isOpen?: boolean; children?: React.ReactNode }) => (isOpen ? <div role="dialog">{children}</div> : null),
+    ModalContent: Box,
+    ModalHeader: Box,
+    ModalBody: Box,
+    ModalFooter: Box,
+  };
+});
 vi.mock('@/hooks/useCellars', () => ({ useAssignSlot: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
 vi.mock('@/lib/api', () => ({ client: { patch: vi.fn() } }));
 

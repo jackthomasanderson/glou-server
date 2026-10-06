@@ -1,0 +1,14 @@
+# The Dockerfile copies only prisma/, src/ and a few config files, so this just
+# keeps the build context small and out of reach of local data (#230).
+node_modules
+dist
+uploads
+backups
+logs
+coverage
+.git
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore

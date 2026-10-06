@@ -33,3 +33,16 @@ describe('LoginForm error announcement (#201)', () => {
     expect(screen.getByRole('alert').textContent).toBeTruthy();
   });
 });
+
+// #206 — the sign-in fields looked optional: nothing marked them as required, to
+// sight (no asterisk) or to assistive technology.
+describe('LoginForm required fields (#206)', () => {
+  it('marks the identifier and password as required', () => {
+    render(<LoginForm />);
+    const identifier = screen.getAllByRole('textbox')[0] as HTMLInputElement;
+    const password = document.querySelector('input[type="password"]') as HTMLInputElement;
+    for (const input of [identifier, password]) {
+      expect(input.required || input.getAttribute('aria-required') === 'true').toBe(true);
+    }
+  });
+});

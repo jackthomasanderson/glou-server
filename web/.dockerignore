@@ -1,0 +1,14 @@
+# Keep the build context small and stop host files from overwriting what the
+# Dockerfile just installed: `COPY . .` runs after `npm ci`, so a host
+# node_modules or .next would replace the image's own (#230).
+node_modules
+.next
+*.tsbuildinfo
+coverage
+.git
+.env
+.env.*
+!.env.example
+Dockerfile
+.dockerignore
+*.md
