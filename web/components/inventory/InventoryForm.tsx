@@ -4,6 +4,8 @@ import {
   Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Chip, Divider, Input, Select, SelectItem,
 } from '@heroui/react';
+import i18n from '@/lib/i18n';
+import { currencySymbol } from '@/lib/format';
 import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
@@ -508,7 +510,7 @@ export function InventoryForm({
                             type="number"
                             variant="bordered"
                             size="sm"
-                            placeholder="ex: 2025"
+                            placeholder={t('inventory.fields.yearExample', { year: 2025 })}
                             value={String(values.peakMaturityFrom ?? '')}
                             onValueChange={(v) => setField('peakMaturityFrom', v ? Number(v) : null)}
                             min={1800} max={2200}
@@ -518,7 +520,7 @@ export function InventoryForm({
                             type="number"
                             variant="bordered"
                             size="sm"
-                            placeholder="ex: 2030"
+                            placeholder={t('inventory.fields.yearExample', { year: 2030 })}
                             value={String(values.peakMaturityTo ?? '')}
                             onValueChange={(v) => setField('peakMaturityTo', v ? Number(v) : null)}
                             min={1800} max={2200}
@@ -703,7 +705,7 @@ export function InventoryForm({
                           size="sm"
                           value={String(values.purchasePrice ?? '')}
                           onValueChange={(v) => setField('purchasePrice', numField(v))}
-                          endContent={<span className="text-xs text-default-400">€</span>}
+                          endContent={<span className="text-xs text-default-400">{currencySymbol(i18n.language)}</span>}
                         />
 
                         {/* Purchase place */}
@@ -725,7 +727,7 @@ export function InventoryForm({
                           size="sm"
                           value={String(values.estimatedValue ?? '')}
                           onValueChange={(v) => setField('estimatedValue', numField(v))}
-                          endContent={<span className="text-xs text-default-400">€</span>}
+                          endContent={<span className="text-xs text-default-400">{currencySymbol(i18n.language)}</span>}
                         />
 
                         {/* Notes */}
