@@ -15,7 +15,6 @@ import { useCollections } from '@/hooks/useCollections';
 import { useActiveCountSession } from '@/hooks/useInventoryCount';
 import { useWishlist } from '@/hooks/useWishlist';
 import { useHasMounted } from '@/hooks/useHasMounted';
-import { ConnectivityIndicator } from './ConnectivityIndicator';
 import { ThemeToggle } from './ThemeToggle';
 
 export const SIDEBAR_WIDTH = 220;
@@ -150,6 +149,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
                 )
               }
               aria-label={link.label}
+              aria-current={active ? 'page' : undefined}
             >
               {expanded && (
                 <span
@@ -203,6 +203,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
                   </span>
                 }
                 aria-label={t('nav.admin')}
+                aria-current={active ? 'page' : undefined}
               >
                 {expanded && (
                   <span className={`overflow-hidden transition-all duration-200 text-sm leading-normal whitespace-nowrap max-w-[200px] opacity-100 ${active ? 'font-semibold' : 'font-normal'}`}>
@@ -257,7 +258,6 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
               </p>
             </div>
 
-            <ConnectivityIndicator />
           </>
         )}
       </div>
@@ -296,6 +296,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
     <>
       {/* Desktop: permanent sidebar */}
       <nav
+        aria-label={t('nav.primary')}
         style={{ width: desktopWidth }}
         className="hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 bg-content1 border-r border-divider overflow-hidden z-20 transition-all duration-200"
       >
