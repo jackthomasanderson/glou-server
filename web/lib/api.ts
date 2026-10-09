@@ -1,9 +1,11 @@
-type ApiError = { error: string; details?: string };
+type ApiError = { error: string; details?: unknown };
 
 export async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({ error: 'NETWORK_ERROR' }))) as ApiError;
-    throw new Error(body.details ?? body.error ?? `HTTP ${res.status}`);
+    // body.details carries structured debug data (e.g. Zod's err.format()), never a
+    // displayable message — only body.error is the stable code callers can translate.
+    throw new Error(body.error ?? `HTTP ${res.status}`);
   }
   const body = await res.json() as { data: T };
   return body.data;

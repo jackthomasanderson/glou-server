@@ -9,7 +9,7 @@
   },
   "nav": {
     "dashboard": "Tableau de bord",
-    "bottles": "Bouteilles",
+    "bottles": "Actifs",
     "caves": "Caves",
     "cigars": "Cigares",
     "profile": "Profil",
@@ -22,7 +22,7 @@
     "primary": "Navigation principale",
     "searchViewAll": "Voir tous les résultats →",
     "searchCollection": "Collection",
-    "searchBottles": "Bouteilles",
+    "searchBottles": "Actifs",
     "searchCellars": "Caves",
     "allCellars": "Voir toutes les caves",
     "collections": "Collections",
@@ -60,7 +60,7 @@
     "none": "Aucun"
   },
   "duplicate": {
-    "title": "Cet item existe déjà",
+    "title": "Cet actif existe déjà",
     "description": "{{name}} ({{producer}}) est déjà présent dans votre inventaire.",
     "currentQuantity": "Quantité actuelle : {{count}}",
     "cellar": "Cave : {{cellar}}",
@@ -119,7 +119,7 @@
   },
   "inventory": {
     "detail": {
-      "titleWine": "Détails de la bouteille",
+      "titleWine": "Détails de l'actif",
       "titleCigar": "Détails de l'actif",
       "wineLevel": "Ajustement tactile du niveau",
       "cigarLevel": "Capacité de la boite / Humidité",
@@ -140,16 +140,16 @@
     },
     "add": "Ajouter",
     "edit": "Modifier l'actif",
-    "details": "Détails de la bouteille",
-    "delete": "Supprimer la bouteille",
-    "restore": "Restaurer la bouteille",
-    "deleteConfirm": "La bouteille sera déplacée dans la corbeille.",
-    "undoDelete": "Bouteille supprimée. Annuler ?",
+    "details": "Détails de l'actif",
+    "delete": "Supprimer l'actif",
+    "restore": "Restaurer l'actif",
+    "deleteConfirm": "L'actif sera déplacé dans la corbeille.",
+    "undoDelete": "Actif supprimé. Annuler ?",
     "trashInfo": "J restants avant suppression définitive",
     "noBottles": "Aucun actif dans votre cave",
     "noBottlesDesc": "Ajoutez votre premier actif pour commencer.",
     "createCellarFirst": "Créez une cave d'abord",
-    "createCellarFirstDesc": "Vous devez avoir au moins une cave pour loger vos bouteilles.",
+    "createCellarFirstDesc": "Vous devez avoir au moins une cave pour loger vos actifs.",
     "chooseCellar": "Choisir une cave",
     "noCellar": "Aucune cave",
     "searchPlaceholder": "Rechercher (nom, producteur, millésime...)",
@@ -323,7 +323,7 @@
     "stats": {
       "total": "Total stock",
       "full": "Stock plein",
-      "opened": "Bouteilles entamées",
+      "opened": "Actifs entamés",
       "openedCigar": "Cigares entamés"
     },
     "alerts": {
@@ -347,14 +347,14 @@
     "peakCount": "{{count}} à l'apogée"
   },
   "toast": {
-    "createSuccess": "Bouteille ajoutée avec succès",
-    "updateSuccess": "Bouteille mise à jour",
-    "deleteSuccess": "Bouteille déplacée dans la corbeille",
-    "restoreSuccess": "Bouteille restaurée",
-    "createError": "Impossible d'ajouter la bouteille",
-    "updateError": "Impossible de mettre à jour la bouteille",
-    "deleteError": "Impossible de supprimer la bouteille",
-    "restoreError": "Impossible de restaurer la bouteille",
+    "createSuccess": "Actif ajouté avec succès",
+    "updateSuccess": "Actif mis à jour",
+    "deleteSuccess": "Actif déplacé dans la corbeille",
+    "restoreSuccess": "Actif restauré",
+    "createError": "Impossible d'ajouter l'actif",
+    "updateError": "Impossible de mettre à jour l'actif",
+    "deleteError": "Impossible de supprimer l'actif",
+    "restoreError": "Impossible de restaurer l'actif",
     "collection": {
       "createSuccess": "Collection créée",
       "updateSuccess": "Collection mise à jour",
@@ -496,7 +496,7 @@
       }
     },
     "deleteTitle": "Supprimer la cave",
-    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les bouteilles qu'elle contient deviendront orphelines.",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les actifs qu'elle contient deviendront orphelins.",
     "stats": {
       "items": "actifs",
       "alerts": "alertes",
@@ -523,16 +523,16 @@
       "coldZone": "Zone froide ({{count}} rangées)",
       "hotZoneLabel": "Zone chaude",
       "coldZoneLabel": "Zone froide",
-      "cellEmpty": "Vide — cliquez pour assigner une bouteille",
-      "cellLabelEmpty": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner une bouteille.",
+      "cellEmpty": "Vide — cliquez pour assigner un actif",
+      "cellLabelEmpty": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner un actif.",
       "cellLabelOccupied": "Colonne {{col}}, rangée {{row}} : {{name}}. Entrée pour le détail, Espace pour déplacer.",
-      "dragInstructions": "Pour déplacer cette bouteille, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour la déposer. Échap annule.",
+      "dragInstructions": "Pour déplacer cet actif, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour le déposer. Échap annule.",
       "announceStart": "{{name}} saisie depuis la colonne {{col}}, rangée {{row}}.",
       "announceOver": "{{name}} est au-dessus de la colonne {{col}}, rangée {{row}}.",
       "announceDrop": "{{name}} déposée en colonne {{col}}, rangée {{row}}.",
       "announceCancel": "Déplacement annulé. {{name}} reste en place.",
-      "assignTitle": "Assigner une bouteille à l'emplacement C{{col}}·R{{row}}",
-      "noUnassignedBottles": "Toutes les bouteilles de cette cave sont déjà assignées à un emplacement.",
+      "assignTitle": "Assigner un actif à l'emplacement C{{col}}·R{{row}}",
+      "noUnassignedBottles": "Tous les actifs de cette cave sont déjà assignés à un emplacement.",
       "slotOccupied": "Cet emplacement est déjà occupé.",
       "removeFromSlot": "Retirer de l'emplacement",
       "slot": "Emplacement"
@@ -746,7 +746,7 @@
     "maturityRefs": {
       "title": "Références d'apogée",
       "subtitle": "Définissez des fenêtres de dégustation de référence par catégorie, région, couleur ou producteur.",
-      "cascadeHint": "Les règles sont évaluées de haut en bas — la première qui correspond à une bouteille l'emporte. Placez vos règles les plus spécifiques au-dessus des règles générales.",
+      "cascadeHint": "Les règles sont évaluées de haut en bas — la première qui correspond à un actif l'emporte. Placez vos règles les plus spécifiques au-dessus des règles générales.",
       "add": "Ajouter une référence",
       "addTitle": "Nouvelle référence d'apogée",
       "editTitle": "Modifier la référence",
@@ -762,7 +762,7 @@
         "criteria": "Critères",
         "window": "Fenêtre",
         "curve": "Courbe",
-        "bottles": "Bouteilles",
+        "bottles": "Actifs",
         "actions": "Actions"
       },
       "fields": {
@@ -785,7 +785,7 @@
         "criteria": "Correspondance optionnelle",
         "windowRelative": "Ex : 5 → 15 pour une bouteille buvable de 5 à 15 ans après le millésime",
         "windowAbsolute": "Ex : 2010 → 2030 pour une fenêtre calendaire fixe",
-        "curveShape": "Forme de la courbe de maturité appliquée aux bouteilles correspondantes",
+        "curveShape": "Forme de la courbe de maturité appliquée aux actifs correspondants",
         "colorPlaceholder": "Rouge, Blanc, Rosé…"
       },
       "errors": {
@@ -797,7 +797,7 @@
       "title": "Maintenance",
       "purge": {
         "title": "Remise à zéro de la base de données",
-        "description": "Cette action supprimera TOUTES les bouteilles, TOUTES les caves et TOUS les journaux d'activité. Les comptes utilisateurs seront préservés.",
+        "description": "Cette action supprimera TOUS les actifs, TOUTES les caves et TOUS les journaux d'activité. Les comptes utilisateurs seront préservés.",
         "button": "Purger toutes les données",
         "confirmTitle": "Confirmation de purge complète",
         "confirmDescription": "Attention ! Cette action est irréversible. Pour confirmer que vous souhaitez supprimer TOUTES les données métier, veuillez saisir le mot-clé ci-dessous :",
@@ -806,7 +806,7 @@
         "success": "La base de données a été remise à zéro avec succès.",
         "error": "Une erreur est survenue lors de la purge des données.",
         "counts": {
-          "bottles": "{{count}} bouteilles supprimées",
+          "bottles": "{{count}} actifs supprimés",
           "cellars": "{{count}} caves supprimées",
           "logs": "{{count}} entrées de log supprimées"
         }
@@ -927,9 +927,9 @@
     },
     "stockUpdate": {
       "title": "Mettre à jour le stock ?",
-      "description": "Cette dégustation a-t-elle modifié l'état de la bouteille dans votre cave ?",
-      "opened": "Bouteille entamée",
-      "consumed": "Bouteille consommée (vide)",
+      "description": "Cette dégustation a-t-elle modifié l'état de l'actif dans votre cave ?",
+      "opened": "Actif entamé",
+      "consumed": "Actif consommé (vide)",
       "ignore": "Ne pas modifier le stock",
       "error": "La mise à jour du stock a échoué. Réessayez."
     },
@@ -959,10 +959,10 @@
       "searchPlaceholder": "Ex. bœuf bourguignon, saumon, chocolat noir...",
       "promptTitle": "Décrivez votre plat pour découvrir vos meilleurs accords",
       "promptHint": "Saisissez un met ou choisissez une suggestion rapide ci-dessus.",
-      "noResults": "Aucune bouteille en stock ne correspond à \"{{query}}\"",
+      "noResults": "Aucun actif en stock ne correspond à \"{{query}}\"",
       "noResultsHint": "Essayez un terme plus général ou une des suggestions rapides.",
-      "resultsCount": "{{count}} bouteille correspondante",
-      "resultsCount_plural": "{{count}} bouteilles correspondantes",
+      "resultsCount": "{{count}} actif correspondant",
+      "resultsCount_plural": "{{count}} actifs correspondants",
       "reason": "Accorde avec : {{pairing}}",
       "consumeNow": "Consommer maintenant",
       "inventoryLoadError": "Impossible de charger votre inventaire.",
@@ -989,10 +989,10 @@
       "define": "Définir un objectif",
       "edit": "Modifier l'objectif",
       "targetType": "Type d'objectif",
-      "targetTypeCount": "Nombre de bouteilles",
+      "targetTypeCount": "Nombre d'actifs",
       "targetTypeVolume": "Volume (en bouteilles)",
       "targetValue": "Objectif",
-      "progressLabel": "{{count}} / {{target}} bouteilles consommées",
+      "progressLabel": "{{count}} / {{target}} actifs consommés",
       "saveError": "Impossible d'enregistrer l'objectif. Veuillez réessayer."
     },
     "suggestions": {
@@ -1079,6 +1079,13 @@
       "close": "Clôturer la session",
       "closeWithCorrections": "Clôturer et appliquer ({{count}})",
       "completedNotice": "Cette session est clôturée."
+    },
+    "errors": {
+      "SESSION_NOT_FOUND": "Cette session d'inventaire est introuvable.",
+      "SESSION_NOT_ACTIVE": "Cette session d'inventaire n'est plus active.",
+      "SESSION_ALREADY_COMPLETED": "Cette session d'inventaire a déjà été clôturée.",
+      "VALIDATION_ERROR": "Veuillez vérifier les informations saisies.",
+      "UNEXPECTED_ERROR": "Une erreur inattendue est survenue."
     }
   },
   "analytics": {
@@ -1096,7 +1103,7 @@
       "cigarHumidor": "Cigares en humidor",
       "cigarHumidorHint": "Préservés sous hygrométrie contrôlée",
       "urgentDegustation": "Urgence de dégustation",
-      "urgentDegustationHint": "Bouteilles à l'apogée ou l'ayant dépassée"
+      "urgentDegustationHint": "Actifs à l'apogée ou l'ayant dépassée"
     },
     "regionMap": {
       "title": "Répartition géographique",
@@ -1161,10 +1168,10 @@
     },
     "garde": {
       "title": "Planning de Garde (Histogramme)",
-      "subtitle": "Distribution temporelle des bouteilles par année d'apogée optimale",
+      "subtitle": "Distribution temporelle des actifs par année d'apogée optimale",
       "noData": "Aucune fenêtre d'apogée renseignée dans votre inventaire.",
-      "bottles_one": "bouteille à l'apogée",
-      "bottles_other": "bouteilles à l'apogée"
+      "bottles_one": "actif à l'apogée",
+      "bottles_other": "actifs à l'apogée"
     },
     "caves": {
       "title": "Répartition par cave"
@@ -1172,7 +1179,7 @@
     "maturity": {
       "title": "Planning optimal de consommation (Apogée)",
       "season": "Saison {{year}}",
-      "description": "Cette projection indique la période idéale pour consommer vos bouteilles ou apprécier vos cigares afin de préserver l'intégrité de leurs arômes.",
+      "description": "Cette projection indique la période idéale pour consommer vos actifs afin de préserver l'intégrité de leurs arômes.",
       "readyNow": "Prêts à déguster immédiatement",
       "preserve": "À préserver en cave / humidor",
       "atPeak": "À l'apogée (À consommer en priorité)",
@@ -1240,7 +1247,7 @@
     }
   },
   "qr": {
-    "title": "QR Code de la bouteille",
+    "title": "QR Code de l'actif",
     "download": "Télécharger PNG"
   },
   "gdpr": {
@@ -1364,7 +1371,7 @@
       "scopePartial": "Vue partielle",
       "edit": {
         "action": "Modifier",
-        "opened": "Bouteille entamée",
+        "opened": "Actif entamé",
         "openedBadge": "Entamée",
         "fillLevel": "Niveau restant (%)",
         "notes": "Notes",

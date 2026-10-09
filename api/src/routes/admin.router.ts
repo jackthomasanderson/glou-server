@@ -412,7 +412,10 @@ adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Pro
     const response = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ title: 'Glou — Test', message: 'Notification de test depuis le panneau admin.' }),
+      body: JSON.stringify({
+        title: 'Glou — Test',
+        message: 'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
+      }),
       signal: AbortSignal.timeout(5000),
     });
     if (response.ok) {
