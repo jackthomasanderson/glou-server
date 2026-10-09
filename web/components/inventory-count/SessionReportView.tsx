@@ -46,7 +46,10 @@ export function SessionReportView({ session }: SessionReportViewProps) {
       setMoveIds(new Set());
       setAddToStockEntryIds(new Set());
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('status.error'));
+      const code = err instanceof Error ? err.message : 'UNEXPECTED_ERROR';
+      const key = `inventoryCount.errors.${code}`;
+      const translated = t(key);
+      setError(translated === key ? t('inventoryCount.errors.UNEXPECTED_ERROR') : translated);
     }
   };
 
