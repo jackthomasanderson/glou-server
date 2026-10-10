@@ -545,6 +545,12 @@ export function AnalyticsDashboard() {
   return (
     <MainLayout>
     <div className="max-w-5xl mx-auto py-6 px-4 space-y-6">
+      {/* ISSUE_128: the page renders several Skeleton placeholders at once
+          while isLoading — one shared live region announces the state
+          once instead of each skeleton block competing to announce it. */}
+      <span role="status" aria-live="polite" className="sr-only">
+        {isLoading ? t('status.loading') : ''}
+      </span>
 
       {/* Header */}
       <Card className="border border-default-200 print:hidden" shadow="none">

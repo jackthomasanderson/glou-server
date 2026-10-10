@@ -91,8 +91,8 @@ export function CollectionsDashboard() {
 
       {/* Loading */}
       {isLoading ? (
-        <div className="flex justify-center py-16">
-          <Spinner size="lg" />
+        <div className="flex justify-center py-16" role="status" aria-live="polite">
+          <Spinner size="lg" aria-label={t('status.loading')} />
         </div>
       ) : !collections?.length ? (
         /* Empty state */

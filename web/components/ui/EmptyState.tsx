@@ -31,6 +31,8 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={`text-center py-16 px-4 ${
         bordered ? 'border-2 border-dashed border-divider rounded-xl bg-default-50' : ''
       } ${className ?? ''}`}
