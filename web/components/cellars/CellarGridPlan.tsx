@@ -32,6 +32,7 @@ import { useTranslation } from 'react-i18next';
 import { GridItem, CellarGridData } from '@/lib/cellars/types';
 import { useAssignSlot } from '@/hooks/useCellars';
 import { client } from '@/lib/api';
+import { notifyError } from '@/lib/toast';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 import { gridCoordinateGetter } from '@/lib/cellars/gridKeyboard';
 
@@ -533,6 +534,13 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
       }
     } else {
       // ── Swap two occupied slots ─────────────────────────────────────────
+      // ISSUE_037: this used to be three independent network calls (vacate,
+      // move target, move dragged); a dropped connection between any two of
+      // them left the database half-updated while the screen silently
+      // reverted to the old positions, lying about the real state. A single
+      // transactional endpoint now performs both moves atomically, and a
+      // failure triggers a real refetch (not just a local revert) plus an
+      // error toast, so the screen can never again disagree with the server.
       setLocalItems((prev) =>
         prev.map((it) => {
           if (it.id === draggedItem.id) return { ...it, slotColumn: toCol, slotRow: toRow };
@@ -541,18 +549,18 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
         })
       );
       try {
-        // Step 1: vacate source slot
-        await client.patch(`/inventory/${draggedItem.id}`, { slotColumn: null, slotRow: null });
-        // Step 2: move target to source slot
-        await client.patch(`/inventory/${targetItem.id}`, { slotColumn: fromCol, slotRow: fromRow });
-        // Step 3: move dragged to target slot
-        await client.patch(`/inventory/${draggedItem.id}`, { slotColumn: toCol, slotRow: toRow });
+        await client.post(`/cellars/${cellar.id}/swap-slots`, {
+          itemAId: draggedItem.id,
+          itemBId: targetItem.id,
+        });
         invalidateGrid();
       } catch {
         setLocalItems(prevItems);
+        invalidateGrid();
+        notifyError('cellars.grid.moveError');
       }
     }
-  }, [localItems, invalidateGrid]);
+  }, [localItems, invalidateGrid, cellar.id]);
 
   if (cols === 0 || rows === 0) {
     return (

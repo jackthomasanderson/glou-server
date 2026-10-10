@@ -55,3 +55,17 @@ export const updateCellarSchema = cellarFields
 
 export type CreateCellarInput = z.infer<typeof createCellarSchema>;
 export type UpdateCellarInput = z.infer<typeof updateCellarSchema>;
+
+// ISSUE_037: the client only ever names the two bottles being swapped — the
+// slots they end up in are read back from their own current positions
+// server-side (see CellarService.swapSlots), so a stale or spoofed
+// coordinate in the request body can't desynchronise the grid.
+export const swapSlotsSchema = z.object({
+  itemAId: z.string().uuid(),
+  itemBId: z.string().uuid(),
+}).refine((data) => data.itemAId !== data.itemBId, {
+  message: 'itemAId and itemBId must be different items',
+  path: ['itemBId'],
+});
+
+export type SwapSlotsInput = z.infer<typeof swapSlotsSchema>;

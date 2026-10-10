@@ -535,7 +535,8 @@
       "noUnassignedBottles": "Tous les actifs de cette cave sont déjà assignés à un emplacement.",
       "slotOccupied": "Cet emplacement est déjà occupé.",
       "removeFromSlot": "Retirer de l'emplacement",
-      "slot": "Emplacement"
+      "slot": "Emplacement",
+      "moveError": "Le déplacement a échoué, la grille a été resynchronisée avec le serveur."
     },
     "filterByType": "Filtrer par type",
     "filterByStatus": "Filtrer par état",

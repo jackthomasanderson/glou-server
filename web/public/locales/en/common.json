@@ -533,7 +533,8 @@
       "noUnassignedBottles": "All assets in this cellar are already assigned to a slot.",
       "slotOccupied": "This slot is already occupied.",
       "removeFromSlot": "Remove from slot",
-      "slot": "Slot"
+      "slot": "Slot",
+      "moveError": "The move failed — the grid was resynced with the server."
     },
     "filterByType": "Filter by type",
     "filterByStatus": "Filter by status",

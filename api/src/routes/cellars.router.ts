@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { CellarService } from '../services/cellar.service';
-import { createCellarSchema, updateCellarSchema } from '../schemas/cellar.schema';
+import { createCellarSchema, updateCellarSchema, swapSlotsSchema } from '../schemas/cellar.schema';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
@@ -129,6 +129,41 @@ router.get('/:id/grid', async (req: Request, res: Response) => {
     res.json({ data });
   } catch (err: unknown) {
     res.status(500).json({ error: 'FAILED_TO_FETCH_GRID' });
+  }
+});
+
+/**
+ * POST /api/cellars/:id/swap-slots
+ * ISSUE_037: atomically swap two bottles' grid positions, so a dropped
+ * connection mid-swap can no longer leave the database half-updated.
+ */
+router.post('/:id/swap-slots', async (req: Request, res: Response) => {
+  const userId = req.userId!;
+  const id = routeParam(req.params.id);
+  const validation = swapSlotsSchema.safeParse(req.body);
+
+  if (!validation.success) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
+  }
+
+  try {
+    const result = await CellarService.swapSlots(userId, id, validation.data);
+    if (result.status === 'not_found') {
+      return res.status(404).json({ error: 'ITEM_NOT_FOUND' });
+    }
+    if (result.status === 'not_in_grid') {
+      return res.status(409).json({ error: 'ITEM_NOT_IN_GRID' });
+    }
+    await auditLog({
+      userId,
+      ip: getClientIp(req),
+      action: 'CELLAR_SWAP_SLOTS',
+      status: 'success',
+      details: { cellarId: id, itemAId: validation.data.itemAId, itemBId: validation.data.itemBId },
+    });
+    res.json({ data: result.items });
+  } catch (err: unknown) {
+    res.status(500).json({ error: 'FAILED_TO_SWAP_SLOTS' });
   }
 });
 

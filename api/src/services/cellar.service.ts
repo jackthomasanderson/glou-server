@@ -1,5 +1,10 @@
 import { prisma } from '../lib/prisma';
-import { CreateCellarInput, UpdateCellarInput } from '../schemas/cellar.schema';
+import { CreateCellarInput, UpdateCellarInput, SwapSlotsInput } from '../schemas/cellar.schema';
+
+export type SwapSlotsResult =
+  | { status: 'not_found' }
+  | { status: 'not_in_grid' }
+  | { status: 'success'; items: [{ id: string; slotColumn: number | null; slotRow: number | null }, { id: string; slotColumn: number | null; slotRow: number | null }] };
 
 export class CellarService {
   static async createCellar(userId: string, data: CreateCellarInput) {
@@ -116,5 +121,45 @@ export class CellarService {
     });
 
     return { cellar, items };
+  }
+
+  /**
+   * ISSUE_037: swapping two occupied grid slots used to be three independent
+   * network calls (clear source, move target, move dragged), so a dropped
+   * connection between any two of them left the database half-updated with
+   * no way for the client to tell. Both updates now happen inside a single
+   * `prisma.$transaction` — mirroring the pattern already used by
+   * `inventory-count.service.ts#applyCorrections` — so the swap either fully
+   * applies or leaves the grid exactly as it was.
+   */
+  static async swapSlots(_userId: string, cellarId: string, data: SwapSlotsInput): Promise<SwapSlotsResult> {
+    const [itemA, itemB] = await Promise.all([
+      prisma.inventoryItem.findFirst({ where: { id: data.itemAId, cellarId, deletedAt: null } }),
+      prisma.inventoryItem.findFirst({ where: { id: data.itemBId, cellarId, deletedAt: null } }),
+    ]);
+
+    if (!itemA || !itemB) return { status: 'not_found' };
+    if (itemA.slotColumn == null || itemA.slotRow == null || itemB.slotColumn == null || itemB.slotRow == null) {
+      return { status: 'not_in_grid' };
+    }
+
+    const [updatedA, updatedB] = await prisma.$transaction([
+      prisma.inventoryItem.update({
+        where: { id: itemA.id },
+        data: { slotColumn: itemB.slotColumn, slotRow: itemB.slotRow },
+      }),
+      prisma.inventoryItem.update({
+        where: { id: itemB.id },
+        data: { slotColumn: itemA.slotColumn, slotRow: itemA.slotRow },
+      }),
+    ]);
+
+    return {
+      status: 'success',
+      items: [
+        { id: updatedA.id, slotColumn: updatedA.slotColumn, slotRow: updatedA.slotRow },
+        { id: updatedB.id, slotColumn: updatedB.slotColumn, slotRow: updatedB.slotRow },
+      ],
+    };
   }
 }
