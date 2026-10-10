@@ -6,6 +6,7 @@ import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
 import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema } from '../schemas/user.schema';
 import { prisma } from '../lib/prisma';
+import { assertUrlAllowed } from '../lib/ssrf';
 import { notificationService } from '../services/notification.service';
 import { systemConfigService } from '../services/system-config.service';
 import { auditLog } from '../services/audit.service';
@@ -243,6 +244,18 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
     notifCategories, notifQuietStart, notifQuietEnd,
     notifLanguage, webhookUrl,
   } = req.body;
+
+  // ISSUE_048: a webhook URL is called server-side on every notification —
+  // reject anything that isn't a public HTTPS address at save time, the same
+  // guard already applied to it just before each actual delivery.
+  if (webhookUrl) {
+    try {
+      await assertUrlAllowed(webhookUrl);
+    } catch {
+      res.status(400).json({ error: 'INVALID_URL' });
+      return;
+    }
+  }
 
   const data: Record<string, unknown> = {};
   if (notifInApp !== undefined) data.notifInApp = Boolean(notifInApp);

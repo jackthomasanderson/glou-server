@@ -9,9 +9,9 @@
 ## ✨ Top 5 Highlights
 1. 📸 **Zero-Effort Intake**: Snap a label photo. OCR pre-fills the details instantly.
 2. 🤝 **Shared Inventory**: Every user on the instance shares one collective cellar — built for families, roommates, and wine clubs.
-3. 🧠 **Smart Data Engine**: Auto-enrichment via Vivino and Whiskybase, backed by a local cache.
-4. 🔔 **Peak Maturity Alerts**: Get notified when a bottle enters its drinking window before it's too late.
-5. 🛡️ **Fully Self-Hosted**: A Docker Compose stack (Node.js · Next.js · PostgreSQL) you run on your own machine.
+3. 🔔 **Peak Maturity Alerts**: Get notified when a bottle enters its drinking window before it's too late.
+4. 🛡️ **Fully Self-Hosted**: A Docker Compose stack (Node.js · Next.js · PostgreSQL) you run on your own machine.
+5. 👪 **Guest Sharing**: Scoped, revocable links to let friends or family browse (or help stock) part of your cellar.
 
 ---
 
@@ -45,10 +45,13 @@
 ```bash
 cp .env.example .env
 ```
-Open `.env` and set a strong `JWT_SECRET`.
+Open `.env` and set three mandatory values — none of them has a safe default:
+- `DB_PASSWORD` — docker compose refuses to start without it.
+- `JWT_SECRET` — generate with: `openssl rand -base64 48`
+- `CONFIG_ENCRYPTION_KEY` — generate with: `openssl rand -hex 32`
 
 > [!CAUTION]
-> `JWT_SECRET` has no safe default. Running with the placeholder value makes all user sessions trivially forgeable. Generate one with: `openssl rand -hex 32`
+> Running with the placeholder values makes all user sessions trivially forgeable, and the API refuses to start in production mode until `CONFIG_ENCRYPTION_KEY` is a real value.
 
 **Step 2 — Launch**
 ```bash
@@ -85,6 +88,7 @@ Open [http://localhost:3000](http://localhost:3000) and click **Register**. The 
 Dozens of smaller features ship regularly — see the [closed pull requests](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) for the full history.
 
 ### 🔮 Next Up
+- 🧠 **Smart Data Engine** — auto-enrichment via Vivino and Whiskybase, backed by a local cache. Not built yet: the admin screen's integration keys aren't read by anything today.
 - Predictive analytics for collection valuation.
 - Advanced IoT integration for live cellar temperature and humidity monitoring.
 - Native mobile companion application.

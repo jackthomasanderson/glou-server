@@ -1524,6 +1524,7 @@
       "title": "Third-party API keys",
       "vivinoKey": "Vivino API key",
       "whiskybaseKey": "Whiskybase API key",
+      "vivinoWhiskybaseNotUsedYet": "Coming soon — stored securely, but no feature reads these keys yet.",
       "ocrUrl": "OCR service URL",
       "ocrUrlPlaceholder": "https://ocr.example.com/extract",
       "keyPlaceholder": "Leave blank to keep current",

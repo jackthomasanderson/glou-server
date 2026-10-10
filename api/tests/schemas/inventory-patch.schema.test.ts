@@ -15,6 +15,12 @@ describe('inventoryPatchSchema', () => {
     expect(res.success).toBe(true);
   });
 
+  it('strips lockedFields: internal bookkeeping the client has no reason to set (ISSUE_031)', () => {
+    const res = inventoryPatchSchema.safeParse({ name: 'Pétrus', lockedFields: ['fillLevel', 'isOpened'] });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data).not.toHaveProperty('lockedFields');
+  });
+
   it('normalizes cellarId "none"/"" to null via preprocess', () => {
     const a = inventoryPatchSchema.safeParse({ cellarId: 'none' });
     const b = inventoryPatchSchema.safeParse({ cellarId: '' });

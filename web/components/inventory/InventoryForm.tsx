@@ -160,9 +160,13 @@ export function InventoryForm({
     if (!canSave) return;
     // alertStatus is recomputed server-side from peakMaturity — never send it as-is.
     // readiness (FEAT-86) is a server-computed, read-only projection — drop it too.
+    // lockedFields (ISSUE_031) is internal bookkeeping the server itself
+    // maintains on every manual edit — round-tripping it unchanged used to
+    // disable that very auto-lock (the API now strips it either way, but the
+    // form has no legitimate reason to send it).
     // cellarId 'none' is a UI sentinel → null.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { alertStatus: _drop, readiness: _drop2, ...rest } = values;
+    const { alertStatus: _drop, readiness: _drop2, lockedFields: _drop3, ...rest } = values;
     const patch = {
       ...rest,
       cellarId: rest.cellarId === ('none' as string) || rest.cellarId === '' ? null : rest.cellarId,

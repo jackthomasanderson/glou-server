@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { routeParam } from '../lib/http';
 import { normalizeGotifyUrl } from '../lib/gotify-url';
+import { assertUrlAllowed } from '../lib/ssrf';
 import { authMiddleware, adminMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
 import { paginationQuerySchema } from '../schemas/pagination.schema';
@@ -314,6 +315,16 @@ adminRouter.put('/config/smtp', async (req: Request, res: Response): Promise<voi
 adminRouter.put('/config/gotify', async (req: Request, res: Response): Promise<void> => {
   try {
     const { gotifyEnabled, gotifyUrl, gotifyToken } = req.body;
+    // ISSUE_048: this address is fetched server-side on every test and every
+    // delivery — same guard as the per-member webhook, applied at save time.
+    if (gotifyUrl) {
+      try {
+        await assertUrlAllowed(gotifyUrl);
+      } catch {
+        res.status(400).json({ error: 'INVALID_URL' });
+        return;
+      }
+    }
     const config = await systemConfigService.updateGotify(
       { gotifyEnabled, gotifyUrl, gotifyToken },
       req.userId,
@@ -343,6 +354,15 @@ adminRouter.put('/config/notifications', async (req: Request, res: Response): Pr
 adminRouter.put('/config/integrations', async (req: Request, res: Response): Promise<void> => {
   try {
     const { vivinoKey, whiskybaseKey, ocrUrl } = req.body;
+    // ISSUE_048: defense in depth, even though nothing reads this field today.
+    if (ocrUrl) {
+      try {
+        await assertUrlAllowed(ocrUrl);
+      } catch {
+        res.status(400).json({ error: 'INVALID_URL' });
+        return;
+      }
+    }
     const config = await systemConfigService.updateIntegrations({ vivinoKey, whiskybaseKey, ocrUrl }, req.userId);
     res.json({ data: config });
   } catch (err) {
@@ -406,26 +426,39 @@ adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Pro
     }
     const gotifyFull = await systemConfigService.getGotify();
     const url = normalizeGotifyUrl(gotifyFull.gotifyUrl!);
+
+    // ISSUE_048: re-validated here too (the save-time check at PUT
+    // /config/gotify can't cover a URL set before this guard existed).
+    try {
+      await assertUrlAllowed(url);
+    } catch {
+      res.status(400).json({ error: 'INVALID_URL' });
+      return;
+    }
+
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (gotifyFull.gotifyToken) headers['X-Gotify-Key'] = gotifyFull.gotifyToken;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        title: 'Glou — Test',
-        message: 'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
-      }),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (response.ok) {
-      res.json({ data: { success: true, status: response.status } });
-      return;
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          title: 'Glou — Test',
+          message: 'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+      // The raw HTTP status / network error message is a reconnaissance
+      // instrument for mapping what the server container can reach
+      // internally — a stable, generic code is returned instead.
+      res.json({ data: response.ok ? { success: true } : { success: false, error: 'DELIVERY_FAILED' } });
+    } catch {
+      res.json({ data: { success: false, error: 'DELIVERY_FAILED' } });
     }
-    res.json({ data: { success: false, status: response.status, error: `HTTP ${response.status}` } });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'FETCH_ERROR';
-    res.json({ data: { success: false, error: msg } });
+    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
+    res.status(500).json({ error: msg });
   }
 });
 
