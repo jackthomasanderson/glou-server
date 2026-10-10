@@ -132,8 +132,17 @@ export function createApp(): express.Express {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     next();
   };
-  app.use('/uploads/scans', authMiddleware, allowCrossOriginEmbedding, express.static(path.join(uploadsDir, 'scans')));
-  app.use('/uploads', allowCrossOriginEmbedding, express.static(uploadsDir));
+  // CodeQL: `/uploads` sits outside the `/api` prefix, so the baseline
+  // `apiLimiter` above never covered it — `/uploads/scans` performs
+  // authorization (authMiddleware) with no rate limit of its own at all.
+  const uploadsLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 1000,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use('/uploads/scans', uploadsLimiter, authMiddleware, allowCrossOriginEmbedding, express.static(path.join(uploadsDir, 'scans')));
+  app.use('/uploads', uploadsLimiter, allowCrossOriginEmbedding, express.static(uploadsDir));
 
   // ─── Routes ───────────────────────────────────────────────────────────────
 
