@@ -353,7 +353,7 @@ export class AuthService {
    * Register a new user.
    */
   async register(data: RegisterInput, deviceInfo: DeviceInfo): Promise<{ user: PublicUser; token: string }> {
-    const { username, email, password } = data;
+    const { username, email, password, displayName } = data;
 
     // Check uniqueness
     const existing = await prisma.user.findFirst({
@@ -379,6 +379,7 @@ export class AuthService {
         email,
         passwordHash,
         isAdmin,
+        displayName: displayName || null,
       },
       select: {
         id: true,

@@ -55,10 +55,23 @@ describe('InventoryService', () => {
       include: {
         collections: { select: { id: true, name: true, color: true, icon: true } },
       },
+      take: 2001,
     });
     // FEAT-86: every row is decorated with a computed `readiness` (null here —
     // the mock items carry no peak-maturity window).
-    expect(result).toEqual(mockItems.map((i) => ({ ...i, readiness: null })));
+    expect(result.items).toEqual(mockItems.map((i) => ({ ...i, readiness: null })));
+    expect(result.truncated).toBe(false);
+  });
+
+  // ISSUE_083: a ceiling with a `truncated` flag, not a silent cutoff.
+  it('listInventory - flags truncated when more than 2000 items exist', async () => {
+    const mockItems = Array.from({ length: 2001 }, (_, i) => ({ id: `b${i}`, userId: 'u1', name: 'X', deletedAt: null }));
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(mockItems as never);
+
+    const result = await service.listInventory('u1');
+
+    expect(result.items).toHaveLength(2000);
+    expect(result.truncated).toBe(true);
   });
 
   it('softDelete - returns null when item not found', async () => {

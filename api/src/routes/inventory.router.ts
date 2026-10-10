@@ -20,9 +20,9 @@ router.use(authMiddleware);
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
-    const items = await inventoryService.listInventory(req.userId);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { count: items.length } });
-    res.json({ data: items });
+    const { items, truncated } = await inventoryService.listInventory(req.userId);
+    void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { count: items.length, truncated } });
+    res.json({ data: items, truncated });
   } catch (error) {
     console.error('[inventory] GET / error:', error);
     void auditLog({ userId: req.userId, action: 'LIST', status: 'error', ip, details: { message: String(error) } });

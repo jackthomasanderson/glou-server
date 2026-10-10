@@ -11,6 +11,7 @@ vi.mock('../../src/lib/prisma', () => ({
     },
     inventoryItem: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -206,7 +207,9 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
 
 describe('sharesService.getItemForShare', () => {
   it('returns null when the item is outside the share scope (security)', async () => {
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ id: 'in-scope' }] as never);
+    // A real DB would simply not match the row — mirrored here as findFirst
+    // resolving to null instead of filtering a loaded array in JS (ISSUE_082).
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null as never);
 
     const result = await sharesService.getItemForShare(
       { cellarIds: ['c1'], collectionIds: [], userId: 'owner1', hidePrices: false, hideNotes: false },
@@ -217,7 +220,7 @@ describe('sharesService.getItemForShare', () => {
   });
 
   it('returns the matching item when it is in scope (nominal)', async () => {
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ id: 'in-scope' }] as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ id: 'in-scope' } as never);
 
     const result = await sharesService.getItemForShare(
       { cellarIds: ['c1'], collectionIds: [], userId: 'owner1', hidePrices: false, hideNotes: false },
@@ -225,6 +228,9 @@ describe('sharesService.getItemForShare', () => {
     );
 
     expect(result).toEqual({ id: 'in-scope' });
+    expect(prisma.inventoryItem.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'in-scope' }) }),
+    );
   });
 });
 

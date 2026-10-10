@@ -96,13 +96,23 @@ function attachReadiness<
 const TRASH_RETENTION_DAYS = 7;
 
 export class InventoryService {
-  async listInventory(_userId: string): Promise<WithReadiness<InventoryItemWithCollections>[]> {
+  /**
+   * ISSUE_083: an unbounded `findMany` here loads the entire inventory into
+   * memory and serializes all of it on every page load — fine at hundreds of
+   * items, not at tens of thousands. A hard ceiling bounds the worst case;
+   * `truncated` tells the caller the list isn't complete so it isn't
+   * mistaken for the full inventory.
+   */
+  async listInventory(_userId: string): Promise<{ items: WithReadiness<InventoryItemWithCollections>[]; truncated: boolean }> {
+    const limit = 2000;
     const items = await prisma.inventoryItem.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
       include: INVENTORY_ITEM_INCLUDE,
+      take: limit + 1,
     });
-    return items.map(attachReadiness);
+    const truncated = items.length > limit;
+    return { items: items.slice(0, limit).map(attachReadiness), truncated };
   }
 
   async listTrash(_userId: string): Promise<InventoryItem[]> {

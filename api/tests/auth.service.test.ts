@@ -123,7 +123,10 @@ describe('AuthService', () => {
         select: { id: true },
       });
       expect(bcrypt.hash).toHaveBeenCalledWith(validData.password, 12);
-      expect(prisma.user.create).toHaveBeenCalled();
+      // ISSUE_085: accepted by the schema, must actually reach the DB write.
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ displayName: validData.displayName }) }),
+      );
       expect(result.token).toBe('mock-jwt-token');
       expect(result.user.username).toBe(validData.username);
     });

@@ -142,6 +142,20 @@ export const scanService = {
     return { count: result.count, imagePaths: staleJobs.map((j) => j.imagePath) };
   },
 
+  /**
+   * ISSUE_084: a process restart (crash, deploy) while a job's background
+   * `processJob` promise was mid-flight leaves its row stuck in 'pending' or
+   * 'processing' forever — the client polling it never sees a terminal
+   * status. Called once on bootstrap, before anything new can be enqueued.
+   */
+  async recoverStuckJobs(): Promise<number> {
+    const result = await prisma.scanJob.updateMany({
+      where: { status: { in: ['pending', 'processing'] } },
+      data: { status: 'failed', errorMessage: 'Interrupted by a server restart.' },
+    });
+    return result.count;
+  },
+
   /** File half of the purge. Never throws: a stuck file must not block the others. */
   async deleteScanFiles(imagePaths: string[]): Promise<void> {
     for (const imagePath of imagePaths) {

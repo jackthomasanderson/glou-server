@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { connectWithRetry } from './lib/prisma';
 import { createApp } from './app';
 import { inventoryService } from './services/inventory.service';
+import { scanService } from './services/scan.service';
 import { MaintenanceService } from './services/maintenance.service';
 import { recomputeAlertStatuses } from './services/alert.service';
 import { checkHumidorDrift } from './services/humidor.service';
@@ -54,6 +55,13 @@ async function runAlertStatusRecompute(origin: 'startup' | 'cron'): Promise<void
 
 async function bootstrap(): Promise<void> {
   await connectWithRetry();
+
+  // ISSUE_084: a ScanJob left in 'pending'/'processing' by a crash or deploy
+  // mid-flight would otherwise poll forever from the client's point of view.
+  // Must run before anything new can be enqueued.
+  await scanService.recoverStuckJobs().then((count) => {
+    if (count > 0) console.info(`[startup] Recovered ${count} scan job(s) stuck by a previous restart`);
+  });
 
   // Background maintenance: purge old trash
   void inventoryService.purgeTrashed().then((count) => {
