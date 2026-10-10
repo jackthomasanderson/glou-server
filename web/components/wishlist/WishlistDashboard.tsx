@@ -150,6 +150,7 @@ export function WishlistDashboard() {
         <Gift size={22} className="text-primary" />
         <h1 className="text-xl font-bold">{t('wishlist.title')}</h1>
         <Button
+          data-testid="wishlist-create-button"
           className="ml-auto"
           color="primary"
           variant="solid"
@@ -176,7 +177,7 @@ export function WishlistDashboard() {
           <Gift size={64} className="text-foreground-400 mb-4" />
           <p className="text-lg font-semibold text-default-500">{t('wishlist.empty')}</p>
           <p className="text-sm text-foreground-500 mb-6">{t('wishlist.emptyHint')}</p>
-          <Button color="primary" variant="solid" startContent={<Plus size={16} />} onPress={openCreate}>
+          <Button data-testid="wishlist-create-button" color="primary" variant="solid" startContent={<Plus size={16} />} onPress={openCreate}>
             {t('wishlist.create')}
           </Button>
         </div>
@@ -248,6 +249,7 @@ export function WishlistDashboard() {
               <ModalHeader>{editing ? t('wishlist.edit') : t('wishlist.create')}</ModalHeader>
               <ModalBody className="gap-4">
                 <Input
+                  data-testid="wishlist-name-input"
                   label={t('wishlist.form.name')}
                   placeholder={t('wishlist.form.namePlaceholder')}
                   value={form.name}
@@ -305,6 +307,7 @@ export function WishlistDashboard() {
               <ModalFooter>
                 <Button color="danger" variant="light" onPress={formGuard.requestClose}>{t('actions.cancel')}</Button>
                 <Button
+                  data-testid="wishlist-form-submit"
                   color="primary" variant="solid"
                   isLoading={createMutation.isPending || updateMutation.isPending}
                   isDisabled={!form.name.trim()}

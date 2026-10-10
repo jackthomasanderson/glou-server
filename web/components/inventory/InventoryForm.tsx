@@ -338,6 +338,7 @@ export function InventoryForm({
                       {isWine && (
                         <>
                           <Input
+                            data-testid="inventory-vintage-input"
                             label={t('inventory.fields.vintage')}
                             type="number"
                             variant="bordered"
@@ -384,6 +385,7 @@ export function InventoryForm({
                       {isSparkling && (
                         <>
                           <Input
+                            data-testid="inventory-vintage-input"
                             label={t('inventory.fields.vintage')}
                             type="number"
                             variant="bordered"
@@ -960,10 +962,11 @@ export function InventoryForm({
             </ModalBody>
 
             <ModalFooter className="gap-2 pt-3 shrink-0">
-              <Button variant="bordered" onPress={guard.requestClose} isDisabled={isSubmitting}>
+              <Button data-testid="inventory-form-cancel" variant="bordered" onPress={guard.requestClose} isDisabled={isSubmitting}>
                 {t('actions.cancel')}
               </Button>
               <Button
+                data-testid="inventory-form-submit"
                 type="submit"
                 color="primary"
                 startContent={<Save size={15} />}

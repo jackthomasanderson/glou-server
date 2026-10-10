@@ -153,6 +153,7 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
                 {t('actions.cancel')}
               </Button>
               <Button
+                data-testid="collection-form-submit"
                 color="primary"
                 variant="solid"
                 type="submit"
