@@ -354,7 +354,8 @@ export function useUntrustDevice() {
 // preserving the original FEAT-38 full-export behavior.
 export type ExportCategory =
   | 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity'
-  | 'wishlist' | 'budget' | 'goals' | 'counts' | 'humidor';
+  | 'wishlist' | 'budget' | 'goals' | 'counts' | 'humidor'
+  | 'sessions' | 'devices' | 'notifications' | 'configHistory';
 
 export function useExportData() {
   return useMutation<void, Error, ExportCategory[] | void>({

@@ -1273,7 +1273,11 @@
       "budget": "Budgets",
       "goals": "Objectifs de consommation",
       "counts": "Inventaires physiques",
-      "humidor": "Relevés d'humidor"
+      "humidor": "Relevés d'humidor",
+      "sessions": "Sessions",
+      "devices": "Appareils de confiance",
+      "notifications": "Préférences de notification",
+      "configHistory": "Historique de configuration"
     },
     "deleteTitle": "Supprimer mon compte",
     "deleteDescription": "Envoie une demande de suppression de votre compte à l'administrateur de l'instance, qui la traitera. Vous pouvez l'annuler tant qu'elle n'a pas été traitée.",

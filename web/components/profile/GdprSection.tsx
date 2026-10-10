@@ -13,6 +13,7 @@ interface GdprSectionProps {
 const EXPORT_CATEGORIES: ExportCategory[] = [
   'inventory', 'cellars', 'collections', 'tastings', 'activity',
   'wishlist', 'budget', 'goals', 'counts', 'humidor',
+  'sessions', 'devices', 'notifications', 'configHistory',
 ];
 
 export function GdprSection({ user }: GdprSectionProps) {
