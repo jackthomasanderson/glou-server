@@ -65,6 +65,21 @@ const withPWA = withPWAInit({
   },
 });
 
+// ISSUE_053: Strict-Transport-Security tells the browser to only ever speak
+// HTTPS to this origin — correct advice on an instance actually served over
+// TLS, but a self-inflicted lockout on the http://, local-network deployment
+// this project also explicitly supports (FEAT-54). Same override pattern as
+// the API's `api/src/lib/cookie-secure.ts` (COOKIE_SECURE / APP_URL):
+//   FORCE_HSTS=true|false  explicit override (e.g. TLS terminated upstream
+//                          while APP_URL still says http, or the reverse)
+//   otherwise              HSTS only when APP_URL is an https:// URL
+function shouldSendHsts() {
+  const override = process.env.FORCE_HSTS?.trim().toLowerCase();
+  if (override === 'true') return true;
+  if (override === 'false') return false;
+  return process.env.APP_URL?.trim().startsWith('https://') ?? false;
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -72,11 +87,25 @@ const nextConfig = {
   serverExternalPackages: [],
   // Private app: keep every page, guest-share links included, out of search
   // engines (#209). Paired with app/robots.ts, which crawlers may ignore.
+  // ISSUE_053: the API's own `helmet()` only ever covers its JSON responses
+  // and /uploads — the actual HTML pages are served by this Next.js app and
+  // went out with none of this.
   async headers() {
     return [
       {
         source: '/:path*',
-        headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' }],
+        headers: [
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+          // Clickjacking: an instance exposed to the Internet (FEAT-54) must
+          // not be embeddable in a third party's invisible frame.
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          ...(shouldSendHsts()
+            ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' }]
+            : []),
+        ],
       },
     ];
   },

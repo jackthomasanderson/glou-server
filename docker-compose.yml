@@ -71,6 +71,10 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      # ISSUE_053: HSTS only when APP_URL is https://, unless overridden —
+      # see next.config.mjs's shouldSendHsts().
+      FORCE_HSTS: ${FORCE_HSTS:-}
     ports:
       - "3000:3000"
     logging: *logging
