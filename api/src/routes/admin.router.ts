@@ -11,6 +11,7 @@ import { paginationQuerySchema } from '../schemas/pagination.schema';
 import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenceReorderSchema } from '../schemas/maturity-reference.schema';
 import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/retention.schema';
 import { networkConfigSchema } from '../schemas/network-config.schema';
+import { smtpConfigSchema, gotifyConfigSchema, integrationsConfigSchema } from '../schemas/system-config.schema';
 import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
 import { systemConfigService } from '../services/system-config.service';
@@ -300,39 +301,41 @@ adminRouter.get('/config', async (_req: Request, res: Response): Promise<void> =
 
 adminRouter.put('/config/smtp', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { smtpEnabled, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, smtpSecure } = req.body;
-    const config = await systemConfigService.updateSmtp(
-      { smtpEnabled, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, smtpSecure },
-      req.userId,
-    );
+    const parsed = smtpConfigSchema.parse(req.body);
+    const config = await systemConfigService.updateSmtp(parsed, req.userId);
     res.json({ data: config });
   } catch (err) {
     console.error('[admin] PUT /config/smtp error:', err);
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      return;
+    }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
 adminRouter.put('/config/gotify', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { gotifyEnabled, gotifyUrl, gotifyToken } = req.body;
+    const parsed = gotifyConfigSchema.parse(req.body);
     // ISSUE_048: this address is fetched server-side on every test and every
     // delivery — same guard as the per-member webhook, applied at save time.
-    if (gotifyUrl) {
+    if (parsed.gotifyUrl) {
       try {
-        await assertUrlAllowed(gotifyUrl);
+        await assertUrlAllowed(parsed.gotifyUrl);
       } catch (err) {
         console.error('[admin] PUT /config/gotify error:', err);
         res.status(400).json({ error: 'INVALID_URL' });
         return;
       }
     }
-    const config = await systemConfigService.updateGotify(
-      { gotifyEnabled, gotifyUrl, gotifyToken },
-      req.userId,
-    );
+    const config = await systemConfigService.updateGotify(parsed, req.userId);
     res.json({ data: config });
   } catch (err) {
     console.error('[admin] PUT /config/gotify error:', err);
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      return;
+    }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
@@ -354,21 +357,25 @@ adminRouter.put('/config/notifications', async (req: Request, res: Response): Pr
 
 adminRouter.put('/config/integrations', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { vivinoKey, whiskybaseKey, ocrUrl } = req.body;
+    const parsed = integrationsConfigSchema.parse(req.body);
     // ISSUE_048: defense in depth, even though nothing reads this field today.
-    if (ocrUrl) {
+    if (parsed.ocrUrl) {
       try {
-        await assertUrlAllowed(ocrUrl);
+        await assertUrlAllowed(parsed.ocrUrl);
       } catch (err) {
         console.error('[admin] PUT /config/integrations error:', err);
         res.status(400).json({ error: 'INVALID_URL' });
         return;
       }
     }
-    const config = await systemConfigService.updateIntegrations({ vivinoKey, whiskybaseKey, ocrUrl }, req.userId);
+    const config = await systemConfigService.updateIntegrations(parsed, req.userId);
     res.json({ data: config });
   } catch (err) {
     console.error('[admin] PUT /config/integrations error:', err);
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      return;
+    }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });

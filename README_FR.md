@@ -92,3 +92,8 @@ Des dizaines de fonctionnalités plus petites sortent régulièrement — voir l
 - Analyses prédictives pour la valorisation de la collection.
 - Intégration IoT avancée pour le suivi en direct de la température et de l'hygrométrie.
 - Application mobile native.
+
+## 🙏 Crédits / Tiers
+
+- Ce produit inclut des données GeoLite créées par MaxMind, disponibles sur [http://maxmind.com/](http://maxmind.com/).
+- Fonds de carte par les contributeurs d'[OpenStreetMap](https://www.openstreetmap.org/copyright).

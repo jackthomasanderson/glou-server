@@ -49,8 +49,8 @@ tmp/
 # template, ni depuis un projet dérivé (voir AGENTS.md). Le pipeline reste à
 # jour localement via .claude/hooks/pipeline-pull.sh, qui copie depuis la
 # copie locale du template : aucun réseau, aucun push impliqué.
-# Exception : .github/workflows/ reste suivi, nécessaire au fonctionnement
-# de la CI GitHub (voir .github/workflows/README.md).
+# Exception : .github/workflows/ reste suivi (il n'est listé nulle part
+# ci-dessous), nécessaire au fonctionnement de la CI GitHub.
 _projet/
 .ressources/
 .claude/

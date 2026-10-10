@@ -75,3 +75,18 @@ export const completeOnboardingSchema = z.object({
 });
 
 export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>;
+
+// ─── FEAT-32: Notification Preferences ───────────────────────────────────────
+
+export const updateNotificationPrefsSchema = z.object({
+  notifInApp: z.boolean().optional(),
+  notifEmail: z.boolean().optional(),
+  notifWebhook: z.boolean().optional(),
+  notifCategories: z.array(z.string()).optional(),
+  notifQuietStart: z.number().int().min(0).max(23).optional().nullable(),
+  notifQuietEnd: z.number().int().min(0).max(23).optional().nullable(),
+  notifLanguage: z.enum(['FR', 'EN']).optional(),
+  webhookUrl: z.string().url().optional().nullable().or(z.literal('')),
+});
+
+export type UpdateNotificationPrefsInput = z.infer<typeof updateNotificationPrefsSchema>;

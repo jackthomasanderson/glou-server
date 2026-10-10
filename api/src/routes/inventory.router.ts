@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import QRCode from 'qrcode';
-import { inventoryInputSchema, inventoryPatchSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
+import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
 import { scanJobIdHintSchema } from '../schemas/scan.schema';
 import { inventoryService } from '../services/inventory.service';
 import { scanService } from '../services/scan.service';
@@ -17,15 +17,16 @@ router.use(authMiddleware);
 
 // ─── GET /api/inventory ──────────────────────────────────────────────────────
 
+// ISSUE_087: a plain read used to write an audit-log row on every request —
+// the browser refetches the list at most every 30s, so a tab left open
+// accumulated thousands of rows a week for an event with zero traceability
+// value. Only actions that actually change data are logged now.
 router.get('/', async (req: Request, res: Response): Promise<void> => {
-  const ip = getClientIp(req);
   try {
-    const items = await inventoryService.listInventory(req.userId);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { count: items.length } });
-    res.json({ data: items });
+    const { items, truncated } = await inventoryService.listInventory(req.userId);
+    res.json({ data: items, truncated });
   } catch (error) {
     console.error('[inventory] GET / error:', error);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'error', ip, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -33,14 +34,11 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 // ─── GET /api/inventory/trash ────────────────────────────────────────────────
 
 router.get('/trash', async (req: Request, res: Response): Promise<void> => {
-  const ip = getClientIp(req);
   try {
     const items = await inventoryService.listTrash(req.userId);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { scope: 'trash', count: items.length } });
     res.json({ data: items });
   } catch (error) {
     console.error('[inventory] GET /trash error:', error);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'error', ip, details: { scope: 'trash', message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -80,19 +78,15 @@ router.get('/:id/qr', async (req: Request, res: Response): Promise<void> => {
 
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  const ip = getClientIp(req);
   try {
     const result = await inventoryService.getItemWithTraceability(req.userId, id);
     if (!result) {
-      void auditLog({ userId: req.userId, action: 'READ', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
       return;
     }
-    void auditLog({ userId: req.userId, action: 'READ', status: 'success', ip, bottleId: id });
     res.json({ data: { ...result.item, _creator: result.creator, _lastEditor: result.lastEditor } });
   } catch (error) {
     console.error('[inventory] GET /:id error:', error);
-    void auditLog({ userId: req.userId, action: 'READ', status: 'error', ip, bottleId: id, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -101,7 +95,6 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 
 router.get('/:id/history', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  const ip = getClientIp(req);
   try {
     const item = await inventoryService.getItem(req.userId, id);
     if (!item) {
@@ -109,11 +102,9 @@ router.get('/:id/history', async (req: Request, res: Response): Promise<void> =>
       return;
     }
     const history = await inventoryService.getItemHistory(id);
-    void auditLog({ userId: req.userId, action: 'READ', status: 'success', ip, bottleId: id, details: { scope: 'history' } });
     res.json({ data: history });
   } catch (error) {
     console.error('[inventory] GET /:id/history error:', error);
-    void auditLog({ userId: req.userId, action: 'READ', status: 'error', ip, bottleId: id, details: { message: String(error), scope: 'history' } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -123,13 +114,8 @@ router.get('/:id/history', async (req: Request, res: Response): Promise<void> =>
 router.post('/bulk', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
-    const { ids, patch } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: 'ids array is required' });
-      return;
-    }
-    const validatedPatch = inventoryPatchSchema.parse(patch);
-    const count = await inventoryService.bulkUpdate(req.userId, ids as string[], validatedPatch);
+    const { ids, patch: validatedPatch } = bulkUpdateSchema.parse(req.body);
+    const count = await inventoryService.bulkUpdate(req.userId, ids, validatedPatch);
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, details: { count, bulk: true } });
     res.json({ data: { updatedCount: count } });
   } catch (error) {
@@ -161,6 +147,22 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const fieldSources = scanJobIdResult.success && scanJobIdResult.data
       ? await scanService.computeOcrFieldSources(req.userId, scanJobIdResult.data, data.category)
       : undefined;
+
+    // ISSUE_141: the FEAT-65 dedup rule only ever ran in the browser against
+    // whatever page of the inventory happened to be loaded — the one real
+    // backstop (two members creating the same bottle at the same time from
+    // two devices) never existed. `confirmDuplicate` is the client's existing
+    // "Create Anyway" action telling the server this was already decided;
+    // without it, a match returns 409 instead of silently creating a second row.
+    const confirmDuplicate = (req.body as Record<string, unknown>).confirmDuplicate === true;
+    if (!confirmDuplicate) {
+      const duplicate = await inventoryService.findDuplicateCandidate(data);
+      if (duplicate) {
+        void auditLog({ userId: req.userId, action: 'CREATE', status: 'validation_error', ip, details: { reason: 'DUPLICATE_CANDIDATE', category: data.category, duplicateId: duplicate.id } });
+        res.status(409).json({ error: 'DUPLICATE_CANDIDATE', data: duplicate });
+        return;
+      }
+    }
 
     const item = await inventoryService.createItem(req.userId, data, undefined, fieldSources);
     void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, details: { category: data.category } });

@@ -25,6 +25,72 @@ function toPublicShare(share: GuestShare): Omit<GuestShare, 'tokenHash'> {
   return rest;
 }
 
+/**
+ * `userId` is the audit trail of who created the share, not an inventory
+ * ownership filter — the shared inventory is unique per instance
+ * (design.md), so the guest sees every item within the share's declared
+ * scope (cellarIds/collectionIds), regardless of who created/edited it.
+ */
+function buildShareWhere(share: { cellarIds: string[]; collectionIds: string[] }): Record<string, unknown> {
+  const scopeConditions: Record<string, unknown>[] = [];
+
+  if (share.cellarIds.length > 0) {
+    scopeConditions.push({ cellarId: { in: share.cellarIds } });
+  }
+
+  if (share.collectionIds.length > 0) {
+    scopeConditions.push({
+      collections: { some: { id: { in: share.collectionIds } } },
+    });
+  }
+
+  return scopeConditions.length > 0
+    ? { deletedAt: null, OR: scopeConditions }
+    : { deletedAt: null };
+}
+
+function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
+  return {
+    id: true,
+    category: true,
+    name: true,
+    producer: true,
+    location: true,
+    collection: true,
+    tags: true,
+    photoUrl: true,
+    // notes conditionally included below
+    notes: !hideNotes,
+    // price fields conditionally included below
+    purchasePrice: !hidePrices,
+    purchasePlace: !hidePrices,
+    estimatedValue: !hidePrices,
+    vintage: true,
+    color: true,
+    region: true,
+    grapeVarieties: true,
+    alcoholDegree: true,
+    bottleSize: true,
+    sparklingType: true,
+    sugarLevel: true,
+    spiritType: true,
+    edition: true,
+    declaredAge: true,
+    format: true,
+    quantity: true,
+    manufactureYear: true,
+    leafOrigin: true,
+    isOpened: true,
+    fillLevel: true,
+    peakMaturityFrom: true,
+    peakMaturityTo: true,
+    alertStatus: true,
+    cellarId: true,
+    createdAt: true,
+    updatedAt: true,
+  } as const;
+}
+
 export const sharesService = {
   /**
    * Returns the created share PLUS the one-time plaintext `token` — the
@@ -80,76 +146,17 @@ export const sharesService = {
     hidePrices: boolean;
     hideNotes: boolean;
   }) {
-    const { cellarIds, collectionIds, hidePrices, hideNotes } = share;
-
-    // Build the where clause to honour the share scope. `userId` is the
-    // audit trail of who created the share, not an inventory ownership
-    // filter — the shared inventory is unique per instance (design.md), so
-    // the guest sees every item within the share's declared scope
-    // (cellarIds/collectionIds), regardless of who created/edited it.
-    const scopeConditions: Record<string, unknown>[] = [];
-
-    if (cellarIds.length > 0) {
-      scopeConditions.push({ cellarId: { in: cellarIds } });
-    }
-
-    if (collectionIds.length > 0) {
-      scopeConditions.push({
-        collections: { some: { id: { in: collectionIds } } },
-      });
-    }
-
-    const whereClause =
-      scopeConditions.length > 0
-        ? { deletedAt: null, OR: scopeConditions }
-        : { deletedAt: null };
-
-    const items = await prisma.inventoryItem.findMany({
-      where: whereClause,
-      select: {
-        id: true,
-        category: true,
-        name: true,
-        producer: true,
-        location: true,
-        collection: true,
-        tags: true,
-        photoUrl: true,
-        // notes conditionally included below
-        notes: !hideNotes,
-        // price fields conditionally included below
-        purchasePrice: !hidePrices,
-        purchasePlace: !hidePrices,
-        estimatedValue: !hidePrices,
-        vintage: true,
-        color: true,
-        region: true,
-        grapeVarieties: true,
-        alcoholDegree: true,
-        bottleSize: true,
-        sparklingType: true,
-        sugarLevel: true,
-        spiritType: true,
-        edition: true,
-        declaredAge: true,
-        format: true,
-        quantity: true,
-        manufactureYear: true,
-        leafOrigin: true,
-        isOpened: true,
-        fillLevel: true,
-        peakMaturityFrom: true,
-        peakMaturityTo: true,
-        alertStatus: true,
-        cellarId: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    return prisma.inventoryItem.findMany({
+      where: buildShareWhere(share),
+      select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
-
-    return items;
   },
 
+  /**
+   * ISSUE_082: used to load the whole shared inventory just to `.find()` a
+   * single id in JS — a single-row query, scoped the same way as
+   * `getInventoryForShare`, now does the filtering in SQL instead.
+   */
   async getItemForShare(
     share: {
       cellarIds: string[];
@@ -160,8 +167,11 @@ export const sharesService = {
     },
     itemId: string,
   ) {
-    const items = await this.getInventoryForShare(share);
-    return items.find((i) => i.id === itemId) ?? null;
+    const where = buildShareWhere(share);
+    return prisma.inventoryItem.findFirst({
+      where: { ...where, id: itemId },
+      select: buildShareItemSelect(share.hidePrices, share.hideNotes),
+    });
   },
 
   /**

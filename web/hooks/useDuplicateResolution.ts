@@ -2,6 +2,7 @@
 import { useCallback, useState } from 'react';
 import { InventoryItem } from '@/lib/inventory/types';
 import { findDuplicate } from '@/lib/inventory/duplicate';
+import { inventoryClient } from '@/lib/inventory/client';
 import { useCreateInventoryItem, useUpdateInventoryItem } from '@/hooks/useInventory';
 
 export interface UseDuplicateResolutionOptions {
@@ -57,9 +58,27 @@ export function useDuplicateResolution({
         setPendingCollectionIds(collectionIds);
         return;
       }
-      const created = await createMutation.mutateAsync(values as InventoryItem);
-      onResolved();
-      if (collectionIds.length > 0) await syncCollections(created.id, collectionIds, []);
+      try {
+        const created = await createMutation.mutateAsync(values as InventoryItem);
+        onResolved();
+        if (collectionIds.length > 0) await syncCollections(created.id, collectionIds, []);
+      } catch (err) {
+        // ISSUE_141: the client's own `items` was stale (another device
+        // created the same bottle since it was last loaded) — the server's
+        // own FEAT-65 check caught it. Re-check against a fresh fetch rather
+        // than surfacing a raw error for what the user can still resolve.
+        if (err instanceof Error && err.message === 'DUPLICATE_CANDIDATE') {
+          const fresh = await inventoryClient.list();
+          const freshDup = findDuplicate(fresh, values);
+          if (freshDup) {
+            setDuplicateFound(freshDup);
+            setDuplicateCandidate(values);
+            setPendingCollectionIds(collectionIds);
+            return;
+          }
+        }
+        throw err;
+      }
     },
     [createMutation, items, syncCollections, onResolved]
   );
@@ -86,7 +105,7 @@ export function useDuplicateResolution({
     setDuplicateFound(null);
     setDuplicateCandidate(null);
     setPendingCollectionIds([]);
-    const created = await createMutation.mutateAsync(duplicateCandidate as InventoryItem);
+    const created = await createMutation.mutateAsync({ ...duplicateCandidate, confirmDuplicate: true } as InventoryItem);
     onResolved();
     if (collIds.length > 0) await syncCollections(created.id, collIds, []);
   }, [duplicateCandidate, pendingCollectionIds, createMutation, syncCollections, onResolved]);

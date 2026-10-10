@@ -56,9 +56,9 @@ router.post('/csv/confirm', async (req: Request, res: Response): Promise<void> =
       }
     }
 
-    const created = await importService.confirmImport(req.userId, rows, cellarId ?? null);
-    void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'success', details: { stage: 'confirm', created } });
-    res.status(201).json({ data: { created } });
+    const { created, skippedDuplicates } = await importService.confirmImport(req.userId, rows, cellarId ?? null);
+    void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'success', details: { stage: 'confirm', created, skippedDuplicates } });
+    res.status(201).json({ data: { created, skippedDuplicates } });
   } catch (error) {
     console.error('[import] POST /csv/confirm error:', error);
     if (error instanceof ZodError) {

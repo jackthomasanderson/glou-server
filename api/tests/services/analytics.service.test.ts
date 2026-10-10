@@ -72,8 +72,10 @@ describe('getAnalytics — aggregation invariants', () => {
     expect(stats.categoryBreakdown.reduce((s, c) => s + c.count, 0)).toBe(4);
 
     const m = stats.maturityPlanning;
-    expect(m.readyNow.count + m.preserve.count + m.atPeak.count + m.pastPeak.count).toBe(4);
-    expect(m.readyNow.count).toBe(1);
+    expect(m.noWindow.count + m.preserve.count + m.atPeak.count + m.pastPeak.count).toBe(4);
+    // ISSUE_100: alertStatus 'none' (no peak-maturity window) is its own
+    // bucket, distinct from — and no longer folded into — a "ready now" claim.
+    expect(m.noWindow.count).toBe(1);
     expect(m.preserve.count).toBe(1);
     expect(m.atPeak.count).toBe(1);
     expect(m.pastPeak.count).toBe(1);
@@ -126,7 +128,7 @@ describe('getAnalytics — aggregation invariants', () => {
     };
     expect(countCall.where).toMatchObject({ deletedAt: null, isOpened: true, fillLevel: 0 });
     // Empty inventory → every percentage is 0, not NaN
-    expect(stats.maturityPlanning.readyNow.percent).toBe(0);
+    expect(stats.maturityPlanning.noWindow.percent).toBe(0);
   });
 
   it('threads the date range into the audit-movement query only', async () => {

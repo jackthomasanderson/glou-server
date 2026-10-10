@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
-import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema } from '../schemas/auth.schema';
+import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema, trustDeviceSchema } from '../schemas/auth.schema';
 import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.schema';
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
@@ -47,12 +47,11 @@ const PUBLIC_AUTH_ERROR_CODES = new Set([
   'NOT_A_PENDING_TOKEN',
   'PASSWORD_TOO_SHORT',
   'TOKEN_INVALID_OR_EXPIRED',
-  'USERNAME_ALREADY_TAKEN',
-  'EMAIL_ALREADY_TAKEN',
+  'REGISTRATION_CONFLICT',
   'VALIDATION_ERROR',
 ]);
 
-const CONFLICT_REGISTER_CODES = new Set(['USERNAME_ALREADY_TAKEN', 'EMAIL_ALREADY_TAKEN']);
+const CONFLICT_REGISTER_CODES = new Set(['REGISTRATION_CONFLICT']);
 
 /** Allow-listed error code for an unauthenticated caller, never a raw message. */
 function publicAuthError(error: unknown, route: string): string {
@@ -322,10 +321,22 @@ router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Respons
 
 router.post('/trust-device', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
-  const { token } = await authService.trustCurrentDevice(req.userId, readDeviceInfo(req));
-  res.cookie(TRUSTED_DEVICE_COOKIE_NAME, packTrustedDeviceToken(token), TRUSTED_DEVICE_COOKIE_OPTIONS);
-  void auditLog({ userId: req.userId, action: 'TRUST_DEVICE', status: 'success', ip });
-  res.json({ data: { ok: true } });
+  try {
+    const { password, code } = trustDeviceSchema.parse(req.body);
+    const { token } = await authService.trustCurrentDevice(req.userId, readDeviceInfo(req), password, code);
+    res.cookie(TRUSTED_DEVICE_COOKIE_NAME, packTrustedDeviceToken(token), TRUSTED_DEVICE_COOKIE_OPTIONS);
+    void auditLog({ userId: req.userId, action: 'TRUST_DEVICE', status: 'success', ip });
+    res.json({ data: { ok: true } });
+  } catch (error) {
+    console.error('[auth] POST /trust-device error:', error);
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
+    void auditLog({ userId: req.userId, action: 'TRUST_DEVICE', status: 'error', ip, details: { message: msg } });
+    res.status(400).json({ error: msg });
+  }
 });
 
 // ─── DELETE /api/auth/trust-device ─────────────────────────────────────────────

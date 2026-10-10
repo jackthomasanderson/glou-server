@@ -1,8 +1,9 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { Request } from 'express';
+import crypto from 'crypto';
 import { AppError } from '../lib/errors';
+import { ALLOWED_IMAGE_TYPES } from '../lib/upload';
 
 // A rejected upload is the caller's mistake, so every `fileFilter` below hands
 // back an AppError carrying its own 400; multer's own LIMIT_FILE_SIZE becomes a
@@ -13,29 +14,19 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Security: the stored file extension MUST be derived from the validated
-// mimetype, never from `file.originalname` (client-controlled). Otherwise a
-// file declared `image/png` but named `x.html` would be stored as `.html`
-// and served as-is by `express.static`, enabling stored XSS. Same pattern
-// as `ALLOWED_IMAGE_TYPES` in `search.router.ts`.
-const ALLOWED_IMAGE_TYPES: Record<string, string> = {
-    'image/jpeg': 'jpg',
-    'image/jpg': 'jpg',
-    'image/pjpeg': 'jpg',
-    'image/png': 'png',
-    'image/webp': 'webp',
-    'image/gif': 'gif',
-    'image/avif': 'avif',
-};
-
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => {
         cb(null, uploadDir);
     },
-    filename: (req: Request, file, cb) => {
+    // ISSUE_050: `${userId}-${Date.now()}` is not a secret — the user id is
+    // known to every member and appears in API responses, and the filename
+    // is recoverable by sweeping a millisecond time range. Random, like
+    // search.router.ts's product-image upload already does; the owning
+    // user lives in the database (the column this path is stored into),
+    // never in the filename itself.
+    filename: (_req, file, cb) => {
         const ext = ALLOWED_IMAGE_TYPES[file.mimetype.toLowerCase()] ?? 'jpg';
-        const userId = req.userId || 'unknown';
-        cb(null, `${userId}-${Date.now()}.${ext}`);
+        cb(null, `${crypto.randomUUID()}.${ext}`);
     }
 });
 
@@ -87,10 +78,10 @@ if (!fs.existsSync(scanUploadDir)) {
 const scanUpload = multer({
     storage: multer.diskStorage({
         destination: (_req, _file, cb) => cb(null, scanUploadDir),
-        filename: (req: Request, file, cb) => {
+        // ISSUE_050: same reasoning as avatarUpload's storage above.
+        filename: (_req, file, cb) => {
             const ext = ALLOWED_IMAGE_TYPES[file.mimetype.toLowerCase()] ?? 'jpg';
-            const userId = req.userId || 'unknown';
-            cb(null, `${userId}-${Date.now()}.${ext}`);
+            cb(null, `${crypto.randomUUID()}.${ext}`);
         },
     }),
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB — label photos from a phone camera

@@ -6,7 +6,15 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const order: string[] = [];
 const unlink = vi.fn(async () => { order.push('unlink'); });
-vi.mock('fs/promises', () => ({ default: { unlink: (...a: unknown[]) => (unlink as (...x: unknown[]) => unknown)(...a) }, unlink: (...a: unknown[]) => (unlink as (...x: unknown[]) => unknown)(...a) }));
+const readdir = vi.fn(async () => []);
+vi.mock('fs/promises', () => ({
+  default: {
+    unlink: (...a: unknown[]) => (unlink as (...x: unknown[]) => unknown)(...a),
+    readdir: (...a: unknown[]) => (readdir as (...x: unknown[]) => unknown)(...a),
+  },
+  unlink: (...a: unknown[]) => (unlink as (...x: unknown[]) => unknown)(...a),
+  readdir: (...a: unknown[]) => (readdir as (...x: unknown[]) => unknown)(...a),
+}));
 
 const tx = {
   systemConfig: { findUnique: vi.fn().mockResolvedValue(null) },
@@ -17,6 +25,10 @@ const tx = {
   scanJob: {
     findMany: vi.fn().mockResolvedValue([{ id: 'j1', imagePath: '/uploads/scans/a.jpg' }]),
     updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+  },
+  inventoryItem: {
+    findMany: vi.fn().mockResolvedValue([]),
+    deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
   },
   maintenanceRun: { create: vi.fn().mockResolvedValue({ id: 'm1', success: true }) },
 };

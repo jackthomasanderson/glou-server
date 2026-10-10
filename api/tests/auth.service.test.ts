@@ -10,6 +10,7 @@ vi.mock('../src/lib/prisma', () => ({
     user: {
       findFirst: vi.fn(),
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       create: vi.fn(),
       count: vi.fn(),
     },
@@ -120,24 +121,21 @@ describe('AuthService', () => {
 
       expect(prisma.user.findFirst).toHaveBeenCalledWith({
         where: { OR: [{ username: validData.username }, { email: validData.email }] },
-        select: { username: true, email: true },
+        select: { id: true },
       });
       expect(bcrypt.hash).toHaveBeenCalledWith(validData.password, 12);
-      expect(prisma.user.create).toHaveBeenCalled();
+      // ISSUE_085: accepted by the schema, must actually reach the DB write.
+      expect(prisma.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ displayName: validData.displayName }) }),
+      );
       expect(result.token).toBe('mock-jwt-token');
       expect(result.user.username).toBe(validData.username);
     });
 
-    it('should throw USERNAME_ALREADY_TAKEN if username exists', async () => {
-      vi.mocked(prisma.user.findFirst).mockResolvedValue({ username: validData.username, email: 'other@example.com' } as any);
+    it('throws a single REGISTRATION_CONFLICT code for either a taken username or email (ISSUE_015: no enumeration)', async () => {
+      vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as any);
 
-      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('USERNAME_ALREADY_TAKEN');
-    });
-
-    it('should throw EMAIL_ALREADY_TAKEN if email exists', async () => {
-      vi.mocked(prisma.user.findFirst).mockResolvedValue({ username: 'other', email: validData.email } as any);
-
-      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('EMAIL_ALREADY_TAKEN');
+      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('REGISTRATION_CONFLICT');
     });
   });
 
@@ -223,6 +221,51 @@ describe('AuthService', () => {
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
       await expect(authService.login(loginData, deviceInfo)).rejects.toThrow('INVALID_CREDENTIALS');
+    });
+  });
+
+  // ISSUE_045: minting a trusted device (a lasting 2FA bypass) previously
+  // required no re-confirmation of identity at all.
+  describe('trustCurrentDevice', () => {
+    const mockUserNo2fa = {
+      id: 'u1',
+      passwordHash: 'hashed',
+      isTwoFactorEnabled: false,
+      twoFactorSecret: null,
+      backupCodes: [] as string[],
+    };
+
+    it('rejects a wrong password without creating a trusted device', async () => {
+      vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(mockUserNo2fa as never);
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+
+      await expect(
+        authService.trustCurrentDevice('u1', deviceInfo, 'wrong-password'),
+      ).rejects.toThrow('INVALID_CREDENTIALS');
+      expect(prisma.trustedDevice.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a trusted device once the password is confirmed (no 2FA on the account)', async () => {
+      vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(mockUserNo2fa as never);
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(prisma.trustedDevice.create).mockResolvedValue({} as never);
+
+      const result = await authService.trustCurrentDevice('u1', deviceInfo, 'correct-password');
+
+      expect(result.token).toBeTruthy();
+      expect(prisma.trustedDevice.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('requires a valid TOTP code when 2FA is enabled, even with the right password', async () => {
+      vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue({
+        ...mockUserNo2fa, isTwoFactorEnabled: true, twoFactorSecret: 'SECRET',
+      } as never);
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+      await expect(
+        authService.trustCurrentDevice('u1', deviceInfo, 'correct-password'),
+      ).rejects.toThrow('INVALID_CODE');
+      expect(prisma.trustedDevice.create).not.toHaveBeenCalled();
     });
   });
 });

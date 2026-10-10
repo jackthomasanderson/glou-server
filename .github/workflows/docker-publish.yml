@@ -26,6 +26,19 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # ISSUE_105: scans the checked-out tree for committed secrets before
+      # anything else runs. The CLI directly, not gitleaks/gitleaks-action —
+      # that wrapper requires a paid GITLEAKS_LICENSE on anything but a public
+      # repo, which this project doesn't carry. `--no-git`: this repo's history
+      # already carries one known, documented throwaway value (see
+      # .gitleaksignore) that a history scan can't allowlist the same way.
+      - name: Scan for leaked secrets
+        run: |
+          curl -sSL -o gitleaks.tar.gz https://github.com/gitleaks/gitleaks/releases/download/v8.29.1/gitleaks_8.29.1_linux_x64.tar.gz
+          echo "e4eb209d04e20339d77122a3bdf9cd41351255cfb27ebcb75e85325e04f88924  gitleaks.tar.gz" | sha256sum -c -
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks detect --source . --no-git --redact -v
+
       - name: Set up Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
@@ -221,6 +234,8 @@ jobs:
           labels: ${{ steps.meta-api.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
 
       - name: Build and push Web
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
@@ -233,3 +248,5 @@ jobs:
             NEXT_PUBLIC_API_URL=http://api:3001
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true

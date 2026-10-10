@@ -325,10 +325,13 @@ export function useRevokeSession() {
   });
 }
 
+// ISSUE_045: a trusted device is a lasting (30-day, self-renewing) 2FA
+// bypass — minting one now re-confirms identity (password, plus a TOTP/
+// backup code when 2FA is enabled) the same way turning 2FA off does.
 export function useTrustDevice() {
   const queryClient = useQueryClient();
-  return useMutation<{ ok: boolean }, Error, void>({
-    mutationFn: () => apiFetch<{ ok: boolean }>('/api/auth/trust-device', { method: 'POST' }),
+  return useMutation<{ ok: boolean }, Error, { password: string; code?: string }>({
+    mutationFn: (body) => apiFetch<{ ok: boolean }>('/api/auth/trust-device', { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
     },

@@ -1,12 +1,15 @@
 'use client';
 import { Button } from '@heroui/react';
-import { CheckCircle2, Package, Settings, Warehouse } from 'lucide-react';
+import { CheckCircle2, Copy, Package, Settings, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
 
 interface SummaryStepProps {
   cellarName: string | null;
   itemsAdded: number;
+  /** ISSUE_141: rows the CSV import skipped because they matched a bottle
+   * already in the inventory (FEAT-65 rule, now enforced server-side too). */
+  duplicatesSkipped: number;
   /** Only admins see the (optional) System Configuration pointer below — the panel itself is admin-only (see AdminPage). */
   isAdmin: boolean;
   isFinishing: boolean;
@@ -14,7 +17,7 @@ interface SummaryStepProps {
 }
 
 /** Step 5/5 — recap of what the wizard set up, then hand off to the dashboard. */
-export function SummaryStep({ cellarName, itemsAdded, isAdmin, isFinishing, onFinish }: SummaryStepProps) {
+export function SummaryStep({ cellarName, itemsAdded, duplicatesSkipped, isAdmin, isFinishing, onFinish }: SummaryStepProps) {
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -52,6 +55,14 @@ export function SummaryStep({ cellarName, itemsAdded, isAdmin, isFinishing, onFi
               : t('onboarding.summary.noItems')}
           </span>
         </div>
+        {duplicatesSkipped > 0 && (
+          <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
+            <Copy size={18} className="text-foreground-500 shrink-0" />
+            <span className="text-sm text-left text-foreground-500">
+              {t('onboarding.summary.duplicatesSkipped', { count: duplicatesSkipped })}
+            </span>
+          </div>
+        )}
       </div>
 
       {isAdmin && (

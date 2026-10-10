@@ -10,15 +10,14 @@ router.use(authMiddleware);
 
 // ─── GET /api/alerts ──────────────────────────────────────────────────────────
 
+// ISSUE_087: a plain read used to write an audit-log row on every request —
+// no traceability value for "someone listed the alerts".
 router.get('/', async (req: Request, res: Response): Promise<void> => {
-  const ip = getClientIp(req);
   try {
     const alerts = await getAlerts();
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { scope: 'alerts', count: alerts.length } });
     res.json({ data: alerts });
   } catch (error) {
     console.error('[alerts] GET / error:', error);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'error', ip, details: { scope: 'alerts', message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });

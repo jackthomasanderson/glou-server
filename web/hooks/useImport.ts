@@ -13,7 +13,7 @@ export function useCsvPreview() {
 
 export function useCsvConfirm() {
   const queryClient = useQueryClient();
-  return useMutation<{ created: number }, Error, { rows: CsvImportRow[]; cellarId: string | null }>({
+  return useMutation<{ created: number; skippedDuplicates: number }, Error, { rows: CsvImportRow[]; cellarId: string | null }>({
     mutationFn: ({ rows, cellarId }) => importClient.confirmCsv(rows, cellarId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });

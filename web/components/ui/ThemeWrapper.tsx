@@ -61,11 +61,35 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
   const { data: user } = useMe();
   const { i18n } = useTranslation();
   const hasMounted = useHasMounted();
+  // ISSUE_080: honour the OS-level "reduce motion" accessibility setting —
+  // nothing upstream of this previously read it, so it had zero effect on
+  // HeroUI's own transitions/animations. Read once a media query is
+  // actually available (SSR has no `window`) and kept live: it's a setting
+  // a user can flip without reloading the tab.
+  const [prefersReducedMotion, setPrefersReducedMotion] = React.useState(
+    () => typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+
+  React.useEffect(() => {
+    // jsdom (unit tests) ships no matchMedia — same guard as theme-mode.ts.
+    if (typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    query.addEventListener('change', handler);
+    return () => query.removeEventListener('change', handler);
+  }, []);
 
   useEffect(() => {
     if (user?.language) {
       const lang = user.language.toLowerCase();
       if (i18n.language !== lang) i18n.changeLanguage(lang);
+      // ISSUE_079: the server-rendered <html> is hardcoded lang="fr" (there's
+      // no session to read before hydration) — correct it client-side once
+      // the real preference is known, so a non-French user isn't told by
+      // their own screen reader / browser translate prompt that the page is
+      // in French.
+      if (document.documentElement.lang !== lang) document.documentElement.lang = lang;
     }
   }, [user?.language, i18n]);
 
@@ -103,7 +127,7 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeModeProvider>
-      <HeroUIProvider>
+      <HeroUIProvider disableAnimation={prefersReducedMotion}>
         {children}
       </HeroUIProvider>
     </ThemeModeProvider>

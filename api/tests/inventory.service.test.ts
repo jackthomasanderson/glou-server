@@ -15,6 +15,14 @@ vi.mock('../src/lib/prisma', () => ({
   },
 }));
 
+const fsUnlink = vi.fn();
+const fsReaddir = vi.fn();
+vi.mock('fs/promises', () => ({
+  default: { unlink: (...a: unknown[]) => fsUnlink(...a), readdir: (...a: unknown[]) => fsReaddir(...a) },
+  unlink: (...a: unknown[]) => fsUnlink(...a),
+  readdir: (...a: unknown[]) => fsReaddir(...a),
+}));
+
 import { prisma } from '../src/lib/prisma';
 
 describe('InventoryService', () => {
@@ -55,10 +63,23 @@ describe('InventoryService', () => {
       include: {
         collections: { select: { id: true, name: true, color: true, icon: true } },
       },
+      take: 2001,
     });
     // FEAT-86: every row is decorated with a computed `readiness` (null here —
     // the mock items carry no peak-maturity window).
-    expect(result).toEqual(mockItems.map((i) => ({ ...i, readiness: null })));
+    expect(result.items).toEqual(mockItems.map((i) => ({ ...i, readiness: null })));
+    expect(result.truncated).toBe(false);
+  });
+
+  // ISSUE_083: a ceiling with a `truncated` flag, not a silent cutoff.
+  it('listInventory - flags truncated when more than 2000 items exist', async () => {
+    const mockItems = Array.from({ length: 2001 }, (_, i) => ({ id: `b${i}`, userId: 'u1', name: 'X', deletedAt: null }));
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(mockItems as never);
+
+    const result = await service.listInventory('u1');
+
+    expect(result.items).toHaveLength(2000);
+    expect(result.truncated).toBe(true);
   });
 
   it('softDelete - returns null when item not found', async () => {
@@ -268,5 +289,137 @@ describe('InventoryService', () => {
 
     expect(count).toBe(0);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  // ISSUE_141/ISSUE_068: port of web/lib/inventory/duplicate.ts's isDuplicateOf,
+  // applied server-side — the one check that previously existed only in the browser.
+  describe('findDuplicateCandidate', () => {
+    it('matches case-insensitively on producer + name + vintage for wine', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { id: 'existing', producer: 'Château Pétrus', name: 'pétrus', vintage: 2015, bottleSize: '75cl' },
+      ] as never);
+
+      const result = await service.findDuplicateCandidate({
+        category: 'wine', producer: 'château pétrus', name: 'PÉTRUS', vintage: 2015, bottleSize: '75cl',
+      } as never);
+
+      expect(result).toMatchObject({ id: 'existing' });
+    });
+
+    it('does not match a different vintage', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { id: 'existing', producer: 'Château Pétrus', name: 'Pétrus', vintage: 2010, bottleSize: '75cl' },
+      ] as never);
+
+      const result = await service.findDuplicateCandidate({
+        category: 'wine', producer: 'Château Pétrus', name: 'Pétrus', vintage: 2015, bottleSize: '75cl',
+      } as never);
+
+      expect(result).toBeNull();
+    });
+
+    it('treats a missing vintage on either side as a potential match', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { id: 'existing', producer: 'Château Pétrus', name: 'Pétrus', vintage: null, bottleSize: '75cl' },
+      ] as never);
+
+      const result = await service.findDuplicateCandidate({
+        category: 'wine', producer: 'Château Pétrus', name: 'Pétrus', vintage: 2015, bottleSize: '75cl',
+      } as never);
+
+      expect(result).toMatchObject({ id: 'existing' });
+    });
+
+    it('compares format (not vintage) for cigars', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { id: 'existing', producer: 'Romeo y Julieta', name: 'Churchill', format: 'Churchill' },
+      ] as never);
+
+      const matching = await service.findDuplicateCandidate({
+        category: 'cigar', producer: 'Romeo y Julieta', name: 'Churchill', format: 'Churchill',
+      } as never);
+      const nonMatching = await service.findDuplicateCandidate({
+        category: 'cigar', producer: 'Romeo y Julieta', name: 'Churchill', format: 'Robusto',
+      } as never);
+
+      expect(matching).toMatchObject({ id: 'existing' });
+      expect(nonMatching).toBeNull();
+    });
+
+    it('returns null without querying when producer or name is missing', async () => {
+      const result = await service.findDuplicateCandidate({ category: 'wine' } as never);
+      expect(result).toBeNull();
+      expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ISSUE_096: a purged item's local photo must be deleted from disk too —
+  // only when it's actually local (uploads/products/*), never an external URL.
+  describe('purgeTrashed', () => {
+    it('only returns the local photo paths among the purged items', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { id: 'a', photoUrl: '/uploads/products/a.jpg' },
+        { id: 'b', photoUrl: 'https://example.com/b.jpg' },
+        { id: 'c', photoUrl: null },
+      ] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 3 } as never);
+
+      const result = await service.purgeTrashed();
+
+      expect(result).toEqual({ count: 3, photoPaths: ['/uploads/products/a.jpg'] });
+      expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['a', 'b', 'c'] } } });
+    });
+
+    it('does nothing when nothing is past the retention window', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+      const result = await service.purgeTrashed();
+
+      expect(result).toEqual({ count: 0, photoPaths: [] });
+      expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deletePhotoFiles', () => {
+    beforeEach(() => fsUnlink.mockReset());
+
+    it('deletes every given path and ignores a file already gone', async () => {
+      fsUnlink.mockResolvedValueOnce(undefined).mockRejectedValueOnce(
+        Object.assign(new Error('gone'), { code: 'ENOENT' }),
+      );
+
+      await service.deletePhotoFiles(['/uploads/products/a.jpg', '/uploads/products/b.jpg']);
+
+      expect(fsUnlink).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('sweepOrphanProductPhotos', () => {
+    beforeEach(() => {
+      fsReaddir.mockReset();
+      fsUnlink.mockReset().mockResolvedValue(undefined);
+    });
+
+    it('deletes a file on disk that no item references any more', async () => {
+      fsReaddir.mockResolvedValue(['referenced.jpg', 'orphan.jpg']);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { photoUrl: '/uploads/products/referenced.jpg' },
+      ] as never);
+
+      const count = await service.sweepOrphanProductPhotos();
+
+      expect(count).toBe(1);
+      expect(fsUnlink).toHaveBeenCalledTimes(1);
+      expect(fsUnlink.mock.calls[0][0]).toContain('orphan.jpg');
+    });
+
+    it('returns 0 without touching the database when the upload dir does not exist', async () => {
+      fsReaddir.mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+
+      const count = await service.sweepOrphanProductPhotos();
+
+      expect(count).toBe(0);
+      expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
+    });
   });
 });

@@ -1,8 +1,15 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import fs from 'fs/promises';
+import path from 'path';
 import { prisma } from '../lib/prisma';
 import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { v4 as uuidv4 } from 'uuid';
+
+// ISSUE_096: only a photoUrl saved by search.router.ts's product-image
+// endpoints (uploads/products/*) is ever safe to delete from disk — an
+// item whose photoUrl is some other external address must never be touched.
+const LOCAL_PRODUCT_PHOTO_PREFIX = '/uploads/products/';
 
 export interface FieldChange {
   field: string;
@@ -96,13 +103,23 @@ function attachReadiness<
 const TRASH_RETENTION_DAYS = 7;
 
 export class InventoryService {
-  async listInventory(_userId: string): Promise<WithReadiness<InventoryItemWithCollections>[]> {
+  /**
+   * ISSUE_083: an unbounded `findMany` here loads the entire inventory into
+   * memory and serializes all of it on every page load — fine at hundreds of
+   * items, not at tens of thousands. A hard ceiling bounds the worst case;
+   * `truncated` tells the caller the list isn't complete so it isn't
+   * mistaken for the full inventory.
+   */
+  async listInventory(_userId: string): Promise<{ items: WithReadiness<InventoryItemWithCollections>[]; truncated: boolean }> {
+    const limit = 2000;
     const items = await prisma.inventoryItem.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
       include: INVENTORY_ITEM_INCLUDE,
+      take: limit + 1,
     });
-    return items.map(attachReadiness);
+    const truncated = items.length > limit;
+    return { items: items.slice(0, limit).map(attachReadiness), truncated };
   }
 
   async listTrash(_userId: string): Promise<InventoryItem[]> {
@@ -174,6 +191,44 @@ export class InventoryService {
       changes: (log.details as Record<string, unknown> | null)?.['changes'] as FieldChange[] | null ?? null,
       createdAt: log.createdAt,
     }));
+  }
+
+  /**
+   * ISSUE_141/ISSUE_068: the FEAT-65 "is this the same bottle" rule
+   * (`web/lib/inventory/duplicate.ts`'s `isDuplicateOf`) existed only in the
+   * browser — CSV import, the offline queue and two members creating the
+   * same bottle concurrently from two devices all bypassed it entirely.
+   * Ported here so server-side creation paths can apply the identical rule.
+   * Scans by category only (indexed, small result set for a self-hosted
+   * single-household inventory) then compares in JS — mirrors the client
+   * logic exactly rather than re-deriving an equivalent SQL predicate.
+   */
+  async findDuplicateCandidate(
+    data: Pick<InventoryPatch, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>,
+    client: Prisma.TransactionClient | PrismaClient = prisma,
+  ): Promise<InventoryItem | null> {
+    if (!data.category || !data.producer || !data.name) return null;
+    const normalize = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
+
+    const candidates = await client.inventoryItem.findMany({
+      where: { category: data.category, deletedAt: null },
+    });
+
+    return candidates.find((item) => {
+      if (normalize(item.producer) !== normalize(data.producer)) return false;
+      if (normalize(item.name) !== normalize(data.name)) return false;
+
+      if (data.category === 'cigar') {
+        return normalize(item.format) === normalize(data.format);
+      }
+      if (data.category === 'spirit') {
+        return normalize(item.bottleSize) === normalize(data.bottleSize);
+      }
+      // wine / sparkling — a missing vintage on either side is a potential
+      // match (let the caller decide), same as the client's vintageMatch.
+      const vintageMatches = data.vintage == null || item.vintage == null || item.vintage === data.vintage;
+      return vintageMatches && normalize(item.bottleSize) === normalize(data.bottleSize);
+    }) ?? null;
   }
 
   /**
@@ -506,12 +561,87 @@ export class InventoryService {
     });
   }
 
-  async purgeTrashed(): Promise<number> {
+  /**
+   * ISSUE_096: a permanently-purged item's photo (uploads/products/*) was
+   * never deleted alongside its row — the upload volume only ever grew.
+   * Rows only here, same two-phase contract as scanService's scan-photo
+   * purge (#183): the caller must only call `deletePhotoFiles` on the
+   * returned paths once this has actually committed, never before, so a
+   * rolled-back transaction doesn't leave rows pointing at photos already
+   * gone from disk.
+   */
+  async purgeTrashed(
+    client: Prisma.TransactionClient | PrismaClient = prisma,
+  ): Promise<{ count: number; photoPaths: string[] }> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    const result = await prisma.inventoryItem.deleteMany({
+    const toPurge = await client.inventoryItem.findMany({
       where: { deletedAt: { lt: cutoff } },
+      select: { id: true, photoUrl: true },
     });
-    return result.count;
+    if (toPurge.length === 0) return { count: 0, photoPaths: [] };
+
+    const result = await client.inventoryItem.deleteMany({
+      where: { id: { in: toPurge.map((item) => item.id) } },
+    });
+    const photoPaths = toPurge
+      .map((item) => item.photoUrl)
+      .filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX));
+    return { count: result.count, photoPaths };
+  }
+
+  /** Deletes local product photos from disk. Never throws: one bad path must not block the rest. */
+  async deletePhotoFiles(photoPaths: string[]): Promise<void> {
+    for (const photoPath of photoPaths) {
+      try {
+        await fs.unlink(path.join(process.cwd(), photoPath));
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.error(`[inventory] Failed to purge photo file ${photoPath}:`, err);
+        }
+      }
+    }
+  }
+
+  /**
+   * ISSUE_096 complement: a photo can be orphaned without ever going through
+   * `purgeTrashed` — e.g. the item's photo was replaced (the old file's URL
+   * was simply overwritten, nothing ever deleted it) or the save completed
+   * but the surrounding item creation/update didn't. Sweeps uploads/products/
+   * for files no InventoryItem (trashed or not — only a purged item's photo
+   * is truly gone) references any more.
+   */
+  async sweepOrphanProductPhotos(client: Prisma.TransactionClient | PrismaClient = prisma): Promise<number> {
+    const uploadDir = path.join(process.cwd(), 'uploads', 'products');
+    let files: string[];
+    try {
+      files = await fs.readdir(uploadDir);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return 0;
+      throw err;
+    }
+    if (files.length === 0) return 0;
+
+    const referenced = await client.inventoryItem.findMany({
+      where: { photoUrl: { startsWith: LOCAL_PRODUCT_PHOTO_PREFIX } },
+      select: { photoUrl: true },
+    });
+    const referencedFilenames = new Set(
+      referenced.map((item) => item.photoUrl!.slice(LOCAL_PRODUCT_PHOTO_PREFIX.length)),
+    );
+
+    let deleted = 0;
+    for (const filename of files) {
+      if (referencedFilenames.has(filename)) continue;
+      try {
+        await fs.unlink(path.join(uploadDir, filename));
+        deleted++;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.error(`[inventory] Failed to purge orphan photo file ${filename}:`, err);
+        }
+      }
+    }
+    return deleted;
   }
 
   daysUntilPermanentDelete(deletedAt: Date): number {

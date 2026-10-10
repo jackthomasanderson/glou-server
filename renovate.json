@@ -9,6 +9,10 @@
   "prHourlyLimit": 4,
   "rebaseWhen": "conflicted",
   "dependencyDashboard": true,
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": ["security"]
+  },
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": ["before 6am on the first day of the month"]
