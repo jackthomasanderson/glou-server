@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY src ./src
 RUN npm run build
 
 # ─── Production image ────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 # Non-root user
 # postgresql-client: provides pg_dump/pg_restore/psql for the scheduled backup
@@ -37,6 +37,11 @@ RUN apk add --no-cache openssl postgresql-client && \
 WORKDIR /app
 
 COPY --from=builder /app/package*.json ./
+# ISSUE_090: the CMD below invokes `npx prisma migrate deploy`, which needs
+# the `prisma` CLI package itself — not just the `@prisma/client` runtime
+# copied below. `prisma` lives in `dependencies` (package.json) precisely so
+# this install step pulls it in; without that, `npx` would fetch it from the
+# registry on every container start, making startup depend on Internet access.
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
