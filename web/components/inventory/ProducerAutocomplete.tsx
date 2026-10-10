@@ -104,7 +104,7 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
         onFocus={() => { if (value.trim()) setIsOpen(true); }}
         onBlur={handleBlur}
         endContent={
-          loadingExternal ? <Loader2 size={14} className="animate-spin text-default-400" /> : undefined
+          loadingExternal ? <Loader2 size={14} className="animate-spin text-foreground-500" /> : undefined
         }
       />
 
@@ -124,7 +124,7 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
                   size="sm"
                   variant="bordered"
                   color={opt.source === 'internal' ? 'primary' : 'default'}
-                  classNames={{ base: 'h-[18px]', content: 'text-[0.65rem] px-1.5' }}
+                  classNames={{ base: 'h-[18px]', content: 'text-xs px-1.5' }}
                 >
                   {opt.source === 'internal' ? t('autocomplete.internal') : t('autocomplete.external')}
                 </Chip>

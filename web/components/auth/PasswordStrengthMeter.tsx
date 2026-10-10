@@ -58,11 +58,11 @@ export function PasswordStrengthMeter({ password }: PasswordStrengthMeterProps) 
       </div>
       {/* Label + hints */}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[0.65rem] font-semibold" style={{ color }}>
+        <span className="text-xs font-semibold" style={{ color }}>
           {t(`auth.passwordStrength.${labelKey}`)}
         </span>
         {hints.length > 0 && (
-          <span className="text-[0.6rem] text-default-400 text-right leading-tight">
+          <span className="text-xs text-foreground-500 text-right leading-tight">
             {hints.map((h) => t(`auth.passwordStrength.hint.${h}`)).join(' · ')}
           </span>
         )}

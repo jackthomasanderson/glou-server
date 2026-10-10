@@ -164,7 +164,7 @@ export function ConsumptionPlanWidget() {
             </div>
           ) : (
             <div className="flex flex-col items-start gap-2">
-              <p className="text-sm text-default-400">{t('consumptionPlan.goal.empty')}</p>
+              <p className="text-sm text-foreground-500">{t('consumptionPlan.goal.empty')}</p>
               <Button color="primary" variant="bordered" size="sm" onPress={() => setEditingGoal(true)}>
                 {t('consumptionPlan.goal.define')}
               </Button>
@@ -199,9 +199,9 @@ export function ConsumptionPlanWidget() {
           </div>
         ) : !suggestions || suggestions.length === 0 ? (
           <div className="flex flex-col items-center py-12 text-center">
-            <Wine size={48} className="text-default-300 mb-3" />
+            <Wine size={48} className="text-foreground-400 mb-3" />
             <p className="text-sm font-semibold text-default-500">{t('consumptionPlan.suggestions.empty')}</p>
-            <p className="text-xs text-default-400">{t('consumptionPlan.suggestions.emptyHint')}</p>
+            <p className="text-xs text-foreground-500">{t('consumptionPlan.suggestions.emptyHint')}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-3">

@@ -173,7 +173,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
               labelPlacement="outside"
               size="md"
               isClearable
-              startContent={<Search size={16} className="text-default-400" />}
+              startContent={<Search size={16} className="text-foreground-500" />}
               value={query}
               onValueChange={(v) => {
                 setQuery(v);
@@ -242,7 +242,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
                   {confirmed ? (
                     <CheckCircle2 size={18} className="text-success shrink-0" />
                   ) : (
-                    <Circle size={18} className="text-default-300 shrink-0" />
+                    <Circle size={18} className="text-foreground-400 shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{item.name}</p>

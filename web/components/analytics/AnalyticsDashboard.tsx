@@ -86,30 +86,30 @@ function ValuationBreakdown({
       <CardBody className="p-5">
         <div className="flex items-center gap-2 mb-4">
           <Euro size={18} className="text-primary" />
-          <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+          <p className="text-xs font-bold uppercase tracking-wider">
             {t('analytics.valuation.title')}
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="flex flex-col gap-0.5">
-            <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-400">
+            <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">
               {t('analytics.valuation.purchaseTotal')}
             </p>
-            <p className="text-[1.4rem] font-extrabold leading-tight">
+            <p className="text-2xl font-extrabold leading-tight">
               {fmtCurrency(totalPurchasePrice)}
             </p>
           </div>
           <div className="flex flex-col gap-0.5">
-            <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-400">
+            <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">
               {t('analytics.valuation.estimatedTotal')}
             </p>
-            <p className="text-[1.4rem] font-extrabold leading-tight">
+            <p className="text-2xl font-extrabold leading-tight">
               {fmtCurrency(totalValuation)}
             </p>
           </div>
           {totalPurchasePrice > 0 && (
             <div className="flex flex-col gap-0.5">
-              <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-400">
+              <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">
                 {t('analytics.valuation.roi')}
               </p>
               <div className="flex items-center gap-1.5">
@@ -117,21 +117,21 @@ function ValuationBreakdown({
                   ? <TrendingUp size={16} className="text-success" />
                   : <TrendingDown size={16} className="text-danger" />}
                 <p
-                  className="text-[1.4rem] font-extrabold leading-tight"
+                  className="text-2xl font-extrabold leading-tight"
                   style={{ color: isPositive ? '#22C55E' : '#EF4444' }}
                 >
                   {isPositive ? '+' : ''}{fmtCurrency(delta)}
                 </p>
                 {roiPercent !== null && (
                   <span
-                    className="text-[0.7rem] font-bold"
+                    className="text-xs font-bold"
                     style={{ color: isPositive ? '#22C55E' : '#EF4444' }}
                   >
                     ({isPositive ? '+' : ''}{roiPercent}%)
                   </span>
                 )}
               </div>
-              <p className="text-[0.68rem] text-default-400">
+              <p className="text-xs text-foreground-500">
                 {t('analytics.valuation.roiHint')}
               </p>
             </div>
@@ -238,11 +238,11 @@ function StatCard({
       <CardBody className="p-4">
         <div className="flex justify-between items-start gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-500 truncate">
+            <p className="text-xs font-bold uppercase tracking-wider text-default-500 truncate">
               {label}
             </p>
-            <p className="text-[1.4rem] sm:text-[1.75rem] font-extrabold leading-tight mt-1 break-words">{value}</p>
-            <p className="text-[0.68rem] text-default-400 mt-1 leading-snug">• {hint}</p>
+            <p className="text-2xl sm:text-3xl font-extrabold leading-tight mt-1 break-words">{value}</p>
+            <p className="text-xs text-foreground-500 mt-1 leading-snug">• {hint}</p>
           </div>
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
@@ -289,7 +289,7 @@ function CategoryBreakdown({
       <CardBody className="p-5">
         <div className="flex items-center gap-2 mb-4">
           <BarChart3 size={18} className="text-primary" />
-          <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+          <p className="text-xs font-bold uppercase tracking-wider">
             {t('analytics.categories.title')}
           </p>
         </div>
@@ -313,17 +313,17 @@ function CategoryBreakdown({
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: cfg?.color ?? '#888' }}
                   />
-                  <span className="text-[0.75rem] flex-1 min-w-0 truncate">
+                  <span className="text-xs flex-1 min-w-0 truncate">
                     {t(`analytics.categories.${item.category}`)}
                   </span>
-                  <span className="text-[0.75rem] font-semibold text-default-500 shrink-0">
+                  <span className="text-xs font-semibold text-default-500 shrink-0">
                     {item.count} {unit}
                   </span>
                 </div>
               );
             })}
             {items.length === 0 && (
-              <p className="text-[0.75rem] text-default-400">{t('status.empty')}</p>
+              <p className="text-xs text-foreground-500">{t('status.empty')}</p>
             )}
           </div>
         </div>
@@ -390,26 +390,26 @@ function MaturityPlanning({
         <div className="flex items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2">
             <CalendarDays size={18} className="text-primary" />
-            <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+            <p className="text-xs font-bold uppercase tracking-wider">
               {t('analytics.maturity.title')}
             </p>
           </div>
           <Chip
             size="sm"
             color="warning"
-            className="text-[0.6rem] font-bold h-5"
+            className="text-xs font-bold h-5"
           >
             {t('analytics.maturity.season', { year: `${currentYear}/${currentYear + 4}` })}
           </Chip>
         </div>
-        <p className="text-[0.75rem] text-default-500 mb-5 leading-relaxed">
+        <p className="text-xs text-default-500 mb-5 leading-relaxed">
           {t('analytics.maturity.description')}
         </p>
         {rows.map((row) => (
           <div key={row.label} className="mb-4">
             <div className="flex justify-between mb-1">
-              <span className="text-[0.75rem] text-default-500">{row.label}</span>
-              <span className="text-[0.75rem] font-semibold">
+              <span className="text-xs text-default-500">{row.label}</span>
+              <span className="text-xs font-semibold">
                 {t('analytics.maturity.countLabel', { count: row.count, percent: row.percent })}
               </span>
             </div>
@@ -420,8 +420,8 @@ function MaturityPlanning({
           <div className="flex items-start gap-2 mt-4 bg-default-50 rounded-xl p-3">
             <ShieldCheck size={16} className="text-primary mt-0.5 shrink-0" />
             <div>
-              <p className="text-[0.7rem] font-bold">{t('analytics.maturity.humidorTip')}</p>
-              <p className="text-[0.7rem] text-default-500 mt-0.5">
+              <p className="text-xs font-bold">{t('analytics.maturity.humidorTip')}</p>
+              <p className="text-xs text-default-500 mt-0.5">
                 {t('analytics.maturity.humidorTipText')}
               </p>
             </div>
@@ -441,14 +441,14 @@ function RegionCards({ regions, t }: { regions: RegionStat[]; t: (k: string, o?:
       {regions.map((r) => (
         <Card key={r.region} className="min-w-[140px] shrink-0 border border-default-200" shadow="none">
           <CardBody className="p-4">
-            <p className="text-[0.65rem] font-extrabold uppercase tracking-widest text-primary mb-1">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-primary mb-1">
               {r.region}
             </p>
-            <p className="text-[1.5rem] font-extrabold leading-tight">{r.count}</p>
-            <p className="text-[0.7rem] text-default-400 mb-2">{t('analytics.regionMap.items', { count: r.count })}</p>
+            <p className="text-2xl font-extrabold leading-tight">{r.count}</p>
+            <p className="text-xs text-foreground-500 mb-2">{t('analytics.regionMap.items', { count: r.count })}</p>
             <div className="flex justify-between">
-              <span className="text-[0.7rem] text-default-400">{t('analytics.regionMap.valuation')}</span>
-              <span className="text-[0.7rem] font-bold">{fmtCurrency(r.valuation)}</span>
+              <span className="text-xs text-foreground-500">{t('analytics.regionMap.valuation')}</span>
+              <span className="text-xs font-bold">{fmtCurrency(r.valuation)}</span>
             </div>
           </CardBody>
         </Card>
@@ -472,10 +472,10 @@ function GardePlanningSection({
         <div className="flex items-center gap-2 mb-4">
           <CalendarDays size={18} className="text-primary" />
           <div>
-            <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+            <p className="text-xs font-bold uppercase tracking-wider">
               {t('analytics.garde.title')}
             </p>
-            <p className="text-[0.68rem] text-default-400">{t('analytics.garde.subtitle')}</p>
+            <p className="text-xs text-foreground-500">{t('analytics.garde.subtitle')}</p>
           </div>
         </div>
         <GardeHistogram data={data} t={t} />
@@ -495,15 +495,15 @@ function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => 
       <CardBody className="p-5">
         <div className="flex items-center gap-2 mb-4">
           <Warehouse size={18} className="text-primary" />
-          <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+          <p className="text-xs font-bold uppercase tracking-wider">
             {t('analytics.caves.title')}
           </p>
         </div>
         {caves.map((cave) => (
           <div key={cave.cellarId} className="mb-4">
             <div className="flex justify-between mb-1">
-              <span className="text-[0.75rem] font-semibold truncate">{cave.cellarName}</span>
-              <span className="text-[0.75rem] text-default-500 shrink-0 ml-2">
+              <span className="text-xs font-semibold truncate">{cave.cellarName}</span>
+              <span className="text-xs text-default-500 shrink-0 ml-2">
                 {cave.count} — {fmtCurrency(cave.valuation)}
               </span>
             </div>
@@ -560,7 +560,7 @@ export function AnalyticsDashboard() {
               <BarChart3 size={20} className="text-primary" />
               <div>
                 <h1 className="text-lg font-bold">{t('analytics.pageTitle')}</h1>
-                <p className="text-[0.75rem] text-default-500">{t('analytics.pageSubtitle')}</p>
+                <p className="text-xs text-default-500">{t('analytics.pageSubtitle')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -626,7 +626,7 @@ export function AnalyticsDashboard() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <PackagePlus size={18} className="text-primary" />
-              <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+              <p className="text-xs font-bold uppercase tracking-wider">
                 {t('analytics.movements.title')}
               </p>
             </div>
@@ -648,7 +648,7 @@ export function AnalyticsDashboard() {
               <SelectItem key="all">{t('analytics.period.all')}</SelectItem>
             </Select>
           </div>
-          <p className="text-[0.68rem] text-default-400 mt-1 mb-4">
+          <p className="text-xs text-foreground-500 mt-1 mb-4">
             {t('analytics.movements.scopeHint')}
           </p>
           {isLoading ? (
@@ -661,23 +661,23 @@ export function AnalyticsDashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div className="flex flex-col items-center gap-1 p-3 bg-success-50 border border-success-200 rounded-xl">
                 <PackagePlus size={18} className="text-success" />
-                <p className="text-[1.5rem] font-extrabold leading-tight">{data?.movements?.added ?? 0}</p>
-                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-success-700">{t('analytics.movements.added')}</p>
+                <p className="text-2xl font-extrabold leading-tight">{data?.movements?.added ?? 0}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-success-700">{t('analytics.movements.added')}</p>
               </div>
               <div className="flex flex-col items-center gap-1 p-3 bg-warning-50 border border-warning-200 rounded-xl">
                 <PackageMinus size={18} className="text-warning" />
-                <p className="text-[1.5rem] font-extrabold leading-tight">{data?.movements?.consumed ?? 0}</p>
-                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-warning-700">{t('analytics.movements.consumed')}</p>
+                <p className="text-2xl font-extrabold leading-tight">{data?.movements?.consumed ?? 0}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-warning-700">{t('analytics.movements.consumed')}</p>
               </div>
               <div className="flex flex-col items-center gap-1 p-3 bg-danger-50 border border-danger-200 rounded-xl">
                 <Trash2 size={18} className="text-danger" />
-                <p className="text-[1.5rem] font-extrabold leading-tight">{data?.movements?.deleted ?? 0}</p>
-                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-danger-700">{t('analytics.movements.deleted')}</p>
+                <p className="text-2xl font-extrabold leading-tight">{data?.movements?.deleted ?? 0}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-danger-700">{t('analytics.movements.deleted')}</p>
               </div>
               <div className="flex flex-col items-center gap-1 p-3 bg-primary-50 border border-primary-200 rounded-xl">
                 <PackageCheck size={18} className="text-primary" />
-                <p className="text-[1.5rem] font-extrabold leading-tight">{data?.movements?.restored ?? 0}</p>
-                <p className="text-[0.65rem] font-bold uppercase tracking-wider text-primary-700">{t('analytics.movements.restored')}</p>
+                <p className="text-2xl font-extrabold leading-tight">{data?.movements?.restored ?? 0}</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-primary-700">{t('analytics.movements.restored')}</p>
               </div>
             </div>
           )}
@@ -699,10 +699,10 @@ export function AnalyticsDashboard() {
           <div className="flex items-center gap-2 mb-4">
             <MapPin size={18} className="text-primary" />
             <div>
-              <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+              <p className="text-xs font-bold uppercase tracking-wider">
                 {t('analytics.regionMap.mapTitle')}
               </p>
-              <p className="text-[0.68rem] text-default-400">
+              <p className="text-xs text-foreground-500">
                 {t('analytics.regionMap.mapSubtitle')}
               </p>
             </div>
@@ -731,10 +731,10 @@ export function AnalyticsDashboard() {
           <CardBody className="p-5">
             <div className="flex items-center gap-2 mb-4">
               <MapPin size={18} className="text-primary" />
-              <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+              <p className="text-xs font-bold uppercase tracking-wider">
                 {t('analytics.regionMap.title')}
               </p>
-              <span className="text-[0.7rem] text-default-400 ml-1">
+              <span className="text-xs text-foreground-500 ml-1">
                 — {t('analytics.regionMap.subtitle')}
               </span>
             </div>

@@ -139,7 +139,7 @@ export function SessionsPanel() {
             role={trustMsg.type === 'success' ? 'status' : 'alert'}
             className={`text-sm rounded-lg px-4 py-3 mb-3 border ${
               trustMsg.type === 'success'
-                ? 'bg-success-50 border-success-200 text-success'
+                ? 'bg-success-50 border-success-200 text-success-700'
                 : 'bg-danger-50 border-danger-200 text-danger'
             }`}
           >

@@ -94,8 +94,8 @@ function BottleVisual({ item }: BottleVisualProps) {
       style={{ backgroundColor: getCellColor(item) }}
     >
       <span
-        className="text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
-        style={{ fontSize: '7px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+        className="text-xs text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
+        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
       >
         {label}
       </span>
@@ -155,8 +155,8 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
         }}
       >
         <span
-          className="text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
-          style={{ fontSize: '7px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+          className="text-xs text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
+          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
         >
           {item.vintage ? `${item.name.slice(0, 6)} ${item.vintage}` : item.name.slice(0, 8)}
         </span>
@@ -258,8 +258,8 @@ function GridLegend({ items }: { items: GridItem[] }) {
       {present.map((key) => (
         <span
           key={key}
-          className="inline-flex items-center px-2 py-0.5 rounded-full text-white font-semibold"
-          style={{ backgroundColor: CATEGORY_COLORS[key] ?? '#9E9E9E', fontSize: 11 }}
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs text-white font-semibold"
+          style={{ backgroundColor: CATEGORY_COLORS[key] ?? '#9E9E9E' }}
         >
           {labelFor(key)}
         </span>
@@ -307,7 +307,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
             </div>
           )}
           {unassignedItems.length === 0 ? (
-            <p className="px-4 py-4 text-sm text-default-400">
+            <p className="px-4 py-4 text-sm text-foreground-500">
               {t('cellars.grid.noUnassignedBottles')}
             </p>
           ) : (
@@ -325,7 +325,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
                   />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{item.name}</div>
-                    <div className="text-xs text-default-400 truncate">
+                    <div className="text-xs text-foreground-500 truncate">
                       {[item.producer, item.vintage].filter(Boolean).join(' · ')}
                     </div>
                   </div>

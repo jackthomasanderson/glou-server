@@ -356,8 +356,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         <div className="flex gap-3 sm:gap-4 mb-5">
           {[
             { value: baseItems.length, label: t('inventory.stats.total'), color: '' },
-            { value: baseItems.filter(b => !b.isOpened).length, label: t('inventory.stats.full'), color: 'text-success' },
-            { value: baseItems.filter(b => b.isOpened).length, label: lockedCategories?.includes('cigar') ? t('inventory.stats.openedCigar') : t('inventory.stats.opened'), color: 'text-warning' },
+            { value: baseItems.filter(b => !b.isOpened).length, label: t('inventory.stats.full'), color: 'text-success-700' },
+            { value: baseItems.filter(b => b.isOpened).length, label: lockedCategories?.includes('cigar') ? t('inventory.stats.openedCigar') : t('inventory.stats.opened'), color: 'text-warning-700' },
           ].map(({ value, label, color }) => (
             <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">
               <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>

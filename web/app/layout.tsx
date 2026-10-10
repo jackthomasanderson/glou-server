@@ -16,12 +16,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Matches the "Primaire" token from .vibe/ux-ui.md (light mode #2563EB /
-  // dark mode #3B82F6) so the PWA install/OS chrome tint follows the theme.
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#2563EB' },
-    { media: '(prefers-color-scheme: dark)', color: '#3B82F6' },
-  ],
+  // Matches the actual primary token used across the app (tailwind.config.ts
+  // / ThemeWrapper.tsx, '#6366f1' for both modes) so the PWA install/OS
+  // chrome tint doesn't contradict the interface it wraps.
+  themeColor: '#6366f1',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
