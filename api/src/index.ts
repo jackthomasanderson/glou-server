@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { connectWithRetry } from './lib/prisma';
+import { connectWithRetry, prisma } from './lib/prisma';
 import { createApp } from './app';
 import { inventoryService } from './services/inventory.service';
 import { scanService } from './services/scan.service';
@@ -64,8 +64,9 @@ async function bootstrap(): Promise<void> {
   });
 
   // Background maintenance: purge old trash
-  void inventoryService.purgeTrashed().then((count) => {
+  void inventoryService.purgeTrashed().then(({ count, photoPaths }) => {
     if (count > 0) console.info(`[startup] Purged ${count} permanently deleted items`);
+    void inventoryService.deletePhotoFiles(photoPaths);
   });
 
   // FEAT-39: data retention cleanup (audit logs, expired/revoked sessions,
@@ -123,9 +124,24 @@ async function bootstrap(): Promise<void> {
       .catch((err) => console.error('[cron] Backup cron tick failed:', err));
   });
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.info(`[api] Server listening on port ${PORT} (${process.env.NODE_ENV})`);
   });
+
+  // ISSUE_091: a container stop (image update, `docker compose restart`, a
+  // reboot) sent SIGTERM straight into an unhandled default — the process
+  // was force-killed after Docker's grace period with whatever request was
+  // in flight simply cut off, no response ever sent. `server.close()` stops
+  // accepting new connections and waits for in-flight ones to finish on
+  // their own before this handler continues.
+  const shutdown = (signal: string) => {
+    console.info(`[api] ${signal} received, shutting down gracefully`);
+    server.close(() => {
+      void prisma.$disconnect().finally(() => process.exit(0));
+    });
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 bootstrap().catch((err) => {

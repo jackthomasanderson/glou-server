@@ -10,6 +10,7 @@ vi.mock('../../src/lib/prisma', () => ({
     session: { findUnique: vi.fn() },
     inventoryItem: { findMany: vi.fn() },
     tastingNote: { findMany: vi.fn(), count: vi.fn() },
+    $queryRaw: vi.fn(),
   },
   connectWithRetry: vi.fn(),
 }));
@@ -32,6 +33,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.JWT_SECRET = JWT_SECRET;
   vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true } as never);
+  vi.mocked(prisma.$queryRaw).mockResolvedValue([{ '?column?': 1 }] as never);
 });
 
 describe('unauthenticated access', () => {
@@ -39,6 +41,15 @@ describe('unauthenticated access', () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
+  });
+
+  // ISSUE_019: it used to answer 'ok' unconditionally — now it actually
+  // queries the database, so a probe stops going green through an outage.
+  it('GET /health returns 503 when the database is unreachable', async () => {
+    vi.mocked(prisma.$queryRaw).mockRejectedValue(new Error('connection refused'));
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(503);
+    expect(res.body.status).toBe('error');
   });
 
   it('rejects a protected GET with 401 and a stable error code', async () => {

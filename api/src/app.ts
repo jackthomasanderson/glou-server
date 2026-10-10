@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import { prisma } from './lib/prisma';
 import morgan from 'morgan';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -94,8 +95,18 @@ export function createApp(): express.Express {
 
   // ─── Health check ─────────────────────────────────────────────────────────
 
-  app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  // ISSUE_019: this used to answer 'ok' unconditionally — it only ever
+  // proved the Node process itself was responding, never that it could
+  // actually reach PostgreSQL. A monitor wired to it stayed green through a
+  // full database outage.
+  app.get('/health', async (_req, res) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    } catch (err) {
+      console.error('[health] Database check failed:', err);
+      res.status(503).json({ status: 'error', timestamp: new Date().toISOString() });
+    }
   });
 
   // ─── Connectivity check (no auth) ─────────────────────────────────────────

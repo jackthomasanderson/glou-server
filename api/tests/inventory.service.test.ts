@@ -15,6 +15,14 @@ vi.mock('../src/lib/prisma', () => ({
   },
 }));
 
+const fsUnlink = vi.fn();
+const fsReaddir = vi.fn();
+vi.mock('fs/promises', () => ({
+  default: { unlink: (...a: unknown[]) => fsUnlink(...a), readdir: (...a: unknown[]) => fsReaddir(...a) },
+  unlink: (...a: unknown[]) => fsUnlink(...a),
+  readdir: (...a: unknown[]) => fsReaddir(...a),
+}));
+
 import { prisma } from '../src/lib/prisma';
 
 describe('InventoryService', () => {
@@ -341,6 +349,76 @@ describe('InventoryService', () => {
     it('returns null without querying when producer or name is missing', async () => {
       const result = await service.findDuplicateCandidate({ category: 'wine' } as never);
       expect(result).toBeNull();
+      expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // ISSUE_096: a purged item's local photo must be deleted from disk too —
+  // only when it's actually local (uploads/products/*), never an external URL.
+  describe('purgeTrashed', () => {
+    it('only returns the local photo paths among the purged items', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { id: 'a', photoUrl: '/uploads/products/a.jpg' },
+        { id: 'b', photoUrl: 'https://example.com/b.jpg' },
+        { id: 'c', photoUrl: null },
+      ] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 3 } as never);
+
+      const result = await service.purgeTrashed();
+
+      expect(result).toEqual({ count: 3, photoPaths: ['/uploads/products/a.jpg'] });
+      expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['a', 'b', 'c'] } } });
+    });
+
+    it('does nothing when nothing is past the retention window', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+      const result = await service.purgeTrashed();
+
+      expect(result).toEqual({ count: 0, photoPaths: [] });
+      expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deletePhotoFiles', () => {
+    beforeEach(() => fsUnlink.mockReset());
+
+    it('deletes every given path and ignores a file already gone', async () => {
+      fsUnlink.mockResolvedValueOnce(undefined).mockRejectedValueOnce(
+        Object.assign(new Error('gone'), { code: 'ENOENT' }),
+      );
+
+      await service.deletePhotoFiles(['/uploads/products/a.jpg', '/uploads/products/b.jpg']);
+
+      expect(fsUnlink).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('sweepOrphanProductPhotos', () => {
+    beforeEach(() => {
+      fsReaddir.mockReset();
+      fsUnlink.mockReset().mockResolvedValue(undefined);
+    });
+
+    it('deletes a file on disk that no item references any more', async () => {
+      fsReaddir.mockResolvedValue(['referenced.jpg', 'orphan.jpg']);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { photoUrl: '/uploads/products/referenced.jpg' },
+      ] as never);
+
+      const count = await service.sweepOrphanProductPhotos();
+
+      expect(count).toBe(1);
+      expect(fsUnlink).toHaveBeenCalledTimes(1);
+      expect(fsUnlink.mock.calls[0][0]).toContain('orphan.jpg');
+    });
+
+    it('returns 0 without touching the database when the upload dir does not exist', async () => {
+      fsReaddir.mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+
+      const count = await service.sweepOrphanProductPhotos();
+
+      expect(count).toBe(0);
       expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
     });
   });

@@ -1,8 +1,15 @@
 import { Prisma, PrismaClient } from '@prisma/client';
+import fs from 'fs/promises';
+import path from 'path';
 import { prisma } from '../lib/prisma';
 import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { v4 as uuidv4 } from 'uuid';
+
+// ISSUE_096: only a photoUrl saved by search.router.ts's product-image
+// endpoints (uploads/products/*) is ever safe to delete from disk — an
+// item whose photoUrl is some other external address must never be touched.
+const LOCAL_PRODUCT_PHOTO_PREFIX = '/uploads/products/';
 
 export interface FieldChange {
   field: string;
@@ -554,12 +561,87 @@ export class InventoryService {
     });
   }
 
-  async purgeTrashed(client: Prisma.TransactionClient | PrismaClient = prisma): Promise<number> {
+  /**
+   * ISSUE_096: a permanently-purged item's photo (uploads/products/*) was
+   * never deleted alongside its row — the upload volume only ever grew.
+   * Rows only here, same two-phase contract as scanService's scan-photo
+   * purge (#183): the caller must only call `deletePhotoFiles` on the
+   * returned paths once this has actually committed, never before, so a
+   * rolled-back transaction doesn't leave rows pointing at photos already
+   * gone from disk.
+   */
+  async purgeTrashed(
+    client: Prisma.TransactionClient | PrismaClient = prisma,
+  ): Promise<{ count: number; photoPaths: string[] }> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    const result = await client.inventoryItem.deleteMany({
+    const toPurge = await client.inventoryItem.findMany({
       where: { deletedAt: { lt: cutoff } },
+      select: { id: true, photoUrl: true },
     });
-    return result.count;
+    if (toPurge.length === 0) return { count: 0, photoPaths: [] };
+
+    const result = await client.inventoryItem.deleteMany({
+      where: { id: { in: toPurge.map((item) => item.id) } },
+    });
+    const photoPaths = toPurge
+      .map((item) => item.photoUrl)
+      .filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX));
+    return { count: result.count, photoPaths };
+  }
+
+  /** Deletes local product photos from disk. Never throws: one bad path must not block the rest. */
+  async deletePhotoFiles(photoPaths: string[]): Promise<void> {
+    for (const photoPath of photoPaths) {
+      try {
+        await fs.unlink(path.join(process.cwd(), photoPath));
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.error(`[inventory] Failed to purge photo file ${photoPath}:`, err);
+        }
+      }
+    }
+  }
+
+  /**
+   * ISSUE_096 complement: a photo can be orphaned without ever going through
+   * `purgeTrashed` — e.g. the item's photo was replaced (the old file's URL
+   * was simply overwritten, nothing ever deleted it) or the save completed
+   * but the surrounding item creation/update didn't. Sweeps uploads/products/
+   * for files no InventoryItem (trashed or not — only a purged item's photo
+   * is truly gone) references any more.
+   */
+  async sweepOrphanProductPhotos(client: Prisma.TransactionClient | PrismaClient = prisma): Promise<number> {
+    const uploadDir = path.join(process.cwd(), 'uploads', 'products');
+    let files: string[];
+    try {
+      files = await fs.readdir(uploadDir);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return 0;
+      throw err;
+    }
+    if (files.length === 0) return 0;
+
+    const referenced = await client.inventoryItem.findMany({
+      where: { photoUrl: { startsWith: LOCAL_PRODUCT_PHOTO_PREFIX } },
+      select: { photoUrl: true },
+    });
+    const referencedFilenames = new Set(
+      referenced.map((item) => item.photoUrl!.slice(LOCAL_PRODUCT_PHOTO_PREFIX.length)),
+    );
+
+    let deleted = 0;
+    for (const filename of files) {
+      if (referencedFilenames.has(filename)) continue;
+      try {
+        await fs.unlink(path.join(uploadDir, filename));
+        deleted++;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+          console.error(`[inventory] Failed to purge orphan photo file ${filename}:`, err);
+        }
+      }
+    }
+    return deleted;
   }
 
   daysUntilPermanentDelete(deletedAt: Date): number {

@@ -22,6 +22,7 @@ export interface RetentionCounts {
     guestShares: number;
     scanFiles: number;
     trashedItems: number;
+    orphanPhotos: number;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -77,6 +78,7 @@ export class MaintenanceService {
     static async runRetentionCleanup(trigger: MaintenanceTrigger, userId?: string): Promise<MaintenanceRun> {
         const startedAt = Date.now();
         let scanFilesToDelete: string[] = [];
+        let photoFilesToDelete: string[] = [];
 
         try {
             const run = await prisma.$transaction(async (tx) => {
@@ -127,7 +129,16 @@ export class MaintenanceService {
                 scanFilesToDelete = scanPurge.imagePaths;
                 const scanFilesCount = scanPurge.count;
 
-                const trashedItemsCount = await inventoryService.purgeTrashed(tx);
+                // Rows only here too: the photos are deleted after the commit (#183/ISSUE_096).
+                const trashedPurge = await inventoryService.purgeTrashed(tx);
+                photoFilesToDelete = trashedPurge.photoPaths;
+                const trashedItemsCount = trashedPurge.count;
+
+                // ISSUE_096 complement: files already orphaned by some other
+                // path (a replaced photo, an interrupted save) — safe to
+                // delete immediately regardless of this transaction's outcome,
+                // since nothing ever referenced them either way.
+                const orphanPhotosCount = await inventoryService.sweepOrphanProductPhotos(tx);
 
                 const counts: RetentionCounts = {
                     auditLogs: auditLogsCount,
@@ -136,6 +147,7 @@ export class MaintenanceService {
                     guestShares: guestSharesResult.count,
                     scanFiles: scanFilesCount,
                     trashedItems: trashedItemsCount,
+                    orphanPhotos: orphanPhotosCount,
                 };
 
                 return tx.maintenanceRun.create({
@@ -150,6 +162,7 @@ export class MaintenanceService {
             });
             // The rows are committed: now the photos they pointed at can go.
             await scanService.deleteScanFiles(scanFilesToDelete);
+            await inventoryService.deletePhotoFiles(photoFilesToDelete);
             return run;
         } catch (error) {
             console.error('[maintenance] Retention cleanup failed:', error);
