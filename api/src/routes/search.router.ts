@@ -5,6 +5,7 @@ import path from 'path';
 import multer from 'multer';
 import { assertUrlAllowed, resolveSafeUrl } from '../lib/ssrf';
 import { AppError } from '../lib/errors';
+import { ALLOWED_IMAGE_TYPES } from '../lib/upload';
 
 const router = Router();
 
@@ -149,16 +150,6 @@ if (!fs.existsSync(PRODUCTS_UPLOAD_DIR)) {
   fs.mkdirSync(PRODUCTS_UPLOAD_DIR, { recursive: true });
 }
 
-const ALLOWED_IMAGE_TYPES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/jpg': 'jpg',
-  'image/pjpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
-  'image/avif': 'avif',
-};
-
 function extFromUrl(url: string): string | null {
   try {
     const raw = path.extname(new URL(url).pathname).replace('.', '').toLowerCase();
@@ -174,9 +165,13 @@ function extFromUrl(url: string): string | null {
 const productImageUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, PRODUCTS_UPLOAD_DIR),
-    filename: (_req, _file, cb) => {
-      const ext = path.extname(_file.originalname).toLowerCase() || '.jpg';
-      cb(null, `${crypto.randomUUID()}${ext}`);
+    // ISSUE_049: the extension must come from the validated mimetype, never
+    // from the client-supplied filename — a file declared `image/png` but
+    // named `x.html` would otherwise be stored (and served as-is by
+    // express.static) with the client's own extension.
+    filename: (_req, file, cb) => {
+      const ext = ALLOWED_IMAGE_TYPES[file.mimetype.toLowerCase()] ?? 'jpg';
+      cb(null, `${crypto.randomUUID()}.${ext}`);
     },
   }),
   limits: { fileSize: 5 * 1024 * 1024 },

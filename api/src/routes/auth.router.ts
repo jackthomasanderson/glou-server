@@ -47,12 +47,11 @@ const PUBLIC_AUTH_ERROR_CODES = new Set([
   'NOT_A_PENDING_TOKEN',
   'PASSWORD_TOO_SHORT',
   'TOKEN_INVALID_OR_EXPIRED',
-  'USERNAME_ALREADY_TAKEN',
-  'EMAIL_ALREADY_TAKEN',
+  'REGISTRATION_CONFLICT',
   'VALIDATION_ERROR',
 ]);
 
-const CONFLICT_REGISTER_CODES = new Set(['USERNAME_ALREADY_TAKEN', 'EMAIL_ALREADY_TAKEN']);
+const CONFLICT_REGISTER_CODES = new Set(['REGISTRATION_CONFLICT']);
 
 /** Allow-listed error code for an unauthenticated caller, never a raw message. */
 function publicAuthError(error: unknown, route: string): string {

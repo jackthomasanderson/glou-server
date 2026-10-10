@@ -200,6 +200,16 @@ export const inventoryPatchSchema = z.object({
 
 export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
 
+// ISSUE_052: `ids` used to be cast `as string[]` with no content check and
+// no length cap — bounded only by the 2MB request body limit, i.e. tens of
+// thousands of ids could reach a single `updateMany`.
+export const bulkUpdateSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(500),
+  patch: inventoryPatchSchema,
+});
+
+export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
+
 // ─── Guest-restricted update schema (FEAT-37) ────────────────────────────────
 // Guests with write access on a cellar (via GuestShare.writeCellarIds) may only
 // touch consumption/service state — never pricing, structural, or category fields.

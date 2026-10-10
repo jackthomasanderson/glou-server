@@ -4,7 +4,7 @@ import { authService, ExportCategory } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
-import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema } from '../schemas/user.schema';
+import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema } from '../schemas/user.schema';
 import { prisma } from '../lib/prisma';
 import { assertUrlAllowed } from '../lib/ssrf';
 import { notificationService } from '../services/notification.service';
@@ -239,11 +239,21 @@ router.get('/notifications', authMiddleware, async (req: Request, res: Response)
  * Update notification preferences
  */
 router.patch('/notifications', authMiddleware, async (req: Request, res: Response) => {
+  let parsed;
+  try {
+    parsed = updateNotificationPrefsSchema.parse(req.body);
+  } catch (err) {
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      return;
+    }
+    throw err;
+  }
   const {
     notifInApp, notifEmail, notifWebhook,
     notifCategories, notifQuietStart, notifQuietEnd,
     notifLanguage, webhookUrl,
-  } = req.body;
+  } = parsed;
 
   // ISSUE_048: a webhook URL is called server-side on every notification —
   // reject anything that isn't a public HTTPS address at save time, the same
@@ -259,12 +269,12 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
   }
 
   const data: Record<string, unknown> = {};
-  if (notifInApp !== undefined) data.notifInApp = Boolean(notifInApp);
-  if (notifEmail !== undefined) data.notifEmail = Boolean(notifEmail);
-  if (notifWebhook !== undefined) data.notifWebhook = Boolean(notifWebhook);
-  if (Array.isArray(notifCategories)) data.notifCategories = notifCategories;
-  if (notifQuietStart !== undefined) data.notifQuietStart = notifQuietStart === null ? null : Number(notifQuietStart);
-  if (notifQuietEnd !== undefined) data.notifQuietEnd = notifQuietEnd === null ? null : Number(notifQuietEnd);
+  if (notifInApp !== undefined) data.notifInApp = notifInApp;
+  if (notifEmail !== undefined) data.notifEmail = notifEmail;
+  if (notifWebhook !== undefined) data.notifWebhook = notifWebhook;
+  if (notifCategories !== undefined) data.notifCategories = notifCategories;
+  if (notifQuietStart !== undefined) data.notifQuietStart = notifQuietStart;
+  if (notifQuietEnd !== undefined) data.notifQuietEnd = notifQuietEnd;
   if (notifLanguage !== undefined) data.notifLanguage = notifLanguage;
   if (webhookUrl !== undefined) data.webhookUrl = webhookUrl || null;
 

@@ -120,7 +120,7 @@ describe('AuthService', () => {
 
       expect(prisma.user.findFirst).toHaveBeenCalledWith({
         where: { OR: [{ username: validData.username }, { email: validData.email }] },
-        select: { username: true, email: true },
+        select: { id: true },
       });
       expect(bcrypt.hash).toHaveBeenCalledWith(validData.password, 12);
       expect(prisma.user.create).toHaveBeenCalled();
@@ -128,16 +128,10 @@ describe('AuthService', () => {
       expect(result.user.username).toBe(validData.username);
     });
 
-    it('should throw USERNAME_ALREADY_TAKEN if username exists', async () => {
-      vi.mocked(prisma.user.findFirst).mockResolvedValue({ username: validData.username, email: 'other@example.com' } as any);
+    it('throws a single REGISTRATION_CONFLICT code for either a taken username or email (ISSUE_015: no enumeration)', async () => {
+      vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as any);
 
-      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('USERNAME_ALREADY_TAKEN');
-    });
-
-    it('should throw EMAIL_ALREADY_TAKEN if email exists', async () => {
-      vi.mocked(prisma.user.findFirst).mockResolvedValue({ username: 'other', email: validData.email } as any);
-
-      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('EMAIL_ALREADY_TAKEN');
+      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('REGISTRATION_CONFLICT');
     });
   });
 

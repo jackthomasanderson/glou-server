@@ -358,12 +358,14 @@ export class AuthService {
     // Check uniqueness
     const existing = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] },
-      select: { username: true, email: true },
+      select: { id: true },
     });
-    if (existing) {
-      if (existing.username === username) throw new Error('USERNAME_ALREADY_TAKEN');
-      throw new Error('EMAIL_ALREADY_TAKEN');
-    }
+    // ISSUE_015: login was deliberately built not to reveal whether an
+    // account exists ("Always 401 for invalid credentials (no
+    // enumeration)") — naming which field conflicted here undid that for an
+    // anonymous caller, who could probe any address and learn whether it
+    // already has an account. A single generic code names neither.
+    if (existing) throw new Error('REGISTRATION_CONFLICT');
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 

@@ -411,6 +411,7 @@
       "INVALID_CREDENTIALS": "Invalid username or password.",
       "USERNAME_ALREADY_TAKEN": "This username is already taken.",
       "EMAIL_ALREADY_TAKEN": "This email address is already in use.",
+      "REGISTRATION_CONFLICT": "That username or email address is already in use.",
       "VALIDATION_ERROR": "Please check your inputs.",
       "UNEXPECTED_ERROR": "An unexpected error occurred.",
       "CSRF_ORIGIN_REJECTED": "This address is not allowed by the server. Set APP_URL to the address you type in your browser, then restart.",

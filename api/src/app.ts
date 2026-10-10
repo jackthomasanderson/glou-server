@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { inventoryRouter } from './routes/inventory.router';
 import { authRouter } from './routes/auth.router';
+import { authMiddleware } from './middleware/auth.middleware';
 import cellarsRouter from './routes/cellars.router';
 import statsRouter from './routes/stats.router';
 import userRouter from './routes/user.router';
@@ -57,9 +58,11 @@ export function createApp(): express.Express {
 
   // ─── Security middleware ───────────────────────────────────────────────────
 
-  app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" }
-  }));
+  // ISSUE_055: "cross-origin" used to apply to every API response, not just
+  // the images it was relaxed for — any third-party site could embed JSON
+  // responses too. Default helmet (same-origin CORP) applies everywhere;
+  // the relaxation is re-applied narrowly, just before serving /uploads.
+  app.use(helmet());
   app.use(cors({
     origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
     credentials: true,
@@ -96,22 +99,30 @@ export function createApp(): express.Express {
   });
 
   // ─── Connectivity check (no auth) ─────────────────────────────────────────
+  // ISSUE_009: this used to call out to https://dns.google on every poll
+  // (every 30s, per open tab) to answer "is the Internet reachable" — a
+  // genuine data-sovereignty leak (the instance's public IP and activity
+  // pattern, sent to Google) for a question the UI only ever asks as "can my
+  // browser reach the Glou server". The route responding at all already
+  // answers that, with no outbound call needed.
 
-  app.get('/api/connectivity', async (_req, res) => {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 3000);
-      await fetch('https://dns.google/resolve?name=google.com&type=A', { signal: controller.signal });
-      clearTimeout(timeout);
-      res.json({ online: true });
-    } catch {
-      res.json({ online: false });
-    }
+  app.get('/api/connectivity', (_req, res) => {
+    res.json({ online: true });
   });
 
   // ─── Static Files ─────────────────────────────────────────────────────────
-
-  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+  // ISSUE_017: avatars and product photos are legitimately public (referenced
+  // from guest share pages, which have no session). Scan photos are raw label
+  // pictures taken on a phone, likely to show far more than the label, and
+  // their filename (userId + timestamp) is guessable within the 24h retention
+  // window — mount that one subfolder behind authMiddleware instead.
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  const allowCrossOriginEmbedding = (_req: express.Request, res: express.Response, next: express.NextFunction): void => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  };
+  app.use('/uploads/scans', authMiddleware, allowCrossOriginEmbedding, express.static(path.join(uploadsDir, 'scans')));
+  app.use('/uploads', allowCrossOriginEmbedding, express.static(uploadsDir));
 
   // ─── Routes ───────────────────────────────────────────────────────────────
 

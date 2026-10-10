@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import QRCode from 'qrcode';
-import { inventoryInputSchema, inventoryPatchSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
+import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
 import { scanJobIdHintSchema } from '../schemas/scan.schema';
 import { inventoryService } from '../services/inventory.service';
 import { scanService } from '../services/scan.service';
@@ -123,13 +123,8 @@ router.get('/:id/history', async (req: Request, res: Response): Promise<void> =>
 router.post('/bulk', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
-    const { ids, patch } = req.body;
-    if (!Array.isArray(ids) || ids.length === 0) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: 'ids array is required' });
-      return;
-    }
-    const validatedPatch = inventoryPatchSchema.parse(patch);
-    const count = await inventoryService.bulkUpdate(req.userId, ids as string[], validatedPatch);
+    const { ids, patch: validatedPatch } = bulkUpdateSchema.parse(req.body);
+    const count = await inventoryService.bulkUpdate(req.userId, ids, validatedPatch);
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, details: { count, bulk: true } });
     res.json({ data: { updatedCount: count } });
   } catch (error) {
