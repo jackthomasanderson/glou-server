@@ -92,3 +92,8 @@ Dozens of smaller features ship regularly — see the [closed pull requests](htt
 - Predictive analytics for collection valuation.
 - Advanced IoT integration for live cellar temperature and humidity monitoring.
 - Native mobile companion application.
+
+## 🙏 Credits / Third parties
+
+- This product includes GeoLite data created by MaxMind, available from [http://maxmind.com/](http://maxmind.com/).
+- Map tiles by [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.

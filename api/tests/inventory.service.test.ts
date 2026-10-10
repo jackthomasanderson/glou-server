@@ -282,4 +282,66 @@ describe('InventoryService', () => {
     expect(count).toBe(0);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  // ISSUE_141/ISSUE_068: port of web/lib/inventory/duplicate.ts's isDuplicateOf,
+  // applied server-side — the one check that previously existed only in the browser.
+  describe('findDuplicateCandidate', () => {
+    it('matches case-insensitively on producer + name + vintage for wine', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { id: 'existing', producer: 'Château Pétrus', name: 'pétrus', vintage: 2015, bottleSize: '75cl' },
+      ] as never);
+
+      const result = await service.findDuplicateCandidate({
+        category: 'wine', producer: 'château pétrus', name: 'PÉTRUS', vintage: 2015, bottleSize: '75cl',
+      } as never);
+
+      expect(result).toMatchObject({ id: 'existing' });
+    });
+
+    it('does not match a different vintage', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { id: 'existing', producer: 'Château Pétrus', name: 'Pétrus', vintage: 2010, bottleSize: '75cl' },
+      ] as never);
+
+      const result = await service.findDuplicateCandidate({
+        category: 'wine', producer: 'Château Pétrus', name: 'Pétrus', vintage: 2015, bottleSize: '75cl',
+      } as never);
+
+      expect(result).toBeNull();
+    });
+
+    it('treats a missing vintage on either side as a potential match', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { id: 'existing', producer: 'Château Pétrus', name: 'Pétrus', vintage: null, bottleSize: '75cl' },
+      ] as never);
+
+      const result = await service.findDuplicateCandidate({
+        category: 'wine', producer: 'Château Pétrus', name: 'Pétrus', vintage: 2015, bottleSize: '75cl',
+      } as never);
+
+      expect(result).toMatchObject({ id: 'existing' });
+    });
+
+    it('compares format (not vintage) for cigars', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { id: 'existing', producer: 'Romeo y Julieta', name: 'Churchill', format: 'Churchill' },
+      ] as never);
+
+      const matching = await service.findDuplicateCandidate({
+        category: 'cigar', producer: 'Romeo y Julieta', name: 'Churchill', format: 'Churchill',
+      } as never);
+      const nonMatching = await service.findDuplicateCandidate({
+        category: 'cigar', producer: 'Romeo y Julieta', name: 'Churchill', format: 'Robusto',
+      } as never);
+
+      expect(matching).toMatchObject({ id: 'existing' });
+      expect(nonMatching).toBeNull();
+    });
+
+    it('returns null without querying when producer or name is missing', async () => {
+      const result = await service.findDuplicateCandidate({ category: 'wine' } as never);
+      expect(result).toBeNull();
+      expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
+    });
+  });
 });

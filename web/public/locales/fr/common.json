@@ -1745,6 +1745,8 @@
       "itemsAdded_one": "{{count}} actif ajouté à votre inventaire",
       "itemsAdded_other": "{{count}} actifs ajoutés à votre inventaire",
       "noItems": "Aucun actif ajouté pour le moment",
+      "duplicatesSkipped_one": "{{count}} ligne ignorée (déjà présente dans l'inventaire)",
+      "duplicatesSkipped_other": "{{count}} lignes ignorées (déjà présentes dans l'inventaire)",
       "adminConfig": {
         "title": "Configuration système (facultatif)",
         "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer SMTP, politique de notifs, webhook/Gotify, intégrations API, rétention, sauvegardes et réseau.",

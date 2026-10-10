@@ -65,20 +65,33 @@ export class ImportService {
    * import back). Reuses `inventoryService.createItem` given the
    * transaction's client so category side effects (alert status, id
    * generation) stay defined in one place.
+   *
+   * ISSUE_141/ISSUE_068: the one real duplicate-detection backstop in the
+   * app only ever ran in the browser — a bulk CSV import had no equivalent
+   * at all, the highest-volume way to double an entire shelf of bottles.
+   * A matched row is skipped (not an error: there's no interactive dialog to
+   * resolve it mid-import, and the row IS already in the inventory) and
+   * counted separately so the UI can report it instead of silently losing it.
    */
-  async confirmImport(userId: string, rows: CsvImportRow[], cellarId: string | null): Promise<number> {
+  async confirmImport(
+    userId: string,
+    rows: CsvImportRow[],
+    cellarId: string | null,
+  ): Promise<{ created: number; skippedDuplicates: number }> {
     return prisma.$transaction(async (tx) => {
       let created = 0;
+      let skippedDuplicates = 0;
       for (const row of rows) {
-        await inventoryService.createItem(
-          userId,
-          this.toInventoryInput(row, cellarId),
-          tx,
-          this.toFieldSources(row),
-        );
+        const input = this.toInventoryInput(row, cellarId);
+        const duplicate = await inventoryService.findDuplicateCandidate(input, tx);
+        if (duplicate) {
+          skippedDuplicates++;
+          continue;
+        }
+        await inventoryService.createItem(userId, input, tx, this.toFieldSources(row));
         created++;
       }
-      return created;
+      return { created, skippedDuplicates };
     });
   }
 

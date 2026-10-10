@@ -52,6 +52,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
   const [cellarName, setCellarName] = useState<string | null>(null);
   const [ingestionMode, setIngestionMode] = useState<IngestionMode>(null);
   const [itemsAdded, setItemsAdded] = useState(0);
+  const [duplicatesSkipped, setDuplicatesSkipped] = useState(0);
 
   // Resume logic: skip straight to the ingestion choice if a cellar already
   // exists (created in an earlier, interrupted pass through the wizard).
@@ -186,7 +187,11 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
         {step === 'ingestion-execute' && ingestionMode === 'csv' && (
           <CsvImportStep
             cellarId={cellarId}
-            onImported={(count) => { setItemsAdded((n) => n + count); setStep('summary'); }}
+            onImported={(count, skippedDuplicates) => {
+              setItemsAdded((n) => n + count);
+              setDuplicatesSkipped((n) => n + skippedDuplicates);
+              setStep('summary');
+            }}
             onBack={() => setStep('ingestion-choice')}
           />
         )}
@@ -203,6 +208,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
           <SummaryStep
             cellarName={cellarName}
             itemsAdded={itemsAdded}
+            duplicatesSkipped={duplicatesSkipped}
             isAdmin={user?.isAdmin ?? false}
             isFinishing={completeOnboarding.isPending}
             onFinish={finish}

@@ -19,7 +19,12 @@ export const inventoryClient = {
     return data;
   },
 
-  async create(data: Partial<InventoryItem>): Promise<InventoryItem> {
+  // ISSUE_141: `confirmDuplicate: true` tells the server the user already
+  // saw and dismissed the duplicate-candidate dialog for this exact
+  // submission — it must not run its own FEAT-65 check again and reject
+  // with 409. Not part of `InventoryItem`: it's a one-shot instruction to
+  // this call, not a stored field.
+  async create(data: Partial<InventoryItem> & { confirmDuplicate?: boolean }): Promise<InventoryItem> {
     const { data: result } = await client.post<InventoryItem>('/inventory', data);
     return result;
   },

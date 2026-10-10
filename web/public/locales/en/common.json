@@ -1743,6 +1743,8 @@
       "itemsAdded_one": "{{count}} asset added to your inventory",
       "itemsAdded_other": "{{count}} assets added to your inventory",
       "noItems": "No asset added yet",
+      "duplicatesSkipped_one": "{{count}} row skipped (already in your inventory)",
+      "duplicatesSkipped_other": "{{count}} rows skipped (already in your inventory)",
       "adminConfig": {
         "title": "System configuration (optional)",
         "description": "As an admin, you'll be able to set up SMTP, notif policy, webhook/Gotify, API integrations, retention, backups and network later.",

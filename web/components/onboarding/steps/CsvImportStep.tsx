@@ -8,7 +8,7 @@ import { CsvImportError, CsvImportRow } from '@/lib/import/types';
 
 interface CsvImportStepProps {
   cellarId: string | null;
-  onImported: (count: number) => void;
+  onImported: (count: number, skippedDuplicates: number) => void;
   onBack: () => void;
 }
 
@@ -42,7 +42,7 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
   };
 
   const handleConfirm = () => {
-    confirm.mutate({ rows, cellarId }, { onSuccess: (res) => onImported(res.created) });
+    confirm.mutate({ rows, cellarId }, { onSuccess: (res) => onImported(res.created, res.skippedDuplicates) });
   };
 
   return (

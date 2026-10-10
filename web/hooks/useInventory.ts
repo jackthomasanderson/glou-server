@@ -78,7 +78,7 @@ export function useInventoryItemHistory(id: string, enabled: boolean) {
 
 export function useCreateInventoryItem() {
   const queryClient = useQueryClient();
-  return useMutation<InventoryItem, Error, Partial<InventoryItem>>({
+  return useMutation<InventoryItem, Error, Partial<InventoryItem> & { confirmDuplicate?: boolean }>({
     mutationFn: inventoryClient.create,
     onSuccess: (newItem) => {
       queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>

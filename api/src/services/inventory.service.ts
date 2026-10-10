@@ -187,6 +187,44 @@ export class InventoryService {
   }
 
   /**
+   * ISSUE_141/ISSUE_068: the FEAT-65 "is this the same bottle" rule
+   * (`web/lib/inventory/duplicate.ts`'s `isDuplicateOf`) existed only in the
+   * browser — CSV import, the offline queue and two members creating the
+   * same bottle concurrently from two devices all bypassed it entirely.
+   * Ported here so server-side creation paths can apply the identical rule.
+   * Scans by category only (indexed, small result set for a self-hosted
+   * single-household inventory) then compares in JS — mirrors the client
+   * logic exactly rather than re-deriving an equivalent SQL predicate.
+   */
+  async findDuplicateCandidate(
+    data: Pick<InventoryPatch, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>,
+    client: Prisma.TransactionClient | PrismaClient = prisma,
+  ): Promise<InventoryItem | null> {
+    if (!data.category || !data.producer || !data.name) return null;
+    const normalize = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
+
+    const candidates = await client.inventoryItem.findMany({
+      where: { category: data.category, deletedAt: null },
+    });
+
+    return candidates.find((item) => {
+      if (normalize(item.producer) !== normalize(data.producer)) return false;
+      if (normalize(item.name) !== normalize(data.name)) return false;
+
+      if (data.category === 'cigar') {
+        return normalize(item.format) === normalize(data.format);
+      }
+      if (data.category === 'spirit') {
+        return normalize(item.bottleSize) === normalize(data.bottleSize);
+      }
+      // wine / sparkling — a missing vintage on either side is a potential
+      // match (let the caller decide), same as the client's vintageMatch.
+      const vintageMatches = data.vintage == null || item.vintage == null || item.vintage === data.vintage;
+      return vintageMatches && normalize(item.bottleSize) === normalize(data.bottleSize);
+    }) ?? null;
+  }
+
+  /**
    * `client` defaults to the global `prisma` singleton but accepts a
    * `Prisma.TransactionClient` so callers (e.g. the CSV import confirm step,
    * FEAT-56) can create several items atomically inside `prisma.$transaction`

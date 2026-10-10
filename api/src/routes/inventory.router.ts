@@ -157,6 +157,22 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       ? await scanService.computeOcrFieldSources(req.userId, scanJobIdResult.data, data.category)
       : undefined;
 
+    // ISSUE_141: the FEAT-65 dedup rule only ever ran in the browser against
+    // whatever page of the inventory happened to be loaded — the one real
+    // backstop (two members creating the same bottle at the same time from
+    // two devices) never existed. `confirmDuplicate` is the client's existing
+    // "Create Anyway" action telling the server this was already decided;
+    // without it, a match returns 409 instead of silently creating a second row.
+    const confirmDuplicate = (req.body as Record<string, unknown>).confirmDuplicate === true;
+    if (!confirmDuplicate) {
+      const duplicate = await inventoryService.findDuplicateCandidate(data);
+      if (duplicate) {
+        void auditLog({ userId: req.userId, action: 'CREATE', status: 'validation_error', ip, details: { reason: 'DUPLICATE_CANDIDATE', category: data.category, duplicateId: duplicate.id } });
+        res.status(409).json({ error: 'DUPLICATE_CANDIDATE', data: duplicate });
+        return;
+      }
+    }
+
     const item = await inventoryService.createItem(req.userId, data, undefined, fieldSources);
     void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, details: { category: data.category } });
     res.status(201).json({ data: item });
