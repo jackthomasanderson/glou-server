@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
 import { useMe, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
+import { notifySuccess } from '@/lib/toast';
 import { useTranslation } from 'react-i18next';
 import { AccountSecurity } from '@/components/profile/AccountSecurity';
 import { SessionsPanel } from '@/components/profile/SessionsPanel';
@@ -40,8 +41,6 @@ export default function ProfilePage() {
     accentColor: '#6366f1',
     expertMode: false,
   });
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
   // Seeding form state once the user loads is adjusted during render
   // (React's documented pattern) rather than in an effect, guarded against
   // the previous render's user so it only fires when the fetched user
@@ -65,7 +64,7 @@ export default function ProfilePage() {
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateProfile.mutate(profileData, {
-      onSuccess: () => { setSuccessMsg(t('profile.saveSuccess')); setTimeout(() => setSuccessMsg(null), 3000); },
+      onSuccess: () => notifySuccess('profile.saveSuccess'),
     });
   };
 
@@ -73,7 +72,7 @@ export default function ProfilePage() {
     const newPrefs = { ...prefsData, [field]: value };
     setPrefsData(newPrefs);
     updatePrefs.mutate(newPrefs, {
-      onSuccess: () => { setSuccessMsg(t('profile.saveSuccess')); setTimeout(() => setSuccessMsg(null), 3000); },
+      onSuccess: () => notifySuccess('profile.saveSuccess'),
     });
   };
 
@@ -81,7 +80,7 @@ export default function ProfilePage() {
     const newPrefs = { ...prefsData, expertMode: value };
     setPrefsData(newPrefs);
     updatePrefs.mutate(newPrefs, {
-      onSuccess: () => { setSuccessMsg(t('profile.saveSuccess')); setTimeout(() => setSuccessMsg(null), 3000); },
+      onSuccess: () => notifySuccess('profile.saveSuccess'),
     });
   };
 
@@ -99,10 +98,6 @@ export default function ProfilePage() {
     <MainLayout>
       <div className="max-w-3xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-6">{t('profile.title')}</h1>
-
-        {successMsg && (
-          <div className="bg-success-50 border border-success-200 text-success text-sm rounded-xl px-4 py-3 mb-5">{successMsg}</div>
-        )}
 
         {/* Wishlist & Budget (FEAT-20) — personal per-user feature, not part of
             the fixed sidebar nav (ux-ui.md 3.1's 6-item list is normative),
