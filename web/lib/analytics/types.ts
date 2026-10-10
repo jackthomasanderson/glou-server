@@ -33,10 +33,12 @@ export interface RegionCategoryStat {
 }
 
 export interface MaturityPlanning {
-  readyNow: { count: number; percent: number };
   preserve: { count: number; percent: number };
   atPeak: { count: number; percent: number };
   pastPeak: { count: number; percent: number };
+  // ISSUE_100: items with no peak-maturity window at all — no longer folded
+  // into a "ready now" claim the app has no basis for.
+  noWindow: { count: number; percent: number };
 }
 
 export interface MovementStats {

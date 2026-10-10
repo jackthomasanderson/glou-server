@@ -359,12 +359,6 @@ function MaturityPlanning({
 
   const rows = [
     {
-      label: t('analytics.maturity.readyNow'),
-      count: maturityPlanning.readyNow.count,
-      percent: maturityPlanning.readyNow.percent,
-      color: '#D97706',
-    },
-    {
       label: t('analytics.maturity.preserve'),
       count: maturityPlanning.preserve.count,
       percent: maturityPlanning.preserve.percent,
@@ -381,6 +375,12 @@ function MaturityPlanning({
       count: maturityPlanning.pastPeak.count,
       percent: maturityPlanning.pastPeak.percent,
       color: '#EF4444',
+    },
+    {
+      label: t('analytics.maturity.noWindow'),
+      count: maturityPlanning.noWindow.count,
+      percent: maturityPlanning.noWindow.percent,
+      color: 'rgba(128,128,128,0.15)',
     },
   ];
 

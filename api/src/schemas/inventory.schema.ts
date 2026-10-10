@@ -98,7 +98,9 @@ export const spiritInventorySchema = commonInventorySchema.extend({
 export const cigarInventorySchema = commonInventorySchema.extend({
   category: z.literal('cigar'),
   format: z.string().max(100).optional(),
-  quantity: z.number().int().min(1).max(1000),
+  // ISSUE_101/ISSUE_029: min(0), not min(1) — a cigar box the owner has
+  // smoked through entirely is a real, representable state, not a forbidden one.
+  quantity: z.number().int().min(0).max(1000),
   manufactureYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
   leafOrigin: z.string().max(200).optional(),
   factoryCode: z.string().max(50).optional(),
@@ -179,7 +181,8 @@ export const inventoryPatchSchema = z.object({
   caskProof: z.number().min(0).max(100).optional().nullable(),
   // Cigar
   format: z.string().max(100).optional().nullable(),
-  quantity: z.number().int().min(1).max(1000).optional().nullable(),
+  // ISSUE_101/ISSUE_029: min(0) — see cigarInventorySchema's quantity field above.
+  quantity: z.number().int().min(0).max(1000).optional().nullable(),
   manufactureYear: z.number().int().optional().nullable(),
   leafOrigin: z.string().max(200).optional().nullable(),
   factoryCode: z.string().max(50).optional().nullable(),
