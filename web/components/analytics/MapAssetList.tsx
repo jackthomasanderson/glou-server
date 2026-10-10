@@ -39,7 +39,7 @@ export function MapAssetList({ items, onSelect, t }: MapAssetListProps) {
     return (
       <div className="text-center py-10 border-2 border-dashed border-divider rounded-xl bg-default-50">
         <Search size={36} className="text-default-200 mx-auto mb-2" />
-        <p className="text-sm text-default-400">{t('analytics.map.list.empty')}</p>
+        <p className="text-sm text-foreground-500">{t('analytics.map.list.empty')}</p>
       </div>
     );
   }
@@ -79,22 +79,22 @@ export function MapAssetList({ items, onSelect, t }: MapAssetListProps) {
             )}
 
             <div className="flex-1 min-w-0">
-              <p className="text-[0.8rem] font-semibold truncate">{item.name}</p>
+              <p className="text-xs font-semibold truncate">{item.name}</p>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <Chip
                   size="sm"
                   variant="flat"
                   color={CATEGORY_COLORS[item.category]}
                   radius="sm"
-                  classNames={{ base: 'h-4', content: 'px-1.5 text-[0.55rem] font-bold tracking-wide' }}
+                  classNames={{ base: 'h-4', content: 'px-1.5 text-xs font-bold tracking-wide' }}
                 >
                   {t(`categories.${item.category}`).toUpperCase()}
                 </Chip>
                 {item.vintage && (
-                  <span className="text-[0.68rem] text-default-400">{item.vintage}</span>
+                  <span className="text-xs text-foreground-500">{item.vintage}</span>
                 )}
                 {location && (
-                  <span className="text-[0.68rem] text-default-400 flex items-center gap-0.5 truncate">
+                  <span className="text-xs text-foreground-500 flex items-center gap-0.5 truncate">
                     <MapPin size={10} className="shrink-0" />
                     {location}
                   </span>

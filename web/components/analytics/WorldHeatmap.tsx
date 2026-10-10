@@ -66,18 +66,18 @@ interface MarkerData {
 function RegionPopup({ marker, t, lang }: { marker: MarkerData; t: (k: string, o?: Record<string, unknown>) => string; lang: string }) {
   return (
     <div className="min-w-[130px] font-[Inter,sans-serif]">
-      <div className="font-extrabold text-[0.72rem] uppercase tracking-wider text-blue-600 mb-1">
+      <div className="font-extrabold text-xs uppercase tracking-wider text-blue-600 mb-1">
         {marker.region}
       </div>
-      <div className="text-[0.82rem] font-bold">
+      <div className="text-sm font-bold">
         {marker.count} {t('analytics.regionMap.items', { count: marker.count })}
       </div>
-      <div className="text-[0.75rem] text-gray-500 mt-0.5">
+      <div className="text-xs text-gray-500 mt-0.5">
         {t('analytics.regionMap.valuation')}{' '}
         <strong>{formatCurrency(marker.valuation, lang)}</strong>
       </div>
       {marker.categoryLabel && (
-        <div className="text-[0.7rem] text-gray-400 mt-0.5">{marker.categoryLabel}</div>
+        <div className="text-xs text-gray-400 mt-0.5">{marker.categoryLabel}</div>
       )}
     </div>
   );
@@ -307,7 +307,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
                 className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: CATEGORY_HEX[cat] }}
               />
-              <span className="text-[0.68rem] text-default-500">{t(`categories.${cat}`)}</span>
+              <span className="text-xs text-default-500">{t(`categories.${cat}`)}</span>
             </div>
           ))}
         </div>
@@ -315,7 +315,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
 
       {/* Footer: unmapped notice */}
       {unmappedCount > 0 && (
-        <p className="text-[0.65rem] text-default-400 mt-1.5">
+        <p className="text-xs text-foreground-500 mt-1.5">
           {t('analytics.regionMap.unmapped', { count: unmappedCount })}
         </p>
       )}

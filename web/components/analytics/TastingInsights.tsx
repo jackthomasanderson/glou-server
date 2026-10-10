@@ -33,14 +33,14 @@ function StarRating({ value }: { value: number }) {
 function ItemRankRow({ item, rank }: { item: TastingItemRank; rank: number }) {
   return (
     <div className="flex items-center gap-2 py-1.5 border-b border-divider last:border-b-0">
-      <span className="text-[0.65rem] font-bold text-default-300 w-4 shrink-0">#{rank}</span>
+      <span className="text-xs font-bold text-foreground-400 w-4 shrink-0">#{rank}</span>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold truncate">{item.name}</p>
-        <p className="text-[0.65rem] text-default-400 truncate">{item.producer}</p>
+        <p className="text-xs text-foreground-500 truncate">{item.producer}</p>
       </div>
       <div className="shrink-0 text-right">
         <StarRating value={item.avgRating} />
-        <p className="text-[0.6rem] text-default-400">{item.count}×</p>
+        <p className="text-xs text-foreground-500">{item.count}×</p>
       </div>
     </div>
   );
@@ -70,8 +70,8 @@ export function TastingInsights() {
     return (
       <Card className="border border-default-200" shadow="none">
         <CardBody className="p-5 flex flex-col items-center justify-center gap-2 min-h-[120px]">
-          <Wine size={24} className="text-default-300" />
-          <p className="text-sm text-default-400 text-center">
+          <Wine size={24} className="text-foreground-400" />
+          <p className="text-sm text-foreground-500 text-center">
             {t('analytics.tastingInsights.empty')}
           </p>
         </CardBody>
@@ -86,7 +86,7 @@ export function TastingInsights() {
       <CardBody className="p-5">
         <div className="flex items-center gap-2 mb-5">
           <Wine size={18} className="text-primary" />
-          <p className="text-[0.7rem] font-bold uppercase tracking-wider">
+          <p className="text-xs font-bold uppercase tracking-wider">
             {t('analytics.tastingInsights.title')}
           </p>
         </div>
@@ -95,12 +95,12 @@ export function TastingInsights() {
           {/* Producer rankings */}
           {data!.producerRankings.length > 0 && (
             <div>
-              <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-400 mb-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-foreground-500 mb-3">
                 {t('analytics.tastingInsights.producers')}
               </p>
               {data!.producerRankings.slice(0, 5).map((p, i) => (
                 <div key={p.producer} className="flex items-center gap-2 py-1.5 border-b border-divider last:border-b-0">
-                  <span className="text-[0.65rem] font-bold text-default-300 w-4 shrink-0">#{i + 1}</span>
+                  <span className="text-xs font-bold text-foreground-400 w-4 shrink-0">#{i + 1}</span>
                   <span className="flex-1 text-xs font-semibold truncate">{p.producer}</span>
                   <div className="shrink-0">
                     <StarRating value={p.avgRating} />
@@ -117,7 +117,7 @@ export function TastingInsights() {
                 <>
                   <div className="flex items-center gap-1.5 mb-3">
                     <TrendingUp size={13} className="text-success" />
-                    <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-400">
+                    <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">
                       {t('analytics.tastingInsights.topItems')}
                     </p>
                   </div>
@@ -130,7 +130,7 @@ export function TastingInsights() {
                 <>
                   <div className="flex items-center gap-1.5 mt-4 mb-3">
                     <TrendingDown size={13} className="text-danger" />
-                    <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-400">
+                    <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">
                       {t('analytics.tastingInsights.flopItems')}
                     </p>
                   </div>
@@ -145,7 +145,7 @@ export function TastingInsights() {
           {/* Readiness distribution */}
           {totalReadiness > 0 && (
             <div>
-              <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-400 mb-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-foreground-500 mb-3">
                 {t('analytics.tastingInsights.readiness')}
               </p>
               {READINESS_ORDER.map((key) => {
@@ -154,10 +154,10 @@ export function TastingInsights() {
                 return (
                   <div key={key} className="mb-3">
                     <div className="flex justify-between mb-1">
-                      <span className="text-[0.72rem]" style={{ color: READINESS_COLOR[key] }}>
+                      <span className="text-xs" style={{ color: READINESS_COLOR[key] }}>
                         {t(`tastings.readiness.${key}`)}
                       </span>
-                      <span className="text-[0.72rem] font-semibold text-default-500">
+                      <span className="text-xs font-semibold text-default-500">
                         {count} ({pct}%)
                       </span>
                     </div>

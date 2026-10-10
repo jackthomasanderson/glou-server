@@ -14,6 +14,7 @@ import { useCellars } from '@/hooks/useCellars';
 import { WishlistItem, WishlistCategory, WishlistCreateInput } from '@/lib/wishlist/types';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -40,6 +41,7 @@ export function WishlistDashboard() {
   const convertMutation = useConvertToInventory();
   const { data: cellars } = useCellars();
 
+  const isMobile = useIsMobile();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<WishlistItem | null>(null);
   const [form, setForm] = useState<WishlistCreateInput>(EMPTY_FORM);
@@ -171,9 +173,9 @@ export function WishlistDashboard() {
         <div className="flex justify-center py-16" role="status" aria-live="polite"><Spinner size="lg" aria-label={t('status.loading')} /></div>
       ) : activeItems.length === 0 ? (
         <div className="flex flex-col items-center py-16 text-center">
-          <Gift size={64} className="text-default-300 mb-4" />
+          <Gift size={64} className="text-foreground-400 mb-4" />
           <p className="text-lg font-semibold text-default-500">{t('wishlist.empty')}</p>
-          <p className="text-sm text-default-400 mb-6">{t('wishlist.emptyHint')}</p>
+          <p className="text-sm text-foreground-500 mb-6">{t('wishlist.emptyHint')}</p>
           <Button color="primary" variant="solid" startContent={<Plus size={16} />} onPress={openCreate}>
             {t('wishlist.create')}
           </Button>
@@ -238,7 +240,7 @@ export function WishlistDashboard() {
         isOpen={formOpen && !formGuard.isConfirmOpen}
         onClose={formGuard.requestClose}
         {...formGuard.dismissProps}
-        size="2xl" radius="lg" backdrop="opaque" placement="center"
+        size={isMobile ? 'full' : '2xl'} radius="lg" backdrop="opaque" placement={isMobile ? 'bottom' : 'center'}
       >
         <ModalContent>
           {() => (

@@ -80,7 +80,7 @@ export function CollectionPickerInline({ itemId, currentCollections }: Collectio
           <button
             onClick={() => setDropdownOpen((prev) => !prev)}
             aria-label={t('collections.addToItem')}
-            className="flex items-center gap-0.5 px-2 h-6 rounded-full border border-dashed border-default-300 text-default-400 hover:border-primary hover:text-primary transition-colors text-[0.65rem] font-semibold"
+            className="flex items-center gap-0.5 px-2 h-6 rounded-full border border-dashed border-default-300 text-foreground-500 hover:border-primary hover:text-primary transition-colors text-xs font-semibold"
           >
             <Plus size={11} />
             {t('collections.addToItem')}
@@ -99,7 +99,7 @@ export function CollectionPickerInline({ itemId, currentCollections }: Collectio
                     style={{ backgroundColor: col.color }}
                   />
                   {col.icon && <span className="text-base leading-none">{col.icon}</span>}
-                  <span className="flex-1 truncate text-[0.8rem]">{col.name}</span>
+                  <span className="flex-1 truncate text-xs">{col.name}</span>
                 </button>
               ))}
             </div>
@@ -109,12 +109,12 @@ export function CollectionPickerInline({ itemId, currentCollections }: Collectio
 
       {/* No collections yet and no available ones to add */}
       {currentCollections.length === 0 && available.length === 0 && !isMutating && (
-        <span className="text-[0.7rem] text-default-400 italic">{t('collections.empty')}</span>
+        <span className="text-xs text-foreground-500 italic">{t('collections.empty')}</span>
       )}
 
       {/* All collections already attached */}
       {currentCollections.length > 0 && available.length === 0 && !isMutating && (
-        <span className="flex items-center gap-1 text-[0.65rem] text-default-400">
+        <span className="flex items-center gap-1 text-xs text-foreground-500">
           <Check size={11} />
           {t('collections.allAdded')}
         </span>

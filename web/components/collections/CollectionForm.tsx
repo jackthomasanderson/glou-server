@@ -8,6 +8,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { CollectionFormValues, Collection } from '@/lib/collections/types';
 import { useTranslation } from 'react-i18next';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 
 const PRESET_COLORS = [
@@ -61,16 +62,18 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
     isLocked: !!isLoading,
   });
 
+  const isMobile = useIsMobile();
+
   return (
     <>
     <Modal
       isOpen={open && !guard.isConfirmOpen}
       onClose={guard.requestClose}
       {...guard.dismissProps}
-      size="sm"
+      size={isMobile ? 'full' : 'sm'}
       radius="lg"
       backdrop="opaque"
-      placement="center"
+      placement={isMobile ? 'bottom' : 'center'}
     >
       <ModalContent>
         {() => (
@@ -96,7 +99,7 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
               />
 
               <div>
-                <p className="text-xs text-default-400 mb-1.5">{t('collections.fields.color')}</p>
+                <p className="text-xs text-foreground-500 mb-1.5">{t('collections.fields.color')}</p>
                 <div className="flex flex-wrap gap-2">
                   {PRESET_COLORS.map((color) => (
                     <button
@@ -120,7 +123,7 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
               </div>
 
               <div>
-                <p className="text-xs text-default-400 mb-1.5">{t('collections.fields.icon')}</p>
+                <p className="text-xs text-foreground-500 mb-1.5">{t('collections.fields.icon')}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {PRESET_ICONS.map((icon) => (
                     <button

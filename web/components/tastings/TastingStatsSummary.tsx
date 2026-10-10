@@ -32,8 +32,8 @@ export function TastingStatsSummary({ itemId, onViewAll }: TastingStatsSummaryPr
   if (!stats) {
     return (
       <div className="p-3 bg-default-50 rounded-xl border border-divider flex items-center gap-2">
-        <Wine size={14} className="text-default-300 shrink-0" />
-        <p className="text-xs text-default-400 italic">{t('tastings.stats.empty')}</p>
+        <Wine size={14} className="text-foreground-400 shrink-0" />
+        <p className="text-xs text-foreground-500 italic">{t('tastings.stats.empty')}</p>
       </div>
     );
   }
@@ -44,7 +44,7 @@ export function TastingStatsSummary({ itemId, onViewAll }: TastingStatsSummaryPr
         <div className="flex items-center gap-3">
           {/* Count */}
           <div className="flex flex-col">
-            <span className="text-[0.55rem] font-bold uppercase tracking-widest text-default-400">
+            <span className="text-xs font-bold uppercase tracking-widest text-foreground-500">
               {t('tastings.stats.count')}
             </span>
             <span className="text-sm font-bold">{stats.count}</span>
@@ -53,7 +53,7 @@ export function TastingStatsSummary({ itemId, onViewAll }: TastingStatsSummaryPr
           {/* Avg rating */}
           {stats.avgRating != null && (
             <div className="flex flex-col">
-              <span className="text-[0.55rem] font-bold uppercase tracking-widest text-default-400">
+              <span className="text-xs font-bold uppercase tracking-widest text-foreground-500">
                 {t('tastings.stats.avgRating')}
               </span>
               <div className="flex items-center gap-0.5">
@@ -65,7 +65,7 @@ export function TastingStatsSummary({ itemId, onViewAll }: TastingStatsSummaryPr
 
           {/* Last tasted */}
           <div className="flex flex-col">
-            <span className="text-[0.55rem] font-bold uppercase tracking-widest text-default-400">
+            <span className="text-xs font-bold uppercase tracking-widest text-foreground-500">
               {t('tastings.stats.lastTasted')}
             </span>
             <span className="text-xs font-semibold">
@@ -78,7 +78,7 @@ export function TastingStatsSummary({ itemId, onViewAll }: TastingStatsSummaryPr
         {onViewAll && (
           <button
             onClick={onViewAll}
-            className="text-[0.65rem] font-bold text-primary hover:underline shrink-0"
+            className="text-xs font-bold text-primary hover:underline shrink-0"
           >
             {t('tastings.stats.viewAll')}
           </button>
@@ -91,7 +91,7 @@ export function TastingStatsSummary({ itemId, onViewAll }: TastingStatsSummaryPr
           size="sm"
           variant="flat"
           color={READINESS_COLOR[stats.lastReadiness]}
-          className="text-[0.65rem]"
+          className="text-xs"
         >
           {t(`tastings.readiness.${stats.lastReadiness}`)}
         </Chip>

@@ -97,9 +97,9 @@ export function CollectionsDashboard() {
       ) : !collections?.length ? (
         /* Empty state */
         <div className="flex flex-col items-center py-16 text-center">
-          <BookMarked size={64} className="text-default-300 mb-4" />
+          <BookMarked size={64} className="text-foreground-400 mb-4" />
           <p className="text-lg font-semibold text-default-500">{t('collections.empty')}</p>
-          <p className="text-sm text-default-400 mb-6">{t('collections.emptyHint')}</p>
+          <p className="text-sm text-foreground-500 mb-6">{t('collections.emptyHint')}</p>
           <Button
             color="primary"
             variant="solid"

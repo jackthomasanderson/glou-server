@@ -76,7 +76,7 @@ export function InventoryCard({
       ? 'text-danger'
       : item.alertStatus === 'approaching'
       ? 'text-primary'
-      : 'text-default-300';
+      : 'text-foreground-400';
 
   return (
     <Card
@@ -98,7 +98,7 @@ export function InventoryCard({
           variant="bordered"
           color={CATEGORY_COLORS[item.category]}
           radius="sm"
-          classNames={{ base: 'h-5 shrink-0', content: 'px-1.5 text-[0.6rem] font-bold tracking-wider' }}
+          classNames={{ base: 'h-5 shrink-0', content: 'px-1.5 text-xs font-bold tracking-wider' }}
         >
           {categoryLabel.toUpperCase()}
         </Chip>
@@ -110,7 +110,7 @@ export function InventoryCard({
               radius="sm"
               classNames={{
                 base: 'h-5 bg-danger-50 border border-danger-200 min-w-0',
-                content: 'px-1.5 text-[0.6rem] font-semibold text-danger-700 truncate max-w-[80px]',
+                content: 'px-1.5 text-xs font-semibold text-danger-700 truncate max-w-[80px]',
               }}
             >
               {cellarName}
@@ -152,7 +152,7 @@ export function InventoryCard({
 
         {/* Fill level badge */}
         <span
-          className={`absolute top-2 right-2 rounded-lg px-1.5 py-0.5 text-[0.65rem] font-bold leading-tight tracking-wide text-white${
+          className={`absolute top-2 right-2 rounded-lg px-1.5 py-0.5 text-xs font-bold leading-tight tracking-wide text-white${
             fillLevel <= 20 ? ' bg-danger' : ' bg-[#111]'
           }`}
         >
@@ -187,7 +187,7 @@ export function InventoryCard({
               radius="sm"
               classNames={{
                 base: `h-[18px] border`,
-                content: 'px-1.5 text-[0.6rem]',
+                content: 'px-1.5 text-xs',
               }}
               style={{
                 backgroundColor: `${col.color}22`,
@@ -203,7 +203,7 @@ export function InventoryCard({
               size="sm"
               variant="bordered"
               radius="sm"
-              classNames={{ base: 'h-[18px]', content: 'px-1.5 text-[0.6rem]' }}
+              classNames={{ base: 'h-[18px]', content: 'px-1.5 text-xs' }}
             >
               +{item.collections.length - 2}
             </Chip>
@@ -214,7 +214,7 @@ export function InventoryCard({
       {/* ── Card body ─────────────────────────────────────────── */}
       <CardBody className="pt-2 pb-1 px-3 flex-1 gap-0">
         {/* Producer */}
-        <p className="text-[0.6rem] font-bold tracking-widest uppercase text-default-400 truncate mb-0.5">
+        <p className="text-xs font-bold tracking-widest uppercase text-foreground-500 truncate mb-0.5">
           {item.producer}
         </p>
 
@@ -226,7 +226,7 @@ export function InventoryCard({
         {/* Vintage + drinking window */}
         <div className="flex items-center gap-1 overflow-hidden flex-nowrap">
           {item.vintage && (
-            <span className="text-xs text-default-400 font-medium shrink-0">
+            <span className="text-xs text-foreground-500 font-medium shrink-0">
               {item.vintage}
             </span>
           )}
@@ -237,7 +237,7 @@ export function InventoryCard({
             >
               <div className="flex items-center gap-0.5 overflow-hidden min-w-0">
                 <AlertTriangle size={12} className={`shrink-0 ${alertIconColor}`} />
-                <span className="text-[0.65rem] text-default-400 truncate">
+                <span className="text-xs text-foreground-500 truncate">
                   {t('view.columns.peak')} : {drinkingWindow}
                 </span>
               </div>
@@ -256,7 +256,7 @@ export function InventoryCard({
             onPress={() => onEdit(item)}
             isDisabled={isTemp}
             aria-label={t('actions.edit')}
-            className="text-default-400 hover:text-primary min-w-unit-7 w-7 h-7"
+            className="text-foreground-500 hover:text-primary min-w-unit-7 w-7 h-7"
           >
             <Pencil size={14} />
           </Button>
@@ -269,7 +269,7 @@ export function InventoryCard({
             onPress={() => onDelete(item)}
             isDisabled={isTemp}
             aria-label={t('actions.delete')}
-            className="text-default-400 hover:text-danger min-w-unit-7 w-7 h-7"
+            className="text-foreground-500 hover:text-danger min-w-unit-7 w-7 h-7"
           >
             <Trash2 size={14} />
           </Button>

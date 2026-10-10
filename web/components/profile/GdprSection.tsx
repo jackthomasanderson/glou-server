@@ -79,7 +79,7 @@ export function GdprSection({ user }: GdprSectionProps) {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-sm font-semibold">{t('gdpr.exportTitle')}</p>
-                <p className="text-xs text-default-400 mt-0.5">{t('gdpr.exportDescription')}</p>
+                <p className="text-xs text-foreground-500 mt-0.5">{t('gdpr.exportDescription')}</p>
               </div>
               <div className="flex flex-col items-end gap-2 shrink-0">
                 <Button
@@ -140,7 +140,7 @@ export function GdprSection({ user }: GdprSectionProps) {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-danger">{t('gdpr.deleteTitle')}</p>
-                <p className="text-xs text-default-400 mt-0.5">{t('gdpr.deleteDescription')}</p>
+                <p className="text-xs text-foreground-500 mt-0.5">{t('gdpr.deleteDescription')}</p>
               </div>
               <Button
                 size="sm"
@@ -163,7 +163,7 @@ export function GdprSection({ user }: GdprSectionProps) {
           <ModalHeader className="text-danger">{t('gdpr.deleteModalTitle')}</ModalHeader>
           <ModalBody className="flex flex-col gap-4">
             <p className="text-sm text-foreground-600">{t('gdpr.deleteModalBody')}</p>
-            <p className="text-xs text-default-400">{t('gdpr.deleteModalHint', { keyword: t('gdpr.deleteKeyword') })}</p>
+            <p className="text-xs text-foreground-500">{t('gdpr.deleteModalHint', { keyword: t('gdpr.deleteKeyword') })}</p>
             <input
               className="w-full border border-divider rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-danger"
               placeholder={t('gdpr.deleteKeyword')}

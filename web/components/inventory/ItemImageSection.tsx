@@ -133,7 +133,7 @@ export function ItemImageSection({
         )}
 
         {hasPhoto && isLocal && !saving && !isAutoLoading && (
-          <span className="absolute bottom-2 left-2 bg-black/45 text-white px-1.5 py-0.5 rounded text-[0.65rem]">
+          <span className="absolute bottom-2 left-2 bg-black/45 text-white px-1.5 py-0.5 rounded text-xs">
             {t('itemImage.savedLocally')}
           </span>
         )}
@@ -167,7 +167,7 @@ export function ItemImageSection({
                 <button
                   type="button"
                   onClick={() => { setMode('idle'); setUrlInput(''); }}
-                  className="text-default-400 hover:opacity-70"
+                  className="text-foreground-500 hover:opacity-70"
                 >
                   <X size={14} />
                 </button>

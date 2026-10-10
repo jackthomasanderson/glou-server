@@ -69,13 +69,13 @@ export function SessionReportView({ session }: SessionReportViewProps) {
       <div className="grid grid-cols-3 gap-3">
         <Card radius="lg" shadow="sm">
           <CardBody className="items-center text-center gap-1 py-4">
-            <p className="text-2xl font-bold text-success">{report.counts.confirmed}</p>
+            <p className="text-2xl font-bold text-success-700">{report.counts.confirmed}</p>
             <p className="text-xs text-foreground-500">{t('inventoryCount.report.confirmed')}</p>
           </CardBody>
         </Card>
         <Card radius="lg" shadow="sm">
           <CardBody className="items-center text-center gap-1 py-4">
-            <p className="text-2xl font-bold text-warning">{report.counts.missing}</p>
+            <p className="text-2xl font-bold text-warning-700">{report.counts.missing}</p>
             <p className="text-xs text-foreground-500">{t('inventoryCount.report.missing')}</p>
           </CardBody>
         </Card>
@@ -131,7 +131,7 @@ export function SessionReportView({ session }: SessionReportViewProps) {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{item.name}</p>
                     <p className="text-xs text-foreground-400 truncate">{item.producer}</p>
-                    <p className="text-[0.65rem] text-warning-600 mt-0.5">
+                    <p className="text-xs text-warning-600 mt-0.5">
                       {t('inventoryCount.report.markConsumed')}
                     </p>
                   </div>
@@ -182,7 +182,7 @@ export function SessionReportView({ session }: SessionReportViewProps) {
                           {t('inventoryCount.session.foundNew.quantityLabel')}: {item.quantity}
                         </p>
                       )}
-                      <p className="text-[0.65rem] text-danger-600 mt-0.5">
+                      <p className="text-xs text-danger-600 mt-0.5">
                         {isNewFind
                           ? t('inventoryCount.report.addToStock')
                           : session.cellarId

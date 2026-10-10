@@ -46,6 +46,7 @@ import { useViewMode } from '@/hooks/useViewMode';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 
@@ -121,6 +122,7 @@ export const CellarDashboard: React.FC = () => {
     return isExpert ? [...base, { key: 'HUMIDOR', label: t('cellars.types.HUMIDOR') }] : base;
   }, [isExpert, t]);
 
+  const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useViewMode('cellars');
   const [openForm, setOpenForm] = useState(false);
   const [showGridConfig, setShowGridConfig] = useState(false);
@@ -370,7 +372,7 @@ export const CellarDashboard: React.FC = () => {
 
       {/* Result count */}
       {hasActiveFilters && (cellars?.length ?? 0) > 0 && (
-        <p className="text-xs text-default-400 mb-4" role="status" aria-live="polite">
+        <p className="text-xs text-foreground-500 mb-4" role="status" aria-live="polite">
           {filteredCellars.length > 0
             ? t('cellars.nFound', { count: filteredCellars.length })
             : t('cellars.noResults')}
@@ -381,7 +383,7 @@ export const CellarDashboard: React.FC = () => {
       {cellars?.length === 0 ? (
         <div className="text-center py-16 border-2 border-dashed border-default-300 rounded-xl bg-default-50 mt-4">
           <h2 className="text-lg font-semibold text-default-500 mb-1">{t('cellars.noCellars')}</h2>
-          <p className="text-sm text-default-400 mb-6">{t('cellars.noCellarsDesc')}</p>
+          <p className="text-sm text-foreground-500 mb-6">{t('cellars.noCellarsDesc')}</p>
           <Button
             color="primary"
             startContent={<Plus size={16} />}
@@ -392,7 +394,7 @@ export const CellarDashboard: React.FC = () => {
         </div>
       ) : filteredCellars.length === 0 && hasActiveFilters ? (
         <div className="text-center py-16 border-2 border-dashed border-default-300 rounded-xl bg-default-50">
-          <Warehouse size={40} className="text-default-300 mx-auto mb-3" />
+          <Warehouse size={40} className="text-foreground-400 mx-auto mb-3" />
           <p className="text-base font-semibold text-default-500">{t('cellars.noResults')}</p>
           <Button size="sm" variant="light" color="primary" onPress={clearFilters} className="mt-3">
             {t('actions.clearAll')}
@@ -415,7 +417,7 @@ export const CellarDashboard: React.FC = () => {
                   <span className="text-base font-semibold flex-1 min-w-0 truncate">{cellar.name}</span>
                   {cellar.columns && cellar.rows && (
                     <Tooltip content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
-                      <Grid2x2 size={14} className="text-default-400" />
+                      <Grid2x2 size={14} className="text-foreground-500" />
                     </Tooltip>
                   )}
                 </div>
@@ -505,7 +507,7 @@ export const CellarDashboard: React.FC = () => {
                     <span className="text-sm font-semibold">{cellar.name}</span>
                     {cellar.columns && cellar.rows && (
                       <Tooltip content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
-                        <Grid2x2 size={12} className="text-default-400" />
+                        <Grid2x2 size={12} className="text-foreground-500" />
                       </Tooltip>
                     )}
                   </div>
@@ -529,7 +531,7 @@ export const CellarDashboard: React.FC = () => {
                       {cellar.stats.alertCount}
                     </Chip>
                   ) : (
-                    <span className="text-sm text-default-400">—</span>
+                    <span className="text-sm text-foreground-500">—</span>
                   )}
                 </TableCell>
                 <TableCell
@@ -573,7 +575,8 @@ export const CellarDashboard: React.FC = () => {
         isOpen={openForm && !formGuard.isConfirmOpen}
         onClose={formGuard.requestClose}
         {...formGuard.dismissProps}
-        size="md"
+        size={isMobile ? 'full' : 'md'}
+        placement={isMobile ? 'bottom' : 'center'}
       >
         <ModalContent>
           <ModalHeader>
@@ -647,7 +650,7 @@ export const CellarDashboard: React.FC = () => {
 
               {showGridConfig && (
                 <div className="flex flex-col gap-4">
-                  <p className="text-xs text-default-400">{t('cellars.grid.configHint')}</p>
+                  <p className="text-xs text-foreground-500">{t('cellars.grid.configHint')}</p>
                   <div className="flex gap-3">
                     <Input
                       label={t('cellars.grid.columns')}

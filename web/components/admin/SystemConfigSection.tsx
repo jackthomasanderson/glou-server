@@ -784,7 +784,7 @@ export function SystemConfigSection() {
             {restoreTarget && (
               <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(restoreTarget.runAt, i18n.language) : ''}</p>
             )}
-            <p className="text-xs text-default-400">{t('adminConfig.backup.restore.modalHint', { keyword: t('adminConfig.backup.restore.keyword') })}</p>
+            <p className="text-xs text-foreground-500">{t('adminConfig.backup.restore.modalHint', { keyword: t('adminConfig.backup.restore.keyword') })}</p>
             <input
               className="w-full border border-divider rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-danger"
               placeholder={t('adminConfig.backup.restore.keyword')}

@@ -97,7 +97,7 @@ export function HumidorPanel({ cellarId }: HumidorPanelProps) {
               <span className="font-semibold flex-1 text-right">
                 {r.humidityPercent}%{r.temperatureCelsius != null ? ` · ${r.temperatureCelsius}°C` : ''}
               </span>
-              <Chip size="sm" variant="flat" className="h-4 px-1.5 text-[0.6rem] shrink-0">
+              <Chip size="sm" variant="flat" className="h-4 px-1.5 text-xs shrink-0">
                 {t(`cellars.humidor.source.${r.source}`)}
               </Chip>
             </div>
