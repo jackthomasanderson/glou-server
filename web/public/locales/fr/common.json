@@ -705,6 +705,7 @@
       "empty": "Aucune session active.",
       "trustDescription": "Faites confiance à cet appareil pour ne plus avoir à saisir de code de double authentification pendant 30 jours. Cette confiance est automatiquement révoquée en cas de connexion suspecte.",
       "trustDevice": "Faire confiance à cet appareil",
+      "trustConfirmHint": "Confirmez votre mot de passe pour faire confiance à cet appareil pendant 30 jours.",
       "untrustDevice": "Ne plus faire confiance",
       "trustSuccess": "Cet appareil est désormais de confiance.",
       "untrustSuccess": "La confiance accordée à cet appareil a été révoquée.",

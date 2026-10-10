@@ -703,6 +703,7 @@
       "empty": "No active sessions.",
       "trustDescription": "Trust this device to skip the two-factor authentication code for 30 days. This trust is automatically revoked if a suspicious connection is detected.",
       "trustDevice": "Trust this device",
+      "trustConfirmHint": "Confirm your password to trust this device for 30 days.",
       "untrustDevice": "Remove trust",
       "trustSuccess": "This device is now trusted.",
       "untrustSuccess": "Trust for this device has been revoked.",

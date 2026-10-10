@@ -46,6 +46,16 @@ export const verify2faSchema = z.object({
   trustDevice: z.boolean().optional().default(false),
 });
 
+// ISSUE_045: a trusted device is a lasting (30-day, self-renewing) 2FA
+// bypass — the one mechanism in the app that durably weakens
+// authentication, and previously the only one that re-asked for nothing.
+// Same shape as turnOff2faSchema: password always required, the TOTP code
+// only when 2FA is actually enabled on the account.
+export const trustDeviceSchema = z.object({
+  password: z.string().min(1, 'PASSWORD_REQUIRED'),
+  code: z.string().min(6).max(8, 'INVALID_CODE_LENGTH').optional(),
+});
+
 export type TurnOn2faInput = z.infer<typeof turnOn2faSchema>;
 export type TurnOff2faInput = z.infer<typeof turnOff2faSchema>;
 export type Verify2faInput = z.infer<typeof verify2faSchema>;

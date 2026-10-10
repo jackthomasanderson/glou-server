@@ -10,6 +10,7 @@ vi.mock('../src/lib/prisma', () => ({
     user: {
       findFirst: vi.fn(),
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       create: vi.fn(),
       count: vi.fn(),
     },
@@ -220,6 +221,51 @@ describe('AuthService', () => {
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
       await expect(authService.login(loginData, deviceInfo)).rejects.toThrow('INVALID_CREDENTIALS');
+    });
+  });
+
+  // ISSUE_045: minting a trusted device (a lasting 2FA bypass) previously
+  // required no re-confirmation of identity at all.
+  describe('trustCurrentDevice', () => {
+    const mockUserNo2fa = {
+      id: 'u1',
+      passwordHash: 'hashed',
+      isTwoFactorEnabled: false,
+      twoFactorSecret: null,
+      backupCodes: [] as string[],
+    };
+
+    it('rejects a wrong password without creating a trusted device', async () => {
+      vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(mockUserNo2fa as never);
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+
+      await expect(
+        authService.trustCurrentDevice('u1', deviceInfo, 'wrong-password'),
+      ).rejects.toThrow('INVALID_CREDENTIALS');
+      expect(prisma.trustedDevice.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a trusted device once the password is confirmed (no 2FA on the account)', async () => {
+      vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(mockUserNo2fa as never);
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(prisma.trustedDevice.create).mockResolvedValue({} as never);
+
+      const result = await authService.trustCurrentDevice('u1', deviceInfo, 'correct-password');
+
+      expect(result.token).toBeTruthy();
+      expect(prisma.trustedDevice.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('requires a valid TOTP code when 2FA is enabled, even with the right password', async () => {
+      vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue({
+        ...mockUserNo2fa, isTwoFactorEnabled: true, twoFactorSecret: 'SECRET',
+      } as never);
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+      await expect(
+        authService.trustCurrentDevice('u1', deviceInfo, 'correct-password'),
+      ).rejects.toThrow('INVALID_CODE');
+      expect(prisma.trustedDevice.create).not.toHaveBeenCalled();
     });
   });
 });

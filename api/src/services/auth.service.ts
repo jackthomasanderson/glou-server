@@ -1106,7 +1106,40 @@ export class AuthService {
    * Mark the caller's current device as trusted outside of the 2FA login
    * flow (e.g. a "Trust this device" button in security settings).
    */
-  async trustCurrentDevice(userId: string, deviceInfo: DeviceInfo): Promise<{ token: string }> {
+  /**
+   * ISSUE_045: a trusted device is a lasting (30-day, self-renewing) 2FA
+   * bypass, so minting one re-confirms identity the same way turning 2FA
+   * off does — password always, plus a TOTP/backup code when 2FA is
+   * actually enabled on the account. Unlike the login-time auto-trust path
+   * (verifyTwoFactorLogin, which calls `createTrustedDevice` directly), this
+   * standalone route previously asked for nothing at all.
+   */
+  async trustCurrentDevice(userId: string, deviceInfo: DeviceInfo, password: string, code?: string): Promise<{ token: string }> {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+    const validPwd = await bcrypt.compare(password, user.passwordHash);
+    if (!validPwd) throw new Error('INVALID_CREDENTIALS');
+
+    if (user.isTwoFactorEnabled) {
+      let validCode = false;
+      if (code && code.length === 6 && user.twoFactorSecret) {
+        validCode = speakeasy.totp.verify({
+          secret: user.twoFactorSecret,
+          encoding: 'base32',
+          token: code,
+          window: 1,
+        });
+      } else if (code && code.length === 8 && user.backupCodes.length > 0) {
+        for (const hashedCode of user.backupCodes) {
+          if (await bcrypt.compare(code, hashedCode)) {
+            validCode = true;
+            break;
+          }
+        }
+      }
+      if (!validCode) throw new Error('INVALID_CODE');
+    }
+
     const token = await this.createTrustedDevice(userId, deviceInfo);
     return { token };
   }
