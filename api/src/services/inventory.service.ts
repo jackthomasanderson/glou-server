@@ -506,9 +506,9 @@ export class InventoryService {
     });
   }
 
-  async purgeTrashed(): Promise<number> {
+  async purgeTrashed(client: Prisma.TransactionClient | PrismaClient = prisma): Promise<number> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    const result = await prisma.inventoryItem.deleteMany({
+    const result = await client.inventoryItem.deleteMany({
       where: { deletedAt: { lt: cutoff } },
     });
     return result.count;

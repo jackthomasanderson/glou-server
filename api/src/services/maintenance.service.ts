@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma';
 import { MaintenanceRun, Prisma } from '@prisma/client';
 import { purgeOldAuditLogs } from './audit.service';
 import { scanService } from './scan.service';
+import { inventoryService } from './inventory.service';
 
 export interface PurgeResult {
     success: boolean;
@@ -20,6 +21,7 @@ export interface RetentionCounts {
     trustedDevices: number;
     guestShares: number;
     scanFiles: number;
+    trashedItems: number;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -125,12 +127,15 @@ export class MaintenanceService {
                 scanFilesToDelete = scanPurge.imagePaths;
                 const scanFilesCount = scanPurge.count;
 
+                const trashedItemsCount = await inventoryService.purgeTrashed(tx);
+
                 const counts: RetentionCounts = {
                     auditLogs: auditLogsCount,
                     sessions: sessionsResult.count,
                     trustedDevices: trustedDevicesResult.count,
                     guestShares: guestSharesResult.count,
                     scanFiles: scanFilesCount,
+                    trashedItems: trashedItemsCount,
                 };
 
                 return tx.maintenanceRun.create({

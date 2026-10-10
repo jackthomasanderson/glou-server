@@ -18,6 +18,7 @@ const tx = {
     findMany: vi.fn().mockResolvedValue([{ id: 'j1', imagePath: '/uploads/scans/a.jpg' }]),
     updateMany: vi.fn().mockResolvedValue({ count: 1 }),
   },
+  inventoryItem: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
   maintenanceRun: { create: vi.fn().mockResolvedValue({ id: 'm1', success: true }) },
 };
 const transaction = vi.fn();

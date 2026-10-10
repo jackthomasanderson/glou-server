@@ -1,0 +1,5 @@
+# ISSUE_105: docker-compose.e2e.yml's CONFIG_ENCRYPTION_KEY is a fixed,
+# documented throwaway value for the ephemeral E2E stack (see that file's
+# own header comment) — never used in a real deployment. Allowlisted so the
+# gitleaks CI step stays a real signal instead of a permanent false positive.
+docker-compose.e2e.yml:generic-api-key:37
