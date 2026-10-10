@@ -24,6 +24,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { count: items.length } });
     res.json({ data: items });
   } catch (error) {
+    console.error('[inventory] GET / error:', error);
     void auditLog({ userId: req.userId, action: 'LIST', status: 'error', ip, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
@@ -38,6 +39,7 @@ router.get('/trash', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { scope: 'trash', count: items.length } });
     res.json({ data: items });
   } catch (error) {
+    console.error('[inventory] GET /trash error:', error);
     void auditLog({ userId: req.userId, action: 'LIST', status: 'error', ip, details: { scope: 'trash', message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
@@ -69,6 +71,7 @@ router.get('/:id/qr', async (req: Request, res: Response): Promise<void> => {
     res.setHeader('Content-Disposition', `inline; filename="qr-${id}.png"`);
     res.send(pngBuffer);
   } catch (error) {
+    console.error('[inventory] GET /:id/qr error:', error);
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -88,6 +91,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'READ', status: 'success', ip, bottleId: id });
     res.json({ data: { ...result.item, _creator: result.creator, _lastEditor: result.lastEditor } });
   } catch (error) {
+    console.error('[inventory] GET /:id error:', error);
     void auditLog({ userId: req.userId, action: 'READ', status: 'error', ip, bottleId: id, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
@@ -108,6 +112,7 @@ router.get('/:id/history', async (req: Request, res: Response): Promise<void> =>
     void auditLog({ userId: req.userId, action: 'READ', status: 'success', ip, bottleId: id, details: { scope: 'history' } });
     res.json({ data: history });
   } catch (error) {
+    console.error('[inventory] GET /:id/history error:', error);
     void auditLog({ userId: req.userId, action: 'READ', status: 'error', ip, bottleId: id, details: { message: String(error), scope: 'history' } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
@@ -128,6 +133,7 @@ router.post('/bulk', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, details: { count, bulk: true } });
     res.json({ data: { updatedCount: count } });
   } catch (error) {
+    console.error('[inventory] POST /bulk error:', error);
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, action: 'UPDATE', status: 'validation_error', ip, details: { issues, bulk: true } });
@@ -160,6 +166,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, details: { category: data.category } });
     res.status(201).json({ data: item });
   } catch (error) {
+    console.error('[inventory] POST / error:', error);
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, action: 'CREATE', status: 'validation_error', ip, details: { issues } });
@@ -201,6 +208,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: id, details: { changes: result.changes } });
     res.json({ data: result.item });
   } catch (error) {
+    console.error('[inventory] PATCH /:id error:', error);
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, action: 'UPDATE', status: 'validation_error', ip, bottleId: id, details: { issues } });
@@ -228,6 +236,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'DELETE', status: 'success', ip, bottleId: id, details: { daysLeft } });
     res.json({ data: item, meta: { daysUntilPermanentDelete: daysLeft } });
   } catch (error) {
+    console.error('[inventory] DELETE /:id error:', error);
     void auditLog({ userId: req.userId, action: 'DELETE', status: 'error', ip, bottleId: id, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
@@ -248,6 +257,7 @@ router.post('/:id/restore', async (req: Request, res: Response): Promise<void> =
     void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip, bottleId: id });
     res.json({ data: item });
   } catch (error) {
+    console.error('[inventory] POST /:id/restore error:', error);
     void auditLog({ userId: req.userId, action: 'RESTORE', status: 'error', ip, bottleId: id, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
@@ -284,6 +294,7 @@ router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> 
     void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, bottleId: id, details: { changes: result.changes } });
     res.json({ data: result.item });
   } catch (error) {
+    console.error('[inventory] POST /:id/rollback error:', error);
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, bottleId: id, details: { issues } });

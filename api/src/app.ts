@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import morgan from 'morgan';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -41,6 +42,18 @@ export function createApp(): express.Express {
   // rate-limiter below see the real client address from X-Forwarded-For rather
   // than the proxy's — without trusting a longer, spoofable forwarding chain.
   app.set('trust proxy', 1);
+
+  // ─── Access logging (ISSUE_102) ────────────────────────────────────────────
+  // Before this, "the tastings page shows an error" had no way to be
+  // diagnosed from `docker compose logs api` — no record existed of which
+  // request came in, what status it got, or how long it took. `combined` is
+  // Apache-style (method, path, status, duration, user-agent); Docker's own
+  // log rotation (docker-compose.yml) already caps size, so no extra log
+  // infrastructure is needed. Silenced under `vitest` (NODE_ENV=test) so the
+  // test suite's own output stays readable.
+  if (process.env.NODE_ENV !== 'test') {
+    app.use(morgan('combined'));
+  }
 
   // ─── Security middleware ───────────────────────────────────────────────────
 

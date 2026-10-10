@@ -23,6 +23,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { scope: 'analytics' } });
     res.json({ data: stats });
   } catch (error) {
+    console.error('[analytics] GET / error:', error);
     void auditLog({ userId: req.userId, action: 'LIST', status: 'error', ip, details: { scope: 'analytics', message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }

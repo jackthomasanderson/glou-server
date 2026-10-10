@@ -251,7 +251,8 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
   if (webhookUrl) {
     try {
       await assertUrlAllowed(webhookUrl);
-    } catch {
+    } catch (err) {
+      console.error('[user] PATCH /notifications error:', err);
       res.status(400).json({ error: 'INVALID_URL' });
       return;
     }

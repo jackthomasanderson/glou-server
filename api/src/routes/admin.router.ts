@@ -307,8 +307,8 @@ adminRouter.put('/config/smtp', async (req: Request, res: Response): Promise<voi
     );
     res.json({ data: config });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
-    res.status(500).json({ error: msg });
+    console.error('[admin] PUT /config/smtp error:', err);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
@@ -320,7 +320,8 @@ adminRouter.put('/config/gotify', async (req: Request, res: Response): Promise<v
     if (gotifyUrl) {
       try {
         await assertUrlAllowed(gotifyUrl);
-      } catch {
+      } catch (err) {
+        console.error('[admin] PUT /config/gotify error:', err);
         res.status(400).json({ error: 'INVALID_URL' });
         return;
       }
@@ -331,8 +332,8 @@ adminRouter.put('/config/gotify', async (req: Request, res: Response): Promise<v
     );
     res.json({ data: config });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
-    res.status(500).json({ error: msg });
+    console.error('[admin] PUT /config/gotify error:', err);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
@@ -346,8 +347,8 @@ adminRouter.put('/config/notifications', async (req: Request, res: Response): Pr
     const config = await systemConfigService.updateNotificationPolicy({ smtpEnabled, gotifyEnabled, inAppEnabled }, req.userId);
     res.json({ data: config });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
-    res.status(500).json({ error: msg });
+    console.error('[admin] PUT /config/notifications error:', err);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
@@ -358,7 +359,8 @@ adminRouter.put('/config/integrations', async (req: Request, res: Response): Pro
     if (ocrUrl) {
       try {
         await assertUrlAllowed(ocrUrl);
-      } catch {
+      } catch (err) {
+        console.error('[admin] PUT /config/integrations error:', err);
         res.status(400).json({ error: 'INVALID_URL' });
         return;
       }
@@ -366,8 +368,8 @@ adminRouter.put('/config/integrations', async (req: Request, res: Response): Pro
     const config = await systemConfigService.updateIntegrations({ vivinoKey, whiskybaseKey, ocrUrl }, req.userId);
     res.json({ data: config });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
-    res.status(500).json({ error: msg });
+    console.error('[admin] PUT /config/integrations error:', err);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
@@ -377,12 +379,12 @@ adminRouter.put('/config/retention', async (req: Request, res: Response): Promis
     const config = await systemConfigService.updateRetention(parsed, req.userId);
     res.json({ data: config });
   } catch (err) {
+    console.error('[admin] PUT /config/retention error:', err);
     if (err instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
       return;
     }
-    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
-    res.status(500).json({ error: msg });
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
@@ -392,12 +394,12 @@ adminRouter.put('/config/backup', async (req: Request, res: Response): Promise<v
     const config = await systemConfigService.updateBackupConfig(parsed, req.userId);
     res.json({ data: config });
   } catch (err) {
+    console.error('[admin] PUT /config/backup error:', err);
     if (err instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
       return;
     }
-    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
-    res.status(500).json({ error: msg });
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
@@ -412,8 +414,8 @@ adminRouter.post('/config/test/smtp', async (req: Request, res: Response): Promi
     }
     res.json({ data: result });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
-    res.status(500).json({ error: msg });
+    console.error('[admin] POST /config/test/smtp error:', err);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
@@ -431,7 +433,8 @@ adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Pro
     // /config/gotify can't cover a URL set before this guard existed).
     try {
       await assertUrlAllowed(url);
-    } catch {
+    } catch (err) {
+      console.error('[admin] POST /config/test/gotify error:', err);
       res.status(400).json({ error: 'INVALID_URL' });
       return;
     }
@@ -453,12 +456,13 @@ adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Pro
       // instrument for mapping what the server container can reach
       // internally — a stable, generic code is returned instead.
       res.json({ data: response.ok ? { success: true } : { success: false, error: 'DELIVERY_FAILED' } });
-    } catch {
+    } catch (err) {
+      console.error('[admin] POST /config/test/gotify error:', err);
       res.json({ data: { success: false, error: 'DELIVERY_FAILED' } });
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
-    res.status(500).json({ error: msg });
+    console.error('[admin] POST /config/test/gotify error:', err);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
@@ -470,12 +474,12 @@ adminRouter.put('/config/network', async (req: Request, res: Response): Promise<
     const config = await systemConfigService.updateNetworkConfig(parsed, req.userId);
     res.json({ data: config });
   } catch (err) {
+    console.error('[admin] PUT /config/network error:', err);
     if (err instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
       return;
     }
-    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
-    res.status(500).json({ error: msg });
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
@@ -484,8 +488,8 @@ adminRouter.post('/config/network/check', async (_req: Request, res: Response): 
     const result = await systemConfigService.checkNetworkConsistency();
     res.json({ data: result });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'INTERNAL_SERVER_ERROR';
-    res.status(500).json({ error: msg });
+    console.error('[admin] POST /config/network/check error:', err);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });
 
