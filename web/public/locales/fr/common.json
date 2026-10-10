@@ -1526,6 +1526,7 @@
       "title": "Clés API tierces",
       "vivinoKey": "Clé API Vivino",
       "whiskybaseKey": "Clé API Whiskybase",
+      "vivinoWhiskybaseNotUsedYet": "Bientôt disponible — stockée en sécurité, mais aucune fonctionnalité ne lit encore ces clés.",
       "ocrUrl": "URL service OCR",
       "ocrUrlPlaceholder": "https://ocr.example.com/extract",
       "keyPlaceholder": "Laisser vide pour conserver l'actuel",

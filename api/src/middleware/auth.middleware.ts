@@ -136,11 +136,17 @@ export async function adminMiddleware(req: Request, res: Response, next: NextFun
 }
 
 /** Helper to extract client IP (supports reverse proxies) */
+/**
+ * ISSUE_041: this used to read the FIRST value of `X-Forwarded-For`, a plain
+ * header any client can set on their own request. A proxy appends its value
+ * at the end; it does not erase what the client put at the start, so that
+ * first value was whatever address the caller chose to claim — forgeable
+ * audit trail, a rate limiter the caller can bypass at will by changing it
+ * on every request, and a geolocation check neutralised the same way.
+ * `req.ip` is Express's own computation from the `trust proxy` setting
+ * (`app.ts`, `app.set('trust proxy', 1)`) and already does this correctly:
+ * the one hop closest to the server is trusted, nothing further back is.
+ */
 export function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    const first = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
-    return first?.trim() ?? 'unknown';
-  }
-  return req.headers['x-real-ip'] as string ?? req.socket.remoteAddress ?? 'unknown';
+  return req.ip ?? req.socket.remoteAddress ?? 'unknown';
 }

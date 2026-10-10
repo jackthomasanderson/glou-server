@@ -94,6 +94,9 @@ function readTrustedDeviceCookie(req: Request): string | undefined {
     }
     return undefined;
   } catch {
+    // Expired/invalid/missing trusted-device cookie is the routine case on
+    // every login from a device whose 30-day window lapsed — not a
+    // malfunction, so not worth a log line on every such request.
     return undefined;
   }
 }
@@ -110,6 +113,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: user.id, action: 'REGISTER', status: 'success', ip });
     res.status(201).json({ data: user });
   } catch (error) {
+    console.error('[auth] POST /register error:', error);
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
@@ -143,6 +147,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     }
     res.json({ data: { ...user, requires2fa } });
   } catch (error) {
+    console.error('[auth] POST /login error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
@@ -185,6 +190,8 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
       userId = payload.userId;
       rememberMe = payload.rememberMe ?? false;
     } catch {
+      // Expired/invalid pending-2FA token is routine (the user took too
+      // long, or already used/retried) — not a malfunction worth logging.
       res.status(401).json({ error: 'TOKEN_INVALID_OR_EXPIRED' });
       return;
     }
@@ -200,6 +207,7 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
     void auditLog({ userId: result.user.id, action: 'LOGIN_2FA', status: 'success', ip });
     res.json({ data: result.user });
   } catch (error) {
+    console.error('[auth] POST /2fa/verify-login error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
@@ -223,6 +231,7 @@ router.post('/2fa/generate', authMiddleware, async (req: Request, res: Response)
     const data = await authService.generateTwoFactorSecret(req.userId);
     res.json({ data });
   } catch (error) {
+    console.error('[auth] POST /2fa/generate error:', error);
     const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
     res.status(400).json({ error: msg });
   }
@@ -236,6 +245,7 @@ router.post('/2fa/turn-on', authMiddleware, async (req: Request, res: Response):
     const data = await authService.turnOnTwoFactorAuthentication(req.userId, code, readDeviceInfo(req));
     res.json({ data });
   } catch (error) {
+    console.error('[auth] POST /2fa/turn-on error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
@@ -253,6 +263,7 @@ router.post('/2fa/turn-off', authMiddleware, async (req: Request, res: Response)
     await authService.turnOffTwoFactorAuthentication(req.userId, password, readDeviceInfo(req), req.sessionId, code);
     res.json({ data: { success: true } });
   } catch (error) {
+    console.error('[auth] POST /2fa/turn-off error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
@@ -272,7 +283,9 @@ router.post('/logout', authMiddleware, async (req: Request, res: Response): Prom
     try {
       await authService.revokeSession(req.userId, req.sessionId);
     } catch {
-      // Session already gone/invalid — logout must still succeed client-side.
+      // Session already gone/invalid — the routine case on a double logout
+      // or an already-expired session, not a malfunction. Logout must still
+      // succeed client-side either way.
     }
   }
   res.clearCookie(COOKIE_NAME, { path: '/' });
@@ -449,7 +462,8 @@ router.post('/validate-reset-token', async (req: Request, res: Response): Promis
     }
     const result = await passwordResetService.validateToken(token);
     res.json({ data: result });
-  } catch {
+  } catch (err) {
+    console.error('[auth] POST /validate-reset-token error:', err);
     res.json({ data: { valid: false } });
   }
 });
@@ -470,6 +484,7 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
     await passwordResetService.resetPassword(token, newPassword, readDeviceInfo(req));
     res.json({ data: { ok: true } });
   } catch (err) {
+    console.error('[auth] POST /reset-password error:', err);
     res.status(400).json({ error: publicAuthError(err, 'POST /reset-password') });
   }
 });

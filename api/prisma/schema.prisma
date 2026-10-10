@@ -292,12 +292,16 @@ model InventoryItem {
   tastingNotes TastingNote[]
   countEntries InventoryCountEntry[]
 
-  // No standalone `@@index([userId])` — `[userId, deletedAt]` and
-  // `[userId, category]` below already cover it via the leftmost-prefix
-  // rule, and `userId` is audit-only here (design.md), never queried alone
-  // as a filter. Dead write-cost index removed (data-model audit finding).
-  @@index([userId, deletedAt])
-  @@index([userId, category])
+  // ISSUE_004: `userId` is audit-only here (design.md), never queried alone
+  // or as the leading column of a filter — `listInventory` never filters by
+  // it — so `[userId, deletedAt]`/`[userId, category]` were unusable composite
+  // indexes (a composite index only serves a query that filters on its FIRST
+  // column), paid for on every write, while the columns actually filtered
+  // everywhere (`deletedAt` alone, `cellarId`+`deletedAt`, `category`+
+  // `deletedAt`) had no index at all.
+  @@index([deletedAt])
+  @@index([cellarId, deletedAt])
+  @@index([category, deletedAt])
   @@index([alertStatus])
   @@index([name])
   @@index([vintage])

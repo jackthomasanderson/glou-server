@@ -165,6 +165,8 @@ function extFromUrl(url: string): string | null {
     const map: Record<string, string> = { jpg: 'jpg', jpeg: 'jpg', png: 'png', webp: 'webp', gif: 'gif', avif: 'avif' };
     return map[raw] ?? null;
   } catch {
+    // Unparseable URL — routine (not every result has a clean extension in
+    // its path), the caller already has its own further fallback.
     return null;
   }
 }

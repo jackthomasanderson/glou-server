@@ -43,6 +43,7 @@ router.post('/readings', async (req: Request, res: Response) => {
     });
     res.status(201).json({ data: result });
   } catch (err: unknown) {
+    console.error('[humidor] POST /readings error:', err);
     res.status(500).json({ error: 'FAILED_TO_RECORD_READING' });
   }
 });
@@ -65,6 +66,7 @@ router.get('/cellars/:cellarId/readings', async (req: Request, res: Response) =>
     }
     res.json({ data });
   } catch (err: unknown) {
+    console.error('[humidor] GET /cellars/:cellarId/readings error:', err);
     res.status(500).json({ error: 'FAILED_TO_FETCH_HISTORY' });
   }
 });

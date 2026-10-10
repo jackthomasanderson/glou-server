@@ -140,7 +140,11 @@ export const inventoryPatchSchema = z.object({
   reminderDate: z.coerce.date().optional().nullable(),
   alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).optional().nullable(),
   alertsPaused: z.boolean().optional(),
-  lockedFields: z.array(z.string()).optional(),
+  // ISSUE_031: `lockedFields` is an internal bookkeeping field written only
+  // by `InventoryService.updateItem` itself — the client has no legitimate
+  // reason to set it directly, and the detail form used to round-trip it
+  // unchanged on every save, which silently disabled the auto-lock that a
+  // plain field edit is supposed to trigger (see InventoryForm.tsx).
   // Wine/Sparkling
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional().nullable(),
   color: z.enum(['red', 'white', 'rosé', 'orange']).optional().nullable(),

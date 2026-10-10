@@ -9,9 +9,9 @@
 ## ✨ Le Top 5
 1. 📸 **Saisie Zéro Effort** : Photographiez une étiquette. L'OCR remplit les détails instantanément.
 2. 🤝 **Inventaire Partagé** : Tous les utilisateurs de l'instance partagent une cave commune — parfait pour les familles, colocataires et clubs.
-3. 🧠 **Smart Data Engine** : Enrichissement automatique via Vivino et Whiskybase, avec cache local.
-4. 🔔 **Alertes Apogée** : Soyez notifié quand une bouteille entre dans sa fenêtre de dégustation optimale.
-5. 🛡️ **Totalement Auto-Hébergé** : Une stack Docker Compose (Node.js · Next.js · PostgreSQL) que vous faites tourner chez vous.
+3. 🔔 **Alertes Apogée** : Soyez notifié quand une bouteille entre dans sa fenêtre de dégustation optimale.
+4. 🛡️ **Totalement Auto-Hébergé** : Une stack Docker Compose (Node.js · Next.js · PostgreSQL) que vous faites tourner chez vous.
+5. 👪 **Partage Invité** : Liens scopés et révocables pour laisser des proches consulter (ou aider à inventorier) une partie de votre cave.
 
 ---
 
@@ -45,10 +45,13 @@
 ```bash
 cp .env.example .env
 ```
-Ouvrez `.env` et renseignez un `JWT_SECRET` robuste.
+Ouvrez `.env` et renseignez trois valeurs obligatoires — aucune n'a de valeur par défaut sûre :
+- `DB_PASSWORD` — docker compose refuse de démarrer sans elle.
+- `JWT_SECRET` — générez-en une avec : `openssl rand -base64 48`
+- `CONFIG_ENCRYPTION_KEY` — générez-en une avec : `openssl rand -hex 32`
 
 > [!CAUTION]
-> `JWT_SECRET` n'a pas de valeur par défaut sûre. Utiliser la valeur d'exemple rend toutes les sessions utilisateurs falsifiables. Générez-en une avec : `openssl rand -hex 32`
+> Utiliser les valeurs d'exemple rend toutes les sessions utilisateurs falsifiables, et l'API refuse de démarrer en mode production tant que `CONFIG_ENCRYPTION_KEY` n'a pas une vraie valeur.
 
 **Étape 2 — Lancer**
 ```bash
@@ -85,6 +88,7 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **
 Des dizaines de fonctionnalités plus petites sortent régulièrement — voir les [pull requests fermées](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) pour l'historique complet.
 
 ### 🔮 À Venir
+- 🧠 **Smart Data Engine** — enrichissement automatique via Vivino et Whiskybase, avec cache local. Pas encore construit : les clés d'intégration de l'écran admin ne sont lues par aucun code aujourd'hui.
 - Analyses prédictives pour la valorisation de la collection.
 - Intégration IoT avancée pour le suivi en direct de la température et de l'hygrométrie.
 - Application mobile native.

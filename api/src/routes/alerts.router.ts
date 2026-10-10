@@ -17,6 +17,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { scope: 'alerts', count: alerts.length } });
     res.json({ data: alerts });
   } catch (error) {
+    console.error('[alerts] GET / error:', error);
     void auditLog({ userId: req.userId, action: 'LIST', status: 'error', ip, details: { scope: 'alerts', message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
@@ -36,6 +37,7 @@ router.patch('/:id/pause', async (req: Request, res: Response): Promise<void> =>
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: id, details: { scope: 'alert-pause' } });
     res.json({ data: { ok: true } });
   } catch (error) {
+    console.error('[alerts] PATCH /:id/pause error:', error);
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }

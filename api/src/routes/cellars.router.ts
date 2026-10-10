@@ -20,6 +20,7 @@ router.get('/', async (req: Request, res: Response) => {
     const cellars = await CellarService.listCellars(userId);
     res.json({ data: cellars });
   } catch (err: unknown) {
+    console.error('[cellars] GET / error:', err);
     res.status(500).json({ error: 'FAILED_TO_FETCH_CELLARS' });
   }
 });
@@ -38,6 +39,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
     res.json({ data: cellar });
   } catch (err: unknown) {
+    console.error('[cellars] GET /:id error:', err);
     res.status(500).json({ error: 'FAILED_TO_FETCH_CELLAR' });
   }
 });
@@ -72,6 +74,7 @@ router.post('/', async (req: Request, res: Response) => {
     });
     res.status(201).json({ data: cellar });
   } catch (err: unknown) {
+    console.error('[cellars] POST / error:', err);
     await auditLog({
       userId,
       ip: getClientIp(req),
@@ -110,6 +113,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
     });
     res.json({ data: cellar });
   } catch (err: unknown) {
+    console.error('[cellars] PATCH /:id error:', err);
     res.status(500).json({ error: 'FAILED_TO_UPDATE_CELLAR' });
   }
 });
@@ -128,6 +132,7 @@ router.get('/:id/grid', async (req: Request, res: Response) => {
     }
     res.json({ data });
   } catch (err: unknown) {
+    console.error('[cellars] GET /:id/grid error:', err);
     res.status(500).json({ error: 'FAILED_TO_FETCH_GRID' });
   }
 });
@@ -163,6 +168,7 @@ router.post('/:id/swap-slots', async (req: Request, res: Response) => {
     });
     res.json({ data: result.items });
   } catch (err: unknown) {
+    console.error('[cellars] POST /:id/swap-slots error:', err);
     res.status(500).json({ error: 'FAILED_TO_SWAP_SLOTS' });
   }
 });
@@ -189,6 +195,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     });
     res.status(204).send();
   } catch (err: unknown) {
+    console.error('[cellars] DELETE /:id error:', err);
     res.status(500).json({ error: 'FAILED_TO_DELETE_CELLAR' });
   }
 });
