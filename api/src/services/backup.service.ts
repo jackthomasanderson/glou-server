@@ -136,9 +136,16 @@ async function execPgDump(conn: DbConnParams, destPath: string): Promise<void> {
     const out = fs.createWriteStream(destPath);
 
     let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill('SIGKILL');
+      reject(new Error(`PG_DUMP_TIMED_OUT after ${CHILD_PROCESS_TIMEOUT_MS / 1000}s`));
+    }, CHILD_PROCESS_TIMEOUT_MS);
     const fail = (err: Error) => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       reject(err);
     };
 
@@ -150,11 +157,11 @@ async function execPgDump(conn: DbConnParams, destPath: string): Promise<void> {
 
     child.on('close', (code) => {
       if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       if (code === 0) {
-        settled = true;
         resolve();
       } else {
-        settled = true;
         reject(new Error(`PG_DUMP_FAILED (exit ${code}): ${stderr.trim() || 'unknown error'}`));
       }
     });
@@ -169,6 +176,11 @@ async function execPgDump(conn: DbConnParams, destPath: string): Promise<void> {
  * table, enum and the `_prisma_migrations` history from scratch.
  */
 const RESET_SCHEMA_SQL = 'DROP SCHEMA IF EXISTS public CASCADE;\nCREATE SCHEMA public;\n';
+
+/** A hung `pg_dump`/`psql` (DB lock, full disk returning no error) must not
+ * leave the backup/restore promise pending forever: kill the child and
+ * settle with a clear error instead. */
+const CHILD_PROCESS_TIMEOUT_MS = 30 * 60 * 1000;
 
 /**
  * Restores a `.sql.gz` dump by streaming it through `zlib.createGunzip()`
@@ -200,9 +212,16 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
     child.stdout.on('data', () => { /* drain psql's stdout, we only care about exit code + stderr */ });
 
     let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill('SIGKILL');
+      reject(new Error(`PSQL_RESTORE_TIMED_OUT after ${CHILD_PROCESS_TIMEOUT_MS / 1000}s`));
+    }, CHILD_PROCESS_TIMEOUT_MS);
     const fail = (err: Error) => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       // A broken dump stream must not leave psql waiting on stdin inside an
       // open transaction (it would hold its locks and freeze the app): killing
       // it drops the connection and Postgres rolls the transaction back.
@@ -223,11 +242,11 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
 
     child.on('close', (code) => {
       if (settled) return;
+      settled = true;
+      clearTimeout(timer);
       if (code === 0) {
-        settled = true;
         resolve();
       } else {
-        settled = true;
         reject(new Error(`PSQL_RESTORE_FAILED (exit ${code}): ${stderr.trim() || 'unknown error'}`));
       }
     });

@@ -78,21 +78,27 @@ export class ImportService {
     rows: CsvImportRow[],
     cellarId: string | null,
   ): Promise<{ created: number; skippedDuplicates: number }> {
-    return prisma.$transaction(async (tx) => {
-      let created = 0;
-      let skippedDuplicates = 0;
-      for (const row of rows) {
-        const input = this.toInventoryInput(row, cellarId);
-        const duplicate = await inventoryService.findDuplicateCandidate(input, tx);
-        if (duplicate) {
-          skippedDuplicates++;
-          continue;
+    return prisma.$transaction(
+      async (tx) => {
+        let created = 0;
+        let skippedDuplicates = 0;
+        for (const row of rows) {
+          const input = this.toInventoryInput(row, cellarId);
+          const duplicate = await inventoryService.findDuplicateCandidate(input, tx);
+          if (duplicate) {
+            skippedDuplicates++;
+            continue;
+          }
+          await inventoryService.createItem(userId, input, tx, this.toFieldSources(row));
+          created++;
         }
-        await inventoryService.createItem(userId, input, tx, this.toFieldSources(row));
-        created++;
-      }
-      return { created, skippedDuplicates };
-    });
+        return { created, skippedDuplicates };
+      },
+      // Up to MAX_ROWS=500 chained creates comfortably exceed Prisma's 5s
+      // interactive-transaction default, which rolled the whole import back
+      // with no explanation (#161) — give it real headroom instead.
+      { timeout: 60000, maxWait: 10000 },
+    );
   }
 
   /**

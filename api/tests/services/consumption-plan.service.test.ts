@@ -188,6 +188,61 @@ describe('getSuggestions', () => {
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledTimes(2);
   });
 
+  it('does not enumerate alert ids in the opened-items query, and excludes them in memory instead (#162)', async () => {
+    vi.mocked(getAlerts).mockResolvedValue([
+      { id: 'peak1', alertStatus: 'peak', readiness: 50 },
+    ] as never);
+    mockFindManyByShape({
+      alertExtra: [sourceItem({ id: 'peak1' })],
+      // Same row surfaces from both the alert source and the (unfiltered)
+      // opened-items query — it must only appear once, as 'peak_window'.
+      opened: [sourceItem({ id: 'peak1', isOpened: true }), sourceItem({ id: 'opened1', isOpened: true })],
+      rotation: [],
+    });
+
+    const result = await getSuggestions(10);
+
+    const openedCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls.find(
+      ([args]) => (args as { where: Record<string, unknown> }).where.isOpened === true,
+    );
+    expect(openedCall?.[0]).toEqual({
+      where: { deletedAt: null, isOpened: true },
+      select: expect.anything(),
+    });
+    expect(result.map((r) => ({ id: r.id, reason: r.reason }))).toEqual([
+      { id: 'peak1', reason: 'peak_window' },
+      { id: 'opened1', reason: 'opened' },
+    ]);
+  });
+
+  it('over-fetches the rotation candidates rather than enumerating excluded ids, and filters/truncates in memory (#162)', async () => {
+    vi.mocked(getAlerts).mockResolvedValue([
+      { id: 'peak1', alertStatus: 'peak', readiness: 50 },
+    ] as never);
+    mockFindManyByShape({
+      alertExtra: [sourceItem({ id: 'peak1' })],
+      opened: [sourceItem({ id: 'opened1', isOpened: true })],
+      // The rotation query itself is never filtered by id — it can return
+      // rows already surfaced elsewhere, which getSuggestions must drop.
+      rotation: [
+        sourceItem({ id: 'peak1' }),
+        sourceItem({ id: 'opened1' }),
+        sourceItem({ id: 'old1' }),
+        sourceItem({ id: 'old2' }),
+      ],
+    });
+
+    const result = await getSuggestions(3);
+
+    const rotationCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls.find(
+      ([args]) => (args as { where: Record<string, unknown> }).where.isOpened === false,
+    );
+    const rotationWhere = (rotationCall?.[0] as { where: Record<string, unknown> }).where;
+    expect(rotationWhere.id).toBeUndefined();
+    expect((rotationCall?.[0] as { take: number }).take).toBe(1 + 2); // needed(1) + excludeIds.size(2)
+    expect(result.map((r) => r.id)).toEqual(['peak1', 'opened1', 'old1']);
+  });
+
   it('propagates a failure from the underlying alert lookup rather than swallowing it (error case)', async () => {
     vi.mocked(getAlerts).mockRejectedValue(new Error('DB_UNAVAILABLE'));
 

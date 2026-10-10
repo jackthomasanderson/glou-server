@@ -114,15 +114,22 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
   const alerts = await getAlerts();
   const alertIds = alerts.map((a) => a.id);
 
-  const [alertExtra, openedItems] = await Promise.all([
+  // Excluding by id is done in memory rather than with a `notIn: alertIds`
+  // clause: that list grows with the collection (every peak-window bottle),
+  // while the opened-items candidate set here, and the final result below,
+  // stay small (#162).
+  const alertIdSet = new Set(alertIds);
+
+  const [alertExtra, openedItemsRaw] = await Promise.all([
     alertIds.length > 0
       ? prisma.inventoryItem.findMany({ where: { id: { in: alertIds } }, select: SUGGESTION_SELECT })
       : Promise.resolve([] as SourceItem[]),
     prisma.inventoryItem.findMany({
-      where: { deletedAt: null, isOpened: true, id: { notIn: alertIds } },
+      where: { deletedAt: null, isOpened: true },
       select: SUGGESTION_SELECT,
     }),
   ]);
+  const openedItems = openedItemsRaw.filter((item) => !alertIdSet.has(item.id));
 
   const alertExtraMap = new Map(alertExtra.map((item) => [item.id, item]));
 
@@ -164,18 +171,23 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
   // name): once alert- and opened-based suggestions are exhausted, surface
   // the oldest untouched stock so nothing sits forgotten indefinitely.
   if (result.length < limit) {
-    const excludeIds = [...new Set([...alertIds, ...openedItems.map((o) => o.id)])];
-    const rotationItems = await prisma.inventoryItem.findMany({
+    const needed = limit - result.length;
+    const excludeIds = new Set([...alertIds, ...openedItems.map((o) => o.id)]);
+    // Over-fetch by the exclusion set's size rather than embedding it as a
+    // `notIn` id list (#162): the WHERE clause stays cheap regardless of how
+    // many bottles are already surfaced elsewhere, and the slightly larger
+    // LIMIT only matters when the final list is truncated to `needed` anyway.
+    const rotationCandidates = await prisma.inventoryItem.findMany({
       where: {
         deletedAt: null,
         isOpened: false,
-        id: { notIn: excludeIds },
         OR: [{ consumptionPostponedUntil: null }, { consumptionPostponedUntil: { lte: now } }],
       },
       select: SUGGESTION_SELECT,
       orderBy: { createdAt: 'asc' },
-      take: limit - result.length,
+      take: needed + excludeIds.size,
     });
+    const rotationItems = rotationCandidates.filter((item) => !excludeIds.has(item.id)).slice(0, needed);
     result = result.concat(rotationItems.map((item) => toSuggestion(item, 'rotation')));
   }
 

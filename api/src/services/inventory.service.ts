@@ -413,10 +413,22 @@ export class InventoryService {
     const to = ('peakMaturityTo' in safePatch ? safePatch.peakMaturityTo : existing.peakMaturityTo) as number | null | undefined;
     const alertStatus = computeAlertStatus(from, to);
 
-    const item = await prisma.inventoryItem.update({
-      where: { id },
-      data: { ...dbData, ...extra, alertStatus, updatedAt: new Date(), updatedBy: userId } as never,
-    });
+    let item: InventoryItem;
+    try {
+      item = await prisma.inventoryItem.update({
+        where: { id },
+        data: { ...dbData, ...extra, alertStatus, updatedAt: new Date(), updatedBy: userId } as never,
+      });
+    } catch (err) {
+      // #173: the application-level check above closes almost every window,
+      // but the database's partial unique index is the actual guarantee — a
+      // concurrent request that slipped past that check still hits this and
+      // gets the same clean slotConflict response instead of a 500.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        return { item: existing, changes: [], slotConflict: true };
+      }
+      throw err;
+    }
 
     return { item, changes };
   }
@@ -511,7 +523,7 @@ export class InventoryService {
         });
         updatedCount++;
       }
-    });
+    }, { timeout: 60000, maxWait: 10000 });
 
     return updatedCount;
   }
@@ -555,10 +567,24 @@ export class InventoryService {
       slotTaken = occupant !== null;
     }
 
-    return prisma.inventoryItem.update({
-      where: { id },
-      data: slotTaken ? { deletedAt: null, slotColumn: null, slotRow: null } : { deletedAt: null },
-    });
+    try {
+      return await prisma.inventoryItem.update({
+        where: { id },
+        data: slotTaken ? { deletedAt: null, slotColumn: null, slotRow: null } : { deletedAt: null },
+      });
+    } catch (err) {
+      // #173: the occupant check above closes almost every window; the
+      // database's partial unique index is the actual guarantee against a
+      // slot having been taken in the instant between that check and this
+      // write — fall back to restoring unplaced rather than erroring out.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        return prisma.inventoryItem.update({
+          where: { id },
+          data: { deletedAt: null, slotColumn: null, slotRow: null },
+        });
+      }
+      throw err;
+    }
   }
 
   /**

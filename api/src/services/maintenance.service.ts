@@ -3,6 +3,7 @@ import { MaintenanceRun, Prisma } from '@prisma/client';
 import { purgeOldAuditLogs } from './audit.service';
 import { scanService } from './scan.service';
 import { inventoryService } from './inventory.service';
+import { authService } from './auth.service';
 
 export interface PurgeResult {
     success: boolean;
@@ -23,9 +24,14 @@ export interface RetentionCounts {
     scanFiles: number;
     trashedItems: number;
     orphanPhotos: number;
+    deletedAccounts: number;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// #222: matches the grace period communicated to the user when they request
+// deletion (GdprSection.tsx) — "deletion scheduled for <date + 30 days>".
+const ACCOUNT_DELETION_GRACE_DAYS = 30;
 
 // Scan label photos (uploads/scans/*, 10MB max each — see scanUpload) are
 // purged after a fixed 24h window. Not exposed via SystemConfig (unlike the
@@ -79,6 +85,7 @@ export class MaintenanceService {
         const startedAt = Date.now();
         let scanFilesToDelete: string[] = [];
         let photoFilesToDelete: string[] = [];
+        let avatarFilesToDelete: string[] = [];
 
         try {
             const run = await prisma.$transaction(async (tx) => {
@@ -140,6 +147,15 @@ export class MaintenanceService {
                 // since nothing ever referenced them either way.
                 const orphanPhotosCount = await inventoryService.sweepOrphanProductPhotos(tx);
 
+                // #222: accounts whose deletion grace period has elapsed are
+                // actually anonymized/deactivated here — see
+                // authService.purgeDueAccountDeletions for why that's an
+                // anonymize-in-place rather than a real row delete.
+                const deletionCutoff = new Date(now.getTime() - ACCOUNT_DELETION_GRACE_DAYS * DAY_MS);
+                const accountDeletions = await authService.purgeDueAccountDeletions(deletionCutoff, tx);
+                avatarFilesToDelete = accountDeletions.avatarPaths;
+                const deletedAccountsCount = accountDeletions.count;
+
                 const counts: RetentionCounts = {
                     auditLogs: auditLogsCount,
                     sessions: sessionsResult.count,
@@ -148,6 +164,7 @@ export class MaintenanceService {
                     scanFiles: scanFilesCount,
                     trashedItems: trashedItemsCount,
                     orphanPhotos: orphanPhotosCount,
+                    deletedAccounts: deletedAccountsCount,
                 };
 
                 return tx.maintenanceRun.create({
@@ -159,10 +176,11 @@ export class MaintenanceService {
                         durationMs: Date.now() - startedAt,
                     },
                 });
-            });
+            }, { timeout: 60000, maxWait: 10000 });
             // The rows are committed: now the photos they pointed at can go.
             await scanService.deleteScanFiles(scanFilesToDelete);
             await inventoryService.deletePhotoFiles(photoFilesToDelete);
+            await authService.deleteAvatarFiles(avatarFilesToDelete);
             return run;
         } catch (error) {
             console.error('[maintenance] Retention cleanup failed:', error);

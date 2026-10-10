@@ -1284,7 +1284,7 @@
     "deleteKeyword": "SUPPRIMER",
     "deleteConfirm": "Confirmer la suppression",
     "deletionPending": "Suppression demandée",
-    "deletionRequestedOn": "Demande envoyée le {{date}}. Elle sera traitée par l'administrateur, sauf annulation de votre part.",
+    "deletionRequestedOn": "Votre compte sera supprimé le {{date}}, sauf annulation de votre part avant cette date.",
     "cancelDeletion": "Annuler la suppression"
   },
   "accessTransparency": {
