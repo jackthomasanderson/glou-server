@@ -111,7 +111,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
         autoFocus={!disabled}
         isDisabled={disabled}
         endContent={
-          loadingExternal ? <Loader2 size={14} className="animate-spin text-default-400" /> : undefined
+          loadingExternal ? <Loader2 size={14} className="animate-spin text-foreground-500" /> : undefined
         }
       />
 
@@ -132,12 +132,12 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
                     size="sm"
                     variant="bordered"
                     color={option.source === 'internal' ? 'primary' : 'default'}
-                    classNames={{ base: 'h-[18px]', content: 'text-[0.65rem] px-1.5' }}
+                    classNames={{ base: 'h-[18px]', content: 'text-xs px-1.5' }}
                   >
                     {option.source === 'internal' ? t('autocomplete.internal') : t('autocomplete.external')}
                   </Chip>
                 </div>
-                <span className="text-xs text-default-400">
+                <span className="text-xs text-foreground-500">
                   {option.producer}{option.vintage ? ` · ${option.vintage}` : ''}
                 </span>
               </li>

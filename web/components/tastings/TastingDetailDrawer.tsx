@@ -50,7 +50,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
       >
         {/* Header */}
         <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-secondary mb-0.5">
+          <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-0.5">
             {t('tastings.title')}
           </p>
           <div className="flex justify-between items-start">
@@ -122,7 +122,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
           {/* Notes */}
           {note.notes && (
             <div>
-              <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+              <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
                 {t('tastings.fields.notes')}
               </p>
               <p className="text-sm text-default-700 whitespace-pre-wrap leading-relaxed">

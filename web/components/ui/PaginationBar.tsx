@@ -29,7 +29,7 @@ export function PaginationBar({
 
   return (
     <div className="flex items-center justify-between mt-4 px-1">
-      <span className="text-xs text-default-400">
+      <span className="text-xs text-foreground-500">
         {totalItems} {labelItems}
       </span>
       <div className="flex items-center gap-2">

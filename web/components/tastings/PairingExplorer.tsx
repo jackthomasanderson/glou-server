@@ -127,7 +127,7 @@ export function PairingExplorer() {
         onValueChange={setQuery}
         label={t('tastings.pairing.searchLabel')}
         placeholder={t('tastings.pairing.searchPlaceholder')}
-        startContent={<Search size={16} className="text-default-400" />}
+        startContent={<Search size={16} className="text-foreground-500" />}
         variant="bordered"
         size="md"
         isClearable
@@ -180,22 +180,22 @@ export function PairingExplorer() {
       ) : !hasSearched ? (
         /* Prompt state */
         <div className="flex flex-col items-center py-16 text-center">
-          <Utensils size={64} className="text-default-300 mb-4" />
+          <Utensils size={64} className="text-foreground-400 mb-4" />
           <p className="text-lg font-semibold text-default-500">{t('tastings.pairing.promptTitle')}</p>
-          <p className="text-sm text-default-400">{t('tastings.pairing.promptHint')}</p>
+          <p className="text-sm text-foreground-500">{t('tastings.pairing.promptHint')}</p>
         </div>
       ) : suggestions.length === 0 ? (
         /* No matching bottle */
         <div className="flex flex-col items-center py-16 text-center">
-          <Wine size={64} className="text-default-300 mb-4" />
+          <Wine size={64} className="text-foreground-400 mb-4" />
           <p className="text-lg font-semibold text-default-500">
             {t('tastings.pairing.noResults', { query: query.trim() })}
           </p>
-          <p className="text-sm text-default-400">{t('tastings.pairing.noResultsHint')}</p>
+          <p className="text-sm text-foreground-500">{t('tastings.pairing.noResultsHint')}</p>
         </div>
       ) : (
         <>
-          <p className="text-sm text-default-400 mb-3">
+          <p className="text-sm text-foreground-500 mb-3">
             {t('tastings.pairing.resultsCount', { count: suggestions.length })}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -214,7 +214,7 @@ export function PairingExplorer() {
                         {item.name} — {item.producer}
                       </p>
                       {item.vintage && (
-                        <p className="text-xs text-default-400">{item.vintage}</p>
+                        <p className="text-xs text-foreground-500">{item.vintage}</p>
                       )}
                     </div>
                   </div>

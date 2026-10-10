@@ -78,7 +78,7 @@ export function TastingsDashboard() {
         <h1 className="text-xl font-bold">{t('tastings.title')}</h1>
         <div className="ml-auto flex items-center gap-3">
           {data && (
-            <span className="text-sm text-default-400">
+            <span className="text-sm text-foreground-500">
               {t('tastings.total', { count: data.total })}
             </span>
           )}
@@ -91,7 +91,7 @@ export function TastingsDashboard() {
         value={searchInput}
         onValueChange={setSearchInput}
         placeholder={t('tastings.filters.searchPlaceholder')}
-        startContent={<Search size={16} className="text-default-400" />}
+        startContent={<Search size={16} className="text-foreground-500" />}
         variant="flat"
         size="sm"
         radius="full"
@@ -119,7 +119,7 @@ export function TastingsDashboard() {
       ) : !data?.notes.length && search ? (
         /* No results for the active search (met/bouteille) */
         <div className="flex flex-col items-center py-16 text-center">
-          <Search size={64} className="text-default-300 mb-4" />
+          <Search size={64} className="text-foreground-400 mb-4" />
           <p className="text-lg font-semibold text-default-500">
             {t('tastings.filters.noResults', { query: search })}
           </p>
@@ -135,9 +135,9 @@ export function TastingsDashboard() {
       ) : !data?.notes.length ? (
         /* Empty state */
         <div className="flex flex-col items-center py-16 text-center">
-          <Wine size={64} className="text-default-300 mb-4" />
+          <Wine size={64} className="text-foreground-400 mb-4" />
           <p className="text-lg font-semibold text-default-500">{t('tastings.empty')}</p>
-          <p className="text-sm text-default-400 mb-6">{t('tastings.emptyHint')}</p>
+          <p className="text-sm text-foreground-500 mb-6">{t('tastings.emptyHint')}</p>
           <Button
             color="primary"
             variant="solid"

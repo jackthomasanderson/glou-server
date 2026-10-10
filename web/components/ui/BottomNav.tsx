@@ -61,15 +61,15 @@ export function BottomNav() {
                 aria-label={link.label}
                 aria-current={active ? 'page' : undefined}
                 className={`relative flex flex-col items-center justify-center flex-1 gap-0.5 min-w-0 py-1 transition-colors ${
-                  active ? 'text-primary' : 'text-default-400'
+                  active ? 'text-primary' : 'text-foreground-500'
                 }`}
               >
                 {/* #204: the active tab used to differ by colour only. */}
                 {active && <span aria-hidden="true" className="absolute top-0 h-0.5 w-8 rounded-full bg-primary" />}
-                <span className={active ? 'text-primary' : 'text-default-400'}>
+                <span className={active ? 'text-primary' : 'text-foreground-500'}>
                   {link.icon}
                 </span>
-                <span className={`text-[0.55rem] leading-tight truncate max-w-full px-1 ${active ? 'font-extrabold' : 'font-semibold'}`}>
+                <span className={`text-xs leading-tight truncate max-w-full px-1 ${active ? 'font-extrabold' : 'font-semibold'}`}>
                   {link.label}
                 </span>
               </button>
@@ -82,14 +82,14 @@ export function BottomNav() {
             aria-haspopup="true"
             aria-expanded={moreOpen}
             className={`relative flex flex-col items-center justify-center flex-1 gap-0.5 min-w-0 py-1 transition-colors ${
-              isMoreActive ? 'text-primary' : 'text-default-400'
+              isMoreActive ? 'text-primary' : 'text-foreground-500'
             }`}
           >
             {isMoreActive && <span aria-hidden="true" className="absolute top-0 h-0.5 w-8 rounded-full bg-primary" />}
-            <span className={isMoreActive ? 'text-primary' : 'text-default-400'}>
+            <span className={isMoreActive ? 'text-primary' : 'text-foreground-500'}>
               <MoreHorizontal size={22} />
             </span>
-            <span className={`text-[0.55rem] leading-tight truncate max-w-full px-1 ${isMoreActive ? 'font-extrabold' : 'font-semibold'}`}>
+            <span className={`text-xs leading-tight truncate max-w-full px-1 ${isMoreActive ? 'font-extrabold' : 'font-semibold'}`}>
               {t('nav.more')}
             </span>
           </button>

@@ -191,7 +191,7 @@ export function ImagePickerButton({
               <button
                 type="button"
                 onClick={() => doSearch(query)}
-                className="text-default-400 hover:text-primary"
+                className="text-foreground-500 hover:text-primary"
               >
                 <Search size={14} />
               </button>
@@ -215,7 +215,7 @@ export function ImagePickerButton({
           )}
 
           {!loading && !saving && query && results.length === 0 && (
-            <p className="text-xs text-default-400">{t('imagePicker.noResults')}</p>
+            <p className="text-xs text-foreground-500">{t('imagePicker.noResults')}</p>
           )}
 
           {!loading && !saving && results.length > 0 && (

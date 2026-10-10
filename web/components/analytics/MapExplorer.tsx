@@ -98,15 +98,15 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
         <div className="border border-divider rounded-xl p-4 sticky top-[72px]">
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center gap-1.5">
-              <Filter size={13} className="text-default-400" />
-              <span className="text-[0.65rem] font-bold uppercase tracking-widest text-default-400">
+              <Filter size={13} className="text-foreground-500" />
+              <span className="text-xs font-bold uppercase tracking-widest text-foreground-500">
                 {t('analytics.map.filters.title')}
               </span>
             </div>
             {(isFiltersActive || selectedRegion) && (
               <button
                 onClick={handleClearAll}
-                className="text-[0.65rem] text-primary font-semibold hover:underline"
+                className="text-xs text-primary font-semibold hover:underline"
               >
                 ↺ {t('actions.clearAll')}
               </button>
@@ -126,12 +126,12 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
             aria-label={t('analytics.map.filters.title')}
           >
             <Filter size={14} />
-            <span className="text-[0.75rem] font-semibold">{t('analytics.map.filters.title')}</span>
+            <span className="text-xs font-semibold">{t('analytics.map.filters.title')}</span>
           </button>
           {(isFiltersActive || selectedRegion) && (
             <button
               onClick={handleClearAll}
-              className="text-[0.7rem] text-primary font-semibold hover:underline"
+              className="text-xs text-primary font-semibold hover:underline"
             >
               ↺ {t('actions.clearAll')}
             </button>
@@ -163,10 +163,10 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[0.7rem] font-bold uppercase tracking-wider text-default-500">
+            <p className="text-xs font-bold uppercase tracking-wider text-default-500">
               {selectedRegion ? t('analytics.map.list.title') : t('analytics.map.list.titleAll')}
             </p>
-            <span className="text-[0.7rem] text-default-400">
+            <span className="text-xs text-foreground-500">
               {t('analytics.map.list.itemCount', { count: filteredItems.length })}
             </span>
           </div>
