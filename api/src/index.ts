@@ -4,6 +4,7 @@ import { createApp } from './app';
 import { inventoryService } from './services/inventory.service';
 import { MaintenanceService } from './services/maintenance.service';
 import { recomputeAlertStatuses } from './services/alert.service';
+import { checkHumidorDrift } from './services/humidor.service';
 import { backupService } from './services/backup.service';
 import { findSecretProblems, describeSecretProblem } from './lib/startup-secrets';
 
@@ -82,6 +83,18 @@ async function bootstrap(): Promise<void> {
       else console.error('[cron] Retention cleanup failed:', run.error);
     });
     void runAlertStatusRecompute('cron');
+
+    // ISSUE_027: a humidor reading only ever gets recorded by a human typing
+    // a value in, so a drift that happens while nobody opens the app (e.g. a
+    // multi-week holiday) produced no reading and therefore no alert at all.
+    // This daily sweep catches that case — stale or still-out-of-range
+    // cellars re-notify every member, not just whoever logged the last
+    // reading.
+    void checkHumidorDrift()
+      .then(({ scanned, alerted }) => {
+        if (alerted > 0) console.info(`[cron] Humidor drift check: ${alerted} of ${scanned} monitored cellars alerted`);
+      })
+      .catch((err) => console.error('[cron] Humidor drift check failed:', err));
   });
 
   // FEAT-18: scheduled database backups (pg_dump). Ticks hourly and re-reads

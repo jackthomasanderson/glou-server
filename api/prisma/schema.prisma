@@ -147,8 +147,13 @@ model Cellar {
   targetHumidityMin Float?
   targetHumidityMax Float?
 
+  // ISSUE_098: `userId` is an audit field ("who created this record"), not an
+  // ownership field over shared household property — deleting the member who
+  // happened to create a cellar must never take the cellar (and every bottle
+  // in it) down with them. The database enforces that invariant directly:
+  // deleting a User is refused while any Cellar still references them.
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   inventory       InventoryItem[]
   humidorReadings HumidorReading[]
@@ -163,8 +168,10 @@ model Cellar {
 // Soft-delete via deletedAt
 model InventoryItem {
   id     String @id @default(uuid())
+  // ISSUE_098: audit field, not an ownership field — see the matching note
+  // on Cellar.userId. Deleting a member must never erase shared inventory.
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   cellarId String?
   cellar   Cellar? @relation(fields: [cellarId], references: [id], onDelete: SetNull)
@@ -446,8 +453,10 @@ enum TastingReadiness {
 
 model TastingNote {
   id          String            @id @default(uuid())
+  // ISSUE_098: audit field, not an ownership field — see the matching note
+  // on Cellar.userId. A tasting note is shared history, not personal data.
   userId      String
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   itemId      String?
   item        InventoryItem?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
   tastedAt    DateTime          @default(now())
@@ -689,8 +698,10 @@ model InventoryCountSession {
   scopeLabel  String // Libellé libre du périmètre (ex: "Cave Principale", "Meuble A", "Bac 3")
   cellarId    String? // Optionnel : lien vers une Cellar si le périmètre correspond à une cave entière
   status      InventoryCountSessionStatus
+  // ISSUE_098: audit field, not an ownership field — see the matching note
+  // on Cellar.userId. A stocktaking session belongs to the shared cellar.
   userId      String
-  user        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User                         @relation(fields: [userId], references: [id], onDelete: Restrict)
   startedAt   DateTime                     @default(now())
   pausedAt    DateTime?
   completedAt DateTime?
@@ -859,8 +870,10 @@ model HumidorReading {
   // else on shared-inventory-adjacent models), NOT an access filter. For a
   // 'sensor' source this is still whichever authenticated user's session
   // posted it (no separate device/API-key auth was built for this pass).
+  // ISSUE_098: deleting that member must never take the reading history
+  // down with them, so the FK refuses the delete instead of cascading.
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   humidityPercent    Float
   temperatureCelsius Float? // informational only — drift is evaluated on humidity alone (Cellar.targetHumidityMin/Max)
