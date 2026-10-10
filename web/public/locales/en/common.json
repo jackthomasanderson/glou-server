@@ -1271,7 +1271,11 @@
       "budget": "Budgets",
       "goals": "Consumption goals",
       "counts": "Stock counts",
-      "humidor": "Humidor readings"
+      "humidor": "Humidor readings",
+      "sessions": "Sessions",
+      "devices": "Trusted devices",
+      "notifications": "Notification preferences",
+      "configHistory": "Configuration history"
     },
     "deleteTitle": "Delete my account",
     "deleteDescription": "Sends a request to delete your account to the instance administrator, who will process it. You can cancel it until it has been processed.",

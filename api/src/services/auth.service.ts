@@ -50,15 +50,20 @@ export interface DeviceInfo {
 }
 
 // FEAT-18: categories selectable for a filtered personal data export.
-// #224: wishlist / budget / goals / counts / humidor were missing, so the
-// "full" export was not. Security records (sessions, trusted devices, secrets)
-// are deliberately not exportable.
+// #224: wishlist / budget / goals / counts / humidor / sessions / devices /
+// notifications / configHistory were missing, so the "full" export was not.
+// Sessions and trusted devices are exported as descriptive metadata only
+// (device label, location, timestamps) — never the tokenHash/bearer token
+// that authenticates them, which would let the export itself be replayed as
+// a credential.
 export type ExportCategory =
   | 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity'
-  | 'wishlist' | 'budget' | 'goals' | 'counts' | 'humidor';
+  | 'wishlist' | 'budget' | 'goals' | 'counts' | 'humidor'
+  | 'sessions' | 'devices' | 'notifications' | 'configHistory';
 export const ALL_EXPORT_CATEGORIES: ExportCategory[] = [
   'inventory', 'cellars', 'collections', 'tastings', 'activity',
   'wishlist', 'budget', 'goals', 'counts', 'humidor',
+  'sessions', 'devices', 'notifications', 'configHistory',
 ];
 
 export type LoginResult =
@@ -857,12 +862,20 @@ export class AuthService {
         cellars: true,
         collections: { include: { items: { select: { id: true, name: true } } } },
         tastingNotes: true,
+        // No `take`: respect the configured retention window (SystemConfig
+        // .logRetentionDays, purged by MaintenanceService), not an arbitrary
+        // row cap — #224.
         auditLogs: { orderBy: { createdAt: 'desc' } },
         wishlistItems: true,
         budgetEnvelopes: true,
         consumptionGoals: true,
         inventoryCountSessions: { include: { entries: true } },
         humidorReadings: true,
+        // Metadata only: `tokenHash` is excluded below so the export can
+        // never be replayed as a trusted-device bypass credential.
+        sessions: { orderBy: { createdAt: 'desc' } },
+        trustedDevices: { orderBy: { createdAt: 'desc' } },
+        configChangeLogs: { orderBy: { createdAt: 'desc' } },
       },
     });
 
@@ -898,6 +911,49 @@ export class AuthService {
         status: l.status,
         createdAt: l.createdAt,
         ip: l.ip,
+      }));
+    }
+    if (includes('sessions')) {
+      result.sessions = user.sessions.map(s => ({
+        device: describeDevice(s.userAgent),
+        location: locateIp(s.ip),
+        rememberMe: s.rememberMe,
+        createdAt: s.createdAt,
+        lastActiveAt: s.lastActiveAt,
+        expiresAt: s.expiresAt,
+        revokedAt: s.revokedAt,
+      }));
+    }
+    if (includes('devices')) {
+      result.trustedDevices = user.trustedDevices.map(d => ({
+        device: describeDevice(d.userAgent),
+        country: d.country,
+        createdAt: d.createdAt,
+        lastUsedAt: d.lastUsedAt,
+        expiresAt: d.expiresAt,
+        revokedAt: d.revokedAt,
+      }));
+    }
+    if (includes('notifications')) {
+      result.notificationPreferences = {
+        notifInApp: user.notifInApp,
+        notifEmail: user.notifEmail,
+        notifWebhook: user.notifWebhook,
+        notifCategories: user.notifCategories,
+        notifQuietStart: user.notifQuietStart,
+        notifQuietEnd: user.notifQuietEnd,
+        notifLanguage: user.notifLanguage,
+        webhookUrl: user.webhookUrl,
+      };
+    }
+    if (includes('configHistory')) {
+      // fieldName/maskedOldVal/maskedNewVal are already redacted at write
+      // time by systemConfigService.logChange — safe to export as-is.
+      result.configHistory = user.configChangeLogs.map(c => ({
+        fieldName: c.fieldName,
+        maskedOldVal: c.maskedOldVal,
+        maskedNewVal: c.maskedNewVal,
+        createdAt: c.createdAt,
       }));
     }
 
