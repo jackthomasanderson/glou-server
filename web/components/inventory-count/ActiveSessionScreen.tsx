@@ -228,7 +228,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
       <Card radius="lg" shadow="sm">
         <CardBody className="p-0">
           {isLoading ? (
-            <div className="flex justify-center p-8">
+            <div className="flex justify-center p-8" role="status" aria-live="polite">
               <CircularProgress aria-label={t('status.loading')} />
             </div>
           ) : checklist.length === 0 ? (

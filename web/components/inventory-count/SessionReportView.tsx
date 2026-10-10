@@ -55,7 +55,7 @@ export function SessionReportView({ session }: SessionReportViewProps) {
 
   if (isLoading || !report) {
     return (
-      <div className="flex justify-center p-8">
+      <div className="flex justify-center p-8" role="status" aria-live="polite">
         <CircularProgress aria-label={t('status.loading')} />
       </div>
     );

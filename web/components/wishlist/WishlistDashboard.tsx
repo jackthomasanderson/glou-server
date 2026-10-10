@@ -168,7 +168,7 @@ export function WishlistDashboard() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+        <div className="flex justify-center py-16" role="status" aria-live="polite"><Spinner size="lg" aria-label={t('status.loading')} /></div>
       ) : activeItems.length === 0 ? (
         <div className="flex flex-col items-center py-16 text-center">
           <Gift size={64} className="text-default-300 mb-4" />

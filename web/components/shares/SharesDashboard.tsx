@@ -106,8 +106,8 @@ export function SharesDashboard() {
 
           {/* Loading */}
           {isLoading ? (
-            <div className="flex justify-center py-6">
-              <Spinner size="md" />
+            <div className="flex justify-center py-6" role="status" aria-live="polite">
+              <Spinner size="md" aria-label={t('status.loading')} />
             </div>
           ) : !shares?.length ? (
             <div className="text-center py-6">

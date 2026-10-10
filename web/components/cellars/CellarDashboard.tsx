@@ -287,8 +287,8 @@ export const CellarDashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center p-8">
-        <CircularProgress />
+      <div className="flex justify-center p-8" role="status" aria-live="polite">
+        <CircularProgress aria-label={t('status.loading')} />
       </div>
     );
   }
@@ -370,7 +370,7 @@ export const CellarDashboard: React.FC = () => {
 
       {/* Result count */}
       {hasActiveFilters && (cellars?.length ?? 0) > 0 && (
-        <p className="text-xs text-default-400 mb-4">
+        <p className="text-xs text-default-400 mb-4" role="status" aria-live="polite">
           {filteredCellars.length > 0
             ? t('cellars.nFound', { count: filteredCellars.length })
             : t('cellars.noResults')}

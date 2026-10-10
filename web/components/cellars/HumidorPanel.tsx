@@ -45,8 +45,8 @@ export function HumidorPanel({ cellarId }: HumidorPanelProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-content1 border border-divider rounded-2xl p-5 mt-6 flex justify-center">
-        <CircularProgress size="sm" color="primary" />
+      <div className="bg-content1 border border-divider rounded-2xl p-5 mt-6 flex justify-center" role="status" aria-live="polite">
+        <CircularProgress size="sm" color="primary" aria-label={t('status.loading')} />
       </div>
     );
   }
