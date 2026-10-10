@@ -271,13 +271,34 @@ router.post('/images/save', authMiddleware, async (req, res) => {
     const ext = ALLOWED_IMAGE_TYPES[rawType] ?? extFromUrl(url);
     if (!ext) return res.status(422).json({ error: 'INVALID_IMAGE_TYPE' });
 
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > 5 * 1024 * 1024) {
+    const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+    const declaredLength = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_IMAGE_BYTES) {
       return res.status(413).json({ error: 'IMAGE_TOO_LARGE' });
     }
 
+    if (!response.body) return res.status(502).json({ error: 'FETCH_FAILED' });
+
+    const chunks: Buffer[] = [];
+    let total = 0;
+    const reader = response.body.getReader();
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > MAX_IMAGE_BYTES) {
+          await reader.cancel();
+          return res.status(413).json({ error: 'IMAGE_TOO_LARGE' });
+        }
+        chunks.push(Buffer.from(value));
+      }
+    } finally {
+      reader.releaseLock?.();
+    }
+
     const filename = `${crypto.randomUUID()}.${ext}`;
-    fs.writeFileSync(path.join(PRODUCTS_UPLOAD_DIR, filename), Buffer.from(buffer));
+    fs.writeFileSync(path.join(PRODUCTS_UPLOAD_DIR, filename), Buffer.concat(chunks));
 
     res.json({ data: { path: `/uploads/products/${filename}` } });
   } catch (error) {

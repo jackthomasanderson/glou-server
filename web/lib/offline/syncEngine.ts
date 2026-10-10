@@ -120,6 +120,7 @@ async function patchInventoryItem(itemId: string, patch: Record<string, unknown>
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(patch),
+    signal: AbortSignal.timeout(15000),
   });
 
   if (res.status === 409) {
@@ -148,6 +149,18 @@ export async function flushQueue(queryClient: QueryClient): Promise<void> {
   isFlushing = true;
   try {
     const queued = await getAllQueuedMutations();
+    // A mutation can be left in `syncing` if the tab closed or the network
+    // dropped mid-request (the previous flush never got to record success,
+    // conflict or failure). Only one flush ever runs at a time (`isFlushing`
+    // above), so a `syncing` row here is always stale — reset it to `pending`
+    // so the queue self-heals instead of leaving it, and everything queued
+    // after it, stuck forever.
+    for (const mutation of queued) {
+      if (mutation.status === 'syncing') {
+        mutation.status = 'pending';
+        await markMutation(mutation.id, { status: 'pending' });
+      }
+    }
     const blockedItemIds = new Set<string>();
 
     for (const mutation of queued) {

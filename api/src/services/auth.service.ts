@@ -9,7 +9,7 @@ import path from 'path';
 import { prisma } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
 import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.schema';
-import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
+import { Theme, Language, TempUnit, DateFormat, Prisma, PrismaClient } from '@prisma/client';
 import { describeDevice, locateIp, countryOfIp } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
@@ -918,6 +918,94 @@ export class AuthService {
       where: { id: userId },
       data: { deletionRequestedAt: null },
     });
+  }
+
+  /**
+   * #222: carries out account deletions whose grace period (`cutoff`, set by
+   * the caller) has elapsed. `deletionRequestedAt` used to be write-only —
+   * nothing ever acted on it, so a deletion request never actually happened
+   * and the account stayed fully active.
+   *
+   * The `User` row is anonymized rather than deleted outright:
+   * `Cellar.userId`/`InventoryItem.userId`/`InventoryCountSession.userId`/
+   * `HumidorReading.userId` are `onDelete: Restrict` by design (ISSUE_098 —
+   * shared inventory/history must never disappear just because the member
+   * who happened to create it leaves), so a real `user.delete()` would
+   * either fail outright or require reassigning those rows to some other
+   * identity. Anonymizing in place keeps every such reference valid while
+   * removing the PII GDPR Art. 17 actually targets (email, username,
+   * password hash, 2FA secret, avatar, webhook URL...) and deactivating the
+   * account (`isActive: false`) so it can no longer sign in. Sessions,
+   * trusted devices and guest shares created by the account are removed
+   * outright — nothing legitimately needs them to survive.
+   *
+   * Rows only: the avatar file (if any) is deleted by the caller after this
+   * transaction commits, same two-phase contract as
+   * `inventoryService.purgeTrashed`'s photo paths.
+   */
+  async purgeDueAccountDeletions(
+    cutoff: Date,
+    client: Prisma.TransactionClient | PrismaClient = prisma,
+  ): Promise<{ count: number; avatarPaths: string[] }> {
+    const due = await client.user.findMany({
+      where: { deletionRequestedAt: { not: null, lt: cutoff }, isActive: true },
+      select: { id: true, avatarUrl: true },
+    });
+    if (due.length === 0) return { count: 0, avatarPaths: [] };
+
+    const ids = due.map((u) => u.id);
+    await client.session.deleteMany({ where: { userId: { in: ids } } });
+    await client.trustedDevice.deleteMany({ where: { userId: { in: ids } } });
+    await client.guestShare.deleteMany({ where: { userId: { in: ids } } });
+
+    for (const user of due) {
+      // A valid bcrypt hash of a random, never-recorded value — not just an
+      // arbitrary string — so `bcrypt.compare` on a later login attempt
+      // behaves exactly like any other wrong password instead of risking a
+      // malformed-hash edge case.
+      const unusablePasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), BCRYPT_ROUNDS);
+      await client.user.update({
+        where: { id: user.id },
+        data: {
+          email: `deleted-${user.id}@deleted.invalid`,
+          username: `deleted-${user.id}`,
+          passwordHash: unusablePasswordHash,
+          displayName: null,
+          avatarUrl: null,
+          webhookUrl: null,
+          notifWebhook: false,
+          isTwoFactorEnabled: false,
+          twoFactorSecret: null,
+          backupCodes: [],
+          twoFactorFailedAttempts: 0,
+          twoFactorLockedUntil: null,
+          pinHash: null,
+          autoLockDelayMin: null,
+          isActive: false,
+          deletionRequestedAt: null,
+        },
+      });
+    }
+
+    const avatarPaths = due
+      .map((u) => u.avatarUrl)
+      .filter((url): url is string => !!url);
+    return { count: due.length, avatarPaths };
+  }
+
+  /** Deletes local avatar files from disk. Never throws: one bad path must not block the rest. */
+  async deleteAvatarFiles(avatarUrls: string[]): Promise<void> {
+    const uploadsDir = path.resolve(process.cwd(), 'uploads', 'avatars');
+    for (const avatarUrl of avatarUrls) {
+      try {
+        const filename = path.basename(avatarUrl);
+        const filePath = path.resolve(uploadsDir, filename);
+        if (!filePath.startsWith(uploadsDir + path.sep)) continue;
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch (err) {
+        console.error(`[auth] Failed to purge avatar file ${avatarUrl}:`, err);
+      }
+    }
   }
 
   // ─── Onboarding (FEAT-56) ───────────────────────────────────────────────────

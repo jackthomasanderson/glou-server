@@ -94,6 +94,7 @@ services:
     profiles: ["scan"]
     image: ollama/ollama:latest
     restart: unless-stopped
+    mem_limit: 4g
     environment:
       # Unload the model after 5 min idle; one model, one scan at a time.
       OLLAMA_KEEP_ALIVE: 5m

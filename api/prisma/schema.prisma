@@ -306,6 +306,13 @@ model InventoryItem {
   @@index([name])
   @@index([vintage])
   @@index([producer])
+  // #173: a partial UNIQUE INDEX on (cellarId, slotColumn, slotRow) WHERE
+  // "deletedAt" IS NULL also exists in the database (migration
+  // 20261010020000_unique_slot_and_session_constraints) — Prisma's schema
+  // language can't express a WHERE-qualified unique index, so it is not
+  // declared here. `updateItem`'s slot-conflict check stays in place to
+  // return a clean error; this index is only the last-resort guarantee
+  // against two concurrent requests both passing that check.
   @@map("bottles")
 }
 
@@ -713,6 +720,11 @@ model InventoryCountSession {
   entries InventoryCountEntry[]
 
   @@index([status])
+  // #173: a partial UNIQUE INDEX on ((true)) WHERE status IN ('active',
+  // 'paused') also exists in the database (migration
+  // 20261010020000_unique_slot_and_session_constraints), guaranteeing the
+  // "single active session" policy below even under concurrent starts.
+  // Not declared here — see the matching note on InventoryItem above.
   @@map("inventory_count_sessions")
 }
 

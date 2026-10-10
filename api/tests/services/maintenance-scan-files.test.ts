@@ -18,6 +18,7 @@ vi.mock('fs/promises', () => ({
 
 const tx = {
   systemConfig: { findUnique: vi.fn().mockResolvedValue(null) },
+  user: { findMany: vi.fn().mockResolvedValue([]), update: vi.fn() },
   session: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
   trustedDevice: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
   guestShare: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },

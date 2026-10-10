@@ -143,14 +143,25 @@ export class CellarService {
       return { status: 'not_in_grid' };
     }
 
-    const [updatedA, updatedB] = await prisma.$transaction([
+    // #173's partial unique index on (cellarId, slotColumn, slotRow) is
+    // checked immediately after each statement (Postgres can't defer a
+    // partial unique index to commit), so moving A straight onto B's slot
+    // while B still holds it would violate the constraint mid-transaction.
+    // Freeing A's slot first, then moving B into it, then moving A into B's
+    // former (now-free) slot avoids ever having two rows claim the same
+    // slot at once.
+    const [, updatedB, updatedA] = await prisma.$transaction([
       prisma.inventoryItem.update({
         where: { id: itemA.id },
-        data: { slotColumn: itemB.slotColumn, slotRow: itemB.slotRow },
+        data: { slotColumn: null, slotRow: null },
       }),
       prisma.inventoryItem.update({
         where: { id: itemB.id },
         data: { slotColumn: itemA.slotColumn, slotRow: itemA.slotRow },
+      }),
+      prisma.inventoryItem.update({
+        where: { id: itemA.id },
+        data: { slotColumn: itemB.slotColumn, slotRow: itemB.slotRow },
       }),
     ]);
 

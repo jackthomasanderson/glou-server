@@ -12,12 +12,14 @@ export async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 const API_BASE = '/api';
+const DEFAULT_TIMEOUT_MS = 15000;
 
 export const client = {
   async get<T>(url: string): Promise<{ data: T }> {
     const res = await fetch(`${API_BASE}${url}`, {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
     const data = await handleResponse<T>(res);
     return { data };
@@ -29,6 +31,7 @@ export const client = {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
     const result = await handleResponse<T>(res);
     return { data: result };
@@ -40,6 +43,7 @@ export const client = {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
     const result = await handleResponse<T>(res);
     return { data: result };
@@ -51,6 +55,7 @@ export const client = {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
     const result = await handleResponse<T>(res);
     return { data: result };
@@ -61,6 +66,7 @@ export const client = {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
     const result = await handleResponse<T>(res);
     return { data: result };

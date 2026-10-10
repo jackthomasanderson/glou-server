@@ -1282,7 +1282,7 @@
     "deleteKeyword": "DELETE",
     "deleteConfirm": "Confirm deletion",
     "deletionPending": "Deletion requested",
-    "deletionRequestedOn": "Request sent on {{date}}. The administrator will process it unless you cancel.",
+    "deletionRequestedOn": "Your account will be deleted on {{date}} unless you cancel before then.",
     "cancelDeletion": "Cancel deletion"
   },
   "accessTransparency": {
