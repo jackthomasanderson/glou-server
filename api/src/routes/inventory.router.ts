@@ -17,15 +17,16 @@ router.use(authMiddleware);
 
 // ─── GET /api/inventory ──────────────────────────────────────────────────────
 
+// ISSUE_087: a plain read used to write an audit-log row on every request —
+// the browser refetches the list at most every 30s, so a tab left open
+// accumulated thousands of rows a week for an event with zero traceability
+// value. Only actions that actually change data are logged now.
 router.get('/', async (req: Request, res: Response): Promise<void> => {
-  const ip = getClientIp(req);
   try {
     const { items, truncated } = await inventoryService.listInventory(req.userId);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { count: items.length, truncated } });
     res.json({ data: items, truncated });
   } catch (error) {
     console.error('[inventory] GET / error:', error);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'error', ip, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -33,14 +34,11 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 // ─── GET /api/inventory/trash ────────────────────────────────────────────────
 
 router.get('/trash', async (req: Request, res: Response): Promise<void> => {
-  const ip = getClientIp(req);
   try {
     const items = await inventoryService.listTrash(req.userId);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { scope: 'trash', count: items.length } });
     res.json({ data: items });
   } catch (error) {
     console.error('[inventory] GET /trash error:', error);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'error', ip, details: { scope: 'trash', message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -80,19 +78,15 @@ router.get('/:id/qr', async (req: Request, res: Response): Promise<void> => {
 
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  const ip = getClientIp(req);
   try {
     const result = await inventoryService.getItemWithTraceability(req.userId, id);
     if (!result) {
-      void auditLog({ userId: req.userId, action: 'READ', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
       return;
     }
-    void auditLog({ userId: req.userId, action: 'READ', status: 'success', ip, bottleId: id });
     res.json({ data: { ...result.item, _creator: result.creator, _lastEditor: result.lastEditor } });
   } catch (error) {
     console.error('[inventory] GET /:id error:', error);
-    void auditLog({ userId: req.userId, action: 'READ', status: 'error', ip, bottleId: id, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -101,7 +95,6 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 
 router.get('/:id/history', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  const ip = getClientIp(req);
   try {
     const item = await inventoryService.getItem(req.userId, id);
     if (!item) {
@@ -109,11 +102,9 @@ router.get('/:id/history', async (req: Request, res: Response): Promise<void> =>
       return;
     }
     const history = await inventoryService.getItemHistory(id);
-    void auditLog({ userId: req.userId, action: 'READ', status: 'success', ip, bottleId: id, details: { scope: 'history' } });
     res.json({ data: history });
   } catch (error) {
     console.error('[inventory] GET /:id/history error:', error);
-    void auditLog({ userId: req.userId, action: 'READ', status: 'error', ip, bottleId: id, details: { message: String(error), scope: 'history' } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
