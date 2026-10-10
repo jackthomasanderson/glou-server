@@ -101,6 +101,7 @@ export function CollectionsDashboard() {
           <p className="text-lg font-semibold text-default-500">{t('collections.empty')}</p>
           <p className="text-sm text-default-400 mb-6">{t('collections.emptyHint')}</p>
           <Button
+            data-testid="collection-create-button"
             color="primary"
             variant="solid"
             startContent={<Plus size={16} />}
@@ -139,6 +140,7 @@ export function CollectionsDashboard() {
       {/* FAB — only when there are collections */}
       {(collections?.length ?? 0) > 0 && (
         <Button
+          data-testid="collection-create-button"
           color="primary"
           radius="full"
           size="lg"

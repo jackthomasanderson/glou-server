@@ -70,13 +70,13 @@ export function DuplicateDialog({
             </ModalBody>
 
             <ModalFooter className="flex flex-col items-stretch gap-2 px-4 pb-4 pt-2">
-              <Button color="primary" onPress={onIncrement} fullWidth>
+              <Button data-testid="duplicate-increment" color="primary" onPress={onIncrement} fullWidth>
                 {t('duplicate.increment')}
               </Button>
-              <Button variant="bordered" onPress={onCreateAnyway} fullWidth>
+              <Button data-testid="duplicate-create-anyway" variant="bordered" onPress={onCreateAnyway} fullWidth>
                 {t('duplicate.createAnyway')}
               </Button>
-              <Button variant="light" onPress={onCancel} fullWidth>
+              <Button data-testid="duplicate-cancel" variant="light" onPress={onCancel} fullWidth>
                 {t('duplicate.cancel')}
               </Button>
             </ModalFooter>

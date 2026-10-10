@@ -221,12 +221,14 @@ function DonutChart({
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
 function StatCard({
+  testId,
   label,
   value,
   hint,
   icon,
   iconBg,
 }: {
+  testId: string;
   label: string;
   value: React.ReactNode;
   hint: string;
@@ -241,7 +243,7 @@ function StatCard({
             <p className="text-[0.62rem] font-bold uppercase tracking-wider text-default-500 truncate">
               {label}
             </p>
-            <p className="text-[1.4rem] sm:text-[1.75rem] font-extrabold leading-tight mt-1 break-words">{value}</p>
+            <p data-testid={testId} className="text-[1.4rem] sm:text-[1.75rem] font-extrabold leading-tight mt-1 break-words">{value}</p>
             <p className="text-[0.68rem] text-default-400 mt-1 leading-snug">• {hint}</p>
           </div>
           <div
@@ -559,7 +561,7 @@ export function AnalyticsDashboard() {
             <div className="flex items-center gap-3">
               <BarChart3 size={20} className="text-primary" />
               <div>
-                <h1 className="text-lg font-bold">{t('analytics.pageTitle')}</h1>
+                <h1 data-testid="analytics-page-title" className="text-lg font-bold">{t('analytics.pageTitle')}</h1>
                 <p className="text-[0.75rem] text-default-500">{t('analytics.pageSubtitle')}</p>
               </div>
             </div>
@@ -585,6 +587,7 @@ export function AnalyticsDashboard() {
         ) : (
           <>
             <StatCard
+              testId="kpi-total-valuation"
               label={t('analytics.stats.totalValuation')}
               value={fmtCurrency(data?.totalValuation ?? 0)}
               hint={t('analytics.stats.totalValuationHint')}
@@ -592,6 +595,7 @@ export function AnalyticsDashboard() {
               iconBg="rgba(37,99,235,0.1)"
             />
             <StatCard
+              testId="kpi-liquid-stock"
               label={t('analytics.stats.liquidStock')}
               value={`${data?.totalLiquidLiters ?? 0} L`}
               hint={t('analytics.stats.liquidStockHint')}
@@ -599,6 +603,7 @@ export function AnalyticsDashboard() {
               iconBg="rgba(8,145,178,0.1)"
             />
             <StatCard
+              testId="kpi-cigar-humidor"
               label={t('analytics.stats.cigarHumidor')}
               value={`${data?.cigarModulesCount ?? 0} modules`}
               hint={t('analytics.stats.cigarHumidorHint')}
@@ -606,6 +611,7 @@ export function AnalyticsDashboard() {
               iconBg="rgba(123,30,48,0.1)"
             />
             <StatCard
+              testId="kpi-urgent-degustation"
               label={t('analytics.stats.urgentDegustation')}
               value={data?.urgentDegustationCount ?? 0}
               hint={t('analytics.stats.urgentDegustationHint')}

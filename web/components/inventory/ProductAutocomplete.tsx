@@ -99,6 +99,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
   return (
     <div ref={wrapperRef} className="relative">
       <Input
+        data-testid="inventory-name-input"
         fullWidth
         isRequired
         size="sm"

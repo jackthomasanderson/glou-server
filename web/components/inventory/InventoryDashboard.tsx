@@ -403,6 +403,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                 {t('scan.launchButton')}
               </Button>
               <Button
+                data-testid="inventory-add-button"
                 color="primary"
                 startContent={<Plus size={14} />}
                 onPress={() => setMode('creating')}

@@ -94,6 +94,7 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
   return (
     <div ref={wrapperRef} className="relative">
       <Input
+        data-testid="inventory-producer-input"
         fullWidth
         isRequired={required}
         size="sm"

@@ -10,10 +10,10 @@ test('add a wishlist item through the form, see it, then remove it', async ({ pa
   const created = page.waitForResponse(
     (r) => r.url().includes('/api/wishlist/items') && r.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Ajouter un souhait' }).first().click();
+  await page.getByTestId('wishlist-create-button').first().click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByPlaceholder(/Château Margaux/).first().fill(name);
-  await dialog.getByRole('button', { name: /Enregistrer|Ajouter/ }).click();
+  await dialog.getByTestId('wishlist-name-input').fill(name);
+  await dialog.getByTestId('wishlist-form-submit').click();
 
   const res = await created;
   expect(res.ok()).toBe(true);

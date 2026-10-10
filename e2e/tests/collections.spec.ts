@@ -10,10 +10,10 @@ test('create a collection through the form, see it in the list, then delete it',
   const created = page.waitForResponse(
     (r) => r.url().match(/\/api\/collections\/?$/) !== null && r.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Nouvelle collection' }).click();
+  await page.getByTestId('collection-create-button').click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('textbox').first().fill(name);
-  await dialog.getByRole('button', { name: /Créer|Enregistrer|Ajouter/ }).click();
+  await dialog.getByTestId('collection-form-submit').click();
 
   const res = await created;
   expect(res.ok()).toBe(true);
