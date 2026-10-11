@@ -2,23 +2,24 @@ import { describe, it, expect } from 'vitest';
 import { describeDevice, locateIp, countryOfIp } from '../../src/lib/device';
 
 describe('describeDevice', () => {
-  it('falls back to a French label for a missing UA', () => {
-    expect(describeDevice(undefined)).toBe('Appareil inconnu');
-    expect(describeDevice(null)).toBe('Appareil inconnu');
-    expect(describeDevice('')).toBe('Appareil inconnu');
+  it('returns null fields for a missing UA', () => {
+    expect(describeDevice(undefined)).toEqual({ browser: null, os: null });
+    expect(describeDevice(null)).toEqual({ browser: null, os: null });
+    expect(describeDevice('')).toEqual({ browser: null, os: null });
   });
 
-  it('formats "<browser> sur <os>" for a real UA string', () => {
+  it('extracts browser and os from a real UA string', () => {
     const chromeWin =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-    const label = describeDevice(chromeWin);
-    expect(label).toMatch(/^Chrome sur Windows/);
-    expect(label).toContain(' sur ');
+    const { browser, os } = describeDevice(chromeWin);
+    expect(browser).toBe('Chrome');
+    expect(os).toMatch(/^Windows/);
   });
 
   it('degrades gracefully on an unrecognizable UA', () => {
-    const label = describeDevice('totally-not-a-user-agent');
-    expect(label).toContain(' sur ');
+    const { browser, os } = describeDevice('totally-not-a-user-agent');
+    expect(browser).toBeNull();
+    expect(os).toBeNull();
   });
 });
 

@@ -1,9 +1,16 @@
 import { UAParser } from 'ua-parser-js';
 import geoip from 'geoip-lite';
 
+/** Structured device info — callers compose the localized label themselves (ISSUE_023). */
+export interface DeviceDescription {
+  browser: string | null;
+  os: string | null;
+}
+
 /**
- * Turn a raw User-Agent string into a short human-readable label,
- * e.g. "Chrome sur Windows", "Safari sur iPhone".
+ * Extract the browser/OS names from a raw User-Agent string, e.g.
+ * `{ browser: 'Chrome', os: 'Windows' }`. Returns `null` for either field
+ * when unknown, leaving localization to the caller.
  *
  * ua-parser-js v1.x exposes a class (`new UAParser(ua).getResult()`), not the
  * functional call from the deprecated v0.x API — using the old call style
@@ -11,12 +18,10 @@ import geoip from 'geoip-lite';
  * once real declaration files are resolved. Ships its own .d.ts since 1.0.2,
  * so no separate @types package is needed or should be installed.
  */
-export function describeDevice(userAgent: string | undefined | null): string {
-  if (!userAgent) return 'Appareil inconnu';
+export function describeDevice(userAgent: string | undefined | null): DeviceDescription {
+  if (!userAgent) return { browser: null, os: null };
   const { browser, os } = new UAParser(userAgent).getResult();
-  const browserName = browser.name ?? 'Navigateur inconnu';
-  const osName = os.name ?? 'OS inconnu';
-  return `${browserName} sur ${osName}`;
+  return { browser: browser.name ?? null, os: os.name ?? null };
 }
 
 /**

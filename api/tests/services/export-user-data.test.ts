@@ -14,7 +14,7 @@ vi.mock('../../src/services/notification.service', () => ({ notificationService:
 vi.mock('../../src/services/system-config.service', () => ({ systemConfigService: {} }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));
 vi.mock('../../src/lib/device', () => ({
-  describeDevice: vi.fn(() => 'Chrome on Linux'),
+  describeDevice: vi.fn(() => ({ browser: 'Chrome', os: 'Linux' })),
   locateIp: vi.fn(() => ({ city: 'Paris', country: 'FR' })),
   countryOfIp: vi.fn(() => 'FR'),
 }));
@@ -87,8 +87,8 @@ describe('authService.exportUserData (#224)', () => {
       consumptionGoals: [{ id: 'g1' }],
       inventoryCounts: [{ id: 's1', entries: [{ id: 'e1' }] }],
       humidorReadings: [{ id: 'h1' }],
-      sessions: [{ device: 'Chrome on Linux', rememberMe: true }],
-      trustedDevices: [{ device: 'Chrome on Linux', country: 'FR' }],
+      sessions: [{ device: { browser: 'Chrome', os: 'Linux' }, rememberMe: true }],
+      trustedDevices: [{ device: { browser: 'Chrome', os: 'Linux' }, country: 'FR' }],
       notificationPreferences: { notifInApp: true, notifCategories: ['security'] },
       configHistory: [{ fieldName: 'smtp', maskedNewVal: '{"host":"***"}' }],
     });
@@ -115,7 +115,7 @@ describe('authService.exportUserData (#224)', () => {
   it('exports session and trusted-device metadata without their secrets', async () => {
     const out = await authService.exportUserData('u1', ['sessions', 'devices']);
     expect(out.sessions).toEqual([{
-      device: 'Chrome on Linux',
+      device: { browser: 'Chrome', os: 'Linux' },
       location: { city: 'Paris', country: 'FR' },
       rememberMe: true,
       createdAt: new Date('2026-01-02T00:00:00Z'),
@@ -124,7 +124,7 @@ describe('authService.exportUserData (#224)', () => {
       revokedAt: null,
     }]);
     expect(out.trustedDevices).toEqual([{
-      device: 'Chrome on Linux',
+      device: { browser: 'Chrome', os: 'Linux' },
       country: 'FR',
       createdAt: new Date('2026-01-02T00:00:00Z'),
       lastUsedAt: new Date('2026-01-03T00:00:00Z'),

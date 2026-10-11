@@ -10,7 +10,7 @@ import { prisma } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
 import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.schema';
 import { Theme, Language, TempUnit, DateFormat, Prisma, PrismaClient } from '@prisma/client';
-import { describeDevice, locateIp, countryOfIp } from '../lib/device';
+import { describeDevice, locateIp, countryOfIp, type DeviceDescription } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
 import { auditLog } from './audit.service';
@@ -21,6 +21,9 @@ const JWT_EXPIRES_IN = '30d';
 // (FEAT-25: a Session must not outlive the JWT that references it).
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
+// Hex-encoded length of a generated backup code (crypto.randomBytes(10) -> 20 hex chars).
+// A TOTP code is always 6 digits, so checking this length is enough to tell the two apart.
+const BACKUP_CODE_LENGTH = 20;
 
 // ISSUE_043: the `2fa_pending` token only proves the first factor was passed.
 // It must not inherit the 30-day session lifetime — a stolen/leaked password
@@ -72,7 +75,7 @@ export type LoginResult =
 
 export interface SessionSummary {
   id: string;
-  device: string;
+  device: DeviceDescription;
   location: { city: string | null; country: string | null } | null;
   createdAt: Date;
   lastActiveAt: Date;
@@ -330,7 +333,10 @@ export class AuthService {
     const appUrl = await systemConfigService.getEffectivePublicUrl();
     const securityUrl = `${appUrl}/profile#security`;
     const timestamp = new Date().toLocaleString(isEn ? 'en-US' : 'fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-    const device = describeDevice(deviceInfo.userAgent);
+    const { browser, os } = describeDevice(deviceInfo.userAgent);
+    const device = browser || os
+      ? `${browser ?? (isEn ? 'Unknown browser' : 'Navigateur inconnu')} ${isEn ? 'on' : 'sur'} ${os ?? (isEn ? 'Unknown OS' : 'OS inconnu')}`
+      : (isEn ? 'Unknown device' : 'Appareil inconnu');
     const location = locateIp(deviceInfo.ip);
     const locationLabel = location?.city && location?.country
       ? `${location.city}, ${location.country}`
@@ -780,8 +786,12 @@ export class AuthService {
 
     if (!isCodeValid) throw new Error('INVALID_TOTP_CODE');
 
-    // Generate 10 backup codes
-    const backupCodes = Array.from({ length: 10 }).map(() => crypto.randomBytes(4).toString('hex'));
+    // Generate 10 backup codes. 10 bytes (20 hex chars, 80 bits of entropy)
+    // rather than the earlier 4 bytes (32 bits) — ISSUE_047: brute force was
+    // slowed only by bcrypt and the login rate limiter, not by the codes
+    // themselves. See BACKUP_CODE_LENGTH below, which every verification
+    // site keys off of.
+    const backupCodes = Array.from({ length: 10 }).map(() => crypto.randomBytes(10).toString('hex'));
     const hashedBackupCodes = await Promise.all(backupCodes.map(bc => bcrypt.hash(bc, BCRYPT_ROUNDS)));
 
     await prisma.user.update({
@@ -814,7 +824,7 @@ export class AuthService {
         token: code,
         window: 1
       });
-    } else if (code && code.length === 8 && user.backupCodes.length > 0) {
+    } else if (code && code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
       // Check backup codes
       for (const hashedCode of user.backupCodes) {
         if (await bcrypt.compare(code, hashedCode)) {
@@ -1161,7 +1171,7 @@ export class AuthService {
         token: code,
         window: 1
       });
-    } else if (code.length === 8 && user.backupCodes.length > 0) {
+    } else if (code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
       for (const hashedCode of user.backupCodes) {
         if (await bcrypt.compare(code, hashedCode)) {
           validCode = true;
@@ -1273,7 +1283,7 @@ export class AuthService {
           token: code,
           window: 1,
         });
-      } else if (code && code.length === 8 && user.backupCodes.length > 0) {
+      } else if (code && code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
         for (const hashedCode of user.backupCodes) {
           if (await bcrypt.compare(code, hashedCode)) {
             validCode = true;

@@ -224,7 +224,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                   size="md"
                   radius="md"
                   labelPlacement="outside"
-                  maxLength={10}
+                  maxLength={20}
                   autoComplete="off"
                 />
               </ModalBody>

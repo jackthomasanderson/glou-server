@@ -35,7 +35,7 @@ const SESSIONS_KEY = ['auth', 'sessions'];
 
 export interface SessionInfo {
   id: string;
-  device: string;
+  device: { browser: string | null; os: string | null };
   location: { city: string | null; country: string | null } | null;
   createdAt: string;
   lastActiveAt: string;
