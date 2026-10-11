@@ -260,14 +260,14 @@ describe('trusted devices follow credential rotations (ISSUE_044)', () => {
     vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(
       userRow({ backupCodes: ['hashed-backup'] }) as never,
     );
-    // Password check passes; the 8-char branch matches the stored backup code.
+    // Password check passes; the 20-char branch matches the stored backup code.
     vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
     vi.mocked(prisma.user.update).mockResolvedValue(userRow() as never);
     vi.mocked(prisma.session.findMany).mockResolvedValue([]);
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ language: 'FR', notifLanguage: null } as never);
     vi.mocked(prisma.trustedDevice.updateMany).mockResolvedValue({ count: 1 } as never);
 
-    await authService.turnOffTwoFactorAuthentication('u1', 'pw', deviceInfo, 'session-current', 'abcd1234');
+    await authService.turnOffTwoFactorAuthentication('u1', 'pw', deviceInfo, 'session-current', 'abcd1234abcd1234abcd');
 
     expect(prisma.trustedDevice.updateMany).toHaveBeenCalledWith({
       where: { userId: 'u1', revokedAt: null },

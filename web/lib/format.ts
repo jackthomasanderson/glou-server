@@ -3,6 +3,18 @@
  * browser's (#217). `lang` is `i18n.language`; anything that is not English
  * falls back to French, the app's default language.
  */
+
+/** Compose a session/trusted-device label from the API's structured device info (#95). */
+export function formatDeviceLabel(
+  device: { browser: string | null; os: string | null },
+  t: (key: string, options?: Record<string, string>) => string,
+): string {
+  if (!device.browser && !device.os) return t('profile.sessions.unknownDevice');
+  return t('profile.sessions.deviceLabel', {
+    browser: device.browser ?? t('profile.sessions.unknownBrowser'),
+    os: device.os ?? t('profile.sessions.unknownOs'),
+  });
+}
 const toLocale = (lang: string | undefined): 'fr-FR' | 'en-GB' =>
   lang?.toLowerCase().startsWith('en') ? 'en-GB' : 'fr-FR';
 

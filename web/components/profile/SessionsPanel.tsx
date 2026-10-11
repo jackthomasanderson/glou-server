@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useSessions, useRevokeSession, useTrustDevice, useUntrustDevice, useMe, SessionInfo } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatDeviceLabel } from '@/lib/format';
 
 export function SessionsPanel() {
   const { t, i18n } = useTranslation();
@@ -65,6 +65,8 @@ export function SessionsPanel() {
     return [location.city, location.country].filter(Boolean).join(', ');
   };
 
+  const formatDevice = (device: SessionInfo['device']) => formatDeviceLabel(device, t);
+
   return (
     <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
       <div className="flex items-center gap-3 mb-5">
@@ -100,7 +102,7 @@ export function SessionsPanel() {
             <div key={session.id} className="flex items-center justify-between gap-3 p-3 bg-default-50 rounded-xl">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium truncate">{session.device}</p>
+                  <p className="text-sm font-medium truncate">{formatDevice(session.device)}</p>
                   {session.isCurrent && (
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary text-white shrink-0">
                       {t('profile.sessions.current')}
@@ -181,7 +183,7 @@ export function SessionsPanel() {
               <ModalBody>
                 <p className="text-sm text-foreground-600">{t('profile.sessions.revokeConfirmBody')}</p>
                 {sessionToRevoke && (
-                  <p className="text-sm font-medium mt-2">{sessionToRevoke.device}</p>
+                  <p className="text-sm font-medium mt-2">{formatDevice(sessionToRevoke.device)}</p>
                 )}
               </ModalBody>
               <ModalFooter>
@@ -237,7 +239,7 @@ export function SessionsPanel() {
                     size="md"
                     radius="md"
                     labelPlacement="outside"
-                    maxLength={10}
+                    maxLength={20}
                     autoComplete="off"
                   />
                 )}
