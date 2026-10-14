@@ -54,11 +54,11 @@
     backdrop-filter:blur(8px);
     border-bottom:1px solid var(--border);
   }
-  header.site .bar{max-width:1200px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px;}
+  header.site .bar{max-width:1200px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; row-gap:10px; gap:16px;}
   .brand{display:flex; align-items:baseline; gap:8px; text-decoration:none;}
   .brand .word{font-size:18px; font-weight:800; letter-spacing:-.01em; color:var(--secondary);}
-  nav.top{display:flex; gap:18px; font-size:14px; align-items:center;}
-  nav.top a{color:var(--ink-soft); text-decoration:none; font-weight:600; transition:color .15s ease;}
+  nav.top{display:flex; flex-wrap:wrap; justify-content:flex-end; row-gap:10px; gap:14px 18px; font-size:14px; align-items:center;}
+  nav.top a{color:var(--ink-soft); text-decoration:none; font-weight:600; transition:color .15s ease; white-space:nowrap;}
   @media (hover:hover) and (pointer:fine){ nav.top a:hover{color:var(--ink);} }
   .lang-toggle{display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden;}
   .lang-toggle button{border:none; background:var(--content1); color:var(--ink-soft); font-weight:700; font-size:12.5px; padding:7px 13px; cursor:pointer; font-family:inherit; transition:background-color .15s ease, color .15s ease;}
@@ -67,7 +67,7 @@
 
   .theme-toggle{display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; background:var(--content1);}
   .theme-toggle button{
-    border:none; background:none; color:var(--ink-faint); width:30px; height:28px;
+    border:none; background:none; color:var(--ink-soft); width:30px; height:28px;
     display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
     transition:background-color .15s ease, color .15s ease;
   }

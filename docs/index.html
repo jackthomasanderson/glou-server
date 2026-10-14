@@ -90,17 +90,18 @@
     backdrop-filter:blur(8px);
     border-bottom:1px solid var(--border);
   }
-  header.site .wrap{display:flex; align-items:center; justify-content:space-between; padding-top:14px; padding-bottom:14px;}
+  header.site .wrap{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; row-gap:10px; padding-top:14px; padding-bottom:14px;}
   .brand{display:flex; align-items:baseline; gap:8px; text-decoration:none;}
   .brand .word{font-size:20px; font-weight:800; letter-spacing:-.01em; color:var(--secondary);}
   .brand .tag{font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint);}
-  nav.top{display:flex; align-items:center; gap:22px; font-size:14px;}
-  nav.top a{color:var(--ink-soft); text-decoration:none; font-weight:600; transition:color .15s ease;}
+  nav.top{display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; row-gap:10px; gap:18px 22px; font-size:14px;}
+  nav.top a{color:var(--ink-soft); text-decoration:none; font-weight:600; transition:color .15s ease; white-space:nowrap;}
   @media (hover:hover) and (pointer:fine){ nav.top a:hover{color:var(--ink);} }
+  @media (max-width:680px){ nav.top{gap:14px 16px; font-size:13.5px;} }
 
   .theme-toggle{display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; background:var(--content1);}
   .theme-toggle button{
-    border:none; background:none; color:var(--ink-faint); width:30px; height:28px;
+    border:none; background:none; color:var(--ink-soft); width:30px; height:28px;
     display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
     transition:background-color .15s ease, color .15s ease;
   }
