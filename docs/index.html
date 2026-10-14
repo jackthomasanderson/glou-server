@@ -90,14 +90,35 @@
     backdrop-filter:blur(8px);
     border-bottom:1px solid var(--border);
   }
-  header.site .wrap{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; row-gap:10px; padding-top:14px; padding-bottom:14px;}
+  header.site .wrap{display:flex; align-items:center; justify-content:space-between; padding-top:14px; padding-bottom:14px;}
   .brand{display:flex; align-items:baseline; gap:8px; text-decoration:none;}
   .brand .word{font-size:20px; font-weight:800; letter-spacing:-.01em; color:var(--secondary);}
   .brand .tag{font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint);}
-  nav.top{display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; row-gap:10px; gap:18px 22px; font-size:14px;}
-  nav.top a{color:var(--ink-soft); text-decoration:none; font-weight:600; transition:color .15s ease; white-space:nowrap;}
-  @media (hover:hover) and (pointer:fine){ nav.top a:hover{color:var(--ink);} }
-  @media (max-width:680px){ nav.top{gap:14px 16px; font-size:13.5px;} }
+  nav.top{display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:18px; font-size:14px;}
+  .nav-links{display:flex; align-items:center; gap:22px; order:3;}
+  .nav-links a{color:var(--ink-soft); text-decoration:none; font-weight:600; transition:color .15s ease; white-space:nowrap;}
+  @media (hover:hover) and (pointer:fine){ .nav-links a:hover{color:var(--ink);} }
+
+  .nav-toggle{
+    display:none; order:2; border:1px solid var(--border); background:var(--content1); color:var(--ink);
+    border-radius:var(--radius-md); width:34px; height:32px; align-items:center; justify-content:center; cursor:pointer; padding:0;
+  }
+  .nav-toggle svg{width:18px; height:18px;}
+  .nav-toggle .icon-close{display:none;}
+  .nav-toggle[aria-expanded="true"] .icon-open{display:none;}
+  .nav-toggle[aria-expanded="true"] .icon-close{display:block;}
+
+  @media (max-width:679px){
+    header.site .wrap{flex-wrap:wrap; row-gap:8px;}
+    nav.top{flex-basis:100%; justify-content:flex-end;}
+    .nav-toggle{display:flex;}
+    .nav-links{
+      display:none; flex-direction:column; align-items:flex-start; gap:2px;
+      flex-basis:100%; width:100%; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);
+    }
+    .nav-links a{padding:8px 2px; width:100%;}
+    #navToggle[aria-expanded="true"] ~ .nav-links{display:flex;}
+  }
 
   .theme-toggle{display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; background:var(--content1);}
   .theme-toggle button{
@@ -235,13 +256,7 @@
       <span class="word">GLOU</span>
       <span class="tag">Simply precious</span>
     </a>
-    <nav class="top">
-      <a href="#highlights">Highlights</a>
-      <a href="#screenshots">Screenshots</a>
-      <a href="#quickstart">Quick Start</a>
-      <a href="#roadmap">Roadmap</a>
-      <a href="wiki.html">Wiki</a>
-      <a href="https://github.com/jackthomasanderson/glou-server">GitHub</a>
+    <nav class="top" id="siteNav" aria-label="Site">
       <div class="theme-toggle" id="themeToggle" role="group" aria-label="Theme">
         <button type="button" data-theme-choice="light" aria-label="Light theme" title="Light">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
@@ -252,6 +267,18 @@
         <button type="button" data-theme-choice="dark" aria-label="Dark theme" title="Dark">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
         </button>
+      </div>
+      <button type="button" class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navLinks" aria-label="Toggle navigation">
+        <svg class="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="nav-links" id="navLinks">
+        <a href="#highlights">Highlights</a>
+        <a href="#screenshots">Screenshots</a>
+        <a href="#quickstart">Quick Start</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="wiki.html">Wiki</a>
+        <a href="https://github.com/jackthomasanderson/glou-server">GitHub</a>
       </div>
     </nav>
   </div>
@@ -442,6 +469,36 @@
         apply(choice);
         try{ localStorage.setItem(KEY, choice); }catch(e){}
       });
+    });
+  })();
+
+  (function(){
+    var nav = document.getElementById("siteNav");
+    var toggle = document.getElementById("navToggle");
+    var links = document.getElementById("navLinks");
+
+    function close(){
+      toggle.setAttribute("aria-expanded", "false");
+    }
+
+    toggle.addEventListener("click", function(){
+      var open = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!open));
+    });
+
+    links.addEventListener("click", function(e){
+      if (e.target.closest("a")) close();
+    });
+
+    document.addEventListener("keydown", function(e){
+      if (e.key === "Escape" && toggle.getAttribute("aria-expanded") === "true") {
+        close();
+        toggle.focus();
+      }
+    });
+
+    document.addEventListener("click", function(e){
+      if (toggle.getAttribute("aria-expanded") === "true" && !nav.contains(e.target)) close();
     });
   })();
 </script>
