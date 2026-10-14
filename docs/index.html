@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Glou — Simply precious.</title>
+<meta name="description" content="Glou is a self-hosted asset manager for luxury collections — wines, spirits, bubbles, and cigars. Visual recognition, expert data, and peak maturity indicators in one stack you fully own." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>" />
+<style>
+  :root{
+    --bg:#fbf7f3;
+    --bg-alt:#f3ece4;
+    --ink:#241417;
+    --ink-soft:#5b4a4e;
+    --wine:#6e1423;
+    --wine-deep:#4a0d18;
+    --gold:#b8894f;
+    --card:#ffffff;
+    --border:#e7dcd2;
+    --shadow:0 20px 40px -24px rgba(36,20,23,.35);
+    --radius:16px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif;
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1c1113;
+      --bg-alt:#231619;
+      --ink:#f3e9e4;
+      --ink-soft:#cbb2b7;
+      --wine:#e0536b;
+      --wine-deep:#ff7a8e;
+      --gold:#d9a96a;
+      --card:#271a1d;
+      --border:#3a262b;
+      --shadow:0 20px 40px -24px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1c1113;
+    --bg-alt:#231619;
+    --ink:#f3e9e4;
+    --ink-soft:#cbb2b7;
+    --wine:#e0536b;
+    --wine-deep:#ff7a8e;
+    --gold:#d9a96a;
+    --card:#271a1d;
+    --border:#3a262b;
+    --shadow:0 20px 40px -24px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--wine-deep);}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px;}
+
+  header.site{
+    position:sticky; top:0; z-index:10;
+    background:color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
+  }
+  header.site .wrap{
+    display:flex; align-items:center; justify-content:space-between;
+    padding-top:14px; padding-bottom:14px;
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-family:var(--serif); font-size:22px; font-weight:700;}
+  .brand .mark{font-size:26px;}
+  nav.top{display:flex; gap:22px; font-size:14px;}
+  nav.top a{color:var(--ink-soft); text-decoration:none; font-weight:600;}
+  nav.top a:hover{color:var(--wine);}
+
+  .hero{padding:72px 0 56px; text-align:center;}
+  .pill{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--bg-alt); border:1px solid var(--border);
+    border-radius:999px; padding:6px 14px; font-size:13px; color:var(--ink-soft);
+    margin-bottom:22px;
+  }
+  .hero h1{
+    font-family:var(--serif);
+    font-size:clamp(34px, 6vw, 58px);
+    line-height:1.08;
+    margin:0 0 18px;
+    letter-spacing:-0.01em;
+  }
+  .hero h1 em{color:var(--wine); font-style:normal; border-bottom:3px solid var(--gold);}
+  .hero p.lead{
+    max-width:620px; margin:0 auto 32px;
+    font-size:18px; color:var(--ink-soft);
+  }
+  .cta-row{display:flex; gap:14px; justify-content:center; flex-wrap:wrap;}
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:13px 24px; border-radius:10px; font-weight:700; font-size:15px;
+    text-decoration:none; border:1px solid transparent; transition:transform .15s ease;
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn.primary{background:var(--wine); color:#fff;}
+  .btn.ghost{background:transparent; color:var(--ink); border-color:var(--border);}
+
+  section{padding:64px 0;}
+  section.alt{background:var(--bg-alt); border-top:1px solid var(--border); border-bottom:1px solid var(--border);}
+  .eyebrow{
+    text-transform:uppercase; letter-spacing:.12em; font-size:12px; font-weight:700;
+    color:var(--gold); margin-bottom:10px;
+  }
+  h2.section-title{font-family:var(--serif); font-size:clamp(26px,4vw,36px); margin:0 0 36px;}
+
+  .grid-5{display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:18px;}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:22px; box-shadow:var(--shadow);
+  }
+  .card .emoji{font-size:28px; margin-bottom:10px; display:block;}
+  .card h3{margin:0 0 8px; font-size:16px;}
+  .card p{margin:0; color:var(--ink-soft); font-size:14px;}
+
+  .shots{display:grid; grid-template-columns:1fr 1fr; gap:22px;}
+  .shots figure{margin:0; grid-column:span 1;}
+  .shots figure.wide{grid-column:1 / -1;}
+  .shots img{
+    width:100%; display:block; border-radius:var(--radius);
+    border:1px solid var(--border); box-shadow:var(--shadow);
+  }
+  .shots figcaption{margin-top:10px; font-size:14px; color:var(--ink-soft); text-align:center;}
+  .shots figcaption strong{color:var(--ink); display:block; font-size:15px; margin-bottom:2px;}
+  @media (max-width:720px){ .shots{grid-template-columns:1fr;} }
+
+  .steps{counter-reset:step; display:grid; gap:20px;}
+  .step{
+    display:grid; grid-template-columns:44px 1fr; gap:18px;
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px 22px; box-shadow:var(--shadow);
+  }
+  .step .num{
+    counter-increment:step;
+    width:44px; height:44px; border-radius:50%;
+    background:var(--wine); color:#fff; display:flex; align-items:center; justify-content:center;
+    font-family:var(--serif); font-weight:700; font-size:18px;
+  }
+  .step .num::before{content: counter(step);}
+  .step h3{margin:0 0 6px; font-size:17px;}
+  .step p{margin:0 0 10px; color:var(--ink-soft); font-size:14px;}
+  pre{
+    background:var(--wine-deep); color:#fdf2ee; border-radius:10px; padding:12px 16px;
+    font-family:var(--mono); font-size:13px; overflow-x:auto; margin:8px 0 0;
+  }
+  .note{
+    font-size:13px; border-left:3px solid var(--gold); padding:8px 12px;
+    background:var(--bg-alt); border-radius:0 8px 8px 0; margin-top:10px; color:var(--ink-soft);
+  }
+
+  .roadmap{display:grid; grid-template-columns:1fr 1fr; gap:36px;}
+  @media (max-width:720px){ .roadmap{grid-template-columns:1fr;} }
+  .roadmap h3{font-family:var(--serif); font-size:20px; margin:0 0 14px;}
+  ul.clean{list-style:none; margin:0; padding:0; display:grid; gap:10px;}
+  ul.clean li{
+    font-size:14px; color:var(--ink-soft); padding-left:26px; position:relative;
+  }
+  ul.clean.done li::before{content:"✅"; position:absolute; left:0;}
+  ul.clean.next li::before{content:"🔮"; position:absolute; left:0;}
+
+  footer{padding:46px 0; text-align:center; color:var(--ink-soft); font-size:13px;}
+  footer a{color:var(--ink-soft); text-decoration:underline;}
+  footer .links{margin-bottom:14px; display:flex; gap:18px; justify-content:center; flex-wrap:wrap; font-size:14px;}
+  footer .links a{color:var(--ink); text-decoration:none; font-weight:600;}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="mark">🍷</span> Glou</div>
+    <nav class="top">
+      <a href="#highlights">Highlights</a>
+      <a href="#screenshots">Screenshots</a>
+      <a href="#quickstart">Quick Start</a>
+      <a href="#roadmap">Roadmap</a>
+      <a href="https://github.com/jackthomasanderson/glou-server">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="pill">🔓 Free &amp; open source · self-hosted · Docker</div>
+    <h1>Your cellar, <em>fully yours.</em></h1>
+    <p class="lead">Glou is a self-hosted asset manager for luxury collections — wines, spirits, bubbles, and cigars. Visual recognition, expert data, and peak maturity indicators in one stack you fully own.</p>
+    <div class="cta-row">
+      <a class="btn primary" href="#quickstart">Get started</a>
+      <a class="btn ghost" href="https://github.com/jackthomasanderson/glou-server">View on GitHub →</a>
+    </div>
+  </div>
+</section>
+
+<section id="highlights">
+  <div class="wrap">
+    <div class="eyebrow">Why Glou</div>
+    <h2 class="section-title">Top 5 highlights</h2>
+    <div class="grid-5">
+      <div class="card">
+        <span class="emoji">📸</span>
+        <h3>Zero-effort intake</h3>
+        <p>Snap a label photo. OCR pre-fills the details instantly.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">🤝</span>
+        <h3>Shared inventory</h3>
+        <p>Every user on the instance shares one collective cellar — built for families, roommates, and wine clubs.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">🔔</span>
+        <h3>Peak maturity alerts</h3>
+        <p>Get notified when a bottle enters its drinking window before it's too late.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">🛡️</span>
+        <h3>Fully self-hosted</h3>
+        <p>A Docker Compose stack (Node.js · Next.js · PostgreSQL) you run on your own machine.</p>
+      </div>
+      <div class="card">
+        <span class="emoji">👪</span>
+        <h3>Guest sharing</h3>
+        <p>Scoped, revocable links to let friends or family browse (or help stock) part of your cellar.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="screenshots">
+  <div class="wrap">
+    <div class="eyebrow">See it for real</div>
+    <h2 class="section-title">A cellar you'll actually enjoy browsing</h2>
+    <div class="shots">
+      <figure>
+        <img src="screenshots/dashboard-en.png" alt="Shared inventory dashboard" loading="lazy" />
+        <figcaption><strong>Shared inventory dashboard</strong>Rich cards, faceted filters, and live stock stats.</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/detail-en.png" alt="Item detail with traceability" loading="lazy" />
+        <figcaption><strong>Item detail &amp; traceability</strong>Tactile fill level, tasting journal, and per-field history with one-click rollback.</figcaption>
+      </figure>
+      <figure class="wide">
+        <img src="screenshots/analytics-en.png" alt="Analytics and terroir dashboard" loading="lazy" />
+        <figcaption><strong>Analytics &amp; Terroir</strong>Valuation, movement flows, drinking-window urgency, and a geographic view of your cellar.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <div class="wrap">
+    <div class="eyebrow">Run it yourself</div>
+    <h2 class="section-title">Quick start</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="num"></div>
+        <div>
+          <h3>Configure</h3>
+          <p>Copy the env file and set three mandatory values — none of them has a safe default.</p>
+          <pre>cp .env.example .env</pre>
+          <div class="note">
+            <code>DB_PASSWORD</code>, <code>JWT_SECRET</code> (<code>openssl rand -base64 48</code>), and
+            <code>CONFIG_ENCRYPTION_KEY</code> (<code>openssl rand -hex 32</code>). Running with placeholder
+            values makes all user sessions trivially forgeable.
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num"></div>
+        <div>
+          <h3>Launch</h3>
+          <p>Docker pulls the pre-built images and starts the stack. No compilation required.</p>
+          <pre>docker compose up -d</pre>
+          <div class="note">The AI label scan is optional and off by default (~9 GB disk, ~3 GB RAM). Enable it with <code>docker compose --profile scan up -d</code>.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num"></div>
+        <div>
+          <h3>Create your account</h3>
+          <p>Open <a href="http://localhost:3000">localhost:3000</a> and click <strong>Register</strong>. The first account created is automatically granted admin privileges.</p>
+          <div class="note">To update later: <code>docker compose pull &amp;&amp; docker compose up -d</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="roadmap">
+  <div class="wrap">
+    <div class="eyebrow">Where it's headed</div>
+    <h2 class="section-title">Roadmap</h2>
+    <div class="roadmap">
+      <div>
+        <h3>Recently added</h3>
+        <ul class="clean done">
+          <li>Expert / Collector Mode — sommelier-grade tasting grid, appellation &amp; cask fields, humidor panel.</li>
+          <li>Express label scanning — self-hosted, CPU-only vision model pre-fills name, producer, category, vintage.</li>
+          <li>Guided food pairing — ranked shortlist from your own cellar with one-click "drink it now".</li>
+          <li>Smart consumption plan — a personal drink-now / drink-soon list.</li>
+          <li>Wishlist &amp; budget tracking with deal alerts and spending envelopes.</li>
+          <li>Trusted offline mode with auto-sync and conflict resolution.</li>
+          <li>World map, heatmap &amp; filters.</li>
+          <li>Scheduled backups &amp; data portability.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Next up</h3>
+        <ul class="clean next">
+          <li>Smart data engine — auto-enrichment via Vivino and Whiskybase, backed by a local cache.</li>
+          <li>Predictive analytics for collection valuation.</li>
+          <li>Advanced IoT integration for live cellar temperature and humidity monitoring.</li>
+          <li>Native mobile companion application.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="links">
+      <a href="https://github.com/jackthomasanderson/glou-server">Repository</a>
+      <a href="https://github.com/jackthomasanderson/glou-server/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="https://github.com/jackthomasanderson/glou-server/tree/main/docs/wiki/EN/_wiki.md">Wiki</a>
+      <a href="https://github.com/jackthomasanderson/glou-server/issues">Issues</a>
+    </div>
+    <p>MIT licensed. Includes GeoLite data created by MaxMind, available from <a href="http://maxmind.com/">maxmind.com</a>. Map tiles by <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.</p>
+  </div>
+</footer>
+
+</body>
+</html>
