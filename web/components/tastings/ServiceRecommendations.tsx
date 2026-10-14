@@ -24,7 +24,7 @@ export function ServiceRecommendations({ item }: ServiceRecommendationsProps) {
       <div className="flex flex-col gap-2">
         {/* Temperature */}
         <div className="flex items-center gap-2">
-          <Thermometer size={16} className="text-default-400 shrink-0" />
+          <Thermometer size={16} className="text-foreground-500 shrink-0" />
           <span className="text-sm">
             {reco.tempMin}–{reco.tempMax}°C
           </span>
@@ -33,7 +33,7 @@ export function ServiceRecommendations({ item }: ServiceRecommendationsProps) {
         {/* Aeration */}
         {reco.aerationMin > 0 && (
           <div className="flex items-center gap-2">
-            <Wind size={16} className="text-default-400 shrink-0" />
+            <Wind size={16} className="text-foreground-500 shrink-0" />
             <span className="text-sm">
               {t('tastings.recommendations.aeration', { min: reco.aerationMin, max: reco.aerationMax })}
             </span>
@@ -43,7 +43,7 @@ export function ServiceRecommendations({ item }: ServiceRecommendationsProps) {
         {/* Food pairings */}
         {reco.foodPairings.length > 0 && (
           <div className="flex items-start gap-2">
-            <Utensils size={16} className="text-default-400 shrink-0 mt-0.5" />
+            <Utensils size={16} className="text-foreground-500 shrink-0 mt-0.5" />
             <div className="flex flex-wrap gap-1">
               {reco.foodPairings.map((fp) => (
                 <Chip key={fp} size="sm" variant="bordered">

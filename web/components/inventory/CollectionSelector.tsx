@@ -58,7 +58,7 @@ export function CollectionSelector({ collections, selected, onSelectedChange }: 
               size="sm"
               onClose={() => onSelectedChange(prev => prev.filter(c => c.id !== col.id))}
               style={{ backgroundColor: col.color, color: '#fff' }}
-              className="text-[0.7rem]"
+              className="text-xs"
             >
               {col.icon ? `${col.icon} ` : ''}{col.name}
             </Chip>

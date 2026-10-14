@@ -1,9 +1,11 @@
 import cron from 'node-cron';
-import { connectWithRetry } from './lib/prisma';
+import { connectWithRetry, prisma } from './lib/prisma';
 import { createApp } from './app';
 import { inventoryService } from './services/inventory.service';
+import { scanService } from './services/scan.service';
 import { MaintenanceService } from './services/maintenance.service';
 import { recomputeAlertStatuses } from './services/alert.service';
+import { checkHumidorDrift } from './services/humidor.service';
 import { backupService } from './services/backup.service';
 import { findSecretProblems, describeSecretProblem } from './lib/startup-secrets';
 
@@ -54,9 +56,17 @@ async function runAlertStatusRecompute(origin: 'startup' | 'cron'): Promise<void
 async function bootstrap(): Promise<void> {
   await connectWithRetry();
 
+  // ISSUE_084: a ScanJob left in 'pending'/'processing' by a crash or deploy
+  // mid-flight would otherwise poll forever from the client's point of view.
+  // Must run before anything new can be enqueued.
+  await scanService.recoverStuckJobs().then((count) => {
+    if (count > 0) console.info(`[startup] Recovered ${count} scan job(s) stuck by a previous restart`);
+  });
+
   // Background maintenance: purge old trash
-  void inventoryService.purgeTrashed().then((count) => {
+  void inventoryService.purgeTrashed().then(({ count, photoPaths }) => {
     if (count > 0) console.info(`[startup] Purged ${count} permanently deleted items`);
+    void inventoryService.deletePhotoFiles(photoPaths);
   });
 
   // FEAT-39: data retention cleanup (audit logs, expired/revoked sessions,
@@ -82,6 +92,18 @@ async function bootstrap(): Promise<void> {
       else console.error('[cron] Retention cleanup failed:', run.error);
     });
     void runAlertStatusRecompute('cron');
+
+    // ISSUE_027: a humidor reading only ever gets recorded by a human typing
+    // a value in, so a drift that happens while nobody opens the app (e.g. a
+    // multi-week holiday) produced no reading and therefore no alert at all.
+    // This daily sweep catches that case — stale or still-out-of-range
+    // cellars re-notify every member, not just whoever logged the last
+    // reading.
+    void checkHumidorDrift()
+      .then(({ scanned, alerted }) => {
+        if (alerted > 0) console.info(`[cron] Humidor drift check: ${alerted} of ${scanned} monitored cellars alerted`);
+      })
+      .catch((err) => console.error('[cron] Humidor drift check failed:', err));
   });
 
   // FEAT-18: scheduled database backups (pg_dump). Ticks hourly and re-reads
@@ -102,9 +124,24 @@ async function bootstrap(): Promise<void> {
       .catch((err) => console.error('[cron] Backup cron tick failed:', err));
   });
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.info(`[api] Server listening on port ${PORT} (${process.env.NODE_ENV})`);
   });
+
+  // ISSUE_091: a container stop (image update, `docker compose restart`, a
+  // reboot) sent SIGTERM straight into an unhandled default — the process
+  // was force-killed after Docker's grace period with whatever request was
+  // in flight simply cut off, no response ever sent. `server.close()` stops
+  // accepting new connections and waits for in-flight ones to finish on
+  // their own before this handler continues.
+  const shutdown = (signal: string) => {
+    console.info(`[api] ${signal} received, shutting down gracefully`);
+    server.close(() => {
+      void prisma.$disconnect().finally(() => process.exit(0));
+    });
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 bootstrap().catch((err) => {

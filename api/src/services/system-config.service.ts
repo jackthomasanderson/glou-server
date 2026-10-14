@@ -201,7 +201,7 @@ export const systemConfigService = {
     return this.getPublic();
   },
 
-  async updateIntegrations(data: IntegrationsConfig, userId: string): Promise<PublicSystemConfig> {
+  async updateIntegrations(data: Partial<IntegrationsConfig>, userId: string): Promise<PublicSystemConfig> {
     const old = await getOrCreate();
     const update: Record<string, unknown> = { updatedBy: userId };
 

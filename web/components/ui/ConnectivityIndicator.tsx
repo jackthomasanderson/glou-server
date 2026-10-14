@@ -59,14 +59,14 @@ export function ConnectivityIndicator() {
           <span className={`inline-block w-2 h-2 rounded-full ${color}`} aria-hidden="true" />
         )}
         {offline && (
-          <span className="hidden sm:inline text-[0.65rem] font-semibold" aria-hidden="true">
+          <span className="hidden sm:inline text-xs font-semibold" aria-hidden="true">
             {t('connectivity.offline')}
           </span>
         )}
         {hasPendingWork && (
           <span
             aria-hidden="true"
-            className={`inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[0.6rem] font-bold leading-none text-white ${badgeColor} ${
+            className={`inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-xs font-bold leading-none text-white ${badgeColor} ${
               syncingCount > 0 ? 'animate-pulse' : ''
             }`}
           >

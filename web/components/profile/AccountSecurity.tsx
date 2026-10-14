@@ -147,7 +147,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
       </div>
 
       {successMsg && (
-        <div className="bg-success-50 border border-success-200 text-success text-sm rounded-lg px-4 py-3 mb-4">
+        <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-lg px-4 py-3 mb-4">
           {successMsg}
         </div>
       )}

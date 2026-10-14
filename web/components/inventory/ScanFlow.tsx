@@ -9,6 +9,7 @@ import { useInventory, useCreateInventoryItem, useUpdateInventoryItem } from '@/
 import { useCellars } from '@/hooks/useCellars';
 import { useUploadScan, useScanJob } from '@/hooks/useScan';
 import { findDuplicate } from '@/lib/inventory/duplicate';
+import { inventoryClient } from '@/lib/inventory/client';
 import { getDefaultCellarForCategory, setDefaultCellarForCategory } from '@/lib/scan/defaultLocations';
 import { DuplicateDialog } from './DuplicateDialog';
 import { InventoryForm } from './InventoryForm';
@@ -29,7 +30,7 @@ interface CartEntry {
  * job's own extracted data and tag the fields it really populated as 'ocr'
  * (FEAT-05 provenance), never trusting a client-supplied source map.
  */
-type InventoryCreateWithScanHint = Partial<InventoryItem> & { scanJobId?: string };
+type InventoryCreateWithScanHint = Partial<InventoryItem> & { scanJobId?: string; confirmDuplicate?: boolean };
 
 const CATEGORY_COLORS: Record<InventoryCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
   wine: 'secondary',
@@ -168,9 +169,26 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       return;
     }
     const payload: InventoryCreateWithScanHint = { ...values, scanJobId: jobId ?? undefined };
-    const created = await createMutation.mutateAsync(payload);
-    pushCartEntry(created, 'created');
-    resetToCapture();
+    try {
+      const created = await createMutation.mutateAsync(payload);
+      pushCartEntry(created, 'created');
+      resetToCapture();
+    } catch (err) {
+      // ISSUE_141: the client's own `items` was stale — the server's FEAT-65
+      // check caught a match it couldn't see. Re-check against a fresh fetch
+      // instead of surfacing a raw error for what the user can still resolve.
+      if (err instanceof Error && err.message === 'DUPLICATE_CANDIDATE') {
+        const fresh = await inventoryClient.list();
+        const freshDup = findDuplicate(fresh, values);
+        if (freshDup) {
+          setDuplicateFound(freshDup);
+          setDuplicateCandidate(values);
+          setPhase('review');
+          return;
+        }
+      }
+      throw err;
+    }
   };
 
   const handleReviewConfirm = () => {
@@ -201,7 +219,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     const candidate = duplicateCandidate;
     setDuplicateFound(null);
     setDuplicateCandidate(null);
-    const payload: InventoryCreateWithScanHint = { ...candidate, scanJobId: jobId ?? undefined };
+    const payload: InventoryCreateWithScanHint = { ...candidate, scanJobId: jobId ?? undefined, confirmDuplicate: true };
     const created = await createMutation.mutateAsync(payload);
     pushCartEntry(created, 'created');
     resetToCapture();
@@ -375,7 +393,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                         isRequired
                         value={reviewValues.alcoholDegree != null ? String(reviewValues.alcoholDegree) : ''}
                         onValueChange={(v) => setReviewValues((prev) => (prev ? { ...prev, alcoholDegree: v ? Number(v) : undefined } : prev))}
-                        endContent={<span className="text-xs text-default-400">%</span>}
+                        endContent={<span className="text-xs text-foreground-500">%</span>}
                         min={0}
                         max={100}
                         step={0.1}

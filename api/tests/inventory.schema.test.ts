@@ -49,6 +49,28 @@ describe('inventoryInputSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  // ISSUE_101/ISSUE_029: an emptied box (quantity 0) is a real state, not a
+  // forbidden one — only a negative count is invalid.
+  it('validates a cigar with quantity 0 (an emptied box)', () => {
+    const result = inventoryInputSchema.safeParse({
+      category: 'cigar',
+      name: 'Romeo y Julieta',
+      producer: 'Romeo y Julieta',
+      quantity: 0,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a cigar with a negative quantity', () => {
+    const result = inventoryInputSchema.safeParse({
+      category: 'cigar',
+      name: 'Romeo y Julieta',
+      producer: 'Romeo y Julieta',
+      quantity: -1,
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects an invalid category', () => {
     const result = inventoryInputSchema.safeParse({
       category: 'beer',

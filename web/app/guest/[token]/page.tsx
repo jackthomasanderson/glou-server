@@ -177,7 +177,7 @@ function GuestPageContent({ token }: { token: string }) {
     return (
       <div className="min-h-screen flex items-center justify-center p-8">
         <div className="text-center max-w-sm">
-          <Lock size={48} className="text-default-300 mx-auto mb-4" />
+          <Lock size={48} className="text-foreground-400 mx-auto mb-4" />
           <p className="text-lg font-semibold text-foreground-500">{t('shares.guest.expired')}</p>
         </div>
       </div>

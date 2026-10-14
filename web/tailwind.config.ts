@@ -49,16 +49,18 @@ const config: Config = {
             content1: '#FFFFFF',
             content2: '#F8F9FA',
             content3: '#F1F5F9',
-            danger: { DEFAULT: '#EF4444', foreground: '#ffffff' },
-            // Darkened from the HeroUI/brand defaults (#10B981 / #F59E0B):
-            // those pass fine as fills/icons but fail WCAG contrast as text
-            // color on a white/content1 card (2.5:1 / 2.2:1 measured). These
-            // shades hit ~7.7:1 and ~9:1 against white, both for the text
-            // itself and for white text placed on a solid success/warning
-            // fill. Only overriding DEFAULT/foreground — the 50-900 shade
-            // scale used elsewhere for badges/backgrounds is untouched.
-            success: { DEFAULT: '#065f46', foreground: '#ffffff' },
-            warning: { DEFAULT: '#78350f', foreground: '#ffffff' },
+            // Darkened from HeroUI's default #EF4444 (~3.8:1 on white, fails
+            // AA as a text color) to a value that keeps the same hue while
+            // reaching ~5.9:1.
+            danger: { DEFAULT: '#b91c1c', foreground: '#ffffff' },
+            // Kept at the brand amber/green (matching dark mode) rather than
+            // darkened globally, so chips/icons built from these tokens stay
+            // the same hue in both themes. Places that use these as a plain
+            // text color on a white/content1 card use the darker
+            // success-700/warning-700 shades instead (still generated from
+            // this same DEFAULT by HeroUI), which reach ~7.7:1 and ~9:1.
+            success: { DEFAULT: '#10B981', foreground: '#ffffff' },
+            warning: { DEFAULT: '#F59E0B', foreground: '#ffffff' },
             focus: '#1d4ed8',
           },
         },
@@ -78,6 +80,8 @@ const config: Config = {
             content1: '#1E293B',
             content2: '#273548',
             content3: '#334155',
+            // #EF4444 already reaches ~4.8:1 against the dark background,
+            // so only light mode needed darkening for AA.
             danger: { DEFAULT: '#EF4444', foreground: '#ffffff' },
             // Dark-mode success/warning text-on-card contrast already
             // measured at 5.8:1 / 6.8:1 (passes AA, close to AAA) — left

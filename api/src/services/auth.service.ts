@@ -9,8 +9,8 @@ import path from 'path';
 import { prisma } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
 import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.schema';
-import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
-import { describeDevice, locateIp, countryOfIp } from '../lib/device';
+import { Theme, Language, TempUnit, DateFormat, Prisma, PrismaClient } from '@prisma/client';
+import { describeDevice, locateIp, countryOfIp, type DeviceDescription } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
 import { auditLog } from './audit.service';
@@ -21,6 +21,9 @@ const JWT_EXPIRES_IN = '30d';
 // (FEAT-25: a Session must not outlive the JWT that references it).
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
+// Hex-encoded length of a generated backup code (crypto.randomBytes(10) -> 20 hex chars).
+// A TOTP code is always 6 digits, so checking this length is enough to tell the two apart.
+const BACKUP_CODE_LENGTH = 20;
 
 // ISSUE_043: the `2fa_pending` token only proves the first factor was passed.
 // It must not inherit the 30-day session lifetime — a stolen/leaked password
@@ -50,15 +53,20 @@ export interface DeviceInfo {
 }
 
 // FEAT-18: categories selectable for a filtered personal data export.
-// #224: wishlist / budget / goals / counts / humidor were missing, so the
-// "full" export was not. Security records (sessions, trusted devices, secrets)
-// are deliberately not exportable.
+// #224: wishlist / budget / goals / counts / humidor / sessions / devices /
+// notifications / configHistory were missing, so the "full" export was not.
+// Sessions and trusted devices are exported as descriptive metadata only
+// (device label, location, timestamps) — never the tokenHash/bearer token
+// that authenticates them, which would let the export itself be replayed as
+// a credential.
 export type ExportCategory =
   | 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity'
-  | 'wishlist' | 'budget' | 'goals' | 'counts' | 'humidor';
+  | 'wishlist' | 'budget' | 'goals' | 'counts' | 'humidor'
+  | 'sessions' | 'devices' | 'notifications' | 'configHistory';
 export const ALL_EXPORT_CATEGORIES: ExportCategory[] = [
   'inventory', 'cellars', 'collections', 'tastings', 'activity',
   'wishlist', 'budget', 'goals', 'counts', 'humidor',
+  'sessions', 'devices', 'notifications', 'configHistory',
 ];
 
 export type LoginResult =
@@ -67,7 +75,7 @@ export type LoginResult =
 
 export interface SessionSummary {
   id: string;
-  device: string;
+  device: DeviceDescription;
   location: { city: string | null; country: string | null } | null;
   createdAt: Date;
   lastActiveAt: Date;
@@ -325,7 +333,10 @@ export class AuthService {
     const appUrl = await systemConfigService.getEffectivePublicUrl();
     const securityUrl = `${appUrl}/profile#security`;
     const timestamp = new Date().toLocaleString(isEn ? 'en-US' : 'fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-    const device = describeDevice(deviceInfo.userAgent);
+    const { browser, os } = describeDevice(deviceInfo.userAgent);
+    const device = browser || os
+      ? `${browser ?? (isEn ? 'Unknown browser' : 'Navigateur inconnu')} ${isEn ? 'on' : 'sur'} ${os ?? (isEn ? 'Unknown OS' : 'OS inconnu')}`
+      : (isEn ? 'Unknown device' : 'Appareil inconnu');
     const location = locateIp(deviceInfo.ip);
     const locationLabel = location?.city && location?.country
       ? `${location.city}, ${location.country}`
@@ -353,17 +364,19 @@ export class AuthService {
    * Register a new user.
    */
   async register(data: RegisterInput, deviceInfo: DeviceInfo): Promise<{ user: PublicUser; token: string }> {
-    const { username, email, password } = data;
+    const { username, email, password, displayName } = data;
 
     // Check uniqueness
     const existing = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] },
-      select: { username: true, email: true },
+      select: { id: true },
     });
-    if (existing) {
-      if (existing.username === username) throw new Error('USERNAME_ALREADY_TAKEN');
-      throw new Error('EMAIL_ALREADY_TAKEN');
-    }
+    // ISSUE_015: login was deliberately built not to reveal whether an
+    // account exists ("Always 401 for invalid credentials (no
+    // enumeration)") — naming which field conflicted here undid that for an
+    // anonymous caller, who could probe any address and learn whether it
+    // already has an account. A single generic code names neither.
+    if (existing) throw new Error('REGISTRATION_CONFLICT');
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
@@ -377,6 +390,7 @@ export class AuthService {
         email,
         passwordHash,
         isAdmin,
+        displayName: displayName || null,
       },
       select: {
         id: true,
@@ -772,8 +786,12 @@ export class AuthService {
 
     if (!isCodeValid) throw new Error('INVALID_TOTP_CODE');
 
-    // Generate 10 backup codes
-    const backupCodes = Array.from({ length: 10 }).map(() => crypto.randomBytes(4).toString('hex'));
+    // Generate 10 backup codes. 10 bytes (20 hex chars, 80 bits of entropy)
+    // rather than the earlier 4 bytes (32 bits) — ISSUE_047: brute force was
+    // slowed only by bcrypt and the login rate limiter, not by the codes
+    // themselves. See BACKUP_CODE_LENGTH below, which every verification
+    // site keys off of.
+    const backupCodes = Array.from({ length: 10 }).map(() => crypto.randomBytes(10).toString('hex'));
     const hashedBackupCodes = await Promise.all(backupCodes.map(bc => bcrypt.hash(bc, BCRYPT_ROUNDS)));
 
     await prisma.user.update({
@@ -806,7 +824,7 @@ export class AuthService {
         token: code,
         window: 1
       });
-    } else if (code && code.length === 8 && user.backupCodes.length > 0) {
+    } else if (code && code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
       // Check backup codes
       for (const hashedCode of user.backupCodes) {
         if (await bcrypt.compare(code, hashedCode)) {
@@ -854,12 +872,20 @@ export class AuthService {
         cellars: true,
         collections: { include: { items: { select: { id: true, name: true } } } },
         tastingNotes: true,
+        // No `take`: respect the configured retention window (SystemConfig
+        // .logRetentionDays, purged by MaintenanceService), not an arbitrary
+        // row cap — #224.
         auditLogs: { orderBy: { createdAt: 'desc' } },
         wishlistItems: true,
         budgetEnvelopes: true,
         consumptionGoals: true,
         inventoryCountSessions: { include: { entries: true } },
         humidorReadings: true,
+        // Metadata only: `tokenHash` is excluded below so the export can
+        // never be replayed as a trusted-device bypass credential.
+        sessions: { orderBy: { createdAt: 'desc' } },
+        trustedDevices: { orderBy: { createdAt: 'desc' } },
+        configChangeLogs: { orderBy: { createdAt: 'desc' } },
       },
     });
 
@@ -897,6 +923,49 @@ export class AuthService {
         ip: l.ip,
       }));
     }
+    if (includes('sessions')) {
+      result.sessions = user.sessions.map(s => ({
+        device: describeDevice(s.userAgent),
+        location: locateIp(s.ip),
+        rememberMe: s.rememberMe,
+        createdAt: s.createdAt,
+        lastActiveAt: s.lastActiveAt,
+        expiresAt: s.expiresAt,
+        revokedAt: s.revokedAt,
+      }));
+    }
+    if (includes('devices')) {
+      result.trustedDevices = user.trustedDevices.map(d => ({
+        device: describeDevice(d.userAgent),
+        country: d.country,
+        createdAt: d.createdAt,
+        lastUsedAt: d.lastUsedAt,
+        expiresAt: d.expiresAt,
+        revokedAt: d.revokedAt,
+      }));
+    }
+    if (includes('notifications')) {
+      result.notificationPreferences = {
+        notifInApp: user.notifInApp,
+        notifEmail: user.notifEmail,
+        notifWebhook: user.notifWebhook,
+        notifCategories: user.notifCategories,
+        notifQuietStart: user.notifQuietStart,
+        notifQuietEnd: user.notifQuietEnd,
+        notifLanguage: user.notifLanguage,
+        webhookUrl: user.webhookUrl,
+      };
+    }
+    if (includes('configHistory')) {
+      // fieldName/maskedOldVal/maskedNewVal are already redacted at write
+      // time by systemConfigService.logChange — safe to export as-is.
+      result.configHistory = user.configChangeLogs.map(c => ({
+        fieldName: c.fieldName,
+        maskedOldVal: c.maskedOldVal,
+        maskedNewVal: c.maskedNewVal,
+        createdAt: c.createdAt,
+      }));
+    }
 
     result.included = selected;
     result.exportedAt = new Date().toISOString();
@@ -915,6 +984,94 @@ export class AuthService {
       where: { id: userId },
       data: { deletionRequestedAt: null },
     });
+  }
+
+  /**
+   * #222: carries out account deletions whose grace period (`cutoff`, set by
+   * the caller) has elapsed. `deletionRequestedAt` used to be write-only —
+   * nothing ever acted on it, so a deletion request never actually happened
+   * and the account stayed fully active.
+   *
+   * The `User` row is anonymized rather than deleted outright:
+   * `Cellar.userId`/`InventoryItem.userId`/`InventoryCountSession.userId`/
+   * `HumidorReading.userId` are `onDelete: Restrict` by design (ISSUE_098 —
+   * shared inventory/history must never disappear just because the member
+   * who happened to create it leaves), so a real `user.delete()` would
+   * either fail outright or require reassigning those rows to some other
+   * identity. Anonymizing in place keeps every such reference valid while
+   * removing the PII GDPR Art. 17 actually targets (email, username,
+   * password hash, 2FA secret, avatar, webhook URL...) and deactivating the
+   * account (`isActive: false`) so it can no longer sign in. Sessions,
+   * trusted devices and guest shares created by the account are removed
+   * outright — nothing legitimately needs them to survive.
+   *
+   * Rows only: the avatar file (if any) is deleted by the caller after this
+   * transaction commits, same two-phase contract as
+   * `inventoryService.purgeTrashed`'s photo paths.
+   */
+  async purgeDueAccountDeletions(
+    cutoff: Date,
+    client: Prisma.TransactionClient | PrismaClient = prisma,
+  ): Promise<{ count: number; avatarPaths: string[] }> {
+    const due = await client.user.findMany({
+      where: { deletionRequestedAt: { not: null, lt: cutoff }, isActive: true },
+      select: { id: true, avatarUrl: true },
+    });
+    if (due.length === 0) return { count: 0, avatarPaths: [] };
+
+    const ids = due.map((u) => u.id);
+    await client.session.deleteMany({ where: { userId: { in: ids } } });
+    await client.trustedDevice.deleteMany({ where: { userId: { in: ids } } });
+    await client.guestShare.deleteMany({ where: { userId: { in: ids } } });
+
+    for (const user of due) {
+      // A valid bcrypt hash of a random, never-recorded value — not just an
+      // arbitrary string — so `bcrypt.compare` on a later login attempt
+      // behaves exactly like any other wrong password instead of risking a
+      // malformed-hash edge case.
+      const unusablePasswordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), BCRYPT_ROUNDS);
+      await client.user.update({
+        where: { id: user.id },
+        data: {
+          email: `deleted-${user.id}@deleted.invalid`,
+          username: `deleted-${user.id}`,
+          passwordHash: unusablePasswordHash,
+          displayName: null,
+          avatarUrl: null,
+          webhookUrl: null,
+          notifWebhook: false,
+          isTwoFactorEnabled: false,
+          twoFactorSecret: null,
+          backupCodes: [],
+          twoFactorFailedAttempts: 0,
+          twoFactorLockedUntil: null,
+          pinHash: null,
+          autoLockDelayMin: null,
+          isActive: false,
+          deletionRequestedAt: null,
+        },
+      });
+    }
+
+    const avatarPaths = due
+      .map((u) => u.avatarUrl)
+      .filter((url): url is string => !!url);
+    return { count: due.length, avatarPaths };
+  }
+
+  /** Deletes local avatar files from disk. Never throws: one bad path must not block the rest. */
+  async deleteAvatarFiles(avatarUrls: string[]): Promise<void> {
+    const uploadsDir = path.resolve(process.cwd(), 'uploads', 'avatars');
+    for (const avatarUrl of avatarUrls) {
+      try {
+        const filename = path.basename(avatarUrl);
+        const filePath = path.resolve(uploadsDir, filename);
+        if (!filePath.startsWith(uploadsDir + path.sep)) continue;
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch (err) {
+        console.error(`[auth] Failed to purge avatar file ${avatarUrl}:`, err);
+      }
+    }
   }
 
   // ─── Onboarding (FEAT-56) ───────────────────────────────────────────────────
@@ -1014,7 +1171,7 @@ export class AuthService {
         token: code,
         window: 1
       });
-    } else if (code.length === 8 && user.backupCodes.length > 0) {
+    } else if (code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
       for (const hashedCode of user.backupCodes) {
         if (await bcrypt.compare(code, hashedCode)) {
           validCode = true;
@@ -1103,7 +1260,40 @@ export class AuthService {
    * Mark the caller's current device as trusted outside of the 2FA login
    * flow (e.g. a "Trust this device" button in security settings).
    */
-  async trustCurrentDevice(userId: string, deviceInfo: DeviceInfo): Promise<{ token: string }> {
+  /**
+   * ISSUE_045: a trusted device is a lasting (30-day, self-renewing) 2FA
+   * bypass, so minting one re-confirms identity the same way turning 2FA
+   * off does — password always, plus a TOTP/backup code when 2FA is
+   * actually enabled on the account. Unlike the login-time auto-trust path
+   * (verifyTwoFactorLogin, which calls `createTrustedDevice` directly), this
+   * standalone route previously asked for nothing at all.
+   */
+  async trustCurrentDevice(userId: string, deviceInfo: DeviceInfo, password: string, code?: string): Promise<{ token: string }> {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+    const validPwd = await bcrypt.compare(password, user.passwordHash);
+    if (!validPwd) throw new Error('INVALID_CREDENTIALS');
+
+    if (user.isTwoFactorEnabled) {
+      let validCode = false;
+      if (code && code.length === 6 && user.twoFactorSecret) {
+        validCode = speakeasy.totp.verify({
+          secret: user.twoFactorSecret,
+          encoding: 'base32',
+          token: code,
+          window: 1,
+        });
+      } else if (code && code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
+        for (const hashedCode of user.backupCodes) {
+          if (await bcrypt.compare(code, hashedCode)) {
+            validCode = true;
+            break;
+          }
+        }
+      }
+      if (!validCode) throw new Error('INVALID_CODE');
+    }
+
     const token = await this.createTrustedDevice(userId, deviceInfo);
     return { token };
   }

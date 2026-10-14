@@ -109,23 +109,23 @@ export function InventoryListRow({
       </TableCell>
 
       <TableCell className="hidden sm:table-cell">
-        <p className="text-sm text-default-400 truncate max-w-[160px]">{item.producer}</p>
+        <p className="text-sm text-foreground-500 truncate max-w-[160px]">{item.producer}</p>
       </TableCell>
 
       <TableCell className="text-center">
-        <p className="text-sm text-default-400">{item.vintage ?? '—'}</p>
+        <p className="text-sm text-foreground-500">{item.vintage ?? '—'}</p>
       </TableCell>
 
       <TableCell className="hidden md:table-cell">
-        <p className="text-sm text-default-400 truncate max-w-[120px]">{item.region ?? '—'}</p>
+        <p className="text-sm text-foreground-500 truncate max-w-[120px]">{item.region ?? '—'}</p>
       </TableCell>
 
       <TableCell className="hidden md:table-cell">
-        <p className="text-sm text-default-400 truncate max-w-[120px]">{cellar?.name ?? '—'}</p>
+        <p className="text-sm text-foreground-500 truncate max-w-[120px]">{cellar?.name ?? '—'}</p>
       </TableCell>
 
       <TableCell className="hidden sm:table-cell text-center">
-        <p className="text-sm text-default-400">{peakLabel ?? '—'}</p>
+        <p className="text-sm text-foreground-500">{peakLabel ?? '—'}</p>
       </TableCell>
 
       <TableCell className="hidden sm:table-cell">
@@ -163,7 +163,7 @@ export function InventoryListRow({
             onPress={() => onEdit(item)}
             isDisabled={isTemp}
             aria-label={t('actions.edit')}
-            className="text-default-400 hover:text-primary min-w-unit-7 w-7 h-7"
+            className="text-foreground-500 hover:text-primary min-w-unit-7 w-7 h-7"
           >
             <Pencil size={14} />
           </Button>

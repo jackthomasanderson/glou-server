@@ -32,6 +32,7 @@ router.get('/suggestions', async (req: Request, res: Response): Promise<void> =>
     });
     res.json({ data: suggestions });
   } catch (error) {
+    console.error('[consumption-plan] GET /suggestions error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
       return;
@@ -69,6 +70,7 @@ router.patch('/items/:id/postpone', async (req: Request, res: Response): Promise
     });
     res.json({ data: { ok: true } });
   } catch (error) {
+    console.error('[consumption-plan] PATCH /items/:id/postpone error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
       return;
@@ -95,6 +97,7 @@ router.get('/goal', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { scope: 'consumption-goal' } });
     res.json({ data: progress });
   } catch (error) {
+    console.error('[consumption-plan] GET /goal error:', error);
     void auditLog({
       userId: req.userId,
       action: 'LIST',
@@ -122,6 +125,7 @@ router.put('/goal', async (req: Request, res: Response): Promise<void> => {
     });
     res.status(201).json({ data: goal });
   } catch (error) {
+    console.error('[consumption-plan] PUT /goal error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
       return;

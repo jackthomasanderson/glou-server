@@ -77,7 +77,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
           <p className="text-sm font-medium">
             {t('profile.twoFactor.status')} :{' '}
             {user.isTwoFactorEnabled ? (
-              <span className="text-success font-bold">{t('profile.twoFactor.enabled')}</span>
+              <span className="text-success-700 font-bold">{t('profile.twoFactor.enabled')}</span>
             ) : (
               <span className="text-foreground-400">{t('profile.twoFactor.disabled')}</span>
             )}
@@ -106,7 +106,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                 )}
                 {backupCodes ? (
                   <div>
-                    <div className="bg-success-50 border border-success-200 text-success text-sm rounded-lg px-4 py-3 mb-4">
+                    <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-lg px-4 py-3 mb-4">
                       {t('profile.twoFactor.enableSuccess')}
                     </div>
                     <p className="text-sm font-bold text-danger mb-2">
@@ -224,7 +224,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                   size="md"
                   radius="md"
                   labelPlacement="outside"
-                  maxLength={10}
+                  maxLength={20}
                   autoComplete="off"
                 />
               </ModalBody>

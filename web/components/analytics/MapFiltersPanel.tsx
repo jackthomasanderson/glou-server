@@ -35,7 +35,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
     <div className="flex flex-col gap-4">
       {/* Type filter (multi-select) */}
       <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {t('analytics.map.filters.type')}
         </p>
         <div className="flex flex-wrap gap-1">
@@ -43,7 +43,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
             size="sm"
             variant={filters.categories.length === 0 ? 'solid' : 'bordered'}
             color={filters.categories.length === 0 ? 'primary' : 'default'}
-            className="cursor-pointer text-[0.7rem]"
+            className="cursor-pointer text-xs"
             onClick={() => onChange({ ...filters, categories: [] })}
           >
             {t('filters.allCategories')}
@@ -54,7 +54,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
               size="sm"
               variant={filters.categories.includes(cat) ? 'solid' : 'bordered'}
               color={filters.categories.includes(cat) ? 'primary' : 'default'}
-              className="cursor-pointer text-[0.7rem]"
+              className="cursor-pointer text-xs"
               onClick={() => toggleCategory(cat)}
             >
               {t(`categories.${cat}`)}
@@ -65,7 +65,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
 
       {/* Price range */}
       <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {t('analytics.map.filters.priceRange')}
         </p>
         <div className="flex gap-2">
@@ -76,7 +76,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
             placeholder={t('inventory.filters.minValue')}
             value={filters.priceMin}
             onChange={(e) => onChange({ ...filters, priceMin: e.target.value })}
-            className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
+            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
           <input
             type="number"
@@ -85,14 +85,14 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
             placeholder={t('inventory.filters.maxValue')}
             value={filters.priceMax}
             onChange={(e) => onChange({ ...filters, priceMax: e.target.value })}
-            className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
+            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
         </div>
       </div>
 
       {/* Vintage range */}
       <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {t('analytics.map.filters.vintageRange')}
         </p>
         <div className="flex gap-2">
@@ -102,7 +102,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
             placeholder={t('analytics.map.filters.min')}
             value={filters.vintageMin}
             onChange={(e) => onChange({ ...filters, vintageMin: e.target.value })}
-            className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
+            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
           <input
             type="number"
@@ -110,7 +110,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
             placeholder={t('analytics.map.filters.max')}
             value={filters.vintageMax}
             onChange={(e) => onChange({ ...filters, vintageMax: e.target.value })}
-            className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
+            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
         </div>
       </div>
@@ -118,11 +118,11 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
       {/* Rating filter — best-effort, see hint (data limitation documented in report) */}
       <div>
         <div className="flex items-center gap-1 mb-2">
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
+          <p className="text-xs font-bold uppercase tracking-widest text-foreground-500">
             {t('analytics.map.filters.rating')}
           </p>
           <Tooltip content={t('analytics.map.filters.ratingHint')} delay={500} placement="top">
-            <span tabIndex={0} role="img" aria-label={t('analytics.map.filters.ratingHint')} className="inline-flex text-default-300 cursor-help">
+            <span tabIndex={0} role="img" aria-label={t('analytics.map.filters.ratingHint')} className="inline-flex text-foreground-400 cursor-help">
               <Info size={11} />
             </span>
           </Tooltip>
@@ -134,7 +134,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
               onClick={() => onChange({ ...filters, minRating: r })}
               className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${filters.minRating === r ? 'bg-default-100' : 'hover:bg-default-50'}`}
             >
-              <span className={`text-[0.75rem] flex items-center gap-1 ${filters.minRating === r ? 'font-semibold' : 'font-normal'}`}>
+              <span className={`text-xs flex items-center gap-1 ${filters.minRating === r ? 'font-semibold' : 'font-normal'}`}>
                 {r === 0 ? (
                   t('analytics.map.filters.ratingAny')
                 ) : (
@@ -146,7 +146,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
                   </>
                 )}
               </span>
-              {filters.minRating === r && <span className="text-[0.7rem] text-primary font-bold">✓</span>}
+              {filters.minRating === r && <span className="text-xs text-primary font-bold">✓</span>}
             </div>
           ))}
         </div>
@@ -154,7 +154,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
 
       {/* State filter */}
       <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {t('analytics.map.filters.state')}
         </p>
         <div className="flex flex-col gap-0.5">
@@ -164,10 +164,10 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
               onClick={() => onChange({ ...filters, openedState: s })}
               className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${filters.openedState === s ? 'bg-default-100' : 'hover:bg-default-50'}`}
             >
-              <span className={`text-[0.75rem] ${filters.openedState === s ? 'font-semibold' : 'font-normal'}`}>
+              <span className={`text-xs ${filters.openedState === s ? 'font-semibold' : 'font-normal'}`}>
                 {t(`analytics.map.filters.state${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
               </span>
-              {filters.openedState === s && <span className="text-[0.7rem] text-primary font-bold">✓</span>}
+              {filters.openedState === s && <span className="text-xs text-primary font-bold">✓</span>}
             </div>
           ))}
         </div>

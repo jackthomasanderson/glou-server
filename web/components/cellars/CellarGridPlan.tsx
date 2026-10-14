@@ -32,6 +32,7 @@ import { useTranslation } from 'react-i18next';
 import { GridItem, CellarGridData } from '@/lib/cellars/types';
 import { useAssignSlot } from '@/hooks/useCellars';
 import { client } from '@/lib/api';
+import { notifyError } from '@/lib/toast';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 import { gridCoordinateGetter } from '@/lib/cellars/gridKeyboard';
 
@@ -93,8 +94,8 @@ function BottleVisual({ item }: BottleVisualProps) {
       style={{ backgroundColor: getCellColor(item) }}
     >
       <span
-        className="text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
-        style={{ fontSize: '7px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+        className="text-xs text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
+        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
       >
         {label}
       </span>
@@ -154,8 +155,8 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
         }}
       >
         <span
-          className="text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
-          style={{ fontSize: '7px', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+          className="text-xs text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
+          style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
         >
           {item.vintage ? `${item.name.slice(0, 6)} ${item.vintage}` : item.name.slice(0, 8)}
         </span>
@@ -257,8 +258,8 @@ function GridLegend({ items }: { items: GridItem[] }) {
       {present.map((key) => (
         <span
           key={key}
-          className="inline-flex items-center px-2 py-0.5 rounded-full text-white font-semibold"
-          style={{ backgroundColor: CATEGORY_COLORS[key] ?? '#9E9E9E', fontSize: 11 }}
+          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs text-white font-semibold"
+          style={{ backgroundColor: CATEGORY_COLORS[key] ?? '#9E9E9E' }}
         >
           {labelFor(key)}
         </span>
@@ -306,7 +307,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
             </div>
           )}
           {unassignedItems.length === 0 ? (
-            <p className="px-4 py-4 text-sm text-default-400">
+            <p className="px-4 py-4 text-sm text-foreground-500">
               {t('cellars.grid.noUnassignedBottles')}
             </p>
           ) : (
@@ -324,7 +325,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
                   />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium truncate">{item.name}</div>
-                    <div className="text-xs text-default-400 truncate">
+                    <div className="text-xs text-foreground-500 truncate">
                       {[item.producer, item.vintage].filter(Boolean).join(' · ')}
                     </div>
                   </div>
@@ -533,6 +534,13 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
       }
     } else {
       // ── Swap two occupied slots ─────────────────────────────────────────
+      // ISSUE_037: this used to be three independent network calls (vacate,
+      // move target, move dragged); a dropped connection between any two of
+      // them left the database half-updated while the screen silently
+      // reverted to the old positions, lying about the real state. A single
+      // transactional endpoint now performs both moves atomically, and a
+      // failure triggers a real refetch (not just a local revert) plus an
+      // error toast, so the screen can never again disagree with the server.
       setLocalItems((prev) =>
         prev.map((it) => {
           if (it.id === draggedItem.id) return { ...it, slotColumn: toCol, slotRow: toRow };
@@ -541,18 +549,18 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
         })
       );
       try {
-        // Step 1: vacate source slot
-        await client.patch(`/inventory/${draggedItem.id}`, { slotColumn: null, slotRow: null });
-        // Step 2: move target to source slot
-        await client.patch(`/inventory/${targetItem.id}`, { slotColumn: fromCol, slotRow: fromRow });
-        // Step 3: move dragged to target slot
-        await client.patch(`/inventory/${draggedItem.id}`, { slotColumn: toCol, slotRow: toRow });
+        await client.post(`/cellars/${cellar.id}/swap-slots`, {
+          itemAId: draggedItem.id,
+          itemBId: targetItem.id,
+        });
         invalidateGrid();
       } catch {
         setLocalItems(prevItems);
+        invalidateGrid();
+        notifyError('cellars.grid.moveError');
       }
     }
-  }, [localItems, invalidateGrid]);
+  }, [localItems, invalidateGrid, cellar.id]);
 
   if (cols === 0 || rows === 0) {
     return (

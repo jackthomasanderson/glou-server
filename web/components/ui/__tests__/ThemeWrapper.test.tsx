@@ -16,6 +16,8 @@ import { ThemeWrapper } from '../ThemeWrapper';
 // beyond jsdom.
 
 let mockUser: { accentColor?: string; theme?: string; language?: string } | null = null;
+let mockChangeLanguage = vi.fn();
+let mockI18nLanguage = 'en';
 
 vi.mock('@/hooks/useAuth', () => ({
   useMe: () => ({ data: mockUser }),
@@ -25,7 +27,7 @@ vi.mock('@/hooks/useAuth', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    i18n: { language: 'en', changeLanguage: vi.fn() },
+    i18n: { language: mockI18nLanguage, changeLanguage: mockChangeLanguage },
   }),
 }));
 
@@ -39,8 +41,12 @@ vi.mock('@/hooks/useHasMounted', () => ({
 // Mocked to a passthrough so this test exercises ThemeWrapper's own effects
 // (the actual regression surface — accent color / theme class handling),
 // not HeroUI's internals.
+let lastHeroUIProps: Record<string, unknown> = {};
 vi.mock('@heroui/react', () => ({
-  HeroUIProvider: ({ children }: { children: ReactNode }) => children,
+  HeroUIProvider: ({ children, ...props }: { children: ReactNode } & Record<string, unknown>) => {
+    lastHeroUIProps = props;
+    return children;
+  },
 }));
 
 describe('ThemeWrapper', () => {
@@ -65,6 +71,10 @@ describe('ThemeWrapper', () => {
     window.localStorage.clear();
     mockUser = null;
     mockMounted = true;
+    mockChangeLanguage = vi.fn();
+    mockI18nLanguage = 'en';
+    document.documentElement.lang = '';
+    lastHeroUIProps = {};
   });
 
   it('shows a visible placeholder, not a blank screen, until mounted (#210)', () => {
@@ -117,5 +127,53 @@ describe('ThemeWrapper', () => {
     mockUser = { theme: 'LIGHT' };
     mount(<span>content</span>);
     expect(document.documentElement.classList.contains('dark')).toBe(false);
+  });
+
+  // ISSUE_079: the server-rendered <html> is hardcoded lang="fr" — this is
+  // the one place a real user's preference ever gets to correct it.
+  it("syncs <html lang> to the user's language preference", () => {
+    mockUser = { language: 'EN' };
+    mount(<span>content</span>);
+    expect(document.documentElement.lang).toBe('en');
+  });
+
+  it('does not touch <html lang> when the user has no language preference', () => {
+    document.documentElement.lang = 'fr';
+    mockUser = null;
+    mount(<span>content</span>);
+    expect(document.documentElement.lang).toBe('fr');
+  });
+
+  // ISSUE_080: prefers-reduced-motion must actually reach HeroUIProvider.
+  it('passes disableAnimation to HeroUIProvider when prefers-reduced-motion is set', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: query.includes('prefers-reduced-motion'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    });
+    mount(<span>content</span>);
+    expect(lastHeroUIProps.disableAnimation).toBe(true);
+    Reflect.deleteProperty(window, 'matchMedia');
+  });
+
+  it('does not disable animation when prefers-reduced-motion is not set', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }),
+    });
+    mount(<span>content</span>);
+    expect(lastHeroUIProps.disableAnimation).toBe(false);
+    Reflect.deleteProperty(window, 'matchMedia');
   });
 });

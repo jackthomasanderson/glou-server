@@ -34,7 +34,7 @@ export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps
                   ? `${note.item.name} — ${note.item.producer}`
                   : t('tastings.noItem')}
               </p>
-              <p className="text-xs text-default-400">
+              <p className="text-xs text-foreground-500">
                 {formatDate(note.tastedAt, i18n.language)}
                 {note.context ? ` · ${note.context}` : ''}
               </p>

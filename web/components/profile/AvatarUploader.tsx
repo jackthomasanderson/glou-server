@@ -147,7 +147,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
       </p>
 
       {feedback && (
-        <div role={feedback.type === 'success' ? 'status' : 'alert'} className={`mt-3 text-sm px-4 py-2 rounded-lg ${feedback.type === 'success' ? 'bg-success-50 text-success border border-success-200' : 'bg-danger-50 text-danger border border-danger-200'}`}>
+        <div role={feedback.type === 'success' ? 'status' : 'alert'} className={`mt-3 text-sm px-4 py-2 rounded-lg ${feedback.type === 'success' ? 'bg-success-50 text-success-700 border border-success-200' : 'bg-danger-50 text-danger border border-danger-200'}`}>
           {feedback.msg}
         </div>
       )}

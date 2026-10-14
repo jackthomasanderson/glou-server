@@ -21,9 +21,12 @@ describe('handleResponse', () => {
     await expect(handleResponse(res)).rejects.toThrow('VALIDATION_ERROR');
   });
 
-  it('prefers body.details over body.error when both present', async () => {
-    const res = mockResponse(422, { error: 'INVALID', details: 'name is required' });
-    await expect(handleResponse(res)).rejects.toThrow('name is required');
+  it('always throws body.error, never body.details, even when details is a Zod format object', async () => {
+    const res = mockResponse(422, {
+      error: 'VALIDATION_ERROR',
+      details: { username: { _errors: ['USERNAME_TOO_SHORT'] } },
+    });
+    await expect(handleResponse(res)).rejects.toThrow('VALIDATION_ERROR');
   });
 
   it('throws NETWORK_ERROR when body parse fails', async () => {

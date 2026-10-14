@@ -120,7 +120,7 @@ export function InventoryFilterBar({
       {/* Cellar filter */}
       {(cellars?.length ?? 0) > 0 && (
         <div>
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
             {t('inventory.filterByCellar')}
           </p>
           <div className="flex flex-wrap gap-1">
@@ -128,7 +128,7 @@ export function InventoryFilterBar({
               size="sm"
               variant={selectedCellars.length === 0 ? 'solid' : 'bordered'}
               color={selectedCellars.length === 0 ? 'primary' : 'default'}
-              className="cursor-pointer text-[0.7rem]"
+              className="cursor-pointer text-xs"
               onClick={() => setSelectedCellars([])}
             >
               {t('filters.all')}
@@ -139,7 +139,7 @@ export function InventoryFilterBar({
                 size="sm"
                 variant={selectedCellars.includes(cellar.id) ? 'solid' : 'bordered'}
                 color={selectedCellars.includes(cellar.id) ? 'primary' : 'default'}
-                className="cursor-pointer text-[0.7rem]"
+                className="cursor-pointer text-xs"
                 onClick={() => toggleCellar(cellar.id)}
               >
                 {cellar.name}
@@ -151,7 +151,7 @@ export function InventoryFilterBar({
 
       {/* Opened filter */}
       <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {lockedCategories?.includes('cigar') ? t('inventory.fields.isOpenedCigar') : t('inventory.fields.isOpened')}
         </p>
         <div className="flex flex-col gap-0.5">
@@ -166,11 +166,11 @@ export function InventoryFilterBar({
                 onClick={() => setOpenedFilter(f)}
                 className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${openedFilter === f ? 'bg-default-100' : 'hover:bg-default-50'}`}
               >
-                <span className={`text-[0.75rem] ${openedFilter === f ? 'font-semibold' : 'font-normal'}`}>
+                <span className={`text-xs ${openedFilter === f ? 'font-semibold' : 'font-normal'}`}>
                   {label}
                 </span>
                 {openedFilter === f && (
-                  <span className="text-[0.7rem] text-primary font-bold">✓</span>
+                  <span className="text-xs text-primary font-bold">✓</span>
                 )}
               </div>
             );
@@ -181,7 +181,7 @@ export function InventoryFilterBar({
       {/* Category filter */}
       {!lockedCategories && (
         <div>
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
             {t('inventory.filterByCategory')}
           </p>
           <div className="flex flex-col gap-0.5">
@@ -189,11 +189,11 @@ export function InventoryFilterBar({
               onClick={() => setSelectedCategories([])}
               className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${selectedCategories.length === 0 ? 'bg-default-100' : 'hover:bg-default-50'}`}
             >
-              <span className={`text-[0.75rem] ${selectedCategories.length === 0 ? 'font-semibold' : 'font-normal'}`}>
+              <span className={`text-xs ${selectedCategories.length === 0 ? 'font-semibold' : 'font-normal'}`}>
                 {t('filters.allCategories')}
               </span>
               {selectedCategories.length === 0 && (
-                <span className="text-[0.7rem] text-primary font-bold">✓</span>
+                <span className="text-xs text-primary font-bold">✓</span>
               )}
             </div>
             {['wine', 'sparkling', 'spirit', 'cigar'].map((cat) => (
@@ -202,11 +202,11 @@ export function InventoryFilterBar({
                 onClick={() => toggleCategory(cat)}
                 className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${selectedCategories.includes(cat) ? 'bg-default-100' : 'hover:bg-default-50'}`}
               >
-                <span className={`text-[0.75rem] ${selectedCategories.includes(cat) ? 'font-semibold' : 'font-normal'}`}>
+                <span className={`text-xs ${selectedCategories.includes(cat) ? 'font-semibold' : 'font-normal'}`}>
                   {t(`categories.${cat}`)}
                 </span>
                 {selectedCategories.includes(cat) && (
-                  <span className="text-[0.7rem] text-primary font-bold">✓</span>
+                  <span className="text-xs text-primary font-bold">✓</span>
                 )}
               </div>
             ))}
@@ -217,7 +217,7 @@ export function InventoryFilterBar({
       {/* Wine color filter */}
       {!lockedCategories?.includes('cigar') && (selectedCategories.length === 0 || selectedCategories.includes('wine')) && (
         <div>
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
             {t('inventory.filterByWineColor')}
           </p>
           <div className="flex flex-wrap gap-1">
@@ -227,7 +227,7 @@ export function InventoryFilterBar({
                 size="sm"
                 variant={selectedWineColors.includes(c) ? 'solid' : 'bordered'}
                 color={selectedWineColors.includes(c) ? 'primary' : 'default'}
-                className="cursor-pointer text-[0.7rem]"
+                className="cursor-pointer text-xs"
                 onClick={() =>
                   setSelectedWineColors((prev) =>
                     prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
@@ -243,7 +243,7 @@ export function InventoryFilterBar({
 
       {/* Value range */}
       <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {t('inventory.filterByValue')}
         </p>
         <div className="flex gap-2">
@@ -254,7 +254,7 @@ export function InventoryFilterBar({
             placeholder={t('inventory.filters.minValue')}
             value={minValue}
             onChange={(e) => setMinValue(e.target.value)}
-            className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
+            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
           <input
             type="number"
@@ -263,14 +263,14 @@ export function InventoryFilterBar({
             placeholder={t('inventory.filters.maxValue')}
             value={maxValue}
             onChange={(e) => setMaxValue(e.target.value)}
-            className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
+            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
         </div>
       </div>
 
       {/* Sort */}
       <div>
-        <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+        <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {t('inventory.filters.sortBy')}
         </p>
         <div className="flex flex-col gap-0.5">
@@ -280,10 +280,10 @@ export function InventoryFilterBar({
               onClick={() => setSortBy(s)}
               className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${sortBy === s ? 'bg-default-100' : 'hover:bg-default-50'}`}
             >
-              <span className={`text-[0.75rem] ${sortBy === s ? 'font-semibold' : 'font-normal'}`}>
+              <span className={`text-xs ${sortBy === s ? 'font-semibold' : 'font-normal'}`}>
                 {t(`inventory.filters.sortOptions.${s}`)}
               </span>
-              {sortBy === s && <span className="text-[0.7rem] text-primary font-bold">✓</span>}
+              {sortBy === s && <span className="text-xs text-primary font-bold">✓</span>}
             </div>
           ))}
         </div>
@@ -292,7 +292,7 @@ export function InventoryFilterBar({
       {/* Tags filter */}
       {tagUsage.length > 0 && (
         <div>
-          <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
             {t('inventory.filterByTags')}
           </p>
           {tagUsage.length > TAG_DISPLAY_LIMIT && (
@@ -302,7 +302,7 @@ export function InventoryFilterBar({
               placeholder={t('inventory.filters.tagSearchPlaceholder')}
               value={tagSearchQuery}
               onChange={(e) => setTagSearchQuery(e.target.value)}
-              className="w-full text-[0.75rem] rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary mb-2"
+              className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary mb-2"
             />
           )}
           <div className="flex flex-wrap gap-1">
@@ -312,7 +312,7 @@ export function InventoryFilterBar({
                 size="sm"
                 variant={selectedTags.includes(tag) ? 'solid' : 'bordered'}
                 color={selectedTags.includes(tag) ? 'primary' : 'default'}
-                className="cursor-pointer text-[0.7rem]"
+                className="cursor-pointer text-xs"
                 onClick={() =>
                   setSelectedTags((prev) =>
                     prev.includes(tag) ? prev.filter((tg) => tg !== tag) : [...prev, tag]
@@ -323,13 +323,13 @@ export function InventoryFilterBar({
               </Chip>
             ))}
             {visibleTagUsage.length === 0 && tagSearchQuery.trim() && (
-              <p className="text-[0.7rem] text-default-400">{t('inventory.filters.noTagsFound')}</p>
+              <p className="text-xs text-foreground-500">{t('inventory.filters.noTagsFound')}</p>
             )}
           </div>
           {hasMoreTags && (
             <button
               onClick={() => setShowAllTags((prev) => !prev)}
-              className="text-[0.7rem] text-primary font-semibold hover:underline mt-2"
+              className="text-xs text-primary font-semibold hover:underline mt-2"
             >
               {showAllTags ? t('inventory.filters.tagsShowLess') : t('inventory.filters.tagsShowMore')}
             </button>
@@ -353,15 +353,15 @@ export function InventoryFilterBar({
       <div className="border border-divider rounded-xl p-4 sticky top-[72px]">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-1.5">
-            <Filter size={13} className="text-default-400" />
-            <span className="text-[0.65rem] font-bold uppercase tracking-widest text-default-400">
+            <Filter size={13} className="text-foreground-500" />
+            <span className="text-xs font-bold uppercase tracking-widest text-foreground-500">
               {t('actions.filter')}
             </span>
           </div>
           {hasActiveFilters && (
             <button
               onClick={onClearFilters}
-              className="text-[0.65rem] text-primary font-semibold hover:underline"
+              className="text-xs text-primary font-semibold hover:underline"
             >
               ↺ {t('actions.clearAll')}
             </button>

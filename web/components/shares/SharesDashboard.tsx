@@ -106,14 +106,14 @@ export function SharesDashboard() {
 
           {/* Loading */}
           {isLoading ? (
-            <div className="flex justify-center py-6">
-              <Spinner size="md" />
+            <div className="flex justify-center py-6" role="status" aria-live="polite">
+              <Spinner size="md" aria-label={t('status.loading')} />
             </div>
           ) : !shares?.length ? (
             <div className="text-center py-6">
               <Link2 size={36} className="text-default-200 mx-auto mb-2" />
-              <p className="text-sm text-default-400">{t('shares.empty')}</p>
-              <p className="text-xs text-default-300 mt-1">{t('shares.emptyHint')}</p>
+              <p className="text-sm text-foreground-500">{t('shares.empty')}</p>
+              <p className="text-xs text-foreground-400 mt-1">{t('shares.emptyHint')}</p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">

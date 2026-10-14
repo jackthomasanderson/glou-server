@@ -58,11 +58,11 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         >
           <Link
             href="/"
-            className="block font-extrabold text-[1.1rem] tracking-[.15rem] text-secondary no-underline leading-tight whitespace-nowrap"
+            className="block font-extrabold text-lg tracking-[.15rem] text-secondary no-underline leading-tight whitespace-nowrap"
           >
             {user?.appName || 'GLOU'}
           </Link>
-          <span className="block text-[0.6rem] tracking-[.08rem] uppercase text-foreground-500 mt-0.5 whitespace-nowrap">
+          <span className="block text-xs tracking-[.08rem] uppercase text-foreground-500 mt-0.5 whitespace-nowrap">
             {user?.appSlogan || 'Simplement précieux'}
           </span>
         </div>
@@ -131,7 +131,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
                 </span>
               )}
               {expanded && showCount && (
-                <span className={`ml-auto text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                <span className={`ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full leading-none ${
                   active ? 'bg-white/25 text-white' : 'bg-default-100 text-foreground-500'
                 }`}>
                   {link.count}
@@ -223,7 +223,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
               <p className="text-xs font-semibold leading-tight truncate whitespace-nowrap">
                 {user?.username}
               </p>
-              <p className="text-[0.65rem] text-foreground-500 leading-tight truncate whitespace-nowrap">
+              <p className="text-xs text-foreground-500 leading-tight truncate whitespace-nowrap">
                 {user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}
               </p>
             </div>

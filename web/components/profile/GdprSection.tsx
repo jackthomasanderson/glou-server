@@ -13,6 +13,7 @@ interface GdprSectionProps {
 const EXPORT_CATEGORIES: ExportCategory[] = [
   'inventory', 'cellars', 'collections', 'tastings', 'activity',
   'wishlist', 'budget', 'goals', 'counts', 'humidor',
+  'sessions', 'devices', 'notifications', 'configHistory',
 ];
 
 export function GdprSection({ user }: GdprSectionProps) {
@@ -31,10 +32,16 @@ export function GdprSection({ user }: GdprSectionProps) {
   };
 
   const isDeletionPending = !!user.deletionRequestedAt;
-  // No automatic purge exists yet (#222): the request is handled by the instance
-  // administrator, so only the request date is shown, never a deadline.
-  const deletionRequestedOn = isDeletionPending
-    ? formatDate(user.deletionRequestedAt, i18n.language)
+  // #222: the nightly retention cleanup now actually anonymizes/deactivates
+  // the account once the grace period has elapsed (ACCOUNT_DELETION_GRACE_DAYS
+  // in maintenance.service.ts) — show that real deadline rather than the
+  // request date alone.
+  const DELETION_GRACE_DAYS = 30;
+  const deletionScheduledFor = isDeletionPending && user.deletionRequestedAt
+    ? formatDate(
+        new Date(new Date(user.deletionRequestedAt).getTime() + DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+        i18n.language,
+      )
     : null;
 
   const handleConfirmDelete = () => {
@@ -58,7 +65,7 @@ export function GdprSection({ user }: GdprSectionProps) {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-warning-700">{t('gdpr.deletionPending')}</p>
                 <p className="text-xs text-warning-600 mt-0.5">
-                  {t('gdpr.deletionRequestedOn', { date: deletionRequestedOn })}
+                  {t('gdpr.deletionRequestedOn', { date: deletionScheduledFor })}
                 </p>
               </div>
               <Button
@@ -79,7 +86,7 @@ export function GdprSection({ user }: GdprSectionProps) {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-sm font-semibold">{t('gdpr.exportTitle')}</p>
-                <p className="text-xs text-default-400 mt-0.5">{t('gdpr.exportDescription')}</p>
+                <p className="text-xs text-foreground-500 mt-0.5">{t('gdpr.exportDescription')}</p>
               </div>
               <div className="flex flex-col items-end gap-2 shrink-0">
                 <Button
@@ -140,7 +147,7 @@ export function GdprSection({ user }: GdprSectionProps) {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-danger">{t('gdpr.deleteTitle')}</p>
-                <p className="text-xs text-default-400 mt-0.5">{t('gdpr.deleteDescription')}</p>
+                <p className="text-xs text-foreground-500 mt-0.5">{t('gdpr.deleteDescription')}</p>
               </div>
               <Button
                 size="sm"
@@ -163,7 +170,7 @@ export function GdprSection({ user }: GdprSectionProps) {
           <ModalHeader className="text-danger">{t('gdpr.deleteModalTitle')}</ModalHeader>
           <ModalBody className="flex flex-col gap-4">
             <p className="text-sm text-foreground-600">{t('gdpr.deleteModalBody')}</p>
-            <p className="text-xs text-default-400">{t('gdpr.deleteModalHint', { keyword: t('gdpr.deleteKeyword') })}</p>
+            <p className="text-xs text-foreground-500">{t('gdpr.deleteModalHint', { keyword: t('gdpr.deleteKeyword') })}</p>
             <input
               className="w-full border border-divider rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-danger"
               placeholder={t('gdpr.deleteKeyword')}

@@ -336,7 +336,7 @@ export function BulkActionDialog({
                           <span className="font-bold min-w-[80px] text-default-700">
                             {field === 'cellarId' ? t('nav.caves') : t(`inventory.fields.${field}`)}:
                           </span>
-                          <span className="line-through text-default-400">{data.before}</span>
+                          <span className="line-through text-foreground-500">{data.before}</span>
                           <span className="text-primary font-bold">→ {data.after}</span>
                         </div>
                       );

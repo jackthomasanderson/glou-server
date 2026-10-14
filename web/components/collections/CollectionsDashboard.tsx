@@ -91,16 +91,17 @@ export function CollectionsDashboard() {
 
       {/* Loading */}
       {isLoading ? (
-        <div className="flex justify-center py-16">
-          <Spinner size="lg" />
+        <div className="flex justify-center py-16" role="status" aria-live="polite">
+          <Spinner size="lg" aria-label={t('status.loading')} />
         </div>
       ) : !collections?.length ? (
         /* Empty state */
         <div className="flex flex-col items-center py-16 text-center">
-          <BookMarked size={64} className="text-default-300 mb-4" />
+          <BookMarked size={64} className="text-foreground-400 mb-4" />
           <p className="text-lg font-semibold text-default-500">{t('collections.empty')}</p>
-          <p className="text-sm text-default-400 mb-6">{t('collections.emptyHint')}</p>
+          <p className="text-sm text-foreground-500 mb-6">{t('collections.emptyHint')}</p>
           <Button
+            data-testid="collection-create-button"
             color="primary"
             variant="solid"
             startContent={<Plus size={16} />}
@@ -139,6 +140,7 @@ export function CollectionsDashboard() {
       {/* FAB — only when there are collections */}
       {(collections?.length ?? 0) > 0 && (
         <Button
+          data-testid="collection-create-button"
           color="primary"
           radius="full"
           size="lg"

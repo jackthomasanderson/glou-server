@@ -24,10 +24,16 @@ export interface RegionCategoryStat {
 }
 
 export interface MaturityPlanning {
-  readyNow: { count: number; percent: number };
   preserve: { count: number; percent: number };
   atPeak: { count: number; percent: number };
   pastPeak: { count: number; percent: number };
+  // ISSUE_100: an item with no peak-maturity window (alertStatus === 'none',
+  // the only status AlertStatus's other 3 values don't already cover) isn't
+  // "ready to drink now" — the former `readyNow` bucket's name — it's simply
+  // not tracked for readiness at all (no vintage/curve data). A distinct
+  // bucket instead of folding it into a "ready now" claim the app has no
+  // actual basis for.
+  noWindow: { count: number; percent: number };
 }
 
 export interface GardePoint {
@@ -182,7 +188,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   let totalLiquidLiters = 0;
   let cigarModulesCount = 0;
   let urgentDegustationCount = 0;
-  let readyNow = 0;
+  let noWindow = 0;
   let preserve = 0;
   let atPeak = 0;
   let pastPeak = 0;
@@ -233,7 +239,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     } else if (item.alertStatus === 'approaching') {
       preserve += 1;
     } else {
-      readyNow += 1;
+      noWindow += 1;
     }
 
     // Garde histogram: distribute the bottle across the years of its peak
@@ -328,10 +334,10 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       )
       .sort((a, b) => b.count - a.count || b.valuation - a.valuation),
     maturityPlanning: {
-      readyNow: { count: readyNow, percent: pct(readyNow) },
       preserve: { count: preserve, percent: pct(preserve) },
       atPeak: { count: atPeak, percent: pct(atPeak) },
       pastPeak: { count: pastPeak, percent: pct(pastPeak) },
+      noWindow: { count: noWindow, percent: pct(noWindow) },
     },
     gardeHistogram,
     caveDistribution,

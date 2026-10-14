@@ -33,6 +33,7 @@ router.post('/csv/preview', csvUpload.single('file'), async (req: Request, res: 
     });
     res.json({ data: result });
   } catch (error) {
+    console.error('[import] POST /csv/preview error:', error);
     void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'error', details: { stage: 'preview', message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
@@ -55,10 +56,11 @@ router.post('/csv/confirm', async (req: Request, res: Response): Promise<void> =
       }
     }
 
-    const created = await importService.confirmImport(req.userId, rows, cellarId ?? null);
-    void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'success', details: { stage: 'confirm', created } });
-    res.status(201).json({ data: { created } });
+    const { created, skippedDuplicates } = await importService.confirmImport(req.userId, rows, cellarId ?? null);
+    void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'success', details: { stage: 'confirm', created, skippedDuplicates } });
+    res.status(201).json({ data: { created, skippedDuplicates } });
   } catch (error) {
+    console.error('[import] POST /csv/confirm error:', error);
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'validation_error', details: { stage: 'confirm', issues } });

@@ -8,7 +8,7 @@ import { useSessions } from '@/hooks/useAuth';
 import { useShares } from '@/hooks/useShares';
 import { getShareStatus } from '@/lib/shares/types';
 import { useHasMounted } from '@/hooks/useHasMounted';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatDeviceLabel } from '@/lib/format';
 
 /**
  * FEAT-18: "Journal de transparence" — read-only view of who currently has
@@ -65,7 +65,7 @@ export function AccessTransparencyPanel() {
               {sessions.map((session) => (
                 <li key={session.id} className="flex items-center justify-between gap-2 bg-default-50 rounded-lg px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-xs font-medium truncate">{session.device}</p>
+                    <p className="text-xs font-medium truncate">{formatDeviceLabel(session.device, t)}</p>
                     <p className="text-xs text-foreground-400">
                       {t('accessTransparency.sessions.lastActive')} : {formatDate(session.lastActiveAt)}
                     </p>

@@ -1,15 +1,24 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // `previewCsv` never touches the database, but the module graph reaches
 // `lib/prisma` through `inventory.service` — mock it so no client is built.
+const tx = {
+  inventoryItem: {
+    create: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn().mockResolvedValue([]),
+  },
+};
+const transaction = vi.fn((fn: (t: typeof tx) => Promise<unknown>) => fn(tx));
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    $transaction: vi.fn(),
-    inventoryItem: { create: vi.fn(), findFirst: vi.fn() },
+    $transaction: (...args: unknown[]) => (transaction as (...a: unknown[]) => unknown)(...args),
+    inventoryItem: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
   },
 }));
 
 import { importService } from '../../src/services/import.service';
+import type { CsvImportRow } from '../../src/schemas/import.schema';
 
 const csv = (text: string) => Buffer.from(text, 'utf-8');
 
@@ -56,5 +65,45 @@ describe('ImportService.previewCsv', () => {
 
   it('returns an empty preview for an empty file', () => {
     expect(importService.previewCsv(csv(''))).toEqual({ valid: [], errors: [] });
+  });
+});
+
+describe('ImportService.confirmImport', () => {
+  beforeEach(() => {
+    tx.inventoryItem.create.mockReset().mockResolvedValue({});
+    tx.inventoryItem.findMany.mockReset().mockResolvedValue([]);
+  });
+
+  const row = (overrides: Partial<CsvImportRow> = {}): CsvImportRow => ({
+    name: 'Pétrus',
+    producer: 'Château Pétrus',
+    category: 'wine',
+    vintage: 2015,
+    ...overrides,
+  });
+
+  it('creates every row when none of them already exist (ISSUE_141)', async () => {
+    const result = await importService.confirmImport('u1', [row()], null);
+    expect(result).toEqual({ created: 1, skippedDuplicates: 0 });
+    expect(tx.inventoryItem.create).toHaveBeenCalledTimes(1);
+  });
+
+  // ISSUE_141/ISSUE_068: CSV import was the one creation path with zero
+  // duplicate detection at all — the highest-volume way to double a shelf.
+  it('skips a row that already matches an existing item instead of erroring', async () => {
+    tx.inventoryItem.findMany.mockResolvedValue([
+      { producer: 'Château Pétrus', name: 'Pétrus', vintage: 2015, bottleSize: null },
+    ]);
+    const result = await importService.confirmImport('u1', [row()], null);
+    expect(result).toEqual({ created: 0, skippedDuplicates: 1 });
+    expect(tx.inventoryItem.create).not.toHaveBeenCalled();
+  });
+
+  it('still creates a row whose vintage actually differs from the existing one', async () => {
+    tx.inventoryItem.findMany.mockResolvedValue([
+      { producer: 'Château Pétrus', name: 'Pétrus', vintage: 2010, bottleSize: null },
+    ]);
+    const result = await importService.confirmImport('u1', [row({ vintage: 2015 })], null);
+    expect(result).toEqual({ created: 1, skippedDuplicates: 0 });
   });
 });

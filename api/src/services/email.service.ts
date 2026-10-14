@@ -70,7 +70,8 @@ export const emailService = {
       await this.send({
         to,
         subject: 'Glou — Test SMTP',
-        html: '<p>Connexion SMTP validée depuis Glou. Cet email confirme que votre configuration fonctionne.</p>',
+        html: '<p>Connexion SMTP validée depuis Glou. Cet email confirme que votre configuration fonctionne.</p>'
+          + '<p>SMTP connection validated from Glou. This email confirms your configuration is working.</p>',
       });
       return { success: true };
     } catch (err) {

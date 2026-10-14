@@ -30,7 +30,7 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
         className="flex items-center justify-center"
         style={{ height: CHART_HEIGHT + AXIS_HEIGHT }}
       >
-        <span className="text-sm text-default-400">{t('analytics.garde.noData')}</span>
+        <span className="text-sm text-foreground-500">{t('analytics.garde.noData')}</span>
       </div>
     );
   }
@@ -57,7 +57,7 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
                 className="absolute bg-white dark:bg-default-100 border border-default-200 rounded-xl px-2 py-1 z-10 whitespace-nowrap shadow-md pointer-events-none"
                 style={{ top: -44, left: Math.min(x, totalWidth - 100) }}
               >
-                <span className="text-[11px] font-bold">
+                <span className="text-xs font-bold">
                   {pt.year} — {pt.count} {t('analytics.garde.bottles', { count: pt.count })}
                 </span>
               </div>

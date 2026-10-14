@@ -3,6 +3,7 @@ import { emailService } from './email.service';
 import { systemConfigService } from './system-config.service';
 import { htmlToPlainText } from '../lib/html';
 import { normalizeGotifyUrl } from '../lib/gotify-url';
+import { assertUrlAllowed } from '../lib/ssrf';
 
 export type NotificationCategory =
   | 'peak'
@@ -69,10 +70,16 @@ export const notificationService = {
       }
     }
 
-    // Webhook (Gotify) channel
+    // Webhook (Gotify) channel. ISSUE_048: `lib/ssrf.ts` exists precisely so an
+    // authenticated member can't use a server-side fetch as a springboard into
+    // the Docker network — it was written for the image-import endpoint but
+    // never applied here, even though a webhook URL is exactly the same
+    // shape of user-supplied address.
     if (user.notifWebhook && user.webhookUrl) {
       try {
-        await fetch(normalizeGotifyUrl(user.webhookUrl), {
+        const url = normalizeGotifyUrl(user.webhookUrl);
+        await assertUrlAllowed(url);
+        await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: payload.subject, message: htmlToPlainText(payload.htmlBody) }),
@@ -95,16 +102,25 @@ export const notificationService = {
 
     if (channel === 'webhook') {
       if (!user.webhookUrl) return { success: false, error: 'NO_WEBHOOK_URL' };
+      const url = normalizeGotifyUrl(user.webhookUrl);
       try {
-        const res = await fetch(normalizeGotifyUrl(user.webhookUrl), {
+        await assertUrlAllowed(url);
+      } catch {
+        return { success: false, error: 'INVALID_URL' };
+      }
+      // ISSUE_048: the raw HTTP status / network error message is a
+      // reconnaissance instrument for mapping what the server container can
+      // reach internally — a stable, generic code is returned instead.
+      try {
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: 'Glou — Test', message: 'Notification de test Glou.' }),
           signal: AbortSignal.timeout(5000),
         });
-        return res.ok ? { success: true } : { success: false, error: `HTTP ${res.status}` };
-      } catch (err) {
-        return { success: false, error: err instanceof Error ? err.message : 'FETCH_ERROR' };
+        return res.ok ? { success: true } : { success: false, error: 'DELIVERY_FAILED' };
+      } catch {
+        return { success: false, error: 'DELIVERY_FAILED' };
       }
     }
 

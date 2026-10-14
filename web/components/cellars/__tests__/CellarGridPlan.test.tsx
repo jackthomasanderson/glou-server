@@ -32,7 +32,8 @@ vi.mock('@heroui/react', async (importActual) => {
   };
 });
 vi.mock('@/hooks/useCellars', () => ({ useAssignSlot: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
-vi.mock('@/lib/api', () => ({ client: { patch: vi.fn() } }));
+vi.mock('@/lib/api', () => ({ client: { patch: vi.fn(), post: vi.fn() } }));
+vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
 
 const data = {
   cellar: { id: 'c1', name: 'Cave', columns: 2, rows: 1, hotZoneRows: 0, coldZoneRows: 0 },

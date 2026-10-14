@@ -65,6 +65,7 @@ services:
     profiles: ["scan"]
     image: ollama/ollama:latest
     restart: unless-stopped
+    mem_limit: 4g
     environment:
       OLLAMA_KEEP_ALIVE: 5m
       OLLAMA_MAX_LOADED_MODELS: 1

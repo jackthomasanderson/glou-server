@@ -20,6 +20,7 @@ import { MaturitySuggestionField } from './MaturitySuggestionField';
 import { CollectionSelector } from './CollectionSelector';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
@@ -160,9 +161,13 @@ export function InventoryForm({
     if (!canSave) return;
     // alertStatus is recomputed server-side from peakMaturity — never send it as-is.
     // readiness (FEAT-86) is a server-computed, read-only projection — drop it too.
+    // lockedFields (ISSUE_031) is internal bookkeeping the server itself
+    // maintains on every manual edit — round-tripping it unchanged used to
+    // disable that very auto-lock (the API now strips it either way, but the
+    // form has no legitimate reason to send it).
     // cellarId 'none' is a UI sentinel → null.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { alertStatus: _drop, readiness: _drop2, ...rest } = values;
+    const { alertStatus: _drop, readiness: _drop2, lockedFields: _drop3, ...rest } = values;
     const patch = {
       ...rest,
       cellarId: rest.cellarId === ('none' as string) || rest.cellarId === '' ? null : rest.cellarId,
@@ -180,6 +185,7 @@ export function InventoryForm({
   const isWineOrSparkling = isWine || isSparkling;
 
   const numField = (val: string, fallback?: number) => (val ? Number(val) : fallback);
+  const isMobile = useIsMobile();
 
   return (
     <>
@@ -187,10 +193,10 @@ export function InventoryForm({
       isOpen={open && !guard.isConfirmOpen}
       onClose={guard.requestClose}
       {...guard.dismissProps}
-      size="4xl"
+      size={isMobile ? 'full' : '4xl'}
       radius="lg"
       backdrop="opaque"
-      placement="center"
+      placement={isMobile ? 'bottom' : 'center'}
       scrollBehavior="inside"
       hideCloseButton
     >
@@ -332,6 +338,7 @@ export function InventoryForm({
                       {isWine && (
                         <>
                           <Input
+                            data-testid="inventory-vintage-input"
                             label={t('inventory.fields.vintage')}
                             type="number"
                             variant="bordered"
@@ -368,7 +375,7 @@ export function InventoryForm({
                             size="sm"
                             value={String(values.alcoholDegree ?? '')}
                             onValueChange={(v) => setField('alcoholDegree', numField(v))}
-                            endContent={<span className="text-xs text-default-400">%</span>}
+                            endContent={<span className="text-xs text-foreground-500">%</span>}
                             min={0} max={100} step={0.1}
                           />
                         </>
@@ -378,6 +385,7 @@ export function InventoryForm({
                       {isSparkling && (
                         <>
                           <Input
+                            data-testid="inventory-vintage-input"
                             label={t('inventory.fields.vintage')}
                             type="number"
                             variant="bordered"
@@ -446,7 +454,7 @@ export function InventoryForm({
                               isRequired
                               value={String(values.alcoholDegree ?? '')}
                               onValueChange={(v) => setField('alcoholDegree', numField(v))}
-                              endContent={<span className="text-xs text-default-400">%</span>}
+                              endContent={<span className="text-xs text-foreground-500">%</span>}
                               min={0} max={100} step={0.1}
                             />
                           </div>
@@ -458,7 +466,7 @@ export function InventoryForm({
                               size="sm"
                               value={String(values.declaredAge ?? '')}
                               onValueChange={(v) => setField('declaredAge', numField(v))}
-                              endContent={<span className="text-xs text-default-400">{t('inventory.fields.declaredAgeUnit')}</span>}
+                              endContent={<span className="text-xs text-foreground-500">{t('inventory.fields.declaredAgeUnit')}</span>}
                               min={0} max={200}
                             />
                           </div>
@@ -502,7 +510,7 @@ export function InventoryForm({
                         <>
                           <div className="col-span-2 sm:col-span-4 flex items-center gap-2">
                             <div className="flex-1 h-px bg-divider" />
-                            <span className="text-xs text-default-400 px-2">{t('inventory.fields.peakMaturity')}</span>
+                            <span className="text-xs text-foreground-500 px-2">{t('inventory.fields.peakMaturity')}</span>
                             <div className="flex-1 h-px bg-divider" />
                           </div>
                           <Input
@@ -544,7 +552,7 @@ export function InventoryForm({
                                   <CurveGlyph shape={shape} width={34} className="text-default-500 shrink-0" />
                                   <div className="flex flex-col">
                                     <span className="text-sm">{t(curveShapeLabelKey(shape))}</span>
-                                    <span className="text-xs text-default-400">{t(curveShapeDescriptionKey(shape))}</span>
+                                    <span className="text-xs text-foreground-500">{t(curveShapeDescriptionKey(shape))}</span>
                                   </div>
                                 </div>
                               </SelectItem>
@@ -656,7 +664,7 @@ export function InventoryForm({
                                 size="sm"
                                 value={String(values.caskProof ?? '')}
                                 onValueChange={(v) => setField('caskProof', numField(v))}
-                                endContent={<span className="text-xs text-default-400">%</span>}
+                                endContent={<span className="text-xs text-foreground-500">%</span>}
                                 min={0} max={100} step={0.1}
                               />
                               <div className="flex items-center">
@@ -705,7 +713,7 @@ export function InventoryForm({
                           size="sm"
                           value={String(values.purchasePrice ?? '')}
                           onValueChange={(v) => setField('purchasePrice', numField(v))}
-                          endContent={<span className="text-xs text-default-400">{currencySymbol(i18n.language)}</span>}
+                          endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
                         />
 
                         {/* Purchase place */}
@@ -727,7 +735,7 @@ export function InventoryForm({
                           size="sm"
                           value={String(values.estimatedValue ?? '')}
                           onValueChange={(v) => setField('estimatedValue', numField(v))}
-                          endContent={<span className="text-xs text-default-400">{currencySymbol(i18n.language)}</span>}
+                          endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
                         />
 
                         {/* Notes */}
@@ -874,7 +882,7 @@ export function InventoryForm({
                               size="sm"
                               value={String(values.recommendedHumidity ?? '')}
                               onValueChange={(v) => setField('recommendedHumidity', numField(v))}
-                              endContent={<span className="text-xs text-default-400">%</span>}
+                              endContent={<span className="text-xs text-foreground-500">%</span>}
                               min={50} max={100}
                             />
                             <div className="col-span-2">
@@ -954,10 +962,11 @@ export function InventoryForm({
             </ModalBody>
 
             <ModalFooter className="gap-2 pt-3 shrink-0">
-              <Button variant="bordered" onPress={guard.requestClose} isDisabled={isSubmitting}>
+              <Button data-testid="inventory-form-cancel" variant="bordered" onPress={guard.requestClose} isDisabled={isSubmitting}>
                 {t('actions.cancel')}
               </Button>
               <Button
+                data-testid="inventory-form-submit"
                 type="submit"
                 color="primary"
                 startContent={<Save size={15} />}

@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { notifyError } from '@/lib/toast';
 import { applyStockChoice, type StockChoice } from '@/lib/tastings/stockChoice';
@@ -146,6 +147,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   const inventoryOptions = items?.filter((i) => !i.deletedAt) ?? [];
   const hasError = !!(createMutation.error || updateMutation.error);
   const showStockDialog = !!stockDialogItemId;
+  const isMobile = useIsMobile();
 
   return (
     <>
@@ -153,10 +155,10 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
         isOpen={open && !showStockDialog && !guard.isConfirmOpen}
         onClose={guard.requestClose}
         {...guard.dismissProps}
-        size="md"
+        size={isMobile ? 'full' : 'md'}
         radius="lg"
         backdrop="opaque"
-        placement="center"
+        placement={isMobile ? 'bottom' : 'center'}
         scrollBehavior="inside"
         classNames={{ base: "max-h-[90dvh]" }}
       >
@@ -219,7 +221,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
 
                 {/* Star rating */}
                 <div>
-                  <p className="text-xs text-default-400 mb-1">{t('tastings.fields.rating')}</p>
+                  <p className="text-xs text-foreground-500 mb-1">{t('tastings.fields.rating')}</p>
                   <Controller
                     name="rating"
                     control={control}
@@ -393,7 +395,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                             onValueChange={(v) => field.onChange(v ? Number(v) : null)}
                             label={t('tastings.fields.longueurBouche')}
                             variant="bordered"
-                            endContent={<span className="text-xs text-default-400">s</span>}
+                            endContent={<span className="text-xs text-foreground-500">s</span>}
                           />
                         )}
                       />

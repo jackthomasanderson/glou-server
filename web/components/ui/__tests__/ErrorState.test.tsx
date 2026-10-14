@@ -42,6 +42,11 @@ describe('ErrorState', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
+  it('announces itself to screen readers (ISSUE_128: WCAG 4.1.3 status messages)', () => {
+    render(<ErrorState message="Boom" />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Boom');
+  });
+
   it('falls back to the generic translated message', () => {
     render(<ErrorState onRetry={() => undefined} />);
     expect(screen.getByText('status.error')).toBeInTheDocument();
@@ -68,5 +73,10 @@ describe('EmptyState', () => {
     expect(screen.getByText('Try removing one')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }));
     expect(onReset).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces itself to screen readers (ISSUE_128: WCAG 4.1.3 status messages)', () => {
+    render(<EmptyState title="No results for these filters" />);
+    expect(screen.getByRole('status')).toHaveTextContent('No results for these filters');
   });
 });

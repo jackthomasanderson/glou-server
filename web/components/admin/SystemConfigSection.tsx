@@ -416,8 +416,15 @@ export function SystemConfigSection() {
         <Tab key="integrations" title={<span className="flex items-center gap-1.5"><Puzzle size={14} />{t('adminConfig.tabs.integrations')}</span>}>
           <div className="flex flex-col gap-4 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Input label={t('adminConfig.integrations.vivinoKey')} type="password" placeholder={config?.vivinoKeyMasked ?? t('adminConfig.integrations.keyPlaceholder')} value={integrations.vivinoKey} onValueChange={(v) => setIntegrations(i => ({ ...i, vivinoKey: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
-              <Input label={t('adminConfig.integrations.whiskybaseKey')} type="password" placeholder={config?.whiskybaseKeyMasked ?? t('adminConfig.integrations.keyPlaceholder')} value={integrations.whiskybaseKey} onValueChange={(v) => setIntegrations(i => ({ ...i, whiskybaseKey: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
+              <div className="flex flex-col gap-1.5">
+                <Input label={t('adminConfig.integrations.vivinoKey')} type="password" placeholder={config?.vivinoKeyMasked ?? t('adminConfig.integrations.keyPlaceholder')} value={integrations.vivinoKey} onValueChange={(v) => setIntegrations(i => ({ ...i, vivinoKey: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
+                {/* ISSUE_002: no code reads this key yet — the "Smart Data Engine" enrichment pipeline was never built. */}
+                <Chip size="sm" variant="flat" color="warning">{t('adminConfig.integrations.vivinoWhiskybaseNotUsedYet')}</Chip>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Input label={t('adminConfig.integrations.whiskybaseKey')} type="password" placeholder={config?.whiskybaseKeyMasked ?? t('adminConfig.integrations.keyPlaceholder')} value={integrations.whiskybaseKey} onValueChange={(v) => setIntegrations(i => ({ ...i, whiskybaseKey: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
+                <Chip size="sm" variant="flat" color="warning">{t('adminConfig.integrations.vivinoWhiskybaseNotUsedYet')}</Chip>
+              </div>
               <Input label={t('adminConfig.integrations.ocrUrl')} placeholder={t('adminConfig.integrations.ocrUrlPlaceholder')} value={integrations.ocrUrl} onValueChange={(v) => setIntegrations(i => ({ ...i, ocrUrl: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" className="sm:col-span-2" />
             </div>
             <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveIntegrations}>{t('adminConfig.integrations.save')}</Button>
@@ -777,7 +784,7 @@ export function SystemConfigSection() {
             {restoreTarget && (
               <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(restoreTarget.runAt, i18n.language) : ''}</p>
             )}
-            <p className="text-xs text-default-400">{t('adminConfig.backup.restore.modalHint', { keyword: t('adminConfig.backup.restore.keyword') })}</p>
+            <p className="text-xs text-foreground-500">{t('adminConfig.backup.restore.modalHint', { keyword: t('adminConfig.backup.restore.keyword') })}</p>
             <input
               className="w-full border border-divider rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-danger"
               placeholder={t('adminConfig.backup.restore.keyword')}

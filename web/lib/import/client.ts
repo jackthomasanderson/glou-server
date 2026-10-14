@@ -19,8 +19,8 @@ export const importClient = {
     return json.data as CsvImportPreview;
   },
 
-  async confirmCsv(rows: CsvImportRow[], cellarId: string | null): Promise<{ created: number }> {
-    const { data } = await client.post<{ created: number }>('/import/csv/confirm', { rows, cellarId });
+  async confirmCsv(rows: CsvImportRow[], cellarId: string | null): Promise<{ created: number; skippedDuplicates: number }> {
+    const { data } = await client.post<{ created: number; skippedDuplicates: number }>('/import/csv/confirm', { rows, cellarId });
     return data;
   },
 };

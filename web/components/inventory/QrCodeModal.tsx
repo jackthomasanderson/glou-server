@@ -43,7 +43,7 @@ export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalPr
               marginSize={1}
             />
           </div>
-          <p className="text-[0.65rem] text-default-400 text-center break-all">{qrUrl}</p>
+          <p className="text-xs text-foreground-500 text-center break-all">{qrUrl}</p>
         </ModalBody>
         <ModalFooter className="gap-2">
           <Button variant="light" size="sm" onPress={onClose} startContent={<X size={14} />}>

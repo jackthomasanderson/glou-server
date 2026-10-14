@@ -15,6 +15,12 @@ describe('inventoryPatchSchema', () => {
     expect(res.success).toBe(true);
   });
 
+  it('strips lockedFields: internal bookkeeping the client has no reason to set (ISSUE_031)', () => {
+    const res = inventoryPatchSchema.safeParse({ name: 'Pétrus', lockedFields: ['fillLevel', 'isOpened'] });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data).not.toHaveProperty('lockedFields');
+  });
+
   it('normalizes cellarId "none"/"" to null via preprocess', () => {
     const a = inventoryPatchSchema.safeParse({ cellarId: 'none' });
     const b = inventoryPatchSchema.safeParse({ cellarId: '' });
@@ -39,7 +45,10 @@ describe('inventoryPatchSchema', () => {
   });
 
   it('bounds cigar quantity and grid slot coordinates', () => {
-    expect(inventoryPatchSchema.safeParse({ quantity: 0 }).success).toBe(false);
+    // ISSUE_101/ISSUE_029: 0 is a real, representable state (an emptied
+    // cigar box) — only negative/out-of-range values are rejected.
+    expect(inventoryPatchSchema.safeParse({ quantity: 0 }).success).toBe(true);
+    expect(inventoryPatchSchema.safeParse({ quantity: -1 }).success).toBe(false);
     expect(inventoryPatchSchema.safeParse({ slotColumn: 0 }).success).toBe(false);
     expect(inventoryPatchSchema.safeParse({ slotRow: 101 }).success).toBe(false);
   });

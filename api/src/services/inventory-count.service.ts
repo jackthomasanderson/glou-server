@@ -142,16 +142,28 @@ export async function startSession(userId: string, input: StartSessionInput): Pr
     if (!cellar) return { status: 'cellar_not_found' };
   }
 
-  const session = await prisma.inventoryCountSession.create({
-    data: {
-      scopeLabel: input.scopeLabel,
-      cellarId: input.cellarId ?? null,
-      status: 'active',
-      userId,
-    },
-  });
+  try {
+    const session = await prisma.inventoryCountSession.create({
+      data: {
+        scopeLabel: input.scopeLabel,
+        cellarId: input.cellarId ?? null,
+        status: 'active',
+        userId,
+      },
+    });
 
-  return { status: 'success', session: toSessionDTO(session) };
+    return { status: 'success', session: toSessionDTO(session) };
+  } catch (err) {
+    // #173: the `getActiveSessionRow` check above closes almost every
+    // window, but the database's partial unique index is the actual
+    // guarantee — two concurrent starts can both pass that check, and the
+    // loser here gets the same clean conflict response instead of a 500.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      const concurrent = await getActiveSessionRow();
+      if (concurrent) return { status: 'conflict', session: toSessionDTO(concurrent) };
+    }
+    throw err;
+  }
 }
 
 // ─── Pause / Resume ───────────────────────────────────────────────────────────
@@ -510,7 +522,10 @@ export async function applyCorrections(
   const session = await prisma.inventoryCountSession.findUnique({ where: { id: sessionId } });
   if (!session) return { status: 'not_found' };
 
-  const result = await prisma.$transaction((tx) => applyCorrectionsInternal(tx, session, corrections, actingUserId));
+  const result = await prisma.$transaction(
+    (tx) => applyCorrectionsInternal(tx, session, corrections, actingUserId),
+    { timeout: 60000, maxWait: 10000 },
+  );
   return { status: 'success', ...result };
 }
 
@@ -543,7 +558,7 @@ export async function completeSession(
       data: { status: 'completed', completedAt: new Date() },
     });
     return { session: updated, ...corrResult };
-  });
+  }, { timeout: 60000, maxWait: 10000 });
 
   return {
     status: 'success',

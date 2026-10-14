@@ -9,6 +9,7 @@ import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
   Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode, Euro,
   FileSpreadsheet, ScanLine, Wand2, History as HistoryIcon, TrendingUp,
+  Plus, Minus,
 } from 'lucide-react';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
@@ -39,11 +40,11 @@ function InfoCard({ icon, label, value, valueColor }: InfoCardProps) {
   return (
     <div className="p-3 border border-divider rounded-xl flex flex-col gap-1">
       <div className="flex items-center gap-1">
-        {React.cloneElement(icon, { size: 13, className: 'text-default-400 shrink-0' })}
-        <span className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">{label}</span>
+        {React.cloneElement(icon, { size: 13, className: 'text-foreground-500 shrink-0' })}
+        <span className="text-xs font-bold uppercase tracking-widest text-foreground-500">{label}</span>
       </div>
       <span
-        className="text-[0.85rem] font-bold leading-tight"
+        className="text-sm font-bold leading-tight"
         style={valueColor ? { color: valueColor } : undefined}
       >
         {value}
@@ -77,7 +78,7 @@ function FieldSourceBadge({ source, t }: FieldSourceBadgeProps) {
       color="default"
       radius="full"
       startContent={SOURCE_ICONS[source]}
-      className="h-4 px-1.5 gap-1 text-[0.55rem] font-semibold shrink-0"
+      className="h-4 px-1.5 gap-1 text-xs font-semibold shrink-0"
     >
       {t(`traceability.source.${source}`)}
     </Chip>
@@ -120,6 +121,18 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
     setLocalFill(d?.isOpened ? (d?.fillLevel ?? 0) : 100);
   }
 
+  // ISSUE_101: for cigars, `quantity` (the number of cigars in the box) is
+  // the one stock figure that matters — the fillLevel slider used to be
+  // shown here too but wrote to a different field entirely, never
+  // reconciled with quantity (ISSUE_029). Same locally-editable-copy pattern
+  // as localFill above.
+  const [localQuantity, setLocalQuantity] = useState(d?.quantity ?? 0);
+  const [prevQuantitySyncKey, setPrevQuantitySyncKey] = useState([d?.quantity, open]);
+  if (d?.quantity !== prevQuantitySyncKey[0] || open !== prevQuantitySyncKey[1]) {
+    setPrevQuantitySyncKey([d?.quantity, open]);
+    setLocalQuantity(d?.quantity ?? 0);
+  }
+
   // This drawer is hand-rolled rather than the shared HeroUI Modal, so
   // Escape-to-close and screen-reader dialog semantics aren't automatic —
   // added explicitly here instead of switching component to keep the
@@ -154,6 +167,17 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
       handleFillCommit(value);
     },
     [handleFillCommit]
+  );
+
+  const handleQuantityStep = useCallback(
+    (delta: number) => {
+      if (!item) return;
+      const next = Math.max(0, Math.min(1000, localQuantity + delta));
+      if (next === localQuantity) return;
+      setLocalQuantity(next);
+      updateMutation.mutate({ id: item.id, patch: { quantity: next } });
+    },
+    [item, localQuantity, updateMutation]
   );
 
   if (!item || !d) return null;
@@ -235,7 +259,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
           >
             {/* Header */}
             <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
-              <p className="text-[0.6rem] font-bold uppercase tracking-widest text-secondary mb-0.5">
+              <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-0.5">
                 {/* Was wine/cigar binary (t('inventory.detail.titleWine') for
                     "everything that isn't a cigar"), which mislabeled
                     sparkling/spirit items as "Bottle details" too narrowly
@@ -275,14 +299,14 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 <FieldSourceBadge source={fieldSources.producer} t={t} />
                 {d.vintage != null && (
                   <>
-                    <span className="text-default-300">·</span>
+                    <span className="text-foreground-400">·</span>
                     <span className="text-xs text-default-500">{d.vintage}</span>
                     <FieldSourceBadge source={fieldSources.vintage} t={t} />
                   </>
                 )}
                 {d.region && (
                   <>
-                    <span className="text-default-300">·</span>
+                    <span className="text-foreground-400">·</span>
                     <span className="text-xs text-default-500">{d.region}</span>
                     <FieldSourceBadge source={fieldSources.region} t={t} />
                   </>
@@ -294,7 +318,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
             <div className="flex-1 overflow-y-auto">
               {/* Fill level section */}
               <div className="px-5 pt-5">
-                <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-3 text-center">
+                <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-3 text-center">
                   {sectionLabel}
                 </p>
 
@@ -309,62 +333,96 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                     CATEGORY_ICONS_LG[d.category]
                   )}
                   <div
-                    className={`absolute top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-lg text-xs font-extrabold text-white whitespace-nowrap tracking-wide ${localFill <= 20 ? 'bg-danger' : 'bg-[#111]'}`}
+                    className={`absolute top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-lg text-xs font-extrabold text-white whitespace-nowrap tracking-wide ${(isCigar ? localQuantity === 0 : localFill <= 20) ? 'bg-danger' : 'bg-[#111]'}`}
                   >
-                    {localFill}%
+                    {isCigar ? localQuantity : `${localFill}%`}
                   </div>
                 </div>
 
-                {/* Slider */}
-                <div className="mb-1">
-                  <div className="flex justify-between mb-1">
-                    <span className="text-sm text-default-500">
-                      {isCigar ? t('inventory.detail.levelCigar') : t('inventory.detail.levelWine')}
-                    </span>
-                    <span className="text-sm text-primary font-bold">{localFill}%</span>
+                {isCigar ? (
+                  /* ISSUE_101/ISSUE_029: +/- on `quantity` directly — the
+                     percentage slider used to live here but wrote to
+                     `fillLevel`, a field never reconciled with the actual
+                     cigar count. */
+                  <div className="mb-1">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-sm text-default-500">{t('inventory.fields.quantity')}</span>
+                      <span className="text-sm text-primary font-bold">{localQuantity}</span>
+                    </div>
+                    <div className="flex items-center justify-center gap-4 py-2">
+                      <Button
+                        isIconOnly
+                        variant="bordered"
+                        size="sm"
+                        onPress={() => handleQuantityStep(-1)}
+                        isDisabled={updateMutation.isPending || localQuantity <= 0}
+                        aria-label={t('inventory.detail.decreaseQuantity')}
+                      >
+                        <Minus size={16} />
+                      </Button>
+                      <span className="text-xl font-bold tabular-nums min-w-[2.5ch] text-center">{localQuantity}</span>
+                      <Button
+                        isIconOnly
+                        variant="bordered"
+                        size="sm"
+                        onPress={() => handleQuantityStep(1)}
+                        isDisabled={updateMutation.isPending || localQuantity >= 1000}
+                        aria-label={t('inventory.detail.increaseQuantity')}
+                      >
+                        <Plus size={16} />
+                      </Button>
+                    </div>
                   </div>
-                  <Slider
-                    value={localFill}
-                    onChange={(v) => setLocalFill(v as number)}
-                    onChangeEnd={(v) => handleFillCommit(v as number)}
-                    minValue={0}
-                    maxValue={100}
-                    step={1}
-                    color="primary"
-                    size="sm"
-                    isDisabled={updateMutation.isPending}
-                    className="py-2"
-                    aria-label={isCigar ? t('inventory.detail.levelCigar') : t('inventory.detail.levelWine')}
-                  />
-                  <div className="flex justify-between -mt-1">
-                    <span className="text-[0.65rem] text-default-400">{t('inventory.detail.empty')} (0%)</span>
-                    <span className="text-[0.65rem] text-default-400">
-                      {isCigar ? t('inventory.detail.inUse') : t('inventory.detail.opened')}
-                    </span>
-                    <span className="text-[0.65rem] text-default-400">{fullLabel} (100%)</span>
-                  </div>
-                </div>
+                ) : (
+                  <>
+                    {/* Slider */}
+                    <div className="mb-1">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm text-default-500">{t('inventory.detail.levelWine')}</span>
+                        <span className="text-sm text-primary font-bold">{localFill}%</span>
+                      </div>
+                      <Slider
+                        value={localFill}
+                        onChange={(v) => setLocalFill(v as number)}
+                        onChangeEnd={(v) => handleFillCommit(v as number)}
+                        minValue={0}
+                        maxValue={100}
+                        step={1}
+                        color="primary"
+                        size="sm"
+                        isDisabled={updateMutation.isPending}
+                        className="py-2"
+                        aria-label={t('inventory.detail.levelWine')}
+                      />
+                      <div className="flex justify-between -mt-1">
+                        <span className="text-xs text-foreground-500">{t('inventory.detail.empty')} (0%)</span>
+                        <span className="text-xs text-foreground-500">{t('inventory.detail.opened')}</span>
+                        <span className="text-xs text-foreground-500">{fullLabel} (100%)</span>
+                      </div>
+                    </div>
 
-                {/* Preset buttons */}
-                <div className="flex gap-2 mt-3">
-                  {[
-                    { label: fullLabel, value: 100 },
-                    { label: halfLabel, value: 50 },
-                    { label: emptyLabel, value: 0 },
-                  ].map(({ label, value }) => (
-                    <Button
-                      key={value}
-                      variant={localFill === value ? 'solid' : 'bordered'}
-                      color={localFill === value ? 'primary' : 'default'}
-                      size="sm"
-                      onPress={() => handlePreset(value)}
-                      isDisabled={updateMutation.isPending}
-                      className="flex-1 text-xs py-3"
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
+                    {/* Preset buttons */}
+                    <div className="flex gap-2 mt-3">
+                      {[
+                        { label: fullLabel, value: 100 },
+                        { label: halfLabel, value: 50 },
+                        { label: emptyLabel, value: 0 },
+                      ].map(({ label, value }) => (
+                        <Button
+                          key={value}
+                          variant={localFill === value ? 'solid' : 'bordered'}
+                          color={localFill === value ? 'primary' : 'default'}
+                          size="sm"
+                          onPress={() => handlePreset(value)}
+                          isDisabled={updateMutation.isPending}
+                          className="flex-1 text-xs py-3"
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               <Divider className="my-5" />
@@ -393,7 +451,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                               <span className="text-primary">· {d.readiness}%</span>
                             )}
                           </span>
-                          <span className="text-[0.65rem] font-normal text-default-400">
+                          <span className="text-xs font-normal text-foreground-500">
                             {t(curveShapeDescriptionKey(curveShape))} — {curveSource}
                           </span>
                         </span>
@@ -436,35 +494,26 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                   )}
                 </div>
 
-                {/* Cigar vitole section */}
-                {isCigar && (d.format || d.quantity) && (
+                {/* Cigar vitole section — quantity itself is shown by the
+                    +/- stepper above, not duplicated here. */}
+                {isCigar && d.format && (
                   <>
-                    <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-3">
+                    <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-3">
                       {t('inventory.detail.vitole')}
                     </p>
-                    <div className="grid grid-cols-3 gap-2 mb-5">
-                      {d.format && (
-                        <div className="p-2 border border-divider rounded-xl">
-                          <span className="text-[0.55rem] font-bold uppercase text-default-400 block mb-0.5">
-                            {t('inventory.fields.format')}
-                          </span>
-                          <span className="text-[0.8rem] font-bold">{d.format}</span>
-                        </div>
-                      )}
-                      {d.quantity != null && (
-                        <div className="p-2 border border-divider rounded-xl">
-                          <span className="text-[0.55rem] font-bold uppercase text-default-400 block mb-0.5">
-                            {t('inventory.fields.quantity')}
-                          </span>
-                          <span className="text-[0.8rem] font-bold">{d.quantity}</span>
-                        </div>
-                      )}
+                    <div className="grid grid-cols-2 gap-2 mb-5">
+                      <div className="p-2 border border-divider rounded-xl">
+                        <span className="text-xs font-bold uppercase text-foreground-500 block mb-0.5">
+                          {t('inventory.fields.format')}
+                        </span>
+                        <span className="text-xs font-bold">{d.format}</span>
+                      </div>
                       {d.recommendedHumidity != null && (
                         <div className="p-2 border border-divider rounded-xl">
-                          <span className="text-[0.55rem] font-bold uppercase text-default-400 block mb-0.5">
+                          <span className="text-xs font-bold uppercase text-foreground-500 block mb-0.5">
                             {t('inventory.fields.recommendedHumidity')}
                           </span>
-                          <span className="text-[0.8rem] font-bold">{d.recommendedHumidity}%</span>
+                          <span className="text-xs font-bold">{d.recommendedHumidity}%</span>
                         </div>
                       )}
                     </div>
@@ -476,10 +525,10 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                     so it must stay visible once it exceeds the implicit default of 1. */}
                 {!isCigar && d.quantity != null && d.quantity > 1 && (
                   <div className="flex items-center justify-between p-2 border border-divider rounded-xl mb-5">
-                    <span className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
+                    <span className="text-xs font-bold uppercase tracking-widest text-foreground-500">
                       {t('inventory.fields.quantity')}
                     </span>
-                    <span className="text-[0.8rem] font-bold">{d.quantity}</span>
+                    <span className="text-xs font-bold">{d.quantity}</span>
                   </div>
                 )}
 
@@ -487,7 +536,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 {d.notes && (
                   <>
                     <div className="flex items-center gap-1.5 mb-2">
-                      <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
+                      <p className="text-xs font-bold uppercase tracking-widest text-foreground-500">
                         {isCigar ? t('inventory.detail.tastingNotes') : t('inventory.detail.sommelierNotes')}
                       </p>
                       <FieldSourceBadge source={fieldSources.notes} t={t} />
@@ -503,8 +552,8 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 {/* Collections — editable inline */}
                 <>
                   <div className="flex items-center gap-1.5 mb-2">
-                    <BookMarked size={13} className="text-default-400" />
-                    <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
+                    <BookMarked size={13} className="text-foreground-500" />
+                    <p className="text-xs font-bold uppercase tracking-widest text-foreground-500">
                       {t('collections.title')}
                     </p>
                   </div>
@@ -518,7 +567,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
 
                 {/* Tasting stats (FEAT-79) */}
                 <>
-                  <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400 mb-2">
+                  <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
                     {t('tastings.title')}
                   </p>
                   <div className="mb-5">
@@ -533,8 +582,8 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 {history && history.length > 0 && (
                   <>
                     <div className="flex items-center gap-1.5 mb-3">
-                      <HistoryIcon size={13} className="text-default-400" />
-                      <p className="text-[0.6rem] font-bold uppercase tracking-widest text-default-400">
+                      <HistoryIcon size={13} className="text-foreground-500" />
+                      <p className="text-xs font-bold uppercase tracking-widest text-foreground-500">
                         {t('traceability.title')}
                       </p>
                     </div>
@@ -548,13 +597,13 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                         return (
                           <div key={entry.id} className="py-2 border-b border-divider last:border-b-0">
                             <div className="flex items-center gap-2">
-                              <span className="px-2 py-0.5 rounded-md bg-primary text-white text-[0.65rem] font-bold shrink-0 max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded-md bg-primary text-white text-xs font-bold shrink-0 max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
                                 {entry.actorName}
                               </span>
-                              <span className="flex-1 text-[0.7rem] text-default-500">
+                              <span className="flex-1 text-xs text-default-500">
                                 {formatHistoryEntry(entry)}
                               </span>
-                              <span className="shrink-0 text-[0.65rem] text-default-300">
+                              <span className="shrink-0 text-xs text-foreground-400">
                                 {hasMounted ? formatDate(entry.createdAt, i18n.language) : ''}
                               </span>
                             </div>
@@ -565,14 +614,14 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                                     key={`${entry.id}-${change.field}-${idx}`}
                                     className="flex items-center justify-between gap-2"
                                   >
-                                    <span className="text-[0.6rem] text-default-400 truncate">
+                                    <span className="text-xs text-foreground-500 truncate">
                                       {fieldLabel(change.field)}
                                     </span>
                                     <Button
                                       size="sm"
                                       variant="light"
                                       color="primary"
-                                      className="h-5 min-w-0 px-1.5 text-[0.6rem] shrink-0"
+                                      className="h-5 min-w-0 px-1.5 text-xs shrink-0"
                                       onPress={() => setRollbackTarget(change)}
                                     >
                                       {t('traceability.restoreValue')}

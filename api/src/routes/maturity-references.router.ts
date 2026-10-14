@@ -16,6 +16,7 @@ router.get('/suggest', async (req: Request, res: Response): Promise<void> => {
     const suggestion = await maturityReferenceService.suggest(params);
     res.json({ data: suggestion });
   } catch (error) {
+    console.error('[maturity-references] GET /suggest error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
       return;

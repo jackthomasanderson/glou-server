@@ -145,4 +145,20 @@ describe('flushQueue — failure isolation', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('resets a stale "syncing" mutation (left over from an interrupted previous flush) back to pending and retries it (#168)', async () => {
+    queue({ id: 'm1', itemId: 'A', createdAt: 't1', status: 'syncing' });
+    queue({ id: 'm2', itemId: 'A', createdAt: 't2', status: 'pending' });
+
+    const fetchMock = vi.fn(async (url: string) => okResponse({ id: url.split('/').pop(), updatedAt: 'x' }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await flushQueue(fakeQueryClient());
+
+    // Both A mutations went through — m1 was never permanently stuck, and it
+    // didn't block m2 behind it either.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(store.has('m1')).toBe(false);
+    expect(store.has('m2')).toBe(false);
+  });
 });

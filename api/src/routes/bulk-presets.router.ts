@@ -16,6 +16,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     const presets = await bulkPresetService.listPresets(req.userId);
     res.json({ data: presets });
   } catch (error) {
+    console.error('[bulk-presets] GET / error:', error);
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -27,6 +28,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const preset = await bulkPresetService.createPreset(req.userId, data);
     res.status(201).json({ data: preset });
   } catch (error) {
+    console.error('[bulk-presets] POST / error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
       return;
@@ -41,6 +43,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
     await bulkPresetService.deletePreset(req.userId, routeParam(req.params.id));
     res.status(204).end();
   } catch (error) {
+    console.error('[bulk-presets] DELETE /:id error:', error);
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });

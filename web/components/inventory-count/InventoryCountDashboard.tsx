@@ -30,7 +30,7 @@ export function InventoryCountDashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center p-10">
+      <div className="flex justify-center p-10" role="status" aria-live="polite">
         <CircularProgress aria-label={t('status.loading')} />
       </div>
     );

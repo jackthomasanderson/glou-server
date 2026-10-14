@@ -219,7 +219,7 @@ export default function AdminPage() {
         <p className="text-sm text-foreground-500 mb-4">{t('admin.maintenance.purge.description')}</p>
 
         {purgeResult && (
-          <div className="bg-success-50 border border-success-200 text-success text-sm rounded-xl px-4 py-3 mb-4">
+          <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-xl px-4 py-3 mb-4">
             <p className="font-semibold mb-1">{t('admin.maintenance.purge.success')}</p>
             <p className="text-xs">{t('admin.maintenance.purge.counts.bottles', { count: purgeResult.counts.bottles })} · {t('admin.maintenance.purge.counts.cellars', { count: purgeResult.counts.cellars })} · {t('admin.maintenance.purge.counts.logs', { count: purgeResult.counts.auditLogs })}</p>
           </div>

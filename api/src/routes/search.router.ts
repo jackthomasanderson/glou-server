@@ -5,6 +5,7 @@ import path from 'path';
 import multer from 'multer';
 import { assertUrlAllowed, resolveSafeUrl } from '../lib/ssrf';
 import { AppError } from '../lib/errors';
+import { ALLOWED_IMAGE_TYPES } from '../lib/upload';
 
 const router = Router();
 
@@ -149,22 +150,14 @@ if (!fs.existsSync(PRODUCTS_UPLOAD_DIR)) {
   fs.mkdirSync(PRODUCTS_UPLOAD_DIR, { recursive: true });
 }
 
-const ALLOWED_IMAGE_TYPES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/jpg': 'jpg',
-  'image/pjpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
-  'image/avif': 'avif',
-};
-
 function extFromUrl(url: string): string | null {
   try {
     const raw = path.extname(new URL(url).pathname).replace('.', '').toLowerCase();
     const map: Record<string, string> = { jpg: 'jpg', jpeg: 'jpg', png: 'png', webp: 'webp', gif: 'gif', avif: 'avif' };
     return map[raw] ?? null;
   } catch {
+    // Unparseable URL — routine (not every result has a clean extension in
+    // its path), the caller already has its own further fallback.
     return null;
   }
 }
@@ -172,9 +165,13 @@ function extFromUrl(url: string): string | null {
 const productImageUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, PRODUCTS_UPLOAD_DIR),
-    filename: (_req, _file, cb) => {
-      const ext = path.extname(_file.originalname).toLowerCase() || '.jpg';
-      cb(null, `${crypto.randomUUID()}${ext}`);
+    // ISSUE_049: the extension must come from the validated mimetype, never
+    // from the client-supplied filename — a file declared `image/png` but
+    // named `x.html` would otherwise be stored (and served as-is by
+    // express.static) with the client's own extension.
+    filename: (_req, file, cb) => {
+      const ext = ALLOWED_IMAGE_TYPES[file.mimetype.toLowerCase()] ?? 'jpg';
+      cb(null, `${crypto.randomUUID()}.${ext}`);
     },
   }),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -274,13 +271,34 @@ router.post('/images/save', authMiddleware, async (req, res) => {
     const ext = ALLOWED_IMAGE_TYPES[rawType] ?? extFromUrl(url);
     if (!ext) return res.status(422).json({ error: 'INVALID_IMAGE_TYPE' });
 
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > 5 * 1024 * 1024) {
+    const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+    const declaredLength = Number(response.headers.get('content-length'));
+    if (Number.isFinite(declaredLength) && declaredLength > MAX_IMAGE_BYTES) {
       return res.status(413).json({ error: 'IMAGE_TOO_LARGE' });
     }
 
+    if (!response.body) return res.status(502).json({ error: 'FETCH_FAILED' });
+
+    const chunks: Buffer[] = [];
+    let total = 0;
+    const reader = response.body.getReader();
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        total += value.byteLength;
+        if (total > MAX_IMAGE_BYTES) {
+          await reader.cancel();
+          return res.status(413).json({ error: 'IMAGE_TOO_LARGE' });
+        }
+        chunks.push(Buffer.from(value));
+      }
+    } finally {
+      reader.releaseLock?.();
+    }
+
     const filename = `${crypto.randomUUID()}.${ext}`;
-    fs.writeFileSync(path.join(PRODUCTS_UPLOAD_DIR, filename), Buffer.from(buffer));
+    fs.writeFileSync(path.join(PRODUCTS_UPLOAD_DIR, filename), Buffer.concat(chunks));
 
     res.json({ data: { path: `/uploads/products/${filename}` } });
   } catch (error) {

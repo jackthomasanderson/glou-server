@@ -40,6 +40,7 @@ router.post('/', scanLimiter, scanUpload.single('photo'), async (req: Request, r
     void auditLog({ userId: req.userId, action: 'SCAN', status: 'success', ip, details: { jobId: job.id, stage: 'created' } });
     res.status(202).json({ data: { jobId: job.id } });
   } catch (error) {
+    console.error('[scan] POST / error:', error);
     void auditLog({ userId: req.userId, action: 'SCAN', status: 'error', ip, details: { message: String(error) } });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }

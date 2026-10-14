@@ -126,9 +126,9 @@ export function BudgetPanel() {
         <div className="flex justify-center py-16"><Spinner size="lg" /></div>
       ) : !envelopes?.length ? (
         <div className="flex flex-col items-center py-16 text-center">
-          <Wallet size={64} className="text-default-300 mb-4" />
+          <Wallet size={64} className="text-foreground-400 mb-4" />
           <p className="text-lg font-semibold text-default-500">{t('budget.empty')}</p>
-          <p className="text-sm text-default-400 mb-6">{t('budget.emptyHint')}</p>
+          <p className="text-sm text-foreground-500 mb-6">{t('budget.emptyHint')}</p>
           <Button color="primary" variant="solid" startContent={<Plus size={16} />} onPress={() => setFormOpen(true)}>
             {t('budget.create')}
           </Button>

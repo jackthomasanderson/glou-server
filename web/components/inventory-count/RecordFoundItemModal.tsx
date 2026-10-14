@@ -60,7 +60,10 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
       });
       resetAndClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('status.error'));
+      const code = err instanceof Error ? err.message : 'UNEXPECTED_ERROR';
+      const key = `inventoryCount.errors.${code}`;
+      const translated = t(key);
+      setError(translated === key ? t('inventoryCount.errors.UNEXPECTED_ERROR') : translated);
     }
   };
 

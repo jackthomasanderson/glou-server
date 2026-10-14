@@ -1,24 +1,30 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Skeleton } from '@heroui/react';
+import { Button, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Skeleton } from '@heroui/react';
 import { Monitor, MapPin, ShieldCheck, ShieldOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSessions, useRevokeSession, useTrustDevice, useUntrustDevice, SessionInfo } from '@/hooks/useAuth';
+import { useSessions, useRevokeSession, useTrustDevice, useUntrustDevice, useMe, SessionInfo } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatDeviceLabel } from '@/lib/format';
 
 export function SessionsPanel() {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
 
   const { data: sessions, isLoading, isError, refetch, isRefetching } = useSessions();
+  const { data: user } = useMe();
   const revokeSession = useRevokeSession();
   const trustDevice = useTrustDevice();
   const untrustDevice = useUntrustDevice();
 
   const [sessionToRevoke, setSessionToRevoke] = useState<SessionInfo | null>(null);
   const [trustMsg, setTrustMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // ISSUE_045: a trusted device is a lasting 2FA bypass — re-confirm identity
+  // (password, plus a TOTP/backup code when 2FA is enabled) before minting one.
+  const [isTrustModalOpen, setIsTrustModalOpen] = useState(false);
+  const [trustPassword, setTrustPassword] = useState('');
+  const [trustCode, setTrustCode] = useState('');
 
   const handleConfirmRevoke = () => {
     if (!sessionToRevoke) return;
@@ -28,12 +34,20 @@ export function SessionsPanel() {
     });
   };
 
-  const handleTrust = () => {
+  const handleConfirmTrust = () => {
     setTrustMsg(null);
-    trustDevice.mutate(undefined, {
-      onSuccess: () => setTrustMsg({ type: 'success', text: t('profile.sessions.trustSuccess') }),
-      onError: () => setTrustMsg({ type: 'error', text: t('profile.sessions.trustError') }),
-    });
+    trustDevice.mutate(
+      { password: trustPassword, code: user?.isTwoFactorEnabled ? trustCode : undefined },
+      {
+        onSuccess: () => {
+          setIsTrustModalOpen(false);
+          setTrustPassword('');
+          setTrustCode('');
+          setTrustMsg({ type: 'success', text: t('profile.sessions.trustSuccess') });
+        },
+        onError: () => setTrustMsg({ type: 'error', text: t('profile.sessions.trustError') }),
+      }
+    );
   };
 
   const handleUntrust = () => {
@@ -50,6 +64,8 @@ export function SessionsPanel() {
     if (!location || (!location.city && !location.country)) return t('profile.sessions.unknownLocation');
     return [location.city, location.country].filter(Boolean).join(', ');
   };
+
+  const formatDevice = (device: SessionInfo['device']) => formatDeviceLabel(device, t);
 
   return (
     <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
@@ -86,7 +102,7 @@ export function SessionsPanel() {
             <div key={session.id} className="flex items-center justify-between gap-3 p-3 bg-default-50 rounded-xl">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium truncate">{session.device}</p>
+                  <p className="text-sm font-medium truncate">{formatDevice(session.device)}</p>
                   {session.isCurrent && (
                     <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary text-white shrink-0">
                       {t('profile.sessions.current')}
@@ -125,7 +141,7 @@ export function SessionsPanel() {
             role={trustMsg.type === 'success' ? 'status' : 'alert'}
             className={`text-sm rounded-lg px-4 py-3 mb-3 border ${
               trustMsg.type === 'success'
-                ? 'bg-success-50 border-success-200 text-success'
+                ? 'bg-success-50 border-success-200 text-success-700'
                 : 'bg-danger-50 border-danger-200 text-danger'
             }`}
           >
@@ -138,7 +154,7 @@ export function SessionsPanel() {
             variant="bordered"
             color="primary"
             startContent={<ShieldCheck size={16} />}
-            onPress={handleTrust}
+            onPress={() => { setTrustMsg(null); setIsTrustModalOpen(true); }}
             isLoading={trustDevice.isPending}
             isDisabled={trustDevice.isPending}
           >
@@ -167,7 +183,7 @@ export function SessionsPanel() {
               <ModalBody>
                 <p className="text-sm text-foreground-600">{t('profile.sessions.revokeConfirmBody')}</p>
                 {sessionToRevoke && (
-                  <p className="text-sm font-medium mt-2">{sessionToRevoke.device}</p>
+                  <p className="text-sm font-medium mt-2">{formatDevice(sessionToRevoke.device)}</p>
                 )}
               </ModalBody>
               <ModalFooter>
@@ -182,6 +198,64 @@ export function SessionsPanel() {
                   isDisabled={revokeSession.isPending}
                 >
                   {t('profile.sessions.revoke')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* Trust-device confirmation modal (ISSUE_045) */}
+      <Modal
+        isOpen={isTrustModalOpen}
+        onClose={() => { setIsTrustModalOpen(false); setTrustPassword(''); setTrustCode(''); }}
+        size="sm"
+        radius="lg"
+        backdrop="opaque"
+        placement="center"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>{t('profile.sessions.trustDevice')}</ModalHeader>
+              <ModalBody className="flex flex-col gap-3">
+                <p className="text-sm text-foreground-500">{t('profile.sessions.trustConfirmHint')}</p>
+                <Input
+                  label={t('profile.passwordLabel')}
+                  type="password"
+                  value={trustPassword}
+                  onValueChange={setTrustPassword}
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                />
+                {user?.isTwoFactorEnabled && (
+                  <Input
+                    label={t('profile.twoFactor.codeOrBackup')}
+                    value={trustCode}
+                    onValueChange={setTrustCode}
+                    variant="bordered"
+                    size="md"
+                    radius="md"
+                    labelPlacement="outside"
+                    maxLength={20}
+                    autoComplete="off"
+                  />
+                )}
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="light" onPress={onClose} isDisabled={trustDevice.isPending}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  color="primary"
+                  variant="solid"
+                  onPress={handleConfirmTrust}
+                  isDisabled={!trustPassword || (!!user?.isTwoFactorEnabled && trustCode.length < 6) || trustDevice.isPending}
+                  isLoading={trustDevice.isPending}
+                >
+                  {t('profile.sessions.trustDevice')}
                 </Button>
               </ModalFooter>
             </>
