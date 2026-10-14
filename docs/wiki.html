@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Glou — Wiki</title>
 <meta name="description" content="Glou technical documentation: installation, configuration, features, and troubleshooting." />
+<script>
+  (function(){
+    try{
+      var t = localStorage.getItem("glou-theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    }catch(e){}
+  })();
+</script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -46,16 +54,29 @@
     backdrop-filter:blur(8px);
     border-bottom:1px solid var(--border);
   }
-  header.site .bar{max-width:1200px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px;}
+  header.site .bar{max-width:1200px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; row-gap:10px; gap:16px;}
   .brand{display:flex; align-items:baseline; gap:8px; text-decoration:none;}
   .brand .word{font-size:18px; font-weight:800; letter-spacing:-.01em; color:var(--secondary);}
-  nav.top{display:flex; gap:18px; font-size:14px; align-items:center;}
-  nav.top a{color:var(--ink-soft); text-decoration:none; font-weight:600; transition:color .15s ease;}
+  nav.top{display:flex; flex-wrap:wrap; justify-content:flex-end; row-gap:10px; gap:14px 18px; font-size:14px; align-items:center;}
+  nav.top a{color:var(--ink-soft); text-decoration:none; font-weight:600; transition:color .15s ease; white-space:nowrap;}
   @media (hover:hover) and (pointer:fine){ nav.top a:hover{color:var(--ink);} }
   .lang-toggle{display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden;}
   .lang-toggle button{border:none; background:var(--content1); color:var(--ink-soft); font-weight:700; font-size:12.5px; padding:7px 13px; cursor:pointer; font-family:inherit; transition:background-color .15s ease, color .15s ease;}
   .lang-toggle button.active{background:var(--primary); color:#fff;}
   button.menu-toggle{display:none; border:1px solid var(--border); background:var(--content1); border-radius:var(--radius-md); padding:7px 11px; font-size:16px; cursor:pointer; color:var(--ink);}
+
+  .theme-toggle{display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; background:var(--content1);}
+  .theme-toggle button{
+    border:none; background:none; color:var(--ink-soft); width:30px; height:28px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+    transition:background-color .15s ease, color .15s ease;
+  }
+  .theme-toggle button svg{width:15px; height:15px;}
+  .theme-toggle button + button{border-left:1px solid var(--border);}
+  .theme-toggle button.active{background:var(--primary-tint); color:var(--primary);}
+  @media (hover:hover) and (pointer:fine){
+    .theme-toggle button:not(.active):hover{color:var(--ink);}
+  }
 
   .layout{max-width:1200px; margin:0 auto; display:grid; grid-template-columns:260px 1fr; gap:32px; padding:24px 20px 80px;}
   aside.toc{position:sticky; top:66px; align-self:start; max-height:calc(100vh - 86px); overflow-y:auto;
@@ -134,6 +155,17 @@
       <div class="lang-toggle">
         <button id="btnEN" class="active">EN</button>
         <button id="btnFR">FR</button>
+      </div>
+      <div class="theme-toggle" id="themeToggle" role="group" aria-label="Theme">
+        <button type="button" data-theme-choice="light" aria-label="Light theme" title="Light">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </button>
+        <button type="button" data-theme-choice="system" aria-label="System theme" title="System">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </button>
+        <button type="button" data-theme-choice="dark" aria-label="Dark theme" title="Dark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        </button>
       </div>
     </nav>
   </div>
@@ -314,6 +346,33 @@ document.getElementById("menuToggle").addEventListener("click", () => tocEl.clas
 
 const start = findByHash();
 loadDoc(start.l, start.idx);
+
+(function(){
+  var KEY = "glou-theme";
+  var toggle = document.getElementById("themeToggle");
+  var buttons = toggle.querySelectorAll("button");
+
+  function apply(choice){
+    if (choice === "light" || choice === "dark") {
+      document.documentElement.setAttribute("data-theme", choice);
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+    buttons.forEach(function(b){ b.classList.toggle("active", b.dataset.themeChoice === choice); });
+  }
+
+  var stored = "system";
+  try{ stored = localStorage.getItem(KEY) || "system"; }catch(e){}
+  apply(stored);
+
+  buttons.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var choice = btn.dataset.themeChoice;
+      apply(choice);
+      try{ localStorage.setItem(KEY, choice); }catch(e){}
+    });
+  });
+})();
 </script>
 
 </body>
