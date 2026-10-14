@@ -45,6 +45,10 @@ export const scanService = {
         data: { status: 'done', extractedData: extracted as Prisma.InputJsonValue, errorMessage: null },
       });
     } catch (error) {
+      // Persisted onto the job row for the client, but that's not enough to
+      // debug from the server side (#292: users reporting repeated scan
+      // failures with no way to tell why) — log it too.
+      console.error(`[scan] Job ${jobId} failed:`, error);
       await prisma.scanJob.update({
         where: { id: jobId },
         data: { status: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
