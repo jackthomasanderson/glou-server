@@ -154,5 +154,18 @@ export async function analyzeLabelImage(imageBase64: string): Promise<OcrExtract
   const body = (await res.json()) as { response?: string };
   const rawText = body.response ?? '';
   const jsonBlock = extractFirstJsonBlock(rawText);
-  return normalizeRawExtraction(jsonBlock);
+  const extracted = normalizeRawExtraction(jsonBlock);
+
+  // This case (model replied, but nothing usable came out of it) never
+  // throws — see the doc comment above — so it would otherwise be
+  // invisible: the job still ends up 'done', just with an empty form, and
+  // nobody could tell whether that's because the label truly had no
+  // readable text or because the model's output didn't parse. Log the raw
+  // response (truncated: `rawText` can be arbitrarily long/binary-ish) so
+  // that's diagnosable from the server logs, per #292.
+  if (Object.keys(extracted).length === 0) {
+    console.warn(`[ocr] No usable fields extracted from model response: ${rawText.slice(0, 300)}`);
+  }
+
+  return extracted;
 }
