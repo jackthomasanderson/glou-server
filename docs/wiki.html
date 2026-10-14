@@ -6,122 +6,116 @@
 <title>Glou — Wiki</title>
 <meta name="description" content="Glou technical documentation: installation, configuration, features, and troubleshooting." />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
 <style>
   :root{
-    --bg:#fbf7f3;
-    --bg-alt:#f3ece4;
-    --ink:#241417;
-    --ink-soft:#5b4a4e;
-    --wine:#6e1423;
-    --wine-deep:#4a0d18;
-    --gold:#b8894f;
-    --card:#ffffff;
-    --border:#e7dcd2;
-    --shadow:0 20px 40px -24px rgba(36,20,23,.35);
-    --radius:14px;
+    --bg:#FAFAFA; --content1:#FFFFFF; --content2:#F8F9FA; --content3:#F1F5F9;
+    --border:#E6E9EF; --ink:#0F172A; --ink-soft:#64748B; --ink-faint:#94A3B8;
+    --primary:#6366F1; --primary-tint:#EEF2FF; --secondary:#7B1E30;
+    --focus:#1d4ed8;
+    --shadow:0 1px 2px rgba(15,23,42,.04);
+    --radius-lg:14px; --radius-md:10px;
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --sans: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif;
-    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
-      --bg:#1c1113; --bg-alt:#231619; --ink:#f3e9e4; --ink-soft:#cbb2b7;
-      --wine:#e0536b; --wine-deep:#ff7a8e; --gold:#d9a96a;
-      --card:#271a1d; --border:#3a262b; --shadow:0 20px 40px -24px rgba(0,0,0,.6);
+      --bg:#0F172A; --content1:#1E293B; --content2:#273548; --content3:#334155;
+      --border:#334155; --ink:#F1F5F9; --ink-soft:#94A3B8; --ink-faint:#64748B;
+      --primary-tint:#27293f; --secondary:#b35068; --focus:#93c5fd;
+      --shadow:0 1px 2px rgba(0,0,0,.3);
     }
   }
   :root[data-theme="dark"]{
-    --bg:#1c1113; --bg-alt:#231619; --ink:#f3e9e4; --ink-soft:#cbb2b7;
-    --wine:#e0536b; --wine-deep:#ff7a8e; --gold:#d9a96a;
-    --card:#271a1d; --border:#3a262b; --shadow:0 20px 40px -24px rgba(0,0,0,.6);
+    --bg:#0F172A; --content1:#1E293B; --content2:#273548; --content3:#334155;
+    --border:#334155; --ink:#F1F5F9; --ink-soft:#94A3B8; --ink-faint:#64748B;
+    --primary-tint:#27293f; --secondary:#b35068; --focus:#93c5fd;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
   }
   *{box-sizing:border-box;}
-  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.6;}
-  a{color:var(--wine-deep);}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--font); line-height:1.6;}
+  a{color:var(--primary);}
+  a:focus-visible, button:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
 
   header.site{
     position:sticky; top:0; z-index:20;
-    background:color-mix(in srgb, var(--bg) 88%, transparent);
+    background:color-mix(in srgb, var(--bg) 85%, transparent);
     backdrop-filter:blur(8px);
     border-bottom:1px solid var(--border);
   }
-  header.site .bar{
-    max-width:1200px; margin:0 auto; padding:14px 20px;
-    display:flex; align-items:center; justify-content:space-between; gap:16px;
-  }
-  .brand{display:flex; align-items:center; gap:10px; font-family:var(--serif); font-size:20px; font-weight:700; text-decoration:none; color:var(--ink);}
-  .brand .mark{font-size:24px;}
-  nav.top{display:flex; gap:20px; font-size:14px; align-items:center;}
-  nav.top a{color:var(--ink-soft); text-decoration:none; font-weight:600;}
-  nav.top a:hover{color:var(--wine);}
-  .lang-toggle{display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden;}
-  .lang-toggle button{
-    border:none; background:var(--card); color:var(--ink-soft); font-weight:700; font-size:13px;
-    padding:7px 14px; cursor:pointer;
-  }
-  .lang-toggle button.active{background:var(--wine); color:#fff;}
-  button.menu-toggle{
-    display:none; border:1px solid var(--border); background:var(--card); border-radius:8px;
-    padding:7px 11px; font-size:16px; cursor:pointer; color:var(--ink);
-  }
+  header.site .bar{max-width:1200px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px;}
+  .brand{display:flex; align-items:baseline; gap:8px; text-decoration:none;}
+  .brand .word{font-size:18px; font-weight:800; letter-spacing:-.01em; color:var(--secondary);}
+  nav.top{display:flex; gap:18px; font-size:14px; align-items:center;}
+  nav.top a{color:var(--ink-soft); text-decoration:none; font-weight:600; transition:color .15s ease;}
+  @media (hover:hover) and (pointer:fine){ nav.top a:hover{color:var(--ink);} }
+  .lang-toggle{display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden;}
+  .lang-toggle button{border:none; background:var(--content1); color:var(--ink-soft); font-weight:700; font-size:12.5px; padding:7px 13px; cursor:pointer; font-family:inherit; transition:background-color .15s ease, color .15s ease;}
+  .lang-toggle button.active{background:var(--primary); color:#fff;}
+  button.menu-toggle{display:none; border:1px solid var(--border); background:var(--content1); border-radius:var(--radius-md); padding:7px 11px; font-size:16px; cursor:pointer; color:var(--ink);}
 
-  .layout{max-width:1200px; margin:0 auto; display:grid; grid-template-columns:260px 1fr; gap:36px; padding:28px 20px 80px;}
-  aside.toc{position:sticky; top:68px; align-self:start; max-height:calc(100vh - 90px); overflow-y:auto;}
-  aside.toc ol{list-style:none; margin:0; padding:0; display:grid; gap:2px; counter-reset:wiki;}
-  aside.toc li{counter-increment:wiki;}
+  .layout{max-width:1200px; margin:0 auto; display:grid; grid-template-columns:260px 1fr; gap:32px; padding:24px 20px 80px;}
+  aside.toc{position:sticky; top:66px; align-self:start; max-height:calc(100vh - 86px); overflow-y:auto;
+    background:var(--content1); border:1px solid var(--border); border-radius:var(--radius-lg); padding:10px;}
+  aside.toc ol{list-style:none; margin:0; padding:0; display:grid; gap:2px;}
   aside.toc a{
-    display:flex; gap:8px; align-items:baseline;
-    padding:8px 10px; border-radius:8px; font-size:14px; color:var(--ink-soft); text-decoration:none;
+    display:flex; gap:9px; align-items:baseline; padding:8px 10px; border-radius:8px;
+    font-size:13.5px; font-weight:600; color:var(--ink-soft); text-decoration:none;
+    transition:background-color .15s ease, color .15s ease;
   }
-  aside.toc a::before{content:counter(wiki); color:var(--gold); font-family:var(--mono); font-size:12px; min-width:18px;}
-  aside.toc a:hover{background:var(--bg-alt); color:var(--ink);}
-  aside.toc a.active{background:var(--wine); color:#fff; font-weight:700;}
-  aside.toc a.active::before{color:#fcd9c3;}
+  aside.toc a .n{font-family:var(--mono); font-size:11px; color:var(--ink-faint); min-width:16px;}
+  @media (hover:hover) and (pointer:fine){ aside.toc a:hover{background:var(--content2); color:var(--ink);} }
+  aside.toc a.active{background:var(--primary-tint); color:var(--primary);}
+  aside.toc a.active .n{color:var(--primary);}
 
   main.doc{min-width:0;}
   .doc-card{
-    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
-    box-shadow:var(--shadow); padding:36px 40px; min-height:50vh;
+    background:var(--content1); border:1px solid var(--border); border-radius:var(--radius-lg);
+    box-shadow:var(--shadow); padding:34px 38px; min-height:50vh;
   }
-  @media (max-width:720px){ .doc-card{padding:24px 20px;} }
+  @media (max-width:720px){ .doc-card{padding:22px 18px;} }
 
-  .doc-card h1{font-family:var(--serif); font-size:30px; margin-top:0;}
-  .doc-card h2{font-family:var(--serif); font-size:22px; border-top:1px solid var(--border); padding-top:22px; margin-top:30px;}
-  .doc-card h3{font-size:18px;}
-  .doc-card p, .doc-card li{color:var(--ink-soft); font-size:15px;}
-  .doc-card code{
-    background:var(--bg-alt); border:1px solid var(--border); border-radius:5px;
-    padding:1px 6px; font-family:var(--mono); font-size:13px; color:var(--ink);
+  .doc-card h1{font-size:26px; font-weight:800; letter-spacing:-.01em; margin-top:0;}
+  .doc-card h2{font-size:19px; font-weight:700; border-top:1px solid var(--border); padding-top:20px; margin-top:28px;}
+  .doc-card h3{font-size:16px; font-weight:700;}
+  .doc-card p, .doc-card li{color:var(--ink-soft); font-size:14.5px;}
+  .doc-card strong{color:var(--ink);}
+  .doc-card code{background:var(--content3); border-radius:5px; padding:1px 6px; font-family:var(--mono); font-size:13px; color:var(--ink);}
+  .doc-card pre{background:#0b1220; border-radius:var(--radius-md); padding:14px 16px; overflow-x:auto;}
+  .doc-card pre code{background:none; color:#e2e8f0; padding:0;}
+  .doc-card blockquote{margin:16px 0; padding:4px 16px; border-left:3px solid var(--primary); background:var(--content2); border-radius:0 8px 8px 0; color:var(--ink-soft);}
+  .callout{margin:16px 0; padding:12px 16px; border-radius:var(--radius-md); font-size:14px; display:flex; gap:10px;}
+  .callout p{margin:0; color:inherit;}
+  .callout .label{font-weight:700; display:block; margin-bottom:2px;}
+  .callout-note{background:var(--primary-tint); color:var(--primary);}
+  .callout-tip{background:var(--content2); color:var(--ink-soft);}
+  .callout-important{background:#f5f3ff; color:#7c3aed;}
+  .callout-warning, .callout-caution{background:#fef2f2; color:#b91c1c;}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .callout-important{background:#241f38; color:#a78bfa;}
+    :root:not([data-theme="light"]) .callout-warning, :root:not([data-theme="light"]) .callout-caution{background:#2a1515; color:#f87171;}
   }
-  .doc-card pre{
-    background:var(--wine-deep); border-radius:10px; padding:16px 18px; overflow-x:auto;
-  }
-  .doc-card pre code{background:none; border:none; color:#fdf2ee; padding:0;}
-  .doc-card blockquote{
-    margin:16px 0; padding:4px 16px; border-left:3px solid var(--gold);
-    background:var(--bg-alt); border-radius:0 8px 8px 0; color:var(--ink-soft);
-  }
-  .doc-card table{border-collapse:collapse; width:100%; font-size:14px; margin:16px 0;}
+  :root[data-theme="dark"] .callout-important{background:#241f38; color:#a78bfa;}
+  :root[data-theme="dark"] .callout-warning, :root[data-theme="dark"] .callout-caution{background:#2a1515; color:#f87171;}
+  .doc-card table{border-collapse:collapse; width:100%; font-size:13.5px; margin:16px 0;}
   .doc-card th, .doc-card td{border:1px solid var(--border); padding:8px 10px; text-align:left;}
-  .doc-card th{background:var(--bg-alt);}
+  .doc-card th{background:var(--content2);}
   .doc-card img{max-width:100%; border-radius:10px;}
-  .doc-nav{display:flex; justify-content:space-between; gap:12px; margin-top:24px; font-size:14px;}
-  .doc-nav a{
-    flex:1; border:1px solid var(--border); border-radius:10px; padding:12px 14px;
-    text-decoration:none; color:var(--ink); background:var(--card);
-  }
+  .doc-nav{display:flex; justify-content:space-between; gap:12px; margin-top:20px; font-size:13.5px;}
+  .doc-nav a{flex:1; border:1px solid var(--border); border-radius:var(--radius-md); padding:12px 14px; text-decoration:none; color:var(--ink); background:var(--content1); transition:border-color .15s ease;}
+  @media (hover:hover) and (pointer:fine){ .doc-nav a:hover{border-color:var(--ink-faint);} }
   .doc-nav a.next{text-align:right;}
-  .doc-nav span{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft);}
+  .doc-nav span{display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); font-weight:700;}
   .doc-loading{color:var(--ink-soft); font-size:14px;}
 
   @media (max-width:860px){
     .layout{grid-template-columns:1fr;}
     aside.toc{
       position:fixed; inset:0 auto 0 0; top:62px; width:280px; max-height:none;
-      background:var(--bg); border-right:1px solid var(--border); padding:16px;
-      transform:translateX(-100%); transition:transform .2s ease; z-index:15;
-      box-shadow:var(--shadow);
+      border-radius:0; transform:translateX(-100%); transition:transform .2s var(--ease-out, ease); z-index:15;
     }
     aside.toc.open{transform:translateX(0);}
     button.menu-toggle{display:inline-block;}
@@ -132,7 +126,7 @@
 
 <header class="site">
   <div class="bar">
-    <a class="brand" href="index.html"><span class="mark">🍷</span> Glou</a>
+    <a class="brand" href="index.html"><span class="word">GLOU</span></a>
     <nav class="top">
       <button class="menu-toggle" id="menuToggle" aria-label="Toggle table of contents">☰</button>
       <a href="index.html">Home</a>
@@ -231,6 +225,21 @@ const WIKI = {
   }
 };
 
+const ALERT_LABEL = { note: "Note", tip: "Tip", important: "Important", warning: "Warning", caution: "Caution" };
+
+function transformAlerts(md){
+  return md.replace(/^([ \t]*)>\s?\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n((?:\1>.*(?:\n|$))*)/gim, (_, indent, type, body) => {
+    const kind = type.toLowerCase();
+    const lineRe = new RegExp("^" + indent + ">\\s?");
+    const text = body.split("\n")
+      .map(line => line.replace(lineRe, ""))
+      .join("\n")
+      .trim();
+    const html = marked.parseInline(text);
+    return `\n${indent}<div class="callout callout-${kind}"><div><span class="label">${ALERT_LABEL[kind]}</span><p>${html}</p></div></div>\n\n`;
+  });
+}
+
 let lang = "en";
 let activeIndex = 0;
 const tocEl = document.getElementById("toc");
@@ -240,7 +249,7 @@ const docNavEl = document.getElementById("docNav");
 function renderTOC(){
   const { items } = WIKI[lang];
   tocEl.innerHTML = "<ol>" + items.map((it, i) =>
-    `<li><a href="#" data-i="${i}" class="${i === activeIndex ? 'active' : ''}">${it[1]}</a></li>`
+    `<li><a href="#" data-i="${i}" class="${i === activeIndex ? 'active' : ''}"><span class="n">${String(i+1).padStart(2,'0')}</span>${it[1]}</a></li>`
   ).join("") + "</ol>";
   tocEl.querySelectorAll("a").forEach(a => {
     a.addEventListener("click", e => {
@@ -276,7 +285,7 @@ async function loadDoc(l, i){
     const res = await fetch(`${dir}/${file}`);
     if (!res.ok) throw new Error(res.status);
     const md = await res.text();
-    contentEl.innerHTML = marked.parse(md);
+    contentEl.innerHTML = marked.parse(transformAlerts(md));
     contentEl.className = "";
   }catch(err){
     contentEl.innerHTML = `<p>Could not load this page (${err.message}). <a href="https://github.com/jackthomasanderson/glou-server/blob/main/docs/${dir}/${file}">View it on GitHub</a> instead.</p>`;
