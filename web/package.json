@@ -65,6 +65,7 @@
   "overrides": {
     "d3-color": "^3.1.0",
     "esbuild": "^0.28.2",
+    "postcss-selector-parser": "^7.1.6",
     "serialize-javascript": "^7.1.1"
   }
 }
