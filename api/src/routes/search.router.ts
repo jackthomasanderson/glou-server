@@ -204,11 +204,17 @@ router.get('/images', authMiddleware, async (req, res) => {
         },
       }
     );
-    if (!initRes.ok) return res.json({ data: [] });
+    if (!initRes.ok) {
+      console.warn('[search] image search unavailable: init request status', initRes.status);
+      return res.json({ data: [], unavailable: true });
+    }
     const html = await initRes.text();
 
     const vqdMatch = html.match(/vqd=['"]?([^'"&\s]+)/);
-    if (!vqdMatch) return res.json({ data: [] });
+    if (!vqdMatch) {
+      console.warn('[search] image search unavailable: vqd token not found');
+      return res.json({ data: [], unavailable: true });
+    }
     const vqd = vqdMatch[1];
 
     // Step 2: fetch image results
@@ -228,7 +234,10 @@ router.get('/images', authMiddleware, async (req, res) => {
         'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
       },
     });
-    if (!imgRes.ok) return res.json({ data: [] });
+    if (!imgRes.ok) {
+      console.warn('[search] image search unavailable: i.js request status', imgRes.status);
+      return res.json({ data: [], unavailable: true });
+    }
 
     const json = (await imgRes.json()) as {
       results?: Array<{ image: string; thumbnail: string; title: string }>;
@@ -242,7 +251,7 @@ router.get('/images', authMiddleware, async (req, res) => {
     res.json({ data: results });
   } catch (error) {
     console.warn('[search] image search unavailable:', error);
-    res.json({ data: [] });
+    res.json({ data: [], unavailable: true });
   }
 });
 
