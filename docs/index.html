@@ -233,6 +233,7 @@
     font-size:13px; border-radius:var(--radius-md); padding:10px 14px; margin-top:10px;
     background:var(--warning-tint); color:var(--warning-ink); display:flex; gap:8px;
   }
+  .note a{color:inherit; font-weight:700; text-decoration:underline;}
 
   .roadmap{display:grid; grid-template-columns:1fr 1fr; gap:32px;}
   @media (max-width:720px){ .roadmap{grid-template-columns:1fr;} }
@@ -374,6 +375,17 @@
       <div class="step">
         <div class="num">1</div>
         <div>
+          <h3>Get the files</h3>
+          <p>Just two files — no need to clone the full repository.</p>
+          <pre><code>mkdir glou &amp;&amp; cd glou
+curl -fsSLO https://raw.githubusercontent.com/jackthomasanderson/glou-server/main/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/jackthomasanderson/glou-server/main/.env.example</code></pre>
+          <div class="note">⬇️ <span>Prefer a browser? <a href="https://raw.githubusercontent.com/jackthomasanderson/glou-server/main/docker-compose.yml" download="docker-compose.yml">docker-compose.yml</a> · <a href="https://raw.githubusercontent.com/jackthomasanderson/glou-server/main/.env.example" download=".env.example">.env.example</a></span></div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <div>
           <h3>Configure</h3>
           <p>Copy the env file and set three mandatory values — none of them has a safe default.</p>
           <pre><code>cp .env.example .env</code></pre>
@@ -381,7 +393,7 @@
         </div>
       </div>
       <div class="step">
-        <div class="num">2</div>
+        <div class="num">3</div>
         <div>
           <h3>Launch</h3>
           <p>Docker pulls the pre-built images and starts the stack. No compilation required.</p>
@@ -390,7 +402,7 @@
         </div>
       </div>
       <div class="step">
-        <div class="num">3</div>
+        <div class="num">4</div>
         <div>
           <h3>Create your account</h3>
           <p>Open <a href="http://localhost:3000">localhost:3000</a> and click <strong>Register</strong>. The first account created is automatically granted admin privileges.</p>
