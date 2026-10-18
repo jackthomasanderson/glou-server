@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Glou — Wiki</title>
+<meta name="description" content="Glou technical documentation: installation, configuration, features, and troubleshooting." />
+<script>
+  (function(){
+    try{
+      var t = localStorage.getItem("glou-theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    }catch(e){}
+  })();
+</script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍷</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+<style>
+  :root{
+    --bg:#FAFAFA; --content1:#FFFFFF; --content2:#F8F9FA; --content3:#F1F5F9;
+    --border:#E6E9EF; --ink:#0F172A; --ink-soft:#64748B; --ink-faint:#94A3B8;
+    --primary:#6366F1; --primary-tint:#EEF2FF; --secondary:#7B1E30;
+    --focus:#1d4ed8;
+    --shadow:0 1px 2px rgba(15,23,42,.04);
+    --radius-lg:14px; --radius-md:10px;
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0F172A; --content1:#1E293B; --content2:#273548; --content3:#334155;
+      --border:#334155; --ink:#F1F5F9; --ink-soft:#94A3B8; --ink-faint:#64748B;
+      --primary-tint:#27293f; --secondary:#b35068; --focus:#93c5fd;
+      --shadow:0 1px 2px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0F172A; --content1:#1E293B; --content2:#273548; --content3:#334155;
+    --border:#334155; --ink:#F1F5F9; --ink-soft:#94A3B8; --ink-faint:#64748B;
+    --primary-tint:#27293f; --secondary:#b35068; --focus:#93c5fd;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--font); line-height:1.6;}
+  a{color:var(--primary);}
+  a:focus-visible, button:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+
+  header.site{
+    position:sticky; top:0; z-index:20;
+    background:color-mix(in srgb, var(--bg) 85%, transparent);
+    backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border);
+  }
+  header.site .bar{max-width:1200px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px;}
+  .brand{display:flex; align-items:baseline; gap:8px; text-decoration:none;}
+  .brand .word{font-size:18px; font-weight:800; letter-spacing:-.01em; color:var(--secondary);}
+  nav.top{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:14px; font-size:14px; align-items:center;}
+  .nav-links{display:flex; align-items:center; gap:18px; order:4;}
+  .nav-links a{color:var(--ink-soft); text-decoration:none; font-weight:600; transition:color .15s ease; white-space:nowrap;}
+  @media (hover:hover) and (pointer:fine){ .nav-links a:hover{color:var(--ink);} }
+
+  .nav-toggle{
+    display:none; order:3; border:1px solid var(--border); background:var(--content1); color:var(--ink);
+    border-radius:var(--radius-md); width:32px; height:30px; align-items:center; justify-content:center; cursor:pointer; padding:0;
+  }
+  .nav-toggle svg{width:17px; height:17px;}
+  .nav-toggle .icon-close{display:none;}
+  .nav-toggle[aria-expanded="true"] .icon-open{display:none;}
+  .nav-toggle[aria-expanded="true"] .icon-close{display:block;}
+
+  @media (max-width:679px){
+    header.site .bar{flex-wrap:wrap; row-gap:8px;}
+    nav.top{flex-basis:100%; justify-content:flex-end;}
+    .nav-toggle{display:flex;}
+    .nav-links{
+      display:none; flex-direction:column; align-items:flex-start; gap:2px;
+      flex-basis:100%; width:100%; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);
+    }
+    .nav-links a{padding:8px 2px; width:100%;}
+    #navToggle[aria-expanded="true"] ~ .nav-links{display:flex;}
+  }
+
+  .lang-toggle{display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden;}
+  .lang-toggle button{border:none; background:var(--content1); color:var(--ink-soft); font-weight:700; font-size:12.5px; padding:7px 13px; cursor:pointer; font-family:inherit; transition:background-color .15s ease, color .15s ease;}
+  .lang-toggle button.active{background:var(--primary); color:#fff;}
+  button.menu-toggle{display:none; border:1px solid var(--border); background:var(--content1); border-radius:var(--radius-md); padding:7px 11px; font-size:16px; cursor:pointer; color:var(--ink);}
+
+  .theme-toggle{display:flex; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; background:var(--content1);}
+  .theme-toggle button{
+    border:none; background:none; color:var(--ink-soft); width:30px; height:28px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+    transition:background-color .15s ease, color .15s ease;
+  }
+  .theme-toggle button svg{width:15px; height:15px;}
+  .theme-toggle button + button{border-left:1px solid var(--border);}
+  .theme-toggle button.active{background:var(--primary-tint); color:var(--primary);}
+  @media (hover:hover) and (pointer:fine){
+    .theme-toggle button:not(.active):hover{color:var(--ink);}
+  }
+
+  .layout{max-width:1200px; margin:0 auto; display:grid; grid-template-columns:260px 1fr; gap:32px; padding:24px 20px 80px;}
+  aside.toc{position:sticky; top:66px; align-self:start; max-height:calc(100vh - 86px); overflow-y:auto;
+    background:var(--content1); border:1px solid var(--border); border-radius:var(--radius-lg); padding:10px;}
+  aside.toc ol{list-style:none; margin:0; padding:0; display:grid; gap:2px;}
+  aside.toc a{
+    display:flex; gap:9px; align-items:baseline; padding:8px 10px; border-radius:8px;
+    font-size:13.5px; font-weight:600; color:var(--ink-soft); text-decoration:none;
+    transition:background-color .15s ease, color .15s ease;
+  }
+  aside.toc a .n{font-family:var(--mono); font-size:11px; color:var(--ink-faint); min-width:16px;}
+  @media (hover:hover) and (pointer:fine){ aside.toc a:hover{background:var(--content2); color:var(--ink);} }
+  aside.toc a.active{background:var(--primary-tint); color:var(--primary);}
+  aside.toc a.active .n{color:var(--primary);}
+
+  main.doc{min-width:0;}
+  .doc-card{
+    background:var(--content1); border:1px solid var(--border); border-radius:var(--radius-lg);
+    box-shadow:var(--shadow); padding:34px 38px; min-height:50vh;
+  }
+  @media (max-width:720px){ .doc-card{padding:22px 18px;} }
+
+  .doc-card h1{font-size:26px; font-weight:800; letter-spacing:-.01em; margin-top:0;}
+  .doc-card h2{font-size:19px; font-weight:700; border-top:1px solid var(--border); padding-top:20px; margin-top:28px;}
+  .doc-card h3{font-size:16px; font-weight:700;}
+  .doc-card p, .doc-card li{color:var(--ink-soft); font-size:14.5px;}
+  .doc-card strong{color:var(--ink);}
+  .doc-card code{background:var(--content3); border-radius:5px; padding:1px 6px; font-family:var(--mono); font-size:13px; color:var(--ink);}
+  .doc-card pre{background:#0b1220; border-radius:var(--radius-md); padding:14px 16px; overflow-x:auto;}
+  .doc-card pre code{background:none; color:#e2e8f0; padding:0;}
+  .doc-card blockquote{margin:16px 0; padding:4px 16px; border-left:3px solid var(--primary); background:var(--content2); border-radius:0 8px 8px 0; color:var(--ink-soft);}
+  .callout{margin:16px 0; padding:12px 16px; border-radius:var(--radius-md); font-size:14px; display:flex; gap:10px;}
+  .callout p{margin:0; color:inherit;}
+  .callout .label{font-weight:700; display:block; margin-bottom:2px;}
+  .callout-note{background:var(--primary-tint); color:var(--primary);}
+  .callout-tip{background:var(--content2); color:var(--ink-soft);}
+  .callout-important{background:#f5f3ff; color:#7c3aed;}
+  .callout-warning, .callout-caution{background:#fef2f2; color:#b91c1c;}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .callout-important{background:#241f38; color:#a78bfa;}
+    :root:not([data-theme="light"]) .callout-warning, :root:not([data-theme="light"]) .callout-caution{background:#2a1515; color:#f87171;}
+  }
+  :root[data-theme="dark"] .callout-important{background:#241f38; color:#a78bfa;}
+  :root[data-theme="dark"] .callout-warning, :root[data-theme="dark"] .callout-caution{background:#2a1515; color:#f87171;}
+  .doc-card table{border-collapse:collapse; width:100%; font-size:13.5px; margin:16px 0;}
+  .doc-card th, .doc-card td{border:1px solid var(--border); padding:8px 10px; text-align:left;}
+  .doc-card th{background:var(--content2);}
+  .doc-card img{max-width:100%; border-radius:10px;}
+  .doc-nav{display:flex; justify-content:space-between; gap:12px; margin-top:20px; font-size:13.5px;}
+  .doc-nav a{flex:1; border:1px solid var(--border); border-radius:var(--radius-md); padding:12px 14px; text-decoration:none; color:var(--ink); background:var(--content1); transition:border-color .15s ease;}
+  @media (hover:hover) and (pointer:fine){ .doc-nav a:hover{border-color:var(--ink-faint);} }
+  .doc-nav a.next{text-align:right;}
+  .doc-nav span{display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); font-weight:700;}
+  .doc-loading{color:var(--ink-soft); font-size:14px;}
+
+  @media (max-width:860px){
+    .layout{grid-template-columns:1fr;}
+    aside.toc{
+      position:fixed; inset:0 auto 0 0; top:62px; width:280px; max-height:none;
+      border-radius:0; transform:translateX(-100%); transition:transform .2s var(--ease-out, ease); z-index:15;
+    }
+    aside.toc.open{transform:translateX(0);}
+    button.menu-toggle{display:inline-block;}
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="bar">
+    <a class="brand" href="index.html"><span class="word">GLOU</span></a>
+    <nav class="top" id="siteNav" aria-label="Site">
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle table of contents">☰</button>
+      <div class="lang-toggle">
+        <button id="btnEN" class="active">EN</button>
+        <button id="btnFR">FR</button>
+      </div>
+      <div class="theme-toggle" id="themeToggle" role="group" aria-label="Theme">
+        <button type="button" data-theme-choice="light" aria-label="Light theme" title="Light">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        </button>
+        <button type="button" data-theme-choice="system" aria-label="System theme" title="System">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </button>
+        <button type="button" data-theme-choice="dark" aria-label="Dark theme" title="Dark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+        </button>
+      </div>
+      <button type="button" class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navLinks" aria-label="Toggle navigation">
+        <svg class="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <div class="nav-links" id="navLinks">
+        <a href="index.html">Home</a>
+        <a href="https://github.com/jackthomasanderson/glou-server">GitHub</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="toc" id="toc"></aside>
+  <main class="doc">
+    <div class="doc-card">
+      <div id="content" class="doc-loading">Loading…</div>
+    </div>
+    <div class="doc-nav" id="docNav"></div>
+  </main>
+</div>
+
+<script>
+const WIKI = {
+  en: {
+    dir: "wiki/EN",
+    items: [
+      ["01-Installation.md", "Installation"],
+      ["02-Configuration.md", "Configuration"],
+      ["03-Troubleshooting.md", "Troubleshooting"],
+      ["04-Cellar-Management.md", "Cellar Management"],
+      ["05-Bottle-Addition.md", "Bottle Addition"],
+      ["06-Peak-Maturity-Alerts.md", "Peak Maturity Alerts"],
+      ["07-Global-Search.md", "Global Search"],
+      ["08-Autocomplete-Image.md", "Autocomplete & Image Search"],
+      ["09-Tasting-Journal.md", "Tasting Journal"],
+      ["10-Audit-Log.md", "Audit Log"],
+      ["11-Sessions-Trusted-Devices.md", "Sessions & Trusted Devices"],
+      ["12-Security-Notifications.md", "Security Notifications"],
+      ["13-Quick-Lock-Auto-Lock.md", "Quick Lock & Auto-Lock"],
+      ["14-Guest-Sharing-Write-Access.md", "Guest Sharing: Read/Write Access"],
+      ["15-Data-Retention-Maintenance.md", "Data Retention & Maintenance"],
+      ["16-Network-Public-URL-Configuration.md", "Network & Public URL Configuration"],
+      ["17-Onboarding-Setup-Wizard.md", "Onboarding Setup Wizard"],
+      ["18-Field-Source-Transparency-History.md", "Field Source Transparency & History"],
+      ["19-Backups-Export-Data-Portability.md", "Backups, Export & Data Portability"],
+      ["20-World-Map-Heatmap-Filters.md", "World Map, Heatmap & Filters"],
+      ["21-Food-Pairing.md", "Food Pairing"],
+      ["22-Consumption-Plan.md", "Consumption Plan"],
+      ["23-Physical-Inventory-Reconciliation.md", "Physical Inventory & Reconciliation"],
+      ["24-Wishlist-Budget.md", "Wishlist & Budget"],
+      ["25-Offline-Mode.md", "Offline Mode"],
+      ["26-Label-Scan.md", "Label Scan"],
+      ["27-Expert-Mode.md", "Expert Mode"],
+      ["01-Authentication.md", "Authentication (API)"],
+      ["29-Secret-Rotation.md", "Rotate the Secrets"],
+      ["30-Disaster-Recovery.md", "Disaster Recovery"],
+      ["31-Upgrades-And-Rollback.md", "Upgrade & Roll Back"]
+    ]
+  },
+  fr: {
+    dir: "wiki/FR",
+    items: [
+      ["01-Installation.md", "Installation"],
+      ["02-Configuration.md", "Configuration"],
+      ["03-Depannage.md", "Dépannage"],
+      ["04-Gestion-Des-Caves.md", "Gestion des Caves"],
+      ["05-Ajout-Bouteille.md", "Ajouter une Bouteille"],
+      ["06-Alertes-Apogee.md", "Alertes Apogée"],
+      ["07-Recherche-Globale.md", "Recherche Globale"],
+      ["08-Autocompletion-Image.md", "Autocomplétion & Recherche d'Image"],
+      ["09-Journal-Degustation.md", "Journal de Dégustation"],
+      ["10-Audit-Actions.md", "Journal d'Audit des Actions"],
+      ["11-Sessions-Appareils-De-Confiance.md", "Sessions & Appareils de Confiance"],
+      ["12-Notifications-De-Securite.md", "Notifications de Sécurité"],
+      ["13-Verrouillage-Rapide-Auto-Lock.md", "Verrouillage Rapide & Auto-Lock"],
+      ["14-Partage-Invite-Acces-Ecriture.md", "Partage Invité en Lecture/Écriture"],
+      ["15-Retention-Maintenance-Donnees.md", "Rétention & Maintenance des Données"],
+      ["16-Configuration-Reseau-URL-Publique.md", "Configuration Réseau & URL Publique"],
+      ["17-Assistant-Onboarding.md", "Assistant de Configuration Initiale (Onboarding)"],
+      ["18-Transparence-Sources-Historique.md", "Transparence des Sources & Historique"],
+      ["19-Sauvegardes-Export-Portabilite-Donnees.md", "Sauvegardes, Export & Portabilité"],
+      ["20-Carte-Monde-Heatmap-Filtres.md", "Carte du Monde, Heatmap & Filtres"],
+      ["21-Accords-Mets-Bouteilles.md", "Accords Mets/Bouteilles"],
+      ["22-Plan-De-Consommation.md", "Plan de Consommation"],
+      ["23-Inventaire-Physique-Reconciliation.md", "Inventaire Physique & Réconciliation"],
+      ["24-Liste-De-Souhaits-Budget.md", "Liste de Souhaits & Budget"],
+      ["25-Mode-Hors-Ligne.md", "Mode Hors-Ligne"],
+      ["26-Scan-Etiquette.md", "Scan Étiquette"],
+      ["27-Mode-Expert.md", "Mode Expert"],
+      ["01-Authentification.md", "Authentification (API)"],
+      ["29-Rotation-Des-Secrets.md", "Changer les Secrets"],
+      ["30-Reprise-Apres-Sinistre.md", "Reprise après Sinistre"],
+      ["31-Mises-A-Jour-Et-Retour-Arriere.md", "Mettre à Jour & Revenir en Arrière"]
+    ]
+  }
+};
+
+const ALERT_LABEL = { note: "Note", tip: "Tip", important: "Important", warning: "Warning", caution: "Caution" };
+
+function transformAlerts(md){
+  return md.replace(/^([ \t]*)>\s?\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n((?:\1>.*(?:\n|$))*)/gim, (_, indent, type, body) => {
+    const kind = type.toLowerCase();
+    const lineRe = new RegExp("^" + indent + ">\\s?");
+    const text = body.split("\n")
+      .map(line => line.replace(lineRe, ""))
+      .join("\n")
+      .trim();
+    const html = marked.parseInline(text);
+    return `\n${indent}<div class="callout callout-${kind}"><div><span class="label">${ALERT_LABEL[kind]}</span><p>${html}</p></div></div>\n\n`;
+  });
+}
+
+let lang = "en";
+let activeIndex = 0;
+const tocEl = document.getElementById("toc");
+const contentEl = document.getElementById("content");
+const docNavEl = document.getElementById("docNav");
+
+function renderTOC(){
+  const { items } = WIKI[lang];
+  tocEl.innerHTML = "<ol>" + items.map((it, i) =>
+    `<li><a href="#" data-i="${i}" class="${i === activeIndex ? 'active' : ''}"><span class="n">${String(i+1).padStart(2,'0')}</span>${it[1]}</a></li>`
+  ).join("") + "</ol>";
+  tocEl.querySelectorAll("a").forEach(a => {
+    a.addEventListener("click", e => {
+      e.preventDefault();
+      loadDoc(lang, parseInt(a.dataset.i, 10));
+      tocEl.classList.remove("open");
+    });
+  });
+}
+
+function renderDocNav(){
+  const { items } = WIKI[lang];
+  const prev = items[activeIndex - 1];
+  const next = items[activeIndex + 1];
+  docNavEl.innerHTML =
+    (prev ? `<a href="#" id="prevLink"><span>← Previous</span>${prev[1]}</a>` : "<span></span>") +
+    (next ? `<a href="#" id="nextLink" class="next"><span>Next →</span>${next[1]}</a>` : "");
+  const prevLink = document.getElementById("prevLink");
+  const nextLink = document.getElementById("nextLink");
+  if (prevLink) prevLink.addEventListener("click", e => { e.preventDefault(); loadDoc(lang, activeIndex - 1); });
+  if (nextLink) nextLink.addEventListener("click", e => { e.preventDefault(); loadDoc(lang, activeIndex + 1); });
+}
+
+async function loadDoc(l, i){
+  lang = l;
+  activeIndex = i;
+  const { dir, items } = WIKI[lang];
+  const [file] = items[i];
+  location.hash = `${lang}/${file.replace(/\.md$/, "")}`;
+  contentEl.innerHTML = "Loading…";
+  contentEl.className = "doc-loading";
+  try{
+    const res = await fetch(`${dir}/${file}`);
+    if (!res.ok) throw new Error(res.status);
+    const md = await res.text();
+    contentEl.innerHTML = marked.parse(transformAlerts(md));
+    contentEl.className = "";
+  }catch(err){
+    contentEl.innerHTML = `<p>Could not load this page (${err.message}). <a href="https://github.com/jackthomasanderson/glou-server/blob/main/docs/${dir}/${file}">View it on GitHub</a> instead.</p>`;
+    contentEl.className = "";
+  }
+  renderTOC();
+  renderDocNav();
+  document.getElementById("btnEN").classList.toggle("active", lang === "en");
+  document.getElementById("btnFR").classList.toggle("active", lang === "fr");
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function findByHash(){
+  const h = location.hash.replace(/^#/, "");
+  const [l, file] = h.split("/");
+  if (l && WIKI[l]) {
+    const idx = WIKI[l].items.findIndex(it => it[0].replace(/\.md$/, "") === file);
+    if (idx >= 0) return { l, idx };
+  }
+  return { l: "en", idx: 0 };
+}
+
+document.getElementById("btnEN").addEventListener("click", () => loadDoc("en", 0));
+document.getElementById("btnFR").addEventListener("click", () => loadDoc("fr", 0));
+document.getElementById("menuToggle").addEventListener("click", () => tocEl.classList.toggle("open"));
+
+const start = findByHash();
+loadDoc(start.l, start.idx);
+
+(function(){
+  var KEY = "glou-theme";
+  var toggle = document.getElementById("themeToggle");
+  var buttons = toggle.querySelectorAll("button");
+
+  function apply(choice){
+    if (choice === "light" || choice === "dark") {
+      document.documentElement.setAttribute("data-theme", choice);
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+    buttons.forEach(function(b){ b.classList.toggle("active", b.dataset.themeChoice === choice); });
+  }
+
+  var stored = "system";
+  try{ stored = localStorage.getItem(KEY) || "system"; }catch(e){}
+  apply(stored);
+
+  buttons.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var choice = btn.dataset.themeChoice;
+      apply(choice);
+      try{ localStorage.setItem(KEY, choice); }catch(e){}
+    });
+  });
+})();
+
+(function(){
+  var nav = document.getElementById("siteNav");
+  var toggle = document.getElementById("navToggle");
+  var links = document.getElementById("navLinks");
+
+  function close(){
+    toggle.setAttribute("aria-expanded", "false");
+  }
+
+  toggle.addEventListener("click", function(){
+    var open = toggle.getAttribute("aria-expanded") === "true";
+    toggle.setAttribute("aria-expanded", String(!open));
+  });
+
+  links.addEventListener("click", function(e){
+    if (e.target.closest("a")) close();
+  });
+
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape" && toggle.getAttribute("aria-expanded") === "true") {
+      close();
+      toggle.focus();
+    }
+  });
+
+  document.addEventListener("click", function(e){
+    if (toggle.getAttribute("aria-expanded") === "true" && !nav.contains(e.target)) close();
+  });
+})();
+</script>
+
+</body>
+</html>
