@@ -47,6 +47,9 @@ export function SystemConfigSection() {
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<NetworkCheckResult | null>(null);
 
+  // Registrations (#73): closed by default once the instance has an admin.
+  const [registrationOpen, setRegistrationOpen] = useState(false);
+
   // Scheduled backups (FEAT-18)
   const [backup, setBackup] = useState({ backupEnabled: false, backupRetentionDays: '7', backupHourUtc: '3' });
   const [backupRuns, setBackupRuns] = useState<BackupRunEntry[]>([]);
@@ -83,6 +86,7 @@ export function SystemConfigSection() {
         publicUrl: cfg.publicUrl ?? '',
         accessMode: cfg.accessMode === 'proxy' ? 'proxy' : 'direct',
       });
+      setRegistrationOpen(cfg.registrationOpen);
       setBackup({
         backupEnabled: cfg.backupEnabled,
         backupRetentionDays: String(cfg.backupRetentionDays),
@@ -225,6 +229,18 @@ export function SystemConfigSection() {
       showFeedback('error', err instanceof Error ? err.message : 'Error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveRegistration = async (next: boolean) => {
+    setRegistrationOpen(next);
+    try {
+      const updated = await configClient.updateRegistration({ registrationOpen: next });
+      setConfig(updated);
+      showFeedback('success', t('adminConfig.registration.saved'));
+    } catch (err) {
+      setRegistrationOpen(!next);
+      showFeedback('error', err instanceof Error ? err.message : 'Error');
     }
   };
 
@@ -688,6 +704,14 @@ export function SystemConfigSection() {
                   </Chip>
                 </p>
               </div>
+            </div>
+
+            <div className="pt-4 border-t border-divider flex flex-col gap-2">
+              <p className="text-sm font-semibold">{t('adminConfig.registration.title')}</p>
+              <p className="text-sm text-foreground-500">{t('adminConfig.registration.description')}</p>
+              <Switch isSelected={registrationOpen} onValueChange={saveRegistration} size="sm">
+                {t('adminConfig.registration.enabled')}
+              </Switch>
             </div>
 
             <div className="pt-4 border-t border-divider flex flex-col gap-3">

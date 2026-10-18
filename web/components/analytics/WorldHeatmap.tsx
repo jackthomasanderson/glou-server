@@ -247,7 +247,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
             display: none !important;
           }
           .leaflet-control-attribution {
-            font-size: 0.6rem;
+            font-size: 0.7rem;
             background: transparent !important;
           }
           .leaflet-interactive {

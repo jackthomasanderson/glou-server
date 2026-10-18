@@ -50,12 +50,13 @@ jobs:
 
       # ISSUE_005: nothing in CI checked for known-vulnerable dependencies.
       # Scoped to --omit=dev (devDependencies never ship in the image built
-      # below) and --audit-level=critical: at `high`, three long-standing
-      # advisories have no fix that isn't itself a breaking downgrade
-      # (Prisma's own `@prisma/config` -> deepmerge-ts chain, the
-      # @ducanh2912/next-pwa -> braces chain, i18next-http-backend's URL
-      # validation) — gating on them would just make this check permanently
-      # red rather than catch a real regression. Revisit the threshold once
+      # below) and --audit-level=critical: at `high`, long-standing advisories
+      # with no fixed version upstream would make this check permanently red
+      # rather than catch a real regression. What remains at `high` is the
+      # @ducanh2912/next-pwa -> braces chain (no patched `braces` release
+      # exists) and i18next-http-backend's URL validation; the
+      # `@prisma/config` -> deepmerge-ts chain is now pinned through an
+      # `overrides` entry in api/package.json. Revisit the threshold once
       # fixed versions land upstream.
       - name: Audit API dependencies
         working-directory: api

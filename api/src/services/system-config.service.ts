@@ -60,6 +60,12 @@ export type NetworkCheckResult = {
   warnings: string[];
 };
 
+// ─── #73: Close registrations by default ─────────────────────────────────────
+
+export type RegistrationConfig = {
+  registrationOpen: boolean;
+};
+
 const DEFAULT_APP_URL = 'http://localhost:3000';
 
 /** `publicUrl` if set (non-empty), else `process.env.APP_URL`, else the hardcoded default. */
@@ -90,6 +96,7 @@ export type PublicSystemConfig = {
   accessMode: string;
   // Resolved URL actually used by the app (publicUrl, or APP_URL, or the localhost default).
   effectivePublicUrl: string;
+  registrationOpen: boolean;
   backupEnabled: boolean;
   backupRetentionDays: number;
   backupHourUtc: number;
@@ -129,6 +136,7 @@ export const systemConfigService = {
       publicUrl: cfg.publicUrl,
       accessMode: cfg.accessMode,
       effectivePublicUrl: resolveEffectivePublicUrl(cfg.publicUrl),
+      registrationOpen: cfg.registrationOpen,
       backupEnabled: cfg.backupEnabled,
       backupRetentionDays: cfg.backupRetentionDays,
       backupHourUtc: cfg.backupHourUtc,
@@ -328,5 +336,19 @@ export const systemConfigService = {
     } catch {
       return false;
     }
+  },
+
+  async updateRegistrationConfig(data: RegistrationConfig, userId: string): Promise<PublicSystemConfig> {
+    const old = await getOrCreate();
+    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: { ...data, updatedBy: userId } });
+    await this.logChange(userId, 'registration', old, data);
+    return this.getPublic();
+  },
+
+  // #73: checked by authService.register once the instance's first account
+  // (the admin, which bootstraps regardless) already exists.
+  async isRegistrationOpen(): Promise<boolean> {
+    const cfg = await getOrCreate();
+    return cfg.registrationOpen;
   },
 };

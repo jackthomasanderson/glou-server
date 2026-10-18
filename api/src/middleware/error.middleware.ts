@@ -125,10 +125,15 @@ export function errorMiddleware(
   // Server-side failures keep the full error (message, stack, cause) in the
   // container logs; client-side ones are noted without the stack so a bad
   // request cannot be used to flood the journal.
+  //
+  // `where` is request-controlled, so it is passed as an argument of a constant
+  // format string rather than interpolated into one: a URL containing `%s` or
+  // `%d` would otherwise be read as a placeholder by console's own formatting
+  // and consume the `err` argument, dropping the stack from the log line.
   if (status >= 500) {
-    console.error(`[error] ${where} -> ${status} ${code}`, err);
+    console.error('[error] %s -> %d %s', where, status, code, err);
   } else {
-    console.warn(`[error] ${where} -> ${status} ${code}`);
+    console.warn('[error] %s -> %d %s', where, status, code);
   }
 
   // Streaming responses (file download/export) may already have been started;

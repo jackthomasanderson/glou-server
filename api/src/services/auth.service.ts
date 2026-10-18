@@ -366,6 +366,17 @@ export class AuthService {
   async register(data: RegisterInput, deviceInfo: DeviceInfo): Promise<{ user: PublicUser; token: string }> {
     const { username, email, password, displayName } = data;
 
+    // If this is the first user, make them an admin
+    const userCount = await prisma.user.count();
+    const isAdmin = userCount === 0;
+
+    // ISSUE_001/#73: the first account always gets through (there is no
+    // admin yet to open registrations), every one after it needs the
+    // instance to have been opened up explicitly.
+    if (!isAdmin && !(await systemConfigService.isRegistrationOpen())) {
+      throw new Error('REGISTRATION_CLOSED');
+    }
+
     // Check uniqueness
     const existing = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] },
@@ -379,10 +390,6 @@ export class AuthService {
     if (existing) throw new Error('REGISTRATION_CONFLICT');
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-
-    // If this is the first user, make them an admin
-    const userCount = await prisma.user.count();
-    const isAdmin = userCount === 0;
 
     const rawUser = await prisma.user.create({
       data: {
