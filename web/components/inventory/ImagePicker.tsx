@@ -4,6 +4,7 @@ import { Button, Input, Tooltip } from '@heroui/react';
 import { Search, Loader2, X } from 'lucide-react';
 import { useConnectivityWarning } from '@/hooks/useConnectivityWarning';
 import { useTranslation } from 'react-i18next';
+import { searchClient } from '@/lib/search/client';
 
 export interface ImageResult {
   url: string;
@@ -70,11 +71,8 @@ export function ImagePickerButton({
     setLoading(true);
     setResults([]);
     try {
-      const res = await fetch(`/api/search/images?q=${encodeURIComponent(q.trim())}`, {
-        credentials: 'include',
-      });
-      const json = (await res.json()) as { data: ImageResult[] };
-      setResults(json.data ?? []);
+      const results = await searchClient.searchImages(q.trim());
+      setResults(results);
     } catch {
       setResults([]);
     } finally {
@@ -107,15 +105,9 @@ export function ImagePickerButton({
     setSaving(true);
     setSaveError(false);
     try {
-      const res = await fetch('/api/search/images/save', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: imageUrl }),
-      });
-      const json = (await res.json()) as { data?: { path: string } };
-      if (json.data?.path) {
-        onSelect(json.data.path);
+      const path = await searchClient.saveImageFromUrl(imageUrl);
+      if (path) {
+        onSelect(path);
         handleClose();
       } else {
         setSaveError(true);

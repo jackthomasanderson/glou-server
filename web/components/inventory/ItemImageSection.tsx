@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { ImagePickerButton, ImageResult } from './ImagePicker';
 import { InventoryCategory } from '@/lib/inventory/types';
 import { getCategoryPlaceholderSolid } from '@/lib/analytics/categoryColors';
+import { searchClient } from '@/lib/search/client';
 
 const PLACEHOLDER_ICON: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={40} className="opacity-30 text-white" />,
@@ -27,33 +28,14 @@ type Mode = 'idle' | 'url';
 
 async function saveFromUrl(url: string): Promise<string | null> {
   try {
-    const res = await fetch('/api/search/images/save', {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
-    });
-    const json = (await res.json()) as { data?: { path: string } };
-    return json.data?.path ?? null;
+    return await searchClient.saveImageFromUrl(url);
   } catch {
     return null;
   }
 }
 
 async function uploadFile(file: File): Promise<string | null> {
-  try {
-    const form = new FormData();
-    form.append('image', file);
-    const res = await fetch('/api/search/images/upload', {
-      method: 'POST',
-      credentials: 'include',
-      body: form,
-    });
-    const json = (await res.json()) as { data?: { path: string } };
-    return json.data?.path ?? null;
-  } catch {
-    return null;
-  }
+  return searchClient.uploadImage(file);
 }
 
 export function ItemImageSection({
