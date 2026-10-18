@@ -11,6 +11,7 @@ import { paginationQuerySchema } from '../schemas/pagination.schema';
 import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenceReorderSchema } from '../schemas/maturity-reference.schema';
 import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/retention.schema';
 import { networkConfigSchema } from '../schemas/network-config.schema';
+import { registrationConfigSchema } from '../schemas/registration-config.schema';
 import { smtpConfigSchema, gotifyConfigSchema, integrationsConfigSchema } from '../schemas/system-config.schema';
 import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
@@ -496,6 +497,21 @@ adminRouter.post('/config/network/check', async (_req: Request, res: Response): 
     res.json({ data: result });
   } catch (err) {
     console.error('[admin] POST /config/network/check error:', err);
+    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  }
+});
+
+adminRouter.put('/config/registration', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const parsed = registrationConfigSchema.parse(req.body);
+    const config = await systemConfigService.updateRegistrationConfig(parsed, req.userId);
+    res.json({ data: config });
+  } catch (err) {
+    console.error('[admin] PUT /config/registration error:', err);
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      return;
+    }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });

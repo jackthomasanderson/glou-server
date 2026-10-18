@@ -414,6 +414,7 @@
       "USERNAME_ALREADY_TAKEN": "This username is already taken.",
       "EMAIL_ALREADY_TAKEN": "This email address is already in use.",
       "REGISTRATION_CONFLICT": "That username or email address is already in use.",
+      "REGISTRATION_CLOSED": "New account registration is currently closed on this instance. Ask an admin for an invitation.",
       "VALIDATION_ERROR": "Please check your inputs.",
       "UNEXPECTED_ERROR": "An unexpected error occurred.",
       "CSRF_ORIGIN_REJECTED": "This address is not allowed by the server. Set APP_URL to the address you type in your browser, then restart.",
@@ -1674,6 +1675,12 @@
           "PROXY_MODE_LOCALHOST_URL": "Access mode is set to \"via a reverse proxy\" but the public URL points to localhost, which is inconsistent for external access."
         }
       }
+    },
+    "registration": {
+      "title": "New account registration",
+      "description": "Once the first account (the instance's admin) exists, anonymous registration is closed by default. Turn it on to let new members sign up for themselves.",
+      "enabled": "Allow new accounts to register",
+      "saved": "Registration setting saved."
     }
   },
   "onboarding": {
