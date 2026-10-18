@@ -48,10 +48,12 @@ const PUBLIC_AUTH_ERROR_CODES = new Set([
   'PASSWORD_TOO_SHORT',
   'TOKEN_INVALID_OR_EXPIRED',
   'REGISTRATION_CONFLICT',
+  'REGISTRATION_CLOSED',
   'VALIDATION_ERROR',
 ]);
 
 const CONFLICT_REGISTER_CODES = new Set(['REGISTRATION_CONFLICT']);
+const FORBIDDEN_REGISTER_CODES = new Set(['REGISTRATION_CLOSED']);
 
 /** Allow-listed error code for an unauthenticated caller, never a raw message. */
 function publicAuthError(error: unknown, route: string): string {
@@ -119,7 +121,8 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const msg = publicAuthError(error, 'POST /register');
-    res.status(CONFLICT_REGISTER_CODES.has(msg) ? 409 : 500).json({ error: msg });
+    const status = FORBIDDEN_REGISTER_CODES.has(msg) ? 403 : CONFLICT_REGISTER_CODES.has(msg) ? 409 : 500;
+    res.status(status).json({ error: msg });
   }
 });
 

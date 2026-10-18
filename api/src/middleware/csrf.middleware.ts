@@ -93,9 +93,14 @@ export function csrfGuard(req: Request, res: Response, next: NextFunction): void
     }
     // Say why: this used to be a silent 403 shown as "unexpected error", with
     // nothing in the logs to explain it.
+    // Constant format string: method, URL and Origin are request-controlled and
+    // must not be read as console placeholders (see error.middleware).
     console.warn(
-      `[csrf] Rejected ${req.method} ${req.originalUrl}: Origin ${origin} is not APP_URL / CORS_ORIGIN / CSRF_TRUSTED_ORIGINS` +
+      '[csrf] Rejected %s %s: Origin %s is not APP_URL / CORS_ORIGIN / CSRF_TRUSTED_ORIGINS' +
         ' and does not match the host it was sent to. Set APP_URL to the address you use in the browser.',
+      req.method,
+      req.originalUrl,
+      origin,
     );
     res.status(403).json({ error: 'CSRF_ORIGIN_REJECTED' });
     return;
