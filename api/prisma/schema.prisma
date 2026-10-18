@@ -620,6 +620,11 @@ model SystemConfig {
   publicUrl  String?
   accessMode AccessMode @default(direct)
 
+  // Close registrations by default (ISSUE_001/#73): once the first account
+  // (the instance's admin) exists, anonymous registration is refused unless
+  // an admin opts back in here.
+  registrationOpen Boolean @default(false)
+
   // Scheduled database backups (FEAT-18). `backupHourUtc` is the UTC hour
   // (0-23) at which the daily cron attempts a scheduled pg_dump — see
   // backupService.runScheduledIfDue, checked on every cron tick (not just

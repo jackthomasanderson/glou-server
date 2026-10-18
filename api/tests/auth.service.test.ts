@@ -133,9 +133,69 @@ describe('AuthService', () => {
     });
 
     it('throws a single REGISTRATION_CONFLICT code for either a taken username or email (ISSUE_015: no enumeration)', async () => {
+      vi.mocked(prisma.user.count).mockResolvedValue(1);
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ registrationOpen: true } as any);
       vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as any);
 
       await expect(authService.register(validData, deviceInfo)).rejects.toThrow('REGISTRATION_CONFLICT');
+    });
+
+    it('throws REGISTRATION_CLOSED for a non-admin signup once registration is closed (#73)', async () => {
+      vi.mocked(prisma.user.count).mockResolvedValue(1);
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ registrationOpen: false } as any);
+
+      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('REGISTRATION_CLOSED');
+      expect(prisma.user.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('lets the first account through even though registration is closed by default (#73)', async () => {
+      vi.mocked(prisma.user.count).mockResolvedValue(0);
+      vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+      vi.mocked(bcrypt.hash).mockResolvedValue('hashedPassword' as never);
+      vi.mocked(prisma.user.create).mockResolvedValue({
+        id: '1',
+        username: validData.username,
+        email: validData.email,
+        displayName: validData.displayName,
+        avatarUrl: null,
+        appName: null,
+        appSlogan: null,
+        theme: Theme.LIGHT,
+        language: Language.FR,
+        tempUnit: TempUnit.CELSIUS,
+        accentColor: '#6366f1',
+        dateFormat: DateFormat.SYSTEM,
+        isTwoFactorEnabled: false,
+        twoFactorSecret: null,
+        backupCodes: [],
+        twoFactorFailedAttempts: 0,
+        twoFactorLockedUntil: null,
+        isAdmin: true,
+        isActive: true,
+        passwordHash: 'hashedPassword',
+        deletionRequestedAt: null,
+        expertMode: false,
+        pinHash: null,
+        autoLockDelayMin: null,
+        onboardingCompletedAt: null,
+        notifInApp: true,
+        notifEmail: false,
+        notifWebhook: false,
+        notifCategories: [],
+        notifQuietStart: null,
+        notifQuietEnd: null,
+        notifLanguage: null,
+        webhookUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any);
+      vi.mocked(prisma.session.create).mockResolvedValue({ id: 'session-1' } as any);
+      vi.mocked(jwt.sign).mockReturnValue('mock-jwt-token' as never);
+
+      const result = await authService.register(validData, deviceInfo);
+
+      expect(prisma.systemConfig.findUnique).not.toHaveBeenCalled();
+      expect(result.user.isAdmin).toBe(true);
     });
   });
 

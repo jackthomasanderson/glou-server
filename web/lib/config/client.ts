@@ -21,6 +21,7 @@ export interface SystemConfigPublic {
   publicUrl: string | null;
   accessMode: string;
   effectivePublicUrl: string;
+  registrationOpen: boolean;
   backupEnabled: boolean;
   backupRetentionDays: number;
   backupHourUtc: number;
@@ -42,6 +43,11 @@ export interface NetworkConfig {
 export interface NetworkCheckResult {
   ok: boolean;
   warnings: string[];
+}
+
+// #73: close registrations by default
+export interface RegistrationConfig {
+  registrationOpen: boolean;
 }
 
 // ─── FEAT-18: Scheduled Backups ───────────────────────────────────────────────
@@ -144,6 +150,11 @@ export const configClient = {
 
   async checkNetwork(): Promise<NetworkCheckResult> {
     const { data } = await client.post<NetworkCheckResult>('/admin/config/network/check', {});
+    return data;
+  },
+
+  async updateRegistration(payload: RegistrationConfig): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/registration', payload);
     return data;
   },
 
