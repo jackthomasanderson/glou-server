@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { useModalDrawer } from '@/hooks/useModalDrawer';
 import { useCellars } from '@/hooks/useCellars';
 import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem, useRollbackField } from '@/hooks/useInventory';
 import { Button, Chip, Divider, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Tooltip } from '@heroui/react';
@@ -133,6 +134,8 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
     setLocalQuantity(d?.quantity ?? 0);
   }
 
+  const { overlayRef, panelRef } = useModalDrawer(open);
+
   // This drawer is hand-rolled rather than the shared HeroUI Modal, so
   // Escape-to-close and screen-reader dialog semantics aren't automatic —
   // added explicitly here instead of switching component to keep the
@@ -246,13 +249,15 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   return (
     <>
       {open && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div ref={overlayRef} className="fixed inset-0 z-50 flex justify-end">
           {/* Backdrop */}
           <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
           {/* Drawer panel */}
           <div
-            className="relative w-full sm:w-[400px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl"
+            ref={panelRef}
+            tabIndex={-1}
+            className="relative w-full sm:w-[400px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl outline-none"
             role="dialog"
             aria-modal="true"
             aria-labelledby="inventory-detail-title"
