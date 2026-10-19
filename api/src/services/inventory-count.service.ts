@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
 import { InventoryInput } from '../schemas/inventory.schema';
+import { FINISHED_ITEM_STATE } from '../lib/finished-item';
 
 /**
  * FEAT-12: Inventaire Physique Assisté & Réconciliation.
@@ -489,7 +490,7 @@ async function applyCorrectionsInternal(
       // subsequent count (ISSUE_034).
       await tx.inventoryItem.update({
         where: { id: item.id },
-        data: { isOpened: true, fillLevel: 0, updatedAt: new Date(), updatedBy: actingUserId },
+        data: { ...FINISHED_ITEM_STATE, updatedAt: new Date(), updatedBy: actingUserId },
       });
       appliedCount++;
       continue;
