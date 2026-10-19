@@ -7,6 +7,9 @@ Glou applies its database migrations automatically when the API starts, and **mi
 * Shell access to the host, and a **fresh backup** (Admin → System Configuration → Backups → **Run now**).
 * The database backup alone is enough to undo schema changes; photos are not touched by migrations.
 
+> [!WARNING]
+> Upgrading from an instance deployed before `docker-compose.yml` required `DB_PASSWORD`? It may still be running on the old fallback database password, which is public in this repo's git history. Rotate it — see [Rotate the Secrets](./29-Secret-Rotation.md#rotate-db_password).
+
 ## Upgrade
 1. Back up (see above) and note the images in use so you can return to them:
    ```bash
@@ -19,10 +22,10 @@ Glou applies its database migrations automatically when the API starts, and **mi
 3. Watch the API log: `docker compose logs -f api`. You should see the migrations apply, then `Server listening`.
 
 ## Go back
-Images are only published as `latest` (stable) and `beta`: there is no version tag, so you go back by **digest**.
+Each build is also published under an immutable tag named after the full commit SHA it was built from (e.g. `ghcr.io/jackthomasanderson/glou-server-api:a1b2c3…`), alongside the mutable `latest`/`beta` tags — unlike those, that tag is never overwritten, so you can pin to it instead of tracking down a digest. Find the commit you were running (`git log`, or the digest noted below) and use its SHA tag, or go back by **digest** if you only kept that.
 
 1. Stop the stack: `docker compose down` (this keeps your volumes).
-2. In `docker-compose.yml`, pin the two images to the digests you noted, for example `image: ghcr.io/jackthomasanderson/glou-server-api@sha256:…`.
+2. In `docker-compose.yml`, pin the two images to the commit SHA tag you want, for example `image: ghcr.io/jackthomasanderson/glou-server-api:a1b2c3…` — or to the digests you noted, e.g. `image: ghcr.io/jackthomasanderson/glou-server-api@sha256:…`.
 3. Start only the database: `docker compose up -d db`.
 4. Restore the backup taken before the upgrade, with the command of [Disaster recovery](./30-Disaster-Recovery.md) step 3.
 5. Start everything: `docker compose up -d`. The older API finds a database matching its own version and starts normally.

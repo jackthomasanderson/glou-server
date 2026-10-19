@@ -12,8 +12,11 @@ const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://ollama:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'moondream';
 
 // Vision models on CPU (typical home-lab hardware) can take tens of seconds
-// per image — generous timeout, the client polls asynchronously anyway.
-const OLLAMA_TIMEOUT_MS = 120_000;
+// per image (plus model load time on the first request) — generous timeout,
+// the client polls asynchronously anyway. Override with OLLAMA_TIMEOUT_MS.
+const DEFAULT_OLLAMA_TIMEOUT_MS = 600_000;
+const parsedTimeout = Number(process.env.OLLAMA_TIMEOUT_MS);
+const OLLAMA_TIMEOUT_MS = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : DEFAULT_OLLAMA_TIMEOUT_MS;
 
 export const ocrExtractedDataSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -143,6 +146,12 @@ export async function analyzeLabelImage(imageBase64: string): Promise<OcrExtract
       }),
       signal: controller.signal,
     });
+  } catch (error) {
+    // Surface timeouts explicitly instead of a bare "AbortError" (#319).
+    if (controller.signal.aborted) {
+      throw new Error(`OLLAMA_TIMEOUT_AFTER_${OLLAMA_TIMEOUT_MS}MS`);
+    }
+    throw error;
   } finally {
     clearTimeout(timeout);
   }

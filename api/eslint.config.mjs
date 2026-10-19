@@ -41,15 +41,5 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
     },
-  },
-  {
-    // Same rationale as tests/**: seed.ts spreads heterogeneous literal
-    // fixture objects (wines/spirits/cigars with different field shapes)
-    // into Prisma's generated `create` input types, which a plain object
-    // literal can't structurally satisfy. Fixture scaffolding, not app logic.
-    files: ['prisma/**/*.ts'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-    },
   }
 );
