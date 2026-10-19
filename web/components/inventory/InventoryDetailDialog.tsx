@@ -1,7 +1,6 @@
 'use client';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDialogFocus } from '@/hooks/useDialogFocus';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useModalDrawer } from '@/hooks/useModalDrawer';
 import { useCellars } from '@/hooks/useCellars';
@@ -138,11 +137,9 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const { overlayRef, panelRef } = useModalDrawer(open);
 
   // This drawer is hand-rolled rather than the shared HeroUI Modal, so
-  // Escape-to-close and screen-reader dialog semantics aren't automatic —
-  // added explicitly here instead of switching component to keep the
-  // existing layout/behavior otherwise unchanged.
-  const panelRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(open, panelRef);
+  // Escape-to-close isn't automatic — added explicitly here instead of
+  // switching component to keep the existing layout/behavior otherwise
+  // unchanged.
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {

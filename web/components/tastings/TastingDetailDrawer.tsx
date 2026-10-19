@@ -1,10 +1,9 @@
 'use client';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { Avatar, Button, Chip } from '@heroui/react';
 import { X, Pencil, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
-import { useDialogFocus } from '@/hooks/useDialogFocus';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useModalDrawer } from '@/hooks/useModalDrawer';
 import { formatDate } from '@/lib/format';
@@ -33,9 +32,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, onClose]);
 
-  const panelRef = useRef<HTMLDivElement>(null);
   const visible = hasMounted && open && !!note;
-  useDialogFocus(visible, panelRef);
 
   if (!visible) return null;
 
