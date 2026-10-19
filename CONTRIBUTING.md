@@ -22,7 +22,7 @@ Thanks for your interest in improving Glou! This document explains how to propos
 
 ## Development setup
 
-Prerequisites: Docker, and Node.js 20 if you want to run the apps outside containers.
+Prerequisites: Docker, and Node.js 24 if you want to run the apps outside containers.
 
 ```bash
 cp .env.example .env          # set a strong JWT_SECRET
