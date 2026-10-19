@@ -4,6 +4,7 @@ import { getAlerts, computeAlertStatus, computeReadiness } from './alert.service
 import { CurveShape } from '../lib/maturity-curve';
 import { SetGoalInput } from '../schemas/consumption-plan.schema';
 import { FINISHED_ITEM_STATE } from '../lib/finished-item';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 /**
  * FEAT-08: Plan de Consommation Intelligent & Rotation de Stock.
@@ -126,7 +127,8 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
       ? prisma.inventoryItem.findMany({ where: { id: { in: alertIds } }, select: SUGGESTION_SELECT })
       : Promise.resolve([] as SourceItem[]),
     prisma.inventoryItem.findMany({
-      where: { deletedAt: null, isOpened: true },
+      // FEAT-87: references are never suggested for drinking.
+      where: { deletedAt: null, ...OWNED_ITEM_FILTER, isOpened: true },
       select: SUGGESTION_SELECT,
     }),
   ]);
@@ -181,6 +183,7 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
     const rotationCandidates = await prisma.inventoryItem.findMany({
       where: {
         deletedAt: null,
+        ...OWNED_ITEM_FILTER,
         isOpened: false,
         OR: [{ consumptionPostponedUntil: null }, { consumptionPostponedUntil: { lte: now } }],
       },
@@ -293,6 +296,7 @@ export async function getGoalProgress(userId: string): Promise<GoalProgress> {
   const consumedCount = await prisma.inventoryItem.count({
     where: {
       deletedAt: null,
+      ...OWNED_ITEM_FILTER,
       ...FINISHED_ITEM_STATE,
       updatedBy: userId,
       updatedAt: { gte: goal.periodStart, lte: goal.periodEnd },

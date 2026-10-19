@@ -167,6 +167,7 @@
       "load": "Impossible de charger l'inventaire."
     },
     "filterByCategory": "Par catégorie",
+    "filterByOwnership": "Possession",
     "filterByCellar": "Par cave",
     "activeFilters": "Filtres actifs",
     "preview": "Aperçu",
@@ -193,6 +194,9 @@
       "purchasePlace": "Lieu d'achat",
       "estimatedValue": "Valeur estimée (€)",
       "isOpened": "Bouteille entamée / ouverte",
+      "isOwned": "En cave",
+      "isReference": "Référence",
+      "isReferenceHint": "Bouteille décrite mais non possédée : exclue de la valeur de la collection, des compteurs et des alertes. Vous pouvez y rattacher une dégustation, puis la mettre en stock si vous l'achetez.",
       "isOpenedCigar": "Cigare entamé",
       "fillLevel": "Niveau restant",
       "openedAt": "Ouverte le",
@@ -321,7 +325,8 @@
       "tagSearchPlaceholder": "Rechercher une étiquette…",
       "tagsShowMore": "Voir plus",
       "tagsShowLess": "Voir moins",
-      "noTagsFound": "Aucune étiquette trouvée"
+      "noTagsFound": "Aucune étiquette trouvée",
+      "showReferences": "Afficher les références"
     },
     "filterByTags": "Par étiquettes",
     "filterByWineColor": "Par couleur (vin)",
@@ -339,6 +344,9 @@
     "maturitySuggestion": {
       "apply": "Appliquer",
       "window": "Apogée : {{from}} – {{to}}"
+    },
+    "actions": {
+      "stockReference": "Mettre en stock"
     }
   },
   "alerts": {

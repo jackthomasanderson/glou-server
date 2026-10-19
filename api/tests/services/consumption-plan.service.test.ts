@@ -340,3 +340,40 @@ describe('consumption goals', () => {
     expect(progress.remaining).toBe(0);
   });
 });
+
+// FEAT-87: a non-owned reference is never something to drink, so neither
+// the "finish what's started" query nor the rotation filler may return one.
+describe('consumption suggestions exclude non-owned references (FEAT-87)', () => {
+  it('restricts the opened-items and rotation queries to owned items', async () => {
+    vi.mocked(getAlerts).mockResolvedValue([] as never);
+    mockFindManyByShape({});
+
+    await getSuggestions();
+
+    const wheres = vi
+      .mocked(prisma.inventoryItem.findMany)
+      .mock.calls.map((c) => (c[0] as unknown as { where: Record<string, unknown> }).where);
+    expect(wheres.length).toBeGreaterThan(0);
+    for (const where of wheres) {
+      expect(where).toMatchObject({ isOwned: true });
+    }
+  });
+
+  it('counts only owned bottles towards a personal consumption goal', async () => {
+    vi.mocked(prisma.consumptionGoal.findFirst).mockResolvedValue({
+      id: 'g1',
+      userId: 'u1',
+      targetValue: 10,
+      periodStart: new Date('2026-01-01'),
+      periodEnd: new Date('2026-12-31'),
+    } as never);
+    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(2 as never);
+
+    await getGoalProgress('u1');
+
+    const call = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where).toMatchObject({ isOwned: true, isOpened: true, fillLevel: 0 });
+  });
+});

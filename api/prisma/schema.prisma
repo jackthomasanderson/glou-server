@@ -266,6 +266,13 @@ model InventoryItem {
   consumptionPostponedUntil DateTime?
 
   // Cross-cutting fields
+  // FEAT-87: false = non-owned reference — an item described without being
+  // possessed (a wine tasted elsewhere, a producer's range tracked without
+  // buying it). A reference is excluded from valuation, counters, alerts,
+  // consumption suggestions, inventory counts and the guest showcase, but
+  // stays a valid tasting target. Default true: every pre-existing item is
+  // owned, and the ordinary "add a bottle" path is unchanged.
+  isOwned      Boolean   @default(true)
   isOpened     Boolean   @default(false)
   fillLevel    Int?      // 0-100 (%)
   openedAt     DateTime?

@@ -87,3 +87,26 @@ describe('getBudgetProgress', () => {
     });
   });
 });
+
+// FEAT-87: a non-owned reference was never bought, so it is not spending —
+// even when a price was recorded on it.
+describe('budget progress excludes non-owned references (FEAT-87)', () => {
+  it('restricts the spending aggregate to owned items', async () => {
+    vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue({
+      id: 'e1',
+      userId: 'u1',
+      amount: 200,
+      periodStart: new Date('2026-01-01'),
+      periodEnd: new Date('2026-01-31'),
+    } as never);
+    vi.mocked(prisma.inventoryItem.aggregate).mockResolvedValue({ _sum: { purchasePrice: 50 } } as never);
+
+    const progress = await getBudgetProgress('u1', 'e1');
+
+    expect(progress?.spent).toBe(50);
+    const call = vi.mocked(prisma.inventoryItem.aggregate).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where).toMatchObject({ isOwned: true });
+  });
+});

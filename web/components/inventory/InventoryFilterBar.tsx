@@ -34,6 +34,8 @@ export interface InventoryFilterBarProps {
   sortBy: InventorySortBy;
   setSortBy: React.Dispatch<React.SetStateAction<InventorySortBy>>;
   openedFilter: InventoryOpenedFilter;
+  showReferences: boolean;
+  setShowReferences: React.Dispatch<React.SetStateAction<boolean>>;
   setOpenedFilter: React.Dispatch<React.SetStateAction<InventoryOpenedFilter>>;
 
   tagSearchQuery: string;
@@ -75,6 +77,8 @@ export function InventoryFilterBar({
   setSortBy,
   openedFilter,
   setOpenedFilter,
+  showReferences,
+  setShowReferences,
   tagSearchQuery,
   setTagSearchQuery,
   showAllTags,
@@ -153,6 +157,23 @@ export function InventoryFilterBar({
               </FilterOption>
             );
           })}
+        </div>
+      </div>
+
+      {/* FEAT-87: references are part of the inventory but hidden by
+          default — the list is about what the instance holds. */}
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
+          {t('inventory.filterByOwnership')}
+        </p>
+        <div role="group" className="flex flex-col gap-0.5">
+          <FilterOption
+            selected={showReferences}
+            onPress={() => setShowReferences((prev) => !prev)}
+            mode="toggle"
+          >
+            {t('inventory.filters.showReferences')}
+          </FilterOption>
         </div>
       </div>
 

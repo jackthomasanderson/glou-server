@@ -167,6 +167,7 @@
       "load": "Could not load the inventory."
     },
     "filterByCategory": "By category",
+    "filterByOwnership": "Ownership",
     "filterByCellar": "By cellar",
     "activeFilters": "Active filters",
     "preview": "Preview",
@@ -193,6 +194,9 @@
       "purchasePlace": "Purchase place",
       "estimatedValue": "Estimated value (€)",
       "isOpened": "Bottle opened",
+      "isOwned": "In the cellar",
+      "isReference": "Reference",
+      "isReferenceHint": "A bottle described but not owned: left out of the collection value, the counters and the alerts. You can log a tasting on it, then stock it if you buy it.",
       "isOpenedCigar": "Opened cigar",
       "fillLevel": "Fill level",
       "openedAt": "Opened on",
@@ -321,7 +325,8 @@
       "tagSearchPlaceholder": "Search a tag…",
       "tagsShowMore": "Show more",
       "tagsShowLess": "Show less",
-      "noTagsFound": "No tags found"
+      "noTagsFound": "No tags found",
+      "showReferences": "Show references"
     },
     "filterByTags": "By tags",
     "filterByWineColor": "By color (wine)",
@@ -339,6 +344,9 @@
     "maturitySuggestion": {
       "apply": "Apply",
       "window": "Peak: {{from}} – {{to}}"
+    },
+    "actions": {
+      "stockReference": "Stock it"
     }
   },
   "alerts": {

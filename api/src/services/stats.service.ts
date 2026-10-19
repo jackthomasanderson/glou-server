@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 /** Categories the sidebar groups under "Bouteilles" (cigars have their own badge). */
 const BOTTLE_CATEGORIES = ['wine', 'sparkling', 'spirit'] as const;
@@ -34,8 +35,8 @@ export const statsService = {
     endOfToday.setUTCHours(23, 59, 59, 999);
 
     const [bottles, cigars, cellars, collections, activeSession, pricedWishes, remindersToday] = await Promise.all([
-      prisma.inventoryItem.count({ where: { deletedAt: null, category: { in: [...BOTTLE_CATEGORIES] } } }),
-      prisma.inventoryItem.count({ where: { deletedAt: null, category: 'cigar' } }),
+      prisma.inventoryItem.count({ where: { deletedAt: null, ...OWNED_ITEM_FILTER, category: { in: [...BOTTLE_CATEGORIES] } } }),
+      prisma.inventoryItem.count({ where: { deletedAt: null, ...OWNED_ITEM_FILTER, category: 'cigar' } }),
       prisma.cellar.count(),
       prisma.collection.count({ where: { userId } }),
       prisma.inventoryCountSession.findFirst({
@@ -49,7 +50,7 @@ export const statsService = {
         select: { lastSeenPrice: true, maxPrice: true },
       }),
       prisma.inventoryItem.count({
-        where: { deletedAt: null, reminderDate: { not: null, lte: endOfToday } },
+        where: { deletedAt: null, ...OWNED_ITEM_FILTER, reminderDate: { not: null, lte: endOfToday } },
       }),
     ]);
 

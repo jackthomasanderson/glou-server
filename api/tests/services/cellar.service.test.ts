@@ -126,6 +126,13 @@ describe('CellarService stats — finished bottles are not valued (ISSUE_239)', 
       where: Record<string, unknown>;
     };
     expect(valueCall.where).toMatchObject({ NOT: { isOpened: true, fillLevel: 0 } });
+    // FEAT-87: and a non-owned reference is not in the cellar at all.
+    const wheres = vi
+      .mocked(prisma.inventoryItem.groupBy)
+      .mock.calls.map((c) => (c[0] as unknown as { where: Record<string, unknown> }).where);
+    for (const where of wheres) {
+      expect(where).toMatchObject({ isOwned: true });
+    }
   });
 
   it('getCellar applies the same exclusion to the single-cellar valuation', async () => {
@@ -148,5 +155,11 @@ describe('CellarService stats — finished bottles are not valued (ISSUE_239)', 
       where: Record<string, unknown>;
     };
     expect(valueCall.where).toMatchObject({ NOT: { isOpened: true, fillLevel: 0 } });
+    const wheres = vi
+      .mocked(prisma.inventoryItem.aggregate)
+      .mock.calls.map((c) => (c[0] as unknown as { where: Record<string, unknown> }).where);
+    for (const where of wheres) {
+      expect(where).toMatchObject({ isOwned: true });
+    }
   });
 });

@@ -15,6 +15,7 @@ Entries start with the pull request that introduced them where there is one.
 - **Action required on instances deployed before `docker-compose.yml` started requiring `DB_PASSWORD`:** an old fallback database password (`glou_secret`) is readable in this repository's git history and must be treated as compromised. Rotate `DB_PASSWORD` on any such instance — see [Rotate the Secrets](docs/wiki/EN/29-Secret-Rotation.md#rotate-db_password) / [Changer les secrets](docs/wiki/FR/29-Rotation-Des-Secrets.md#changer-db_password) (#129).
 
 ### Added
+- Bottles you don't own: an item can be recorded as a *reference* — a wine tasted elsewhere, or a producer's whole range tracked without buying it. A reference is left out of the collection's value, the counters, the peak-maturity alerts, the consumption suggestions, the inventory counts and the guest showcase; it stays a valid tasting target, and one click stocks it when you buy it. References are hidden in the inventory until the "show references" filter is on (#432).
 - Keyboard access to the cellar grid: Space picks up and drops a bottle, arrows move it cell by cell, Escape cancels, Enter opens details; localized screen-reader announcements (#262).
 - `GET /api/stats/counts`: the sidebar badges come from one light call instead of five list queries (#260).
 - Startup check for the secrets the API cannot work without (`JWT_SECRET`, `CONFIG_ENCRYPTION_KEY`), with a clear `FATAL` message.

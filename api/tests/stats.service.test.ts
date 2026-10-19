@@ -56,3 +56,26 @@ describe('statsService.getSidebarCounts (#212)', () => {
     expect((await statsService.getSidebarCounts('u1')).wishlistReady).toBe(2);
   });
 });
+
+// FEAT-87: the sidebar badges count what the instance holds, so a non-owned
+// reference is not a bottle in the badge.
+describe('statsService.getSidebarCounts excludes non-owned references (FEAT-87)', () => {
+  it('restricts every inventory count to owned items', async () => {
+    vi.clearAllMocks();
+    db.inventoryItem.count.mockResolvedValue(0);
+    db.cellar.count.mockResolvedValue(0);
+    db.collection.count.mockResolvedValue(0);
+    db.inventoryCountSession.findFirst.mockResolvedValue(null);
+    db.wishlistItem.findMany.mockResolvedValue([]);
+
+    await statsService.getSidebarCounts('u1');
+
+    const wheres = db.inventoryItem.count.mock.calls.map(
+      (c: [{ where: Record<string, unknown> }]) => c[0].where,
+    );
+    expect(wheres).toHaveLength(3);
+    for (const where of wheres) {
+      expect(where).toMatchObject({ deletedAt: null, isOwned: true });
+    }
+  });
+});

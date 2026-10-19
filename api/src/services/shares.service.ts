@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { GuestShare } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ShareCreateInput } from '../schemas/shares.schema';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 function isShareValid(share: { expiresAt: Date | null; revokedAt: Date | null }): boolean {
   if (share.revokedAt) return false;
@@ -44,9 +45,10 @@ function buildShareWhere(share: { cellarIds: string[]; collectionIds: string[] }
     });
   }
 
+  // FEAT-87: the showcase shows the collection, not the reference catalogue.
   return scopeConditions.length > 0
-    ? { deletedAt: null, OR: scopeConditions }
-    : { deletedAt: null };
+    ? { deletedAt: null, ...OWNED_ITEM_FILTER, OR: scopeConditions }
+    : { deletedAt: null, ...OWNED_ITEM_FILTER };
 }
 
 function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {

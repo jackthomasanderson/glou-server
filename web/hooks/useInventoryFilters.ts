@@ -4,6 +4,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 import type { InventorySortBy, InventoryOpenedFilter } from '@/components/inventory/InventoryFilterBar';
+import { isOwnedItem } from '../lib/inventory/ownership';
 
 export interface UseInventoryFiltersOptions {
   items?: InventoryItem[];
@@ -35,6 +36,9 @@ export interface UseInventoryFiltersResult {
   sortBy: InventorySortBy;
   setSortBy: React.Dispatch<React.SetStateAction<InventorySortBy>>;
   openedFilter: InventoryOpenedFilter;
+  /** FEAT-87: non-owned references are hidden until this is turned on. */
+  showReferences: boolean;
+  setShowReferences: React.Dispatch<React.SetStateAction<boolean>>;
   setOpenedFilter: React.Dispatch<React.SetStateAction<InventoryOpenedFilter>>;
 
   isFiltersOpen: boolean;
@@ -83,6 +87,9 @@ export function useInventoryFilters({
   const [maxValue, setMaxValue] = useState('');
   const [sortBy, setSortBy] = useState<InventorySortBy>('default');
   const [openedFilter, setOpenedFilter] = useState<InventoryOpenedFilter>('all');
+  // FEAT-87: the inventory shows what the instance holds. References are
+  // part of the same list, hidden until explicitly asked for.
+  const [showReferences, setShowReferences] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const [tagSearchQuery, setTagSearchQuery] = useState('');
@@ -127,20 +134,22 @@ export function useInventoryFilters({
     setMaxValue('');
     setSortBy('default');
     setOpenedFilter('all');
+    setShowReferences(false);
     router.push(pathname);
   }, [router, pathname]);
 
   const baseItems = useMemo(() => {
     if (!items) return [];
+    const owned = showReferences ? items : items.filter(isOwnedItem);
     if (lockedCategories && lockedCategories.length > 0) {
-      return items.filter((b: InventoryItem) => lockedCategories.includes(b.category));
+      return owned.filter((b: InventoryItem) => lockedCategories.includes(b.category));
     }
-    return items;
-  }, [items, lockedCategories]);
+    return owned;
+  }, [items, lockedCategories, showReferences]);
 
   const filteredItems = useMemo(() => {
     if (!items) return [];
-    let result = items;
+    let result = showReferences ? items : items.filter(isOwnedItem);
     const DIACRITICS_RE = new RegExp('[\\u0300-\\u036f]', 'g');
     const norm = (s: string) => s.normalize('NFD').replace(DIACRITICS_RE, '').toLowerCase();
 
@@ -229,13 +238,14 @@ export function useInventoryFilters({
     }
 
     return result;
-  }, [items, searchQuery, selectedCategories, selectedWineColors, selectedCellars, selectedCollectionId, selectedTags, minValue, maxValue, sortBy, cellars, openedFilter, t, hasMounted, lockedCategories]);
+  }, [items, searchQuery, selectedCategories, selectedWineColors, selectedCellars, selectedCollectionId, selectedTags, minValue, maxValue, sortBy, cellars, openedFilter, showReferences, t, hasMounted, lockedCategories]);
 
   const hasActiveFilters =
     selectedCategories.length > 0 ||
     selectedWineColors.length > 0 ||
     selectedCellars.length > 0 ||
     openedFilter !== 'all' ||
+    showReferences ||
     !!searchQuery ||
     !!selectedCollectionId ||
     selectedTags.length > 0 ||
@@ -254,6 +264,7 @@ export function useInventoryFilters({
     maxValue, setMaxValue,
     sortBy, setSortBy,
     openedFilter, setOpenedFilter,
+    showReferences, setShowReferences,
     isFiltersOpen, toggleFilters,
     tagSearchQuery, setTagSearchQuery,
     showAllTags, setShowAllTags,

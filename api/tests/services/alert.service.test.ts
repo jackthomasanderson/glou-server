@@ -232,3 +232,29 @@ describe('recomputeAlertStatuses', () => {
     });
   });
 });
+
+// FEAT-87: a non-owned reference has no bottle to drink, so it must never
+// reach the alert pipeline — neither the live query nor the maintenance pass.
+describe('alerts exclude non-owned references (FEAT-87)', () => {
+  it('getAlerts only queries owned items', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await getAlerts();
+
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
+  });
+
+  it('recomputeAlertStatuses only queries owned items', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await recomputeAlertStatuses();
+
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
+  });
+});

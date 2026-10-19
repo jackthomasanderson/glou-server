@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { BudgetEnvelopeCreateInput, BudgetEnvelopePatchInput } from '../schemas/budget.schema';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 /**
  * FEAT-20: Budget envelopes — personal by design, same nuance documented in
@@ -71,6 +72,9 @@ export async function getBudgetProgress(userId: string, envelopeId: string): Pro
     where: {
       userId,
       deletedAt: null,
+      // FEAT-87: a non-owned reference was never bought, so it never counts
+      // as money spent, even when a price was recorded on it.
+      ...OWNED_ITEM_FILTER,
       createdAt: { gte: envelope.periodStart, lte: envelope.periodEnd },
       purchasePrice: { not: null },
     },
