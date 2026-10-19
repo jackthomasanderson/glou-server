@@ -89,7 +89,23 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
 
   const isFiltersActive = hasActiveMapFilters(filters);
 
-  const filterContent = <MapFiltersPanel filters={filters} onChange={setFilters} t={t} />;
+  // Regions available for the keyboard-accessible region select (#378) — the
+  // same scope the map markers let a mouse user click into.
+  const availableRegions = useMemo(
+    () => Array.from(new Set(regionCategoryBreakdown.map((s) => s.region))).sort((a, b) => a.localeCompare(b)),
+    [regionCategoryBreakdown]
+  );
+
+  const filterContent = (
+    <MapFiltersPanel
+      filters={filters}
+      onChange={setFilters}
+      t={t}
+      regions={availableRegions}
+      selectedRegion={selectedRegion}
+      onRegionChange={setSelectedRegion}
+    />
+  );;
 
   return (
     <div className="flex gap-5 items-start">

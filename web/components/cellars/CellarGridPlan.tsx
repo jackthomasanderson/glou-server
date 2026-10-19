@@ -329,7 +329,9 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
                       {[item.producer, item.vintage].filter(Boolean).join(' · ')}
                     </div>
                   </div>
-                  {assignSlot.isPending && <CircularProgress size="sm" />}
+                  {assignSlot.isPending && (
+                    <span role="status" aria-live="polite"><CircularProgress size="sm" aria-label={t('status.loading')} /></span>
+                  )}
                 </button>
               ))}
             </div>

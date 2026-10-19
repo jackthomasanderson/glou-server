@@ -120,6 +120,7 @@
     }
   },
   "inventory": {
+    "perPage": "{{count}} par page",
     "detail": {
       "titleWine": "Détails de l'actif",
       "titleCigar": "Détails de l'actif",
@@ -671,12 +672,17 @@
       "amber": "Ambre",
       "emerald": "Émeraude",
       "cyan": "Cyan",
-      "violet": "Violet"
+      "violet": "Violet",
+      "pink": "Rose vif",
+      "blue": "Bleu",
+      "red": "Rouge",
+      "teal": "Turquoise"
     },
     "saveSuccess": "Profil mis à jour avec succès",
     "saveError": "Erreur lors de la mise à jour du profil",
     "avatarSuccess": "Photo de profil mise à jour",
     "avatarError": "Erreur lors du téléchargement de l'image",
+    "changeAvatar": "Changer la photo de profil",
     "deleteAvatar": "Supprimer la photo de profil",
     "deleteAvatarConfirm": "Voulez-vous vraiment supprimer votre photo de profil ?",
     "deleteAvatarSuccess": "Photo de profil supprimée",
@@ -1182,7 +1188,9 @@
         "state": "État",
         "stateAll": "Tous",
         "stateInCellar": "En cave (non entamé)",
-        "stateOpened": "Entamé"
+        "stateOpened": "Entamé",
+        "region": "Région",
+        "regionAny": "Toutes les régions"
       },
       "list": {
         "title": "Actifs de la région sélectionnée",
@@ -1212,7 +1220,11 @@
       "subtitle": "Distribution temporelle des actifs par année d'apogée optimale",
       "noData": "Aucune fenêtre d'apogée renseignée dans votre inventaire.",
       "bottles_one": "actif à l'apogée",
-      "bottles_other": "actifs à l'apogée"
+      "bottles_other": "actifs à l'apogée",
+      "chartSummary": "Graphique en barres : nombre d'actifs atteignant leur apogée chaque année, {{years}} années de {{from}} à {{to}}.",
+      "showData": "Afficher les données",
+      "yearColumn": "Année",
+      "countColumn": "Actifs à l'apogée"
     },
     "caves": {
       "title": "Répartition par cave"

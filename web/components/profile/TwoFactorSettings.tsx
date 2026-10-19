@@ -122,8 +122,8 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                     </div>
                   </div>
                 ) : generateMutation.isPending ? (
-                  <div className="flex justify-center py-8">
-                    <CircularProgress color="primary" isIndeterminate />
+                  <div className="flex justify-center py-8" role="status" aria-live="polite">
+                    <CircularProgress color="primary" isIndeterminate aria-label={t('status.loading')} />
                   </div>
                 ) : setupData ? (
                   <div className="flex flex-col items-center gap-4">

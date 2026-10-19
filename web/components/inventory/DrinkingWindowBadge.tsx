@@ -56,18 +56,31 @@ export function DrinkingWindowBadge({
     </div>
   );
 
+  const srDescription = [
+    t(`inventory.alertStatus.${status}`),
+    windowLabel,
+    !alertsPaused && readiness != null ? `${t('maturity.readiness')}: ${readiness}%` : null,
+    alertsPaused ? t('alerts.paused') : null,
+  ].filter(Boolean).join(' — ');
+
   return (
     <Tooltip content={tooltipContent} delay={500}>
-      <Chip
-        startContent={config.icon}
-        size={size}
-        color={alertsPaused ? 'default' : config.color}
-        variant={alertsPaused ? 'bordered' : 'flat'}
-        radius="full"
-        className={alertsPaused ? 'opacity-60' : ''}
+      <button
+        type="button"
+        className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus"
       >
-        {windowLabel || t(`inventory.alertStatus.${status}`)}
-      </Chip>
+        <Chip
+          startContent={config.icon}
+          size={size}
+          color={alertsPaused ? 'default' : config.color}
+          variant={alertsPaused ? 'bordered' : 'flat'}
+          radius="full"
+          className={alertsPaused ? 'opacity-60' : ''}
+        >
+          <span aria-hidden="true">{windowLabel || t(`inventory.alertStatus.${status}`)}</span>
+          <span className="sr-only">{srDescription}</span>
+        </Chip>
+      </button>
     </Tooltip>
   );
 }

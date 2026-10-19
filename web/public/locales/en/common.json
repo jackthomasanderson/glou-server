@@ -120,6 +120,7 @@
     }
   },
   "inventory": {
+    "perPage": "{{count}} per page",
     "detail": {
       "titleWine": "Asset details",
       "titleCigar": "Asset details",
@@ -669,12 +670,17 @@
       "amber": "Amber",
       "emerald": "Emerald",
       "cyan": "Cyan",
-      "violet": "Violet"
+      "violet": "Violet",
+      "pink": "Pink",
+      "blue": "Blue",
+      "red": "Red",
+      "teal": "Teal"
     },
     "saveSuccess": "Profile updated successfully",
     "saveError": "Error while updating profile",
     "avatarSuccess": "Profile picture updated",
     "avatarError": "Error uploading profile picture",
+    "changeAvatar": "Change profile picture",
     "deleteAvatar": "Delete profile picture",
     "deleteAvatarConfirm": "Are you sure you want to delete your profile picture?",
     "deleteAvatarSuccess": "Profile picture deleted",
@@ -1180,7 +1186,9 @@
         "state": "State",
         "stateAll": "All",
         "stateInCellar": "In cellar (unopened)",
-        "stateOpened": "Opened"
+        "stateOpened": "Opened",
+        "region": "Region",
+        "regionAny": "All regions"
       },
       "list": {
         "title": "Assets in the selected region",
@@ -1210,7 +1218,11 @@
       "subtitle": "Temporal distribution of assets by optimal peak year",
       "noData": "No peak maturity windows set in your inventory.",
       "bottles_one": "asset at peak",
-      "bottles_other": "assets at peak"
+      "bottles_other": "assets at peak",
+      "chartSummary": "Bar chart: number of assets reaching peak maturity each year, {{years}} years from {{from}} to {{to}}.",
+      "showData": "Show data",
+      "yearColumn": "Year",
+      "countColumn": "Assets at peak"
     },
     "caves": {
       "title": "Distribution by cellar"

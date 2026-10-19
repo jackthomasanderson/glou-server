@@ -1,15 +1,10 @@
-'use client';
+import type { Metadata } from 'next';
+import { CellarsClient } from './CellarsClient';
 
-import React from 'react';
-import { MainLayout } from '../../components/ui/MainLayout';
-import { CellarDashboard } from '../../components/cellars/CellarDashboard';
+export const metadata: Metadata = {
+  title: 'Cellars · Caves — Glou',
+};
 
-export default function CellarPage() {
-  return (
-    <MainLayout>
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <CellarDashboard />
-      </div>
-    </MainLayout>
-  );
+export default function CellarsPage() {
+  return <CellarsClient />;
 }

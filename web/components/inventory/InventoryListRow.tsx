@@ -82,9 +82,9 @@ export function InventoryListRow({
             startContent={CATEGORY_ICONS[item.category]}
             color={CATEGORY_CHIP_COLOR[item.category]}
             size="sm"
-            classNames={{ base: 'min-w-0 px-1', content: 'hidden' }}
+            classNames={{ base: 'min-w-0 px-1' }}
           >
-            {''}
+            <span className="sr-only">{categoryLabel}</span>
           </Chip>
         </Tooltip>
       </TableCell>

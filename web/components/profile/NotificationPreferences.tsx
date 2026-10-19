@@ -158,6 +158,7 @@ export function NotificationPreferences() {
             <button
               key={cat}
               type="button"
+              aria-pressed={prefs.notifCategories.length === 0 || prefs.notifCategories.includes(cat)}
               onClick={() => toggleCategory(cat)}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                 prefs.notifCategories.length === 0 || prefs.notifCategories.includes(cat)
