@@ -1,6 +1,7 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useCellars } from '@/hooks/useCellars';
 import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem, useRollbackField } from '@/hooks/useInventory';
@@ -137,6 +138,8 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   // Escape-to-close and screen-reader dialog semantics aren't automatic —
   // added explicitly here instead of switching component to keep the
   // existing layout/behavior otherwise unchanged.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(open, panelRef);
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -252,7 +255,9 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
 
           {/* Drawer panel */}
           <div
-            className="relative w-full sm:w-[400px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl"
+            ref={panelRef}
+            tabIndex={-1}
+            className="relative w-full sm:w-[400px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl outline-none"
             role="dialog"
             aria-modal="true"
             aria-labelledby="inventory-detail-title"
