@@ -1863,6 +1863,19 @@
     }
   },
   "offline": {
+    "queue": {
+      "title": "Pending changes",
+      "empty": "No pending changes.",
+      "failedHelp": "The server refused this change, and it blocks later edits to the same bottle.",
+      "retry": "Retry",
+      "discard": "Discard",
+      "item": "Bottle",
+      "close": "Close",
+      "statusFailed": "Change refused",
+      "statusPending": "Waiting to be sent",
+      "statusSyncing": "Syncing",
+      "statusConflict": "Conflict to resolve"
+    },
     "pendingSyncTooltip": "Edited offline — pending sync",
     "conflict": {
       "title": "Sync conflict",

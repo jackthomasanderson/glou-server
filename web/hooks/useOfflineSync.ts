@@ -7,6 +7,7 @@ import {
   getQueuedMutations,
   subscribeToSyncQueueChanges,
   flushQueue,
+  retryFailedMutation,
   removeQueuedMutation,
   resolveConflictKeepLocal,
   resolveConflictKeepServer,
@@ -79,6 +80,7 @@ export function useOfflineSync() {
     hasPendingWork: pendingCount + syncingCount + failedCount + conflictMutations.length > 0,
     removeMutation: (id: string) => removeQueuedMutation(id, queryClient),
     retrySync: () => flushQueue(queryClient),
+    retryMutation: (id: string) => retryFailedMutation(id, queryClient),
     resolveKeepLocal: (id: string) => resolveConflictKeepLocal(id, queryClient),
     resolveKeepServer: (id: string) => resolveConflictKeepServer(id, queryClient),
   };

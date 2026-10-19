@@ -1865,6 +1865,19 @@
     }
   },
   "offline": {
+    "queue": {
+      "title": "Modifications en attente",
+      "empty": "Aucune modification en attente.",
+      "failedHelp": "Cette modification a été refusée par le serveur et bloque les suivantes sur la même bouteille.",
+      "retry": "Réessayer",
+      "discard": "Abandonner",
+      "item": "Bouteille",
+      "close": "Fermer",
+      "statusFailed": "Modification refusée",
+      "statusPending": "En attente d'envoi",
+      "statusSyncing": "Synchronisation en cours",
+      "statusConflict": "Conflit à résoudre"
+    },
     "pendingSyncTooltip": "Modifié hors-ligne — en attente de synchronisation",
     "conflict": {
       "title": "Conflit de synchronisation",

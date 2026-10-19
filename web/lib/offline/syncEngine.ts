@@ -202,6 +202,17 @@ export async function flushQueue(queryClient: QueryClient): Promise<void> {
   }
 }
 
+/** Puts a `failed` mutation back in the queue and replays it (#337). A failed
+ * row is otherwise never retried by `flushQueue`, which leaves it — and every
+ * later edit of the same item — blocked. */
+export async function retryFailedMutation(id: string, queryClient: QueryClient): Promise<void> {
+  const mutation = await getQueuedMutation(id);
+  if (!mutation || mutation.status !== 'failed') return;
+  await putQueuedMutation({ ...mutation, status: 'pending', errorReason: undefined });
+  notifyListeners();
+  await flushQueue(queryClient);
+}
+
 /**
  * Conflict resolution actions (used by `ConflictResolutionModal`).
  *  - `keepLocal`: re-queue the same patch, but overwrite the

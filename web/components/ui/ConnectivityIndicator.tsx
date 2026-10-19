@@ -5,6 +5,7 @@ import { WifiOff } from 'lucide-react';
 import { useConnectivity } from '@/hooks/useConnectivity';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useTranslation } from 'react-i18next';
+import { PendingChangesModal } from '../offline/PendingChangesModal';
 
 /**
  * Connection + offline-sync status, rendered once in the page header so it is
@@ -21,6 +22,7 @@ export function ConnectivityIndicator() {
   const isOnline = useConnectivity();
   const { pendingCount, syncingCount, failedCount, conflictCount, hasPendingWork } = useOfflineSync();
   const { t } = useTranslation();
+  const [panelOpen, setPanelOpen] = React.useState(false);
 
   const color =
     isOnline === null ? 'bg-default-400' : isOnline ? 'bg-success' : 'bg-warning';
@@ -50,6 +52,8 @@ export function ConnectivityIndicator() {
     <Tooltip content={tooltipContent} color="foreground" delay={500}>
       <button
         type="button"
+        onClick={() => setPanelOpen(true)}
+        aria-haspopup="dialog"
         aria-label={tooltipContent}
         className="relative inline-flex items-center gap-1 flex-shrink-0 rounded-full px-1 py-1 text-foreground-500 outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
@@ -78,6 +82,7 @@ export function ConnectivityIndicator() {
     {/* Outside the button: its children are presentational, so a live region
         inside it would never be announced. */}
     <span role="status" className="sr-only">{tooltipContent}</span>
+    <PendingChangesModal isOpen={panelOpen} onClose={() => setPanelOpen(false)} />
     </span>
   );
 }

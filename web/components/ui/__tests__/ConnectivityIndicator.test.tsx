@@ -17,6 +17,8 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+vi.mock('../../offline/PendingChangesModal', () => ({ PendingChangesModal: () => null }));
+
 import { ConnectivityIndicator } from '../ConnectivityIndicator';
 
 describe('ConnectivityIndicator (#195, #205)', () => {
