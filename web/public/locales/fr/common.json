@@ -38,6 +38,7 @@
     "openSearch": "Ouvrir la recherche"
   },
   "actions": {
+    "dismiss": "Masquer",
     "add": "Ajouter",
     "select": "Sélectionner",
     "save": "Enregistrer",
@@ -151,8 +152,8 @@
     "trashInfo": "J restants avant suppression définitive",
     "noBottles": "Aucun actif dans votre cave",
     "noBottlesDesc": "Ajoutez votre premier actif pour commencer.",
-    "createCellarFirst": "Créez une cave d'abord",
-    "createCellarFirstDesc": "Vous devez avoir au moins une cave pour loger vos actifs.",
+    "noCellarBanner": "Aucune cave créée — vos actifs n'auront pas d'emplacement.",
+    "noCellarBannerAction": "Créer une cave",
     "chooseCellar": "Choisir une cave",
     "noCellar": "Aucune cave",
     "searchPlaceholder": "Rechercher (nom, producteur, millésime...)",
