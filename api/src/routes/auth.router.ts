@@ -155,8 +155,11 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
-    // Always 401 for invalid credentials (no enumeration)
-    res.status(401).json({ error: msg === 'INVALID_CREDENTIALS' ? 'INVALID_CREDENTIALS' : 'UNEXPECTED_ERROR' });
+    // Always 401 for invalid credentials (no enumeration). A deactivated account
+    // is collapsed to the same code so it neither leaks the account's existence
+    // nor reads as an application failure.
+    const refused = msg === 'INVALID_CREDENTIALS' || msg === 'ACCOUNT_DEACTIVATED';
+    res.status(401).json({ error: refused ? 'INVALID_CREDENTIALS' : 'UNEXPECTED_ERROR' });
   }
 });
 
