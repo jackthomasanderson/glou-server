@@ -1,6 +1,14 @@
 import { client } from '../api';
 import { CreatedGuestShare, GuestInventoryUpdatePayload, GuestShare, ShareFormValues } from './types';
 
+/** Carries the HTTP status so callers can tell an invalid link from a transient failure. */
+export class GuestRequestError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'GuestRequestError';
+  }
+}
+
 export const sharesClient = {
   async list(): Promise<GuestShare[]> {
     const { data } = await client.get<GuestShare[]>('/shares');
@@ -25,7 +33,7 @@ export const guestClient = {
     const res = await fetch(`/api/guest/${token}`);
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: 'NETWORK_ERROR' })) as { error: string };
-      throw new Error(body.error ?? `HTTP ${res.status}`);
+      throw new GuestRequestError(body.error ?? `HTTP ${res.status}`, res.status);
     }
     const body = await res.json() as { data: import('./types').GuestShareMeta };
     return body.data;

@@ -90,6 +90,7 @@ export interface PublicUser {
   avatarUrl: string | null;
   appName: string | null;
   appSlogan: string | null;
+  displayName: string | null;
   theme: Theme;
   language: Language;
   tempUnit: TempUnit;
@@ -120,6 +121,7 @@ interface RawUserForPublic {
   avatarUrl: string | null;
   appName: string | null;
   appSlogan: string | null;
+  displayName: string | null;
   theme: Theme;
   language: Language;
   tempUnit: TempUnit;
@@ -194,6 +196,7 @@ export class AuthService {
       avatarUrl: user.avatarUrl,
       appName: user.appName,
       appSlogan: user.appSlogan,
+      displayName: user.displayName,
       theme: user.theme,
       language: user.language,
       tempUnit: user.tempUnit,
@@ -411,6 +414,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -515,6 +519,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -547,7 +552,10 @@ export class AuthService {
 
     const user = await prisma.user.update({
       where: { id: userId },
-      data,
+      data: {
+        ...data,
+        displayName: data.displayName === undefined ? undefined : data.displayName?.trim() || null,
+      },
       select: {
         id: true,
         username: true,
@@ -555,6 +563,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -637,6 +646,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -730,6 +740,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -1145,6 +1156,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,

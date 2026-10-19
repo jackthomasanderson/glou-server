@@ -1454,6 +1454,7 @@
       "pricesHidden": "Prices and values are hidden",
       "notesHidden": "Personal notes are hidden",
       "expired": "This share link has expired or been revoked.",
+      "loadError": "Could not load this share. Check your connection and try again.",
       "loading": "Loading shared collection…",
       "empty": "No items in this share.",
       "scopeAll": "Full collection",

@@ -6,7 +6,8 @@ import { Button, Chip, Input, Spinner, Switch, Textarea } from '@heroui/react';
 import { Eye, EyeOff, Lock, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/format';
-import { guestClient } from '@/lib/shares/client';
+import { guestClient, GuestRequestError } from '@/lib/shares/client';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { GuestShareMeta } from '@/lib/shares/types';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -172,6 +173,25 @@ function GuestPageContent({ token }: { token: string }) {
     enabled: metaQuery.isSuccess,
     retry: false,
   });
+
+  // Only a server answer saying the link is unusable means "expired or revoked";
+  // network drops, 5xx and rate limits are transient and deserve a retry.
+  const linkIsInvalid = metaQuery.error instanceof GuestRequestError
+    && [400, 403, 404, 410].includes(metaQuery.error.status);
+
+  if (metaQuery.isError && !linkIsInvalid) {
+    return (
+      <main className="min-h-screen flex items-center justify-center p-8">
+        <div className="max-w-sm w-full">
+          <ErrorState
+            message={t('shares.guest.loadError')}
+            onRetry={() => { void metaQuery.refetch(); }}
+            isRetrying={metaQuery.isFetching}
+          />
+        </div>
+      </main>
+    );
+  }
 
   if (metaQuery.isError) {
     return (
