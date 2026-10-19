@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput, SwapSlotsInput } from '../schemas/cellar.schema';
+import { NOT_FINISHED_ITEM_FILTER } from '../lib/finished-item';
 
 export type SwapSlotsResult =
   | { status: 'not_found' }
@@ -24,12 +25,22 @@ export class CellarService {
     today.setHours(23, 59, 59, 999);
     const cellarIds = cellars.map((c) => c.id);
 
-    const [aggGroups, alertGroups] = await Promise.all([
+    // ISSUE_239: the value of a cellar is what it still holds, so the
+    // valuation is a second, narrower aggregate — a finished bottle (opened,
+    // nothing left) still occupies its slot and is still counted by
+    // `totalItems`, but it is worth nothing. Prisma cannot apply two
+    // different filters inside one groupBy, hence the extra query.
+    const [aggGroups, valueGroups, alertGroups] = await Promise.all([
       prisma.inventoryItem.groupBy({
         by: ['cellarId'],
         where: { cellarId: { in: cellarIds }, deletedAt: null },
         _count: { id: true },
-        _sum: { estimatedValue: true, quantity: true },
+        _sum: { quantity: true },
+      }),
+      prisma.inventoryItem.groupBy({
+        by: ['cellarId'],
+        where: { cellarId: { in: cellarIds }, deletedAt: null, ...NOT_FINISHED_ITEM_FILTER },
+        _sum: { estimatedValue: true },
       }),
       prisma.inventoryItem.groupBy({
         by: ['cellarId'],
@@ -39,6 +50,7 @@ export class CellarService {
     ]);
 
     const aggMap = new Map(aggGroups.map((g) => [g.cellarId, g]));
+    const valueMap = new Map(valueGroups.map((g) => [g.cellarId, g._sum.estimatedValue]));
     const alertMap = new Map(alertGroups.map((g) => [g.cellarId, g._count.id]));
 
     return cellars.map((cellar) => {
@@ -48,7 +60,7 @@ export class CellarService {
         stats: {
           totalItems: agg?._count.id ?? 0,
           totalQuantity: agg?._sum.quantity ?? 0,
-          estimatedValue: agg?._sum.estimatedValue ?? null,
+          estimatedValue: valueMap.get(cellar.id) ?? null,
           alertCount: alertMap.get(cellar.id) ?? 0,
         },
       };
@@ -62,11 +74,17 @@ export class CellarService {
     const today = new Date();
     today.setHours(23, 59, 59, 999);
 
-    const [agg, alertCount] = await Promise.all([
+    // ISSUE_239: see listCellars — the valuation excludes finished bottles,
+    // the counts do not.
+    const [agg, value, alertCount] = await Promise.all([
       prisma.inventoryItem.aggregate({
         where: { cellarId: id, deletedAt: null },
         _count: { id: true },
-        _sum: { estimatedValue: true, quantity: true },
+        _sum: { quantity: true },
+      }),
+      prisma.inventoryItem.aggregate({
+        where: { cellarId: id, deletedAt: null, ...NOT_FINISHED_ITEM_FILTER },
+        _sum: { estimatedValue: true },
       }),
       prisma.inventoryItem.count({
         where: { cellarId: id, deletedAt: null, reminderDate: { lte: today } },
@@ -78,7 +96,7 @@ export class CellarService {
       stats: {
         totalItems: agg._count.id,
         totalQuantity: agg._sum.quantity ?? 0,
-        estimatedValue: agg._sum.estimatedValue ?? null,
+        estimatedValue: value._sum.estimatedValue ?? null,
         alertCount,
       },
     };

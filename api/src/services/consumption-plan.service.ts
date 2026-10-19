@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { getAlerts, computeAlertStatus, computeReadiness } from './alert.service';
 import { CurveShape } from '../lib/maturity-curve';
 import { SetGoalInput } from '../schemas/consumption-plan.schema';
+import { FINISHED_ITEM_STATE } from '../lib/finished-item';
 
 /**
  * FEAT-08: Plan de Consommation Intelligent & Rotation de Stock.
@@ -292,8 +293,7 @@ export async function getGoalProgress(userId: string): Promise<GoalProgress> {
   const consumedCount = await prisma.inventoryItem.count({
     where: {
       deletedAt: null,
-      isOpened: true,
-      fillLevel: 0,
+      ...FINISHED_ITEM_STATE,
       updatedBy: userId,
       updatedAt: { gte: goal.periodStart, lte: goal.periodEnd },
     },

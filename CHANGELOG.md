@@ -31,6 +31,7 @@ Entries start with the pull request that introduced them where there is one.
 - `.dockerignore` for `api/` and `web/`; log rotation on every service of the dev compose.
 
 ### Fixed
+- An empty bottle no longer counts towards the value of the collection or of its cellar: a bottle recorded as opened and finished holds no remaining value, while still being counted in the inventory and in what was spent (#433).
 - First account creation failing on a NAS reached by IP (#247).
 - A failed `pg_dump` no longer leaves a truncated `.sql.gz` that looks like a valid backup.
 - Retention deletes scan photos only after its transaction has committed.
