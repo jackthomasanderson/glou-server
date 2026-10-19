@@ -233,9 +233,15 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const handleUpdate = useCallback(
     async (values: Partial<InventoryItem>, newCollectionIds: string[]) => {
       if (!editingItem) return;
-      await updateMutation.mutateAsync({ id: editingItem.id, patch: values });
-      const oldIds = (editingItem.collections ?? []).map(c => c.id);
-      await syncCollections(editingItem.id, newCollectionIds, oldIds);
+      try {
+        await updateMutation.mutateAsync({ id: editingItem.id, patch: values });
+        const oldIds = (editingItem.collections ?? []).map(c => c.id);
+        await syncCollections(editingItem.id, newCollectionIds, oldIds);
+      } catch {
+        // Reported by the mutation's onError toast; keep the form open.
+        return;
+      }
+      notifySuccess('toast.updateSuccess');
       setMode('idle');
       setEditingItem(null);
     },

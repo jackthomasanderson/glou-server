@@ -77,7 +77,8 @@ export function useDuplicateResolution({
             return;
           }
         }
-        throw err;
+        // Any other failure was already reported by the mutation's onError
+        // toast; the form stays open so the entry isn't lost.
       }
     },
     [createMutation, items, syncCollections, onResolved]
@@ -105,9 +106,13 @@ export function useDuplicateResolution({
     setDuplicateFound(null);
     setDuplicateCandidate(null);
     setPendingCollectionIds([]);
-    const created = await createMutation.mutateAsync({ ...duplicateCandidate, confirmDuplicate: true } as InventoryItem);
-    onResolved();
-    if (collIds.length > 0) await syncCollections(created.id, collIds, []);
+    try {
+      const created = await createMutation.mutateAsync({ ...duplicateCandidate, confirmDuplicate: true } as InventoryItem);
+      onResolved();
+      if (collIds.length > 0) await syncCollections(created.id, collIds, []);
+    } catch {
+      // Reported by the mutation's onError toast.
+    }
   }, [duplicateCandidate, pendingCollectionIds, createMutation, syncCollections, onResolved]);
 
   const handleDuplicateCancel = useCallback(() => {

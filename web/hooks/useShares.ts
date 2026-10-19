@@ -1,6 +1,7 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sharesClient } from '@/lib/shares/client';
+import { notifyError } from '@/lib/toast';
 import { CreatedGuestShare, GuestShare, ShareFormValues } from '@/lib/shares/types';
 
 export const SHARES_KEY = ['shares'];
@@ -22,6 +23,7 @@ export function useCreateShare() {
         old ? [created, ...old] : [created],
       );
     },
+    onError: () => notifyError('toast.share.createError'),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: SHARES_KEY }),
   });
 }
@@ -35,6 +37,7 @@ export function useRevokeShare() {
         old ? old.map((s) => (s.id === updated.id ? updated : s)) : [updated],
       );
     },
+    onError: () => notifyError('toast.share.revokeError'),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: SHARES_KEY }),
   });
 }

@@ -434,5 +434,6 @@ export function useCompleteOnboarding() {
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
+    onError: () => notifyError('toast.onboarding.completeError'),
   });
 }

@@ -187,7 +187,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
           return;
         }
       }
-      throw err;
+      // Any other failure was reported by the mutation's onError toast.
     }
   };
 
@@ -207,11 +207,15 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const handleDuplicateIncrement = async () => {
     if (!duplicateFound || !duplicateCandidate) return;
     const newQty = (duplicateFound.quantity ?? 1) + (duplicateCandidate.quantity ?? 1);
-    const updated = await updateMutation.mutateAsync({ id: duplicateFound.id, patch: { quantity: newQty } });
-    pushCartEntry(updated, 'incremented');
-    setDuplicateFound(null);
-    setDuplicateCandidate(null);
-    resetToCapture();
+    try {
+      const updated = await updateMutation.mutateAsync({ id: duplicateFound.id, patch: { quantity: newQty } });
+      pushCartEntry(updated, 'incremented');
+      setDuplicateFound(null);
+      setDuplicateCandidate(null);
+      resetToCapture();
+    } catch {
+      // Reported by the mutation's onError toast.
+    }
   };
 
   const handleDuplicateCreateAnyway = async () => {
@@ -220,9 +224,13 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     setDuplicateFound(null);
     setDuplicateCandidate(null);
     const payload: InventoryCreateWithScanHint = { ...candidate, scanJobId: jobId ?? undefined, confirmDuplicate: true };
-    const created = await createMutation.mutateAsync(payload);
-    pushCartEntry(created, 'created');
-    resetToCapture();
+    try {
+      const created = await createMutation.mutateAsync(payload);
+      pushCartEntry(created, 'created');
+      resetToCapture();
+    } catch {
+      // Reported by the mutation's onError toast.
+    }
   };
 
   const handleDuplicateCancel = () => {

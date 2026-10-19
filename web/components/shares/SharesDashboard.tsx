@@ -35,9 +35,13 @@ export function SharesDashboard() {
   const [copied, setCopied] = useState(false);
 
   const handleCreate = async (values: ShareFormValues) => {
-    const created = await createMutation.mutateAsync(values);
-    setFormOpen(false);
-    setCreatedShare(created);
+    try {
+      const created = await createMutation.mutateAsync(values);
+      setFormOpen(false);
+      setCreatedShare(created);
+    } catch {
+      // Reported by the mutation's onError toast; keep the form open.
+    }
   };
 
   const shareUrl = createdShare
@@ -66,6 +70,8 @@ export function SharesDashboard() {
     setRevokingId(id);
     try {
       await revokeMutation.mutateAsync(id);
+    } catch {
+      // Reported by the mutation's onError toast.
     } finally {
       setRevokingId(null);
     }
