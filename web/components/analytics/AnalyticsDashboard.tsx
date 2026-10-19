@@ -525,7 +525,11 @@ export function AnalyticsDashboard() {
   const { from, to } = periodToDates(period);
   const { data, isLoading, isError, refetch, isRefetching } = useAnalytics(from, to);
 
-  const handlePrint = useCallback(() => window.print(), []);
+  // Defer so the click handler returns and the browser can repaint before the
+  // (blocking) print dialog opens (#421).
+  const handlePrint = useCallback(() => {
+    setTimeout(() => window.print(), 50);
+  }, []);
 
   if (isError) {
     return (
@@ -700,7 +704,7 @@ export function AnalyticsDashboard() {
       )}
 
       {/* World heatmap */}
-      <Card className="border border-default-200" shadow="none">
+      <Card className="border border-default-200 print:hidden" shadow="none">
         <CardBody className="p-5">
           <div className="flex items-center gap-2 mb-4">
             <MapPin size={18} className="text-primary" />
