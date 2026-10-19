@@ -224,3 +224,22 @@ describe('POST /api/auth/login refusals', () => {
     expect(res.body.error).toBe('INVALID_CREDENTIALS');
   });
 });
+
+describe('GET /api/auth/registration-status', () => {
+  it('reports closed once an account exists and registrations are closed', async () => {
+    const { systemConfigService } = await import('../../src/services/system-config.service');
+    vi.spyOn(systemConfigService, 'isRegistrationOpen').mockResolvedValueOnce(false);
+    (prisma.user as unknown as { count: ReturnType<typeof vi.fn> }).count = vi.fn().mockResolvedValue(3);
+    const res = await request(app).get('/api/auth/registration-status');
+    expect(res.status).toBe(200);
+    expect(res.body.data.registrationOpen).toBe(false);
+  });
+
+  it('reports open on an empty instance, where the first account always gets through', async () => {
+    const { systemConfigService } = await import('../../src/services/system-config.service');
+    vi.spyOn(systemConfigService, 'isRegistrationOpen').mockResolvedValueOnce(false);
+    (prisma.user as unknown as { count: ReturnType<typeof vi.fn> }).count = vi.fn().mockResolvedValue(0);
+    const res = await request(app).get('/api/auth/registration-status');
+    expect(res.body.data.registrationOpen).toBe(true);
+  });
+});

@@ -434,6 +434,7 @@
     "loginCta": "Se connecter",
     "registerCta": "Créer mon compte",
     "loginLink": "Déjà un compte ? Se connecter",
+    "registrationClosedHint": "Les inscriptions sont fermées sur cette instance.",
     "registerLink": "Pas encore de compte ? S'inscrire",
     "tagline": "Simplement précieux.",
     "errors": {
@@ -441,7 +442,7 @@
       "USERNAME_ALREADY_TAKEN": "Ce nom d'utilisateur est déjà pris.",
       "EMAIL_ALREADY_TAKEN": "Cette adresse email est déjà utilisée.",
       "REGISTRATION_CONFLICT": "Ce nom d'utilisateur ou cette adresse email est déjà utilisé.",
-      "REGISTRATION_CLOSED": "L'inscription de nouveaux comptes est actuellement fermée sur cette instance. Demandez une invitation à un administrateur.",
+      "REGISTRATION_CLOSED": "L'inscription de nouveaux comptes est actuellement fermée sur cette instance. Demandez à un administrateur de l'ouvrir temporairement.",
       "VALIDATION_ERROR": "Veuillez vérifier vos saisies.",
       "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
       "CSRF_ORIGIN_REJECTED": "Cette adresse n'est pas autorisée par le serveur. Renseignez APP_URL avec l'adresse saisie dans votre navigateur, puis redémarrez.",

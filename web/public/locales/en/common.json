@@ -434,6 +434,7 @@
     "loginCta": "Sign in",
     "registerCta": "Create account",
     "loginLink": "Already have an account? Sign in",
+    "registrationClosedHint": "Registrations are closed on this instance.",
     "registerLink": "No account yet? Sign up",
     "tagline": "Simply precious.",
     "errors": {
@@ -441,7 +442,7 @@
       "USERNAME_ALREADY_TAKEN": "This username is already taken.",
       "EMAIL_ALREADY_TAKEN": "This email address is already in use.",
       "REGISTRATION_CONFLICT": "That username or email address is already in use.",
-      "REGISTRATION_CLOSED": "New account registration is currently closed on this instance. Ask an admin for an invitation.",
+      "REGISTRATION_CLOSED": "New account registration is currently closed on this instance. Ask an administrator to open registrations temporarily.",
       "VALIDATION_ERROR": "Please check your inputs.",
       "UNEXPECTED_ERROR": "An unexpected error occurred.",
       "CSRF_ORIGIN_REJECTED": "This address is not allowed by the server. Set APP_URL to the address you type in your browser, then restart.",
