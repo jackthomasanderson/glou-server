@@ -6,6 +6,7 @@ import {
 } from '@heroui/react';
 import i18n from '@/lib/i18n';
 import { currencySymbol } from '@/lib/format';
+import { notifyError } from '@/lib/toast';
 import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
@@ -44,6 +45,8 @@ interface InventoryFormProps {
    * its own dedicated scan step).
    */
   onScanRequested?: () => void;
+  /** Category preselected when creating, for pages scoped to one category. */
+  defaultCategory?: InventoryCategory;
 }
 
 const EMPTY_FORM: Partial<InventoryItem> = {
@@ -73,15 +76,17 @@ const CATEGORY_COLORS: Record<InventoryCategory, CategoryColor> = {
 };
 
 export function InventoryForm({
-  open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested,
+  open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested, defaultCategory,
 }: InventoryFormProps) {
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
   const isExpert = useExpertMode();
-  const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? EMPTY_FORM);
+  const emptyForm = defaultCategory ? { ...EMPTY_FORM, category: defaultCategory } : EMPTY_FORM;
+  const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? emptyForm);
   // ISSUE_119: snapshot of the values the form opened with, used to tell
   // whether closing now would throw away something the user typed.
-  const [baseline, setBaseline] = useState<Partial<InventoryItem>>(initialValues ?? EMPTY_FORM);
+  const [baseline, setBaseline] = useState<Partial<InventoryItem>>(initialValues ?? emptyForm);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [showOptionals, setShowOptionals] = useState(false);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
@@ -103,8 +108,9 @@ export function InventoryForm({
     setPrevOpen(open);
     setPrevInitialValues(initialValues);
     if (open) {
-      setValues(initialValues ?? EMPTY_FORM);
-      setBaseline(initialValues ?? EMPTY_FORM);
+      setValues(initialValues ?? emptyForm);
+      setBaseline(initialValues ?? emptyForm);
+      setSubmitAttempted(false);
       setSelectedCollections(
         initialValues?.collections?.map(ic => ({
           id: ic.id, name: ic.name, color: ic.color, icon: ic.icon ?? undefined,
@@ -137,7 +143,11 @@ export function InventoryForm({
     return () => { if (imageDebounceRef.current) clearTimeout(imageDebounceRef.current); };
   }, [values.name, values.producer, values.photoUrl, isEditing]);
 
-  const canSave = Boolean(values.category && values.name?.trim() && values.producer?.trim());
+  const missingName = !values.name?.trim();
+  const missingProducer = !values.producer?.trim();
+  const missingAlcoholDegree = values.category === 'spirit' && (values.alcoholDegree == null || Number.isNaN(values.alcoholDegree));
+  const missingQuantity = values.category === 'cigar' && (values.quantity == null || Number.isNaN(values.quantity));
+  const canSave = Boolean(values.category) && !missingName && !missingProducer && !missingAlcoholDegree && !missingQuantity;
 
   // ISSUE_119: closing a half-filled form must never discard the entry silently.
   const baselineCollectionIds = initialValues?.collections?.map(c => c.id) ?? [];
@@ -152,7 +162,11 @@ export function InventoryForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSave) return;
+    if (!canSave) {
+      setSubmitAttempted(true);
+      notifyError('inventory.validation.missingFields');
+      return;
+    }
     // alertStatus is recomputed server-side from peakMaturity — never send it as-is.
     // readiness (FEAT-86) is a server-computed, read-only projection — drop it too.
     // lockedFields (ISSUE_031) is internal bookkeeping the server itself
@@ -295,6 +309,7 @@ export function InventoryForm({
                         }
                         category={values.category ?? 'wine'}
                         disabled={isEditing}
+                        isInvalid={submitAttempted && missingName}
                       />
                       <ProducerAutocomplete
                         value={values.producer ?? ''}
@@ -303,6 +318,7 @@ export function InventoryForm({
                         label={t('inventory.fields.producer')}
                         placeholder={t(`inventory.fields.producerPlaceholder.${category}`)}
                         required
+                        isInvalid={submitAttempted && missingProducer}
                       />
                       <Select
                         label={t('nav.caves')}
@@ -340,7 +356,7 @@ export function InventoryForm({
                             value={String(values.vintage ?? '')}
                             onValueChange={(v) => setField('vintage', numField(v))}
                             description={t('inventory.fields.noVintage')}
-                            min={1800} max={2100}
+                            min={1800} max={new Date().getFullYear()}
                           />
                           <Select
                             label={t('inventory.fields.color')}
@@ -387,7 +403,7 @@ export function InventoryForm({
                             value={String(values.vintage ?? '')}
                             onValueChange={(v) => setField('vintage', numField(v))}
                             description={t('inventory.fields.noVintage')}
-                            min={1800} max={2100}
+                            min={1800} max={new Date().getFullYear()}
                           />
                           <Select
                             label={t('inventory.fields.sparklingType')}
@@ -446,6 +462,8 @@ export function InventoryForm({
                               variant="bordered"
                               size="sm"
                               isRequired
+                              isInvalid={submitAttempted && missingAlcoholDegree}
+                              errorMessage={t('inventory.validation.required')}
                               value={String(values.alcoholDegree ?? '')}
                               onValueChange={(v) => setField('alcoholDegree', numField(v))}
                               endContent={<span className="text-xs text-foreground-500">%</span>}
@@ -483,6 +501,8 @@ export function InventoryForm({
                             variant="bordered"
                             size="sm"
                             isRequired
+                            isInvalid={submitAttempted && missingQuantity}
+                            errorMessage={t('inventory.validation.required')}
                             value={String(values.quantity ?? '')}
                             onValueChange={(v) => setField('quantity', numField(v))}
                             min={1}
@@ -967,7 +987,7 @@ export function InventoryForm({
                 type="submit"
                 color="primary"
                 startContent={<Save size={15} />}
-                isDisabled={!canSave || isSubmitting}
+                isDisabled={isSubmitting}
                 isLoading={isSubmitting}
               >
                 {isSubmitting

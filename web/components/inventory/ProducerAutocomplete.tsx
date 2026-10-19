@@ -15,9 +15,10 @@ interface Props {
   label: string;
   placeholder?: string;
   required?: boolean;
+  isInvalid?: boolean;
 }
 
-export function ProducerAutocomplete({ value, onChange, category, label, placeholder, required }: Props) {
+export function ProducerAutocomplete({ value, onChange, category, label, placeholder, required, isInvalid }: Props) {
   const { t, i18n } = useTranslation();
   const isOnline = useConnectivity();
   const { data: inventoryItems } = useInventory();
@@ -103,6 +104,8 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
         data-testid="inventory-producer-input"
         fullWidth
         isRequired={required}
+        isInvalid={isInvalid}
+        errorMessage={isInvalid ? t('inventory.validation.required') : undefined}
         size="sm"
         label={label}
         placeholder={placeholder}

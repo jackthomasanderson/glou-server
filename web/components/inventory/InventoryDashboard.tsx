@@ -22,6 +22,7 @@ import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { useDuplicateResolution } from '@/hooks/useDuplicateResolution';
 import { InventoryCardSkeleton } from './InventoryCard';
 import { InventoryForm } from './InventoryForm';
+import type { InventoryCategory } from '@/lib/inventory/types';
 import { UndoToast } from '@/components/ui/UndoToast';
 import { notifySuccess } from '@/lib/toast';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
@@ -479,6 +480,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           <InventoryForm
             open={mode !== 'idle'}
             initialValues={mode === 'editing' && editingItem ? editingItem : undefined}
+            defaultCategory={lockedCategories?.length === 1 ? (lockedCategories[0] as InventoryCategory) : undefined}
             onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
             onClose={handleCancel}
             isSubmitting={createMutation.isPending || updateMutation.isPending || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}

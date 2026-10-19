@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Glou",
-    "tagline": "Votre cave, à portée de main"
+    "tagline": "Simplement précieux"
   },
   "filters": {
     "all": "Toutes",
@@ -121,6 +121,10 @@
     }
   },
   "inventory": {
+    "validation": {
+      "required": "Ce champ est obligatoire",
+      "missingFields": "Complétez les champs obligatoires avant d'enregistrer"
+    },
     "noNotifications": "Aucune notification",
     "perPage": "{{count}} par page",
     "detail": {

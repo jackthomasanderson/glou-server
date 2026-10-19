@@ -107,7 +107,7 @@ export function ProfileClient() {
         <Button
           as={Link}
           href="/wishlist"
-          color="secondary"
+          color="primary"
           variant="bordered"
           startContent={<Gift size={16} />}
           radius="md"

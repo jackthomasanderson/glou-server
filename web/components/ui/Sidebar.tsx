@@ -65,7 +65,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
             {user?.appName || 'GLOU'}
           </Link>
           <span className="block text-xs tracking-[.08rem] uppercase text-foreground-500 mt-0.5 whitespace-nowrap">
-            {user?.appSlogan || 'Simplement précieux'}
+            {user?.appSlogan || t('app.tagline')}
           </span>
         </div>
 

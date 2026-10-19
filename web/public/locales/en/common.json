@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Glou",
-    "tagline": "Your cellar, at your fingertips"
+    "tagline": "Simply precious"
   },
   "filters": {
     "all": "All",
@@ -121,6 +121,10 @@
     }
   },
   "inventory": {
+    "validation": {
+      "required": "This field is required",
+      "missingFields": "Fill in the required fields before saving"
+    },
     "noNotifications": "No notifications",
     "perPage": "{{count}} per page",
     "detail": {

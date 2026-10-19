@@ -40,8 +40,8 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
   const [inviteeName, setInviteeName] = useState('');
   const [duration, setDuration] = useState<DurationKey>('7d');
   const [customDate, setCustomDate] = useState('');
-  const [hidePrices, setHidePrices] = useState(false);
-  const [hideNotes, setHideNotes] = useState(false);
+  const [hidePrices, setHidePrices] = useState(true);
+  const [hideNotes, setHideNotes] = useState(true);
   const [scopeMode, setScopeMode] = useState<'all' | 'cellars' | 'collections'>('all');
   const [selectedCellarIds, setSelectedCellarIds] = useState<string[]>([]);
   const [writeCellarIds, setWriteCellarIds] = useState<string[]>([]);
