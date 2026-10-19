@@ -7,20 +7,13 @@ import {
   Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Check, Clock,
 } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
-import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
+import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={12} />,
   sparkling: <Sparkles size={12} />,
   spirit: <Dumbbell size={12} />,
   cigar: <Leaf size={12} />,
-};
-
-const CATEGORY_COLORS: Record<InventoryCategory, 'danger' | 'primary' | 'warning' | 'secondary'> = {
-  wine: 'danger',
-  sparkling: 'primary',
-  spirit: 'warning',
-  cigar: 'secondary',
 };
 
 // Placeholder gradient (no photo yet) — derived from the shared
@@ -96,7 +89,7 @@ export function InventoryCard({
           startContent={CATEGORY_ICONS[item.category]}
           size="sm"
           variant="bordered"
-          color={CATEGORY_COLORS[item.category]}
+          color={CATEGORY_CHIP_COLOR[item.category]}
           radius="sm"
           classNames={{ base: 'h-5 shrink-0', content: 'px-1.5 text-xs font-bold tracking-wider' }}
         >

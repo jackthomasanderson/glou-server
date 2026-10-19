@@ -5,7 +5,7 @@ import { Chip } from '@heroui/react';
 import { Wine, Sparkles, Dumbbell, Leaf, MapPin, Search } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { getItemMapRegion } from '@/lib/analytics/mapFilters';
-import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
+import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 
 // FEAT-42: filtered asset list — populated by a marker click (region scope)
 // and/or the sidebar filters (MapFiltersPanel), combined in MapExplorer.
@@ -16,13 +16,6 @@ const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   sparkling: <Sparkles size={14} />,
   spirit: <Dumbbell size={14} />,
   cigar: <Leaf size={14} />,
-};
-
-const CATEGORY_COLORS: Record<InventoryCategory, 'danger' | 'primary' | 'warning' | 'secondary'> = {
-  wine: 'danger',
-  sparkling: 'primary',
-  spirit: 'warning',
-  cigar: 'secondary',
 };
 
 // Placeholder gradient (no photo yet) — see InventoryCard.tsx comment,
@@ -84,7 +77,7 @@ export function MapAssetList({ items, onSelect, t }: MapAssetListProps) {
                 <Chip
                   size="sm"
                   variant="flat"
-                  color={CATEGORY_COLORS[item.category]}
+                  color={CATEGORY_CHIP_COLOR[item.category]}
                   radius="sm"
                   classNames={{ base: 'h-4', content: 'px-1.5 text-xs font-bold tracking-wide' }}
                 >

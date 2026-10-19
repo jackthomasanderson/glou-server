@@ -5,6 +5,7 @@ import {
 } from '@heroui/react';
 import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { useInventory, useCreateInventoryItem, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
 import { useUploadScan, useScanJob } from '@/hooks/useScan';
@@ -31,13 +32,6 @@ interface CartEntry {
  * (FEAT-05 provenance), never trusting a client-supplied source map.
  */
 type InventoryCreateWithScanHint = Partial<InventoryItem> & { scanJobId?: string; confirmDuplicate?: boolean };
-
-const CATEGORY_COLORS: Record<InventoryCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
-  wine: 'secondary',
-  sparkling: 'primary',
-  spirit: 'default',
-  cigar: 'warning',
-};
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
@@ -333,7 +327,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                         <Chip
                           key={cat}
                           startContent={CATEGORY_ICONS[cat]}
-                          color={reviewValues.category === cat ? CATEGORY_COLORS[cat] : 'default'}
+                          color={reviewValues.category === cat ? CATEGORY_CHIP_COLOR[cat] : 'default'}
                           variant={reviewValues.category === cat ? 'solid' : 'bordered'}
                           className="cursor-pointer"
                           onClick={() =>

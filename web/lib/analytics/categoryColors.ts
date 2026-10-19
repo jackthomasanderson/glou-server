@@ -13,6 +13,15 @@ export const CATEGORY_HEX: Record<InventoryCategory, string> = {
   cigar: '#5C3D2E',
 };
 
+// HeroUI Chip color per category (ux-ui.md §4.6) — single source for every
+// compact category chip so screens never drift apart.
+export const CATEGORY_CHIP_COLOR: Record<InventoryCategory, 'danger' | 'primary' | 'warning' | 'secondary'> = {
+  wine: 'danger',
+  sparkling: 'primary',
+  spirit: 'warning',
+  cigar: 'secondary',
+};
+
 export const CATEGORY_ORDER: InventoryCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
 
 // Shift a hex color's RGB channels by `percent` (-100..100): negative

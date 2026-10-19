@@ -5,6 +5,7 @@ import {
 } from '@heroui/react';
 import { Wine, Sparkles, Dumbbell, Leaf, Pencil, Trash2, Clock } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { Cellar } from '@/lib/cellars/types';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
 
@@ -13,13 +14,6 @@ const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   sparkling: <Sparkles size={14} />,
   spirit: <Dumbbell size={14} />,
   cigar: <Leaf size={14} />,
-};
-
-const CATEGORY_COLORS: Record<InventoryCategory, 'danger' | 'primary' | 'warning' | 'secondary'> = {
-  wine: 'danger',
-  sparkling: 'primary',
-  spirit: 'warning',
-  cigar: 'secondary',
 };
 
 interface InventoryListRowProps {
@@ -86,7 +80,7 @@ export function InventoryListRow({
         <Tooltip content={categoryLabel} delay={500}>
           <Chip
             startContent={CATEGORY_ICONS[item.category]}
-            color={CATEGORY_COLORS[item.category]}
+            color={CATEGORY_CHIP_COLOR[item.category]}
             size="sm"
             classNames={{ base: 'min-w-0 px-1', content: 'hidden' }}
           >
