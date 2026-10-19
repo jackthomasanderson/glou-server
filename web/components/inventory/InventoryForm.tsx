@@ -273,7 +273,7 @@ export function InventoryForm({
 
                   {/* Section 1: Identity */}
                   <div>
-                    <p className="text-xs font-semibold text-default-500 mb-3">{t('inventory.step1')}</p>
+                    <p className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step1')}</p>
 
                     {/* Category chips */}
                     <div className="flex flex-wrap gap-1.5 mb-4">
@@ -341,7 +341,7 @@ export function InventoryForm({
 
                   {/* Section 2: Category fields */}
                   <div>
-                    <p className="text-xs font-semibold text-default-500 mb-3">{t('inventory.step2')}</p>
+                    <p className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step2')}</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
 
                       {/* Wine essential */}
@@ -567,7 +567,7 @@ export function InventoryForm({
                                 key={shape}
                                 textValue={t(curveShapeLabelKey(shape))}
                                 description={t(curveShapeDescriptionKey(shape))}
-                                startContent={<CurveGlyph shape={shape} width={34} className="text-default-500 shrink-0" />}
+                                startContent={<CurveGlyph shape={shape} width={34} className="text-foreground-500 shrink-0" />}
                               >
                                 {t(curveShapeLabelKey(shape))}
                               </SelectItem>
@@ -937,7 +937,7 @@ export function InventoryForm({
                         {values.isOpened && (
                           <>
                             <div className="col-span-2 sm:col-span-4">
-                              <p className="text-xs text-default-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
+                              <p className="text-xs text-foreground-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
                               <div className="flex flex-wrap gap-1.5">
                                 {([100, 75, 50, 25, 0] as const).map((val) => (
                                   <Chip

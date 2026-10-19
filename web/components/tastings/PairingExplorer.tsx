@@ -181,14 +181,14 @@ export function PairingExplorer() {
         /* Prompt state */
         <div className="flex flex-col items-center py-16 text-center">
           <Utensils size={64} className="text-foreground-400 mb-4" />
-          <p className="text-lg font-semibold text-default-500">{t('tastings.pairing.promptTitle')}</p>
+          <p className="text-lg font-semibold text-foreground-500">{t('tastings.pairing.promptTitle')}</p>
           <p className="text-sm text-foreground-500">{t('tastings.pairing.promptHint')}</p>
         </div>
       ) : suggestions.length === 0 ? (
         /* No matching bottle */
         <div className="flex flex-col items-center py-16 text-center">
           <Wine size={64} className="text-foreground-400 mb-4" />
-          <p className="text-lg font-semibold text-default-500">
+          <p className="text-lg font-semibold text-foreground-500">
             {t('tastings.pairing.noResults', { query: query.trim() })}
           </p>
           <p className="text-sm text-foreground-500">{t('tastings.pairing.noResultsHint')}</p>

@@ -136,7 +136,7 @@ export function BulkActionDialog({
           <>
             <ModalHeader className="flex flex-col gap-0.5 pb-2">
               <span className="font-bold text-base">{t('bulk.title')}</span>
-              <span className="text-xs text-default-500 font-normal">{t('bulk.subtitle', { count: selectedItems.length })}</span>
+              <span className="text-xs text-foreground-500 font-normal">{t('bulk.subtitle', { count: selectedItems.length })}</span>
             </ModalHeader>
 
             <ModalBody className="gap-4 py-2">
@@ -178,7 +178,7 @@ export function BulkActionDialog({
 
               <Divider />
 
-              <p className="text-xs font-semibold text-default-600">{t('bulk.fieldsToUpdate')}</p>
+              <p className="text-xs font-semibold text-foreground-600">{t('bulk.fieldsToUpdate')}</p>
 
               <div className="flex flex-col gap-3">
                 {/* Cellar */}
@@ -333,7 +333,7 @@ export function BulkActionDialog({
                       if (!data.changed) return null;
                       return (
                         <div key={field} className="flex items-center gap-2 text-xs">
-                          <span className="font-bold min-w-[80px] text-default-700">
+                          <span className="font-bold min-w-[80px] text-foreground-700">
                             {field === 'cellarId' ? t('nav.caves') : t(`inventory.fields.${field}`)}:
                           </span>
                           <span className="line-through text-foreground-500">{data.before}</span>
@@ -411,7 +411,7 @@ export function BulkActionDialog({
           <>
             <ModalHeader>{t('bulk.deletePreset')}</ModalHeader>
             <ModalBody>
-              <p className="text-sm text-default-600">{t('bulk.deletePresetConfirm')}</p>
+              <p className="text-sm text-foreground-600">{t('bulk.deletePresetConfirm')}</p>
             </ModalBody>
             <ModalFooter>
               <Button color="default" variant="light" onPress={() => setDeletingPresetId(null)}>

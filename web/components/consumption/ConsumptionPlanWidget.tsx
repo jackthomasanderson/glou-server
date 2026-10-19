@@ -139,7 +139,7 @@ export function ConsumptionPlanWidget() {
             </div>
           ) : progress?.goal ? (
             <div className="flex flex-col gap-2 max-w-sm">
-              <p className="text-sm text-default-500">
+              <p className="text-sm text-foreground-500">
                 {t('consumptionPlan.goal.progressLabel', {
                   count: progress.consumedCount,
                   target: progress.goal.targetValue,
@@ -200,7 +200,7 @@ export function ConsumptionPlanWidget() {
         ) : !suggestions || suggestions.length === 0 ? (
           <div className="flex flex-col items-center py-12 text-center">
             <Wine size={48} className="text-foreground-400 mb-3" />
-            <p className="text-sm font-semibold text-default-500">{t('consumptionPlan.suggestions.empty')}</p>
+            <p className="text-sm font-semibold text-foreground-500">{t('consumptionPlan.suggestions.empty')}</p>
             <p className="text-xs text-foreground-500">{t('consumptionPlan.suggestions.emptyHint')}</p>
           </div>
         ) : (

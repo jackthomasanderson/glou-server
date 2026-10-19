@@ -307,7 +307,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
                 className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: CATEGORY_HEX[cat] }}
               />
-              <span className="text-xs text-default-500">{t(`categories.${cat}`)}</span>
+              <span className="text-xs text-foreground-500">{t(`categories.${cat}`)}</span>
             </div>
           ))}
         </div>

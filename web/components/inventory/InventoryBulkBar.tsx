@@ -3,7 +3,9 @@ import React from 'react';
 import { Button } from '@heroui/react';
 import { List, X } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
-import { BulkActionDialog } from './BulkActionDialog';
+import dynamic from 'next/dynamic';
+
+const BulkActionDialog = dynamic(() => import('./BulkActionDialog').then((m) => m.BulkActionDialog), { ssr: false, loading: () => null });
 
 export interface InventoryBulkToggleButtonProps {
   bulkMode: boolean;

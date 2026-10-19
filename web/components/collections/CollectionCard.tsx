@@ -43,7 +43,7 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
         </Chip>
       </CardBody>
       <CardFooter className="pt-0 justify-end gap-1">
-        <Tooltip content={t('actions.edit')}>
+        <Tooltip delay={500} content={t('actions.edit')}>
           <Button
             isIconOnly
             size="sm"
@@ -57,7 +57,7 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
             <Pencil size={16} />
           </Button>
         </Tooltip>
-        <Tooltip content={t('actions.delete')}>
+        <Tooltip delay={500} content={t('actions.delete')}>
           <Button
             isIconOnly
             size="sm"

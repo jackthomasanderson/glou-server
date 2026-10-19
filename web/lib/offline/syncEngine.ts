@@ -1,6 +1,7 @@
 'use client';
 import type { QueryClient } from '@tanstack/react-query';
 import { randomId } from '@/lib/uuid';
+import { timeoutSignal } from '@/lib/api';
 import type { InventoryItem } from '@/lib/inventory/types';
 import {
   type QueuedMutation,
@@ -127,7 +128,7 @@ async function patchInventoryItem(itemId: string, patch: Record<string, unknown>
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(patch),
-    signal: AbortSignal.timeout(15000),
+    signal: timeoutSignal(15000),
   });
 
   if (res.status === 409) {

@@ -178,7 +178,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
             <>
               <ModalHeader>{t('profile.deleteAvatar')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-default-600">{t('profile.deleteAvatarConfirm')}</p>
+                <p className="text-sm text-foreground-600">{t('profile.deleteAvatarConfirm')}</p>
               </ModalBody>
               <ModalFooter>
                 <Button color="default" variant="light" onPress={() => setConfirmingDelete(false)}>

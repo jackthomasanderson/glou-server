@@ -336,7 +336,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
 
                 {phase === 'review' && reviewValues && !duplicateFound && (
                   <div className="flex flex-col gap-4 px-4 py-5 max-w-md w-full mx-auto">
-                    <p className="text-xs font-semibold text-default-500">{t('scan.review.title')}</p>
+                    <p className="text-xs font-semibold text-foreground-500">{t('scan.review.title')}</p>
 
                     {nothingRecognised && (
                       <div role="alert" className="flex flex-col gap-2 rounded-lg border border-warning bg-warning-50 p-3">
@@ -480,7 +480,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
               {/* Session cart ("À Ranger") — preserves scan order */}
               {cart.length > 0 && (
                 <div className="border-t border-divider px-4 py-3 max-h-40 overflow-y-auto shrink-0">
-                  <p className="text-xs font-semibold text-default-500 mb-2 flex items-center gap-1.5">
+                  <p className="text-xs font-semibold text-foreground-500 mb-2 flex items-center gap-1.5">
                     <ListChecks size={14} /> {t('scan.cart.title', { count: cart.length })}
                   </p>
                   <ul className="flex flex-col gap-1">

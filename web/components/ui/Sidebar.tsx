@@ -204,6 +204,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         <Tooltip
           content={`${user?.username ?? ''} · ${user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}`}
           placement="right"
+          delay={500}
           isDisabled={expanded}
         >
           <Avatar

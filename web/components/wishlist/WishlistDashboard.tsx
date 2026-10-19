@@ -175,7 +175,7 @@ export function WishlistDashboard() {
       ) : activeItems.length === 0 ? (
         <div className="flex flex-col items-center py-16 text-center">
           <Gift size={64} className="text-foreground-400 mb-4" />
-          <p className="text-lg font-semibold text-default-500">{t('wishlist.empty')}</p>
+          <p className="text-lg font-semibold text-foreground-500">{t('wishlist.empty')}</p>
           <p className="text-sm text-foreground-500 mb-6">{t('wishlist.emptyHint')}</p>
           <Button data-testid="wishlist-create-button" color="primary" variant="solid" startContent={<Plus size={16} />} onPress={openCreate}>
             {t('wishlist.create')}
@@ -334,7 +334,7 @@ export function WishlistDashboard() {
             <>
               <ModalHeader>{t('wishlist.priceSeen.title')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-default-500 mb-2">
+                <p className="text-sm text-foreground-500 mb-2">
                   {t('wishlist.priceSeen.description', { name: priceTarget?.name ?? '' })}
                 </p>
                 <Input
@@ -369,7 +369,7 @@ export function WishlistDashboard() {
             <>
               <ModalHeader>{t('wishlist.convert.title')}</ModalHeader>
               <ModalBody className="gap-4">
-                <p className="text-sm text-default-500">
+                <p className="text-sm text-foreground-500">
                   {t('wishlist.convert.description', { name: convertTarget?.name ?? '' })}
                 </p>
                 <div className="grid grid-cols-2 gap-4">
@@ -436,7 +436,7 @@ export function WishlistDashboard() {
             <>
               <ModalHeader>{t('wishlist.deleteTitle')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-default-600">{t('wishlist.deleteConfirm', { name: deleting?.name ?? '' })}</p>
+                <p className="text-sm text-foreground-600">{t('wishlist.deleteConfirm', { name: deleting?.name ?? '' })}</p>
               </ModalBody>
               <ModalFooter>
                 <Button color="default" variant="light" onPress={() => setDeleting(null)}>{t('actions.cancel')}</Button>

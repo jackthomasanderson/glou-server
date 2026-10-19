@@ -14,12 +14,24 @@ export async function handleResponse<T>(res: Response): Promise<T> {
 const API_BASE = '/api';
 const DEFAULT_TIMEOUT_MS = 15000;
 
+/**
+ * AbortSignal.timeout() only exists from Safari 16 / iOS 16. On older browsers
+ * every request would fail before being sent, so fall back to a plain
+ * AbortController (#404).
+ */
+export function timeoutSignal(ms: number): AbortSignal {
+  if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(new DOMException('The operation timed out.', 'TimeoutError')), ms);
+  return controller.signal;
+}
+
 export const client = {
   async get<T>(url: string): Promise<{ data: T }> {
     const res = await fetch(`${API_BASE}${url}`, {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
     });
     const data = await handleResponse<T>(res);
     return { data };
@@ -31,7 +43,7 @@ export const client = {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
     });
     const result = await handleResponse<T>(res);
     return { data: result };
@@ -43,7 +55,7 @@ export const client = {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
     });
     const result = await handleResponse<T>(res);
     return { data: result };
@@ -55,7 +67,7 @@ export const client = {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
     });
     const result = await handleResponse<T>(res);
     return { data: result };
@@ -66,7 +78,7 @@ export const client = {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
     });
     const result = await handleResponse<T>(res);
     return { data: result };

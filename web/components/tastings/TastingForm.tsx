@@ -443,7 +443,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                 {t('tastings.stockUpdate.title')}
               </ModalHeader>
               <ModalBody className="pb-1">
-                <p className="text-sm text-default-500">
+                <p className="text-sm text-foreground-500">
                   {t('tastings.stockUpdate.description')}
                 </p>
               </ModalBody>

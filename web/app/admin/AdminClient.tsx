@@ -137,7 +137,7 @@ export function AdminClient() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Tooltip content={u.id === user.id ? t('admin.users.deactivateSelf') : ''} isDisabled={u.id !== user.id}>
+                    <Tooltip delay={500} content={u.id === user.id ? t('admin.users.deactivateSelf') : ''} isDisabled={u.id !== user.id}>
                       <Switch
                         isSelected={u.isAdmin}
                         onValueChange={(checked) => handleRoleToggle(u, checked)}
