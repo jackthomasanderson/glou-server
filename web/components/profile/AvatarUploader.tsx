@@ -157,7 +157,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
         ref={fileInputRef}
         onChange={handleFileChange}
         style={{ display: 'none' }}
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/gif"
       />
 
       <Modal

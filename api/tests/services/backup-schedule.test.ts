@@ -90,8 +90,8 @@ describe('backupService.runBackup failure handling (#234)', () => {
     findFirst.mockReset();
     runCreate.mockReset().mockImplementation(async ({ data }: { data: unknown }) => ({ id: 'run', ...(data as object) }));
     userFindMany.mockReset().mockResolvedValue([
-      { id: 'a1', language: 'FR' },
-      { id: 'a2', language: 'EN' },
+      { id: 'a1', language: 'FR', notifLanguage: null },
+      { id: 'a2', language: 'EN', notifLanguage: null },
     ]);
     send.mockClear();
     vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -106,12 +106,20 @@ describe('backupService.runBackup failure handling (#234)', () => {
     findFirst.mockResolvedValue({ success: true, runAt: at(24) });
     const out = await backupService.runBackup('scheduled');
     expect(out.success).toBe(false);
-    expect(userFindMany).toHaveBeenCalledWith({ where: { isAdmin: true }, select: { id: true, language: true } });
+    expect(userFindMany).toHaveBeenCalledWith({ where: { isAdmin: true }, select: { id: true, language: true, notifLanguage: true } });
     expect(send).toHaveBeenCalledTimes(2);
     const [fr, en] = send.mock.calls.map((c) => c[0] as { userId: string; category: string; subject: string; bypassQuietHours: boolean });
     expect(fr).toMatchObject({ userId: 'a1', category: 'backup', bypassQuietHours: true });
     expect(fr.subject).toContain('échec');
     expect(en.subject).toContain('failed');
+  });
+
+  it('honours notifLanguage over the interface language (#406)', async () => {
+    findFirst.mockResolvedValue({ success: true, runAt: at(24) });
+    userFindMany.mockResolvedValue([{ id: 'a1', language: 'EN', notifLanguage: 'FR' }]);
+    await backupService.runBackup('scheduled');
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].subject).toContain('échec');
   });
 
   it('notifies on the very first failure when there was no earlier run', async () => {

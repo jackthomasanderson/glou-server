@@ -29,6 +29,15 @@ export class ImportService {
   /** Parse + validate a CSV buffer. Never writes to the database. */
   previewCsv(buffer: Buffer): CsvPreviewResult {
     const text = buffer.toString('utf-8');
+
+    // Excel's "CSV (semicolon delimited)" export on Windows writes
+    // Windows-1252, not UTF-8, with no BOM to detect it by. Decoding that as
+    // UTF-8 silently turns every accented byte into U+FFFD rather than
+    // failing — the only sign is the replacement character itself (#397).
+    if (text.includes('�')) {
+      return { valid: [], errors: [{ row: 1, reason: 'INVALID_ENCODING' }] };
+    }
+
     const records = parseCsv(text).slice(0, MAX_ROWS);
 
     const valid: CsvImportRow[] = [];

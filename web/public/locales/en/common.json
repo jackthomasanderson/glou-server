@@ -1779,7 +1779,8 @@
         "INVALID_CATEGORY": "Invalid category (expected: wine, sparkling, spirit or cigar)",
         "INVALID_VINTAGE": "Invalid vintage",
         "INVALID_ROW": "Invalid row",
-        "UNRECOGNIZED_COLUMNS": "Unrecognised header: none of the expected columns (name, producer, category, vintage) were found"
+        "UNRECOGNIZED_COLUMNS": "Unrecognised header: none of the expected columns (name, producer, category, vintage) were found",
+        "INVALID_ENCODING": "This file isn't saved as UTF-8: accented characters were lost. In Excel, use \"File → Save As\" and pick \"CSV UTF-8 (Comma delimited)\", then try again."
       }
     },
     "summary": {

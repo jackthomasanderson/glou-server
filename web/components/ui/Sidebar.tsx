@@ -12,6 +12,7 @@ import { useMe, useLogout } from '@/hooks/useAuth';
 import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeToggle } from './ThemeToggle';
+import { safeReadStorage, safeWriteStorage } from '@/lib/safe-storage';
 
 export const SIDEBAR_WIDTH = 220;
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
@@ -260,7 +261,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = safeReadStorage(localStorage, STORAGE_KEY);
     // Deferred to after mount rather than a lazy useState initializer:
     // localStorage isn't available during SSR, so reading it synchronously
     // in the initializer would make the client's first render diverge
@@ -272,7 +273,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
   const toggle = () => {
     const next = !expanded;
     setExpanded(next);
-    localStorage.setItem(STORAGE_KEY, String(next));
+    safeWriteStorage(localStorage, STORAGE_KEY, String(next));
   };
 
   const desktopWidth = expanded ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED_WIDTH;

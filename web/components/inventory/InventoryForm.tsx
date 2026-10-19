@@ -708,6 +708,7 @@ export function InventoryForm({
                           value={String(values.purchasePrice ?? '')}
                           onValueChange={(v) => setField('purchasePrice', numField(v))}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
+                          min={0} step={0.01} inputMode="decimal"
                         />
 
                         {/* Purchase place */}
@@ -730,6 +731,7 @@ export function InventoryForm({
                           value={String(values.estimatedValue ?? '')}
                           onValueChange={(v) => setField('estimatedValue', numField(v))}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
+                          min={0} step={0.01} inputMode="decimal"
                         />
 
                         {/* Notes */}

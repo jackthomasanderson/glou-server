@@ -1781,7 +1781,8 @@
         "INVALID_CATEGORY": "Catégorie invalide (attendu : wine, sparkling, spirit ou cigar)",
         "INVALID_VINTAGE": "Millésime invalide",
         "INVALID_ROW": "Ligne invalide",
-        "UNRECOGNIZED_COLUMNS": "En-tête non reconnu : aucune colonne attendue (name, producer, category, vintage) n'a été trouvée"
+        "UNRECOGNIZED_COLUMNS": "En-tête non reconnu : aucune colonne attendue (name, producer, category, vintage) n'a été trouvée",
+        "INVALID_ENCODING": "Ce fichier n'est pas enregistré en UTF-8 : les caractères accentués ont été perdus. Dans Excel, utilisez « Fichier → Enregistrer sous » et choisissez « CSV UTF-8 (délimité par des virgules) », puis réessayez."
       }
     },
     "summary": {

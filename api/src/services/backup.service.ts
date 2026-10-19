@@ -6,6 +6,7 @@ import { prisma } from '../lib/prisma';
 import { BackupRun } from '@prisma/client';
 import { auditLog } from './audit.service';
 import { notificationService } from './notification.service';
+import { isNotifEn } from '../lib/notif-lang';
 
 // FEAT-18: Portabilité & Souveraineté des Données — Scheduled Backups.
 // design.md "Sauvegarde & Migration": `pg_dump` planifié (cron quotidien),
@@ -42,9 +43,9 @@ const OVERDUE_AFTER_MS = 25 * 60 * 60 * 1000;
  */
 async function notifyAdminsOfBackupFailure(error: string): Promise<void> {
   try {
-    const admins = await prisma.user.findMany({ where: { isAdmin: true }, select: { id: true, language: true } });
+    const admins = await prisma.user.findMany({ where: { isAdmin: true }, select: { id: true, language: true, notifLanguage: true } });
     await Promise.all(admins.map((admin) => {
-      const en = String(admin.language).toLowerCase() === 'en';
+      const en = isNotifEn(admin);
       const subject = en ? 'Glou — database backup failed' : 'Glou — échec de la sauvegarde de la base';
       const htmlBody = en
         ? `<p>The scheduled database backup failed:</p><pre>${escapeHtml(error)}</pre><p>No new backup is being produced. Check the disk space and the API logs, then use <b>Run now</b> in Admin → System Configuration → Backups.</p>`

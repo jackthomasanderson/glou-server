@@ -60,6 +60,8 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
           <input
             type="number"
             min={0}
+            step={0.01}
+            inputMode="decimal"
             aria-label={t('inventory.filters.minValue')}
             placeholder={t('inventory.filters.minValue')}
             value={filters.priceMin}
@@ -69,6 +71,8 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
           <input
             type="number"
             min={0}
+            step={0.01}
+            inputMode="decimal"
             aria-label={t('inventory.filters.maxValue')}
             placeholder={t('inventory.filters.maxValue')}
             value={filters.priceMax}
