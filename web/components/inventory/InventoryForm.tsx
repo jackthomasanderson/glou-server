@@ -534,6 +534,10 @@ export function InventoryForm({
                             description={t('inventory.fields.curveShapeHint')}
                             variant="bordered"
                             size="sm"
+                            // The six two-line options make a tall list; near the bottom of the form it
+                            // flips upward and covers the fields above (#414). Cap it so it scrolls instead.
+                            maxListboxHeight={216}
+                            popoverProps={{ placement: 'bottom', offset: 4 }}
                             selectedKeys={[values.curveShape ?? DEFAULT_CURVE_SHAPE]}
                             onSelectionChange={(keys) => setField('curveShape', Array.from(keys)[0] ?? null)}
                             startContent={
