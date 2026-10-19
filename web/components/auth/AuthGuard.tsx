@@ -3,13 +3,14 @@ import { useEffect, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { CircularProgress } from '@heroui/react';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { useMe } from '@/hooks/useAuth';
 import { AutoLockProvider, useAutoLock } from '@/hooks/useAutoLock';
 import { LockScreen } from './LockScreen';
 import { OnboardingWizard } from '../onboarding/OnboardingWizard';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { data: user, isLoading } = useMe();
+  const { data: user, isLoading, isError, refetch, isFetching } = useMe();
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -23,6 +24,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center" role="status" aria-live="polite">
         <CircularProgress color="primary" size="md" isIndeterminate aria-label={t('status.loading')} />
+      </div>
+    );
+  }
+
+  // Server unreachable / 5xx: not the same as "not authenticated" (#341).
+  if (isError && user === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <ErrorState
+          className="max-w-md w-full"
+          message={t('status.serverUnreachable')}
+          onRetry={() => { void refetch(); }}
+          isRetrying={isFetching}
+        />
       </div>
     );
   }

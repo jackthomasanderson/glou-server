@@ -74,6 +74,7 @@
     "saving": "Enregistrement…",
     "deleting": "Suppression…",
     "error": "Une erreur est survenue",
+    "serverUnreachable": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.",
     "retry": "Réessayer",
     "empty": "Aucun élément"
   },

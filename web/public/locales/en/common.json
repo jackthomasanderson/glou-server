@@ -74,6 +74,7 @@
     "saving": "Saving…",
     "deleting": "Deleting…",
     "error": "An error occurred",
+    "serverUnreachable": "Cannot reach the server. Check your connection and try again.",
     "retry": "Retry",
     "empty": "No items"
   },
