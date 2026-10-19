@@ -38,6 +38,7 @@
     "openSearch": "Open search"
   },
   "actions": {
+    "dismiss": "Dismiss",
     "add": "Add",
     "select": "Select",
     "save": "Save",
@@ -150,8 +151,8 @@
     "trashInfo": "days left before permanent deletion",
     "noBottles": "No items in your cellar",
     "noBottlesDesc": "Add your first item to get started.",
-    "createCellarFirst": "Create a cellar first",
-    "createCellarFirstDesc": "You need at least one cellar to store your assets.",
+    "noCellarBanner": "No cellar created — your assets will have no location.",
+    "noCellarBannerAction": "Create a cellar",
     "chooseCellar": "Choose a cellar",
     "noCellar": "No cellar",
     "searchPlaceholder": "Search (name, producer, vintage...)",
