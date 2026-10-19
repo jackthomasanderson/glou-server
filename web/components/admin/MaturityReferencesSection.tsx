@@ -6,6 +6,7 @@ import {
   Skeleton, Tooltip, ButtonGroup, Select, SelectItem,
 } from '@heroui/react';
 import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays, ArrowUp, ArrowDown } from 'lucide-react';
+import { FilterChip } from '@/components/ui/FilterControls';
 import { useTranslation } from 'react-i18next';
 import {
   useMaturityReferences,
@@ -159,17 +160,16 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                 <p className="text-xs text-foreground-500 mb-2">{t('inventory.fields.category')}</p>
                 <div className="flex gap-2 flex-wrap">
                   {(['wine', 'sparkling', 'spirit', 'cigar'] as const).map((cat) => (
-                    <Chip
+                    <FilterChip
                       key={cat}
-                      startContent={CATEGORY_ICONS[cat]}
-                      onClick={() => handleCategoryChange(cat)}
-                      color={form.category === cat ? 'primary' : 'default'}
-                      variant={form.category === cat ? 'flat' : 'bordered'}
                       radius="sm"
-                      className="cursor-pointer"
+                      size="md"
+                      startContent={CATEGORY_ICONS[cat]}
+                      selected={form.category === cat}
+                      onPress={() => handleCategoryChange(cat)}
                     >
                       {t(`categories.${cat}`)}
-                    </Chip>
+                    </FilterChip>
                   ))}
                 </div>
               </div>
