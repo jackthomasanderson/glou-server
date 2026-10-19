@@ -216,6 +216,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
             type=raw,value=beta,enable=${{ github.ref_name == 'dev' }}
+            type=sha,format=long
 
       - name: Extract metadata (Web)
         id: meta-web
@@ -225,6 +226,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
             type=raw,value=beta,enable=${{ github.ref_name == 'dev' }}
+            type=sha,format=long
 
       - name: Build and push API
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
