@@ -95,6 +95,13 @@ export async function removeQueuedMutation(id: string, queryClient?: QueryClient
   notifyListeners();
 }
 
+/** Puts a `failed` mutation back in the queue so the next flush retries it
+ * (and the later edits of the same item, blocked behind it, can follow). */
+export async function retryFailedMutation(id: string, queryClient: QueryClient): Promise<void> {
+  await markMutation(id, { status: 'pending', errorReason: undefined });
+  await flushQueue(queryClient);
+}
+
 async function markMutation(id: string, patch: Partial<QueuedMutation>): Promise<void> {
   const existing = await getQueuedMutation(id);
   if (!existing) return;
