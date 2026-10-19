@@ -212,3 +212,15 @@ describe('unknown routes', () => {
     expect(res.body).toEqual({ error: 'NOT_FOUND' });
   });
 });
+
+describe('POST /api/auth/login refusals', () => {
+  it('reports a deactivated account as INVALID_CREDENTIALS, not UNEXPECTED_ERROR', async () => {
+    const { authService } = await import('../../src/services/auth.service');
+    vi.spyOn(authService, 'login').mockRejectedValueOnce(new Error('ACCOUNT_DEACTIVATED'));
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'u1@example.com', password: 'whatever-password' });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('INVALID_CREDENTIALS');
+  });
+});
