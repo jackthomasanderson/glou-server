@@ -22,6 +22,7 @@ import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
+import { searchClient } from '@/lib/search/client';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import {
@@ -122,19 +123,12 @@ export function InventoryForm({
     imageDebounceRef.current = setTimeout(async () => {
       setIsAutoLoading(true);
       try {
-        const q = encodeURIComponent(`${values.producer} ${values.name}`.trim());
-        const searchRes = await fetch(`/api/search/images?q=${q}`, { credentials: 'include' });
-        const searchJson = (await searchRes.json()) as { data: ImageResult[] };
-        const results = searchJson.data ?? [];
+        const q = `${values.producer} ${values.name}`.trim();
+        const results = await searchClient.searchImages(q);
         setPrefetchedImages(results);
         if (results.length > 0) {
-          const saveRes = await fetch('/api/search/images/save', {
-            method: 'POST', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: results[0].url }),
-          });
-          const saveJson = (await saveRes.json()) as { data?: { path: string } };
-          if (saveJson.data?.path) setField('photoUrl', saveJson.data.path);
+          const path = await searchClient.saveImageFromUrl(results[0].url);
+          if (path) setField('photoUrl', path);
         }
       } catch { /* ignore */ } finally {
         setIsAutoLoading(false);
