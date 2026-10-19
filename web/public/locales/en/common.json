@@ -921,8 +921,7 @@
     "source": {
       "manual": "Manual entry",
       "import_csv": "CSV import",
-      "ocr": "Scan (OCR)",
-      "enrichment": "Auto enrichment"
+      "ocr": "Scan (OCR)"
     }
   },
   "collections": {

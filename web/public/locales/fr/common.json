@@ -923,8 +923,7 @@
     "source": {
       "manual": "Saisie manuelle",
       "import_csv": "Import CSV",
-      "ocr": "Scan (OCR)",
-      "enrichment": "Enrichissement auto"
+      "ocr": "Scan (OCR)"
     }
   },
   "collections": {
