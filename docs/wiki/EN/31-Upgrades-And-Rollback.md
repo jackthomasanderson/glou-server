@@ -7,6 +7,9 @@ Glou applies its database migrations automatically when the API starts, and **mi
 * Shell access to the host, and a **fresh backup** (Admin → System Configuration → Backups → **Run now**).
 * The database backup alone is enough to undo schema changes; photos are not touched by migrations.
 
+> [!WARNING]
+> Upgrading from an instance deployed before `docker-compose.yml` required `DB_PASSWORD`? It may still be running on the old fallback database password, which is public in this repo's git history. Rotate it — see [Rotate the Secrets](./29-Secret-Rotation.md#rotate-db_password).
+
 ## Upgrade
 1. Back up (see above) and note the images in use so you can return to them:
    ```bash

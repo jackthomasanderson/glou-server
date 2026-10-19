@@ -7,6 +7,9 @@ Glou applique ses migrations de base automatiquement au démarrage de l'API, et 
 * Accès shell à la machine, et une **sauvegarde fraîche** (Admin → Configuration système → Sauvegardes → **Lancer maintenant**).
 * La sauvegarde de la base suffit à annuler les changements de schéma ; les photos ne sont pas touchées par les migrations.
 
+> [!WARNING]
+> Vous mettez à jour une instance déployée avant que `docker-compose.yml` n'exige `DB_PASSWORD` ? Elle tourne peut-être encore avec l'ancien mot de passe de repli, public dans l'historique git de ce dépôt. Changez-le — voir [Changer les secrets](./29-Rotation-Des-Secrets.md#changer-db_password).
+
 ## Mettre à jour
 1. Sauvegardez (voir ci-dessus) et notez les images utilisées pour pouvoir y revenir :
    ```bash
