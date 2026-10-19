@@ -578,6 +578,20 @@
       "failed_other": "{{count}} sync failures",
       "conflict_one": "{{count}} conflict to resolve",
       "conflict_other": "{{count}} conflicts to resolve"
+    },
+    "panel": {
+      "title": "Pending changes",
+      "empty": "Nothing is waiting to be synced.",
+      "failedReason": "The server refused this change",
+      "retry": "Retry",
+      "discard": "Discard",
+      "close": "Close",
+      "status": {
+        "pending": "Waiting",
+        "syncing": "Syncing",
+        "conflict": "Conflict"
+      },
+      "unknownItem": "Unknown bottle"
     }
   },
   "imagePicker": {

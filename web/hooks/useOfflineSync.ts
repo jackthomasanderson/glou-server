@@ -8,6 +8,7 @@ import {
   subscribeToSyncQueueChanges,
   flushQueue,
   removeQueuedMutation,
+  retryFailedMutation,
   resolveConflictKeepLocal,
   resolveConflictKeepServer,
 } from '@/lib/offline/syncEngine';
@@ -64,6 +65,7 @@ export function useOfflineSync() {
   const pendingCount = queue.filter((m) => m.status === 'pending').length;
   const syncingCount = queue.filter((m) => m.status === 'syncing').length;
   const failedCount = queue.filter((m) => m.status === 'failed').length;
+  const failedMutations = queue.filter((m) => m.status === 'failed');
   const conflictMutations = queue.filter((m) => m.status === 'conflict');
 
   return {
@@ -73,11 +75,13 @@ export function useOfflineSync() {
     pendingCount,
     syncingCount,
     failedCount,
+    failedMutations,
     conflictCount: conflictMutations.length,
     conflictMutations,
     isSyncing: syncingCount > 0,
     hasPendingWork: pendingCount + syncingCount + failedCount + conflictMutations.length > 0,
     removeMutation: (id: string) => removeQueuedMutation(id, queryClient),
+    retryMutation: (id: string) => retryFailedMutation(id, queryClient),
     retrySync: () => flushQueue(queryClient),
     resolveKeepLocal: (id: string) => resolveConflictKeepLocal(id, queryClient),
     resolveKeepServer: (id: string) => resolveConflictKeepServer(id, queryClient),

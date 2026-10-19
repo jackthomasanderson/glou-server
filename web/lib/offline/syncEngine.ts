@@ -95,6 +95,16 @@ export async function removeQueuedMutation(id: string, queryClient?: QueryClient
   notifyListeners();
 }
 
+/** Puts a `failed` action back in the queue and flushes it: the user chose
+ * to retry after the cause of the refusal went away (#337). */
+export async function retryFailedMutation(id: string, queryClient: QueryClient): Promise<void> {
+  const existing = await getQueuedMutation(id);
+  if (!existing || existing.status !== 'failed') return;
+  await putQueuedMutation({ ...existing, status: 'pending', errorReason: undefined });
+  notifyListeners();
+  await flushQueue(queryClient);
+}
+
 async function markMutation(id: string, patch: Partial<QueuedMutation>): Promise<void> {
   const existing = await getQueuedMutation(id);
   if (!existing) return;
