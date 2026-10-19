@@ -196,10 +196,12 @@ export function LoginForm() {
               <Link as={NextLink} href="/register" size="sm" color="primary">
                 {t('auth.registerLink')}
               </Link>
-              {smtpEnabled && (
+              {smtpEnabled ? (
                 <Link as={NextLink} href="/forgot-password" size="sm" color="foreground" className="text-foreground-400 hover:text-primary">
                   {t('forgotPassword.link')}
                 </Link>
+              ) : (
+                <span className="text-foreground-400 text-xs">{t('forgotPassword.noSmtpHint')}</span>
               )}
             </div>
           </form>

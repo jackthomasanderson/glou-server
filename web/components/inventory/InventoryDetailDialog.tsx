@@ -9,7 +9,7 @@ import { Button, Chip, Divider, Modal, ModalBody, ModalContent, ModalFooter, Mod
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
   Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode, Euro,
-  FileSpreadsheet, ScanLine, Wand2, History as HistoryIcon, TrendingUp,
+  FileSpreadsheet, ScanLine, History as HistoryIcon, TrendingUp,
   Plus, Minus,
 } from 'lucide-react';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
@@ -55,13 +55,10 @@ function InfoCard({ icon, label, value, valueColor }: InfoCardProps) {
 }
 
 // ─── FEAT-05: Field source transparency ─────────────────────────────────────
-// 'ocr' is active since FEAT-04 (scan) landed. 'enrichment' remains
-// roadmap-only (no third-party lookup pipeline wired up yet) but the badge
-// stays generic so it activates for free once a real enrichment source lands.
+// 'ocr' is active since FEAT-04 (scan) landed.
 const SOURCE_ICONS: Record<Exclude<FieldSource, 'manual'>, React.ReactElement> = {
   import_csv: <FileSpreadsheet size={11} />,
   ocr: <ScanLine size={11} />,
-  enrichment: <Wand2 size={11} />,
 };
 
 interface FieldSourceBadgeProps {

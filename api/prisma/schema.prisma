@@ -15,6 +15,10 @@ model User {
   username     String     @unique
   email        String     @unique
   passwordHash String
+  // #336: set when an administrator resets a member's password without
+  // email (no SMTP on the instance) — forces a real password choice on the
+  // next successful login, via the existing PATCH /api/user/password flow.
+  mustChangePassword Boolean @default(false)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -277,9 +281,8 @@ model InventoryItem {
   updatedBy    String?   // userId of the last editor (null = no edits yet)
 
   // Integrity
-  lockedFields String[]  @default([]) // User-locked fields, not overwritten by auto-enrichment
-  fieldSources Json?     // Per-field source tag ({ [field]: 'manual'|'ocr'|'import_csv'|'enrichment' }); absent field = implicit 'manual' (FEAT-05)
-  syncedAt     DateTime? // Last third-party sync timestamp
+  lockedFields String[]  @default([]) // User-locked fields, not overwritten by a later automated update (OCR scan)
+  fieldSources Json?     // Per-field source tag ({ [field]: 'manual'|'ocr'|'import_csv' }); absent field = implicit 'manual' (FEAT-05)
 
   // Soft-delete
   deletedAt DateTime?

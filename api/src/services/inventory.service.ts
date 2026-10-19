@@ -21,12 +21,14 @@ export interface FieldChange {
  * Origin of a field's current value (FEAT-05). Stored per-field in
  * `InventoryItem.fieldSources` — a field with no entry in that map is
  * implicitly 'manual'. 'ocr' is populated by the FEAT-04 scan pipeline
- * (see scan.service.ts computeOcrFieldSources) since that feature landed.
- * 'enrichment' remains reserved for a future third-party lookup
- * (Vivino/Whiskybase, see design.md "APIs Tierces" roadmap) — not
- * populated by any code today.
+ * (see scan.service.ts computeOcrFieldSources).
+ *
+ * #102: a fourth value, 'enrichment', used to be reserved here for a
+ * third-party lookup pipeline (Vivino/Whiskybase) that was never built
+ * (#74) and never wrote it — removed rather than kept as protective
+ * machinery for a pipeline that doesn't exist.
  */
-export type FieldSource = 'manual' | 'ocr' | 'import_csv' | 'enrichment';
+export type FieldSource = 'manual' | 'ocr' | 'import_csv';
 
 export type RollbackFieldResult =
   | { status: 'not_found' }
@@ -270,7 +272,7 @@ export class InventoryService {
 
   /**
    * `options.fieldSources` tags the (non-manual) origin of specific fields
-   * in this patch — used by future automated pipelines (OCR, enrichment).
+   * in this patch — used by the FEAT-04 OCR scan pipeline and CSV import.
    * `options.isManualEdit` (default `true`) governs the FEAT-05 "manual
    * entry has absolute priority" guarantee:
    *  - `true` (the regular user-facing PATCH /:id and the guest write-access
@@ -279,9 +281,9 @@ export class InventoryService {
    *    can never silently overwrite it again, and any stale non-manual
    *    `fieldSources` tag on that field is cleared back to the implicit
    *    'manual' default.
-   *  - `false` (reserved for a future OCR/enrichment pipeline calling this
-   *    same method): fields are populated without being locked, so the user
-   *    can still let a later automated pass complete them.
+   *  - `false` (the OCR scan pipeline calling this same method): fields are
+   *    populated without being locked, so the user can still let a later
+   *    automated pass complete them.
    */
   async updateItem(
     userId: string,
@@ -343,7 +345,7 @@ export class InventoryService {
       if (conflict) return { item: existing, changes: [], slotConflict: true };
     }
 
-    // `lockedFields` exists to stop a *later automated* update (OCR/enrichment)
+    // `lockedFields` exists to stop a *later automated* update (OCR scan)
     // from silently overwriting a manual edit — it must never block the user
     // from manually editing that same field again (e.g. bumping the quantity
     // of an already-locked duplicate, or resetting a bottle from "empty" back

@@ -185,7 +185,7 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
         {scopeMode === 'cellars' && (
           <div className="mt-2 flex flex-col gap-2 max-h-48 overflow-y-auto border border-divider rounded-lg p-3">
             {loadingCellars ? (
-              <Spinner size="sm" />
+              <div role="status" aria-live="polite"><Spinner size="sm" aria-label={t('status.loading')} /></div>
             ) : (
               (cellars ?? []).map((cellar) => {
                 const isSelected = selectedCellarIds.includes(cellar.id);
@@ -222,7 +222,7 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
         {scopeMode === 'collections' && (
           <div className="mt-2 flex flex-col gap-1 max-h-36 overflow-y-auto border border-divider rounded-lg p-3">
             {loadingCollections ? (
-              <Spinner size="sm" />
+              <div role="status" aria-live="polite"><Spinner size="sm" aria-label={t('status.loading')} /></div>
             ) : (
               (collections ?? []).map((col) => (
                 <Checkbox

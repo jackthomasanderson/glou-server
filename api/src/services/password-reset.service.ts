@@ -5,6 +5,7 @@ import { emailService } from './email.service';
 import { systemConfigService } from './system-config.service';
 import { authService, DeviceInfo } from './auth.service';
 import { auditLog } from './audit.service';
+import { isNotifEn } from '../lib/notif-lang';
 
 const TOKEN_TTL_MINUTES = 15;
 
@@ -13,6 +14,7 @@ export const passwordResetService = {
     const user = await prisma.user.findUnique({ where: { email } });
     // Always resolve without error to prevent user enumeration
     if (!user || !user.isActive) return;
+    const isEn = isNotifEn(user);
 
     // Invalidate any existing tokens for this user
     await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
@@ -28,9 +30,8 @@ export const passwordResetService = {
     const appUrl = await systemConfigService.getEffectivePublicUrl();
     const resetUrl = `${appUrl}/reset-password/${rawToken}`;
 
-    const lang = user.language ?? 'FR';
-    const subject = lang === 'EN' ? 'Glou — Reset your password' : 'Glou — Réinitialisation de mot de passe';
-    const html = lang === 'EN'
+    const subject = isEn ? 'Glou — Reset your password' : 'Glou — Réinitialisation de mot de passe';
+    const html = isEn
       ? `<p>Hello ${user.username},</p><p>Click the link below to reset your password. This link expires in ${TOKEN_TTL_MINUTES} minutes and can only be used once.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>If you did not request this, you can ignore this email.</p>`
       : `<p>Bonjour ${user.username},</p><p>Cliquez sur le lien ci-dessous pour réinitialiser votre mot de passe. Ce lien expire dans ${TOKEN_TTL_MINUTES} minutes et ne peut être utilisé qu'une seule fois.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>`;
 

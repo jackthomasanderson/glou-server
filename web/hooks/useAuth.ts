@@ -28,6 +28,8 @@ export interface PublicUser {
   autoLockDelayMin?: number | null;
   // FEAT-56: Setup Wizard d'Onboarding — null while not completed/skipped yet
   onboardingCompletedAt?: string | null;
+  // #336: set by an administrator's no-SMTP password reset.
+  mustChangePassword: boolean;
 }
 
 const ME_KEY = ['auth', 'me'];

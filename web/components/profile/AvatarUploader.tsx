@@ -66,38 +66,43 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div
-        className="relative cursor-pointer"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <Avatar
-          src={user?.avatarUrl || undefined}
-          name={(!user?.avatarUrl && user?.username?.charAt(0).toUpperCase()) || undefined}
-          size="lg"
-          radius="full"
-          isBordered
-          color="primary"
-          className={`w-24 h-24 text-4xl transition-opacity duration-200 ${isHovered || uploadAvatar.isPending ? 'opacity-70' : 'opacity-100'}`}
-        />
+      <div className="relative">
+        <button
+          type="button"
+          className="relative rounded-full cursor-pointer group focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          onClick={() => fileInputRef.current?.click()}
+          aria-label={t('profile.changeAvatar')}
+        >
+          <Avatar
+            src={user?.avatarUrl || undefined}
+            name={(!user?.avatarUrl && user?.username?.charAt(0).toUpperCase()) || undefined}
+            size="lg"
+            radius="full"
+            isBordered
+            color="primary"
+            className={`w-24 h-24 text-4xl transition-opacity duration-200 ${isHovered || uploadAvatar.isPending ? 'opacity-70' : 'opacity-100'}`}
+          />
 
-        {uploadAvatar.isPending && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <CircularProgress size="sm" color="primary" isIndeterminate />
-          </div>
-        )}
+          {uploadAvatar.isPending && (
+            <div className="absolute inset-0 flex items-center justify-center" role="status" aria-live="polite">
+              <CircularProgress size="sm" color="primary" isIndeterminate aria-label={t('status.loading')} />
+            </div>
+          )}
 
-        {isHovered && !uploadAvatar.isPending && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
-            <Camera size={20} className="text-white" />
-          </div>
-        )}
+          {!uploadAvatar.isPending && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+              <Camera size={20} className="text-white" />
+            </div>
+          )}
+        </button>
 
         {user?.avatarUrl && !uploadAvatar.isPending && (
           <button
+            type="button"
             className="absolute top-0 right-0 w-6 h-6 bg-content1 rounded-full shadow flex items-center justify-center text-danger hover:bg-default-100"
-            onClick={(e) => { e.stopPropagation(); setConfirmingDelete(true); }}
+            onClick={() => setConfirmingDelete(true)}
             title={t('profile.deleteAvatar')}
             aria-label={t('profile.deleteAvatar')}
           >
@@ -157,7 +162,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
         ref={fileInputRef}
         onChange={handleFileChange}
         style={{ display: 'none' }}
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp,image/gif"
       />
 
       <Modal

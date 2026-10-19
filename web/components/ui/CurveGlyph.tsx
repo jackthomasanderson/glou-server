@@ -23,8 +23,9 @@ export function CurveGlyph({ shape, width = 44, className, title }: CurveGlyphPr
       viewBox="0 0 100 28"
       fill="none"
       className={className}
-      role="img"
-      aria-label={title ?? shape}
+      role={title ? 'img' : undefined}
+      aria-hidden={title ? undefined : 'true'}
+      aria-label={title}
     >
       {title ? <title>{title}</title> : null}
       <path

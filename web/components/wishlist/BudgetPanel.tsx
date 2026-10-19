@@ -123,7 +123,7 @@ export function BudgetPanel() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+        <div className="flex justify-center py-16" role="status" aria-live="polite"><Spinner size="lg" aria-label={t('status.loading')} /></div>
       ) : !envelopes?.length ? (
         <div className="flex flex-col items-center py-16 text-center">
           <Wallet size={64} className="text-foreground-400 mb-4" />

@@ -417,7 +417,14 @@ export const CellarDashboard: React.FC = () => {
                   <span className="text-base font-semibold flex-1 min-w-0 truncate">{cellar.name}</span>
                   {cellar.columns && cellar.rows && (
                     <Tooltip content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
-                      <Grid2x2 size={14} className="text-foreground-500" />
+                      <button
+                        type="button"
+                        aria-label={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}
+                        className="flex items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Grid2x2 size={14} className="text-foreground-500" />
+                      </button>
                     </Tooltip>
                   )}
                 </div>
@@ -507,7 +514,14 @@ export const CellarDashboard: React.FC = () => {
                     <span className="text-sm font-semibold">{cellar.name}</span>
                     {cellar.columns && cellar.rows && (
                       <Tooltip content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
-                        <Grid2x2 size={12} className="text-foreground-500" />
+                        <button
+                          type="button"
+                          aria-label={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}
+                          className="flex items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Grid2x2 size={12} className="text-foreground-500" />
+                        </button>
                       </Tooltip>
                     )}
                   </div>

@@ -9,6 +9,8 @@ export interface SidebarCounts {
   collections: number;
   countSessionActive: boolean;
   wishlistReady: number;
+  /** #380: items with a reminder due today or earlier, for the bell's badge. */
+  remindersToday: number;
 }
 
 export const SIDEBAR_COUNTS_KEY = ['stats', 'counts'];

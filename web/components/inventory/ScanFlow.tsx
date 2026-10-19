@@ -295,7 +295,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
                       capture="environment"
                       className="hidden"
                       onChange={(e) => {

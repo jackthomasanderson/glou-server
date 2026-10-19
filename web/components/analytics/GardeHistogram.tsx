@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { GardePoint } from '@/lib/analytics/types';
+import { useThemeMode } from '@/hooks/useThemeMode';
 
 interface GardeHistogramProps {
   data: GardePoint[];
@@ -15,10 +16,10 @@ const AXIS_HEIGHT = 24;
 const AXIS_LABEL_EVERY = 3;
 
 export function GardeHistogram({ data, t }: GardeHistogramProps) {
-  // Detect dark mode via CSS media query on the client
-  const isDark =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  // The mode actually applied by the app (server profile > localStorage >
+  // system, see theme-mode.ts), not the OS preference alone — otherwise the
+  // year labels can go invisible as soon as the two diverge (#363).
+  const { isDark } = useThemeMode();
 
   const [hoveredYear, setHoveredYear] = useState<number | null>(null);
 
@@ -43,9 +44,40 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
   const pastColor = isDark ? '#374151' : '#d1d5db';
   const todayColor = '#F5A524';
 
+  const chartSummary = t('analytics.garde.chartSummary', {
+    years: data.length,
+    from: data[0].year,
+    to: data[data.length - 1].year,
+  });
+
   return (
     <div className="relative overflow-x-auto overflow-y-visible">
-      <div className="relative" style={{ minWidth: totalWidth }}>
+      {/* Text equivalent (#363): a screen reader or touch-only user gets none
+          of this from the SVG below, which is mouse-hover only. */}
+      <details className="mb-2 text-xs">
+        <summary className="cursor-pointer text-foreground-500 hover:text-foreground-700">
+          {t('analytics.garde.showData')}
+        </summary>
+        <table className="sr-only md:not-sr-only md:mt-2 md:text-xs md:border md:border-divider md:rounded-lg md:overflow-hidden">
+          <caption className="sr-only">{chartSummary}</caption>
+          <thead>
+            <tr>
+              <th scope="col" className="md:px-2 md:py-1 md:text-left">{t('analytics.garde.yearColumn')}</th>
+              <th scope="col" className="md:px-2 md:py-1 md:text-left">{t('analytics.garde.countColumn')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((pt) => (
+              <tr key={pt.year}>
+                <td className="md:px-2 md:py-1">{pt.year}</td>
+                <td className="md:px-2 md:py-1">{pt.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </details>
+
+      <div className="relative" style={{ minWidth: totalWidth }} role="img" aria-label={chartSummary}>
         {/* Tooltip */}
         {hoveredYear !== null &&
           (() => {

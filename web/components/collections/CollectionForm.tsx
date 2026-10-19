@@ -12,8 +12,14 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 
 const PRESET_COLORS = [
-  '#6366f1', '#ec4899', '#f59e0b', '#10b981',
-  '#3b82f6', '#ef4444', '#8b5cf6', '#14b8a6',
+  { val: '#6366f1', name: 'indigo' },
+  { val: '#ec4899', name: 'pink' },
+  { val: '#f59e0b', name: 'amber' },
+  { val: '#10b981', name: 'emerald' },
+  { val: '#3b82f6', name: 'blue' },
+  { val: '#ef4444', name: 'red' },
+  { val: '#8b5cf6', name: 'violet' },
+  { val: '#14b8a6', name: 'teal' },
 ];
 
 const PRESET_ICONS = [
@@ -101,12 +107,13 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
               <div>
                 <p className="text-xs text-foreground-500 mb-1.5">{t('collections.fields.color')}</p>
                 <div className="flex flex-wrap gap-2">
-                  {PRESET_COLORS.map((color) => (
+                  {PRESET_COLORS.map(({ val: color, name }) => (
                     <button
                       key={color}
                       type="button"
-                      title={color}
-                      aria-label={color}
+                      title={t(`profile.colors.${name}`)}
+                      aria-label={t(`profile.colors.${name}`)}
+                      aria-pressed={selectedColor === color}
                       onClick={() => setValue('color', color)}
                       className="w-7 h-7 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus"
                       style={{
@@ -129,6 +136,7 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
                     <button
                       key={icon}
                       type="button"
+                      aria-pressed={selectedIcon === icon}
                       onClick={() => setValue('icon', selectedIcon === icon ? '' : icon)}
                       className={[
                         'w-9 h-9 flex items-center justify-center text-xl rounded-lg transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus',

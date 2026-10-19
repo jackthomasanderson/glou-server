@@ -162,8 +162,9 @@ export function ImagePickerButton({
               <span>{t('imagePicker.offline')}</span>
               <button
                 type="button"
+                aria-label={t('actions.dismiss')}
                 onClick={() => setShowOfflineAlert(false)}
-                className="ml-2 hover:opacity-70"
+                className="ml-2 p-1.5 hover:opacity-70"
               >
                 <X size={12} />
               </button>
@@ -182,8 +183,9 @@ export function ImagePickerButton({
             endContent={
               <button
                 type="button"
+                aria-label={t('actions.search')}
                 onClick={() => doSearch(query)}
-                className="text-foreground-500 hover:text-primary"
+                className="p-1.5 text-foreground-500 hover:text-primary"
               >
                 <Search size={14} />
               </button>
@@ -200,7 +202,7 @@ export function ImagePickerButton({
           {saveError && !saving && (
             <div role="alert" className="flex items-center justify-between bg-danger-50 border border-danger-200 text-danger-700 text-xs rounded-lg px-3 py-2 mb-3">
               <span>{t('imagePicker.saveError')}</span>
-              <button type="button" onClick={() => setSaveError(false)} className="ml-2 hover:opacity-70">
+              <button type="button" aria-label={t('actions.dismiss')} onClick={() => setSaveError(false)} className="ml-2 p-1.5 hover:opacity-70">
                 <X size={12} />
               </button>
             </div>
@@ -214,12 +216,18 @@ export function ImagePickerButton({
             <div className="grid grid-cols-4 gap-2">
               {results.map((img) => (
                 <Tooltip key={img.url} content={img.title} delay={500}>
-                  <img loading="lazy" decoding="async"
-                    src={img.thumb}
-                    alt={img.title}
+                  <button
+                    type="button"
+                    aria-label={img.title}
                     onClick={() => handleSelect(img.url)}
-                    className="w-full aspect-square object-cover rounded-lg cursor-pointer border-2 border-transparent hover:border-primary transition-colors duration-150"
-                  />
+                    className="rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+                  >
+                    <img loading="lazy" decoding="async"
+                      src={img.thumb}
+                      alt=""
+                      className="w-full aspect-square object-cover rounded-lg border-2 border-transparent hover:border-primary transition-colors duration-150"
+                    />
+                  </button>
                 </Tooltip>
               ))}
             </div>

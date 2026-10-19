@@ -16,6 +16,7 @@ import { smtpConfigSchema, gotifyConfigSchema, integrationsConfigSchema } from '
 import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
 import { systemConfigService } from '../services/system-config.service';
+import { authService } from '../services/auth.service';
 import { emailService } from '../services/email.service';
 import { backupService } from '../services/backup.service';
 
@@ -152,6 +153,31 @@ adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): 
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
+/**
+ * @route   POST /api/admin/users/:userId/reset-password
+ * @desc    #336 — recover a member's account with no SMTP configured:
+ *          generates a one-time temporary password (shown to the admin
+ *          exactly once, never stored in the clear), revokes the member's
+ *          sessions/trusted devices, and forces a real password choice on
+ *          their next successful login.
+ * @access  Admin Private
+ */
+adminRouter.post('/users/:userId/reset-password', async (req: Request, res: Response): Promise<void> => {
+    const userId = routeParam(req.params.userId);
+    try {
+        const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+        if (!target) {
+            res.status(404).json({ error: 'USER_NOT_FOUND' });
+            return;
+        }
+        const tempPassword = await authService.adminResetPassword(userId, req.userId, { ip: getClientIp(req) });
+        res.json({ data: { tempPassword } });
+    } catch (error) {
+        console.error('[Admin] Error resetting user password:', error);
         res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
     }
 });

@@ -10,9 +10,12 @@ export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
 // ─── Field source transparency (FEAT-05) ────────────────────────────────────
 // Origin of a field's current value. A field absent from `fieldSources` is
-// implicitly 'manual' — no external enrichment source (Vivino, Whiskybase,
-// OCR) is actually wired up yet, that remains roadmap (see design.md).
-export type FieldSource = 'manual' | 'ocr' | 'import_csv' | 'enrichment';
+// implicitly 'manual'. 'ocr' is populated by the FEAT-04 scan pipeline.
+//
+// #102: a fourth value, 'enrichment', used to be reserved here for a
+// third-party lookup (Vivino, Whiskybase) that was never built (#74) and
+// never set it — removed rather than kept as dead provenance machinery.
+export type FieldSource = 'manual' | 'ocr' | 'import_csv';
 
 export interface CollectionSummary {
   id: string;

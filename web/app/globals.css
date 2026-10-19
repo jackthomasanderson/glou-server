@@ -1,6 +1,8 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* #392: Tailwind 4 — the HeroUI plugin and theme (tailwind.config.ts) are
+ * still a JS config; `@config` is Tailwind 4's documented bridge for
+ * loading one instead of rewriting it as native CSS `@theme`. */
+@import "tailwindcss";
+@config "../tailwind.config.ts";
 
 /* Reserve the vertical scrollbar's width at all times, whether or not the
  * page currently needs to scroll. Without this, an absolutely-positioned

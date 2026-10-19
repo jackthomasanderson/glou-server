@@ -6,11 +6,24 @@ vi.mock('../../src/lib/prisma', () => ({
       findMany: vi.fn(),
       update: vi.fn(),
     },
+    user: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
   },
+}));
+
+const { send } = vi.hoisted(() => ({ send: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../../src/services/notification.service', () => ({
+  notificationService: { send },
 }));
 
 import { prisma } from '../../src/lib/prisma';
 import { computeAlertStatus, getAlerts, recomputeAlertStatuses } from '../../src/services/alert.service';
+
+/** Lets the fire-and-forget `void notifyPeakReached(...).catch(...)` settle before assertions run. */
+async function flush(): Promise<void> {
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+}
 
 /** First `findMany` call arguments, narrowed for assertions. */
 function firstFindManyArgs(): { where?: Record<string, unknown>; select?: Record<string, unknown> } {
@@ -140,6 +153,82 @@ describe('recomputeAlertStatuses', () => {
     expect(firstFindManyArgs().where).toEqual({
       deletedAt: null,
       OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
+    });
+  });
+
+  // #338: the 'peak' notification category previously had no emitter at all.
+  describe('peak-maturity notification (#338)', () => {
+    it('notifies every member once an item transitions into peak', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        {
+          id: 'b1',
+          name: 'Chambertin',
+          producer: 'Domaine X',
+          vintage: 2020,
+          alertStatus: 'approaching',
+          alertsPaused: false,
+          peakMaturityFrom: 2028,
+          peakMaturityTo: 2035,
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        },
+      ] as never);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([
+        { id: 'u1', language: 'FR', notifLanguage: null },
+        { id: 'u2', language: 'FR', notifLanguage: 'EN' },
+      ] as never);
+
+      await recomputeAlertStatuses();
+      await flush();
+
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(send).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1', category: 'peak' }));
+      const enCall = send.mock.calls.find((c) => c[0].userId === 'u2')?.[0];
+      expect(enCall.subject).toContain('At peak maturity');
+    });
+
+    it('does not notify when the item has alerts paused', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        {
+          id: 'b1',
+          name: 'Chambertin',
+          producer: 'Domaine X',
+          vintage: 2020,
+          alertStatus: 'approaching',
+          alertsPaused: true,
+          peakMaturityFrom: 2028,
+          peakMaturityTo: 2035,
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        },
+      ] as never);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
+
+      await recomputeAlertStatuses();
+      await flush();
+
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it('does not re-notify on a tick where the stored status is already peak', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        {
+          id: 'b1',
+          name: 'Chambertin',
+          producer: 'Domaine X',
+          vintage: 2020,
+          alertStatus: 'peak',
+          alertsPaused: false,
+          peakMaturityFrom: 2028,
+          peakMaturityTo: 2035,
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        },
+      ] as never);
+
+      await recomputeAlertStatuses();
+      await flush();
+
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+      expect(send).not.toHaveBeenCalled();
     });
   });
 });

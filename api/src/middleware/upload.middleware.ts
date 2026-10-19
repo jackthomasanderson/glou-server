@@ -36,7 +36,7 @@ export const avatarUpload = multer({
     fileFilter: (_req, file, cb) => {
         if (file.mimetype === 'image/svg+xml') {
             cb(new AppError(400, 'SVG_NOT_ALLOWED'));
-        } else if (file.mimetype.startsWith('image/')) {
+        } else if (file.mimetype.toLowerCase() in ALLOWED_IMAGE_TYPES) {
             cb(null, true);
         } else {
             cb(new AppError(400, 'INVALID_FILE_TYPE'));
@@ -88,7 +88,7 @@ const scanUpload = multer({
     fileFilter: (_req, file, cb) => {
         if (file.mimetype === 'image/svg+xml') {
             cb(new AppError(400, 'SVG_NOT_ALLOWED'));
-        } else if (file.mimetype.startsWith('image/')) {
+        } else if (file.mimetype.toLowerCase() in ALLOWED_IMAGE_TYPES) {
             cb(null, true);
         } else {
             cb(new AppError(400, 'INVALID_FILE_TYPE'));

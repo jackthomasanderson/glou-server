@@ -1,10 +1,10 @@
 'use client';
 import React from 'react';
 import {
-  Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button,
+  Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button, Checkbox,
 } from '@heroui/react';
 import {
-  Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Check, Clock,
+  Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Clock,
 } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
@@ -155,17 +155,16 @@ export function InventoryCard({
         {/* Bulk select indicator */}
         {onSelectToggle && (
           <div
-            className="absolute top-2 left-2 z-10"
-            onClick={(e) => { e.stopPropagation(); onSelectToggle(item, e); }}
+            className="absolute top-2 left-2 z-10 w-8 h-8 flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className={[
-              'w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all',
-              isSelected
-                ? 'bg-primary shadow-sm'
-                : 'bg-black/30 border-2 border-white/60 hover:bg-black/45',
-            ].join(' ')}>
-              {isSelected && <Check size={11} className="text-white" strokeWidth={3} />}
-            </div>
+            <Checkbox
+              isSelected={isSelected}
+              onValueChange={() => onSelectToggle(item)}
+              size="sm"
+              aria-label={t('actions.select')}
+              classNames={{ wrapper: 'bg-black/30 border-2 border-white/60 before:border-0 after:bg-primary' }}
+            />
           </div>
         )}
       </div>
@@ -228,12 +227,17 @@ export function InventoryCard({
               content={t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}
               delay={500}
             >
-              <div className="flex items-center gap-0.5 overflow-hidden min-w-0">
+              <button
+                type="button"
+                aria-label={`${t('view.columns.peak')} : ${drinkingWindow} — ${t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-0.5 overflow-hidden min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+              >
                 <AlertTriangle size={12} className={`shrink-0 ${alertIconColor}`} />
-                <span className="text-xs text-foreground-500 truncate">
+                <span className="text-xs text-foreground-500 truncate" aria-hidden="true">
                   {t('view.columns.peak')} : {drinkingWindow}
                 </span>
-              </div>
+              </button>
             </Tooltip>
           )}
         </div>

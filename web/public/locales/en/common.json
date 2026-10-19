@@ -50,6 +50,7 @@
     "close": "Close",
     "edit": "Edit",
     "confirm": "Confirm",
+    "copy": "Copy",
     "back": "Back",
     "search": "Search",
     "filter": "Filter",
@@ -120,6 +121,7 @@
     }
   },
   "inventory": {
+    "perPage": "{{count}} per page",
     "detail": {
       "titleWine": "Asset details",
       "titleCigar": "Asset details",
@@ -480,6 +482,13 @@
     "error": "Incorrect password or PIN code.",
     "backToLogin": "Sign out"
   },
+  "forcedPasswordChange": {
+    "title": "Set a new password",
+    "subtitle": "An administrator reset your password. Enter the temporary one you were given, then choose a real password to continue.",
+    "tempPasswordLabel": "Temporary password",
+    "invalidTemp": "Incorrect temporary password.",
+    "submit": "Set password"
+  },
   "cellars": {
     "title": "My Cellars",
     "addCellar": "Add cellar",
@@ -669,12 +678,17 @@
       "amber": "Amber",
       "emerald": "Emerald",
       "cyan": "Cyan",
-      "violet": "Violet"
+      "violet": "Violet",
+      "pink": "Pink",
+      "blue": "Blue",
+      "red": "Red",
+      "teal": "Teal"
     },
     "saveSuccess": "Profile updated successfully",
     "saveError": "Error while updating profile",
     "avatarSuccess": "Profile picture updated",
     "avatarError": "Error uploading profile picture",
+    "changeAvatar": "Change profile picture",
     "deleteAvatar": "Delete profile picture",
     "deleteAvatarConfirm": "Are you sure you want to delete your profile picture?",
     "deleteAvatarSuccess": "Profile picture deleted",
@@ -757,7 +771,8 @@
         "username": "Username",
         "role": "Admin",
         "status": "Status",
-        "createdAt": "Created"
+        "createdAt": "Created",
+        "actions": "Actions"
       },
       "active": "Active",
       "inactive": "Deactivated",
@@ -765,7 +780,12 @@
       "deactivate": "Deactivate",
       "deactivateSelf": "You cannot deactivate your own account",
       "deactivateLastAdmin": "You cannot deactivate the last administrator",
-      "me": "me"
+      "me": "me",
+      "resetPassword": "Reset password",
+      "resetPasswordConfirm": "Generate a new temporary password for {{username}}? Their current sessions and trusted devices will be signed out, and they will have to set a new password on their next login.",
+      "resetPasswordResultTitle": "Temporary password for {{username}}",
+      "resetPasswordResultHint": "Copy this password and share it with the member through a secure channel. It is shown only once and cannot be retrieved afterwards — they will be asked to set a real password on their next login.",
+      "resetPasswordError": "Could not reset this member's password"
     },
     "auditLog": {
       "title": "Audit Log",
@@ -901,8 +921,7 @@
     "source": {
       "manual": "Manual entry",
       "import_csv": "CSV import",
-      "ocr": "Scan (OCR)",
-      "enrichment": "Auto enrichment"
+      "ocr": "Scan (OCR)"
     }
   },
   "collections": {
@@ -1180,7 +1199,9 @@
         "state": "State",
         "stateAll": "All",
         "stateInCellar": "In cellar (unopened)",
-        "stateOpened": "Opened"
+        "stateOpened": "Opened",
+        "region": "Region",
+        "regionAny": "All regions"
       },
       "list": {
         "title": "Assets in the selected region",
@@ -1210,7 +1231,11 @@
       "subtitle": "Temporal distribution of assets by optimal peak year",
       "noData": "No peak maturity windows set in your inventory.",
       "bottles_one": "asset at peak",
-      "bottles_other": "assets at peak"
+      "bottles_other": "assets at peak",
+      "chartSummary": "Bar chart: number of assets reaching peak maturity each year, {{years}} years from {{from}} to {{to}}.",
+      "showData": "Show data",
+      "yearColumn": "Year",
+      "countColumn": "Assets at peak"
     },
     "caves": {
       "title": "Distribution by cellar"
@@ -1424,6 +1449,7 @@
   },
   "forgotPassword": {
     "link": "Forgot password?",
+    "noSmtpHint": "Forgot your password? Ask the instance administrator to reset it.",
     "title": "Account recovery",
     "description": "Enter the email address associated with your account. If found, you'll receive a recovery link.",
     "emailLabel": "Email address",
@@ -1779,7 +1805,8 @@
         "INVALID_CATEGORY": "Invalid category (expected: wine, sparkling, spirit or cigar)",
         "INVALID_VINTAGE": "Invalid vintage",
         "INVALID_ROW": "Invalid row",
-        "UNRECOGNIZED_COLUMNS": "Unrecognised header: none of the expected columns (name, producer, category, vintage) were found"
+        "UNRECOGNIZED_COLUMNS": "Unrecognised header: none of the expected columns (name, producer, category, vintage) were found",
+        "INVALID_ENCODING": "This file isn't saved as UTF-8: accented characters were lost. In Excel, use \"File → Save As\" and pick \"CSV UTF-8 (Comma delimited)\", then try again."
       }
     },
     "summary": {

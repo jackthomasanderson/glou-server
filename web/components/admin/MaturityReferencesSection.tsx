@@ -445,10 +445,14 @@ export function MaturityReferencesSection() {
                   </TableCell>
                   <TableCell>
                     <Tooltip content={t(curveShapeDescriptionKey(ref.curveShape))} delay={500}>
-                      <span className="flex items-center gap-1.5 text-xs text-foreground-500">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 text-xs text-foreground-500 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+                        aria-label={`${t(curveShapeLabelKey(ref.curveShape))} — ${t(curveShapeDescriptionKey(ref.curveShape))}`}
+                      >
                         <CurveGlyph shape={ref.curveShape} width={30} />
-                        {t(curveShapeLabelKey(ref.curveShape))}
-                      </span>
+                        <span aria-hidden="true">{t(curveShapeLabelKey(ref.curveShape))}</span>
+                      </button>
                     </Tooltip>
                   </TableCell>
                   <TableCell className="text-center text-sm text-foreground-400">{ref.bottleCount}</TableCell>

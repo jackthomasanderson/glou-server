@@ -107,6 +107,9 @@ export interface PublicUser {
   // FEAT-56: Setup Wizard d'Onboarding — null while the wizard hasn't been
   // completed or skipped yet.
   onboardingCompletedAt: Date | null;
+  // #336: set by an administrator's no-SMTP password reset; the frontend
+  // blocks the app behind a mandatory password-change screen while true.
+  mustChangePassword: boolean;
 }
 
 /** Shape shared by every Prisma User read used to build a PublicUser (FEAT-30 added pinHash/autoLockDelayMin). */
@@ -129,6 +132,7 @@ interface RawUserForPublic {
   pinHash: string | null;
   autoLockDelayMin: number | null;
   onboardingCompletedAt: Date | null;
+  mustChangePassword: boolean;
 }
 
 function signToken(payload: AuthPayload, expiresIn: SignOptions['expiresIn'] = JWT_EXPIRES_IN): string {
@@ -202,6 +206,7 @@ export class AuthService {
       hasPin: !!user.pinHash,
       autoLockDelayMin: user.autoLockDelayMin,
       onboardingCompletedAt: user.onboardingCompletedAt,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 
@@ -418,6 +423,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       },
     });
     const user = this.toPublicUser(rawUser);
@@ -521,6 +527,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       },
     });
     return user ? this.toPublicUser(user) : null;
@@ -560,6 +567,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       },
     });
     return this.toPublicUser(user);
@@ -641,6 +649,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       }
     });
 
@@ -663,7 +672,9 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(newPass, BCRYPT_ROUNDS);
     await prisma.user.update({
       where: { id: userId },
-      data: { passwordHash }
+      // #336: a real password choice through this flow always clears the
+      // admin-reset flag, whether or not it was set.
+      data: { passwordHash, mustChangePassword: false }
     });
 
     this.notifySecurityEvent(userId, 'passwordChanged', deviceInfo);
@@ -671,6 +682,38 @@ export class AuthService {
     await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown');
     // ISSUE_044: neither must a trusted device, which skips the 2FA challenge.
     await this.revokeAllTrustedDevices(userId);
+  }
+
+  /**
+   * #336: lets an administrator recover a member's account without SMTP —
+   * the only recourse used to be a direct database edit. Returns the
+   * temporary password in the clear; the caller (admin router) must show it
+   * exactly once and never persist or log it. The member is forced to pick a
+   * real password on next login (`mustChangePassword`, cleared by the
+   * existing `updatePassword` flow), and every existing session/trusted
+   * device is revoked — the same security posture as a self-service reset
+   * (password-reset.service.ts#resetPassword).
+   */
+  async adminResetPassword(userId: string, adminUserId: string, deviceInfo: DeviceInfo = {}): Promise<string> {
+    const tempPassword = crypto.randomBytes(9).toString('base64url'); // 12 URL-safe chars
+    const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+    const now = new Date();
+
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: userId }, data: { passwordHash, mustChangePassword: true } }),
+      prisma.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
+      prisma.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
+    ]);
+
+    void auditLog({
+      userId: adminUserId,
+      action: 'SESSION_REVOKE',
+      status: 'success',
+      ip: deviceInfo.ip ?? 'unknown',
+      details: { reason: 'admin_password_reset', targetUserId: userId },
+    });
+
+    return tempPassword;
   }
 
   /**
@@ -699,6 +742,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       },
     });
     return this.toPublicUser(user);
@@ -1113,6 +1157,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       },
     });
     return this.toPublicUser(user);
