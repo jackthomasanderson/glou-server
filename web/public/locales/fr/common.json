@@ -393,6 +393,22 @@
       "deleteError": "Impossible de supprimer le souhait",
       "priceError": "Impossible d'enregistrer le prix observé",
       "convertError": "Impossible de transformer le souhait en article de l'inventaire"
+    },
+    "bulkUpdateError": "Impossible de modifier les actifs sélectionnés",
+    "share": {
+      "createError": "Impossible de créer le lien de partage",
+      "revokeError": "Impossible de révoquer le lien de partage"
+    },
+    "count": {
+      "scanError": "Impossible de confirmer l'actif",
+      "recordError": "Impossible d'enregistrer l'actif"
+    },
+    "admin": {
+      "roleError": "Impossible de modifier le rôle du membre",
+      "statusError": "Impossible de modifier le statut du membre"
+    },
+    "onboarding": {
+      "completeError": "Impossible de terminer la configuration"
     }
   },
   "auth": {

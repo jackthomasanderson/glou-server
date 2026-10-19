@@ -393,6 +393,22 @@
       "deleteError": "Could not delete the wish",
       "priceError": "Could not save the observed price",
       "convertError": "Could not turn the wish into an inventory item"
+    },
+    "bulkUpdateError": "Could not update the selected assets",
+    "share": {
+      "createError": "Could not create the share link",
+      "revokeError": "Could not revoke the share link"
+    },
+    "count": {
+      "scanError": "Could not confirm the asset",
+      "recordError": "Could not record the asset"
+    },
+    "admin": {
+      "roleError": "Could not change the member's role",
+      "statusError": "Could not change the member's status"
+    },
+    "onboarding": {
+      "completeError": "Could not complete the setup"
     }
   },
   "auth": {

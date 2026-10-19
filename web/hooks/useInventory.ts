@@ -5,6 +5,7 @@ import { inventoryClient } from '@/lib/inventory/client';
 import { InventoryItem, InventoryHistoryEntry } from '@/lib/inventory/types';
 import { mirrorInventoryToCache, getCachedInventory } from '@/lib/offline/db';
 import { enqueueMutation } from '@/lib/offline/syncEngine';
+import { notifyError, notifySuccess } from '@/lib/toast';
 
 export const INVENTORY_KEY = ['inventory'];
 const TRASH_KEY = ['inventory', 'trash'];
@@ -84,6 +85,12 @@ export function useCreateInventoryItem() {
       queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
         old ? [...old, newItem] : [newItem]
       );
+      notifySuccess('toast.createSuccess');
+    },
+    onError: (error) => {
+      // DUPLICATE_CANDIDATE is not a failure: the caller turns it into the
+      // duplicate-resolution dialog.
+      if (error.message !== 'DUPLICATE_CANDIDATE') notifyError('toast.createError');
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
@@ -125,6 +132,7 @@ export function useUpdateInventoryItem() {
         return { ...cachedItem, ...patch } as InventoryItem;
       }
     },
+    onError: () => notifyError('toast.updateError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
@@ -154,6 +162,7 @@ export function useBulkUpdateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<{ updatedCount: number }, Error, { ids: string[]; patch: Partial<InventoryItem> }>({
     mutationFn: ({ ids, patch }) => inventoryClient.bulkUpdate(ids, patch),
+    onError: () => notifyError('toast.bulkUpdateError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
@@ -167,6 +176,7 @@ export function useDeleteInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, string>({
     mutationFn: inventoryClient.delete,
+    onError: () => notifyError('toast.deleteError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
       void queryClient.invalidateQueries({ queryKey: TRASH_KEY });
@@ -181,6 +191,8 @@ export function useRestoreInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, string>({
     mutationFn: inventoryClient.restore,
+    onSuccess: () => notifySuccess('toast.restoreSuccess'),
+    onError: () => notifyError('toast.restoreError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
       void queryClient.invalidateQueries({ queryKey: TRASH_KEY });
