@@ -153,7 +153,12 @@ export default function CellarDetailPage() {
           cellarItems.length === 0 ? (
             <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles')}</div>
           ) : (
-            <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('nav.bottles')}>
+            <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('nav.bottles')}
+              onRowAction={(key) => {
+                const found = cellarItems.find((i) => i.id === String(key));
+                if (found) setViewingItem(found);
+              }}
+            >
               <TableHeader>
                 <TableColumn>{t('inventory.fields.name')}</TableColumn>
                 <TableColumn>{t('inventory.fields.producer')}</TableColumn>
@@ -163,7 +168,7 @@ export default function CellarDetailPage() {
               </TableHeader>
               <TableBody>
                 {cellarItems.map((item) => (
-                  <TableRow key={item.id} className="cursor-pointer" onClick={() => setViewingItem(item)}>
+                  <TableRow key={item.id} className="cursor-pointer">
                     <TableCell className="text-sm font-semibold">{item.name}</TableCell>
                     <TableCell className="text-sm text-foreground-400">{item.producer}</TableCell>
                     <TableCell><Chip size="sm" variant="flat">{t(`categories.${item.category}`)}</Chip></TableCell>
