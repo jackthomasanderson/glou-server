@@ -1972,6 +1972,8 @@
     "error": "Analyzing the photo failed. Try again with a sharper or better-lit photo.",
     "retry": "Take another photo",
     "review": {
+      "nothingRecognised": "Label not recognised: retake the photo or fill the fields in by hand.",
+      "missingFields": "Fields to fill in: {{fields}}",
       "title": "Review the detected information",
       "confirm": "Confirm and add",
       "moreDetails": "More details",

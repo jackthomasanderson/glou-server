@@ -75,6 +75,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const [jobId, setJobId] = useState<string | null>(null);
   const [reviewValues, setReviewValues] = useState<Partial<InventoryItem> | null>(null);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
+  const [nothingRecognised, setNothingRecognised] = useState(false);
   const [fullFormOpen, setFullFormOpen] = useState(false);
   const [duplicateFound, setDuplicateFound] = useState<InventoryItem | null>(null);
   const [duplicateCandidate, setDuplicateCandidate] = useState<Partial<InventoryItem> | null>(null);
@@ -125,6 +126,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
         cellarId,
       });
       setSaveAsDefault(false);
+      setNothingRecognised(!extracted.name?.trim() && !extracted.producer?.trim());
       setPhase('review');
     } else if (jobQuery.data?.status === 'failed') {
       setPhase('error');
@@ -240,6 +242,12 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     (reviewValues.category !== 'spirit' || reviewValues.alcoholDegree != null)
   );
 
+  const missingFields = [
+    !reviewValues?.name?.trim() && t('inventory.fields.name'),
+    !reviewValues?.producer?.trim() && t('inventory.fields.producer'),
+    reviewValues?.category === 'spirit' && reviewValues.alcoholDegree == null && t('inventory.fields.alcoholDegree'),
+  ].filter((f): f is string => Boolean(f));
+
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
@@ -329,6 +337,15 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                 {phase === 'review' && reviewValues && !duplicateFound && (
                   <div className="flex flex-col gap-4 px-4 py-5 max-w-md w-full mx-auto">
                     <p className="text-xs font-semibold text-default-500">{t('scan.review.title')}</p>
+
+                    {nothingRecognised && (
+                      <div role="alert" className="flex flex-col gap-2 rounded-lg border border-warning bg-warning-50 p-3">
+                        <p className="text-sm text-warning-700">{t('scan.review.nothingRecognised')}</p>
+                        <Button size="sm" variant="bordered" color="warning" onPress={resetToCapture}>
+                          {t('scan.retry')}
+                        </Button>
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap gap-1.5">
                       {(['wine', 'sparkling', 'spirit', 'cigar'] as InventoryCategory[]).map((cat) => (
@@ -447,6 +464,11 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       >
                         {t('scan.review.confirm')}
                       </Button>
+                      {!canConfirm && (
+                        <p className="text-xs text-foreground-500 text-center">
+                          {t('scan.review.missingFields', { fields: missingFields.join(', ') })}
+                        </p>
+                      )}
                       <Button variant="light" fullWidth isDisabled={isSubmitting} onPress={() => setFullFormOpen(true)}>
                         {t('scan.review.moreDetails')}
                       </Button>

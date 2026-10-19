@@ -1974,6 +1974,8 @@
     "error": "L'analyse de la photo a échoué. Réessayez avec une photo plus nette ou mieux éclairée.",
     "retry": "Reprendre une photo",
     "review": {
+      "nothingRecognised": "Étiquette non reconnue : reprenez la photo ou renseignez les champs à la main.",
+      "missingFields": "Champs à renseigner : {{fields}}",
       "title": "Vérifiez les informations détectées",
       "confirm": "Confirmer et ajouter",
       "moreDetails": "Plus de détails",
