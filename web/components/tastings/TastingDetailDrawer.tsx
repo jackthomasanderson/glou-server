@@ -1,9 +1,10 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Avatar, Button, Chip } from '@heroui/react';
 import { X, Pencil, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
+import { useDialogFocus } from '@/hooks/useDialogFocus';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { formatDate } from '@/lib/format';
 
@@ -30,7 +31,11 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [open, onClose]);
 
-  if (!hasMounted || !open || !note) return null;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const visible = hasMounted && open && !!note;
+  useDialogFocus(visible, panelRef);
+
+  if (!visible) return null;
 
   const readinessColor =
     note.readiness === 'PERFECT' ? 'success'
@@ -43,7 +48,9 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div
-        className="relative w-full sm:w-[420px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl"
+        ref={panelRef}
+        tabIndex={-1}
+        className="relative w-full sm:w-[420px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl outline-none"
         role="dialog"
         aria-modal="true"
         aria-labelledby="tasting-detail-title"
