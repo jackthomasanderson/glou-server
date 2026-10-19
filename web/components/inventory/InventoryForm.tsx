@@ -534,6 +534,8 @@ export function InventoryForm({
                             description={t('inventory.fields.curveShapeHint')}
                             variant="bordered"
                             size="sm"
+                            disallowEmptySelection
+                            popoverProps={{ placement: 'bottom', shouldFlip: true }}
                             selectedKeys={[values.curveShape ?? DEFAULT_CURVE_SHAPE]}
                             onSelectionChange={(keys) => setField('curveShape', Array.from(keys)[0] ?? null)}
                             startContent={
@@ -541,14 +543,13 @@ export function InventoryForm({
                             }
                           >
                             {CURVE_SHAPES.map((shape) => (
-                              <SelectItem key={shape} textValue={t(curveShapeLabelKey(shape))}>
-                                <div className="flex items-center gap-2">
-                                  <CurveGlyph shape={shape} width={34} className="text-default-500 shrink-0" />
-                                  <div className="flex flex-col">
-                                    <span className="text-sm">{t(curveShapeLabelKey(shape))}</span>
-                                    <span className="text-xs text-foreground-500">{t(curveShapeDescriptionKey(shape))}</span>
-                                  </div>
-                                </div>
+                              <SelectItem
+                                key={shape}
+                                textValue={t(curveShapeLabelKey(shape))}
+                                description={t(curveShapeDescriptionKey(shape))}
+                                startContent={<CurveGlyph shape={shape} width={34} className="text-default-500 shrink-0" />}
+                              >
+                                {t(curveShapeLabelKey(shape))}
                               </SelectItem>
                             ))}
                           </Select>
