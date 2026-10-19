@@ -6,6 +6,7 @@ import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
 import { useDialogFocus } from '@/hooks/useDialogFocus';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { useModalDrawer } from '@/hooks/useModalDrawer';
 import { formatDate } from '@/lib/format';
 
 interface TastingDetailDrawerProps {
@@ -18,6 +19,7 @@ interface TastingDetailDrawerProps {
 export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDetailDrawerProps) {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
+  const { overlayRef, panelRef } = useModalDrawer(open && hasMounted && !!note);
 
   // Hand-rolled drawer (not the shared HeroUI Modal) — Escape-to-close isn't
   // automatic here, added explicitly. Hook must run before the early return
@@ -44,7 +46,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
     : 'default';
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div ref={overlayRef} className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div
