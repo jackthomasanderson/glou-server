@@ -412,6 +412,8 @@
       "recordError": "Could not record the asset"
     },
     "admin": {
+      "roleSuccess": "Member role updated",
+      "statusSuccess": "Member status updated",
       "roleError": "Could not change the member's role",
       "statusError": "Could not change the member's status"
     },
@@ -787,6 +789,8 @@
       "activate": "Activate",
       "deactivate": "Deactivate",
       "deactivateSelf": "You cannot deactivate your own account",
+      "grantAdminConfirm": "Grant administrator rights to {{username}}?",
+      "deactivateConfirm": "Cut off {{username}}'s access to this instance?",
       "deactivateLastAdmin": "You cannot deactivate the last administrator",
       "me": "me",
       "resetPassword": "Reset password",
@@ -1318,7 +1322,16 @@
       "notFound": "Zone not found."
     }
   },
+  "errorPage": {
+    "title": "Something went wrong",
+    "description": "The page could not be displayed. Reload it or go back to the home page.",
+    "reload": "Reload",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "This link leads nowhere: the page may have been deleted.",
+    "backHome": "Back to home"
+  },
   "qr": {
+    "localhostWarning": "This address (localhost) will not be reachable from another device: the QR code will not work on a phone. Open Glou through the server address before printing it.",
     "title": "Asset QR Code",
     "download": "Download PNG"
   },

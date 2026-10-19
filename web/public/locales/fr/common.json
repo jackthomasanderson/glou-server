@@ -412,6 +412,8 @@
       "recordError": "Impossible d'enregistrer l'actif"
     },
     "admin": {
+      "roleSuccess": "Membre mis à jour",
+      "statusSuccess": "Statut du membre mis à jour",
       "roleError": "Impossible de modifier le rôle du membre",
       "statusError": "Impossible de modifier le statut du membre"
     },
@@ -789,6 +791,8 @@
       "activate": "Réactiver",
       "deactivate": "Désactiver",
       "deactivateSelf": "Impossible de désactiver votre propre compte",
+      "grantAdminConfirm": "Donner les droits d'administrateur à {{username}} ?",
+      "deactivateConfirm": "Couper l'accès de {{username}} à cette instance ?",
       "deactivateLastAdmin": "Impossible de désactiver le dernier administrateur",
       "me": "moi",
       "resetPassword": "Réinitialiser le mot de passe",
@@ -1320,7 +1324,16 @@
       "notFound": "Zone introuvable."
     }
   },
+  "errorPage": {
+    "title": "Une erreur est survenue",
+    "description": "La page n'a pas pu s'afficher. Rechargez-la ou revenez à l'accueil.",
+    "reload": "Recharger",
+    "notFoundTitle": "Page introuvable",
+    "notFoundDescription": "Ce lien ne mène à rien : la page a peut-être été supprimée.",
+    "backHome": "Retour à l'accueil"
+  },
   "qr": {
+    "localhostWarning": "Cette adresse (localhost) ne sera pas joignable depuis un autre appareil : le QR code ne fonctionnera pas sur un téléphone. Ouvrez Glou via l'adresse du serveur avant de l'imprimer.",
     "title": "QR Code de l'actif",
     "download": "Télécharger PNG"
   },
