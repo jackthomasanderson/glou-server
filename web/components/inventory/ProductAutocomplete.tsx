@@ -1,11 +1,12 @@
 'use client';
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useId, useRef, useState, useMemo } from 'react';
 import { Input, Chip } from '@heroui/react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
 import { useConnectivity } from '@/hooks/useConnectivity';
 import { useConnectivityWarning } from '@/hooks/useConnectivityWarning';
+import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { client } from '@/lib/api';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
 
@@ -23,6 +24,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
   const { shouldWarn, dismiss } = useConnectivityWarning('autocomplete');
   const { data: inventoryItems } = useInventory();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listId = useId();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [externalOptions, setExternalOptions] = useState<ProductSuggestion[]>([]);
@@ -92,9 +94,13 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
     onSelect(option);
   };
 
-  const handleBlur = () => {
-    setTimeout(() => setIsOpen(false), 150);
-  };
+  const keys = useComboboxKeys(options, {
+    isOpen,
+    open: () => setIsOpen(true),
+    dismiss: () => setIsOpen(false),
+    pick: handleSelect,
+  });
+  const expanded = isOpen && options.length > 0;
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -105,9 +111,17 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
         size="sm"
         label={t('inventory.fields.name')}
         value={value}
-        onValueChange={handleInputChange}
+        role="combobox"
+        aria-expanded={expanded}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        aria-haspopup="listbox"
+        aria-activedescendant={expanded && keys.activeIndex >= 0 ? optionDomId(listId, keys.activeIndex) : undefined}
+        onValueChange={(v) => { handleInputChange(v); keys.resetActive(); }}
         onFocus={() => { if (value.trim()) setIsOpen(true); }}
-        onBlur={handleBlur}
+        // Rows never take focus (aria-activedescendant): a blur means the user left.
+        onBlur={() => { setIsOpen(false); keys.resetActive(); }}
+        onKeyDown={keys.onKeyDown}
         autoFocus={!disabled}
         isDisabled={disabled}
         endContent={
@@ -115,16 +129,21 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
         }
       />
 
-      {isOpen && options.length > 0 && (
+      {expanded && (
         <div
           className="absolute z-[1500] left-0 top-full mt-1 w-full bg-background border border-default-200 rounded-xl shadow-xl overflow-hidden"
         >
-          <ul className="py-1">
+          <ul id={listId} role="listbox" aria-label={t('inventory.fields.name')} className="py-1">
             {options.map((option, idx) => (
               <li
                 key={`${option.source}-${option.name}-${option.producer}-${idx}`}
-                onMouseDown={() => handleSelect(option)}
-                className="flex flex-col px-3 py-2 cursor-pointer hover:bg-default-100 gap-0.5"
+                id={optionDomId(listId, idx)}
+                role="option"
+                aria-selected={idx === keys.activeIndex}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect(option)}
+                onMouseEnter={() => keys.setActiveIndex(idx)}
+                className={`flex flex-col px-3 py-2 cursor-pointer gap-0.5 ${idx === keys.activeIndex ? 'bg-default-100' : 'hover:bg-default-100'}`}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold">{option.name}</span>

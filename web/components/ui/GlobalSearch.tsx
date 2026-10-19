@@ -5,6 +5,7 @@ import { Input, Chip } from '@heroui/react';
 import { Search, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
+import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { useCellars } from '@/hooks/useCellars';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
@@ -64,58 +65,6 @@ function useSearch() {
   );
 
   return { query, setQuery, options, hasResults: options.length > 0, select };
-}
-
-/**
- * Keyboard model of a WAI-ARIA combobox with a listbox popup: focus stays in
- * the input, arrows move a virtual cursor (`aria-activedescendant`), Enter
- * picks, Escape closes (#198). The old list only reacted to `mousedown`, and
- * closed itself 150 ms after the input blurred, so Tab-ing to a result — or
- * pressing Enter on it — did nothing.
- */
-function useComboboxKeys(
-  options: SearchOption[],
-  opts: { isOpen: boolean; open: () => void; dismiss: () => void; pick: (o: SearchOption) => void },
-) {
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const { isOpen, open, dismiss, pick } = opts;
-
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    const count = options.length;
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (!isOpen) open();
-        if (count) setActiveIndex((i) => (i + 1) % count);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        if (!isOpen) open();
-        if (count) setActiveIndex((i) => (i <= 0 ? count - 1 : i - 1));
-        break;
-      case 'Home':
-        if (isOpen && count) { e.preventDefault(); setActiveIndex(0); }
-        break;
-      case 'End':
-        if (isOpen && count) { e.preventDefault(); setActiveIndex(count - 1); }
-        break;
-      case 'Enter':
-        if (isOpen && activeIndex >= 0 && options[activeIndex]) {
-          e.preventDefault();
-          pick(options[activeIndex]);
-        }
-        break;
-      case 'Escape':
-        if (isOpen && count) { e.preventDefault(); e.stopPropagation(); setActiveIndex(-1); dismiss(); }
-        break;
-    }
-  };
-
-  return { activeIndex, setActiveIndex, resetActive: () => setActiveIndex(-1), onKeyDown };
-}
-
-function optionDomId(listId: string, index: number) {
-  return `${listId}-option-${index}`;
 }
 
 function ResultsList({

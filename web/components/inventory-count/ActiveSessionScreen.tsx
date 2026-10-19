@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import {
   Card, CardBody, Button, Input, Chip, Progress, CircularProgress,
@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { CountSession, CountReportItem } from '@/lib/inventory-count/types';
 import { useSessionReport, useScanItem, usePauseCountSession } from '@/hooks/useInventoryCount';
 import { useInventory } from '@/hooks/useInventory';
+import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { RecordFoundItemModal } from './RecordFoundItemModal';
 
 const MIN_SEARCH_LENGTH = 2;
@@ -85,6 +86,15 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
     setQuery('');
     setIsSearchOpen(false);
   };
+
+  const searchListId = useId();
+  const searchKeys = useComboboxKeys(searchResults, {
+    isOpen: isSearchOpen,
+    open: () => setIsSearchOpen(true),
+    dismiss: () => setIsSearchOpen(false),
+    pick: (item) => handleSelectResult(item.id),
+  });
+  const searchExpanded = isSearchOpen && searchResults.length > 0;
 
   const progressPercent =
     report && report.counts.expected > 0
@@ -175,26 +185,42 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
               isClearable
               startContent={<Search size={16} className="text-foreground-500" />}
               value={query}
+              role="combobox"
+              aria-expanded={searchExpanded}
+              aria-controls={searchListId}
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-activedescendant={
+                searchExpanded && searchKeys.activeIndex >= 0 ? optionDomId(searchListId, searchKeys.activeIndex) : undefined
+              }
               onValueChange={(v) => {
                 setQuery(v);
                 setIsSearchOpen(true);
+                searchKeys.resetActive();
               }}
               onFocus={() => {
                 if (query.trim()) setIsSearchOpen(true);
               }}
-              onBlur={() => setTimeout(() => setIsSearchOpen(false), 150)}
+              // Rows never take focus (aria-activedescendant): a blur means the user left.
+              onBlur={() => { setIsSearchOpen(false); searchKeys.resetActive(); }}
+              onKeyDown={searchKeys.onKeyDown}
               isDisabled={!isActive}
             />
-            {isSearchOpen && searchResults.length > 0 && (
+            {searchExpanded && (
               <div
                 className="absolute z-[1500] left-0 top-full mt-1 w-full bg-background border border-default-200 rounded-xl shadow-xl overflow-hidden"
               >
-                <ul className="py-1 max-h-64 overflow-y-auto">
-                  {searchResults.map((item) => (
+                <ul id={searchListId} role="listbox" aria-label={t('inventoryCount.session.searchLabel')} className="py-1 max-h-64 overflow-y-auto">
+                  {searchResults.map((item, idx) => (
                     <li
                       key={item.id}
-                      onMouseDown={() => handleSelectResult(item.id)}
-                      className="flex flex-col px-3 py-2 cursor-pointer hover:bg-default-100"
+                      id={optionDomId(searchListId, idx)}
+                      role="option"
+                      aria-selected={idx === searchKeys.activeIndex}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => handleSelectResult(item.id)}
+                      onMouseEnter={() => searchKeys.setActiveIndex(idx)}
+                      className={`flex flex-col px-3 py-2 cursor-pointer ${idx === searchKeys.activeIndex ? 'bg-default-100' : 'hover:bg-default-100'}`}
                     >
                       <span className="text-sm font-medium">{item.name}</span>
                       <span className="text-xs text-foreground-400">{item.producer}</span>
