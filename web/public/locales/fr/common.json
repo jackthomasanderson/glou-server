@@ -121,6 +121,7 @@
     }
   },
   "inventory": {
+    "noNotifications": "Aucune notification",
     "perPage": "{{count}} par page",
     "detail": {
       "titleWine": "Détails de l'actif",
@@ -530,6 +531,8 @@
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les actifs qu'elle contient deviendront orphelins.",
     "stats": {
       "items": "actifs",
+      "itemsCount_one": "{{count}} actif",
+      "itemsCount_other": "{{count}} actifs",
       "alerts": "alertes",
       "estimatedValue": "Valeur estimée"
     },
@@ -645,6 +648,7 @@
     "loading": "Recherche en cours..."
   },
   "profile": {
+    "adminPanelLink": "Accéder au panneau d'administration",
     "title": "Mon Profil",
     "personalInfo": "Informations personnelles",
     "preferences": "Préférences d'affichage",

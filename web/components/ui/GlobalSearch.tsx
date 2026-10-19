@@ -120,7 +120,7 @@ function ResultsList({
                 <>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">{option.item.name}</span>
-                    <Chip size="sm" variant="flat" radius="sm" className="text-xs">{option.item.category}</Chip>
+                    <Chip size="sm" variant="flat" radius="sm" className="text-xs">{t(`categories.${option.item.category}`, option.item.category)}</Chip>
                   </div>
                   <p className="text-xs text-foreground-400 mt-0.5">
                     {option.item.producer}{option.item.vintage ? ` · ${option.item.vintage}` : ''}

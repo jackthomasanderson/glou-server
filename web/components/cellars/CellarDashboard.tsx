@@ -438,7 +438,7 @@ export const CellarDashboard: React.FC = () => {
                 {cellar.stats && (
                   <div className="flex gap-1.5 mt-1 flex-wrap">
                     <Chip size="sm" variant="flat">
-                      {cellar.stats.totalItems} {t('cellars.stats.items')}
+                      {t('cellars.stats.itemsCount', { count: cellar.stats.totalItems })}
                     </Chip>
                     {cellar.stats.alertCount > 0 && (
                       <Chip size="sm" color="warning" variant="flat">

@@ -283,7 +283,7 @@ export function ProfileClient() {
               radius="md"
               fullWidth
             >
-              Accéder au panneau d&apos;administration
+              {t('profile.adminPanelLink')}
             </Button>
           </div>
         )}
