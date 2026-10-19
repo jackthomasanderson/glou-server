@@ -19,10 +19,16 @@ type SearchOption =
   | { kind: 'item'; id: string; item: InventoryItem }
   | { kind: 'cellar'; id: string; cellar: Cellar };
 
+// #380: search only needs the inventory once the user has actually typed
+// something — fetching the full list on every mount (every protected page,
+// via MainLayout) downloaded up to 2000 items for a field that might never
+// be touched.
+const MIN_QUERY_LENGTH = 2;
+
 function useSearch() {
   const [query, setQuery] = useState('');
   const router = useRouter();
-  const { data: items } = useInventory();
+  const { data: items } = useInventory({ enabled: query.trim().length >= MIN_QUERY_LENGTH });
   const { data: cellars } = useCellars();
 
   const itemResults = React.useMemo(() => {

@@ -24,8 +24,8 @@ const db = prisma as unknown as {
 describe('statsService.getSidebarCounts (#212)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    db.inventoryItem.count.mockImplementation(({ where }) =>
-      Promise.resolve(where.category === 'cigar' ? 4 : 10),
+    db.inventoryItem.count.mockImplementation(({ where }: { where: { category?: string; reminderDate?: unknown } }) =>
+      Promise.resolve(where.category === 'cigar' ? 4 : where.reminderDate ? 1 : 10),
     );
     db.cellar.count.mockResolvedValue(2);
     db.collection.count.mockResolvedValue(3);
@@ -36,7 +36,7 @@ describe('statsService.getSidebarCounts (#212)', () => {
   it('returns every badge in one call, excluding soft-deleted items', async () => {
     const counts = await statsService.getSidebarCounts('u1');
     expect(counts).toEqual({
-      bottles: 10, cigars: 4, cellars: 2, collections: 3, countSessionActive: false, wishlistReady: 0,
+      bottles: 10, cigars: 4, cellars: 2, collections: 3, countSessionActive: false, wishlistReady: 0, remindersToday: 1,
     });
     for (const [arg] of db.inventoryItem.count.mock.calls) expect(arg.where.deletedAt).toBeNull();
     expect(db.collection.count).toHaveBeenCalledWith({ where: { userId: 'u1' } });

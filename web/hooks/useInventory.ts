@@ -20,7 +20,7 @@ const TRASH_KEY = ['inventory', 'trash'];
  * this covers inventory CONSULTATION only — see the "bornage volontaire"
  * note in web/lib/offline/db.ts.
  */
-export function useInventory() {
+export function useInventory(options?: { enabled?: boolean }) {
   const query = useQuery<InventoryItem[]>({
     queryKey: INVENTORY_KEY,
     queryFn: async () => {
@@ -36,6 +36,7 @@ export function useInventory() {
       }
     },
     staleTime: 1000 * 30,
+    enabled: options?.enabled ?? true,
   });
 
   useEffect(() => {
