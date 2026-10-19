@@ -482,6 +482,7 @@ export const CellarDashboard: React.FC = () => {
           isStriped
           removeWrapper
           className="border border-default-200 rounded-xl overflow-hidden"
+          onRowAction={(key) => router.push(`/cellars/${String(key)}`)}
         >
           <TableHeader>
             <TableColumn className="w-10"> </TableColumn>
@@ -497,7 +498,6 @@ export const CellarDashboard: React.FC = () => {
               <TableRow
                 key={cellar.id}
                 className="cursor-pointer hover:bg-default-50"
-                onClick={() => router.push(`/cellars/${cellar.id}`)}
               >
                 <TableCell>
                   <Warehouse size={16} className="text-primary" />
