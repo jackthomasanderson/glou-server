@@ -580,6 +580,19 @@
       "failed_other": "{{count}} échecs de synchronisation",
       "conflict_one": "{{count}} conflit à résoudre",
       "conflict_other": "{{count}} conflits à résoudre"
+    },
+    "panel": {
+      "title": "Modifications en attente",
+      "close": "Fermer",
+      "empty": "Aucune modification en attente.",
+      "retry": "Réessayer",
+      "discard": "Abandonner",
+      "failed": "Refusée par le serveur",
+      "reason": "Motif",
+      "unknownItem": "Bouteille inconnue",
+      "pending": "En attente d'envoi",
+      "syncing": "Synchronisation",
+      "conflict": "Conflit — à résoudre dans la fenêtre dédiée"
     }
   },
   "imagePicker": {

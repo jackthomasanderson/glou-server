@@ -578,6 +578,19 @@
       "failed_other": "{{count}} sync failures",
       "conflict_one": "{{count}} conflict to resolve",
       "conflict_other": "{{count}} conflicts to resolve"
+    },
+    "panel": {
+      "title": "Pending changes",
+      "close": "Close",
+      "empty": "No pending changes.",
+      "retry": "Retry",
+      "discard": "Discard",
+      "failed": "Refused by the server",
+      "reason": "Reason",
+      "unknownItem": "Unknown bottle",
+      "pending": "Waiting to be sent",
+      "syncing": "Syncing",
+      "conflict": "Conflict — resolve it in the dialog"
     }
   },
   "imagePicker": {
