@@ -525,7 +525,11 @@ export function AnalyticsDashboard() {
   const { from, to } = periodToDates(period);
   const { data, isLoading, isError, refetch, isRefetching } = useAnalytics(from, to);
 
-  const handlePrint = useCallback(() => window.print(), []);
+  // Defer to the next frame so the click handler returns before the
+  // (synchronous, blocking) print layout pass starts (#421).
+  const handlePrint = useCallback(() => {
+    requestAnimationFrame(() => window.print());
+  }, []);
 
   if (isError) {
     return (
@@ -699,8 +703,10 @@ export function AnalyticsDashboard() {
         />
       )}
 
-      {/* World heatmap */}
-      <Card className="border border-default-200" shadow="none">
+      {/* World heatmap — the interactive Leaflet map is hidden in print: its
+          transformed tile layers froze the tab during print layout (#421);
+          the region cards below carry the same data. */}
+      <Card className="border border-default-200 print:hidden" shadow="none">
         <CardBody className="p-5">
           <div className="flex items-center gap-2 mb-4">
             <MapPin size={18} className="text-primary" />
