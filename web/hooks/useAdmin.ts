@@ -90,6 +90,18 @@ export function useUpdateUserStatus() {
     });
 }
 
+// #336: no-SMTP account recovery — generates a one-time temporary password,
+// shown to the admin exactly once by the caller.
+export function useResetUserPassword() {
+    return useMutation({
+        mutationFn: async (userId: string) => {
+            const response = await api.post<{ tempPassword: string }>(`/admin/users/${userId}/reset-password`);
+            return response.data;
+        },
+        onError: () => notifyError('toast.admin.resetPasswordError'),
+    });
+}
+
 // Fetch paginated audit logs
 export function useAdminAuditLogs(page = 1, limit = 50) {
     return useQuery({

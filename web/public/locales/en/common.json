@@ -50,6 +50,7 @@
     "close": "Close",
     "edit": "Edit",
     "confirm": "Confirm",
+    "copy": "Copy",
     "back": "Back",
     "search": "Search",
     "filter": "Filter",
@@ -481,6 +482,13 @@
     "error": "Incorrect password or PIN code.",
     "backToLogin": "Sign out"
   },
+  "forcedPasswordChange": {
+    "title": "Set a new password",
+    "subtitle": "An administrator reset your password. Enter the temporary one you were given, then choose a real password to continue.",
+    "tempPasswordLabel": "Temporary password",
+    "invalidTemp": "Incorrect temporary password.",
+    "submit": "Set password"
+  },
   "cellars": {
     "title": "My Cellars",
     "addCellar": "Add cellar",
@@ -763,7 +771,8 @@
         "username": "Username",
         "role": "Admin",
         "status": "Status",
-        "createdAt": "Created"
+        "createdAt": "Created",
+        "actions": "Actions"
       },
       "active": "Active",
       "inactive": "Deactivated",
@@ -771,7 +780,12 @@
       "deactivate": "Deactivate",
       "deactivateSelf": "You cannot deactivate your own account",
       "deactivateLastAdmin": "You cannot deactivate the last administrator",
-      "me": "me"
+      "me": "me",
+      "resetPassword": "Reset password",
+      "resetPasswordConfirm": "Generate a new temporary password for {{username}}? Their current sessions and trusted devices will be signed out, and they will have to set a new password on their next login.",
+      "resetPasswordResultTitle": "Temporary password for {{username}}",
+      "resetPasswordResultHint": "Copy this password and share it with the member through a secure channel. It is shown only once and cannot be retrieved afterwards — they will be asked to set a real password on their next login.",
+      "resetPasswordError": "Could not reset this member's password"
     },
     "auditLog": {
       "title": "Audit Log",
@@ -1436,6 +1450,7 @@
   },
   "forgotPassword": {
     "link": "Forgot password?",
+    "noSmtpHint": "Forgot your password? Ask the instance administrator to reset it.",
     "title": "Account recovery",
     "description": "Enter the email address associated with your account. If found, you'll receive a recovery link.",
     "emailLabel": "Email address",

@@ -7,6 +7,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { useMe } from '@/hooks/useAuth';
 import { AutoLockProvider, useAutoLock } from '@/hooks/useAutoLock';
 import { LockScreen } from './LockScreen';
+import { ForcedPasswordChange } from './ForcedPasswordChange';
 import { OnboardingWizard } from '../onboarding/OnboardingWizard';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -66,7 +67,10 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
   // reopened from the profile page's "Revoir le guide de démarrage" link
   // (?onboarding=1) — the latter never touches `onboardingCompletedAt`.
   const forcedOnboarding = searchParams.get('onboarding') === '1';
-  const showOnboarding = !isLocked && !!user && (user.onboardingCompletedAt == null || forcedOnboarding);
+  // #336: a forced password change takes priority over onboarding — an
+  // account recovered by an admin reset must not be able to skip it.
+  const showForcedPasswordChange = !isLocked && !!user?.mustChangePassword;
+  const showOnboarding = !isLocked && !showForcedPasswordChange && !!user && (user.onboardingCompletedAt == null || forcedOnboarding);
 
   const closeOnboarding = () => {
     if (!forcedOnboarding) return;
@@ -86,7 +90,7 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
   // screen readers). It is set through the DOM because React 18 has no `inert`
   // prop; `display: contents` keeps the wrapper out of the layout.
   const appRef = useRef<HTMLDivElement>(null);
-  const covered = isLocked || showOnboarding;
+  const covered = isLocked || showForcedPasswordChange || showOnboarding;
   useEffect(() => {
     const el = appRef.current;
     if (!el) return;
@@ -105,6 +109,7 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
         {children}
       </div>
       {isLocked && <LockScreen unlock={unlock} isUnlocking={isUnlocking} />}
+      {showForcedPasswordChange && <ForcedPasswordChange />}
       {showOnboarding && <OnboardingWizard forced={forcedOnboarding} onClose={closeOnboarding} />}
     </>
   );

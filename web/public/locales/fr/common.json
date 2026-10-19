@@ -50,6 +50,7 @@
     "close": "Fermer",
     "edit": "Modifier",
     "confirm": "Confirmer",
+    "copy": "Copier",
     "back": "Retour",
     "search": "Rechercher",
     "filter": "Filtrer",
@@ -481,6 +482,13 @@
     "error": "Mot de passe ou code PIN incorrect.",
     "backToLogin": "Se déconnecter"
   },
+  "forcedPasswordChange": {
+    "title": "Choisissez un nouveau mot de passe",
+    "subtitle": "Un administrateur a réinitialisé votre mot de passe. Saisissez celui qui vous a été transmis, puis choisissez un vrai mot de passe pour continuer.",
+    "tempPasswordLabel": "Mot de passe temporaire",
+    "invalidTemp": "Mot de passe temporaire incorrect.",
+    "submit": "Valider le mot de passe"
+  },
   "cellars": {
     "title": "Mes Caves",
     "addCellar": "Ajouter une cave",
@@ -765,7 +773,8 @@
         "username": "Nom d'utilisateur",
         "role": "Administrateur",
         "status": "Statut",
-        "createdAt": "Créé le"
+        "createdAt": "Créé le",
+        "actions": "Actions"
       },
       "active": "Actif",
       "inactive": "Désactivé",
@@ -773,7 +782,12 @@
       "deactivate": "Désactiver",
       "deactivateSelf": "Impossible de désactiver votre propre compte",
       "deactivateLastAdmin": "Impossible de désactiver le dernier administrateur",
-      "me": "moi"
+      "me": "moi",
+      "resetPassword": "Réinitialiser le mot de passe",
+      "resetPasswordConfirm": "Générer un nouveau mot de passe temporaire pour {{username}} ? Ses sessions et appareils de confiance actuels seront déconnectés, et il devra choisir un nouveau mot de passe à sa prochaine connexion.",
+      "resetPasswordResultTitle": "Mot de passe temporaire pour {{username}}",
+      "resetPasswordResultHint": "Copiez ce mot de passe et transmettez-le au membre par un canal sécurisé. Il n'est affiché qu'une seule fois et ne pourra plus être récupéré ensuite — il devra choisir un vrai mot de passe à sa prochaine connexion.",
+      "resetPasswordError": "Impossible de réinitialiser le mot de passe de ce membre"
     },
     "auditLog": {
       "title": "Journal d'audit",
@@ -1438,6 +1452,7 @@
   },
   "forgotPassword": {
     "link": "Mot de passe oublié ?",
+    "noSmtpHint": "Mot de passe oublié ? Demandez à l'administrateur de l'instance de le réinitialiser.",
     "title": "Récupération d'accès",
     "description": "Renseignez l'adresse email associée à votre compte. Si elle est reconnue, vous recevrez un lien de récupération.",
     "emailLabel": "Adresse email",

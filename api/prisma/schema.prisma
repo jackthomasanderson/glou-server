@@ -15,6 +15,10 @@ model User {
   username     String     @unique
   email        String     @unique
   passwordHash String
+  // #336: set when an administrator resets a member's password without
+  // email (no SMTP on the instance) — forces a real password choice on the
+  // next successful login, via the existing PATCH /api/user/password flow.
+  mustChangePassword Boolean @default(false)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
