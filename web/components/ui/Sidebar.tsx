@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
 import {
   Wine, Leaf, Warehouse, Library, Martini, BarChart3,
-  ChevronLeft, ChevronRight, X, ShieldCheck, ClipboardCheck, Wallet,
+  ChevronLeft, ChevronRight, X, ShieldCheck, ClipboardCheck, Wallet, LogOut,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useMe } from '@/hooks/useAuth';
+import { useMe, useLogout } from '@/hooks/useAuth';
 import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeToggle } from './ThemeToggle';
@@ -26,6 +26,7 @@ interface SidebarContentProps {
 function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   const { t } = useTranslation();
   const { data: user } = useMe();
+  const logout = useLogout();
   const { data: counts } = useSidebarCounts();
   const pathname = usePathname();
   const hasMounted = useHasMounted();
@@ -230,6 +231,20 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
 
           </>
         )}
+
+        <Tooltip content={t('auth.logout')} placement="right" delay={500}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            radius="full"
+            aria-label={t('auth.logout')}
+            isLoading={logout.isPending}
+            onPress={() => logout.mutate()}
+          >
+            <LogOut size={16} />
+          </Button>
+        </Tooltip>
       </div>
     </div>
   );

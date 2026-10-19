@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { Button, Input, Select, SelectItem, Switch, CircularProgress } from '@heroui/react';
-import { User, Settings, ShieldCheck, Compass, Gift, FlaskConical } from 'lucide-react';
+import { User, Settings, ShieldCheck, Compass, Gift, FlaskConical, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
-import { useMe, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
+import { useMe, useLogout, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
 import { notifySuccess } from '@/lib/toast';
 import { useTranslation } from 'react-i18next';
 import { AccountSecurity } from '@/components/profile/AccountSecurity';
@@ -29,6 +29,7 @@ const ACCENT_COLORS = [
 export default function ProfilePage() {
   const { t } = useTranslation();
   const { data: user, isLoading: isLoadingUser } = useMe();
+  const logout = useLogout();
   const updateProfile = useUpdateProfile();
   const updatePrefs = useUpdatePreferences();
 
@@ -313,6 +314,20 @@ export default function ProfilePage() {
             <GdprSection user={user} />
           </div>
         )}
+
+        <div className="mt-6">
+          <Button
+            color="danger"
+            variant="flat"
+            startContent={<LogOut size={16} />}
+            radius="md"
+            fullWidth
+            isLoading={logout.isPending}
+            onPress={() => logout.mutate()}
+          >
+            {t('auth.logout')}
+          </Button>
+        </div>
       </div>
     </MainLayout>
   );
