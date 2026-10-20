@@ -105,7 +105,7 @@ export function ProfileClient() {
             shortcut below. */}
         <Button
           as={Link}
-          href="/wishlist"
+          href="/wishlist-budget"
           color="primary"
           variant="bordered"
           startContent={<Gift size={16} />}

@@ -28,10 +28,10 @@ export function BottomNav() {
   ];
 
   const moreLinks = [
-    { label: t('nav.tastings'), href: '/tastings', icon: <Martini size={20} /> },
+    { label: t('nav.tastings'), href: '/cellar-journal', icon: <Martini size={20} /> },
     { label: t('nav.inventoryCount'), href: '/inventory-count', icon: <ClipboardCheck size={20} /> },
-    { label: t('nav.wishlist'), href: '/wishlist', icon: <Wallet size={20} /> },
-    { label: t('nav.analytics'), href: '/analytics', icon: <BarChart3 size={20} /> },
+    { label: t('nav.wishlist'), href: '/wishlist-budget', icon: <Wallet size={20} /> },
+    { label: t('nav.analytics'), href: '/analytics-terroirs', icon: <BarChart3 size={20} /> },
   ];
 
   const isMoreActive = moreLinks.some((link) => pathname.startsWith(link.href));
