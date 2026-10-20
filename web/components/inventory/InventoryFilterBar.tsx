@@ -306,14 +306,16 @@ export function InventoryFilterBar({
   if (variant === 'mobile') {
     if (!isFiltersOpen) return null;
     return (
-      <div className="md:hidden border border-divider rounded-xl p-4 mb-5">
+      <div className="lg:hidden border border-divider rounded-xl p-4 mb-5">
         {filterContent}
       </div>
     );
   }
 
   return (
-    <div className="hidden md:block w-[200px] shrink-0">
+    // #497: the fixed column only from 1024 px; on tablets the filters sit
+    // behind the same toggle as on phones, leaving the width to the cards.
+    <div className="hidden lg:block w-[200px] shrink-0">
       <div className="border border-divider rounded-xl p-4 sticky top-[72px] max-h-[calc(100vh-88px)] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-1.5">
@@ -349,7 +351,7 @@ export function InventoryFilterToggleButton({ t, isFiltersOpen, hasActiveFilters
   return (
     <button
       type="button"
-      className={`md:hidden p-1.5 border border-divider rounded-xl transition-colors ${isFiltersOpen || hasActiveFilters ? 'border-secondary text-secondary' : ''}`}
+      className={`lg:hidden p-1.5 border border-divider rounded-xl transition-colors ${isFiltersOpen || hasActiveFilters ? 'border-secondary text-secondary' : ''}`}
       onClick={onToggle}
       aria-label={t('actions.filter')}
       aria-expanded={isFiltersOpen}

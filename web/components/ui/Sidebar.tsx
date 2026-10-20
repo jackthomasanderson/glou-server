@@ -280,6 +280,9 @@ export function Sidebar() {
     // from the server-rendered markup (hydration mismatch).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved !== null) setExpanded(saved !== 'false');
+    // #497: no choice saved yet — start collapsed (icons only) below 1280 px,
+    // so a tablet keeps its width for the content.
+    else if (typeof window.matchMedia === 'function') setExpanded(window.matchMedia('(min-width: 1280px)').matches);
   }, []);
 
   const toggle = () => {

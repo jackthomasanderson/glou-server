@@ -41,7 +41,7 @@ export function UndoToast({ message, undoLabel, onUndo, onExpire }: UndoToastPro
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 min-w-80 max-w-lg"
+      className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 left-1/2 -translate-x-1/2 z-50 min-w-80 max-w-lg"
     >
       <div className="bg-content1 border border-divider rounded-xl shadow-lg px-4 py-3">
         <div className="flex items-center justify-between gap-3">
