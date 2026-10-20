@@ -98,7 +98,7 @@ export function CollectionsDashboard() {
         /* Empty state */
         <div className="flex flex-col items-center py-16 text-center">
           <BookMarked size={64} className="text-foreground-400 mb-4" />
-          <p className="text-lg font-semibold text-default-500">{t('collections.empty')}</p>
+          <p className="text-lg font-semibold text-foreground-500">{t('collections.empty')}</p>
           <p className="text-sm text-foreground-500 mb-6">{t('collections.emptyHint')}</p>
           <Button
             data-testid="collection-create-button"
@@ -184,7 +184,7 @@ export function CollectionsDashboard() {
             <>
               <ModalHeader>{t('collections.deleteTitle')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-default-600">
+                <p className="text-sm text-foreground-600">
                   {t('collections.deleteConfirm', { name: deleting?.name ?? '' })}
                 </p>
               </ModalBody>

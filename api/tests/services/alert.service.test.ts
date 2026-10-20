@@ -83,6 +83,7 @@ describe('getAlerts', () => {
     const { where, select } = firstFindManyArgs();
     expect(where).toEqual({
       deletedAt: null,
+      isOwned: true,
       alertsPaused: false,
       OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
     });
@@ -152,6 +153,7 @@ describe('recomputeAlertStatuses', () => {
 
     expect(firstFindManyArgs().where).toEqual({
       deletedAt: null,
+      isOwned: true,
       OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
     });
   });

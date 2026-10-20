@@ -2,14 +2,14 @@
 
 *[English version](CONTRIBUTING.md)*
 
-Merci de votre intérêt pour l'amélioration de Glou ! Ce document explique comment proposer des changements.
+Ce document explique comment proposer des changements à Glou.
 
 ## Comment contribuer
 
-- **Signaler un bug** — ouvrez un [rapport de bug](https://github.com/jackthomasanderson/glou-server/issues/new?template=bug_report.yml).
-- **Proposer une fonctionnalité** — ouvrez une [proposition](https://github.com/jackthomasanderson/glou-server/issues/new?template=feature_request.yml).
-- **Poser une question** — utilisez les [Discussions](https://github.com/jackthomasanderson/glou-server/discussions), pas le suivi d'issues.
-- **Signaler une faille** — voir [SECURITY_FR.md](SECURITY_FR.md). N'ouvrez jamais d'issue publique pour un problème de sécurité.
+- Signaler un bug : ouvrez un [rapport de bug](https://github.com/jackthomasanderson/glou-server/issues/new?template=bug_report.yml).
+- Proposer une fonctionnalité : ouvrez une [proposition](https://github.com/jackthomasanderson/glou-server/issues/new?template=feature_request.yml).
+- Poser une question : utilisez les [Discussions](https://github.com/jackthomasanderson/glou-server/discussions), pas le suivi d'issues.
+- Signaler une faille : voir [SECURITY_FR.md](SECURITY_FR.md). N'ouvrez jamais d'issue publique pour un problème de sécurité.
 
 ## Organisation du dépôt
 
@@ -22,7 +22,7 @@ Merci de votre intérêt pour l'amélioration de Glou ! Ce document explique com
 
 ## Mise en route
 
-Prérequis : Docker, et Node.js 20 si vous voulez lancer les apps hors conteneurs.
+Prérequis : Docker, et Node.js 24 si vous voulez lancer les apps hors conteneurs.
 
 ```bash
 cp .env.example .env          # définir un JWT_SECRET robuste
@@ -38,11 +38,22 @@ cd web && npm ci && npm run dev
 
 ## Branches et pull requests
 
-- La branche d'intégration par défaut est **`dev`**. Branchez depuis `dev` et ouvrez votre PR **vers `dev`** — pas `main`.
+- La branche d'intégration par défaut est **`dev`**. Branchez depuis `dev` et ouvrez votre PR **vers `dev`**, pas `main`.
 - `main` suit le code publié ; `dev` est promue vers `main` par le mainteneur.
 - Gardez des PR ciblées. Un seul changement logique par PR.
 - Nommez la branche de façon parlante, ex. `fix/world-map-basemap` ou `feat/csv-import`.
 - Complétez la checklist du template de PR.
+
+## Versionnage
+
+Glou utilise le Calendar Versioning : `YYYY.MM[.PATCH]` (ex. `2026.10.0`), pas le semver — il n'y a pas de contrat de compatibilité d'API à signaler, ni de semantic-release automatisé. `api/package.json` et `web/package.json` portent toujours la même version.
+
+À chaque promotion de `dev` vers `main` (action du mainteneur) :
+
+1. Incrémentez les deux `package.json` vers `YYYY.MM.0` courant, ou incrémentez `PATCH` si une version est déjà sortie ce mois-ci.
+2. Déplacez la section « Unreleased » de `CHANGELOG.md` sous un nouveau titre `## vYYYY.MM[.PATCH] - YYYY-MM-DD`.
+3. Taguez `main` à ce commit : `git tag vYYYY.MM[.PATCH] && git push origin vYYYY.MM[.PATCH]`.
+4. La CI (`docker-publish.yml`) publie cette même version comme tag d'image supplémentaire sur `main`, en plus de `latest`.
 
 ## Contrôles qualité
 
@@ -61,12 +72,12 @@ npm test
 
 ### Conventions de code
 
-- **TypeScript strict** partout. `any` n'est pas accepté — typez correctement ou utilisez `unknown` avec un garde de type.
-- **Nommage métier en anglais**, explicite : `fillingLevel`, `peakMaturity`, pas d'abréviations.
-- **Validation avec Zod** pour chaque entrée et sortie d'API.
-- **La saisie manuelle est prioritaire** : l'enrichissement automatique ne doit jamais écraser un champ listé dans `locked_fields`.
-- **Les écritures en base** touchant plusieurs tables passent par un `$transaction` Prisma.
-- **L'état frontend** utilise React Query en stale-while-revalidate ; invalidez les caches liés après chaque mutation réussie.
+- TypeScript strict partout. `any` n'est pas accepté : typez correctement ou utilisez `unknown` avec un garde de type.
+- Nommage métier en anglais, explicite : `fillingLevel`, `peakMaturity`, pas d'abréviations.
+- Validation avec Zod pour chaque entrée et sortie d'API.
+- La saisie manuelle est prioritaire : l'enrichissement automatique ne doit jamais écraser un champ listé dans `locked_fields`.
+- Les écritures en base touchant plusieurs tables passent par un `$transaction` Prisma.
+- L'état frontend utilise React Query en stale-while-revalidate ; invalidez les caches liés après chaque mutation réussie.
 - Respectez le style du code environnant (nommage, commentaires, structure).
 
 ### Internationalisation

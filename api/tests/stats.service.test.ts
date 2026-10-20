@@ -71,7 +71,7 @@ describe('statsService.getSidebarCounts excludes non-owned references (FEAT-87)'
     await statsService.getSidebarCounts('u1');
 
     const wheres = db.inventoryItem.count.mock.calls.map(
-      (c: [{ where: Record<string, unknown> }]) => c[0].where,
+      (c: unknown[]) => (c[0] as { where: Record<string, unknown> }).where,
     );
     expect(wheres).toHaveLength(3);
     for (const where of wheres) {

@@ -59,7 +59,7 @@ export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps
         {/* Notes (clamped to 3 lines) */}
         {note.notes && (
           <p
-            className="text-sm text-default-500 mb-2 whitespace-pre-wrap"
+            className="text-sm text-foreground-500 mb-2 whitespace-pre-wrap"
             style={{
               display: '-webkit-box',
               WebkitLineClamp: 3,
@@ -96,7 +96,7 @@ export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps
       </CardBody>
 
       <CardFooter className="pt-0 justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-        <Tooltip content={t('actions.edit')}>
+        <Tooltip delay={500} content={t('actions.edit')}>
           <Button
             isIconOnly
             size="sm"
@@ -107,7 +107,7 @@ export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps
             <Pencil size={16} />
           </Button>
         </Tooltip>
-        <Tooltip content={t('actions.delete')}>
+        <Tooltip delay={500} content={t('actions.delete')}>
           <Button
             isIconOnly
             size="sm"

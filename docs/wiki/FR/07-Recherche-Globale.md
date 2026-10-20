@@ -1,7 +1,7 @@
-# Rechercher dans votre Cave (Barre de Recherche Globale)
+# Rechercher dans votre cave (barre de recherche globale)
 
 ## TL;DR
-La barre de recherche dans la navbar interroge votre inventaire complet en temps réel. Tapez n'importe quelle partie du nom, du producteur ou du millésime — les résultats s'affichent instantanément.
+La barre de recherche dans la navbar interroge votre inventaire complet en temps réel. Tapez n'importe quelle partie du nom, du producteur ou du millésime.
 
 ## Prérequis
 - Être connecté à son compte.
@@ -9,7 +9,7 @@ La barre de recherche dans la navbar interroge votre inventaire complet en temps
 
 ## Action
 
-1. Cliquez sur l'icône loupe **🔍** dans la barre de navigation en haut de page.
+1. Cliquez sur l'icône loupe dans la barre de navigation en haut de page.
 2. Saisissez votre terme de recherche (minimum 1 caractère).
 3. Les résultats apparaissent dans un panneau déroulant sous la barre.
 4. Cliquez sur un résultat pour ouvrir la fiche de la bouteille.

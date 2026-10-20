@@ -1,7 +1,7 @@
-# Disaster Recovery: Rebuild Glou on a New Host
+# Disaster recovery: rebuild Glou on a new host
 
 ## TL;DR
-Three things are needed to rebuild everything: the **database backup** (`.sql.gz`), your **`.env`** (same secrets), and the **photo volume** (`api_uploads`). The built-in backup covers the database only, and by default it is stored on the same host as the data — copy it somewhere else.
+Three things are needed to rebuild everything: the **database backup** (`.sql.gz`), your **`.env`** (same secrets), and the **photo volume** (`api_uploads`). The built-in backup covers the database only, and by default it is stored on the same host as the data: copy it somewhere else.
 
 ## What is (and is not) in a backup
 
@@ -22,7 +22,7 @@ If the host disk dies, the backup files die with it unless you copied them elsew
 ## Rebuild on a new host
 1. Install Docker and put your `docker-compose.yml` and **the same `.env`** on the new host (in particular the same `CONFIG_ENCRYPTION_KEY`).
 2. Start the stack: `docker compose up -d`. The API creates an empty database.
-3. Check the backup file is complete — this command prints nothing when the file is fine:
+3. Check the backup file is complete. This command prints nothing when the file is fine:
    ```bash
    gunzip -t glou-backup-XXXX.sql.gz
    ```

@@ -1,7 +1,7 @@
-# Record and Browse Tasting Notes
+# Record and browse tasting notes
 
 ## TL;DR
-Go to `/tastings`, create a note linked to an asset in your cellar, get instant service recommendations, and browse your full history in reverse chronological order.
+Go to `/tastings`, create a note linked to an asset in your cellar, see service recommendations, and browse your history, newest first.
 
 ## Prerequisites
 - Be logged in to Glou.
@@ -9,7 +9,7 @@ Go to `/tastings`, create a note linked to an asset in your cellar, get instant 
 
 ## Action
 
-### 1. Open the Tasting Journal
+### 1. Open the tasting journal
 
 Click **Tastings** in the main navigation, or go directly to `/tastings`.
 
@@ -19,7 +19,7 @@ The page lists all your tasting notes, sorted newest-first, **20 notes per page*
 
 1. Click the **+** button (FAB, bottom-right) or **New tasting** if the list is empty.
 2. In the **Asset** field, type a name or producer to filter your inventory via autocomplete. Select the target asset.
-3. As soon as an asset is selected, the **Service Recommendations** panel appears automatically (see section 3).
+3. As soon as an asset is selected, the **Service Recommendations** panel appears (see section 3).
 4. Fill in the desired fields:
 
    | Field | Type | Constraint |
@@ -33,30 +33,30 @@ The page lists all your tasting notes, sorted newest-first, **20 notes per page*
 5. Click **Save**.
 
 > [!TIP]
-> The note can be saved without filling in optional fields. Only the **Asset** field is mandatory.
+> Only the **Asset** field is mandatory.
 
 ### 3. Read service recommendations
 
 When an asset is selected in the form, a **Service Recommendations** panel appears with:
 
-- **Serving temperature** — range in °C based on the asset's category and color/type.
-- **Aeration** — recommended duration in minutes (absent when not applicable, e.g. white wines, spirits).
-- **Food pairings** — a list of suggestions displayed as chips.
+- **Serving temperature**: range in °C based on the asset's category and color/type.
+- **Aeration**: recommended duration in minutes (absent when not applicable, e.g. white wines, spirits).
+- **Food pairings**: a list of suggestions displayed as chips.
 
-Correspondence table applied by the system:
+Values applied by the system:
 
 | Category / Subtype | Temperature | Aeration |
 | :--- | :--- | :--- |
-| Red wine | 16–18 °C | 30–60 min |
-| White wine | 10–12 °C | 0–15 min |
-| Rosé wine | 10–12 °C | — |
-| Orange wine | 12–14 °C | 15–30 min |
-| Sparkling (all types) | 6–9 °C | — |
-| Whisky / Rum / Cognac | 18–22 °C | — |
-| Gin | 4–8 °C | — |
-| Vodka | 2–6 °C | — |
-| Other spirit | 18–22 °C | — |
-| Cigar | 20–22 °C | — |
+| Red wine | 16-18 °C | 30-60 min |
+| White wine | 10-12 °C | 0-15 min |
+| Rosé wine | 10-12 °C | - |
+| Orange wine | 12-14 °C | 15-30 min |
+| Sparkling (all types) | 6-9 °C | - |
+| Whisky / Rum / Cognac | 18-22 °C | - |
+| Gin | 4-8 °C | - |
+| Vodka | 2-6 °C | - |
+| Other spirit | 18-22 °C | - |
+| Cigar | 20-22 °C | - |
 
 Recommendations are computed client-side from the asset's category and subtype (`color`, `spiritType`, `sparklingType`). They are not stored in the database.
 
@@ -76,7 +76,7 @@ On the card, click the **trash** icon. A confirmation dialog appears.
 If you have more than 20 notes, **<** and **>** buttons appear at the bottom of the list to paginate.
 
 > [!TIP]
-> The API accepts the `itemId` query parameter (`GET /api/tastings?itemId=<uuid>`) to filter notes for a specific asset — useful for direct API integrations.
+> The API accepts the `itemId` query parameter (`GET /api/tastings?itemId=<uuid>`) to filter notes for a specific asset.
 
 ## Troubleshooting
 

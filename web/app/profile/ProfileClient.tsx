@@ -13,7 +13,6 @@ import { AccountSecurity } from '@/components/profile/AccountSecurity';
 import { SessionsPanel } from '@/components/profile/SessionsPanel';
 import { AvatarUploader } from '@/components/profile/AvatarUploader';
 import { GdprSection } from '@/components/profile/GdprSection';
-import { AccessTransparencyPanel } from '@/components/profile/AccessTransparencyPanel';
 import { SharesDashboard } from '@/components/shares/SharesDashboard';
 import { NotificationPreferences } from '@/components/profile/NotificationPreferences';
 
@@ -33,7 +32,7 @@ export function ProfileClient() {
   const updateProfile = useUpdateProfile();
   const updatePrefs = useUpdatePreferences();
 
-  const [profileData, setProfileData] = useState({ avatarUrl: '', appName: '', appSlogan: '' });
+  const [profileData, setProfileData] = useState({ avatarUrl: '', displayName: '', appName: '', appSlogan: '' });
   const [prefsData, setPrefsData] = useState({
     theme: 'LIGHT' as 'LIGHT' | 'DARK',
     language: 'FR' as 'FR' | 'EN',
@@ -50,7 +49,7 @@ export function ProfileClient() {
   if (user !== prevUser) {
     setPrevUser(user);
     if (user) {
-      setProfileData({ avatarUrl: user.avatarUrl || '', appName: user.appName || '', appSlogan: user.appSlogan || '' });
+      setProfileData({ avatarUrl: user.avatarUrl || '', displayName: user.displayName || '', appName: user.appName || '', appSlogan: user.appSlogan || '' });
       setPrefsData({
         theme: user.theme || 'LIGHT',
         language: user.language || 'FR',
@@ -106,8 +105,8 @@ export function ProfileClient() {
             shortcut below. */}
         <Button
           as={Link}
-          href="/wishlist"
-          color="secondary"
+          href="/wishlist-budget"
+          color="primary"
           variant="bordered"
           startContent={<Gift size={16} />}
           radius="md"
@@ -135,6 +134,13 @@ export function ProfileClient() {
             {user && <AvatarUploader user={user} />}
 
             <form onSubmit={handleProfileSubmit} className="flex flex-col gap-4 mt-2">
+              <Input
+                label={t('auth.displayName')}
+                value={profileData.displayName}
+                onValueChange={(v) => setProfileData(prev => ({ ...prev, displayName: v }))}
+                maxLength={60}
+                variant="bordered" size="sm" radius="md" labelPlacement="outside"
+              />
               <Input
                 label={t('profile.appName')}
                 value={profileData.appName}
@@ -187,8 +193,8 @@ export function ProfileClient() {
                 onSelectionChange={(keys) => handlePrefsChange('theme', Array.from(keys)[0] as string)}
                 variant="bordered" size="sm" radius="md" labelPlacement="outside"
               >
-                <SelectItem key="LIGHT">Clair / Light</SelectItem>
-                <SelectItem key="DARK">Sombre / Dark</SelectItem>
+                <SelectItem key="LIGHT">{t('profile.themes.LIGHT')}</SelectItem>
+                <SelectItem key="DARK">{t('profile.themes.DARK')}</SelectItem>
               </Select>
 
               <Select
@@ -283,7 +289,7 @@ export function ProfileClient() {
               radius="md"
               fullWidth
             >
-              Accéder au panneau d&apos;administration
+              {t('profile.adminPanelLink')}
             </Button>
           </div>
         )}
@@ -301,9 +307,6 @@ export function ProfileClient() {
         <div id="shares" className="mt-6 scroll-mt-24">
           <SharesDashboard />
         </div>
-
-        {/* Access transparency panel (FEAT-18) */}
-        <AccessTransparencyPanel />
 
         {/* Notifications */}
         <div className="mt-6">

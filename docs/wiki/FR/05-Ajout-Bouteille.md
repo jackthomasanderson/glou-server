@@ -1,7 +1,7 @@
-# Ajouter une Bouteille
+# Ajouter une bouteille
 
 ## TL;DR
-Ajouter de nouvelles bouteilles à votre cave avec classification par type et saisie optimisée.
+Ajouter une bouteille à une cave et lui assigner une catégorie.
 
 ## Prérequis
 * Avoir créé au moins une **Cave**.

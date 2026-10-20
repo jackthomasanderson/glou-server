@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation';
 import {
   Button, Badge, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection, Chip, Tooltip,
 } from '@heroui/react';
-import { Bell, BellOff } from 'lucide-react';
+import { Bell, BellOff, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useInventory } from '@/hooks/useInventory';
+import { useInventory, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useAlerts, useToggleAlertPause } from '@/hooks/useAlerts';
@@ -34,6 +34,7 @@ export function NotificationBell() {
   const { data: items } = useInventory({ enabled: isOpen });
   const { data: apogeeAlerts } = useAlerts();
   const togglePause = useToggleAlertPause();
+  const updateItem = useUpdateInventoryItem();
   const router = useRouter();
   const hasMounted = useHasMounted();
 
@@ -90,7 +91,7 @@ export function NotificationBell() {
         {count === 0 ? (
           <DropdownSection>
             <DropdownItem key="empty" isDisabled>
-              <span className="text-foreground-500 text-sm">{t('inventory.noNotifications', 'Aucune notification')}</span>
+              <span className="text-foreground-500 text-sm">{t('inventory.noNotifications')}</span>
             </DropdownItem>
           </DropdownSection>
         ) : (
@@ -127,6 +128,18 @@ export function NotificationBell() {
                 startContent={<Bell size={14} className="text-danger" />}
                 description={entry.item.producer}
                 onPress={handleViewAll}
+                endContent={
+                  <Tooltip content={t('inventory.alerts.reminderDone')} delay={500}>
+                    <Button
+                      isIconOnly size="sm" variant="light" color="success"
+                      onClick={(e) => { e.stopPropagation(); updateItem.mutate({ id: entry.item.id, patch: { reminderDate: null } }); }}
+                      isDisabled={updateItem.isPending}
+                      aria-label={t('inventory.alerts.reminderDone')}
+                    >
+                      <Check size={14} />
+                    </Button>
+                  </Tooltip>
+                }
               >
                 <span className="text-sm font-semibold">{entry.item.name}</span>
               </DropdownItem>

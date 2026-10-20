@@ -2,7 +2,7 @@
 import React from 'react';
 import {
   Button, CircularProgress, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
-  Switch, Skeleton, Chip, Tooltip, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Switch, Skeleton, Chip, Tooltip, Input, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
 import { Trash2, ArrowLeft, Ban, CheckCircle, ChevronLeft, ChevronRight, KeyRound, Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,7 @@ import { useMe } from '@/hooks/useAuth';
 import {
   useAdminUsers, useUpdateUserRole, useUpdateUserStatus, useResetUserPassword,
   useAdminAuditLogs, usePurgeData,
-  AdminUser, AuditLogEntry, PurgeResult,
+  AdminUser, AuditLogEntry, AuditLogFilters, PurgeResult,
 } from '@/hooks/useAdmin';
 import { useRouter } from 'next/navigation';
 import { useHasMounted } from '@/hooks/useHasMounted';
@@ -36,7 +36,19 @@ export function AdminClient() {
   const [resetPasswordCopied, setResetPasswordCopied] = React.useState(false);
 
   const [auditPage, setAuditPage] = React.useState(1);
-  const { data: auditResponse, isLoading: isAuditLoading } = useAdminAuditLogs(auditPage);
+  const [auditSearch, setAuditSearch] = React.useState('');
+  const [auditFilters, setAuditFilters] = React.useState<AuditLogFilters>({});
+  const { data: auditResponse, isLoading: isAuditLoading } = useAdminAuditLogs(auditPage, 50, auditFilters);
+
+  // Any filter change goes back to page 1; the text search waits for a pause in typing.
+  const updateAuditFilter = (patch: AuditLogFilters) => {
+    setAuditFilters((prev) => ({ ...prev, ...patch }));
+    setAuditPage(1);
+  };
+  React.useEffect(() => {
+    const timer = setTimeout(() => updateAuditFilter({ q: auditSearch.trim() }), 300);
+    return () => clearTimeout(timer);
+  }, [auditSearch]);
 
   const [isPurgeDialogOpen, setIsPurgeDialogOpen] = React.useState(false);
   const [confirmationText, setConfirmationText] = React.useState('');
@@ -49,11 +61,13 @@ export function AdminClient() {
 
   const handleRoleToggle = (targetUser: AdminUser, checked: boolean) => {
     if (targetUser.id === user?.id) return;
+    if (checked && !window.confirm(t('admin.users.grantAdminConfirm', { username: targetUser.username }))) return;
     updateRole({ userId: targetUser.id, isAdmin: checked });
   };
 
   const handleStatusToggle = (targetUser: AdminUser) => {
     if (targetUser.id === user?.id) return;
+    if (targetUser.isActive && !window.confirm(t('admin.users.deactivateConfirm', { username: targetUser.username }))) return;
     updateStatus({ userId: targetUser.id, isActive: !targetUser.isActive });
   };
 
@@ -135,7 +149,7 @@ export function AdminClient() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Tooltip content={u.id === user.id ? t('admin.users.deactivateSelf') : ''} isDisabled={u.id !== user.id}>
+                    <Tooltip delay={500} content={u.id === user.id ? t('admin.users.deactivateSelf') : ''} isDisabled={u.id !== user.id}>
                       <Switch
                         isSelected={u.isAdmin}
                         onValueChange={(checked) => handleRoleToggle(u, checked)}
@@ -189,6 +203,41 @@ export function AdminClient() {
       <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6 overflow-hidden">
         <h2 className="text-base font-semibold mb-1">{t('admin.auditLog.title')}</h2>
         <p className="text-sm text-foreground-500 mb-4">{t('admin.auditLog.subtitle')}</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
+          <Input
+            size="sm" variant="bordered" className="sm:col-span-2"
+            label={t('admin.auditLog.filters.search')}
+            placeholder={t('admin.auditLog.filters.searchPlaceholder')}
+            value={auditSearch}
+            onValueChange={setAuditSearch}
+            isClearable
+          />
+          <Select
+            size="sm" variant="bordered"
+            label={t('admin.auditLog.columns.status')}
+            selectedKeys={auditFilters.status ? [auditFilters.status] : []}
+            onSelectionChange={(keys) => updateAuditFilter({ status: String(Array.from(keys)[0] ?? '') })}
+          >
+            {['success', 'error', 'validation_error', 'not_found'].map((s) => (
+              <SelectItem key={s}>{s}</SelectItem>
+            ))}
+          </Select>
+          <div className="flex gap-2">
+            <Input
+              size="sm" variant="bordered" type="date"
+              label={t('admin.auditLog.filters.from')}
+              value={auditFilters.from ?? ''}
+              onValueChange={(v) => updateAuditFilter({ from: v })}
+            />
+            <Input
+              size="sm" variant="bordered" type="date"
+              label={t('admin.auditLog.filters.to')}
+              value={auditFilters.to ?? ''}
+              onValueChange={(v) => updateAuditFilter({ to: v })}
+            />
+          </div>
+        </div>
 
         <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('admin.auditLog.title')}>
           <TableHeader>

@@ -395,6 +395,7 @@ function toInventoryInputForFound(
     name: entry.newItemName,
     producer: '',
     tags: [] as string[],
+    isOwned: true,
     isOpened: false,
     alertStatus: 'none' as const,
     cellarId,

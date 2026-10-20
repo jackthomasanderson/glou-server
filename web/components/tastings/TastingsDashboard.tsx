@@ -120,7 +120,7 @@ export function TastingsDashboard() {
         /* No results for the active search (met/bouteille) */
         <div className="flex flex-col items-center py-16 text-center">
           <Search size={64} className="text-foreground-400 mb-4" />
-          <p className="text-lg font-semibold text-default-500">
+          <p className="text-lg font-semibold text-foreground-500">
             {t('tastings.filters.noResults', { query: search })}
           </p>
           <Button
@@ -136,7 +136,7 @@ export function TastingsDashboard() {
         /* Empty state */
         <div className="flex flex-col items-center py-16 text-center">
           <Wine size={64} className="text-foreground-400 mb-4" />
-          <p className="text-lg font-semibold text-default-500">{t('tastings.empty')}</p>
+          <p className="text-lg font-semibold text-foreground-500">{t('tastings.empty')}</p>
           <p className="text-sm text-foreground-500 mb-6">{t('tastings.emptyHint')}</p>
           <Button
             color="primary"
@@ -222,7 +222,7 @@ export function TastingsDashboard() {
             <>
               <ModalHeader>{t('tastings.deleteTitle')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-default-600">{t('tastings.deleteConfirm')}</p>
+                <p className="text-sm text-foreground-600">{t('tastings.deleteConfirm')}</p>
               </ModalBody>
               <ModalFooter>
                 <Button color="default" variant="light" onPress={() => setDeleting(null)}>

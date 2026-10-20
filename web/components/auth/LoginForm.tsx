@@ -29,12 +29,15 @@ export function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
   const [trustDevice, setTrustDevice] = useState(false);
   const [smtpEnabled, setSmtpEnabled] = useState(false);
+  // Optimistic until the server says otherwise, so a failed lookup never hides signup on an open instance.
+  const [registrationOpen, setRegistrationOpen] = useState(true);
 
   const loginMutation = useLogin();
   const verifyMutation = useVerify2faLogin();
 
   useEffect(() => {
     configClient.getSmtpStatus().then(({ smtpEnabled: enabled }) => setSmtpEnabled(enabled)).catch(() => {});
+    configClient.getRegistrationStatus().then(({ registrationOpen: open }) => setRegistrationOpen(open)).catch(() => {});
   }, []);
 
   const { control, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
@@ -193,9 +196,13 @@ export function LoginForm() {
               {t('auth.loginCta')}
             </Button>
             <div className="flex justify-between items-center text-sm">
-              <Link as={NextLink} href="/register" size="sm" color="primary">
-                {t('auth.registerLink')}
-              </Link>
+              {registrationOpen ? (
+                <Link as={NextLink} href="/register" size="sm" color="primary">
+                  {t('auth.registerLink')}
+                </Link>
+              ) : (
+                <span className="text-foreground-400 text-xs">{t('auth.registrationClosedHint')}</span>
+              )}
               {smtpEnabled ? (
                 <Link as={NextLink} href="/forgot-password" size="sm" color="foreground" className="text-foreground-400 hover:text-primary">
                   {t('forgotPassword.link')}

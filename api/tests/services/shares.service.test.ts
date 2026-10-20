@@ -13,6 +13,12 @@ vi.mock('../../src/lib/prisma', () => ({
       findMany: vi.fn(),
       findFirst: vi.fn(),
     },
+    cellar: {
+      count: vi.fn(),
+    },
+    collection: {
+      count: vi.fn(),
+    },
   },
 }));
 
@@ -49,6 +55,57 @@ function shareRow(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe('sharesService.create — scope id existence (ISSUE_046)', () => {
+  it('rejects when a cellarId does not exist', async () => {
+    vi.mocked(prisma.cellar.count).mockResolvedValue(1); // only 1 of the 2 requested ids is real
+
+    await expect(
+      sharesService.create('owner1', {
+        cellarIds: ['real', 'fake'],
+        writeCellarIds: [],
+        collectionIds: [],
+        hidePrices: false,
+        hideNotes: false,
+      } as never),
+    ).rejects.toThrow('INVALID_CELLAR_IDS');
+    expect(prisma.guestShare.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects when a collectionId does not exist', async () => {
+    vi.mocked(prisma.collection.count).mockResolvedValue(0);
+
+    await expect(
+      sharesService.create('owner1', {
+        cellarIds: [],
+        writeCellarIds: [],
+        collectionIds: ['fake'],
+        hidePrices: false,
+        hideNotes: false,
+      } as never),
+    ).rejects.toThrow('INVALID_COLLECTION_IDS');
+    expect(prisma.guestShare.create).not.toHaveBeenCalled();
+  });
+
+  it('proceeds when every cellarId and collectionId is real', async () => {
+    vi.mocked(prisma.cellar.count).mockResolvedValue(2);
+    vi.mocked(prisma.collection.count).mockResolvedValue(1);
+    vi.mocked(prisma.guestShare.create).mockImplementation((async (args: unknown) => {
+      const data = (args as { data: Record<string, unknown> }).data;
+      return shareRow(data);
+    }) as never);
+
+    await sharesService.create('owner1', {
+      cellarIds: ['a', 'b'],
+      writeCellarIds: [],
+      collectionIds: ['c'],
+      hidePrices: false,
+      hideNotes: false,
+    } as never);
+
+    expect(prisma.guestShare.create).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('sharesService.create', () => {
   it('stores only the SHA-256 hash of the token, and returns the raw token exactly once (nominal)', async () => {
@@ -201,7 +258,7 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     });
 
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
-    expect(call.where).toEqual({ deletedAt: null });
+    expect(call.where).toEqual({ deletedAt: null, isOwned: true });
   });
 });
 

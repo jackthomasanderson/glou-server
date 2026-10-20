@@ -16,9 +16,10 @@ interface Props {
   onSelect: (s: ProductSuggestion) => void;
   category: string;
   disabled?: boolean;
+  isInvalid?: boolean;
 }
 
-export function ProductAutocomplete({ value, onChange, onSelect, category, disabled }: Props) {
+export function ProductAutocomplete({ value, onChange, onSelect, category, disabled, isInvalid }: Props) {
   const { t, i18n } = useTranslation();
   const isOnline = useConnectivity();
   const { shouldWarn, dismiss } = useConnectivityWarning('autocomplete');
@@ -108,6 +109,8 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
         data-testid="inventory-name-input"
         fullWidth
         isRequired
+        isInvalid={isInvalid}
+        errorMessage={isInvalid ? t('inventory.validation.required') : undefined}
         size="sm"
         label={t('inventory.fields.name')}
         value={value}

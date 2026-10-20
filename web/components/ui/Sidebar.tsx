@@ -39,10 +39,10 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
     { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: counts?.collections ?? 0 },
     // Pas de métrique naturelle et peu coûteuse pour les dégustations : le
     // badge reste à 0 (donc masqué) plutôt que d'inventer un chiffre artificiel.
-    { label: t('nav.tastings'), href: '/tastings', icon: <Martini size={18} />, count: 0 },
+    { label: t('nav.tastings'), href: '/cellar-journal', icon: <Martini size={18} />, count: 0 },
     { label: t('nav.inventoryCount'), href: '/inventory-count', icon: <ClipboardCheck size={18} />, count: counts?.countSessionActive ? 1 : 0 },
-    { label: t('nav.wishlist'), href: '/wishlist', icon: <Wallet size={18} />, count: counts?.wishlistReady ?? 0 },
-    { label: t('nav.analytics'), href: '/analytics', icon: <BarChart3 size={18} />, count: 0 },
+    { label: t('nav.wishlist'), href: '/wishlist-budget', icon: <Wallet size={18} />, count: counts?.wishlistReady ?? 0 },
+    { label: t('nav.analytics'), href: '/analytics-terroirs', icon: <BarChart3 size={18} />, count: 0 },
   ];
 
   return (
@@ -65,7 +65,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
             {user?.appName || 'GLOU'}
           </Link>
           <span className="block text-xs tracking-[.08rem] uppercase text-foreground-500 mt-0.5 whitespace-nowrap">
-            {user?.appSlogan || 'Simplement précieux'}
+            {user?.appSlogan || t('app.tagline')}
           </span>
         </div>
 
@@ -204,6 +204,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         <Tooltip
           content={`${user?.username ?? ''} · ${user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}`}
           placement="right"
+          delay={500}
           isDisabled={expanded}
         >
           <Avatar

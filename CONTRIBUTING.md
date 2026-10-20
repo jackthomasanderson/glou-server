@@ -2,14 +2,14 @@
 
 *[Version française](CONTRIBUTING_FR.md)*
 
-Thanks for your interest in improving Glou! This document explains how to propose changes.
+This document explains how to propose changes to Glou.
 
 ## Ways to contribute
 
-- **Report a bug** — open a [bug report](https://github.com/jackthomasanderson/glou-server/issues/new?template=bug_report.yml).
-- **Suggest a feature** — open a [feature request](https://github.com/jackthomasanderson/glou-server/issues/new?template=feature_request.yml).
-- **Ask a question** — use [Discussions](https://github.com/jackthomasanderson/glou-server/discussions), not the issue tracker.
-- **Report a vulnerability** — see [SECURITY.md](SECURITY.md). Never open a public issue for security problems.
+- Report a bug: open a [bug report](https://github.com/jackthomasanderson/glou-server/issues/new?template=bug_report.yml).
+- Suggest a feature: open a [feature request](https://github.com/jackthomasanderson/glou-server/issues/new?template=feature_request.yml).
+- Ask a question: use [Discussions](https://github.com/jackthomasanderson/glou-server/discussions), not the issue tracker.
+- Report a vulnerability: see [SECURITY.md](SECURITY.md). Never open a public issue for security problems.
 
 ## Project layout
 
@@ -22,7 +22,7 @@ Thanks for your interest in improving Glou! This document explains how to propos
 
 ## Development setup
 
-Prerequisites: Docker, and Node.js 20 if you want to run the apps outside containers.
+Prerequisites: Docker, and Node.js 24 if you want to run the apps outside containers.
 
 ```bash
 cp .env.example .env          # set a strong JWT_SECRET
@@ -38,11 +38,22 @@ cd web && npm ci && npm run dev
 
 ## Branching and pull requests
 
-- The default integration branch is **`dev`**. Branch from `dev` and open your PR **against `dev`** — not `main`.
+- The default integration branch is **`dev`**. Branch from `dev` and open your PR **against `dev`**, not `main`.
 - `main` tracks released code; `dev` is promoted to `main` by the maintainer.
 - Keep PRs focused. One logical change per PR.
 - Use a descriptive branch name, e.g. `fix/world-map-basemap` or `feat/csv-import`.
 - Fill in the PR template checklist.
+
+## Versioning
+
+Glou uses Calendar Versioning: `YYYY.MM[.PATCH]` (e.g. `2026.10.0`), not semver — there is no API-compatibility contract to signal, and no automated semantic-release. `api/package.json` and `web/package.json` always carry the same version.
+
+On every promotion of `dev` to `main` (a maintainer action):
+
+1. Bump both `package.json` files to the current `YYYY.MM.0`, or increment `PATCH` if a release already happened this calendar month.
+2. Move `CHANGELOG.md`'s "Unreleased" section under a new `## vYYYY.MM[.PATCH] - YYYY-MM-DD` heading.
+3. Tag `main` at that commit: `git tag vYYYY.MM[.PATCH] && git push origin vYYYY.MM[.PATCH]`.
+4. CI (`docker-publish.yml`) publishes that same version as an additional image tag on `main`, next to `latest`.
 
 ## Quality gates
 
@@ -61,12 +72,12 @@ npm test
 
 ### Coding conventions
 
-- **TypeScript strict** everywhere. `any` is not accepted — type it properly or use `unknown` with a narrowing guard.
-- **Business naming in English**, explicit: `fillingLevel`, `peakMaturity`, not abbreviations.
-- **Validation with Zod** for every API input and output.
-- **Manual edits win**: never let automatic enrichment overwrite a field listed in `locked_fields`.
-- **Database writes** that touch multiple tables go through a Prisma `$transaction`.
-- **Frontend state** uses React Query with stale-while-revalidate; invalidate related caches after every successful mutation.
+- TypeScript strict everywhere. `any` is not accepted: type it properly or use `unknown` with a narrowing guard.
+- Business naming in English, explicit: `fillingLevel`, `peakMaturity`, not abbreviations.
+- Validation with Zod for every API input and output.
+- Manual edits win: never let automatic enrichment overwrite a field listed in `locked_fields`.
+- Database writes that touch multiple tables go through a Prisma `$transaction`.
+- Frontend state uses React Query with stale-while-revalidate; invalidate related caches after every successful mutation.
 - Match the style of the surrounding code (naming, comments, structure).
 
 ### Internationalisation

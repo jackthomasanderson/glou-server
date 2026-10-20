@@ -4,9 +4,14 @@ import { useInventoryFilters } from './useInventoryFilters';
 import type { InventoryItem } from '@/lib/inventory/types';
 
 // The hook reads the URL to restore a collection filter and pushes on clear;
-// none of that matters here, so navigation is stubbed to inert doubles.
+// none of that matters here, so navigation is stubbed to inert doubles. A
+// single stable instance is returned across renders — the hook compares it
+// by reference to detect actual navigation, and a fresh one each call would
+// look like a new navigation on every render, re-triggering its parse
+// effect forever.
+const stableSearchParams = new URLSearchParams();
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => stableSearchParams,
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   usePathname: () => '/bottles',
 }));

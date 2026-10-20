@@ -127,7 +127,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
     : {};
 
   return (
-    <Tooltip content={isDragging ? '' : tooltipContent} placement="top">
+    <Tooltip delay={500} content={isDragging ? '' : tooltipContent} placement="top">
       <div
         ref={setNodeRef}
         {...attributes}
@@ -208,21 +208,19 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied }: 
           onClickOccupied={onClickOccupied}
         />
       ) : (
-        <Tooltip content={t('cellars.grid.cellEmpty')} placement="top">
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label={t('cellars.grid.cellLabelEmpty', { col, row })}
-            onClick={onClickEmpty}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onClickEmpty();
-              }
-            }}
-            className="w-full h-full cursor-pointer hover:bg-default-100 rounded outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          />
-        </Tooltip>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={t('cellars.grid.cellLabelEmpty', { col, row })}
+          onClick={onClickEmpty}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onClickEmpty();
+            }
+          }}
+          className="w-full h-full cursor-pointer hover:bg-default-100 rounded outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        />
       )}
     </div>
   );
@@ -384,13 +382,13 @@ function OccupiedDialog({ open, item, cellarId, onClose }: OccupiedDialogProps) 
               {error}
             </div>
           )}
-          <p className="text-sm text-default-500">{item.producer}</p>
+          <p className="text-sm text-foreground-500">{item.producer}</p>
           {item.vintage && (
-            <p className="text-sm text-default-500">
+            <p className="text-sm text-foreground-500">
               {t('inventory.fields.vintage')}: {item.vintage}
             </p>
           )}
-          <p className="text-sm text-default-500 mt-1">
+          <p className="text-sm text-foreground-500 mt-1">
             {t(`categories.${item.category}`)}
             {item.category === 'wine' && item.color && ` · ${t(`inventory.color.${item.color}`)}`}
           </p>
@@ -668,7 +666,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
                 className="w-3.5 h-3.5 rounded"
                 style={{ backgroundColor: 'rgba(255,167,38,0.4)', border: '1px solid rgba(255,167,38,0.7)' }}
               />
-              <span className="text-xs text-default-500">{t('cellars.grid.hotZoneLabel')}</span>
+              <span className="text-xs text-foreground-500">{t('cellars.grid.hotZoneLabel')}</span>
             </div>
           )}
           {coldZoneRows > 0 && (
@@ -677,7 +675,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
                 className="w-3.5 h-3.5 rounded"
                 style={{ backgroundColor: 'rgba(33,150,243,0.4)', border: '1px solid rgba(33,150,243,0.7)' }}
               />
-              <span className="text-xs text-default-500">{t('cellars.grid.coldZoneLabel')}</span>
+              <span className="text-xs text-foreground-500">{t('cellars.grid.coldZoneLabel')}</span>
             </div>
           )}
         </div>

@@ -149,7 +149,7 @@ export function ImagePickerButton({
         >
           {/* Close button */}
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-default-600">
+            <span className="text-sm font-medium text-foreground-600">
               {t('imagePicker.tooltip')}
             </span>
             <Button isIconOnly size="sm" variant="light" onPress={handleClose} aria-label={t('actions.close')}>

@@ -14,7 +14,7 @@ import { MapFiltersPanel } from './MapFiltersPanel';
 import { MapAssetList } from './MapAssetList';
 import { InventoryDetailDialog } from '@/components/inventory/InventoryDetailDialog';
 
-// World map loaded client-side only (react-leaflet relies on browser APIs)
+// World map loaded client-side only (react-simple-maps' d3-zoom dependency touches `window`)
 const WorldHeatmap = dynamic(
   () => import('./WorldHeatmap').then((m) => m.WorldHeatmap),
   {
@@ -179,7 +179,7 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-default-500">
+            <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">
               {selectedRegion ? t('analytics.map.list.title') : t('analytics.map.list.titleAll')}
             </p>
             <span className="text-xs text-foreground-500">

@@ -1,7 +1,7 @@
-# Autocomplete, Image Search & Graphical Visualization
+# Autocomplete, image search and graphical visualization
 
 ## TL;DR
-When adding an item, the **Name** and **Producer** fields offer suggestions powered by Google. As soon as both fields are filled, an image is automatically searched online and saved locally — no action required. The image appears at the top of inventory cards and at the head of the detail view, Vivino-style.
+When adding an item, the **Name** and **Producer** fields offer suggestions powered by Google. As soon as both fields are filled, an image is searched online and saved locally, with no action required. The image appears at the top of inventory cards and at the head of the detail view, Vivino-style.
 
 ## Prerequisites
 - Logged into your account.
@@ -32,7 +32,7 @@ As soon as both **Name** and **Producer** are filled, Glou:
 2. Downloads and stores the best result locally.
 3. Displays a thumbnail in the **Photo** section of the form.
 
-No action needed. If the image looks right, simply ignore the section — it will be saved with the item.
+No action needed. If the image looks right, ignore the section: it is saved with the item.
 
 ### 4. Replacing or refining the image
 
@@ -42,7 +42,7 @@ In the **Optional Fields** section of the form, the **Photo** section offers thr
 |--------|-----|
 | **Search** (magnifier icon) | Opens a visual picker (thumbnail grid). Refine the query and pick a different image. |
 | **Paste URL** (link icon) | Paste an image URL from a merchant site, Google Images, etc. The image is downloaded and stored locally. |
-| **Upload file** (camera icon) | Upload a photo from your device (JPG, PNG, WebP — max 5 MB). |
+| **Upload file** (camera icon) | Upload a photo from your device (JPG, PNG, WebP, max 5 MB). |
 
 > [!NOTE]
 > Regardless of the source, the image is **always stored locally** on your server. No external URL is ever kept in the database.
@@ -51,14 +51,14 @@ In the **Optional Fields** section of the form, the **Photo** section offers thr
 
 - **With image**: the bottle photo appears at the top of the card (150 px height, automatic fit).
 - **Without image**: a color-coded placeholder matching the category (red for wine, blue for sparkling…) is shown instead.
-- **Detail view**: the image occupies a prominent position at the head of the item sheet.
+- **Detail view**: the image sits at the head of the item sheet.
 
 ## The Firewall (Troubleshooting)
 
 | Error / Behavior | Fix |
 | :--- | :--- |
 | **No suggestions appear** | Check your internet connection. Suggestions go through `suggestqueries.google.com`. If the server has no outbound internet access, autocomplete silently disables itself. |
-| **Vintage is not auto-extracted** | Extraction detects years in `XXXX` format (1900–2099). Shorthand formats like `'15` are not recognized. |
+| **Vintage is not auto-extracted** | Extraction detects years in `XXXX` format (1900-2099). Shorthand formats like `'15` are not recognized. |
 | **No image appears automatically** | Automatic search requires an internet connection. In offline mode, a one-time-per-session warning is shown. Manual entry remains available. |
 | **The automatic image doesn't match** | Open the Optional Fields section and use the visual picker to choose another image or upload your own. |
 | **Red connectivity indicator in the navbar** | The server cannot reach external services. Suggestions and image search are unavailable. Manual entry still works. |

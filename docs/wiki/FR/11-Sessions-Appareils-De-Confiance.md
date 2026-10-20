@@ -1,11 +1,11 @@
-# Gérer les Sessions Actives & les Appareils de Confiance
+# Gérer les sessions actives et les appareils de confiance
 
 ## TL;DR
-Consultez tous les appareils connectés à votre compte, déconnectez-en n'importe lequel à distance, et évitez de ressaisir votre code 2FA pendant 30 jours sur les appareils marqués comme "de confiance".
+Listez les appareils connectés à votre compte, déconnectez-en un à distance, et évitez la saisie du code 2FA pendant 30 jours sur les appareils marqués comme "de confiance".
 
 ## Prérequis
 * Être connecté à votre compte.
-* Avoir la Double Authentification (2FA) activée (voir [01-Authentification.md](./01-Authentification.md)) pour que la fonction "confiance" ait un effet — elle ne fait que sauter la relance 2FA, elle ne remplace jamais votre mot de passe.
+* Avoir la Double Authentification (2FA) activée (voir [01-Authentification.md](./01-Authentification.md)) pour que la fonction "confiance" ait un effet. Elle ne fait que sauter la relance 2FA, elle ne remplace pas votre mot de passe.
 
 ## Action
 
@@ -24,9 +24,9 @@ Consultez tous les appareils connectés à votre compte, déconnectez-en n'impor
 3. Pour annuler, cliquez sur **Ne plus faire confiance** sur cette même session. Le code 2FA vous sera redemandé à la prochaine connexion depuis cet appareil.
 
 > [!TIP]
-> La confiance est automatiquement révoquée si le système détecte une connexion depuis un pays différent de celui enregistré lors de l'activation de la confiance. Le code 2FA vous sera alors redemandé — c'est un comportement attendu, pas un bug.
+> La confiance est révoquée si le système détecte une connexion depuis un pays différent de celui enregistré lors de l'activation de la confiance. Le code 2FA vous sera alors redemandé : comportement attendu.
 
-## Le Pare-feu (Troubleshooting)
+## Le "Pare-feu" (Troubleshooting)
 
 | Erreur / Comportement | Solution |
 | :--- | :--- |

@@ -145,11 +145,12 @@ describe('getAnalytics — aggregation invariants', () => {
       where: Record<string, unknown>;
     };
     expect(countCall.where.updatedAt).toEqual({ gte: from, lte: to });
-    // ...and the inventory aggregate query itself stays unfiltered.
+    // ...and the inventory aggregate query itself stays unfiltered (beyond
+    // the owned-items scope FEAT-87 applies everywhere in this function).
     const findCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(findCall.where).toEqual({ deletedAt: null });
+    expect(findCall.where).toEqual({ deletedAt: null, isOwned: true });
   });
 
   // ISSUE_035/ISSUE_104: the payload states which part of itself the range

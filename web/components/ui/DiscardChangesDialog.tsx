@@ -40,7 +40,7 @@ export function DiscardChangesDialog({ isOpen, onCancel, onConfirm }: DiscardCha
               {t('unsavedChanges.title')}
             </ModalHeader>
             <ModalBody>
-              <p className="text-sm text-default-600">{t('unsavedChanges.description')}</p>
+              <p className="text-sm text-foreground-600">{t('unsavedChanges.description')}</p>
             </ModalBody>
             <ModalFooter>
               <Button color="default" variant="light" onPress={onCancel} autoFocus>

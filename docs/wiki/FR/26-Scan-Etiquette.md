@@ -1,40 +1,40 @@
-# Ajouter une Bouteille en Photographiant son Étiquette
+# Ajouter une bouteille en photographiant son étiquette
 
 ## TL;DR
 Le bouton « Scanner une étiquette » ouvre l'appareil photo, envoie la photo à un modèle de vision léger auto-hébergé (Ollama + moondream) qui pré-remplit nom, producteur, catégorie et millésime, à valider en 3 actions maximum.
 
 ## Prérequis
-* Le scan d'étiquette est **optionnel et désactivé par défaut** (~9 Go de disque et ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d` : cela démarre le service `ollama` et le service ponctuel `ollama-pull`, qui télécharge le modèle `moondream` (~1,7 Go) au premier démarrage. Sans le profil `scan`, le reste de l'application fonctionne normalement et un scan échoue simplement avec le message générique « analyse échouée ».
+* Le scan d'étiquette est **optionnel et désactivé par défaut** (~9 Go de disque et ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d` : cela démarre le service `ollama` et le service ponctuel `ollama-pull`, qui télécharge le modèle `moondream` (~1,7 Go) au premier démarrage. Sans le profil `scan`, le reste de l'application fonctionne normalement et un scan échoue avec le message générique « analyse échouée ».
 * Aucune configuration côté client : le scan utilise la caméra ou la galerie de l'appareil.
 
 ## Action
 
 1. Depuis l'inventaire, cliquez **Scanner une étiquette**.
-2. Photographiez l'étiquette de la bouteille, du spiritueux ou de la boîte de cigares — cadrage net, luminosité correcte.
+2. Photographiez l'étiquette de la bouteille, du spiritueux ou de la boîte de cigares, avec un cadrage net et une luminosité correcte.
 3. Patientez pendant l'analyse (« Analyse de l'étiquette en cours… ») : le traitement est asynchrone et peut prendre plusieurs dizaines de secondes sur un serveur sans GPU, le modèle tournant en CPU par défaut.
-4. Vérifiez et corrigez les informations détectées (nom, producteur, millésime, catégorie, contenance) — tous les champs restent éditables avant validation.
+4. Vérifiez et corrigez les informations détectées (nom, producteur, millésime, catégorie, contenance). Tous les champs restent éditables avant validation.
 5. Si le produit ressemble à un item déjà en stock, une alerte de doublon s'affiche (voir déduplication universelle) : choisissez d'incrémenter le stock existant ou de créer une nouvelle fiche.
-6. Cliquez **Confirmer et ajouter** — l'item est créé immédiatement (pas de brouillon en attente) et ajouté au panier « À Ranger » de la session.
-7. Cliquez **Scanner l'article suivant** pour enchaîner sans quitter l'appareil photo — répétez pour tout un lot de bouteilles.
-8. Cliquez **Terminer** pour clore la session ; le panier « À Ranger » conserve l'ordre de scan pour faciliter le rangement physique.
+6. Cliquez **Confirmer et ajouter**. L'item est créé immédiatement (pas de brouillon en attente) et ajouté au panier « À Ranger » de la session.
+7. Cliquez **Scanner l'article suivant** pour enchaîner sans quitter l'appareil photo, pour tout un lot de bouteilles.
+8. Cliquez **Terminer** pour clore la session. Le panier « À Ranger » conserve l'ordre de scan pour faciliter le rangement physique.
 
 > [!TIP]
-> Configurez un emplacement par défaut par catégorie (« Toujours ranger les [catégorie] scannés ici ») pour que chaque bouteille scannée soit automatiquement affectée à la bonne cave, sans clic supplémentaire.
+> Configurez un emplacement par défaut par catégorie (« Toujours ranger les [catégorie] scannés ici ») pour que chaque bouteille scannée soit affectée automatiquement à la bonne cave.
 
 ## Limites de reconnaissance
 
 | Facteur | Impact |
 | :--- | :--- |
-| Luminosité / netteté de la photo | Déterminant direct : une étiquette floue, mal éclairée ou partiellement déchirée réduit fortement la qualité de la reconnaissance. |
-| Modèle utilisé | `moondream` est un modèle de vision léger (~1,8 milliard de paramètres) auto-hébergé, pas un service cloud spécialisé vin/spiritueux — il lit le texte et la mise en page générale, mais peut se tromper sur des appellations rares ou des millésimes peu lisibles. Vérifiez systématiquement les champs avant de confirmer. |
-| Matériel serveur | Le traitement tourne en CPU par défaut (aucune configuration GPU prévue) — plusieurs dizaines de secondes par photo sont normales sur du matériel home-lab classique. |
+| Luminosité / netteté de la photo | Une étiquette floue, mal éclairée ou partiellement déchirée réduit fortement la qualité de la reconnaissance. |
+| Modèle utilisé | `moondream` est un modèle de vision léger (~1,8 milliard de paramètres) auto-hébergé, pas un service cloud spécialisé vin/spiritueux. Il lit le texte et la mise en page générale, mais peut se tromper sur des appellations rares ou des millésimes peu lisibles. Vérifiez les champs avant de confirmer. |
+| Matériel serveur | Le traitement tourne en CPU par défaut (aucune configuration GPU prévue). Plusieurs dizaines de secondes par photo sont normales sur du matériel home-lab classique. |
 
-## Le Pare-feu (Troubleshooting)
+## Le pare-feu (troubleshooting)
 
 | Erreur / Comportement | Solution |
 | :--- | :--- |
 | **Le scan échoue systématiquement** | Le profil `scan` n'est pas démarré : lancez `docker compose --profile scan up -d`. |
-| **Le scan reste bloqué sur « Analyse en cours » très longtemps** | Au tout premier démarrage de l'instance, le modèle `moondream` (~1,7 Go) doit être téléchargé par le service `ollama-pull` avant que le scan ne fonctionne — patientez quelques minutes puis réessayez. Sur du matériel modeste, un scan peut légitimement prendre jusqu'à 2 minutes (timeout serveur fixé à 120 s). |
-| **« L'analyse de la photo a échoué »** | Réessayez avec une photo plus nette ou mieux éclairée — c'est le message générique renvoyé en cas d'échec du modèle ou de timeout. |
+| **Le scan reste bloqué sur « Analyse en cours » très longtemps** | Au tout premier démarrage de l'instance, le modèle `moondream` (~1,7 Go) doit être téléchargé par le service `ollama-pull` avant que le scan ne fonctionne. Patientez quelques minutes puis réessayez. Sur du matériel modeste, un scan peut légitimement prendre plusieurs minutes. |
+| **« L'analyse de la photo a échoué »** | Réessayez avec une photo plus nette ou mieux éclairée. C'est le message générique renvoyé en cas d'échec du modèle ou de timeout. Le journal de l'API les distingue : `OLLAMA_TIMEOUT_AFTER_<n>MS` signifie que le modèle n'a pas répondu à temps. L'attente est de 10 minutes par défaut ; augmentez-la avec `OLLAMA_TIMEOUT_MS` (millisecondes) dans `.env`, puis `docker compose up -d`. |
 | **Les informations détectées sont fausses ou incomplètes** | Attendu avec un modèle de vision léger : corrigez manuellement les champs avant de cliquer « Confirmer et ajouter ». Rien n'est jamais enregistré sans validation explicite de votre part. |
-| **Doublon signalé alors que ce n'est pas le même produit** | La détection de doublon compare nom/producteur/millésime — si deux bouteilles différentes ont des libellés très proches, choisissez de créer une nouvelle fiche plutôt que d'incrémenter le stock existant. |
+| **Doublon signalé alors que ce n'est pas le même produit** | La détection de doublon compare nom/producteur/millésime. Si deux bouteilles différentes ont des libellés très proches, choisissez de créer une nouvelle fiche plutôt que d'incrémenter le stock existant. |

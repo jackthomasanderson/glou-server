@@ -7,7 +7,7 @@ test('analytics page renders KPIs, the world map and the garde histogram', async
   const analyticsResponse = page.waitForResponse(
     (r) => r.url().includes('/api/analytics') && r.request().method() === 'GET',
   );
-  await page.goto('/analytics');
+  await page.goto('/analytics-terroirs');
   const res = await analyticsResponse;
   expect(res.ok()).toBe(true);
   const stats = (await res.json())?.data;

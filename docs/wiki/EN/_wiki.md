@@ -1,6 +1,6 @@
-# Glou Technical Documentation
+# Glou technical documentation
 
-Welcome to the Glou wiki. This documentation strictly focuses on setup, configuration, and troubleshooting. 
+This documentation covers setup, configuration, and troubleshooting.
 
 ## Table of Contents
 1. [Installation](./01-Installation.md)

@@ -1,25 +1,27 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
+import type { GeoJsonObject } from 'geojson';
+import geoUrl from 'world-atlas/countries-110m.json';
 import { ButtonGroup, Button, Select, SelectItem } from '@heroui/react';
 import { LayoutGrid, Flame } from 'lucide-react';
 import { getRegionCoordinates } from '@/lib/analytics/regionCoordinates';
 import { RegionCategoryStat } from '@/lib/analytics/types';
 import { CATEGORY_HEX, CATEGORY_ORDER } from '@/lib/analytics/categoryColors';
 import { InventoryCategory } from '@/lib/inventory/types';
+import { useThemeMode } from '@/hooks/useThemeMode';
 import i18n from '@/lib/i18n';
 import { formatCurrency } from '@/lib/format';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function radiusFromCount(count: number): number {
-  if (count >= 20) return 22;
-  if (count >= 10) return 18;
-  if (count >= 5) return 14;
-  if (count >= 3) return 11;
-  return 9;
+  if (count >= 20) return 11;
+  if (count >= 10) return 9;
+  if (count >= 5) return 7;
+  if (count >= 3) return 5.5;
+  return 4.5;
 }
 
 interface RegionAgg {
@@ -61,37 +63,28 @@ interface MarkerData {
   categoryLabel?: string;
 }
 
-// ─── Popup content ────────────────────────────────────────────────────────────
+// ─── Tooltip content (ISSUE_225: react-simple-maps has no built-in tooltip
+// like react-leaflet's <Tooltip>, so hover state is tracked manually below
+// and this renders into a fixed-position div that follows the pointer) ────────
 
-function RegionPopup({ marker, t, lang }: { marker: MarkerData; t: (k: string, o?: Record<string, unknown>) => string; lang: string }) {
+function RegionTooltip({ marker, t, lang }: { marker: MarkerData; t: (k: string, o?: Record<string, unknown>) => string; lang: string }) {
   return (
-    <div className="min-w-[130px] font-[Inter,sans-serif]">
-      <div className="font-extrabold text-xs uppercase tracking-wider text-blue-600 mb-1">
+    <div className="min-w-[130px]">
+      <div className="font-extrabold text-xs uppercase tracking-wider text-primary mb-1">
         {marker.region}
       </div>
       <div className="text-sm font-bold">
         {marker.count} {t('analytics.regionMap.items', { count: marker.count })}
       </div>
-      <div className="text-xs text-gray-500 mt-0.5">
+      <div className="text-xs text-foreground-500 mt-0.5">
         {t('analytics.regionMap.valuation')}{' '}
         <strong>{formatCurrency(marker.valuation, lang)}</strong>
       </div>
       {marker.categoryLabel && (
-        <div className="text-xs text-gray-400 mt-0.5">{marker.categoryLabel}</div>
+        <div className="text-xs text-foreground-400 mt-0.5">{marker.categoryLabel}</div>
       )}
     </div>
   );
-}
-
-// ─── Resize helper: invalidate map size when container is revealed ────────────
-
-function MapResizer() {
-  const map = useMap();
-  React.useEffect(() => {
-    const id = setTimeout(() => map.invalidateSize(), 100);
-    return () => clearTimeout(id);
-  }, [map]);
-  return null;
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -111,6 +104,8 @@ interface WorldHeatmapProps {
 export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: WorldHeatmapProps) {
   const [mode, setMode] = useState<MapDisplayMode>('markers');
   const [heatmapType, setHeatmapType] = useState<HeatmapType>('dominant');
+  const [hovered, setHovered] = useState<{ marker: MarkerData; x: number; y: number } | null>(null);
+  const { isDark } = useThemeMode();
 
   // Single homogeneous options array: HeroUI's `Select` cannot type-check
   // children that mix a static `<SelectItem>` with a `.map()`-generated
@@ -225,77 +220,58 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
       </div>
 
       {/* Map container */}
-      <div
-        className="rounded-2xl overflow-hidden border border-default-200 relative h-[380px] isolate"
-        style={
-          {
-            // Override leaflet popup styles
-            '--leaflet-popup-border-radius': '10px',
-          } as React.CSSProperties
-        }
-      >
-        <style>{`
-          .leaflet-tooltip {
-            border-radius: 10px !important;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
-            padding: 10px 14px !important;
-            border: 1px solid rgba(0,0,0,0.08) !important;
-            background: #fff !important;
-            color: inherit !important;
-          }
-          .leaflet-tooltip::before {
-            display: none !important;
-          }
-          .leaflet-control-attribution {
-            font-size: 0.7rem;
-            background: transparent !important;
-          }
-          .leaflet-interactive {
-            cursor: pointer;
-          }
-        `}</style>
-        <MapContainer
-          center={[25, 10]}
-          zoom={2}
-          minZoom={1}
-          maxZoom={10}
-          style={{ height: '100%', width: '100%' }}
-          scrollWheelZoom
-          worldCopyJump
+      <div className="rounded-2xl overflow-hidden border border-default-200 relative h-[380px] bg-default-50">
+        <ComposableMap
+          projectionConfig={{ scale: 140, center: [10, 15] }}
+          style={{ width: '100%', height: '100%' }}
         >
-          <MapResizer />
-          {/* CARTO's free raster basemaps (basemaps.cartocdn.com) started requiring
-              an API key in August 2026 and now watermark unauthenticated requests
-              ("API KEY REQUIRED") — a self-hosted app can't assume every instance
-              owner has (or wants) a CARTO key, so this uses the standard anonymous
-              OpenStreetMap tile server instead. No dark-mode variant is available
-              without a keyed provider; the map falls back to the light style in
-              both themes. */}
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
+          {/* world-atlas ships raw TopoJSON (a `Topology`), which Geographies
+              converts at runtime via topojson-client — its own type only
+              declares the already-fetched-and-parsed GeoJSON shape, hence
+              the cast. */}
+          <Geographies geography={geoUrl as unknown as GeoJsonObject}>
+            {({ geographies }) =>
+              geographies.map((geo) => (
+                <Geography
+                  key={geo.rsmKey}
+                  geography={geo}
+                  fill={isDark ? '#3f3f46' : '#e4e4e7'}
+                  stroke={isDark ? '#52525b' : '#d4d4d8'}
+                  strokeWidth={0.5}
+                  style={{ outline: 'none' }}
+                />
+              ))
+            }
+          </Geographies>
           {markers.map((marker) => (
-            <CircleMarker
+            <Marker
               key={marker.region}
-              center={[marker.lat, marker.lng]}
-              radius={radiusFromCount(marker.count)}
-              pathOptions={{
-                color: '#ffffff',
-                weight: 2,
-                fillColor: marker.color,
-                fillOpacity: marker.fillOpacity,
-              }}
-              eventHandlers={
-                onRegionClick ? { click: () => onRegionClick(marker.region) } : undefined
-              }
+              coordinates={[marker.lng, marker.lat]}
+              onMouseEnter={(e) => setHovered({ marker, x: e.clientX, y: e.clientY })}
+              onMouseMove={(e) => setHovered({ marker, x: e.clientX, y: e.clientY })}
+              onMouseLeave={() => setHovered(null)}
+              onClick={() => onRegionClick?.(marker.region)}
+              style={{ cursor: onRegionClick ? 'pointer' : 'default' }}
             >
-              <Tooltip sticky>
-                <RegionPopup marker={marker} t={t} lang={i18n.language} />
-              </Tooltip>
-            </CircleMarker>
+              <circle
+                r={radiusFromCount(marker.count)}
+                fill={marker.color}
+                fillOpacity={marker.fillOpacity}
+                stroke="#ffffff"
+                strokeWidth={1.2}
+              />
+            </Marker>
           ))}
-        </MapContainer>
+        </ComposableMap>
+
+        {hovered && (
+          <div
+            className="fixed z-50 pointer-events-none bg-content1 border border-divider rounded-xl shadow-lg px-3 py-2"
+            style={{ left: hovered.x + 12, top: hovered.y + 12 }}
+          >
+            <RegionTooltip marker={hovered.marker} t={t} lang={i18n.language} />
+          </div>
+        )}
       </div>
 
       {/* Legend (heatmap mode only) */}
@@ -307,7 +283,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
                 className="w-2.5 h-2.5 rounded-full shrink-0"
                 style={{ backgroundColor: CATEGORY_HEX[cat] }}
               />
-              <span className="text-xs text-default-500">{t(`categories.${cat}`)}</span>
+              <span className="text-xs text-foreground-500">{t(`categories.${cat}`)}</span>
             </div>
           ))}
         </div>

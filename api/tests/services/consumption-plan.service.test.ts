@@ -206,7 +206,7 @@ describe('getSuggestions', () => {
       ([args]) => (args as { where: Record<string, unknown> }).where.isOpened === true,
     );
     expect(openedCall?.[0]).toEqual({
-      where: { deletedAt: null, isOpened: true },
+      where: { deletedAt: null, isOwned: true, isOpened: true },
       select: expect.anything(),
     });
     expect(result.map((r) => ({ id: r.id, reason: r.reason }))).toEqual([
@@ -321,6 +321,7 @@ describe('consumption goals', () => {
     expect(prisma.inventoryItem.count).toHaveBeenCalledWith({
       where: {
         deletedAt: null,
+        isOwned: true,
         isOpened: true,
         fillLevel: 0,
         updatedBy: 'u1',
