@@ -117,7 +117,11 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       return;
     }
 
-    const patch = guestInventoryUpdateSchema.parse(req.body);
+    const parsed = guestInventoryUpdateSchema.parse(req.body);
+    // Notes hidden from the guest must never be written by them: the guest form
+    // starts from an empty field and would otherwise erase the owner's notes.
+    const patch = { ...parsed };
+    if (share.hideNotes) delete patch.notes;
     const result = await inventoryService.updateItem(share.userId, itemId, patch);
 
     if (!result) {

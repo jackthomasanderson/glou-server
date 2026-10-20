@@ -45,7 +45,8 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
       guestClient.updateItem(token, item.id, {
         isOpened,
         fillLevel: fillLevel.trim() === '' ? null : Number(fillLevel),
-        notes: notes.trim() === '' ? null : notes,
+        // Hidden notes arrive as undefined: never send them back, or the owner's notes get erased.
+        ...(item.notes === undefined ? {} : { notes: notes.trim() === '' ? null : notes }),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['guest', token, 'inventory'] });
@@ -117,7 +118,7 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
                 radius="md"
                 labelPlacement="outside"
               />
-              <Textarea
+              {item.notes !== undefined && <Textarea
                 label={t('shares.guest.edit.notes')}
                 value={notes}
                 onValueChange={setNotes}
@@ -126,7 +127,7 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
                 radius="md"
                 labelPlacement="outside"
                 maxLength={2000}
-              />
+              />}
               {updateMutation.isError && (
                 <p className="text-xs text-danger">{t('shares.guest.edit.error')}</p>
               )}
