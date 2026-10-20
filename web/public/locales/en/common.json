@@ -157,6 +157,12 @@
     "deleteConfirm": "The asset will be moved to the trash.",
     "undoDelete": "Asset deleted. Undo?",
     "trashInfo": "days left before permanent deletion",
+    "trashEmpty": "The trash is empty.",
+    "tabsAria": "Inventory view",
+    "tabs": {
+      "items": "Inventory",
+      "trash": "Trash"
+    },
     "noBottles": "No items in your cellar",
     "noBottlesDesc": "Add your first item to get started.",
     "noCellarBanner": "No cellar created — your assets will have no location.",

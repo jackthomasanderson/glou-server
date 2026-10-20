@@ -157,6 +157,12 @@
     "deleteConfirm": "L'actif sera déplacé dans la corbeille.",
     "undoDelete": "Actif supprimé. Annuler ?",
     "trashInfo": "J restants avant suppression définitive",
+    "trashEmpty": "La corbeille est vide.",
+    "tabsAria": "Vue inventaire",
+    "tabs": {
+      "items": "Inventaire",
+      "trash": "Corbeille"
+    },
     "noBottles": "Aucun actif dans votre cave",
     "noBottlesDesc": "Ajoutez votre premier actif pour commencer.",
     "noCellarBanner": "Aucune cave créée — vos actifs n'auront pas d'emplacement.",
