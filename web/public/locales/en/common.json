@@ -1487,7 +1487,11 @@
       "retention": "Retention",
       "backups": "Backups",
       "network": "Network",
-      "history": "History"
+      "history": "History",
+      "about": "About"
+    },
+    "about": {
+      "description": "Running version. Include this when filing a bug report."
     },
     "smtp": {
       "enabled": "Enable email sending",

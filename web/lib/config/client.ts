@@ -118,6 +118,14 @@ export const configClient = {
     return data;
   },
 
+  // ISSUE_169: what Admin → System Configuration → About reads to show a
+  // version a bug reporter can copy, instead of the moving `latest`/`beta`
+  // image tags the old bug report template used to ask for.
+  async getVersion(): Promise<{ version: string }> {
+    const { data } = await client.get<{ version: string }>('/version');
+    return data;
+  },
+
   async updateSmtp(payload: Record<string, unknown>): Promise<SystemConfigPublic> {
     const { data } = await client.put<SystemConfigPublic>('/admin/config/smtp', payload);
     return data;

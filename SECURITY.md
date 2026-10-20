@@ -21,7 +21,7 @@ Always run the most recent image: `docker compose pull && docker compose up -d`.
 Report privately through GitHub's private vulnerability reporting:
 
 1. Go to the [Security advisories page](https://github.com/jackthomasanderson/glou-server/security/advisories/new).
-2. Describe the issue, affected version/tag, impact, and reproduction steps.
+2. Describe the issue, impact, and reproduction steps. Include the running version shown under Admin → System Configuration → About (copyable from there).
 3. Include a proof of concept if you have one.
 
 You can expect an acknowledgement within a few days. Once a fix is available we will publish a patched image and, with your permission, credit you in the advisory.
