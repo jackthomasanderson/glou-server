@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { inventoryService } from './inventory.service';
 import { notificationService } from './notification.service';
+import { escapeHtml } from '../lib/html';
 import { WishlistCreateInput, WishlistPatchInput, ConvertToInventoryInput } from '../schemas/wishlist.schema';
 import { InventoryInput } from '../schemas/inventory.schema';
 
@@ -96,11 +97,11 @@ async function notifyOpportunity(userId: string, item: NonNullable<WishlistItemD
   const subject = isEn ? `Price opportunity: ${label}` : `Opportunité tarifaire : ${label}`;
   const htmlBody = [
     `<p>${isEn
-      ? `An observed price for <strong>${label}</strong> is now at or below your ceiling.`
-      : `Un prix observé pour <strong>${label}</strong> est désormais inférieur ou égal à votre plafond.`}</p>`,
+      ? `An observed price for <strong>${escapeHtml(label)}</strong> is now at or below your ceiling.`
+      : `Un prix observé pour <strong>${escapeHtml(label)}</strong> est désormais inférieur ou égal à votre plafond.`}</p>`,
     '<ul>',
-    `<li>${isEn ? 'Observed price' : 'Prix observé'}: ${item.lastSeenPrice}</li>`,
-    `<li>${isEn ? 'Your ceiling' : 'Votre plafond'}: ${item.maxPrice}</li>`,
+    `<li>${isEn ? 'Observed price' : 'Prix observé'}: ${escapeHtml(item.lastSeenPrice)}</li>`,
+    `<li>${isEn ? 'Your ceiling' : 'Votre plafond'}: ${escapeHtml(item.maxPrice)}</li>`,
     '</ul>',
   ].join('');
 

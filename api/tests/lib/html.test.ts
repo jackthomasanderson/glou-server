@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { htmlToPlainText } from '../../src/lib/html';
+import { escapeHtml, htmlToPlainText } from '../../src/lib/html';
 
 describe('htmlToPlainText', () => {
   it('keeps visible text and drops ordinary tags', () => {
@@ -26,5 +26,19 @@ describe('htmlToPlainText', () => {
 
   it('collapses excess blank lines and trims', () => {
     expect(htmlToPlainText('<p>a</p>\n\n\n\n<p>b</p>')).toBe('a\n\nb');
+  });
+});
+
+describe('escapeHtml (#488)', () => {
+  it('neutralises markup and attribute quotes', () => {
+    expect(escapeHtml('<a href="x" onclick=\'y\'>&</a>')).toBe('&lt;a href=&quot;x&quot; onclick=&#39;y&#39;&gt;&amp;&lt;/a&gt;');
+  });
+
+  it('stringifies non-string values', () => {
+    expect(escapeHtml(42)).toBe('42');
+  });
+
+  it('round-trips through htmlToPlainText for the Gotify message', () => {
+    expect(htmlToPlainText(`<p>${escapeHtml('Tom & <Jerry>')}</p>`)).toBe('Tom & <Jerry>');
   });
 });

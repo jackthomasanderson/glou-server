@@ -37,7 +37,7 @@ export async function guestMiddleware(
       return;
     }
 
-    if (!sharesService.isShareValid(share)) {
+    if (!sharesService.isShareValid(share) || !(await sharesService.isCreatorActive(share.userId))) {
       res.status(403).json({ error: 'SHARE_EXPIRED_OR_REVOKED' });
       return;
     }

@@ -172,6 +172,16 @@ export const sharesService = {
     return toPublicShare(updated);
   },
 
+  /**
+   * ISSUE_486: a share only lives as long as its creator's account. When an
+   * admin deactivates a member (roommate moved out, compromised account),
+   * every link that member handed out stops working with it.
+   */
+  async isCreatorActive(userId: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { isActive: true } });
+    return user?.isActive === true;
+  },
+
   /** Hashes the incoming raw token and resolves the matching share, if any. */
   async findByToken(rawToken: string) {
     return prisma.guestShare.findUnique({ where: { tokenHash: hashToken(rawToken) } });

@@ -902,8 +902,10 @@
       "update": "Modification",
       "delete": "Suppression",
       "restore": "Restauration",
-      "restore_field": "Valeur restaurée"
+      "restore_field": "Valeur restaurée",
+      "guest_update": "Modification"
     },
+    "viaGuest": "via un lien invité",
     "restoredField": "Valeur restaurée : {{field}}",
     "restoreValue": "Restaurer cette valeur",
     "restoreConfirm": {

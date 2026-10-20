@@ -145,7 +145,11 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: result.changes },
     });
 
-    res.json({ data: result.item });
+    // ISSUE_483: `result.item` is the full row (purchase price, estimated
+    // value, notes…). Re-read it through the share's own select so the
+    // response honours hidePrices/hideNotes exactly like the read routes.
+    const visible = await sharesService.getItemForShare(share, itemId);
+    res.json({ data: visible });
   } catch (error) {
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');

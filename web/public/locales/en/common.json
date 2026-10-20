@@ -900,8 +900,10 @@
       "update": "Updated",
       "delete": "Deleted",
       "restore": "Restored",
-      "restore_field": "Value restored"
+      "restore_field": "Value restored",
+      "guest_update": "Updated"
     },
+    "viaGuest": "via guest link",
     "restoredField": "Value restored: {{field}}",
     "restoreValue": "Restore this value",
     "restoreConfirm": {

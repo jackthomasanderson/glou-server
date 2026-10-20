@@ -189,6 +189,31 @@ describe('recomputeAlertStatuses', () => {
       expect(enCall.subject).toContain('At peak maturity');
     });
 
+    it('escapes member-entered names in the email body (#488)', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        {
+          id: 'b1',
+          name: '<a href="https://evil.example">Sign in again</a>',
+          producer: 'Domaine X',
+          vintage: 2020,
+          alertStatus: 'approaching',
+          alertsPaused: false,
+          peakMaturityFrom: 2028,
+          peakMaturityTo: 2035,
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        },
+      ] as never);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
+
+      await recomputeAlertStatuses();
+      await flush();
+
+      const body = send.mock.calls[0]?.[0].htmlBody as string;
+      expect(body).not.toContain('<a href');
+      expect(body).toContain('&lt;a href=&quot;https://evil.example&quot;&gt;');
+    });
+
     it('does not notify when the item has alerts paused', async () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
         {

@@ -45,6 +45,18 @@ describe('PATCH /api/guest/:token/inventory/:itemId', () => {
     expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { fillLevel: 50 });
   });
 
+  it('answers with the share-redacted item, not the full updated row (#483)', async () => {
+    (global as { __hideNotes?: boolean }).__hideNotes = true;
+    vi.mocked(inventoryService.updateItem).mockResolvedValue({
+      item: { id: 'i1', purchasePrice: 120, estimatedValue: 300, notes: 'secret' },
+      changes: [],
+    } as never);
+    const res = await request(app).patch('/api/guest/tok/inventory/i1').send({ fillLevel: 40 });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ id: 'i1', cellarId: 'c1' });
+    expect(sharesService.getItemForShare).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps notes when the share shows them', async () => {
     (global as { __hideNotes?: boolean }).__hideNotes = false;
     await request(app).patch('/api/guest/tok/inventory/i1').send({ notes: 'hi' });

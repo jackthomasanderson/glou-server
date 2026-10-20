@@ -19,6 +19,9 @@ vi.mock('../../src/lib/prisma', () => ({
     collection: {
       count: vi.fn(),
     },
+    user: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -187,6 +190,23 @@ describe('sharesService.findByToken', () => {
     expect(prisma.guestShare.findUnique).toHaveBeenCalledWith({
       where: { tokenHash: crypto.createHash('sha256').update(rawToken).digest('hex') },
     });
+  });
+});
+
+describe('sharesService.isCreatorActive (#486)', () => {
+  it('is false once the creator account is deactivated', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: false } as never);
+    expect(await sharesService.isCreatorActive('u1')).toBe(false);
+  });
+
+  it('is false when the creator no longer exists', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    expect(await sharesService.isCreatorActive('u1')).toBe(false);
+  });
+
+  it('is true for an active creator', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true } as never);
+    expect(await sharesService.isCreatorActive('u1')).toBe(true);
   });
 });
 

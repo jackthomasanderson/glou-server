@@ -15,6 +15,7 @@ import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
 import { auditLog } from './audit.service';
 import { isCookieSecure } from '../lib/cookie-secure';
+import { escapeHtml } from '../lib/html';
 
 // ISSUE_090: speakeasy was abandoned in 2016; otplib is actively maintained
 // and implements the same RFC 6238 TOTP algorithm (SHA1, 30s step, 6
@@ -364,8 +365,8 @@ export class AuthService {
       `<p>${intro}</p>`,
       '<ul>',
       `<li>Date: ${timestamp}</li>`,
-      `<li>${isEn ? 'Device' : 'Appareil'}: ${device}</li>`,
-      `<li>${isEn ? 'Location' : 'Localisation'}: ${locationLabel}</li>`,
+      `<li>${isEn ? 'Device' : 'Appareil'}: ${escapeHtml(device)}</li>`,
+      `<li>${isEn ? 'Location' : 'Localisation'}: ${escapeHtml(locationLabel)}</li>`,
       '</ul>',
       `<p><a href="${securityUrl}">${isEn ? 'Review your security settings' : 'Consulter mes paramètres de sécurité'}</a></p>`,
       `<p style="color:#666;font-size:12px;">${isEn
