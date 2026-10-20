@@ -662,6 +662,7 @@
   "profile": {
     "adminPanelLink": "Go to admin panel",
     "title": "My Profile",
+    "sectionsNav": "Profile sections",
     "personalInfo": "Personal Information",
     "preferences": "Display Preferences",
     "appName": "Custom App Name",
@@ -1801,7 +1802,6 @@
   },
   "wishlist": {
     "title": "Wishlist & Budget",
-    "pageAccess": "Wishlist & Budget",
     "tabs": {
       "ariaLabel": "Wishlist sections",
       "wishlist": "Wishlist",

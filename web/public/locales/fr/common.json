@@ -664,6 +664,7 @@
   "profile": {
     "adminPanelLink": "Accéder au panneau d'administration",
     "title": "Mon Profil",
+    "sectionsNav": "Sections du profil",
     "personalInfo": "Informations personnelles",
     "preferences": "Préférences d'affichage",
     "appName": "Nom perso pour l'app",
@@ -1803,7 +1804,6 @@
   },
   "wishlist": {
     "title": "Liste de souhaits & Budget",
-    "pageAccess": "Liste de souhaits & Budget",
     "tabs": {
       "ariaLabel": "Sections de la liste de souhaits",
       "wishlist": "Souhaits",
