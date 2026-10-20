@@ -65,7 +65,14 @@ function useSearch() {
     (option: SearchOption, onDone: () => void) => {
       setQuery('');
       onDone();
-      router.push(option.kind === 'item' ? `/bottles?q=${encodeURIComponent(option.item.name)}` : '/cellars');
+      if (option.kind === 'cellar') {
+        router.push(`/cellars/${encodeURIComponent(option.cellar.id)}`);
+        return;
+      }
+      // ?scan= opens the item drawer directly (same mechanism as QR codes);
+      // cigars live on their own page, /bottles excludes them.
+      const page = option.item.category === 'cigar' ? '/cigars' : '/bottles';
+      router.push(`${page}?scan=${encodeURIComponent(option.item.id)}`);
     },
     [router],
   );
