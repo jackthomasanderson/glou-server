@@ -59,7 +59,6 @@ services:
     expose:
       - "3001"
     volumes:
-      - api_logs:/app/logs
       - api_uploads:/app/uploads
       # ISSUE_020: a bind mount, not a named volume — so the dumps land on
       # the host filesystem where whatever backup tool the operator already
@@ -67,6 +66,8 @@ services:
       # A named volume keeps backups on the exact same disk as the database
       # they're meant to protect against, which defeats the point if that
       # disk fails. See docs/wiki/EN/19-Backups-Export-Data-Portability.md.
+      # On Linux, create it as uid 1001 before the first start (#537):
+      #   mkdir -p backups && sudo chown 1001:1001 backups
       - ./backups:/app/backups
     logging: *logging
     # ISSUE_019: /health now actually queries PostgreSQL (see app.ts) and
@@ -83,7 +84,8 @@ services:
     image: ghcr.io/jackthomasanderson/glou-server-web:latest
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
@@ -94,12 +96,20 @@ services:
     ports:
       - "3000:3000"
     logging: *logging
+    # #540: lets `docker compose ps` say whether the web UI answers. Next's
+    # standalone server listens on the container hostname, not 127.0.0.1.
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://'+require('os').hostname()+':3000/login',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # Optional label scan (moondream vision model). Heavy: ~9 GB of disk,
   # ~3 GB of RAM. Enable with: docker compose --profile scan up -d
   ollama:
     profiles: ["scan"]
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.6  # pinned (#540); Renovate proposes updates
     restart: unless-stopped
     mem_limit: 4g
     environment:
@@ -122,7 +132,7 @@ services:
   # One-shot: downloads the model (~1.7 GB) into ollama_data, then exits (0).
   ollama-pull:
     profiles: ["scan"]
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.6  # pinned (#540); Renovate proposes updates
     restart: "no"
     depends_on:
       ollama:
@@ -133,6 +143,5 @@ services:
 
 volumes:
   db_data:
-  api_logs:
   api_uploads:
   ollama_data:

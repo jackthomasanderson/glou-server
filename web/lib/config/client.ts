@@ -201,6 +201,11 @@ export const configClient = {
     return data;
   },
 
+  async getBackupHealth(): Promise<{ directoryWritable: boolean }> {
+    const { data } = await client.get<{ directoryWritable: boolean }>('/admin/backups/health');
+    return data;
+  },
+
   async runBackupNow(): Promise<BackupRunEntry> {
     const { data } = await client.post<BackupRunEntry>('/admin/backups/run', {});
     return data;

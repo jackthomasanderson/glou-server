@@ -39,8 +39,7 @@
 ## Démarrage rapide
 
 **Prérequis :**
-- Docker installé et en cours d'exécution.
-- Un hôte Intel/AMD 64 bits (`linux/amd64`) : les images publiées ne sont pas construites pour ARM. Sur Raspberry Pi, NAS ARM ou équivalent, construisez-les localement (`docker build -t ghcr.io/jackthomasanderson/glou-server-api:latest api`, idem pour `web`) pour que `docker compose up` les utilise.
+- Docker installé et en cours d'exécution, sur un hôte 64 bits Intel/AMD ou ARM (Raspberry Pi 4/5, NAS ARM…) : les images sont publiées pour `linux/amd64` et `linux/arm64`.
 
 **Étape 1 : Configurer**
 ```bash
@@ -56,6 +55,9 @@ Ouvrez `.env` et renseignez trois valeurs obligatoires, dont aucune n'a de valeu
 
 **Étape 2 : Lancer**
 ```bash
+# Linux uniquement : l'API tourne sous l'uid 1001 et écrit les sauvegardes dans ./backups.
+# Créez le dossier avant, sinon Docker le crée en root et chaque sauvegarde échoue.
+mkdir -p backups && sudo chown 1001:1001 backups
 docker compose up -d
 ```
 Docker télécharge les images pré-construites et démarre la stack. Aucune compilation requise.

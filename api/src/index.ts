@@ -6,7 +6,7 @@ import { scanService } from './services/scan.service';
 import { MaintenanceService } from './services/maintenance.service';
 import { recomputeAlertStatuses } from './services/alert.service';
 import { checkHumidorDrift } from './services/humidor.service';
-import { backupService } from './services/backup.service';
+import { backupService, BACKUPS_DIR } from './services/backup.service';
 import { findSecretProblems, describeSecretProblem } from './lib/startup-secrets';
 
 // ─── Startup secret guard ────────────────────────────────────────────────────
@@ -105,6 +105,15 @@ async function bootstrap(): Promise<void> {
       })
       .catch((err) => console.error('[cron] Humidor drift check failed:', err));
   });
+
+  // #537: say it loudly at startup rather than at the first nightly run.
+  if (!backupService.isBackupsDirWritable()) {
+    console.error(
+      `[backup] ${BACKUPS_DIR} is not writable by this process (uid ${process.getuid?.() ?? '?'}): `
+      + 'scheduled backups will fail. On the host, next to docker-compose.yml, run: '
+      + 'mkdir -p backups && sudo chown 1001:1001 backups',
+    );
+  }
 
   // FEAT-18: scheduled database backups (pg_dump). Ticks hourly and re-reads
   // SystemConfig (backupEnabled/backupHourUtc) on every tick — see

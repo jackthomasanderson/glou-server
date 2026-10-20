@@ -51,10 +51,11 @@ COPY --from=builder /app/prisma ./prisma
 # Required by `npx prisma migrate deploy` in the CMD below (Prisma 7).
 COPY --from=builder /app/prisma.config.ts ./
 
-# /app/backups (FEAT-18): destination of scheduled pg_dump files. Mounted on
-# its own named volume (see docker-compose.yml), distinct from /app/uploads,
-# so backups persist independently and survive an application-volume reset.
-RUN mkdir -p /app/logs /app/uploads/products /app/uploads/avatars /app/backups && chown -R glou:glou /app
+# /app/backups (FEAT-18): destination of scheduled pg_dump files. Bind-mounted
+# from ./backups on the host (see docker-compose.yml), which hides this
+# chown: on Linux the host folder must belong to uid 1001 (#537). No
+# /app/logs: logs go to stdout (#540).
+RUN mkdir -p /app/uploads/products /app/uploads/avatars /app/backups && chown -R glou:glou /app
 
 USER glou
 

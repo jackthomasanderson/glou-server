@@ -1622,6 +1622,7 @@
     },
     "backup": {
       "description": "Configure the automatic daily database backup (pg_dump), stored outside the application volume.",
+      "dirNotWritable": "The backups folder is not writable by Glou: every backup will fail. On the server, next to docker-compose.yml, run: mkdir -p backups && sudo chown 1001:1001 backups, then restart the stack.",
       "enabled": "Enable automatic backups",
       "retentionDays": "Backup retention (days)",
       "retentionDaysHint": "Backup files older than this delay are automatically deleted (7 days minimum recommended).",
