@@ -32,7 +32,7 @@ interface GuestItem {
 
 // ─── Item card ───────────────────────────────────────────────────────────────
 
-function GuestItemCard({ item, token, editable }: { item: GuestItem; token: string; editable: boolean }) {
+function GuestItemCard({ item, token, editable, hideNotes }: { item: GuestItem; token: string; editable: boolean; hideNotes: boolean }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -45,7 +45,10 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
       guestClient.updateItem(token, item.id, {
         isOpened,
         fillLevel: fillLevel.trim() === '' ? null : Number(fillLevel),
-        notes: notes.trim() === '' ? null : notes,
+        // Never send notes when hidden or unchanged: the form cannot know the owner's notes.
+        ...(!hideNotes && notes !== (item.notes ?? '')
+          ? { notes: notes.trim() === '' ? null : notes }
+          : {}),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['guest', token, 'inventory'] });
@@ -117,7 +120,7 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
                 radius="md"
                 labelPlacement="outside"
               />
-              <Textarea
+              {!hideNotes && <Textarea
                 label={t('shares.guest.edit.notes')}
                 value={notes}
                 onValueChange={setNotes}
@@ -126,7 +129,7 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
                 radius="md"
                 labelPlacement="outside"
                 maxLength={2000}
-              />
+              />}
               {updateMutation.isError && (
                 <p className="text-xs text-danger">{t('shares.guest.edit.error')}</p>
               )}
@@ -311,6 +314,7 @@ function GuestPageContent({ token }: { token: string }) {
                 item={item}
                 token={token}
                 editable={!!meta?.writeCellarIds.includes(item.cellarId ?? '')}
+                hideNotes={!!meta?.hideNotes}
               />
             ))}
           </div>
