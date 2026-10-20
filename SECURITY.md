@@ -8,9 +8,9 @@ Glou is distributed as rolling Docker images. Only the latest published tags rec
 
 | Tag | Branch | Supported |
 | --- | --- | --- |
-| `latest` | `main` | ✅ |
-| `beta` | `dev` | ✅ (pre-release) |
-| older digests | — | ❌ |
+| `latest` | `main` | Yes |
+| `beta` | `dev` | Yes (pre-release) |
+| older digests | n/a | No |
 
 Always run the most recent image: `docker compose pull && docker compose up -d`.
 

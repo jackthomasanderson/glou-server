@@ -1,7 +1,7 @@
-# Schedule Backups, Restore Your Data & Export a Filtered Copy
+# Schedule backups, restore your data & export a filtered copy
 
 ## TL;DR
-Turn on scheduled database backups from Admin, restore one when things go wrong, export your own data (in full or filtered by category) from your Profile, and check who's had access to your account.
+Schedule database backups from Admin, restore one when needed, export your own data (in full or filtered by category) from your Profile, and check who has had access to your account.
 
 ## Prerequisites
 * Admin account for scheduling/restoring backups.
@@ -15,47 +15,47 @@ Turn on scheduled database backups from Admin, restore one when things go wrong,
 
 1. Go to **Admin → System Configuration → Backups**.
 2. Make sure the **Enabled** switch is on.
-3. Set **Retention** (days to keep old backup files — default `7`) and **Hour (UTC)** (the hour of day the daily backup runs — default `3`).
+3. Set **Retention** (days to keep old backup files, default `7`) and **Hour (UTC)** (hour of day the daily backup runs, default `3`).
 4. Click **Save**.
 
 > [!TIP]
-> The scheduler ticks every hour and produces a dump when the switch is on and the current UTC hour matches your configured hour — so it effectively runs once a day, and toggling **Enabled** takes effect on the very next tick, no restart needed.
+> The scheduler ticks every hour and produces a dump when the switch is on and the current UTC hour matches your configured hour. It therefore runs once a day, and toggling **Enabled** takes effect on the next tick, with no restart.
 >
-> **Missed backups are caught up.** If the container was stopped or restarting at your configured hour, the backup runs at the next hourly tick: any time the last successful backup is more than 25 hours old, a new one is taken.
+> Missed backups are caught up. If the container was stopped or restarting at your configured hour, the backup runs at the next hourly tick: any time the last successful backup is more than 25 hours old, a new one is taken.
 >
-> **Failures are reported.** If a scheduled backup fails (full disk, database unreachable…), every administrator is notified through their enabled channels (email, Gotify/webhook) — once per failure streak, then again after 24 hours if it keeps failing, not every hour. The category is called **Backup failures (admin)** in Profile → Notifications. Old backup files are only deleted after a *successful* backup, so a failing run never wipes the last good dump.
+> Failures are reported. If a scheduled backup fails (full disk, database unreachable…), every administrator is notified through their enabled channels (email, Gotify/webhook), once per failure streak, then again after 24 hours if it keeps failing, not every hour. The category is called **Backup failures (admin)** in Profile → Notifications. Old backup files are only deleted after a *successful* backup, so a failing run never wipes the last good dump.
 
 ### Run a backup immediately
 1. In the same tab, click **Run now**.
-2. The new run appears at the top of the history with its file size, once complete.
+2. Once complete, the new run appears at the top of the history with its file size.
 
 ### Restore a backup
 1. Find the run you want in the backup history and click **Restore**.
 
    > [!CAUTION]
-   > Restoring is destructive: it overwrites **all current data** with the content of that backup file. There is no undo. The dialog requires you to type a confirmation keyword before the **Confirm** button becomes clickable — read it carefully before typing.
+   > Restoring is destructive: it overwrites **all current data** with the content of that backup file. There is no undo. The dialog requires you to type a confirmation keyword before the **Confirm** button becomes clickable.
 
 2. Confirm. The restore is logged in the audit trail regardless of whether it succeeds or fails.
-3. The restore is all-or-nothing: if the backup file is damaged or incomplete, it fails and your current data is left untouched. After restoring a backup made by an **older version** of Glou, restart the API (`docker compose restart api`) so it applies any database update the backup predates.
+3. The restore is all-or-nothing: if the backup file is damaged or incomplete, it fails and your current data is untouched. After restoring a backup made by an **older version** of Glou, restart the API (`docker compose restart api`) so it applies any database update the backup predates.
 4. You can also **Download** a backup file directly from the history list instead of restoring it in place.
 
 ### Export your data (full or filtered by category)
 1. Go to **Profile → Data & Privacy (GDPR section)**.
-2. Click **Export** for a complete export of your data, or click **Filter** to expand a category picker and select only what you need: **inventory**, **cellars**, **collections**, **tastings**, **activity**, **wishlist**, **budgets**, **consumption goals**, **stock counts**, **humidor readings**, **sessions**, **trusted devices**, **notification preferences**, **configuration history**. The file has an `included` key listing the categories actually exported. The exported activity covers everything the retention window still keeps (no arbitrary row cap). Sessions and trusted devices are exported as descriptive metadata only (device, approximate location, dates) — the token that authenticates them is never exported, nor is any other secret (password, 2FA).
-3. Click **Export selection**. The file downloads as `glou-export.json` — plain JSON, readable by any text editor or script.
+2. Click **Export** for a complete export of your data, or click **Filter** to expand a category picker and select only what you need: **inventory**, **cellars**, **collections**, **tastings**, **activity**, **wishlist**, **budgets**, **consumption goals**, **stock counts**, **humidor readings**, **sessions**, **trusted devices**, **notification preferences**, **configuration history**. The file has an `included` key listing the categories actually exported. The exported activity covers everything the retention window still keeps (no arbitrary row cap). Sessions and trusted devices are exported as descriptive metadata only (device, approximate location, dates). The token that authenticates them is never exported, nor is any other secret (password, 2FA).
+3. Click **Export selection**. The file downloads as `glou-export.json`: plain JSON, readable by any text editor or script.
 
 ### Check the access transparency panel
 1. On your **Profile** page, the transparency panel shows two lists:
-   - **Active sessions** — device, last activity, and a badge marking your current session. Click **Manage** to go revoke one.
-   - **Active shares** — each active guest share, its expiration (or "no expiration"), and whether it grants partial write access. Click **Manage** to go revoke one.
-2. This panel is read-only by design — actual revocation happens on the dedicated Sessions and Guest Shares panels it links to, so there's a single place that performs the action.
+   - **Active sessions**: device, last activity, and a badge marking your current session. Click **Manage** to go revoke one.
+   - **Active shares**: each active guest share, its expiration (or "no expiration"), and whether it grants partial write access. Click **Manage** to go revoke one.
+2. This panel is read-only by design. Revocation happens on the Sessions and Guest Shares panels it links to, so a single place performs the action.
 
-## The Firewall (Troubleshooting)
+## The firewall (troubleshooting)
 
 | Error / Behavior | Fix |
 | :--- | :--- |
-| **Backups are enabled but no file ever appears** | Check the **Hour (UTC)** value against the current UTC time — the job only fires during that specific hour, once toggled on. Or click **Run now** to test the mechanism immediately. |
-| **I clicked Restore and now my data is different than before** | That's expected — restore overwrites all current data with the backup's content. If this was a mistake, restore a more recent backup (or the pre-restore state if you took a manual backup right before). |
+| **Backups are enabled but no file ever appears** | Check the **Hour (UTC)** value against the current UTC time: the job only fires during that hour once enabled. Or click **Run now** to test immediately. |
+| **I clicked Restore and now my data is different than before** | Expected: restore overwrites all current data with the backup's content. If this was a mistake, restore a more recent backup (or the pre-restore state if you took a manual backup right before). |
 | **My export file only has some of my data** | You used **Filter** and only selected certain categories. Use the plain **Export** button for a full export instead. |
-| **Where are backup files actually stored?** | Inside the API container's `backups/` directory. If you're running in Docker and want backups to survive a container rebuild, mount that directory to a persistent volume. |
+| **Where are backup files actually stored?** | Inside the API container's `backups/` directory. In Docker, mount that directory to a persistent volume if you want backups to survive a container rebuild. |
 | **The access transparency panel shows a session or share I don't recognize** | Click **Manage** to jump to the full panel and revoke it immediately, then change your password if it's a session you don't recognize. |

@@ -1,7 +1,7 @@
-# Configurer les Alertes Apogée
+# Configurer les alertes apogée
 
 ## TL;DR
-Saisissez une année de début et de fin d'apogée sur une bouteille (vin ou pétillant) : le tableau de bord vous alerte automatiquement quand elle approche ou atteint son optimum.
+Saisissez une année de début et de fin d'apogée sur une bouteille (vin ou pétillant) : le tableau de bord vous alerte quand elle approche ou atteint son optimum.
 
 ## Prérequis
 - Avoir une bouteille de catégorie **Vin** ou **Pétillant** dans votre cave.
@@ -13,8 +13,8 @@ Saisissez une année de début et de fin d'apogée sur une bouteille (vin ou pé
 
 1. Ouvrez la fiche d'une bouteille (**Modifier**) ou créez-en une nouvelle.
 2. À l'étape 2 (détails de catégorie), dépliez la section optionnelle via **Afficher les champs optionnels**.
-3. Renseignez **Début de fenêtre optimale (année)** — ex : `2027`.
-4. Renseignez **Fin de fenêtre optimale (année)** — ex : `2035`.
+3. Renseignez **Début de fenêtre optimale (année)**, ex : `2027`.
+4. Renseignez **Fin de fenêtre optimale (année)**, ex : `2035`.
 5. Sauvegardez. Le statut est calculé immédiatement côté serveur.
 
 > [!TIP]
@@ -29,11 +29,11 @@ Chaque carte affiche un badge coloré dans la zone de métadonnées :
 | Bleu | **Approaching** | L'apogée commence dans le futur |
 | Vert | **At peak** | L'année courante est dans la fenêtre |
 | Rouge | **Past peak** | La fenêtre est dépassée |
-| Gris | — | Alerte suspendue ou pas de fenêtre définie |
+| Gris | - | Alerte suspendue ou pas de fenêtre définie |
 
 ### 3. Consulter le centre d'alertes
 
-Le panneau **Alertes Apogée** apparaît automatiquement en haut du tableau de bord dès qu'une bouteille non suspendue a le statut `approaching`, `peak` ou `past`.
+Le panneau **Alertes Apogée** apparaît en haut du tableau de bord dès qu'une bouteille non suspendue a le statut `approaching`, `peak` ou `past`.
 
 - Les bouteilles sont triées par urgence : **past** en tête, puis **peak**, puis **approaching**.
 - Le bandeau change de couleur selon le cas le plus urgent (rouge / vert / bleu).

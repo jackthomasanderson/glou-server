@@ -1,4 +1,4 @@
-# Environment Setup
+# Environment setup
 
 **TL;DR**: Everything is configured through the `.env` file next to `docker-compose.yml`. Three values are mandatory and have no safe default: `DB_PASSWORD`, `JWT_SECRET` and `CONFIG_ENCRYPTION_KEY`.
 
@@ -7,7 +7,7 @@
 
 **Action**:
 1. Open the `.env` file in the project root.
-2. Set the three mandatory secrets (see [Installation](./01-Installation.md) for how to generate them): `DB_PASSWORD`, `JWT_SECRET` (`openssl rand -base64 48`) and `CONFIG_ENCRYPTION_KEY` (`openssl rand -hex 32`, exactly 64 hexadecimal characters).
+2. Set the three mandatory secrets (generation commands in [Installation](./01-Installation.md)): `DB_PASSWORD`, `JWT_SECRET` (`openssl rand -base64 48`) and `CONFIG_ENCRYPTION_KEY` (`openssl rand -hex 32`, exactly 64 hexadecimal characters).
 3. If you open Glou by anything other than `http://localhost:3000` (a NAS IP, a domain name), set `APP_URL` to that exact address and `CORS_ORIGIN` to the same value.
 4. Apply the changes: `docker compose up -d` (this recreates the containers whose variables changed).
 

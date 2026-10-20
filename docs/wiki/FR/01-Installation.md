@@ -1,6 +1,6 @@
-# Déployer la Stack Glou
+# Déployer la stack Glou
 
-**TL;DR** : Trois commandes. Docker télécharge les images pré-construites — aucune compilation requise.
+**TL;DR** : Trois commandes. Docker télécharge les images pré-construites, sans compilation.
 
 **Prérequis** :
 - Docker installé et en cours d'exécution (inclut Docker Compose v2).
@@ -12,7 +12,7 @@
    cp .env.example .env
    ```
 
-2. Ouvrir `.env` et définir `JWT_SECRET`, `CONFIG_ENCRYPTION_KEY` et `DB_PASSWORD` avec de vraies valeurs — `.env.example` ne contient que des valeurs d'exemple non sécurisées :
+2. Ouvrir `.env` et définir `JWT_SECRET`, `CONFIG_ENCRYPTION_KEY` et `DB_PASSWORD` avec de vraies valeurs (`.env.example` ne contient que des valeurs d'exemple non sécurisées) :
    ```bash
    openssl rand -base64 48   # JWT_SECRET
    openssl rand -hex 32      # CONFIG_ENCRYPTION_KEY
@@ -21,7 +21,7 @@
    Collez chaque résultat dans la variable correspondante de `.env`.
 
    > [!CAUTION]
-   > Ne sautez pas cette étape. `docker compose up` refuse désormais de démarrer Postgres si `DB_PASSWORD` est vide ou absent (plus de repli non sécurisé), et l'API refuse d'accepter la moindre requête en production si `JWT_SECRET` ou `CONFIG_ENCRYPTION_KEY` est absent, vide, vaut encore exactement son placeholder de `.env.example`, ou (pour `CONFIG_ENCRYPTION_KEY`) n'est pas composé de 64 caractères hexadécimaux — elle logue un message `🛑 [startup] FATAL` et s'arrête (`process.exit(1)`). Ce contrôle ne s'applique que si `NODE_ENV` n'est pas `development` — le développement local continue de fonctionner avec un simple avertissement en console, pour ne pas forcer chaque contributeur à générer des secrets juste pour bidouiller l'app.
+   > Ne sautez pas cette étape. `docker compose up` refuse de démarrer Postgres si `DB_PASSWORD` est vide ou absent (pas de repli non sécurisé), et l'API refuse d'accepter la moindre requête en production si `JWT_SECRET` ou `CONFIG_ENCRYPTION_KEY` est absent, vide, vaut encore exactement son placeholder de `.env.example`, ou (pour `CONFIG_ENCRYPTION_KEY`) n'est pas composé de 64 caractères hexadécimaux. Elle logue un message `🛑 [startup] FATAL` et s'arrête (`process.exit(1)`). Ce contrôle ne s'applique que si `NODE_ENV` n'est pas `development` : le développement local continue de fonctionner avec un simple avertissement en console.
 
 3. Démarrer la stack :
    ```bash
@@ -33,14 +33,14 @@
    Le premier compte créé reçoit automatiquement les droits administrateur. **L'inscription est ensuite fermée** : les autres personnes ne peuvent s'inscrire qu'une fois que l'admin a activé **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Réseau**.
 
 5. *(Facultatif)* Configurer l'instance depuis **Administration → Configuration Système**.
-   Rien ici n'est requis pour utiliser l'application — chaque section reste inactive tant qu'elle n'est pas explicitement configurée. À paramétrer plus tard, si besoin :
+   Rien ici n'est requis pour utiliser l'application : chaque section reste inactive tant qu'elle n'est pas configurée. À paramétrer plus tard, si besoin :
 
    | Section | Rôle |
    | :--- | :--- |
    | **SMTP / Email** | Serveur SMTP pour l'envoi d'emails (réinitialisation de mot de passe, notifications par email). |
-   | **Politique de notifs** | Interrupteurs globaux (dans l'app / email / webhook) pour toute l'instance — un canal désactivé ici reste indisponible dans les préférences de chaque utilisateur. |
+   | **Politique de notifs** | Interrupteurs globaux (dans l'app / email / webhook) pour toute l'instance. Un canal désactivé ici reste indisponible dans les préférences de chaque utilisateur. |
    | **Webhook / Gotify** | URL et token d'une instance [Gotify](https://gotify.net/) pour recevoir les notifications hors de l'application. |
-   | **Intégrations API** | Clés API tierces optionnelles (Vivino, Whiskybase) et URL d'un service OCR externe. Enregistrées de façon sécurisée mais **utilisées par aucune fonctionnalité pour l'instant** : le scan d'étiquette passe par le service Ollama intégré. |
+   | **Intégrations API** | Clés API tierces optionnelles (Vivino, Whiskybase) et URL d'un service OCR externe. Enregistrées, mais **utilisées par aucune fonctionnalité pour l'instant** : le scan d'étiquette passe par le service Ollama intégré. |
    | **Rétention** | Délai de conservation avant suppression définitive des logs d'audit, sessions/appareils expirés et partages invités expirés. |
    | **Sauvegardes** | Sauvegarde automatique quotidienne de la base (`pg_dump`), avec rétention et heure d'exécution configurables. |
    | **Réseau** | URL publique de référence de l'instance, mode d'accès (direct ou via reverse proxy) et autorisation d'inscription de nouveaux comptes. |
@@ -58,16 +58,15 @@ docker compose pull && docker compose up -d
 
 | Erreur | Résolution |
 | :--- | :--- |
-| `port is already allocated` | Un autre processus utilise le port 3000 (web) ou 3001 (api). Arrêtez le processus en conflit, ou modifiez le mapping de port dans `docker-compose.yml`. (Postgres n'est plus publié vers l'hôte — voir plus bas — donc le port 5432 ne peut plus provoquer ce conflit.) |
+| `port is already allocated` | Un autre processus utilise le port 3000 (web) ou 3001 (api). Arrêtez le processus en conflit, ou modifiez le mapping de port dans `docker-compose.yml`. (Postgres n'est pas publié vers l'hôte, voir plus bas, donc le port 5432 ne peut pas provoquer ce conflit.) |
 | `docker compose: command not found` | Votre installation Docker utilise l'ancien CLI. Remplacez `docker compose` par `docker-compose` (avec tiret). |
 | L'API retourne 401 sur toutes les requêtes | `JWT_SECRET` est vide ou contient la valeur d'exemple. Définissez une vraie valeur dans `.env` et redémarrez : `docker compose up -d`. |
-| `docker compose up` échoue avec `DB_PASSWORD is not set` | `DB_PASSWORD` est vide ou absent de `.env`. Définissez un vrai mot de passe (`openssl rand -base64 24`) et relancez — il n'y a volontairement plus de repli non sécurisé. |
-| L'API logue `🛑 [startup] FATAL ... still has its .env.example placeholder value`, `... is not set (or empty)` ou `... is malformed`, puis s'arrête | `JWT_SECRET` ou `CONFIG_ENCRYPTION_KEY` est absent/vide, égal au placeholder de `.env.example`, ou (`CONFIG_ENCRYPTION_KEY`) n'est pas composé de 64 caractères hexadécimaux. Générez de vraies valeurs (étape 2 ci-dessus) et redémarrez. Sur une interface NAS (Synology Container Manager, Portainer...), vérifiez que les variables sont bien transmises au conteneur `api` : une variable non définie lui arrive sous forme de chaîne vide. |
-| La connexion réussit mais vous êtes déconnecté aussitôt (`http://` simple sur réseau local ou NAS) | Les cookies de session ne sont marqués `Secure` que si `APP_URL` commence par `https://`. Renseignez `APP_URL` dans `.env` avec l'adresse réellement utilisée (ex. `http://192.168.1.20:3000`) puis redémarrez. Si un proxy termine le TLS alors que `APP_URL` indique `http`, définissez `COOKIE_SECURE=true`. En HTTP simple, le mode hors ligne, l'installation de l'application et le presse-papiers sont limités par le navigateur ; utilisez HTTPS pour l'expérience complète. |
+| `docker compose up` échoue avec `DB_PASSWORD is not set` | `DB_PASSWORD` est vide ou absent de `.env`. Définissez un vrai mot de passe (`openssl rand -base64 24`) et relancez. Il n'y a volontairement pas de repli non sécurisé. |
+| L'API logue `🛑 [startup] FATAL ... still has its .env.example placeholder value`, `... is not set (or empty)` ou `... is malformed`, puis s'arrête | `JWT_SECRET` ou `CONFIG_ENCRYPTION_KEY` est absent ou vide, égal au placeholder de `.env.example`, ou (`CONFIG_ENCRYPTION_KEY`) n'est pas composé de 64 caractères hexadécimaux. Générez de vraies valeurs (étape 2 ci-dessus) et redémarrez. Sur une interface NAS (Synology Container Manager, Portainer...), vérifiez que les variables sont bien transmises au conteneur `api` : une variable non définie lui arrive sous forme de chaîne vide. |
+| La connexion réussit mais vous êtes déconnecté aussitôt (`http://` simple sur réseau local ou NAS) | Les cookies de session ne sont marqués `Secure` que si `APP_URL` commence par `https://`. Renseignez `APP_URL` dans `.env` avec l'adresse réellement utilisée (ex. `http://192.168.1.20:3000`) puis redémarrez. Si un proxy termine le TLS alors que `APP_URL` indique `http`, définissez `COOKIE_SECURE=true`. En HTTP simple, le mode hors ligne, l'installation de l'application et le presse-papiers sont limités par le navigateur ; utilisez HTTPS pour lever ces limites. |
 | `permission denied` sur `/app/backups`, `/app/uploads` ou `/app/logs`, ou l'API redémarre en boucle, après avoir remplacé un volume nommé par un dossier de l'hôte | Le conteneur API tourne toujours sous l'utilisateur `1001:1001` (`PUID`/`PGID` de la convention linuxserver.io ne sont **pas** pris en charge). Donnez ce dossier à cet utilisateur : `sudo chown -R 1001:1001 <dossier>`. Sur Synology, faites-le en SSH, ou réglez les permissions du dossier pour un utilisateur d'UID 1001. |
 | `image not found` / erreur de pull | Les packages GHCR sont peut-être privés. Authentifiez-vous d'abord : `docker login ghcr.io -u VOTRE_USERNAME_GITHUB`. |
 | Erreur de migration Prisma au démarrage | Le conteneur `db` n'était pas prêt. Exécutez `docker compose restart api` pour relancer la migration. |
 | Création de compte ou connexion qui échoue avec « erreur inattendue » (ou « adresse non autorisée ») quand vous ouvrez Glou par son IP, ex. `http://192.168.1.20:3000`, sans rien dans les logs de `api` ni de `web` | L'API refuse les requêtes qui modifient des données depuis une adresse inconnue. Renseignez `APP_URL` dans `.env` avec l'adresse exacte saisie dans le navigateur (ex. `http://192.168.1.20:3000`), puis recréez le conteneur `api`. Plusieurs adresses : listez-les dans `CSRF_TRUSTED_ORIGINS`, séparées par des virgules. Le log de `api` affiche alors une ligne `[csrf] Rejected ...` quand cela se produit. |
-| « L'inscription de nouveaux comptes est actuellement fermée sur cette instance », ou pas de lien **S'inscrire** sur la page de connexion | Attendu dès que le premier compte existe. Un admin ouvre l'inscription dans **Administration → Configuration Système → Réseau → Autoriser l'inscription de nouveaux comptes** et peut la refermer une fois la personne inscrite. |
 | « L'inscription de nouveaux comptes est actuellement fermée sur cette instance », ou pas de lien **S'inscrire** sur la page de connexion | Attendu dès que le premier compte existe. Un admin ouvre l'inscription dans **Administration → Configuration Système → Réseau → Autoriser l'inscription de nouveaux comptes** et peut la refermer une fois la personne inscrite. |
 | Besoin d'un accès `psql` ponctuel à la base | Postgres n'est volontairement pas exposé au LAN/hôte (`expose`, pas `ports`, dans `docker-compose.yml`). Utilisez `docker compose exec db psql -U glou -d glou_db` plutôt que d'ouvrir le port. |
