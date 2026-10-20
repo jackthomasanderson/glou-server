@@ -62,6 +62,22 @@ describe('backupService.restoreBackup (#232)', () => {
     expect(psql.received).toContain('CREATE TABLE t (id int);');
   });
 
+  it('strips a SET transaction_timeout line a newer pg_dump may emit (PG17+ GUC, older server predates it)', async () => {
+    writeDump(
+      'SET statement_timeout = 0;\nSET transaction_timeout = 0;\nSET lock_timeout = 0;\nCREATE TABLE t (id int);\n',
+    );
+    const done = backupService.restoreBackup(file, 'u1', '127.0.0.1');
+    await new Promise((r) => setTimeout(r, 50));
+    psql.emit('close', 0);
+    await done;
+
+    expect(psql.received).not.toContain('transaction_timeout');
+    // Everything else in the dump must survive untouched.
+    expect(psql.received).toContain('SET statement_timeout = 0;');
+    expect(psql.received).toContain('SET lock_timeout = 0;');
+    expect(psql.received).toContain('CREATE TABLE t (id int);');
+  });
+
   it('kills psql when the dump stream breaks, so no transaction is left open', async () => {
     writeDump('CREATE TABLE t (id int);\n'.repeat(2000), true);
     await expect(backupService.restoreBackup(file, 'u1', '127.0.0.1')).rejects.toThrow(/GUNZIP_FAILED/);

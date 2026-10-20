@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
+import { Transform } from 'stream';
 import { prisma } from '../lib/prisma';
 import { BackupRun } from '@prisma/client';
 import { auditLog } from './audit.service';
@@ -183,6 +184,33 @@ const RESET_SCHEMA_SQL = 'DROP SCHEMA IF EXISTS public CASCADE;\nCREATE SCHEMA p
  * settle with a clear error instead. */
 const CHILD_PROCESS_TIMEOUT_MS = 30 * 60 * 1000;
 
+// api/Dockerfile installs Alpine's rolling postgresql-client package, so
+// pg_dump can be newer than the postgres:15-alpine server it dumps from —
+// the officially supported direction. But a newer pg_dump's preamble can
+// `SET` a GUC the older server predates (e.g. `transaction_timeout`, added
+// in PostgreSQL 17): restoring would abort on it under `ON_ERROR_STOP=on`,
+// rolling back the whole single-transaction restore. Filtering such a line
+// out is safe — it's a session-scoped setting for the dump/restore session,
+// never data or schema — so a dump stays restorable across the server
+// versions this image's pg_dump may legitimately run ahead of.
+const UNSUPPORTED_RESTORE_SET_STATEMENTS = /^SET transaction_timeout\b/i;
+
+function filterUnsupportedSetStatements(): Transform {
+  let carry = '';
+  return new Transform({
+    transform(chunk: Buffer, _enc, callback) {
+      carry += chunk.toString('utf8');
+      const lines = carry.split('\n');
+      carry = lines.pop() ?? '';
+      const kept = lines.filter((line) => !UNSUPPORTED_RESTORE_SET_STATEMENTS.test(line));
+      callback(null, kept.length ? kept.join('\n') + '\n' : '');
+    },
+    flush(callback) {
+      callback(null, UNSUPPORTED_RESTORE_SET_STATEMENTS.test(carry) ? '' : carry);
+    },
+  });
+}
+
 /**
  * Restores a `.sql.gz` dump by streaming it through `zlib.createGunzip()`
  * into `psql`'s stdin — again `spawn` with array argv, no shell, password
@@ -234,12 +262,14 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
 
     const src = fs.createReadStream(srcPath);
     const gunzip = zlib.createGunzip();
+    const filter = filterUnsupportedSetStatements();
     src.on('error', (err) => fail(new Error(`READ_FAILED: ${err.message}`)));
     gunzip.on('error', (err) => fail(new Error(`GUNZIP_FAILED: ${err.message}`)));
+    filter.on('error', (err) => fail(new Error(`FILTER_FAILED: ${err.message}`)));
 
     child.stdin.on('error', () => { /* psql exited early: its exit code + stderr are reported on 'close' */ });
     child.stdin.write(RESET_SCHEMA_SQL);
-    src.pipe(gunzip).pipe(child.stdin);
+    src.pipe(gunzip).pipe(filter).pipe(child.stdin);
 
     child.on('close', (code) => {
       if (settled) return;
