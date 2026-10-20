@@ -1490,10 +1490,6 @@
       "all": "Toutes les catégories",
       "peak": "Apogée atteinte",
       "temperature": "Variations température/hygrométrie",
-      "consumption": "Consommation planifiée",
-      "shares": "Partages & invitations",
-      "permissions": "Changements de permissions",
-      "new_users": "Nouveaux utilisateurs (admin)",
       "security": "Sécurité du compte",
       "wishlist": "Opportunités tarifaires (liste de souhaits)",
       "backup": "Échec des sauvegardes (admin)"
@@ -1869,6 +1865,7 @@
     "empty": "Aucune enveloppe budgétaire définie",
     "emptyHint": "Définissez un montant pour une période afin de suivre vos dépenses.",
     "create": "Définir une enveloppe",
+    "edit": "Modifier l'enveloppe",
     "deleteTitle": "Supprimer cette enveloppe ?",
     "deleteConfirm": "Cette enveloppe budgétaire sera définitivement supprimée.",
     "errors": {

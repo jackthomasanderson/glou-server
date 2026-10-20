@@ -1488,10 +1488,6 @@
       "all": "All categories",
       "peak": "Peak maturity reached",
       "temperature": "Temperature/humidity variations",
-      "consumption": "Scheduled consumption",
-      "shares": "Shares & invitations",
-      "permissions": "Permission changes",
-      "new_users": "New users (admin)",
       "security": "Account security",
       "wishlist": "Price opportunities (wishlist)",
       "backup": "Backup failures (admin)"
@@ -1867,6 +1863,7 @@
     "empty": "No budget envelope defined",
     "emptyHint": "Define an amount for a period to track your spending.",
     "create": "Define an envelope",
+    "edit": "Edit envelope",
     "deleteTitle": "Delete this envelope?",
     "deleteConfirm": "This budget envelope will be permanently deleted.",
     "errors": {
