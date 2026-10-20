@@ -1,7 +1,7 @@
-# Search Your Cellar (Global Search Bar)
+# Search your cellar (global search bar)
 
 ## TL;DR
-The navbar search bar queries your full inventory in real time. Type any part of a name, producer, or vintage — results appear instantly.
+The navbar search bar queries your full inventory in real time. Type any part of a name, producer, or vintage.
 
 ## Prerequisites
 - Logged into your account.
@@ -9,7 +9,7 @@ The navbar search bar queries your full inventory in real time. Type any part of
 
 ## Action
 
-1. Click the search icon **🔍** in the top navigation bar.
+1. Click the search icon in the top navigation bar.
 2. Type your search term (minimum 1 character).
 3. Results appear in a dropdown panel below the bar.
 4. Click a result to open that bottle's detail view.

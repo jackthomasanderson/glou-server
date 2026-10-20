@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { authService } from '../src/services/auth.service';
 import { prisma } from '../src/lib/prisma';
-import speakeasy from 'speakeasy';
+import { authenticator } from 'otplib';
 import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 
 // ─── GitHub issue #7 ────────────────────────────────────────────────────────
 // End-to-end smoke test of the auth module's most security-critical path:
 // register → login → enable 2FA → log back in with a TOTP code.
 // Only Prisma is mocked (as a tiny in-memory store below); bcrypt, jsonwebtoken
-// and speakeasy run for real, so this actually exercises password hashing,
+// and otplib run for real, so this actually exercises password hashing,
 // token signing and TOTP verification instead of asserting against stubs.
 
 vi.mock('../src/lib/prisma', () => ({
@@ -170,7 +170,7 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
     const { secret } = await authService.generateTwoFactorSecret(store!.id);
     expect(store!.twoFactorSecret).toBe(secret);
 
-    const firstCode = speakeasy.totp({ secret, encoding: 'base32' });
+    const firstCode = authenticator.generate(secret);
     const { backupCodes } = await authService.turnOnTwoFactorAuthentication(store!.id, firstCode, deviceInfo);
     expect(store!.isTwoFactorEnabled).toBe(true);
     expect(backupCodes).toHaveLength(10);
@@ -186,7 +186,7 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
     expect(secondLogin.requires2fa).toBe(true);
 
     // 5. Complete the 2FA challenge with a fresh TOTP code.
-    const secondCode = speakeasy.totp({ secret, encoding: 'base32' });
+    const secondCode = authenticator.generate(secret);
     const finalResult = await authService.verifyTwoFactorLogin(store!.id, secondCode, false, deviceInfo);
     expect(finalResult.token).toEqual(expect.any(String));
     expect(finalResult.user.username).toBe('smoketest');

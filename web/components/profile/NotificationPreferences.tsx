@@ -1,11 +1,13 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Button, Input, Switch, Chip, Skeleton } from '@heroui/react';
+import { Button, Input, Switch, Chip, Skeleton, Select, SelectItem } from '@heroui/react';
 import { Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, NotificationPrefs } from '@/lib/config/client';
 
-const ALL_CATEGORIES = ['peak', 'temperature', 'consumption', 'shares', 'permissions', 'new_users', 'security', 'wishlist', 'backup'] as const;
+// #338: only categories with a real emitter are offered here — consumption,
+// shares, permissions and new_users have none, so ticking them did nothing.
+const ALL_CATEGORIES = ['peak', 'temperature', 'security', 'wishlist', 'backup'] as const;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export function NotificationPreferences() {
@@ -158,6 +160,7 @@ export function NotificationPreferences() {
             <button
               key={cat}
               type="button"
+              aria-pressed={prefs.notifCategories.length === 0 || prefs.notifCategories.includes(cat)}
               onClick={() => toggleCategory(cat)}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                 prefs.notifCategories.length === 0 || prefs.notifCategories.includes(cat)
@@ -177,41 +180,63 @@ export function NotificationPreferences() {
         <p className="text-xs font-semibold text-foreground-400 uppercase tracking-wide">{t('notifications.quietHours.title')}</p>
         <p className="text-xs text-foreground-500">{t('notifications.quietHours.description')}</p>
         <div className="flex items-center gap-3 flex-wrap">
-          <select
-            value={prefs.notifQuietStart != null ? String(prefs.notifQuietStart) : 'disabled'}
-            onChange={(e) => save({ notifQuietStart: e.target.value === 'disabled' ? null : parseInt(e.target.value, 10) })}
-            className="border border-default-200 rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-primary w-28"
+          <Select
+            variant="flat"
+            size="sm"
+            className="w-28"
+            selectedKeys={[prefs.notifQuietStart != null ? String(prefs.notifQuietStart) : 'disabled']}
+            onSelectionChange={(keys) => {
+              const v = Array.from(keys)[0] as string;
+              save({ notifQuietStart: v === 'disabled' ? null : parseInt(v, 10) });
+            }}
             aria-label={t('notifications.quietHours.from')}
+            disallowEmptySelection
           >
-            <option value="disabled">{t('notifications.quietHours.disabled')}</option>
-            {HOURS.map(h => <option key={h} value={String(h)}>{h}{t('notifications.quietHours.hour')}</option>)}
-          </select>
+            {[
+              <SelectItem key="disabled">{t('notifications.quietHours.disabled')}</SelectItem>,
+              ...HOURS.map(h => <SelectItem key={String(h)}>{h}{t('notifications.quietHours.hour')}</SelectItem>),
+            ]}
+          </Select>
           <span className="text-sm text-foreground-500">{t('notifications.quietHours.to').toLowerCase()}</span>
-          <select
-            value={prefs.notifQuietEnd != null ? String(prefs.notifQuietEnd) : 'disabled'}
-            onChange={(e) => save({ notifQuietEnd: e.target.value === 'disabled' ? null : parseInt(e.target.value, 10) })}
-            className="border border-default-200 rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-primary w-28"
+          <Select
+            variant="flat"
+            size="sm"
+            className="w-28"
+            selectedKeys={[prefs.notifQuietEnd != null ? String(prefs.notifQuietEnd) : 'disabled']}
+            onSelectionChange={(keys) => {
+              const v = Array.from(keys)[0] as string;
+              save({ notifQuietEnd: v === 'disabled' ? null : parseInt(v, 10) });
+            }}
             aria-label={t('notifications.quietHours.to')}
+            disallowEmptySelection
           >
-            <option value="disabled">{t('notifications.quietHours.disabled')}</option>
-            {HOURS.map(h => <option key={h} value={String(h)}>{h}{t('notifications.quietHours.hour')}</option>)}
-          </select>
+            {[
+              <SelectItem key="disabled">{t('notifications.quietHours.disabled')}</SelectItem>,
+              ...HOURS.map(h => <SelectItem key={String(h)}>{h}{t('notifications.quietHours.hour')}</SelectItem>),
+            ]}
+          </Select>
         </div>
       </div>
 
       {/* Notification language */}
       <div className="pt-4 border-t border-divider">
         <p className="text-xs font-semibold text-foreground-400 uppercase tracking-wide mb-3">{t('notifications.language.title')}</p>
-        <select
-          value={prefs.notifLanguage ?? 'UI'}
-          onChange={(e) => save({ notifLanguage: e.target.value === 'UI' ? null : e.target.value })}
-          className="border border-default-200 rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-primary w-48"
+        <Select
+          variant="flat"
+          size="sm"
+          className="w-48"
+          selectedKeys={[prefs.notifLanguage ?? 'UI']}
+          onSelectionChange={(keys) => {
+            const v = Array.from(keys)[0] as string;
+            save({ notifLanguage: v === 'UI' ? null : v });
+          }}
           aria-label={t('notifications.language.title')}
+          disallowEmptySelection
         >
-          <option value="UI">{t('notifications.language.useUI')}</option>
-          <option value="FR">Français</option>
-          <option value="EN">English</option>
-        </select>
+          <SelectItem key="UI">{t('notifications.language.useUI')}</SelectItem>
+          <SelectItem key="FR">Français</SelectItem>
+          <SelectItem key="EN">English</SelectItem>
+        </Select>
       </div>
     </div>
   );

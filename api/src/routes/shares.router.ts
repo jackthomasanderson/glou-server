@@ -21,6 +21,14 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const share = await sharesService.create(userId, validation.data);
     res.status(201).json({ data: share });
   } catch (error) {
+    if (error instanceof Error && error.message === 'INVALID_CELLAR_IDS') {
+      res.status(400).json({ error: 'INVALID_CELLAR_IDS' });
+      return;
+    }
+    if (error instanceof Error && error.message === 'INVALID_COLLECTION_IDS') {
+      res.status(400).json({ error: 'INVALID_COLLECTION_IDS' });
+      return;
+    }
     console.error('[shares] create error:', error);
     res.status(500).json({ error: 'FAILED_TO_CREATE_SHARE' });
   }

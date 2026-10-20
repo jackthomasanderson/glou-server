@@ -1,9 +1,10 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Card, CardHeader, CardBody, Progress, Skeleton, Spinner,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -38,7 +39,7 @@ function EnvelopeCard({ envelope, onDelete }: { envelope: BudgetEnvelope; onDele
           <Skeleton className="h-3 w-full rounded-full" />
         ) : (
           <>
-            <p className="text-sm text-default-500">
+            <p className="text-sm text-foreground-500">
               {t('budget.progress.label', {
                 spent: formatCurrency(progress.spent, i18n.language),
                 amount: formatCurrency(envelope.amount, i18n.language),
@@ -123,11 +124,11 @@ export function BudgetPanel() {
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+        <div className="flex justify-center py-16" role="status" aria-live="polite"><Spinner size="lg" aria-label={t('status.loading')} /></div>
       ) : !envelopes?.length ? (
         <div className="flex flex-col items-center py-16 text-center">
           <Wallet size={64} className="text-foreground-400 mb-4" />
-          <p className="text-lg font-semibold text-default-500">{t('budget.empty')}</p>
+          <p className="text-lg font-semibold text-foreground-500">{t('budget.empty')}</p>
           <p className="text-sm text-foreground-500 mb-6">{t('budget.emptyHint')}</p>
           <Button color="primary" variant="solid" startContent={<Plus size={16} />} onPress={() => setFormOpen(true)}>
             {t('budget.create')}
@@ -140,7 +141,7 @@ export function BudgetPanel() {
       )}
 
       {/* Create form */}
-      <Modal isOpen={formOpen} onClose={() => setFormOpen(false)} size="md" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={formOpen} onClose={() => setFormOpen(false)} size="md" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {() => (
             <>
@@ -185,16 +186,16 @@ export function BudgetPanel() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* Delete confirm */}
-      <Modal isOpen={!!deleting} onClose={() => setDeleting(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={!!deleting} onClose={() => setDeleting(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {() => (
             <>
               <ModalHeader>{t('budget.deleteTitle')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-default-600">{t('budget.deleteConfirm')}</p>
+                <p className="text-sm text-foreground-600">{t('budget.deleteConfirm')}</p>
               </ModalBody>
               <ModalFooter>
                 <Button color="default" variant="light" onPress={() => setDeleting(null)}>{t('actions.cancel')}</Button>
@@ -205,7 +206,7 @@ export function BudgetPanel() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
   );
 }

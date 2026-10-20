@@ -55,7 +55,8 @@ function periodToDates(period: Period): { from?: string; to?: string } {
 }
 
 // World map explorer (FEAT-40/41/42) loaded client-side only — it pulls in
-// react-leaflet, which relies on browser APIs unavailable during SSR.
+// react-simple-maps, whose d3-zoom dependency touches `window`, unavailable
+// during SSR.
 const MapExplorer = dynamic(
   () => import('./MapExplorer').then((m) => m.MapExplorer),
   {
@@ -240,7 +241,7 @@ function StatCard({
       <CardBody className="p-4">
         <div className="flex justify-between items-start gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold uppercase tracking-wider text-default-500 truncate">
+            <p className="text-xs font-bold uppercase tracking-wider text-foreground-500 truncate">
               {label}
             </p>
             <p data-testid={testId} className="text-2xl sm:text-3xl font-extrabold leading-tight mt-1 break-words">{value}</p>
@@ -318,7 +319,7 @@ function CategoryBreakdown({
                   <span className="text-xs flex-1 min-w-0 truncate">
                     {t(`analytics.categories.${item.category}`)}
                   </span>
-                  <span className="text-xs font-semibold text-default-500 shrink-0">
+                  <span className="text-xs font-semibold text-foreground-500 shrink-0">
                     {item.count} {unit}
                   </span>
                 </div>
@@ -404,13 +405,13 @@ function MaturityPlanning({
             {t('analytics.maturity.season', { year: `${currentYear}/${currentYear + 4}` })}
           </Chip>
         </div>
-        <p className="text-xs text-default-500 mb-5 leading-relaxed">
+        <p className="text-xs text-foreground-500 mb-5 leading-relaxed">
           {t('analytics.maturity.description')}
         </p>
         {rows.map((row) => (
           <div key={row.label} className="mb-4">
             <div className="flex justify-between mb-1">
-              <span className="text-xs text-default-500">{row.label}</span>
+              <span className="text-xs text-foreground-500">{row.label}</span>
               <span className="text-xs font-semibold">
                 {t('analytics.maturity.countLabel', { count: row.count, percent: row.percent })}
               </span>
@@ -423,7 +424,7 @@ function MaturityPlanning({
             <ShieldCheck size={16} className="text-primary mt-0.5 shrink-0" />
             <div>
               <p className="text-xs font-bold">{t('analytics.maturity.humidorTip')}</p>
-              <p className="text-xs text-default-500 mt-0.5">
+              <p className="text-xs text-foreground-500 mt-0.5">
                 {t('analytics.maturity.humidorTipText')}
               </p>
             </div>
@@ -505,7 +506,7 @@ function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => 
           <div key={cave.cellarId} className="mb-4">
             <div className="flex justify-between mb-1">
               <span className="text-xs font-semibold truncate">{cave.cellarName}</span>
-              <span className="text-xs text-default-500 shrink-0 ml-2">
+              <span className="text-xs text-foreground-500 shrink-0 ml-2">
                 {cave.count} — {fmtCurrency(cave.valuation)}
               </span>
             </div>
@@ -525,7 +526,11 @@ export function AnalyticsDashboard() {
   const { from, to } = periodToDates(period);
   const { data, isLoading, isError, refetch, isRefetching } = useAnalytics(from, to);
 
-  const handlePrint = useCallback(() => window.print(), []);
+  // Defer to the next frame so the click handler returns before the
+  // (synchronous, blocking) print layout pass starts (#421).
+  const handlePrint = useCallback(() => {
+    requestAnimationFrame(() => window.print());
+  }, []);
 
   if (isError) {
     return (
@@ -562,7 +567,7 @@ export function AnalyticsDashboard() {
               <BarChart3 size={20} className="text-primary" />
               <div>
                 <h1 data-testid="analytics-page-title" className="text-lg font-bold">{t('analytics.pageTitle')}</h1>
-                <p className="text-xs text-default-500">{t('analytics.pageSubtitle')}</p>
+                <p className="text-xs text-foreground-500">{t('analytics.pageSubtitle')}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -699,8 +704,10 @@ export function AnalyticsDashboard() {
         />
       )}
 
-      {/* World heatmap */}
-      <Card className="border border-default-200" shadow="none">
+      {/* World heatmap — the interactive Leaflet map is hidden in print: its
+          transformed tile layers froze the tab during print layout (#421);
+          the region cards below carry the same data. */}
+      <Card className="border border-default-200 print:hidden" shadow="none">
         <CardBody className="p-5">
           <div className="flex items-center gap-2 mb-4">
             <MapPin size={18} className="text-primary" />

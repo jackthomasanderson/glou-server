@@ -1,8 +1,10 @@
 import { BottleCategory, Prisma } from '@prisma/client';
-import { prisma } from '../lib/prisma';
+import { prisma, PrismaTransactionClient } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
 import { InventoryInput } from '../schemas/inventory.schema';
+import { FINISHED_ITEM_STATE } from '../lib/finished-item';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 /**
  * FEAT-12: Inventaire Physique Assisté & Réconciliation.
@@ -300,7 +302,9 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
   const [theoretical, entries] = await Promise.all([
     session.cellarId
       ? prisma.inventoryItem.findMany({
-          where: { cellarId: session.cellarId, deletedAt: null },
+          // FEAT-87: a reference is not on any shelf, so it is never part
+          // of what a count session has to find.
+          where: { cellarId: session.cellarId, deletedAt: null, ...OWNED_ITEM_FILTER },
           select: REPORT_ITEM_SELECT,
           orderBy: { name: 'asc' },
         })
@@ -391,6 +395,7 @@ function toInventoryInputForFound(
     name: entry.newItemName,
     producer: '',
     tags: [] as string[],
+    isOwned: true,
     isOpened: false,
     alertStatus: 'none' as const,
     cellarId,
@@ -431,7 +436,7 @@ function toInventoryInputForFound(
  * which is a normal race in a shared inventory, not a data-integrity risk).
  */
 async function applyCorrectionsInternal(
-  tx: Prisma.TransactionClient,
+  tx: PrismaTransactionClient,
   session: { id: string; cellarId: string | null },
   corrections: CorrectionInput[],
   actingUserId: string,
@@ -489,7 +494,7 @@ async function applyCorrectionsInternal(
       // subsequent count (ISSUE_034).
       await tx.inventoryItem.update({
         where: { id: item.id },
-        data: { isOpened: true, fillLevel: 0, updatedAt: new Date(), updatedBy: actingUserId },
+        data: { ...FINISHED_ITEM_STATE, updatedAt: new Date(), updatedBy: actingUserId },
       });
       appliedCount++;
       continue;

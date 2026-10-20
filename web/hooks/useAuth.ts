@@ -11,6 +11,7 @@ export interface PublicUser {
   avatarUrl: string | null;
   appName: string | null;
   appSlogan: string | null;
+  displayName: string | null;
   theme: 'LIGHT' | 'DARK';
   language: 'FR' | 'EN';
   tempUnit: 'CELSIUS' | 'FAHRENHEIT';
@@ -28,6 +29,8 @@ export interface PublicUser {
   autoLockDelayMin?: number | null;
   // FEAT-56: Setup Wizard d'Onboarding — null while not completed/skipped yet
   onboardingCompletedAt?: string | null;
+  // #336: set by an administrator's no-SMTP password reset.
+  mustChangePassword: boolean;
 }
 
 const ME_KEY = ['auth', 'me'];
@@ -63,14 +66,16 @@ export function useMe() {
   return useQuery<PublicUser | null>({
     queryKey: ME_KEY,
     queryFn: async () => {
-      try {
-        return await apiFetch<PublicUser>('/api/user/me');
-      } catch {
-        return null;
-      }
+      // Only "the server answered: not authenticated" means "no user".
+      // Network failures and 5xx errors must propagate so the guard does not
+      // bounce a signed-in member to /login during a brief outage (#341).
+      const res = await fetch('/api/user/me', { credentials: 'include' });
+      if (res.status === 401 || res.status === 403) return null;
+      if (!res.ok) throw new Error(`ME_REQUEST_FAILED_${res.status}`);
+      const json = (await res.json()) as { data?: PublicUser };
+      return json.data as PublicUser;
     },
     staleTime: Infinity,
-    retry: false,
   });
 }
 
@@ -434,5 +439,6 @@ export function useCompleteOnboarding() {
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
+    onError: () => notifyError('toast.onboarding.completeError'),
   });
 }

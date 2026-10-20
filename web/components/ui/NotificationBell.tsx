@@ -1,15 +1,16 @@
 'use client';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Button, Badge, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection, Chip, Tooltip,
 } from '@heroui/react';
-import { Bell, BellOff } from 'lucide-react';
+import { Bell, BellOff, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useInventory } from '@/hooks/useInventory';
+import { useInventory, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useAlerts, useToggleAlertPause } from '@/hooks/useAlerts';
+import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { AlertBottle } from '@/lib/alerts/client';
 
 const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'> = {
@@ -24,9 +25,16 @@ type NotificationEntry = AlertEntry | ReminderEntry;
 
 export function NotificationBell() {
   const { t } = useTranslation();
-  const { data: items } = useInventory();
+  // #380: the badge count comes from the lightweight /stats/counts endpoint
+  // (already mounted app-wide for the sidebar); the full inventory — up to
+  // 2000 items — is only fetched once the dropdown is actually opened, to
+  // build the detailed reminder list below.
+  const [isOpen, setIsOpen] = useState(false);
+  const { data: sidebarCounts } = useSidebarCounts();
+  const { data: items } = useInventory({ enabled: isOpen });
   const { data: apogeeAlerts } = useAlerts();
   const togglePause = useToggleAlertPause();
+  const updateItem = useUpdateInventoryItem();
   const router = useRouter();
   const hasMounted = useHasMounted();
 
@@ -41,7 +49,10 @@ export function NotificationBell() {
     return apogeeAlerts;
   }, [apogeeAlerts, hasMounted]);
 
-  const count = reminderItems.length + alertItems.length;
+  // Badge: cheap count + lean alerts endpoint. Dropdown content (entries
+  // below): the detailed reminder list once it has actually been fetched.
+  const badgeCount = (sidebarCounts?.remindersToday ?? 0) + alertItems.length;
+  const count = isOpen ? reminderItems.length + alertItems.length : badgeCount;
 
   const entries: NotificationEntry[] = useMemo(() => [
     ...alertItems.slice(0, 5).map((a): AlertEntry => ({ kind: 'alert', id: `apogee-${a.id}`, alert: a })),
@@ -60,7 +71,7 @@ export function NotificationBell() {
   }
 
   return (
-    <Dropdown placement="bottom-end">
+    <Dropdown placement="bottom-end" onOpenChange={setIsOpen}>
       <DropdownTrigger>
         <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')} className="overflow-visible">
           {count > 0 ? (
@@ -80,7 +91,7 @@ export function NotificationBell() {
         {count === 0 ? (
           <DropdownSection>
             <DropdownItem key="empty" isDisabled>
-              <span className="text-foreground-500 text-sm">{t('inventory.noNotifications', 'Aucune notification')}</span>
+              <span className="text-foreground-500 text-sm">{t('inventory.noNotifications')}</span>
             </DropdownItem>
           </DropdownSection>
         ) : (
@@ -117,6 +128,18 @@ export function NotificationBell() {
                 startContent={<Bell size={14} className="text-danger" />}
                 description={entry.item.producer}
                 onPress={handleViewAll}
+                endContent={
+                  <Tooltip content={t('inventory.alerts.reminderDone')} delay={500}>
+                    <Button
+                      isIconOnly size="sm" variant="light" color="success"
+                      onClick={(e) => { e.stopPropagation(); updateItem.mutate({ id: entry.item.id, patch: { reminderDate: null } }); }}
+                      isDisabled={updateItem.isPending}
+                      aria-label={t('inventory.alerts.reminderDone')}
+                    >
+                      <Check size={14} />
+                    </Button>
+                  </Tooltip>
+                }
               >
                 <span className="text-sm font-semibold">{entry.item.name}</span>
               </DropdownItem>

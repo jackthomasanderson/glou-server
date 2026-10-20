@@ -1,20 +1,28 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { SignOptions } from 'jsonwebtoken';
-import speakeasy from 'speakeasy';
+import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { prisma } from '../lib/prisma';
+import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
 import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.schema';
-import { Theme, Language, TempUnit, DateFormat, Prisma, PrismaClient } from '@prisma/client';
+import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 import { describeDevice, locateIp, countryOfIp, type DeviceDescription } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
 import { auditLog } from './audit.service';
 import { isCookieSecure } from '../lib/cookie-secure';
+
+// ISSUE_090: speakeasy was abandoned in 2016; otplib is actively maintained
+// and implements the same RFC 6238 TOTP algorithm (SHA1, 30s step, 6
+// digits), so existing users' stored base32 secrets keep validating
+// unchanged. `window: 1` matches speakeasy's prior per-call `window: 1`
+// (one 30s step of drift tolerated before and after) across every
+// verification site in this file.
+authenticator.options = { window: 1 };
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -90,6 +98,7 @@ export interface PublicUser {
   avatarUrl: string | null;
   appName: string | null;
   appSlogan: string | null;
+  displayName: string | null;
   theme: Theme;
   language: Language;
   tempUnit: TempUnit;
@@ -107,6 +116,9 @@ export interface PublicUser {
   // FEAT-56: Setup Wizard d'Onboarding — null while the wizard hasn't been
   // completed or skipped yet.
   onboardingCompletedAt: Date | null;
+  // #336: set by an administrator's no-SMTP password reset; the frontend
+  // blocks the app behind a mandatory password-change screen while true.
+  mustChangePassword: boolean;
 }
 
 /** Shape shared by every Prisma User read used to build a PublicUser (FEAT-30 added pinHash/autoLockDelayMin). */
@@ -117,6 +129,7 @@ interface RawUserForPublic {
   avatarUrl: string | null;
   appName: string | null;
   appSlogan: string | null;
+  displayName: string | null;
   theme: Theme;
   language: Language;
   tempUnit: TempUnit;
@@ -129,6 +142,7 @@ interface RawUserForPublic {
   pinHash: string | null;
   autoLockDelayMin: number | null;
   onboardingCompletedAt: Date | null;
+  mustChangePassword: boolean;
 }
 
 function signToken(payload: AuthPayload, expiresIn: SignOptions['expiresIn'] = JWT_EXPIRES_IN): string {
@@ -190,6 +204,7 @@ export class AuthService {
       avatarUrl: user.avatarUrl,
       appName: user.appName,
       appSlogan: user.appSlogan,
+      displayName: user.displayName,
       theme: user.theme,
       language: user.language,
       tempUnit: user.tempUnit,
@@ -202,6 +217,7 @@ export class AuthService {
       hasPin: !!user.pinHash,
       autoLockDelayMin: user.autoLockDelayMin,
       onboardingCompletedAt: user.onboardingCompletedAt,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 
@@ -406,6 +422,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -418,6 +435,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       },
     });
     const user = this.toPublicUser(rawUser);
@@ -509,6 +527,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -521,6 +540,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       },
     });
     return user ? this.toPublicUser(user) : null;
@@ -540,7 +560,10 @@ export class AuthService {
 
     const user = await prisma.user.update({
       where: { id: userId },
-      data,
+      data: {
+        ...data,
+        displayName: data.displayName === undefined ? undefined : data.displayName?.trim() || null,
+      },
       select: {
         id: true,
         username: true,
@@ -548,6 +571,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -560,6 +584,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       },
     });
     return this.toPublicUser(user);
@@ -629,6 +654,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -641,6 +667,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       }
     });
 
@@ -663,7 +690,9 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(newPass, BCRYPT_ROUNDS);
     await prisma.user.update({
       where: { id: userId },
-      data: { passwordHash }
+      // #336: a real password choice through this flow always clears the
+      // admin-reset flag, whether or not it was set.
+      data: { passwordHash, mustChangePassword: false }
     });
 
     this.notifySecurityEvent(userId, 'passwordChanged', deviceInfo);
@@ -671,6 +700,38 @@ export class AuthService {
     await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown');
     // ISSUE_044: neither must a trusted device, which skips the 2FA challenge.
     await this.revokeAllTrustedDevices(userId);
+  }
+
+  /**
+   * #336: lets an administrator recover a member's account without SMTP —
+   * the only recourse used to be a direct database edit. Returns the
+   * temporary password in the clear; the caller (admin router) must show it
+   * exactly once and never persist or log it. The member is forced to pick a
+   * real password on next login (`mustChangePassword`, cleared by the
+   * existing `updatePassword` flow), and every existing session/trusted
+   * device is revoked — the same security posture as a self-service reset
+   * (password-reset.service.ts#resetPassword).
+   */
+  async adminResetPassword(userId: string, adminUserId: string, deviceInfo: DeviceInfo = {}): Promise<string> {
+    const tempPassword = crypto.randomBytes(9).toString('base64url'); // 12 URL-safe chars
+    const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+    const now = new Date();
+
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: userId }, data: { passwordHash, mustChangePassword: true } }),
+      prisma.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
+      prisma.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
+    ]);
+
+    void auditLog({
+      userId: adminUserId,
+      action: 'SESSION_REVOKE',
+      status: 'success',
+      ip: deviceInfo.ip ?? 'unknown',
+      details: { reason: 'admin_password_reset', targetUserId: userId },
+    });
+
+    return tempPassword;
   }
 
   /**
@@ -687,6 +748,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -699,6 +761,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       },
     });
     return this.toPublicUser(user);
@@ -755,12 +818,7 @@ export class AuthService {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (user.isTwoFactorEnabled) throw new Error('2FA_ALREADY_ENABLED');
 
-    const secret = speakeasy.generateSecret({
-      name: `Glou (${user.username})`,
-      length: 20
-    });
-
-    const base32secret = secret.base32;
+    const base32secret = authenticator.generateSecret();
 
     await prisma.user.update({
       where: { id: userId },
@@ -768,12 +826,7 @@ export class AuthService {
     });
 
     // Make sure the qr code and the text secret are perfectly aligned
-    const otpauthUrl = speakeasy.otpauthURL({
-      secret: base32secret,
-      label: `Glou (${user.username})`,
-      algorithm: 'sha1',
-      encoding: 'base32'
-    });
+    const otpauthUrl = authenticator.keyuri(user.username, 'Glou', base32secret);
 
     const qrCodeUrl = await qrcode.toDataURL(otpauthUrl);
     return { qrCodeUrl, secret: base32secret };
@@ -784,11 +837,9 @@ export class AuthService {
     if (user.isTwoFactorEnabled) throw new Error('2FA_ALREADY_ENABLED');
     if (!user.twoFactorSecret) throw new Error('2FA_SECRET_NOT_GENERATED');
 
-    const isCodeValid = speakeasy.totp.verify({
-      secret: user.twoFactorSecret,
-      encoding: 'base32',
+    const isCodeValid = authenticator.verify({
       token: code,
-      window: 1 // Allow 30 seconds drift before and after
+      secret: user.twoFactorSecret,
     });
 
     if (!isCodeValid) throw new Error('INVALID_TOTP_CODE');
@@ -825,11 +876,9 @@ export class AuthService {
     let validCode = false;
 
     if (code && code.length === 6 && user.twoFactorSecret) {
-      validCode = speakeasy.totp.verify({
-        secret: user.twoFactorSecret,
-        encoding: 'base32',
+      validCode = authenticator.verify({
         token: code,
-        window: 1
+        secret: user.twoFactorSecret,
       });
     } else if (code && code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
       // Check backup codes
@@ -1018,7 +1067,7 @@ export class AuthService {
    */
   async purgeDueAccountDeletions(
     cutoff: Date,
-    client: Prisma.TransactionClient | PrismaClient = prisma,
+    client: PrismaClientOrTx = prisma,
   ): Promise<{ count: number; avatarPaths: string[] }> {
     const due = await client.user.findMany({
       where: { deletionRequestedAt: { not: null, lt: cutoff }, isActive: true },
@@ -1101,6 +1150,7 @@ export class AuthService {
         avatarUrl: true,
         appName: true,
         appSlogan: true,
+        displayName: true,
         theme: true,
         language: true,
         tempUnit: true,
@@ -1113,6 +1163,7 @@ export class AuthService {
         pinHash: true,
         autoLockDelayMin: true,
         onboardingCompletedAt: true,
+        mustChangePassword: true,
       },
     });
     return this.toPublicUser(user);
@@ -1172,11 +1223,9 @@ export class AuthService {
     let usedBackupCodeHash: string | null = null;
 
     if (code.length === 6 && user.twoFactorSecret) {
-      validCode = speakeasy.totp.verify({
-        secret: user.twoFactorSecret,
-        encoding: 'base32',
+      validCode = authenticator.verify({
         token: code,
-        window: 1
+        secret: user.twoFactorSecret,
       });
     } else if (code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
       for (const hashedCode of user.backupCodes) {
@@ -1284,11 +1333,9 @@ export class AuthService {
     if (user.isTwoFactorEnabled) {
       let validCode = false;
       if (code && code.length === 6 && user.twoFactorSecret) {
-        validCode = speakeasy.totp.verify({
-          secret: user.twoFactorSecret,
-          encoding: 'base32',
+        validCode = authenticator.verify({
           token: code,
-          window: 1,
+          secret: user.twoFactorSecret,
         });
       } else if (code && code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
         for (const hashedCode of user.backupCodes) {

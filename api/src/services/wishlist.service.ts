@@ -133,6 +133,7 @@ export async function convertToInventory(userId: string, id: string, additionalF
     name: wish.name,
     producer: wish.producer ?? '',
     tags: [],
+    isOwned: true,
     isOpened: false,
     alertStatus: 'none' as const,
     purchasePrice: additionalFields.purchasePrice ?? wish.lastSeenPrice ?? undefined,

@@ -1,12 +1,12 @@
-# Gérer mes Caves à vin
+# Gérer mes caves à vin
 
-**TL;DR** : Organisez vos bouteilles par zones de stockage (vieillissement, service, vitrine) pour un inventaire précis et localisé.
+**TL;DR** : Organisez vos bouteilles par zone de stockage (vieillissement, service, vitrine).
 
 ## Prérequis
 - Avoir un compte utilisateur actif.
 - Être connecté à l'application.
 
-## Étapes de Gestion
+## Étapes de gestion
 
 1. **Accéder à l'onglet Caves** : Cliquez sur "Caves" dans la barre de navigation supérieure.
 2. **Créer une cave** :
@@ -18,14 +18,18 @@
    - Rendez-vous sur la page "Bouteilles".
    - Ajoutez ou modifiez une bouteille.
    - Sélectionnez la cave de destination dans le menu déroulant "Caves".
-4. **Modifier ou Supprimer** : Utilisez les icônes crayon (éditer) ou poubelle (supprimer) sur chaque carte de cave.
+4. **Modifier ou supprimer** : Utilisez les icônes crayon (éditer) ou poubelle (supprimer) sur chaque carte de cave.
 
-## Suivi Hygrométrique (Cave Humidor)
+### Déplacer des bouteilles dans la grille, à la souris ou au clavier
+- **Souris ou tactile** : glissez une bouteille sur un emplacement vide.
+- **Clavier** : placez le focus sur un emplacement, puis `Entrée` ouvre le détail de la bouteille et `Espace` la saisit. Déplacez-la avec les flèches, une case à la fois, puis rappuyez sur `Espace` pour la déposer. `Échap` annule. Chaque étape est annoncée aux lecteurs d'écran.
+
+## Suivi hygrométrique (cave Humidor)
 
 **TL;DR** : Pour une cave de type "Humidor", saisissez manuellement vos relevés d'humidité pour suivre l'historique et être alerté si la dernière mesure sort de votre plage cible.
 
 ### Prérequis
-- [Mode Expert](./27-Mode-Expert.md) activé sur votre profil — le type de cave "Humidor" et son panneau de monitoring ne sont visibles qu'à cette condition.
+- [Mode Expert](./27-Mode-Expert.md) activé sur votre profil. Le type de cave "Humidor" et son panneau de monitoring ne sont visibles que s'il est actif.
 
 ### Action
 
@@ -40,11 +44,11 @@
 > Si le dernier relevé sort de la plage cible, une notification est envoyée dans la catégorie "Variations température/hygrométrie" (réglable dans Profil > Notifications), en plus du badge "Hors plage" sur le panneau.
 
 > [!CAUTION]
-> **Aucun capteur physique n'est supporté.** Il n'existe à ce jour aucune intégration MQTT, webhook ou sonde connectée : chaque relevé doit être saisi manuellement, un par un, par un utilisateur. Le champ technique `source` d'un relevé peut valoir `manual` (tous les relevés créés depuis l'interface) ou `sensor` (réservé pour un futur pont matériel — non développé). Si vous cherchez à brancher une sonde d'humidor pour un relevé automatique, cette fonctionnalité n'existe pas dans l'application.
+> **Aucun capteur physique n'est supporté.** Il n'existe à ce jour aucune intégration MQTT, webhook ou sonde connectée : chaque relevé doit être saisi manuellement, un par un, par un utilisateur. Le champ technique `source` d'un relevé peut valoir `manual` (tous les relevés créés depuis l'interface) ou `sensor` (réservé à un futur pont matériel, non développé). Le relevé automatique par sonde d'humidor n'existe pas dans l'application.
 
 ## Dépannage (Troubleshooting)
 
-| Problème | Cause Probable | Résolution |
+| Problème | Cause probable | Résolution |
 | :--- | :--- | :--- |
 | Ma cave n'apparaît pas dans la liste des bouteilles | Synchronisation de session | Rafraîchissez la page (F5). |
 | Je ne peux pas supprimer une cave | Erreur de connexion | Vérifiez que vous êtes toujours connecté. La suppression d'une cave n'efface pas les bouteilles (elles deviennent "orphelines"). |
@@ -56,4 +60,4 @@
 | J'attends qu'une sonde connectée envoie ses relevés automatiquement, rien ne se passe | Aucun support de sonde physique/MQTT n'existe dans l'application | Saisissez les relevés manuellement. Voir l'encadré ci-dessus. |
 
 > [!TIP]
-> Utilisez des noms explicites pour vos caves (ex: "Milli60 - Zone Basse") pour retrouver vos bouteilles plus rapidement sur mobile.
+> Des noms de caves explicites (ex: "Milli60 - Zone Basse") facilitent la recherche des bouteilles sur mobile.

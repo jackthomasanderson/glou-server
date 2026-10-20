@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Select, SelectItem } from '@heroui/react';
+import { Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter, Select, SelectItem } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Lock } from 'lucide-react';
 import { PublicUser, useUpdateEmail, useUpdatePassword, useUpdatePreferences, useSetPin, useRemovePin } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
@@ -211,7 +212,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
       </div>
 
       {/* Email Modal */}
-      <Modal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={isEmailModalOpen} onClose={() => setIsEmailModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {(onClose) => (
             <>
@@ -262,10 +263,10 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* Password Modal */}
-      <Modal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {(onClose) => (
             <>
@@ -316,10 +317,10 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* PIN Modal (FEAT-30) */}
-      <Modal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {(onClose) => (
             <>
@@ -373,10 +374,10 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* Remove PIN Modal (FEAT-30) */}
-      <Modal isOpen={isRemovePinModalOpen} onClose={() => setIsRemovePinModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={isRemovePinModalOpen} onClose={() => setIsRemovePinModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {(onClose) => (
             <>
@@ -414,7 +415,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
   );
 }

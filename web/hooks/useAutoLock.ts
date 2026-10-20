@@ -1,6 +1,7 @@
 'use client';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useMe, useUnlock } from './useAuth';
+import { safeReadStorage, safeRemoveStorage, safeWriteStorage } from '@/lib/safe-storage';
 
 // FEAT-30: Quick Lock & Auto-Lock — purely client-side. `isLocked` only hides
 // the UI behind a LockScreen; the session/JWT stays valid the whole time.
@@ -14,12 +15,12 @@ const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll'] as const;
 
 function readStoredLock(): boolean {
   if (typeof window === 'undefined') return false;
-  return sessionStorage.getItem(LOCK_STORAGE_KEY) === 'true';
+  return safeReadStorage(sessionStorage, LOCK_STORAGE_KEY) === 'true';
 }
 
 function readStoredActivity(): number {
   if (typeof window === 'undefined') return Date.now();
-  const raw = sessionStorage.getItem(ACTIVITY_STORAGE_KEY);
+  const raw = safeReadStorage(sessionStorage, ACTIVITY_STORAGE_KEY);
   const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) ? parsed : Date.now();
 }
@@ -49,9 +50,9 @@ function useAutoLockState(): AutoLockState {
     setIsLockedState(locked);
     if (typeof window === 'undefined') return;
     if (locked) {
-      sessionStorage.setItem(LOCK_STORAGE_KEY, 'true');
+      safeWriteStorage(sessionStorage, LOCK_STORAGE_KEY, 'true');
     } else {
-      sessionStorage.removeItem(LOCK_STORAGE_KEY);
+      safeRemoveStorage(sessionStorage, LOCK_STORAGE_KEY);
     }
   }, []);
 
@@ -67,7 +68,7 @@ function useAutoLockState(): AutoLockState {
       if (result.ok) {
         const now = Date.now();
         lastActivityRef.current = now;
-        if (typeof window !== 'undefined') sessionStorage.setItem(ACTIVITY_STORAGE_KEY, String(now));
+        if (typeof window !== 'undefined') safeWriteStorage(sessionStorage, ACTIVITY_STORAGE_KEY, String(now));
         setLocked(false);
       }
       return result.ok;
@@ -84,7 +85,7 @@ function useAutoLockState(): AutoLockState {
       if (now - lastThrottledWriteRef.current < ACTIVITY_THROTTLE_MS) return;
       lastThrottledWriteRef.current = now;
       lastActivityRef.current = now;
-      sessionStorage.setItem(ACTIVITY_STORAGE_KEY, String(now));
+      safeWriteStorage(sessionStorage, ACTIVITY_STORAGE_KEY, String(now));
     };
 
     ACTIVITY_EVENTS.forEach((evt) => window.addEventListener(evt, handleActivity, { passive: true }));

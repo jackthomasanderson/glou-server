@@ -15,6 +15,10 @@ model User {
   username     String     @unique
   email        String     @unique
   passwordHash String
+  // #336: set when an administrator resets a member's password without
+  // email (no SMTP on the instance) — forces a real password choice on the
+  // next successful login, via the existing PATCH /api/user/password flow.
+  mustChangePassword Boolean @default(false)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -189,9 +193,9 @@ model InventoryItem {
   tags           String[]       @default([])
   photoUrl       String?
   notes          String?
-  purchasePrice  Float?
+  purchasePrice  Decimal? @db.Decimal(12, 2)
   purchasePlace  String?
-  estimatedValue Float?
+  estimatedValue Decimal? @db.Decimal(12, 2)
 
   // Contextual — Wine & Sparkling
   vintage        Int? // millésime, null = sans année
@@ -262,6 +266,13 @@ model InventoryItem {
   consumptionPostponedUntil DateTime?
 
   // Cross-cutting fields
+  // FEAT-87: false = non-owned reference — an item described without being
+  // possessed (a wine tasted elsewhere, a producer's range tracked without
+  // buying it). A reference is excluded from valuation, counters, alerts,
+  // consumption suggestions, inventory counts and the guest showcase, but
+  // stays a valid tasting target. Default true: every pre-existing item is
+  // owned, and the ordinary "add a bottle" path is unchanged.
+  isOwned      Boolean   @default(true)
   isOpened     Boolean   @default(false)
   fillLevel    Int?      // 0-100 (%)
   openedAt     DateTime?
@@ -277,9 +288,8 @@ model InventoryItem {
   updatedBy    String?   // userId of the last editor (null = no edits yet)
 
   // Integrity
-  lockedFields String[]  @default([]) // User-locked fields, not overwritten by auto-enrichment
-  fieldSources Json?     // Per-field source tag ({ [field]: 'manual'|'ocr'|'import_csv'|'enrichment' }); absent field = implicit 'manual' (FEAT-05)
-  syncedAt     DateTime? // Last third-party sync timestamp
+  lockedFields String[]  @default([]) // User-locked fields, not overwritten by a later automated update (OCR scan)
+  fieldSources Json?     // Per-field source tag ({ [field]: 'manual'|'ocr'|'import_csv' }); absent field = implicit 'manual' (FEAT-05)
 
   // Soft-delete
   deletedAt DateTime?
@@ -761,8 +771,8 @@ model WishlistItem {
   category       BottleCategory
   vintage        Int?
   targetQuantity Int            @default(1)
-  maxPrice       Float?
-  lastSeenPrice  Float?
+  maxPrice       Decimal? @db.Decimal(12, 2)
+  lastSeenPrice  Decimal? @db.Decimal(12, 2)
   lastSeenAt     DateTime?
   status         WishlistStatus @default(active)
   acquiredItemId String? // link to the InventoryItem created on conversion, if any
@@ -782,7 +792,7 @@ model BudgetEnvelope {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   periodStart DateTime
   periodEnd   DateTime
-  amount      Float
+  amount      Decimal  @db.Decimal(12, 2)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

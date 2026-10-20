@@ -1,10 +1,11 @@
 'use client';
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useId, useRef, useState, useMemo } from 'react';
 import { Input, Chip } from '@heroui/react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
 import { useConnectivity } from '@/hooks/useConnectivity';
+import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { client } from '@/lib/api';
 
 interface Props {
@@ -14,13 +15,15 @@ interface Props {
   label: string;
   placeholder?: string;
   required?: boolean;
+  isInvalid?: boolean;
 }
 
-export function ProducerAutocomplete({ value, onChange, category, label, placeholder, required }: Props) {
+export function ProducerAutocomplete({ value, onChange, category, label, placeholder, required, isInvalid }: Props) {
   const { t, i18n } = useTranslation();
   const isOnline = useConnectivity();
   const { data: inventoryItems } = useInventory();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listId = useId();
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [externalProducers, setExternalProducers] = useState<string[]>([]);
@@ -87,9 +90,13 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
     setExternalProducers([]);
   };
 
-  const handleBlur = () => {
-    setTimeout(() => setIsOpen(false), 150);
-  };
+  const keys = useComboboxKeys(options, {
+    isOpen,
+    open: () => setIsOpen(true),
+    dismiss: () => setIsOpen(false),
+    pick: (o) => handleSelect(o.label),
+  });
+  const expanded = isOpen && options.length > 0;
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -97,28 +104,43 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
         data-testid="inventory-producer-input"
         fullWidth
         isRequired={required}
+        isInvalid={isInvalid}
+        errorMessage={isInvalid ? t('inventory.validation.required') : undefined}
         size="sm"
         label={label}
         placeholder={placeholder}
         value={value}
-        onValueChange={handleInputChange}
+        role="combobox"
+        aria-expanded={expanded}
+        aria-controls={listId}
+        aria-autocomplete="list"
+        aria-haspopup="listbox"
+        aria-activedescendant={expanded && keys.activeIndex >= 0 ? optionDomId(listId, keys.activeIndex) : undefined}
+        onValueChange={(v) => { handleInputChange(v); keys.resetActive(); }}
         onFocus={() => { if (value.trim()) setIsOpen(true); }}
-        onBlur={handleBlur}
+        // Rows never take focus (aria-activedescendant): a blur means the user left.
+        onBlur={() => { setIsOpen(false); keys.resetActive(); }}
+        onKeyDown={keys.onKeyDown}
         endContent={
           loadingExternal ? <Loader2 size={14} className="animate-spin text-foreground-500" /> : undefined
         }
       />
 
-      {isOpen && options.length > 0 && (
+      {expanded && (
         <div
           className="absolute z-[1500] left-0 top-full mt-1 w-full bg-background border border-default-200 rounded-xl shadow-xl overflow-hidden"
         >
-          <ul className="py-1">
+          <ul id={listId} role="listbox" aria-label={label} className="py-1">
             {options.map((opt, idx) => (
               <li
                 key={`${opt.source}-${opt.label}-${idx}`}
-                onMouseDown={() => handleSelect(opt.label)}
-                className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-default-100"
+                id={optionDomId(listId, idx)}
+                role="option"
+                aria-selected={idx === keys.activeIndex}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => handleSelect(opt.label)}
+                onMouseEnter={() => keys.setActiveIndex(idx)}
+                className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${idx === keys.activeIndex ? 'bg-default-100' : 'hover:bg-default-100'}`}
               >
                 <span className="text-sm font-semibold">{opt.label}</span>
                 <Chip

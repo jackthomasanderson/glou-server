@@ -3,7 +3,9 @@ import React from 'react';
 import { Button } from '@heroui/react';
 import { List, X } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
-import { BulkActionDialog } from './BulkActionDialog';
+import dynamic from 'next/dynamic';
+
+const BulkActionDialog = dynamic(() => import('./BulkActionDialog').then((m) => m.BulkActionDialog), { ssr: false, loading: () => null });
 
 export interface InventoryBulkToggleButtonProps {
   bulkMode: boolean;
@@ -64,7 +66,7 @@ export function InventoryBulkBar({
       {/* Bulk floating bar */}
       {bulkMode && selectedIds.size > 0 && (
         <div className="fixed bottom-[80px] md:bottom-6 left-1/2 -translate-x-1/2 z-[1200] bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">
-          <span className="font-bold text-primary">{t('bulk.selected', { count: selectedIds.size })}</span>
+          <span className="font-bold text-primary" aria-live="polite">{t('bulk.selected', { count: selectedIds.size })}</span>
           <Button color="primary" onPress={onOpenDialog}>
             {t('bulk.title')}
           </Button>

@@ -32,6 +32,9 @@ vi.mock('@heroui/react', async (importActual) => {
   };
 });
 vi.mock('@/hooks/useCellars', () => ({ useAssignSlot: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
+// ResponsiveModal (ISSUE_328) calls useIsMobile(), which reads
+// window.matchMedia — not implemented in this file's jsdom env.
+vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
 vi.mock('@/lib/api', () => ({ client: { patch: vi.fn(), post: vi.fn() } }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
 

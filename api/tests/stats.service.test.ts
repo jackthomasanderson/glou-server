@@ -24,8 +24,8 @@ const db = prisma as unknown as {
 describe('statsService.getSidebarCounts (#212)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    db.inventoryItem.count.mockImplementation(({ where }) =>
-      Promise.resolve(where.category === 'cigar' ? 4 : 10),
+    db.inventoryItem.count.mockImplementation(({ where }: { where: { category?: string; reminderDate?: unknown } }) =>
+      Promise.resolve(where.category === 'cigar' ? 4 : where.reminderDate ? 1 : 10),
     );
     db.cellar.count.mockResolvedValue(2);
     db.collection.count.mockResolvedValue(3);
@@ -36,7 +36,7 @@ describe('statsService.getSidebarCounts (#212)', () => {
   it('returns every badge in one call, excluding soft-deleted items', async () => {
     const counts = await statsService.getSidebarCounts('u1');
     expect(counts).toEqual({
-      bottles: 10, cigars: 4, cellars: 2, collections: 3, countSessionActive: false, wishlistReady: 0,
+      bottles: 10, cigars: 4, cellars: 2, collections: 3, countSessionActive: false, wishlistReady: 0, remindersToday: 1,
     });
     for (const [arg] of db.inventoryItem.count.mock.calls) expect(arg.where.deletedAt).toBeNull();
     expect(db.collection.count).toHaveBeenCalledWith({ where: { userId: 'u1' } });
@@ -54,5 +54,28 @@ describe('statsService.getSidebarCounts (#212)', () => {
       { lastSeenPrice: 20, maxPrice: 12 },
     ]);
     expect((await statsService.getSidebarCounts('u1')).wishlistReady).toBe(2);
+  });
+});
+
+// FEAT-87: the sidebar badges count what the instance holds, so a non-owned
+// reference is not a bottle in the badge.
+describe('statsService.getSidebarCounts excludes non-owned references (FEAT-87)', () => {
+  it('restricts every inventory count to owned items', async () => {
+    vi.clearAllMocks();
+    db.inventoryItem.count.mockResolvedValue(0);
+    db.cellar.count.mockResolvedValue(0);
+    db.collection.count.mockResolvedValue(0);
+    db.inventoryCountSession.findFirst.mockResolvedValue(null);
+    db.wishlistItem.findMany.mockResolvedValue([]);
+
+    await statsService.getSidebarCounts('u1');
+
+    const wheres = db.inventoryItem.count.mock.calls.map(
+      (c: unknown[]) => (c[0] as { where: Record<string, unknown> }).where,
+    );
+    expect(wheres).toHaveLength(3);
+    for (const where of wheres) {
+      expect(where).toMatchObject({ deletedAt: null, isOwned: true });
+    }
   });
 });

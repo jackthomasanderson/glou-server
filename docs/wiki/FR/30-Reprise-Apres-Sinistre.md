@@ -22,7 +22,7 @@ Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf 
 ## Reconstruire sur une nouvelle machine
 1. Installez Docker et placez votre `docker-compose.yml` et **le même `.env`** sur la nouvelle machine (en particulier la même `CONFIG_ENCRYPTION_KEY`).
 2. Démarrez la pile : `docker compose up -d`. L'API crée une base vide.
-3. Vérifiez que le fichier de sauvegarde est complet — cette commande n'affiche rien si le fichier est bon :
+3. Vérifiez que le fichier de sauvegarde est complet. Cette commande n'affiche rien si le fichier est bon :
    ```bash
    gunzip -t glou-backup-XXXX.sql.gz
    ```

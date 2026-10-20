@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
 test('add a wishlist item through the form, see it, then remove it', async ({ page }) => {
   const name = `E2E Wish ${Date.now()}`;
 
-  await page.goto('/wishlist');
+  await page.goto('/wishlist-budget');
 
   const created = page.waitForResponse(
     (r) => r.url().includes('/api/wishlist/items') && r.request().method() === 'POST',

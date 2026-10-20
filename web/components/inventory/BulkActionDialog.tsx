@@ -1,9 +1,10 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Checkbox, Chip, Divider, Input, Select, SelectItem,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Save, Trash2 } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
@@ -130,13 +131,13 @@ export function BulkActionDialog({
 
   return (
     <>
-    <Modal isOpen={open} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="center" scrollBehavior="inside">
+    <ResponsiveModal isOpen={open} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="center" scrollBehavior="inside">
       <ModalContent>
         {() => (
           <>
             <ModalHeader className="flex flex-col gap-0.5 pb-2">
               <span className="font-bold text-base">{t('bulk.title')}</span>
-              <span className="text-xs text-default-500 font-normal">{t('bulk.subtitle', { count: selectedItems.length })}</span>
+              <span className="text-xs text-foreground-500 font-normal">{t('bulk.subtitle', { count: selectedItems.length })}</span>
             </ModalHeader>
 
             <ModalBody className="gap-4 py-2">
@@ -178,7 +179,7 @@ export function BulkActionDialog({
 
               <Divider />
 
-              <p className="text-xs font-semibold text-default-600">{t('bulk.fieldsToUpdate')}</p>
+              <p className="text-xs font-semibold text-foreground-600">{t('bulk.fieldsToUpdate')}</p>
 
               <div className="flex flex-col gap-3">
                 {/* Cellar */}
@@ -333,7 +334,7 @@ export function BulkActionDialog({
                       if (!data.changed) return null;
                       return (
                         <div key={field} className="flex items-center gap-2 text-xs">
-                          <span className="font-bold min-w-[80px] text-default-700">
+                          <span className="font-bold min-w-[80px] text-foreground-700">
                             {field === 'cellarId' ? t('nav.caves') : t(`inventory.fields.${field}`)}:
                           </span>
                           <span className="line-through text-foreground-500">{data.before}</span>
@@ -393,12 +394,12 @@ export function BulkActionDialog({
           </>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
 
     {/* Delete preset confirm — was a bare click-to-delete with no
         confirmation, inconsistent with every other destructive action in
-        the app. Sibling of the main Modal, not nested inside it. */}
-    <Modal
+        the app. Sibling of the main dialog, not nested inside it. */}
+    <ResponsiveModal
       isOpen={!!deletingPresetId}
       onClose={() => setDeletingPresetId(null)}
       size="sm"
@@ -411,7 +412,7 @@ export function BulkActionDialog({
           <>
             <ModalHeader>{t('bulk.deletePreset')}</ModalHeader>
             <ModalBody>
-              <p className="text-sm text-default-600">{t('bulk.deletePresetConfirm')}</p>
+              <p className="text-sm text-foreground-600">{t('bulk.deletePresetConfirm')}</p>
             </ModalBody>
             <ModalFooter>
               <Button color="default" variant="light" onPress={() => setDeletingPresetId(null)}>
@@ -433,7 +434,7 @@ export function BulkActionDialog({
           </>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
     </>
   );
 }

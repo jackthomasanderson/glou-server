@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Chip, Tooltip } from '@heroui/react';
+import { Tooltip, Button, Select, SelectItem, Input } from '@heroui/react';
+import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Star, Info } from 'lucide-react';
 import { InventoryCategory } from '@/lib/inventory/types';
 import { MapFiltersState, MapOpenedState } from '@/lib/analytics/mapFilters';
@@ -16,12 +17,17 @@ interface MapFiltersPanelProps {
   filters: MapFiltersState;
   onChange: (next: MapFiltersState) => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
+  /** Regions present in the data, for the keyboard-accessible region select (#378). */
+  regions: string[];
+  selectedRegion: string | null;
+  onRegionChange: (region: string | null) => void;
 }
 
 const OPENED_STATES: MapOpenedState[] = ['all', 'inCellar', 'opened'];
 const RATINGS = [0, 1, 2, 3, 4, 5];
+const ALL_REGIONS_KEY = '__all__';
 
-export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) {
+export function MapFiltersPanel({ filters, onChange, t, regions, selectedRegion, onRegionChange }: MapFiltersPanelProps) {
   const toggleCategory = (cat: InventoryCategory) => {
     onChange({
       ...filters,
@@ -33,32 +39,40 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Region (keyboard equivalent to clicking a marker on the map, #378) */}
+      <div>
+        <Select
+          size="sm"
+          radius="md"
+          variant="bordered"
+          label={t('analytics.map.filters.region')}
+          selectedKeys={[selectedRegion ?? ALL_REGIONS_KEY]}
+          onSelectionChange={(keys) => {
+            const next = Array.from(keys)[0] as string | undefined;
+            onRegionChange(next && next !== ALL_REGIONS_KEY ? next : null);
+          }}
+          aria-label={t('analytics.map.filters.region')}
+        >
+          {[
+            <SelectItem key={ALL_REGIONS_KEY}>{t('analytics.map.filters.regionAny')}</SelectItem>,
+            ...regions.map((region) => <SelectItem key={region}>{region}</SelectItem>),
+          ]}
+        </Select>
+      </div>
+
       {/* Type filter (multi-select) */}
       <div>
         <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {t('analytics.map.filters.type')}
         </p>
         <div className="flex flex-wrap gap-1">
-          <Chip
-            size="sm"
-            variant={filters.categories.length === 0 ? 'solid' : 'bordered'}
-            color={filters.categories.length === 0 ? 'primary' : 'default'}
-            className="cursor-pointer text-xs"
-            onClick={() => onChange({ ...filters, categories: [] })}
-          >
+          <FilterChip selected={filters.categories.length === 0} onPress={() => onChange({ ...filters, categories: [] })}>
             {t('filters.allCategories')}
-          </Chip>
+          </FilterChip>
           {CATEGORY_ORDER.map((cat) => (
-            <Chip
-              key={cat}
-              size="sm"
-              variant={filters.categories.includes(cat) ? 'solid' : 'bordered'}
-              color={filters.categories.includes(cat) ? 'primary' : 'default'}
-              className="cursor-pointer text-xs"
-              onClick={() => toggleCategory(cat)}
-            >
+            <FilterChip key={cat} selected={filters.categories.includes(cat)} onPress={() => toggleCategory(cat)}>
               {t(`categories.${cat}`)}
-            </Chip>
+            </FilterChip>
           ))}
         </div>
       </div>
@@ -69,23 +83,29 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
           {t('analytics.map.filters.priceRange')}
         </p>
         <div className="flex gap-2">
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             min={0}
+            step={0.01}
+            inputMode="decimal"
             aria-label={t('inventory.filters.minValue')}
             placeholder={t('inventory.filters.minValue')}
             value={filters.priceMin}
             onChange={(e) => onChange({ ...filters, priceMin: e.target.value })}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             min={0}
+            step={0.01}
+            inputMode="decimal"
             aria-label={t('inventory.filters.maxValue')}
             placeholder={t('inventory.filters.maxValue')}
             value={filters.priceMax}
             onChange={(e) => onChange({ ...filters, priceMax: e.target.value })}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
         </div>
       </div>
@@ -96,21 +116,23 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
           {t('analytics.map.filters.vintageRange')}
         </p>
         <div className="flex gap-2">
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             aria-label={t('analytics.map.filters.min')}
             placeholder={t('analytics.map.filters.min')}
             value={filters.vintageMin}
             onChange={(e) => onChange({ ...filters, vintageMin: e.target.value })}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             aria-label={t('analytics.map.filters.max')}
             placeholder={t('analytics.map.filters.max')}
             value={filters.vintageMax}
             onChange={(e) => onChange({ ...filters, vintageMax: e.target.value })}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
         </div>
       </div>
@@ -122,20 +144,21 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
             {t('analytics.map.filters.rating')}
           </p>
           <Tooltip content={t('analytics.map.filters.ratingHint')} delay={500} placement="top">
-            <span tabIndex={0} role="img" aria-label={t('analytics.map.filters.ratingHint')} className="inline-flex text-foreground-400 cursor-help">
+            <Button
+              isIconOnly
+              variant="light"
+              size="sm"
+              aria-label={t('analytics.map.filters.ratingHint')}
+              className="min-w-0 w-auto h-auto text-foreground-400"
+            >
               <Info size={11} />
-            </span>
+            </Button>
           </Tooltip>
         </div>
-        <div className="flex flex-col gap-0.5">
+        <div role="radiogroup" className="flex flex-col gap-0.5">
           {RATINGS.map((r) => (
-            <div
-              key={r}
-              onClick={() => onChange({ ...filters, minRating: r })}
-              className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${filters.minRating === r ? 'bg-default-100' : 'hover:bg-default-50'}`}
-            >
-              <span className={`text-xs flex items-center gap-1 ${filters.minRating === r ? 'font-semibold' : 'font-normal'}`}>
-                {r === 0 ? (
+            <FilterOption key={r} selected={filters.minRating === r} onPress={() => onChange({ ...filters, minRating: r })}>
+              {r === 0 ? (
                   t('analytics.map.filters.ratingAny')
                 ) : (
                   <>
@@ -145,9 +168,7 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
                     <span className="ml-0.5">{t('analytics.map.filters.ratingMinLabel', { count: r })}</span>
                   </>
                 )}
-              </span>
-              {filters.minRating === r && <span className="text-xs text-primary font-bold">✓</span>}
-            </div>
+            </FilterOption>
           ))}
         </div>
       </div>
@@ -157,18 +178,11 @@ export function MapFiltersPanel({ filters, onChange, t }: MapFiltersPanelProps) 
         <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {t('analytics.map.filters.state')}
         </p>
-        <div className="flex flex-col gap-0.5">
+        <div role="radiogroup" className="flex flex-col gap-0.5">
           {OPENED_STATES.map((s) => (
-            <div
-              key={s}
-              onClick={() => onChange({ ...filters, openedState: s })}
-              className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${filters.openedState === s ? 'bg-default-100' : 'hover:bg-default-50'}`}
-            >
-              <span className={`text-xs ${filters.openedState === s ? 'font-semibold' : 'font-normal'}`}>
-                {t(`analytics.map.filters.state${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
-              </span>
-              {filters.openedState === s && <span className="text-xs text-primary font-bold">✓</span>}
-            </div>
+            <FilterOption key={s} selected={filters.openedState === s} onPress={() => onChange({ ...filters, openedState: s })}>
+              {t(`analytics.map.filters.state${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
+            </FilterOption>
           ))}
         </div>
       </div>

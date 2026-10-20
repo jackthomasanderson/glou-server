@@ -8,6 +8,8 @@ import {
   Switch,
   Checkbox,
   Spinner,
+  RadioGroup,
+  Radio,
 } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
 import { ShareFormValues } from '@/lib/shares/types';
@@ -40,9 +42,14 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
   const [inviteeName, setInviteeName] = useState('');
   const [duration, setDuration] = useState<DurationKey>('7d');
   const [customDate, setCustomDate] = useState('');
-  const [hidePrices, setHidePrices] = useState(false);
-  const [hideNotes, setHideNotes] = useState(false);
-  const [scopeMode, setScopeMode] = useState<'all' | 'cellars' | 'collections'>('all');
+  const [hidePrices, setHidePrices] = useState(true);
+  const [hideNotes, setHideNotes] = useState(true);
+  // ISSUE_046: no "all cellars" option — that used to mean sending empty
+  // cellarIds/collectionIds, which the API now rejects outright (and which
+  // was the exact "forgot to tick anything, shared the whole cellar"
+  // scenario the issue described). Sharing everything now means ticking
+  // every cellar by hand.
+  const [scopeMode, setScopeMode] = useState<'cellars' | 'collections'>('cellars');
   const [selectedCellarIds, setSelectedCellarIds] = useState<string[]>([]);
   const [writeCellarIds, setWriteCellarIds] = useState<string[]>([]);
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([]);
@@ -145,47 +152,20 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
       {/* Scope */}
       <div className="flex flex-col gap-2">
         <p className="text-xs font-medium text-foreground-600">{t('shares.fields.scope')}</p>
-        <div className="flex flex-col gap-1">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="scope"
-              value="all"
-              checked={scopeMode === 'all'}
-              onChange={() => setScopeMode('all')}
-              className="accent-primary"
-            />
-            <span className="text-sm">{t('shares.fields.allCellars')}</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="scope"
-              value="cellars"
-              checked={scopeMode === 'cellars'}
-              onChange={() => setScopeMode('cellars')}
-              className="accent-primary"
-            />
-            <span className="text-sm">{t('shares.fields.selectCellars')}</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="scope"
-              value="collections"
-              checked={scopeMode === 'collections'}
-              onChange={() => setScopeMode('collections')}
-              className="accent-primary"
-            />
-            <span className="text-sm">{t('shares.fields.selectCollections')}</span>
-          </label>
-        </div>
+        <RadioGroup
+          value={scopeMode}
+          onValueChange={(v) => setScopeMode(v as typeof scopeMode)}
+          size="sm"
+        >
+          <Radio value="cellars">{t('shares.fields.selectCellars')}</Radio>
+          <Radio value="collections">{t('shares.fields.selectCollections')}</Radio>
+        </RadioGroup>
 
         {/* Cellar picker */}
         {scopeMode === 'cellars' && (
           <div className="mt-2 flex flex-col gap-2 max-h-48 overflow-y-auto border border-divider rounded-lg p-3">
             {loadingCellars ? (
-              <Spinner size="sm" />
+              <div role="status" aria-live="polite"><Spinner size="sm" aria-label={t('status.loading')} /></div>
             ) : (
               (cellars ?? []).map((cellar) => {
                 const isSelected = selectedCellarIds.includes(cellar.id);
@@ -222,7 +202,7 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
         {scopeMode === 'collections' && (
           <div className="mt-2 flex flex-col gap-1 max-h-36 overflow-y-auto border border-divider rounded-lg p-3">
             {loadingCollections ? (
-              <Spinner size="sm" />
+              <div role="status" aria-live="polite"><Spinner size="sm" aria-label={t('status.loading')} /></div>
             ) : (
               (collections ?? []).map((col) => (
                 <Checkbox

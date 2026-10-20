@@ -37,8 +37,13 @@ test('a valid login lands in the app, and logout returns to /login', async ({ pa
 });
 
 test('the register and forgot-password pages are reachable', async ({ page }) => {
+  // Registrations are closed by default once the first account exists (#73),
+  // so the login page replaces the signup link with a hint (#350).
   await page.goto('/login');
-  await page.getByRole('link', { name: /S'inscrire/ }).click();
+  await expect(page.getByText(/inscriptions sont fermées/i)).toBeVisible();
+  await expect(page.getByRole('link', { name: /S'inscrire/ })).toHaveCount(0);
+
+  await page.goto('/register');
   await expect(page).toHaveURL(/\/register/);
   await expect(page.getByRole('button', { name: /inscrire|créer/i })).toBeVisible();
 

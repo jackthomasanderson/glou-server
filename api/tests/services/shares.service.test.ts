@@ -13,6 +13,12 @@ vi.mock('../../src/lib/prisma', () => ({
       findMany: vi.fn(),
       findFirst: vi.fn(),
     },
+    cellar: {
+      count: vi.fn(),
+    },
+    collection: {
+      count: vi.fn(),
+    },
   },
 }));
 
@@ -49,6 +55,57 @@ function shareRow(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe('sharesService.create — scope id existence (ISSUE_046)', () => {
+  it('rejects when a cellarId does not exist', async () => {
+    vi.mocked(prisma.cellar.count).mockResolvedValue(1); // only 1 of the 2 requested ids is real
+
+    await expect(
+      sharesService.create('owner1', {
+        cellarIds: ['real', 'fake'],
+        writeCellarIds: [],
+        collectionIds: [],
+        hidePrices: false,
+        hideNotes: false,
+      } as never),
+    ).rejects.toThrow('INVALID_CELLAR_IDS');
+    expect(prisma.guestShare.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects when a collectionId does not exist', async () => {
+    vi.mocked(prisma.collection.count).mockResolvedValue(0);
+
+    await expect(
+      sharesService.create('owner1', {
+        cellarIds: [],
+        writeCellarIds: [],
+        collectionIds: ['fake'],
+        hidePrices: false,
+        hideNotes: false,
+      } as never),
+    ).rejects.toThrow('INVALID_COLLECTION_IDS');
+    expect(prisma.guestShare.create).not.toHaveBeenCalled();
+  });
+
+  it('proceeds when every cellarId and collectionId is real', async () => {
+    vi.mocked(prisma.cellar.count).mockResolvedValue(2);
+    vi.mocked(prisma.collection.count).mockResolvedValue(1);
+    vi.mocked(prisma.guestShare.create).mockImplementation((async (args: unknown) => {
+      const data = (args as { data: Record<string, unknown> }).data;
+      return shareRow(data);
+    }) as never);
+
+    await sharesService.create('owner1', {
+      cellarIds: ['a', 'b'],
+      writeCellarIds: [],
+      collectionIds: ['c'],
+      hidePrices: false,
+      hideNotes: false,
+    } as never);
+
+    expect(prisma.guestShare.create).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('sharesService.create', () => {
   it('stores only the SHA-256 hash of the token, and returns the raw token exactly once (nominal)', async () => {
@@ -201,7 +258,37 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     });
 
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
-    expect(call.where).toEqual({ deletedAt: null });
+    expect(call.where).toEqual({ deletedAt: null, isOwned: true });
+  });
+
+  // ISSUE_172: defense in depth. The money-fields-as-number Prisma result
+  // extension (lib/prisma.ts) computes purchasePrice/estimatedValue from
+  // the raw column regardless of what the caller's `select` asked for —
+  // this simulates that worst case (the field comes back anyway) and
+  // asserts the service strips it itself rather than trusting the select.
+  it('strips purchasePrice/estimatedValue even if the query result carries them anyway', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'i1', purchasePrice: 42, estimatedValue: 50 },
+    ] as never);
+
+    const result = await sharesService.getInventoryForShare({
+      cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: true, hideNotes: false,
+    });
+
+    expect(result[0]).not.toHaveProperty('purchasePrice');
+    expect(result[0]).not.toHaveProperty('estimatedValue');
+  });
+
+  it('leaves purchasePrice/estimatedValue in place when hidePrices is false', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'i1', purchasePrice: 42, estimatedValue: 50 },
+    ] as never);
+
+    const result = await sharesService.getInventoryForShare({
+      cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: false, hideNotes: false,
+    });
+
+    expect(result[0]).toMatchObject({ purchasePrice: 42, estimatedValue: 50 });
   });
 });
 
@@ -243,5 +330,39 @@ describe('sharesService.canWriteCellar', () => {
   it('is writable only for a cellar explicitly listed in writeCellarIds', () => {
     expect(sharesService.canWriteCellar({ writeCellarIds: ['c1'] }, 'c1')).toBe(true);
     expect(sharesService.canWriteCellar({ writeCellarIds: ['c1'] }, 'c2')).toBe(false);
+  });
+});
+
+// FEAT-87: the guest showcase shows the collection, not the catalogue of
+// bottles the instance merely keeps track of.
+describe('guest showcase excludes non-owned references (FEAT-87)', () => {
+  const share = {
+    cellarIds: ['c1'],
+    collectionIds: [],
+    userId: 'owner1',
+    hidePrices: false,
+    hideNotes: false,
+  };
+
+  it('scopes the showcase listing to owned items', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await sharesService.getInventoryForShare(share);
+
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
+  });
+
+  it('scopes the single-item lookup the same way, with no cellar scope either', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null as never);
+
+    await sharesService.getItemForShare({ ...share, cellarIds: [] }, 'i1');
+
+    const call = vi.mocked(prisma.inventoryItem.findFirst).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
   });
 });

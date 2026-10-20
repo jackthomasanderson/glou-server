@@ -42,11 +42,12 @@ vi.mock('jsonwebtoken', () => ({
 
 // Kept deterministic: these cases are about the throttling bookkeeping around
 // the code check, not about TOTP arithmetic.
-vi.mock('speakeasy', () => ({
-  default: {
-    totp: { verify: vi.fn(() => false) },
+vi.mock('otplib', () => ({
+  authenticator: {
+    options: {},
+    verify: vi.fn(() => false),
     generateSecret: vi.fn(),
-    otpauthURL: vi.fn(),
+    keyuri: vi.fn(),
   },
 }));
 

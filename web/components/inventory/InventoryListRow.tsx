@@ -5,21 +5,16 @@ import {
 } from '@heroui/react';
 import { Wine, Sparkles, Dumbbell, Leaf, Pencil, Trash2, Clock } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { Cellar } from '@/lib/cellars/types';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
+import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
   sparkling: <Sparkles size={14} />,
   spirit: <Dumbbell size={14} />,
   cigar: <Leaf size={14} />,
-};
-
-const CATEGORY_COLORS: Record<InventoryCategory, 'danger' | 'primary' | 'warning' | 'secondary'> = {
-  wine: 'danger',
-  sparkling: 'primary',
-  spirit: 'warning',
-  cigar: 'secondary',
 };
 
 interface InventoryListRowProps {
@@ -86,11 +81,11 @@ export function InventoryListRow({
         <Tooltip content={categoryLabel} delay={500}>
           <Chip
             startContent={CATEGORY_ICONS[item.category]}
-            color={CATEGORY_COLORS[item.category]}
+            color={CATEGORY_CHIP_COLOR[item.category]}
             size="sm"
-            classNames={{ base: 'min-w-0 px-1', content: 'hidden' }}
+            classNames={{ base: 'min-w-0 px-1' }}
           >
-            {''}
+            <span className="sr-only">{categoryLabel}</span>
           </Chip>
         </Tooltip>
       </TableCell>
@@ -98,6 +93,20 @@ export function InventoryListRow({
       <TableCell>
         <div className="flex items-center gap-1.5 min-w-0">
           <p className="text-sm font-semibold truncate max-w-[200px]">{item.name}</p>
+          {/* FEAT-87: same marker as the card view — a row that only shows
+              up with the references filter on has to say so. */}
+          {!isOwnedItem(item) && (
+            <Chip
+              size="sm"
+              radius="sm"
+              classNames={{
+                base: 'h-5 bg-secondary-50 border border-secondary-200 shrink-0',
+                content: 'px-1.5 text-xs font-semibold text-secondary-700',
+              }}
+            >
+              {t('inventory.fields.isReference')}
+            </Chip>
+          )}
           {hasPendingSync && (
             <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
               <span className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700">

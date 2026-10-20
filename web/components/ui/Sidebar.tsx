@@ -1,17 +1,18 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
 import {
-  Wine, Leaf, Warehouse, Library, Martini, BarChart3,
-  ChevronLeft, ChevronRight, X, ShieldCheck, ClipboardCheck, Wallet,
+  Wine, Sparkles, Dumbbell, Leaf, Warehouse, Library, Martini, BarChart3,
+  ChevronLeft, ChevronRight, X, ShieldCheck, ClipboardCheck, Wallet, LogOut,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useMe } from '@/hooks/useAuth';
+import { useMe, useLogout } from '@/hooks/useAuth';
 import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeToggle } from './ThemeToggle';
+import { safeReadStorage, safeWriteStorage } from '@/lib/safe-storage';
 
 export const SIDEBAR_WIDTH = 220;
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
@@ -26,21 +27,33 @@ interface SidebarContentProps {
 function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   const { t } = useTranslation();
   const { data: user } = useMe();
+  const logout = useLogout();
   const { data: counts } = useSidebarCounts();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category');
   const hasMounted = useHasMounted();
 
+  // ISSUE_434: "Vin"/"Pétillant"/"Spiritueux" are category shortcuts into
+  // the SAME /bottles page used by search results, alerts, collections and
+  // printed QR codes (see useInventoryFilters' `?category=` sync) — not
+  // separate locked views like /cigars. No per-category badge count: same
+  // "no cheap, meaningful metric" call already made for tastings/analytics
+  // below, now extended here rather than adding a backend aggregate query
+  // just for a nav badge.
   const navLinks = [
-    { label: t('nav.bottles'), href: '/bottles', icon: <Wine size={18} />, count: counts?.bottles ?? 0 },
+    { label: t('nav.wines'), href: '/bottles?category=wine', category: 'wine', icon: <Wine size={18} />, count: 0 },
+    { label: t('nav.sparkling'), href: '/bottles?category=sparkling', category: 'sparkling', icon: <Sparkles size={18} />, count: 0 },
+    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <Dumbbell size={18} />, count: 0 },
     { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={18} />, count: counts?.cigars ?? 0 },
     { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={18} />, count: counts?.cellars ?? 0 },
     { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: counts?.collections ?? 0 },
     // Pas de métrique naturelle et peu coûteuse pour les dégustations : le
     // badge reste à 0 (donc masqué) plutôt que d'inventer un chiffre artificiel.
-    { label: t('nav.tastings'), href: '/tastings', icon: <Martini size={18} />, count: 0 },
+    { label: t('nav.tastings'), href: '/cellar-journal', icon: <Martini size={18} />, count: 0 },
     { label: t('nav.inventoryCount'), href: '/inventory-count', icon: <ClipboardCheck size={18} />, count: counts?.countSessionActive ? 1 : 0 },
-    { label: t('nav.wishlist'), href: '/wishlist', icon: <Wallet size={18} />, count: counts?.wishlistReady ?? 0 },
-    { label: t('nav.analytics'), href: '/analytics', icon: <BarChart3 size={18} />, count: 0 },
+    { label: t('nav.wishlist'), href: '/wishlist-budget', icon: <Wallet size={18} />, count: counts?.wishlistReady ?? 0 },
+    { label: t('nav.analytics'), href: '/analytics-terroirs', icon: <BarChart3 size={18} />, count: 0 },
   ];
 
   return (
@@ -63,7 +76,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
             {user?.appName || 'GLOU'}
           </Link>
           <span className="block text-xs tracking-[.08rem] uppercase text-foreground-500 mt-0.5 whitespace-nowrap">
-            {user?.appSlogan || 'Simplement précieux'}
+            {user?.appSlogan || t('app.tagline')}
           </span>
         </div>
 
@@ -89,7 +102,9 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
       {/* Navigation */}
       <nav className="flex-1 px-2 space-y-0.5">
         {navLinks.map((link) => {
-          const active = pathname.startsWith(link.href);
+          const active = link.category
+            ? pathname === '/bottles' && categoryParam === link.category
+            : pathname.startsWith(link.href);
           const showCount = hasMounted && link.count > 0;
 
           const btn = (
@@ -202,6 +217,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         <Tooltip
           content={`${user?.username ?? ''} · ${user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}`}
           placement="right"
+          delay={500}
           isDisabled={expanded}
         >
           <Avatar
@@ -230,6 +246,20 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
 
           </>
         )}
+
+        <Tooltip content={t('auth.logout')} placement="right" delay={500}>
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            radius="full"
+            aria-label={t('auth.logout')}
+            isLoading={logout.isPending}
+            onPress={() => logout.mutate()}
+          >
+            <LogOut size={16} />
+          </Button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -245,7 +275,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = safeReadStorage(localStorage, STORAGE_KEY);
     // Deferred to after mount rather than a lazy useState initializer:
     // localStorage isn't available during SSR, so reading it synchronously
     // in the initializer would make the client's first render diverge
@@ -257,7 +287,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
   const toggle = () => {
     const next = !expanded;
     setExpanded(next);
-    localStorage.setItem(STORAGE_KEY, String(next));
+    safeWriteStorage(localStorage, STORAGE_KEY, String(next));
   };
 
   const desktopWidth = expanded ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED_WIDTH;
@@ -270,12 +300,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
         style={{ width: desktopWidth }}
         className="hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 bg-content1 border-r border-divider overflow-hidden z-20 transition-all duration-200"
       >
-        <SidebarContent expanded={expanded} onToggle={toggle} />
+        <Suspense fallback={null}>
+          <SidebarContent expanded={expanded} onToggle={toggle} />
+        </Suspense>
       </nav>
 
       {/* Mobile: overlay drawer */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-50">
+        <div className="md:hidden fixed inset-0 z-overlay">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={onMobileClose}
@@ -295,7 +327,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
             >
               <X size={16} />
             </Button>
-            <SidebarContent expanded={true} onToggle={onMobileClose} />
+            <Suspense fallback={null}>
+              <SidebarContent expanded={true} onToggle={onMobileClose} />
+            </Suspense>
           </div>
         </div>
       )}

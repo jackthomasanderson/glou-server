@@ -1,11 +1,12 @@
 import type { CurveShape } from './curve';
+import type { InventoryCategory } from '../inventory/types';
 
 export type MaturityMode = 'ABSOLUTE' | 'RELATIVE';
 
 export interface MaturityReference {
   id: string;
   name: string;
-  category: 'wine' | 'sparkling' | 'spirit' | 'cigar';
+  category: InventoryCategory;
   mode: MaturityMode;
   windowFrom: number;
   windowTo: number;
@@ -32,7 +33,7 @@ export interface MaturitySuggestion {
 
 export interface MaturityReferenceInput {
   name: string;
-  category: 'wine' | 'sparkling' | 'spirit' | 'cigar';
+  category: InventoryCategory;
   mode: MaturityMode;
   windowFrom: number;
   windowTo: number;

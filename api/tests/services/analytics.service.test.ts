@@ -17,6 +17,7 @@ type ItemRow = {
   purchasePrice: number | null;
   bottleSize: string | null;
   fillLevel: number | null;
+  isOpened: boolean;
   region: string | null;
   leafOrigin: string | null;
   alertStatus: string | null;
@@ -32,6 +33,7 @@ function item(overrides: Partial<ItemRow> = {}): ItemRow {
     purchasePrice: null,
     bottleSize: '75cl',
     fillLevel: null,
+    isOpened: false,
     region: 'Bordeaux',
     leafOrigin: null,
     alertStatus: 'none',
@@ -143,11 +145,12 @@ describe('getAnalytics — aggregation invariants', () => {
       where: Record<string, unknown>;
     };
     expect(countCall.where.updatedAt).toEqual({ gte: from, lte: to });
-    // ...and the inventory aggregate query itself stays unfiltered.
+    // ...and the inventory aggregate query itself stays unfiltered (beyond
+    // the owned-items scope FEAT-87 applies everywhere in this function).
     const findCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(findCall.where).toEqual({ deletedAt: null });
+    expect(findCall.where).toEqual({ deletedAt: null, isOwned: true });
   });
 
   // ISSUE_035/ISSUE_104: the payload states which part of itself the range
@@ -167,5 +170,93 @@ describe('getAnalytics — aggregation invariants', () => {
 
     const unbounded = await getAnalytics();
     expect(unbounded.period).toEqual({ from: null, to: null, scope: ANALYTICS_PERIOD_SCOPE });
+  });
+});
+
+// ISSUE_239: a finished bottle (opened, nothing left) is no longer an asset.
+// The criterion is the app-wide one — see api/src/lib/finished-item.ts.
+describe('getAnalytics — finished bottles are not valued', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([
+      { id: 'c1', name: 'Cave A', type: 'VINTAGE' },
+    ] as never);
+    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(0 as never);
+  });
+
+  it('excludes a finished bottle from the collection valuation', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ estimatedValue: 100 }),
+      item({ estimatedValue: 40, isOpened: true, fillLevel: 0 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.totalValuation).toBe(100);
+  });
+
+  it('still values a bottle that is opened but not empty', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ estimatedValue: 40, isOpened: true, fillLevel: 40 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.totalValuation).toBe(40);
+  });
+
+  it('keeps the finished bottle in the counts, and in the money actually spent', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ purchasePrice: 25, isOpened: true, fillLevel: 0 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    // The bottle is still a row of the inventory: it is counted and its
+    // purchase is still part of the spending history (budget.service.ts
+    // semantics), only its *remaining* value is zero.
+    expect(stats.totalActiveItems).toBe(1);
+    expect(stats.totalPurchasePrice).toBe(25);
+    expect(stats.totalValuation).toBe(0);
+  });
+
+  it('drops the finished bottle from the per-category, per-region and per-cellar valuations', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ category: 'wine', region: 'Bordeaux', cellarId: 'c1', estimatedValue: 100 }),
+      item({ category: 'wine', region: 'Bordeaux', cellarId: 'c1', estimatedValue: 40, isOpened: true, fillLevel: 0 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    const wine = stats.categoryBreakdown.find((c) => c.category === 'wine');
+    expect(wine).toMatchObject({ count: 2, valuation: 100 });
+    expect(stats.regionBreakdown.find((r) => r.region === 'Bordeaux')).toMatchObject({ count: 2, valuation: 100 });
+    expect(stats.caveDistribution.find((c) => c.cellarId === 'c1')).toMatchObject({ count: 2, valuation: 100 });
+  });
+});
+
+// FEAT-87: analytics describe what the instance holds. A non-owned reference
+// is out of every figure, counts included — so it is excluded in SQL rather
+// than zeroed out in the loop.
+describe('getAnalytics excludes non-owned references (FEAT-87)', () => {
+  it('restricts the inventory and consumed-count queries to owned items', async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(0 as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await getAnalytics();
+
+    const itemsCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(itemsCall.where).toMatchObject({ deletedAt: null, isOwned: true });
+
+    const consumedCall = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(consumedCall.where).toMatchObject({ deletedAt: null, isOwned: true });
   });
 });

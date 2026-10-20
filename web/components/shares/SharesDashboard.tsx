@@ -6,13 +6,13 @@ import {
   Button,
   Card,
   CardBody,
-  Modal,
   ModalContent,
   ModalHeader,
   ModalBody,
   ModalFooter,
   Spinner,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Link2, Plus, Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShares, useCreateShare, useRevokeShare } from '@/hooks/useShares';
@@ -35,9 +35,13 @@ export function SharesDashboard() {
   const [copied, setCopied] = useState(false);
 
   const handleCreate = async (values: ShareFormValues) => {
-    const created = await createMutation.mutateAsync(values);
-    setFormOpen(false);
-    setCreatedShare(created);
+    try {
+      const created = await createMutation.mutateAsync(values);
+      setFormOpen(false);
+      setCreatedShare(created);
+    } catch {
+      // Reported by the mutation's onError toast; keep the form open.
+    }
   };
 
   const shareUrl = createdShare
@@ -66,6 +70,8 @@ export function SharesDashboard() {
     setRevokingId(id);
     try {
       await revokeMutation.mutateAsync(id);
+    } catch {
+      // Reported by the mutation's onError toast.
     } finally {
       setRevokingId(null);
     }
@@ -131,7 +137,7 @@ export function SharesDashboard() {
       </Card>
 
       {/* Create modal */}
-      <Modal
+      <ResponsiveModal
         isOpen={formOpen}
         onClose={() => setFormOpen(false)}
         size="sm"
@@ -148,10 +154,10 @@ export function SharesDashboard() {
             />
           </ModalBody>
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* Post-creation modal — the ONLY moment the raw link is ever shown. */}
-      <Modal isOpen={!!createdShare} onClose={closeCreatedModal} size="sm" placement="center">
+      <ResponsiveModal isOpen={!!createdShare} onClose={closeCreatedModal} size="sm" placement="center">
         <ModalContent>
           <ModalHeader>{t('shares.createdModal.title')}</ModalHeader>
           <ModalBody>
@@ -176,7 +182,7 @@ export function SharesDashboard() {
             </Button>
           </ModalFooter>
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </>
   );
 }

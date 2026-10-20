@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   Button, Input, Switch, Chip, Skeleton, Tabs, Tab, Select, SelectItem,
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle, Globe, CheckCircle2, AlertTriangle, Archive, Download, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, SystemConfigPublic, MaintenanceRunEntry, NetworkCheckResult, BackupRunEntry } from '@/lib/config/client';
@@ -774,7 +775,7 @@ export function SystemConfigSection() {
       </Tabs>
 
       {/* Run-now confirmation (irreversible action) */}
-      <Modal
+      <ResponsiveModal
         isOpen={isRunConfirmOpen}
         onClose={() => !running && setIsRunConfirmOpen(false)}
         size="sm" radius="lg" backdrop="opaque" placement="center"
@@ -793,10 +794,10 @@ export function SystemConfigSection() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* Restore confirmation (destructive, overwrites all current data) */}
-      <Modal
+      <ResponsiveModal
         isOpen={!!restoreTarget}
         onClose={() => { if (!restoring) { setRestoreTarget(null); setRestoreConfirmText(''); } }}
         size="sm" radius="lg" backdrop="opaque" placement="center"
@@ -809,11 +810,14 @@ export function SystemConfigSection() {
               <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(restoreTarget.runAt, i18n.language) : ''}</p>
             )}
             <p className="text-xs text-foreground-500">{t('adminConfig.backup.restore.modalHint', { keyword: t('adminConfig.backup.restore.keyword') })}</p>
-            <input
-              className="w-full border border-divider rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-danger"
+            <Input
+              variant="bordered"
+              size="sm"
+              radius="md"
+              color="danger"
               placeholder={t('adminConfig.backup.restore.keyword')}
               value={restoreConfirmText}
-              onChange={(e) => setRestoreConfirmText(e.target.value)}
+              onValueChange={setRestoreConfirmText}
             />
           </ModalBody>
           <ModalFooter className="gap-2">
@@ -831,7 +835,7 @@ export function SystemConfigSection() {
             </Button>
           </ModalFooter>
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
   );
 }

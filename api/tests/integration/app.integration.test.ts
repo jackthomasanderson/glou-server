@@ -10,6 +10,7 @@ vi.mock('../../src/lib/prisma', () => ({
     session: { findUnique: vi.fn() },
     inventoryItem: { findMany: vi.fn() },
     tastingNote: { findMany: vi.fn(), count: vi.fn() },
+    auditLog: { findMany: vi.fn(), count: vi.fn() },
     $queryRaw: vi.fn(),
   },
   connectWithRetry: vi.fn(),
@@ -210,5 +211,69 @@ describe('unknown routes', () => {
     const res = await request(app).get('/api/does-not-exist');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'NOT_FOUND' });
+  });
+});
+
+describe('POST /api/auth/login refusals', () => {
+  it('reports a deactivated account as INVALID_CREDENTIALS, not UNEXPECTED_ERROR', async () => {
+    const { authService } = await import('../../src/services/auth.service');
+    vi.spyOn(authService, 'login').mockRejectedValueOnce(new Error('ACCOUNT_DEACTIVATED'));
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ identifier: 'u1@example.com', password: 'whatever-password' });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('INVALID_CREDENTIALS');
+  });
+});
+
+describe('GET /api/auth/registration-status', () => {
+  it('reports closed once an account exists and registrations are closed', async () => {
+    const { systemConfigService } = await import('../../src/services/system-config.service');
+    vi.spyOn(systemConfigService, 'isRegistrationOpen').mockResolvedValueOnce(false);
+    (prisma.user as unknown as { count: ReturnType<typeof vi.fn> }).count = vi.fn().mockResolvedValue(3);
+    const res = await request(app).get('/api/auth/registration-status');
+    expect(res.status).toBe(200);
+    expect(res.body.data.registrationOpen).toBe(false);
+  });
+
+  it('reports open on an empty instance, where the first account always gets through', async () => {
+    const { systemConfigService } = await import('../../src/services/system-config.service');
+    vi.spyOn(systemConfigService, 'isRegistrationOpen').mockResolvedValueOnce(false);
+    (prisma.user as unknown as { count: ReturnType<typeof vi.fn> }).count = vi.fn().mockResolvedValue(0);
+    const res = await request(app).get('/api/auth/registration-status');
+    expect(res.body.data.registrationOpen).toBe(true);
+  });
+});
+
+describe('GET /api/admin/audit-logs filters', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true, isAdmin: true } as never);
+    vi.mocked(prisma.auditLog.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.auditLog.count).mockResolvedValue(0 as never);
+  });
+
+  it('turns q, status and the day range into a where clause shared by the page and the count', async () => {
+    const res = await request(app)
+      .get('/api/admin/audit-logs?q=login&status=error&from=2026-10-01&to=2026-10-02')
+      .set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(200);
+    const where = vi.mocked(prisma.auditLog.findMany).mock.calls[0][0]?.where as Record<string, any>;
+    expect(where.status).toBe('error');
+    expect(where.OR).toHaveLength(4);
+    expect(where.createdAt.gte).toEqual(new Date('2026-10-01'));
+    expect(where.createdAt.lte).toEqual(new Date('2026-10-02T23:59:59.999Z'));
+    expect(vi.mocked(prisma.auditLog.count).mock.calls[0][0]).toEqual({ where });
+  });
+
+  it('applies no filter when none is given', async () => {
+    await request(app).get('/api/admin/audit-logs').set('Authorization', `Bearer ${authToken()}`);
+    expect(vi.mocked(prisma.auditLog.findMany).mock.calls[0][0]?.where).toEqual({});
+  });
+
+  it('rejects an unknown status', async () => {
+    const res = await request(app)
+      .get('/api/admin/audit-logs?status=bogus')
+      .set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(400);
   });
 });

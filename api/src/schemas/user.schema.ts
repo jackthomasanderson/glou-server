@@ -5,6 +5,7 @@ export const updateProfileSchema = z.object({
   avatarUrl: z.string().url().max(500).optional().nullable().or(z.literal('')),
   appName: z.string().max(40).optional().nullable().or(z.literal('')),
   appSlogan: z.string().max(100).optional().nullable().or(z.literal('')),
+  displayName: z.string().max(60).optional().nullable().or(z.literal('')),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

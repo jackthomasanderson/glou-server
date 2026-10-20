@@ -1,4 +1,4 @@
-import { InventoryCategory } from '@/lib/inventory/types';
+import { InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 
 // Shared category → color mapping for map visualizations (FEAT-41 heatmap,
 // FEAT-40/42 legends). Hex values mirror AnalyticsDashboard's CATEGORY_CONFIG
@@ -13,7 +13,16 @@ export const CATEGORY_HEX: Record<InventoryCategory, string> = {
   cigar: '#5C3D2E',
 };
 
-export const CATEGORY_ORDER: InventoryCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
+// HeroUI Chip color per category (ux-ui.md §4.6) — single source for every
+// compact category chip so screens never drift apart.
+export const CATEGORY_CHIP_COLOR: Record<InventoryCategory, 'danger' | 'primary' | 'warning' | 'secondary'> = {
+  wine: 'danger',
+  sparkling: 'primary',
+  spirit: 'warning',
+  cigar: 'secondary',
+};
+
+export const CATEGORY_ORDER: InventoryCategory[] = [...CATEGORY_VALUES];
 
 // Shift a hex color's RGB channels by `percent` (-100..100): negative
 // darkens, positive lightens. Same technique as Tailwind's own shade

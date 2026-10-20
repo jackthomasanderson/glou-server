@@ -18,6 +18,7 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { notifyError } from '@/lib/toast';
 import { applyStockChoice, type StockChoice } from '@/lib/tastings/stockChoice';
+import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
@@ -120,7 +121,10 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
         onClose();
       } else {
         const note = await createMutation.mutateAsync(values);
-        if (note.itemId) {
+        // FEAT-87: a non-owned reference has no bottle to mark as opened or
+        // finished, so the stock question is skipped for it.
+        const tastedItem = note.itemId ? items?.find((i) => i.id === note.itemId) : undefined;
+        if (note.itemId && (!tastedItem || isOwnedItem(tastedItem))) {
           setStockDialogItemId(note.itemId);
         } else {
           onClose();
@@ -194,7 +198,9 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                     >
                       {(item) => (
                         <AutocompleteItem key={item.id}>
-                          {`${item.name} — ${item.producer}${item.vintage ? ` (${item.vintage})` : ''}`}
+                          {`${item.name} — ${item.producer}${item.vintage ? ` (${item.vintage})` : ''}${
+                            isOwnedItem(item) ? '' : ` · ${t('inventory.fields.isReference')}`
+                          }`}
                         </AutocompleteItem>
                       )}
                     </Autocomplete>
@@ -443,7 +449,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                 {t('tastings.stockUpdate.title')}
               </ModalHeader>
               <ModalBody className="pb-1">
-                <p className="text-sm text-default-500">
+                <p className="text-sm text-foreground-500">
                   {t('tastings.stockUpdate.description')}
                 </p>
               </ModalBody>

@@ -1,6 +1,7 @@
 'use client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryCountClient } from '@/lib/inventory-count/client';
+import { notifyError } from '@/lib/toast';
 import {
   CountSession,
   SessionReport,
@@ -79,6 +80,7 @@ export function useScanItem(sessionId: string) {
   const queryClient = useQueryClient();
   return useMutation<ScanEntry, Error, string>({
     mutationFn: (itemId: string) => inventoryCountClient.scan(sessionId, itemId),
+    onError: () => notifyError('toast.count.scanError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: reportKey(sessionId) });
     },
@@ -90,6 +92,7 @@ export function useRecordFoundItem(sessionId: string) {
   const queryClient = useQueryClient();
   return useMutation<RecordFoundItemResult, Error, RecordFoundItemInput>({
     mutationFn: (input: RecordFoundItemInput) => inventoryCountClient.recordFoundItem(sessionId, input),
+    onError: () => notifyError('toast.count.recordError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: reportKey(sessionId) });
     },

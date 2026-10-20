@@ -49,7 +49,7 @@ export function MaturitySuggestionField({
     debounceRef.current = setTimeout(async () => {
       try {
         const result = await maturityReferenceClient.suggest({
-          category: category as 'wine' | 'sparkling' | 'spirit' | 'cigar',
+          category,
           region: region ?? undefined,
           color: color ?? undefined,
           producer: producer ?? undefined,

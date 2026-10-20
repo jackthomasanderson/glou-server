@@ -1,5 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessIndex } from '../lib/maturity-curve';
+import { FINISHED_ITEM_STATE, isFinishedItem } from '../lib/finished-item';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 export interface CategoryStat {
   category: string;
@@ -142,13 +144,16 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   // ANALYTICS_PERIOD_SCOPE above.
   const [items, cellars, auditMovements, consumedCount] = await Promise.all([
     prisma.inventoryItem.findMany({
-      where: { deletedAt: null },
+      // FEAT-87: analytics describe what the instance holds, so non-owned
+      // references are out of every figure here — valuation and counts alike.
+      where: { deletedAt: null, ...OWNED_ITEM_FILTER },
       select: {
         category: true,
         estimatedValue: true,
         purchasePrice: true,
         bottleSize: true,
         fillLevel: true,
+        isOpened: true,
         region: true,
         leafOrigin: true,
         alertStatus: true,
@@ -170,14 +175,14 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       },
       _count: { action: true },
     }),
-    // Bottles finished during the period — the app-wide "consumed" criterion
-    // (isOpened = true, fillLevel = 0), shared with consumption-plan.service
-    // and inventory-count.service.
+    // Bottles finished during the period — the app-wide "consumed" criterion,
+    // shared with consumption-plan.service and inventory-count.service (see
+    // lib/finished-item.ts).
     prisma.inventoryItem.count({
       where: {
         deletedAt: null,
-        isOpened: true,
-        fillLevel: 0,
+        ...OWNED_ITEM_FILTER,
+        ...FINISHED_ITEM_STATE,
         ...consumedDateFilter,
       },
     }),
@@ -205,7 +210,13 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   const GARDE_HORIZON_FUTURE = 20;
 
   for (const item of items) {
-    const value = item.estimatedValue ?? item.purchasePrice ?? 0;
+    // ISSUE_239: a finished bottle (opened, nothing left) is no longer an
+    // asset — it holds no remaining value, so it contributes 0 to every
+    // valuation below (global, per category, per region, per cellar). It
+    // still counts as an inventory row, and `totalPurchasePrice` still
+    // includes it: what was spent was spent, consistent with
+    // budget.service.ts.
+    const value = isFinishedItem(item) ? 0 : (item.estimatedValue ?? item.purchasePrice ?? 0);
     totalValuation += value;
     totalPurchasePrice += item.purchasePrice ?? 0;
     totalLiquidLiters += computeBottleVolume(item.category, item.bottleSize, item.fillLevel);

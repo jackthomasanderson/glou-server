@@ -1,7 +1,7 @@
-# Enregistrer et Consulter des Notes de Dégustation
+# Enregistrer et consulter des notes de dégustation
 
 ## TL;DR
-Naviguez vers `/tastings`, créez une note liée à un actif de votre cave, obtenez immédiatement les recommandations de service, puis retrouvez toutes vos notes en ordre chronologique inversé.
+Naviguez vers `/tastings`, créez une note liée à un actif de votre cave, consultez les recommandations de service, puis parcourez vos notes de la plus récente à la plus ancienne.
 
 ## Prérequis
 - Être connecté à Glou.
@@ -9,7 +9,7 @@ Naviguez vers `/tastings`, créez une note liée à un actif de votre cave, obte
 
 ## Action
 
-### 1. Accéder au Journal de Dégustation
+### 1. Accéder au journal de dégustation
 
 Cliquez sur **Tastings** dans la navigation principale, ou accédez directement à `/tastings`.
 
@@ -19,7 +19,7 @@ La page liste toutes vos notes de dégustation, triées de la plus récente à l
 
 1. Cliquez sur le bouton **+** (FAB en bas à droite) ou sur **Nouvelle dégustation** si la liste est vide.
 2. Dans le champ **Actif**, tapez le nom ou le producteur pour filtrer votre inventaire via l'autocomplétion. Sélectionnez l'actif concerné.
-3. Dès la sélection, les **Recommandations de Service** apparaissent automatiquement (voir section 3).
+3. Dès la sélection, les **Recommandations de service** apparaissent (voir section 3).
 4. Renseignez les champs souhaités :
 
    | Champ | Type | Contrainte |
@@ -33,30 +33,30 @@ La page liste toutes vos notes de dégustation, triées de la plus récente à l
 5. Cliquez sur **Enregistrer**.
 
 > [!TIP]
-> La note se crée sans avoir renseigné les champs optionnels. Seul le champ **Actif** est obligatoire.
+> Seul le champ **Actif** est obligatoire.
 
 ### 3. Lire les recommandations de service
 
 Dès qu'un actif est sélectionné dans le formulaire, un bandeau **Recommandations de service** s'affiche avec :
 
-- **Température de service** — plage en °C selon la catégorie et la couleur/type de l'actif.
-- **Aération** — durée en minutes recommandée (absente si non applicable, ex. vins blancs, spiritueux).
-- **Accords culinaires** — liste de suggestions affichée sous forme de puces.
+- **Température de service** : plage en °C selon la catégorie et la couleur/type de l'actif.
+- **Aération** : durée en minutes recommandée (absente si non applicable, ex. vins blancs, spiritueux).
+- **Accords culinaires** : liste de suggestions affichée sous forme de puces.
 
-Le tableau de correspondance appliqué par le système :
+Valeurs appliquées par le système :
 
 | Catégorie / Sous-type | Température | Aération |
 | :--- | :--- | :--- |
-| Vin rouge | 16–18 °C | 30–60 min |
-| Vin blanc | 10–12 °C | 0–15 min |
-| Vin rosé | 10–12 °C | — |
-| Vin orange | 12–14 °C | 15–30 min |
-| Pétillant (tous types) | 6–9 °C | — |
-| Whisky / Rhum / Cognac | 18–22 °C | — |
-| Gin | 4–8 °C | — |
-| Vodka | 2–6 °C | — |
-| Autre spiritueux | 18–22 °C | — |
-| Cigare | 20–22 °C | — |
+| Vin rouge | 16-18 °C | 30-60 min |
+| Vin blanc | 10-12 °C | 0-15 min |
+| Vin rosé | 10-12 °C | - |
+| Vin orange | 12-14 °C | 15-30 min |
+| Pétillant (tous types) | 6-9 °C | - |
+| Whisky / Rhum / Cognac | 18-22 °C | - |
+| Gin | 4-8 °C | - |
+| Vodka | 2-6 °C | - |
+| Autre spiritueux | 18-22 °C | - |
+| Cigare | 20-22 °C | - |
 
 Les recommandations sont calculées côté frontend à partir de la catégorie et du sous-type (couleur, `spiritType`, `sparklingType`) de l'actif. Elles ne sont pas stockées en base.
 
@@ -76,7 +76,7 @@ Sur la carte, cliquez sur l'icône **corbeille**. Une boîte de dialogue de conf
 Si vous avez plus de 20 notes, des boutons **<** et **>** apparaissent en bas de la liste pour passer d'une page à l'autre.
 
 > [!TIP]
-> L'API accepte le paramètre `itemId` (`GET /api/tastings?itemId=<uuid>`) pour filtrer les notes d'un actif précis — utile si vous intégrez l'API directement.
+> L'API accepte le paramètre `itemId` (`GET /api/tastings?itemId=<uuid>`) pour filtrer les notes d'un actif précis.
 
 ## Le "Pare-feu" (Troubleshooting)
 

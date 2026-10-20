@@ -1,5 +1,6 @@
 'use client';
 import { useState, useCallback, useMemo, useEffect, useSyncExternalStore } from 'react';
+import dynamic from 'next/dynamic';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
@@ -21,12 +22,11 @@ import { useInventoryFilters } from '@/hooks/useInventoryFilters';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { useDuplicateResolution } from '@/hooks/useDuplicateResolution';
 import { InventoryCardSkeleton } from './InventoryCard';
-import { InventoryForm } from './InventoryForm';
+import type { InventoryCategory } from '@/lib/inventory/types';
 import { UndoToast } from '@/components/ui/UndoToast';
 import { notifySuccess } from '@/lib/toast';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
 import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
-import { InventoryDetailDialog } from './InventoryDetailDialog';
 import { InventoryListRowSkeleton } from './InventoryListRow';
 import { InventoryGridView } from './InventoryGridView';
 import { InventoryListView } from './InventoryListView';
@@ -36,8 +36,13 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { useViewMode } from '@/hooks/useViewMode';
 import { usePageSize } from '@/hooks/usePageSize';
 import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
-import { DuplicateDialog } from './DuplicateDialog';
-import { ScanFlow } from './ScanFlow';
+
+// Screens that only appear after an action are split out of the page's first
+// load; they open behind a click, so a null placeholder is invisible.
+const InventoryForm = dynamic(() => import('./InventoryForm').then((m) => m.InventoryForm), { ssr: false, loading: () => null });
+const InventoryDetailDialog = dynamic(() => import('./InventoryDetailDialog').then((m) => m.InventoryDetailDialog), { ssr: false, loading: () => null });
+const DuplicateDialog = dynamic(() => import('./DuplicateDialog').then((m) => m.DuplicateDialog), { ssr: false, loading: () => null });
+const ScanFlow = dynamic(() => import('./ScanFlow').then((m) => m.ScanFlow), { ssr: false, loading: () => null });
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
@@ -83,6 +88,14 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const [mode, setMode] = useState<UIMode>('idle');
   const [scanOpen, setScanOpen] = useState(false);
+  // Only rendered once `cellars` has loaded client-side, so reading storage lazily is hydration-safe.
+  const [noCellarBannerDismissed, setNoCellarBannerDismissed] = useState(() => {
+    try { return typeof window !== 'undefined' && localStorage.getItem('glou.noCellarBannerDismissed') === '1'; } catch { return false; }
+  });
+  const dismissNoCellarBanner = useCallback(() => {
+    setNoCellarBannerDismissed(true);
+    try { localStorage.setItem('glou.noCellarBannerDismissed', '1'); } catch { /* storage unavailable */ }
+  }, []);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
   const [undoTarget, setUndoTarget] = useState<InventoryItem | null>(null);
@@ -105,6 +118,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     maxValue, setMaxValue,
     sortBy, setSortBy,
     openedFilter, setOpenedFilter,
+    showReferences, setShowReferences,
     isFiltersOpen, toggleFilters,
     tagSearchQuery, setTagSearchQuery,
     showAllTags, setShowAllTags,
@@ -167,7 +181,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   // values so each reset only fires on an actual change.
   const filterSortKey = [
     searchQuery, selectedCategories, selectedCellars, selectedTags,
-    selectedWineColors, minValue, maxValue, sortBy, openedFilter, selectedCollectionId,
+    selectedWineColors, minValue, maxValue, sortBy, openedFilter, showReferences, selectedCollectionId,
   ];
   const [prevFilterSortKey, setPrevFilterSortKey] = useState(filterSortKey);
   if (filterSortKey.some((v, i) => v !== prevFilterSortKey[i])) {
@@ -233,9 +247,15 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const handleUpdate = useCallback(
     async (values: Partial<InventoryItem>, newCollectionIds: string[]) => {
       if (!editingItem) return;
-      await updateMutation.mutateAsync({ id: editingItem.id, patch: values });
-      const oldIds = (editingItem.collections ?? []).map(c => c.id);
-      await syncCollections(editingItem.id, newCollectionIds, oldIds);
+      try {
+        await updateMutation.mutateAsync({ id: editingItem.id, patch: values });
+        const oldIds = (editingItem.collections ?? []).map(c => c.id);
+        await syncCollections(editingItem.id, newCollectionIds, oldIds);
+      } catch {
+        // Reported by the mutation's onError toast; keep the form open.
+        return;
+      }
+      notifySuccess('toast.updateSuccess');
       setMode('idle');
       setEditingItem(null);
     },
@@ -263,7 +283,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const handleView = useCallback((item: InventoryItem) => setViewingItem(item), []);
   const handleCancel = useCallback(() => { setMode('idle'); setEditingItem(null); }, []);
 
-  const hasCellars = (cellars?.length ?? 0) > 0;
+  // `cellars` is undefined while loading: only warn once we know there are none.
+  const noCellars = cellars !== undefined && cellars.length === 0;
   const categoryLabel = (cat: string) => t(`categories.${cat}`);
   const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
 
@@ -295,6 +316,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     sortBy,
     setSortBy,
     openedFilter,
+    showReferences,
+    setShowReferences,
     setOpenedFilter,
     tagSearchQuery,
     setTagSearchQuery,
@@ -361,7 +384,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           ].map(({ value, label, color }) => (
             <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">
               <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>
-              <p className="text-xs text-default-500 mt-1">{label}</p>
+              <p className="text-xs text-foreground-500 mt-1">{label}</p>
             </div>
           ))}
         </div>
@@ -398,7 +421,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                 onPress={() => setScanOpen(true)}
                 size="sm"
                 aria-label={t('scan.launchButton')}
-                isDisabled={!hasCellars || bulkMode}
+                isDisabled={bulkMode}
               >
                 {t('scan.launchButton')}
               </Button>
@@ -409,12 +432,29 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                 onPress={() => setMode('creating')}
                 size="sm"
                 aria-label={t('inventory.add')}
-                isDisabled={!hasCellars || bulkMode}
+                isDisabled={bulkMode}
               >
                 {t('inventory.add')}
               </Button>
             </div>
           </div>
+
+          {noCellars && !noCellarBannerDismissed && (
+            <div
+              role="status"
+              data-testid="no-cellar-banner"
+              className="flex flex-wrap items-center gap-2 rounded-lg border border-divider bg-default-100 px-3 py-2 mb-3 text-sm"
+            >
+              <Warehouse size={16} className="text-foreground-500 shrink-0" />
+              <span className="flex-1 min-w-0">{t('inventory.noCellarBanner')}</span>
+              <Button as={Link} href="/cellars" size="sm" variant="flat" color="primary">
+                {t('inventory.noCellarBannerAction')}
+              </Button>
+              <Button size="sm" variant="light" onPress={dismissNoCellarBanner}>
+                {t('actions.dismiss')}
+              </Button>
+            </div>
+          )}
 
           {/* Mobile: collapsible filter */}
           <InventoryFilterBar variant="mobile" {...filterBarProps} />
@@ -447,6 +487,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           <InventoryForm
             open={mode !== 'idle'}
             initialValues={mode === 'editing' && editingItem ? editingItem : undefined}
+            defaultCategory={lockedCategories?.length === 1 ? (lockedCategories[0] as InventoryCategory) : undefined}
             onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
             onClose={handleCancel}
             isSubmitting={createMutation.isPending || updateMutation.isPending || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}
@@ -479,29 +520,16 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                   with a wine-only inventory — gets the empty state instead of
                   a blank zone. */}
               {items && baseItems.length === 0 ? (
-                hasCellars ? (
-                  <EmptyState
-                    bordered
-                    title={t('inventory.noBottles')}
-                    description={t('inventory.noBottlesDesc')}
-                    action={
-                      <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
-                        {t('inventory.add')}
-                      </Button>
-                    }
-                  />
-                ) : (
-                  <EmptyState
-                    bordered
-                    title={t('inventory.createCellarFirst')}
-                    description={t('inventory.createCellarFirstDesc')}
-                    action={
-                      <Button color="primary" startContent={<Warehouse size={16} />} as={Link} href="/cellars">
-                        {t('nav.caves')}
-                      </Button>
-                    }
-                  />
-                )
+                <EmptyState
+                  bordered
+                  title={t('inventory.noBottles')}
+                  description={t('inventory.noBottlesDesc')}
+                  action={
+                    <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
+                      {t('inventory.add')}
+                    </Button>
+                  }
+                />
               ) : (
                 // Any active filter (category, cellar, tag, price range, opened
                 // status...) can empty the list, not just the search box — all
@@ -546,7 +574,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         isIconOnly
         className="fixed bottom-[84px] md:bottom-6 right-4 z-30 sm:hidden shadow-lg"
         onPress={() => setMode('creating')}
-        isDisabled={!hasCellars}
         aria-label={t('inventory.add')}
       >
         <Plus size={22} />

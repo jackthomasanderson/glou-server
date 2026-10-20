@@ -140,16 +140,18 @@ export function ItemImageSection({
               <div className="flex items-center gap-0.5">
                 <button
                   type="button"
+                  aria-label={t('actions.confirm')}
                   onClick={handleUrlConfirm}
                   disabled={!urlInput.trim()}
-                  className="text-success disabled:opacity-40 hover:opacity-70"
+                  className="p-1.5 text-success disabled:opacity-40 hover:opacity-70"
                 >
                   <Check size={14} />
                 </button>
                 <button
                   type="button"
+                  aria-label={t('actions.cancel')}
                   onClick={() => { setMode('idle'); setUrlInput(''); }}
-                  className="text-foreground-500 hover:opacity-70"
+                  className="p-1.5 text-foreground-500 hover:opacity-70"
                 >
                   <X size={14} />
                 </button>

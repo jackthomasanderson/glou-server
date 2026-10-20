@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { CURVE_SHAPES } from '../lib/maturity-curve';
+import { categorySchema } from '../lib/category';
 
 // ─── Common fields (all categories) ─────────────────────────────────────────
 
 export const commonInventorySchema = z.object({
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
+  category: categorySchema,
   name: z.string().min(1, 'Name is required').max(200),
   producer: z.string().min(1, 'Producer is required').max(200),
   location: z.string().max(200).optional(),
@@ -15,6 +16,9 @@ export const commonInventorySchema = z.object({
   purchasePrice: z.number().min(0).optional(),
   purchasePlace: z.string().max(200).optional(),
   estimatedValue: z.number().min(0).optional(),
+  // FEAT-87: false = non-owned reference. Defaults to owned, so the ordinary
+  // "add a bottle" path and every existing client keep their behaviour.
+  isOwned: z.boolean().default(true),
   isOpened: z.boolean().default(false),
   fillLevel: z.number().int().min(0).max(100).optional(),
   openedAt: z.coerce.date().optional().nullable(),
@@ -125,7 +129,7 @@ export type InventoryCategory = InventoryInput['category'];
 // supported by Zod's type system for discriminated unions.
 
 export const inventoryPatchSchema = z.object({
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']).optional(),
+  category: categorySchema.optional(),
   name: z.string().min(1).max(200).optional(),
   producer: z.string().min(1).max(200).optional(),
   location: z.string().max(200).optional().nullable(),
@@ -136,6 +140,9 @@ export const inventoryPatchSchema = z.object({
   purchasePrice: z.number().min(0).optional().nullable(),
   purchasePlace: z.string().max(200).optional().nullable(),
   estimatedValue: z.number().min(0).optional().nullable(),
+  // FEAT-87: flipping this is how a reference gets stocked (and how a
+  // mistakenly-stocked item goes back to being a reference).
+  isOwned: z.boolean().optional(),
   isOpened: z.boolean().optional(),
   fillLevel: z.number().int().min(0).max(100).optional().nullable(),
   openedAt: z.coerce.date().optional().nullable(),

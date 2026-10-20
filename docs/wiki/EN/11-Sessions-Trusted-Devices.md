@@ -1,11 +1,11 @@
-# Manage Active Sessions & Trusted Devices
+# Manage active sessions and trusted devices
 
 ## TL;DR
-Review every device connected to your account, disconnect any of them remotely, and skip repeated 2FA prompts for 30 days on devices you mark as trusted.
+List the devices connected to your account, disconnect any of them remotely, and skip 2FA prompts for 30 days on devices you mark as trusted.
 
 ## Prerequisites
 * Logged into your account.
-* Two-Factor Authentication enabled (see [01-Authentication.md](./01-Authentication.md)) if you want the "trust" feature to have any effect — trusting a device only skips the 2FA re-prompt, it does not replace your password.
+* Two-Factor Authentication enabled (see [01-Authentication.md](./01-Authentication.md)) for the "trust" feature to have any effect. Trusting a device only skips the 2FA re-prompt, it does not replace your password.
 
 ## Action
 
@@ -24,7 +24,7 @@ Review every device connected to your account, disconnect any of them remotely, 
 3. To undo it, click **Stop trusting** on the same session. You will be asked for 2FA again on your next login from that device.
 
 > [!TIP]
-> Trust is automatically revoked if the system detects you are connecting from a different country than when you trusted the device. You will be asked for 2FA again — this is expected behavior, not a bug.
+> Trust is revoked if the system detects you are connecting from a different country than when you trusted the device. You will be asked for 2FA again: this is expected behavior.
 
 ## The Firewall (Troubleshooting)
 

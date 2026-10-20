@@ -2,7 +2,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    inventoryItem: { findFirst: vi.fn(), update: vi.fn() },
+    inventoryItem: {
+      findFirst: vi.fn(),
+      update: vi.fn(),
+      groupBy: vi.fn(),
+      aggregate: vi.fn(),
+      count: vi.fn(),
+    },
+    cellar: { findMany: vi.fn(), findFirst: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -87,5 +94,72 @@ describe('CellarService.swapSlots (ISSUE_037)', () => {
     expect(prisma.inventoryItem.findFirst).toHaveBeenCalledWith({
       where: { id: 'b', cellarId: 'c1', deletedAt: null },
     });
+  });
+});
+
+// ISSUE_239: a cellar is worth what it still holds. A finished bottle
+// (opened, nothing left) keeps its slot and its place in `totalItems`, but
+// contributes nothing to `estimatedValue`.
+describe('CellarService stats — finished bottles are not valued (ISSUE_239)', () => {
+  it('listCellars values only the bottles still held, while counting them all', async () => {
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([
+      { id: 'c1', name: 'Cave A', type: 'VINTAGE' },
+    ] as never);
+    vi.mocked(prisma.inventoryItem.groupBy)
+      // counts: every live row of the cellar
+      .mockResolvedValueOnce([{ cellarId: 'c1', _count: { id: 5 }, _sum: { quantity: 12 } }] as never)
+      // valuation: the narrower aggregate
+      .mockResolvedValueOnce([{ cellarId: 'c1', _sum: { estimatedValue: 300 } }] as never)
+      // reminder alerts
+      .mockResolvedValueOnce([] as never);
+
+    const [cellar] = await CellarService.listCellars('u1');
+
+    expect(cellar.stats).toEqual({
+      totalItems: 5,
+      totalQuantity: 12,
+      estimatedValue: 300,
+      alertCount: 0,
+    });
+
+    const valueCall = vi.mocked(prisma.inventoryItem.groupBy).mock.calls[1][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(valueCall.where).toMatchObject({ NOT: { isOpened: true, fillLevel: 0 } });
+    // FEAT-87: and a non-owned reference is not in the cellar at all.
+    const wheres = vi
+      .mocked(prisma.inventoryItem.groupBy)
+      .mock.calls.map((c) => (c[0] as unknown as { where: Record<string, unknown> }).where);
+    for (const where of wheres) {
+      expect(where).toMatchObject({ isOwned: true });
+    }
+  });
+
+  it('getCellar applies the same exclusion to the single-cellar valuation', async () => {
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue({ id: 'c1', name: 'Cave A' } as never);
+    vi.mocked(prisma.inventoryItem.aggregate)
+      .mockResolvedValueOnce({ _count: { id: 5 }, _sum: { quantity: 12 } } as never)
+      .mockResolvedValueOnce({ _sum: { estimatedValue: 300 } } as never);
+    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(1 as never);
+
+    const cellar = await CellarService.getCellar('u1', 'c1');
+
+    expect(cellar?.stats).toEqual({
+      totalItems: 5,
+      totalQuantity: 12,
+      estimatedValue: 300,
+      alertCount: 1,
+    });
+
+    const valueCall = vi.mocked(prisma.inventoryItem.aggregate).mock.calls[1][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(valueCall.where).toMatchObject({ NOT: { isOpened: true, fillLevel: 0 } });
+    const wheres = vi
+      .mocked(prisma.inventoryItem.aggregate)
+      .mock.calls.map((c) => (c[0] as unknown as { where: Record<string, unknown> }).where);
+    for (const where of wheres) {
+      expect(where).toMatchObject({ isOwned: true });
+    }
   });
 });

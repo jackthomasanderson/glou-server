@@ -1,10 +1,12 @@
 'use client';
 import React, { useRef, useState } from 'react';
 import {
-  Modal, ModalContent, Button, Chip, Input, Select, SelectItem, Checkbox, CircularProgress,
+  ModalContent, Button, Chip, Input, Select, SelectItem, Checkbox, CircularProgress,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf } from 'lucide-react';
-import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
+import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { useInventory, useCreateInventoryItem, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
 import { useUploadScan, useScanJob } from '@/hooks/useScan';
@@ -31,13 +33,6 @@ interface CartEntry {
  * (FEAT-05 provenance), never trusting a client-supplied source map.
  */
 type InventoryCreateWithScanHint = Partial<InventoryItem> & { scanJobId?: string; confirmDuplicate?: boolean };
-
-const CATEGORY_COLORS: Record<InventoryCategory, 'secondary' | 'primary' | 'default' | 'warning'> = {
-  wine: 'secondary',
-  sparkling: 'primary',
-  spirit: 'default',
-  cigar: 'warning',
-};
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
@@ -81,6 +76,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const [jobId, setJobId] = useState<string | null>(null);
   const [reviewValues, setReviewValues] = useState<Partial<InventoryItem> | null>(null);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
+  const [nothingRecognised, setNothingRecognised] = useState(false);
   const [fullFormOpen, setFullFormOpen] = useState(false);
   const [duplicateFound, setDuplicateFound] = useState<InventoryItem | null>(null);
   const [duplicateCandidate, setDuplicateCandidate] = useState<Partial<InventoryItem> | null>(null);
@@ -131,6 +127,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
         cellarId,
       });
       setSaveAsDefault(false);
+      setNothingRecognised(!extracted.name?.trim() && !extracted.producer?.trim());
       setPhase('review');
     } else if (jobQuery.data?.status === 'failed') {
       setPhase('error');
@@ -187,7 +184,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
           return;
         }
       }
-      throw err;
+      // Any other failure was reported by the mutation's onError toast.
     }
   };
 
@@ -207,11 +204,15 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const handleDuplicateIncrement = async () => {
     if (!duplicateFound || !duplicateCandidate) return;
     const newQty = (duplicateFound.quantity ?? 1) + (duplicateCandidate.quantity ?? 1);
-    const updated = await updateMutation.mutateAsync({ id: duplicateFound.id, patch: { quantity: newQty } });
-    pushCartEntry(updated, 'incremented');
-    setDuplicateFound(null);
-    setDuplicateCandidate(null);
-    resetToCapture();
+    try {
+      const updated = await updateMutation.mutateAsync({ id: duplicateFound.id, patch: { quantity: newQty } });
+      pushCartEntry(updated, 'incremented');
+      setDuplicateFound(null);
+      setDuplicateCandidate(null);
+      resetToCapture();
+    } catch {
+      // Reported by the mutation's onError toast.
+    }
   };
 
   const handleDuplicateCreateAnyway = async () => {
@@ -220,9 +221,13 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     setDuplicateFound(null);
     setDuplicateCandidate(null);
     const payload: InventoryCreateWithScanHint = { ...candidate, scanJobId: jobId ?? undefined, confirmDuplicate: true };
-    const created = await createMutation.mutateAsync(payload);
-    pushCartEntry(created, 'created');
-    resetToCapture();
+    try {
+      const created = await createMutation.mutateAsync(payload);
+      pushCartEntry(created, 'created');
+      resetToCapture();
+    } catch {
+      // Reported by the mutation's onError toast.
+    }
   };
 
   const handleDuplicateCancel = () => {
@@ -238,11 +243,17 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     (reviewValues.category !== 'spirit' || reviewValues.alcoholDegree != null)
   );
 
+  const missingFields = [
+    !reviewValues?.name?.trim() && t('inventory.fields.name'),
+    !reviewValues?.producer?.trim() && t('inventory.fields.producer'),
+    reviewValues?.category === 'spirit' && reviewValues.alcoholDegree == null && t('inventory.fields.alcoholDegree'),
+  ].filter((f): f is string => Boolean(f));
+
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
 
   return (
     <>
-      <Modal isOpen={open} onClose={onClose} size="full" hideCloseButton>
+      <ResponsiveModal isOpen={open} onClose={onClose} size="full" hideCloseButton>
         <ModalContent>
           {() => (
             <div className="flex flex-col h-full">
@@ -293,7 +304,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
                       capture="environment"
                       className="hidden"
                       onChange={(e) => {
@@ -326,14 +337,23 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
 
                 {phase === 'review' && reviewValues && !duplicateFound && (
                   <div className="flex flex-col gap-4 px-4 py-5 max-w-md w-full mx-auto">
-                    <p className="text-xs font-semibold text-default-500">{t('scan.review.title')}</p>
+                    <p className="text-xs font-semibold text-foreground-500">{t('scan.review.title')}</p>
+
+                    {nothingRecognised && (
+                      <div role="alert" className="flex flex-col gap-2 rounded-lg border border-warning bg-warning-50 p-3">
+                        <p className="text-sm text-warning-700">{t('scan.review.nothingRecognised')}</p>
+                        <Button size="sm" variant="bordered" color="warning" onPress={resetToCapture}>
+                          {t('scan.retry')}
+                        </Button>
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap gap-1.5">
-                      {(['wine', 'sparkling', 'spirit', 'cigar'] as InventoryCategory[]).map((cat) => (
+                      {CATEGORY_VALUES.map((cat) => (
                         <Chip
                           key={cat}
                           startContent={CATEGORY_ICONS[cat]}
-                          color={reviewValues.category === cat ? CATEGORY_COLORS[cat] : 'default'}
+                          color={reviewValues.category === cat ? CATEGORY_CHIP_COLOR[cat] : 'default'}
                           variant={reviewValues.category === cat ? 'solid' : 'bordered'}
                           className="cursor-pointer"
                           onClick={() =>
@@ -445,6 +465,11 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       >
                         {t('scan.review.confirm')}
                       </Button>
+                      {!canConfirm && (
+                        <p className="text-xs text-foreground-500 text-center">
+                          {t('scan.review.missingFields', { fields: missingFields.join(', ') })}
+                        </p>
+                      )}
                       <Button variant="light" fullWidth isDisabled={isSubmitting} onPress={() => setFullFormOpen(true)}>
                         {t('scan.review.moreDetails')}
                       </Button>
@@ -456,7 +481,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
               {/* Session cart ("À Ranger") — preserves scan order */}
               {cart.length > 0 && (
                 <div className="border-t border-divider px-4 py-3 max-h-40 overflow-y-auto shrink-0">
-                  <p className="text-xs font-semibold text-default-500 mb-2 flex items-center gap-1.5">
+                  <p className="text-xs font-semibold text-foreground-500 mb-2 flex items-center gap-1.5">
                     <ListChecks size={14} /> {t('scan.cart.title', { count: cart.length })}
                   </p>
                   <ul className="flex flex-col gap-1">
@@ -474,7 +499,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
             </div>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       <InventoryForm
         open={fullFormOpen}

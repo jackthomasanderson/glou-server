@@ -1,7 +1,7 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
-import { prisma } from '../lib/prisma';
+import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { v4 as uuidv4 } from 'uuid';
@@ -21,12 +21,14 @@ export interface FieldChange {
  * Origin of a field's current value (FEAT-05). Stored per-field in
  * `InventoryItem.fieldSources` — a field with no entry in that map is
  * implicitly 'manual'. 'ocr' is populated by the FEAT-04 scan pipeline
- * (see scan.service.ts computeOcrFieldSources) since that feature landed.
- * 'enrichment' remains reserved for a future third-party lookup
- * (Vivino/Whiskybase, see design.md "APIs Tierces" roadmap) — not
- * populated by any code today.
+ * (see scan.service.ts computeOcrFieldSources).
+ *
+ * #102: a fourth value, 'enrichment', used to be reserved here for a
+ * third-party lookup pipeline (Vivino/Whiskybase) that was never built
+ * (#74) and never wrote it — removed rather than kept as protective
+ * machinery for a pipeline that doesn't exist.
  */
-export type FieldSource = 'manual' | 'ocr' | 'import_csv' | 'enrichment';
+export type FieldSource = 'manual' | 'ocr' | 'import_csv';
 
 export type RollbackFieldResult =
   | { status: 'not_found' }
@@ -74,7 +76,15 @@ const INVENTORY_ITEM_INCLUDE = {
   collections: { select: { id: true, name: true, color: true, icon: true } },
 } satisfies Prisma.InventoryItemInclude;
 
-type InventoryItemWithCollections = Prisma.InventoryItemGetPayload<{ include: typeof INVENTORY_ITEM_INCLUDE }>;
+// ISSUE_172: the schema-level GetPayload type doesn't know about the
+// money-fields-as-number result extension in lib/prisma.ts, so it still
+// reports purchasePrice/estimatedValue as Decimal — override them to match
+// what the extended client actually returns, same as the InventoryItem
+// alias above.
+type InventoryItemWithCollections = Omit<
+  Prisma.InventoryItemGetPayload<{ include: typeof INVENTORY_ITEM_INCLUDE }>,
+  'purchasePrice' | 'estimatedValue'
+> & Pick<InventoryItem, 'purchasePrice' | 'estimatedValue'>;
 
 // FEAT-86: list/detail payloads carry a computed `readiness` percentage
 // (null when the curve model has no window to work with). Computed on read
@@ -205,7 +215,7 @@ export class InventoryService {
    */
   async findDuplicateCandidate(
     data: Pick<InventoryPatch, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>,
-    client: Prisma.TransactionClient | PrismaClient = prisma,
+    client: PrismaClientOrTx = prisma,
   ): Promise<InventoryItem | null> {
     if (!data.category || !data.producer || !data.name) return null;
     const normalize = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
@@ -246,7 +256,7 @@ export class InventoryService {
   async createItem(
     userId: string,
     data: InventoryInput,
-    client: Prisma.TransactionClient | PrismaClient = prisma,
+    client: PrismaClientOrTx = prisma,
     fieldSources?: Partial<Record<string, FieldSource>>,
   ): Promise<InventoryItem> {
     // InventoryInput (a per-category discriminated union with some required
@@ -270,7 +280,7 @@ export class InventoryService {
 
   /**
    * `options.fieldSources` tags the (non-manual) origin of specific fields
-   * in this patch — used by future automated pipelines (OCR, enrichment).
+   * in this patch — used by the FEAT-04 OCR scan pipeline and CSV import.
    * `options.isManualEdit` (default `true`) governs the FEAT-05 "manual
    * entry has absolute priority" guarantee:
    *  - `true` (the regular user-facing PATCH /:id and the guest write-access
@@ -279,9 +289,9 @@ export class InventoryService {
    *    can never silently overwrite it again, and any stale non-manual
    *    `fieldSources` tag on that field is cleared back to the implicit
    *    'manual' default.
-   *  - `false` (reserved for a future OCR/enrichment pipeline calling this
-   *    same method): fields are populated without being locked, so the user
-   *    can still let a later automated pass complete them.
+   *  - `false` (the OCR scan pipeline calling this same method): fields are
+   *    populated without being locked, so the user can still let a later
+   *    automated pass complete them.
    */
   async updateItem(
     userId: string,
@@ -343,7 +353,7 @@ export class InventoryService {
       if (conflict) return { item: existing, changes: [], slotConflict: true };
     }
 
-    // `lockedFields` exists to stop a *later automated* update (OCR/enrichment)
+    // `lockedFields` exists to stop a *later automated* update (OCR scan)
     // from silently overwriting a manual edit — it must never block the user
     // from manually editing that same field again (e.g. bumping the quantity
     // of an already-locked duplicate, or resetting a bottle from "empty" back
@@ -597,7 +607,7 @@ export class InventoryService {
    * gone from disk.
    */
   async purgeTrashed(
-    client: Prisma.TransactionClient | PrismaClient = prisma,
+    client: PrismaClientOrTx = prisma,
   ): Promise<{ count: number; photoPaths: string[] }> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const toPurge = await client.inventoryItem.findMany({
@@ -636,7 +646,7 @@ export class InventoryService {
    * for files no InventoryItem (trashed or not — only a purged item's photo
    * is truly gone) references any more.
    */
-  async sweepOrphanProductPhotos(client: Prisma.TransactionClient | PrismaClient = prisma): Promise<number> {
+  async sweepOrphanProductPhotos(client: PrismaClientOrTx = prisma): Promise<number> {
     const uploadDir = path.join(process.cwd(), 'uploads', 'products');
     let files: string[];
     try {

@@ -1,6 +1,7 @@
 'use client';
 import type { QueryClient } from '@tanstack/react-query';
 import { randomId } from '@/lib/uuid';
+import { timeoutSignal } from '@/lib/api';
 import type { InventoryItem } from '@/lib/inventory/types';
 import {
   type QueuedMutation,
@@ -95,6 +96,13 @@ export async function removeQueuedMutation(id: string, queryClient?: QueryClient
   notifyListeners();
 }
 
+/** Puts a `failed` mutation back in the queue so the next flush retries it
+ * (and the later edits of the same item, blocked behind it, can follow). */
+export async function retryFailedMutation(id: string, queryClient: QueryClient): Promise<void> {
+  await markMutation(id, { status: 'pending', errorReason: undefined });
+  await flushQueue(queryClient);
+}
+
 async function markMutation(id: string, patch: Partial<QueuedMutation>): Promise<void> {
   const existing = await getQueuedMutation(id);
   if (!existing) return;
@@ -120,7 +128,7 @@ async function patchInventoryItem(itemId: string, patch: Record<string, unknown>
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(patch),
-    signal: AbortSignal.timeout(15000),
+    signal: timeoutSignal(15000),
   });
 
   if (res.status === 409) {

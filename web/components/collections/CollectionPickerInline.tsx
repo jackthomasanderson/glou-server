@@ -72,7 +72,9 @@ export function CollectionPickerInline({ itemId, currentCollections }: Collectio
       ))}
 
       {/* Spinner shown during mutation */}
-      {isMutating && <Spinner size="sm" />}
+      {isMutating && (
+        <div role="status" aria-live="polite"><Spinner size="sm" aria-label={t('status.loading')} /></div>
+      )}
 
       {/* Add button — only shown if there are collections to add */}
       {available.length > 0 && !isMutating && (

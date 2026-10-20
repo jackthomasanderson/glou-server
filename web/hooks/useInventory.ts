@@ -1,13 +1,32 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryClient } from '@/lib/inventory/client';
 import { InventoryItem, InventoryHistoryEntry } from '@/lib/inventory/types';
 import { mirrorInventoryToCache, getCachedInventory } from '@/lib/offline/db';
 import { enqueueMutation } from '@/lib/offline/syncEngine';
+import { notifyError, notifySuccess } from '@/lib/toast';
+import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
 
 export const INVENTORY_KEY = ['inventory'];
 const TRASH_KEY = ['inventory', 'trash'];
+
+/**
+ * ISSUE_381: React Query hands `useEffect` a new array reference on every
+ * render where the query re-runs, even when the server returned the exact
+ * same rows (e.g. a background refetch after an unrelated mutation's
+ * `invalidateQueries`). Without this, that new reference alone was enough
+ * to trigger a full IndexedDB `clear()` + re-`put()` of up to 2,000 items.
+ * Item count + the most recent `updatedAt` is enough to tell "nothing
+ * changed" apart from "something changed" without a deep comparison.
+ */
+function inventoryFingerprint(items: InventoryItem[]): string {
+  let maxUpdatedAt = '';
+  for (const item of items) {
+    if (item.updatedAt > maxUpdatedAt) maxUpdatedAt = item.updatedAt;
+  }
+  return `${items.length}:${maxUpdatedAt}`;
+}
 
 // ─── Read hooks ──────────────────────────────────────────────────────────────
 
@@ -19,7 +38,7 @@ const TRASH_KEY = ['inventory', 'trash'];
  * this covers inventory CONSULTATION only — see the "bornage volontaire"
  * note in web/lib/offline/db.ts.
  */
-export function useInventory() {
+export function useInventory(options?: { enabled?: boolean }) {
   const query = useQuery<InventoryItem[]>({
     queryKey: INVENTORY_KEY,
     queryFn: async () => {
@@ -35,10 +54,16 @@ export function useInventory() {
       }
     },
     staleTime: 1000 * 30,
+    enabled: options?.enabled ?? true,
   });
+
+  const lastMirroredFingerprint = useRef<string | null>(null);
 
   useEffect(() => {
     if (query.data) {
+      const fingerprint = inventoryFingerprint(query.data);
+      if (fingerprint === lastMirroredFingerprint.current) return;
+      lastMirroredFingerprint.current = fingerprint;
       // Fire-and-forget: IndexedDB being unavailable (e.g. Safari private
       // browsing) must never block the online UI, it only means offline
       // browsing won't work for this session.
@@ -84,6 +109,12 @@ export function useCreateInventoryItem() {
       queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
         old ? [...old, newItem] : [newItem]
       );
+      notifySuccess('toast.createSuccess');
+    },
+    onError: (error) => {
+      // DUPLICATE_CANDIDATE is not a failure: the caller turns it into the
+      // duplicate-resolution dialog.
+      if (error.message !== 'DUPLICATE_CANDIDATE') notifyError('toast.createError');
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
@@ -125,9 +156,22 @@ export function useUpdateInventoryItem() {
         return { ...cachedItem, ...patch } as InventoryItem;
       }
     },
+    onSuccess: (updatedItem) => {
+      // ISSUE_381: the server/offline-queue result already has the item's
+      // final state — merge it into both caches in place instead of
+      // invalidating the whole list, which would re-fetch up to 2,000 items
+      // and re-trigger a full IndexedDB mirror rewrite for a one-field edit.
+      queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
+        old?.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+      );
+      queryClient.setQueryData<InventoryItem>(['inventory', updatedItem.id], updatedItem);
+    },
+    onError: () => notifyError('toast.updateError'),
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      // The sidebar badges (useSidebarCounts) normally piggyback on an
+      // INVENTORY_KEY invalidation, which this mutation no longer does.
+      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
     },
   });
 }
@@ -154,6 +198,7 @@ export function useBulkUpdateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<{ updatedCount: number }, Error, { ids: string[]; patch: Partial<InventoryItem> }>({
     mutationFn: ({ ids, patch }) => inventoryClient.bulkUpdate(ids, patch),
+    onError: () => notifyError('toast.bulkUpdateError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
@@ -167,10 +212,19 @@ export function useDeleteInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, string>({
     mutationFn: inventoryClient.delete,
+    onSuccess: (_deletedItem, id) => {
+      // ISSUE_381: drop the one row instead of invalidating the whole list.
+      queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
+        old?.filter((item) => item.id !== id)
+      );
+    },
+    onError: () => notifyError('toast.deleteError'),
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
       void queryClient.invalidateQueries({ queryKey: TRASH_KEY });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      // See useUpdateInventoryItem: the sidebar badges piggyback on an
+      // INVENTORY_KEY invalidation that this mutation no longer does.
+      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
     },
   });
 }
@@ -181,6 +235,8 @@ export function useRestoreInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, string>({
     mutationFn: inventoryClient.restore,
+    onSuccess: () => notifySuccess('toast.restoreSuccess'),
+    onError: () => notifyError('toast.restoreError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
       void queryClient.invalidateQueries({ queryKey: TRASH_KEY });

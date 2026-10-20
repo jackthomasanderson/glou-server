@@ -1,8 +1,9 @@
 'use client';
 import React, { useCallback, useMemo } from 'react';
-import { Chip } from '@heroui/react';
+import { Input } from '@heroui/react';
+import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Filter } from 'lucide-react';
-import { InventoryItem } from '@/lib/inventory/types';
+import { InventoryItem, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 
 export type InventorySortBy = 'default' | 'value' | 'urgency' | 'name';
@@ -34,6 +35,8 @@ export interface InventoryFilterBarProps {
   sortBy: InventorySortBy;
   setSortBy: React.Dispatch<React.SetStateAction<InventorySortBy>>;
   openedFilter: InventoryOpenedFilter;
+  showReferences: boolean;
+  setShowReferences: React.Dispatch<React.SetStateAction<boolean>>;
   setOpenedFilter: React.Dispatch<React.SetStateAction<InventoryOpenedFilter>>;
 
   tagSearchQuery: string;
@@ -75,6 +78,8 @@ export function InventoryFilterBar({
   setSortBy,
   openedFilter,
   setOpenedFilter,
+  showReferences,
+  setShowReferences,
   tagSearchQuery,
   setTagSearchQuery,
   showAllTags,
@@ -124,26 +129,13 @@ export function InventoryFilterBar({
             {t('inventory.filterByCellar')}
           </p>
           <div className="flex flex-wrap gap-1">
-            <Chip
-              size="sm"
-              variant={selectedCellars.length === 0 ? 'solid' : 'bordered'}
-              color={selectedCellars.length === 0 ? 'primary' : 'default'}
-              className="cursor-pointer text-xs"
-              onClick={() => setSelectedCellars([])}
-            >
+            <FilterChip selected={selectedCellars.length === 0} onPress={() => setSelectedCellars([])}>
               {t('filters.all')}
-            </Chip>
+            </FilterChip>
             {cellars?.map((cellar) => (
-              <Chip
-                key={cellar.id}
-                size="sm"
-                variant={selectedCellars.includes(cellar.id) ? 'solid' : 'bordered'}
-                color={selectedCellars.includes(cellar.id) ? 'primary' : 'default'}
-                className="cursor-pointer text-xs"
-                onClick={() => toggleCellar(cellar.id)}
-              >
+              <FilterChip key={cellar.id} selected={selectedCellars.includes(cellar.id)} onPress={() => toggleCellar(cellar.id)}>
                 {cellar.name}
-              </Chip>
+              </FilterChip>
             ))}
           </div>
         </div>
@@ -154,27 +146,35 @@ export function InventoryFilterBar({
         <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {lockedCategories?.includes('cigar') ? t('inventory.fields.isOpenedCigar') : t('inventory.fields.isOpened')}
         </p>
-        <div className="flex flex-col gap-0.5">
+        <div role="radiogroup" className="flex flex-col gap-0.5">
           {(['all', 'full', 'opened', 'alerts'] as const).map((f) => {
             const isCigar = lockedCategories?.includes('cigar');
             const label = isCigar && (f === 'full' || f === 'opened')
               ? t(`inventory.filters.${f}Cigar`)
               : t(`inventory.filters.${f}`);
             return (
-              <div
-                key={f}
-                onClick={() => setOpenedFilter(f)}
-                className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${openedFilter === f ? 'bg-default-100' : 'hover:bg-default-50'}`}
-              >
-                <span className={`text-xs ${openedFilter === f ? 'font-semibold' : 'font-normal'}`}>
-                  {label}
-                </span>
-                {openedFilter === f && (
-                  <span className="text-xs text-primary font-bold">✓</span>
-                )}
-              </div>
+              <FilterOption key={f} selected={openedFilter === f} onPress={() => setOpenedFilter(f)}>
+                {label}
+              </FilterOption>
             );
           })}
+        </div>
+      </div>
+
+      {/* FEAT-87: references are part of the inventory but hidden by
+          default — the list is about what the instance holds. */}
+      <div>
+        <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
+          {t('inventory.filterByOwnership')}
+        </p>
+        <div role="group" className="flex flex-col gap-0.5">
+          <FilterOption
+            selected={showReferences}
+            onPress={() => setShowReferences((prev) => !prev)}
+            mode="toggle"
+          >
+            {t('inventory.filters.showReferences')}
+          </FilterOption>
         </div>
       </div>
 
@@ -184,31 +184,14 @@ export function InventoryFilterBar({
           <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
             {t('inventory.filterByCategory')}
           </p>
-          <div className="flex flex-col gap-0.5">
-            <div
-              onClick={() => setSelectedCategories([])}
-              className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${selectedCategories.length === 0 ? 'bg-default-100' : 'hover:bg-default-50'}`}
-            >
-              <span className={`text-xs ${selectedCategories.length === 0 ? 'font-semibold' : 'font-normal'}`}>
-                {t('filters.allCategories')}
-              </span>
-              {selectedCategories.length === 0 && (
-                <span className="text-xs text-primary font-bold">✓</span>
-              )}
-            </div>
-            {['wine', 'sparkling', 'spirit', 'cigar'].map((cat) => (
-              <div
-                key={cat}
-                onClick={() => toggleCategory(cat)}
-                className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${selectedCategories.includes(cat) ? 'bg-default-100' : 'hover:bg-default-50'}`}
-              >
-                <span className={`text-xs ${selectedCategories.includes(cat) ? 'font-semibold' : 'font-normal'}`}>
-                  {t(`categories.${cat}`)}
-                </span>
-                {selectedCategories.includes(cat) && (
-                  <span className="text-xs text-primary font-bold">✓</span>
-                )}
-              </div>
+          <div role="group" className="flex flex-col gap-0.5">
+            <FilterOption selected={selectedCategories.length === 0} onPress={() => setSelectedCategories([])} mode="toggle">
+              {t('filters.allCategories')}
+            </FilterOption>
+            {CATEGORY_VALUES.map((cat) => (
+              <FilterOption key={cat} selected={selectedCategories.includes(cat)} onPress={() => toggleCategory(cat)} mode="toggle">
+                {t(`categories.${cat}`)}
+              </FilterOption>
             ))}
           </div>
         </div>
@@ -222,20 +205,12 @@ export function InventoryFilterBar({
           </p>
           <div className="flex flex-wrap gap-1">
             {(['red', 'white', 'rosé', 'orange'] as const).map((c) => (
-              <Chip
-                key={c}
-                size="sm"
-                variant={selectedWineColors.includes(c) ? 'solid' : 'bordered'}
-                color={selectedWineColors.includes(c) ? 'primary' : 'default'}
-                className="cursor-pointer text-xs"
-                onClick={() =>
+              <FilterChip key={c} selected={selectedWineColors.includes(c)} onPress={() =>
                   setSelectedWineColors((prev) =>
                     prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
-                  )
-                }
-              >
+                  )}>
                 {t(`inventory.color.${c}`)}
-              </Chip>
+              </FilterChip>
             ))}
           </div>
         </div>
@@ -247,23 +222,25 @@ export function InventoryFilterBar({
           {t('inventory.filterByValue')}
         </p>
         <div className="flex gap-2">
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             min={0}
             aria-label={t('inventory.filters.minValue')}
             placeholder={t('inventory.filters.minValue')}
             value={minValue}
             onChange={(e) => setMinValue(e.target.value)}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             min={0}
             aria-label={t('inventory.filters.maxValue')}
             placeholder={t('inventory.filters.maxValue')}
             value={maxValue}
             onChange={(e) => setMaxValue(e.target.value)}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
         </div>
       </div>
@@ -273,18 +250,11 @@ export function InventoryFilterBar({
         <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
           {t('inventory.filters.sortBy')}
         </p>
-        <div className="flex flex-col gap-0.5">
+        <div role="radiogroup" className="flex flex-col gap-0.5">
           {(['default', 'value', 'urgency', 'name'] as const).map((s) => (
-            <div
-              key={s}
-              onClick={() => setSortBy(s)}
-              className={`px-2 py-1.5 rounded-xl cursor-pointer flex items-center justify-between transition-colors ${sortBy === s ? 'bg-default-100' : 'hover:bg-default-50'}`}
-            >
-              <span className={`text-xs ${sortBy === s ? 'font-semibold' : 'font-normal'}`}>
-                {t(`inventory.filters.sortOptions.${s}`)}
-              </span>
-              {sortBy === s && <span className="text-xs text-primary font-bold">✓</span>}
-            </div>
+            <FilterOption key={s} selected={sortBy === s} onPress={() => setSortBy(s)}>
+              {t(`inventory.filters.sortOptions.${s}`)}
+            </FilterOption>
           ))}
         </div>
       </div>
@@ -296,31 +266,25 @@ export function InventoryFilterBar({
             {t('inventory.filterByTags')}
           </p>
           {tagUsage.length > TAG_DISPLAY_LIMIT && (
-            <input
+            <Input
               type="text"
+              variant="flat"
+              size="sm"
               aria-label={t('inventory.filters.tagSearchPlaceholder')}
               placeholder={t('inventory.filters.tagSearchPlaceholder')}
               value={tagSearchQuery}
               onChange={(e) => setTagSearchQuery(e.target.value)}
-              className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary mb-2"
+              className="mb-2"
             />
           )}
           <div className="flex flex-wrap gap-1">
             {visibleTagUsage.map(({ tag }) => (
-              <Chip
-                key={tag}
-                size="sm"
-                variant={selectedTags.includes(tag) ? 'solid' : 'bordered'}
-                color={selectedTags.includes(tag) ? 'primary' : 'default'}
-                className="cursor-pointer text-xs"
-                onClick={() =>
+              <FilterChip key={tag} selected={selectedTags.includes(tag)} onPress={() =>
                   setSelectedTags((prev) =>
                     prev.includes(tag) ? prev.filter((tg) => tg !== tag) : [...prev, tag]
-                  )
-                }
-              >
+                  )}>
                 {tag}
-              </Chip>
+              </FilterChip>
             ))}
             {visibleTagUsage.length === 0 && tagSearchQuery.trim() && (
               <p className="text-xs text-foreground-500">{t('inventory.filters.noTagsFound')}</p>
@@ -380,7 +344,7 @@ export interface InventoryFilterToggleButtonProps {
   onToggle: () => void;
 }
 
-/** The mobile "open/close filters" button, shown inline in the toolbar. */
+                /** The mobile "open/close filters" button, shown inline in the toolbar. */
 export function InventoryFilterToggleButton({ t, isFiltersOpen, hasActiveFilters, onToggle }: InventoryFilterToggleButtonProps) {
   return (
     <button

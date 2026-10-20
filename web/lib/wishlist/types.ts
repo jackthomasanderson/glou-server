@@ -1,4 +1,7 @@
-export type WishlistCategory = 'wine' | 'sparkling' | 'spirit' | 'cigar';
+import type { InventoryCategory } from '../inventory/types';
+
+// ISSUE_137: alias of the single category source, not an independent list.
+export type WishlistCategory = InventoryCategory;
 export type WishlistStatus = 'active' | 'acquired' | 'cancelled';
 
 export interface WishlistItem {

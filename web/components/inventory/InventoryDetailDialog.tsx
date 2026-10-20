@@ -1,15 +1,16 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useCellars } from '@/hooks/useCellars';
 import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem, useRollbackField } from '@/hooks/useInventory';
-import { Button, Chip, Divider, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Tooltip } from '@heroui/react';
+import { Button, Chip, Divider, Drawer, DrawerContent, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Tooltip } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
   Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode, Euro,
-  FileSpreadsheet, ScanLine, Wand2, History as HistoryIcon, TrendingUp,
-  Plus, Minus,
+  FileSpreadsheet, ScanLine, History as HistoryIcon, TrendingUp,
+  Plus, Minus, PackagePlus,
 } from 'lucide-react';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
@@ -21,6 +22,7 @@ import { CollectionPickerInline } from '@/components/collections/CollectionPicke
 
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
@@ -54,13 +56,10 @@ function InfoCard({ icon, label, value, valueColor }: InfoCardProps) {
 }
 
 // ─── FEAT-05: Field source transparency ─────────────────────────────────────
-// 'ocr' is active since FEAT-04 (scan) landed. 'enrichment' remains
-// roadmap-only (no third-party lookup pipeline wired up yet) but the badge
-// stays generic so it activates for free once a real enrichment source lands.
+// 'ocr' is active since FEAT-04 (scan) landed.
 const SOURCE_ICONS: Record<Exclude<FieldSource, 'manual'>, React.ReactElement> = {
   import_csv: <FileSpreadsheet size={11} />,
   ocr: <ScanLine size={11} />,
-  enrichment: <Wand2 size={11} />,
 };
 
 interface FieldSourceBadgeProps {
@@ -133,22 +132,10 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
     setLocalQuantity(d?.quantity ?? 0);
   }
 
-  // This drawer is hand-rolled rather than the shared HeroUI Modal, so
-  // Escape-to-close and screen-reader dialog semantics aren't automatic —
-  // added explicitly here instead of switching component to keep the
-  // existing layout/behavior otherwise unchanged.
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
   const handleFillCommit = useCallback(
     (value: number) => {
-      if (!item) return;
+      // FEAT-87: a non-owned reference has no bottle, so no level to set.
+      if (!item || !isOwnedItem(item)) return;
       updateMutation.mutate({
         id: item.id,
         patch: {
@@ -171,7 +158,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
 
   const handleQuantityStep = useCallback(
     (delta: number) => {
-      if (!item) return;
+      if (!item || !isOwnedItem(item)) return;
       const next = Math.max(0, Math.min(1000, localQuantity + delta));
       if (next === localQuantity) return;
       setLocalQuantity(next);
@@ -245,18 +232,15 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
 
   return (
     <>
-      {open && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-
-          {/* Drawer panel */}
-          <div
-            className="relative w-full sm:w-[400px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="inventory-detail-title"
-          >
+      <Drawer
+        isOpen={open}
+        onClose={onClose}
+        placement="right"
+        backdrop="opaque"
+        classNames={{ base: 'max-w-[400px] shadow-xl' }}
+      >
+        <DrawerContent>
+          <>
             {/* Header */}
             <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
               <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-0.5">
@@ -274,7 +258,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                   <FieldSourceBadge source={fieldSources.name} t={t} />
                 </div>
                 <div className="flex items-center gap-1">
-                  <Tooltip content={t('qr.title')} size="sm" placement="bottom">
+                  <Tooltip delay={500} content={t('qr.title')} size="sm" placement="bottom">
                     <button
                       onClick={() => setQrOpen(true)}
                       className="shrink-0 p-1 rounded-lg hover:bg-default-100 transition-colors"
@@ -295,19 +279,19 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
 
               {/* Producer / vintage / region — most visible fields, tagged with their source (FEAT-05) */}
               <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                <span className="text-xs text-default-500">{d.producer}</span>
+                <span className="text-xs text-foreground-500">{d.producer}</span>
                 <FieldSourceBadge source={fieldSources.producer} t={t} />
                 {d.vintage != null && (
                   <>
                     <span className="text-foreground-400">·</span>
-                    <span className="text-xs text-default-500">{d.vintage}</span>
+                    <span className="text-xs text-foreground-500">{d.vintage}</span>
                     <FieldSourceBadge source={fieldSources.vintage} t={t} />
                   </>
                 )}
                 {d.region && (
                   <>
                     <span className="text-foreground-400">·</span>
-                    <span className="text-xs text-default-500">{d.region}</span>
+                    <span className="text-xs text-foreground-500">{d.region}</span>
                     <FieldSourceBadge source={fieldSources.region} t={t} />
                   </>
                 )}
@@ -346,7 +330,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                      cigar count. */
                   <div className="mb-1">
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm text-default-500">{t('inventory.fields.quantity')}</span>
+                      <span className="text-sm text-foreground-500">{t('inventory.fields.quantity')}</span>
                       <span className="text-sm text-primary font-bold">{localQuantity}</span>
                     </div>
                     <div className="flex items-center justify-center gap-4 py-2">
@@ -378,7 +362,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                     {/* Slider */}
                     <div className="mb-1">
                       <div className="flex justify-between mb-1">
-                        <span className="text-sm text-default-500">{t('inventory.detail.levelWine')}</span>
+                        <span className="text-sm text-foreground-500">{t('inventory.detail.levelWine')}</span>
                         <span className="text-sm text-primary font-bold">{localFill}%</span>
                       </div>
                       <Slider
@@ -390,7 +374,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                         step={1}
                         color="primary"
                         size="sm"
-                        isDisabled={updateMutation.isPending}
+                        isDisabled={updateMutation.isPending || !isOwnedItem(d)}
                         className="py-2"
                         aria-label={t('inventory.detail.levelWine')}
                       />
@@ -414,7 +398,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                           color={localFill === value ? 'primary' : 'default'}
                           size="sm"
                           onPress={() => handlePreset(value)}
-                          isDisabled={updateMutation.isPending}
+                          isDisabled={updateMutation.isPending || !isOwnedItem(d)}
                           className="flex-1 text-xs py-3"
                         >
                           {label}
@@ -542,7 +526,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                       <FieldSourceBadge source={fieldSources.notes} t={t} />
                     </div>
                     <div className="p-3 bg-default-50 rounded-xl mb-5 border border-divider">
-                      <p className="text-sm text-default-500 italic leading-relaxed whitespace-pre-wrap">
+                      <p className="text-sm text-foreground-500 italic leading-relaxed whitespace-pre-wrap">
                         {d.notes}
                       </p>
                     </div>
@@ -600,7 +584,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                               <span className="px-2 py-0.5 rounded-md bg-primary text-white text-xs font-bold shrink-0 max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
                                 {entry.actorName}
                               </span>
-                              <span className="flex-1 text-xs text-default-500">
+                              <span className="flex-1 text-xs text-foreground-500">
                                 {formatHistoryEntry(entry)}
                               </span>
                               <span className="shrink-0 text-xs text-foreground-400">
@@ -650,6 +634,21 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
               >
                 {t('tastings.logTasting')}
               </Button>
+              {/* FEAT-87: one click turns a reference into a held bottle.
+                  Cellar, slot and price are then filled by editing it, like
+                  any other bottle. */}
+              {!isOwnedItem(item) && (
+                <Button
+                  variant="bordered"
+                  color="success"
+                  startContent={<PackagePlus size={15} />}
+                  onPress={() => updateMutation.mutate({ id: item.id, patch: { isOwned: true } })}
+                  isDisabled={updateMutation.isPending}
+                  size="sm"
+                >
+                  {t('inventory.actions.stockReference')}
+                </Button>
+              )}
               <div className="flex-1" />
               {onEdit && (
                 <Button
@@ -662,9 +661,9 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 </Button>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        </DrawerContent>
+      </Drawer>
 
       <TastingForm
         open={tastingOpen}
@@ -680,7 +679,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
       />
 
       {/* Rollback confirmation (FEAT-05) — data-modifying action, requires confirmation */}
-      <Modal
+      <ResponsiveModal
         isOpen={rollbackTarget !== null}
         onClose={() => { setRollbackTarget(null); rollbackMutation.reset(); }}
         size="sm"
@@ -696,7 +695,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 <span>{t('traceability.restoreConfirm.title')}</span>
               </ModalHeader>
               <ModalBody className="py-2">
-                <p className="text-sm text-default-500">
+                <p className="text-sm text-foreground-500">
                   {rollbackTarget &&
                     t('traceability.restoreConfirm.body', {
                       field: fieldLabel(rollbackTarget.field),
@@ -730,7 +729,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </>
   );
 }

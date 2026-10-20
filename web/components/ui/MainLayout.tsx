@@ -1,6 +1,6 @@
 'use client';
-import React, { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import React, { Suspense, useEffect, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, Button, Tooltip } from '@heroui/react';
 import { Search, Lock } from 'lucide-react';
@@ -25,19 +25,81 @@ const PAGE_TITLES: Record<string, string> = {
   '/cigars': 'nav.cigars',
   '/cellars': 'nav.caves',
   '/collections': 'nav.collections',
-  '/tastings': 'nav.tastings',
-  '/analytics': 'nav.analytics',
+  '/cellar-journal': 'nav.tastings',
+  '/analytics-terroirs': 'nav.analytics',
   '/profile': 'nav.profile',
   '/admin': 'nav.admin',
   '/inventory-count': 'inventoryCount.title',
-  '/wishlist': 'wishlist.title',
+  '/wishlist-budget': 'wishlist.title',
+};
+
+// ISSUE_434: /bottles is the one path shared by the 3 category nav
+// shortcuts (?category=wine/sparkling/spirit) AND every unfiltered deep
+// link into it (search results, alerts, collections, printed QR codes —
+// see Sidebar.tsx). The breadcrumb/tab title follows the category when
+// one is selected, and falls back to the generic "nav.bottles" label
+// otherwise — same `?category=` param useInventoryFilters reads.
+const CATEGORY_TITLES: Record<string, string> = {
+  wine: 'nav.wines',
+  sparkling: 'nav.sparkling',
+  spirit: 'nav.spirits',
 };
 
 function usePageTitle() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useTranslation();
   const key = Object.keys(PAGE_TITLES).find(k => pathname.startsWith(k));
-  return key ? { label: t(PAGE_TITLES[key], key.slice(1)), href: key } : null;
+  if (!key) return null;
+  if (key === '/bottles') {
+    const category = searchParams.get('category');
+    const titleKey = (category && CATEGORY_TITLES[category]) || PAGE_TITLES[key];
+    return { label: t(titleKey), href: key };
+  }
+  return { label: t(PAGE_TITLES[key], key.slice(1)), href: key };
+}
+
+// #428: Next.js metadata sets a static bilingual tab title (e.g. "Cigars ·
+// Cigares — Glou") because the server can't know the client-side active
+// language. Once i18n is ready, override it with the active language only.
+function useBrowserTabTitle(label: string | undefined) {
+  useEffect(() => {
+    if (!label) return;
+    document.title = `${label} — Glou`;
+  }, [label]);
+}
+
+/**
+ * `usePageTitle` calls `useSearchParams()` (for the `?category=` param —
+ * see ISSUE_434 above), which opts a component out of static rendering
+ * unless an ancestor is wrapped in `<Suspense>`. Isolated here, with its
+ * own boundary in MainLayout's render, rather than forcing every page that
+ * renders `<MainLayout>` to add that boundary itself.
+ */
+function PageBreadcrumb({ appName }: { appName: string }) {
+  const pathname = usePathname();
+  const pageTitle = usePageTitle();
+  useBrowserTabTitle(pageTitle?.label);
+
+  return (
+    <span className="min-w-0 text-xs font-bold tracking-[.1rem] uppercase flex items-center gap-1">
+      <Link href="/" className="shrink-0 text-foreground-500 hover:text-foreground transition-colors">
+        {appName}
+      </Link>
+      {pageTitle && (
+        <>
+          <span className="shrink-0 text-foreground-400">&gt;</span>
+          {pageTitle.href !== pathname ? (
+            <Link href={pageTitle.href} className="truncate text-foreground-500 hover:text-foreground transition-colors">
+              {pageTitle.label}
+            </Link>
+          ) : (
+            <span className="truncate text-foreground">{pageTitle.label}</span>
+          )}
+        </>
+      )}
+    </span>
+  );
 }
 
 /**
@@ -68,9 +130,7 @@ function QuickLockButton() {
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isProtected = true }) => {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { data: user } = useMe();
-  const pageTitle = usePageTitle();
   const { t } = useTranslation();
-  const pathname = usePathname();
 
   const content = (
     <div className="flex min-h-screen bg-background">
@@ -86,25 +146,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Content header */}
-        <header className="print:hidden sticky top-0 z-20 flex items-center gap-3 px-4 md:px-6 py-2.5 bg-content1 border-b border-divider">
+        <header className="print:hidden sticky top-0 z-20 flex items-center gap-3 px-4 md:px-6 py-2.5 bg-content1 border-b border-divider"
+          style={{ paddingTop: 'calc(0.625rem + env(safe-area-inset-top))' }}
+        >
           {/* Breadcrumb */}
-          <span className="min-w-0 text-xs font-bold tracking-[.1rem] uppercase flex items-center gap-1">
-            <Link href="/" className="shrink-0 text-foreground-500 hover:text-foreground transition-colors">
-              {user?.appName || 'Glou'}
-            </Link>
-            {pageTitle && (
-              <>
-                <span className="shrink-0 text-foreground-400">&gt;</span>
-                {pageTitle.href !== pathname ? (
-                  <Link href={pageTitle.href} className="truncate text-foreground-500 hover:text-foreground transition-colors">
-                    {pageTitle.label}
-                  </Link>
-                ) : (
-                  <span className="truncate text-foreground">{pageTitle.label}</span>
-                )}
-              </>
-            )}
-          </span>
+          <Suspense fallback={<span className="min-w-0 text-xs font-bold tracking-[.1rem] uppercase">{user?.appName || 'Glou'}</span>}>
+            <PageBreadcrumb appName={user?.appName || 'Glou'} />
+          </Suspense>
 
           <div className="flex-1" />
           <GlobalSearch />
@@ -144,7 +192,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
         </main>
       </div>
 
-      <BottomNav />
+      <Suspense fallback={null}>
+        <BottomNav />
+      </Suspense>
       <MobileSearch isOpen={mobileSearchOpen} onClose={() => setMobileSearchOpen(false)} />
       {/* FEAT-16/23: mounted once, globally, so an offline-sync conflict
           surfaces regardless of which page it happens to resolve on. */}

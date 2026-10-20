@@ -19,6 +19,18 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
       },
+      // ISSUE_327: a single stacking scale for the full-screen overlays that
+      // aren't HeroUI Modal/Drawer (those manage their own z-50 already).
+      // Three tiers instead of hand-picked numbers per surface: overlay
+      // (mobile sidebar drawer, mobile search) < wizard (onboarding, which
+      // must sit above the app chrome but below an auth lock) < lock (the
+      // session lock screen / forced password change, which must win
+      // against everything, including an onboarding wizard open underneath).
+      zIndex: {
+        overlay: '50',
+        wizard: '9990',
+        lock: '9999',
+      },
     },
   },
   darkMode: 'class',

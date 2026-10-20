@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Card, CardBody, Checkbox, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Button, Card, CardBody, Checkbox, Input, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useExportData, useRequestAccountDeletion, useCancelAccountDeletion, PublicUser, ExportCategory } from '@/hooks/useAuth';
@@ -165,17 +166,20 @@ export function GdprSection({ user }: GdprSectionProps) {
       </Card>
 
       {/* Confirmation modal */}
-      <Modal isOpen={deleteModalOpen} onClose={() => { setDeleteModalOpen(false); setConfirmText(''); }} size="sm" placement="center">
+      <ResponsiveModal isOpen={deleteModalOpen} onClose={() => { setDeleteModalOpen(false); setConfirmText(''); }} size="sm" placement="center">
         <ModalContent>
           <ModalHeader className="text-danger">{t('gdpr.deleteModalTitle')}</ModalHeader>
           <ModalBody className="flex flex-col gap-4">
             <p className="text-sm text-foreground-600">{t('gdpr.deleteModalBody')}</p>
             <p className="text-xs text-foreground-500">{t('gdpr.deleteModalHint', { keyword: t('gdpr.deleteKeyword') })}</p>
-            <input
-              className="w-full border border-divider rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-danger"
+            <Input
+              variant="bordered"
+              size="sm"
+              radius="md"
+              color="danger"
               placeholder={t('gdpr.deleteKeyword')}
               value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
+              onValueChange={setConfirmText}
             />
           </ModalBody>
           <ModalFooter className="gap-2">
@@ -193,7 +197,7 @@ export function GdprSection({ user }: GdprSectionProps) {
             </Button>
           </ModalFooter>
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </>
   );
 }

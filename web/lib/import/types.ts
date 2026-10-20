@@ -2,7 +2,10 @@
 // Mirrors api/src/schemas/import.schema.ts. CSV-only in this feature —
 // Excel/.xlsx is an explicitly assumed limitation, not an oversight.
 
-export type ImportCategory = 'wine' | 'sparkling' | 'spirit' | 'cigar';
+import type { InventoryCategory } from '../inventory/types';
+
+// ISSUE_137: alias of the single category source, not an independent list.
+export type ImportCategory = InventoryCategory;
 
 export interface CsvImportRow {
   name: string;

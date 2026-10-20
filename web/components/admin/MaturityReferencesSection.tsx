@@ -1,11 +1,14 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Button, Chip, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Button, Chip, Input, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
   Skeleton, Tooltip, ButtonGroup, Select, SelectItem,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays, ArrowUp, ArrowDown } from 'lucide-react';
+import { FilterChip } from '@/components/ui/FilterControls';
+import { CATEGORY_VALUES } from '@/lib/inventory/types';
 import { useTranslation } from 'react-i18next';
 import {
   useMaturityReferences,
@@ -133,7 +136,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
     : t('admin.maturityRefs.hints.windowAbsolute');
 
   return (
-    <Modal isOpen={open} onClose={onClose} size="md" radius="lg" backdrop="opaque" placement="center">
+    <ResponsiveModal isOpen={open} onClose={onClose} size="md" radius="lg" backdrop="opaque" placement="center">
       <ModalContent>
         {() => (
           <>
@@ -158,18 +161,17 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
               <div>
                 <p className="text-xs text-foreground-500 mb-2">{t('inventory.fields.category')}</p>
                 <div className="flex gap-2 flex-wrap">
-                  {(['wine', 'sparkling', 'spirit', 'cigar'] as const).map((cat) => (
-                    <Chip
+                  {CATEGORY_VALUES.map((cat) => (
+                    <FilterChip
                       key={cat}
-                      startContent={CATEGORY_ICONS[cat]}
-                      onClick={() => handleCategoryChange(cat)}
-                      color={form.category === cat ? 'primary' : 'default'}
-                      variant={form.category === cat ? 'flat' : 'bordered'}
                       radius="sm"
-                      className="cursor-pointer"
+                      size="md"
+                      startContent={CATEGORY_ICONS[cat]}
+                      selected={form.category === cat}
+                      onPress={() => handleCategoryChange(cat)}
                     >
                       {t(`categories.${cat}`)}
-                    </Chip>
+                    </FilterChip>
                   ))}
                 </div>
               </div>
@@ -254,7 +256,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                 {CURVE_SHAPES.map((shape) => (
                   <SelectItem key={shape} textValue={t(curveShapeLabelKey(shape))}>
                     <div className="flex items-center gap-2">
-                      <CurveGlyph shape={shape} width={34} className="text-default-500 shrink-0" />
+                      <CurveGlyph shape={shape} width={34} className="text-foreground-500 shrink-0" />
                       <div className="flex flex-col">
                         <span className="text-sm">{t(curveShapeLabelKey(shape))}</span>
                         <span className="text-xs text-foreground-400">{t(curveShapeDescriptionKey(shape))}</span>
@@ -325,7 +327,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
           </>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }
 
@@ -445,10 +447,14 @@ export function MaturityReferencesSection() {
                   </TableCell>
                   <TableCell>
                     <Tooltip content={t(curveShapeDescriptionKey(ref.curveShape))} delay={500}>
-                      <span className="flex items-center gap-1.5 text-xs text-foreground-500">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 text-xs text-foreground-500 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+                        aria-label={`${t(curveShapeLabelKey(ref.curveShape))} — ${t(curveShapeDescriptionKey(ref.curveShape))}`}
+                      >
                         <CurveGlyph shape={ref.curveShape} width={30} />
-                        {t(curveShapeLabelKey(ref.curveShape))}
-                      </span>
+                        <span aria-hidden="true">{t(curveShapeLabelKey(ref.curveShape))}</span>
+                      </button>
                     </Tooltip>
                   </TableCell>
                   <TableCell className="text-center text-sm text-foreground-400">{ref.bottleCount}</TableCell>
@@ -479,7 +485,7 @@ export function MaturityReferencesSection() {
         onClose={() => setDialogOpen(false)}
       />
 
-      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {(onClose) => (
             <>
@@ -494,7 +500,7 @@ export function MaturityReferencesSection() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </>
   );
 }

@@ -382,7 +382,7 @@ export const CellarDashboard: React.FC = () => {
       {/* Empty state */}
       {cellars?.length === 0 ? (
         <div className="text-center py-16 border-2 border-dashed border-default-300 rounded-xl bg-default-50 mt-4">
-          <h2 className="text-lg font-semibold text-default-500 mb-1">{t('cellars.noCellars')}</h2>
+          <h2 className="text-lg font-semibold text-foreground-500 mb-1">{t('cellars.noCellars')}</h2>
           <p className="text-sm text-foreground-500 mb-6">{t('cellars.noCellarsDesc')}</p>
           <Button
             color="primary"
@@ -395,7 +395,7 @@ export const CellarDashboard: React.FC = () => {
       ) : filteredCellars.length === 0 && hasActiveFilters ? (
         <div className="text-center py-16 border-2 border-dashed border-default-300 rounded-xl bg-default-50">
           <Warehouse size={40} className="text-foreground-400 mx-auto mb-3" />
-          <p className="text-base font-semibold text-default-500">{t('cellars.noResults')}</p>
+          <p className="text-base font-semibold text-foreground-500">{t('cellars.noResults')}</p>
           <Button size="sm" variant="light" color="primary" onPress={clearFilters} className="mt-3">
             {t('actions.clearAll')}
           </Button>
@@ -416,13 +416,20 @@ export const CellarDashboard: React.FC = () => {
                   <Warehouse size={18} className="text-primary shrink-0" />
                   <span className="text-base font-semibold flex-1 min-w-0 truncate">{cellar.name}</span>
                   {cellar.columns && cellar.rows && (
-                    <Tooltip content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
-                      <Grid2x2 size={14} className="text-foreground-500" />
+                    <Tooltip delay={500} content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
+                      <button
+                        type="button"
+                        aria-label={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}
+                        className="flex items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Grid2x2 size={14} className="text-foreground-500" />
+                      </button>
                     </Tooltip>
                   )}
                 </div>
 
-                <span className="text-sm text-default-500">{t(`cellars.types.${cellar.type}`)}</span>
+                <span className="text-sm text-foreground-500">{t(`cellars.types.${cellar.type}`)}</span>
 
                 {cellar.description && (
                   <p className="text-sm">{cellar.description}</p>
@@ -431,7 +438,7 @@ export const CellarDashboard: React.FC = () => {
                 {cellar.stats && (
                   <div className="flex gap-1.5 mt-1 flex-wrap">
                     <Chip size="sm" variant="flat">
-                      {cellar.stats.totalItems} {t('cellars.stats.items')}
+                      {t('cellars.stats.itemsCount', { count: cellar.stats.totalItems })}
                     </Chip>
                     {cellar.stats.alertCount > 0 && (
                       <Chip size="sm" color="warning" variant="flat">
@@ -482,6 +489,7 @@ export const CellarDashboard: React.FC = () => {
           isStriped
           removeWrapper
           className="border border-default-200 rounded-xl overflow-hidden"
+          onRowAction={(key) => router.push(`/cellars/${String(key)}`)}
         >
           <TableHeader>
             <TableColumn className="w-10"> </TableColumn>
@@ -497,7 +505,6 @@ export const CellarDashboard: React.FC = () => {
               <TableRow
                 key={cellar.id}
                 className="cursor-pointer hover:bg-default-50"
-                onClick={() => router.push(`/cellars/${cellar.id}`)}
               >
                 <TableCell>
                   <Warehouse size={16} className="text-primary" />
@@ -506,8 +513,15 @@ export const CellarDashboard: React.FC = () => {
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold">{cellar.name}</span>
                     {cellar.columns && cellar.rows && (
-                      <Tooltip content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
-                        <Grid2x2 size={12} className="text-foreground-500" />
+                      <Tooltip delay={500} content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
+                        <button
+                          type="button"
+                          aria-label={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}
+                          className="flex items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Grid2x2 size={12} className="text-foreground-500" />
+                        </button>
                       </Tooltip>
                     )}
                   </div>
@@ -518,7 +532,7 @@ export const CellarDashboard: React.FC = () => {
                   </Chip>
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
-                  <span className="text-sm text-default-500 line-clamp-1 max-w-xs block">
+                  <span className="text-sm text-foreground-500 line-clamp-1 max-w-xs block">
                     {cellar.description ?? '—'}
                   </span>
                 </TableCell>
@@ -539,7 +553,7 @@ export const CellarDashboard: React.FC = () => {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex gap-1 justify-end">
-                    <Tooltip content={t('actions.edit')}>
+                    <Tooltip delay={500} content={t('actions.edit')}>
                       <Button
                         isIconOnly
                         size="sm"
@@ -550,7 +564,7 @@ export const CellarDashboard: React.FC = () => {
                         <Pencil size={14} />
                       </Button>
                     </Tooltip>
-                    <Tooltip content={t('actions.delete')}>
+                    <Tooltip delay={500} content={t('actions.delete')}>
                       <Button
                         isIconOnly
                         size="sm"
@@ -613,7 +627,7 @@ export const CellarDashboard: React.FC = () => {
               {/* Humidor target hygrometry (Task 4, expert mode only) */}
               {isExpert && isHumidorType && (
                 <div className="flex flex-col gap-2 p-3 bg-default-50 rounded-xl">
-                  <p className="text-xs text-default-500">{t('cellars.humidor.targetRangeHint')}</p>
+                  <p className="text-xs text-foreground-500">{t('cellars.humidor.targetRangeHint')}</p>
                   <div className="flex gap-3">
                     <Input
                       label={t('cellars.humidor.targetHumidityMin')}
@@ -656,7 +670,7 @@ export const CellarDashboard: React.FC = () => {
                       label={t('cellars.grid.columns')}
                       type="number"
                       min={1}
-                      max={100}
+                      max={30}
                       value={formData.grid.columns}
                       onValueChange={(v) =>
                         setFormData({ ...formData, grid: { ...formData.grid, columns: v } })
@@ -667,7 +681,7 @@ export const CellarDashboard: React.FC = () => {
                       label={t('cellars.grid.rows')}
                       type="number"
                       min={1}
-                      max={100}
+                      max={30}
                       value={formData.grid.rows}
                       onValueChange={(v) =>
                         setFormData({ ...formData, grid: { ...formData.grid, rows: v } })
@@ -680,7 +694,7 @@ export const CellarDashboard: React.FC = () => {
                       label={t('cellars.grid.hotZoneRows')}
                       type="number"
                       min={0}
-                      max={100}
+                      max={30}
                       value={formData.grid.hotZoneRows}
                       onValueChange={(v) =>
                         setFormData({ ...formData, grid: { ...formData.grid, hotZoneRows: v } })
@@ -693,7 +707,7 @@ export const CellarDashboard: React.FC = () => {
                       label={t('cellars.grid.coldZoneRows')}
                       type="number"
                       min={0}
-                      max={100}
+                      max={30}
                       value={formData.grid.coldZoneRows}
                       onValueChange={(v) =>
                         setFormData({ ...formData, grid: { ...formData.grid, coldZoneRows: v } })
@@ -747,7 +761,7 @@ export const CellarDashboard: React.FC = () => {
             <>
               <ModalHeader>{t('cellars.deleteTitle')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-default-600">{t('cellars.deleteConfirm')}</p>
+                <p className="text-sm text-foreground-600">{t('cellars.deleteConfirm')}</p>
               </ModalBody>
               <ModalFooter>
                 <Button color="default" variant="light" onPress={() => setDeletingCellar(null)}>

@@ -1,7 +1,6 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Modal,
   ModalContent,
   ModalHeader,
   ModalBody,
@@ -11,9 +10,11 @@ import {
   Select,
   SelectItem,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { useTranslation } from 'react-i18next';
 import { useRecordFoundItem } from '@/hooks/useInventoryCount';
 import { InventoryCategory } from '@/lib/inventory-count/types';
+import { CATEGORY_VALUES } from '@/lib/inventory/types';
 
 interface RecordFoundItemModalProps {
   sessionId: string;
@@ -21,7 +22,7 @@ interface RecordFoundItemModalProps {
   onClose: () => void;
 }
 
-const CATEGORIES: InventoryCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
+const CATEGORIES: InventoryCategory[] = [...CATEGORY_VALUES];
 
 /**
  * FEAT-12 gap-fix: the third corrective action promised by feature.md
@@ -68,7 +69,7 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={resetAndClose} size="sm" placement="center" scrollBehavior="inside">
+    <ResponsiveModal isOpen={isOpen} onClose={resetAndClose} size="sm" placement="center" scrollBehavior="inside">
       <ModalContent>
         <form onSubmit={handleSubmit}>
           <ModalHeader>{t('inventoryCount.session.foundNew.title')}</ModalHeader>
@@ -125,6 +126,6 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
           </ModalFooter>
         </form>
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }

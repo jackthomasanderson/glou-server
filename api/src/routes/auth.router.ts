@@ -11,6 +11,7 @@ import { auditLog } from '../services/audit.service';
 import { AuthPayload } from '../services/auth.service';
 import { passwordResetService } from '../services/password-reset.service';
 import { systemConfigService } from '../services/system-config.service';
+import { prisma } from '../lib/prisma';
 import { isCookieSecure } from '../lib/cookie-secure';
 
 const passwordResetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
@@ -155,8 +156,11 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
-    // Always 401 for invalid credentials (no enumeration)
-    res.status(401).json({ error: msg === 'INVALID_CREDENTIALS' ? 'INVALID_CREDENTIALS' : 'UNEXPECTED_ERROR' });
+    // Always 401 for invalid credentials (no enumeration). A deactivated account
+    // is collapsed to the same code so it neither leaks the account's existence
+    // nor reads as an application failure.
+    const refused = msg === 'INVALID_CREDENTIALS' || msg === 'ACCOUNT_DEACTIVATED';
+    res.status(401).json({ error: refused ? 'INVALID_CREDENTIALS' : 'UNEXPECTED_ERROR' });
   }
 });
 
@@ -443,6 +447,16 @@ router.get('/me', authMiddleware, async (req: Request, res: Response): Promise<v
 router.get('/smtp-status', async (_req: Request, res: Response): Promise<void> => {
   const smtpEnabled = await systemConfigService.isSmtpEnabled();
   res.json({ data: { smtpEnabled } });
+});
+
+// ─── GET /api/auth/registration-status ───────────────────────────────────────
+
+// Lets the login screen hide its signup link when registrations are closed.
+// The first account always gets through (see authService.register), so an
+// empty instance reports open.
+router.get('/registration-status', async (_req: Request, res: Response): Promise<void> => {
+  const registrationOpen = (await systemConfigService.isRegistrationOpen()) || (await prisma.user.count()) === 0;
+  res.json({ data: { registrationOpen } });
 });
 
 // ─── POST /api/auth/forgot-password ──────────────────────────────────────────

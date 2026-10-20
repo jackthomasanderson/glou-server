@@ -1,6 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessPercent } from '../lib/maturity-curve';
+import { notificationService } from './notification.service';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
@@ -49,6 +51,9 @@ export function computeReadiness(
  */
 const HAS_MATURITY_WINDOW = {
   deletedAt: null,
+  // FEAT-87: a non-owned reference has no bottle to drink, so it never
+  // raises a peak-maturity alert.
+  ...OWNED_ITEM_FILTER,
   OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
 } satisfies Prisma.InventoryItemWhereInput;
 
@@ -124,7 +129,11 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
     where: HAS_MATURITY_WINDOW,
     select: {
       id: true,
+      name: true,
+      producer: true,
+      vintage: true,
       alertStatus: true,
+      alertsPaused: true,
       peakMaturityFrom: true,
       peakMaturityTo: true,
       updatedAt: true,
@@ -140,9 +149,35 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
       data: { alertStatus: nextStatus, updatedAt: item.updatedAt },
     });
     updated += 1;
+
+    // #338: the `item.alertStatus === nextStatus` guard above is the
+    // anti-repeat rule — once stored as 'peak', a daily recompute no longer
+    // sees a transition and stops notifying, so this fires once per item
+    // until its window is edited or it leaves 'peak' and re-enters later.
+    if (nextStatus === 'peak' && !item.alertsPaused) {
+      void notifyPeakReached(item).catch((err) => {
+        console.error('[alert] Failed to send peak-maturity notification:', err);
+      });
+    }
   }
 
   return { scanned: items.length, updated };
+}
+
+async function notifyPeakReached(item: { id: string; name: string; producer: string; vintage: number | null }): Promise<void> {
+  const label = `${item.name} — ${item.producer}${item.vintage ? ` (${item.vintage})` : ''}`;
+  const users = await prisma.user.findMany({ select: { id: true, language: true, notifLanguage: true } });
+  await Promise.all(users.map((user) => {
+    const isEn = (user.notifLanguage ?? user.language) === 'EN';
+    return notificationService.send({
+      userId: user.id,
+      category: 'peak',
+      subject: isEn ? `At peak maturity: ${label}` : `À son apogée : ${label}`,
+      htmlBody: isEn
+        ? `<p><strong>${label}</strong> has reached its optimal drinking window. This may be a good time to open it.</p>`
+        : `<p><strong>${label}</strong> est entrée dans sa fenêtre optimale de consommation. C'est peut-être le bon moment pour l'ouvrir.</p>`,
+    });
+  }));
 }
 
 /**

@@ -5,14 +5,22 @@ export type { CurveShape };
 
 // ─── Types miroirs du backend ────────────────────────────────────────────────
 
-export type InventoryCategory = 'wine' | 'sparkling' | 'spirit' | 'cigar';
+// ISSUE_137: the single source of truth for the category list — every other
+// `type X = 'wine' | 'sparkling' | 'spirit' | 'cigar'` duplicate across
+// web/lib now aliases InventoryCategory instead of redefining it, and the
+// Zod schema below derives from the same array instead of its own literal.
+export const CATEGORY_VALUES = ['wine', 'sparkling', 'spirit', 'cigar'] as const;
+export type InventoryCategory = (typeof CATEGORY_VALUES)[number];
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
 // ─── Field source transparency (FEAT-05) ────────────────────────────────────
 // Origin of a field's current value. A field absent from `fieldSources` is
-// implicitly 'manual' — no external enrichment source (Vivino, Whiskybase,
-// OCR) is actually wired up yet, that remains roadmap (see design.md).
-export type FieldSource = 'manual' | 'ocr' | 'import_csv' | 'enrichment';
+// implicitly 'manual'. 'ocr' is populated by the FEAT-04 scan pipeline.
+//
+// #102: a fourth value, 'enrichment', used to be reserved here for a
+// third-party lookup (Vivino, Whiskybase) that was never built (#74) and
+// never set it — removed rather than kept as dead provenance machinery.
+export type FieldSource = 'manual' | 'ocr' | 'import_csv';
 
 export interface CollectionSummary {
   id: string;
@@ -91,6 +99,9 @@ export interface InventoryItem {
   slotRow?: number | null;
 
   // Cross-cutting
+  // FEAT-87: false = non-owned reference (described, not possessed). Absent
+  // on items returned by an older API: treated as owned.
+  isOwned?: boolean;
   isOpened: boolean;
   fillLevel?: number | null;
   openedAt?: string | null;
@@ -135,7 +146,7 @@ export interface InventoryHistoryEntry {
 // ─── Schéma Zod frontend (validation côté client avant envoi) ─────────────────
 
 export const inventoryFormSchema = z.object({
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
+  category: z.enum(CATEGORY_VALUES),
   name: z.string().min(1, 'Nom requis').max(200),
   producer: z.string().min(1, 'Producteur requis').max(200),
   location: z.string().max(200).optional(),
@@ -145,6 +156,7 @@ export const inventoryFormSchema = z.object({
   notes: z.string().max(2000).optional(),
   purchasePrice: z.number().min(0).optional(),
   estimatedValue: z.number().min(0).optional(),
+  isOwned: z.boolean().default(true),
   isOpened: z.boolean().default(false),
   fillLevel: z.number().int().min(0).max(100).optional(),
   openedAt: z.string().optional().nullable(),

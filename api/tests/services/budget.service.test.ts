@@ -22,22 +22,22 @@ import {
 
 beforeEach(() => vi.clearAllMocks());
 
-describe('budget envelope ownership guards', () => {
-  it('updateBudgetEnvelope returns null when the envelope is not the caller’s', async () => {
+describe('budget envelope lookups (household-wide, ISSUE_142)', () => {
+  it('updateBudgetEnvelope returns null when the envelope does not exist', async () => {
     vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue(null);
-    expect(await updateBudgetEnvelope('u1', 'e1', { amount: 10 })).toBeNull();
+    expect(await updateBudgetEnvelope('e1', { amount: 10 })).toBeNull();
     expect(prisma.budgetEnvelope.update).not.toHaveBeenCalled();
   });
 
   it('deleteBudgetEnvelope returns false when the envelope is not found', async () => {
     vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue(null);
-    expect(await deleteBudgetEnvelope('u1', 'e1')).toBe(false);
+    expect(await deleteBudgetEnvelope('e1')).toBe(false);
     expect(prisma.budgetEnvelope.delete).not.toHaveBeenCalled();
   });
 
-  it('deleteBudgetEnvelope removes an owned envelope', async () => {
-    vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue({ id: 'e1', userId: 'u1' } as never);
-    expect(await deleteBudgetEnvelope('u1', 'e1')).toBe(true);
+  it('deleteBudgetEnvelope removes an envelope regardless of who created it', async () => {
+    vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue({ id: 'e1', userId: 'someone-else' } as never);
+    expect(await deleteBudgetEnvelope('e1')).toBe(true);
     expect(prisma.budgetEnvelope.delete).toHaveBeenCalledWith({ where: { id: 'e1' } });
   });
 });
@@ -51,16 +51,16 @@ describe('getBudgetProgress', () => {
     periodEnd: new Date('2026-03-31'),
   };
 
-  it('returns null for a missing / unowned envelope', async () => {
+  it('returns null for a missing envelope', async () => {
     vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue(null);
-    expect(await getBudgetProgress('u1', 'e1')).toBeNull();
+    expect(await getBudgetProgress('e1')).toBeNull();
   });
 
   it('computes spent / remaining / percent, clamping percent to 100 and remaining to 0', async () => {
     vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue(envelope as never);
     vi.mocked(prisma.inventoryItem.aggregate).mockResolvedValue({ _sum: { purchasePrice: 250 } } as never);
 
-    const progress = await getBudgetProgress('u1', 'e1');
+    const progress = await getBudgetProgress('e1');
     expect(progress).toMatchObject({ spent: 250, remaining: 0, percent: 100 });
   });
 
@@ -68,22 +68,45 @@ describe('getBudgetProgress', () => {
     vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue(envelope as never);
     vi.mocked(prisma.inventoryItem.aggregate).mockResolvedValue({ _sum: { purchasePrice: null } } as never);
 
-    const progress = await getBudgetProgress('u1', 'e1');
+    const progress = await getBudgetProgress('e1');
     expect(progress).toMatchObject({ spent: 0, remaining: 200, percent: 0 });
   });
 
-  it('scopes the spend aggregate to the caller and the envelope window', async () => {
+  it('scopes the spend aggregate to the whole household inventory, not the envelope creator', async () => {
     vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue(envelope as never);
     vi.mocked(prisma.inventoryItem.aggregate).mockResolvedValue({ _sum: { purchasePrice: 10 } } as never);
 
-    await getBudgetProgress('u1', 'e1');
+    await getBudgetProgress('e1');
     const arg = vi.mocked(prisma.inventoryItem.aggregate).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
+    expect(arg.where).not.toHaveProperty('userId');
     expect(arg.where).toMatchObject({
-      userId: 'u1',
       deletedAt: null,
       createdAt: { gte: envelope.periodStart, lte: envelope.periodEnd },
     });
+  });
+});
+
+// FEAT-87: a non-owned reference was never bought, so it is not spending —
+// even when a price was recorded on it.
+describe('budget progress excludes non-owned references (FEAT-87)', () => {
+  it('restricts the spending aggregate to owned items', async () => {
+    vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue({
+      id: 'e1',
+      userId: 'u1',
+      amount: 200,
+      periodStart: new Date('2026-01-01'),
+      periodEnd: new Date('2026-01-31'),
+    } as never);
+    vi.mocked(prisma.inventoryItem.aggregate).mockResolvedValue({ _sum: { purchasePrice: 50 } } as never);
+
+    const progress = await getBudgetProgress('e1');
+
+    expect(progress?.spent).toBe(50);
+    const call = vi.mocked(prisma.inventoryItem.aggregate).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where).toMatchObject({ isOwned: true });
   });
 });

@@ -1,21 +1,21 @@
 <div align="center">
-  <h1>🍷 Glou</h1>
+  <h1>Glou</h1>
   <p><strong>Simplement précieux.</strong></p>
-  <p>Glou est un gestionnaire d'actifs auto-hébergé pour collections de luxe — vins, spiritueux, bulles et cigares. Reconnaissance visuelle, données d'experts et indicateurs d'apogée dans une stack que vous maîtrisez entièrement.</p>
+  <p>Glou est un gestionnaire d'actifs auto-hébergé pour collections de luxe : vins, spiritueux, bulles et cigares. Reconnaissance d'étiquettes, données d'experts et indicateurs d'apogée dans une stack que vous hébergez vous-même.</p>
 </div>
 
 ---
 
-## ✨ Le Top 5
-1. 📸 **Saisie Zéro Effort** : Photographiez une étiquette. L'OCR remplit les détails instantanément.
-2. 🤝 **Inventaire Partagé** : Tous les utilisateurs de l'instance partagent une cave commune — parfait pour les familles, colocataires et clubs.
-3. 🔔 **Alertes Apogée** : Soyez notifié quand une bouteille entre dans sa fenêtre de dégustation optimale.
-4. 🛡️ **Totalement Auto-Hébergé** : Une stack Docker Compose (Node.js · Next.js · PostgreSQL) que vous faites tourner chez vous.
-5. 👪 **Partage Invité** : Liens scopés et révocables pour laisser des proches consulter (ou aider à inventorier) une partie de votre cave.
+## Le top 5
+1. Saisie par étiquette : photographiez une étiquette et le scan pré-remplit les détails (le scan d'étiquette par IA est optionnel).
+2. Inventaire partagé : tous les utilisateurs de l'instance partagent une même cave, pour les familles, colocataires et clubs. Les inscriptions sont fermées dès que l'admin existe ; vous décidez quand les ouvrir.
+3. Alertes d'apogée : vous êtes notifié quand une bouteille entre dans sa fenêtre de dégustation.
+4. Auto-hébergé : une stack Docker Compose (Node.js · Next.js · PostgreSQL) que vous faites tourner chez vous.
+5. Partage invité : liens limités à un périmètre et révocables, pour laisser des proches consulter (ou aider à inventorier) une partie de votre cave.
 
 ---
 
-## 📸 Captures d'écran
+## Captures d'écran
 
 <table>
   <tr>
@@ -23,8 +23,8 @@
     <td width="50%"><img src="docs/screenshots/detail-fr.png" alt="Détail d'un actif avec traçabilité" /></td>
   </tr>
   <tr>
-    <td align="center"><strong>Inventaire partagé</strong><br/><sub>Cartes détaillées, filtres à facettes et statistiques de stock en direct.</sub></td>
-    <td align="center"><strong>Détail d'un actif &amp; traçabilité</strong><br/><sub>Niveau tactile, journal de dégustation et historique par champ avec restauration en un clic.</sub></td>
+    <td align="center"><strong>Inventaire partagé</strong><br/><sub>Cartes, filtres à facettes et statistiques de stock en direct.</sub></td>
+    <td align="center"><strong>Détail d'un actif &amp; traçabilité</strong><br/><sub>Niveau de remplissage, journal de dégustation et historique par champ avec restauration.</sub></td>
   </tr>
   <tr>
     <td colspan="2"><img src="docs/screenshots/analytics-fr.png" alt="Tableau de bord Analyses &amp; Terroir" /></td>
@@ -36,24 +36,25 @@
 
 ---
 
-## 🚀 L'Autoroute (Quick Start)
+## Démarrage rapide
 
 **Prérequis :**
 - Docker installé et en cours d'exécution.
+- Un hôte Intel/AMD 64 bits (`linux/amd64`) : les images publiées ne sont pas construites pour ARM. Sur Raspberry Pi, NAS ARM ou équivalent, construisez-les localement (`docker build -t ghcr.io/jackthomasanderson/glou-server-api:latest api`, idem pour `web`) pour que `docker compose up` les utilise.
 
-**Étape 1 — Configurer**
+**Étape 1 : Configurer**
 ```bash
 cp .env.example .env
 ```
-Ouvrez `.env` et renseignez trois valeurs obligatoires — aucune n'a de valeur par défaut sûre :
-- `DB_PASSWORD` — docker compose refuse de démarrer sans elle.
-- `JWT_SECRET` — générez-en une avec : `openssl rand -base64 48`
-- `CONFIG_ENCRYPTION_KEY` — générez-en une avec : `openssl rand -hex 32`
+Ouvrez `.env` et renseignez trois valeurs obligatoires, dont aucune n'a de valeur par défaut sûre :
+- `DB_PASSWORD` : docker compose refuse de démarrer sans elle.
+- `JWT_SECRET` : générez-en une avec : `openssl rand -base64 48`
+- `CONFIG_ENCRYPTION_KEY` : générez-en une avec : `openssl rand -hex 32`
 
 > [!CAUTION]
 > Utiliser les valeurs d'exemple rend toutes les sessions utilisateurs falsifiables, et l'API refuse de démarrer en mode production tant que `CONFIG_ENCRYPTION_KEY` n'a pas une vraie valeur.
 
-**Étape 2 — Lancer**
+**Étape 2 : Lancer**
 ```bash
 docker compose up -d
 ```
@@ -62,38 +63,44 @@ Docker télécharge les images pré-construites et démarre la stack. Aucune com
 > [!NOTE]
 > Le scan d'étiquette par IA est optionnel et désactivé par défaut (~9 Go de disque, ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d`.
 
-**Étape 3 — Créer votre compte**
+**Étape 3 : Créer votre compte**
 
 Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **S'inscrire**. Le premier compte créé reçoit automatiquement les droits administrateur.
 
+> [!NOTE]
+> Une fois ce premier compte créé, **l'inscription est fermée**. Pour laisser d'autres personnes s'inscrire, un admin active **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Réseau**, et peut la désactiver ensuite.
+
 > [!TIP]
-> Pour mettre à jour vers une nouvelle version : `docker compose pull && docker compose up -d`
+> Pour mettre à jour vers une nouvelle version : `docker compose pull && docker compose up -d`. Faites d'abord une sauvegarde (**Administration → Configuration Système → Sauvegardes → Sauvegarder maintenant**) ; pour revenir en arrière, voir [Mises à jour et retour arrière](./docs/wiki/FR/31-Mises-A-Jour-Et-Retour-Arriere.md).
 
 *Pour la configuration avancée, les variables d'environnement et le dépannage, consultez le [Wiki](./docs/wiki/FR/_wiki.md).*
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
-### ✅ Récemment Ajouté
-- 🎓 **Mode Expert / Collectionneur** — grille de dégustation de sommelier, champs appellation et fût, et panneau humidor sur chaque objet ; un interrupteur individuel et réversible.
-- 📸 **Scan Express d'Étiquette** — un modèle de vision auto-hébergé, sans GPU, pré-remplit nom, producteur, catégorie et millésime depuis une photo d'étiquette.
-- 🍽️ **Accords Mets/Bouteilles Guidés** — tapez un plat, obtenez une sélection classée de votre propre cave avec un « consommer maintenant » en un clic.
-- 📅 **Plan de Consommation Intelligent** — une liste personnelle « à boire maintenant / prochainement » à partir des apogées et de la rotation, plus un objectif mensuel.
-- 🎁 **Liste de Souhaits & Budget** — prix plafonds, alertes bonnes affaires sur prix observés, et enveloppe budgétaire par période.
-- 📴 **Mode Hors-Ligne de Confiance** — consultez et modifiez les items chargés hors connexion ; les changements se synchronisent automatiquement avec résolution de conflit.
-- 🗺️ **Carte du Monde, Heatmap & Filtres** — explorez la collection géographiquement et filtrez par prix, millésime, note ou état.
-- 💾 **Sauvegardes Planifiées & Portabilité** — sauvegardes nocturnes de la base restaurables en un clic, plus des exports complets ou filtrés.
+### Récemment ajouté
+- Mode Expert / Collectionneur : grille de dégustation de sommelier, champs appellation et fût, et panneau humidor sur chaque objet ; un interrupteur individuel et réversible.
+- Scan d'étiquette : un modèle de vision auto-hébergé, sans GPU, pré-remplit nom, producteur, catégorie et millésime depuis une photo d'étiquette.
+- Accords mets et bouteilles : tapez un plat, obtenez une sélection classée de votre propre cave avec un bouton « consommer maintenant ».
+- Plan de consommation : une liste personnelle « à boire maintenant / prochainement » à partir des apogées et de la rotation, plus un objectif mensuel.
+- Liste de souhaits et budget : prix plafonds, alertes bonnes affaires sur prix observés, et enveloppe budgétaire par période.
+- Mode hors ligne : consultez et modifiez les items chargés hors connexion ; les changements se synchronisent automatiquement avec résolution de conflit.
+- Carte du monde, heatmap et filtres : explorez la collection géographiquement et filtrez par prix, millésime, note ou état.
+- Sauvegardes planifiées et portabilité : sauvegardes nocturnes de la base (activées par défaut, rattrapage des exécutions manquées, échecs signalés aux admins) restaurables en tout ou rien, plus un export RGPD complet, intégral ou filtré.
+- Inscription fermée par défaut : seul le premier compte (l'admin) s'inscrit librement ; un admin ouvre l'inscription au besoin.
+- Accès clavier et lecteur d'écran : grille de cave, filtres, tableaux et recherche utilisables au clavier, focus géré dans les panneaux, erreurs annoncées.
+- Exploitation plus sûre : tags d'image immuables par SHA de commit pour le retour arrière, vérification au démarrage des secrets requis, et guides de [rotation des secrets](./docs/wiki/FR/29-Rotation-Des-Secrets.md), de [reprise après sinistre](./docs/wiki/FR/30-Reprise-Apres-Sinistre.md) et de [mise à jour](./docs/wiki/FR/31-Mises-A-Jour-Et-Retour-Arriere.md).
 
-Des dizaines de fonctionnalités plus petites sortent régulièrement — voir les [pull requests fermées](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) pour l'historique complet.
+Des dizaines de fonctionnalités plus petites sortent régulièrement ; voir les [pull requests fermées](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) pour l'historique complet.
 
-### 🔮 À Venir
-- 🧠 **Smart Data Engine** — enrichissement automatique via Vivino et Whiskybase, avec cache local. Pas encore construit : les clés d'intégration de l'écran admin ne sont lues par aucun code aujourd'hui.
+### À venir
+- Smart Data Engine : enrichissement automatique via Vivino et Whiskybase, avec cache local. Pas encore construit : les clés d'intégration de l'écran admin ne sont lues par aucun code aujourd'hui.
 - Analyses prédictives pour la valorisation de la collection.
 - Intégration IoT avancée pour le suivi en direct de la température et de l'hygrométrie.
 - Application mobile native.
 
-## 🙏 Crédits / Tiers
+## Crédits / Tiers
 
 - Ce produit inclut des données GeoLite créées par MaxMind, disponibles sur [http://maxmind.com/](http://maxmind.com/).
 - Fonds de carte par les contributeurs d'[OpenStreetMap](https://www.openstreetmap.org/copyright).

@@ -5,6 +5,7 @@ import { Input, Chip } from '@heroui/react';
 import { Search, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
+import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { useCellars } from '@/hooks/useCellars';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
@@ -18,10 +19,16 @@ type SearchOption =
   | { kind: 'item'; id: string; item: InventoryItem }
   | { kind: 'cellar'; id: string; cellar: Cellar };
 
+// #380: search only needs the inventory once the user has actually typed
+// something — fetching the full list on every mount (every protected page,
+// via MainLayout) downloaded up to 2000 items for a field that might never
+// be touched.
+const MIN_QUERY_LENGTH = 2;
+
 function useSearch() {
   const [query, setQuery] = useState('');
   const router = useRouter();
-  const { data: items } = useInventory();
+  const { data: items } = useInventory({ enabled: query.trim().length >= MIN_QUERY_LENGTH });
   const { data: cellars } = useCellars();
 
   const itemResults = React.useMemo(() => {
@@ -64,58 +71,6 @@ function useSearch() {
   );
 
   return { query, setQuery, options, hasResults: options.length > 0, select };
-}
-
-/**
- * Keyboard model of a WAI-ARIA combobox with a listbox popup: focus stays in
- * the input, arrows move a virtual cursor (`aria-activedescendant`), Enter
- * picks, Escape closes (#198). The old list only reacted to `mousedown`, and
- * closed itself 150 ms after the input blurred, so Tab-ing to a result — or
- * pressing Enter on it — did nothing.
- */
-function useComboboxKeys(
-  options: SearchOption[],
-  opts: { isOpen: boolean; open: () => void; dismiss: () => void; pick: (o: SearchOption) => void },
-) {
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const { isOpen, open, dismiss, pick } = opts;
-
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    const count = options.length;
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (!isOpen) open();
-        if (count) setActiveIndex((i) => (i + 1) % count);
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        if (!isOpen) open();
-        if (count) setActiveIndex((i) => (i <= 0 ? count - 1 : i - 1));
-        break;
-      case 'Home':
-        if (isOpen && count) { e.preventDefault(); setActiveIndex(0); }
-        break;
-      case 'End':
-        if (isOpen && count) { e.preventDefault(); setActiveIndex(count - 1); }
-        break;
-      case 'Enter':
-        if (isOpen && activeIndex >= 0 && options[activeIndex]) {
-          e.preventDefault();
-          pick(options[activeIndex]);
-        }
-        break;
-      case 'Escape':
-        if (isOpen && count) { e.preventDefault(); e.stopPropagation(); setActiveIndex(-1); dismiss(); }
-        break;
-    }
-  };
-
-  return { activeIndex, setActiveIndex, resetActive: () => setActiveIndex(-1), onKeyDown };
-}
-
-function optionDomId(listId: string, index: number) {
-  return `${listId}-option-${index}`;
 }
 
 function ResultsList({
@@ -165,7 +120,7 @@ function ResultsList({
                 <>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">{option.item.name}</span>
-                    <Chip size="sm" variant="flat" radius="sm" className="text-xs">{option.item.category}</Chip>
+                    <Chip size="sm" variant="flat" radius="sm" className="text-xs">{t(`categories.${option.item.category}`, option.item.category)}</Chip>
                   </div>
                   <p className="text-xs text-foreground-400 mt-0.5">
                     {option.item.producer}{option.item.vintage ? ` · ${option.item.vintage}` : ''}
@@ -280,7 +235,7 @@ export function MobileSearch({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col sm:hidden">
+    <div className="fixed inset-0 z-overlay bg-background flex flex-col sm:hidden">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-divider">
         <div className="flex-1">
           <Input

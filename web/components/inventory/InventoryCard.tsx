@@ -1,26 +1,20 @@
 'use client';
 import React from 'react';
 import {
-  Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button,
+  Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button, Checkbox,
 } from '@heroui/react';
 import {
-  Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Check, Clock,
+  Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Clock,
 } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
-import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
+import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
+import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={12} />,
   sparkling: <Sparkles size={12} />,
   spirit: <Dumbbell size={12} />,
   cigar: <Leaf size={12} />,
-};
-
-const CATEGORY_COLORS: Record<InventoryCategory, 'danger' | 'primary' | 'warning' | 'secondary'> = {
-  wine: 'danger',
-  sparkling: 'primary',
-  spirit: 'warning',
-  cigar: 'secondary',
 };
 
 // Placeholder gradient (no photo yet) — derived from the shared
@@ -96,13 +90,27 @@ export function InventoryCard({
           startContent={CATEGORY_ICONS[item.category]}
           size="sm"
           variant="bordered"
-          color={CATEGORY_COLORS[item.category]}
+          color={CATEGORY_CHIP_COLOR[item.category]}
           radius="sm"
           classNames={{ base: 'h-5 shrink-0', content: 'px-1.5 text-xs font-bold tracking-wider' }}
         >
           {categoryLabel.toUpperCase()}
         </Chip>
         <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+          {/* FEAT-87: a reference is only visible when the filter asks for
+              it, so it must say what it is wherever it shows up. */}
+          {!isOwnedItem(item) && (
+            <Chip
+              size="sm"
+              radius="sm"
+              classNames={{
+                base: 'h-5 bg-secondary-50 border border-secondary-200 shrink-0',
+                content: 'px-1.5 text-xs font-semibold text-secondary-700',
+              }}
+            >
+              {t('inventory.fields.isReference')}
+            </Chip>
+          )}
           {cellarName && (
             <Chip
               startContent={<MapPin size={10} />}
@@ -162,17 +170,16 @@ export function InventoryCard({
         {/* Bulk select indicator */}
         {onSelectToggle && (
           <div
-            className="absolute top-2 left-2 z-10"
-            onClick={(e) => { e.stopPropagation(); onSelectToggle(item, e); }}
+            className="absolute top-2 left-2 z-10 w-8 h-8 flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className={[
-              'w-5 h-5 rounded-full flex items-center justify-center cursor-pointer transition-all',
-              isSelected
-                ? 'bg-primary shadow-sm'
-                : 'bg-black/30 border-2 border-white/60 hover:bg-black/45',
-            ].join(' ')}>
-              {isSelected && <Check size={11} className="text-white" strokeWidth={3} />}
-            </div>
+            <Checkbox
+              isSelected={isSelected}
+              onValueChange={() => onSelectToggle(item)}
+              size="sm"
+              aria-label={t('actions.select')}
+              classNames={{ wrapper: 'bg-black/30 border-2 border-white/60 before:border-0 after:bg-primary' }}
+            />
           </div>
         )}
       </div>
@@ -235,12 +242,17 @@ export function InventoryCard({
               content={t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}
               delay={500}
             >
-              <div className="flex items-center gap-0.5 overflow-hidden min-w-0">
+              <button
+                type="button"
+                aria-label={`${t('view.columns.peak')} : ${drinkingWindow} — ${t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-0.5 overflow-hidden min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+              >
                 <AlertTriangle size={12} className={`shrink-0 ${alertIconColor}`} />
-                <span className="text-xs text-foreground-500 truncate">
+                <span className="text-xs text-foreground-500 truncate" aria-hidden="true">
                   {t('view.columns.peak')} : {drinkingWindow}
                 </span>
-              </div>
+              </button>
             </Tooltip>
           )}
         </div>

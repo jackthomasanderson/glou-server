@@ -1,10 +1,11 @@
 'use client';
 import React from 'react';
-import { Tooltip } from '@heroui/react';
+import { Tooltip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
 import { WifiOff } from 'lucide-react';
 import { useConnectivity } from '@/hooks/useConnectivity';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useTranslation } from 'react-i18next';
+import { PendingChangesList } from '@/components/offline/PendingChangesList';
 
 /**
  * Connection + offline-sync status, rendered once in the page header so it is
@@ -21,6 +22,7 @@ export function ConnectivityIndicator() {
   const isOnline = useConnectivity();
   const { pendingCount, syncingCount, failedCount, conflictCount, hasPendingWork } = useOfflineSync();
   const { t } = useTranslation();
+  const [panelOpen, setPanelOpen] = React.useState(false);
 
   const color =
     isOnline === null ? 'bg-default-400' : isOnline ? 'bg-success' : 'bg-warning';
@@ -50,6 +52,7 @@ export function ConnectivityIndicator() {
     <Tooltip content={tooltipContent} color="foreground" delay={500}>
       <button
         type="button"
+        onClick={() => setPanelOpen(true)}
         aria-label={tooltipContent}
         className="relative inline-flex items-center gap-1 flex-shrink-0 rounded-full px-1 py-1 text-foreground-500 outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
@@ -78,6 +81,21 @@ export function ConnectivityIndicator() {
     {/* Outside the button: its children are presentational, so a live region
         inside it would never be announced. */}
     <span role="status" className="sr-only">{tooltipContent}</span>
+    <Modal isOpen={panelOpen} onOpenChange={setPanelOpen} size="lg" scrollBehavior="inside">
+      <ModalContent>
+        {(onClose) => (
+          <>
+            <ModalHeader>{t('connectivity.panel.title')}</ModalHeader>
+            <ModalBody>
+              <PendingChangesList />
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="light" onPress={onClose}>{t('connectivity.panel.close')}</Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
+    </Modal>
     </span>
   );
 }

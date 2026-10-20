@@ -157,7 +157,7 @@ export function TastingInsights() {
                       <span className="text-xs" style={{ color: READINESS_COLOR[key] }}>
                         {t(`tastings.readiness.${key}`)}
                       </span>
-                      <span className="text-xs font-semibold text-default-500">
+                      <span className="text-xs font-semibold text-foreground-500">
                         {count} ({pct}%)
                       </span>
                     </div>

@@ -1,5 +1,5 @@
-import { prisma } from '../lib/prisma';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { prisma, PrismaClientOrTx } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
 
 export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'RESTORE_FIELD' | 'LOGIN' | 'LOGIN_2FA' | 'LOGOUT' | 'REGISTER' | 'CELLAR_CREATE' | 'CELLAR_READ' | 'CELLAR_UPDATE' | 'CELLAR_DELETE' | 'CELLAR_SWAP_SLOTS' | 'COLLECTION_CREATE' | 'COLLECTION_UPDATE' | 'COLLECTION_DELETE' | 'SESSION_REVOKE' | 'TRUST_DEVICE' | 'UNTRUST_DEVICE' | 'PIN_SET' | 'PIN_REMOVE' | 'GUEST_UPDATE' | 'ONBOARDING_COMPLETE' | 'IMPORT_CSV' | 'BACKUP_RESTORE' | 'SCAN' | 'HUMIDOR_READING_CREATE';
 
@@ -44,7 +44,7 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
  */
 export async function purgeOldAuditLogs(
   days = 90,
-  client: Prisma.TransactionClient | PrismaClient = prisma,
+  client: PrismaClientOrTx = prisma,
 ): Promise<number> {
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   const result = await client.auditLog.deleteMany({

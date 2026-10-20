@@ -1,6 +1,7 @@
 'use client';
 import React, { useCallback } from 'react';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
+import { ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Download, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +16,7 @@ interface QrCodeModalProps {
 export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalProps) {
   const { t } = useTranslation('common');
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
   const qrUrl = `${appUrl}/bottles?scan=${itemId}`;
 
   const handleDownload = useCallback(() => {
@@ -27,7 +29,7 @@ export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalPr
   }, [itemId, itemName]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="sm" placement="center">
+    <ResponsiveModal isOpen={isOpen} onClose={onClose} size="sm" placement="center">
       <ModalContent>
         <ModalHeader className="flex items-center gap-2">
           <span className="text-base font-bold">{t('qr.title')}</span>
@@ -44,6 +46,9 @@ export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalPr
             />
           </div>
           <p className="text-xs text-foreground-500 text-center break-all">{qrUrl}</p>
+          {isLocalhost && (
+            <p role="alert" className="text-xs text-warning text-center">{t('qr.localhostWarning')}</p>
+          )}
         </ModalBody>
         <ModalFooter className="gap-2">
           <Button variant="light" size="sm" onPress={onClose} startContent={<X size={14} />}>
@@ -54,6 +59,6 @@ export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalPr
           </Button>
         </ModalFooter>
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }

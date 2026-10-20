@@ -1,9 +1,10 @@
 'use client';
 import React from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Chip, Divider,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { AlertTriangle } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
@@ -36,7 +37,7 @@ export function DuplicateDialog({
   const newQty = currentQty + addedQty;
 
   return (
-    <Modal isOpen onClose={onCancel} size="sm" radius="lg" backdrop="opaque" placement="center">
+    <ResponsiveModal isOpen onClose={onCancel} size="sm" radius="lg" backdrop="opaque" placement="center">
       <ModalContent>
         {() => (
           <>
@@ -46,7 +47,7 @@ export function DuplicateDialog({
             </ModalHeader>
 
             <ModalBody className="py-2 gap-3">
-              <p className="text-sm text-default-500">
+              <p className="text-sm text-foreground-500">
                 {t('duplicate.description', { name: duplicate.name, producer: duplicate.producer })}
               </p>
 
@@ -54,14 +55,14 @@ export function DuplicateDialog({
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-default-500">
+                  <span className="text-xs text-foreground-500">
                     {t('duplicate.currentQuantity', { count: currentQty })}
                   </span>
                   <Chip size="sm" color="primary" variant="bordered">
                     → {newQty}
                   </Chip>
                 </div>
-                <span className="text-xs text-default-500">
+                <span className="text-xs text-foreground-500">
                   {cellarName
                     ? t('duplicate.cellar', { cellar: cellarName })
                     : t('duplicate.noCellar')}
@@ -83,6 +84,6 @@ export function DuplicateDialog({
           </>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }

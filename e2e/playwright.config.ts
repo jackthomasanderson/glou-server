@@ -23,6 +23,9 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   use: {
     baseURL: BASE_URL,
+    // Before login the app follows the browser language (#344); the suite
+    // asserts on the French interface.
+    locale: 'fr-FR',
     storageState: './.auth/user.json',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
@@ -32,5 +35,22 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // ISSUE_399: the app targets phones first, but CI only ever ran on
+    // desktop Chrome — mobile-specific behaviour (viewport, touch,
+    // Safari's quirks) had no coverage at all. Scoped to the single
+    // deterministic "main user journey" spec (ux-ui.md 6.1 — see
+    // add-bottle.spec.ts) rather than the full suite: the goal is a smoke
+    // check that the core flow still works on a phone-sized viewport in
+    // both engines, not to triple the whole suite's CI time.
+    {
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 7'] },
+      testMatch: /add-bottle\.spec\.ts/,
+    },
+    {
+      name: 'mobile-safari',
+      use: { ...devices['iPhone 14'] },
+      testMatch: /add-bottle\.spec\.ts/,
+    },
   ],
 });

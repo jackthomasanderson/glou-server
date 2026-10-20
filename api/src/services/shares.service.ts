@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { GuestShare } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ShareCreateInput } from '../schemas/shares.schema';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 function isShareValid(share: { expiresAt: Date | null; revokedAt: Date | null }): boolean {
   if (share.revokedAt) return false;
@@ -44,9 +45,10 @@ function buildShareWhere(share: { cellarIds: string[]; collectionIds: string[] }
     });
   }
 
+  // FEAT-87: the showcase shows the collection, not the reference catalogue.
   return scopeConditions.length > 0
-    ? { deletedAt: null, OR: scopeConditions }
-    : { deletedAt: null };
+    ? { deletedAt: null, ...OWNED_ITEM_FILTER, OR: scopeConditions }
+    : { deletedAt: null, ...OWNED_ITEM_FILTER };
 }
 
 function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
@@ -91,6 +93,30 @@ function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
   } as const;
 }
 
+/**
+ * Belt-and-suspenders for ISSUE_172: `buildShareItemSelect` already asks
+ * Prisma to leave `purchasePrice`/`estimatedValue` out of the query
+ * entirely when `hidePrices` is true. This strips them again from the
+ * fetched rows regardless, so this confidentiality guarantee never
+ * depends on exactly how a `select: { field: false }` combined with the
+ * money-fields-as-number result extension in `lib/prisma.ts` behaves —
+ * that extension computes its override from the needed raw column, and
+ * this guest-facing path is the one place in the codebase where "does the
+ * override get added even when the caller's select excluded it" would
+ * actually matter.
+ */
+function redactPrices<T extends { purchasePrice?: unknown; estimatedValue?: unknown }>(
+  items: T[],
+  hidePrices: boolean,
+): T[] {
+  if (!hidePrices) return items;
+  for (const item of items) {
+    delete item.purchasePrice;
+    delete item.estimatedValue;
+  }
+  return items;
+}
+
 export const sharesService = {
   /**
    * Returns the created share PLUS the one-time plaintext `token` — the
@@ -98,6 +124,18 @@ export const sharesService = {
    * to the user immediately; it cannot be retrieved again afterwards.
    */
   async create(userId: string, data: ShareCreateInput) {
+    // ISSUE_046: the schema can only check shape, not that these ids are
+    // real — without this, a typo'd or stale id would silently create a
+    // share that exposes nothing, which looks like success to the creator.
+    if (data.cellarIds.length > 0) {
+      const found = await prisma.cellar.count({ where: { id: { in: data.cellarIds } } });
+      if (found !== data.cellarIds.length) throw new Error('INVALID_CELLAR_IDS');
+    }
+    if (data.collectionIds.length > 0) {
+      const found = await prisma.collection.count({ where: { id: { in: data.collectionIds } } });
+      if (found !== data.collectionIds.length) throw new Error('INVALID_COLLECTION_IDS');
+    }
+
     const rawToken = crypto.randomBytes(32).toString('hex');
     const share = await prisma.guestShare.create({
       data: {
@@ -146,10 +184,11 @@ export const sharesService = {
     hidePrices: boolean;
     hideNotes: boolean;
   }) {
-    return prisma.inventoryItem.findMany({
+    const items = await prisma.inventoryItem.findMany({
       where: buildShareWhere(share),
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
+    return redactPrices(items, share.hidePrices);
   },
 
   /**
@@ -168,10 +207,11 @@ export const sharesService = {
     itemId: string,
   ) {
     const where = buildShareWhere(share);
-    return prisma.inventoryItem.findFirst({
+    const item = await prisma.inventoryItem.findFirst({
       where: { ...where, id: itemId },
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
+    return item ? redactPrices([item], share.hidePrices)[0] : item;
   },
 
   /**

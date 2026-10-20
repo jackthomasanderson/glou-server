@@ -1,6 +1,6 @@
-# Documentation Technique de Glou
+# Documentation technique de Glou
 
-Bienvenue sur le wiki de Glou. Cette documentation est strictement focalisée sur l'installation, la configuration et le dépannage.
+Cette documentation couvre l'installation, la configuration et le dépannage.
 
 ## Sommaire
 1. [Installation](./01-Installation.md)
