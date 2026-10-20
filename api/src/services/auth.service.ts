@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { SignOptions } from 'jsonwebtoken';
-import speakeasy from 'speakeasy';
+import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -15,6 +15,14 @@ import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
 import { auditLog } from './audit.service';
 import { isCookieSecure } from '../lib/cookie-secure';
+
+// ISSUE_090: speakeasy was abandoned in 2016; otplib is actively maintained
+// and implements the same RFC 6238 TOTP algorithm (SHA1, 30s step, 6
+// digits), so existing users' stored base32 secrets keep validating
+// unchanged. `window: 1` matches speakeasy's prior per-call `window: 1`
+// (one 30s step of drift tolerated before and after) across every
+// verification site in this file.
+authenticator.options = { window: 1 };
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -810,12 +818,7 @@ export class AuthService {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (user.isTwoFactorEnabled) throw new Error('2FA_ALREADY_ENABLED');
 
-    const secret = speakeasy.generateSecret({
-      name: `Glou (${user.username})`,
-      length: 20
-    });
-
-    const base32secret = secret.base32;
+    const base32secret = authenticator.generateSecret();
 
     await prisma.user.update({
       where: { id: userId },
@@ -823,12 +826,7 @@ export class AuthService {
     });
 
     // Make sure the qr code and the text secret are perfectly aligned
-    const otpauthUrl = speakeasy.otpauthURL({
-      secret: base32secret,
-      label: `Glou (${user.username})`,
-      algorithm: 'sha1',
-      encoding: 'base32'
-    });
+    const otpauthUrl = authenticator.keyuri(user.username, 'Glou', base32secret);
 
     const qrCodeUrl = await qrcode.toDataURL(otpauthUrl);
     return { qrCodeUrl, secret: base32secret };
@@ -839,11 +837,9 @@ export class AuthService {
     if (user.isTwoFactorEnabled) throw new Error('2FA_ALREADY_ENABLED');
     if (!user.twoFactorSecret) throw new Error('2FA_SECRET_NOT_GENERATED');
 
-    const isCodeValid = speakeasy.totp.verify({
-      secret: user.twoFactorSecret,
-      encoding: 'base32',
+    const isCodeValid = authenticator.verify({
       token: code,
-      window: 1 // Allow 30 seconds drift before and after
+      secret: user.twoFactorSecret,
     });
 
     if (!isCodeValid) throw new Error('INVALID_TOTP_CODE');
@@ -880,11 +876,9 @@ export class AuthService {
     let validCode = false;
 
     if (code && code.length === 6 && user.twoFactorSecret) {
-      validCode = speakeasy.totp.verify({
-        secret: user.twoFactorSecret,
-        encoding: 'base32',
+      validCode = authenticator.verify({
         token: code,
-        window: 1
+        secret: user.twoFactorSecret,
       });
     } else if (code && code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
       // Check backup codes
@@ -1229,11 +1223,9 @@ export class AuthService {
     let usedBackupCodeHash: string | null = null;
 
     if (code.length === 6 && user.twoFactorSecret) {
-      validCode = speakeasy.totp.verify({
-        secret: user.twoFactorSecret,
-        encoding: 'base32',
+      validCode = authenticator.verify({
         token: code,
-        window: 1
+        secret: user.twoFactorSecret,
       });
     } else if (code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
       for (const hashedCode of user.backupCodes) {
@@ -1341,11 +1333,9 @@ export class AuthService {
     if (user.isTwoFactorEnabled) {
       let validCode = false;
       if (code && code.length === 6 && user.twoFactorSecret) {
-        validCode = speakeasy.totp.verify({
-          secret: user.twoFactorSecret,
-          encoding: 'base32',
+        validCode = authenticator.verify({
           token: code,
-          window: 1,
+          secret: user.twoFactorSecret,
         });
       } else if (code && code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
         for (const hashedCode of user.backupCodes) {
