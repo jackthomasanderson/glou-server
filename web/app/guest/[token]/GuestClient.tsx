@@ -45,7 +45,8 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
       guestClient.updateItem(token, item.id, {
         isOpened,
         fillLevel: fillLevel.trim() === '' ? null : Number(fillLevel),
-        notes: notes.trim() === '' ? null : notes,
+        // Only send notes when edited: a hidden note starts empty and must not be erased.
+        ...(notes !== (item.notes ?? '') && { notes: notes.trim() === '' ? null : notes }),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['guest', token, 'inventory'] });

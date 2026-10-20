@@ -366,3 +366,15 @@ describe('guest showcase excludes non-owned references (FEAT-87)', () => {
     expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
   });
 });
+
+describe('sharesService.stripHiddenFields (ISSUE_472)', () => {
+  it('drops notes from a guest patch when the share hides notes', () => {
+    const patch = sharesService.stripHiddenFields({ hideNotes: true }, { fillLevel: 50, notes: null });
+    expect(patch).toEqual({ fillLevel: 50 });
+  });
+
+  it('keeps notes when the share does not hide them', () => {
+    const patch = sharesService.stripHiddenFields({ hideNotes: false }, { fillLevel: 50, notes: 'hi' });
+    expect(patch).toEqual({ fillLevel: 50, notes: 'hi' });
+  });
+});

@@ -223,5 +223,17 @@ export const sharesService = {
     return share.writeCellarIds.includes(cellarId);
   },
 
+  /**
+   * ISSUE_472: a share that hides personal notes must never let the guest
+   * overwrite them — the guest form starts from an empty field and would
+   * otherwise send `notes: null`, erasing the owner's notes. Drops `notes`
+   * from a guest patch when the share hides them.
+   */
+  stripHiddenFields<T extends { notes?: unknown }>(share: { hideNotes: boolean }, patch: T): T {
+    if (!share.hideNotes || !('notes' in patch)) return patch;
+    const { notes: _notes, ...rest } = patch;
+    return rest as T;
+  },
+
   isShareValid,
 };
