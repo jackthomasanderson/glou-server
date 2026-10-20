@@ -7,6 +7,7 @@ import { Button, Chip } from '@heroui/react';
 import { Plus, Search, Warehouse, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
 import Link from 'next/link';
 import { InventoryItem } from '@/lib/inventory/types';
+import { glouKey, readStorageMigrating, safeWriteStorage } from '@/lib/safe-storage';
 import { isFinishedItem, isOwnedItem } from '@/lib/inventory/ownership';
 import {
   useInventory,
@@ -68,6 +69,8 @@ function getIsMobileServerSnapshot() {
   return false;
 }
 
+const NO_CELLAR_BANNER_KEY = glouKey('no-cellar-banner-dismissed');
+
 export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardProps) {
   const { data: items, isLoading, isError, refetch, isRefetching } = useInventory();
   const isTruncated = useInventoryTruncated();
@@ -93,11 +96,12 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const [scanOpen, setScanOpen] = useState(false);
   // Only rendered once `cellars` has loaded client-side, so reading storage lazily is hydration-safe.
   const [noCellarBannerDismissed, setNoCellarBannerDismissed] = useState(() => {
-    try { return typeof window !== 'undefined' && localStorage.getItem('glou.noCellarBannerDismissed') === '1'; } catch { return false; }
+    return typeof window !== 'undefined'
+      && readStorageMigrating(localStorage, NO_CELLAR_BANNER_KEY, 'glou.noCellarBannerDismissed') === '1';
   });
   const dismissNoCellarBanner = useCallback(() => {
     setNoCellarBannerDismissed(true);
-    try { localStorage.setItem('glou.noCellarBannerDismissed', '1'); } catch { /* storage unavailable */ }
+    safeWriteStorage(localStorage, NO_CELLAR_BANNER_KEY, '1');
   }, []);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
