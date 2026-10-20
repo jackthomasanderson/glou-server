@@ -158,7 +158,7 @@ jobs:
 
       - name: Install Playwright browser
         working-directory: e2e
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       # Deterministic user-journey specs only. The gremlins fuzz
       # (monkey.spec.ts) is gated behind E2E_MONKEY and runs in the
