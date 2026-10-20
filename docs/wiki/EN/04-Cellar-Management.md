@@ -20,6 +20,10 @@
    - Select the target cellar from the "Wine Cellars" dropdown menu.
 4. **Edit or Delete**: Use the pencil icon (edit) or trash icon (delete) on each cellar card.
 
+### Move bottles in the cellar grid, with mouse or keyboard
+- **Mouse or touch**: drag a bottle onto an empty slot.
+- **Keyboard**: focus a slot and press `Enter` to open the bottle's details, or `Space` to pick it up. Move with the arrow keys, one cell at a time, then press `Space` again to drop it. `Escape` cancels. Each step is announced to screen readers.
+
 ## Humidor Hygrometry Monitoring
 
 **TL;DR**: For a "Humidor"-type cellar, manually log your humidity readings to track history and get alerted when the latest measurement drifts outside your target range.

@@ -14,7 +14,7 @@
 
 2. Ouvrir `.env` et définir `JWT_SECRET`, `CONFIG_ENCRYPTION_KEY` et `DB_PASSWORD` avec de vraies valeurs — `.env.example` ne contient que des valeurs d'exemple non sécurisées :
    ```bash
-   openssl rand -base64 32   # JWT_SECRET
+   openssl rand -base64 48   # JWT_SECRET
    openssl rand -hex 32      # CONFIG_ENCRYPTION_KEY
    openssl rand -base64 24   # DB_PASSWORD
    ```
@@ -30,7 +30,7 @@
    Docker télécharge `glou-server-api` et `glou-server-web` depuis GHCR automatiquement. Cela démarre uniquement la base, l'API et le web (~1,5 Go de RAM). Pour le scan d'étiquette optionnel (~9 Go de disque et ~3 Go de RAM en plus), utilisez `docker compose --profile scan up -d`.
 
 4. Ouvrir [http://localhost:3000](http://localhost:3000) et cliquer sur **S'inscrire**.
-   Le premier compte créé reçoit automatiquement les droits administrateur.
+   Le premier compte créé reçoit automatiquement les droits administrateur. **L'inscription est ensuite fermée** : les autres personnes ne peuvent s'inscrire qu'une fois que l'admin a activé **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Réseau**.
 
 5. *(Facultatif)* Configurer l'instance depuis **Administration → Configuration Système**.
    Rien ici n'est requis pour utiliser l'application — chaque section reste inactive tant qu'elle n'est pas explicitement configurée. À paramétrer plus tard, si besoin :
@@ -40,10 +40,10 @@
    | **SMTP / Email** | Serveur SMTP pour l'envoi d'emails (réinitialisation de mot de passe, notifications par email). |
    | **Politique de notifs** | Interrupteurs globaux (dans l'app / email / webhook) pour toute l'instance — un canal désactivé ici reste indisponible dans les préférences de chaque utilisateur. |
    | **Webhook / Gotify** | URL et token d'une instance [Gotify](https://gotify.net/) pour recevoir les notifications hors de l'application. |
-   | **Intégrations API** | Clés API tierces optionnelles (Vivino, Whiskybase) et URL d'un service OCR externe pour le scan d'étiquette. |
+   | **Intégrations API** | Clés API tierces optionnelles (Vivino, Whiskybase) et URL d'un service OCR externe. Enregistrées de façon sécurisée mais **utilisées par aucune fonctionnalité pour l'instant** : le scan d'étiquette passe par le service Ollama intégré. |
    | **Rétention** | Délai de conservation avant suppression définitive des logs d'audit, sessions/appareils expirés et partages invités expirés. |
    | **Sauvegardes** | Sauvegarde automatique quotidienne de la base (`pg_dump`), avec rétention et heure d'exécution configurables. |
-   | **Réseau** | URL publique de référence de l'instance et mode d'accès (direct ou via reverse proxy). |
+   | **Réseau** | URL publique de référence de l'instance, mode d'accès (direct ou via reverse proxy) et autorisation d'inscription de nouveaux comptes. |
    | **Historique** | Journal des modifications apportées à cette configuration (qui, quand, quelle section). |
 
    > [!NOTE]
@@ -68,4 +68,6 @@ docker compose pull && docker compose up -d
 | `image not found` / erreur de pull | Les packages GHCR sont peut-être privés. Authentifiez-vous d'abord : `docker login ghcr.io -u VOTRE_USERNAME_GITHUB`. |
 | Erreur de migration Prisma au démarrage | Le conteneur `db` n'était pas prêt. Exécutez `docker compose restart api` pour relancer la migration. |
 | Création de compte ou connexion qui échoue avec « erreur inattendue » (ou « adresse non autorisée ») quand vous ouvrez Glou par son IP, ex. `http://192.168.1.20:3000`, sans rien dans les logs de `api` ni de `web` | L'API refuse les requêtes qui modifient des données depuis une adresse inconnue. Renseignez `APP_URL` dans `.env` avec l'adresse exacte saisie dans le navigateur (ex. `http://192.168.1.20:3000`), puis recréez le conteneur `api`. Plusieurs adresses : listez-les dans `CSRF_TRUSTED_ORIGINS`, séparées par des virgules. Le log de `api` affiche alors une ligne `[csrf] Rejected ...` quand cela se produit. |
+| « L'inscription de nouveaux comptes est actuellement fermée sur cette instance », ou pas de lien **S'inscrire** sur la page de connexion | Attendu dès que le premier compte existe. Un admin ouvre l'inscription dans **Administration → Configuration Système → Réseau → Autoriser l'inscription de nouveaux comptes** et peut la refermer une fois la personne inscrite. |
+| « L'inscription de nouveaux comptes est actuellement fermée sur cette instance », ou pas de lien **S'inscrire** sur la page de connexion | Attendu dès que le premier compte existe. Un admin ouvre l'inscription dans **Administration → Configuration Système → Réseau → Autoriser l'inscription de nouveaux comptes** et peut la refermer une fois la personne inscrite. |
 | Besoin d'un accès `psql` ponctuel à la base | Postgres n'est volontairement pas exposé au LAN/hôte (`expose`, pas `ports`, dans `docker-compose.yml`). Utilisez `docker compose exec db psql -U glou -d glou_db` plutôt que d'ouvrir le port. |

@@ -20,6 +20,10 @@
    - Sélectionnez la cave de destination dans le menu déroulant "Caves".
 4. **Modifier ou Supprimer** : Utilisez les icônes crayon (éditer) ou poubelle (supprimer) sur chaque carte de cave.
 
+### Déplacer des bouteilles dans la grille, à la souris ou au clavier
+- **Souris ou tactile** : glissez une bouteille sur un emplacement vide.
+- **Clavier** : placez le focus sur un emplacement, puis `Entrée` ouvre le détail de la bouteille et `Espace` la saisit. Déplacez-la avec les flèches, une case à la fois, puis rappuyez sur `Espace` pour la déposer. `Échap` annule. Chaque étape est annoncée aux lecteurs d'écran.
+
 ## Suivi Hygrométrique (Cave Humidor)
 
 **TL;DR** : Pour une cave de type "Humidor", saisissez manuellement vos relevés d'humidité pour suivre l'historique et être alerté si la dernière mesure sort de votre plage cible.
