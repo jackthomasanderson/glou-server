@@ -65,7 +65,12 @@ function useSearch() {
     (option: SearchOption, onDone: () => void) => {
       setQuery('');
       onDone();
-      router.push(option.kind === 'item' ? `/bottles?q=${encodeURIComponent(option.item.name)}` : '/cellars');
+      if (option.kind === 'cellar') {
+        router.push(`/cellars/${encodeURIComponent(option.cellar.id)}`);
+        return;
+      }
+      const page = option.item.category === 'cigar' ? '/cigars' : '/bottles';
+      router.push(`${page}?scan=${encodeURIComponent(option.item.id)}`);
     },
     [router],
   );
