@@ -65,7 +65,13 @@ function useSearch() {
     (option: SearchOption, onDone: () => void) => {
       setQuery('');
       onDone();
-      router.push(option.kind === 'item' ? `/bottles?q=${encodeURIComponent(option.item.name)}` : '/cellars');
+      if (option.kind === 'cellar') {
+        router.push(`/cellars/${encodeURIComponent(option.cellar.id)}`);
+        return;
+      }
+      // Cigars live on their own page (/bottles excludes them); ?scan= opens the item drawer directly.
+      const base = option.item.category === 'cigar' ? '/cigars' : '/bottles';
+      router.push(`${base}?scan=${encodeURIComponent(option.item.id)}`);
     },
     [router],
   );
