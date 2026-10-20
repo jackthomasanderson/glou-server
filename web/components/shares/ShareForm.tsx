@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { ShareFormValues } from '@/lib/shares/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
+import { todayLocalIso } from '@/lib/format';
 
 type DurationKey = '1d' | '7d' | '30d' | 'custom' | 'unlimited';
 
@@ -144,7 +145,7 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
             radius="md"
             labelPlacement="outside"
             isRequired
-            min={new Date().toISOString().slice(0, 10)}
+            min={todayLocalIso()}
           />
         )}
       </div>

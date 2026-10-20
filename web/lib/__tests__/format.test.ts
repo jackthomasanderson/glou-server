@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import {
   currencySymbol, formatCurrency, formatDate, formatDateTime, formatNumber,
-  formatTemperature, formatTemperatureRange, setFormatPreferences,
+  formatTemperature, formatTemperatureRange, setFormatPreferences, todayLocalIso,
 } from '../format';
 
 describe('format (#217)', () => {
@@ -67,5 +67,16 @@ describe('profile format preferences (#405)', () => {
     expect(formatDateTime(iso, 'fr', { timeZone: 'UTC' })).toMatch(/PM|pm/i);
     setFormatPreferences({ dateFormat: 'H24' });
     expect(formatDateTime(iso, 'en', { timeZone: 'UTC' })).toMatch(/15:30/);
+  });
+});
+
+describe('todayLocalIso (#482)', () => {
+  it('uses the local calendar date, not the UTC one', () => {
+    // 0:30 local time on 12 March: the UTC date may still be the 11th.
+    expect(todayLocalIso(new Date(2027, 2, 12, 0, 30))).toBe('2027-03-12');
+  });
+
+  it('zero-pads month and day', () => {
+    expect(todayLocalIso(new Date(2027, 0, 5, 23, 59))).toBe('2027-01-05');
   });
 });

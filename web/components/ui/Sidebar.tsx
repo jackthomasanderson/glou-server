@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
 import {
-  Wine, Sparkles, Dumbbell, Leaf, Warehouse, Library, Martini, BarChart3,
+  Wine, Sparkles, GlassWater, Leaf, Warehouse, Library, Martini, BarChart3,
   ChevronLeft, ChevronRight, X, ShieldCheck, ClipboardCheck, Wallet, LogOut,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -44,7 +44,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   const navLinks = [
     { label: t('nav.wines'), href: '/bottles?category=wine', category: 'wine', icon: <Wine size={18} />, count: 0 },
     { label: t('nav.sparkling'), href: '/bottles?category=sparkling', category: 'sparkling', icon: <Sparkles size={18} />, count: 0 },
-    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <Dumbbell size={18} />, count: 0 },
+    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <GlassWater size={18} />, count: 0 },
     { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={18} />, count: counts?.cigars ?? 0 },
     { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={18} />, count: counts?.cellars ?? 0 },
     { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: counts?.collections ?? 0 },

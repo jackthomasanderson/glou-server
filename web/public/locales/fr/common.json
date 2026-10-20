@@ -1152,6 +1152,8 @@
       "liquidStockHint": "Hors cigares de collection",
       "cigarHumidor": "Cigares en humidor",
       "cigarHumidorHint": "Préservés sous hygrométrie contrôlée",
+      "cigarModules_one": "{{count}} module",
+      "cigarModules_other": "{{count}} modules",
       "urgentDegustation": "Urgence de dégustation",
       "urgentDegustationHint": "Actifs à l'apogée ou l'ayant dépassée"
     },

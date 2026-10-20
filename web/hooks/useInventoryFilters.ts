@@ -5,6 +5,7 @@ import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 import type { InventorySortBy, InventoryOpenedFilter } from '@/components/inventory/InventoryFilterBar';
 import { isOwnedItem } from '../lib/inventory/ownership';
+import { todayLocalIso } from '@/lib/format';
 
 export interface UseInventoryFiltersOptions {
   items?: InventoryItem[];
@@ -209,7 +210,7 @@ export function useInventoryFilters({
       result = result.filter((b: InventoryItem) => b.isOpened);
     } else if (openedFilter === 'alerts') {
       if (!hasMounted) return [];
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayLocalIso();
       result = result.filter((b: InventoryItem) =>
         (b.reminderDate && b.reminderDate.split('T')[0] <= today) ||
         (b.alertStatus && b.alertStatus !== 'none' && !b.alertsPaused)

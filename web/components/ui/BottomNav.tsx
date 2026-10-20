@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button, Modal, ModalContent, ModalBody } from '@heroui/react';
 import {
-  Wine, Sparkles, Dumbbell, Leaf, Warehouse, Library, BarChart3,
+  Wine, Sparkles, GlassWater, Leaf, Warehouse, Library, BarChart3,
   Martini, ClipboardCheck, Wallet, MoreHorizontal,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +26,7 @@ export function BottomNav() {
   const primaryLinks = [
     { label: t('nav.wines'), href: '/bottles?category=wine', category: 'wine', icon: <Wine size={22} /> },
     { label: t('nav.sparkling'), href: '/bottles?category=sparkling', category: 'sparkling', icon: <Sparkles size={22} /> },
-    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <Dumbbell size={22} /> },
+    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <GlassWater size={22} /> },
     { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={22} /> },
   ];
 

@@ -8,7 +8,7 @@ import { Button, Chip, Divider, Drawer, DrawerContent, ModalBody, ModalContent, 
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
-  Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode, Euro,
+  Wine, BookMarked, GlassWater, Leaf, Sparkles, QrCode, Euro,
   FileSpreadsheet, ScanLine, History as HistoryIcon, TrendingUp,
   Plus, Minus, PackagePlus,
 } from 'lucide-react';
@@ -27,7 +27,7 @@ import { isOwnedItem } from '@/lib/inventory/ownership';
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
   sparkling: <Sparkles size={64} className="opacity-20 text-white" />,
-  spirit: <Dumbbell size={64} className="opacity-20 text-white" />,
+  spirit: <GlassWater size={64} className="opacity-20 text-white" />,
   cigar: <Leaf size={64} className="opacity-20 text-white" />,
 };
 
@@ -35,20 +35,18 @@ interface InfoCardProps {
   icon: React.ReactElement;
   label: string;
   value: React.ReactNode;
-  valueColor?: string;
+  /** Theme classes only (#519): fixed hex colours were unreadable in dark mode. */
+  valueClassName?: string;
 }
 
-function InfoCard({ icon, label, value, valueColor }: InfoCardProps) {
+function InfoCard({ icon, label, value, valueClassName }: InfoCardProps) {
   return (
     <div className="p-3 border border-divider rounded-xl flex flex-col gap-1">
       <div className="flex items-center gap-1">
         {React.cloneElement(icon, { size: 13, className: 'text-foreground-500 shrink-0' })}
         <span className="text-xs font-bold uppercase tracking-widest text-foreground-500">{label}</span>
       </div>
-      <span
-        className="text-sm font-bold leading-tight"
-        style={valueColor ? { color: valueColor } : undefined}
-      >
+      <span className={`text-sm font-bold leading-tight ${valueClassName ?? ''}`}>
         {value}
       </span>
     </div>
@@ -419,7 +417,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                       icon={<Flame />}
                       label={isCigar ? t('inventory.detail.agingEstimate') : t('inventory.fields.peakMaturity')}
                       value={drinkingWindow}
-                      valueColor="#B45309"
+                      valueClassName="text-warning-700 dark:text-warning"
                     />
                   )}
                   {isWineOrSparkling && drinkingWindow && (
@@ -461,7 +459,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                       icon={<MapPin />}
                       label={t('inventory.detail.location')}
                       value={[cellarName, d.location].filter(Boolean).join(' › ')}
-                      valueColor="#7B1E30"
+                      valueClassName="text-secondary dark:text-foreground"
                     />
                   )}
                   {d.purchasePrice != null && (

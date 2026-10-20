@@ -4,7 +4,7 @@ import {
   Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button, Checkbox,
 } from '@heroui/react';
 import {
-  Wine, Sparkles, Dumbbell, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Clock,
+  Wine, Sparkles, GlassWater, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Clock,
 } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
@@ -13,7 +13,7 @@ import { isOwnedItem } from '@/lib/inventory/ownership';
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={12} />,
   sparkling: <Sparkles size={12} />,
-  spirit: <Dumbbell size={12} />,
+  spirit: <GlassWater size={12} />,
   cigar: <Leaf size={12} />,
 };
 
@@ -53,6 +53,12 @@ export function InventoryCard({
 }: InventoryCardProps) {
   const isTemp = item.id.startsWith('temp-');
   const fillLevel = item.isOpened ? (item.fillLevel ?? 0) : 100;
+  // ISSUE_101/#479: a cigar box's stock is its cigar count, like the drawer
+  // shows; a non-owned reference has no stock at all, so no badge.
+  const isCigar = item.category === 'cigar';
+  const cigarCount = item.quantity ?? 0;
+  const showStockBadge = isOwnedItem(item);
+  const stockIsLow = isCigar ? cigarCount === 0 : fillLevel <= 20;
 
   const drinkingWindow =
     item.peakMaturityFrom && item.peakMaturityTo
@@ -158,14 +164,17 @@ export function InventoryCard({
           </div>
         )}
 
-        {/* Fill level badge */}
-        <span
-          className={`absolute top-2 right-2 rounded-lg px-1.5 py-0.5 text-xs font-bold leading-tight tracking-wide text-white${
-            fillLevel <= 20 ? ' bg-danger' : ' bg-[#111]'
-          }`}
-        >
-          {fillLevel}%
-        </span>
+        {/* Stock badge: fill level, or cigar count for a box */}
+        {showStockBadge && (
+          <span
+            className={`absolute top-2 right-2 rounded-lg px-1.5 py-0.5 text-xs font-bold leading-tight tracking-wide text-white${
+              stockIsLow ? ' bg-danger' : ' bg-[#111]'
+            }`}
+            title={isCigar ? t('inventory.fields.quantity') : undefined}
+          >
+            {isCigar ? cigarCount : `${fillLevel}%`}
+          </span>
+        )}
 
         {/* Bulk select indicator */}
         {onSelectToggle && (
