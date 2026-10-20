@@ -34,7 +34,7 @@ export function ProfileClient() {
 
   const [profileData, setProfileData] = useState({ avatarUrl: '', displayName: '', appName: '', appSlogan: '' });
   const [prefsData, setPrefsData] = useState({
-    theme: 'LIGHT' as 'LIGHT' | 'DARK',
+    theme: 'SYSTEM' as 'LIGHT' | 'DARK' | 'SYSTEM',
     language: 'FR' as 'FR' | 'EN',
     tempUnit: 'CELSIUS' as 'CELSIUS' | 'FAHRENHEIT',
     dateFormat: 'SYSTEM' as 'SYSTEM' | 'H24' | 'H12',
@@ -51,7 +51,7 @@ export function ProfileClient() {
     if (user) {
       setProfileData({ avatarUrl: user.avatarUrl || '', displayName: user.displayName || '', appName: user.appName || '', appSlogan: user.appSlogan || '' });
       setPrefsData({
-        theme: user.theme || 'LIGHT',
+        theme: user.theme || 'SYSTEM',
         language: user.language || 'FR',
         tempUnit: user.tempUnit || 'CELSIUS',
         dateFormat: user.dateFormat || 'SYSTEM',
@@ -198,6 +198,7 @@ export function ProfileClient() {
                 onSelectionChange={(keys) => handlePrefsChange('theme', Array.from(keys)[0] as string)}
                 variant="bordered" size="sm" radius="md" labelPlacement="outside"
               >
+                <SelectItem key="SYSTEM">{t('profile.themes.SYSTEM')}</SelectItem>
                 <SelectItem key="LIGHT">{t('profile.themes.LIGHT')}</SelectItem>
                 <SelectItem key="DARK">{t('profile.themes.DARK')}</SelectItem>
               </Select>

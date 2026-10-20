@@ -28,7 +28,7 @@ export const updatePasswordSchema = z.object({
 export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
 
 export const updatePreferencesSchema = z.object({
-  theme: z.enum(['LIGHT', 'DARK']).optional(),
+  theme: z.enum(['LIGHT', 'DARK', 'SYSTEM']).optional(),
   language: z.enum(['FR', 'EN']).optional(),
   tempUnit: z.enum(['CELSIUS', 'FAHRENHEIT']).optional(),
   accentColor: z.string().startsWith('#').optional(),
