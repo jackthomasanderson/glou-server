@@ -118,6 +118,9 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     }
 
     const patch = guestInventoryUpdateSchema.parse(req.body);
+    // Notes are hidden from this guest: they cannot have seen the owner's
+    // text, so any value they send would overwrite it blindly.
+    if (share.hideNotes) delete patch.notes;
     const result = await inventoryService.updateItem(share.userId, itemId, patch);
 
     if (!result) {
@@ -142,7 +145,11 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: result.changes },
     });
 
-    res.json({ data: result.item });
+    // ISSUE_483: `result.item` is the full row (purchase price, estimated
+    // value, notes…). Re-read it through the share's own select so the
+    // response honours hidePrices/hideNotes exactly like the read routes.
+    const visible = await sharesService.getItemForShare(share, itemId);
+    res.json({ data: visible });
   } catch (error) {
     if (error instanceof ZodError) {
       const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');

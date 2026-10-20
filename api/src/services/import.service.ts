@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { parseCsv } from '../lib/csv';
-import { csvRawRowSchema, CsvImportRow } from '../schemas/import.schema';
+import { csvRawRowSchema, CsvImportRow, normalizeCsvToken } from '../schemas/import.schema';
 import { InventoryInput } from '../schemas/inventory.schema';
 import { inventoryService, FieldSource } from './inventory.service';
 
@@ -15,11 +15,30 @@ export interface CsvPreviewResult {
   errors: CsvPreviewError[];
 }
 
-// Columns the importer knows about. If a file carries none of them, its
-// header line was almost certainly not understood (unsupported delimiter,
-// missing header row, wrong file) — reporting that once is far more useful
-// than one NAME_REQUIRED per data row.
-const KNOWN_COLUMNS = ['name', 'producer', 'category', 'vintage'];
+// #510: header names accepted for each column, compared after
+// normalizeCsvToken (no case, accents, spaces or punctuation). English and
+// French, so a French spreadsheet ("Nom; Producteur; Catégorie; Millésime")
+// imports as is.
+const HEADER_ALIASES: Record<string, string> = {
+  name: 'name', nom: 'name', cuvee: 'name', designation: 'name', libelle: 'name',
+  producer: 'producer', producteur: 'producer', domaine: 'producer', maison: 'producer', distillerie: 'producer', marque: 'producer',
+  category: 'category', categorie: 'category',
+  vintage: 'vintage', millesime: 'vintage', annee: 'vintage', year: 'vintage',
+  price: 'purchasePrice', purchaseprice: 'purchasePrice', prix: 'purchasePrice', prixdachat: 'purchasePrice', prixachat: 'purchasePrice',
+  region: 'region',
+  quantity: 'quantity', quantite: 'quantity', qte: 'quantity', qty: 'quantity',
+  abv: 'alcoholDegree', alcohol: 'alcoholDegree', alcool: 'alcoholDegree', degre: 'alcoholDegree', alcoholdegree: 'alcoholDegree', '%vol': 'alcoholDegree', vol: 'alcoholDegree',
+};
+
+/** Renames a parsed record's keys to the importer's column names; unknown columns are dropped. */
+function canonicalRecord(record: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(record)) {
+    const column = HEADER_ALIASES[normalizeCsvToken(key)];
+    if (column && !(column in out)) out[column] = value;
+  }
+  return out;
+}
 
 // Defensive cap: this is an onboarding convenience import, not a bulk data
 // migration tool. Rows beyond this are silently ignored at preview time.
@@ -38,14 +57,17 @@ export class ImportService {
       return { valid: [], errors: [{ row: 1, reason: 'INVALID_ENCODING' }] };
     }
 
-    const records = parseCsv(text).slice(0, MAX_ROWS);
+    const records = parseCsv(text).slice(0, MAX_ROWS).map(canonicalRecord);
 
     const valid: CsvImportRow[] = [];
     const errors: CsvPreviewError[] = [];
 
+    // If a file carries none of the known columns, its header line was almost
+    // certainly not understood (unsupported delimiter, missing header row,
+    // wrong file) — reporting that once is far more useful than one
+    // NAME_REQUIRED per data row.
     if (records.length > 0) {
-      const columns = Object.keys(records[0]);
-      if (!columns.some((column) => KNOWN_COLUMNS.includes(column))) {
+      if (Object.keys(records[0]).length === 0) {
         // Row 1 = the header line itself, which is what is actually wrong.
         return { valid, errors: [{ row: 1, reason: 'UNRECOGNIZED_COLUMNS' }] };
       }
@@ -112,32 +134,34 @@ export class ImportService {
 
   /**
    * Tags only the fields whose value actually came from the CSV row itself —
-   * NOT the per-category fallback defaults `toInventoryInput` fills in below
-   * (e.g. `spirit.alcoholDegree: 0`, `cigar.quantity: 1`), since those are
-   * placeholders the user still needs to fill in manually, not genuine
-   * imported data (FEAT-05 transparency: a source tag must be honest).
+   * NOT the per-category fallback default `toInventoryInput` fills in below
+   * (`cigar.quantity: 1`), a placeholder the user still needs to fill in
+   * manually, not genuine imported data (FEAT-05 transparency: a source tag
+   * must be honest).
    */
   private toFieldSources(row: CsvImportRow): Partial<Record<string, FieldSource>> {
     const sources: Partial<Record<string, FieldSource>> = {
       name: 'import_csv',
       producer: 'import_csv',
     };
-    if (row.vintage !== undefined) {
-      sources.vintage = 'import_csv';
+    for (const field of ['vintage', 'purchasePrice', 'region', 'quantity', 'alcoholDegree'] as const) {
+      if (row[field] !== undefined) sources[field] = 'import_csv';
     }
     return sources;
   }
 
   /**
-   * The minimal CSV format doesn't carry every field the full inventory
-   * schema requires per category (spirit.alcoholDegree, cigar.quantity).
-   * Documented CSV-import limitation, not a bug: these fall back to a safe
-   * default and stay editable afterwards from the inventory screen.
+   * A cigar without a quantity column defaults to one box of 1, editable
+   * afterwards. #510: a spirit without an ABV column is imported WITHOUT
+   * one — it used to get a made-up 0 % shown as real data; the column is
+   * nullable and the edit form asks for it.
    */
   private toInventoryInput(row: CsvImportRow, cellarId: string | null): InventoryInput {
     const common = {
       name: row.name,
       producer: row.producer,
+      ...(row.purchasePrice !== undefined ? { purchasePrice: row.purchasePrice } : {}),
+      ...(row.region !== undefined ? { region: row.region } : {}),
       tags: [] as string[],
       isOwned: true,
       isOpened: false,
@@ -152,9 +176,14 @@ export class ImportService {
       case 'sparkling':
         return { ...common, category: 'sparkling' as const, vintage: row.vintage };
       case 'spirit':
-        return { ...common, category: 'spirit' as const, alcoholDegree: 0 };
+        // Required by the interactive form's schema, optional for an import.
+        return {
+          ...common,
+          category: 'spirit' as const,
+          ...(row.alcoholDegree !== undefined ? { alcoholDegree: row.alcoholDegree } : {}),
+        } as InventoryInput;
       case 'cigar':
-        return { ...common, category: 'cigar' as const, quantity: 1 };
+        return { ...common, category: 'cigar' as const, quantity: row.quantity ?? 1 };
     }
   }
 }

@@ -5,6 +5,7 @@ import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 import type { InventorySortBy, InventoryOpenedFilter } from '@/components/inventory/InventoryFilterBar';
 import { isOwnedItem } from '../lib/inventory/ownership';
+import { todayLocalIso } from '@/lib/format';
 
 export interface UseInventoryFiltersOptions {
   items?: InventoryItem[];
@@ -102,8 +103,9 @@ export function useInventoryFilters({
   // Parsing filters out of the URL query string is adjusted during render
   // (React's documented pattern) rather than in an effect, guarded against
   // the previous render's searchParams so it only re-parses when navigation
-  // actually changes the query string.
-  const [prevSearchParams, setPrevSearchParams] = useState(searchParams);
+  // actually changes the query string. It starts at null so the first render
+  // (arriving from another page with filters in the URL) is parsed too.
+  const [prevSearchParams, setPrevSearchParams] = useState<typeof searchParams | null>(null);
   if (searchParams !== prevSearchParams) {
     setPrevSearchParams(searchParams);
     const filterParam = searchParams.get('filter');
@@ -208,7 +210,7 @@ export function useInventoryFilters({
       result = result.filter((b: InventoryItem) => b.isOpened);
     } else if (openedFilter === 'alerts') {
       if (!hasMounted) return [];
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayLocalIso();
       result = result.filter((b: InventoryItem) =>
         (b.reminderDate && b.reminderDate.split('T')[0] <= today) ||
         (b.alertStatus && b.alertStatus !== 'none' && !b.alertsPaused)

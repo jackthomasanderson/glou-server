@@ -15,6 +15,8 @@ import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
 import { auditLog } from './audit.service';
 import { isCookieSecure } from '../lib/cookie-secure';
+import { escapeHtml } from '../lib/html';
+import { isNotifEn } from '../lib/notif-lang';
 
 // ISSUE_090: speakeasy was abandoned in 2016; otplib is actively maintained
 // and implements the same RFC 6238 TOTP algorithm (SHA1, 30s step, 6
@@ -32,6 +34,10 @@ const BCRYPT_ROUNDS = 12;
 // Hex-encoded length of a generated backup code (crypto.randomBytes(10) -> 20 hex chars).
 // A TOTP code is always 6 digits, so checking this length is enough to tell the two apart.
 const BACKUP_CODE_LENGTH = 20;
+
+// #222/#509: a deletion request is carried out automatically, without any
+// admin action, once this grace period has elapsed (maintenance.service.ts).
+export const ACCOUNT_DELETION_GRACE_DAYS = 30;
 
 // ISSUE_043: the `2fa_pending` token only proves the first factor was passed.
 // It must not inherit the 30-day session lifetime — a stolen/leaked password
@@ -364,8 +370,8 @@ export class AuthService {
       `<p>${intro}</p>`,
       '<ul>',
       `<li>Date: ${timestamp}</li>`,
-      `<li>${isEn ? 'Device' : 'Appareil'}: ${device}</li>`,
-      `<li>${isEn ? 'Location' : 'Localisation'}: ${locationLabel}</li>`,
+      `<li>${isEn ? 'Device' : 'Appareil'}: ${escapeHtml(device)}</li>`,
+      `<li>${isEn ? 'Location' : 'Localisation'}: ${escapeHtml(locationLabel)}</li>`,
       '</ul>',
       `<p><a href="${securityUrl}">${isEn ? 'Review your security settings' : 'Consulter mes paramètres de sécurité'}</a></p>`,
       `<p style="color:#666;font-size:12px;">${isEn
@@ -414,6 +420,7 @@ export class AuthService {
         passwordHash,
         isAdmin,
         displayName: displayName || null,
+        ...(data.language ? { language: data.language } : {}),
       },
       select: {
         id: true,
@@ -798,6 +805,17 @@ export class AuthService {
   }
 
   /**
+   * #489: re-authentication for the most destructive admin actions (full
+   * purge, restore, downloading a dump that holds every password hash and
+   * 2FA secret). An open admin session alone is not enough for those.
+   */
+  async verifyPassword(userId: string, password: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
+    if (!user) return false;
+    return bcrypt.compare(password, user.passwordHash);
+  }
+
+  /**
    * Verify the password OR PIN supplied to unlock the client-side lock screen.
    * This is a pure verification — it never issues a new Session or JWT, and
    * never touches Session.lastActiveAt (already refreshed by authMiddleware).
@@ -1029,10 +1047,17 @@ export class AuthService {
   }
 
   async requestAccountDeletion(userId: string): Promise<void> {
-    await prisma.user.update({
+    const user = await prisma.user.update({
       where: { id: userId },
       data: { deletionRequestedAt: new Date() },
+      select: { username: true },
     });
+    void notifyAdminsOfAccountDeletion({ kind: 'requested', username: user.username, requesterId: userId });
+  }
+
+  /** #509: called by the maintenance run once due deletions were carried out. */
+  async notifyAdminsOfExecutedDeletions(count: number): Promise<void> {
+    if (count > 0) await notifyAdminsOfAccountDeletion({ kind: 'executed', count });
   }
 
   async cancelAccountDeletion(userId: string): Promise<void> {
@@ -1388,3 +1413,46 @@ export const SESSION_COOKIE_OPTIONS = {
   sameSite: 'strict' as const,
   path: '/',
 };
+
+type AccountDeletionEvent =
+  | { kind: 'requested'; username: string; requesterId: string }
+  | { kind: 'executed'; count: number };
+
+/**
+ * #509: account deletion is automatic after ACCOUNT_DELETION_GRACE_DAYS, and
+ * admins used to learn about it only from "deleted-…" names in the history.
+ * They are now told when a member asks and when the deletion is carried out.
+ * Never throws: a notification failure must not block the request itself.
+ */
+async function notifyAdminsOfAccountDeletion(event: AccountDeletionEvent): Promise<void> {
+  try {
+    const admins = await prisma.user.findMany({
+      where: { isAdmin: true, isActive: true, ...(event.kind === 'requested' ? { id: { not: event.requesterId } } : {}) },
+      select: { id: true, language: true, notifLanguage: true },
+    });
+    const dueOn = new Date(Date.now() + ACCOUNT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    await Promise.all(admins.map((admin) => {
+      const en = isNotifEn(admin);
+      let subject: string;
+      let htmlBody: string;
+      if (event.kind === 'requested') {
+        const name = escapeHtml(event.username);
+        subject = en ? `Account deletion requested: ${event.username}` : `Demande de suppression de compte : ${event.username}`;
+        htmlBody = en
+          ? `<p><strong>${name}</strong> asked for their account to be deleted. It will be anonymised automatically on ${dueOn} unless they cancel before then. No action is needed from you.</p>`
+          : `<p><strong>${name}</strong> a demandé la suppression de son compte. Il sera anonymisé automatiquement le ${dueOn}, sauf annulation de sa part d'ici là. Aucune action n'est requise de votre part.</p>`;
+      } else {
+        const plural = event.count > 1;
+        subject = en
+          ? `${event.count} account${plural ? 's' : ''} deleted`
+          : `${event.count} compte${plural ? 's' : ''} supprimé${plural ? 's' : ''}`;
+        htmlBody = en
+          ? `<p>${event.count} account${plural ? 's were' : ' was'} anonymised, ${ACCOUNT_DELETION_GRACE_DAYS} days after the member's deletion request. Their past edits now show as "deleted-…" in the history.</p>`
+          : `<p>${event.count} compte${plural ? 's ont été anonymisés' : ' a été anonymisé'}, ${ACCOUNT_DELETION_GRACE_DAYS} jours après la demande de suppression du membre. Ses modifications passées apparaissent désormais comme « deleted-… » dans l'historique.</p>`;
+      }
+      return notificationService.send({ userId: admin.id, category: 'security', subject, htmlBody });
+    }));
+  } catch (err) {
+    console.error('[auth] Could not notify administrators of an account deletion:', err);
+  }
+}

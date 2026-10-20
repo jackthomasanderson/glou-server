@@ -1,4 +1,4 @@
-import { client } from '@/lib/api';
+import { client, handleResponse } from '@/lib/api';
 
 export interface SystemConfigPublic {
   smtpEnabled: boolean;
@@ -118,6 +118,14 @@ export const configClient = {
     return data;
   },
 
+  // ISSUE_169: what Admin → System Configuration → About reads to show a
+  // version a bug reporter can copy, instead of the moving `latest`/`beta`
+  // image tags the old bug report template used to ask for.
+  async getVersion(): Promise<{ version: string }> {
+    const { data } = await client.get<{ version: string }>('/version');
+    return data;
+  },
+
   async updateSmtp(payload: Record<string, unknown>): Promise<SystemConfigPublic> {
     const { data } = await client.put<SystemConfigPublic>('/admin/config/smtp', payload);
     return data;
@@ -193,17 +201,33 @@ export const configClient = {
     return data;
   },
 
+  async getBackupHealth(): Promise<{ directoryWritable: boolean }> {
+    const { data } = await client.get<{ directoryWritable: boolean }>('/admin/backups/health');
+    return data;
+  },
+
   async runBackupNow(): Promise<BackupRunEntry> {
     const { data } = await client.post<BackupRunEntry>('/admin/backups/run', {});
     return data;
   },
 
-  async restoreBackup(id: string): Promise<void> {
-    await client.post(`/admin/backups/${id}/restore`, { confirm: true });
+  // #489: restore and download re-ask the admin's password.
+  async restoreBackup(id: string, password: string): Promise<void> {
+    await client.post(`/admin/backups/${id}/restore`, { confirm: true, password });
   },
 
-  getBackupDownloadUrl(id: string): string {
-    return `/api/admin/backups/${id}/download`;
+  /** POST (password in the body), returned as a file to save. */
+  async downloadBackup(id: string, password: string): Promise<{ blob: Blob; filename: string }> {
+    const res = await fetch(`/api/admin/backups/${id}/download`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) await handleResponse(res); // throws Error(<API code>)
+    const disposition = res.headers.get('Content-Disposition') ?? '';
+    const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? 'glou-backup.sql.gz';
+    return { blob: await res.blob(), filename };
   },
 
   async getNotifPrefs(): Promise<NotificationPrefs> {

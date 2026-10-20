@@ -141,12 +141,14 @@
       "tastingNotes": "Notes de dégustation & arômes",
       "vitole": "Fiche technique de la vitole",
       "agingEstimate": "Apogée estimée",
-      "levelAdjusted": "Niveau ajusté à"
+      "levelAdjusted": "Niveau ajusté à",
+      "humidityValue": "{{value}} % HR"
     },
     "add": "Ajouter",
     "edit": "Modifier l'actif",
     "restore": "Restaurer l'actif",
-    "trashInfo": "J restants avant suppression définitive",
+    "trashDaysLeft_one": "{{count}} jour restant avant suppression définitive",
+    "trashDaysLeft_other": "{{count}} jours restants avant suppression définitive",
     "trashEmpty": "La corbeille est vide.",
     "tabsAria": "Vue inventaire",
     "tabs": {
@@ -214,6 +216,7 @@
       "curveShapeHint": "Comment la maturité évolue dans la fenêtre. Remplace la référence de cave pour cette bouteille uniquement.",
       "needsAeration": "Nécessite aération",
       "serviceTemp": "Température de service",
+      "storageTemp": "Température de conservation",
       "lotNumber": "Numéro de lot",
       "sparklingType": "Type",
       "sugarLevel": "Taux de sucre",
@@ -242,7 +245,13 @@
       "caskNumber": "Numéro de fût",
       "caskProof": "Degré au fût (%)",
       "isSingleCask": "Single cask",
-      "yearExample": "ex : {{year}}"
+      "yearExample": "ex : {{year}}",
+      "cellarId": "Cave",
+      "slotColumn": "Colonne",
+      "slotRow": "Rangée",
+      "alertsPaused": "Alertes d'apogée en pause",
+      "consumptionPostponedUntil": "Reportée jusqu'au",
+      "lockedFields": "Champs verrouillés"
     },
     "expertSection": {
       "title": "Champs avancés (collectionneur)"
@@ -329,8 +338,11 @@
       "total": "Total stock",
       "full": "Stock plein",
       "opened": "Actifs entamés",
+      "finished_one": "{{count}} bouteille finie non comptée",
+      "finished_other": "{{count}} bouteilles finies non comptées",
       "openedCigar": "Cigares entamés"
     },
+    "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche, ni dans la détection des doublons.",
     "alerts": {
       "reminderDone": "Rappel traité",
       "title": "Rappels à consommer",
@@ -422,6 +434,8 @@
     "username": "Nom d'utilisateur",
     "email": "Adresse email",
     "password": "Mot de passe (12 caractères min.)",
+    "passwordLabel": "Mot de passe",
+    "pageTitleLogin": "Connexion",
     "confirmPassword": "Confirmer le mot de passe",
     "displayName": "Nom affiché (facultatif)",
     "identifier": "Identifiant ou email",
@@ -467,6 +481,8 @@
     "twoFactor": {
       "hint": "Veuillez entrer le code à 6 chiffres de votre application d'authentification ou l'un de vos codes de secours.",
       "codeLabel": "Code d'authentification",
+      "useBackupCode": "Utiliser un code de secours",
+      "useAuthenticatorCode": "Utiliser le code de mon application d'authentification",
       "verify": "Vérifier",
       "back": "Retour"
     }
@@ -533,7 +549,9 @@
       "items": "actifs",
       "itemsCount_one": "{{count}} actif",
       "itemsCount_other": "{{count}} actifs",
-      "alerts": "alertes"
+      "alerts": "alertes",
+      "alertCount_one": "{{count}} alerte",
+      "alertCount_other": "{{count}} alertes"
     },
     "grid": {
       "showConfig": "Configurer le plan de cave (optionnel)",
@@ -552,8 +570,10 @@
       "occupied_other": "occupés",
       "free_one": "libre",
       "free_other": "libres",
-      "hotZone": "Zone chaude ({{count}} rangées)",
-      "coldZone": "Zone froide ({{count}} rangées)",
+      "hotZone_one": "Zone chaude ({{count}} rangée)",
+      "hotZone_other": "Zone chaude ({{count}} rangées)",
+      "coldZone_one": "Zone froide ({{count}} rangée)",
+      "coldZone_other": "Zone froide ({{count}} rangées)",
       "hotZoneLabel": "Zone chaude",
       "coldZoneLabel": "Zone froide",
       "cellLabelEmpty": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner un actif.",
@@ -595,7 +615,7 @@
     }
   },
   "connectivity": {
-    "online": "Connecté à internet",
+    "online": "Connecté au serveur",
     "offline": "Hors connexion",
     "checking": "Vérification...",
     "featuresAffected": "Autocomplétion externe, scan et recherche d'images indisponibles",
@@ -644,6 +664,7 @@
   "profile": {
     "adminPanelLink": "Accéder au panneau d'administration",
     "title": "Mon Profil",
+    "sectionsNav": "Sections du profil",
     "personalInfo": "Informations personnelles",
     "preferences": "Préférences d'affichage",
     "appName": "Nom perso pour l'app",
@@ -666,6 +687,7 @@
       "H12": "12 heures (AM/PM)"
     },
     "themes": {
+      "SYSTEM": "Système",
       "LIGHT": "Clair",
       "DARK": "Sombre"
     },
@@ -858,7 +880,8 @@
       "errors": {
         "nameRequired": "Le nom est obligatoire.",
         "windowInvalid": "La fenêtre de fin doit être ≥ à la fenêtre de début."
-      }
+      },
+      "relativeWindow": "{{from}} → {{to}} ans"
     },
     "maintenance": {
       "title": "Maintenance",
@@ -869,20 +892,31 @@
         "confirmDescription": "Attention ! Cette action est irréversible. Pour confirmer que vous souhaitez supprimer TOUTES les données métier, veuillez saisir le mot-clé ci-dessous :",
         "keywordLabel": "Saisissez \"SUPPRIMER\" pour confirmer",
         "keywordValue": "SUPPRIMER",
+        "passwordLabel": "Votre mot de passe",
+        "backupFirst": "Une sauvegarde est faite avant ; la purge est annulée si elle échoue.",
         "success": "La base de données a été remise à zéro avec succès.",
         "error": "Une erreur est survenue lors de la purge des données.",
+        "errors": {
+          "INVALID_PASSWORD": "Mot de passe incorrect.",
+          "BACKUP_BEFORE_PURGE_FAILED": "La sauvegarde préalable à la purge a échoué : rien n'a été supprimé. Consultez l'onglet Sauvegardes."
+        },
         "counts": {
-          "bottles": "{{count}} actifs supprimés",
-          "cellars": "{{count}} caves supprimées",
-          "logs": "{{count}} entrées de log supprimées"
+          "bottles_one": "{{count}} actif supprimé",
+          "bottles_other": "{{count}} actifs supprimés",
+          "cellars_one": "{{count}} cave supprimée",
+          "cellars_other": "{{count}} caves supprimées",
+          "logs_one": "{{count}} entrée de log supprimée",
+          "logs_other": "{{count}} entrées de log supprimées"
         }
       }
     }
   },
   "bulk": {
-    "selected": "{{count}} sélectionnée",
+    "selected_one": "{{count}} sélectionné",
+    "selected_other": "{{count}} sélectionnés",
     "title": "Actions groupées",
-    "subtitle": "Modifier {{count}} actifs simultanément",
+    "subtitle_one": "Modifier {{count}} actif",
+    "subtitle_other": "Modifier {{count}} actifs simultanément",
     "fieldsToUpdate": "Champs à modifier",
     "preview": "Récapitulatif des changements",
     "mixed": "(Valeurs multiples)",
@@ -893,7 +927,8 @@
     "loadPreset": "Charger un modèle",
     "deletePreset": "Supprimer le modèle",
     "deletePresetConfirm": "Ce modèle d'actions sera définitivement supprimé.",
-    "success": "{{count}} actifs ont été mis à jour"
+    "success_one": "{{count}} actif a été mis à jour",
+    "success_other": "{{count}} actifs ont été mis à jour"
   },
   "traceability": {
     "title": "Traçabilité",
@@ -902,9 +937,12 @@
       "update": "Modification",
       "delete": "Suppression",
       "restore": "Restauration",
-      "restore_field": "Valeur restaurée"
+      "restore_field": "Valeur restaurée",
+      "guest_update": "Modification"
     },
+    "viaGuest": "via un lien invité",
     "restoredField": "Valeur restaurée : {{field}}",
+    "changeLine": "{{field}} : {{value}}",
     "restoreValue": "Restaurer cette valeur",
     "restoreConfirm": {
       "title": "Restaurer cette valeur ?",
@@ -928,7 +966,8 @@
     "emptyHint": "Créez des thématiques pour organiser vos articles.",
     "deleteTitle": "Supprimer la collection",
     "deleteConfirm": "Supprimer « {{name}} » ? Les articles ne seront pas supprimés.",
-    "itemCount": "{{count}} article",
+    "itemCount_one": "{{count}} article",
+    "itemCount_other": "{{count}} articles",
     "fields": {
       "name": "Nom de la collection",
       "color": "Couleur",
@@ -952,7 +991,8 @@
     "deleteTitle": "Supprimer la dégustation",
     "deleteConfirm": "Cette note de dégustation sera supprimée définitivement.",
     "noItem": "Produit non lié",
-    "total": "{{count}} dégustation",
+    "total_one": "{{count}} dégustation",
+    "total_other": "{{count}} dégustations",
     "fields": {
       "item": "Produit dégusté",
       "tastedAt": "Date de dégustation",
@@ -1013,7 +1053,8 @@
       "promptHint": "Saisissez un met ou choisissez une suggestion rapide ci-dessus.",
       "noResults": "Aucun actif en stock ne correspond à \"{{query}}\"",
       "noResultsHint": "Essayez un terme plus général ou une des suggestions rapides.",
-      "resultsCount": "{{count}} actif correspondant",
+      "resultsCount_one": "{{count}} actif correspondant",
+      "resultsCount_other": "{{count}} actifs correspondants",
       "reason": "Accorde avec : {{pairing}}",
       "consumeNow": "Consommer maintenant",
       "inventoryLoadError": "Impossible de charger votre inventaire.",
@@ -1152,6 +1193,8 @@
       "liquidStockHint": "Hors cigares de collection",
       "cigarHumidor": "Cigares en humidor",
       "cigarHumidorHint": "Préservés sous hygrométrie contrôlée",
+      "cigarModules_one": "{{count}} module",
+      "cigarModules_other": "{{count}} modules",
       "urgentDegustation": "Urgence de dégustation",
       "urgentDegustationHint": "Actifs à l'apogée ou l'ayant dépassée"
     },
@@ -1309,10 +1352,10 @@
       "configHistory": "Historique de configuration"
     },
     "deleteTitle": "Supprimer mon compte",
-    "deleteDescription": "Envoie une demande de suppression de votre compte à l'administrateur de l'instance, qui la traitera. Vous pouvez l'annuler tant qu'elle n'a pas été traitée.",
+    "deleteDescription": "Votre compte sera supprimé automatiquement 30 jours après votre demande ; les administrateurs en sont informés. Vous pouvez annuler d'ici là. Exportez vos données avant si vous voulez garder vos dégustations.",
     "deleteButton": "Supprimer le compte",
     "deleteModalTitle": "Confirmer la suppression",
-    "deleteModalBody": "Votre demande sera transmise à l'administrateur de l'instance. Une fois traitée, la suppression de votre compte est irréversible.",
+    "deleteModalBody": "Votre compte sera supprimé automatiquement dans 30 jours. Vous pouvez annuler d'ici là ; ensuite, la suppression est irréversible. Pensez à exporter vos données.",
     "deleteModalHint": "Saisissez « {{keyword}} » pour confirmer :",
     "deleteKeyword": "SUPPRIMER",
     "deleteConfirm": "Confirmer la suppression",
@@ -1379,7 +1422,8 @@
       "notesHidden": "Notes personnelles masquées",
       "expired": "Ce lien de partage a expiré ou a été révoqué.",
       "loadError": "Impossible de charger ce partage. Vérifiez votre connexion et réessayez.",
-      "showMore": "Afficher la suite ({{count}} restants)",
+      "showMore_one": "Afficher la suite ({{count}} restant)",
+      "showMore_other": "Afficher la suite ({{count}} restants)",
       "search": "Rechercher dans ce partage",
       "sortBy": "Trier par",
       "empty": "Aucun article dans ce partage.",
@@ -1425,7 +1469,7 @@
     "invalidToken": "Ce lien est invalide ou a expiré.",
     "errors": {
       "INVALID_OR_EXPIRED_TOKEN": "Ce lien est invalide ou a expiré. Faites une nouvelle demande.",
-      "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 8 caractères.",
+      "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 12 caractères.",
       "PASSWORDS_MISMATCH": "Les mots de passe ne correspondent pas.",
       "UNEXPECTED_ERROR": "Une erreur est survenue. Réessayez."
     }
@@ -1455,10 +1499,6 @@
       "all": "Toutes les catégories",
       "peak": "Apogée atteinte",
       "temperature": "Variations température/hygrométrie",
-      "consumption": "Consommation planifiée",
-      "shares": "Partages & invitations",
-      "permissions": "Changements de permissions",
-      "new_users": "Nouveaux utilisateurs (admin)",
       "security": "Sécurité du compte",
       "wishlist": "Opportunités tarifaires (liste de souhaits)",
       "backup": "Échec des sauvegardes (admin)"
@@ -1489,7 +1529,11 @@
       "retention": "Rétention",
       "backups": "Sauvegardes",
       "network": "Réseau",
-      "history": "Historique"
+      "history": "Historique",
+      "about": "À propos"
+    },
+    "about": {
+      "description": "Version en cours d'exécution. À inclure dans un rapport de bug."
     },
     "smtp": {
       "enabled": "Activer l'envoi d'emails",
@@ -1581,15 +1625,27 @@
           "error": "Échec"
         },
         "counts": {
-          "auditLogs": "{{count}} logs",
-          "sessions": "{{count}} sessions",
-          "trustedDevices": "{{count}} appareils",
-          "guestShares": "{{count}} partages"
+          "auditLogs_one": "{{count}} log",
+          "auditLogs_other": "{{count}} logs",
+          "sessions_one": "{{count}} session",
+          "sessions_other": "{{count}} sessions",
+          "trustedDevices_one": "{{count}} appareil",
+          "trustedDevices_other": "{{count}} appareils",
+          "guestShares_one": "{{count}} partage",
+          "guestShares_other": "{{count}} partages"
         }
       }
     },
     "backup": {
       "description": "Configurez la sauvegarde automatique quotidienne de la base de données (pg_dump), stockée en dehors du volume applicatif.",
+      "passwordLabel": "Votre mot de passe",
+      "invalidPassword": "Mot de passe incorrect.",
+      "download": {
+        "title": "Télécharger cette sauvegarde",
+        "body": "Le fichier contient toute la base, y compris l'empreinte du mot de passe et le secret de double authentification de chaque compte. Confirmez avec votre mot de passe.",
+        "error": "Le téléchargement a échoué."
+      },
+      "dirNotWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échouera. Sur le serveur, à côté de docker-compose.yml, lancez : mkdir -p backups && sudo chown 1001:1001 backups, puis redémarrez la pile.",
       "enabled": "Activer les sauvegardes automatiques",
       "retentionDays": "Rétention des sauvegardes (jours)",
       "retentionDaysHint": "Les fichiers de sauvegarde plus anciens que ce délai sont supprimés automatiquement (7 jours minimum recommandé).",
@@ -1711,7 +1767,7 @@
     },
     "csv": {
       "title": "Import CSV",
-      "subtitle": "Importez un fichier .csv avec les colonnes : name, producer, category, vintage (optionnel).",
+      "subtitle": "Importez un fichier .csv avec les colonnes nom, producteur, catégorie (vin, bulles, spiritueux, cigare) et, au choix, millésime, prix, région, quantité, degré. Les en-têtes et catégories en anglais (name, producer, category, vintage ; wine, sparkling, spirit, cigar) fonctionnent aussi.",
       "csvOnlyHint": "Seul le format CSV est pris en charge (Excel/.xlsx non supporté).",
       "chooseFile": "Choisir un fichier CSV",
       "chooseAnother": "Choisir un autre fichier",
@@ -1728,10 +1784,14 @@
         "NAME_TOO_LONG": "Le nom dépasse 200 caractères",
         "PRODUCER_REQUIRED": "Le producteur est manquant",
         "PRODUCER_TOO_LONG": "Le producteur dépasse 200 caractères",
-        "INVALID_CATEGORY": "Catégorie invalide (attendu : wine, sparkling, spirit ou cigar)",
+        "INVALID_CATEGORY": "Catégorie invalide (attendu : vin, bulles, spiritueux ou cigare, ou wine, sparkling, spirit, cigar)",
         "INVALID_VINTAGE": "Millésime invalide",
+        "INVALID_PRICE": "Prix invalide",
+        "INVALID_QUANTITY": "Quantité invalide (nombre entier à partir de 1)",
+        "INVALID_ABV": "Degré d'alcool invalide (0 à 100)",
+        "REGION_TOO_LONG": "La région dépasse 200 caractères",
         "INVALID_ROW": "Ligne invalide",
-        "UNRECOGNIZED_COLUMNS": "En-tête non reconnu : aucune colonne attendue (name, producer, category, vintage) n'a été trouvée",
+        "UNRECOGNIZED_COLUMNS": "En-tête non reconnu : aucune colonne attendue (nom, producteur, catégorie, millésime…) n'a été trouvée",
         "INVALID_ENCODING": "Ce fichier n'est pas enregistré en UTF-8 : les caractères accentués ont été perdus. Dans Excel, utilisez « Fichier → Enregistrer sous » et choisissez « CSV UTF-8 (délimité par des virgules) », puis réessayez."
       }
     },
@@ -1762,7 +1822,6 @@
   },
   "wishlist": {
     "title": "Liste de souhaits & Budget",
-    "pageAccess": "Liste de souhaits & Budget",
     "tabs": {
       "ariaLabel": "Sections de la liste de souhaits",
       "wishlist": "Souhaits",
@@ -1825,6 +1884,7 @@
     "empty": "Aucune enveloppe budgétaire définie",
     "emptyHint": "Définissez un montant pour une période afin de suivre vos dépenses.",
     "create": "Définir une enveloppe",
+    "edit": "Modifier l'enveloppe",
     "deleteTitle": "Supprimer cette enveloppe ?",
     "deleteConfirm": "Cette enveloppe budgétaire sera définitivement supprimée.",
     "errors": {

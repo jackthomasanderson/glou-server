@@ -1,7 +1,7 @@
 # Enregistrer et consulter des notes de dégustation
 
 ## TL;DR
-Naviguez vers `/tastings`, créez une note liée à un actif de votre cave, consultez les recommandations de service, puis parcourez vos notes de la plus récente à la plus ancienne.
+Naviguez vers `/cellar-journal`, créez une note liée à un actif de votre cave, consultez les recommandations de service, puis parcourez vos notes de la plus récente à la plus ancienne.
 
 ## Prérequis
 - Être connecté à Glou.
@@ -11,7 +11,7 @@ Naviguez vers `/tastings`, créez une note liée à un actif de votre cave, cons
 
 ### 1. Accéder au journal de dégustation
 
-Cliquez sur **Tastings** dans la navigation principale, ou accédez directement à `/tastings`.
+Cliquez sur **Dégustations** dans la navigation principale (sur téléphone, dans le menu **Plus**), ou accédez directement à `/cellar-journal`.
 
 La page liste toutes vos notes de dégustation, triées de la plus récente à la plus ancienne, à raison de **20 notes par page**.
 

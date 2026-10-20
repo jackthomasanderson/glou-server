@@ -8,6 +8,7 @@ import { BackupRun } from '@prisma/client';
 import { auditLog } from './audit.service';
 import { notificationService } from './notification.service';
 import { isNotifEn } from '../lib/notif-lang';
+import { escapeHtml } from '../lib/html';
 
 // FEAT-18: Portabilité & Souveraineté des Données — Scheduled Backups.
 // design.md "Sauvegarde & Migration": `pg_dump` planifié (cron quotidien),
@@ -57,10 +58,6 @@ async function notifyAdminsOfBackupFailure(error: string): Promise<void> {
     // Never let the alert path break the backup bookkeeping.
     console.error('[backup] Could not notify administrators of the failure:', err);
   }
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 export type BackupTrigger = 'scheduled' | 'manual';
@@ -285,6 +282,23 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
 }
 
 export const backupService = {
+  /**
+   * #537: with the shipped compose file, Docker on Linux creates a missing
+   * `./backups` bind-mount source as root, and this process (uid 1001)
+   * cannot write to it — every scheduled backup would then fail silently
+   * until someone opens the Backups tab. Checked at startup (logged) and
+   * exposed to the admin UI.
+   */
+  isBackupsDirWritable(): boolean {
+    try {
+      ensureBackupsDir();
+      fs.accessSync(BACKUPS_DIR, fs.constants.W_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
   /**
    * Runs a `pg_dump`, applies retention, and always records a `BackupRun`
    * (success or failure) — never throws to the caller, matching

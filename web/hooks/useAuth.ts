@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { clearOfflineData } from '@/lib/offline/db';
 import { notifyError } from '@/lib/toast';
+import { clearQuickLock } from '@/lib/quick-lock-storage';
+import { postLoginPath } from '@/lib/auth/next-path';
 
 export interface PublicUser {
   id: string;
@@ -12,7 +14,7 @@ export interface PublicUser {
   appName: string | null;
   appSlogan: string | null;
   displayName: string | null;
-  theme: 'LIGHT' | 'DARK';
+  theme: 'LIGHT' | 'DARK' | 'SYSTEM';
   language: 'FR' | 'EN';
   tempUnit: 'CELSIUS' | 'FAHRENHEIT';
   accentColor: string;
@@ -92,7 +94,8 @@ export function useLogin() {
         return;
       }
       queryClient.setQueryData<PublicUser | null>(ME_KEY, data);
-      router.push('/bottles');
+      clearQuickLock();
+      router.push(postLoginPath(window.location.search));
     },
   });
 }
@@ -105,7 +108,7 @@ export function useRegister() {
   return useMutation<
     PublicUser,
     Error,
-    { username: string; email: string; password: string }
+    { username: string; email: string; password: string; language?: 'FR' | 'EN' }
   >({
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/auth/register', { method: 'POST', body: JSON.stringify(data) }),
@@ -165,6 +168,7 @@ export function useLogout() {
     onSettled: () => {
       queryClient.setQueryData(ME_KEY, null);
       queryClient.clear();
+      clearQuickLock();
       router.push('/login');
     },
   });
@@ -253,7 +257,7 @@ export function useUpdatePreferences() {
     PublicUser,
     Error,
     {
-      theme?: 'LIGHT' | 'DARK';
+      theme?: 'LIGHT' | 'DARK' | 'SYSTEM';
       language?: 'FR' | 'EN';
       tempUnit?: 'CELSIUS' | 'FAHRENHEIT';
       accentColor?: string;
@@ -306,7 +310,8 @@ export function useVerify2faLogin() {
     mutationFn: (data) => apiFetch<PublicUser>('/api/auth/2fa/verify-login', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
-      router.push('/bottles');
+      clearQuickLock();
+      router.push(postLoginPath(window.location.search));
     },
   });
 }

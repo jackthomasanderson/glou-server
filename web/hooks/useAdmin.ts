@@ -14,13 +14,16 @@ export interface AdminUser {
     createdAt: string;
 }
 
+// Mirrors api/src/services/maintenance.service.ts PurgeResult (the web side
+// read `counts.bottles`, which the API never sent).
 export interface PurgeResult {
     success: boolean;
     counts: {
-        bottles: number;
+        items: number;
         cellars: number;
         auditLogs: number;
     };
+    backupRunId?: string;
 }
 
 export interface AuditLogEntry {
@@ -135,8 +138,10 @@ export function usePurgeData() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (confirmation: string) => {
-            const response = await api.post<PurgeResult>('/admin/maintenance/purge', { confirmation });
+        // #489: the admin's password is re-checked server-side; `confirmation`
+        // is the protocol keyword, whatever the UI language.
+        mutationFn: async ({ password }: { password: string }) => {
+            const response = await api.post<PurgeResult>('/admin/maintenance/purge', { confirmation: 'SUPPRIMER', password });
             return response.data;
         },
         onSuccess: () => {

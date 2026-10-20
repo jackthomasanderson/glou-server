@@ -7,8 +7,11 @@ import { Button, Chip } from '@heroui/react';
 import { Plus, Search, Warehouse, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
 import Link from 'next/link';
 import { InventoryItem } from '@/lib/inventory/types';
+import { glouKey, readStorageMigrating, safeWriteStorage } from '@/lib/safe-storage';
+import { isFinishedItem, isOwnedItem } from '@/lib/inventory/ownership';
 import {
   useInventory,
+  useInventoryTruncated,
   useCreateInventoryItem,
   useUpdateInventoryItem,
   useDeleteInventoryItem,
@@ -66,8 +69,11 @@ function getIsMobileServerSnapshot() {
   return false;
 }
 
+const NO_CELLAR_BANNER_KEY = glouKey('no-cellar-banner-dismissed');
+
 export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardProps) {
   const { data: items, isLoading, isError, refetch, isRefetching } = useInventory();
+  const isTruncated = useInventoryTruncated();
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
   const createMutation = useCreateInventoryItem();
@@ -90,11 +96,12 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const [scanOpen, setScanOpen] = useState(false);
   // Only rendered once `cellars` has loaded client-side, so reading storage lazily is hydration-safe.
   const [noCellarBannerDismissed, setNoCellarBannerDismissed] = useState(() => {
-    try { return typeof window !== 'undefined' && localStorage.getItem('glou.noCellarBannerDismissed') === '1'; } catch { return false; }
+    return typeof window !== 'undefined'
+      && readStorageMigrating(localStorage, NO_CELLAR_BANNER_KEY, 'glou.noCellarBannerDismissed') === '1';
   });
   const dismissNoCellarBanner = useCallback(() => {
     setNoCellarBannerDismissed(true);
-    try { localStorage.setItem('glou.noCellarBannerDismissed', '1'); } catch { /* storage unavailable */ }
+    safeWriteStorage(localStorage, NO_CELLAR_BANNER_KEY, '1');
   }, []);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
@@ -127,6 +134,17 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     filteredItems,
     hasActiveFilters,
   } = useInventoryFilters({ items, cellars, lockedCategories, t, hasMounted });
+
+  // #504: the counters answer "how many do I hold here?": the chosen section
+  // only, never non-owned references, and finished bottles counted apart.
+  const stats = useMemo(() => {
+    const owned = baseItems.filter(isOwnedItem);
+    const inSection = selectedCategories.length > 0
+      ? owned.filter((b) => selectedCategories.includes(b.category))
+      : owned;
+    const held = inSection.filter((b) => !isFinishedItem(b));
+    return { held, finished: inSection.length - held.length };
+  }, [baseItems, selectedCategories]);
 
   // Auto-open bottle from QR scan (FEAT-10). Kept out of useInventoryFilters
   // because it needs `setViewingItem`, dashboard-local UI state unrelated to
@@ -374,19 +392,32 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         </Button>
       </div>
 
+      {/* #475: the list is capped server-side; never let the oldest items
+          vanish silently from the list, the search and duplicate checks. */}
+      {isTruncated && (
+        <div role="status" className="mb-4 px-4 py-3 rounded-xl text-sm border bg-warning-50 border-warning-200 text-warning-700">
+          {t('inventory.truncated', { limit: 2000 })}
+        </div>
+      )}
+
       {/* Stats row */}
       {!isLoading && baseItems.length > 0 && mode === 'idle' && (
-        <div className="flex gap-3 sm:gap-4 mb-5">
-          {[
-            { value: baseItems.length, label: t('inventory.stats.total'), color: '' },
-            { value: baseItems.filter(b => !b.isOpened).length, label: t('inventory.stats.full'), color: 'text-success-700' },
-            { value: baseItems.filter(b => b.isOpened).length, label: lockedCategories?.includes('cigar') ? t('inventory.stats.openedCigar') : t('inventory.stats.opened'), color: 'text-warning-700' },
-          ].map(({ value, label, color }) => (
-            <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">
-              <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>
-              <p className="text-xs text-foreground-500 mt-1">{label}</p>
-            </div>
-          ))}
+        <div className="mb-5">
+          <div className="flex gap-3 sm:gap-4">
+            {[
+              { value: stats.held.length, label: t('inventory.stats.total'), color: '' },
+              { value: stats.held.filter(b => !b.isOpened).length, label: t('inventory.stats.full'), color: 'text-success-700' },
+              { value: stats.held.filter(b => b.isOpened).length, label: lockedCategories?.includes('cigar') ? t('inventory.stats.openedCigar') : t('inventory.stats.opened'), color: 'text-warning-700' },
+            ].map(({ value, label, color }) => (
+              <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">
+                <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>
+                <p className="text-xs text-foreground-500 mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+          {stats.finished > 0 && (
+            <p className="text-xs text-foreground-500 mt-2">{t('inventory.stats.finished', { count: stats.finished })}</p>
+          )}
         </div>
       )}
 
@@ -487,7 +518,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           <InventoryForm
             open={mode !== 'idle'}
             initialValues={mode === 'editing' && editingItem ? editingItem : undefined}
-            defaultCategory={lockedCategories?.length === 1 ? (lockedCategories[0] as InventoryCategory) : undefined}
+            defaultCategory={
+              lockedCategories?.length === 1
+                ? (lockedCategories[0] as InventoryCategory)
+                : selectedCategories.length === 1
+                ? (selectedCategories[0] as InventoryCategory)
+                : undefined
+            }
             onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
             onClose={handleCancel}
             isSubmitting={createMutation.isPending || updateMutation.isPending || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}
@@ -497,7 +534,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Loading skeletons */}
           {isLoading && effectiveViewMode === 'grid' && (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 sm:gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <InventoryCardSkeleton key={i} />
               ))}
@@ -572,7 +609,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         radius="full"
         size="lg"
         isIconOnly
-        className="fixed bottom-[84px] md:bottom-6 right-4 z-30 sm:hidden shadow-lg"
+        className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 right-4 z-30 sm:hidden shadow-lg"
         onPress={() => setMode('creating')}
         aria-label={t('inventory.add')}
       >

@@ -60,7 +60,7 @@ the images) and at the repository linked below.
 
 | Image | Used for | Licence |
 |---|---|---|
-| \`node:20-alpine\` | api and web runtime | Node.js: MIT; Alpine Linux: various open-source licences |
+| \`node:24-alpine\` | api and web runtime | Node.js: MIT; Alpine Linux: various open-source licences |
 | \`postgres:15-alpine\` | database | PostgreSQL Licence |
 | \`ollama/ollama\` | optional label scan (\`scan\` profile) | MIT |
 

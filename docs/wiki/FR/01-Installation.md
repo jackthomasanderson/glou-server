@@ -23,10 +23,12 @@
    > [!CAUTION]
    > Ne sautez pas cette étape. `docker compose up` refuse de démarrer Postgres si `DB_PASSWORD` est vide ou absent (pas de repli non sécurisé), et l'API refuse d'accepter la moindre requête en production si `JWT_SECRET` ou `CONFIG_ENCRYPTION_KEY` est absent, vide, vaut encore exactement son placeholder de `.env.example`, ou (pour `CONFIG_ENCRYPTION_KEY`) n'est pas composé de 64 caractères hexadécimaux. Elle logue un message `🛑 [startup] FATAL` et s'arrête (`process.exit(1)`). Ce contrôle ne s'applique que si `NODE_ENV` n'est pas `development` : le développement local continue de fonctionner avec un simple avertissement en console.
 
-3. Démarrer la stack :
+3. Créer le dossier des sauvegardes (Linux), puis démarrer la stack :
    ```bash
+   mkdir -p backups && sudo chown 1001:1001 backups
    docker compose up -d
    ```
+   L'API tourne sous l'uid non privilégié 1001 et écrit ses sauvegardes nocturnes dans `./backups`. Si le dossier n'existe pas, Docker le crée en root et chaque sauvegarde échoue avec « Permission denied » (l'API le signale au démarrage et **Administration → Configuration Système → Sauvegardes** affiche un avertissement). Docker Desktop sous macOS/Windows n'a pas besoin de cette étape.
    Docker télécharge `glou-server-api` et `glou-server-web` depuis GHCR automatiquement. Cela démarre uniquement la base, l'API et le web (~1,5 Go de RAM). Pour le scan d'étiquette optionnel (~9 Go de disque et ~3 Go de RAM en plus), utilisez `docker compose --profile scan up -d`.
 
 4. Ouvrir [http://localhost:3000](http://localhost:3000) et cliquer sur **S'inscrire**.

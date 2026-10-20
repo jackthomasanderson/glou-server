@@ -12,7 +12,7 @@ the images) and at the repository linked below.
 
 | Image | Used for | Licence |
 |---|---|---|
-| `node:20-alpine` | api and web runtime | Node.js: MIT; Alpine Linux: various open-source licences |
+| `node:24-alpine` | api and web runtime | Node.js: MIT; Alpine Linux: various open-source licences |
 | `postgres:15-alpine` | database | PostgreSQL Licence |
 | `ollama/ollama` | optional label scan (`scan` profile) | MIT |
 
@@ -20,13 +20,18 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 
 ## API image (`api/`)
 
-301 packages.
+306 packages.
 
 | Package | Version | Licence | Source |
 |---|---|---|---|
 | @electric-sql/pglite | 0.4.3 | Apache-2.0 | https://github.com/electric-sql/pglite |
 | @electric-sql/pglite-socket | 0.1.3 | Apache-2.0 | https://github.com/electric-sql/pglite |
 | @electric-sql/pglite-tools | 0.3.3 | Apache-2.0 | https://github.com/electric-sql/pglite |
+| @otplib/core | 12.0.1 | MIT | https://github.com/yeojz/otplib/tree/master/packages/otplib-core |
+| @otplib/plugin-crypto | 12.0.1 | MIT | https://github.com/yeojz/otplib/tree/master/packages/otplib-plugin-crypto |
+| @otplib/plugin-thirty-two | 12.0.1 | MIT | https://github.com/yeojz/otplib/tree/master/packages/otplib-plugin-thirty-two |
+| @otplib/preset-default | 12.0.1 | MIT | https://github.com/yeojz/otplib/tree/master/packages/otplib-preset-default |
+| @otplib/preset-v11 | 12.0.1 | MIT | https://github.com/yeojz/otplib/tree/master/packages/otplib-preset-v11 |
 | @prisma/adapter-pg | 7.10.1 | Apache-2.0 | https://github.com/prisma/orm |
 | @prisma/client | 7.10.1 | Apache-2.0 | https://github.com/prisma/orm |
 | @prisma/client-runtime-utils | 7.10.1 | Apache-2.0 | https://github.com/prisma/orm |
@@ -83,7 +88,6 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | ansi-styles | 4.3.0 | MIT | chalk/ansi-styles |
 | append-field | 1.0.0 | MIT | http://github.com/LinusU/node-append-field |
 | aws-ssl-profiles | 1.1.2 | MIT | https://github.com/mysqljs/aws-ssl-profiles |
-| base32.js | 0.0.1 | MIT | https://github.com/mikepb/base32.js |
 | basic-auth | 2.0.1 | MIT | jshttp/basic-auth |
 | bcryptjs | 3.0.3 | BSD-3-Clause | https://github.com/dcodeIO/bcrypt.js |
 | better-result | 2.10.0 | MIT | https://github.com/dmmulroy/better-result |
@@ -231,6 +235,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | on-finished | 2.4.1 | MIT | jshttp/on-finished |
 | on-headers | 1.1.0 | MIT | jshttp/on-headers |
 | once | 1.4.0 | ISC | https://github.com/isaacs/once |
+| otplib | 12.0.1 | MIT | https://github.com/yeojz/otplib |
 | p-limit | 2.3.0 | MIT | sindresorhus/p-limit |
 | p-locate | 4.1.0 | MIT | sindresorhus/p-locate |
 | p-try | 2.2.0 | MIT | sindresorhus/p-try |
@@ -295,7 +300,6 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | side-channel-weakmap | 1.0.2 | MIT | https://github.com/ljharb/side-channel-weakmap |
 | signal-exit | 3.0.7 | ISC | https://github.com/tapjs/signal-exit |
 | signal-exit | 4.1.0 | ISC | https://github.com/tapjs/signal-exit |
-| speakeasy | 2.0.0 | MIT | https://github.com/speakeasyjs/speakeasy |
 | split2 | 4.2.0 | ISC | https://github.com/mcollina/split2 |
 | sql-escaper | 1.5.2 | MIT | https://github.com/mysqljs/sql-escaper |
 | statuses | 2.0.2 | MIT | jshttp/statuses |
@@ -304,6 +308,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | string-width | 4.2.3 | MIT | sindresorhus/string-width |
 | strip-ansi | 6.0.1 | MIT | chalk/strip-ansi |
 | supports-color | 7.2.0 | MIT | chalk/supports-color |
+| thirty-two | 1.0.2 | UNKNOWN | https://github.com/chrisumbel/thirty-two |
 | toidentifier | 1.0.1 | MIT | component/toidentifier |
 | type-is | 1.6.18 | MIT | jshttp/type-is |
 | type-is | 2.1.0 | MIT | jshttp/type-is |
@@ -328,7 +333,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 
 ## Web image (`web/`)
 
-709 packages.
+703 packages.
 
 | Package | Version | Licence | Source |
 |---|---|---|---|
@@ -432,9 +437,6 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | @dnd-kit/core | 6.3.1 | MIT | https://github.com/clauderic/dnd-kit |
 | @dnd-kit/utilities | 3.2.2 | MIT | https://github.com/clauderic/dnd-kit |
 | @ducanh2912/next-pwa | 10.2.9 | MIT | https://github.com/DuCanhGH/next-pwa |
-| @emnapi/core | 1.8.1 | MIT | https://github.com/toyobayashi/emnapi |
-| @emnapi/runtime | 1.11.3 | MIT | https://github.com/toyobayashi/emnapi |
-| @emnapi/wasi-threads | 1.1.0 | MIT | https://github.com/toyobayashi/emnapi |
 | @floating-ui/core | 1.8.0 | MIT | https://github.com/floating-ui/floating-ui |
 | @floating-ui/dom | 1.8.0 | MIT | https://github.com/floating-ui/floating-ui |
 | @floating-ui/utils | 0.2.12 | MIT | https://github.com/floating-ui/floating-ui |
@@ -528,7 +530,6 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | @img/sharp-libvips-linuxmusl-x64 | 1.3.4 | LGPL-3.0-or-later | https://github.com/lovell/sharp-libvips |
 | @img/sharp-linux-x64 | 0.35.5 | Apache-2.0 | https://github.com/lovell/sharp |
 | @img/sharp-linuxmusl-x64 | 0.35.5 | Apache-2.0 | https://github.com/lovell/sharp |
-| @img/sharp-wasm32 | 0.35.5 | Apache-2.0 AND LGPL-3.0-or-later AND MIT | https://github.com/lovell/sharp |
 | @internationalized/date | 3.12.0 | Apache-2.0 | https://github.com/adobe/react-spectrum/tree/main/packages/@internationalized/date |
 | @internationalized/date | 3.12.1 | Apache-2.0 | https://github.com/adobe/react-spectrum/tree/main/packages/@internationalized/date |
 | @internationalized/message | 3.1.9 | Apache-2.0 | https://github.com/adobe/react-spectrum |
@@ -542,7 +543,6 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | @jridgewell/trace-mapping | 0.3.31 | MIT | https://github.com/jridgewell/sourcemaps |
 | @kobalte/core | 0.13.14 | MIT | https://github.com/kobaltedev/kobalte |
 | @kobalte/utils | 0.9.2 | MIT | https://github.com/kobaltedev/kobalte |
-| @napi-rs/wasm-runtime | 0.2.12 | MIT | https://github.com/napi-rs/napi-rs |
 | @next/env | 16.4.2 | MIT | https://github.com/vercel/next.js |
 | @next/swc-linux-x64-gnu | 16.4.2 | MIT | https://github.com/vercel/next.js |
 | @next/swc-linux-x64-musl | 16.4.2 | MIT | https://github.com/vercel/next.js |
@@ -678,7 +678,6 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | @tanstack/react-query-devtools | 5.104.5 | MIT | https://github.com/TanStack/query |
 | @tanstack/react-virtual | 3.11.3 | MIT | https://github.com/TanStack/virtual |
 | @tanstack/virtual-core | 3.11.3 | MIT | https://github.com/TanStack/virtual |
-| @tybys/wasm-util | 0.10.1 | MIT | https://github.com/toyobayashi/wasm-util |
 | @types/d3-color | 2.0.6 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @types/d3-geo | 3.1.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @types/d3-interpolate | 2.0.5 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
@@ -713,7 +712,6 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | @xtuc/long | 4.2.2 | Apache-2.0 | https://github.com/dcodeIO/long.js |
 | acorn | 8.16.0 | MIT | https://github.com/acornjs/acorn |
 | ajv | 8.20.0 | MIT | ajv-validator/ajv |
-| ajv-formats | 2.1.1 | MIT | https://github.com/ajv-validator/ajv-formats |
 | ajv-formats | 3.0.1 | MIT | https://github.com/ajv-validator/ajv-formats |
 | ajv-keywords | 5.1.0 | MIT | https://github.com/epoberezkin/ajv-keywords |
 | aria-hidden | 1.2.6 | MIT | https://github.com/theKashey/aria-hidden |
@@ -827,6 +825,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | hasown | 2.0.4 | MIT | https://github.com/inspect-js/hasOwn |
 | html-parse-stringify | 3.0.1 | MIT | https://github.com/henrikjoreteg/html-parse-stringify |
 | i18next | 26.5.3 | MIT | https://github.com/i18next/i18next |
+| i18next-http-backend | 4.0.4 | MIT | git@github.com:i18next/i18next-http-backend |
 | idb | 7.1.1 | ISC | https://github.com/jakearchibald/idb |
 | idb | 8.0.4 | ISC | https://github.com/jakearchibald/idb |
 | inflight | 1.0.6 | ISC | https://github.com/npm/inflight |

@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { notificationService } from './notification.service';
+import { escapeHtml } from '../lib/html';
 import { RecordHumidorReadingInput } from '../schemas/humidor.schema';
 
 // ─── Task 4: Humidor Hygrometric Monitoring ──────────────────────────────────
@@ -125,8 +126,8 @@ async function notifyDrift(
     (isEn) => (isEn ? `Humidor drift: ${cellar.name}` : `Dérive détectée : ${cellar.name}`),
     (isEn) => [
       `<p>${isEn
-        ? `The latest hygrometry reading for <strong>${cellar.name}</strong> is outside the target range.`
-        : `La dernière lecture d'hygrométrie de <strong>${cellar.name}</strong> est hors de la plage cible.`}</p>`,
+        ? `The latest hygrometry reading for <strong>${escapeHtml(cellar.name)}</strong> is outside the target range.`
+        : `La dernière lecture d'hygrométrie de <strong>${escapeHtml(cellar.name)}</strong> est hors de la plage cible.`}</p>`,
       '<ul>',
       `<li>${isEn ? 'Reading' : 'Lecture'}: ${reading.humidityPercent}%</li>`,
       `<li>${isEn ? 'Target range' : 'Plage cible'}: ${cellar.targetHumidityMin}% – ${cellar.targetHumidityMax}%</li>`,
@@ -200,8 +201,8 @@ async function notifyStale(
           : `La dernière lecture date du ${lastRecordedAt.toISOString().slice(0, 10)}.`)
         : (isEn ? 'No reading has ever been recorded.' : 'Aucune lecture n’a jamais été enregistrée.');
       return `<p>${isEn
-        ? `<strong>${cellar.name}</strong> has a target hygrometry range configured, but nobody has recorded a reading in over ${STALE_AFTER_DAYS} days.`
-        : `<strong>${cellar.name}</strong> a une plage d'hygrométrie cible configurée, mais personne n'a saisi de lecture depuis plus de ${STALE_AFTER_DAYS} jours.`} ${since}</p>`;
+        ? `<strong>${escapeHtml(cellar.name)}</strong> has a target hygrometry range configured, but nobody has recorded a reading in over ${STALE_AFTER_DAYS} days.`
+        : `<strong>${escapeHtml(cellar.name)}</strong> a une plage d'hygrométrie cible configurée, mais personne n'a saisi de lecture depuis plus de ${STALE_AFTER_DAYS} jours.`} ${since}</p>`;
     },
   );
 }

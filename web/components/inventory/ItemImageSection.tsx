@@ -1,17 +1,18 @@
 'use client';
 import React, { useRef, useState } from 'react';
 import { Button, Input, Tooltip } from '@heroui/react';
-import { Camera, Link2, Trash2, Check, X, Wine, Sparkles, Dumbbell, Leaf, Loader2 } from 'lucide-react';
+import { Camera, Link2, Trash2, Check, X, Wine, Sparkles, GlassWater, Leaf, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ImagePickerButton, ImageResult } from './ImagePicker';
 import { InventoryCategory } from '@/lib/inventory/types';
 import { getCategoryPlaceholderSolid } from '@/lib/analytics/categoryColors';
 import { searchClient } from '@/lib/search/client';
+import { downscaleImage } from '@/lib/image-resize';
 
 const PLACEHOLDER_ICON: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={40} className="opacity-30 text-white" />,
   sparkling: <Sparkles size={40} className="opacity-30 text-white" />,
-  spirit: <Dumbbell size={40} className="opacity-30 text-white" />,
+  spirit: <GlassWater size={40} className="opacity-30 text-white" />,
   cigar: <Leaf size={40} className="opacity-30 text-white" />,
 };
 
@@ -65,7 +66,8 @@ export function ItemImageSection({
     if (!file) return;
     e.target.value = '';
     setSaving(true);
-    const local = await uploadFile(file);
+    // #494: a phone photo is downscaled before upload (thumbnails are 120 px).
+    const local = await uploadFile(await downscaleImage(file));
     setSaving(false);
     if (local) onPhotoChange(local);
   };

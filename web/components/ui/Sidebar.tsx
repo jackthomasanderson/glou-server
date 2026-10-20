@@ -4,20 +4,21 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
 import {
-  Wine, Sparkles, Dumbbell, Leaf, Warehouse, Library, Martini, BarChart3,
-  ChevronLeft, ChevronRight, X, ShieldCheck, ClipboardCheck, Wallet, LogOut,
+  Wine, Sparkles, GlassWater, Leaf, Warehouse, Library, Martini, BarChart3,
+  ChevronLeft, ChevronRight, ShieldCheck, ClipboardCheck, Wallet, LogOut,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useLogout } from '@/hooks/useAuth';
 import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeToggle } from './ThemeToggle';
-import { safeReadStorage, safeWriteStorage } from '@/lib/safe-storage';
+import { safeWriteStorage, glouKey, readStorageMigrating } from '@/lib/safe-storage';
 
 export const SIDEBAR_WIDTH = 220;
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
 
-const STORAGE_KEY = 'glou-sidebar-expanded';
+const STORAGE_KEY = glouKey('sidebar-expanded');
+const LEGACY_STORAGE_KEY = 'glou-sidebar-expanded';
 
 interface SidebarContentProps {
   expanded: boolean;
@@ -44,7 +45,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   const navLinks = [
     { label: t('nav.wines'), href: '/bottles?category=wine', category: 'wine', icon: <Wine size={18} />, count: 0 },
     { label: t('nav.sparkling'), href: '/bottles?category=sparkling', category: 'sparkling', icon: <Sparkles size={18} />, count: 0 },
-    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <Dumbbell size={18} />, count: 0 },
+    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <GlassWater size={18} />, count: 0 },
     { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={18} />, count: counts?.cigars ?? 0 },
     { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={18} />, count: counts?.cellars ?? 0 },
     { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: counts?.collections ?? 0 },
@@ -60,7 +61,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
     <div className="flex flex-col h-full overflow-hidden">
       {/* Brand + toggle */}
       <div
-        className={`flex items-start pt-5 pb-4 transition-all duration-200 ${
+        className={`flex shrink-0 items-start pt-5 pb-4 transition-all duration-200 ${
           expanded ? 'px-4 justify-between' : 'px-0 justify-center'
         }`}
       >
@@ -99,8 +100,9 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         </Tooltip>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-2 space-y-0.5">
+      {/* Navigation — scrolls on short screens so the admin link and the
+          footer (profile, sign out) stay reachable (#525). */}
+      <nav className="flex-1 min-h-0 overflow-y-auto px-2 space-y-0.5">
         {navLinks.map((link) => {
           const active = link.category
             ? pathname === '/bottles' && categoryParam === link.category
@@ -168,7 +170,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
 
       {/* Admin link */}
       {user?.isAdmin && (
-        <div className="px-2 pb-1">
+        <div className="shrink-0 px-2 pb-1">
           <Divider className="mb-2" />
           {(() => {
             const active = pathname.startsWith('/admin');
@@ -206,9 +208,9 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
       )}
 
       {/* User footer — theme toggle + connectivity + avatar (ux-ui.md §3.1) */}
-      <Divider />
+      <Divider className="shrink-0" />
       <div
-        className={`flex py-3 transition-all duration-200 ${
+        className={`flex shrink-0 py-3 transition-all duration-200 ${
           expanded ? 'px-3 items-center gap-2' : 'px-0 flex-col items-center gap-2'
         }`}
       >
@@ -230,6 +232,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
             className="flex-shrink-0 cursor-pointer"
             as={Link}
             href="/profile"
+            aria-label={t('nav.profile')}
           />
         </Tooltip>
 
@@ -265,23 +268,22 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   );
 }
 
-interface SidebarProps {
-  mobileOpen?: boolean;
-  onMobileClose?: () => void;
-}
-
-export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: SidebarProps) {
+/** Desktop sidebar. On mobile the bottom bar (BottomNav.tsx) is the navigation. */
+export function Sidebar() {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    const saved = safeReadStorage(localStorage, STORAGE_KEY);
+    const saved = readStorageMigrating(localStorage, STORAGE_KEY, LEGACY_STORAGE_KEY);
     // Deferred to after mount rather than a lazy useState initializer:
     // localStorage isn't available during SSR, so reading it synchronously
     // in the initializer would make the client's first render diverge
     // from the server-rendered markup (hydration mismatch).
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved !== null) setExpanded(saved !== 'false');
+    // #497: no choice saved yet — start collapsed (icons only) below 1280 px,
+    // so a tablet keeps its width for the content.
+    else if (typeof window.matchMedia === 'function') setExpanded(window.matchMedia('(min-width: 1280px)').matches);
   }, []);
 
   const toggle = () => {
@@ -293,46 +295,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
   const desktopWidth = expanded ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED_WIDTH;
 
   return (
-    <>
-      {/* Desktop: permanent sidebar */}
-      <nav
-        aria-label={t('nav.primary')}
-        style={{ width: desktopWidth }}
-        className="hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 bg-content1 border-r border-divider overflow-hidden z-20 transition-all duration-200"
-      >
-        <Suspense fallback={null}>
-          <SidebarContent expanded={expanded} onToggle={toggle} />
-        </Suspense>
-      </nav>
-
-      {/* Mobile: overlay drawer */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-overlay">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={onMobileClose}
-          />
-          <div
-            className="absolute left-0 top-0 bottom-0 bg-content1 border-r border-divider overflow-hidden"
-            style={{ width: SIDEBAR_WIDTH }}
-          >
-            <Button
-              isIconOnly
-              size="sm"
-              variant="light"
-              radius="full"
-              className="absolute top-3 right-3 z-10"
-              onClick={onMobileClose}
-              aria-label={t('actions.close')}
-            >
-              <X size={16} />
-            </Button>
-            <Suspense fallback={null}>
-              <SidebarContent expanded={true} onToggle={onMobileClose} />
-            </Suspense>
-          </div>
-        </div>
-      )}
-    </>
+    <nav
+      aria-label={t('nav.primary')}
+      style={{ width: desktopWidth }}
+      className="hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 bg-content1 border-r border-divider overflow-hidden z-20 transition-all duration-200"
+    >
+      <Suspense fallback={null}>
+        <SidebarContent expanded={expanded} onToggle={toggle} />
+      </Suspense>
+    </nav>
   );
 }

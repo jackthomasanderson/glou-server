@@ -28,7 +28,7 @@ model User {
   appName      String?
   appSlogan    String?
 
-  theme        Theme      @default(LIGHT)
+  theme        Theme      @default(SYSTEM)
   language     Language   @default(FR)
   tempUnit     TempUnit   @default(CELSIUS)
   accentColor  String     @default("#6366f1")
@@ -104,6 +104,7 @@ model User {
 enum Theme {
   LIGHT
   DARK
+  SYSTEM // #513: follows the OS light/dark setting
 }
 
 enum Language {

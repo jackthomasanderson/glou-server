@@ -1,10 +1,11 @@
 'use client';
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, Button, Tooltip } from '@heroui/react';
 import { Search, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { GlobalSearch, MobileSearch } from './GlobalSearch';
@@ -57,16 +58,6 @@ function usePageTitle() {
     return { label: t(titleKey), href: key };
   }
   return { label: t(PAGE_TITLES[key], key.slice(1)), href: key };
-}
-
-// #428: Next.js metadata sets a static bilingual tab title (e.g. "Cigars ·
-// Cigares — Glou") because the server can't know the client-side active
-// language. Once i18n is ready, override it with the active language only.
-function useBrowserTabTitle(label: string | undefined) {
-  useEffect(() => {
-    if (!label) return;
-    document.title = `${label} — Glou`;
-  }, [label]);
 }
 
 /**
@@ -176,6 +167,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
           <Avatar
             as={Link}
             href="/profile"
+            aria-label={t('nav.profile')}
             src={user?.avatarUrl || undefined}
             name={(!user?.avatarUrl && (user?.username || '?')[0].toUpperCase()) || undefined}
             size="sm"
@@ -187,7 +179,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
         </header>
 
         {/* Page content */}
-        <main id="main-content" tabIndex={-1} className="flex-1 pb-16 md:pb-0 outline-none">
+        <main id="main-content" tabIndex={-1} className="flex-1 pb-[var(--bottom-nav-h)] md:pb-0 outline-none">
           {children}
         </main>
       </div>

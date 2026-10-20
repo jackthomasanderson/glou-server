@@ -4,6 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { useMe, useUpdatePreferences } from '@/hooks/useAuth';
 import {
   applyTheme,
+  clearStoredTheme,
   getSystemTheme,
   getSystemThemeQuery,
   readStoredTheme,
@@ -72,6 +73,18 @@ export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
     setFollowsSystem(false);
     writeStoredTheme(serverMode);
   }, [serverMode]);
+
+  // #513: the account says "System" — drop any cached choice and follow the
+  // OS setting, live (the media-query listener above takes over).
+  const accountFollowsSystem = user?.theme === 'SYSTEM';
+  useEffect(() => {
+    if (!accountFollowsSystem) return;
+    clearStoredTheme();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFollowsSystem(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setModeState(getSystemTheme());
+  }, [accountFollowsSystem]);
 
   useEffect(() => {
     if (!isResolved) return;

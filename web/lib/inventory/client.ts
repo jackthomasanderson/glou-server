@@ -1,4 +1,4 @@
-import { client } from '../api';
+import { client, handleResponse, timeoutSignal } from '../api';
 import { InventoryItem, InventoryHistoryEntry } from './types';
 
 // ─── Inventory API client ───────────────────────────────────────────────────────
@@ -7,6 +7,21 @@ export const inventoryClient = {
   async list(): Promise<InventoryItem[]> {
     const { data } = await client.get<InventoryItem[]>('/inventory');
     return data;
+  },
+
+  /**
+   * #475: same list, plus the API's `truncated` flag (the list is capped at
+   * the 2,000 most recent items), which `client.get` drops with the envelope.
+   */
+  async listWithMeta(): Promise<{ items: InventoryItem[]; truncated: boolean }> {
+    const res = await fetch('/api/inventory', {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      signal: timeoutSignal(15000),
+    });
+    if (!res.ok) await handleResponse(res); // throws Error(<API code>)
+    const body = (await res.json()) as { data: InventoryItem[]; truncated?: boolean };
+    return { items: body.data, truncated: body.truncated === true };
   },
 
   async listTrash(): Promise<InventoryItem[]> {

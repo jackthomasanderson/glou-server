@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   Euro,
   Droplets,
-  CigaretteOff,
+  Leaf,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
@@ -38,6 +38,8 @@ import { TastingInsights } from './TastingInsights';
 import { ErrorState } from '@/components/ui/ErrorState';
 import i18n from '@/lib/i18n';
 import { formatCurrency, formatNumber } from '@/lib/format';
+import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
+import type { InventoryCategory } from '@/lib/inventory/types';
 
 type Period = '30d' | '90d' | '1y' | 'all';
 
@@ -81,6 +83,8 @@ function ValuationBreakdown({
   const delta = totalValuation - totalPurchasePrice;
   const roiPercent = totalPurchasePrice > 0 ? Math.round((delta / totalPurchasePrice) * 100) : null;
   const isPositive = delta >= 0;
+  // #519: theme classes keep the ROI readable in both modes (fixed hex failed AA).
+  const roiColorClass = isPositive ? 'text-success-700 dark:text-success' : 'text-danger';
 
   return (
     <Card className="border border-default-200" shadow="none">
@@ -117,17 +121,11 @@ function ValuationBreakdown({
                 {isPositive
                   ? <TrendingUp size={16} className="text-success" />
                   : <TrendingDown size={16} className="text-danger" />}
-                <p
-                  className="text-2xl font-extrabold leading-tight"
-                  style={{ color: isPositive ? '#22C55E' : '#EF4444' }}
-                >
+                <p className={`text-2xl font-extrabold leading-tight ${roiColorClass}`}>
                   {isPositive ? '+' : ''}{fmtCurrency(delta)}
                 </p>
                 {roiPercent !== null && (
-                  <span
-                    className="text-xs font-bold"
-                    style={{ color: isPositive ? '#22C55E' : '#EF4444' }}
-                  >
+                  <span className={`text-xs font-bold ${roiColorClass}`}>
                     ({isPositive ? '+' : ''}{roiPercent}%)
                   </span>
                 )}
@@ -143,14 +141,9 @@ function ValuationBreakdown({
   );
 }
 
-// ─── Category config ──────────────────────────────────────────────────────────
-
-const CATEGORY_CONFIG: Record<string, { color: string }> = {
-  wine:      { color: '#7B1E30' },
-  sparkling: { color: '#2563EB' },
-  spirit:    { color: '#D97706' },
-  cigar:     { color: '#5C3D2E' },
-};
+// #498: category colours come from the single shared table.
+const categoryHex = (category: string): string =>
+  CATEGORY_HEX[category as InventoryCategory] ?? '#888';
 
 // ─── SVG Donut chart ──────────────────────────────────────────────────────────
 
@@ -284,7 +277,7 @@ function CategoryBreakdown({
 }) {
   const segments = items.map((item) => ({
     value: item.count,
-    color: CATEGORY_CONFIG[item.category]?.color ?? '#888',
+    color: categoryHex(item.category),
   }));
 
   return (
@@ -306,7 +299,6 @@ function CategoryBreakdown({
           </div>
           <div className="flex-1 min-w-0 overflow-hidden">
             {items.map((item) => {
-              const cfg = CATEGORY_CONFIG[item.category];
               const unit = item.category === 'cigar'
                 ? t('analytics.categories.unit.cigar', { count: item.count })
                 : t('analytics.categories.unit.bottle', { count: item.count });
@@ -314,7 +306,7 @@ function CategoryBreakdown({
                 <div key={item.category} className="flex items-center gap-1.5 mb-2">
                   <div
                     className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: cfg?.color ?? '#888' }}
+                    style={{ backgroundColor: categoryHex(item.category) }}
                   />
                   <span className="text-xs flex-1 min-w-0 truncate">
                     {t(`analytics.categories.${item.category}`)}
@@ -610,9 +602,9 @@ export function AnalyticsDashboard() {
             <StatCard
               testId="kpi-cigar-humidor"
               label={t('analytics.stats.cigarHumidor')}
-              value={`${data?.cigarModulesCount ?? 0} modules`}
+              value={t('analytics.stats.cigarModules', { count: data?.cigarModulesCount ?? 0 })}
               hint={t('analytics.stats.cigarHumidorHint')}
-              icon={<CigaretteOff size={20} color="#7B1E30" />}
+              icon={<Leaf size={20} color="#7B1E30" />}
               iconBg="rgba(123,30,48,0.1)"
             />
             <StatCard

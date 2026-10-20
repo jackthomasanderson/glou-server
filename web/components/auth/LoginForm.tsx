@@ -4,6 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { Button, Input, Card, CardBody, Link, Checkbox } from '@heroui/react';
 import NextLink from 'next/link';
 import { useLogin, useVerify2faLogin } from '@/hooks/useAuth';
@@ -18,6 +19,7 @@ const createLoginSchema = (t: (key: string) => string) =>
 
 export function LoginForm() {
   const { t } = useTranslation('common');
+  useBrowserTabTitle(t('auth.pageTitleLogin'));
   const hasMounted = useHasMounted();
 
   const loginSchema = createLoginSchema(t);
@@ -26,6 +28,9 @@ export function LoginForm() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [step, setStep] = useState<'login' | '2fa'>('login');
   const [code, setCode] = useState('');
+  // #527: numeric keypad + one-time-code autofill for the authenticator
+  // code; backup codes are 20 hex characters and need the full keyboard.
+  const [useBackupCode, setUseBackupCode] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [trustDevice, setTrustDevice] = useState(false);
   const [smtpEnabled, setSmtpEnabled] = useState(false);
@@ -106,7 +111,20 @@ export function LoginForm() {
               isRequired
               isDisabled={isPending}
               autoFocus
+              {...(useBackupCode
+                ? { inputMode: 'text' as const, autoComplete: 'off', autoCapitalize: 'none', maxLength: 20 }
+                : { inputMode: 'numeric' as const, autoComplete: 'one-time-code', maxLength: 6 })}
             />
+            <Button
+              variant="light"
+              color="primary"
+              size="sm"
+              className="self-start"
+              onPress={() => { setUseBackupCode((v) => !v); setCode(''); }}
+              isDisabled={isPending}
+            >
+              {useBackupCode ? t('auth.twoFactor.useAuthenticatorCode') : t('auth.twoFactor.useBackupCode')}
+            </Button>
             <Checkbox
               isSelected={trustDevice}
               onValueChange={setTrustDevice}
@@ -160,7 +178,7 @@ export function LoginForm() {
                 <Input
                   {...field}
                   type="password"
-                  label={t('auth.password')}
+                  label={t('auth.passwordLabel')}
                   autoComplete="current-password"
                   variant="bordered"
                   size="md"

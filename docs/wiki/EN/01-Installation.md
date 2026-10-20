@@ -23,10 +23,12 @@
    > [!CAUTION]
    > Do not skip this step. `docker compose up` refuses to start Postgres if `DB_PASSWORD` is empty or unset (there is no insecure fallback), and the API refuses to accept any request in production if `JWT_SECRET` or `CONFIG_ENCRYPTION_KEY` is unset, empty, still holds its exact `.env.example` placeholder value, or (for `CONFIG_ENCRYPTION_KEY`) is not 64 hexadecimal characters. It logs a `🛑 [startup] FATAL` message and exits. This check only applies when `NODE_ENV` is not `development`: local dev keeps working with a console warning.
 
-3. Start the stack:
+3. Create the backups folder (Linux), then start the stack:
    ```bash
+   mkdir -p backups && sudo chown 1001:1001 backups
    docker compose up -d
    ```
+   The API runs as the unprivileged uid 1001 and writes its nightly backups to `./backups`. If the folder does not exist, Docker creates it owned by root and every backup fails with "Permission denied" (the API logs it at startup and **Administration → System Configuration → Backups** shows a warning). Docker Desktop on macOS/Windows does not need this step.
    Docker pulls `glou-server-api` and `glou-server-web` from GHCR automatically. This starts the database, API and web only (~1.5 GB of RAM). For the optional label scan (~9 GB of disk, ~3 GB of RAM more), use `docker compose --profile scan up -d` instead.
 
 4. Open [http://localhost:3000](http://localhost:3000) and click **Register**.

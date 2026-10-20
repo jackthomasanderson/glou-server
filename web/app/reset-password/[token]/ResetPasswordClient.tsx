@@ -4,11 +4,14 @@ import { Button, Input, Card, CardBody, CircularProgress } from '@heroui/react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { configClient } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { PASSWORD_MIN_LENGTH } from '@/lib/password';
 
 export function ResetPasswordClient() {
   const { t } = useTranslation();
+  useBrowserTabTitle(t('resetPassword.title'));
   const hasMounted = useHasMounted();
   const params = useParams();
   const router = useRouter();
@@ -46,7 +49,7 @@ export function ResetPasswordClient() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (newPassword.length < 8) { setError(t('resetPassword.errors.PASSWORD_TOO_SHORT')); return; }
+    if (newPassword.length < PASSWORD_MIN_LENGTH) { setError(t('resetPassword.errors.PASSWORD_TOO_SHORT')); return; }
     if (newPassword !== confirm) { setError(t('resetPassword.errors.PASSWORDS_MISMATCH')); return; }
     setLoading(true);
     try {

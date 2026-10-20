@@ -25,9 +25,11 @@ vi.mock('@/hooks/useAuth', () => ({
   useUpdatePreferences: () => ({ mutate: vi.fn() }),
 }));
 
+let mockReady = true;
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     i18n: { language: mockI18nLanguage, changeLanguage: mockChangeLanguage },
+    ready: mockReady,
   }),
 }));
 
@@ -74,6 +76,7 @@ describe('ThemeWrapper', () => {
     mockMounted = true;
     mockChangeLanguage = vi.fn();
     mockI18nLanguage = 'en';
+    mockReady = true;
     document.documentElement.lang = '';
     lastHeroUIProps = {};
   });
@@ -84,6 +87,12 @@ describe('ThemeWrapper', () => {
     const placeholder = container.querySelector('[data-testid="app-boot-placeholder"]');
     expect(placeholder).not.toBeNull();
     expect(placeholder?.closest('.invisible')).toBeNull();
+  });
+
+  it('keeps the placeholder until the translations have loaded (#495)', () => {
+    mockReady = false;
+    mount(<span>child</span>);
+    expect(container.querySelector('[data-testid="app-boot-placeholder"]')).not.toBeNull();
   });
 
   it('removes the placeholder once mounted', () => {

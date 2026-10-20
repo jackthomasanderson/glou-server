@@ -14,3 +14,12 @@ describe('isOwnedItem', () => {
     expect(isOwnedItem({} as { isOwned?: boolean })).toBe(true);
   });
 });
+
+describe('isFinishedItem (#504)', () => {
+  it('is an opened item with nothing left', async () => {
+    const { isFinishedItem } = await import('./ownership');
+    expect(isFinishedItem({ isOpened: true, fillLevel: 0 })).toBe(true);
+    expect(isFinishedItem({ isOpened: true, fillLevel: 40 })).toBe(false);
+    expect(isFinishedItem({ isOpened: false, fillLevel: 0 })).toBe(false);
+  });
+});

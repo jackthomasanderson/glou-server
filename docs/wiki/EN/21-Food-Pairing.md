@@ -8,7 +8,7 @@ From the **Pairing** tab under Tastings, type a dish to get a ranked list of bot
 
 ## Action
 
-1. Go to **Tastings** (`/tastings`) and open the **Pairing** tab.
+1. Go to **Tastings** (`/cellar-journal`) and open the **Pairing** tab.
 2. Type the dish or ingredient in the search field (e.g. "beef", "salmon", "chocolate"), or use one of the quick chips (**Meat**, **Fish**, **Cheese**, **Chocolate**).
 3. Matching bottles appear, sorted by pairing relevance and then by rotation priority: bottles nearing the end of their peak window or already opened rank first among equally-scored matches.
 4. Click **Consume now** on the suggestion you want. The tasting form opens pre-filled with the bottle and the pairing, including the stock-level update (see [09-Tasting-Journal.md](./09-Tasting-Journal.md)).

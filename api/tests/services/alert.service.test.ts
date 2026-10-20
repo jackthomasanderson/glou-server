@@ -16,6 +16,9 @@ const { send } = vi.hoisted(() => ({ send: vi.fn().mockResolvedValue(undefined) 
 vi.mock('../../src/services/notification.service', () => ({
   notificationService: { send },
 }));
+vi.mock('../../src/services/system-config.service', () => ({
+  systemConfigService: { getEffectivePublicUrl: vi.fn().mockResolvedValue('https://glou.test') },
+}));
 
 import { prisma } from '../../src/lib/prisma';
 import { computeAlertStatus, getAlerts, recomputeAlertStatuses } from '../../src/services/alert.service';
@@ -187,6 +190,64 @@ describe('recomputeAlertStatuses', () => {
       expect(send).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1', category: 'peak' }));
       const enCall = send.mock.calls.find((c) => c[0].userId === 'u2')?.[0];
       expect(enCall.subject).toContain('At peak maturity');
+    });
+
+    it('escapes member-entered names in the email body (#488)', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        {
+          id: 'b1',
+          name: '<a href="https://evil.example">Sign in again</a>',
+          producer: 'Domaine X',
+          vintage: 2020,
+          alertStatus: 'approaching',
+          alertsPaused: false,
+          peakMaturityFrom: 2028,
+          peakMaturityTo: 2035,
+          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        },
+      ] as never);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
+
+      await recomputeAlertStatuses();
+      await flush();
+
+      const body = send.mock.calls[0]?.[0].htmlBody as string;
+      expect(body).not.toContain('<a href');
+      expect(body).toContain('&lt;a href=&quot;https://evil.example&quot;&gt;');
+    });
+
+    it('sends each member one digest when several bottles reach peak together (#478)', async () => {
+      const peaking = (id: string) => ({
+        id,
+        name: `Wine ${id}`,
+        producer: 'Domaine X',
+        vintage: 2020,
+        alertStatus: 'approaching',
+        alertsPaused: false,
+        peakMaturityFrom: 2028,
+        peakMaturityTo: 2035,
+        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+      });
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(
+        Array.from({ length: 12 }, (_, i) => peaking(`b${i}`)) as never,
+      );
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([
+        { id: 'u1', language: 'EN', notifLanguage: null },
+        { id: 'u2', language: 'FR', notifLanguage: null },
+      ] as never);
+
+      await recomputeAlertStatuses();
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+
+      expect(send).toHaveBeenCalledTimes(2);
+      const en = send.mock.calls.find((c) => c[0].userId === 'u1')?.[0];
+      expect(en.subject).toBe('12 bottles reach their drinking window');
+      expect(en.htmlBody).toContain('Wine b0');
+      expect(en.htmlBody).not.toContain('Wine b11');
+      expect(en.htmlBody).toContain('+ 2 more.');
+      expect(en.htmlBody).toContain('https://glou.test/bottles?filter=alerts');
     });
 
     it('does not notify when the item has alerts paused', async () => {

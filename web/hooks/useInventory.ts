@@ -9,6 +9,8 @@ import { notifyError, notifySuccess } from '@/lib/toast';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
 
 export const INVENTORY_KEY = ['inventory'];
+// #475: whether the last loaded list hit the server's 2,000-item cap.
+const INVENTORY_TRUNCATED_KEY = ['inventory-meta', 'truncated'];
 const TRASH_KEY = ['inventory', 'trash'];
 
 /**
@@ -38,12 +40,26 @@ function inventoryFingerprint(items: InventoryItem[]): string {
  * this covers inventory CONSULTATION only — see the "bornage volontaire"
  * note in web/lib/offline/db.ts.
  */
+/** #475: true when the list only holds the 2,000 most recent items. */
+export function useInventoryTruncated(): boolean {
+  const { data } = useQuery<boolean>({
+    queryKey: INVENTORY_TRUNCATED_KEY,
+    queryFn: () => false,
+    enabled: false,
+    staleTime: Infinity,
+  });
+  return data === true;
+}
+
 export function useInventory(options?: { enabled?: boolean }) {
+  const queryClient = useQueryClient();
   const query = useQuery<InventoryItem[]>({
     queryKey: INVENTORY_KEY,
     queryFn: async () => {
       try {
-        return await inventoryClient.list();
+        const { items, truncated } = await inventoryClient.listWithMeta();
+        queryClient.setQueryData(INVENTORY_TRUNCATED_KEY, truncated);
+        return items;
       } catch (error) {
         // Offline fallback: serve the last mirrored snapshot instead of an
         // error/blank state. Only re-throw (surfacing the real error) if we

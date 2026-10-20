@@ -40,6 +40,11 @@ services:
       PORT: 3001
     # Throwaway stack, but still bound to loopback only — never expose an
     # E2E run (weak secrets above, migrations mid-flight) on all interfaces.
+    # #537: same bind mount as production, so the backup/restore spec covers
+    # the shipped configuration. Create ./backups as uid 1001 first, exactly
+    # as the install guide asks (CI does): mkdir -p backups && sudo chown 1001:1001 backups
+    volumes:
+      - ./backups:/app/backups
     ports:
       - '127.0.0.1:3001:3001'
     healthcheck:

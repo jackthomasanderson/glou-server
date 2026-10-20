@@ -5,11 +5,12 @@ import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle, Globe, CheckCircle2, AlertTriangle, Archive, Download, RotateCcw } from 'lucide-react';
+import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle, Globe, CheckCircle2, AlertTriangle, Archive, Download, RotateCcw, Info, Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, SystemConfigPublic, MaintenanceRunEntry, NetworkCheckResult, BackupRunEntry } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { formatDateTime } from '@/lib/format';
+import { copyText } from '@/lib/clipboard';
 
 export function SystemConfigSection() {
   const { t, i18n } = useTranslation();
@@ -55,13 +56,24 @@ export function SystemConfigSection() {
   const [backup, setBackup] = useState({ backupEnabled: false, backupRetentionDays: '7', backupHourUtc: '3' });
   const [backupRuns, setBackupRuns] = useState<BackupRunEntry[]>([]);
   const [backupRunsLoading, setBackupRunsLoading] = useState(true);
+  const [backupDirWritable, setBackupDirWritable] = useState<boolean | null>(null);
   const [runningBackup, setRunningBackup] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<BackupRunEntry | null>(null);
   const [restoreConfirmText, setRestoreConfirmText] = useState('');
   const [restoring, setRestoring] = useState(false);
+  const [restorePassword, setRestorePassword] = useState('');
+  const [downloadTarget, setDownloadTarget] = useState<BackupRunEntry | null>(null);
+  const [downloadPassword, setDownloadPassword] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   // History
   const [history, setHistory] = useState<{ id: number; fieldName: string; maskedNewVal: string | null; createdAt: string; user?: { username: string } }[]>([]);
+
+  // ISSUE_169: the running version, shown as a copyable value in About —
+  // the bug report template and SECURITY.md point here instead of asking
+  // for the moving `latest`/`beta` image tag.
+  const [version, setVersion] = useState<string | null>(null);
+  const [versionCopied, setVersionCopied] = useState(false);
 
   useEffect(() => {
     configClient.getConfig().then((cfg) => {
@@ -97,7 +109,18 @@ export function SystemConfigSection() {
     configClient.getHistory().then(setHistory).catch(() => {});
     configClient.getMaintenanceRuns().then(setRuns).catch(() => {}).finally(() => setRunsLoading(false));
     configClient.getBackupRuns().then(setBackupRuns).catch(() => {}).finally(() => setBackupRunsLoading(false));
+    configClient.getBackupHealth().then(({ directoryWritable }) => setBackupDirWritable(directoryWritable)).catch(() => {});
+    configClient.getVersion().then(({ version }) => setVersion(version)).catch(() => {});
   }, []);
+
+  const copyVersion = async () => {
+    if (!version) return;
+    const ok = await copyText(version);
+    if (ok) {
+      setVersionCopied(true);
+      setTimeout(() => setVersionCopied(false), 2000);
+    }
+  };
 
   const showFeedback = (type: 'success' | 'error', msg: string) => {
     setFeedback({ type, msg });
@@ -304,18 +327,47 @@ export function SystemConfigSection() {
     }
   };
 
+  const passwordErrorMessage = (err: unknown, fallbackKey: string): string =>
+    err instanceof Error && err.message === 'INVALID_PASSWORD'
+      ? t('adminConfig.backup.invalidPassword')
+      : err instanceof Error ? err.message : t(fallbackKey);
+
+  const closeRestore = () => { setRestoreTarget(null); setRestoreConfirmText(''); setRestorePassword(''); };
+
   const handleConfirmRestore = async () => {
-    if (!restoreTarget || restoreConfirmText !== t('adminConfig.backup.restore.keyword')) return;
+    if (!restoreTarget || restoreConfirmText !== t('adminConfig.backup.restore.keyword') || !restorePassword) return;
     setRestoring(true);
     try {
-      await configClient.restoreBackup(restoreTarget.id);
+      await configClient.restoreBackup(restoreTarget.id, restorePassword);
       showFeedback('success', t('adminConfig.backup.restore.success'));
-      setRestoreTarget(null);
-      setRestoreConfirmText('');
+      closeRestore();
     } catch (err) {
-      showFeedback('error', err instanceof Error ? err.message : t('adminConfig.backup.restore.error'));
+      showFeedback('error', passwordErrorMessage(err, 'adminConfig.backup.restore.error'));
     } finally {
       setRestoring(false);
+    }
+  };
+
+  const closeDownload = () => { setDownloadTarget(null); setDownloadPassword(''); };
+
+  const handleConfirmDownload = async () => {
+    if (!downloadTarget || !downloadPassword) return;
+    setDownloading(true);
+    try {
+      const { blob, filename } = await configClient.downloadBackup(downloadTarget.id, downloadPassword);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      closeDownload();
+    } catch (err) {
+      showFeedback('error', passwordErrorMessage(err, 'adminConfig.backup.download.error'));
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -574,6 +626,13 @@ export function SystemConfigSection() {
               </Button>
             </div>
 
+            {backupDirWritable === false && (
+              <div role="alert" className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm border bg-danger-50 border-danger-200 text-danger-700">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                <span>{t('adminConfig.backup.dirNotWritable')}</span>
+              </div>
+            )}
+
             <div className="pt-4 border-t border-divider flex flex-col gap-3">
               <div>
                 <p className="text-sm font-medium">{t('adminConfig.backup.runNow.title')}</p>
@@ -620,14 +679,11 @@ export function SystemConfigSection() {
                         {run.success && (
                           <div className="flex gap-1 mt-1">
                             <Button
-                              as="a"
-                              href={configClient.getBackupDownloadUrl(run.id)}
-                              target="_blank"
-                              rel="noreferrer"
                               size="sm"
                               variant="light"
                               isIconOnly
                               aria-label={t('adminConfig.backup.history.download')}
+                              onPress={() => setDownloadTarget(run)}
                             >
                               <Download size={14} />
                             </Button>
@@ -772,6 +828,29 @@ export function SystemConfigSection() {
             )}
           </div>
         </Tab>
+
+        {/* ── About (#285): a version a bug reporter can copy, instead of
+            the moving `latest`/`beta` image tag the bug report template
+            and SECURITY.md used to ask for. ── */}
+        <Tab key="about" title={<span className="flex items-center gap-1.5"><Info size={14} />{t('adminConfig.tabs.about')}</span>}>
+          <div className="pt-4 flex flex-col gap-3 max-w-sm">
+            <p className="text-sm text-foreground-600">{t('adminConfig.about.description')}</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 rounded-lg bg-content2 border border-divider text-sm font-mono select-all">
+                {version ?? <Skeleton className="h-4 w-20 rounded" />}
+              </code>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="flat"
+                isDisabled={!version}
+                startContent={versionCopied ? <Check size={14} /> : <Copy size={14} />}
+                onPress={copyVersion}
+                aria-label={t('actions.copy')}
+              />
+            </div>
+          </div>
+        </Tab>
       </Tabs>
 
       {/* Run-now confirmation (irreversible action) */}
@@ -799,7 +878,7 @@ export function SystemConfigSection() {
       {/* Restore confirmation (destructive, overwrites all current data) */}
       <ResponsiveModal
         isOpen={!!restoreTarget}
-        onClose={() => { if (!restoring) { setRestoreTarget(null); setRestoreConfirmText(''); } }}
+        onClose={() => { if (!restoring) closeRestore(); }}
         size="sm" radius="lg" backdrop="opaque" placement="center"
       >
         <ModalContent>
@@ -819,19 +898,62 @@ export function SystemConfigSection() {
               value={restoreConfirmText}
               onValueChange={setRestoreConfirmText}
             />
+            <Input
+              type="password"
+              autoComplete="current-password"
+              variant="bordered"
+              size="sm"
+              radius="md"
+              label={t('adminConfig.backup.passwordLabel')}
+              value={restorePassword}
+              onValueChange={setRestorePassword}
+            />
           </ModalBody>
           <ModalFooter className="gap-2">
-            <Button variant="light" size="sm" isDisabled={restoring} onPress={() => { setRestoreTarget(null); setRestoreConfirmText(''); }}>
+            <Button variant="light" size="sm" isDisabled={restoring} onPress={closeRestore}>
               {t('actions.cancel')}
             </Button>
             <Button
               color="danger"
               size="sm"
               isLoading={restoring}
-              isDisabled={restoreConfirmText !== t('adminConfig.backup.restore.keyword')}
+              isDisabled={restoreConfirmText !== t('adminConfig.backup.restore.keyword') || !restorePassword}
               onPress={handleConfirmRestore}
             >
               {t('adminConfig.backup.restore.confirm')}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </ResponsiveModal>
+
+      {/* #489: downloading a dump (password hashes, 2FA secrets) re-asks the password */}
+      <ResponsiveModal
+        isOpen={!!downloadTarget}
+        onClose={() => { if (!downloading) closeDownload(); }}
+        size="sm" radius="lg" backdrop="opaque" placement="center"
+      >
+        <ModalContent>
+          <ModalHeader>{t('adminConfig.backup.download.title')}</ModalHeader>
+          <ModalBody className="flex flex-col gap-4">
+            <p className="text-sm text-foreground-600">{t('adminConfig.backup.download.body')}</p>
+            <Input
+              type="password"
+              autoComplete="current-password"
+              variant="bordered"
+              size="sm"
+              radius="md"
+              label={t('adminConfig.backup.passwordLabel')}
+              value={downloadPassword}
+              onValueChange={setDownloadPassword}
+              autoFocus
+            />
+          </ModalBody>
+          <ModalFooter className="gap-2">
+            <Button variant="light" size="sm" isDisabled={downloading} onPress={closeDownload}>
+              {t('actions.cancel')}
+            </Button>
+            <Button color="primary" size="sm" isLoading={downloading} isDisabled={!downloadPassword} onPress={handleConfirmDownload}>
+              {t('adminConfig.backup.history.download')}
             </Button>
           </ModalFooter>
         </ModalContent>

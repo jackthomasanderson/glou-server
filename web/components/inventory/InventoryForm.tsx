@@ -5,9 +5,11 @@ import {
   Button, Chip, Divider, Input, Select, SelectItem,
 } from '@heroui/react';
 import i18n from '@/lib/i18n';
-import { currencySymbol } from '@/lib/format';
+import { currencySymbol, todayLocalIso } from '@/lib/format';
+import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
+import { FilterChip } from '@/components/ui/FilterControls';
 import { notifyError } from '@/lib/toast';
-import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical } from 'lucide-react';
+import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical, GlassWater } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
@@ -60,21 +62,15 @@ const EMPTY_FORM: Partial<InventoryItem> = {
   alertStatus: 'none',
 };
 
-type CategoryColor = 'secondary' | 'primary' | 'default' | 'warning';
-
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
   sparkling: <Sparkles size={14} />,
-  spirit: <span className="text-xs font-bold">S</span>,
+  spirit: <GlassWater size={14} />,
   cigar: <Leaf size={14} />,
 };
 
-const CATEGORY_COLORS: Record<InventoryCategory, CategoryColor> = {
-  wine: 'secondary',
-  sparkling: 'primary',
-  spirit: 'default',
-  cigar: 'warning',
-};
+// #498: one colour per category everywhere (ux-ui.md §4.6).
+const CATEGORY_COLORS = CATEGORY_CHIP_COLOR;
 
 export function InventoryForm({
   open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested, defaultCategory,
@@ -277,18 +273,18 @@ export function InventoryForm({
                     <p className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step1')}</p>
 
                     {/* Category chips */}
-                    <div className="flex flex-wrap gap-1.5 mb-4">
+                    <div role="group" aria-label={t('inventory.fields.category')} className="flex flex-wrap gap-1.5 mb-4">
                       {CATEGORY_VALUES.map((cat) => (
-                        <Chip
+                        <FilterChip
                           key={cat}
+                          size="md"
                           startContent={CATEGORY_ICONS[cat]}
-                          color={category === cat ? CATEGORY_COLORS[cat] : 'default'}
-                          variant={category === cat ? 'solid' : 'bordered'}
-                          className="cursor-pointer"
-                          onClick={() => setField('category', cat)}
+                          color={CATEGORY_COLORS[cat]}
+                          selected={category === cat}
+                          onPress={() => setField('category', cat)}
                         >
                           {t(`categories.${cat}`)}
-                        </Chip>
+                        </FilterChip>
                       ))}
                     </div>
 
@@ -684,14 +680,13 @@ export function InventoryForm({
                                 min={0} max={100} step={0.1}
                               />
                               <div className="flex items-center">
-                                <Chip
-                                  variant={values.isSingleCask ? 'solid' : 'bordered'}
-                                  color={values.isSingleCask ? 'primary' : 'default'}
-                                  className="cursor-pointer"
-                                  onClick={() => setField('isSingleCask', !values.isSingleCask)}
+                                <FilterChip
+                                  size="md"
+                                  selected={Boolean(values.isSingleCask)}
+                                  onPress={() => setField('isSingleCask', !values.isSingleCask)}
                                 >
                                   {t('inventory.fields.isSingleCask')}
-                                </Chip>
+                                </FilterChip>
                               </div>
                           </>
                         </div>
@@ -806,14 +801,13 @@ export function InventoryForm({
                                   onValueChange={(v) => setField('lotNumber', v)}
                                 />
                                 <div className="flex items-center">
-                                  <Chip
-                                    variant={values.needsAeration ? 'solid' : 'bordered'}
-                                    color={values.needsAeration ? 'primary' : 'default'}
-                                    className="cursor-pointer"
-                                    onClick={() => setField('needsAeration', !values.needsAeration)}
+                                  <FilterChip
+                                    size="md"
+                                    selected={Boolean(values.needsAeration)}
+                                    onPress={() => setField('needsAeration', !values.needsAeration)}
                                   >
                                     {t('inventory.fields.needsAeration')}
-                                  </Chip>
+                                  </FilterChip>
                                 </div>
                               </>
                             )}
@@ -960,7 +954,7 @@ export function InventoryForm({
                                   const next = !values.isOpened;
                                   setField('isOpened', next);
                                   if (next && !values.openedAt) {
-                                    setField('openedAt', new Date().toISOString().split('T')[0]);
+                                    setField('openedAt', todayLocalIso());
                                   }
                                 }}
                               >
@@ -974,18 +968,16 @@ export function InventoryForm({
                           <>
                             <div className="col-span-2 sm:col-span-4">
                               <p className="text-xs text-foreground-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
-                              <div className="flex flex-wrap gap-1.5">
+                              <div role="group" aria-label={t('inventory.fields.fillLevel')} className="flex flex-wrap gap-1.5">
                                 {([100, 75, 50, 25, 0] as const).map((val) => (
-                                  <Chip
+                                  <FilterChip
                                     key={val}
-                                    size="sm"
-                                    variant={values.fillLevel === val ? 'solid' : 'bordered'}
-                                    color={values.fillLevel === val ? 'warning' : 'default'}
-                                    className="cursor-pointer"
-                                    onClick={() => setField('fillLevel', val)}
+                                    color="warning"
+                                    selected={values.fillLevel === val}
+                                    onPress={() => setField('fillLevel', val)}
                                   >
                                     {t(`inventory.fillLevels.${val === 100 ? 'full' : val === 75 ? 'threeQuarters' : val === 50 ? 'half' : val === 25 ? 'quarter' : 'empty'}`)}
-                                  </Chip>
+                                  </FilterChip>
                                 ))}
                               </div>
                             </div>

@@ -141,12 +141,14 @@
       "tastingNotes": "Tasting notes & aromas",
       "vitole": "Vitole tech sheet",
       "agingEstimate": "Estimated peak",
-      "levelAdjusted": "Level adjusted to"
+      "levelAdjusted": "Level adjusted to",
+      "humidityValue": "{{value}}% RH"
     },
     "add": "Add",
     "edit": "Edit item",
     "restore": "Restore asset",
-    "trashInfo": "days left before permanent deletion",
+    "trashDaysLeft_one": "{{count}} day left before permanent deletion",
+    "trashDaysLeft_other": "{{count}} days left before permanent deletion",
     "trashEmpty": "The trash is empty.",
     "tabsAria": "Inventory view",
     "tabs": {
@@ -214,6 +216,7 @@
       "curveShapeHint": "How readiness evolves across the window. Overrides the cave reference for this bottle only.",
       "needsAeration": "Needs aeration",
       "serviceTemp": "Service temperature",
+      "storageTemp": "Storage temperature",
       "lotNumber": "Lot number",
       "sparklingType": "Type",
       "sugarLevel": "Sugar level",
@@ -242,7 +245,13 @@
       "caskNumber": "Cask number",
       "caskProof": "Cask strength (%)",
       "isSingleCask": "Single cask",
-      "yearExample": "e.g. {{year}}"
+      "yearExample": "e.g. {{year}}",
+      "cellarId": "Cellar",
+      "slotColumn": "Column",
+      "slotRow": "Row",
+      "alertsPaused": "Peak alerts paused",
+      "consumptionPostponedUntil": "Postponed until",
+      "lockedFields": "Locked fields"
     },
     "expertSection": {
       "title": "Advanced fields (collector)"
@@ -329,8 +338,11 @@
       "total": "Total stock",
       "full": "Full stock",
       "opened": "Opened assets",
+      "finished_one": "{{count}} finished bottle not counted",
+      "finished_other": "{{count}} finished bottles not counted",
       "openedCigar": "Opened cigars"
     },
+    "truncated": "Only the {{limit}} most recent items are loaded: older ones do not appear in this list, the search or duplicate detection.",
     "alerts": {
       "reminderDone": "Reminder done",
       "title": "Reminders to consume",
@@ -422,6 +434,8 @@
     "username": "Username",
     "email": "Email address",
     "password": "Password (min. 12 characters)",
+    "passwordLabel": "Password",
+    "pageTitleLogin": "Sign in",
     "confirmPassword": "Confirm password",
     "displayName": "Display name (optional)",
     "identifier": "Username or email",
@@ -467,6 +481,8 @@
     "twoFactor": {
       "hint": "Please enter the 6-digit code from your authenticator app, or one of your backup codes.",
       "codeLabel": "Authentication code",
+      "useBackupCode": "Use a backup code",
+      "useAuthenticatorCode": "Use the code from my authenticator app",
       "verify": "Verify",
       "back": "Back"
     }
@@ -533,7 +549,9 @@
       "items": "items",
       "itemsCount_one": "{{count}} item",
       "itemsCount_other": "{{count}} items",
-      "alerts": "alerts"
+      "alerts": "alerts",
+      "alertCount_one": "{{count}} alert",
+      "alertCount_other": "{{count}} alerts"
     },
     "grid": {
       "showConfig": "Configure grid layout (optional)",
@@ -550,8 +568,10 @@
       "notConfigured": "No grid configured for this cellar.",
       "occupied": "occupied",
       "free": "free",
-      "hotZone": "Hot zone ({{count}} rows)",
-      "coldZone": "Cold zone ({{count}} rows)",
+      "hotZone_one": "Hot zone ({{count}} row)",
+      "hotZone_other": "Hot zone ({{count}} rows)",
+      "coldZone_one": "Cold zone ({{count}} row)",
+      "coldZone_other": "Cold zone ({{count}} rows)",
       "hotZoneLabel": "Hot zone",
       "coldZoneLabel": "Cold zone",
       "cellLabelEmpty": "Column {{col}}, row {{row}}: empty. Press Enter to assign an asset.",
@@ -593,7 +613,7 @@
     }
   },
   "connectivity": {
-    "online": "Connected to internet",
+    "online": "Connected to the server",
     "offline": "Offline",
     "checking": "Checking...",
     "featuresAffected": "External autocomplete, label scan and image search unavailable",
@@ -642,6 +662,7 @@
   "profile": {
     "adminPanelLink": "Go to admin panel",
     "title": "My Profile",
+    "sectionsNav": "Profile sections",
     "personalInfo": "Personal Information",
     "preferences": "Display Preferences",
     "appName": "Custom App Name",
@@ -664,6 +685,7 @@
       "H12": "12 hours (AM/PM)"
     },
     "themes": {
+      "SYSTEM": "System",
       "LIGHT": "Light",
       "DARK": "Dark"
     },
@@ -856,7 +878,8 @@
       "errors": {
         "nameRequired": "Name is required.",
         "windowInvalid": "Window end must be ≥ window start."
-      }
+      },
+      "relativeWindow": "{{from}} → {{to}} years"
     },
     "maintenance": {
       "title": "Maintenance",
@@ -867,20 +890,31 @@
         "confirmDescription": "Warning! This action is irreversible. To confirm that you want to delete ALL business data, please enter the keyword below:",
         "keywordLabel": "Enter \"DELETE\" to confirm",
         "keywordValue": "DELETE",
+        "passwordLabel": "Your password",
+        "backupFirst": "A backup is taken first; the purge is cancelled if it fails.",
         "success": "The database has been reset successfully.",
         "error": "An error occurred during data purge.",
+        "errors": {
+          "INVALID_PASSWORD": "Incorrect password.",
+          "BACKUP_BEFORE_PURGE_FAILED": "The backup taken before the purge failed, so nothing was deleted. Check the Backups tab."
+        },
         "counts": {
-          "bottles": "{{count}} assets deleted",
-          "cellars": "{{count}} cellars deleted",
-          "logs": "{{count}} log entries deleted"
+          "bottles_one": "{{count}} asset deleted",
+          "bottles_other": "{{count}} assets deleted",
+          "cellars_one": "{{count}} cellar deleted",
+          "cellars_other": "{{count}} cellars deleted",
+          "logs_one": "{{count}} log entry deleted",
+          "logs_other": "{{count}} log entries deleted"
         }
       }
     }
   },
   "bulk": {
-    "selected": "{{count}} selected",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
     "title": "Bulk Actions",
-    "subtitle": "Update {{count}} items simultaneously",
+    "subtitle_one": "Update {{count}} item",
+    "subtitle_other": "Update {{count}} items simultaneously",
     "fieldsToUpdate": "Fields to update",
     "preview": "Changes summary",
     "mixed": "(Mixed values)",
@@ -891,7 +925,8 @@
     "loadPreset": "Load preset",
     "deletePreset": "Delete preset",
     "deletePresetConfirm": "This action preset will be permanently deleted.",
-    "success": "{{count}} items have been updated"
+    "success_one": "{{count}} item has been updated",
+    "success_other": "{{count}} items have been updated"
   },
   "traceability": {
     "title": "Traceability",
@@ -900,9 +935,12 @@
       "update": "Updated",
       "delete": "Deleted",
       "restore": "Restored",
-      "restore_field": "Value restored"
+      "restore_field": "Value restored",
+      "guest_update": "Updated"
     },
+    "viaGuest": "via guest link",
     "restoredField": "Value restored: {{field}}",
+    "changeLine": "{{field}}: {{value}}",
     "restoreValue": "Restore this value",
     "restoreConfirm": {
       "title": "Restore this value?",
@@ -926,7 +964,8 @@
     "emptyHint": "Create themed groups to organize your items.",
     "deleteTitle": "Delete collection",
     "deleteConfirm": "Delete \"{{name}}\"? Items will not be deleted.",
-    "itemCount": "{{count}} item",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items",
     "fields": {
       "name": "Collection name",
       "color": "Color",
@@ -950,7 +989,8 @@
     "deleteTitle": "Delete tasting",
     "deleteConfirm": "This tasting note will be permanently deleted.",
     "noItem": "No linked product",
-    "total": "{{count}} tasting",
+    "total_one": "{{count}} tasting",
+    "total_other": "{{count}} tastings",
     "fields": {
       "item": "Product tasted",
       "tastedAt": "Tasting date",
@@ -1011,7 +1051,8 @@
       "promptHint": "Type a dish, or pick one of the quick suggestions above.",
       "noResults": "No asset in stock matches \"{{query}}\"",
       "noResultsHint": "Try a broader term or one of the quick suggestions.",
-      "resultsCount": "{{count}} matching asset",
+      "resultsCount_one": "{{count}} matching asset",
+      "resultsCount_other": "{{count}} matching assets",
       "reason": "Pairs with: {{pairing}}",
       "consumeNow": "Consume now",
       "inventoryLoadError": "Failed to load your inventory.",
@@ -1150,6 +1191,8 @@
       "liquidStockHint": "Excluding collection cigars",
       "cigarHumidor": "Cigars in humidor",
       "cigarHumidorHint": "Preserved under controlled humidity",
+      "cigarModules_one": "{{count}} module",
+      "cigarModules_other": "{{count}} modules",
       "urgentDegustation": "Tasting urgency",
       "urgentDegustationHint": "Assets at or past their peak"
     },
@@ -1307,10 +1350,10 @@
       "configHistory": "Configuration history"
     },
     "deleteTitle": "Delete my account",
-    "deleteDescription": "Sends a request to delete your account to the instance administrator, who will process it. You can cancel it until it has been processed.",
+    "deleteDescription": "Your account will be deleted automatically 30 days after your request; administrators are informed. You can cancel until then. Export your data first if you want to keep your tastings.",
     "deleteButton": "Delete account",
     "deleteModalTitle": "Confirm deletion",
-    "deleteModalBody": "Your request will be sent to the instance administrator. Once processed, deleting your account is irreversible.",
+    "deleteModalBody": "Your account will be deleted automatically in 30 days. You can cancel until then; after that, deletion is irreversible. Remember to export your data.",
     "deleteModalHint": "Type \"{{keyword}}\" to confirm:",
     "deleteKeyword": "DELETE",
     "deleteConfirm": "Confirm deletion",
@@ -1377,7 +1420,8 @@
       "notesHidden": "Personal notes are hidden",
       "expired": "This share link has expired or been revoked.",
       "loadError": "Could not load this share. Check your connection and try again.",
-      "showMore": "Show more ({{count}} remaining)",
+      "showMore_one": "Show more ({{count}} remaining)",
+      "showMore_other": "Show more ({{count}} remaining)",
       "search": "Search this share",
       "sortBy": "Sort by",
       "empty": "No items in this share.",
@@ -1423,7 +1467,7 @@
     "invalidToken": "This link is invalid or has expired.",
     "errors": {
       "INVALID_OR_EXPIRED_TOKEN": "This link is invalid or has expired. Please make a new request.",
-      "PASSWORD_TOO_SHORT": "Password must be at least 8 characters.",
+      "PASSWORD_TOO_SHORT": "Password must be at least 12 characters.",
       "PASSWORDS_MISMATCH": "Passwords do not match.",
       "UNEXPECTED_ERROR": "An error occurred. Please try again."
     }
@@ -1453,10 +1497,6 @@
       "all": "All categories",
       "peak": "Peak maturity reached",
       "temperature": "Temperature/humidity variations",
-      "consumption": "Scheduled consumption",
-      "shares": "Shares & invitations",
-      "permissions": "Permission changes",
-      "new_users": "New users (admin)",
       "security": "Account security",
       "wishlist": "Price opportunities (wishlist)",
       "backup": "Backup failures (admin)"
@@ -1487,7 +1527,11 @@
       "retention": "Retention",
       "backups": "Backups",
       "network": "Network",
-      "history": "History"
+      "history": "History",
+      "about": "About"
+    },
+    "about": {
+      "description": "Running version. Include this when filing a bug report."
     },
     "smtp": {
       "enabled": "Enable email sending",
@@ -1579,15 +1623,27 @@
           "error": "Failed"
         },
         "counts": {
-          "auditLogs": "{{count}} logs",
-          "sessions": "{{count}} sessions",
-          "trustedDevices": "{{count}} devices",
-          "guestShares": "{{count}} shares"
+          "auditLogs_one": "{{count}} log",
+          "auditLogs_other": "{{count}} logs",
+          "sessions_one": "{{count}} session",
+          "sessions_other": "{{count}} sessions",
+          "trustedDevices_one": "{{count}} device",
+          "trustedDevices_other": "{{count}} devices",
+          "guestShares_one": "{{count}} share",
+          "guestShares_other": "{{count}} shares"
         }
       }
     },
     "backup": {
       "description": "Configure the automatic daily database backup (pg_dump), stored outside the application volume.",
+      "passwordLabel": "Your password",
+      "invalidPassword": "Incorrect password.",
+      "download": {
+        "title": "Download this backup",
+        "body": "The file contains the whole database, including every account's password hash and two-factor secret. Confirm with your password.",
+        "error": "Download failed."
+      },
+      "dirNotWritable": "The backups folder is not writable by Glou: every backup will fail. On the server, next to docker-compose.yml, run: mkdir -p backups && sudo chown 1001:1001 backups, then restart the stack.",
       "enabled": "Enable automatic backups",
       "retentionDays": "Backup retention (days)",
       "retentionDaysHint": "Backup files older than this delay are automatically deleted (7 days minimum recommended).",
@@ -1709,7 +1765,7 @@
     },
     "csv": {
       "title": "CSV Import",
-      "subtitle": "Import a .csv file with the columns: name, producer, category, vintage (optional).",
+      "subtitle": "Import a .csv file with the columns name, producer, category (wine, sparkling, spirit, cigar) and optionally vintage, price, region, quantity, ABV. French headers and category names (nom, producteur, catégorie, millésime, prix, quantité, degré; vin, bulles, spiritueux, cigare) work too.",
       "csvOnlyHint": "Only the CSV format is supported (Excel/.xlsx is not).",
       "chooseFile": "Choose a CSV file",
       "chooseAnother": "Choose another file",
@@ -1726,10 +1782,14 @@
         "NAME_TOO_LONG": "Name exceeds 200 characters",
         "PRODUCER_REQUIRED": "Producer is missing",
         "PRODUCER_TOO_LONG": "Producer exceeds 200 characters",
-        "INVALID_CATEGORY": "Invalid category (expected: wine, sparkling, spirit or cigar)",
+        "INVALID_CATEGORY": "Invalid category (expected: wine, sparkling, spirit or cigar, or vin, bulles, spiritueux, cigare)",
         "INVALID_VINTAGE": "Invalid vintage",
+        "INVALID_PRICE": "Invalid price",
+        "INVALID_QUANTITY": "Invalid quantity (whole number from 1)",
+        "INVALID_ABV": "Invalid alcohol by volume (0 to 100)",
+        "REGION_TOO_LONG": "Region exceeds 200 characters",
         "INVALID_ROW": "Invalid row",
-        "UNRECOGNIZED_COLUMNS": "Unrecognised header: none of the expected columns (name, producer, category, vintage) were found",
+        "UNRECOGNIZED_COLUMNS": "Unrecognised header: none of the expected columns (name, producer, category, vintage…) were found",
         "INVALID_ENCODING": "This file isn't saved as UTF-8: accented characters were lost. In Excel, use \"File → Save As\" and pick \"CSV UTF-8 (Comma delimited)\", then try again."
       }
     },
@@ -1760,7 +1820,6 @@
   },
   "wishlist": {
     "title": "Wishlist & Budget",
-    "pageAccess": "Wishlist & Budget",
     "tabs": {
       "ariaLabel": "Wishlist sections",
       "wishlist": "Wishlist",
@@ -1823,6 +1882,7 @@
     "empty": "No budget envelope defined",
     "emptyHint": "Define an amount for a period to track your spending.",
     "create": "Define an envelope",
+    "edit": "Edit envelope",
     "deleteTitle": "Delete this envelope?",
     "deleteConfirm": "This budget envelope will be permanently deleted.",
     "errors": {

@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { PASSWORD_MIN_LENGTH } from './password';
+
+// A 2FA code is either a 6-digit TOTP or a 20-hex-char backup code
+// (auth.service.ts BACKUP_CODE_LENGTH). The limit used to be 8-10, which
+// silently rejected every backup code since they were widened in #286.
+const BACKUP_CODE_MAX_LENGTH = 20;
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 
@@ -11,9 +17,12 @@ export const registerSchema = z.object({
   email: z.string().email('EMAIL_INVALID'),
   password: z
     .string()
-    .min(12, 'PASSWORD_TOO_SHORT')
+    .min(PASSWORD_MIN_LENGTH, 'PASSWORD_TOO_SHORT')
     .max(128, 'PASSWORD_TOO_LONG'),
   displayName: z.string().max(60).optional().or(z.literal('')),
+  // #529: the language the sign-up page was shown in, so the account does
+  // not switch to the French default right after registration.
+  language: z.enum(['FR', 'EN']).optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
@@ -37,11 +46,11 @@ export const turnOn2faSchema = z.object({
 
 export const turnOff2faSchema = z.object({
   password: z.string().min(1, 'PASSWORD_REQUIRED'),
-  code: z.string().min(6).max(8, 'INVALID_CODE_LENGTH').optional(),
+  code: z.string().min(6).max(BACKUP_CODE_MAX_LENGTH, 'INVALID_CODE_LENGTH').optional(),
 });
 
 export const verify2faSchema = z.object({
-  code: z.string().min(6, 'INVALID_CODE_LENGTH').max(10, 'INVALID_CODE_LENGTH'),
+  code: z.string().min(6, 'INVALID_CODE_LENGTH').max(BACKUP_CODE_MAX_LENGTH, 'INVALID_CODE_LENGTH'),
   // We don't need token here if we read the glou_token cookie directly
   trustDevice: z.boolean().optional().default(false),
 });
@@ -53,7 +62,7 @@ export const verify2faSchema = z.object({
 // only when 2FA is actually enabled on the account.
 export const trustDeviceSchema = z.object({
   password: z.string().min(1, 'PASSWORD_REQUIRED'),
-  code: z.string().min(6).max(8, 'INVALID_CODE_LENGTH').optional(),
+  code: z.string().min(6).max(BACKUP_CODE_MAX_LENGTH, 'INVALID_CODE_LENGTH').optional(),
 });
 
 export type TurnOn2faInput = z.infer<typeof turnOn2faSchema>;

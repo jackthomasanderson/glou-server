@@ -8,11 +8,11 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
-  useBudgetEnvelopes, useCreateBudgetEnvelope, useDeleteBudgetEnvelope, useBudgetProgress,
+  useBudgetEnvelopes, useCreateBudgetEnvelope, useUpdateBudgetEnvelope, useDeleteBudgetEnvelope, useBudgetProgress,
 } from '@/hooks/useBudget';
 import { BudgetEnvelope } from '@/lib/budget/types';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCurrency, formatDate, todayLocalIso } from '@/lib/format';
 
 function toDateInputValue(iso: string): string {
   return iso.slice(0, 10);
@@ -20,7 +20,11 @@ function toDateInputValue(iso: string): string {
 
 const EMPTY_FORM = { periodStart: '', periodEnd: '', amount: '' };
 
-function EnvelopeCard({ envelope, onDelete }: { envelope: BudgetEnvelope; onDelete: (e: BudgetEnvelope) => void }) {
+function EnvelopeCard({ envelope, onEdit, onDelete }: {
+  envelope: BudgetEnvelope;
+  onEdit: (e: BudgetEnvelope) => void;
+  onDelete: (e: BudgetEnvelope) => void;
+}) {
   const { t, i18n } = useTranslation();
   const { data: progress, isLoading } = useBudgetProgress(envelope.id);
 
@@ -30,9 +34,14 @@ function EnvelopeCard({ envelope, onDelete }: { envelope: BudgetEnvelope; onDele
         <span className="text-sm font-semibold">
           {formatDate(envelope.periodStart, i18n.language)} — {formatDate(envelope.periodEnd, i18n.language)}
         </span>
-        <Button size="sm" variant="light" color="danger" onPress={() => onDelete(envelope)}>
-          {t('actions.delete')}
-        </Button>
+        <div className="flex gap-1">
+          <Button size="sm" variant="light" color="primary" onPress={() => onEdit(envelope)}>
+            {t('actions.edit')}
+          </Button>
+          <Button size="sm" variant="light" color="danger" onPress={() => onDelete(envelope)}>
+            {t('actions.delete')}
+          </Button>
+        </div>
       </CardHeader>
       <CardBody className="gap-2">
         {isLoading || !progress ? (
@@ -67,34 +76,47 @@ export function BudgetPanel() {
   const { t } = useTranslation();
   const { data: envelopes, isLoading, isError, refetch, isRefetching } = useBudgetEnvelopes();
   const createMutation = useCreateBudgetEnvelope();
+  const updateMutation = useUpdateBudgetEnvelope();
   const deleteMutation = useDeleteBudgetEnvelope();
 
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  // #469: an envelope can be corrected in place (the API route and hook
+  // already existed, but no button reached them).
+  const [editing, setEditing] = useState<BudgetEnvelope | null>(null);
   const [deleting, setDeleting] = useState<BudgetEnvelope | null>(null);
 
-  // Resetting the form to this month's range on open is adjusted during
-  // render (React's documented pattern) rather than in an effect, guarded
-  // against the previous render's formOpen so it only fires on open.
-  const [prevFormOpen, setPrevFormOpen] = useState(formOpen);
-  if (formOpen !== prevFormOpen) {
-    setPrevFormOpen(formOpen);
-    if (formOpen) {
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      setForm({ periodStart: toDateInputValue(start.toISOString()), periodEnd: toDateInputValue(end.toISOString()), amount: '' });
-    }
-  }
+  const openCreate = () => {
+    // This month, in local time (toISOString would give the UTC date, a day
+    // early east of Greenwich — same bug as #482).
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    setEditing(null);
+    setForm({ periodStart: todayLocalIso(start), periodEnd: todayLocalIso(end), amount: '' });
+    setFormOpen(true);
+  };
+
+  const openEdit = (envelope: BudgetEnvelope) => {
+    setEditing(envelope);
+    setForm({
+      periodStart: toDateInputValue(envelope.periodStart),
+      periodEnd: toDateInputValue(envelope.periodEnd),
+      amount: String(envelope.amount),
+    });
+    setFormOpen(true);
+  };
 
   const handleSubmit = async () => {
     const amount = Number(form.amount);
     if (!form.periodStart || !form.periodEnd || !Number.isFinite(amount) || amount < 0) return;
-    await createMutation.mutateAsync({
+    const data = {
       periodStart: new Date(form.periodStart).toISOString(),
       periodEnd: new Date(form.periodEnd).toISOString(),
       amount,
-    });
+    };
+    if (editing) await updateMutation.mutateAsync({ id: editing.id, data });
+    else await createMutation.mutateAsync(data);
     setFormOpen(false);
   };
 
@@ -109,7 +131,7 @@ export function BudgetPanel() {
       <div className="flex items-center gap-2 mb-6">
         <Wallet size={22} className="text-primary" />
         <h1 className="text-xl font-bold">{t('budget.title')}</h1>
-        <Button className="ml-auto" color="primary" variant="solid" startContent={<Plus size={16} />} onPress={() => setFormOpen(true)}>
+        <Button className="ml-auto" color="primary" variant="solid" startContent={<Plus size={16} />} onPress={openCreate}>
           {t('budget.create')}
         </Button>
       </div>
@@ -130,13 +152,13 @@ export function BudgetPanel() {
           <Wallet size={64} className="text-foreground-400 mb-4" />
           <p className="text-lg font-semibold text-foreground-500">{t('budget.empty')}</p>
           <p className="text-sm text-foreground-500 mb-6">{t('budget.emptyHint')}</p>
-          <Button color="primary" variant="solid" startContent={<Plus size={16} />} onPress={() => setFormOpen(true)}>
+          <Button color="primary" variant="solid" startContent={<Plus size={16} />} onPress={openCreate}>
             {t('budget.create')}
           </Button>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {envelopes.map((e) => <EnvelopeCard key={e.id} envelope={e} onDelete={setDeleting} />)}
+          {envelopes.map((e) => <EnvelopeCard key={e.id} envelope={e} onEdit={openEdit} onDelete={setDeleting} />)}
         </div>
       )}
 
@@ -145,7 +167,7 @@ export function BudgetPanel() {
         <ModalContent>
           {() => (
             <>
-              <ModalHeader>{t('budget.create')}</ModalHeader>
+              <ModalHeader>{editing ? t('budget.edit') : t('budget.create')}</ModalHeader>
               <ModalBody className="gap-4">
                 <div className="grid grid-cols-2 gap-4">
                   <Input
@@ -176,7 +198,7 @@ export function BudgetPanel() {
                 <Button color="danger" variant="light" onPress={() => setFormOpen(false)}>{t('actions.cancel')}</Button>
                 <Button
                   color="primary" variant="solid"
-                  isLoading={createMutation.isPending}
+                  isLoading={createMutation.isPending || updateMutation.isPending}
                   isDisabled={!form.periodStart || !form.periodEnd || !form.amount}
                   onPress={handleSubmit}
                 >

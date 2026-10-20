@@ -5,13 +5,11 @@ import { htmlToPlainText } from '../lib/html';
 import { normalizeGotifyUrl } from '../lib/gotify-url';
 import { assertUrlAllowed } from '../lib/ssrf';
 
+// #469: only categories with a real emitter (consumption, shares,
+// permissions and new_users never had one and were removed from the UI in #338).
 export type NotificationCategory =
   | 'peak'
   | 'temperature'
-  | 'consumption'
-  | 'shares'
-  | 'permissions'
-  | 'new_users'
   | 'security'
   | 'wishlist'
   | 'backup';

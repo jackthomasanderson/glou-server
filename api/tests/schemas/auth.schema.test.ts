@@ -17,6 +17,9 @@ describe('registerSchema', () => {
 
   it('accepts a well-formed payload', () => {
     expect(registerSchema.safeParse(valid).success).toBe(true);
+    // #529: optional sign-up language, FR or EN only.
+    expect(registerSchema.safeParse({ ...valid, language: 'EN' }).success).toBe(true);
+    expect(registerSchema.safeParse({ ...valid, language: 'DE' }).success).toBe(false);
   });
 
   it('accepts an empty-string displayName and an omitted displayName', () => {
@@ -75,18 +78,33 @@ describe('2FA schemas', () => {
     expect(turnOn2faSchema.safeParse({ code: '1234567' }).success).toBe(false);
   });
 
-  it('turnOff2faSchema allows an optional 6..8 char code alongside the password', () => {
+  // A backup code is 20 hex chars (crypto.randomBytes(10)); the schemas used
+  // to cap at 8-10 and rejected every backup code.
+  const BACKUP_CODE = 'a1b2c3d4e5f60718293a';
+
+  it('turnOff2faSchema allows an optional TOTP or backup code alongside the password', () => {
     expect(turnOff2faSchema.safeParse({ password: 'x' }).success).toBe(true);
     expect(turnOff2faSchema.safeParse({ password: 'x', code: '123456' }).success).toBe(true);
-    expect(turnOff2faSchema.safeParse({ password: 'x', code: '12345678' }).success).toBe(true);
-    expect(turnOff2faSchema.safeParse({ password: 'x', code: '123456789' }).success).toBe(false);
+    expect(turnOff2faSchema.safeParse({ password: 'x', code: BACKUP_CODE }).success).toBe(true);
+    expect(turnOff2faSchema.safeParse({ password: 'x', code: `${BACKUP_CODE}0` }).success).toBe(false);
   });
 
-  it('verify2faSchema accepts a 6..10 char code and defaults trustDevice to false', () => {
+  it('verify2faSchema accepts a TOTP or a backup code and defaults trustDevice to false', () => {
     const res = verify2faSchema.safeParse({ code: '123456' });
     expect(res.success).toBe(true);
     if (res.success) expect(res.data.trustDevice).toBe(false);
     expect(verify2faSchema.safeParse({ code: '12345' }).success).toBe(false);
-    expect(verify2faSchema.safeParse({ code: '12345678901' }).success).toBe(false);
+    expect(verify2faSchema.safeParse({ code: BACKUP_CODE }).success).toBe(true);
+    expect(verify2faSchema.safeParse({ code: `${BACKUP_CODE}0` }).success).toBe(false);
+  });
+});
+
+describe('password minimum length', () => {
+  it('is enforced identically on sign-up and password change', async () => {
+    const { updatePasswordSchema } = await import('../../src/schemas/user.schema');
+    const { PASSWORD_MIN_LENGTH } = await import('../../src/schemas/password');
+    expect(PASSWORD_MIN_LENGTH).toBe(12);
+    expect(updatePasswordSchema.safeParse({ currentPassword: 'x', newPassword: 'wine1234' }).success).toBe(false);
+    expect(updatePasswordSchema.safeParse({ currentPassword: 'x', newPassword: 'a'.repeat(12) }).success).toBe(true);
   });
 });

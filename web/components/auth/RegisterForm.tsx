@@ -4,11 +4,13 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { Button, Input, Card, CardBody, Link } from '@heroui/react';
 import NextLink from 'next/link';
 import { useRegister } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { PASSWORD_MIN_LENGTH } from '@/lib/password';
 
 const createRegisterSchema = (t: (key: string) => string) =>
   z.object({
@@ -17,7 +19,7 @@ const createRegisterSchema = (t: (key: string) => string) =>
       .min(3, t('auth.errors.USERNAME_TOO_SHORT'))
       .regex(/^[a-zA-Z0-9_-]+$/, t('auth.errors.USERNAME_INVALID_CHARS')),
     email: z.string().email(t('auth.errors.VALIDATION_ERROR')),
-    password: z.string().min(12, t('auth.errors.PASSWORD_TOO_SHORT')),
+    password: z.string().min(PASSWORD_MIN_LENGTH, t('auth.errors.PASSWORD_TOO_SHORT')),
     confirmPassword: z.string(),
   }).refine((data) => data.password === data.confirmPassword, {
     message: t('auth.errors.PASSWORDS_DO_NOT_MATCH'),
@@ -25,7 +27,8 @@ const createRegisterSchema = (t: (key: string) => string) =>
   });
 
 export function RegisterForm() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  useBrowserTabTitle(t('auth.register'));
   const hasMounted = useHasMounted();
 
   const registerSchema = createRegisterSchema(t);
@@ -43,7 +46,9 @@ export function RegisterForm() {
   const onSubmit = (formValues: RegisterFormValues) => {
     setApiError(null);
     const { username, email, password } = formValues;
-    registerMutation.mutate({ username, email, password }, {
+    // #529: keep the language the page was shown in.
+    const language = i18n?.language?.startsWith('en') ? 'EN' : 'FR';
+    registerMutation.mutate({ username, email, password, language }, {
       onError: (error) => {
         const msgKey = `auth.errors.${error.message}`;
         const translated = t(msgKey);

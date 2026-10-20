@@ -13,12 +13,13 @@ import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/re
 import { networkConfigSchema } from '../schemas/network-config.schema';
 import { registrationConfigSchema } from '../schemas/registration-config.schema';
 import { smtpConfigSchema, gotifyConfigSchema, integrationsConfigSchema } from '../schemas/system-config.schema';
-import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema } from '../schemas/backup.schema';
+import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema, backupDownloadSchema, purgeSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
 import { systemConfigService } from '../services/system-config.service';
 import { authService } from '../services/auth.service';
 import { emailService } from '../services/email.service';
 import { backupService } from '../services/backup.service';
+import { auditLog } from '../services/audit.service';
 
 const adminRouter = Router();
 
@@ -257,16 +258,35 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
  * @access  Admin Private
  */
 adminRouter.post('/maintenance/purge', async (req: Request, res: Response): Promise<void> => {
-    const { confirmation } = req.body;
-
-    if (confirmation !== 'SUPPRIMER') {
+    const parsed = purgeSchema.safeParse(req.body);
+    if (!parsed.success) {
         res.status(400).json({ error: 'INVALID_CONFIRMATION' });
         return;
     }
+    const ip = getClientIp(req);
 
     try {
+        // #489: re-authenticate, take a backup first (abort if it fails), and
+        // leave a trace of who purged, written after the purge since the
+        // purge wipes the audit log itself.
+        if (!(await authService.verifyPassword(req.userId, parsed.data.password))) {
+            res.status(403).json({ error: 'INVALID_PASSWORD' });
+            return;
+        }
+        const backup = await backupService.runBackup('manual', req.userId);
+        if (!backup.success) {
+            res.status(500).json({ error: 'BACKUP_BEFORE_PURGE_FAILED' });
+            return;
+        }
         const result = await MaintenanceService.purgeAllData();
-        res.json({ data: result });
+        await auditLog({
+            userId: req.userId,
+            action: 'PURGE',
+            status: 'success',
+            ip,
+            details: { counts: result.counts, backupRunId: backup.id },
+        });
+        res.json({ data: { ...result, backupRunId: backup.id } });
     } catch (error) {
         console.error('[Admin] Maintenance purge error:', error);
         res.status(500).json({ error: 'PURGE_FAILED' });
@@ -601,6 +621,15 @@ adminRouter.get('/backups/runs', async (req: Request, res: Response): Promise<vo
 });
 
 /**
+ * @route   GET /api/admin/backups/health
+ * @desc    Whether the API can write to its backups folder (#537)
+ * @access  Admin
+ */
+adminRouter.get('/backups/health', (_req: Request, res: Response): void => {
+  res.json({ directoryWritable: backupService.isBackupsDirWritable() });
+});
+
+/**
  * @route   POST /api/admin/backups/run
  * @desc    Trigger an immediate manual backup
  * @access  Admin Private
@@ -626,7 +655,11 @@ adminRouter.post('/backups/run', async (req: Request, res: Response): Promise<vo
 adminRouter.post('/backups/:id/restore', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   try {
-    backupRestoreSchema.parse(req.body);
+    const { password } = backupRestoreSchema.parse(req.body);
+    if (!(await authService.verifyPassword(req.userId, password))) {
+      res.status(403).json({ error: 'INVALID_PASSWORD' });
+      return;
+    }
     const run = await prisma.backupRun.findUnique({ where: { id } });
     if (!run || !run.success || !run.filePath) {
       res.status(404).json({ error: 'BACKUP_NOT_FOUND' });
@@ -646,14 +679,26 @@ adminRouter.post('/backups/:id/restore', async (req: Request, res: Response): Pr
 });
 
 /**
- * @route   GET /api/admin/backups/:id/download
- * @desc    Downloads a previous backup dump file
+ * @route   POST /api/admin/backups/:id/download
+ * @desc    Downloads a previous backup dump file. POST, not GET: the admin's
+ *          password travels in the body (#489) — a dump holds every password
+ *          hash and 2FA secret of the instance.
  * @access  Admin Private
  */
-adminRouter.get('/backups/:id/download', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/backups/:id/download', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   try {
+    const parsed = backupDownloadSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'PASSWORD_REQUIRED' });
+      return;
+    }
+    if (!(await authService.verifyPassword(req.userId, parsed.data.password))) {
+      res.status(403).json({ error: 'INVALID_PASSWORD' });
+      return;
+    }
     const { path: filePath, filename } = await backupService.getDownloadTarget(id);
+    void auditLog({ userId: req.userId, action: 'BACKUP_DOWNLOAD', status: 'success', ip: getClientIp(req), details: { backupRunId: id } });
     res.download(filePath, filename, (err) => {
       if (err) console.error('[Admin] Backup download stream error:', err);
     });

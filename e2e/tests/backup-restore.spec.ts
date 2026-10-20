@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { creds } from './_helpers';
 
 // ISSUE_020 ("no restore has ever been proven"): a real backup/restore
 // round-trip against the actual running stack, not a mock. The E2E user is
@@ -29,8 +30,14 @@ test('a manual backup can actually restore the database it was taken from', asyn
   const itemsBefore = (await beforeRestore.json())?.data ?? [];
   expect(itemsBefore.some((i: { name: string }) => i.name === marker)).toBe(true);
 
+  // #489: restore re-asks the admin's password.
+  const wrongPassword = await page.request.post(`/api/admin/backups/${run.id}/restore`, {
+    data: { confirm: true, password: 'not-the-password' },
+  });
+  expect(wrongPassword.status()).toBe(403);
+
   const restoreRes = await page.request.post(`/api/admin/backups/${run.id}/restore`, {
-    data: { confirm: true },
+    data: { confirm: true, password: creds().password },
   });
   expect(restoreRes.ok()).toBe(true);
   expect((await restoreRes.json())?.data?.ok).toBe(true);

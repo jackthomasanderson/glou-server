@@ -98,7 +98,7 @@ export function CellarDetailClient() {
           <div className="flex gap-2 flex-wrap mb-4 ml-10">
             <Chip size="sm" variant="flat">{t('cellars.stats.itemsCount', { count: cellar.stats.totalItems })}</Chip>
             {cellar.stats.alertCount > 0 && (
-              <Chip size="sm" color="warning" variant="flat">{cellar.stats.alertCount} {t('cellars.stats.alerts')}</Chip>
+              <Chip size="sm" color="warning" variant="flat">{t('cellars.stats.alertCount', { count: cellar.stats.alertCount })}</Chip>
             )}
             {cellar.stats.estimatedValue != null && (
               <Chip size="sm" variant="bordered">~{formatCurrency(Math.round(cellar.stats.estimatedValue), i18n.language, 0)}</Chip>

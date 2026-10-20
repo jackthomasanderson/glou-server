@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Chip, Input, Select, SelectItem, Spinner, Switch, Textarea } from '@heroui/react';
 import { Eye, EyeOff, Lock, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { formatCurrency } from '@/lib/format';
 import { guestClient, GuestRequestError } from '@/lib/shares/client';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -32,7 +33,7 @@ interface GuestItem {
 
 // ─── Item card ───────────────────────────────────────────────────────────────
 
-function GuestItemCard({ item, token, editable }: { item: GuestItem; token: string; editable: boolean }) {
+function GuestItemCard({ item, token, editable, hideNotes }: { item: GuestItem; token: string; editable: boolean; hideNotes: boolean }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -45,7 +46,7 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
       guestClient.updateItem(token, item.id, {
         isOpened,
         fillLevel: fillLevel.trim() === '' ? null : Number(fillLevel),
-        notes: notes.trim() === '' ? null : notes,
+        ...(hideNotes ? {} : { notes: notes.trim() === '' ? null : notes }),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['guest', token, 'inventory'] });
@@ -117,7 +118,7 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
                 radius="md"
                 labelPlacement="outside"
               />
-              <Textarea
+              {!hideNotes && <Textarea
                 label={t('shares.guest.edit.notes')}
                 value={notes}
                 onValueChange={setNotes}
@@ -126,7 +127,7 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
                 radius="md"
                 labelPlacement="outside"
                 maxLength={2000}
-              />
+              />}
               {updateMutation.isError && (
                 <p className="text-xs text-danger">{t('shares.guest.edit.error')}</p>
               )}
@@ -162,6 +163,7 @@ const GUEST_PAGE_SIZE = 60;
 
 function GuestPageContent({ token }: { token: string }) {
   const { t } = useTranslation();
+  useBrowserTabTitle(t('shares.guest.badge'));
 
   const metaQuery = useQuery<GuestShareMeta, Error>({
     queryKey: ['guest', token, 'meta'],
@@ -311,6 +313,7 @@ function GuestPageContent({ token }: { token: string }) {
                 item={item}
                 token={token}
                 editable={!!meta?.writeCellarIds.includes(item.cellarId ?? '')}
+                hideNotes={!!meta?.hideNotes}
               />
             ))}
           </div>

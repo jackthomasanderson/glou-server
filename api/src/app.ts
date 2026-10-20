@@ -30,6 +30,8 @@ import { importRouter } from './routes/import.router';
 import wishlistRouter from './routes/wishlist.router';
 import { scanRouter } from './routes/scan.router';
 import humidorRouter from './routes/humidor.router';
+import { APP_VERSION } from './lib/app-version';
+import { redactUrlSecrets } from './lib/log-redact';
 
 // ─── Express app assembly ────────────────────────────────────────────────────
 // Extracted from index.ts so it can be imported without side effects (no
@@ -54,7 +56,14 @@ export function createApp(): express.Express {
   // infrastructure is needed. Silenced under `vitest` (NODE_ENV=test) so the
   // test suite's own output stays readable.
   if (process.env.NODE_ENV !== 'test') {
-    app.use(morgan('combined'));
+    // `combined`, with the URL and referrer passed through `redactUrlSecrets`
+    // so guest and password-reset tokens never reach the logs (ISSUE_490).
+    morgan.token('safe-url', (req) => redactUrlSecrets((req as express.Request).originalUrl ?? req.url));
+    morgan.token('safe-referrer', (req) => {
+      const ref = req.headers.referer ?? req.headers['referrer'];
+      return redactUrlSecrets(Array.isArray(ref) ? ref[0] : ref);
+    });
+    app.use(morgan(':remote-addr - :remote-user [:date[clf]] ":method :safe-url HTTP/:http-version" :status :res[content-length] ":safe-referrer" ":user-agent"'));
   }
 
   // ─── Security middleware ───────────────────────────────────────────────────
@@ -102,11 +111,20 @@ export function createApp(): express.Express {
   app.get('/health', async (_req, res) => {
     try {
       await prisma.$queryRaw`SELECT 1`;
-      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+      res.json({ status: 'ok', timestamp: new Date().toISOString(), version: APP_VERSION });
     } catch (err) {
       console.error('[health] Database check failed:', err);
-      res.status(503).json({ status: 'error', timestamp: new Date().toISOString() });
+      res.status(503).json({ status: 'error', timestamp: new Date().toISOString(), version: APP_VERSION });
     }
+  });
+
+  // ─── Version (no auth) ─────────────────────────────────────────────────────
+  // ISSUE_169: the bug report template and SECURITY.md ask reporters for a
+  // version/tag, but nothing ever surfaced one — `latest`/`beta` are moving
+  // tags, not versions. This is what Admin → System Configuration → About
+  // reads to show a copyable value.
+  app.get('/api/version', (_req, res) => {
+    res.json({ data: { version: APP_VERSION } });
   });
 
   // ─── Connectivity check (no auth) ─────────────────────────────────────────

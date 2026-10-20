@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useCellars } from '@/hooks/useCellars';
 import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem, useRollbackField } from '@/hooks/useInventory';
+import { useToggleAlertPause } from '@/hooks/useAlerts';
 import { Button, Chip, Divider, Drawer, DrawerContent, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Tooltip } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
-  Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode, Euro,
+  Wine, BookMarked, GlassWater, Leaf, Sparkles, QrCode, Euro,
   FileSpreadsheet, ScanLine, History as HistoryIcon, TrendingUp,
-  Plus, Minus, PackagePlus,
+  Plus, Minus, PackagePlus, Bell, BellOff,
 } from 'lucide-react';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
@@ -22,12 +23,13 @@ import { CollectionPickerInline } from '@/components/collections/CollectionPicke
 
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
 import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
   sparkling: <Sparkles size={64} className="opacity-20 text-white" />,
-  spirit: <Dumbbell size={64} className="opacity-20 text-white" />,
+  spirit: <GlassWater size={64} className="opacity-20 text-white" />,
   cigar: <Leaf size={64} className="opacity-20 text-white" />,
 };
 
@@ -35,20 +37,18 @@ interface InfoCardProps {
   icon: React.ReactElement;
   label: string;
   value: React.ReactNode;
-  valueColor?: string;
+  /** Theme classes only (#519): fixed hex colours were unreadable in dark mode. */
+  valueClassName?: string;
 }
 
-function InfoCard({ icon, label, value, valueColor }: InfoCardProps) {
+function InfoCard({ icon, label, value, valueClassName }: InfoCardProps) {
   return (
     <div className="p-3 border border-divider rounded-xl flex flex-col gap-1">
       <div className="flex items-center gap-1">
         {React.cloneElement(icon, { size: 13, className: 'text-foreground-500 shrink-0' })}
         <span className="text-xs font-bold uppercase tracking-widest text-foreground-500">{label}</span>
       </div>
-      <span
-        className="text-sm font-bold leading-tight"
-        style={valueColor ? { color: valueColor } : undefined}
-      >
+      <span className={`text-sm font-bold leading-tight ${valueClassName ?? ''}`}>
         {value}
       </span>
     </div>
@@ -97,6 +97,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const hasMounted = useHasMounted();
   const { data: cellars } = useCellars();
   const updateMutation = useUpdateInventoryItem();
+  const togglePause = useToggleAlertPause();
   const rollbackMutation = useRollbackField();
   const [tastingOpen, setTastingOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -212,8 +213,14 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const halfLabel = t('inventory.detail.half');
   const emptyLabel = t('inventory.detail.empty');
 
-  const fieldLabel = (field: string): string => t(`inventory.fields.${field}`, { defaultValue: field });
+  const fieldLabel = (field: string): string => historyFieldLabel(field, t);
+  const historyValueContext = {
+    lang: i18n.language,
+    cellarName: (id: string) => cellars?.find((c) => c.id === id)?.name,
+  };
 
+  // #508: translated labels and readable values instead of
+  // "cellarId: "3f2a…"", and no more "Level adjusted to 50% (50%)".
   const formatHistoryEntry = (entry: InventoryHistoryEntry): string => {
     if (!entry.changes || entry.changes.length === 0) {
       return t(`traceability.actions.${entry.action.toLowerCase()}`);
@@ -221,13 +228,18 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
     if (entry.action === 'RESTORE_FIELD' && entry.changes.length === 1) {
       return t('traceability.restoredField', { field: fieldLabel(entry.changes[0].field) });
     }
-    const fillChange = entry.changes.find(c => c.field === 'fillLevel');
-    if (fillChange) {
-      const val = fillChange.to as number;
-      const label = val >= 100 ? t('inventory.detail.full') : val === 0 ? t('inventory.detail.empty') : `${val}%`;
-      return `${t('inventory.detail.levelAdjusted')} ${val}% (${label})`;
-    }
-    return entry.changes.map(c => `${c.field}: ${JSON.stringify(c.to)}`).join(', ');
+    return entry.changes
+      .map((c) => {
+        if (c.field === 'fillLevel' && typeof c.to === 'number') {
+          const level = c.to >= 100 ? t('inventory.detail.full') : c.to === 0 ? t('inventory.detail.empty') : `${c.to}%`;
+          return `${t('inventory.detail.levelAdjusted')} ${level}`;
+        }
+        return t('traceability.changeLine', {
+          field: fieldLabel(c.field),
+          value: formatHistoryValue(c.field, c.to, t, historyValueContext),
+        });
+      })
+      .join(' · ');
   };
 
   return (
@@ -419,7 +431,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                       icon={<Flame />}
                       label={isCigar ? t('inventory.detail.agingEstimate') : t('inventory.fields.peakMaturity')}
                       value={drinkingWindow}
-                      valueColor="#B45309"
+                      valueClassName="text-warning-700 dark:text-warning"
                     />
                   )}
                   {isWineOrSparkling && drinkingWindow && (
@@ -445,7 +457,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                   {d.serviceTemp && (
                     <InfoCard
                       icon={<Thermometer />}
-                      label={isCigar ? t('inventory.fields.serviceTemp') + ' garde' : t('inventory.fields.serviceTemp')}
+                      label={isCigar ? t('inventory.fields.storageTemp') : t('inventory.fields.serviceTemp')}
                       value={d.serviceTemp}
                     />
                   )}
@@ -453,7 +465,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                     <InfoCard
                       icon={<Droplets />}
                       label={t('inventory.fields.recommendedHumidity')}
-                      value={`${d.recommendedHumidity}% HR`}
+                      value={t('inventory.detail.humidityValue', { value: d.recommendedHumidity })}
                     />
                   )}
                   {(cellarName || d.location) && (
@@ -461,7 +473,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                       icon={<MapPin />}
                       label={t('inventory.detail.location')}
                       value={[cellarName, d.location].filter(Boolean).join(' › ')}
-                      valueColor="#7B1E30"
+                      valueClassName="text-secondary dark:text-foreground"
                     />
                   )}
                   {d.purchasePrice != null && (
@@ -477,6 +489,27 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                     />
                   )}
                 </div>
+
+                {/* #506: pausing a peak alert used to be possible only from the
+                    bell, which hides paused alerts — so it could never be
+                    resumed. The toggle lives here, both ways. */}
+                {drinkingWindow && isOwnedItem(d) && (
+                  <div className="flex items-center justify-between gap-2 -mt-2 mb-5">
+                    <span className="text-xs text-foreground-500">
+                      {d.alertsPaused ? t('alerts.paused') : t('alerts.title')}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="bordered"
+                      color={d.alertsPaused ? 'primary' : 'default'}
+                      startContent={d.alertsPaused ? <Bell size={14} /> : <BellOff size={14} />}
+                      onPress={() => togglePause.mutate(item.id)}
+                      isLoading={togglePause.isPending}
+                    >
+                      {d.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')}
+                    </Button>
+                  </div>
+                )}
 
                 {/* Cigar vitole section — quantity itself is shown by the
                     +/- stepper above, not duplicated here. */}
@@ -586,6 +619,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                               </span>
                               <span className="flex-1 text-xs text-foreground-500">
                                 {formatHistoryEntry(entry)}
+                                {entry.viaGuest && ` · ${t('traceability.viaGuest')}`}
                               </span>
                               <span className="shrink-0 text-xs text-foreground-400">
                                 {hasMounted ? formatDate(entry.createdAt, i18n.language) : ''}
@@ -699,7 +733,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                   {rollbackTarget &&
                     t('traceability.restoreConfirm.body', {
                       field: fieldLabel(rollbackTarget.field),
-                      value: formatHistoryValue(rollbackTarget.from, t),
+                      value: formatHistoryValue(rollbackTarget.field, rollbackTarget.from, t, historyValueContext),
                     })}
                 </p>
                 {rollbackMutation.isError && (
@@ -734,9 +768,3 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   );
 }
 
-/** Human-readable rendering of a raw historical field value inside the rollback confirmation copy. */
-function formatHistoryValue(value: unknown, t: (key: string) => string): string {
-  if (value === null || value === undefined || value === '') return t('actions.none');
-  if (typeof value === 'boolean') return value ? t('traceability.booleanTrue') : t('traceability.booleanFalse');
-  return String(value);
-}

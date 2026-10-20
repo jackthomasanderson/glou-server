@@ -63,7 +63,7 @@ services:
   # Optional label scan: docker compose -f docker-compose.dev.yml --profile scan up -d
   ollama:
     profiles: ["scan"]
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.6
     restart: unless-stopped
     mem_limit: 4g
     environment:
@@ -84,7 +84,7 @@ services:
 
   ollama-pull:
     profiles: ["scan"]
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.6
     restart: "no"
     depends_on:
       ollama:

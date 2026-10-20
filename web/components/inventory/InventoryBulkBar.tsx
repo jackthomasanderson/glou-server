@@ -65,7 +65,7 @@ export function InventoryBulkBar({
     <>
       {/* Bulk floating bar */}
       {bulkMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-[80px] md:bottom-6 left-1/2 -translate-x-1/2 z-[1200] bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">
+        <div className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 left-1/2 -translate-x-1/2 z-[1200] bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">
           <span className="font-bold text-primary" aria-live="polite">{t('bulk.selected', { count: selectedIds.size })}</span>
           <Button color="primary" onPress={onOpenDialog}>
             {t('bulk.title')}

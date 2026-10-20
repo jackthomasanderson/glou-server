@@ -5,6 +5,7 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
+import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
 
 // ─── FEAT-16/23 — offline sync conflict resolution ─────────────────────────
 // Surfaces whenever a queued offline mutation comes back from the server
@@ -14,24 +15,8 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 // at a time; resolving it reveals the next one, if any (rare in the shared
 // single-inventory model, but possible with concurrent editors).
 
-/** Translated label of a raw InventoryItem key (the form's `inventory.fields.*`),
- * falling back to a mechanical camelCase split for keys without one. */
-function fieldLabel(key: string, t: (key: string, options?: Record<string, unknown>) => string): string {
-  return t(`inventory.fields.${key}`, { defaultValue: key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase()) });
-}
-
-/** Mirrors `formatHistoryValue` in InventoryDetailDialog.tsx (same i18n keys,
- * same conventions for rendering a raw field value as human-readable text) —
- * kept local here since that helper isn't exported. */
-function formatValue(value: unknown, t: (key: string) => string): string {
-  if (value === null || value === undefined || value === '') return t('actions.none');
-  if (typeof value === 'boolean') return value ? t('traceability.booleanTrue') : t('traceability.booleanFalse');
-  if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : t('actions.none');
-  return String(value);
-}
-
 export function ConflictResolutionModal() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { conflictMutations, resolveKeepLocal, resolveKeepServer } = useOfflineSync();
   const [isResolving, setIsResolving] = React.useState(false);
   // "Decide later" hides a conflict for this session only; it stays queued and
@@ -101,9 +86,9 @@ export function ConflictResolutionModal() {
             </div>
             {fields.map((field) => (
               <div key={field} className="grid grid-cols-3 gap-2 px-3 py-2 text-sm border-t border-divider">
-                <span className="text-foreground-500">{fieldLabel(field, t)}</span>
-                <span className="font-medium text-primary">{formatValue((current.patch as Record<string, unknown>)[field], t)}</span>
-                <span className="font-medium text-warning-600">{formatValue(serverItem?.[field], t)}</span>
+                <span className="text-foreground-500">{historyFieldLabel(field, t)}</span>
+                <span className="font-medium text-primary">{formatHistoryValue(field, (current.patch as Record<string, unknown>)[field], t, { lang: i18n.language })}</span>
+                <span className="font-medium text-warning-600">{formatHistoryValue(field, serverItem?.[field], t, { lang: i18n.language })}</span>
               </div>
             ))}
           </div>

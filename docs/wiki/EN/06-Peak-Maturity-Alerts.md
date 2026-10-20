@@ -40,14 +40,20 @@ The **Peak Maturity Alerts** panel appears at the top of the dashboard when a no
 
 ### 4. Pause or resume an alert
 
-In the alert center, click the bell icon on the right side of a bottle's row.
+In the notification bell, click the bell icon on the right side of a bottle's row, or open the bottle and use **Pause alert** under its drinking window.
 
-- The bottle is removed from the alert center.
+- The bottle is removed from the bell and the alert center.
 - Its card badge switches to grey with an outlined style (reduced opacity).
-- Click the icon again to resume.
+- To resume, open the bottle and click **Resume alert**.
 
 > [!CAUTION]
 > Pausing an alert does not modify the stored drinking window. Resuming restores the computed status with no data loss.
+
+### 5. Notifications
+
+Statuses are recomputed once a day. When bottles enter their drinking window, every member receives **one** notification for the day (email, Gotify, per their preferences): the bottle's name if there is only one, otherwise a summary listing the first ten with a link to the alerts. Since statuses change by calendar year, most bottles enter their window on 1 January.
+
+No notification is sent for a bottle that is added, or whose window is edited, while it is already inside its window: it shows directly as **At peak** in the list and the bell.
 
 ## Troubleshooting
 

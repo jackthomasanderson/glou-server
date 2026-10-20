@@ -12,12 +12,17 @@
 // Safari and `matchMedia` is missing from jsdom, and neither must ever break
 // the render.
 
+import { readStorageMigrating, safeRemoveStorage } from './safe-storage';
+
 export type ThemeMode = 'light' | 'dark';
 
 /** Server-side enum used by `PATCH /api/user/preferences`. */
-export type ThemePreference = 'LIGHT' | 'DARK';
+/** 'SYSTEM' (#513) = follow the OS light/dark setting. */
+export type ThemePreference = 'LIGHT' | 'DARK' | 'SYSTEM';
 
-export const THEME_STORAGE_KEY = 'glou-theme';
+export const THEME_STORAGE_KEY = 'glou:theme';
+/** Key name before #139; still read (and migrated) so nobody's choice is lost. */
+export const LEGACY_THEME_STORAGE_KEY = 'glou-theme';
 
 export function isThemeMode(value: unknown): value is ThemeMode {
   return value === 'light' || value === 'dark';
@@ -26,7 +31,7 @@ export function isThemeMode(value: unknown): value is ThemeMode {
 export function readStoredTheme(): ThemeMode | null {
   if (typeof window === 'undefined') return null;
   try {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    const stored = readStorageMigrating(window.localStorage, THEME_STORAGE_KEY, LEGACY_THEME_STORAGE_KEY);
     return isThemeMode(stored) ? stored : null;
   } catch {
     return null;
@@ -40,6 +45,13 @@ export function writeStoredTheme(mode: ThemeMode): void {
   } catch {
     // Storage disabled/full: the in-memory state still drives this session.
   }
+}
+
+/** #513: forget the cached choice so the OS preference drives the mode again. */
+export function clearStoredTheme(): void {
+  if (typeof window === 'undefined') return;
+  safeRemoveStorage(window.localStorage, THEME_STORAGE_KEY);
+  safeRemoveStorage(window.localStorage, LEGACY_THEME_STORAGE_KEY);
 }
 
 /** `null` when the browser cannot report an OS preference. */
@@ -87,4 +99,4 @@ export function applyTheme(mode: ThemeMode): void {
  * bundle is parsed and therefore cannot import it. Keep both in sync — the
  * storage key and the `dark` class are the shared contract.
  */
-export const THEME_INIT_SCRIPT = `(function(){try{var m=null;try{m=window.localStorage.getItem('${THEME_STORAGE_KEY}')}catch(e){}if(m!=='light'&&m!=='dark'){m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}var r=document.documentElement;if(m==='dark'){r.classList.add('dark')}else{r.classList.remove('dark')}r.style.colorScheme=m}catch(e){}})();`;
+export const THEME_INIT_SCRIPT = `(function(){try{var m=null;try{var s=window.localStorage;m=s.getItem('${THEME_STORAGE_KEY}')||s.getItem('${LEGACY_THEME_STORAGE_KEY}')}catch(e){}if(m!=='light'&&m!=='dark'){m=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}var r=document.documentElement;if(m==='dark'){r.classList.add('dark')}else{r.classList.remove('dark')}r.style.colorScheme=m}catch(e){}})();`;

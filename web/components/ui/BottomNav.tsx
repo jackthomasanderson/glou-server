@@ -1,9 +1,10 @@
 'use client';
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button, Modal, ModalContent, ModalBody } from '@heroui/react';
 import {
-  Wine, Sparkles, Dumbbell, Leaf, Warehouse, Library, BarChart3,
+  Wine, Sparkles, GlassWater, Leaf, Warehouse, Library, BarChart3,
   Martini, ClipboardCheck, Wallet, MoreHorizontal,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +27,7 @@ export function BottomNav() {
   const primaryLinks = [
     { label: t('nav.wines'), href: '/bottles?category=wine', category: 'wine', icon: <Wine size={22} /> },
     { label: t('nav.sparkling'), href: '/bottles?category=sparkling', category: 'sparkling', icon: <Sparkles size={22} /> },
-    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <Dumbbell size={22} /> },
+    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <GlassWater size={22} /> },
     { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={22} /> },
   ];
 
@@ -60,12 +61,12 @@ export function BottomNav() {
             const active = link.category
               ? pathname === '/bottles' && categoryParam === link.category
               : pathname.startsWith(link.href);
+            // #523: real links (announced as navigation, long-press "open in
+            // new tab", prefetched) rather than buttons calling router.push.
             return (
-              <button
+              <Link
                 key={link.href}
-                type="button"
-                onClick={() => router.push(link.href)}
-                aria-label={link.label}
+                href={link.href}
                 aria-current={active ? 'page' : undefined}
                 className={`relative flex flex-col items-center justify-center flex-1 gap-0.5 min-w-0 py-1 transition-colors ${
                   active ? 'text-primary' : 'text-foreground-500'
@@ -79,7 +80,7 @@ export function BottomNav() {
                 <span className={`text-xs leading-tight truncate max-w-full px-1 ${active ? 'font-extrabold' : 'font-semibold'}`}>
                   {link.label}
                 </span>
-              </button>
+              </Link>
             );
           })}
           <button

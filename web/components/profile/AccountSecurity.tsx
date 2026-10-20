@@ -6,6 +6,7 @@ import { Lock } from 'lucide-react';
 import { PublicUser, useUpdateEmail, useUpdatePassword, useUpdatePreferences, useSetPin, useRemovePin } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
+import { PASSWORD_MIN_LENGTH } from '@/lib/password';
 
 export function AccountSecurity({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
@@ -308,7 +309,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
                   color="primary"
                   variant="solid"
                   onPress={handleConfirmPassword}
-                  isDisabled={!currentPassword || newPassword.length < 8 || updatePassword.isPending}
+                  isDisabled={!currentPassword || newPassword.length < PASSWORD_MIN_LENGTH || updatePassword.isPending}
                   isLoading={updatePassword.isPending}
                 >
                   {t('actions.confirm')}

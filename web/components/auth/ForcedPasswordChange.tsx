@@ -6,6 +6,7 @@ import { KeyRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useUpdatePassword } from '@/hooks/useAuth';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { PASSWORD_MIN_LENGTH } from '@/lib/password';
 import { useRestoreFocus } from '@/hooks/useRestoreFocus';
 
 const ME_KEY = ['auth', 'me'];
@@ -104,7 +105,7 @@ export function ForcedPasswordChange() {
               color="primary"
               variant="solid"
               fullWidth
-              isDisabled={!currentPassword || newPassword.length < 8 || updatePassword.isPending}
+              isDisabled={!currentPassword || newPassword.length < PASSWORD_MIN_LENGTH || updatePassword.isPending}
               isLoading={updatePassword.isPending}
             >
               {t('forcedPasswordChange.submit')}
