@@ -1,8 +1,7 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
-import { CircularProgress } from '@heroui/react';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useMe } from '@/hooks/useAuth';
 import { AutoLockProvider, useAutoLock } from '@/hooks/useAutoLock';
@@ -21,14 +20,6 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, user, router]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" role="status" aria-live="polite">
-        <CircularProgress color="primary" size="md" isIndeterminate aria-label={t('status.loading')} />
-      </div>
-    );
-  }
-
   // Server unreachable / 5xx: not the same as "not authenticated" (#341).
   if (isError && user === undefined) {
     return (
@@ -43,14 +34,35 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return null;
+  // ISSUE_389: confirmed logged out (not merely still loading) — render
+  // nothing while the redirect effect above fires.
+  if (user === null) return null;
+
+  // ISSUE_389: for both `isLoading` (user === undefined, `/me` still in
+  // flight) and a resolved user, the tree below mounts the same way —
+  // children no longer wait for `/me` to resolve before their own data
+  // hooks (inventory, cellars, ...) fire, since those already send the
+  // session cookie independently of this request. Every consumer of
+  // `useMe()` in this tree already treats `user` as possibly
+  // null/undefined (it legitimately is, right after a real logout) — this
+  // just widens that same "briefly undefined" window to cover first load.
+  //
+  // One side effect: AuthGuardContent (which calls useSearchParams(), for
+  // the onboarding-wizard `?onboarding=1` param) used to only ever be
+  // reached once `isLoading` was false on the client — during static
+  // prerendering, `isLoading` is always true on the very first pass, so
+  // it was never actually rendered there. Now that this path reaches it
+  // too, it needs its own Suspense boundary, same fix as ISSUE_434's
+  // Sidebar/BottomNav/MainLayout.
 
   // AutoLockProvider mounts the lock state machine once for the whole
   // authenticated tree, so the header's quick-lock button and this guard's
   // LockScreen always agree on `isLocked` (see hooks/useAutoLock.ts).
   return (
     <AutoLockProvider>
-      <AuthGuardContent>{children}</AuthGuardContent>
+      <Suspense fallback={null}>
+        <AuthGuardContent>{children}</AuthGuardContent>
+      </Suspense>
     </AutoLockProvider>
   );
 }
