@@ -148,7 +148,7 @@ export function CollectionsDashboard() {
           isIconOnly
           onPress={() => setFormOpen(true)}
           aria-label={t('collections.create')}
-          className="fixed bottom-20 md:bottom-6 right-6 z-50 shadow-lg"
+          className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 right-6 z-50 shadow-lg"
         >
           <Plus size={24} />
         </Button>

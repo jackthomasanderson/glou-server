@@ -179,7 +179,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
         </header>
 
         {/* Page content */}
-        <main id="main-content" tabIndex={-1} className="flex-1 pb-16 md:pb-0 outline-none">
+        <main id="main-content" tabIndex={-1} className="flex-1 pb-[var(--bottom-nav-h)] md:pb-0 outline-none">
           {children}
         </main>
       </div>

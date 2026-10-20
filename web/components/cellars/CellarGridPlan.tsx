@@ -16,7 +16,8 @@ import { Flame, Snowflake } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
@@ -144,7 +145,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
             onClickOccupied(item);
           }
         }}
-        className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-none outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-primary"
         style={{
           backgroundColor: getCellColor(item),
           cursor: isDragging ? 'grabbing' : 'grab',
@@ -467,9 +468,15 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
 
   // ─── DnD sensors ─────────────────────────────────────────────────────────
 
+  // #512: on a phone a swipe that starts on a bottle must scroll the map,
+  // not move the bottle — touch drags start with a long press instead, and
+  // cells use touch-action: manipulation (dnd-kit's advice for a delay).
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
     }),
     // #199: without it the grid was mouse/touch only (WCAG 2.1.1).
     useSensor(KeyboardSensor, {

@@ -503,7 +503,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Loading skeletons */}
           {isLoading && effectiveViewMode === 'grid' && (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 sm:gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <InventoryCardSkeleton key={i} />
               ))}
@@ -578,7 +578,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         radius="full"
         size="lg"
         isIconOnly
-        className="fixed bottom-[84px] md:bottom-6 right-4 z-30 sm:hidden shadow-lg"
+        className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 right-4 z-30 sm:hidden shadow-lg"
         onPress={() => setMode('creating')}
         aria-label={t('inventory.add')}
       >

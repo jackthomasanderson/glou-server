@@ -16,6 +16,14 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* #526: real height of the mobile bottom bar (BottomNav.tsx: h-16 plus the
+ * iPhone home-indicator inset since #401). Floating buttons, the bulk bar,
+ * the undo toast and the page's bottom padding are positioned from it, so
+ * they sit above the bar on every phone. */
+:root {
+  --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom));
+}
+
 /* Safari before 18.2 ignores scrollbar-gutter: always reserve the scrollbar
    there instead (#214). */
 @supports not (scrollbar-gutter: stable) {
