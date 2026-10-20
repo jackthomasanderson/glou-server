@@ -8,8 +8,8 @@ Ajouter une bouteille à une cave et lui assigner une catégorie.
 * Être connecté à son compte.
 
 ## Action
-1. Depuis l'onglet **Bouteilles** ou **Caves**, cliquez sur **+ Ajouter**.
-2. **Étape 1 (Tronc commun)** : Sélectionnez la catégorie : Vin, Pétillant ou Spiritueux.
+1. Ouvrez **Vins**, **Bulles**, **Spiritueux** ou **Cigares** dans la navigation, puis cliquez sur **+ Ajouter** (sur téléphone, le bouton rond **+**). Le formulaire s'ouvre sur cette catégorie.
+2. **Étape 1 (Tronc commun)** : Vérifiez ou changez la catégorie : Vin, Bulles, Spiritueux ou Cigare.
 3. Choisissez la cave de destination.
 4. Saisissez le nom du produit et le producteur. Les champs proposent une **autocomplétion via Google** dès 2 caractères. Si une suggestion contient un millésime, il est extrait automatiquement dans le champ Millésime. Voir [08-Autocompletion-Image.md](./08-Autocompletion-Image.md).
 5. Si une bouteille identique existe déjà dans votre cave, une alerte de **doublon** s'affiche avant la sauvegarde. Vous pouvez ignorer l'avertissement et confirmer l'ajout.

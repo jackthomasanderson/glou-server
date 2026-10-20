@@ -105,4 +105,4 @@ Des dizaines de fonctionnalités plus petites sortent régulièrement ; voir les
 ## Crédits / Tiers
 
 - Ce produit inclut des données GeoLite créées par MaxMind, disponibles sur [http://maxmind.com/](http://maxmind.com/).
-- Fonds de carte par les contributeurs d'[OpenStreetMap](https://www.openstreetmap.org/copyright).
+- Contours de la carte du monde issus de [Natural Earth](https://www.naturalearthdata.com/) (domaine public), via [world-atlas](https://github.com/topojson/world-atlas).
