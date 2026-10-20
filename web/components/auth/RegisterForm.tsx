@@ -9,6 +9,7 @@ import NextLink from 'next/link';
 import { useRegister } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
+import { PASSWORD_MIN_LENGTH } from '@/lib/password';
 
 const createRegisterSchema = (t: (key: string) => string) =>
   z.object({
@@ -17,7 +18,7 @@ const createRegisterSchema = (t: (key: string) => string) =>
       .min(3, t('auth.errors.USERNAME_TOO_SHORT'))
       .regex(/^[a-zA-Z0-9_-]+$/, t('auth.errors.USERNAME_INVALID_CHARS')),
     email: z.string().email(t('auth.errors.VALIDATION_ERROR')),
-    password: z.string().min(12, t('auth.errors.PASSWORD_TOO_SHORT')),
+    password: z.string().min(PASSWORD_MIN_LENGTH, t('auth.errors.PASSWORD_TOO_SHORT')),
     confirmPassword: z.string(),
   }).refine((data) => data.password === data.confirmPassword, {
     message: t('auth.errors.PASSWORDS_DO_NOT_MATCH'),

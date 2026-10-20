@@ -1425,7 +1425,7 @@
     "invalidToken": "Ce lien est invalide ou a expiré.",
     "errors": {
       "INVALID_OR_EXPIRED_TOKEN": "Ce lien est invalide ou a expiré. Faites une nouvelle demande.",
-      "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 8 caractères.",
+      "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 12 caractères.",
       "PASSWORDS_MISMATCH": "Les mots de passe ne correspondent pas.",
       "UNEXPECTED_ERROR": "Une erreur est survenue. Réessayez."
     }

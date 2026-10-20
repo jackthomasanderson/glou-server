@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema, trustDeviceSchema } from '../schemas/auth.schema';
 import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.schema';
+import { PASSWORD_MIN_LENGTH } from '../schemas/password';
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
@@ -505,7 +506,7 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    if (newPassword.length < 8) {
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
       res.status(400).json({ error: 'PASSWORD_TOO_SHORT' });
       return;
     }
