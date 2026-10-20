@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { clearOfflineData } from '@/lib/offline/db';
 import { notifyError } from '@/lib/toast';
+import { clearQuickLock } from '@/lib/quick-lock-storage';
+import { postLoginPath } from '@/lib/auth/next-path';
 
 export interface PublicUser {
   id: string;
@@ -92,7 +94,8 @@ export function useLogin() {
         return;
       }
       queryClient.setQueryData<PublicUser | null>(ME_KEY, data);
-      router.push('/bottles');
+      clearQuickLock();
+      router.push(postLoginPath(window.location.search));
     },
   });
 }
@@ -165,6 +168,7 @@ export function useLogout() {
     onSettled: () => {
       queryClient.setQueryData(ME_KEY, null);
       queryClient.clear();
+      clearQuickLock();
       router.push('/login');
     },
   });
@@ -306,7 +310,8 @@ export function useVerify2faLogin() {
     mutationFn: (data) => apiFetch<PublicUser>('/api/auth/2fa/verify-login', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
-      router.push('/bottles');
+      clearQuickLock();
+      router.push(postLoginPath(window.location.search));
     },
   });
 }

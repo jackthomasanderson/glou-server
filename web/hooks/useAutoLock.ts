@@ -1,29 +1,19 @@
 'use client';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useMe, useUnlock } from './useAuth';
-import { safeReadStorage, safeRemoveStorage, safeWriteStorage } from '@/lib/safe-storage';
+import {
+  ACTIVITY_STORAGE_KEY, LOCK_STORAGE_KEY,
+  readStoredActivity, readStoredLock, writeStoredActivity, writeStoredLock,
+} from '@/lib/quick-lock-storage';
 
-// FEAT-30: Quick Lock & Auto-Lock — purely client-side. `isLocked` only hides
-// the UI behind a LockScreen; the session/JWT stays valid the whole time.
-// Persisted in sessionStorage so a page refresh keeps the app locked, but a
-// closed browser (new sessionStorage) starts unlocked again.
-const LOCK_STORAGE_KEY = 'glou-locked';
-const ACTIVITY_STORAGE_KEY = 'glou-last-activity';
+// FEAT-30: Quick Lock & Auto-Lock — `isLocked` only hides the UI behind a
+// LockScreen; the session/JWT stays valid the whole time. #487: the state is
+// kept in localStorage and synchronised across tabs (storage event), so a
+// new tab or a reopened installed app is locked too, and activity in one tab
+// keeps the others from auto-locking.
 const ACTIVITY_THROTTLE_MS = 10_000; // at most one activity write every 10s
 const CHECK_INTERVAL_MS = 5_000;
 const ACTIVITY_EVENTS = ['mousemove', 'keydown', 'click', 'scroll'] as const;
-
-function readStoredLock(): boolean {
-  if (typeof window === 'undefined') return false;
-  return safeReadStorage(sessionStorage, LOCK_STORAGE_KEY) === 'true';
-}
-
-function readStoredActivity(): number {
-  if (typeof window === 'undefined') return Date.now();
-  const raw = safeReadStorage(sessionStorage, ACTIVITY_STORAGE_KEY);
-  const parsed = raw ? Number(raw) : NaN;
-  return Number.isFinite(parsed) ? parsed : Date.now();
-}
 
 export interface AutoLockState {
   isLocked: boolean;
@@ -48,12 +38,20 @@ function useAutoLockState(): AutoLockState {
 
   const setLocked = useCallback((locked: boolean) => {
     setIsLockedState(locked);
-    if (typeof window === 'undefined') return;
-    if (locked) {
-      safeWriteStorage(sessionStorage, LOCK_STORAGE_KEY, 'true');
-    } else {
-      safeRemoveStorage(sessionStorage, LOCK_STORAGE_KEY);
-    }
+    writeStoredLock(locked);
+  }, []);
+
+  // Another tab locked/unlocked, or recorded activity.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LOCK_STORAGE_KEY) setIsLockedState(e.newValue === 'true');
+      if (e.key === ACTIVITY_STORAGE_KEY && e.newValue) {
+        const at = Number(e.newValue);
+        if (Number.isFinite(at)) lastActivityRef.current = Math.max(lastActivityRef.current, at);
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   /** Manual lock, triggered by the quick-lock button. */
@@ -68,7 +66,7 @@ function useAutoLockState(): AutoLockState {
       if (result.ok) {
         const now = Date.now();
         lastActivityRef.current = now;
-        if (typeof window !== 'undefined') safeWriteStorage(sessionStorage, ACTIVITY_STORAGE_KEY, String(now));
+        writeStoredActivity(now);
         setLocked(false);
       }
       return result.ok;
@@ -85,7 +83,7 @@ function useAutoLockState(): AutoLockState {
       if (now - lastThrottledWriteRef.current < ACTIVITY_THROTTLE_MS) return;
       lastThrottledWriteRef.current = now;
       lastActivityRef.current = now;
-      safeWriteStorage(sessionStorage, ACTIVITY_STORAGE_KEY, String(now));
+      writeStoredActivity(now);
     };
 
     ACTIVITY_EVENTS.forEach((evt) => window.addEventListener(evt, handleActivity, { passive: true }));

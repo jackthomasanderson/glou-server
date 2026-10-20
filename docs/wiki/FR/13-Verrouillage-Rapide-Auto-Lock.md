@@ -27,7 +27,7 @@ Verrouillez l'application en un clic, ou laissez-la se verrouiller seule après 
 > Verrouiller l'application ne met **pas** fin à votre session côté serveur : votre connexion reste valide. Cela masque uniquement l'interface derrière un écran de verrouillage sur cet appareil. Utilisez [11-Sessions-Appareils-De-Confiance.md](./11-Sessions-Appareils-De-Confiance.md) si vous devez réellement mettre fin à une session à distance (ex. appareil perdu).
 
 > [!CAUTION]
-> L'état verrouillé est stocké au niveau de la session de l'onglet du navigateur (effacé quand vous fermez complètement le navigateur). Rafraîchir la page conserve le verrouillage, mais rouvrir l'application dans une nouvelle session de navigateur démarre déverrouillé. L'auto-lock ne protège pas un appareil resté connecté après un redémarrage du navigateur.
+> L'état verrouillé est partagé par tous les onglets du navigateur et résiste à un rafraîchissement, à un redémarrage du navigateur ou à la réouverture de l'application installée : verrouiller dans un onglet les verrouille tous, et un nouvel onglet s'ouvre verrouillé. Se déconnecter, ou se reconnecter, le lève. Le verrouillage masque l'application ; il ne ferme pas la session.
 
 ## Le "Pare-feu" (Troubleshooting)
 
@@ -36,4 +36,4 @@ Verrouillez l'application en un clic, ou laissez-la se verrouiller seule après 
 | **L'onglet PIN n'apparaît pas sur l'écran de verrouillage** | Aucun PIN n'a encore été configuré pour votre compte. Déverrouillez avec votre mot de passe, puis configurez-en un dans Profil → Sécurité pour la prochaine fois. |
 | **Erreur "Trop de tentatives" au déverrouillage** | Les tentatives de déverrouillage sont limitées (10 essais par 15 minutes) pour empêcher le brute-force du PIN. Attendez 15 minutes ou déverrouillez avec votre mot de passe complet une fois la limite réinitialisée. |
 | **L'auto-lock se déclenche alors que je lis activement (sans cliquer)** | L'auto-lock suit les mouvements de souris, clics, frappes clavier et défilement. Une lecture passive sans aucune de ces actions pendant tout le délai déclenchera quand même le verrouillage. Faites défiler ou bougez la souris périodiquement, ou augmentez le délai. |
-| **L'application est encore verrouillée après avoir fermé puis rouvert le navigateur** | Normal uniquement si le navigateur a restauré votre session/onglets précédents. Une session de navigateur neuve démarre déverrouillée. |
+| **L'application est encore verrouillée après avoir fermé puis rouvert le navigateur** | Normal : le verrouillage reste en place jusqu'au déverrouillage (mot de passe ou PIN) ou à la déconnexion. |
