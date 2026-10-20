@@ -14,7 +14,7 @@ import { MapFiltersPanel } from './MapFiltersPanel';
 import { MapAssetList } from './MapAssetList';
 import { InventoryDetailDialog } from '@/components/inventory/InventoryDetailDialog';
 
-// World map loaded client-side only (react-leaflet relies on browser APIs)
+// World map loaded client-side only (react-simple-maps' d3-zoom dependency touches `window`)
 const WorldHeatmap = dynamic(
   () => import('./WorldHeatmap').then((m) => m.WorldHeatmap),
   {

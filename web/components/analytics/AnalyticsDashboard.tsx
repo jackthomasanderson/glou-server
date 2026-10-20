@@ -55,7 +55,8 @@ function periodToDates(period: Period): { from?: string; to?: string } {
 }
 
 // World map explorer (FEAT-40/41/42) loaded client-side only — it pulls in
-// react-leaflet, which relies on browser APIs unavailable during SSR.
+// react-simple-maps, whose d3-zoom dependency touches `window`, unavailable
+// during SSR.
 const MapExplorer = dynamic(
   () => import('./MapExplorer').then((m) => m.MapExplorer),
   {
