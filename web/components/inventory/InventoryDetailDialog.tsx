@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useCellars } from '@/hooks/useCellars';
 import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem, useRollbackField } from '@/hooks/useInventory';
+import { useToggleAlertPause } from '@/hooks/useAlerts';
 import { Button, Chip, Divider, Drawer, DrawerContent, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Tooltip } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
   Wine, BookMarked, GlassWater, Leaf, Sparkles, QrCode, Euro,
   FileSpreadsheet, ScanLine, History as HistoryIcon, TrendingUp,
-  Plus, Minus, PackagePlus,
+  Plus, Minus, PackagePlus, Bell, BellOff,
 } from 'lucide-react';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
@@ -96,6 +97,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const hasMounted = useHasMounted();
   const { data: cellars } = useCellars();
   const updateMutation = useUpdateInventoryItem();
+  const togglePause = useToggleAlertPause();
   const rollbackMutation = useRollbackField();
   const [tastingOpen, setTastingOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -487,6 +489,27 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                     />
                   )}
                 </div>
+
+                {/* #506: pausing a peak alert used to be possible only from the
+                    bell, which hides paused alerts — so it could never be
+                    resumed. The toggle lives here, both ways. */}
+                {drinkingWindow && isOwnedItem(d) && (
+                  <div className="flex items-center justify-between gap-2 -mt-2 mb-5">
+                    <span className="text-xs text-foreground-500">
+                      {d.alertsPaused ? t('alerts.paused') : t('alerts.title')}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="bordered"
+                      color={d.alertsPaused ? 'primary' : 'default'}
+                      startContent={d.alertsPaused ? <Bell size={14} /> : <BellOff size={14} />}
+                      onPress={() => togglePause.mutate(item.id)}
+                      isLoading={togglePause.isPending}
+                    >
+                      {d.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')}
+                    </Button>
+                  </div>
+                )}
 
                 {/* Cigar vitole section — quantity itself is shown by the
                     +/- stepper above, not duplicated here. */}

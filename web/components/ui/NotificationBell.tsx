@@ -1,10 +1,8 @@
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Button, Badge, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection, Chip, Tooltip,
-} from '@heroui/react';
-import { Bell, BellOff, Check } from 'lucide-react';
+import { Button, Badge, Chip, Popover, PopoverTrigger, PopoverContent } from '@heroui/react';
+import { Bell, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useHasMounted } from '@/hooks/useHasMounted';
@@ -20,15 +18,21 @@ const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'>
   approaching: 'primary',
 };
 
-type AlertEntry = { kind: 'alert'; id: string; alert: AlertBottle };
-type ReminderEntry = { kind: 'reminder'; id: string; item: InventoryItem };
-type NotificationEntry = AlertEntry | ReminderEntry;
+// #506: only what calls for action now is counted in the badge. A bottle
+// "approaching" its window (possibly 15 years ahead) is listed, not counted.
+const ACTIONABLE = new Set(['past', 'peak']);
+const STATUS_ORDER: Record<string, number> = { past: 0, peak: 1, approaching: 2 };
+
+/** Opens the item's drawer on its own page (same `?scan=` deep link as QR codes). */
+function itemHref(id: string, category: string): string {
+  return `${category === 'cigar' ? '/cigars' : '/bottles'}?scan=${encodeURIComponent(id)}`;
+}
 
 export function NotificationBell() {
   const { t } = useTranslation();
   // #380: the badge count comes from the lightweight /stats/counts endpoint
   // (already mounted app-wide for the sidebar); the full inventory — up to
-  // 2000 items — is only fetched once the dropdown is actually opened, to
+  // 2000 items — is only fetched once the panel is actually opened, to
   // build the detailed reminder list below.
   const [isOpen, setIsOpen] = useState(false);
   const { data: sidebarCounts } = useSidebarCounts();
@@ -47,20 +51,19 @@ export function NotificationBell() {
 
   const alertItems: AlertBottle[] = useMemo(() => {
     if (!apogeeAlerts || !hasMounted) return [];
-    return apogeeAlerts;
+    return [...apogeeAlerts].sort(
+      (a, b) => (STATUS_ORDER[a.alertStatus ?? ''] ?? 9) - (STATUS_ORDER[b.alertStatus ?? ''] ?? 9),
+    );
   }, [apogeeAlerts, hasMounted]);
 
-  // Badge: cheap count + lean alerts endpoint. Dropdown content (entries
-  // below): the detailed reminder list once it has actually been fetched.
-  const badgeCount = (sidebarCounts?.remindersToday ?? 0) + alertItems.length;
-  const count = isOpen ? reminderItems.length + alertItems.length : badgeCount;
+  const actionableAlerts = alertItems.filter((a) => ACTIONABLE.has(a.alertStatus ?? ''));
+  const badgeCount = (sidebarCounts?.remindersToday ?? 0) + actionableAlerts.length;
+  const count = isOpen ? reminderItems.length + actionableAlerts.length : badgeCount;
 
-  const entries: NotificationEntry[] = useMemo(() => [
-    ...alertItems.slice(0, 5).map((a): AlertEntry => ({ kind: 'alert', id: `apogee-${a.id}`, alert: a })),
-    ...reminderItems.slice(0, 5).map((r): ReminderEntry => ({ kind: 'reminder', id: `reminder-${r.id}`, item: r })),
-  ], [alertItems, reminderItems]);
-
-  const handleViewAll = () => router.push('/bottles?filter=alerts');
+  const go = (href: string) => {
+    setIsOpen(false);
+    router.push(href);
+  };
 
   // Avoid hydration mismatch — render plain button until mounted
   if (!hasMounted) {
@@ -71,9 +74,14 @@ export function NotificationBell() {
     );
   }
 
+  const isEmpty = alertItems.length === 0 && reminderItems.length === 0;
+
+  // #506: a panel of real buttons (each row opens the bottle, its action is
+  // a separate button reachable with Tab) instead of buttons nested inside
+  // menu items, which the keyboard could not reach.
   return (
-    <Dropdown placement="bottom-end" onOpenChange={setIsOpen}>
-      <DropdownTrigger>
+    <Popover placement="bottom-end" isOpen={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger>
         <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')} className="overflow-visible">
           {count > 0 ? (
             <Badge content={count} color="danger" size="sm" placement="top-right">
@@ -83,80 +91,81 @@ export function NotificationBell() {
             <Bell size={18} />
           )}
         </Button>
-      </DropdownTrigger>
-      <DropdownMenu
-        aria-label={t('inventory.alerts.title')}
-        variant="flat"
-        className="w-80 max-h-96 overflow-y-auto"
-      >
-        {count === 0 ? (
-          <DropdownSection>
-            <DropdownItem key="empty" isDisabled>
-              <span className="text-foreground-500 text-sm">{t('inventory.noNotifications')}</span>
-            </DropdownItem>
-          </DropdownSection>
-        ) : (
-          <DropdownSection title={t('alerts.title')} showDivider items={entries}>
-            {(entry) => entry.kind === 'alert' ? (
-              <DropdownItem
-                key={entry.id}
-                onPress={handleViewAll}
-                description={`${entry.alert.producer}${entry.alert.vintage ? ` · ${entry.alert.vintage}` : ''}${entry.alert.peakMaturityFrom ? ` · ${entry.alert.peakMaturityFrom}–${entry.alert.peakMaturityTo}` : ''}`}
-                startContent={
-                  <Chip size="sm" color={STATUS_COLOR[entry.alert.alertStatus ?? 'default'] ?? 'default'} variant="flat">
-                    {t(`inventory.alertStatus.${entry.alert.alertStatus ?? 'none'}`)}
-                  </Chip>
-                }
-                endContent={
-                  <Tooltip content={entry.alert.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')} delay={500}>
-                    <Button
-                      isIconOnly size="sm" variant="light"
-                      color={entry.alert.alertsPaused ? 'default' : 'primary'}
-                      onClick={(e) => { e.stopPropagation(); togglePause.mutate(entry.alert.id); }}
-                      isDisabled={togglePause.isPending}
-                      aria-label={entry.alert.alertsPaused ? t('alerts.resumeAlert') : t('alerts.pauseAlert')}
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0">
+        <div className="w-full max-h-96 overflow-y-auto py-2" aria-label={t('inventory.alerts.title')}>
+          {isEmpty ? (
+            <p className="px-4 py-3 text-sm text-foreground-500">{t('inventory.noNotifications')}</p>
+          ) : (
+            <>
+              <p className="px-4 pb-1 text-xs font-semibold text-foreground-500">{t('alerts.title')}</p>
+              <ul className="flex flex-col">
+                {alertItems.slice(0, 5).map((alert) => (
+                  <li key={`apogee-${alert.id}`} className="flex items-center gap-1 px-2">
+                    <button
+                      type="button"
+                      onClick={() => go(itemHref(alert.id, alert.category))}
+                      className="flex-1 min-w-0 flex items-start gap-2 text-left rounded-lg px-2 py-2 hover:bg-default-100 focus-visible:outline-2 focus-visible:outline-primary"
                     >
-                      {entry.alert.alertsPaused ? <BellOff size={14} /> : <Bell size={14} />}
+                      <Chip size="sm" color={STATUS_COLOR[alert.alertStatus ?? 'default'] ?? 'default'} variant="flat" className="shrink-0">
+                        {t(`inventory.alertStatus.${alert.alertStatus ?? 'none'}`)}
+                      </Chip>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold truncate">{alert.name}</span>
+                        <span className="block text-xs text-foreground-500 truncate">
+                          {`${alert.producer}${alert.vintage ? ` · ${alert.vintage}` : ''}${alert.peakMaturityFrom ? ` · ${alert.peakMaturityFrom}–${alert.peakMaturityTo}` : ''}`}
+                        </span>
+                      </span>
+                    </button>
+                    <Button
+                      isIconOnly size="sm" variant="light" color="primary"
+                      onPress={() => togglePause.mutate(alert.id)}
+                      isDisabled={togglePause.isPending}
+                      aria-label={`${t('alerts.pauseAlert')} — ${alert.name}`}
+                      title={t('alerts.pauseAlert')}
+                    >
+                      <Bell size={14} />
                     </Button>
-                  </Tooltip>
-                }
-              >
-                <span className="text-sm font-semibold">{entry.alert.name}</span>
-              </DropdownItem>
-            ) : (
-              <DropdownItem
-                key={entry.id}
-                startContent={<Bell size={14} className="text-danger" />}
-                description={entry.item.producer}
-                onPress={handleViewAll}
-                endContent={
-                  <Tooltip content={t('inventory.alerts.reminderDone')} delay={500}>
+                  </li>
+                ))}
+                {reminderItems.slice(0, 5).map((item) => (
+                  <li key={`reminder-${item.id}`} className="flex items-center gap-1 px-2">
+                    <button
+                      type="button"
+                      onClick={() => go(itemHref(item.id, item.category))}
+                      className="flex-1 min-w-0 flex items-start gap-2 text-left rounded-lg px-2 py-2 hover:bg-default-100 focus-visible:outline-2 focus-visible:outline-primary"
+                    >
+                      <Bell size={14} className="text-danger shrink-0 mt-0.5" aria-hidden="true" />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold truncate">{item.name}</span>
+                        <span className="block text-xs text-foreground-500 truncate">{item.producer}</span>
+                      </span>
+                    </button>
                     <Button
                       isIconOnly size="sm" variant="light" color="success"
-                      onClick={(e) => { e.stopPropagation(); updateItem.mutate({ id: entry.item.id, patch: { reminderDate: null } }); }}
+                      onPress={() => updateItem.mutate({ id: item.id, patch: { reminderDate: null } })}
                       isDisabled={updateItem.isPending}
-                      aria-label={t('inventory.alerts.reminderDone')}
+                      aria-label={`${t('inventory.alerts.reminderDone')} — ${item.name}`}
+                      title={t('inventory.alerts.reminderDone')}
                     >
                       <Check size={14} />
                     </Button>
-                  </Tooltip>
-                }
-              >
-                <span className="text-sm font-semibold">{entry.item.name}</span>
-              </DropdownItem>
-            )}
-          </DropdownSection>
-        )}
-        <DropdownSection>
-          <DropdownItem
-            key="view-all"
-            className="text-primary font-bold text-center justify-center"
-            onPress={handleViewAll}
-          >
-            {t('inventory.alerts.viewAll')}
-          </DropdownItem>
-        </DropdownSection>
-      </DropdownMenu>
-    </Dropdown>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="border-t border-divider mt-1 pt-1 px-2">
+            <button
+              type="button"
+              onClick={() => go('/bottles?filter=alerts')}
+              className="w-full rounded-lg px-2 py-2 text-sm font-bold text-primary text-center hover:bg-default-100 focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              {t('inventory.alerts.viewAll')}
+            </button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
