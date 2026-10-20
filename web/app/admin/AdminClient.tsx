@@ -53,6 +53,7 @@ export function AdminClient() {
 
   const [isPurgeDialogOpen, setIsPurgeDialogOpen] = React.useState(false);
   const [confirmationText, setConfirmationText] = React.useState('');
+  const [purgePassword, setPurgePassword] = React.useState('');
   const [purgeResult, setPurgeResult] = React.useState<PurgeResult | null>(null);
   const [purgeError, setPurgeError] = React.useState<string | null>(null);
 
@@ -104,16 +105,18 @@ export function AdminClient() {
     : '';
 
   const handleConfirmPurge = () => {
-    if (confirmationText !== t('admin.maintenance.purge.keywordValue')) return;
-    purgeAll(confirmationText, {
+    if (confirmationText !== t('admin.maintenance.purge.keywordValue') || !purgePassword) return;
+    setPurgeError(null);
+    purgeAll({ password: purgePassword }, {
       onSuccess: (data: PurgeResult) => {
         setPurgeResult(data);
         setIsPurgeDialogOpen(false);
         setConfirmationText('');
+        setPurgePassword('');
       },
+      // The fetch client throws Error(<API error code>).
       onError: (err: unknown) => {
-        const apiError = err as { response?: { data?: { error?: string } } };
-        setPurgeError(apiError.response?.data?.error || 'PURGE_FAILED');
+        setPurgeError(err instanceof Error && err.message ? err.message : 'PURGE_FAILED');
       },
     });
   };
@@ -320,13 +323,13 @@ export function AdminClient() {
         {purgeResult && (
           <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-xl px-4 py-3 mb-4">
             <p className="font-semibold mb-1">{t('admin.maintenance.purge.success')}</p>
-            <p className="text-xs">{t('admin.maintenance.purge.counts.bottles', { count: purgeResult.counts.bottles })} · {t('admin.maintenance.purge.counts.cellars', { count: purgeResult.counts.cellars })} · {t('admin.maintenance.purge.counts.logs', { count: purgeResult.counts.auditLogs })}</p>
+            <p className="text-xs">{t('admin.maintenance.purge.counts.bottles', { count: purgeResult.counts.items })} · {t('admin.maintenance.purge.counts.cellars', { count: purgeResult.counts.cellars })} · {t('admin.maintenance.purge.counts.logs', { count: purgeResult.counts.auditLogs })}</p>
           </div>
         )}
 
         {purgeError && (
           <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3 mb-4">
-            {t('admin.maintenance.purge.error')} ({purgeError})
+            {t(`admin.maintenance.purge.errors.${purgeError}`, { defaultValue: `${t('admin.maintenance.purge.error')} (${purgeError})` })}
           </div>
         )}
 
@@ -377,13 +380,23 @@ export function AdminClient() {
                   isDisabled={isPurging}
                   autoFocus
                 />
+                <Input
+                  type="password"
+                  autoComplete="current-password"
+                  label={t('admin.maintenance.purge.passwordLabel')}
+                  value={purgePassword}
+                  onValueChange={setPurgePassword}
+                  variant="bordered" size="md" radius="md" labelPlacement="outside"
+                  isDisabled={isPurging}
+                />
+                <p className="text-xs text-foreground-500">{t('admin.maintenance.purge.backupFirst')}</p>
               </ModalBody>
               <ModalFooter>
                 <Button color="danger" variant="light" onPress={onClose} isDisabled={isPurging}>{t('actions.cancel')}</Button>
                 <Button
                   color="danger" variant="solid"
                   onPress={handleConfirmPurge}
-                  isDisabled={confirmationText !== t('admin.maintenance.purge.keywordValue') || isPurging}
+                  isDisabled={confirmationText !== t('admin.maintenance.purge.keywordValue') || !purgePassword || isPurging}
                   isLoading={isPurging}
                 >
                   {t('actions.confirm')}

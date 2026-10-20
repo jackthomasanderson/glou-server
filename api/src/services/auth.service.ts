@@ -805,6 +805,17 @@ export class AuthService {
   }
 
   /**
+   * #489: re-authentication for the most destructive admin actions (full
+   * purge, restore, downloading a dump that holds every password hash and
+   * 2FA secret). An open admin session alone is not enough for those.
+   */
+  async verifyPassword(userId: string, password: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
+    if (!user) return false;
+    return bcrypt.compare(password, user.passwordHash);
+  },
+
+  /**
    * Verify the password OR PIN supplied to unlock the client-side lock screen.
    * This is a pure verification — it never issues a new Session or JWT, and
    * never touches Session.lastActiveAt (already refreshed by authMiddleware).

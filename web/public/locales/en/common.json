@@ -887,8 +887,14 @@
         "confirmDescription": "Warning! This action is irreversible. To confirm that you want to delete ALL business data, please enter the keyword below:",
         "keywordLabel": "Enter \"DELETE\" to confirm",
         "keywordValue": "DELETE",
+        "passwordLabel": "Your password",
+        "backupFirst": "A backup is taken first; the purge is cancelled if it fails.",
         "success": "The database has been reset successfully.",
         "error": "An error occurred during data purge.",
+        "errors": {
+          "INVALID_PASSWORD": "Incorrect password.",
+          "BACKUP_BEFORE_PURGE_FAILED": "The backup taken before the purge failed, so nothing was deleted. Check the Backups tab."
+        },
         "counts": {
           "bottles_one": "{{count}} asset deleted",
           "bottles_other": "{{count}} assets deleted",
@@ -1627,6 +1633,13 @@
     },
     "backup": {
       "description": "Configure the automatic daily database backup (pg_dump), stored outside the application volume.",
+      "passwordLabel": "Your password",
+      "invalidPassword": "Incorrect password.",
+      "download": {
+        "title": "Download this backup",
+        "body": "The file contains the whole database, including every account's password hash and two-factor secret. Confirm with your password.",
+        "error": "Download failed."
+      },
       "dirNotWritable": "The backups folder is not writable by Glou: every backup will fail. On the server, next to docker-compose.yml, run: mkdir -p backups && sudo chown 1001:1001 backups, then restart the stack.",
       "enabled": "Enable automatic backups",
       "retentionDays": "Backup retention (days)",
