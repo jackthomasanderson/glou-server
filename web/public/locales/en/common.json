@@ -342,6 +342,7 @@
       "finished_other": "{{count}} finished bottles not counted",
       "openedCigar": "Opened cigars"
     },
+    "truncated": "Only the {{limit}} most recent items are loaded: older ones do not appear in this list, the search or duplicate detection.",
     "alerts": {
       "reminderDone": "Reminder done",
       "title": "Reminders to consume",
