@@ -12,6 +12,7 @@ import { InventoryItem } from '@/lib/inventory/types';
 import { useAlerts, useToggleAlertPause } from '@/hooks/useAlerts';
 import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { AlertBottle } from '@/lib/alerts/client';
+import { todayLocalIso } from '@/lib/format';
 
 const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'> = {
   past: 'danger',
@@ -40,7 +41,7 @@ export function NotificationBell() {
 
   const reminderItems = useMemo(() => {
     if (!items || !hasMounted) return [];
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayLocalIso();
     return items.filter((b: InventoryItem) => b.reminderDate && b.reminderDate.split('T')[0] <= today);
   }, [items, hasMounted]);
 

@@ -5,9 +5,10 @@ import {
   Button, Chip, Divider, Input, Select, SelectItem,
 } from '@heroui/react';
 import i18n from '@/lib/i18n';
-import { currencySymbol } from '@/lib/format';
+import { currencySymbol, todayLocalIso } from '@/lib/format';
+import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { notifyError } from '@/lib/toast';
-import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical } from 'lucide-react';
+import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical, GlassWater } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
@@ -60,21 +61,15 @@ const EMPTY_FORM: Partial<InventoryItem> = {
   alertStatus: 'none',
 };
 
-type CategoryColor = 'secondary' | 'primary' | 'default' | 'warning';
-
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
   sparkling: <Sparkles size={14} />,
-  spirit: <span className="text-xs font-bold">S</span>,
+  spirit: <GlassWater size={14} />,
   cigar: <Leaf size={14} />,
 };
 
-const CATEGORY_COLORS: Record<InventoryCategory, CategoryColor> = {
-  wine: 'secondary',
-  sparkling: 'primary',
-  spirit: 'default',
-  cigar: 'warning',
-};
+// #498: one colour per category everywhere (ux-ui.md §4.6).
+const CATEGORY_COLORS = CATEGORY_CHIP_COLOR;
 
 export function InventoryForm({
   open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested, defaultCategory,
@@ -960,7 +955,7 @@ export function InventoryForm({
                                   const next = !values.isOpened;
                                   setField('isOpened', next);
                                   if (next && !values.openedAt) {
-                                    setField('openedAt', new Date().toISOString().split('T')[0]);
+                                    setField('openedAt', todayLocalIso());
                                   }
                                 }}
                               >

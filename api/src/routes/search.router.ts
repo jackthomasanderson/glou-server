@@ -6,6 +6,7 @@ import multer from 'multer';
 import { assertUrlAllowed, resolveSafeUrl } from '../lib/ssrf';
 import { AppError } from '../lib/errors';
 import { ALLOWED_IMAGE_TYPES } from '../lib/upload';
+import { isCommercial, PRODUCER_EXTRA_TERMS } from '../lib/suggest-filter';
 
 const router = Router();
 
@@ -19,30 +20,11 @@ const PRODUCER_PREFIX: Record<string, Record<string, string>> = {
   en: { wine: 'winery', sparkling: 'house', spirit: 'distillery', cigar: 'manufacturer' },
 };
 
-// Commercial / non-product terms to reject from suggestions
-const COMMERCIAL_TERMS = [
-  'prix', 'price', 'tarif', 'avis', 'review', 'note', 'guide', 'fiche',
-  'achat', 'buy', 'order', 'shop', 'boutique', 'livraison', 'delivery',
-  'amazon', 'leclerc', 'carrefour', 'fnac', 'promo', 'solde', 'occasion',
-  'vente', 'sale', 'stock', 'disponible', 'available', 'recette', 'recipe',
-];
-
-// Extra terms to reject specifically for producer suggestions
-const PRODUCER_EXTRA_TERMS = [
-  'rouge', 'blanc', 'rosé', 'rose', 'orange', 'brut', 'sec', 'demi',
-  'red', 'white', 'sparkling', 'vintage', 'reserve', 'réserve',
-];
-
 function toTitleCase(s: string): string {
   // Capitalize first letter after start, spaces, and hyphens
   return s.replace(/(^|[\s-])([a-zàâäéèêëîïôùûüæœç])/g, (_, sep, char) =>
     sep + char.toUpperCase()
   );
-}
-
-function isCommercial(s: string, extraTerms: string[] = []): boolean {
-  const lower = s.toLowerCase();
-  return [...COMMERCIAL_TERMS, ...extraTerms].some((t) => lower.includes(t));
 }
 
 function hasYear(s: string): boolean {

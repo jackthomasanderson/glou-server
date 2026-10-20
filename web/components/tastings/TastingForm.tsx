@@ -19,6 +19,7 @@ import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { notifyError } from '@/lib/toast';
 import { applyStockChoice, type StockChoice } from '@/lib/tastings/stockChoice';
 import { isOwnedItem } from '@/lib/inventory/ownership';
+import { todayLocalIso } from '@/lib/format';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
@@ -57,7 +58,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
       notes: '',
       context: '',
       foodPairing: initialFoodPairing ?? '',
-      tastedAt: new Date().toISOString().split('T')[0],
+      tastedAt: todayLocalIso(),
       robe: null,
       nez: null,
       bouche: null,
@@ -81,7 +82,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
           notes: '',
           context: '',
           foodPairing: initialFoodPairing ?? '',
-          tastedAt: new Date().toISOString().split('T')[0],
+          tastedAt: todayLocalIso(),
           robe: null,
           nez: null,
           bouche: null,

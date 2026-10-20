@@ -34,8 +34,6 @@ export function BulkActionDialog({
 
   const [enabledFields, setEnabledFields] = useState({
     cellarId: false,
-    location: false,
-    collection: false,
     tags: false,
     isOpened: false,
     fillLevel: false,
@@ -43,8 +41,6 @@ export function BulkActionDialog({
 
   const [values, setValues] = useState<Partial<InventoryItem>>({
     cellarId: null,
-    location: '',
-    collection: '',
     tags: [],
     isOpened: false,
     fillLevel: 100,
@@ -65,8 +61,6 @@ export function BulkActionDialog({
   const buildPatch = (): Partial<InventoryItem> => {
     const patch: Partial<InventoryItem> = {};
     if (enabledFields.cellarId) patch.cellarId = values.cellarId;
-    if (enabledFields.location) patch.location = values.location;
-    if (enabledFields.collection) patch.collection = values.collection;
     if (enabledFields.tags) patch.tags = values.tags;
     if (enabledFields.isOpened) patch.isOpened = values.isOpened;
     if (enabledFields.fillLevel) patch.fillLevel = values.fillLevel;
@@ -87,8 +81,6 @@ export function BulkActionDialog({
     const newEnabled = { ...enabledFields };
     const newValues = { ...values };
     if (p.cellarId !== undefined) { newEnabled.cellarId = true; newValues.cellarId = p.cellarId; }
-    if (p.location !== undefined) { newEnabled.location = true; newValues.location = p.location; }
-    if (p.collection !== undefined) { newEnabled.collection = true; newValues.collection = p.collection; }
     if (p.tags !== undefined) { newEnabled.tags = true; newValues.tags = p.tags; }
     if (p.isOpened !== undefined) { newEnabled.isOpened = true; newValues.isOpened = p.isOpened; }
     if (p.fillLevel !== undefined) { newEnabled.fillLevel = true; newValues.fillLevel = p.fillLevel; }
@@ -97,7 +89,9 @@ export function BulkActionDialog({
   };
 
   const summary = useMemo(() => {
-    const fields = ['cellarId', 'location', 'collection', 'tags', 'isOpened', 'fillLevel'] as const;
+    // #474: `location` and `collection` were legacy free-text columns no
+    // screen displays; real collections are managed from the Collections page.
+    const fields = ['cellarId', 'tags', 'isOpened', 'fillLevel'] as const;
     const result: Record<string, { before: string; after: string; changed: boolean }> = {};
     fields.forEach((field) => {
       if (!enabledFields[field]) { result[field] = { before: '', after: '', changed: false }; return; }
@@ -208,40 +202,6 @@ export function BulkActionDialog({
                         </SelectItem>
                       )}
                     </Select>
-                  )}
-                </div>
-
-                {/* Location */}
-                <div>
-                  <Checkbox isSelected={enabledFields.location} onValueChange={() => toggleField('location')} size="sm">
-                    <span className="text-sm">{t('inventory.fields.location')}</span>
-                  </Checkbox>
-                  {enabledFields.location && (
-                    <Input
-                      label={t('inventory.fields.location')}
-                      variant="bordered"
-                      size="sm"
-                      className="mt-2"
-                      value={values.location ?? ''}
-                      onValueChange={(v) => setField('location', v)}
-                    />
-                  )}
-                </div>
-
-                {/* Collection */}
-                <div>
-                  <Checkbox isSelected={enabledFields.collection} onValueChange={() => toggleField('collection')} size="sm">
-                    <span className="text-sm">{t('inventory.fields.collection')}</span>
-                  </Checkbox>
-                  {enabledFields.collection && (
-                    <Input
-                      label={t('inventory.fields.collection')}
-                      variant="bordered"
-                      size="sm"
-                      className="mt-2"
-                      value={values.collection ?? ''}
-                      onValueChange={(v) => setField('collection', v)}
-                    />
                   )}
                 </div>
 

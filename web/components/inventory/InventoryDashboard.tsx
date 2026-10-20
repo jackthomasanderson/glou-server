@@ -487,7 +487,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           <InventoryForm
             open={mode !== 'idle'}
             initialValues={mode === 'editing' && editingItem ? editingItem : undefined}
-            defaultCategory={lockedCategories?.length === 1 ? (lockedCategories[0] as InventoryCategory) : undefined}
+            defaultCategory={
+              lockedCategories?.length === 1
+                ? (lockedCategories[0] as InventoryCategory)
+                : selectedCategories.length === 1
+                ? (selectedCategories[0] as InventoryCategory)
+                : undefined
+            }
             onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
             onClose={handleCancel}
             isSubmitting={createMutation.isPending || updateMutation.isPending || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}

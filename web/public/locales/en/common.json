@@ -1152,6 +1152,8 @@
       "liquidStockHint": "Excluding collection cigars",
       "cigarHumidor": "Cigars in humidor",
       "cigarHumidorHint": "Preserved under controlled humidity",
+      "cigarModules_one": "{{count}} module",
+      "cigarModules_other": "{{count}} modules",
       "urgentDegustation": "Tasting urgency",
       "urgentDegustationHint": "Assets at or past their peak"
     },

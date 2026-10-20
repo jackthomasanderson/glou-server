@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Chip } from '@heroui/react';
-import { Wine, Sparkles, Dumbbell, Leaf, MapPin, Search } from 'lucide-react';
+import { Wine, Sparkles, GlassWater, Leaf, MapPin, Search } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { getItemMapRegion } from '@/lib/analytics/mapFilters';
 import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
@@ -14,7 +14,7 @@ import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analy
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
   sparkling: <Sparkles size={14} />,
-  spirit: <Dumbbell size={14} />,
+  spirit: <GlassWater size={14} />,
   cigar: <Leaf size={14} />,
 };
 
