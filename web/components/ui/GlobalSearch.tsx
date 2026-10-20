@@ -235,7 +235,7 @@ export function MobileSearch({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background flex flex-col sm:hidden">
+    <div className="fixed inset-0 z-overlay bg-background flex flex-col sm:hidden">
       <div className="flex items-center gap-3 px-4 py-3 border-b border-divider">
         <div className="flex-1">
           <Input

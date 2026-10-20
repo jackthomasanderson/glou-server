@@ -307,7 +307,7 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
 
       {/* Mobile: overlay drawer */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-50">
+        <div className="md:hidden fixed inset-0 z-overlay">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={onMobileClose}
