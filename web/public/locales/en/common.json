@@ -1962,7 +1962,8 @@
       "yourVersion": "Your version",
       "serverVersion": "Server version",
       "keepLocal": "Keep my version",
-      "keepServer": "Keep server version"
+      "keepServer": "Keep server version",
+      "decideLater": "Decide later"
     }
   },
   "scan": {

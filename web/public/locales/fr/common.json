@@ -1964,7 +1964,8 @@
       "yourVersion": "Votre version",
       "serverVersion": "Version du serveur",
       "keepLocal": "Garder ma version",
-      "keepServer": "Garder la version serveur"
+      "keepServer": "Garder la version serveur",
+      "decideLater": "Décider plus tard"
     }
   },
   "scan": {
