@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button, Modal, ModalContent, ModalBody } from '@heroui/react';
 import {
@@ -60,12 +61,12 @@ export function BottomNav() {
             const active = link.category
               ? pathname === '/bottles' && categoryParam === link.category
               : pathname.startsWith(link.href);
+            // #523: real links (announced as navigation, long-press "open in
+            // new tab", prefetched) rather than buttons calling router.push.
             return (
-              <button
+              <Link
                 key={link.href}
-                type="button"
-                onClick={() => router.push(link.href)}
-                aria-label={link.label}
+                href={link.href}
                 aria-current={active ? 'page' : undefined}
                 className={`relative flex flex-col items-center justify-center flex-1 gap-0.5 min-w-0 py-1 transition-colors ${
                   active ? 'text-primary' : 'text-foreground-500'
@@ -79,7 +80,7 @@ export function BottomNav() {
                 <span className={`text-xs leading-tight truncate max-w-full px-1 ${active ? 'font-extrabold' : 'font-semibold'}`}>
                   {link.label}
                 </span>
-              </button>
+              </Link>
             );
           })}
           <button

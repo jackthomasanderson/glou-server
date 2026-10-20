@@ -9,11 +9,13 @@ interface FilterChipProps {
   startContent?: React.ReactNode;
   radius?: 'sm' | 'md' | 'lg' | 'full';
   size?: 'sm' | 'md' | 'lg';
+  /** Colour when selected (category chips use their own colour, #516). */
+  color?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger';
   children: React.ReactNode;
 }
 
 /** Toggle chip rendered as a real button (keyboard focusable, announces its pressed state). */
-export function FilterChip({ selected, onPress, startContent, radius, size = 'sm', children }: FilterChipProps) {
+export function FilterChip({ selected, onPress, startContent, radius, size = 'sm', color = 'primary', children }: FilterChipProps) {
   return (
     <button
       type="button"
@@ -26,7 +28,7 @@ export function FilterChip({ selected, onPress, startContent, radius, size = 'sm
         radius={radius}
         startContent={startContent}
         variant={selected ? 'solid' : 'bordered'}
-        color={selected ? 'primary' : 'default'}
+        color={selected ? color : 'default'}
         className="cursor-pointer text-xs"
       >
         {children}

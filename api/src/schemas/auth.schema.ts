@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { PASSWORD_MIN_LENGTH } from './password';
 
+// A 2FA code is either a 6-digit TOTP or a 20-hex-char backup code
+// (auth.service.ts BACKUP_CODE_LENGTH). The limit used to be 8-10, which
+// silently rejected every backup code since they were widened in #286.
+const BACKUP_CODE_MAX_LENGTH = 20;
+
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 export const registerSchema = z.object({
@@ -38,11 +43,11 @@ export const turnOn2faSchema = z.object({
 
 export const turnOff2faSchema = z.object({
   password: z.string().min(1, 'PASSWORD_REQUIRED'),
-  code: z.string().min(6).max(8, 'INVALID_CODE_LENGTH').optional(),
+  code: z.string().min(6).max(BACKUP_CODE_MAX_LENGTH, 'INVALID_CODE_LENGTH').optional(),
 });
 
 export const verify2faSchema = z.object({
-  code: z.string().min(6, 'INVALID_CODE_LENGTH').max(10, 'INVALID_CODE_LENGTH'),
+  code: z.string().min(6, 'INVALID_CODE_LENGTH').max(BACKUP_CODE_MAX_LENGTH, 'INVALID_CODE_LENGTH'),
   // We don't need token here if we read the glou_token cookie directly
   trustDevice: z.boolean().optional().default(false),
 });
@@ -54,7 +59,7 @@ export const verify2faSchema = z.object({
 // only when 2FA is actually enabled on the account.
 export const trustDeviceSchema = z.object({
   password: z.string().min(1, 'PASSWORD_REQUIRED'),
-  code: z.string().min(6).max(8, 'INVALID_CODE_LENGTH').optional(),
+  code: z.string().min(6).max(BACKUP_CODE_MAX_LENGTH, 'INVALID_CODE_LENGTH').optional(),
 });
 
 export type TurnOn2faInput = z.infer<typeof turnOn2faSchema>;
