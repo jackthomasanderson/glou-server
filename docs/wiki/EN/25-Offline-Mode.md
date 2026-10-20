@@ -15,6 +15,8 @@ The app stays usable without network to browse inventory and edit an already-loa
 4. As soon as connectivity returns, the queued changes sync automatically, in the order they were made.
 5. If a conflict occurs (the same item was changed elsewhere from another device in the meantime), a **Sync Conflict** modal opens: it compares your version and the server version field by field, letting you choose **Keep my version** or **Keep server version**.
 
+6. Click the sync badge in the header to open the **Pending changes** panel. It lists every queued change with its status (waiting to be sent, syncing, conflict). A change the server refused shows the reason, with **Retry** and **Discard** buttons: fix the cause and retry, or discard the change to drop it for good.
+
 > [!CAUTION]
 > **Creating** a new bottle and **deleting/restoring** an item are **not** supported offline: these actions fail immediately without network and must be redone once connectivity is back. Only editing an item already present in inventory goes through the sync queue.
 
@@ -29,5 +31,6 @@ This feature intentionally covers a bounded scope: full offline inventory reads,
 | **Offline mode doesn't work at all** | Check the app is served over HTTPS (or `localhost` in dev) — the Service Worker won't activate over plain HTTP. Reload once online to (re)install the Service Worker. |
 | **I tried adding a bottle offline and nothing happened** | Expected: only edits to an existing item are queued offline, not creation. Reconnect to add the bottle. |
 | **The conflict modal only shows one conflict at a time** | By design: conflicts resolve one at a time; the "other conflicts pending" counter shows how many remain. |
+| **A change stays stuck as "Refused by the server"** | Open **Pending changes** from the sync badge, read the reason, then **Retry** once it is fixed or **Discard** the change. |
 | **A change made in another tab of the same browser doesn't show up here** | Known limitation: the sync queue isn't shared across browser tabs — refresh the affected tab after sync completes. |
 | **The item shown after resolving a conflict looks wrong** | If you chose "Keep server version", the local cache is overwritten with the server version — refresh if the display doesn't update immediately. |

@@ -8,7 +8,7 @@
 
 ## ✨ Top 5 Highlights
 1. 📸 **Zero-Effort Intake**: Snap a label photo. OCR pre-fills the details instantly.
-2. 🤝 **Shared Inventory**: Every user on the instance shares one collective cellar — built for families, roommates, and wine clubs.
+2. 🤝 **Shared Inventory**: Every user on the instance shares one collective cellar — built for families, roommates, and wine clubs. Sign-ups are closed once the admin exists; you decide when to open them. Sign-ups are closed once the admin exists; you decide when to open them.
 3. 🔔 **Peak Maturity Alerts**: Get notified when a bottle enters its drinking window before it's too late.
 4. 🛡️ **Fully Self-Hosted**: A Docker Compose stack (Node.js · Next.js · PostgreSQL) you run on your own machine.
 5. 👪 **Guest Sharing**: Scoped, revocable links to let friends or family browse (or help stock) part of your cellar.
@@ -66,8 +66,14 @@ Docker pulls the pre-built images and starts the stack. No compilation required.
 
 Open [http://localhost:3000](http://localhost:3000) and click **Register**. The first account you create is automatically granted admin privileges.
 
+> [!NOTE]
+> Once that first account exists, **registration is closed**. To let other people sign up, an admin turns on **Allow new accounts to register** in **Administration → System Configuration → Network**, and can turn it off again afterwards.
+
+> [!NOTE]
+> Once that first account exists, **registration is closed**. To let other people sign up, an admin turns on **Allow new accounts to register** in **Administration → System Configuration → Network**, and can turn it off again afterwards.
+
 > [!TIP]
-> To update to a new version: `docker compose pull && docker compose up -d`
+> To update to a new version: `docker compose pull && docker compose up -d`. Back up first (**Administration → System Configuration → Backups → Run now**); to go back, see [Upgrade & Roll Back](./docs/wiki/EN/31-Upgrades-And-Rollback.md).. Back up first (**Administration → System Configuration → Backups → Run now**); to go back, see [Upgrade & Roll Back](./docs/wiki/EN/31-Upgrades-And-Rollback.md).
 
 *For advanced configuration, environment variables, and troubleshooting, see the [Wiki](./docs/wiki/EN/_wiki.md).*
 
@@ -83,7 +89,10 @@ Open [http://localhost:3000](http://localhost:3000) and click **Register**. The 
 - 🎁 **Wishlist & Budget Tracking** — price caps, observed-price deal alerts, and a spending envelope per period.
 - 📴 **Trusted Offline Mode** — browse and edit loaded items offline; changes queue and auto-sync with conflict resolution.
 - 🗺️ **World Map, Heatmap & Filters** — explore the collection geographically and filter by price, vintage, rating, or state.
-- 💾 **Scheduled Backups & Data Portability** — nightly database backups with one-click restore, plus full or filtered exports.
+- 💾 **Scheduled Backups & Data Portability** — nightly database backups (on by default, missed runs caught up, failures reported to admins) with one-click all-or-nothing restore, plus a complete GDPR export, in full or filtered.
+- 🔒 **Closed Registration by Default** — only the first account (the admin) can sign up freely; an admin opens registration when needed.
+- ♿ **Keyboard & Screen-Reader Access** — keyboard-operable cellar grid, filters, tables and search, managed focus in drawers, announced errors.
+- 🛟 **Safer Operations** — immutable commit-SHA image tags for rollback, a startup check of the required secrets, and guides for [secret rotation](./docs/wiki/EN/29-Secret-Rotation.md), [disaster recovery](./docs/wiki/EN/30-Disaster-Recovery.md) and [upgrades](./docs/wiki/EN/31-Upgrades-And-Rollback.md).
 
 Dozens of smaller features ship regularly — see the [closed pull requests](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) for the full history.
 

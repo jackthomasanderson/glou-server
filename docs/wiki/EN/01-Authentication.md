@@ -12,7 +12,7 @@
 2. Ensure you have configured the web client to include credentials to accept the returned `accessToken` cookie.
    *Example (fetch)* : `fetch('/api/auth/login', { method: 'POST', body: JSON.stringify({...}), credentials: 'include' })`
 3. Upon a successful login, the browser will store the cookie securely in the background.
-4. For calls to protected routes (`/api/bottles` or `/api/auth/me`), no manual header setup is required. The `credentials: 'include'` parameter handles the implicit cookie transmission.
+4. For calls to protected routes (`/api/inventory` or `/api/auth/me`), no manual header setup is required. The `credentials: 'include'` parameter handles the implicit cookie transmission.
 
 > [!TIP]
 > On Next.js, our Axios / Fetch abstraction already handles cookie propagation.
@@ -24,6 +24,7 @@
 
 | Error / Symptom | Probable Cause | Solution |
 | :--- | :--- | :--- |
+| `403 REGISTRATION_CLOSED` on `/api/auth/register` | Registration is closed by default once the first account (the admin) exists. | An admin turns on **Allow new accounts to register** in Administration → System Configuration → Network, see [Network & Public URL](./16-Network-Public-URL-Configuration.md). |
 | `500 Internal Server Error` (on `/api/auth/*`) | Lost connection to PostgreSQL database (`P1001` or `P1012`). | Verify the Docker `db` container is running: `docker-compose up -d db` and restart the backend if it cannot reconnect automatically. |
-| `401 Unauthorized` on `/api/bottles` | The JWT cookie was not sent, expired, or missing. | Ensure the frontend HTTP client has the `credentials: 'include'` configuration (already set on the native HttpClient) and that the user logged in successfully. |
+| `401 Unauthorized` on `/api/inventory` | The JWT cookie was not sent, expired, or missing. | Ensure the frontend HTTP client has the `credentials: 'include'` configuration (already set on the native HttpClient) and that the user logged in successfully. |
 | `404 Not Found` rendering web forms | Translation files (`common.json`) are missing or failed to load. | Ensure `i18n.ts` is imported correctly and that the API service hasn't crashed, which would block dynamic translation requests. |

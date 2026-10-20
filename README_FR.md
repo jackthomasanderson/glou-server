@@ -8,7 +8,7 @@
 
 ## ✨ Le Top 5
 1. 📸 **Saisie Zéro Effort** : Photographiez une étiquette. L'OCR remplit les détails instantanément.
-2. 🤝 **Inventaire Partagé** : Tous les utilisateurs de l'instance partagent une cave commune — parfait pour les familles, colocataires et clubs.
+2. 🤝 **Inventaire Partagé** : Tous les utilisateurs de l'instance partagent une cave commune — parfait pour les familles, colocataires et clubs. Les inscriptions sont fermées dès que l'admin existe ; vous décidez quand les ouvrir. Les inscriptions sont fermées dès que l'admin existe ; vous décidez quand les ouvrir.
 3. 🔔 **Alertes Apogée** : Soyez notifié quand une bouteille entre dans sa fenêtre de dégustation optimale.
 4. 🛡️ **Totalement Auto-Hébergé** : Une stack Docker Compose (Node.js · Next.js · PostgreSQL) que vous faites tourner chez vous.
 5. 👪 **Partage Invité** : Liens scopés et révocables pour laisser des proches consulter (ou aider à inventorier) une partie de votre cave.
@@ -66,8 +66,14 @@ Docker télécharge les images pré-construites et démarre la stack. Aucune com
 
 Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **S'inscrire**. Le premier compte créé reçoit automatiquement les droits administrateur.
 
+> [!NOTE]
+> Une fois ce premier compte créé, **l'inscription est fermée**. Pour laisser d'autres personnes s'inscrire, un admin active **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Réseau**, et peut la désactiver ensuite.
+
+> [!NOTE]
+> Une fois ce premier compte créé, **l'inscription est fermée**. Pour laisser d'autres personnes s'inscrire, un admin active **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Réseau**, et peut la désactiver ensuite.
+
 > [!TIP]
-> Pour mettre à jour vers une nouvelle version : `docker compose pull && docker compose up -d`
+> Pour mettre à jour vers une nouvelle version : `docker compose pull && docker compose up -d`. Faites d'abord une sauvegarde (**Administration → Configuration Système → Sauvegardes → Sauvegarder maintenant**) ; pour revenir en arrière, voir [Mises à jour et retour arrière](./docs/wiki/FR/31-Mises-A-Jour-Et-Retour-Arriere.md).. Faites d'abord une sauvegarde (**Administration → Configuration Système → Sauvegardes → Lancer maintenant**) ; pour revenir en arrière, voir [Mises à jour et retour arrière](./docs/wiki/FR/31-Mises-A-Jour-Et-Retour-Arriere.md).
 
 *Pour la configuration avancée, les variables d'environnement et le dépannage, consultez le [Wiki](./docs/wiki/FR/_wiki.md).*
 
@@ -83,7 +89,10 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **
 - 🎁 **Liste de Souhaits & Budget** — prix plafonds, alertes bonnes affaires sur prix observés, et enveloppe budgétaire par période.
 - 📴 **Mode Hors-Ligne de Confiance** — consultez et modifiez les items chargés hors connexion ; les changements se synchronisent automatiquement avec résolution de conflit.
 - 🗺️ **Carte du Monde, Heatmap & Filtres** — explorez la collection géographiquement et filtrez par prix, millésime, note ou état.
-- 💾 **Sauvegardes Planifiées & Portabilité** — sauvegardes nocturnes de la base restaurables en un clic, plus des exports complets ou filtrés.
+- 💾 **Sauvegardes Planifiées & Portabilité** — sauvegardes nocturnes de la base (activées par défaut, rattrapage des exécutions manquées, échecs signalés aux admins) restaurables en un clic de façon tout-ou-rien, plus un export RGPD complet, intégral ou filtré.
+- 🔒 **Inscription Fermée par Défaut** — seul le premier compte (l'admin) s'inscrit librement ; un admin ouvre l'inscription au besoin.
+- ♿ **Accès Clavier & Lecteur d'Écran** — grille de cave, filtres, tableaux et recherche utilisables au clavier, focus géré dans les panneaux, erreurs annoncées.
+- 🛟 **Exploitation Plus Sûre** — tags d'image immuables par SHA de commit pour le retour arrière, vérification au démarrage des secrets requis, et guides de [rotation des secrets](./docs/wiki/FR/29-Rotation-Des-Secrets.md), de [reprise après sinistre](./docs/wiki/FR/30-Reprise-Apres-Sinistre.md) et de [mise à jour](./docs/wiki/FR/31-Mises-A-Jour-Et-Retour-Arriere.md).
 
 Des dizaines de fonctionnalités plus petites sortent régulièrement — voir les [pull requests fermées](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) pour l'historique complet.
 

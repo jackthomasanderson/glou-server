@@ -28,6 +28,16 @@ Indiquez à Glou l'adresse utilisée pour joindre votre instance depuis l'extér
 > [!TIP]
 > Le **Mode d'accès** est informatif : il pilote la vérification de cohérence et s'affiche comme un badge d'état dans le panneau admin, mais il ne configure ni le `trust proxy` d'Express ni aucun comportement serveur lié au proxy. Si votre reverse proxy doit transmettre des en-têtes spécifiques, configurez-le au niveau du proxy/déploiement, pas via ce réglage.
 
+### Autoriser ou fermer l'inscription de nouveaux comptes
+L'inscription est **fermée par défaut** : dès que le premier compte (l'admin de l'instance) existe, `POST /api/auth/register` répond `REGISTRATION_CLOSED` et la page de connexion masque le lien d'inscription.
+1. Dans ce même onglet **Réseau**, activez **Autoriser l'inscription de nouveaux comptes** pour laisser les gens créer leur compte, ou désactivez-le pour refermer. Le changement est immédiat.
+2. Les comptes existants ne sont pas touchés. Le premier compte d'une instance vide peut toujours être créé.
+
+### Autoriser ou fermer l'inscription de nouveaux comptes
+L'inscription est **fermée par défaut** : dès que le premier compte (l'admin de l'instance) existe, `POST /api/auth/register` répond `REGISTRATION_CLOSED` et la page de connexion masque le lien d'inscription.
+1. Dans ce même onglet **Réseau**, activez **Autoriser l'inscription de nouveaux comptes** pour laisser les gens créer leur compte, ou désactivez-le pour refermer. Le changement est immédiat.
+2. Les comptes existants ne sont pas touchés. Le premier compte d'une instance vide peut toujours être créé.
+
 ## Le Pare-feu (Troubleshooting)
 
 | Erreur / Comportement | Solution |
@@ -35,4 +45,5 @@ Indiquez à Glou l'adresse utilisée pour joindre votre instance depuis l'extér
 | **Avertissement `NOT_HTTPS_IN_PRODUCTION`** | Votre URL effective utilise `http://` alors que `NODE_ENV=production`. Définissez une **URL publique** en `https://`, ou corrigez la terminaison TLS au niveau du proxy. |
 | **Avertissement `PROXY_MODE_LOCALHOST_URL`** | Le mode d'accès est **Reverse proxy** mais l'URL effective pointe toujours vers localhost. Définissez l'**URL publique** avec l'adresse externe réelle exposée par le proxy. |
 | **Les liens générés par l'application pointent toujours vers la mauvaise adresse** | Vérifiez que vous avez bien cliqué sur **Enregistrer** après avoir saisi l'URL publique, et recontrôlez l'**URL effective** affichée dans le panneau — un champ vide se replie silencieusement sur `APP_URL`/`localhost`. |
+| **Quelqu'un ne peut pas s'inscrire : « L'inscription de nouveaux comptes est actuellement fermée »** | Activez **Autoriser l'inscription de nouveaux comptes** dans cet onglet, laissez la personne s'inscrire, puis désactivez-le. |
 | **Je n'ai pas configuré d'URL publique — est-ce un problème ?** | Pas pour un usage local/mono-utilisateur. Sans elle, Glou se replie sur `APP_URL` (défini dans votre `docker-compose.yml`) ou sur `http://localhost:3000`. Ne définissez une URL publique que si l'instance est joignable depuis l'extérieur et que vous voulez que les liens le reflètent. |

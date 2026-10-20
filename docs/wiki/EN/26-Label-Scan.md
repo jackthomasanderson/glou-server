@@ -34,7 +34,7 @@ The "Scan a label" button opens the camera, sends the photo to a lightweight sel
 | Error / Behavior | Fix |
 | :--- | :--- |
 | **Scan always fails** | The `scan` profile isn't running: start it with `docker compose --profile scan up -d`. |
-| **Scan stays stuck on "Analyzing…" for a long time** | On the instance's very first startup, the `moondream` model (~1.7 GB) needs to be pulled by the `ollama-pull` service before scanning works — wait a few minutes and retry. On modest hardware, a scan can legitimately take up to 2 minutes (server timeout is 120s). |
-| **"Label analysis failed"** | Retry with a sharper or better-lit photo — this is the generic message returned on model failure or timeout. |
+| **Scan stays stuck on "Analyzing…" for a long time** | On the instance's very first startup, the `moondream` model (~1.7 GB) needs to be pulled by the `ollama-pull` service before scanning works — wait a few minutes and retry. On modest hardware, a scan can legitimately take several minutes. |
+| **"Label analysis failed"** | Retry with a sharper or better-lit photo — this is the generic message returned on model failure or timeout. The API log tells them apart: `OLLAMA_TIMEOUT_AFTER_<n>MS` means the model did not answer in time. The wait is 10 minutes by default; raise it with `OLLAMA_TIMEOUT_MS` (milliseconds) in `.env`, then `docker compose up -d`. |
 | **Detected info is wrong or incomplete** | Expected with a lightweight vision model: manually correct the fields before clicking "Confirm and add". Nothing is ever saved without your explicit confirmation. |
 | **Duplicate flagged but it's not actually the same product** | Duplicate detection compares name/producer/vintage — if two different bottles have very similar labels, choose to create a new entry instead of incrementing existing stock. |

@@ -10,11 +10,17 @@ Entries start with the pull request that introduced them where there is one.
 ## Unreleased
 
 ### Security
+- **Registration is closed by default.** Once the first account (the admin) exists, `POST /api/auth/register` returns `REGISTRATION_CLOSED` until an admin turns on **Allow new accounts to register** in Administration → System Configuration → Network. Instances that relied on open sign-up must enable it (#304, #73).
+- The seed script and its hardcoded admin password were removed (#322, #147).
 - The CSRF guard accepts the host a request was addressed to, so Glou works when opened by IP over plain HTTP (a NAS) without setting `APP_URL`; a rejected request now logs why (#266, #247).
 - `next` updated to 16.3.8 (security release).
 - **Action required on instances deployed before `docker-compose.yml` started requiring `DB_PASSWORD`:** an old fallback database password (`glou_secret`) is readable in this repository's git history and must be treated as compromised. Rotate `DB_PASSWORD` on any such instance — see [Rotate the Secrets](docs/wiki/EN/29-Secret-Rotation.md#rotate-db_password) / [Changer les secrets](docs/wiki/FR/29-Rotation-Des-Secrets.md#changer-db_password) (#129).
 
 ### Added
+- Immutable image tags named after the full commit SHA, published next to `latest`/`beta`, to roll back without hunting for a digest (#310, #78).
+- `OLLAMA_TIMEOUT_MS` (default 10 minutes) for the label scan, with an explicit `OLLAMA_TIMEOUT_AFTER_<n>MS` error (#320, #319).
+- A **Pending changes** panel behind the offline sync badge: refused edits show their reason and can be retried or discarded (#354, #337).
+- Sign-out buttons in the sidebar footer and on the profile page (#355, #334).
 - Keyboard access to the cellar grid: Space picks up and drops a bottle, arrows move it cell by cell, Escape cancels, Enter opens details; localized screen-reader announcements (#262).
 - `GET /api/stats/counts`: the sidebar badges come from one light call instead of five list queries (#260).
 - Startup check for the secrets the API cannot work without (`JWT_SECRET`, `CONFIG_ENCRYPTION_KEY`), with a clear `FATAL` message.
@@ -24,6 +30,9 @@ Entries start with the pull request that introduced them where there is one.
 - `CSRF_TRUSTED_ORIGINS` is passed through `docker-compose.yml`.
 
 ### Changed
+- The complete GDPR export now includes wishlist, budgets, goals, sessions, trusted devices, stock counts and configuration history (#283, #224).
+- A deactivated account is reported as `INVALID_CREDENTIALS` at login (#373, #352).
+- Wiki and READMEs (FR + EN) refreshed: environment variable reference, registration, offline pending changes, keyboard cellar grid, label scan timeout.
 - Restoring a backup resets the `public` schema and replays the dump in one transaction.
 - Plurals are real i18next plural forms instead of "(s)"; amounts use `Intl` currency formatting; dates and numbers follow the language chosen in the app.
 - Page titles and the PWA manifest no longer claim a single language.
