@@ -105,7 +105,7 @@ export function useRegister() {
   return useMutation<
     PublicUser,
     Error,
-    { username: string; email: string; password: string }
+    { username: string; email: string; password: string; language?: 'FR' | 'EN' }
   >({
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/auth/register', { method: 'POST', body: JSON.stringify(data) }),

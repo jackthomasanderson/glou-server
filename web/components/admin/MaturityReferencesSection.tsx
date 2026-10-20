@@ -50,10 +50,10 @@ const EMPTY_FORM: MaturityReferenceInput = {
   vintageTo: null,
 };
 
-function windowLabel(ref: MaturityReference): string {
+function windowLabel(ref: MaturityReference, t: (key: string, options?: Record<string, unknown>) => string): string {
   if (ref.mode === 'ABSOLUTE') return `${ref.windowFrom} – ${ref.windowTo}`;
   const sign = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
-  return `${sign(ref.windowFrom)} → ${sign(ref.windowTo)} ans`;
+  return t('admin.maturityRefs.relativeWindow', { from: sign(ref.windowFrom), to: sign(ref.windowTo) });
 }
 
 function criteriaLabel(ref: MaturityReference): string {
@@ -442,7 +442,7 @@ export function MaturityReferencesSection() {
                       radius="sm"
                       className="font-mono text-xs"
                     >
-                      {ref.mode === 'RELATIVE' ? '±' : ''}{windowLabel(ref)}
+                      {ref.mode === 'RELATIVE' ? '±' : ''}{windowLabel(ref, t)}
                     </Chip>
                   </TableCell>
                   <TableCell>

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Chip, Input, Select, SelectItem, Spinner, Switch, Textarea } from '@heroui/react';
 import { Eye, EyeOff, Lock, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { formatCurrency } from '@/lib/format';
 import { guestClient, GuestRequestError } from '@/lib/shares/client';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -162,6 +163,7 @@ const GUEST_PAGE_SIZE = 60;
 
 function GuestPageContent({ token }: { token: string }) {
   const { t } = useTranslation();
+  useBrowserTabTitle(t('shares.guest.badge'));
 
   const metaQuery = useQuery<GuestShareMeta, Error>({
     queryKey: ['guest', token, 'meta'],

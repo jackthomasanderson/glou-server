@@ -141,12 +141,14 @@
       "tastingNotes": "Tasting notes & aromas",
       "vitole": "Vitole tech sheet",
       "agingEstimate": "Estimated peak",
-      "levelAdjusted": "Level adjusted to"
+      "levelAdjusted": "Level adjusted to",
+      "humidityValue": "{{value}}% RH"
     },
     "add": "Add",
     "edit": "Edit item",
     "restore": "Restore asset",
-    "trashInfo": "days left before permanent deletion",
+    "trashDaysLeft_one": "{{count}} day left before permanent deletion",
+    "trashDaysLeft_other": "{{count}} days left before permanent deletion",
     "trashEmpty": "The trash is empty.",
     "tabsAria": "Inventory view",
     "tabs": {
@@ -214,6 +216,7 @@
       "curveShapeHint": "How readiness evolves across the window. Overrides the cave reference for this bottle only.",
       "needsAeration": "Needs aeration",
       "serviceTemp": "Service temperature",
+      "storageTemp": "Storage temperature",
       "lotNumber": "Lot number",
       "sparklingType": "Type",
       "sugarLevel": "Sugar level",
@@ -422,6 +425,8 @@
     "username": "Username",
     "email": "Email address",
     "password": "Password (min. 12 characters)",
+    "passwordLabel": "Password",
+    "pageTitleLogin": "Sign in",
     "confirmPassword": "Confirm password",
     "displayName": "Display name (optional)",
     "identifier": "Username or email",
@@ -533,7 +538,9 @@
       "items": "items",
       "itemsCount_one": "{{count}} item",
       "itemsCount_other": "{{count}} items",
-      "alerts": "alerts"
+      "alerts": "alerts",
+      "alertCount_one": "{{count}} alert",
+      "alertCount_other": "{{count}} alerts"
     },
     "grid": {
       "showConfig": "Configure grid layout (optional)",
@@ -550,8 +557,10 @@
       "notConfigured": "No grid configured for this cellar.",
       "occupied": "occupied",
       "free": "free",
-      "hotZone": "Hot zone ({{count}} rows)",
-      "coldZone": "Cold zone ({{count}} rows)",
+      "hotZone_one": "Hot zone ({{count}} row)",
+      "hotZone_other": "Hot zone ({{count}} rows)",
+      "coldZone_one": "Cold zone ({{count}} row)",
+      "coldZone_other": "Cold zone ({{count}} rows)",
       "hotZoneLabel": "Hot zone",
       "coldZoneLabel": "Cold zone",
       "cellLabelEmpty": "Column {{col}}, row {{row}}: empty. Press Enter to assign an asset.",
@@ -593,7 +602,7 @@
     }
   },
   "connectivity": {
-    "online": "Connected to internet",
+    "online": "Connected to the server",
     "offline": "Offline",
     "checking": "Checking...",
     "featuresAffected": "External autocomplete, label scan and image search unavailable",
@@ -856,7 +865,8 @@
       "errors": {
         "nameRequired": "Name is required.",
         "windowInvalid": "Window end must be ≥ window start."
-      }
+      },
+      "relativeWindow": "{{from}} → {{to}} years"
     },
     "maintenance": {
       "title": "Maintenance",
@@ -870,17 +880,22 @@
         "success": "The database has been reset successfully.",
         "error": "An error occurred during data purge.",
         "counts": {
-          "bottles": "{{count}} assets deleted",
-          "cellars": "{{count}} cellars deleted",
-          "logs": "{{count}} log entries deleted"
+          "bottles_one": "{{count}} asset deleted",
+          "bottles_other": "{{count}} assets deleted",
+          "cellars_one": "{{count}} cellar deleted",
+          "cellars_other": "{{count}} cellars deleted",
+          "logs_one": "{{count}} log entry deleted",
+          "logs_other": "{{count}} log entries deleted"
         }
       }
     }
   },
   "bulk": {
-    "selected": "{{count}} selected",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected",
     "title": "Bulk Actions",
-    "subtitle": "Update {{count}} items simultaneously",
+    "subtitle_one": "Update {{count}} item",
+    "subtitle_other": "Update {{count}} items simultaneously",
     "fieldsToUpdate": "Fields to update",
     "preview": "Changes summary",
     "mixed": "(Mixed values)",
@@ -891,7 +906,8 @@
     "loadPreset": "Load preset",
     "deletePreset": "Delete preset",
     "deletePresetConfirm": "This action preset will be permanently deleted.",
-    "success": "{{count}} items have been updated"
+    "success_one": "{{count}} item has been updated",
+    "success_other": "{{count}} items have been updated"
   },
   "traceability": {
     "title": "Traceability",
@@ -928,7 +944,8 @@
     "emptyHint": "Create themed groups to organize your items.",
     "deleteTitle": "Delete collection",
     "deleteConfirm": "Delete \"{{name}}\"? Items will not be deleted.",
-    "itemCount": "{{count}} item",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items",
     "fields": {
       "name": "Collection name",
       "color": "Color",
@@ -952,7 +969,8 @@
     "deleteTitle": "Delete tasting",
     "deleteConfirm": "This tasting note will be permanently deleted.",
     "noItem": "No linked product",
-    "total": "{{count}} tasting",
+    "total_one": "{{count}} tasting",
+    "total_other": "{{count}} tastings",
     "fields": {
       "item": "Product tasted",
       "tastedAt": "Tasting date",
@@ -1013,7 +1031,8 @@
       "promptHint": "Type a dish, or pick one of the quick suggestions above.",
       "noResults": "No asset in stock matches \"{{query}}\"",
       "noResultsHint": "Try a broader term or one of the quick suggestions.",
-      "resultsCount": "{{count}} matching asset",
+      "resultsCount_one": "{{count}} matching asset",
+      "resultsCount_other": "{{count}} matching assets",
       "reason": "Pairs with: {{pairing}}",
       "consumeNow": "Consume now",
       "inventoryLoadError": "Failed to load your inventory.",
@@ -1381,7 +1400,8 @@
       "notesHidden": "Personal notes are hidden",
       "expired": "This share link has expired or been revoked.",
       "loadError": "Could not load this share. Check your connection and try again.",
-      "showMore": "Show more ({{count}} remaining)",
+      "showMore_one": "Show more ({{count}} remaining)",
+      "showMore_other": "Show more ({{count}} remaining)",
       "search": "Search this share",
       "sortBy": "Sort by",
       "empty": "No items in this share.",
@@ -1587,10 +1607,14 @@
           "error": "Failed"
         },
         "counts": {
-          "auditLogs": "{{count}} logs",
-          "sessions": "{{count}} sessions",
-          "trustedDevices": "{{count}} devices",
-          "guestShares": "{{count}} shares"
+          "auditLogs_one": "{{count}} log",
+          "auditLogs_other": "{{count}} logs",
+          "sessions_one": "{{count}} session",
+          "sessions_other": "{{count}} sessions",
+          "trustedDevices_one": "{{count}} device",
+          "trustedDevices_other": "{{count}} devices",
+          "guestShares_one": "{{count}} share",
+          "guestShares_other": "{{count}} shares"
         }
       }
     },

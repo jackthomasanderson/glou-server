@@ -15,6 +15,9 @@ export const registerSchema = z.object({
     .min(PASSWORD_MIN_LENGTH, 'PASSWORD_TOO_SHORT')
     .max(128, 'PASSWORD_TOO_LONG'),
   displayName: z.string().max(60).optional().or(z.literal('')),
+  // #529: the language the sign-up page was shown in, so the account does
+  // not switch to the French default right after registration.
+  language: z.enum(['FR', 'EN']).optional(),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;

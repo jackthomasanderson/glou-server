@@ -17,6 +17,9 @@ describe('registerSchema', () => {
 
   it('accepts a well-formed payload', () => {
     expect(registerSchema.safeParse(valid).success).toBe(true);
+    // #529: optional sign-up language, FR or EN only.
+    expect(registerSchema.safeParse({ ...valid, language: 'EN' }).success).toBe(true);
+    expect(registerSchema.safeParse({ ...valid, language: 'DE' }).success).toBe(false);
   });
 
   it('accepts an empty-string displayName and an omitted displayName', () => {

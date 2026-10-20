@@ -4,6 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { Button, Input, Card, CardBody, Link } from '@heroui/react';
 import NextLink from 'next/link';
 import { useRegister } from '@/hooks/useAuth';
@@ -26,7 +27,8 @@ const createRegisterSchema = (t: (key: string) => string) =>
   });
 
 export function RegisterForm() {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  useBrowserTabTitle(t('auth.register'));
   const hasMounted = useHasMounted();
 
   const registerSchema = createRegisterSchema(t);
@@ -44,7 +46,9 @@ export function RegisterForm() {
   const onSubmit = (formValues: RegisterFormValues) => {
     setApiError(null);
     const { username, email, password } = formValues;
-    registerMutation.mutate({ username, email, password }, {
+    // #529: keep the language the page was shown in.
+    const language = i18n?.language?.startsWith('en') ? 'EN' : 'FR';
+    registerMutation.mutate({ username, email, password, language }, {
       onError: (error) => {
         const msgKey = `auth.errors.${error.message}`;
         const translated = t(msgKey);

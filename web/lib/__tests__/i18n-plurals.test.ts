@@ -26,6 +26,27 @@ describe('plural forms (#220)', () => {
     });
   }
 
+  // #528: labels added after #220 interpolated {{count}} with no plural
+  // forms ("5 item", "1 alerts"). Any key with a count must come as
+  // key_one/key_other, unless the count is not attached to a noun.
+  const COUNT_WITHOUT_NOUN = new Set([
+    'duplicate.currentQuantity', // "Current quantity: 3"
+    'inventory.perPage', // "24 per page"
+    'profile.autoLockMinutes', // "5 min"
+    'consumptionPlan.goal.progressLabel', // plural follows {{target}}
+    'inventoryCount.report.closeWithCorrections', // "Close and apply (3)"
+    'analytics.map.filters.ratingMinLabel', // "4+"
+    'scan.cart.title', // "To shelve (3)"
+  ]);
+  for (const [name, bundle] of [['en', en], ['fr', fr]] as const) {
+    it(`${name}: every {{count}} label has plural forms`, () => {
+      const missing = leaves(bundle)
+        .filter(([k, v]) => v.includes('{{count}}') && !/_(zero|one|two|few|many|other)$/.test(k) && !COUNT_WITHOUT_NOUN.has(k))
+        .map(([k]) => k);
+      expect(missing).toEqual([]);
+    });
+  }
+
   it('English singular and plural', async () => {
     const t = (await instance('en')).t;
     expect(t('shares.cellarCount', { count: 1 })).toBe('1 cellar');
@@ -35,6 +56,9 @@ describe('plural forms (#220)', () => {
 
   it('French: 0 and 1 are singular, agreement follows the noun', async () => {
     const t = (await instance('fr')).t;
+    expect(t('collections.itemCount', { count: 1 })).toBe('1 article');
+    expect(t('tastings.total', { count: 12 })).toBe('12 dégustations');
+    expect(t('inventory.trashDaysLeft', { count: 1 })).toBe('1 jour restant avant suppression définitive');
     expect(t('cellars.nFound', { count: 1 })).toBe('1 cave trouvée');
     expect(t('cellars.nFound', { count: 0 })).toBe('0 cave trouvée');
     expect(t('cellars.nFound', { count: 2 })).toBe('2 caves trouvées');

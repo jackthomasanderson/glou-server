@@ -78,7 +78,7 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
             </div>
             {item.deletedAt && (
               <p className="text-xs text-foreground-400">
-                {daysLeft(item.deletedAt)} {t('inventory.trashInfo')}
+                {t('inventory.trashDaysLeft', { count: daysLeft(item.deletedAt) })}
               </p>
             )}
           </div>

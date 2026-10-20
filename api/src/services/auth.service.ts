@@ -415,6 +415,7 @@ export class AuthService {
         passwordHash,
         isAdmin,
         displayName: displayName || null,
+        ...(data.language ? { language: data.language } : {}),
       },
       select: {
         id: true,

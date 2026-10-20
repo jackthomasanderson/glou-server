@@ -3,11 +3,13 @@ import React, { useState } from 'react';
 import { Button, Input, Card, CardBody } from '@heroui/react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { configClient } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
 
 export function ForgotPasswordClient() {
   const { t } = useTranslation();
+  useBrowserTabTitle(t('forgotPassword.title'));
   const hasMounted = useHasMounted();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);

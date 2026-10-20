@@ -443,7 +443,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                   {d.serviceTemp && (
                     <InfoCard
                       icon={<Thermometer />}
-                      label={isCigar ? t('inventory.fields.serviceTemp') + ' garde' : t('inventory.fields.serviceTemp')}
+                      label={isCigar ? t('inventory.fields.storageTemp') : t('inventory.fields.serviceTemp')}
                       value={d.serviceTemp}
                     />
                   )}
@@ -451,7 +451,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                     <InfoCard
                       icon={<Droplets />}
                       label={t('inventory.fields.recommendedHumidity')}
-                      value={`${d.recommendedHumidity}% HR`}
+                      value={t('inventory.detail.humidityValue', { value: d.recommendedHumidity })}
                     />
                   )}
                   {(cellarName || d.location) && (

@@ -141,12 +141,14 @@
       "tastingNotes": "Notes de dégustation & arômes",
       "vitole": "Fiche technique de la vitole",
       "agingEstimate": "Apogée estimée",
-      "levelAdjusted": "Niveau ajusté à"
+      "levelAdjusted": "Niveau ajusté à",
+      "humidityValue": "{{value}} % HR"
     },
     "add": "Ajouter",
     "edit": "Modifier l'actif",
     "restore": "Restaurer l'actif",
-    "trashInfo": "J restants avant suppression définitive",
+    "trashDaysLeft_one": "{{count}} jour restant avant suppression définitive",
+    "trashDaysLeft_other": "{{count}} jours restants avant suppression définitive",
     "trashEmpty": "La corbeille est vide.",
     "tabsAria": "Vue inventaire",
     "tabs": {
@@ -214,6 +216,7 @@
       "curveShapeHint": "Comment la maturité évolue dans la fenêtre. Remplace la référence de cave pour cette bouteille uniquement.",
       "needsAeration": "Nécessite aération",
       "serviceTemp": "Température de service",
+      "storageTemp": "Température de conservation",
       "lotNumber": "Numéro de lot",
       "sparklingType": "Type",
       "sugarLevel": "Taux de sucre",
@@ -422,6 +425,8 @@
     "username": "Nom d'utilisateur",
     "email": "Adresse email",
     "password": "Mot de passe (12 caractères min.)",
+    "passwordLabel": "Mot de passe",
+    "pageTitleLogin": "Connexion",
     "confirmPassword": "Confirmer le mot de passe",
     "displayName": "Nom affiché (facultatif)",
     "identifier": "Identifiant ou email",
@@ -533,7 +538,9 @@
       "items": "actifs",
       "itemsCount_one": "{{count}} actif",
       "itemsCount_other": "{{count}} actifs",
-      "alerts": "alertes"
+      "alerts": "alertes",
+      "alertCount_one": "{{count}} alerte",
+      "alertCount_other": "{{count}} alertes"
     },
     "grid": {
       "showConfig": "Configurer le plan de cave (optionnel)",
@@ -552,8 +559,10 @@
       "occupied_other": "occupés",
       "free_one": "libre",
       "free_other": "libres",
-      "hotZone": "Zone chaude ({{count}} rangées)",
-      "coldZone": "Zone froide ({{count}} rangées)",
+      "hotZone_one": "Zone chaude ({{count}} rangée)",
+      "hotZone_other": "Zone chaude ({{count}} rangées)",
+      "coldZone_one": "Zone froide ({{count}} rangée)",
+      "coldZone_other": "Zone froide ({{count}} rangées)",
       "hotZoneLabel": "Zone chaude",
       "coldZoneLabel": "Zone froide",
       "cellLabelEmpty": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner un actif.",
@@ -595,7 +604,7 @@
     }
   },
   "connectivity": {
-    "online": "Connecté à internet",
+    "online": "Connecté au serveur",
     "offline": "Hors connexion",
     "checking": "Vérification...",
     "featuresAffected": "Autocomplétion externe, scan et recherche d'images indisponibles",
@@ -858,7 +867,8 @@
       "errors": {
         "nameRequired": "Le nom est obligatoire.",
         "windowInvalid": "La fenêtre de fin doit être ≥ à la fenêtre de début."
-      }
+      },
+      "relativeWindow": "{{from}} → {{to}} ans"
     },
     "maintenance": {
       "title": "Maintenance",
@@ -872,17 +882,22 @@
         "success": "La base de données a été remise à zéro avec succès.",
         "error": "Une erreur est survenue lors de la purge des données.",
         "counts": {
-          "bottles": "{{count}} actifs supprimés",
-          "cellars": "{{count}} caves supprimées",
-          "logs": "{{count}} entrées de log supprimées"
+          "bottles_one": "{{count}} actif supprimé",
+          "bottles_other": "{{count}} actifs supprimés",
+          "cellars_one": "{{count}} cave supprimée",
+          "cellars_other": "{{count}} caves supprimées",
+          "logs_one": "{{count}} entrée de log supprimée",
+          "logs_other": "{{count}} entrées de log supprimées"
         }
       }
     }
   },
   "bulk": {
-    "selected": "{{count}} sélectionnée",
+    "selected_one": "{{count}} sélectionné",
+    "selected_other": "{{count}} sélectionnés",
     "title": "Actions groupées",
-    "subtitle": "Modifier {{count}} actifs simultanément",
+    "subtitle_one": "Modifier {{count}} actif",
+    "subtitle_other": "Modifier {{count}} actifs simultanément",
     "fieldsToUpdate": "Champs à modifier",
     "preview": "Récapitulatif des changements",
     "mixed": "(Valeurs multiples)",
@@ -893,7 +908,8 @@
     "loadPreset": "Charger un modèle",
     "deletePreset": "Supprimer le modèle",
     "deletePresetConfirm": "Ce modèle d'actions sera définitivement supprimé.",
-    "success": "{{count}} actifs ont été mis à jour"
+    "success_one": "{{count}} actif a été mis à jour",
+    "success_other": "{{count}} actifs ont été mis à jour"
   },
   "traceability": {
     "title": "Traçabilité",
@@ -930,7 +946,8 @@
     "emptyHint": "Créez des thématiques pour organiser vos articles.",
     "deleteTitle": "Supprimer la collection",
     "deleteConfirm": "Supprimer « {{name}} » ? Les articles ne seront pas supprimés.",
-    "itemCount": "{{count}} article",
+    "itemCount_one": "{{count}} article",
+    "itemCount_other": "{{count}} articles",
     "fields": {
       "name": "Nom de la collection",
       "color": "Couleur",
@@ -954,7 +971,8 @@
     "deleteTitle": "Supprimer la dégustation",
     "deleteConfirm": "Cette note de dégustation sera supprimée définitivement.",
     "noItem": "Produit non lié",
-    "total": "{{count}} dégustation",
+    "total_one": "{{count}} dégustation",
+    "total_other": "{{count}} dégustations",
     "fields": {
       "item": "Produit dégusté",
       "tastedAt": "Date de dégustation",
@@ -1015,7 +1033,8 @@
       "promptHint": "Saisissez un met ou choisissez une suggestion rapide ci-dessus.",
       "noResults": "Aucun actif en stock ne correspond à \"{{query}}\"",
       "noResultsHint": "Essayez un terme plus général ou une des suggestions rapides.",
-      "resultsCount": "{{count}} actif correspondant",
+      "resultsCount_one": "{{count}} actif correspondant",
+      "resultsCount_other": "{{count}} actifs correspondants",
       "reason": "Accorde avec : {{pairing}}",
       "consumeNow": "Consommer maintenant",
       "inventoryLoadError": "Impossible de charger votre inventaire.",
@@ -1383,7 +1402,8 @@
       "notesHidden": "Notes personnelles masquées",
       "expired": "Ce lien de partage a expiré ou a été révoqué.",
       "loadError": "Impossible de charger ce partage. Vérifiez votre connexion et réessayez.",
-      "showMore": "Afficher la suite ({{count}} restants)",
+      "showMore_one": "Afficher la suite ({{count}} restant)",
+      "showMore_other": "Afficher la suite ({{count}} restants)",
       "search": "Rechercher dans ce partage",
       "sortBy": "Trier par",
       "empty": "Aucun article dans ce partage.",
@@ -1589,10 +1609,14 @@
           "error": "Échec"
         },
         "counts": {
-          "auditLogs": "{{count}} logs",
-          "sessions": "{{count}} sessions",
-          "trustedDevices": "{{count}} appareils",
-          "guestShares": "{{count}} partages"
+          "auditLogs_one": "{{count}} log",
+          "auditLogs_other": "{{count}} logs",
+          "sessions_one": "{{count}} session",
+          "sessions_other": "{{count}} sessions",
+          "trustedDevices_one": "{{count}} appareil",
+          "trustedDevices_other": "{{count}} appareils",
+          "guestShares_one": "{{count}} partage",
+          "guestShares_other": "{{count}} partages"
         }
       }
     },
