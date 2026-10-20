@@ -45,6 +45,9 @@ e2e/.auth/
 api/uploads/
 tmp/
 
+# --- Database dumps from the host bind mount (ISSUE_020) ---
+/backups/
+
 # --- Pipeline vibecoding : personnel, jamais poussé en ligne — ni depuis ce
 # template, ni depuis un projet dérivé (voir AGENTS.md). Le pipeline reste à
 # jour localement via .claude/hooks/pipeline-pull.sh, qui copie depuis la

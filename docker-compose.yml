@@ -61,7 +61,13 @@ services:
     volumes:
       - api_logs:/app/logs
       - api_uploads:/app/uploads
-      - api_backups:/app/backups
+      # ISSUE_020: a bind mount, not a named volume — so the dumps land on
+      # the host filesystem where whatever backup tool the operator already
+      # runs (restic, a NAS snapshot, rsync…) can see and collect them.
+      # A named volume keeps backups on the exact same disk as the database
+      # they're meant to protect against, which defeats the point if that
+      # disk fails. See docs/wiki/EN/19-Backups-Export-Data-Portability.md.
+      - ./backups:/app/backups
     logging: *logging
     # ISSUE_019: /health now actually queries PostgreSQL (see app.ts) and
     # returns 503 on failure — this is the one service, besides `db` and
@@ -129,5 +135,4 @@ volumes:
   db_data:
   api_logs:
   api_uploads:
-  api_backups:
   ollama_data:

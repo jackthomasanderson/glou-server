@@ -5,7 +5,7 @@ Planifiez des sauvegardes de la base depuis l'Admin, restaurez-en une si nécess
 
 ## Prérequis
 * Compte administrateur pour planifier/restaurer des sauvegardes.
-* Compte utilisateur classique pour exporter ses propres données et consulter le panneau de transparence des accès.
+* Compte utilisateur classique pour exporter ses propres données.
 
 ## Action
 
@@ -44,11 +44,15 @@ Planifiez des sauvegardes de la base depuis l'Admin, restaurez-en une si nécess
 2. Cliquez sur **Exporter** pour un export complet de vos données, ou sur **Filtrer** pour déployer un sélecteur de catégories et ne choisir que ce dont vous avez besoin : **inventaire**, **caves**, **collections**, **dégustations**, **activité**, **liste de souhaits**, **budgets**, **objectifs de consommation**, **inventaires physiques**, **relevés d'humidor**, **sessions**, **appareils de confiance**, **préférences de notification**, **historique de configuration**. Le fichier contient une clé `included` qui liste les catégories réellement exportées. L'activité exportée couvre tout ce que la fenêtre de rétention conserve encore (pas de plafond arbitraire). Les sessions et appareils de confiance n'apparaissent que sous forme de métadonnées descriptives (appareil, localisation approximative, dates) : le jeton qui les authentifie n'est jamais exporté, ni aucun autre secret (mot de passe, 2FA).
 3. Cliquez sur **Exporter la sélection**. Le fichier se télécharge sous le nom `glou-export.json` : du JSON brut, lisible par n'importe quel éditeur de texte ou script.
 
-### Consulter le panneau de transparence des accès
-1. Sur votre page **Profil**, le panneau de transparence affiche deux listes :
-   - **Sessions actives** : appareil, dernière activité, et un badge marquant votre session actuelle. Cliquez sur **Gérer** pour aller en révoquer une.
-   - **Partages actifs** : chaque partage invité actif, son expiration (ou "sans expiration"), et s'il accorde un accès partiel en écriture. Cliquez sur **Gérer** pour aller en révoquer un.
-2. Ce panneau est volontairement en lecture seule. La révocation se fait sur les panneaux Sessions et Partages Invités vers lesquels il renvoie, afin qu'un seul endroit exécute l'action.
+### Sauvegardez aussi `.env`, séparément
+Les dumps de base contiennent votre inventaire, vos dégustations, votre historique de configuration — mais `CONFIG_ENCRYPTION_KEY` (dans `.env`, jamais en base) est la seule clé qui déchiffre les secrets portés par un dump (mot de passe SMTP, URL Gotify/webhook, clés d'API). Restaurer un dump sur une instance dont le `.env` a une `CONFIG_ENCRYPTION_KEY` **différente** rend ces champs illisibles — Glou ne fait pas échouer la restauration, mais Administration → Configuration Système les affichera vides, et il faudra les ressaisir.
+
+Sauvegardez `.env` là où vous gardez déjà vos secrets (gestionnaire de mots de passe, coffre chiffré) — pas dans le dossier `backups/` lui-même, qui est fait pour des dumps que votre outil de sauvegarde collecte selon son propre calendrier, pas pour un fichier qui change rarement et mérite plus de soin qu'un lot de dumps qui tourne.
+
+### Où vivent réellement les sauvegardes, et la preuve qu'une restauration fonctionne
+Les dumps atterrissent dans `./backups` sur l'**hôte**, monté en bind mount dans le conteneur (`docker-compose.yml`), et non dans un volume Docker nommé — l'outil de sauvegarde que vous faites déjà tourner sur l'hôte (`restic`, un snapshot NAS, `rsync` vers une autre machine…) les voit et les collecte de son côté, et une panne de disque n'emporte plus la base et ses sauvegardes ensemble.
+
+Le bon fonctionnement d'une restauration n'est pas qu'affirmé ici : `e2e/tests/backup-restore.spec.ts` exécute un vrai cycle sauvegarde → création de données → restauration → vérification que les nouvelles données ont disparu, contre une instance réellement démarrée, à chaque exécution de la CI (job `e2e` de `.github/workflows/docker-publish.yml`) — une preuve vérifiée en continu, plutôt qu'une note datée unique qui devient obsolète au premier changement.
 
 ## Le pare-feu (troubleshooting)
 
@@ -57,5 +61,5 @@ Planifiez des sauvegardes de la base depuis l'Admin, restaurez-en une si nécess
 | **Les sauvegardes sont activées mais aucun fichier n'apparaît jamais** | Vérifiez la valeur **Heure (UTC)** par rapport à l'heure UTC actuelle : la tâche ne se déclenche que pendant cette heure précise, une fois activée. Ou cliquez sur **Exécuter maintenant** pour tester immédiatement. |
 | **J'ai cliqué sur Restaurer et mes données sont différentes d'avant** | Normal : la restauration écrase toutes les données actuelles avec le contenu de la sauvegarde. Si c'était une erreur, restaurez une sauvegarde plus récente (ou l'état d'avant-restauration si vous en avez pris une manuelle juste avant). |
 | **Mon fichier d'export ne contient qu'une partie de mes données** | Vous avez utilisé **Filtrer** et sélectionné seulement certaines catégories. Utilisez le bouton **Exporter** simple pour un export complet. |
-| **Où sont réellement stockés les fichiers de sauvegarde ?** | Dans le dossier `backups/` du conteneur de l'API. Avec Docker, montez ce dossier sur un volume persistant si vous voulez que les sauvegardes survivent à une reconstruction du conteneur. |
-| **Le panneau de transparence des accès affiche une session ou un partage que je ne reconnais pas** | Cliquez sur **Gérer** pour accéder au panneau complet et le révoquer immédiatement, puis changez votre mot de passe s'il s'agit d'une session inconnue. |
+| **Où sont réellement stockés les fichiers de sauvegarde ?** | Dans `./backups` sur l'hôte (bind mount, voir plus haut) — pointez votre propre outil de sauvegarde vers ce dossier. |
+| **Les champs SMTP/Gotify/clé d'API d'une sauvegarde restaurée sont vides** | Le dump a été pris (ou est restauré) sur une instance dont le `.env` a une `CONFIG_ENCRYPTION_KEY` différente de celle qui a chiffré ces champs. Ressaisissez-les, et gardez `CONFIG_ENCRYPTION_KEY` sauvegardée avec vos autres secrets — voir « Sauvegardez aussi `.env`, séparément » plus haut. |

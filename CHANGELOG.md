@@ -31,6 +31,7 @@ Entries start with the pull request that introduced them where there is one.
 - `CSRF_TRUSTED_ORIGINS` is passed through `docker-compose.yml`.
 
 ### Changed
+- **Action required on existing instances:** `docker-compose.yml`'s `api_backups` named volume was replaced with a host bind mount (`./backups:/app/backups`), so your own backup tooling can see and collect the dumps. Backups made before this change live in the old named volume and won't appear under `./backups` automatically — copy them out with `docker run --rm -v api_backups:/from -v "$PWD/backups":/to alpine cp -a /from/. /to/` (adjust the volume name if your project/compose name differs) before running `docker volume rm api_backups`, or just let the volume sit unused (#92).
 - The complete GDPR export now includes wishlist, budgets, goals, sessions, trusted devices, stock counts and configuration history (#283, #224).
 - A deactivated account is reported as `INVALID_CREDENTIALS` at login (#373, #352).
 - Wiki and READMEs (FR + EN) refreshed: environment variable reference, registration, offline pending changes, keyboard cellar grid, label scan timeout.
