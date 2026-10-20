@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput, SwapSlotsInput } from '../schemas/cellar.schema';
 import { NOT_FINISHED_ITEM_FILTER } from '../lib/finished-item';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
+import { toNumber } from '../lib/decimal';
 
 export type SwapSlotsResult =
   | { status: 'not_found' }
@@ -51,7 +52,7 @@ export class CellarService {
     ]);
 
     const aggMap = new Map(aggGroups.map((g) => [g.cellarId, g]));
-    const valueMap = new Map(valueGroups.map((g) => [g.cellarId, g._sum.estimatedValue]));
+    const valueMap = new Map(valueGroups.map((g) => [g.cellarId, toNumber(g._sum.estimatedValue)]));
     const alertMap = new Map(alertGroups.map((g) => [g.cellarId, g._count.id]));
 
     return cellars.map((cellar) => {
@@ -97,7 +98,7 @@ export class CellarService {
       stats: {
         totalItems: agg._count.id,
         totalQuantity: agg._sum.quantity ?? 0,
-        estimatedValue: value._sum.estimatedValue ?? null,
+        estimatedValue: toNumber(value._sum.estimatedValue),
         alertCount,
       },
     };

@@ -145,15 +145,13 @@ router.post('/items/:id/convert', async (req: Request, res: Response, next: Next
 
 // ─── Budget envelopes ─────────────────────────────────────────────────────────
 
-router.get('/budget-envelopes', async (req: Request, res: Response) => {
-  const userId = req.userId!;
-  const envelopes = await listBudgetEnvelopes(userId);
+router.get('/budget-envelopes', async (_req: Request, res: Response) => {
+  const envelopes = await listBudgetEnvelopes();
   res.json({ data: envelopes });
 });
 
 router.get('/budget-envelopes/:id', async (req: Request, res: Response) => {
-  const userId = req.userId!;
-  const envelope = await getBudgetEnvelope(userId, routeParam(req.params.id));
+  const envelope = await getBudgetEnvelope(routeParam(req.params.id));
   if (!envelope) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
   res.json({ data: envelope });
 });
@@ -181,7 +179,7 @@ router.patch('/budget-envelopes/:id', async (req: Request, res: Response, next: 
   const ip = getClientIp(req);
   try {
     const input = budgetEnvelopePatchSchema.parse(req.body);
-    const envelope = await updateBudgetEnvelope(userId, routeParam(req.params.id), input);
+    const envelope = await updateBudgetEnvelope(routeParam(req.params.id), input);
     if (!envelope) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
     void auditLog({ userId, ip, action: 'UPDATE', status: 'success', details: { scope: 'budget-envelope', id: envelope.id } });
     res.json({ data: envelope });
@@ -198,15 +196,14 @@ router.patch('/budget-envelopes/:id', async (req: Request, res: Response, next: 
 router.delete('/budget-envelopes/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
-  const deleted = await deleteBudgetEnvelope(userId, routeParam(req.params.id));
+  const deleted = await deleteBudgetEnvelope(routeParam(req.params.id));
   if (!deleted) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
   void auditLog({ userId, ip, action: 'DELETE', status: 'success', details: { scope: 'budget-envelope', id: routeParam(req.params.id) } });
   res.status(204).send();
 });
 
 router.get('/budget-envelopes/:id/progress', async (req: Request, res: Response) => {
-  const userId = req.userId!;
-  const progress = await getBudgetProgress(userId, routeParam(req.params.id));
+  const progress = await getBudgetProgress(routeParam(req.params.id));
   if (!progress) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
   res.json({ data: progress });
 });

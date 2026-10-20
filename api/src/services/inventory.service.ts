@@ -1,7 +1,7 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
-import { prisma } from '../lib/prisma';
+import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { v4 as uuidv4 } from 'uuid';
@@ -76,7 +76,15 @@ const INVENTORY_ITEM_INCLUDE = {
   collections: { select: { id: true, name: true, color: true, icon: true } },
 } satisfies Prisma.InventoryItemInclude;
 
-type InventoryItemWithCollections = Prisma.InventoryItemGetPayload<{ include: typeof INVENTORY_ITEM_INCLUDE }>;
+// ISSUE_172: the schema-level GetPayload type doesn't know about the
+// money-fields-as-number result extension in lib/prisma.ts, so it still
+// reports purchasePrice/estimatedValue as Decimal — override them to match
+// what the extended client actually returns, same as the InventoryItem
+// alias above.
+type InventoryItemWithCollections = Omit<
+  Prisma.InventoryItemGetPayload<{ include: typeof INVENTORY_ITEM_INCLUDE }>,
+  'purchasePrice' | 'estimatedValue'
+> & Pick<InventoryItem, 'purchasePrice' | 'estimatedValue'>;
 
 // FEAT-86: list/detail payloads carry a computed `readiness` percentage
 // (null when the curve model has no window to work with). Computed on read
@@ -207,7 +215,7 @@ export class InventoryService {
    */
   async findDuplicateCandidate(
     data: Pick<InventoryPatch, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>,
-    client: Prisma.TransactionClient | PrismaClient = prisma,
+    client: PrismaClientOrTx = prisma,
   ): Promise<InventoryItem | null> {
     if (!data.category || !data.producer || !data.name) return null;
     const normalize = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
@@ -248,7 +256,7 @@ export class InventoryService {
   async createItem(
     userId: string,
     data: InventoryInput,
-    client: Prisma.TransactionClient | PrismaClient = prisma,
+    client: PrismaClientOrTx = prisma,
     fieldSources?: Partial<Record<string, FieldSource>>,
   ): Promise<InventoryItem> {
     // InventoryInput (a per-category discriminated union with some required
@@ -599,7 +607,7 @@ export class InventoryService {
    * gone from disk.
    */
   async purgeTrashed(
-    client: Prisma.TransactionClient | PrismaClient = prisma,
+    client: PrismaClientOrTx = prisma,
   ): Promise<{ count: number; photoPaths: string[] }> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const toPurge = await client.inventoryItem.findMany({
@@ -638,7 +646,7 @@ export class InventoryService {
    * for files no InventoryItem (trashed or not — only a purged item's photo
    * is truly gone) references any more.
    */
-  async sweepOrphanProductPhotos(client: Prisma.TransactionClient | PrismaClient = prisma): Promise<number> {
+  async sweepOrphanProductPhotos(client: PrismaClientOrTx = prisma): Promise<number> {
     const uploadDir = path.join(process.cwd(), 'uploads', 'products');
     let files: string[];
     try {
