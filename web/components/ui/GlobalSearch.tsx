@@ -25,6 +25,14 @@ type SearchOption =
 // be touched.
 const MIN_QUERY_LENGTH = 2;
 
+// Cigars live on their own page (/bottles hides them), and a cellar has a
+// detail page: sending both to the generic lists left the chosen result unreachable.
+function searchTarget(option: SearchOption) {
+  if (option.kind === 'cellar') return `/cellars/${encodeURIComponent(option.cellar.id)}`;
+  const base = option.item.category === 'cigar' ? '/cigars' : '/bottles';
+  return `${base}?q=${encodeURIComponent(option.item.name)}`;
+}
+
 function useSearch() {
   const [query, setQuery] = useState('');
   const router = useRouter();
@@ -65,7 +73,7 @@ function useSearch() {
     (option: SearchOption, onDone: () => void) => {
       setQuery('');
       onDone();
-      router.push(option.kind === 'item' ? `/bottles?q=${encodeURIComponent(option.item.name)}` : '/cellars');
+      router.push(searchTarget(option));
     },
     [router],
   );

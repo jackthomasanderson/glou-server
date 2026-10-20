@@ -18,6 +18,7 @@ vi.mock('@/hooks/useInventory', () => ({
     data: [
       { id: 'i1', name: 'Pétrus', producer: 'Château Pétrus', vintage: 2015, category: 'wine', region: 'Pomerol' },
       { id: 'i2', name: 'Petit Verdot', producer: 'Domaine X', vintage: 2019, category: 'wine', region: '' },
+      { id: 'i3', name: 'Cohiba Siglo', producer: 'Habanos', vintage: 2020, category: 'cigar', region: '' },
     ],
   }),
 }));
@@ -82,13 +83,22 @@ describe('GlobalSearch keyboard support (#198)', () => {
     expect(push).toHaveBeenCalledWith('/bottles?q=P%C3%A9trus');
   });
 
+  it('opens a cigar on the cigars page', () => {
+    render(<GlobalSearch />);
+    const input = screen.getByRole('combobox');
+    typeQuery(input, 'cohiba');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(push).toHaveBeenCalledWith('/cigars?q=Cohiba%20Siglo');
+  });
+
   it('opens the cellar when a cellar result is chosen', () => {
     render(<GlobalSearch />);
     const input = screen.getByRole('combobox');
     typeQuery(input, 'pet');
     fireEvent.keyDown(input, { key: 'End' });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(push).toHaveBeenCalledWith('/cellars');
+    expect(push).toHaveBeenCalledWith('/cellars/c1');
   });
 
   it('does not hijack Enter when no result is highlighted', () => {
