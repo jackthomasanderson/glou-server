@@ -1,9 +1,10 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Card, CardHeader, CardBody, Progress, Skeleton, Spinner,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -140,7 +141,7 @@ export function BudgetPanel() {
       )}
 
       {/* Create form */}
-      <Modal isOpen={formOpen} onClose={() => setFormOpen(false)} size="md" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={formOpen} onClose={() => setFormOpen(false)} size="md" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {() => (
             <>
@@ -185,10 +186,10 @@ export function BudgetPanel() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* Delete confirm */}
-      <Modal isOpen={!!deleting} onClose={() => setDeleting(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={!!deleting} onClose={() => setDeleting(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {() => (
             <>
@@ -205,7 +206,7 @@ export function BudgetPanel() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
   );
 }

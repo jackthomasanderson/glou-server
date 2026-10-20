@@ -1,9 +1,10 @@
 'use client';
 import React from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Chip, Divider,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { AlertTriangle } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
@@ -36,7 +37,7 @@ export function DuplicateDialog({
   const newQty = currentQty + addedQty;
 
   return (
-    <Modal isOpen onClose={onCancel} size="sm" radius="lg" backdrop="opaque" placement="center">
+    <ResponsiveModal isOpen onClose={onCancel} size="sm" radius="lg" backdrop="opaque" placement="center">
       <ModalContent>
         {() => (
           <>
@@ -83,6 +84,6 @@ export function DuplicateDialog({
           </>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }

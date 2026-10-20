@@ -2,8 +2,9 @@
 import React from 'react';
 import {
   Button, CircularProgress, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
-  Switch, Skeleton, Chip, Tooltip, Input, Select, SelectItem, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Switch, Skeleton, Chip, Tooltip, Input, Select, SelectItem, ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Trash2, ArrowLeft, Ban, CheckCircle, ChevronLeft, ChevronRight, KeyRound, Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '@/hooks/useAuth';
@@ -314,7 +315,7 @@ export function AdminClient() {
       </div>
 
       {/* Purge dialog */}
-      <Modal
+      <ResponsiveModal
         isOpen={isPurgeDialogOpen}
         onClose={() => !isPurging && setIsPurgeDialogOpen(false)}
         size="sm" radius="lg" backdrop="opaque" placement="center"
@@ -349,10 +350,10 @@ export function AdminClient() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* #336: one-time display of the temp password from an admin reset */}
-      <Modal
+      <ResponsiveModal
         isOpen={!!resetPasswordResult}
         onClose={() => setResetPasswordResult(null)}
         size="sm" radius="lg" backdrop="opaque" placement="center"
@@ -383,7 +384,7 @@ export function AdminClient() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
     </MainLayout>
   );

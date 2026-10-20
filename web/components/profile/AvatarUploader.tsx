@@ -2,8 +2,9 @@
 import React, { useRef, useState } from 'react';
 import {
   Avatar, Button, Input, CircularProgress,
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Camera, Trash2, Pencil, Check, X } from 'lucide-react';
 import { useUploadAvatar, useDeleteAvatar, useUpdateProfile, PublicUser } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
@@ -165,7 +166,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
         accept="image/jpeg,image/png,image/webp,image/gif"
       />
 
-      <Modal
+      <ResponsiveModal
         isOpen={confirmingDelete}
         onClose={() => setConfirmingDelete(false)}
         size="sm"
@@ -197,7 +198,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
   );
 }

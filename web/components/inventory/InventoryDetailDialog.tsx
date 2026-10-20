@@ -5,7 +5,8 @@ import { useHasMounted } from '@/hooks/useHasMounted';
 import { useModalDrawer } from '@/hooks/useModalDrawer';
 import { useCellars } from '@/hooks/useCellars';
 import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem, useRollbackField } from '@/hooks/useInventory';
-import { Button, Chip, Divider, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Tooltip } from '@heroui/react';
+import { Button, Chip, Divider, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Tooltip } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
   Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode, Euro,
@@ -699,7 +700,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
       />
 
       {/* Rollback confirmation (FEAT-05) — data-modifying action, requires confirmation */}
-      <Modal
+      <ResponsiveModal
         isOpen={rollbackTarget !== null}
         onClose={() => { setRollbackTarget(null); rollbackMutation.reset(); }}
         size="sm"
@@ -749,7 +750,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </>
   );
 }

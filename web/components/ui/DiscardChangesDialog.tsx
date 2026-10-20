@@ -1,8 +1,9 @@
 'use client';
 import React from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button,
+  ModalContent, ModalHeader, ModalBody, ModalFooter, Button,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -24,7 +25,7 @@ export function DiscardChangesDialog({ isOpen, onCancel, onConfirm }: DiscardCha
   const { t } = useTranslation();
 
   return (
-    <Modal
+    <ResponsiveModal
       isOpen={isOpen}
       onClose={onCancel}
       size="sm"
@@ -53,6 +54,6 @@ export function DiscardChangesDialog({ isOpen, onCancel, onConfirm }: DiscardCha
           </>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }

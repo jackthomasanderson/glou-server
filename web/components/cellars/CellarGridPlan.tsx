@@ -5,13 +5,13 @@ import {
   Button,
   Chip,
   Tooltip,
-  Modal,
   ModalContent,
   ModalHeader,
   ModalBody,
   ModalFooter,
   CircularProgress,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Flame, Snowflake } from 'lucide-react';
 import {
   DndContext,
@@ -293,7 +293,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
   };
 
   return (
-    <Modal isOpen={open} onClose={onClose} size="xs">
+    <ResponsiveModal isOpen={open} onClose={onClose} size="xs">
       <ModalContent>
         <ModalHeader>
           {t('cellars.grid.assignTitle', { col: targetCol, row: targetRow })}
@@ -341,7 +341,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
           </Button>
         </ModalFooter>
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }
 
@@ -373,7 +373,7 @@ function OccupiedDialog({ open, item, cellarId, onClose }: OccupiedDialogProps) 
   if (!item) return null;
 
   return (
-    <Modal isOpen={open} onClose={onClose} size="xs">
+    <ResponsiveModal isOpen={open} onClose={onClose} size="xs">
       <ModalContent>
         <ModalHeader>{item.name}</ModalHeader>
         <ModalBody>
@@ -407,7 +407,7 @@ function OccupiedDialog({ open, item, cellarId, onClose }: OccupiedDialogProps) 
           </Button>
         </ModalFooter>
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }
 

@@ -1,8 +1,9 @@
 'use client';
 import React, { useRef, useState } from 'react';
 import {
-  Modal, ModalContent, Button, Chip, Input, Select, SelectItem, Checkbox, CircularProgress,
+  ModalContent, Button, Chip, Input, Select, SelectItem, Checkbox, CircularProgress,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
@@ -252,7 +253,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
 
   return (
     <>
-      <Modal isOpen={open} onClose={onClose} size="full" hideCloseButton>
+      <ResponsiveModal isOpen={open} onClose={onClose} size="full" hideCloseButton>
         <ModalContent>
           {() => (
             <div className="flex flex-col h-full">
@@ -498,7 +499,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
             </div>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       <InventoryForm
         open={fullFormOpen}

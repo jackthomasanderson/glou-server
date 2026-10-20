@@ -1,9 +1,10 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Spinner,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, BookMarked } from 'lucide-react';
 import { useCollections, useCreateCollection, useUpdateCollection, useDeleteCollection } from '@/hooks/useCollections';
 import { Collection, CollectionFormValues } from '@/lib/collections/types';
@@ -171,7 +172,7 @@ export function CollectionsDashboard() {
       />
 
       {/* Delete confirm */}
-      <Modal
+      <ResponsiveModal
         isOpen={!!deleting}
         onClose={() => setDeleting(null)}
         size="sm"
@@ -205,7 +206,7 @@ export function CollectionsDashboard() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
   );
 }

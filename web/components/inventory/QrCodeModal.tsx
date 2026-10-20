@@ -1,6 +1,7 @@
 'use client';
 import React, { useCallback } from 'react';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
+import { ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Download, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +29,7 @@ export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalPr
   }, [itemId, itemName]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="sm" placement="center">
+    <ResponsiveModal isOpen={isOpen} onClose={onClose} size="sm" placement="center">
       <ModalContent>
         <ModalHeader className="flex items-center gap-2">
           <span className="text-base font-bold">{t('qr.title')}</span>
@@ -58,6 +59,6 @@ export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalPr
           </Button>
         </ModalFooter>
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }
