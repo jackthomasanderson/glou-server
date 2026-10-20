@@ -1,5 +1,5 @@
 import { BottleCategory, Prisma } from '@prisma/client';
-import { prisma } from '../lib/prisma';
+import { prisma, PrismaTransactionClient } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
 import { InventoryInput } from '../schemas/inventory.schema';
@@ -436,7 +436,7 @@ function toInventoryInputForFound(
  * which is a normal race in a shared inventory, not a data-integrity risk).
  */
 async function applyCorrectionsInternal(
-  tx: Prisma.TransactionClient,
+  tx: PrismaTransactionClient,
   session: { id: string; cellarId: string | null },
   corrections: CorrectionInput[],
   actingUserId: string,

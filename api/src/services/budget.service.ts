@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { BudgetEnvelopeCreateInput, BudgetEnvelopePatchInput } from '../schemas/budget.schema';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
+import { toNumber } from '../lib/decimal';
 
 /**
  * ISSUE_142: budget envelopes are household-wide, not personal. `userId` on
@@ -74,7 +75,7 @@ export async function getBudgetProgress(envelopeId: string): Promise<BudgetProgr
     _sum: { purchasePrice: true },
   });
 
-  const spent = result._sum.purchasePrice ?? 0;
+  const spent = toNumber(result._sum.purchasePrice) ?? 0;
   const remaining = Math.max(0, envelope.amount - spent);
   const percent = envelope.amount > 0 ? Math.min(100, Math.round((spent / envelope.amount) * 100)) : 0;
 

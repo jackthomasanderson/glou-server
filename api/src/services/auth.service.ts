@@ -6,10 +6,10 @@ import qrcode from 'qrcode';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { prisma } from '../lib/prisma';
+import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
 import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.schema';
-import { Theme, Language, TempUnit, DateFormat, Prisma, PrismaClient } from '@prisma/client';
+import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 import { describeDevice, locateIp, countryOfIp, type DeviceDescription } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
@@ -1073,7 +1073,7 @@ export class AuthService {
    */
   async purgeDueAccountDeletions(
     cutoff: Date,
-    client: Prisma.TransactionClient | PrismaClient = prisma,
+    client: PrismaClientOrTx = prisma,
   ): Promise<{ count: number; avatarPaths: string[] }> {
     const due = await client.user.findMany({
       where: { deletionRequestedAt: { not: null, lt: cutoff }, isActive: true },

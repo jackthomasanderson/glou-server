@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
-import { Prisma, PrismaClient } from '@prisma/client';
-import { prisma } from '../lib/prisma';
+import { Prisma } from '@prisma/client';
+import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { analyzeLabelImage, OcrExtractedData } from './ocr.service';
 import { FieldSource } from './inventory.service';
 
@@ -67,7 +67,7 @@ export const scanService = {
    * invariant (which governs InventoryItem/Cellar/etc., not this transient
    * per-session processing artifact).
    */
-  async getJob(userId: string, id: string, client: Prisma.TransactionClient | PrismaClient = prisma): Promise<ScanJob | null> {
+  async getJob(userId: string, id: string, client: PrismaClientOrTx = prisma): Promise<ScanJob | null> {
     return client.scanJob.findFirst({ where: { id, userId } });
   },
 
@@ -115,7 +115,7 @@ export const scanService = {
    */
   async purgeExpiredScanFiles(
     retentionHours = 24,
-    client: Prisma.TransactionClient | PrismaClient = prisma,
+    client: PrismaClientOrTx = prisma,
   ): Promise<number> {
     const { count, imagePaths } = await this.markExpiredScanJobs(retentionHours, client);
     await this.deleteScanFiles(imagePaths);
@@ -130,7 +130,7 @@ export const scanService = {
    */
   async markExpiredScanJobs(
     retentionHours = 24,
-    client: Prisma.TransactionClient | PrismaClient = prisma,
+    client: PrismaClientOrTx = prisma,
   ): Promise<{ count: number; imagePaths: string[] }> {
     const cutoff = new Date(Date.now() - retentionHours * 60 * 60 * 1000);
     const staleJobs = await client.scanJob.findMany({

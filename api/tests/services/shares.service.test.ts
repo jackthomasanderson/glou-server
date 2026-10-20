@@ -260,6 +260,36 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
     expect(call.where).toEqual({ deletedAt: null, isOwned: true });
   });
+
+  // ISSUE_172: defense in depth. The money-fields-as-number Prisma result
+  // extension (lib/prisma.ts) computes purchasePrice/estimatedValue from
+  // the raw column regardless of what the caller's `select` asked for —
+  // this simulates that worst case (the field comes back anyway) and
+  // asserts the service strips it itself rather than trusting the select.
+  it('strips purchasePrice/estimatedValue even if the query result carries them anyway', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'i1', purchasePrice: 42, estimatedValue: 50 },
+    ] as never);
+
+    const result = await sharesService.getInventoryForShare({
+      cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: true, hideNotes: false,
+    });
+
+    expect(result[0]).not.toHaveProperty('purchasePrice');
+    expect(result[0]).not.toHaveProperty('estimatedValue');
+  });
+
+  it('leaves purchasePrice/estimatedValue in place when hidePrices is false', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'i1', purchasePrice: 42, estimatedValue: 50 },
+    ] as never);
+
+    const result = await sharesService.getInventoryForShare({
+      cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: false, hideNotes: false,
+    });
+
+    expect(result[0]).toMatchObject({ purchasePrice: 42, estimatedValue: 50 });
+  });
 });
 
 describe('sharesService.getItemForShare', () => {
