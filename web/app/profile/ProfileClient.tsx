@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Button, Input, Select, SelectItem, Switch, CircularProgress } from '@heroui/react';
-import { User, Settings, ShieldCheck, Compass, Gift, FlaskConical, LogOut } from 'lucide-react';
+import { User, Settings, ShieldCheck, Compass, FlaskConical, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
@@ -97,28 +97,33 @@ export function ProfileClient() {
   return (
     <MainLayout>
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">{t('profile.title')}</h1>
+        <h1 className="text-2xl font-bold mb-4">{t('profile.title')}</h1>
 
-        {/* Wishlist & Budget (FEAT-20) — personal per-user feature, not part of
-            the fixed sidebar nav (ux-ui.md 3.1's 6-item list is normative),
-            so it's surfaced here instead, same treatment as the admin panel
-            shortcut below. */}
-        <Button
-          as={Link}
-          href="/wishlist-budget"
-          color="primary"
-          variant="bordered"
-          startContent={<Gift size={16} />}
-          radius="md"
-          fullWidth
-          className="mb-6"
-        >
-          {t('wishlist.pageAccess')}
-        </Button>
+        {/* #513: ten stacked sections on a phone — a row of anchors gets to
+            the right one directly. (The former Wishlist & Budget shortcut is
+            gone: that page is in the navigation now.) */}
+        <nav aria-label={t('profile.sectionsNav')} className="flex flex-wrap gap-2 mb-6">
+          {[
+            { id: 'account', label: t('profile.personalInfo') },
+            { id: 'preferences', label: t('profile.preferences') },
+            { id: 'security', label: t('profile.security') },
+            { id: 'shares', label: t('shares.title') },
+            { id: 'notifications', label: t('notifications.title') },
+            { id: 'data', label: t('gdpr.title') },
+          ].map((section) => (
+            <a
+              key={section.id}
+              href={`#${section.id}`}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full border border-divider text-foreground-600 hover:bg-default-100 focus-visible:outline-2 focus-visible:outline-primary"
+            >
+              {section.label}
+            </a>
+          ))}
+        </nav>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Personal Info */}
-          <div className="bg-content1 border border-divider rounded-2xl p-6">
+          <div id="account" className="bg-content1 border border-divider rounded-2xl p-6 scroll-mt-24">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <User size={18} className="text-primary" />
@@ -180,7 +185,7 @@ export function ProfileClient() {
           </div>
 
           {/* Preferences */}
-          <div className="bg-content1 border border-divider rounded-2xl p-6">
+          <div id="preferences" className="bg-content1 border border-divider rounded-2xl p-6 scroll-mt-24">
             <div className="flex items-center gap-2 mb-5">
               <Settings size={18} className="text-primary" />
               <h2 className="text-base font-semibold">{t('profile.preferences')}</h2>
@@ -309,13 +314,13 @@ export function ProfileClient() {
         </div>
 
         {/* Notifications */}
-        <div className="mt-6">
+        <div id="notifications" className="mt-6 scroll-mt-24">
           <NotificationPreferences />
         </div>
 
         {/* RGPD */}
         {user && (
-          <div className="mt-6">
+          <div id="data" className="mt-6 scroll-mt-24">
             <GdprSection user={user} />
           </div>
         )}
