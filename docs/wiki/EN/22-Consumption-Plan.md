@@ -8,7 +8,7 @@ The **Consumption Plan** tab under Tastings shows a prioritized list of bottles 
 
 ## Action
 
-1. Go to **Tastings** (`/tastings`) → **Consumption Plan** tab.
+1. Go to **Tastings** (`/cellar-journal`) → **Consumption Plan** tab.
 2. Review the "Drink now / soon" list. Each suggestion shows a reason: peak window, opened bottle, or stock rotation.
 3. Click **Consume** to open the pre-filled tasting form, or **Postpone** to temporarily drop the suggestion (it can come back later if stock conditions have not changed).
 4. Set a monthly goal: click **Set a goal**, choose the type (bottle count or volume) and target value, then save.

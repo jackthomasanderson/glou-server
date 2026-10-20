@@ -15,7 +15,7 @@
    - Select the type (Aging, Wine Cooler, or Shelf).
    - Validate with "Add".
 3. **Assign Bottles**:
-   - Go to the "Bottles" page.
+   - Open **Wines**, **Sparkling** or **Spirits** in the navigation.
    - Add or edit a bottle.
    - Select the target cellar from the "Wine Cellars" dropdown menu.
 4. **Edit or delete**: Use the pencil icon (edit) or trash icon (delete) on each cellar card.

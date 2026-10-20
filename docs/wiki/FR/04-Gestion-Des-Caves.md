@@ -15,7 +15,7 @@
    - Sélectionnez le type (Vieillissement, Armoire Climatisée, ou Étagère).
    - Validez avec "Ajouter".
 3. **Assigner des bouteilles** :
-   - Rendez-vous sur la page "Bouteilles".
+   - Ouvrez **Vins**, **Bulles** ou **Spiritueux** dans la navigation.
    - Ajoutez ou modifiez une bouteille.
    - Sélectionnez la cave de destination dans le menu déroulant "Caves".
 4. **Modifier ou supprimer** : Utilisez les icônes crayon (éditer) ou poubelle (supprimer) sur chaque carte de cave.

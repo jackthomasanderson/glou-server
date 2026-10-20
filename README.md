@@ -105,4 +105,4 @@ Dozens of smaller features ship regularly; see the [closed pull requests](https:
 ## Credits / Third parties
 
 - This product includes GeoLite data created by MaxMind, available from [http://maxmind.com/](http://maxmind.com/).
-- Map tiles by [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
+- World map outlines from [Natural Earth](https://www.naturalearthdata.com/) (public domain), packaged by [world-atlas](https://github.com/topojson/world-atlas).

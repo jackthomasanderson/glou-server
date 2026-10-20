@@ -8,7 +8,7 @@ Depuis l'onglet **Accords** de Dégustations, tapez un plat pour obtenir une lis
 
 ## Action
 
-1. Allez dans **Dégustations** (`/tastings`) puis ouvrez l'onglet **Accords**.
+1. Allez dans **Dégustations** (`/cellar-journal`) puis ouvrez l'onglet **Accords**.
 2. Tapez le plat ou l'ingrédient dans le champ de recherche (ex. : « bœuf », « saumon », « chocolat »), ou utilisez un des raccourcis rapides (**Viande**, **Poisson**, **Fromage**, **Chocolat**).
 3. La liste des bouteilles compatibles s'affiche, triées par pertinence de l'accord puis par priorité de rotation : les bouteilles en fin de fenêtre d'apogée ou déjà entamées remontent en premier parmi celles à score égal.
 4. Cliquez **Consommer maintenant** sur la suggestion choisie. Le formulaire de dégustation s'ouvre pré-rempli avec la bouteille et l'accord, y compris la mise à jour de niveau de stock (voir [09-Journal-Degustation.md](./09-Journal-Degustation.md)).
