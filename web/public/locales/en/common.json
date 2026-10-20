@@ -8,7 +8,6 @@
     "allCategories": "All categories"
   },
   "nav": {
-    "dashboard": "Dashboard",
     "bottles": "Assets",
     "wines": "Wines",
     "sparkling": "Sparkling",
@@ -23,11 +22,8 @@
     "searchResultsCount_other": "{{count}} results",
     "skipToContent": "Skip to main content",
     "primary": "Main navigation",
-    "searchViewAll": "View all results →",
-    "searchCollection": "Collection",
     "searchBottles": "Assets",
     "searchCellars": "Cellars",
-    "allCellars": "View all cellars",
     "collections": "Collections",
     "tastings": "Tastings",
     "analytics": "Analytics & Terroir",
@@ -47,7 +43,6 @@
     "save": "Save",
     "update": "Update",
     "delete": "Delete",
-    "restore": "Restore",
     "undo": "Undo",
     "cancel": "Cancel",
     "close": "Close",
@@ -60,7 +55,6 @@
     "clearAll": "Clear all",
     "showMore": "Show optional fields",
     "showLess": "Hide optional fields",
-    "view": "View",
     "saving": "Saving...",
     "none": "None"
   },
@@ -77,7 +71,6 @@
   "status": {
     "loading": "Loading…",
     "saving": "Saving…",
-    "deleting": "Deleting…",
     "error": "An error occurred",
     "serverUnreachable": "Cannot reach the server. Check your connection and try again.",
     "retry": "Retry",
@@ -137,12 +130,10 @@
       "cigarLevel": "Box capacity / Humidity",
       "spiritLevel": "Tactile level adjustment",
       "levelWine": "Level:",
-      "levelCigar": "Humidity / Quantity:",
       "full": "Full",
       "half": "Half",
       "empty": "Empty",
       "opened": "Open / Started",
-      "inUse": "In use",
       "decreaseQuantity": "Decrease quantity",
       "increaseQuantity": "Increase quantity",
       "location": "Location",
@@ -154,11 +145,7 @@
     },
     "add": "Add",
     "edit": "Edit item",
-    "details": "Asset details",
-    "delete": "Delete asset",
     "restore": "Restore asset",
-    "deleteConfirm": "The asset will be moved to the trash.",
-    "undoDelete": "Asset deleted. Undo?",
     "trashInfo": "days left before permanent deletion",
     "trashEmpty": "The trash is empty.",
     "tabsAria": "Inventory view",
@@ -170,9 +157,7 @@
     "noBottlesDesc": "Add your first item to get started.",
     "noCellarBanner": "No cellar created — your assets will have no location.",
     "noCellarBannerAction": "Create a cellar",
-    "chooseCellar": "Choose a cellar",
     "noCellar": "No cellar",
-    "searchPlaceholder": "Search (name, producer, vintage...)",
     "noResults": "No results for \"{{query}}\"",
     "noResultsFilters": "No results for these filters",
     "noResultsFiltersDesc": "Try widening or removing a filter.",
@@ -183,12 +168,9 @@
     "filterByCategory": "By category",
     "filterByOwnership": "Ownership",
     "filterByCellar": "By cellar",
-    "activeFilters": "Active filters",
-    "preview": "Preview",
     "step1": "Basic information",
     "step2": "Category details",
     "saveMinimal": "Save now",
-    "saveMinimalHint": "You can complete the details later.",
     "fields": {
       "category": "Category",
       "name": "Name",
@@ -263,9 +245,7 @@
       "yearExample": "e.g. {{year}}"
     },
     "expertSection": {
-      "title": "Advanced fields (collector)",
-      "wineTitle": "Advanced tasting",
-      "spiritTitle": "Cask & batch (collector)"
+      "title": "Advanced fields (collector)"
     },
     "color": {
       "red": "Red",
@@ -366,14 +346,11 @@
   },
   "alerts": {
     "title": "Peak Maturity Alerts",
-    "window": "Optimal window",
     "from": "From",
     "until": "Until",
     "paused": "Alert paused",
     "pauseAlert": "Pause alert",
-    "resumeAlert": "Resume alert",
-    "pastCount": "{{count}} past peak",
-    "peakCount": "{{count}} at peak"
+    "resumeAlert": "Resume alert"
   },
   "toast": {
     "createSuccess": "Asset added successfully",
@@ -440,7 +417,6 @@
     }
   },
   "auth": {
-    "login": "Login",
     "register": "Create an account",
     "logout": "Logout",
     "username": "Username",
@@ -519,7 +495,6 @@
     "title": "My Cellars",
     "addCellar": "Add cellar",
     "editCellar": "Edit cellar",
-    "deleteCellar": "Delete cellar",
     "noCellars": "You don't have any cellars yet.",
     "noCellarsDesc": "Add your first cellar to start organizing your collection.",
     "name": "Cellar Name",
@@ -558,8 +533,7 @@
       "items": "items",
       "itemsCount_one": "{{count}} item",
       "itemsCount_other": "{{count}} items",
-      "alerts": "alerts",
-      "estimatedValue": "Estimated value"
+      "alerts": "alerts"
     },
     "grid": {
       "showConfig": "Configure grid layout (optional)",
@@ -655,8 +629,6 @@
     "saveError": "Could not download this image, please try another one"
   },
   "itemImage": {
-    "sectionLabel": "Photo",
-    "placeholder": "No image",
     "savedLocally": "Stored locally",
     "remove": "Remove image",
     "pasteUrl": "Paste an image URL",
@@ -665,16 +637,13 @@
   },
   "autocomplete": {
     "internal": "My inventory",
-    "external": "Internet",
-    "noResults": "No matches found",
-    "loading": "Searching..."
+    "external": "Internet"
   },
   "profile": {
     "adminPanelLink": "Go to admin panel",
     "title": "My Profile",
     "personalInfo": "Personal Information",
     "preferences": "Display Preferences",
-    "avatarUrl": "Avatar URL",
     "appName": "Custom App Name",
     "appNamePlaceholder": "Ex: My Private Cellar",
     "appSlogan": "Custom App Slogan",
@@ -806,8 +775,6 @@
         "createdAt": "Created",
         "actions": "Actions"
       },
-      "active": "Active",
-      "inactive": "Deactivated",
       "activate": "Activate",
       "deactivate": "Deactivate",
       "deactivateSelf": "You cannot deactivate your own account",
@@ -818,8 +785,7 @@
       "resetPassword": "Reset password",
       "resetPasswordConfirm": "Generate a new temporary password for {{username}}? Their current sessions and trusted devices will be signed out, and they will have to set a new password on their next login.",
       "resetPasswordResultTitle": "Temporary password for {{username}}",
-      "resetPasswordResultHint": "Copy this password and share it with the member through a secure channel. It is shown only once and cannot be retrieved afterwards — they will be asked to set a real password on their next login.",
-      "resetPasswordError": "Could not reset this member's password"
+      "resetPasswordResultHint": "Copy this password and share it with the member through a secure channel. It is shown only once and cannot be retrieved afterwards — they will be asked to set a real password on their next login."
     },
     "auditLog": {
       "filters": {
@@ -895,7 +861,6 @@
     "maintenance": {
       "title": "Maintenance",
       "purge": {
-        "title": "Complete Database Reset",
         "description": "This action will delete ALL assets, ALL cellars and ALL activity logs. User accounts will be preserved.",
         "button": "Purge all data",
         "confirmTitle": "Full Purge Confirmation",
@@ -914,15 +879,11 @@
   },
   "bulk": {
     "selected": "{{count}} selected",
-    "selected_plural": "{{count}} selected",
     "title": "Bulk Actions",
     "subtitle": "Update {{count}} items simultaneously",
     "fieldsToUpdate": "Fields to update",
     "preview": "Changes summary",
-    "before": "Before",
-    "after": "After",
     "mixed": "(Mixed values)",
-    "noChange": "(No change)",
     "apply": "Apply changes",
     "presets": "Action Modeles (Presets)",
     "savePreset": "Save as preset",
@@ -930,17 +891,10 @@
     "loadPreset": "Load preset",
     "deletePreset": "Delete preset",
     "deletePresetConfirm": "This action preset will be permanently deleted.",
-    "noPresets": "No presets saved",
-    "success": "{{count}} items have been updated",
-    "error": "An error occurred during bulk update"
+    "success": "{{count}} items have been updated"
   },
   "traceability": {
     "title": "Traceability",
-    "createdBy": "Created by",
-    "lastEditedBy": "Last edited by",
-    "showHistory": "Show change history",
-    "hideHistory": "Hide history",
-    "noHistory": "No changes recorded.",
     "actions": {
       "create": "Created",
       "update": "Updated",
@@ -973,7 +927,6 @@
     "deleteTitle": "Delete collection",
     "deleteConfirm": "Delete \"{{name}}\"? Items will not be deleted.",
     "itemCount": "{{count}} item",
-    "itemCount_plural": "{{count}} items",
     "fields": {
       "name": "Collection name",
       "color": "Color",
@@ -998,7 +951,6 @@
     "deleteConfirm": "This tasting note will be permanently deleted.",
     "noItem": "No linked product",
     "total": "{{count}} tasting",
-    "total_plural": "{{count}} tastings",
     "fields": {
       "item": "Product tasted",
       "tastedAt": "Tasting date",
@@ -1060,7 +1012,6 @@
       "noResults": "No asset in stock matches \"{{query}}\"",
       "noResultsHint": "Try a broader term or one of the quick suggestions.",
       "resultsCount": "{{count}} matching asset",
-      "resultsCount_plural": "{{count}} matching assets",
       "reason": "Pairs with: {{pairing}}",
       "consumeNow": "Consume now",
       "inventoryLoadError": "Failed to load your inventory.",
@@ -1192,7 +1143,6 @@
     },
     "pageTitle": "Analytics & Terroir",
     "pageSubtitle": "Financial, temporal, volumetric and geographic analysis of your cellar.",
-    "exportButton": "Export report",
     "stats": {
       "totalValuation": "Global Valuation",
       "totalValuationHint": "Current total estimate",
@@ -1208,13 +1158,11 @@
       "subtitle": "Your collection's spread by terroir",
       "mapTitle": "World Map — Taste Heatmap",
       "mapSubtitle": "Hover over a geographic hotspot to see its valuation and composition.",
-      "legendActive": "Intense activity",
       "unmapped_one": "{{count}} region not geolocated",
       "unmapped_other": "{{count}} regions not geolocated",
       "items_one": "item in stock",
       "items_other": "items in stock",
-      "valuation": "Valuation:",
-      "noRegions": "No regions set in your inventory."
+      "valuation": "Valuation:"
     },
     "map": {
       "mode": {
@@ -1237,9 +1185,6 @@
         "ratingMinLabel": "{{count}}+ ",
         "ratingHint": "Based on the 50 most recently logged tastings — an approximation, not the full history.",
         "state": "State",
-        "stateAll": "All",
-        "stateInCellar": "In cellar (unopened)",
-        "stateOpened": "Opened",
         "region": "Region",
         "regionAny": "All regions"
       },
@@ -1324,32 +1269,6 @@
       "deleted": "Moved to trash"
     }
   },
-  "storageZones": {
-    "title": "Storage Zones",
-    "add": "Add zone",
-    "addChild": "Add sub-zone",
-    "edit": "Edit zone",
-    "empty": "No storage zones defined",
-    "emptyHint": "Create zones to organize your cellar (shelves, racks, drawers…)",
-    "deleteTitle": "Delete storage zone",
-    "deleteConfirm": "Delete zone \"{{name}}\"?",
-    "deleteItemsWarning_one": "{{count}} item will be moved to Unclassified.",
-    "deleteItemsWarning_other": "{{count}} items will be moved to Unclassified.",
-    "selectorLabel": "Storage zone",
-    "unclassified": "Unclassified",
-    "fields": {
-      "name": "Zone name",
-      "description": "Description (optional)",
-      "capacity": "Max capacity",
-      "capacityHint": "Maximum number of items (optional)",
-      "parent": "Parent zone",
-      "noParent": "None (root zone)"
-    },
-    "errors": {
-      "hasChildren": "This zone has sub-zones. Delete them first.",
-      "notFound": "Zone not found."
-    }
-  },
   "errorPage": {
     "title": "Something went wrong",
     "description": "The page could not be displayed. Reload it or go back to the home page.",
@@ -1414,14 +1333,9 @@
       "done": "Done"
     },
     "revoke": "Revoke",
-    "revokeConfirm": "Revoke share \"{{label}}\"? Access will be cut immediately.",
-    "statusActive": "Active",
-    "statusExpired": "Expired",
-    "statusRevoked": "Revoked",
     "expiresAt": "Expires {{date}}",
     "noExpiry": "No expiration",
     "allCellars": "All cellars",
-    "allCollections": "All collections",
     "cellarCount_one": "{{count}} cellar",
     "cellarCount_other": "{{count}} cellars",
     "collectionCount_one": "{{count}} collection",
@@ -1453,9 +1367,7 @@
       }
     },
     "errors": {
-      "load": "Unable to load shares.",
-      "create": "Unable to create share.",
-      "revoke": "Unable to revoke share."
+      "load": "Unable to load shares."
     },
     "guest": {
       "badge": "Shared view",
@@ -1468,10 +1380,8 @@
       "showMore": "Show more ({{count}} remaining)",
       "search": "Search this share",
       "sortBy": "Sort by",
-      "loading": "Loading shared collection…",
       "empty": "No items in this share.",
       "scopeAll": "Full collection",
-      "scopePartial": "Partial view",
       "edit": {
         "action": "Edit",
         "opened": "Asset opened",
@@ -1580,7 +1490,6 @@
       "history": "History"
     },
     "smtp": {
-      "title": "SMTP Configuration",
       "enabled": "Enable email sending",
       "host": "SMTP server",
       "hostPlaceholder": "smtp.gmail.com",
@@ -1601,7 +1510,6 @@
       "saved": "SMTP configuration saved."
     },
     "notifPolicy": {
-      "title": "Notification policy",
       "description": "These are global switches for the entire instance. If a channel is disabled here, users will not be able to enable it in their personal preferences.",
       "inApp": "In-app notifications",
       "inAppHint": "Allows users to receive alerts directly in the interface.",
@@ -1613,8 +1521,6 @@
       "saved": "Policy saved."
     },
     "gotify": {
-      "title": "Gotify Webhook (instance)",
-      "enabled": "Enable Gotify webhooks",
       "url": "Gotify URL",
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Gotify token",
@@ -1626,7 +1532,6 @@
       "saved": "Gotify configuration saved."
     },
     "integrations": {
-      "title": "Third-party API keys",
       "vivinoKey": "Vivino API key",
       "whiskybaseKey": "Whiskybase API key",
       "vivinoWhiskybaseNotUsedYet": "Coming soon — stored securely, but no feature reads these keys yet.",
@@ -1637,17 +1542,9 @@
       "saved": "Integrations saved."
     },
     "history": {
-      "title": "Change history",
-      "noHistory": "No changes recorded.",
-      "columns": {
-        "date": "Date",
-        "user": "User",
-        "section": "Section",
-        "value": "Values"
-      }
+      "noHistory": "No changes recorded."
     },
     "retention": {
-      "title": "Retention & Cleanup",
       "description": "Configure the retention delay before obsolete data is permanently deleted. This delay is added to the expiration or revocation date, it does not replace it.",
       "fields": {
         "logRetentionDays": "Audit logs (days)",
@@ -1673,13 +1570,6 @@
       "history": {
         "title": "Run history",
         "noHistory": "No runs recorded.",
-        "columns": {
-          "date": "Date",
-          "trigger": "Trigger",
-          "status": "Status",
-          "counts": "Items deleted",
-          "duration": "Duration"
-        },
         "trigger": {
           "scheduled": "Scheduled",
           "manual": "Manual"
@@ -1737,7 +1627,6 @@
       }
     },
     "network": {
-      "title": "Network configuration",
       "description": "Define the instance's reference public URL and how it is exposed (direct access or via a reverse proxy).",
       "publicUrl": "Public URL",
       "publicUrlPlaceholder": "https://cellar.mydomain.com",
@@ -1863,7 +1752,6 @@
     }
   },
   "pagination": {
-    "perPage": "Items per page",
     "page": "Page",
     "of": "of",
     "items": "items",
@@ -1873,7 +1761,6 @@
   "wishlist": {
     "title": "Wishlist & Budget",
     "pageAccess": "Wishlist & Budget",
-    "pageAccessHint": "Plan your next purchases and track your budget",
     "tabs": {
       "ariaLabel": "Wishlist sections",
       "wishlist": "Wishlist",
@@ -1916,8 +1803,7 @@
       "description": "Enter the price observed for \"{{name}}\". No external price source is connected: this entry is manual.",
       "price": "Observed price",
       "submit": "Save price",
-      "lastSeen": "Last price seen: {{price}} on {{date}}",
-      "opportunity": "Opportunity! This price is below your ceiling of {{maxPrice}}."
+      "lastSeen": "Last price seen: {{price}} on {{date}}"
     },
     "convert": {
       "action": "Move to inventory",
@@ -1929,8 +1815,7 @@
       "cellarPlaceholder": "Select a cellar",
       "bottleSize": "Bottle size",
       "quantity": "Quantity (cigars)",
-      "submit": "Add to inventory",
-      "success": "Successfully added to inventory."
+      "submit": "Add to inventory"
     }
   },
   "budget": {
@@ -1949,9 +1834,7 @@
       "amount": "Amount"
     },
     "progress": {
-      "spent": "Spent",
       "remaining": "Remaining",
-      "ofAmount": "of {{amount}}",
       "label": "{{spent}} spent out of {{amount}} ({{percent}}%)"
     }
   },
