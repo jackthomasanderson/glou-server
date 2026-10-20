@@ -136,7 +136,7 @@ export const CellarDashboard: React.FC = () => {
   // (React's documented pattern) rather than in an effect, guarded against
   // the previous render's searchParams so it only re-parses when navigation
   // actually changes the query string.
-  const [prevSearchParams, setPrevSearchParams] = useState(searchParams);
+  const [prevSearchParams, setPrevSearchParams] = useState<typeof searchParams | null>(null);
   if (searchParams !== prevSearchParams) {
     setPrevSearchParams(searchParams);
     setTypeFilter((searchParams.get('type') ?? 'all') as CellarTypeFilter);
