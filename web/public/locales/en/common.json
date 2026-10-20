@@ -1464,6 +1464,8 @@
       "expired": "This share link has expired or been revoked.",
       "loadError": "Could not load this share. Check your connection and try again.",
       "showMore": "Show more ({{count}} remaining)",
+      "search": "Search this share",
+      "sortBy": "Sort by",
       "loading": "Loading shared collection…",
       "empty": "No items in this share.",
       "scopeAll": "Full collection",

@@ -2,7 +2,7 @@
 
 import React, { use, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Chip, Input, Spinner, Switch, Textarea } from '@heroui/react';
+import { Button, Chip, Input, Select, SelectItem, Spinner, Switch, Textarea } from '@heroui/react';
 import { Eye, EyeOff, Lock, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/format';
@@ -171,6 +171,8 @@ function GuestPageContent({ token }: { token: string }) {
 
   // Rendered by slices: a whole-cellar share can hold hundreds of cards.
   const [visibleCount, setVisibleCount] = useState(GUEST_PAGE_SIZE);
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<'name' | 'producer' | 'vintage'>('name');
 
   const inventoryQuery = useQuery<GuestItem[], Error>({
     queryKey: ['guest', token, 'inventory'],
@@ -209,7 +211,14 @@ function GuestPageContent({ token }: { token: string }) {
   }
 
   const meta = metaQuery.data;
-  const items = inventoryQuery.data ?? [];
+  const allItems = inventoryQuery.data ?? [];
+  const needle = search.trim().toLowerCase();
+  const items = allItems
+    .filter((i) => !needle || [i.name, i.producer, i.region].some((v) => v?.toLowerCase().includes(needle)))
+    .sort((a, b) => {
+      if (sortKey === 'vintage') return (b.vintage ?? 0) - (a.vintage ?? 0);
+      return (a[sortKey] ?? '').localeCompare(b[sortKey] ?? '');
+    });
 
   const scopeLabel =
     !meta
@@ -260,6 +269,29 @@ function GuestPageContent({ token }: { token: string }) {
         {(metaQuery.isLoading || inventoryQuery.isLoading) && (
           <div role="status" aria-live="polite" className="flex justify-center py-16">
             <Spinner size="lg" aria-label={t('status.loading')} />
+          </div>
+        )}
+
+        {/* Search and sort */}
+        {allItems.length > 1 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <Input
+              size="sm" variant="bordered" className="sm:col-span-2" isClearable
+              label={t('shares.guest.search')}
+              value={search}
+              onValueChange={(v) => { setSearch(v); setVisibleCount(GUEST_PAGE_SIZE); }}
+            />
+            <Select
+              size="sm" variant="bordered"
+              label={t('shares.guest.sortBy')}
+              selectedKeys={[sortKey]}
+              disallowEmptySelection
+              onSelectionChange={(keys) => setSortKey(String(Array.from(keys)[0]) as 'name' | 'producer' | 'vintage')}
+            >
+              <SelectItem key="name">{t('inventory.fields.name')}</SelectItem>
+              <SelectItem key="producer">{t('inventory.fields.producer')}</SelectItem>
+              <SelectItem key="vintage">{t('inventory.fields.vintage')}</SelectItem>
+            </Select>
           </div>
         )}
 

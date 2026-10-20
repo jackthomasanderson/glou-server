@@ -1466,6 +1466,8 @@
       "expired": "Ce lien de partage a expiré ou a été révoqué.",
       "loadError": "Impossible de charger ce partage. Vérifiez votre connexion et réessayez.",
       "showMore": "Afficher la suite ({{count}} restants)",
+      "search": "Rechercher dans ce partage",
+      "sortBy": "Trier par",
       "loading": "Chargement de la collection partagée…",
       "empty": "Aucun article dans ce partage.",
       "scopeAll": "Collection complète",
