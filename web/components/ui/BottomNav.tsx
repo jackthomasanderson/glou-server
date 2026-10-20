@@ -1,9 +1,9 @@
 'use client';
 import React, { useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button, Modal, ModalContent, ModalBody } from '@heroui/react';
 import {
-  Wine, Leaf, Warehouse, Library, BarChart3,
+  Wine, Sparkles, Dumbbell, Leaf, Warehouse, Library, BarChart3,
   Martini, ClipboardCheck, Wallet, MoreHorizontal,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -12,22 +12,27 @@ import { useHasMounted } from '@/hooks/useHasMounted';
 export function BottomNav() {
   const { t } = useTranslation();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category');
   const router = useRouter();
   const hasMounted = useHasMounted();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // Bottom nav is capped at 5 touch targets (UX convention). The 4 most
-  // frequently used sections stay directly visible; the rest lives behind
-  // a "More" sheet (see .vibe/ux-ui.md §5.4 — Modal menu on mobile when
-  // items are numerous).
+  // Bottom nav is capped at 5 touch targets (UX convention). ISSUE_434: the
+  // 4 category tabs now take the primary row; caves/collections/tastings/
+  // inventory count/wishlist/analytics (transversal, span every category —
+  // see Sidebar.tsx) move into the "More" sheet (see .vibe/ux-ui.md §5.4 —
+  // Modal menu on mobile when items are numerous).
   const primaryLinks = [
-    { label: t('nav.bottles'), href: '/bottles', icon: <Wine size={22} /> },
+    { label: t('nav.wines'), href: '/bottles?category=wine', category: 'wine', icon: <Wine size={22} /> },
+    { label: t('nav.sparkling'), href: '/bottles?category=sparkling', category: 'sparkling', icon: <Sparkles size={22} /> },
+    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <Dumbbell size={22} /> },
     { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={22} /> },
-    { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={22} /> },
-    { label: t('nav.collections'), href: '/collections', icon: <Library size={22} /> },
   ];
 
   const moreLinks = [
+    { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={20} /> },
+    { label: t('nav.collections'), href: '/collections', icon: <Library size={20} /> },
     { label: t('nav.tastings'), href: '/cellar-journal', icon: <Martini size={20} /> },
     { label: t('nav.inventoryCount'), href: '/inventory-count', icon: <ClipboardCheck size={20} /> },
     { label: t('nav.wishlist'), href: '/wishlist-budget', icon: <Wallet size={20} /> },
@@ -52,7 +57,9 @@ export function BottomNav() {
       >
         <div className="flex items-stretch justify-around h-16">
           {primaryLinks.map((link) => {
-            const active = pathname.startsWith(link.href);
+            const active = link.category
+              ? pathname === '/bottles' && categoryParam === link.category
+              : pathname.startsWith(link.href);
             return (
               <button
                 key={link.href}

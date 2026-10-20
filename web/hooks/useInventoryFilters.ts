@@ -109,8 +109,15 @@ export function useInventoryFilters({
     const filterParam = searchParams.get('filter');
     const qParam = searchParams.get('q');
     const collectionParam = searchParams.get('collection');
+    const categoryParam = searchParams.get('category');
     if (qParam) setSearchQuery(qParam);
     setSelectedCollectionId(collectionParam ?? null);
+    // ISSUE_434: a category nav shortcut (Wine/Sparkling/Spirit) pre-selects
+    // the category chip instead of hard-locking it (unlike `lockedCategories`,
+    // which cigars uses) — the user can still broaden or clear it from the
+    // same /bottles page that search results, alerts, collections and QR
+    // codes all deep-link into unfiltered.
+    setSelectedCategories(categoryParam ? [categoryParam] : []);
     if (filterParam === 'opened') {
       setOpenedFilter('opened'); setIsFiltersOpen(true);
     } else if (filterParam === 'full') {

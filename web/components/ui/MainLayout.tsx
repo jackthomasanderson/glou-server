@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, Button, Tooltip } from '@heroui/react';
 import { Search, Lock } from 'lucide-react';
@@ -33,11 +33,30 @@ const PAGE_TITLES: Record<string, string> = {
   '/wishlist-budget': 'wishlist.title',
 };
 
+// ISSUE_434: /bottles is the one path shared by the 3 category nav
+// shortcuts (?category=wine/sparkling/spirit) AND every unfiltered deep
+// link into it (search results, alerts, collections, printed QR codes —
+// see Sidebar.tsx). The breadcrumb/tab title follows the category when
+// one is selected, and falls back to the generic "nav.bottles" label
+// otherwise — same `?category=` param useInventoryFilters reads.
+const CATEGORY_TITLES: Record<string, string> = {
+  wine: 'nav.wines',
+  sparkling: 'nav.sparkling',
+  spirit: 'nav.spirits',
+};
+
 function usePageTitle() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useTranslation();
   const key = Object.keys(PAGE_TITLES).find(k => pathname.startsWith(k));
-  return key ? { label: t(PAGE_TITLES[key], key.slice(1)), href: key } : null;
+  if (!key) return null;
+  if (key === '/bottles') {
+    const category = searchParams.get('category');
+    const titleKey = (category && CATEGORY_TITLES[category]) || PAGE_TITLES[key];
+    return { label: t(titleKey), href: key };
+  }
+  return { label: t(PAGE_TITLES[key], key.slice(1)), href: key };
 }
 
 /**

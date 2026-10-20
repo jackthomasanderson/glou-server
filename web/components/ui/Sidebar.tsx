@@ -1,10 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
 import {
-  Wine, Leaf, Warehouse, Library, Martini, BarChart3,
+  Wine, Sparkles, Dumbbell, Leaf, Warehouse, Library, Martini, BarChart3,
   ChevronLeft, ChevronRight, X, ShieldCheck, ClipboardCheck, Wallet, LogOut,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -30,10 +30,21 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   const logout = useLogout();
   const { data: counts } = useSidebarCounts();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category');
   const hasMounted = useHasMounted();
 
+  // ISSUE_434: "Vin"/"Pétillant"/"Spiritueux" are category shortcuts into
+  // the SAME /bottles page used by search results, alerts, collections and
+  // printed QR codes (see useInventoryFilters' `?category=` sync) — not
+  // separate locked views like /cigars. No per-category badge count: same
+  // "no cheap, meaningful metric" call already made for tastings/analytics
+  // below, now extended here rather than adding a backend aggregate query
+  // just for a nav badge.
   const navLinks = [
-    { label: t('nav.bottles'), href: '/bottles', icon: <Wine size={18} />, count: counts?.bottles ?? 0 },
+    { label: t('nav.wines'), href: '/bottles?category=wine', category: 'wine', icon: <Wine size={18} />, count: 0 },
+    { label: t('nav.sparkling'), href: '/bottles?category=sparkling', category: 'sparkling', icon: <Sparkles size={18} />, count: 0 },
+    { label: t('nav.spirits'), href: '/bottles?category=spirit', category: 'spirit', icon: <Dumbbell size={18} />, count: 0 },
     { label: t('nav.cigars'), href: '/cigars', icon: <Leaf size={18} />, count: counts?.cigars ?? 0 },
     { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={18} />, count: counts?.cellars ?? 0 },
     { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: counts?.collections ?? 0 },
@@ -91,7 +102,9 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
       {/* Navigation */}
       <nav className="flex-1 px-2 space-y-0.5">
         {navLinks.map((link) => {
-          const active = pathname.startsWith(link.href);
+          const active = link.category
+            ? pathname === '/bottles' && categoryParam === link.category
+            : pathname.startsWith(link.href);
           const showCount = hasMounted && link.count > 0;
 
           const btn = (
