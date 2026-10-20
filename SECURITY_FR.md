@@ -21,7 +21,7 @@ Utilisez toujours l'image la plus récente : `docker compose pull && docker comp
 Signalez en privé via le signalement de faille de GitHub :
 
 1. Rendez-vous sur la [page des advisories de sécurité](https://github.com/jackthomasanderson/glou-server/security/advisories/new).
-2. Décrivez le problème, la version/le tag affecté, l'impact et les étapes de reproduction.
+2. Décrivez le problème, l'impact et les étapes de reproduction. Indiquez la version en cours d'exécution, affichée (et copiable) dans Admin → Configuration système → À propos.
 3. Joignez une preuve de concept si vous en avez une.
 
 Vous pouvez attendre un accusé de réception sous quelques jours. Une fois un correctif disponible, nous publierons une image corrigée et, avec votre accord, vous créditerons dans l'advisory.

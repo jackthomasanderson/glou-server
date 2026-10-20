@@ -30,6 +30,7 @@ import { importRouter } from './routes/import.router';
 import wishlistRouter from './routes/wishlist.router';
 import { scanRouter } from './routes/scan.router';
 import humidorRouter from './routes/humidor.router';
+import { APP_VERSION } from './lib/app-version';
 
 // ─── Express app assembly ────────────────────────────────────────────────────
 // Extracted from index.ts so it can be imported without side effects (no
@@ -102,11 +103,20 @@ export function createApp(): express.Express {
   app.get('/health', async (_req, res) => {
     try {
       await prisma.$queryRaw`SELECT 1`;
-      res.json({ status: 'ok', timestamp: new Date().toISOString() });
+      res.json({ status: 'ok', timestamp: new Date().toISOString(), version: APP_VERSION });
     } catch (err) {
       console.error('[health] Database check failed:', err);
-      res.status(503).json({ status: 'error', timestamp: new Date().toISOString() });
+      res.status(503).json({ status: 'error', timestamp: new Date().toISOString(), version: APP_VERSION });
     }
+  });
+
+  // ─── Version (no auth) ─────────────────────────────────────────────────────
+  // ISSUE_169: the bug report template and SECURITY.md ask reporters for a
+  // version/tag, but nothing ever surfaced one — `latest`/`beta` are moving
+  // tags, not versions. This is what Admin → System Configuration → About
+  // reads to show a copyable value.
+  app.get('/api/version', (_req, res) => {
+    res.json({ data: { version: APP_VERSION } });
   });
 
   // ─── Connectivity check (no auth) ─────────────────────────────────────────

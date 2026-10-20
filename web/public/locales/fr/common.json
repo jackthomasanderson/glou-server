@@ -1489,7 +1489,11 @@
       "retention": "Rétention",
       "backups": "Sauvegardes",
       "network": "Réseau",
-      "history": "Historique"
+      "history": "Historique",
+      "about": "À propos"
+    },
+    "about": {
+      "description": "Version en cours d'exécution. À inclure dans un rapport de bug."
     },
     "smtp": {
       "enabled": "Activer l'envoi d'emails",

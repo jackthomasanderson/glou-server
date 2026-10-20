@@ -18,6 +18,7 @@ vi.mock('../../src/lib/prisma', () => ({
 
 import { prisma } from '../../src/lib/prisma';
 import { createApp } from '../../src/app';
+import pkg from '../../package.json';
 
 const JWT_SECRET = 'integration-test-secret';
 const app = createApp();
@@ -42,6 +43,15 @@ describe('unauthenticated access', () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
+    expect(res.body.version).toBe(pkg.version);
+  });
+
+  // ISSUE_169: the bug report template and SECURITY.md ask reporters for a
+  // version — this is what the UI reads to show one they can actually copy.
+  it('GET /api/version is open and returns the package version', async () => {
+    const res = await request(app).get('/api/version');
+    expect(res.status).toBe(200);
+    expect(res.body.data.version).toBe(pkg.version);
   });
 
   // ISSUE_019: it used to answer 'ok' unconditionally — now it actually

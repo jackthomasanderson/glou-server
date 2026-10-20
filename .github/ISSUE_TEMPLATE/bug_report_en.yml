@@ -39,8 +39,10 @@ body:
   - type: input
     id: version
     attributes:
-      label: Version / image tag
-      description: e.g. latest, beta, or a commit SHA. Leave blank if you don't know.
+      label: Version
+      description: >
+        Admin → System Configuration → About has a copyable version (e.g.
+        2026.10.0). If you can't reach that page, leave blank.
     validations:
       required: false
 

@@ -5,11 +5,12 @@ import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle, Globe, CheckCircle2, AlertTriangle, Archive, Download, RotateCcw } from 'lucide-react';
+import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle, Globe, CheckCircle2, AlertTriangle, Archive, Download, RotateCcw, Info, Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, SystemConfigPublic, MaintenanceRunEntry, NetworkCheckResult, BackupRunEntry } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { formatDateTime } from '@/lib/format';
+import { copyText } from '@/lib/clipboard';
 
 export function SystemConfigSection() {
   const { t, i18n } = useTranslation();
@@ -63,6 +64,12 @@ export function SystemConfigSection() {
   // History
   const [history, setHistory] = useState<{ id: number; fieldName: string; maskedNewVal: string | null; createdAt: string; user?: { username: string } }[]>([]);
 
+  // ISSUE_169: the running version, shown as a copyable value in About —
+  // the bug report template and SECURITY.md point here instead of asking
+  // for the moving `latest`/`beta` image tag.
+  const [version, setVersion] = useState<string | null>(null);
+  const [versionCopied, setVersionCopied] = useState(false);
+
   useEffect(() => {
     configClient.getConfig().then((cfg) => {
       setConfig(cfg);
@@ -97,7 +104,17 @@ export function SystemConfigSection() {
     configClient.getHistory().then(setHistory).catch(() => {});
     configClient.getMaintenanceRuns().then(setRuns).catch(() => {}).finally(() => setRunsLoading(false));
     configClient.getBackupRuns().then(setBackupRuns).catch(() => {}).finally(() => setBackupRunsLoading(false));
+    configClient.getVersion().then(({ version }) => setVersion(version)).catch(() => {});
   }, []);
+
+  const copyVersion = async () => {
+    if (!version) return;
+    const ok = await copyText(version);
+    if (ok) {
+      setVersionCopied(true);
+      setTimeout(() => setVersionCopied(false), 2000);
+    }
+  };
 
   const showFeedback = (type: 'success' | 'error', msg: string) => {
     setFeedback({ type, msg });
@@ -770,6 +787,29 @@ export function SystemConfigSection() {
                 ))}
               </div>
             )}
+          </div>
+        </Tab>
+
+        {/* ── About (#285): a version a bug reporter can copy, instead of
+            the moving `latest`/`beta` image tag the bug report template
+            and SECURITY.md used to ask for. ── */}
+        <Tab key="about" title={<span className="flex items-center gap-1.5"><Info size={14} />{t('adminConfig.tabs.about')}</span>}>
+          <div className="pt-4 flex flex-col gap-3 max-w-sm">
+            <p className="text-sm text-foreground-600">{t('adminConfig.about.description')}</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 px-3 py-2 rounded-lg bg-content2 border border-divider text-sm font-mono select-all">
+                {version ?? <Skeleton className="h-4 w-20 rounded" />}
+              </code>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="flat"
+                isDisabled={!version}
+                startContent={versionCopied ? <Check size={14} /> : <Copy size={14} />}
+                onPress={copyVersion}
+                aria-label={t('actions.copy')}
+              />
+            </div>
           </div>
         </Tab>
       </Tabs>
