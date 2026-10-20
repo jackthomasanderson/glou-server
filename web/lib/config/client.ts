@@ -1,4 +1,4 @@
-import { client } from '@/lib/api';
+import { client, handleResponse } from '@/lib/api';
 
 export interface SystemConfigPublic {
   smtpEnabled: boolean;
@@ -211,12 +211,23 @@ export const configClient = {
     return data;
   },
 
-  async restoreBackup(id: string): Promise<void> {
-    await client.post(`/admin/backups/${id}/restore`, { confirm: true });
+  // #489: restore and download re-ask the admin's password.
+  async restoreBackup(id: string, password: string): Promise<void> {
+    await client.post(`/admin/backups/${id}/restore`, { confirm: true, password });
   },
 
-  getBackupDownloadUrl(id: string): string {
-    return `/api/admin/backups/${id}/download`;
+  /** POST (password in the body), returned as a file to save. */
+  async downloadBackup(id: string, password: string): Promise<{ blob: Blob; filename: string }> {
+    const res = await fetch(`/api/admin/backups/${id}/download`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) await handleResponse(res); // throws Error(<API code>)
+    const disposition = res.headers.get('Content-Disposition') ?? '';
+    const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? 'glou-backup.sql.gz';
+    return { blob: await res.blob(), filename };
   },
 
   async getNotifPrefs(): Promise<NotificationPrefs> {

@@ -890,8 +890,14 @@
         "confirmDescription": "Attention ! Cette action est irréversible. Pour confirmer que vous souhaitez supprimer TOUTES les données métier, veuillez saisir le mot-clé ci-dessous :",
         "keywordLabel": "Saisissez \"SUPPRIMER\" pour confirmer",
         "keywordValue": "SUPPRIMER",
+        "passwordLabel": "Votre mot de passe",
+        "backupFirst": "Une sauvegarde est faite avant ; la purge est annulée si elle échoue.",
         "success": "La base de données a été remise à zéro avec succès.",
         "error": "Une erreur est survenue lors de la purge des données.",
+        "errors": {
+          "INVALID_PASSWORD": "Mot de passe incorrect.",
+          "BACKUP_BEFORE_PURGE_FAILED": "La sauvegarde préalable à la purge a échoué : rien n'a été supprimé. Consultez l'onglet Sauvegardes."
+        },
         "counts": {
           "bottles_one": "{{count}} actif supprimé",
           "bottles_other": "{{count}} actifs supprimés",
@@ -1630,6 +1636,13 @@
     },
     "backup": {
       "description": "Configurez la sauvegarde automatique quotidienne de la base de données (pg_dump), stockée en dehors du volume applicatif.",
+      "passwordLabel": "Votre mot de passe",
+      "invalidPassword": "Mot de passe incorrect.",
+      "download": {
+        "title": "Télécharger cette sauvegarde",
+        "body": "Le fichier contient toute la base, y compris l'empreinte du mot de passe et le secret de double authentification de chaque compte. Confirmez avec votre mot de passe.",
+        "error": "Le téléchargement a échoué."
+      },
       "dirNotWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échouera. Sur le serveur, à côté de docker-compose.yml, lancez : mkdir -p backups && sudo chown 1001:1001 backups, puis redémarrez la pile.",
       "enabled": "Activer les sauvegardes automatiques",
       "retentionDays": "Rétention des sauvegardes (jours)",

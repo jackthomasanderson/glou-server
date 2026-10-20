@@ -61,6 +61,10 @@ export function SystemConfigSection() {
   const [restoreTarget, setRestoreTarget] = useState<BackupRunEntry | null>(null);
   const [restoreConfirmText, setRestoreConfirmText] = useState('');
   const [restoring, setRestoring] = useState(false);
+  const [restorePassword, setRestorePassword] = useState('');
+  const [downloadTarget, setDownloadTarget] = useState<BackupRunEntry | null>(null);
+  const [downloadPassword, setDownloadPassword] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   // History
   const [history, setHistory] = useState<{ id: number; fieldName: string; maskedNewVal: string | null; createdAt: string; user?: { username: string } }[]>([]);
@@ -323,18 +327,47 @@ export function SystemConfigSection() {
     }
   };
 
+  const passwordErrorMessage = (err: unknown, fallbackKey: string): string =>
+    err instanceof Error && err.message === 'INVALID_PASSWORD'
+      ? t('adminConfig.backup.invalidPassword')
+      : err instanceof Error ? err.message : t(fallbackKey);
+
+  const closeRestore = () => { setRestoreTarget(null); setRestoreConfirmText(''); setRestorePassword(''); };
+
   const handleConfirmRestore = async () => {
-    if (!restoreTarget || restoreConfirmText !== t('adminConfig.backup.restore.keyword')) return;
+    if (!restoreTarget || restoreConfirmText !== t('adminConfig.backup.restore.keyword') || !restorePassword) return;
     setRestoring(true);
     try {
-      await configClient.restoreBackup(restoreTarget.id);
+      await configClient.restoreBackup(restoreTarget.id, restorePassword);
       showFeedback('success', t('adminConfig.backup.restore.success'));
-      setRestoreTarget(null);
-      setRestoreConfirmText('');
+      closeRestore();
     } catch (err) {
-      showFeedback('error', err instanceof Error ? err.message : t('adminConfig.backup.restore.error'));
+      showFeedback('error', passwordErrorMessage(err, 'adminConfig.backup.restore.error'));
     } finally {
       setRestoring(false);
+    }
+  };
+
+  const closeDownload = () => { setDownloadTarget(null); setDownloadPassword(''); };
+
+  const handleConfirmDownload = async () => {
+    if (!downloadTarget || !downloadPassword) return;
+    setDownloading(true);
+    try {
+      const { blob, filename } = await configClient.downloadBackup(downloadTarget.id, downloadPassword);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      closeDownload();
+    } catch (err) {
+      showFeedback('error', passwordErrorMessage(err, 'adminConfig.backup.download.error'));
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -646,14 +679,11 @@ export function SystemConfigSection() {
                         {run.success && (
                           <div className="flex gap-1 mt-1">
                             <Button
-                              as="a"
-                              href={configClient.getBackupDownloadUrl(run.id)}
-                              target="_blank"
-                              rel="noreferrer"
                               size="sm"
                               variant="light"
                               isIconOnly
                               aria-label={t('adminConfig.backup.history.download')}
+                              onPress={() => setDownloadTarget(run)}
                             >
                               <Download size={14} />
                             </Button>
@@ -848,7 +878,7 @@ export function SystemConfigSection() {
       {/* Restore confirmation (destructive, overwrites all current data) */}
       <ResponsiveModal
         isOpen={!!restoreTarget}
-        onClose={() => { if (!restoring) { setRestoreTarget(null); setRestoreConfirmText(''); } }}
+        onClose={() => { if (!restoring) closeRestore(); }}
         size="sm" radius="lg" backdrop="opaque" placement="center"
       >
         <ModalContent>
@@ -868,19 +898,62 @@ export function SystemConfigSection() {
               value={restoreConfirmText}
               onValueChange={setRestoreConfirmText}
             />
+            <Input
+              type="password"
+              autoComplete="current-password"
+              variant="bordered"
+              size="sm"
+              radius="md"
+              label={t('adminConfig.backup.passwordLabel')}
+              value={restorePassword}
+              onValueChange={setRestorePassword}
+            />
           </ModalBody>
           <ModalFooter className="gap-2">
-            <Button variant="light" size="sm" isDisabled={restoring} onPress={() => { setRestoreTarget(null); setRestoreConfirmText(''); }}>
+            <Button variant="light" size="sm" isDisabled={restoring} onPress={closeRestore}>
               {t('actions.cancel')}
             </Button>
             <Button
               color="danger"
               size="sm"
               isLoading={restoring}
-              isDisabled={restoreConfirmText !== t('adminConfig.backup.restore.keyword')}
+              isDisabled={restoreConfirmText !== t('adminConfig.backup.restore.keyword') || !restorePassword}
               onPress={handleConfirmRestore}
             >
               {t('adminConfig.backup.restore.confirm')}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </ResponsiveModal>
+
+      {/* #489: downloading a dump (password hashes, 2FA secrets) re-asks the password */}
+      <ResponsiveModal
+        isOpen={!!downloadTarget}
+        onClose={() => { if (!downloading) closeDownload(); }}
+        size="sm" radius="lg" backdrop="opaque" placement="center"
+      >
+        <ModalContent>
+          <ModalHeader>{t('adminConfig.backup.download.title')}</ModalHeader>
+          <ModalBody className="flex flex-col gap-4">
+            <p className="text-sm text-foreground-600">{t('adminConfig.backup.download.body')}</p>
+            <Input
+              type="password"
+              autoComplete="current-password"
+              variant="bordered"
+              size="sm"
+              radius="md"
+              label={t('adminConfig.backup.passwordLabel')}
+              value={downloadPassword}
+              onValueChange={setDownloadPassword}
+              autoFocus
+            />
+          </ModalBody>
+          <ModalFooter className="gap-2">
+            <Button variant="light" size="sm" isDisabled={downloading} onPress={closeDownload}>
+              {t('actions.cancel')}
+            </Button>
+            <Button color="primary" size="sm" isLoading={downloading} isDisabled={!downloadPassword} onPress={handleConfirmDownload}>
+              {t('adminConfig.backup.history.download')}
             </Button>
           </ModalFooter>
         </ModalContent>
