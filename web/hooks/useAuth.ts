@@ -14,7 +14,7 @@ export interface PublicUser {
   appName: string | null;
   appSlogan: string | null;
   displayName: string | null;
-  theme: 'LIGHT' | 'DARK';
+  theme: 'LIGHT' | 'DARK' | 'SYSTEM';
   language: 'FR' | 'EN';
   tempUnit: 'CELSIUS' | 'FAHRENHEIT';
   accentColor: string;
@@ -257,7 +257,7 @@ export function useUpdatePreferences() {
     PublicUser,
     Error,
     {
-      theme?: 'LIGHT' | 'DARK';
+      theme?: 'LIGHT' | 'DARK' | 'SYSTEM';
       language?: 'FR' | 'EN';
       tempUnit?: 'CELSIUS' | 'FAHRENHEIT';
       accentColor?: string;

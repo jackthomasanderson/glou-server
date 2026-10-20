@@ -3,6 +3,7 @@ import {
   THEME_INIT_SCRIPT,
   THEME_STORAGE_KEY,
   applyTheme,
+  clearStoredTheme,
   getSystemTheme,
   isThemeMode,
   readStoredTheme,
@@ -59,6 +60,8 @@ describe('theme-mode', () => {
     expect(themeFromPreference('LIGHT')).toBe('light');
     expect(themeFromPreference(undefined)).toBeNull();
     expect(themeFromPreference('AUTO')).toBeNull();
+    // #513: 'SYSTEM' means no fixed mode — the OS preference applies.
+    expect(themeFromPreference('SYSTEM')).toBeNull();
     expect(themeToPreference('dark')).toBe('DARK');
     expect(themeToPreference('light')).toBe('LIGHT');
   });
@@ -110,5 +113,15 @@ describe('theme-mode', () => {
       expect(() => run()).not.toThrow();
       expect(document.documentElement.classList.contains('dark')).toBe(false);
     });
+  });
+});
+
+describe('clearStoredTheme (#513)', () => {
+  it('forgets the cached mode, under the current and the legacy key', () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'dark');
+    window.localStorage.setItem('glou-theme', 'dark');
+    clearStoredTheme();
+    expect(readStoredTheme()).toBeNull();
+    expect(window.localStorage.getItem('glou-theme')).toBeNull();
   });
 });

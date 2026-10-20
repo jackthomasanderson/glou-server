@@ -1,0 +1,14 @@
+-- #513 / ux-ui.md §8.3: a "System" theme that follows the OS light/dark
+-- setting. Its own migration: PostgreSQL cannot use a value added to an
+-- enum in the same transaction, and the next migration makes it the default.
+--
+-- Rollback (documented, design.md "Sauvegarde & Migration"): first undo
+-- 20261020200100_theme_default_system, then
+--   UPDATE "User" SET "theme" = 'LIGHT' WHERE "theme" = 'SYSTEM';
+--   ALTER TYPE "Theme" RENAME TO "Theme_old";
+--   CREATE TYPE "Theme" AS ENUM ('LIGHT', 'DARK');
+--   ALTER TABLE "User" ALTER COLUMN "theme" DROP DEFAULT;
+--   ALTER TABLE "User" ALTER COLUMN "theme" TYPE "Theme" USING "theme"::text::"Theme";
+--   ALTER TABLE "User" ALTER COLUMN "theme" SET DEFAULT 'LIGHT';
+--   DROP TYPE "Theme_old";
+ALTER TYPE "Theme" ADD VALUE IF NOT EXISTS 'SYSTEM';

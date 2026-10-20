@@ -685,6 +685,7 @@
       "H12": "12 hours (AM/PM)"
     },
     "themes": {
+      "SYSTEM": "System",
       "LIGHT": "Light",
       "DARK": "Dark"
     },

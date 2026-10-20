@@ -12,12 +12,13 @@
 // Safari and `matchMedia` is missing from jsdom, and neither must ever break
 // the render.
 
-import { readStorageMigrating } from './safe-storage';
+import { readStorageMigrating, safeRemoveStorage } from './safe-storage';
 
 export type ThemeMode = 'light' | 'dark';
 
 /** Server-side enum used by `PATCH /api/user/preferences`. */
-export type ThemePreference = 'LIGHT' | 'DARK';
+/** 'SYSTEM' (#513) = follow the OS light/dark setting. */
+export type ThemePreference = 'LIGHT' | 'DARK' | 'SYSTEM';
 
 export const THEME_STORAGE_KEY = 'glou:theme';
 /** Key name before #139; still read (and migrated) so nobody's choice is lost. */
@@ -44,6 +45,13 @@ export function writeStoredTheme(mode: ThemeMode): void {
   } catch {
     // Storage disabled/full: the in-memory state still drives this session.
   }
+}
+
+/** #513: forget the cached choice so the OS preference drives the mode again. */
+export function clearStoredTheme(): void {
+  if (typeof window === 'undefined') return;
+  safeRemoveStorage(window.localStorage, THEME_STORAGE_KEY);
+  safeRemoveStorage(window.localStorage, LEGACY_THEME_STORAGE_KEY);
 }
 
 /** `null` when the browser cannot report an OS preference. */
