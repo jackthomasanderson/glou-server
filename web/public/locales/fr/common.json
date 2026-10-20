@@ -8,7 +8,6 @@
     "allCategories": "Toutes les catégories"
   },
   "nav": {
-    "dashboard": "Tableau de bord",
     "bottles": "Actifs",
     "wines": "Vins",
     "sparkling": "Bulles",
@@ -23,11 +22,8 @@
     "searchResultsCount_other": "{{count}} résultats",
     "skipToContent": "Aller au contenu principal",
     "primary": "Navigation principale",
-    "searchViewAll": "Voir tous les résultats →",
-    "searchCollection": "Collection",
     "searchBottles": "Actifs",
     "searchCellars": "Caves",
-    "allCellars": "Voir toutes les caves",
     "collections": "Collections",
     "tastings": "Dégustations",
     "analytics": "Analyses & Terroirs",
@@ -47,7 +43,6 @@
     "save": "Enregistrer",
     "update": "Mettre à jour",
     "delete": "Supprimer",
-    "restore": "Restaurer",
     "undo": "Annuler",
     "cancel": "Annuler",
     "close": "Fermer",
@@ -60,7 +55,6 @@
     "clearAll": "Tout effacer",
     "showMore": "Afficher les compléments",
     "showLess": "Masquer les compléments",
-    "view": "Voir",
     "saving": "Enregistrement...",
     "none": "Aucun"
   },
@@ -77,7 +71,6 @@
   "status": {
     "loading": "Chargement…",
     "saving": "Enregistrement…",
-    "deleting": "Suppression…",
     "error": "Une erreur est survenue",
     "serverUnreachable": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.",
     "retry": "Réessayer",
@@ -137,12 +130,10 @@
       "cigarLevel": "Capacité de la boite / Humidité",
       "spiritLevel": "Ajustement tactile du niveau",
       "levelWine": "Niveau :",
-      "levelCigar": "Humidité / Quantité :",
       "full": "Pleine",
       "half": "Moitié",
       "empty": "Vide",
       "opened": "Ouverte / Entamée",
-      "inUse": "En cours",
       "decreaseQuantity": "Diminuer la quantité",
       "increaseQuantity": "Augmenter la quantité",
       "location": "Emplacement",
@@ -154,11 +145,7 @@
     },
     "add": "Ajouter",
     "edit": "Modifier l'actif",
-    "details": "Détails de l'actif",
-    "delete": "Supprimer l'actif",
     "restore": "Restaurer l'actif",
-    "deleteConfirm": "L'actif sera déplacé dans la corbeille.",
-    "undoDelete": "Actif supprimé. Annuler ?",
     "trashInfo": "J restants avant suppression définitive",
     "trashEmpty": "La corbeille est vide.",
     "tabsAria": "Vue inventaire",
@@ -170,9 +157,7 @@
     "noBottlesDesc": "Ajoutez votre premier actif pour commencer.",
     "noCellarBanner": "Aucune cave créée — vos actifs n'auront pas d'emplacement.",
     "noCellarBannerAction": "Créer une cave",
-    "chooseCellar": "Choisir une cave",
     "noCellar": "Aucune cave",
-    "searchPlaceholder": "Rechercher (nom, producteur, millésime...)",
     "noResults": "Aucun résultat pour \"{{query}}\"",
     "noResultsFilters": "Aucun résultat pour ces filtres",
     "noResultsFiltersDesc": "Essayez d'élargir ou de retirer un filtre.",
@@ -183,12 +168,9 @@
     "filterByCategory": "Par catégorie",
     "filterByOwnership": "Possession",
     "filterByCellar": "Par cave",
-    "activeFilters": "Filtres actifs",
-    "preview": "Aperçu",
     "step1": "Informations de base",
     "step2": "Détails par catégorie",
     "saveMinimal": "Enregistrer maintenant",
-    "saveMinimalHint": "Vous pourrez compléter les détails plus tard.",
     "fields": {
       "category": "Catégorie",
       "name": "Nom",
@@ -263,9 +245,7 @@
       "yearExample": "ex : {{year}}"
     },
     "expertSection": {
-      "title": "Champs avancés (collectionneur)",
-      "wineTitle": "Dégustation avancée",
-      "spiritTitle": "Fût & batch (collectionneur)"
+      "title": "Champs avancés (collectionneur)"
     },
     "color": {
       "red": "Rouge",
@@ -366,14 +346,11 @@
   },
   "alerts": {
     "title": "Alertes Apogée",
-    "window": "Fenêtre optimale",
     "from": "À partir de",
     "until": "Jusqu'en",
     "paused": "Alerte suspendue",
     "pauseAlert": "Suspendre l'alerte",
-    "resumeAlert": "Réactiver l'alerte",
-    "pastCount": "{{count}} passé l'apogée",
-    "peakCount": "{{count}} à l'apogée"
+    "resumeAlert": "Réactiver l'alerte"
   },
   "toast": {
     "createSuccess": "Actif ajouté avec succès",
@@ -440,7 +417,6 @@
     }
   },
   "auth": {
-    "login": "Connexion",
     "register": "Créer un compte",
     "logout": "Déconnexion",
     "username": "Nom d'utilisateur",
@@ -519,7 +495,6 @@
     "title": "Mes Caves",
     "addCellar": "Ajouter une cave",
     "editCellar": "Modifier la cave",
-    "deleteCellar": "Supprimer la cave",
     "noCellars": "Vous n'avez pas encore de cave.",
     "noCellarsDesc": "Ajoutez votre première cave pour commencer à organiser votre collection.",
     "name": "Nom de la cave",
@@ -558,8 +533,7 @@
       "items": "actifs",
       "itemsCount_one": "{{count}} actif",
       "itemsCount_other": "{{count}} actifs",
-      "alerts": "alertes",
-      "estimatedValue": "Valeur estimée"
+      "alerts": "alertes"
     },
     "grid": {
       "showConfig": "Configurer le plan de cave (optionnel)",
@@ -657,8 +631,6 @@
     "saveError": "Impossible de télécharger cette image, essayez-en une autre"
   },
   "itemImage": {
-    "sectionLabel": "Photo",
-    "placeholder": "Aucune image",
     "savedLocally": "Stocké en local",
     "remove": "Supprimer l'image",
     "pasteUrl": "Coller une URL d'image",
@@ -667,16 +639,13 @@
   },
   "autocomplete": {
     "internal": "Mon inventaire",
-    "external": "Internet",
-    "noResults": "Aucune correspondance",
-    "loading": "Recherche en cours..."
+    "external": "Internet"
   },
   "profile": {
     "adminPanelLink": "Accéder au panneau d'administration",
     "title": "Mon Profil",
     "personalInfo": "Informations personnelles",
     "preferences": "Préférences d'affichage",
-    "avatarUrl": "URL de l'Avatar",
     "appName": "Nom perso pour l'app",
     "appNamePlaceholder": "Ex: Ma Cave Privée",
     "appSlogan": "Slogan perso pour l'app",
@@ -808,8 +777,6 @@
         "createdAt": "Créé le",
         "actions": "Actions"
       },
-      "active": "Actif",
-      "inactive": "Désactivé",
       "activate": "Réactiver",
       "deactivate": "Désactiver",
       "deactivateSelf": "Impossible de désactiver votre propre compte",
@@ -820,8 +787,7 @@
       "resetPassword": "Réinitialiser le mot de passe",
       "resetPasswordConfirm": "Générer un nouveau mot de passe temporaire pour {{username}} ? Ses sessions et appareils de confiance actuels seront déconnectés, et il devra choisir un nouveau mot de passe à sa prochaine connexion.",
       "resetPasswordResultTitle": "Mot de passe temporaire pour {{username}}",
-      "resetPasswordResultHint": "Copiez ce mot de passe et transmettez-le au membre par un canal sécurisé. Il n'est affiché qu'une seule fois et ne pourra plus être récupéré ensuite — il devra choisir un vrai mot de passe à sa prochaine connexion.",
-      "resetPasswordError": "Impossible de réinitialiser le mot de passe de ce membre"
+      "resetPasswordResultHint": "Copiez ce mot de passe et transmettez-le au membre par un canal sécurisé. Il n'est affiché qu'une seule fois et ne pourra plus être récupéré ensuite — il devra choisir un vrai mot de passe à sa prochaine connexion."
     },
     "auditLog": {
       "filters": {
@@ -897,7 +863,6 @@
     "maintenance": {
       "title": "Maintenance",
       "purge": {
-        "title": "Remise à zéro de la base de données",
         "description": "Cette action supprimera TOUS les actifs, TOUTES les caves et TOUS les journaux d'activité. Les comptes utilisateurs seront préservés.",
         "button": "Purger toutes les données",
         "confirmTitle": "Confirmation de purge complète",
@@ -916,15 +881,11 @@
   },
   "bulk": {
     "selected": "{{count}} sélectionnée",
-    "selected_plural": "{{count}} sélectionnées",
     "title": "Actions groupées",
     "subtitle": "Modifier {{count}} actifs simultanément",
     "fieldsToUpdate": "Champs à modifier",
     "preview": "Récapitulatif des changements",
-    "before": "Avant",
-    "after": "Après",
     "mixed": "(Valeurs multiples)",
-    "noChange": "(Aucun changement)",
     "apply": "Appliquer les modifications",
     "presets": "Modèles d'actions",
     "savePreset": "Enregistrer comme modèle",
@@ -932,17 +893,10 @@
     "loadPreset": "Charger un modèle",
     "deletePreset": "Supprimer le modèle",
     "deletePresetConfirm": "Ce modèle d'actions sera définitivement supprimé.",
-    "noPresets": "Aucun modèle enregistré",
-    "success": "{{count}} actifs ont été mis à jour",
-    "error": "Une erreur est survenue lors de la mise à jour groupée"
+    "success": "{{count}} actifs ont été mis à jour"
   },
   "traceability": {
     "title": "Traçabilité",
-    "createdBy": "Créé par",
-    "lastEditedBy": "Dernière modification",
-    "showHistory": "Voir l'historique des modifications",
-    "hideHistory": "Masquer l'historique",
-    "noHistory": "Aucune modification enregistrée.",
     "actions": {
       "create": "Création",
       "update": "Modification",
@@ -975,7 +929,6 @@
     "deleteTitle": "Supprimer la collection",
     "deleteConfirm": "Supprimer « {{name}} » ? Les articles ne seront pas supprimés.",
     "itemCount": "{{count}} article",
-    "itemCount_plural": "{{count}} articles",
     "fields": {
       "name": "Nom de la collection",
       "color": "Couleur",
@@ -1000,7 +953,6 @@
     "deleteConfirm": "Cette note de dégustation sera supprimée définitivement.",
     "noItem": "Produit non lié",
     "total": "{{count}} dégustation",
-    "total_plural": "{{count}} dégustations",
     "fields": {
       "item": "Produit dégusté",
       "tastedAt": "Date de dégustation",
@@ -1062,7 +1014,6 @@
       "noResults": "Aucun actif en stock ne correspond à \"{{query}}\"",
       "noResultsHint": "Essayez un terme plus général ou une des suggestions rapides.",
       "resultsCount": "{{count}} actif correspondant",
-      "resultsCount_plural": "{{count}} actifs correspondants",
       "reason": "Accorde avec : {{pairing}}",
       "consumeNow": "Consommer maintenant",
       "inventoryLoadError": "Impossible de charger votre inventaire.",
@@ -1194,7 +1145,6 @@
     },
     "pageTitle": "Analyses & Terroirs",
     "pageSubtitle": "Analyse financière, temporelle, volumétrique et géographique de la cave.",
-    "exportButton": "Exporter le bilan",
     "stats": {
       "totalValuation": "Valorisation Globale",
       "totalValuationHint": "Estimation totale actuelle",
@@ -1210,13 +1160,11 @@
       "subtitle": "Distribution de votre collection par terroir",
       "mapTitle": "Carte du Monde — Heatmap des Goûts",
       "mapSubtitle": "Survolez un hotspot géographique pour voir sa valorisation et sa composition.",
-      "legendActive": "Activité intense",
       "unmapped_one": "{{count}} terroir non géolocalisé",
       "unmapped_other": "{{count}} terroirs non géolocalisés",
       "items_one": "élément en stock",
       "items_other": "éléments en stock",
-      "valuation": "Valorisation :",
-      "noRegions": "Aucune région renseignée dans votre inventaire."
+      "valuation": "Valorisation :"
     },
     "map": {
       "mode": {
@@ -1239,9 +1187,6 @@
         "ratingMinLabel": "{{count}}+ ",
         "ratingHint": "Basé sur les 50 dégustations les plus récentes enregistrées — approximation, pas l'historique complet.",
         "state": "État",
-        "stateAll": "Tous",
-        "stateInCellar": "En cave (non entamé)",
-        "stateOpened": "Entamé",
         "region": "Région",
         "regionAny": "Toutes les régions"
       },
@@ -1326,32 +1271,6 @@
       "deleted": "Mis à la corbeille"
     }
   },
-  "storageZones": {
-    "title": "Emplacements",
-    "add": "Ajouter une zone",
-    "addChild": "Ajouter une sous-zone",
-    "edit": "Modifier la zone",
-    "empty": "Aucun emplacement défini",
-    "emptyHint": "Créez des zones pour organiser votre cave (étagères, casiers, tiroirs…)",
-    "deleteTitle": "Supprimer l'emplacement",
-    "deleteConfirm": "Supprimer la zone « {{name}} » ?",
-    "deleteItemsWarning_one": "{{count}} article sera déplacé vers « Non classés ».",
-    "deleteItemsWarning_other": "{{count}} articles seront déplacés vers « Non classés ».",
-    "selectorLabel": "Zone de rangement",
-    "unclassified": "Non classé",
-    "fields": {
-      "name": "Nom de la zone",
-      "description": "Description (optionnelle)",
-      "capacity": "Capacité maximale",
-      "capacityHint": "Nombre maximum d'articles (optionnel)",
-      "parent": "Zone parente",
-      "noParent": "Aucune (zone racine)"
-    },
-    "errors": {
-      "hasChildren": "Cette zone contient des sous-zones. Supprimez-les d'abord.",
-      "notFound": "Zone introuvable."
-    }
-  },
   "errorPage": {
     "title": "Une erreur est survenue",
     "description": "La page n'a pas pu s'afficher. Rechargez-la ou revenez à l'accueil.",
@@ -1416,14 +1335,9 @@
       "done": "Terminé"
     },
     "revoke": "Révoquer",
-    "revokeConfirm": "Révoquer le partage « {{label}} » ? L'accès sera immédiatement coupé.",
-    "statusActive": "Actif",
-    "statusExpired": "Expiré",
-    "statusRevoked": "Révoqué",
     "expiresAt": "Expire le {{date}}",
     "noExpiry": "Sans expiration",
     "allCellars": "Toutes les caves",
-    "allCollections": "Toutes les collections",
     "cellarCount_one": "{{count}} cave",
     "cellarCount_other": "{{count}} caves",
     "collectionCount_one": "{{count}} collection",
@@ -1455,9 +1369,7 @@
       }
     },
     "errors": {
-      "load": "Impossible de charger les partages.",
-      "create": "Impossible de créer le partage.",
-      "revoke": "Impossible de révoquer le partage."
+      "load": "Impossible de charger les partages."
     },
     "guest": {
       "badge": "Vue partagée",
@@ -1470,10 +1382,8 @@
       "showMore": "Afficher la suite ({{count}} restants)",
       "search": "Rechercher dans ce partage",
       "sortBy": "Trier par",
-      "loading": "Chargement de la collection partagée…",
       "empty": "Aucun article dans ce partage.",
       "scopeAll": "Collection complète",
-      "scopePartial": "Vue partielle",
       "edit": {
         "action": "Modifier",
         "opened": "Actif entamé",
@@ -1582,7 +1492,6 @@
       "history": "Historique"
     },
     "smtp": {
-      "title": "Configuration SMTP",
       "enabled": "Activer l'envoi d'emails",
       "host": "Serveur SMTP",
       "hostPlaceholder": "smtp.gmail.com",
@@ -1603,7 +1512,6 @@
       "saved": "Configuration SMTP enregistrée."
     },
     "notifPolicy": {
-      "title": "Politique de notifications",
       "description": "Ces réglages sont des interrupteurs globaux pour toute l'instance. Si un canal est désactivé ici, les utilisateurs ne pourront pas l'activer dans leurs préférences personnelles.",
       "inApp": "Notifications dans l'application",
       "inAppHint": "Permet aux utilisateurs de recevoir des alertes directement dans l'interface.",
@@ -1615,8 +1523,6 @@
       "saved": "Politique enregistrée."
     },
     "gotify": {
-      "title": "Webhook Gotify (instance)",
-      "enabled": "Activer les webhooks Gotify",
       "url": "URL Gotify",
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Token Gotify",
@@ -1628,7 +1534,6 @@
       "saved": "Configuration Gotify enregistrée."
     },
     "integrations": {
-      "title": "Clés API tierces",
       "vivinoKey": "Clé API Vivino",
       "whiskybaseKey": "Clé API Whiskybase",
       "vivinoWhiskybaseNotUsedYet": "Bientôt disponible — stockée en sécurité, mais aucune fonctionnalité ne lit encore ces clés.",
@@ -1639,17 +1544,9 @@
       "saved": "Intégrations enregistrées."
     },
     "history": {
-      "title": "Historique des modifications",
-      "noHistory": "Aucune modification enregistrée.",
-      "columns": {
-        "date": "Date",
-        "user": "Utilisateur",
-        "section": "Section",
-        "value": "Valeurs"
-      }
+      "noHistory": "Aucune modification enregistrée."
     },
     "retention": {
-      "title": "Rétention & Nettoyage",
       "description": "Configurez le délai de conservation avant suppression définitive des données obsolètes. Ce délai s'ajoute à la date d'expiration ou de révocation, il ne la remplace pas.",
       "fields": {
         "logRetentionDays": "Logs d'audit (jours)",
@@ -1675,13 +1572,6 @@
       "history": {
         "title": "Historique des exécutions",
         "noHistory": "Aucune exécution enregistrée.",
-        "columns": {
-          "date": "Date",
-          "trigger": "Déclencheur",
-          "status": "Statut",
-          "counts": "Éléments supprimés",
-          "duration": "Durée"
-        },
         "trigger": {
           "scheduled": "Planifiée",
           "manual": "Manuelle"
@@ -1739,7 +1629,6 @@
       }
     },
     "network": {
-      "title": "Configuration réseau",
       "description": "Définissez l'URL publique de référence de l'instance et la manière dont elle est exposée (accès direct ou via un reverse proxy).",
       "publicUrl": "URL publique",
       "publicUrlPlaceholder": "https://cave.mondomaine.fr",
@@ -1865,7 +1754,6 @@
     }
   },
   "pagination": {
-    "perPage": "Éléments par page",
     "page": "Page",
     "of": "sur",
     "items": "éléments",
@@ -1875,7 +1763,6 @@
   "wishlist": {
     "title": "Liste de souhaits & Budget",
     "pageAccess": "Liste de souhaits & Budget",
-    "pageAccessHint": "Planifiez vos prochains achats et suivez votre budget",
     "tabs": {
       "ariaLabel": "Sections de la liste de souhaits",
       "wishlist": "Souhaits",
@@ -1918,8 +1805,7 @@
       "description": "Saisissez le prix constaté pour « {{name}} ». Aucune source de prix externe n'est connectée : cette saisie est manuelle.",
       "price": "Prix observé",
       "submit": "Enregistrer le prix",
-      "lastSeen": "Dernier prix vu : {{price}} le {{date}}",
-      "opportunity": "Opportunité ! Ce prix est sous votre plafond de {{maxPrice}}."
+      "lastSeen": "Dernier prix vu : {{price}} le {{date}}"
     },
     "convert": {
       "action": "Basculer vers l'inventaire",
@@ -1931,8 +1817,7 @@
       "cellarPlaceholder": "Sélectionner une cave",
       "bottleSize": "Format",
       "quantity": "Quantité (cigares)",
-      "submit": "Ajouter à l'inventaire",
-      "success": "Ajouté à l'inventaire avec succès."
+      "submit": "Ajouter à l'inventaire"
     }
   },
   "budget": {
@@ -1951,9 +1836,7 @@
       "amount": "Montant"
     },
     "progress": {
-      "spent": "Dépensé",
       "remaining": "Restant",
-      "ofAmount": "sur {{amount}}",
       "label": "{{spent}} dépensés sur {{amount}} ({{percent}}%)"
     }
   },
