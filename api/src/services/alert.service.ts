@@ -4,6 +4,7 @@ import { CurveShape, readinessPercent } from '../lib/maturity-curve';
 import { notificationService } from './notification.service';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { escapeHtml } from '../lib/html';
+import { systemConfigService } from './system-config.service';
 
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
@@ -142,6 +143,7 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
   });
 
   let updated = 0;
+  const reachedPeak: PeakItem[] = [];
   for (const item of items) {
     const nextStatus = computeAlertStatus(item.peakMaturityFrom, item.peakMaturityTo);
     if (item.alertStatus === nextStatus) continue;
@@ -155,29 +157,74 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
     // anti-repeat rule — once stored as 'peak', a daily recompute no longer
     // sees a transition and stops notifying, so this fires once per item
     // until its window is edited or it leaves 'peak' and re-enters later.
-    if (nextStatus === 'peak' && !item.alertsPaused) {
-      void notifyPeakReached(item).catch((err) => {
-        console.error('[alert] Failed to send peak-maturity notification:', err);
-      });
-    }
+    if (nextStatus === 'peak' && !item.alertsPaused) reachedPeak.push(item);
+  }
+
+  // #478: statuses are year-granular, so every bottle whose window opens
+  // this year flips on 1 January — one message per bottle per member was a
+  // burst of dozens. Each member now gets one digest for the run.
+  if (reachedPeak.length > 0) {
+    void notifyPeakReached(reachedPeak).catch((err) => {
+      console.error('[alert] Failed to send peak-maturity notification:', err);
+    });
   }
 
   return { scanned: items.length, updated };
 }
 
-async function notifyPeakReached(item: { id: string; name: string; producer: string; vintage: number | null }): Promise<void> {
-  const label = `${item.name} — ${item.producer}${item.vintage ? ` (${item.vintage})` : ''}`;
-  const safeLabel = escapeHtml(label);
-  const users = await prisma.user.findMany({ select: { id: true, language: true, notifLanguage: true } });
+type PeakItem = { id: string; name: string; producer: string; vintage: number | null };
+
+/** Bottles listed by name in a digest; the rest are summarised as "+ N more". */
+const DIGEST_LISTED = 10;
+
+async function alertsUrl(): Promise<string> {
+  try {
+    return `${await systemConfigService.getEffectivePublicUrl()}/bottles?filter=alerts`;
+  } catch {
+    return `${process.env.APP_URL ?? ''}/bottles?filter=alerts`;
+  }
+}
+
+async function notifyPeakReached(items: PeakItem[]): Promise<void> {
+  const labelOf = (item: PeakItem) => `${item.name} — ${item.producer}${item.vintage ? ` (${item.vintage})` : ''}`;
+  const users = await prisma.user.findMany({ where: { isActive: true }, select: { id: true, language: true, notifLanguage: true } });
+  if (users.length === 0) return;
+
+  if (items.length === 1) {
+    const label = labelOf(items[0]);
+    const safeLabel = escapeHtml(label);
+    await Promise.all(users.map((user) => {
+      const isEn = (user.notifLanguage ?? user.language) === 'EN';
+      return notificationService.send({
+        userId: user.id,
+        category: 'peak',
+        subject: isEn ? `At peak maturity: ${label}` : `À son apogée : ${label}`,
+        htmlBody: isEn
+          ? `<p><strong>${safeLabel}</strong> has reached its optimal drinking window. This may be a good time to open it.</p>`
+          : `<p><strong>${safeLabel}</strong> est entrée dans sa fenêtre optimale de consommation. C'est peut-être le bon moment pour l'ouvrir.</p>`,
+      });
+    }));
+    return;
+  }
+
+  const listed = items.slice(0, DIGEST_LISTED).map((item) => `<li>${escapeHtml(labelOf(item))}</li>`).join('');
+  const others = items.length - DIGEST_LISTED;
+  const link = escapeHtml(await alertsUrl());
   await Promise.all(users.map((user) => {
     const isEn = (user.notifLanguage ?? user.language) === 'EN';
+    const more = others > 0 ? `<p>${isEn ? `+ ${others} more.` : `+ ${others} autre${others > 1 ? 's' : ''}.`}</p>` : '';
     return notificationService.send({
       userId: user.id,
       category: 'peak',
-      subject: isEn ? `At peak maturity: ${label}` : `À son apogée : ${label}`,
-      htmlBody: isEn
-        ? `<p><strong>${safeLabel}</strong> has reached its optimal drinking window. This may be a good time to open it.</p>`
-        : `<p><strong>${safeLabel}</strong> est entrée dans sa fenêtre optimale de consommation. C'est peut-être le bon moment pour l'ouvrir.</p>`,
+      subject: isEn
+        ? `${items.length} bottles reach their drinking window`
+        : `${items.length} bouteilles entrent dans leur fenêtre de dégustation`,
+      htmlBody: [
+        `<p>${isEn ? 'These bottles have reached their optimal drinking window:' : 'Ces bouteilles sont entrées dans leur fenêtre optimale de consommation :'}</p>`,
+        `<ul>${listed}</ul>`,
+        more,
+        `<p><a href="${link}">${isEn ? 'See them in Glou' : 'Les voir dans Glou'}</a></p>`,
+      ].join(''),
     });
   }));
 }

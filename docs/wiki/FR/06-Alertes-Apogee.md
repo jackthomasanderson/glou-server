@@ -40,14 +40,20 @@ Le panneau **Alertes Apogée** apparaît en haut du tableau de bord dès qu'une 
 
 ### 4. Suspendre ou réactiver une alerte
 
-Depuis le centre d'alertes, cliquez sur l'icône cloche à droite de la ligne de la bouteille.
+Dans la cloche de notifications, cliquez sur l'icône cloche à droite de la ligne de la bouteille, ou ouvrez la bouteille et utilisez **Suspendre l'alerte** sous sa fenêtre d'apogée.
 
-- L'alerte disparaît du centre d'alertes.
-- Le badge sur la carte passe en gris avec contour (opacity réduite).
-- Pour réactiver, cliquez à nouveau sur l'icône.
+- L'alerte disparaît de la cloche et du centre d'alertes.
+- Le badge sur la carte passe en gris avec contour (opacité réduite).
+- Pour réactiver, ouvrez la bouteille et cliquez sur **Réactiver l'alerte**.
 
 > [!CAUTION]
 > Suspendre une alerte ne modifie pas la fenêtre d'apogée enregistrée. Réactiver l'alerte restaure le statut calculé sans perte de données.
+
+### 5. Notifications
+
+Les statuts sont recalculés une fois par jour. Quand des bouteilles entrent dans leur fenêtre d'apogée, chaque membre reçoit **une seule** notification pour la journée (email, Gotify, selon ses préférences) : le nom de la bouteille s'il n'y en a qu'une, sinon un récapitulatif des dix premières avec un lien vers les alertes. Les statuts changeant par année civile, la plupart des bouteilles entrent dans leur fenêtre le 1er janvier.
+
+Aucune notification n'est envoyée pour une bouteille ajoutée, ou dont la fenêtre est modifiée, alors qu'elle est déjà dans sa fenêtre : elle apparaît directement **À l'apogée** dans la liste et dans la cloche.
 
 ## Le "Pare-feu" (Troubleshooting)
 
