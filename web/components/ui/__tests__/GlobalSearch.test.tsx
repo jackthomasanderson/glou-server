@@ -17,6 +17,7 @@ vi.mock('@/hooks/useInventory', () => ({
   useInventory: () => ({
     data: [
       { id: 'i1', name: 'Pétrus', producer: 'Château Pétrus', vintage: 2015, category: 'wine', region: 'Pomerol' },
+      { id: 'i3', name: 'Cohiba Robusto', producer: 'Habanos', vintage: 2020, category: 'cigar', region: '' },
       { id: 'i2', name: 'Petit Verdot', producer: 'Domaine X', vintage: 2019, category: 'wine', region: '' },
     ],
   }),
@@ -79,7 +80,16 @@ describe('GlobalSearch keyboard support (#198)', () => {
     typeQuery(input, 'pet');
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(push).toHaveBeenCalledWith('/bottles?q=P%C3%A9trus');
+    expect(push).toHaveBeenCalledWith('/bottles?scan=i1');
+  });
+
+  it('opens a cigar on the cigars page, not /bottles', () => {
+    render(<GlobalSearch />);
+    const input = screen.getByRole('combobox');
+    typeQuery(input, 'cohiba');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(push).toHaveBeenCalledWith('/cigars?scan=i3');
   });
 
   it('opens the cellar when a cellar result is chosen', () => {
@@ -88,7 +98,7 @@ describe('GlobalSearch keyboard support (#198)', () => {
     typeQuery(input, 'pet');
     fireEvent.keyDown(input, { key: 'End' });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(push).toHaveBeenCalledWith('/cellars');
+    expect(push).toHaveBeenCalledWith('/cellars/c1');
   });
 
   it('does not hijack Enter when no result is highlighted', () => {
@@ -135,7 +145,7 @@ describe('GlobalSearch keyboard support (#198)', () => {
     const notPrevented = fireEvent.mouseDown(row);
     expect(notPrevented).toBe(false); // preventDefault() => the input is not blurred
     fireEvent.click(row);
-    expect(push).toHaveBeenCalledWith('/bottles?q=Petit%20Verdot');
+    expect(push).toHaveBeenCalledWith('/bottles?scan=i2');
   });
 });
 
@@ -149,7 +159,7 @@ describe('MobileSearch keyboard support (#198)', () => {
     fireEvent.change(input, { target: { value: 'pet' } });
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(push).toHaveBeenCalledWith('/bottles?q=P%C3%A9trus');
+    expect(push).toHaveBeenCalledWith('/bottles?scan=i1');
     expect(onClose).toHaveBeenCalled();
   });
 
