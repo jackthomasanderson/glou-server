@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useRecordFoundItem } from '@/hooks/useInventoryCount';
 import { InventoryCategory } from '@/lib/inventory-count/types';
+import { CATEGORY_VALUES } from '@/lib/inventory/types';
 
 interface RecordFoundItemModalProps {
   sessionId: string;
@@ -21,7 +22,7 @@ interface RecordFoundItemModalProps {
   onClose: () => void;
 }
 
-const CATEGORIES: InventoryCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
+const CATEGORIES: InventoryCategory[] = [...CATEGORY_VALUES];
 
 /**
  * FEAT-12 gap-fix: the third corrective action promised by feature.md

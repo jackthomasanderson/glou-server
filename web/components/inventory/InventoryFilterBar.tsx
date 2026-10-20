@@ -2,7 +2,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Filter } from 'lucide-react';
-import { InventoryItem } from '@/lib/inventory/types';
+import { InventoryItem, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 
 export type InventorySortBy = 'default' | 'value' | 'urgency' | 'name';
@@ -187,7 +187,7 @@ export function InventoryFilterBar({
             <FilterOption selected={selectedCategories.length === 0} onPress={() => setSelectedCategories([])} mode="toggle">
               {t('filters.allCategories')}
             </FilterOption>
-            {['wine', 'sparkling', 'spirit', 'cigar'].map((cat) => (
+            {CATEGORY_VALUES.map((cat) => (
               <FilterOption key={cat} selected={selectedCategories.includes(cat)} onPress={() => toggleCategory(cat)} mode="toggle">
                 {t(`categories.${cat}`)}
               </FilterOption>

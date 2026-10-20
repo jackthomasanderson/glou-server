@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { CURVE_SHAPES } from '../lib/maturity-curve';
+import { categorySchema } from '../lib/category';
 
 const maturityReferenceBase = z.object({
   name: z.string().min(1).max(200),
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
+  category: categorySchema,
   mode: z.enum(['ABSOLUTE', 'RELATIVE']),
   windowFrom: z.number().int(),
   windowTo: z.number().int(),
@@ -37,7 +38,7 @@ export const maturityReferenceReorderSchema = z.object({
 export type MaturityReferenceReorder = z.infer<typeof maturityReferenceReorderSchema>;
 
 export const suggestQuerySchema = z.object({
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
+  category: categorySchema,
   region: z.string().optional(),
   color: z.string().optional(),
   producer: z.string().optional(),

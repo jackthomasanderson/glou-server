@@ -1,3 +1,5 @@
+import type { InventoryCategory } from '../inventory/types';
+
 export type CellarType = 'VINTAGE' | 'COOLER' | 'SHELF' | 'HUMIDOR';
 
 export interface CellarStats {
@@ -29,7 +31,7 @@ export interface GridItem {
   id: string;
   name: string;
   producer: string;
-  category: 'wine' | 'sparkling' | 'spirit' | 'cigar';
+  category: InventoryCategory;
   color?: string | null;
   vintage?: number | null;
   slotColumn: number | null;

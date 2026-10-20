@@ -1,5 +1,7 @@
+import type { InventoryCategory } from '../inventory/types';
+
+export type { InventoryCategory };
 export type CountSessionStatus = 'active' | 'paused' | 'completed';
-export type InventoryCategory = 'wine' | 'sparkling' | 'spirit' | 'cigar';
 
 export interface CountSession {
   id: string;

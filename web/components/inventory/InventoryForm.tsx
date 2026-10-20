@@ -8,7 +8,7 @@ import i18n from '@/lib/i18n';
 import { currencySymbol } from '@/lib/format';
 import { notifyError } from '@/lib/toast';
 import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical } from 'lucide-react';
-import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
 import { Collection } from '@/lib/collections/types';
@@ -278,7 +278,7 @@ export function InventoryForm({
 
                     {/* Category chips */}
                     <div className="flex flex-wrap gap-1.5 mb-4">
-                      {(['wine', 'sparkling', 'spirit', 'cigar'] as InventoryCategory[]).map((cat) => (
+                      {CATEGORY_VALUES.map((cat) => (
                         <Chip
                           key={cat}
                           startContent={CATEGORY_ICONS[cat]}

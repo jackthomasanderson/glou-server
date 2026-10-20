@@ -7,6 +7,7 @@ import {
 } from '@heroui/react';
 import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays, ArrowUp, ArrowDown } from 'lucide-react';
 import { FilterChip } from '@/components/ui/FilterControls';
+import { CATEGORY_VALUES } from '@/lib/inventory/types';
 import { useTranslation } from 'react-i18next';
 import {
   useMaturityReferences,
@@ -159,7 +160,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
               <div>
                 <p className="text-xs text-foreground-500 mb-2">{t('inventory.fields.category')}</p>
                 <div className="flex gap-2 flex-wrap">
-                  {(['wine', 'sparkling', 'spirit', 'cigar'] as const).map((cat) => (
+                  {CATEGORY_VALUES.map((cat) => (
                     <FilterChip
                       key={cat}
                       radius="sm"

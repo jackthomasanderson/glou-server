@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CATEGORY_VALUES, categorySchema } from '../lib/category';
 
 // ─── FEAT-56: CSV Import (Onboarding Setup Wizard) ───────────────────────────
 // Minimal column set, matching the wizard's "Import Fichier" step: name,
@@ -16,7 +17,7 @@ export const csvRawRowSchema = z.object({
   producer: z.string().trim().min(1, 'PRODUCER_REQUIRED').max(200, 'PRODUCER_TOO_LONG'),
   category: z.preprocess(
     (v) => (typeof v === 'string' ? v.trim().toLowerCase() : v),
-    z.enum(['wine', 'sparkling', 'spirit', 'cigar'], {
+    z.enum(CATEGORY_VALUES, {
       errorMap: () => ({ message: 'INVALID_CATEGORY' }),
     }),
   ),
@@ -37,7 +38,7 @@ export const csvRawRowSchema = z.object({
 export const csvImportRowSchema = z.object({
   name: z.string().trim().min(1).max(200),
   producer: z.string().trim().min(1).max(200),
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
+  category: categorySchema,
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
 });
 
