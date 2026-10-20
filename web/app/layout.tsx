@@ -20,6 +20,10 @@ export const viewport: Viewport = {
   // / ThemeWrapper.tsx, '#6366f1' for both modes) so the PWA install/OS
   // chrome tint doesn't contradict the interface it wraps.
   themeColor: '#6366f1',
+  // Without this, `env(safe-area-inset-*)` always resolves to 0 (ISSUE_401):
+  // BottomNav.tsx's bottom inset was inert. Extends content under the system
+  // bars, so MainLayout's header picks up the matching top inset below.
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

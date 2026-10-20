@@ -157,6 +157,12 @@
     "deleteConfirm": "L'actif sera déplacé dans la corbeille.",
     "undoDelete": "Actif supprimé. Annuler ?",
     "trashInfo": "J restants avant suppression définitive",
+    "trashEmpty": "La corbeille est vide.",
+    "tabsAria": "Vue inventaire",
+    "tabs": {
+      "items": "Inventaire",
+      "trash": "Corbeille"
+    },
     "noBottles": "Aucun actif dans votre cave",
     "noBottlesDesc": "Ajoutez votre premier actif pour commencer.",
     "noCellarBanner": "Aucune cave créée — vos actifs n'auront pas d'emplacement.",
@@ -565,7 +571,6 @@
       "coldZone": "Zone froide ({{count}} rangées)",
       "hotZoneLabel": "Zone chaude",
       "coldZoneLabel": "Zone froide",
-      "cellEmpty": "Vide — cliquez pour assigner un actif",
       "cellLabelEmpty": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner un actif.",
       "cellLabelOccupied": "Colonne {{col}}, rangée {{row}} : {{name}}. Entrée pour le détail, Espace pour déplacer.",
       "dragInstructions": "Pour déplacer cet actif, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour le déposer. Échap annule.",
@@ -679,6 +684,10 @@
       "SYSTEM": "Système",
       "H24": "24 heures",
       "H12": "12 heures (AM/PM)"
+    },
+    "themes": {
+      "LIGHT": "Clair",
+      "DARK": "Sombre"
     },
     "expertMode": {
       "title": "Mode expert / collectionneur",
@@ -1380,23 +1389,6 @@
     "deletionPending": "Suppression demandée",
     "deletionRequestedOn": "Votre compte sera supprimé le {{date}}, sauf annulation de votre part avant cette date.",
     "cancelDeletion": "Annuler la suppression"
-  },
-  "accessTransparency": {
-    "title": "Transparence des accès",
-    "subtitle": "Qui a accès à votre compte et à vos données en ce moment.",
-    "manage": "Gérer",
-    "sessions": {
-      "title": "Sessions actives",
-      "lastActive": "Dernière activité",
-      "loadError": "Impossible de charger les sessions actives.",
-      "empty": "Aucune session active."
-    },
-    "shares": {
-      "title": "Partages invités actifs",
-      "loadError": "Impossible de charger les partages.",
-      "empty": "Aucun partage actif.",
-      "unnamed": "Partage sans nom"
-    }
   },
   "shares": {
     "title": "Partages invités",

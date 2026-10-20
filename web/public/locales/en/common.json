@@ -157,6 +157,12 @@
     "deleteConfirm": "The asset will be moved to the trash.",
     "undoDelete": "Asset deleted. Undo?",
     "trashInfo": "days left before permanent deletion",
+    "trashEmpty": "The trash is empty.",
+    "tabsAria": "Inventory view",
+    "tabs": {
+      "items": "Inventory",
+      "trash": "Trash"
+    },
     "noBottles": "No items in your cellar",
     "noBottlesDesc": "Add your first item to get started.",
     "noCellarBanner": "No cellar created — your assets will have no location.",
@@ -563,7 +569,6 @@
       "coldZone": "Cold zone ({{count}} rows)",
       "hotZoneLabel": "Hot zone",
       "coldZoneLabel": "Cold zone",
-      "cellEmpty": "Empty — click to assign an asset",
       "cellLabelEmpty": "Column {{col}}, row {{row}}: empty. Press Enter to assign an asset.",
       "cellLabelOccupied": "Column {{col}}, row {{row}}: {{name}}. Enter for details, Space to move.",
       "dragInstructions": "To move this asset, press Space, use the arrow keys to choose a slot, then press Space again to drop it. Escape cancels.",
@@ -677,6 +682,10 @@
       "SYSTEM": "System Default",
       "H24": "24 hours",
       "H12": "12 hours (AM/PM)"
+    },
+    "themes": {
+      "LIGHT": "Light",
+      "DARK": "Dark"
     },
     "expertMode": {
       "title": "Expert / collector mode",
@@ -1378,23 +1387,6 @@
     "deletionPending": "Deletion requested",
     "deletionRequestedOn": "Your account will be deleted on {{date}} unless you cancel before then.",
     "cancelDeletion": "Cancel deletion"
-  },
-  "accessTransparency": {
-    "title": "Access Transparency",
-    "subtitle": "Who currently has access to your account and your data.",
-    "manage": "Manage",
-    "sessions": {
-      "title": "Active sessions",
-      "lastActive": "Last active",
-      "loadError": "Unable to load active sessions.",
-      "empty": "No active session."
-    },
-    "shares": {
-      "title": "Active guest shares",
-      "loadError": "Unable to load shares.",
-      "empty": "No active share.",
-      "unnamed": "Unnamed share"
-    }
   },
   "shares": {
     "title": "Guest Shares",

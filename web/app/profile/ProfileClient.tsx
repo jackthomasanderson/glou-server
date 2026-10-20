@@ -13,7 +13,6 @@ import { AccountSecurity } from '@/components/profile/AccountSecurity';
 import { SessionsPanel } from '@/components/profile/SessionsPanel';
 import { AvatarUploader } from '@/components/profile/AvatarUploader';
 import { GdprSection } from '@/components/profile/GdprSection';
-import { AccessTransparencyPanel } from '@/components/profile/AccessTransparencyPanel';
 import { SharesDashboard } from '@/components/shares/SharesDashboard';
 import { NotificationPreferences } from '@/components/profile/NotificationPreferences';
 
@@ -194,8 +193,8 @@ export function ProfileClient() {
                 onSelectionChange={(keys) => handlePrefsChange('theme', Array.from(keys)[0] as string)}
                 variant="bordered" size="sm" radius="md" labelPlacement="outside"
               >
-                <SelectItem key="LIGHT">Clair / Light</SelectItem>
-                <SelectItem key="DARK">Sombre / Dark</SelectItem>
+                <SelectItem key="LIGHT">{t('profile.themes.LIGHT')}</SelectItem>
+                <SelectItem key="DARK">{t('profile.themes.DARK')}</SelectItem>
               </Select>
 
               <Select
@@ -308,9 +307,6 @@ export function ProfileClient() {
         <div id="shares" className="mt-6 scroll-mt-24">
           <SharesDashboard />
         </div>
-
-        {/* Access transparency panel (FEAT-18) */}
-        <AccessTransparencyPanel />
 
         {/* Notifications */}
         <div className="mt-6">
