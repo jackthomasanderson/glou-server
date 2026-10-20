@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Card, CardBody, Checkbox, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Button, Card, CardBody, Checkbox, Input, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -172,11 +172,14 @@ export function GdprSection({ user }: GdprSectionProps) {
           <ModalBody className="flex flex-col gap-4">
             <p className="text-sm text-foreground-600">{t('gdpr.deleteModalBody')}</p>
             <p className="text-xs text-foreground-500">{t('gdpr.deleteModalHint', { keyword: t('gdpr.deleteKeyword') })}</p>
-            <input
-              className="w-full border border-divider rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-danger"
+            <Input
+              variant="bordered"
+              size="sm"
+              radius="md"
+              color="danger"
               placeholder={t('gdpr.deleteKeyword')}
               value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
+              onValueChange={setConfirmText}
             />
           </ModalBody>
           <ModalFooter className="gap-2">

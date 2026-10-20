@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Tooltip, Button, Select, SelectItem } from '@heroui/react';
+import { Tooltip, Button, Select, SelectItem, Input } from '@heroui/react';
 import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Star, Info } from 'lucide-react';
 import { InventoryCategory } from '@/lib/inventory/types';
@@ -83,8 +83,10 @@ export function MapFiltersPanel({ filters, onChange, t, regions, selectedRegion,
           {t('analytics.map.filters.priceRange')}
         </p>
         <div className="flex gap-2">
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             min={0}
             step={0.01}
             inputMode="decimal"
@@ -92,10 +94,11 @@ export function MapFiltersPanel({ filters, onChange, t, regions, selectedRegion,
             placeholder={t('inventory.filters.minValue')}
             value={filters.priceMin}
             onChange={(e) => onChange({ ...filters, priceMin: e.target.value })}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             min={0}
             step={0.01}
             inputMode="decimal"
@@ -103,7 +106,6 @@ export function MapFiltersPanel({ filters, onChange, t, regions, selectedRegion,
             placeholder={t('inventory.filters.maxValue')}
             value={filters.priceMax}
             onChange={(e) => onChange({ ...filters, priceMax: e.target.value })}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
         </div>
       </div>
@@ -114,21 +116,23 @@ export function MapFiltersPanel({ filters, onChange, t, regions, selectedRegion,
           {t('analytics.map.filters.vintageRange')}
         </p>
         <div className="flex gap-2">
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             aria-label={t('analytics.map.filters.min')}
             placeholder={t('analytics.map.filters.min')}
             value={filters.vintageMin}
             onChange={(e) => onChange({ ...filters, vintageMin: e.target.value })}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             aria-label={t('analytics.map.filters.max')}
             placeholder={t('analytics.map.filters.max')}
             value={filters.vintageMax}
             onChange={(e) => onChange({ ...filters, vintageMax: e.target.value })}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
         </div>
       </div>

@@ -8,6 +8,8 @@ import {
   Switch,
   Checkbox,
   Spinner,
+  RadioGroup,
+  Radio,
 } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
 import { ShareFormValues } from '@/lib/shares/types';
@@ -150,30 +152,14 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
       {/* Scope */}
       <div className="flex flex-col gap-2">
         <p className="text-xs font-medium text-foreground-600">{t('shares.fields.scope')}</p>
-        <div className="flex flex-col gap-1">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="scope"
-              value="cellars"
-              checked={scopeMode === 'cellars'}
-              onChange={() => setScopeMode('cellars')}
-              className="accent-primary"
-            />
-            <span className="text-sm">{t('shares.fields.selectCellars')}</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="scope"
-              value="collections"
-              checked={scopeMode === 'collections'}
-              onChange={() => setScopeMode('collections')}
-              className="accent-primary"
-            />
-            <span className="text-sm">{t('shares.fields.selectCollections')}</span>
-          </label>
-        </div>
+        <RadioGroup
+          value={scopeMode}
+          onValueChange={(v) => setScopeMode(v as typeof scopeMode)}
+          size="sm"
+        >
+          <Radio value="cellars">{t('shares.fields.selectCellars')}</Radio>
+          <Radio value="collections">{t('shares.fields.selectCollections')}</Radio>
+        </RadioGroup>
 
         {/* Cellar picker */}
         {scopeMode === 'cellars' && (

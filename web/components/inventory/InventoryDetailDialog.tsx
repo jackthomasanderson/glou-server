@@ -1,11 +1,10 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
-import { useModalDrawer } from '@/hooks/useModalDrawer';
 import { useCellars } from '@/hooks/useCellars';
 import { useInventoryItem, useInventoryItemHistory, useUpdateInventoryItem, useRollbackField } from '@/hooks/useInventory';
-import { Button, Chip, Divider, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Tooltip } from '@heroui/react';
+import { Button, Chip, Divider, Drawer, DrawerContent, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Tooltip } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
@@ -133,21 +132,6 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
     setLocalQuantity(d?.quantity ?? 0);
   }
 
-  const { overlayRef, panelRef } = useModalDrawer(open);
-
-  // This drawer is hand-rolled rather than the shared HeroUI Modal, so
-  // Escape-to-close isn't automatic — added explicitly here instead of
-  // switching component to keep the existing layout/behavior otherwise
-  // unchanged.
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
   const handleFillCommit = useCallback(
     (value: number) => {
       // FEAT-87: a non-owned reference has no bottle, so no level to set.
@@ -248,20 +232,15 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
 
   return (
     <>
-      {open && (
-        <div ref={overlayRef} className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-
-          {/* Drawer panel */}
-          <div
-            ref={panelRef}
-            tabIndex={-1}
-            className="relative w-full sm:w-[400px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl outline-none"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="inventory-detail-title"
-          >
+      <Drawer
+        isOpen={open}
+        onClose={onClose}
+        placement="right"
+        backdrop="opaque"
+        classNames={{ base: 'max-w-[400px] shadow-xl' }}
+      >
+        <DrawerContent>
+          <>
             {/* Header */}
             <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
               <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-0.5">
@@ -682,9 +661,9 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 </Button>
               )}
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        </DrawerContent>
+      </Drawer>
 
       <TastingForm
         open={tastingOpen}
