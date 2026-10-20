@@ -98,6 +98,18 @@ export const sharesService = {
    * to the user immediately; it cannot be retrieved again afterwards.
    */
   async create(userId: string, data: ShareCreateInput) {
+    // ISSUE_046: the schema can only check shape, not that these ids are
+    // real — without this, a typo'd or stale id would silently create a
+    // share that exposes nothing, which looks like success to the creator.
+    if (data.cellarIds.length > 0) {
+      const found = await prisma.cellar.count({ where: { id: { in: data.cellarIds } } });
+      if (found !== data.cellarIds.length) throw new Error('INVALID_CELLAR_IDS');
+    }
+    if (data.collectionIds.length > 0) {
+      const found = await prisma.collection.count({ where: { id: { in: data.collectionIds } } });
+      if (found !== data.collectionIds.length) throw new Error('INVALID_COLLECTION_IDS');
+    }
+
     const rawToken = crypto.randomBytes(32).toString('hex');
     const share = await prisma.guestShare.create({
       data: {

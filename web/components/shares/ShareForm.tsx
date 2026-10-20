@@ -42,7 +42,12 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
   const [customDate, setCustomDate] = useState('');
   const [hidePrices, setHidePrices] = useState(true);
   const [hideNotes, setHideNotes] = useState(true);
-  const [scopeMode, setScopeMode] = useState<'all' | 'cellars' | 'collections'>('all');
+  // ISSUE_046: no "all cellars" option — that used to mean sending empty
+  // cellarIds/collectionIds, which the API now rejects outright (and which
+  // was the exact "forgot to tick anything, shared the whole cellar"
+  // scenario the issue described). Sharing everything now means ticking
+  // every cellar by hand.
+  const [scopeMode, setScopeMode] = useState<'cellars' | 'collections'>('cellars');
   const [selectedCellarIds, setSelectedCellarIds] = useState<string[]>([]);
   const [writeCellarIds, setWriteCellarIds] = useState<string[]>([]);
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([]);
@@ -146,17 +151,6 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
       <div className="flex flex-col gap-2">
         <p className="text-xs font-medium text-foreground-600">{t('shares.fields.scope')}</p>
         <div className="flex flex-col gap-1">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="scope"
-              value="all"
-              checked={scopeMode === 'all'}
-              onChange={() => setScopeMode('all')}
-              className="accent-primary"
-            />
-            <span className="text-sm">{t('shares.fields.allCellars')}</span>
-          </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="radio"

@@ -1428,7 +1428,6 @@
       "duration": "Validity period",
       "customDate": "Expiration date",
       "scope": "Visible scope",
-      "allCellars": "All cellars",
       "selectCellars": "Specific cellars",
       "selectCollections": "Specific collections",
       "readOnly": "Read-only",

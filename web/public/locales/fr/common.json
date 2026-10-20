@@ -1430,7 +1430,6 @@
       "duration": "Durée de validité",
       "customDate": "Date d'expiration",
       "scope": "Périmètre visible",
-      "allCellars": "Toutes les caves",
       "selectCellars": "Caves spécifiques",
       "selectCollections": "Collections spécifiques",
       "readOnly": "Lecture seule",
