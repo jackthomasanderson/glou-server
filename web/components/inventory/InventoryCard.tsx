@@ -79,12 +79,13 @@ export function InventoryCard({
       : 'text-foreground-400';
 
   return (
+    // #517: the card is no longer one big button containing other buttons
+    // (invalid HTML, inner actions unreachable with VoiceOver). The name is
+    // the "open" button, stretched over the whole card with an ::after
+    // overlay; the checkbox, drinking window and Edit/Delete sit above it.
     <Card
-      aria-label={`${item.name} — ${categoryLabel}`}
-      isPressable={Boolean(onView)}
-      onPress={() => onView?.(item)}
       className={[
-        'flex flex-col transition-all hover:shadow-md',
+        'relative flex flex-col transition-all hover:shadow-md',
         isTemp && 'opacity-75',
         isSelected && onSelectToggle && 'ring-2 ring-primary ring-offset-0',
         isAnchor && isSelected && onSelectToggle && 'ring-2 ring-offset-2 ring-primary',
@@ -132,7 +133,7 @@ export function InventoryCard({
           )}
           {hasPendingSync && (
             <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
-              <span className="shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-warning-100 text-warning-700">
+              <span className="relative z-10 shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-warning-100 text-warning-700">
                 <Clock size={11} aria-label={t('offline.pendingSyncTooltip')} />
               </span>
             </Tooltip>
@@ -141,13 +142,7 @@ export function InventoryCard({
       </div>
 
       {/* ── Image / placeholder + fill badge ─────────────────── */}
-      <div
-        className="relative"
-        onClick={(e) => {
-          // When not using isPressable (no onView), do nothing; the Card handles it
-          if (!onView) e.stopPropagation();
-        }}
-      >
+      <div className="relative">
         {item.photoUrl ? (
           <img loading="lazy" decoding="async"
             src={item.photoUrl}
@@ -228,16 +223,29 @@ export function InventoryCard({
       )}
 
       {/* ── Card body ─────────────────────────────────────────── */}
-      <CardBody className="pt-2 pb-1 px-3 flex-1 gap-0">
+      {/* static: the name's ::after overlay must cover the whole card, not
+          just this body (HeroUI's CardBody is position: relative). */}
+      <CardBody className="static pt-2 pb-1 px-3 flex-1 gap-0">
         {/* Producer */}
         <p className="text-xs font-bold tracking-widest uppercase text-foreground-500 truncate mb-0.5">
           {item.producer}
         </p>
 
-        {/* Name */}
-        <p className="text-sm font-medium leading-snug truncate mb-1">
-          {item.name}
-        </p>
+        {/* Name — opens the detail drawer */}
+        {onView ? (
+          <button
+            type="button"
+            onClick={() => onView(item)}
+            aria-label={`${item.name} — ${categoryLabel}`}
+            className="block w-full text-left text-sm font-medium leading-snug truncate mb-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-focus after:absolute after:inset-0 after:content-['']"
+          >
+            {item.name}
+          </button>
+        ) : (
+          <p className="text-sm font-medium leading-snug truncate mb-1">
+            {item.name}
+          </p>
+        )}
 
         {/* Vintage + drinking window */}
         <div className="flex items-center gap-1 overflow-hidden flex-nowrap">
@@ -254,8 +262,7 @@ export function InventoryCard({
               <button
                 type="button"
                 aria-label={`${t('view.columns.peak')} : ${drinkingWindow} — ${t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}`}
-                onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-0.5 overflow-hidden min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+                className="relative z-10 flex items-center gap-0.5 overflow-hidden min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
               >
                 <AlertTriangle size={12} className={`shrink-0 ${alertIconColor}`} />
                 <span className="text-xs text-foreground-500 truncate" aria-hidden="true">
@@ -268,7 +275,8 @@ export function InventoryCard({
       </CardBody>
 
       {/* ── Actions ───────────────────────────────────────────── */}
-      <CardFooter className="pt-0 px-2 pb-1.5 justify-end gap-0">
+      {/* 40 px touch targets on phones (ux-ui.md §5.4), compact from sm up. */}
+      <CardFooter className="relative z-10 pt-0 px-2 pb-1.5 justify-end gap-1 sm:gap-0">
         <Tooltip content={t('actions.edit')} delay={500}>
           <Button
             isIconOnly
@@ -277,7 +285,7 @@ export function InventoryCard({
             onPress={() => onEdit(item)}
             isDisabled={isTemp}
             aria-label={t('actions.edit')}
-            className="text-foreground-500 hover:text-primary min-w-unit-7 w-7 h-7"
+            className="text-foreground-500 hover:text-primary min-w-10 w-10 h-10 sm:min-w-7 sm:w-7 sm:h-7"
           >
             <Pencil size={14} />
           </Button>
@@ -290,7 +298,7 @@ export function InventoryCard({
             onPress={() => onDelete(item)}
             isDisabled={isTemp}
             aria-label={t('actions.delete')}
-            className="text-foreground-500 hover:text-danger min-w-unit-7 w-7 h-7"
+            className="text-foreground-500 hover:text-danger min-w-10 w-10 h-10 sm:min-w-7 sm:w-7 sm:h-7"
           >
             <Trash2 size={14} />
           </Button>
