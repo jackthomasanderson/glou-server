@@ -31,6 +31,7 @@ import wishlistRouter from './routes/wishlist.router';
 import { scanRouter } from './routes/scan.router';
 import humidorRouter from './routes/humidor.router';
 import { APP_VERSION } from './lib/app-version';
+import { redactUrlSecrets } from './lib/log-redact';
 
 // ─── Express app assembly ────────────────────────────────────────────────────
 // Extracted from index.ts so it can be imported without side effects (no
@@ -55,7 +56,14 @@ export function createApp(): express.Express {
   // infrastructure is needed. Silenced under `vitest` (NODE_ENV=test) so the
   // test suite's own output stays readable.
   if (process.env.NODE_ENV !== 'test') {
-    app.use(morgan('combined'));
+    // `combined`, with the URL and referrer passed through `redactUrlSecrets`
+    // so guest and password-reset tokens never reach the logs (ISSUE_490).
+    morgan.token('safe-url', (req) => redactUrlSecrets((req as express.Request).originalUrl ?? req.url));
+    morgan.token('safe-referrer', (req) => {
+      const ref = req.headers.referer ?? req.headers['referrer'];
+      return redactUrlSecrets(Array.isArray(ref) ? ref[0] : ref);
+    });
+    app.use(morgan(':remote-addr - :remote-user [:date[clf]] ":method :safe-url HTTP/:http-version" :status :res[content-length] ":safe-referrer" ":user-agent"'));
   }
 
   // ─── Security middleware ───────────────────────────────────────────────────

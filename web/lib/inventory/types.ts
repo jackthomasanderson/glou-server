@@ -139,6 +139,8 @@ export interface InventoryHistoryEntry {
   status: string;
   actorId: string;
   actorName: string;
+  /** Set when the change came through a guest share link (#483). */
+  viaGuest?: boolean;
   changes: InventoryFieldChange[] | null;
   createdAt: string;
 }

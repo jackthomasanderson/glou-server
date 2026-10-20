@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { CurveShape, readinessPercent } from '../lib/maturity-curve';
 import { notificationService } from './notification.service';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
+import { escapeHtml } from '../lib/html';
 
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
@@ -166,6 +167,7 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
 
 async function notifyPeakReached(item: { id: string; name: string; producer: string; vintage: number | null }): Promise<void> {
   const label = `${item.name} — ${item.producer}${item.vintage ? ` (${item.vintage})` : ''}`;
+  const safeLabel = escapeHtml(label);
   const users = await prisma.user.findMany({ select: { id: true, language: true, notifLanguage: true } });
   await Promise.all(users.map((user) => {
     const isEn = (user.notifLanguage ?? user.language) === 'EN';
@@ -174,8 +176,8 @@ async function notifyPeakReached(item: { id: string; name: string; producer: str
       category: 'peak',
       subject: isEn ? `At peak maturity: ${label}` : `À son apogée : ${label}`,
       htmlBody: isEn
-        ? `<p><strong>${label}</strong> has reached its optimal drinking window. This may be a good time to open it.</p>`
-        : `<p><strong>${label}</strong> est entrée dans sa fenêtre optimale de consommation. C'est peut-être le bon moment pour l'ouvrir.</p>`,
+        ? `<p><strong>${safeLabel}</strong> has reached its optimal drinking window. This may be a good time to open it.</p>`
+        : `<p><strong>${safeLabel}</strong> est entrée dans sa fenêtre optimale de consommation. C'est peut-être le bon moment pour l'ouvrir.</p>`,
     });
   }));
 }

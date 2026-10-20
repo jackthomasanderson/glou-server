@@ -586,6 +586,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                               </span>
                               <span className="flex-1 text-xs text-foreground-500">
                                 {formatHistoryEntry(entry)}
+                                {entry.viaGuest && ` · ${t('traceability.viaGuest')}`}
                               </span>
                               <span className="shrink-0 text-xs text-foreground-400">
                                 {hasMounted ? formatDate(entry.createdAt, i18n.language) : ''}

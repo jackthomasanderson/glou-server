@@ -56,6 +56,8 @@ export interface InventoryHistoryEntry {
   status: string;
   actorId: string;
   actorName: string;
+  /** ISSUE_483: set when the change came through a guest share link. */
+  viaGuest?: boolean;
   changes: FieldChange[] | null;
   createdAt: Date;
 }
@@ -179,7 +181,7 @@ export class InventoryService {
     const logs = await prisma.auditLog.findMany({
       where: {
         bottleId: id,
-        action: { in: ['CREATE', 'UPDATE', 'DELETE', 'RESTORE', 'RESTORE_FIELD'] },
+        action: { in: ['CREATE', 'UPDATE', 'DELETE', 'RESTORE', 'RESTORE_FIELD', 'GUEST_UPDATE'] },
         status: 'success',
       },
       orderBy: { createdAt: 'desc' },
@@ -192,15 +194,23 @@ export class InventoryService {
     });
     const userMap = new Map(users.map((u) => [u.id, u.displayName ?? u.username]));
 
-    return logs.map((log) => ({
-      id: log.id,
-      action: log.action,
-      status: log.status,
-      actorId: log.userId,
-      actorName: userMap.get(log.userId) ?? log.userId,
-      changes: (log.details as Record<string, unknown> | null)?.['changes'] as FieldChange[] | null ?? null,
-      createdAt: log.createdAt,
-    }));
+    return logs.map((log) => {
+      const details = log.details as Record<string, unknown> | null;
+      // ISSUE_483: a guest edit is logged under the share creator's id; show
+      // the guest's name instead so the history does not blame the member.
+      const viaGuest = log.action === 'GUEST_UPDATE';
+      const guestName = viaGuest && typeof details?.['inviteeName'] === 'string' ? details['inviteeName'] : null;
+      return {
+        id: log.id,
+        action: log.action,
+        status: log.status,
+        actorId: log.userId,
+        actorName: guestName ?? userMap.get(log.userId) ?? log.userId,
+        ...(viaGuest ? { viaGuest: true } : {}),
+        changes: details?.['changes'] as FieldChange[] | null ?? null,
+        createdAt: log.createdAt,
+      };
+    });
   }
 
   /**

@@ -40,3 +40,18 @@ export function htmlToPlainText(html: string): string {
 
   return out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
 }
+
+/**
+ * Escapes text before it is interpolated into an outgoing HTML email body.
+ * Every member-entered value (item, producer, cellar names…) must go through
+ * this: notification emails are sent from the instance's own address, so
+ * unescaped markup would let one member inject links into everyone's inbox.
+ */
+export function escapeHtml(value: unknown): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}

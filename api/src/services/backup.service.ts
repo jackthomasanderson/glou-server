@@ -8,6 +8,7 @@ import { BackupRun } from '@prisma/client';
 import { auditLog } from './audit.service';
 import { notificationService } from './notification.service';
 import { isNotifEn } from '../lib/notif-lang';
+import { escapeHtml } from '../lib/html';
 
 // FEAT-18: Portabilité & Souveraineté des Données — Scheduled Backups.
 // design.md "Sauvegarde & Migration": `pg_dump` planifié (cron quotidien),
@@ -57,10 +58,6 @@ async function notifyAdminsOfBackupFailure(error: string): Promise<void> {
     // Never let the alert path break the backup bookkeeping.
     console.error('[backup] Could not notify administrators of the failure:', err);
   }
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 export type BackupTrigger = 'scheduled' | 'manual';
