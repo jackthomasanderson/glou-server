@@ -118,6 +118,8 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     }
 
     const patch = guestInventoryUpdateSchema.parse(req.body);
+    // Hidden notes belong to the owner: a guest must never overwrite them.
+    if (share.hideNotes) delete patch.notes;
     const result = await inventoryService.updateItem(share.userId, itemId, patch);
 
     if (!result) {
