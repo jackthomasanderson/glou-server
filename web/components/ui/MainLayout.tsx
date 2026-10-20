@@ -25,12 +25,12 @@ const PAGE_TITLES: Record<string, string> = {
   '/cigars': 'nav.cigars',
   '/cellars': 'nav.caves',
   '/collections': 'nav.collections',
-  '/tastings': 'nav.tastings',
-  '/analytics': 'nav.analytics',
+  '/cellar-journal': 'nav.tastings',
+  '/analytics-terroirs': 'nav.analytics',
   '/profile': 'nav.profile',
   '/admin': 'nav.admin',
   '/inventory-count': 'inventoryCount.title',
-  '/wishlist': 'wishlist.title',
+  '/wishlist-budget': 'wishlist.title',
 };
 
 function usePageTitle() {
