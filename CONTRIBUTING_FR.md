@@ -22,7 +22,7 @@ Merci de votre intérêt pour l'amélioration de Glou ! Ce document explique com
 
 ## Mise en route
 
-Prérequis : Docker, et Node.js 20 si vous voulez lancer les apps hors conteneurs.
+Prérequis : Docker, et Node.js 24 si vous voulez lancer les apps hors conteneurs.
 
 ```bash
 cp .env.example .env          # définir un JWT_SECRET robuste

@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Glou",
-    "tagline": "Your cellar, at your fingertips"
+    "tagline": "Simply precious"
   },
   "filters": {
     "all": "All",
@@ -121,6 +121,11 @@
     }
   },
   "inventory": {
+    "validation": {
+      "required": "This field is required",
+      "missingFields": "Fill in the required fields before saving"
+    },
+    "noNotifications": "No notifications",
     "perPage": "{{count}} per page",
     "detail": {
       "titleWine": "Asset details",
@@ -407,6 +412,8 @@
       "recordError": "Could not record the asset"
     },
     "admin": {
+      "roleSuccess": "Member role updated",
+      "statusSuccess": "Member status updated",
       "roleError": "Could not change the member's role",
       "statusError": "Could not change the member's status"
     },
@@ -427,6 +434,7 @@
     "loginCta": "Sign in",
     "registerCta": "Create account",
     "loginLink": "Already have an account? Sign in",
+    "registrationClosedHint": "Registrations are closed on this instance.",
     "registerLink": "No account yet? Sign up",
     "tagline": "Simply precious.",
     "errors": {
@@ -434,7 +442,7 @@
       "USERNAME_ALREADY_TAKEN": "This username is already taken.",
       "EMAIL_ALREADY_TAKEN": "This email address is already in use.",
       "REGISTRATION_CONFLICT": "That username or email address is already in use.",
-      "REGISTRATION_CLOSED": "New account registration is currently closed on this instance. Ask an admin for an invitation.",
+      "REGISTRATION_CLOSED": "New account registration is currently closed on this instance. Ask an administrator to open registrations temporarily.",
       "VALIDATION_ERROR": "Please check your inputs.",
       "UNEXPECTED_ERROR": "An unexpected error occurred.",
       "CSRF_ORIGIN_REJECTED": "This address is not allowed by the server. Set APP_URL to the address you type in your browser, then restart.",
@@ -530,6 +538,8 @@
     "deleteConfirm": "Are you sure you want to delete this cellar? The assets inside will become orphans.",
     "stats": {
       "items": "items",
+      "itemsCount_one": "{{count}} item",
+      "itemsCount_other": "{{count}} items",
       "alerts": "alerts",
       "estimatedValue": "Estimated value"
     },
@@ -643,6 +653,7 @@
     "loading": "Searching..."
   },
   "profile": {
+    "adminPanelLink": "Go to admin panel",
     "title": "My Profile",
     "personalInfo": "Personal Information",
     "preferences": "Display Preferences",
@@ -779,6 +790,8 @@
       "activate": "Activate",
       "deactivate": "Deactivate",
       "deactivateSelf": "You cannot deactivate your own account",
+      "grantAdminConfirm": "Grant administrator rights to {{username}}?",
+      "deactivateConfirm": "Cut off {{username}}'s access to this instance?",
       "deactivateLastAdmin": "You cannot deactivate the last administrator",
       "me": "me",
       "resetPassword": "Reset password",
@@ -1310,7 +1323,16 @@
       "notFound": "Zone not found."
     }
   },
+  "errorPage": {
+    "title": "Something went wrong",
+    "description": "The page could not be displayed. Reload it or go back to the home page.",
+    "reload": "Reload",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "This link leads nowhere: the page may have been deleted.",
+    "backHome": "Back to home"
+  },
   "qr": {
+    "localhostWarning": "This address (localhost) will not be reachable from another device: the QR code will not work on a phone. Open Glou through the server address before printing it.",
     "title": "Asset QR Code",
     "download": "Download PNG"
   },
@@ -1433,6 +1455,7 @@
       "pricesHidden": "Prices and values are hidden",
       "notesHidden": "Personal notes are hidden",
       "expired": "This share link has expired or been revoked.",
+      "loadError": "Could not load this share. Check your connection and try again.",
       "loading": "Loading shared collection…",
       "empty": "No items in this share.",
       "scopeAll": "Full collection",
@@ -1949,6 +1972,8 @@
     "error": "Analyzing the photo failed. Try again with a sharper or better-lit photo.",
     "retry": "Take another photo",
     "review": {
+      "nothingRecognised": "Label not recognised: retake the photo or fill the fields in by hand.",
+      "missingFields": "Fields to fill in: {{fields}}",
       "title": "Review the detected information",
       "confirm": "Confirm and add",
       "moreDetails": "More details",

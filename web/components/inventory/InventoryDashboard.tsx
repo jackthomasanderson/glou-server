@@ -1,5 +1,6 @@
 'use client';
 import { useState, useCallback, useMemo, useEffect, useSyncExternalStore } from 'react';
+import dynamic from 'next/dynamic';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
@@ -21,12 +22,11 @@ import { useInventoryFilters } from '@/hooks/useInventoryFilters';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { useDuplicateResolution } from '@/hooks/useDuplicateResolution';
 import { InventoryCardSkeleton } from './InventoryCard';
-import { InventoryForm } from './InventoryForm';
+import type { InventoryCategory } from '@/lib/inventory/types';
 import { UndoToast } from '@/components/ui/UndoToast';
 import { notifySuccess } from '@/lib/toast';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
 import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
-import { InventoryDetailDialog } from './InventoryDetailDialog';
 import { InventoryListRowSkeleton } from './InventoryListRow';
 import { InventoryGridView } from './InventoryGridView';
 import { InventoryListView } from './InventoryListView';
@@ -36,8 +36,13 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { useViewMode } from '@/hooks/useViewMode';
 import { usePageSize } from '@/hooks/usePageSize';
 import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
-import { DuplicateDialog } from './DuplicateDialog';
-import { ScanFlow } from './ScanFlow';
+
+// Screens that only appear after an action are split out of the page's first
+// load; they open behind a click, so a null placeholder is invisible.
+const InventoryForm = dynamic(() => import('./InventoryForm').then((m) => m.InventoryForm), { ssr: false, loading: () => null });
+const InventoryDetailDialog = dynamic(() => import('./InventoryDetailDialog').then((m) => m.InventoryDetailDialog), { ssr: false, loading: () => null });
+const DuplicateDialog = dynamic(() => import('./DuplicateDialog').then((m) => m.DuplicateDialog), { ssr: false, loading: () => null });
+const ScanFlow = dynamic(() => import('./ScanFlow').then((m) => m.ScanFlow), { ssr: false, loading: () => null });
 
 type UIMode = 'idle' | 'creating' | 'editing';
 
@@ -376,7 +381,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           ].map(({ value, label, color }) => (
             <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">
               <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>
-              <p className="text-xs text-default-500 mt-1">{label}</p>
+              <p className="text-xs text-foreground-500 mt-1">{label}</p>
             </div>
           ))}
         </div>
@@ -437,7 +442,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               data-testid="no-cellar-banner"
               className="flex flex-wrap items-center gap-2 rounded-lg border border-divider bg-default-100 px-3 py-2 mb-3 text-sm"
             >
-              <Warehouse size={16} className="text-default-500 shrink-0" />
+              <Warehouse size={16} className="text-foreground-500 shrink-0" />
               <span className="flex-1 min-w-0">{t('inventory.noCellarBanner')}</span>
               <Button as={Link} href="/cellars" size="sm" variant="flat" color="primary">
                 {t('inventory.noCellarBannerAction')}
@@ -479,6 +484,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           <InventoryForm
             open={mode !== 'idle'}
             initialValues={mode === 'editing' && editingItem ? editingItem : undefined}
+            defaultCategory={lockedCategories?.length === 1 ? (lockedCategories[0] as InventoryCategory) : undefined}
             onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
             onClose={handleCancel}
             isSubmitting={createMutation.isPending || updateMutation.isPending || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}

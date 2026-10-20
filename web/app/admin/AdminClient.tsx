@@ -49,11 +49,13 @@ export function AdminClient() {
 
   const handleRoleToggle = (targetUser: AdminUser, checked: boolean) => {
     if (targetUser.id === user?.id) return;
+    if (checked && !window.confirm(t('admin.users.grantAdminConfirm', { username: targetUser.username }))) return;
     updateRole({ userId: targetUser.id, isAdmin: checked });
   };
 
   const handleStatusToggle = (targetUser: AdminUser) => {
     if (targetUser.id === user?.id) return;
+    if (targetUser.isActive && !window.confirm(t('admin.users.deactivateConfirm', { username: targetUser.username }))) return;
     updateStatus({ userId: targetUser.id, isActive: !targetUser.isActive });
   };
 
@@ -135,7 +137,7 @@ export function AdminClient() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Tooltip content={u.id === user.id ? t('admin.users.deactivateSelf') : ''} isDisabled={u.id !== user.id}>
+                    <Tooltip delay={500} content={u.id === user.id ? t('admin.users.deactivateSelf') : ''} isDisabled={u.id !== user.id}>
                       <Switch
                         isSelected={u.isAdmin}
                         onValueChange={(checked) => handleRoleToggle(u, checked)}

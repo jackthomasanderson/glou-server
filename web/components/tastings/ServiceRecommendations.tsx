@@ -18,7 +18,7 @@ export function ServiceRecommendations({ item }: ServiceRecommendationsProps) {
 
   return (
     <div className="bg-default-100 rounded-lg p-3 mt-1">
-      <p className="text-xs font-semibold text-default-500 mb-2">
+      <p className="text-xs font-semibold text-foreground-500 mb-2">
         {t('tastings.recommendations.title')}
       </p>
       <div className="flex flex-col gap-2">

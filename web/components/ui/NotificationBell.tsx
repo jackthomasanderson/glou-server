@@ -90,7 +90,7 @@ export function NotificationBell() {
         {count === 0 ? (
           <DropdownSection>
             <DropdownItem key="empty" isDisabled>
-              <span className="text-foreground-500 text-sm">{t('inventory.noNotifications', 'Aucune notification')}</span>
+              <span className="text-foreground-500 text-sm">{t('inventory.noNotifications')}</span>
             </DropdownItem>
           </DropdownSection>
         ) : (

@@ -43,7 +43,7 @@ export function PaginationBar({
         >
           <ChevronLeft size={16} />
         </Button>
-        <span className="text-sm text-default-500 tabular-nums">
+        <span className="text-sm text-foreground-500 tabular-nums">
           {labelPage} {page} {labelOf} {totalPages}
         </span>
         <Button

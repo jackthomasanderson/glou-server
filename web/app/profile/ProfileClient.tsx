@@ -33,7 +33,7 @@ export function ProfileClient() {
   const updateProfile = useUpdateProfile();
   const updatePrefs = useUpdatePreferences();
 
-  const [profileData, setProfileData] = useState({ avatarUrl: '', appName: '', appSlogan: '' });
+  const [profileData, setProfileData] = useState({ avatarUrl: '', displayName: '', appName: '', appSlogan: '' });
   const [prefsData, setPrefsData] = useState({
     theme: 'LIGHT' as 'LIGHT' | 'DARK',
     language: 'FR' as 'FR' | 'EN',
@@ -50,7 +50,7 @@ export function ProfileClient() {
   if (user !== prevUser) {
     setPrevUser(user);
     if (user) {
-      setProfileData({ avatarUrl: user.avatarUrl || '', appName: user.appName || '', appSlogan: user.appSlogan || '' });
+      setProfileData({ avatarUrl: user.avatarUrl || '', displayName: user.displayName || '', appName: user.appName || '', appSlogan: user.appSlogan || '' });
       setPrefsData({
         theme: user.theme || 'LIGHT',
         language: user.language || 'FR',
@@ -107,7 +107,7 @@ export function ProfileClient() {
         <Button
           as={Link}
           href="/wishlist"
-          color="secondary"
+          color="primary"
           variant="bordered"
           startContent={<Gift size={16} />}
           radius="md"
@@ -135,6 +135,13 @@ export function ProfileClient() {
             {user && <AvatarUploader user={user} />}
 
             <form onSubmit={handleProfileSubmit} className="flex flex-col gap-4 mt-2">
+              <Input
+                label={t('auth.displayName')}
+                value={profileData.displayName}
+                onValueChange={(v) => setProfileData(prev => ({ ...prev, displayName: v }))}
+                maxLength={60}
+                variant="bordered" size="sm" radius="md" labelPlacement="outside"
+              />
               <Input
                 label={t('profile.appName')}
                 value={profileData.appName}
@@ -283,7 +290,7 @@ export function ProfileClient() {
               radius="md"
               fullWidth
             >
-              Accéder au panneau d&apos;administration
+              {t('profile.adminPanelLink')}
             </Button>
           </div>
         )}

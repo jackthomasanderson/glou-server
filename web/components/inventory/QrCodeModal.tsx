@@ -15,6 +15,7 @@ interface QrCodeModalProps {
 export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalProps) {
   const { t } = useTranslation('common');
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
   const qrUrl = `${appUrl}/bottles?scan=${itemId}`;
 
   const handleDownload = useCallback(() => {
@@ -44,6 +45,9 @@ export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalPr
             />
           </div>
           <p className="text-xs text-foreground-500 text-center break-all">{qrUrl}</p>
+          {isLocalhost && (
+            <p role="alert" className="text-xs text-warning text-center">{t('qr.localhostWarning')}</p>
+          )}
         </ModalBody>
         <ModalFooter className="gap-2">
           <Button variant="light" size="sm" onPress={onClose} startContent={<X size={14} />}>

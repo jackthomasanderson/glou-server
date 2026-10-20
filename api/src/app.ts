@@ -142,7 +142,7 @@ export function createApp(): express.Express {
     legacyHeaders: false,
   });
   app.use('/uploads/scans', uploadsLimiter, authMiddleware, allowCrossOriginEmbedding, express.static(path.join(uploadsDir, 'scans')));
-  app.use('/uploads', uploadsLimiter, allowCrossOriginEmbedding, express.static(uploadsDir));
+  app.use('/uploads', uploadsLimiter, allowCrossOriginEmbedding, express.static(uploadsDir, { maxAge: '1y', immutable: true }));
 
   // ─── Routes ───────────────────────────────────────────────────────────────
 

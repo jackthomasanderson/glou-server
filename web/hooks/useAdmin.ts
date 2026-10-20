@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client as api } from '../lib/api';
-import { notifyError } from '../lib/toast';
+import { notifyError, notifySuccess } from '../lib/toast';
 import { maturityReferenceClient } from '../lib/maturity-references/client';
 import { MaturityReference, MaturityReferenceInput } from '../lib/maturity-references/types';
 
@@ -69,6 +69,7 @@ export function useUpdateUserRole() {
         },
         onError: () => notifyError('toast.admin.roleError'),
         onSuccess: () => {
+            notifySuccess('toast.admin.roleSuccess');
             queryClient.invalidateQueries({ queryKey: ['admin_users'] });
         },
     });
@@ -83,8 +84,12 @@ export function useUpdateUserStatus() {
             const response = await api.patch<AdminUser>(`/admin/users/${userId}/status`, { isActive });
             return response.data;
         },
-        onError: () => notifyError('toast.admin.statusError'),
+        onError: (error) => {
+            const code = (error as { response?: { data?: { error?: string } } }).response?.data?.error;
+            notifyError(code === 'CANNOT_DEACTIVATE_LAST_ADMIN' ? 'admin.users.deactivateLastAdmin' : 'toast.admin.statusError');
+        },
         onSuccess: () => {
+            notifySuccess('toast.admin.statusSuccess');
             queryClient.invalidateQueries({ queryKey: ['admin_users'] });
         },
     });

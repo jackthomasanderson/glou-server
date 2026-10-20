@@ -11,6 +11,7 @@ export interface PublicUser {
   avatarUrl: string | null;
   appName: string | null;
   appSlogan: string | null;
+  displayName: string | null;
   theme: 'LIGHT' | 'DARK';
   language: 'FR' | 'EN';
   tempUnit: 'CELSIUS' | 'FAHRENHEIT';

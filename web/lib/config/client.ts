@@ -225,6 +225,11 @@ export const configClient = {
     return data;
   },
 
+  async getRegistrationStatus(): Promise<{ registrationOpen: boolean }> {
+    const { data } = await client.get<{ registrationOpen: boolean }>('/auth/registration-status');
+    return data;
+  },
+
   async forgotPassword(email: string): Promise<void> {
     await client.post('/auth/forgot-password', { email });
   },

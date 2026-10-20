@@ -254,7 +254,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                 {CURVE_SHAPES.map((shape) => (
                   <SelectItem key={shape} textValue={t(curveShapeLabelKey(shape))}>
                     <div className="flex items-center gap-2">
-                      <CurveGlyph shape={shape} width={34} className="text-default-500 shrink-0" />
+                      <CurveGlyph shape={shape} width={34} className="text-foreground-500 shrink-0" />
                       <div className="flex flex-col">
                         <span className="text-sm">{t(curveShapeLabelKey(shape))}</span>
                         <span className="text-xs text-foreground-400">{t(curveShapeDescriptionKey(shape))}</span>

@@ -1,7 +1,7 @@
 {
   "app": {
     "name": "Glou",
-    "tagline": "Votre cave, à portée de main"
+    "tagline": "Simplement précieux"
   },
   "filters": {
     "all": "Toutes",
@@ -121,6 +121,11 @@
     }
   },
   "inventory": {
+    "validation": {
+      "required": "Ce champ est obligatoire",
+      "missingFields": "Complétez les champs obligatoires avant d'enregistrer"
+    },
+    "noNotifications": "Aucune notification",
     "perPage": "{{count}} par page",
     "detail": {
       "titleWine": "Détails de l'actif",
@@ -407,6 +412,8 @@
       "recordError": "Impossible d'enregistrer l'actif"
     },
     "admin": {
+      "roleSuccess": "Membre mis à jour",
+      "statusSuccess": "Statut du membre mis à jour",
       "roleError": "Impossible de modifier le rôle du membre",
       "statusError": "Impossible de modifier le statut du membre"
     },
@@ -427,6 +434,7 @@
     "loginCta": "Se connecter",
     "registerCta": "Créer mon compte",
     "loginLink": "Déjà un compte ? Se connecter",
+    "registrationClosedHint": "Les inscriptions sont fermées sur cette instance.",
     "registerLink": "Pas encore de compte ? S'inscrire",
     "tagline": "Simplement précieux.",
     "errors": {
@@ -434,7 +442,7 @@
       "USERNAME_ALREADY_TAKEN": "Ce nom d'utilisateur est déjà pris.",
       "EMAIL_ALREADY_TAKEN": "Cette adresse email est déjà utilisée.",
       "REGISTRATION_CONFLICT": "Ce nom d'utilisateur ou cette adresse email est déjà utilisé.",
-      "REGISTRATION_CLOSED": "L'inscription de nouveaux comptes est actuellement fermée sur cette instance. Demandez une invitation à un administrateur.",
+      "REGISTRATION_CLOSED": "L'inscription de nouveaux comptes est actuellement fermée sur cette instance. Demandez à un administrateur de l'ouvrir temporairement.",
       "VALIDATION_ERROR": "Veuillez vérifier vos saisies.",
       "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
       "CSRF_ORIGIN_REJECTED": "Cette adresse n'est pas autorisée par le serveur. Renseignez APP_URL avec l'adresse saisie dans votre navigateur, puis redémarrez.",
@@ -530,6 +538,8 @@
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les actifs qu'elle contient deviendront orphelins.",
     "stats": {
       "items": "actifs",
+      "itemsCount_one": "{{count}} actif",
+      "itemsCount_other": "{{count}} actifs",
       "alerts": "alertes",
       "estimatedValue": "Valeur estimée"
     },
@@ -645,6 +655,7 @@
     "loading": "Recherche en cours..."
   },
   "profile": {
+    "adminPanelLink": "Accéder au panneau d'administration",
     "title": "Mon Profil",
     "personalInfo": "Informations personnelles",
     "preferences": "Préférences d'affichage",
@@ -781,6 +792,8 @@
       "activate": "Réactiver",
       "deactivate": "Désactiver",
       "deactivateSelf": "Impossible de désactiver votre propre compte",
+      "grantAdminConfirm": "Donner les droits d'administrateur à {{username}} ?",
+      "deactivateConfirm": "Couper l'accès de {{username}} à cette instance ?",
       "deactivateLastAdmin": "Impossible de désactiver le dernier administrateur",
       "me": "moi",
       "resetPassword": "Réinitialiser le mot de passe",
@@ -1312,7 +1325,16 @@
       "notFound": "Zone introuvable."
     }
   },
+  "errorPage": {
+    "title": "Une erreur est survenue",
+    "description": "La page n'a pas pu s'afficher. Rechargez-la ou revenez à l'accueil.",
+    "reload": "Recharger",
+    "notFoundTitle": "Page introuvable",
+    "notFoundDescription": "Ce lien ne mène à rien : la page a peut-être été supprimée.",
+    "backHome": "Retour à l'accueil"
+  },
   "qr": {
+    "localhostWarning": "Cette adresse (localhost) ne sera pas joignable depuis un autre appareil : le QR code ne fonctionnera pas sur un téléphone. Ouvrez Glou via l'adresse du serveur avant de l'imprimer.",
     "title": "QR Code de l'actif",
     "download": "Télécharger PNG"
   },
@@ -1435,6 +1457,7 @@
       "pricesHidden": "Prix et valeurs masqués",
       "notesHidden": "Notes personnelles masquées",
       "expired": "Ce lien de partage a expiré ou a été révoqué.",
+      "loadError": "Impossible de charger ce partage. Vérifiez votre connexion et réessayez.",
       "loading": "Chargement de la collection partagée…",
       "empty": "Aucun article dans ce partage.",
       "scopeAll": "Collection complète",
@@ -1951,6 +1974,8 @@
     "error": "L'analyse de la photo a échoué. Réessayez avec une photo plus nette ou mieux éclairée.",
     "retry": "Reprendre une photo",
     "review": {
+      "nothingRecognised": "Étiquette non reconnue : reprenez la photo ou renseignez les champs à la main.",
+      "missingFields": "Champs à renseigner : {{fields}}",
       "title": "Vérifiez les informations détectées",
       "confirm": "Confirmer et ajouter",
       "moreDetails": "Plus de détails",

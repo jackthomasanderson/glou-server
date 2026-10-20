@@ -46,7 +46,7 @@ export function DuplicateDialog({
             </ModalHeader>
 
             <ModalBody className="py-2 gap-3">
-              <p className="text-sm text-default-500">
+              <p className="text-sm text-foreground-500">
                 {t('duplicate.description', { name: duplicate.name, producer: duplicate.producer })}
               </p>
 
@@ -54,14 +54,14 @@ export function DuplicateDialog({
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-default-500">
+                  <span className="text-xs text-foreground-500">
                     {t('duplicate.currentQuantity', { count: currentQty })}
                   </span>
                   <Chip size="sm" color="primary" variant="bordered">
                     → {newQty}
                   </Chip>
                 </div>
-                <span className="text-xs text-default-500">
+                <span className="text-xs text-foreground-500">
                   {cellarName
                     ? t('duplicate.cellar', { cellar: cellarName })
                     : t('duplicate.noCellar')}
