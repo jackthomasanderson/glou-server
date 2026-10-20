@@ -63,6 +63,29 @@ describe('ImportService.previewCsv', () => {
     ]);
   });
 
+  // #510: a French spreadsheet used to be rejected wholesale.
+  it('accepts French headers, French category names and the optional columns', () => {
+    const result = importService.previewCsv(
+      csv('Nom;Producteur;Catégorie;Millésime;Prix;Région;Quantité;Degré\n'
+        + 'Pétrus;Château Pétrus;Vin;2015;12,50 €;Pomerol;;\n'
+        + 'Krug;Krug;Bulles;;;;;\n'
+        + 'Lagavulin 16;Diageo;Spiritueux;;89;Islay;;43\n'
+        + 'Robusto;Cohiba;Cigares;;;;25;\n'),
+    );
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toEqual([
+      { name: 'Pétrus', producer: 'Château Pétrus', category: 'wine', vintage: 2015, purchasePrice: 12.5, region: 'Pomerol' },
+      { name: 'Krug', producer: 'Krug', category: 'sparkling' },
+      { name: 'Lagavulin 16', producer: 'Diageo', category: 'spirit', purchasePrice: 89, region: 'Islay', alcoholDegree: 43 },
+      { name: 'Robusto', producer: 'Cohiba', category: 'cigar', quantity: 25 },
+    ]);
+  });
+
+  it('rejects an out-of-range ABV with its own code', () => {
+    const result = importService.previewCsv(csv('name,producer,category,abv\nX,Y,spirit,140\n'));
+    expect(result.errors).toEqual([{ row: 2, reason: 'INVALID_ABV' }]);
+  });
+
   it('returns an empty preview for an empty file', () => {
     expect(importService.previewCsv(csv(''))).toEqual({ valid: [], errors: [] });
   });
@@ -97,6 +120,12 @@ describe('ImportService.confirmImport', () => {
     const result = await importService.confirmImport('u1', [row()], null);
     expect(result).toEqual({ created: 0, skippedDuplicates: 1 });
     expect(tx.inventoryItem.create).not.toHaveBeenCalled();
+  });
+
+  it('imports a spirit without an ABV column with no made-up 0 % (#510)', async () => {
+    await importService.confirmImport('u1', [row({ category: 'spirit', vintage: undefined, name: 'Lagavulin' })], null);
+    const data = tx.inventoryItem.create.mock.calls[0]?.[0]?.data as Record<string, unknown>;
+    expect(data.alcoholDegree ?? null).toBeNull();
   });
 
   it('still creates a row whose vintage actually differs from the existing one', async () => {

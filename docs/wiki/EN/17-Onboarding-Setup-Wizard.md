@@ -33,13 +33,16 @@ The file import step accepts **CSV only**: there is no `.xlsx`/Excel support. Th
 | File type | `.csv` (`text/csv`, or `application/vnd.ms-excel` sent by some Windows exports for a `.csv` file) |
 | Max file size | 2 MB |
 | Max rows | 500 (extra rows are silently ignored; only the first 500 are read) |
-| Required columns | `name` (≤200 chars), `producer` (≤200 chars), `category` (`wine`, `sparkling`, `spirit`, or `cigar`) |
-| Optional column | `vintage` (whole number between 1800 and the current year) |
+| Required columns | `name` (≤200 chars), `producer` (≤200 chars), `category` (`wine`, `sparkling`, `spirit`, or `cigar`; French `vin`, `bulles`/`champagne`, `spiritueux`, `cigare` and plurals also work) |
+| Optional columns | `vintage` (whole number between 1800 and the current year), `price` (`12.50`, `12,50 €`), `region`, `quantity` (cigars, whole number ≥ 1, default 1), `abv` (0 to 100) |
+| Header names | Case, accents and spaces are ignored; French headers work: `nom`, `producteur`/`domaine`, `catégorie`, `millésime`, `prix`, `région`, `quantité`, `degré` |
+
+A spirit imported without an `abv` column has no ABV (it is not set to 0 %); fill it in later from the item's form.
 
 The import runs in two steps: a **preview** validates every row and reports errors without writing anything, then **confirm** persists all valid rows in a single all-or-nothing transaction. Fields populated from the CSV are tagged with source `import_csv`, visible later on the item's detail view (see [18-Field-Source-Transparency-History.md](./18-Field-Source-Transparency-History.md)).
 
 > [!TIP]
-> For more than 500 rows or richer columns (region, price, quantity, format...), use **Manual entry** for the first batch through the wizard, then bulk-add the rest from the main inventory screen once onboarding is done. That screen is not limited to 500 rows.
+> For more than 500 rows or other columns (format, cellar slot…), use **Manual entry** for the first batch through the wizard, then bulk-add the rest from the main inventory screen once onboarding is done. That screen is not limited to 500 rows.
 
 ## The firewall (troubleshooting)
 

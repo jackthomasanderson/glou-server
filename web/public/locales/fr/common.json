@@ -1765,7 +1765,7 @@
     },
     "csv": {
       "title": "Import CSV",
-      "subtitle": "Importez un fichier .csv avec les colonnes : name, producer, category, vintage (optionnel).",
+      "subtitle": "Importez un fichier .csv avec les colonnes nom, producteur, catégorie (vin, bulles, spiritueux, cigare) et, au choix, millésime, prix, région, quantité, degré. Les en-têtes et catégories en anglais (name, producer, category, vintage ; wine, sparkling, spirit, cigar) fonctionnent aussi.",
       "csvOnlyHint": "Seul le format CSV est pris en charge (Excel/.xlsx non supporté).",
       "chooseFile": "Choisir un fichier CSV",
       "chooseAnother": "Choisir un autre fichier",
@@ -1782,10 +1782,14 @@
         "NAME_TOO_LONG": "Le nom dépasse 200 caractères",
         "PRODUCER_REQUIRED": "Le producteur est manquant",
         "PRODUCER_TOO_LONG": "Le producteur dépasse 200 caractères",
-        "INVALID_CATEGORY": "Catégorie invalide (attendu : wine, sparkling, spirit ou cigar)",
+        "INVALID_CATEGORY": "Catégorie invalide (attendu : vin, bulles, spiritueux ou cigare, ou wine, sparkling, spirit, cigar)",
         "INVALID_VINTAGE": "Millésime invalide",
+        "INVALID_PRICE": "Prix invalide",
+        "INVALID_QUANTITY": "Quantité invalide (nombre entier à partir de 1)",
+        "INVALID_ABV": "Degré d'alcool invalide (0 à 100)",
+        "REGION_TOO_LONG": "La région dépasse 200 caractères",
         "INVALID_ROW": "Ligne invalide",
-        "UNRECOGNIZED_COLUMNS": "En-tête non reconnu : aucune colonne attendue (name, producer, category, vintage) n'a été trouvée",
+        "UNRECOGNIZED_COLUMNS": "En-tête non reconnu : aucune colonne attendue (nom, producteur, catégorie, millésime…) n'a été trouvée",
         "INVALID_ENCODING": "Ce fichier n'est pas enregistré en UTF-8 : les caractères accentués ont été perdus. Dans Excel, utilisez « Fichier → Enregistrer sous » et choisissez « CSV UTF-8 (délimité par des virgules) », puis réessayez."
       }
     },
