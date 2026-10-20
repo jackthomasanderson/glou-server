@@ -18,7 +18,8 @@ export function useToggleAlertPause() {
     mutationFn: alertsClient.togglePause,
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ALERTS_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['bottles'] });
+      // The inventory list and the open drawer carry `alertsPaused` too.
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },
   });
 }
