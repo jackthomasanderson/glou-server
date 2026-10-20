@@ -813,7 +813,7 @@ export class AuthService {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
     if (!user) return false;
     return bcrypt.compare(password, user.passwordHash);
-  },
+  }
 
   /**
    * Verify the password OR PIN supplied to unlock the client-side lock screen.
