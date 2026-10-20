@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
 import {
   Wine, Sparkles, GlassWater, Leaf, Warehouse, Library, Martini, BarChart3,
-  ChevronLeft, ChevronRight, X, ShieldCheck, ClipboardCheck, Wallet, LogOut,
+  ChevronLeft, ChevronRight, ShieldCheck, ClipboardCheck, Wallet, LogOut,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useLogout } from '@/hooks/useAuth';
@@ -267,12 +267,8 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   );
 }
 
-interface SidebarProps {
-  mobileOpen?: boolean;
-  onMobileClose?: () => void;
-}
-
-export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: SidebarProps) {
+/** Desktop sidebar. On mobile the bottom bar (BottomNav.tsx) is the navigation. */
+export function Sidebar() {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
 
@@ -295,46 +291,14 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
   const desktopWidth = expanded ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED_WIDTH;
 
   return (
-    <>
-      {/* Desktop: permanent sidebar */}
-      <nav
-        aria-label={t('nav.primary')}
-        style={{ width: desktopWidth }}
-        className="hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 bg-content1 border-r border-divider overflow-hidden z-20 transition-all duration-200"
-      >
-        <Suspense fallback={null}>
-          <SidebarContent expanded={expanded} onToggle={toggle} />
-        </Suspense>
-      </nav>
-
-      {/* Mobile: overlay drawer */}
-      {mobileOpen && (
-        <div className="md:hidden fixed inset-0 z-overlay">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={onMobileClose}
-          />
-          <div
-            className="absolute left-0 top-0 bottom-0 bg-content1 border-r border-divider overflow-hidden"
-            style={{ width: SIDEBAR_WIDTH }}
-          >
-            <Button
-              isIconOnly
-              size="sm"
-              variant="light"
-              radius="full"
-              className="absolute top-3 right-3 z-10"
-              onClick={onMobileClose}
-              aria-label={t('actions.close')}
-            >
-              <X size={16} />
-            </Button>
-            <Suspense fallback={null}>
-              <SidebarContent expanded={true} onToggle={onMobileClose} />
-            </Suspense>
-          </div>
-        </div>
-      )}
-    </>
+    <nav
+      aria-label={t('nav.primary')}
+      style={{ width: desktopWidth }}
+      className="hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 bg-content1 border-r border-divider overflow-hidden z-20 transition-all duration-200"
+    >
+      <Suspense fallback={null}>
+        <SidebarContent expanded={expanded} onToggle={toggle} />
+      </Suspense>
+    </nav>
   );
 }
