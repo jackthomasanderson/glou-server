@@ -93,6 +93,30 @@ function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
   } as const;
 }
 
+/**
+ * Belt-and-suspenders for ISSUE_172: `buildShareItemSelect` already asks
+ * Prisma to leave `purchasePrice`/`estimatedValue` out of the query
+ * entirely when `hidePrices` is true. This strips them again from the
+ * fetched rows regardless, so this confidentiality guarantee never
+ * depends on exactly how a `select: { field: false }` combined with the
+ * money-fields-as-number result extension in `lib/prisma.ts` behaves —
+ * that extension computes its override from the needed raw column, and
+ * this guest-facing path is the one place in the codebase where "does the
+ * override get added even when the caller's select excluded it" would
+ * actually matter.
+ */
+function redactPrices<T extends { purchasePrice?: unknown; estimatedValue?: unknown }>(
+  items: T[],
+  hidePrices: boolean,
+): T[] {
+  if (!hidePrices) return items;
+  for (const item of items) {
+    delete item.purchasePrice;
+    delete item.estimatedValue;
+  }
+  return items;
+}
+
 export const sharesService = {
   /**
    * Returns the created share PLUS the one-time plaintext `token` — the
@@ -160,10 +184,11 @@ export const sharesService = {
     hidePrices: boolean;
     hideNotes: boolean;
   }) {
-    return prisma.inventoryItem.findMany({
+    const items = await prisma.inventoryItem.findMany({
       where: buildShareWhere(share),
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
+    return redactPrices(items, share.hidePrices);
   },
 
   /**
@@ -182,10 +207,11 @@ export const sharesService = {
     itemId: string,
   ) {
     const where = buildShareWhere(share);
-    return prisma.inventoryItem.findFirst({
+    const item = await prisma.inventoryItem.findFirst({
       where: { ...where, id: itemId },
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
+    return item ? redactPrices([item], share.hidePrices)[0] : item;
   },
 
   /**

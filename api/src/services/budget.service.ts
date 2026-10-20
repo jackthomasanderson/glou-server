@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { BudgetEnvelopeCreateInput, BudgetEnvelopePatchInput } from '../schemas/budget.schema';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
+import { toNumber } from '../lib/decimal';
 
 /**
  * FEAT-20: Budget envelopes — personal by design, same nuance documented in
@@ -81,7 +82,7 @@ export async function getBudgetProgress(userId: string, envelopeId: string): Pro
     _sum: { purchasePrice: true },
   });
 
-  const spent = result._sum.purchasePrice ?? 0;
+  const spent = toNumber(result._sum.purchasePrice) ?? 0;
   const remaining = Math.max(0, envelope.amount - spent);
   const percent = envelope.amount > 0 ? Math.min(100, Math.round((spent / envelope.amount) * 100)) : 0;
 

@@ -193,9 +193,9 @@ model InventoryItem {
   tags           String[]       @default([])
   photoUrl       String?
   notes          String?
-  purchasePrice  Float?
+  purchasePrice  Decimal? @db.Decimal(12, 2)
   purchasePlace  String?
-  estimatedValue Float?
+  estimatedValue Decimal? @db.Decimal(12, 2)
 
   // Contextual — Wine & Sparkling
   vintage        Int? // millésime, null = sans année
@@ -771,8 +771,8 @@ model WishlistItem {
   category       BottleCategory
   vintage        Int?
   targetQuantity Int            @default(1)
-  maxPrice       Float?
-  lastSeenPrice  Float?
+  maxPrice       Decimal? @db.Decimal(12, 2)
+  lastSeenPrice  Decimal? @db.Decimal(12, 2)
   lastSeenAt     DateTime?
   status         WishlistStatus @default(active)
   acquiredItemId String? // link to the InventoryItem created on conversion, if any
@@ -792,7 +792,7 @@ model BudgetEnvelope {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   periodStart DateTime
   periodEnd   DateTime
-  amount      Float
+  amount      Decimal  @db.Decimal(12, 2)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
