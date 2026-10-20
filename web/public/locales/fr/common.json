@@ -565,7 +565,6 @@
       "coldZone": "Zone froide ({{count}} rangées)",
       "hotZoneLabel": "Zone chaude",
       "coldZoneLabel": "Zone froide",
-      "cellEmpty": "Vide — cliquez pour assigner un actif",
       "cellLabelEmpty": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner un actif.",
       "cellLabelOccupied": "Colonne {{col}}, rangée {{row}} : {{name}}. Entrée pour le détail, Espace pour déplacer.",
       "dragInstructions": "Pour déplacer cet actif, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour le déposer. Échap annule.",

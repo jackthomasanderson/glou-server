@@ -670,7 +670,7 @@ export const CellarDashboard: React.FC = () => {
                       label={t('cellars.grid.columns')}
                       type="number"
                       min={1}
-                      max={100}
+                      max={30}
                       value={formData.grid.columns}
                       onValueChange={(v) =>
                         setFormData({ ...formData, grid: { ...formData.grid, columns: v } })
@@ -681,7 +681,7 @@ export const CellarDashboard: React.FC = () => {
                       label={t('cellars.grid.rows')}
                       type="number"
                       min={1}
-                      max={100}
+                      max={30}
                       value={formData.grid.rows}
                       onValueChange={(v) =>
                         setFormData({ ...formData, grid: { ...formData.grid, rows: v } })
@@ -694,7 +694,7 @@ export const CellarDashboard: React.FC = () => {
                       label={t('cellars.grid.hotZoneRows')}
                       type="number"
                       min={0}
-                      max={100}
+                      max={30}
                       value={formData.grid.hotZoneRows}
                       onValueChange={(v) =>
                         setFormData({ ...formData, grid: { ...formData.grid, hotZoneRows: v } })
@@ -707,7 +707,7 @@ export const CellarDashboard: React.FC = () => {
                       label={t('cellars.grid.coldZoneRows')}
                       type="number"
                       min={0}
-                      max={100}
+                      max={30}
                       value={formData.grid.coldZoneRows}
                       onValueChange={(v) =>
                         setFormData({ ...formData, grid: { ...formData.grid, coldZoneRows: v } })

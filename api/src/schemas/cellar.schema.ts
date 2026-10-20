@@ -19,11 +19,13 @@ const cellarFields = z.object({
   name: z.string().min(1, 'Name is required').max(100),
   description: z.string().max(500).optional().nullable(),
   type: z.nativeEnum(CellarType).default('VINTAGE'),
-  // Grid plan configuration (FEAT-68)
-  columns: z.number().int().min(1).max(100).optional().nullable(),
-  rows: z.number().int().min(1).max(100).optional().nullable(),
-  hotZoneRows: z.number().int().min(0).max(100).optional().nullable(),
-  coldZoneRows: z.number().int().min(0).max(100).optional().nullable(),
+  // Grid plan configuration (FEAT-68). Capped at 30x30 (900 cells, ISSUE_388):
+  // the grid renders one interactive component and one tooltip per slot,
+  // with no virtualization — 100x100 (10,000 slots) was never renderable.
+  columns: z.number().int().min(1).max(30).optional().nullable(),
+  rows: z.number().int().min(1).max(30).optional().nullable(),
+  hotZoneRows: z.number().int().min(0).max(30).optional().nullable(),
+  coldZoneRows: z.number().int().min(0).max(30).optional().nullable(),
   // Humidor monitoring (Task 4, expert mode only) — target hygrometry range
   // used to flag drift on the latest HumidorReading.
   targetHumidityMin: z.number().min(0).max(100).optional().nullable(),

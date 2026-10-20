@@ -208,21 +208,19 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied }: 
           onClickOccupied={onClickOccupied}
         />
       ) : (
-        <Tooltip delay={500} content={t('cellars.grid.cellEmpty')} placement="top">
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label={t('cellars.grid.cellLabelEmpty', { col, row })}
-            onClick={onClickEmpty}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onClickEmpty();
-              }
-            }}
-            className="w-full h-full cursor-pointer hover:bg-default-100 rounded outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          />
-        </Tooltip>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={t('cellars.grid.cellLabelEmpty', { col, row })}
+          onClick={onClickEmpty}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onClickEmpty();
+            }
+          }}
+          className="w-full h-full cursor-pointer hover:bg-default-100 rounded outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        />
       )}
     </div>
   );

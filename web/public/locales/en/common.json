@@ -563,7 +563,6 @@
       "coldZone": "Cold zone ({{count}} rows)",
       "hotZoneLabel": "Hot zone",
       "coldZoneLabel": "Cold zone",
-      "cellEmpty": "Empty — click to assign an asset",
       "cellLabelEmpty": "Column {{col}}, row {{row}}: empty. Press Enter to assign an asset.",
       "cellLabelOccupied": "Column {{col}}, row {{row}}: {{name}}. Enter for details, Space to move.",
       "dragInstructions": "To move this asset, press Space, use the arrow keys to choose a slot, then press Space again to drop it. Escape cancels.",
