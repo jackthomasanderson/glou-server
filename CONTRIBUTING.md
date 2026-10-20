@@ -44,6 +44,17 @@ cd web && npm ci && npm run dev
 - Use a descriptive branch name, e.g. `fix/world-map-basemap` or `feat/csv-import`.
 - Fill in the PR template checklist.
 
+## Versioning
+
+Glou uses Calendar Versioning: `YYYY.MM[.PATCH]` (e.g. `2026.10.0`), not semver — there is no API-compatibility contract to signal, and no automated semantic-release. `api/package.json` and `web/package.json` always carry the same version.
+
+On every promotion of `dev` to `main` (a maintainer action):
+
+1. Bump both `package.json` files to the current `YYYY.MM.0`, or increment `PATCH` if a release already happened this calendar month.
+2. Move `CHANGELOG.md`'s "Unreleased" section under a new `## vYYYY.MM[.PATCH] - YYYY-MM-DD` heading.
+3. Tag `main` at that commit: `git tag vYYYY.MM[.PATCH] && git push origin vYYYY.MM[.PATCH]`.
+4. CI (`docker-publish.yml`) publishes that same version as an additional image tag on `main`, next to `latest`.
+
 ## Quality gates
 
 CI (`.github/workflows/docker-publish.yml`) runs on every push to `dev` and `main` and **must be green** before a merge. Run the same checks locally:

@@ -2,9 +2,10 @@
 
 All notable changes to Glou. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-Glou has no numbered releases yet: the container images are published as `latest`
-(stable, from `main`) and `beta` (from `dev`), and `api/` and `web/` are both at
-`0.1.0`. Until releases are cut, changes are grouped under *Unreleased*.
+Glou uses Calendar Versioning (`YYYY.MM[.PATCH]`, see [CONTRIBUTING.md](CONTRIBUTING.md#versioning)).
+Container images are published as `latest` (stable, from `main`), `beta` (from `dev`),
+and, on `main`, as the matching `vYYYY.MM[.PATCH]` tag. Changes accumulate under
+*Unreleased* until the next promotion of `dev` to `main` cuts a numbered release.
 Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased

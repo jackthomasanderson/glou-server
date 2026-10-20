@@ -208,6 +208,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
+      # CONTRIBUTING.md#versioning: api/ and web/ package.json always carry
+      # the same CalVer string; read it once so a release build on `main`
+      # also gets tagged `vYYYY.MM[.PATCH]` next to `latest`.
+      - name: Read package version
+        id: version
+        run: echo "value=$(node -p "require('./api/package.json').version")" >> "$GITHUB_OUTPUT"
+
       - name: Extract metadata (API)
         id: meta-api
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
@@ -216,6 +223,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
             type=raw,value=beta,enable=${{ github.ref_name == 'dev' }}
+            type=raw,value=v${{ steps.version.outputs.value }},enable=${{ github.ref_name == 'main' }}
             type=sha,format=long
 
       - name: Extract metadata (Web)
@@ -226,6 +234,7 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
             type=raw,value=beta,enable=${{ github.ref_name == 'dev' }}
+            type=raw,value=v${{ steps.version.outputs.value }},enable=${{ github.ref_name == 'main' }}
             type=sha,format=long
 
       - name: Build and push API
