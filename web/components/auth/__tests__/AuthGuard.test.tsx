@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 // walked through it and Enter activated the buttons behind it, so the lock was
 // bypassable with a keyboard. The app tree must be inert while either is up.
 
-const state = { isLocked: false, onboardingCompletedAt: '2026-01-01' as string | null };
+const state = { isLocked: false, onboardingCompletedAt: '2026-01-01' as string | null, isLoading: false };
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn() }),
@@ -16,7 +16,10 @@ vi.mock('next/navigation', () => ({
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock('@heroui/react', () => ({ CircularProgress: () => <div /> }));
 vi.mock('@/hooks/useAuth', () => ({
-  useMe: () => ({ data: { id: 'u1', onboardingCompletedAt: state.onboardingCompletedAt }, isLoading: false }),
+  useMe: () => ({
+    data: state.isLoading ? undefined : { id: 'u1', onboardingCompletedAt: state.onboardingCompletedAt },
+    isLoading: state.isLoading,
+  }),
 }));
 vi.mock('@/hooks/useAutoLock', () => ({
   AutoLockProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -35,6 +38,7 @@ describe('AuthGuard keeps the app unreachable under an overlay (#200)', () => {
   beforeEach(() => {
     state.isLocked = false;
     state.onboardingCompletedAt = '2026-01-01';
+    state.isLoading = false;
   });
 
   it('leaves the app interactive when nothing covers it', () => {
@@ -70,5 +74,17 @@ describe('AuthGuard keeps the app unreachable under an overlay (#200)', () => {
     state.isLocked = true;
     render(<AuthGuard><button data-testid="app">inventory</button></AuthGuard>);
     expect(appWrapper().contains(screen.getByRole('dialog'))).toBe(false);
+  });
+});
+
+// ISSUE_389: children used to wait for `/me` to resolve before mounting at
+// all (a full-screen spinner in its place), so every page's own data
+// requests (inventory, cellars, ...) were serialized behind it even though
+// they don't need its response to fire.
+describe('AuthGuard mounts children while /me is still loading (ISSUE_389)', () => {
+  it('renders children immediately instead of a blocking spinner', () => {
+    state.isLoading = true;
+    render(<AuthGuard><button data-testid="app">inventory</button></AuthGuard>);
+    expect(screen.getByTestId('app')).toBeTruthy();
   });
 });
