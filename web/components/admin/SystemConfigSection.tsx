@@ -809,11 +809,14 @@ export function SystemConfigSection() {
               <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(restoreTarget.runAt, i18n.language) : ''}</p>
             )}
             <p className="text-xs text-foreground-500">{t('adminConfig.backup.restore.modalHint', { keyword: t('adminConfig.backup.restore.keyword') })}</p>
-            <input
-              className="w-full border border-divider rounded-lg px-3 py-2 text-sm bg-transparent outline-none focus:border-danger"
+            <Input
+              variant="bordered"
+              size="sm"
+              radius="md"
+              color="danger"
               placeholder={t('adminConfig.backup.restore.keyword')}
               value={restoreConfirmText}
-              onChange={(e) => setRestoreConfirmText(e.target.value)}
+              onValueChange={setRestoreConfirmText}
             />
           </ModalBody>
           <ModalFooter className="gap-2">
