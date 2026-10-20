@@ -10,6 +10,7 @@ import { InventoryItem } from '@/lib/inventory/types';
 import { isFinishedItem, isOwnedItem } from '@/lib/inventory/ownership';
 import {
   useInventory,
+  useInventoryTruncated,
   useCreateInventoryItem,
   useUpdateInventoryItem,
   useDeleteInventoryItem,
@@ -69,6 +70,7 @@ function getIsMobileServerSnapshot() {
 
 export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardProps) {
   const { data: items, isLoading, isError, refetch, isRefetching } = useInventory();
+  const isTruncated = useInventoryTruncated();
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
   const createMutation = useCreateInventoryItem();
@@ -385,6 +387,14 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           {t('inventoryCount.accessButton')}
         </Button>
       </div>
+
+      {/* #475: the list is capped server-side; never let the oldest items
+          vanish silently from the list, the search and duplicate checks. */}
+      {isTruncated && (
+        <div role="status" className="mb-4 px-4 py-3 rounded-xl text-sm border bg-warning-50 border-warning-200 text-warning-700">
+          {t('inventory.truncated', { limit: 2000 })}
+        </div>
+      )}
 
       {/* Stats row */}
       {!isLoading && baseItems.length > 0 && mode === 'idle' && (

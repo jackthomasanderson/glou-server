@@ -342,6 +342,7 @@
       "finished_other": "{{count}} bouteilles finies non comptées",
       "openedCigar": "Cigares entamés"
     },
+    "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche, ni dans la détection des doublons.",
     "alerts": {
       "reminderDone": "Rappel traité",
       "title": "Rappels à consommer",
