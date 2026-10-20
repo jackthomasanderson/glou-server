@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
@@ -300,7 +300,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
         style={{ width: desktopWidth }}
         className="hidden md:flex flex-col flex-shrink-0 h-screen sticky top-0 bg-content1 border-r border-divider overflow-hidden z-20 transition-all duration-200"
       >
-        <SidebarContent expanded={expanded} onToggle={toggle} />
+        <Suspense fallback={null}>
+          <SidebarContent expanded={expanded} onToggle={toggle} />
+        </Suspense>
       </nav>
 
       {/* Mobile: overlay drawer */}
@@ -325,7 +327,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose = () => {} }: Sideba
             >
               <X size={16} />
             </Button>
-            <SidebarContent expanded={true} onToggle={onMobileClose} />
+            <Suspense fallback={null}>
+              <SidebarContent expanded={true} onToggle={onMobileClose} />
+            </Suspense>
           </div>
         </div>
       )}

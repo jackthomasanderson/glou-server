@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, Button, Tooltip } from '@heroui/react';
@@ -70,6 +70,39 @@ function useBrowserTabTitle(label: string | undefined) {
 }
 
 /**
+ * `usePageTitle` calls `useSearchParams()` (for the `?category=` param —
+ * see ISSUE_434 above), which opts a component out of static rendering
+ * unless an ancestor is wrapped in `<Suspense>`. Isolated here, with its
+ * own boundary in MainLayout's render, rather than forcing every page that
+ * renders `<MainLayout>` to add that boundary itself.
+ */
+function PageBreadcrumb({ appName }: { appName: string }) {
+  const pathname = usePathname();
+  const pageTitle = usePageTitle();
+  useBrowserTabTitle(pageTitle?.label);
+
+  return (
+    <span className="min-w-0 text-xs font-bold tracking-[.1rem] uppercase flex items-center gap-1">
+      <Link href="/" className="shrink-0 text-foreground-500 hover:text-foreground transition-colors">
+        {appName}
+      </Link>
+      {pageTitle && (
+        <>
+          <span className="shrink-0 text-foreground-400">&gt;</span>
+          {pageTitle.href !== pathname ? (
+            <Link href={pageTitle.href} className="truncate text-foreground-500 hover:text-foreground transition-colors">
+              {pageTitle.label}
+            </Link>
+          ) : (
+            <span className="truncate text-foreground">{pageTitle.label}</span>
+          )}
+        </>
+      )}
+    </span>
+  );
+}
+
+/**
  * FEAT-30: quick-lock button, accessible from any screen. Only rendered when
  * `MainLayout` is protected (wrapped by `AuthGuard`/`AutoLockProvider`) —
  * `useAutoLock` requires that provider to be mounted above it.
@@ -97,10 +130,7 @@ function QuickLockButton() {
 export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isProtected = true }) => {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { data: user } = useMe();
-  const pageTitle = usePageTitle();
-  useBrowserTabTitle(pageTitle?.label);
   const { t } = useTranslation();
-  const pathname = usePathname();
 
   const content = (
     <div className="flex min-h-screen bg-background">
@@ -120,23 +150,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
           style={{ paddingTop: 'calc(0.625rem + env(safe-area-inset-top))' }}
         >
           {/* Breadcrumb */}
-          <span className="min-w-0 text-xs font-bold tracking-[.1rem] uppercase flex items-center gap-1">
-            <Link href="/" className="shrink-0 text-foreground-500 hover:text-foreground transition-colors">
-              {user?.appName || 'Glou'}
-            </Link>
-            {pageTitle && (
-              <>
-                <span className="shrink-0 text-foreground-400">&gt;</span>
-                {pageTitle.href !== pathname ? (
-                  <Link href={pageTitle.href} className="truncate text-foreground-500 hover:text-foreground transition-colors">
-                    {pageTitle.label}
-                  </Link>
-                ) : (
-                  <span className="truncate text-foreground">{pageTitle.label}</span>
-                )}
-              </>
-            )}
-          </span>
+          <Suspense fallback={<span className="min-w-0 text-xs font-bold tracking-[.1rem] uppercase">{user?.appName || 'Glou'}</span>}>
+            <PageBreadcrumb appName={user?.appName || 'Glou'} />
+          </Suspense>
 
           <div className="flex-1" />
           <GlobalSearch />
@@ -176,7 +192,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
         </main>
       </div>
 
-      <BottomNav />
+      <Suspense fallback={null}>
+        <BottomNav />
+      </Suspense>
       <MobileSearch isOpen={mobileSearchOpen} onClose={() => setMobileSearchOpen(false)} />
       {/* FEAT-16/23: mounted once, globally, so an offline-sync conflict
           surfaces regardless of which page it happens to resolve on. */}
