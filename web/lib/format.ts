@@ -15,6 +15,36 @@ export function formatDeviceLabel(
     os: device.os ?? t('profile.sessions.unknownOs'),
   });
 }
+/**
+ * The member's profile preferences (#405), set once by ThemeWrapper when the
+ * user loads. Module state rather than a parameter so the ~10 existing
+ * formatDateTime call sites pick the time format up without being rewired.
+ */
+export interface FormatPreferences {
+  tempUnit: 'CELSIUS' | 'FAHRENHEIT';
+  dateFormat: 'SYSTEM' | 'H24' | 'H12';
+}
+let preferences: FormatPreferences = { tempUnit: 'CELSIUS', dateFormat: 'SYSTEM' };
+
+export function setFormatPreferences(next: Partial<FormatPreferences>): void {
+  preferences = { ...preferences, ...next };
+}
+
+/** A Celsius reading in the member's chosen unit, e.g. "18°C" or "64°F". */
+export function formatTemperature(celsius: number): string {
+  if (preferences.tempUnit === 'FAHRENHEIT') return `${Math.round((celsius * 9) / 5 + 32)}°F`;
+  return `${celsius}°C`;
+}
+
+/** A min–max range in the member's chosen unit, e.g. "16–18°C". */
+export function formatTemperatureRange(minCelsius: number, maxCelsius: number): string {
+  if (preferences.tempUnit === 'FAHRENHEIT') {
+    const f = (c: number) => Math.round((c * 9) / 5 + 32);
+    return `${f(minCelsius)}–${f(maxCelsius)}°F`;
+  }
+  return `${minCelsius}–${maxCelsius}°C`;
+}
+
 const toLocale = (lang: string | undefined): 'fr-FR' | 'en-GB' =>
   lang?.toLowerCase().startsWith('en') ? 'en-GB' : 'fr-FR';
 
@@ -39,7 +69,10 @@ export function formatDateTime(
   options?: Intl.DateTimeFormatOptions,
 ): string {
   const date = toDate(value);
-  return date ? date.toLocaleString(toLocale(lang), options) : '';
+  if (!date) return '';
+  const hourCycle: Intl.DateTimeFormatOptions =
+    preferences.dateFormat === 'H12' ? { hour12: true } : preferences.dateFormat === 'H24' ? { hour12: false } : {};
+  return date.toLocaleString(toLocale(lang), { ...hourCycle, ...options });
 }
 
 /**

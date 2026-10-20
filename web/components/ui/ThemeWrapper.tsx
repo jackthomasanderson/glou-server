@@ -6,6 +6,7 @@ import { useMe } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeModeProvider } from '@/hooks/useThemeMode';
+import { setFormatPreferences } from '@/lib/format';
 
 function hexToHsl(hex: string): { h: number; s: number; l: number } {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -92,6 +93,10 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
       if (document.documentElement.lang !== lang) document.documentElement.lang = lang;
     }
   }, [user?.language, i18n]);
+
+  useEffect(() => {
+    if (user) setFormatPreferences({ tempUnit: user.tempUnit, dateFormat: user.dateFormat });
+  }, [user]);
 
   // #344: before login (and for guests, who have no account) there is no
   // profile language, so follow the browser's. Once signed in, the profile
