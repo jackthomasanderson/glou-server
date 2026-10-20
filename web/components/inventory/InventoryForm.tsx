@@ -7,6 +7,7 @@ import {
 import i18n from '@/lib/i18n';
 import { currencySymbol, todayLocalIso } from '@/lib/format';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
+import { FilterChip } from '@/components/ui/FilterControls';
 import { notifyError } from '@/lib/toast';
 import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical, GlassWater } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
@@ -272,18 +273,18 @@ export function InventoryForm({
                     <p className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step1')}</p>
 
                     {/* Category chips */}
-                    <div className="flex flex-wrap gap-1.5 mb-4">
+                    <div role="group" aria-label={t('inventory.fields.category')} className="flex flex-wrap gap-1.5 mb-4">
                       {CATEGORY_VALUES.map((cat) => (
-                        <Chip
+                        <FilterChip
                           key={cat}
+                          size="md"
                           startContent={CATEGORY_ICONS[cat]}
-                          color={category === cat ? CATEGORY_COLORS[cat] : 'default'}
-                          variant={category === cat ? 'solid' : 'bordered'}
-                          className="cursor-pointer"
-                          onClick={() => setField('category', cat)}
+                          color={CATEGORY_COLORS[cat]}
+                          selected={category === cat}
+                          onPress={() => setField('category', cat)}
                         >
                           {t(`categories.${cat}`)}
-                        </Chip>
+                        </FilterChip>
                       ))}
                     </div>
 
@@ -679,14 +680,13 @@ export function InventoryForm({
                                 min={0} max={100} step={0.1}
                               />
                               <div className="flex items-center">
-                                <Chip
-                                  variant={values.isSingleCask ? 'solid' : 'bordered'}
-                                  color={values.isSingleCask ? 'primary' : 'default'}
-                                  className="cursor-pointer"
-                                  onClick={() => setField('isSingleCask', !values.isSingleCask)}
+                                <FilterChip
+                                  size="md"
+                                  selected={Boolean(values.isSingleCask)}
+                                  onPress={() => setField('isSingleCask', !values.isSingleCask)}
                                 >
                                   {t('inventory.fields.isSingleCask')}
-                                </Chip>
+                                </FilterChip>
                               </div>
                           </>
                         </div>
@@ -801,14 +801,13 @@ export function InventoryForm({
                                   onValueChange={(v) => setField('lotNumber', v)}
                                 />
                                 <div className="flex items-center">
-                                  <Chip
-                                    variant={values.needsAeration ? 'solid' : 'bordered'}
-                                    color={values.needsAeration ? 'primary' : 'default'}
-                                    className="cursor-pointer"
-                                    onClick={() => setField('needsAeration', !values.needsAeration)}
+                                  <FilterChip
+                                    size="md"
+                                    selected={Boolean(values.needsAeration)}
+                                    onPress={() => setField('needsAeration', !values.needsAeration)}
                                   >
                                     {t('inventory.fields.needsAeration')}
-                                  </Chip>
+                                  </FilterChip>
                                 </div>
                               </>
                             )}
@@ -969,18 +968,16 @@ export function InventoryForm({
                           <>
                             <div className="col-span-2 sm:col-span-4">
                               <p className="text-xs text-foreground-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
-                              <div className="flex flex-wrap gap-1.5">
+                              <div role="group" aria-label={t('inventory.fields.fillLevel')} className="flex flex-wrap gap-1.5">
                                 {([100, 75, 50, 25, 0] as const).map((val) => (
-                                  <Chip
+                                  <FilterChip
                                     key={val}
-                                    size="sm"
-                                    variant={values.fillLevel === val ? 'solid' : 'bordered'}
-                                    color={values.fillLevel === val ? 'warning' : 'default'}
-                                    className="cursor-pointer"
-                                    onClick={() => setField('fillLevel', val)}
+                                    color="warning"
+                                    selected={values.fillLevel === val}
+                                    onPress={() => setField('fillLevel', val)}
                                   >
                                     {t(`inventory.fillLevels.${val === 100 ? 'full' : val === 75 ? 'threeQuarters' : val === 50 ? 'half' : val === 25 ? 'quarter' : 'empty'}`)}
-                                  </Chip>
+                                  </FilterChip>
                                 ))}
                               </div>
                             </div>

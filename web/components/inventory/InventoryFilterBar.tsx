@@ -314,7 +314,7 @@ export function InventoryFilterBar({
 
   return (
     <div className="hidden md:block w-[200px] shrink-0">
-      <div className="border border-divider rounded-xl p-4 sticky top-[72px]">
+      <div className="border border-divider rounded-xl p-4 sticky top-[72px] max-h-[calc(100vh-88px)] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-1.5">
             <Filter size={13} className="text-foreground-500" />
@@ -348,9 +348,11 @@ export interface InventoryFilterToggleButtonProps {
 export function InventoryFilterToggleButton({ t, isFiltersOpen, hasActiveFilters, onToggle }: InventoryFilterToggleButtonProps) {
   return (
     <button
+      type="button"
       className={`md:hidden p-1.5 border border-divider rounded-xl transition-colors ${isFiltersOpen || hasActiveFilters ? 'border-secondary text-secondary' : ''}`}
       onClick={onToggle}
       aria-label={t('actions.filter')}
+      aria-expanded={isFiltersOpen}
     >
       <Filter size={16} />
     </button>

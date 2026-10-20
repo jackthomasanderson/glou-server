@@ -472,6 +472,8 @@
     "twoFactor": {
       "hint": "Please enter the 6-digit code from your authenticator app, or one of your backup codes.",
       "codeLabel": "Authentication code",
+      "useBackupCode": "Use a backup code",
+      "useAuthenticatorCode": "Use the code from my authenticator app",
       "verify": "Verify",
       "back": "Back"
     }

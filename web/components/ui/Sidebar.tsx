@@ -60,7 +60,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
     <div className="flex flex-col h-full overflow-hidden">
       {/* Brand + toggle */}
       <div
-        className={`flex items-start pt-5 pb-4 transition-all duration-200 ${
+        className={`flex shrink-0 items-start pt-5 pb-4 transition-all duration-200 ${
           expanded ? 'px-4 justify-between' : 'px-0 justify-center'
         }`}
       >
@@ -99,8 +99,9 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         </Tooltip>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-2 space-y-0.5">
+      {/* Navigation — scrolls on short screens so the admin link and the
+          footer (profile, sign out) stay reachable (#525). */}
+      <nav className="flex-1 min-h-0 overflow-y-auto px-2 space-y-0.5">
         {navLinks.map((link) => {
           const active = link.category
             ? pathname === '/bottles' && categoryParam === link.category
@@ -168,7 +169,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
 
       {/* Admin link */}
       {user?.isAdmin && (
-        <div className="px-2 pb-1">
+        <div className="shrink-0 px-2 pb-1">
           <Divider className="mb-2" />
           {(() => {
             const active = pathname.startsWith('/admin');
@@ -206,9 +207,9 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
       )}
 
       {/* User footer — theme toggle + connectivity + avatar (ux-ui.md §3.1) */}
-      <Divider />
+      <Divider className="shrink-0" />
       <div
-        className={`flex py-3 transition-all duration-200 ${
+        className={`flex shrink-0 py-3 transition-all duration-200 ${
           expanded ? 'px-3 items-center gap-2' : 'px-0 flex-col items-center gap-2'
         }`}
       >
@@ -230,6 +231,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
             className="flex-shrink-0 cursor-pointer"
             as={Link}
             href="/profile"
+            aria-label={t('nav.profile')}
           />
         </Tooltip>
 

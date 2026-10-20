@@ -5,6 +5,7 @@ import {
   Button, Checkbox, Chip, Divider, Input, Select, SelectItem,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { FilterChip } from '@/components/ui/FilterControls';
 import { Save, Trash2 } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
@@ -267,18 +268,15 @@ export function BulkActionDialog({
                     <span className="text-sm">{t('inventory.fields.fillLevel')}</span>
                   </Checkbox>
                   {enabledFields.fillLevel && (
-                    <div className="flex flex-wrap gap-1 mt-2">
+                    <div role="group" aria-label={t('inventory.fields.fillLevel')} className="flex flex-wrap gap-1 mt-2">
                       {[100, 75, 50, 25, 0].map((v) => (
-                        <Chip
+                        <FilterChip
                           key={v}
-                          size="sm"
-                          variant={values.fillLevel === v ? 'solid' : 'bordered'}
-                          color={values.fillLevel === v ? 'primary' : 'default'}
-                          className="cursor-pointer"
-                          onClick={() => setField('fillLevel', v)}
+                          selected={values.fillLevel === v}
+                          onPress={() => setField('fillLevel', v)}
                         >
                           {v}%
-                        </Chip>
+                        </FilterChip>
                       ))}
                     </div>
                   )}

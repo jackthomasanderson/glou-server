@@ -472,6 +472,8 @@
     "twoFactor": {
       "hint": "Veuillez entrer le code à 6 chiffres de votre application d'authentification ou l'un de vos codes de secours.",
       "codeLabel": "Code d'authentification",
+      "useBackupCode": "Utiliser un code de secours",
+      "useAuthenticatorCode": "Utiliser le code de mon application d'authentification",
       "verify": "Vérifier",
       "back": "Retour"
     }

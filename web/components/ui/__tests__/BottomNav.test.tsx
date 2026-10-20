@@ -13,6 +13,12 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams,
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+// #523: the four primary tabs are real links.
+vi.mock('next/link', () => ({
+  default: ({ children, href, ...rest }: { children?: ReactNode; href: string } & Record<string, unknown>) => (
+    <a href={href} {...rest}>{children}</a>
+  ),
+}));
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
 vi.mock('@heroui/react', () => ({
   Button: ({ children, 'aria-current': current }: { children?: ReactNode; 'aria-current'?: 'page' }) => (
@@ -36,19 +42,26 @@ describe('BottomNav accessibility (#204)', () => {
     // row) — cigars stays a primary tab, unaffected by that move.
     pathname = '/cigars';
     render(<BottomNav />);
-    const current = screen.getAllByRole('button').filter((b) => b.getAttribute('aria-current') === 'page');
+    const current = screen.getAllByRole('link').filter((b) => b.getAttribute('aria-current') === 'page');
     expect(current).toHaveLength(1);
-    expect(current[0].getAttribute('aria-label')).toBe('nav.cigars');
+    expect(current[0].textContent).toBe('nav.cigars');
+  });
+
+  it('renders the primary tabs as links to their pages (#523)', () => {
+    pathname = '/cigars';
+    render(<BottomNav />);
+    expect(screen.getByRole('link', { name: 'nav.wines' }).getAttribute('href')).toBe('/bottles?category=wine');
+    expect(screen.getByRole('link', { name: 'nav.cigars' }).getAttribute('href')).toBe('/cigars');
   });
 
   it('adds a non-colour cue (bar + heavier label) to the active tab', () => {
     pathname = '/cigars';
     const { container } = render(<BottomNav />);
-    const active = screen.getByRole('button', { name: 'nav.cigars' });
+    const active = screen.getByRole('link', { name: 'nav.cigars' });
     expect(active.querySelector('span[aria-hidden="true"].bg-primary')).toBeTruthy();
     expect(active.textContent).toBe('nav.cigars');
     expect(active.querySelector('.font-extrabold')).toBeTruthy();
-    const inactive = screen.getByRole('button', { name: 'nav.wines' });
+    const inactive = screen.getByRole('link', { name: 'nav.wines' });
     expect(inactive.querySelector('.bg-primary')).toBeNull();
     expect(container.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
   });
@@ -68,7 +81,7 @@ describe('BottomNav accessibility (#204)', () => {
     pathname = '/cellars';
     searchParams = new URLSearchParams();
     render(<BottomNav />);
-    expect(screen.queryByRole('button', { name: 'nav.caves' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'nav.caves' })).toBeNull();
     const more = screen.getByRole('button', { name: 'nav.more' });
     expect(more.getAttribute('aria-current')).toBeNull();
     expect(more.querySelector('span[aria-hidden="true"].bg-primary')).toBeTruthy();
@@ -78,9 +91,9 @@ describe('BottomNav accessibility (#204)', () => {
     pathname = '/bottles';
     searchParams = new URLSearchParams('category=spirit');
     render(<BottomNav />);
-    const spirits = screen.getByRole('button', { name: 'nav.spirits' });
+    const spirits = screen.getByRole('link', { name: 'nav.spirits' });
     expect(spirits.getAttribute('aria-current')).toBe('page');
-    const wines = screen.getByRole('button', { name: 'nav.wines' });
+    const wines = screen.getByRole('link', { name: 'nav.wines' });
     expect(wines.getAttribute('aria-current')).toBeNull();
   });
 });

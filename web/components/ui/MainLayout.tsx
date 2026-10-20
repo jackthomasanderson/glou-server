@@ -167,6 +167,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
           <Avatar
             as={Link}
             href="/profile"
+            aria-label={t('nav.profile')}
             src={user?.avatarUrl || undefined}
             name={(!user?.avatarUrl && (user?.username || '?')[0].toUpperCase()) || undefined}
             size="sm"

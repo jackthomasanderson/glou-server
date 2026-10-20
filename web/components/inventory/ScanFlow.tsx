@@ -14,6 +14,7 @@ import { findDuplicate } from '@/lib/inventory/duplicate';
 import { inventoryClient } from '@/lib/inventory/client';
 import { getDefaultCellarForCategory, setDefaultCellarForCategory } from '@/lib/scan/defaultLocations';
 import { DuplicateDialog } from './DuplicateDialog';
+import { FilterChip } from '@/components/ui/FilterControls';
 import { InventoryForm } from './InventoryForm';
 
 type Phase = 'capture' | 'uploading' | 'processing' | 'review' | 'error';
@@ -348,15 +349,15 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       </div>
                     )}
 
-                    <div className="flex flex-wrap gap-1.5">
+                    <div role="group" aria-label={t('inventory.fields.category')} className="flex flex-wrap gap-1.5">
                       {CATEGORY_VALUES.map((cat) => (
-                        <Chip
+                        <FilterChip
                           key={cat}
+                          size="md"
                           startContent={CATEGORY_ICONS[cat]}
-                          color={reviewValues.category === cat ? CATEGORY_CHIP_COLOR[cat] : 'default'}
-                          variant={reviewValues.category === cat ? 'solid' : 'bordered'}
-                          className="cursor-pointer"
-                          onClick={() =>
+                          color={CATEGORY_CHIP_COLOR[cat]}
+                          selected={reviewValues.category === cat}
+                          onPress={() =>
                             setReviewValues((prev) => {
                               if (!prev) return prev;
                               // Cigar requires a quantity (>= 1) server-side — default it when
@@ -367,7 +368,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                           }
                         >
                           {t(`categories.${cat}`)}
-                        </Chip>
+                        </FilterChip>
                       ))}
                     </div>
 
