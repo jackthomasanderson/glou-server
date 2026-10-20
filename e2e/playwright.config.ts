@@ -23,6 +23,9 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   use: {
     baseURL: BASE_URL,
+    // Before login the app follows the browser language (#344); the suite
+    // asserts on the French interface.
+    locale: 'fr-FR',
     storageState: './.auth/user.json',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
