@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Card, CardBody, Checkbox, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Button, Card, CardBody, Checkbox, Input, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useExportData, useRequestAccountDeletion, useCancelAccountDeletion, PublicUser, ExportCategory } from '@/hooks/useAuth';
@@ -165,7 +166,7 @@ export function GdprSection({ user }: GdprSectionProps) {
       </Card>
 
       {/* Confirmation modal */}
-      <Modal isOpen={deleteModalOpen} onClose={() => { setDeleteModalOpen(false); setConfirmText(''); }} size="sm" placement="center">
+      <ResponsiveModal isOpen={deleteModalOpen} onClose={() => { setDeleteModalOpen(false); setConfirmText(''); }} size="sm" placement="center">
         <ModalContent>
           <ModalHeader className="text-danger">{t('gdpr.deleteModalTitle')}</ModalHeader>
           <ModalBody className="flex flex-col gap-4">
@@ -196,7 +197,7 @@ export function GdprSection({ user }: GdprSectionProps) {
             </Button>
           </ModalFooter>
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </>
   );
 }

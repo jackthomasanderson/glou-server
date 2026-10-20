@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Chip } from '@heroui/react';
+import { ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Chip } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
@@ -65,7 +66,7 @@ export function ConflictResolutionModal() {
   };
 
   return (
-    <Modal
+    <ResponsiveModal
       isOpen={isOpen}
       isDismissable={false}
       isKeyboardDismissDisabled
@@ -136,6 +137,6 @@ export function ConflictResolutionModal() {
           </Button>
         </ModalFooter>
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }

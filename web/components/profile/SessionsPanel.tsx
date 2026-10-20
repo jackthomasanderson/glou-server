@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Skeleton } from '@heroui/react';
+import { Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter, Skeleton } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Monitor, MapPin, ShieldCheck, ShieldOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSessions, useRevokeSession, useTrustDevice, useUntrustDevice, useMe, SessionInfo } from '@/hooks/useAuth';
@@ -175,7 +176,7 @@ export function SessionsPanel() {
       </div>
 
       {/* Revoke confirmation modal */}
-      <Modal isOpen={!!sessionToRevoke} onClose={() => setSessionToRevoke(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={!!sessionToRevoke} onClose={() => setSessionToRevoke(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {(onClose) => (
             <>
@@ -203,10 +204,10 @@ export function SessionsPanel() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* Trust-device confirmation modal (ISSUE_045) */}
-      <Modal
+      <ResponsiveModal
         isOpen={isTrustModalOpen}
         onClose={() => { setIsTrustModalOpen(false); setTrustPassword(''); setTrustCode(''); }}
         size="sm"
@@ -261,7 +262,7 @@ export function SessionsPanel() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
   );
 }

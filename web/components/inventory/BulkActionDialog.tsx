@@ -1,9 +1,10 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Checkbox, Chip, Divider, Input, Select, SelectItem,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Save, Trash2 } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
@@ -130,7 +131,7 @@ export function BulkActionDialog({
 
   return (
     <>
-    <Modal isOpen={open} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="center" scrollBehavior="inside">
+    <ResponsiveModal isOpen={open} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="center" scrollBehavior="inside">
       <ModalContent>
         {() => (
           <>
@@ -393,12 +394,12 @@ export function BulkActionDialog({
           </>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
 
     {/* Delete preset confirm — was a bare click-to-delete with no
         confirmation, inconsistent with every other destructive action in
-        the app. Sibling of the main Modal, not nested inside it. */}
-    <Modal
+        the app. Sibling of the main dialog, not nested inside it. */}
+    <ResponsiveModal
       isOpen={!!deletingPresetId}
       onClose={() => setDeletingPresetId(null)}
       size="sm"
@@ -433,7 +434,7 @@ export function BulkActionDialog({
           </>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
     </>
   );
 }

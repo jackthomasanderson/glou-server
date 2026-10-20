@@ -1,10 +1,11 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Button, Chip, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Button, Chip, Input, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
   Skeleton, Tooltip, ButtonGroup, Select, SelectItem,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays, ArrowUp, ArrowDown } from 'lucide-react';
 import { FilterChip } from '@/components/ui/FilterControls';
 import { CATEGORY_VALUES } from '@/lib/inventory/types';
@@ -135,7 +136,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
     : t('admin.maturityRefs.hints.windowAbsolute');
 
   return (
-    <Modal isOpen={open} onClose={onClose} size="md" radius="lg" backdrop="opaque" placement="center">
+    <ResponsiveModal isOpen={open} onClose={onClose} size="md" radius="lg" backdrop="opaque" placement="center">
       <ModalContent>
         {() => (
           <>
@@ -326,7 +327,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
           </>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
   );
 }
 
@@ -484,7 +485,7 @@ export function MaturityReferencesSection() {
         onClose={() => setDialogOpen(false)}
       />
 
-      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {(onClose) => (
             <>
@@ -499,7 +500,7 @@ export function MaturityReferencesSection() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </>
   );
 }

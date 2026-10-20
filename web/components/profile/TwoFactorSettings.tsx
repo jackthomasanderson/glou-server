@@ -1,9 +1,10 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Button, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Divider, CircularProgress,
 } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGenerate2fa, useTurnOn2fa, useTurnOff2fa, PublicUser, useMe } from '@/hooks/useAuth';
@@ -95,7 +96,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
       </div>
 
       {/* Turn On Modal */}
-      <Modal isOpen={isTurnOnModalOpen} onClose={handleCloseEnable} size="md" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={isTurnOnModalOpen} onClose={handleCloseEnable} size="md" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {() => (
             <>
@@ -184,10 +185,10 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* Turn Off Modal */}
-      <Modal
+      <ResponsiveModal
         isOpen={isTurnOffModalOpen}
         onClose={() => { setIsTurnOffModalOpen(false); setErrorMsg(null); }}
         size="sm"
@@ -245,7 +246,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
   );
 }
