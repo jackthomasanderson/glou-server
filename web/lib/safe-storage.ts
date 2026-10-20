@@ -27,3 +27,28 @@ export function safeRemoveStorage(storage: Storage, key: string): void {
     // Storage disabled/full: nothing to clean up.
   }
 }
+
+/**
+ * #139: every key the app stores in the browser starts with "glou:", so
+ * they can be listed (and cleared) in one go. Use this instead of writing
+ * a key by hand.
+ */
+export function glouKey(name: string): string {
+  return `glou:${name}`;
+}
+
+/**
+ * Reads `key`, falling back once to the name it had before #139 so nobody
+ * loses a saved preference: the value is moved to the new key and the
+ * legacy one removed.
+ */
+export function readStorageMigrating(storage: Storage, key: string, legacyKey: string): string | null {
+  const current = safeReadStorage(storage, key);
+  if (current !== null) return current;
+  const legacy = safeReadStorage(storage, legacyKey);
+  if (legacy !== null) {
+    safeWriteStorage(storage, key, legacy);
+    safeRemoveStorage(storage, legacyKey);
+  }
+  return legacy;
+}

@@ -1,11 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useConnectivity } from './useConnectivity';
-import { safeReadStorage, safeRemoveStorage, safeWriteStorage } from '@/lib/safe-storage';
+import { glouKey, safeReadStorage, safeRemoveStorage, safeWriteStorage } from '@/lib/safe-storage';
 
 export function useConnectivityWarning(featureKey: string) {
   const isOnline = useConnectivity();
-  const key = `connectivity_warned_${featureKey}`;
+  const key = glouKey(`connectivity-warned:${featureKey}`);
   const [dismissed, setDismissed] = useState(
     () => typeof window !== 'undefined' && safeReadStorage(sessionStorage, key) === '1'
   );

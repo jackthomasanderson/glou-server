@@ -2,10 +2,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { MapFiltersState, DEFAULT_MAP_FILTERS } from '@/lib/analytics/mapFilters';
+import { glouKey, readStorageMigrating } from '@/lib/safe-storage';
 
 // FEAT-42: persist the map explorer filters across navigation, following the
 // same localStorage pattern as useViewMode/usePageSize.
-const STORAGE_KEY = 'analyticsMapFilters:v1';
+const STORAGE_KEY = glouKey('analytics-map-filters:v1');
+const LEGACY_STORAGE_KEY = 'analyticsMapFilters:v1';
 
 const VALID_OPENED_STATES = ['all', 'inCellar', 'opened'];
 const VALID_CATEGORIES: InventoryCategory[] = [...CATEGORY_VALUES];
@@ -33,7 +35,7 @@ export function useMapFilters(): [MapFiltersState, (next: MapFiltersState) => vo
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = readStorageMigrating(localStorage, STORAGE_KEY, LEGACY_STORAGE_KEY);
       // Deferred to after mount rather than a lazy useState initializer:
       // localStorage isn't available during SSR, so reading it synchronously
       // in the initializer would make the client's first render diverge

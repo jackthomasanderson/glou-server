@@ -12,12 +12,13 @@ import { useMe, useLogout } from '@/hooks/useAuth';
 import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeToggle } from './ThemeToggle';
-import { safeReadStorage, safeWriteStorage } from '@/lib/safe-storage';
+import { safeWriteStorage, glouKey, readStorageMigrating } from '@/lib/safe-storage';
 
 export const SIDEBAR_WIDTH = 220;
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
 
-const STORAGE_KEY = 'glou-sidebar-expanded';
+const STORAGE_KEY = glouKey('sidebar-expanded');
+const LEGACY_STORAGE_KEY = 'glou-sidebar-expanded';
 
 interface SidebarContentProps {
   expanded: boolean;
@@ -273,7 +274,7 @@ export function Sidebar() {
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    const saved = safeReadStorage(localStorage, STORAGE_KEY);
+    const saved = readStorageMigrating(localStorage, STORAGE_KEY, LEGACY_STORAGE_KEY);
     // Deferred to after mount rather than a lazy useState initializer:
     // localStorage isn't available during SSR, so reading it synchronously
     // in the initializer would make the client's first render diverge
