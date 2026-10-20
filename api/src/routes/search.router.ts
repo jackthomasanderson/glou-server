@@ -185,6 +185,17 @@ const productImageUpload = multer({
 });
 
 // GET /api/search/images?q=...
+// ISSUE_228: scrapes DuckDuckGo's image search HTML/JSON endpoints — there is
+// no official image-search API this project uses instead. That's a known,
+// accepted risk: it can break without notice on a DuckDuckGo-side change
+// (the `unavailable: true` flag and the console.warn calls below exist so a
+// breakage is visible rather than silently returning zero results), and
+// scraping outside DuckDuckGo's own search UI may not sit well with their
+// terms of service. Decision (per #228): keep it as is rather than replace
+// it with Wikimedia Commons or a paid API; this comment is what documents
+// the risk. If it breaks for good, the source can simply be cut — callers
+// already treat `unavailable`/an empty `data` as "no image results", not an
+// error.
 router.get('/images', authMiddleware, async (req, res) => {
   const q = String(req.query.q ?? '').trim();
   if (!q || q.length < 2) return res.json({ data: [] });
