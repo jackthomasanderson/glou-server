@@ -804,6 +804,12 @@
       "resetPasswordError": "Impossible de réinitialiser le mot de passe de ce membre"
     },
     "auditLog": {
+      "filters": {
+        "search": "Rechercher",
+        "searchPlaceholder": "Membre, adresse IP ou action",
+        "from": "Du",
+        "to": "Au"
+      },
       "title": "Journal d'audit",
       "subtitle": "Toutes les actions effectuées sur cette instance.",
       "columns": {

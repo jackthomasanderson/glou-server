@@ -802,6 +802,12 @@
       "resetPasswordError": "Could not reset this member's password"
     },
     "auditLog": {
+      "filters": {
+        "search": "Search",
+        "searchPlaceholder": "Member, IP address or action",
+        "from": "From",
+        "to": "To"
+      },
       "title": "Audit Log",
       "subtitle": "All actions performed on this instance.",
       "columns": {

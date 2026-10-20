@@ -108,13 +108,22 @@ export function useResetUserPassword() {
 }
 
 // Fetch paginated audit logs
-export function useAdminAuditLogs(page = 1, limit = 50) {
+export interface AuditLogFilters {
+    q?: string;
+    status?: string;
+    from?: string;
+    to?: string;
+}
+
+export function useAdminAuditLogs(page = 1, limit = 50, filters: AuditLogFilters = {}) {
     return useQuery({
-        queryKey: ['admin_audit_logs', page, limit],
+        queryKey: ['admin_audit_logs', page, limit, filters],
         queryFn: async (): Promise<AuditLogResponse> => {
-            const response = await api.get<AuditLogResponse>(
-                `/admin/audit-logs?page=${page}&limit=${limit}`,
-            );
+            const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+            for (const [key, value] of Object.entries(filters)) {
+                if (value) params.set(key, value);
+            }
+            const response = await api.get<AuditLogResponse>(`/admin/audit-logs?${params.toString()}`);
             return response.data;
         },
         staleTime: 30_000,
