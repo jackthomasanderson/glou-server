@@ -1,11 +1,12 @@
 import { z } from 'zod';
+import { categorySchema } from '../lib/category';
 
 // ─── POST /wishlist/items ─────────────────────────────────────────────────────
 
 export const wishlistCreateSchema = z.object({
   name: z.string().min(1).max(200),
   producer: z.string().max(200).optional(),
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
+  category: categorySchema,
   vintage: z.number().int().min(1800).max(new Date().getFullYear() + 1).optional().nullable(),
   targetQuantity: z.number().int().min(1).max(1000).default(1),
   maxPrice: z.number().min(0).optional().nullable(),

@@ -1,4 +1,4 @@
-import { InventoryCategory } from '@/lib/inventory/types';
+import { InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 
 // Shared category → color mapping for map visualizations (FEAT-41 heatmap,
 // FEAT-40/42 legends). Hex values mirror AnalyticsDashboard's CATEGORY_CONFIG
@@ -22,7 +22,7 @@ export const CATEGORY_CHIP_COLOR: Record<InventoryCategory, 'danger' | 'primary'
   cigar: 'secondary',
 };
 
-export const CATEGORY_ORDER: InventoryCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
+export const CATEGORY_ORDER: InventoryCategory[] = [...CATEGORY_VALUES];
 
 // Shift a hex color's RGB channels by `percent` (-100..100): negative
 // darkens, positive lightens. Same technique as Tailwind's own shade

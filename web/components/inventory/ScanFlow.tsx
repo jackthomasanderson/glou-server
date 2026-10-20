@@ -4,7 +4,7 @@ import {
   Modal, ModalContent, Button, Chip, Input, Select, SelectItem, Checkbox, CircularProgress,
 } from '@heroui/react';
 import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf } from 'lucide-react';
-import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { useInventory, useCreateInventoryItem, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
@@ -348,7 +348,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                     )}
 
                     <div className="flex flex-wrap gap-1.5">
-                      {(['wine', 'sparkling', 'spirit', 'cigar'] as InventoryCategory[]).map((cat) => (
+                      {CATEGORY_VALUES.map((cat) => (
                         <Chip
                           key={cat}
                           startContent={CATEGORY_ICONS[cat]}

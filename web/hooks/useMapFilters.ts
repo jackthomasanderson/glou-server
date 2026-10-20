@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { InventoryCategory } from '@/lib/inventory/types';
+import { InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { MapFiltersState, DEFAULT_MAP_FILTERS } from '@/lib/analytics/mapFilters';
 
 // FEAT-42: persist the map explorer filters across navigation, following the
@@ -8,7 +8,7 @@ import { MapFiltersState, DEFAULT_MAP_FILTERS } from '@/lib/analytics/mapFilters
 const STORAGE_KEY = 'analyticsMapFilters:v1';
 
 const VALID_OPENED_STATES = ['all', 'inCellar', 'opened'];
-const VALID_CATEGORIES: InventoryCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
+const VALID_CATEGORIES: InventoryCategory[] = [...CATEGORY_VALUES];
 
 function sanitize(parsed: unknown): MapFiltersState {
   if (!parsed || typeof parsed !== 'object') return DEFAULT_MAP_FILTERS;

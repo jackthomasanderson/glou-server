@@ -1,10 +1,11 @@
 import { z } from 'zod';
 import { CURVE_SHAPES } from '../lib/maturity-curve';
+import { categorySchema } from '../lib/category';
 
 // ─── Common fields (all categories) ─────────────────────────────────────────
 
 export const commonInventorySchema = z.object({
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
+  category: categorySchema,
   name: z.string().min(1, 'Name is required').max(200),
   producer: z.string().min(1, 'Producer is required').max(200),
   location: z.string().max(200).optional(),
@@ -128,7 +129,7 @@ export type InventoryCategory = InventoryInput['category'];
 // supported by Zod's type system for discriminated unions.
 
 export const inventoryPatchSchema = z.object({
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']).optional(),
+  category: categorySchema.optional(),
   name: z.string().min(1).max(200).optional(),
   producer: z.string().min(1).max(200).optional(),
   location: z.string().max(200).optional().nullable(),

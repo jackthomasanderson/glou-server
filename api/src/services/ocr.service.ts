@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { categorySchema } from '../lib/category';
 
 // ─── FEAT-04: Scan Étiquette & Ajout Express — Vision/OCR via Ollama ─────────
 // Self-hosted, privacy-respecting vision LLM (design.md "Services OCR ...
@@ -22,7 +23,7 @@ export const ocrExtractedDataSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   producer: z.string().min(1).max(200).optional(),
   vintage: z.number().int().min(1000).max(2100).optional(),
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']).optional(),
+  category: categorySchema.optional(),
   contenance: z.string().max(50).optional(),
 });
 

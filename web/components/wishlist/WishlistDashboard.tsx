@@ -12,6 +12,7 @@ import {
 } from '@/hooks/useWishlist';
 import { useCellars } from '@/hooks/useCellars';
 import { WishlistItem, WishlistCategory, WishlistCreateInput } from '@/lib/wishlist/types';
+import { CATEGORY_VALUES } from '@/lib/inventory/types';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -19,7 +20,7 @@ import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { formatCurrency, formatDate } from '@/lib/format';
 
-const CATEGORIES: WishlistCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
+const CATEGORIES: WishlistCategory[] = [...CATEGORY_VALUES];
 
 const STATUS_COLOR: Record<string, 'primary' | 'success' | 'default'> = {
   active: 'primary',

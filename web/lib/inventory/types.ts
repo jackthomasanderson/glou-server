@@ -5,7 +5,12 @@ export type { CurveShape };
 
 // ─── Types miroirs du backend ────────────────────────────────────────────────
 
-export type InventoryCategory = 'wine' | 'sparkling' | 'spirit' | 'cigar';
+// ISSUE_137: the single source of truth for the category list — every other
+// `type X = 'wine' | 'sparkling' | 'spirit' | 'cigar'` duplicate across
+// web/lib now aliases InventoryCategory instead of redefining it, and the
+// Zod schema below derives from the same array instead of its own literal.
+export const CATEGORY_VALUES = ['wine', 'sparkling', 'spirit', 'cigar'] as const;
+export type InventoryCategory = (typeof CATEGORY_VALUES)[number];
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
 // ─── Field source transparency (FEAT-05) ────────────────────────────────────
@@ -141,7 +146,7 @@ export interface InventoryHistoryEntry {
 // ─── Schéma Zod frontend (validation côté client avant envoi) ─────────────────
 
 export const inventoryFormSchema = z.object({
-  category: z.enum(['wine', 'sparkling', 'spirit', 'cigar']),
+  category: z.enum(CATEGORY_VALUES),
   name: z.string().min(1, 'Nom requis').max(200),
   producer: z.string().min(1, 'Producteur requis').max(200),
   location: z.string().max(200).optional(),

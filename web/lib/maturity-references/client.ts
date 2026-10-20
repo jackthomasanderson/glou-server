@@ -1,8 +1,9 @@
 import { client } from '../api';
 import { MaturityReference, MaturityReferenceInput, MaturitySuggestion } from './types';
+import type { InventoryCategory } from '../inventory/types';
 
 export interface SuggestParams {
-  category: 'wine' | 'sparkling' | 'spirit' | 'cigar';
+  category: InventoryCategory;
   region?: string;
   color?: string;
   producer?: string;
