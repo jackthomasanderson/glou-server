@@ -3,7 +3,7 @@ import { MaintenanceRun, Prisma } from '@prisma/client';
 import { purgeOldAuditLogs } from './audit.service';
 import { scanService } from './scan.service';
 import { inventoryService } from './inventory.service';
-import { authService } from './auth.service';
+import { authService, ACCOUNT_DELETION_GRACE_DAYS } from './auth.service';
 
 export interface PurgeResult {
     success: boolean;
@@ -29,9 +29,8 @@ export interface RetentionCounts {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// #222: matches the grace period communicated to the user when they request
-// deletion (GdprSection.tsx) — "deletion scheduled for <date + 30 days>".
-const ACCOUNT_DELETION_GRACE_DAYS = 30;
+// #222: ACCOUNT_DELETION_GRACE_DAYS (auth.service.ts) matches the grace period
+// communicated to the user when they request deletion (GdprSection.tsx).
 
 // Scan label photos (uploads/scans/*, 10MB max each — see scanUpload) are
 // purged after a fixed 24h window. Not exposed via SystemConfig (unlike the
@@ -86,6 +85,7 @@ export class MaintenanceService {
         let scanFilesToDelete: string[] = [];
         let photoFilesToDelete: string[] = [];
         let avatarFilesToDelete: string[] = [];
+        let deletedAccountsCount = 0;
 
         try {
             const run = await prisma.$transaction(async (tx) => {
@@ -154,7 +154,7 @@ export class MaintenanceService {
                 const deletionCutoff = new Date(now.getTime() - ACCOUNT_DELETION_GRACE_DAYS * DAY_MS);
                 const accountDeletions = await authService.purgeDueAccountDeletions(deletionCutoff, tx);
                 avatarFilesToDelete = accountDeletions.avatarPaths;
-                const deletedAccountsCount = accountDeletions.count;
+                deletedAccountsCount = accountDeletions.count;
 
                 const counts: RetentionCounts = {
                     auditLogs: auditLogsCount,
@@ -181,6 +181,8 @@ export class MaintenanceService {
             await scanService.deleteScanFiles(scanFilesToDelete);
             await inventoryService.deletePhotoFiles(photoFilesToDelete);
             await authService.deleteAvatarFiles(avatarFilesToDelete);
+            // #509: admins learn that accounts were deleted (never throws).
+            await authService.notifyAdminsOfExecutedDeletions(deletedAccountsCount);
             return run;
         } catch (error) {
             console.error('[maintenance] Retention cleanup failed:', error);

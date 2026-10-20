@@ -60,27 +60,48 @@ export function AdminClient() {
     if (!isAuthLoading && !user?.isAdmin) router.push('/');
   }, [user, isAuthLoading, router]);
 
+  // #499: sensitive member actions are confirmed in an app dialog, not
+  // window.confirm (off-brand, browser-language buttons, and silently
+  // disabled once a browser offers to "block dialogs from this site").
+  const [pendingAction, setPendingAction] = React.useState<
+    { kind: 'grantAdmin' | 'deactivate' | 'resetPassword'; target: AdminUser } | null
+  >(null);
+
   const handleRoleToggle = (targetUser: AdminUser, checked: boolean) => {
     if (targetUser.id === user?.id) return;
-    if (checked && !window.confirm(t('admin.users.grantAdminConfirm', { username: targetUser.username }))) return;
-    updateRole({ userId: targetUser.id, isAdmin: checked });
+    if (checked) setPendingAction({ kind: 'grantAdmin', target: targetUser });
+    else updateRole({ userId: targetUser.id, isAdmin: false });
   };
 
   const handleStatusToggle = (targetUser: AdminUser) => {
     if (targetUser.id === user?.id) return;
-    if (targetUser.isActive && !window.confirm(t('admin.users.deactivateConfirm', { username: targetUser.username }))) return;
-    updateStatus({ userId: targetUser.id, isActive: !targetUser.isActive });
+    if (targetUser.isActive) setPendingAction({ kind: 'deactivate', target: targetUser });
+    else updateStatus({ userId: targetUser.id, isActive: true });
   };
 
   const handleResetPassword = (targetUser: AdminUser) => {
-    if (!window.confirm(t('admin.users.resetPasswordConfirm', { username: targetUser.username }))) return;
-    resetPassword(targetUser.id, {
-      onSuccess: ({ tempPassword }) => {
-        setResetPasswordCopied(false);
-        setResetPasswordResult({ username: targetUser.username, tempPassword });
-      },
-    });
+    setPendingAction({ kind: 'resetPassword', target: targetUser });
   };
+
+  const confirmPendingAction = () => {
+    if (!pendingAction) return;
+    const { kind, target } = pendingAction;
+    setPendingAction(null);
+    if (kind === 'grantAdmin') updateRole({ userId: target.id, isAdmin: true });
+    else if (kind === 'deactivate') updateStatus({ userId: target.id, isActive: false });
+    else {
+      resetPassword(target.id, {
+        onSuccess: ({ tempPassword }) => {
+          setResetPasswordCopied(false);
+          setResetPasswordResult({ username: target.username, tempPassword });
+        },
+      });
+    }
+  };
+
+  const pendingActionMessage = pendingAction
+    ? t(`admin.users.${pendingAction.kind}Confirm`, { username: pendingAction.target.username })
+    : '';
 
   const handleConfirmPurge = () => {
     if (confirmationText !== t('admin.maintenance.purge.keywordValue')) return;
@@ -124,11 +145,11 @@ export function AdminClient() {
 
         <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('admin.users.title')}>
           <TableHeader>
-            <TableColumn>{t('admin.users.columns.email')}</TableColumn>
+            <TableColumn className="hidden sm:table-cell">{t('admin.users.columns.email')}</TableColumn>
             <TableColumn>{t('admin.users.columns.username')}</TableColumn>
             <TableColumn className="text-center">{t('admin.users.columns.role')}</TableColumn>
             <TableColumn className="text-center">{t('admin.users.columns.status')}</TableColumn>
-            <TableColumn>{t('admin.users.columns.createdAt')}</TableColumn>
+            <TableColumn className="hidden sm:table-cell">{t('admin.users.columns.createdAt')}</TableColumn>
             <TableColumn className="text-center">{t('admin.users.columns.actions')}</TableColumn>
           </TableHeader>
           <TableBody>
@@ -136,13 +157,13 @@ export function AdminClient() {
               ? Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
                     {Array.from({ length: 6 }).map((__, c) => (
-                      <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
+                      <TableCell key={c} className={c === 0 || c === 4 ? 'hidden sm:table-cell' : undefined}><Skeleton className="h-4 w-full rounded" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               : users?.map((u) => (
                 <TableRow key={u.id} className={u.isActive ? '' : 'opacity-50'}>
-                  <TableCell className="text-sm">{u.email}</TableCell>
+                  <TableCell className="text-sm hidden sm:table-cell">{u.email}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span className="text-sm">{u.username}</span>
@@ -174,7 +195,7 @@ export function AdminClient() {
                       </Button>
                     </Tooltip>
                   </TableCell>
-                  <TableCell className="text-sm text-foreground-400">
+                  <TableCell className="text-sm text-foreground-400 hidden sm:table-cell">
                     {hasMounted ? formatDate(u.createdAt, i18n.language) : ''}
                   </TableCell>
                   <TableCell className="text-center">
@@ -315,6 +336,27 @@ export function AdminClient() {
       </div>
 
       {/* Purge dialog */}
+      <ResponsiveModal
+        isOpen={!!pendingAction}
+        onClose={() => setPendingAction(null)}
+        size="sm" radius="lg" backdrop="opaque" placement="center"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>{t('actions.confirm')}</ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-foreground-500">{pendingActionMessage}</p>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
+                <Button color="danger" variant="solid" onPress={confirmPendingAction}>{t('actions.confirm')}</Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </ResponsiveModal>
+
       <ResponsiveModal
         isOpen={isPurgeDialogOpen}
         onClose={() => !isPurging && setIsPurgeDialogOpen(false)}
