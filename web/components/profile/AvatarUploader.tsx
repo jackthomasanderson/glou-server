@@ -8,6 +8,7 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Camera, Trash2, Pencil, Check, X } from 'lucide-react';
 import { useUploadAvatar, useDeleteAvatar, useUpdateProfile, PublicUser } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
+import { downscaleImage } from '@/lib/image-resize';
 
 export function AvatarUploader({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
@@ -34,10 +35,12 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) handleUpload(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) void handleUpload(e.target.files[0]);
   };
 
-  const handleUpload = (file: File) => {
+  const handleUpload = async (original: File) => {
+    // #494: an avatar is shown at 96 px at most.
+    const file = await downscaleImage(original, 512);
     uploadAvatar.mutate(file, {
       onSuccess: () => setFeedback({ type: 'success', msg: t('profile.avatarSuccess') }),
       onError: () => setFeedback({ type: 'error', msg: t('profile.avatarError') }),
@@ -57,7 +60,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) handleUpload(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) void handleUpload(e.dataTransfer.files[0]);
   };
 
   return (
