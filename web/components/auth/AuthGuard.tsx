@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useMe } from '@/hooks/useAuth';
 import { AutoLockProvider, useAutoLock } from '@/hooks/useAutoLock';
+import { loginPathFor } from '@/lib/auth/next-path';
 import { LockScreen } from './LockScreen';
 import { ForcedPasswordChange } from './ForcedPasswordChange';
 import { OnboardingWizard } from '../onboarding/OnboardingWizard';
@@ -16,7 +17,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && user === null) {
-      router.replace('/login');
+      // #507: come back to the requested page (QR code, link) after sign-in.
+      router.replace(loginPathFor(window.location.pathname + window.location.search));
     }
   }, [isLoading, user, router]);
 

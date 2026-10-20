@@ -27,7 +27,7 @@ Lock the app with one click, or let it lock itself after a period of inactivity.
 > Locking the app does **not** end your session on the server: your login stays valid. It only hides the interface behind a lock screen on this device. Use [11-Sessions-Trusted-Devices.md](./11-Sessions-Trusted-Devices.md) if you actually need to end a session remotely (e.g. a lost device).
 
 > [!CAUTION]
-> The lock state is stored per browser tab session (cleared when you fully close the browser). Refreshing the page keeps it locked, but opening the app in a new browser session starts unlocked. Auto-lock does not protect a device left logged in across browser restarts.
+> The lock state is shared by every tab of the browser and survives a refresh, a browser restart or reopening the installed app: locking in one tab locks them all, and a new tab opens locked. Signing out, or signing in again, clears it. The lock hides the app; it does not end the session.
 
 ## The Firewall (Troubleshooting)
 
@@ -36,4 +36,4 @@ Lock the app with one click, or let it lock itself after a period of inactivity.
 | **The PIN tab doesn't show on the lock screen** | No PIN has been configured for your account yet. Unlock with your password, then set one up in Profile → Security for next time. |
 | **"Too many attempts" error when unlocking** | Unlock attempts are rate-limited (10 tries per 15 minutes) to prevent PIN brute-forcing. Wait 15 minutes or unlock with your full password once the limit resets. |
 | **Auto-lock triggers even though I'm actively reading (not clicking)** | Auto-lock tracks mouse movement, clicks, keystrokes, and scrolling. Passive reading without any of these for the full delay will still trigger the lock. Scroll or move the mouse periodically, or increase the delay. |
-| **The app is still locked after I closed and reopened the browser** | Expected only if the browser restored your previous session/tabs. A fresh browser session starts unlocked. |
+| **The app is still locked after I closed and reopened the browser** | Expected: the lock stays until you unlock it (password or PIN) or sign out. |
