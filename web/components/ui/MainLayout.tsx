@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, Button, Tooltip } from '@heroui/react';
@@ -40,6 +40,16 @@ function usePageTitle() {
   return key ? { label: t(PAGE_TITLES[key], key.slice(1)), href: key } : null;
 }
 
+// #428: Next.js metadata sets a static bilingual tab title (e.g. "Cigars ·
+// Cigares — Glou") because the server can't know the client-side active
+// language. Once i18n is ready, override it with the active language only.
+function useBrowserTabTitle(label: string | undefined) {
+  useEffect(() => {
+    if (!label) return;
+    document.title = `${label} — Glou`;
+  }, [label]);
+}
+
 /**
  * FEAT-30: quick-lock button, accessible from any screen. Only rendered when
  * `MainLayout` is protected (wrapped by `AuthGuard`/`AutoLockProvider`) —
@@ -69,6 +79,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { data: user } = useMe();
   const pageTitle = usePageTitle();
+  useBrowserTabTitle(pageTitle?.label);
   const { t } = useTranslation();
   const pathname = usePathname();
 
