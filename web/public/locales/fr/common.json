@@ -245,7 +245,13 @@
       "caskNumber": "Numéro de fût",
       "caskProof": "Degré au fût (%)",
       "isSingleCask": "Single cask",
-      "yearExample": "ex : {{year}}"
+      "yearExample": "ex : {{year}}",
+      "cellarId": "Cave",
+      "slotColumn": "Colonne",
+      "slotRow": "Rangée",
+      "alertsPaused": "Alertes d'apogée en pause",
+      "consumptionPostponedUntil": "Reportée jusqu'au",
+      "lockedFields": "Champs verrouillés"
     },
     "expertSection": {
       "title": "Champs avancés (collectionneur)"
@@ -332,6 +338,8 @@
       "total": "Total stock",
       "full": "Stock plein",
       "opened": "Actifs entamés",
+      "finished_one": "{{count}} bouteille finie non comptée",
+      "finished_other": "{{count}} bouteilles finies non comptées",
       "openedCigar": "Cigares entamés"
     },
     "alerts": {
@@ -923,6 +931,7 @@
     },
     "viaGuest": "via un lien invité",
     "restoredField": "Valeur restaurée : {{field}}",
+    "changeLine": "{{field}} : {{value}}",
     "restoreValue": "Restaurer cette valeur",
     "restoreConfirm": {
       "title": "Restaurer cette valeur ?",
@@ -1332,10 +1341,10 @@
       "configHistory": "Historique de configuration"
     },
     "deleteTitle": "Supprimer mon compte",
-    "deleteDescription": "Envoie une demande de suppression de votre compte à l'administrateur de l'instance, qui la traitera. Vous pouvez l'annuler tant qu'elle n'a pas été traitée.",
+    "deleteDescription": "Votre compte sera supprimé automatiquement 30 jours après votre demande ; les administrateurs en sont informés. Vous pouvez annuler d'ici là. Exportez vos données avant si vous voulez garder vos dégustations.",
     "deleteButton": "Supprimer le compte",
     "deleteModalTitle": "Confirmer la suppression",
-    "deleteModalBody": "Votre demande sera transmise à l'administrateur de l'instance. Une fois traitée, la suppression de votre compte est irréversible.",
+    "deleteModalBody": "Votre compte sera supprimé automatiquement dans 30 jours. Vous pouvez annuler d'ici là ; ensuite, la suppression est irréversible. Pensez à exporter vos données.",
     "deleteModalHint": "Saisissez « {{keyword}} » pour confirmer :",
     "deleteKeyword": "SUPPRIMER",
     "deleteConfirm": "Confirmer la suppression",

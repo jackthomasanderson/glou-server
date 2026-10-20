@@ -22,6 +22,7 @@ import { CollectionPickerInline } from '@/components/collections/CollectionPicke
 
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
 import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
@@ -210,8 +211,14 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const halfLabel = t('inventory.detail.half');
   const emptyLabel = t('inventory.detail.empty');
 
-  const fieldLabel = (field: string): string => t(`inventory.fields.${field}`, { defaultValue: field });
+  const fieldLabel = (field: string): string => historyFieldLabel(field, t);
+  const historyValueContext = {
+    lang: i18n.language,
+    cellarName: (id: string) => cellars?.find((c) => c.id === id)?.name,
+  };
 
+  // #508: translated labels and readable values instead of
+  // "cellarId: "3f2a…"", and no more "Level adjusted to 50% (50%)".
   const formatHistoryEntry = (entry: InventoryHistoryEntry): string => {
     if (!entry.changes || entry.changes.length === 0) {
       return t(`traceability.actions.${entry.action.toLowerCase()}`);
@@ -219,13 +226,18 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
     if (entry.action === 'RESTORE_FIELD' && entry.changes.length === 1) {
       return t('traceability.restoredField', { field: fieldLabel(entry.changes[0].field) });
     }
-    const fillChange = entry.changes.find(c => c.field === 'fillLevel');
-    if (fillChange) {
-      const val = fillChange.to as number;
-      const label = val >= 100 ? t('inventory.detail.full') : val === 0 ? t('inventory.detail.empty') : `${val}%`;
-      return `${t('inventory.detail.levelAdjusted')} ${val}% (${label})`;
-    }
-    return entry.changes.map(c => `${c.field}: ${JSON.stringify(c.to)}`).join(', ');
+    return entry.changes
+      .map((c) => {
+        if (c.field === 'fillLevel' && typeof c.to === 'number') {
+          const level = c.to >= 100 ? t('inventory.detail.full') : c.to === 0 ? t('inventory.detail.empty') : `${c.to}%`;
+          return `${t('inventory.detail.levelAdjusted')} ${level}`;
+        }
+        return t('traceability.changeLine', {
+          field: fieldLabel(c.field),
+          value: formatHistoryValue(c.field, c.to, t, historyValueContext),
+        });
+      })
+      .join(' · ');
   };
 
   return (
@@ -698,7 +710,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                   {rollbackTarget &&
                     t('traceability.restoreConfirm.body', {
                       field: fieldLabel(rollbackTarget.field),
-                      value: formatHistoryValue(rollbackTarget.from, t),
+                      value: formatHistoryValue(rollbackTarget.field, rollbackTarget.from, t, historyValueContext),
                     })}
                 </p>
                 {rollbackMutation.isError && (
@@ -733,9 +745,3 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   );
 }
 
-/** Human-readable rendering of a raw historical field value inside the rollback confirmation copy. */
-function formatHistoryValue(value: unknown, t: (key: string) => string): string {
-  if (value === null || value === undefined || value === '') return t('actions.none');
-  if (typeof value === 'boolean') return value ? t('traceability.booleanTrue') : t('traceability.booleanFalse');
-  return String(value);
-}

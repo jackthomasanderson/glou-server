@@ -9,3 +9,12 @@ import type { InventoryItem } from './types';
 export function isOwnedItem(item: Pick<InventoryItem, 'isOwned'>): boolean {
   return item.isOwned !== false;
 }
+
+/**
+ * ISSUE_239 (api/src/lib/finished-item.ts): a finished bottle is an opened
+ * one with nothing left. It stays in the inventory (history, spending) but
+ * is no longer held.
+ */
+export function isFinishedItem(item: Pick<InventoryItem, 'isOpened' | 'fillLevel'>): boolean {
+  return Boolean(item.isOpened) && item.fillLevel === 0;
+}

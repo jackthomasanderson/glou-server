@@ -7,6 +7,7 @@ import { Button, Chip } from '@heroui/react';
 import { Plus, Search, Warehouse, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
 import Link from 'next/link';
 import { InventoryItem } from '@/lib/inventory/types';
+import { isFinishedItem, isOwnedItem } from '@/lib/inventory/ownership';
 import {
   useInventory,
   useCreateInventoryItem,
@@ -127,6 +128,17 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     filteredItems,
     hasActiveFilters,
   } = useInventoryFilters({ items, cellars, lockedCategories, t, hasMounted });
+
+  // #504: the counters answer "how many do I hold here?": the chosen section
+  // only, never non-owned references, and finished bottles counted apart.
+  const stats = useMemo(() => {
+    const owned = baseItems.filter(isOwnedItem);
+    const inSection = selectedCategories.length > 0
+      ? owned.filter((b) => selectedCategories.includes(b.category))
+      : owned;
+    const held = inSection.filter((b) => !isFinishedItem(b));
+    return { held, finished: inSection.length - held.length };
+  }, [baseItems, selectedCategories]);
 
   // Auto-open bottle from QR scan (FEAT-10). Kept out of useInventoryFilters
   // because it needs `setViewingItem`, dashboard-local UI state unrelated to
@@ -376,17 +388,22 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
       {/* Stats row */}
       {!isLoading && baseItems.length > 0 && mode === 'idle' && (
-        <div className="flex gap-3 sm:gap-4 mb-5">
-          {[
-            { value: baseItems.length, label: t('inventory.stats.total'), color: '' },
-            { value: baseItems.filter(b => !b.isOpened).length, label: t('inventory.stats.full'), color: 'text-success-700' },
-            { value: baseItems.filter(b => b.isOpened).length, label: lockedCategories?.includes('cigar') ? t('inventory.stats.openedCigar') : t('inventory.stats.opened'), color: 'text-warning-700' },
-          ].map(({ value, label, color }) => (
-            <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">
-              <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>
-              <p className="text-xs text-foreground-500 mt-1">{label}</p>
-            </div>
-          ))}
+        <div className="mb-5">
+          <div className="flex gap-3 sm:gap-4">
+            {[
+              { value: stats.held.length, label: t('inventory.stats.total'), color: '' },
+              { value: stats.held.filter(b => !b.isOpened).length, label: t('inventory.stats.full'), color: 'text-success-700' },
+              { value: stats.held.filter(b => b.isOpened).length, label: lockedCategories?.includes('cigar') ? t('inventory.stats.openedCigar') : t('inventory.stats.opened'), color: 'text-warning-700' },
+            ].map(({ value, label, color }) => (
+              <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">
+                <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>
+                <p className="text-xs text-foreground-500 mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+          {stats.finished > 0 && (
+            <p className="text-xs text-foreground-500 mt-2">{t('inventory.stats.finished', { count: stats.finished })}</p>
+          )}
         </div>
       )}
 

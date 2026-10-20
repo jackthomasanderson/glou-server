@@ -98,29 +98,20 @@ export const CellarDashboard: React.FC = () => {
   const deleteMutation = useDeleteCellar();
   const isExpert = useExpertMode();
 
-  // HeroUI's Select can't type-check children that mix static <SelectItem>
-  // elements with a conditionally-rendered one (`{isExpert && <SelectItem/>}`
-  // evaluates to `false | Element`, not assignable to CollectionElement) —
-  // same issue as WorldHeatmap.tsx. Build one homogeneous options array per
-  // Select instead and map over it once.
-  const typeFilterOptions = useMemo(() => {
-    const base = [
-      { key: 'all', label: t('filters.all') },
-      { key: 'VINTAGE', label: t('cellars.types.VINTAGE') },
-      { key: 'COOLER', label: t('cellars.types.COOLER') },
-      { key: 'SHELF', label: t('cellars.types.SHELF') },
-    ];
-    return isExpert ? [...base, { key: 'HUMIDOR', label: t('cellars.types.HUMIDOR') }] : base;
-  }, [isExpert, t]);
+  // #515: a humidor is a cigar lover's basic need, not an expert option —
+  // the type is always offered; only the humidity target range and its
+  // monitoring stay behind expert mode (see the form below).
+  const cellarTypeOptions = useMemo(() => [
+    { key: 'VINTAGE', label: t('cellars.types.VINTAGE') },
+    { key: 'COOLER', label: t('cellars.types.COOLER') },
+    { key: 'SHELF', label: t('cellars.types.SHELF') },
+    { key: 'HUMIDOR', label: t('cellars.types.HUMIDOR') },
+  ], [t]);
 
-  const cellarTypeOptions = useMemo(() => {
-    const base = [
-      { key: 'VINTAGE', label: t('cellars.types.VINTAGE') },
-      { key: 'COOLER', label: t('cellars.types.COOLER') },
-      { key: 'SHELF', label: t('cellars.types.SHELF') },
-    ];
-    return isExpert ? [...base, { key: 'HUMIDOR', label: t('cellars.types.HUMIDOR') }] : base;
-  }, [isExpert, t]);
+  const typeFilterOptions = useMemo(
+    () => [{ key: 'all', label: t('filters.all') }, ...cellarTypeOptions],
+    [cellarTypeOptions, t],
+  );
 
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useViewMode('cellars');

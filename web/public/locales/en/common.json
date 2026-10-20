@@ -245,7 +245,13 @@
       "caskNumber": "Cask number",
       "caskProof": "Cask strength (%)",
       "isSingleCask": "Single cask",
-      "yearExample": "e.g. {{year}}"
+      "yearExample": "e.g. {{year}}",
+      "cellarId": "Cellar",
+      "slotColumn": "Column",
+      "slotRow": "Row",
+      "alertsPaused": "Peak alerts paused",
+      "consumptionPostponedUntil": "Postponed until",
+      "lockedFields": "Locked fields"
     },
     "expertSection": {
       "title": "Advanced fields (collector)"
@@ -332,6 +338,8 @@
       "total": "Total stock",
       "full": "Full stock",
       "opened": "Opened assets",
+      "finished_one": "{{count}} finished bottle not counted",
+      "finished_other": "{{count}} finished bottles not counted",
       "openedCigar": "Opened cigars"
     },
     "alerts": {
@@ -921,6 +929,7 @@
     },
     "viaGuest": "via guest link",
     "restoredField": "Value restored: {{field}}",
+    "changeLine": "{{field}}: {{value}}",
     "restoreValue": "Restore this value",
     "restoreConfirm": {
       "title": "Restore this value?",
@@ -1330,10 +1339,10 @@
       "configHistory": "Configuration history"
     },
     "deleteTitle": "Delete my account",
-    "deleteDescription": "Sends a request to delete your account to the instance administrator, who will process it. You can cancel it until it has been processed.",
+    "deleteDescription": "Your account will be deleted automatically 30 days after your request; administrators are informed. You can cancel until then. Export your data first if you want to keep your tastings.",
     "deleteButton": "Delete account",
     "deleteModalTitle": "Confirm deletion",
-    "deleteModalBody": "Your request will be sent to the instance administrator. Once processed, deleting your account is irreversible.",
+    "deleteModalBody": "Your account will be deleted automatically in 30 days. You can cancel until then; after that, deletion is irreversible. Remember to export your data.",
     "deleteModalHint": "Type \"{{keyword}}\" to confirm:",
     "deleteKeyword": "DELETE",
     "deleteConfirm": "Confirm deletion",
