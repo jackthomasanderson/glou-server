@@ -338,6 +338,7 @@
       "openedCigar": "Cigares entamés"
     },
     "alerts": {
+      "reminderDone": "Rappel traité",
       "title": "Rappels à consommer",
       "viewAll": "Voir tous les rappels"
     },
@@ -803,6 +804,12 @@
       "resetPasswordError": "Impossible de réinitialiser le mot de passe de ce membre"
     },
     "auditLog": {
+      "filters": {
+        "search": "Rechercher",
+        "searchPlaceholder": "Membre, adresse IP ou action",
+        "from": "Du",
+        "to": "Au"
+      },
       "title": "Journal d'audit",
       "subtitle": "Toutes les actions effectuées sur cette instance.",
       "columns": {
@@ -1458,6 +1465,9 @@
       "notesHidden": "Notes personnelles masquées",
       "expired": "Ce lien de partage a expiré ou a été révoqué.",
       "loadError": "Impossible de charger ce partage. Vérifiez votre connexion et réessayez.",
+      "showMore": "Afficher la suite ({{count}} restants)",
+      "search": "Rechercher dans ce partage",
+      "sortBy": "Trier par",
       "loading": "Chargement de la collection partagée…",
       "empty": "Aucun article dans ce partage.",
       "scopeAll": "Collection complète",
@@ -1956,7 +1966,8 @@
       "yourVersion": "Votre version",
       "serverVersion": "Version du serveur",
       "keepLocal": "Garder ma version",
-      "keepServer": "Garder la version serveur"
+      "keepServer": "Garder la version serveur",
+      "decideLater": "Décider plus tard"
     }
   },
   "scan": {

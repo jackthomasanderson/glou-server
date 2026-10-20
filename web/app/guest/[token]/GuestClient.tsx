@@ -2,7 +2,7 @@
 
 import React, { use, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Chip, Input, Spinner, Switch, Textarea } from '@heroui/react';
+import { Button, Chip, Input, Select, SelectItem, Spinner, Switch, Textarea } from '@heroui/react';
 import { Eye, EyeOff, Lock, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/format';
@@ -158,6 +158,8 @@ function GuestItemCard({ item, token, editable }: { item: GuestItem; token: stri
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
+const GUEST_PAGE_SIZE = 60;
+
 function GuestPageContent({ token }: { token: string }) {
   const { t } = useTranslation();
 
@@ -167,10 +169,14 @@ function GuestPageContent({ token }: { token: string }) {
     retry: false,
   });
 
+  // Rendered by slices: a whole-cellar share can hold hundreds of cards.
+  const [visibleCount, setVisibleCount] = useState(GUEST_PAGE_SIZE);
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<'name' | 'producer' | 'vintage'>('name');
+
   const inventoryQuery = useQuery<GuestItem[], Error>({
     queryKey: ['guest', token, 'inventory'],
     queryFn: () => guestClient.getInventory(token) as Promise<GuestItem[]>,
-    enabled: metaQuery.isSuccess,
     retry: false,
   });
 
@@ -205,7 +211,14 @@ function GuestPageContent({ token }: { token: string }) {
   }
 
   const meta = metaQuery.data;
-  const items = inventoryQuery.data ?? [];
+  const allItems = inventoryQuery.data ?? [];
+  const needle = search.trim().toLowerCase();
+  const items = allItems
+    .filter((i) => !needle || [i.name, i.producer, i.region].some((v) => v?.toLowerCase().includes(needle)))
+    .sort((a, b) => {
+      if (sortKey === 'vintage') return (b.vintage ?? 0) - (a.vintage ?? 0);
+      return (a[sortKey] ?? '').localeCompare(b[sortKey] ?? '');
+    });
 
   const scopeLabel =
     !meta
@@ -259,6 +272,29 @@ function GuestPageContent({ token }: { token: string }) {
           </div>
         )}
 
+        {/* Search and sort */}
+        {allItems.length > 1 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <Input
+              size="sm" variant="bordered" className="sm:col-span-2" isClearable
+              label={t('shares.guest.search')}
+              value={search}
+              onValueChange={(v) => { setSearch(v); setVisibleCount(GUEST_PAGE_SIZE); }}
+            />
+            <Select
+              size="sm" variant="bordered"
+              label={t('shares.guest.sortBy')}
+              selectedKeys={[sortKey]}
+              disallowEmptySelection
+              onSelectionChange={(keys) => setSortKey(String(Array.from(keys)[0]) as 'name' | 'producer' | 'vintage')}
+            >
+              <SelectItem key="name">{t('inventory.fields.name')}</SelectItem>
+              <SelectItem key="producer">{t('inventory.fields.producer')}</SelectItem>
+              <SelectItem key="vintage">{t('inventory.fields.vintage')}</SelectItem>
+            </Select>
+          </div>
+        )}
+
         {/* Empty */}
         {inventoryQuery.isSuccess && items.length === 0 && (
           <div role="status" aria-live="polite" className="text-center py-16 text-foreground-400">
@@ -269,7 +305,7 @@ function GuestPageContent({ token }: { token: string }) {
         {/* Grid */}
         {items.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {items.map((item) => (
+            {items.slice(0, visibleCount).map((item) => (
               <GuestItemCard
                 key={item.id}
                 item={item}
@@ -277,6 +313,13 @@ function GuestPageContent({ token }: { token: string }) {
                 editable={!!meta?.writeCellarIds.includes(item.cellarId ?? '')}
               />
             ))}
+          </div>
+        )}
+        {items.length > visibleCount && (
+          <div className="flex justify-center mt-6">
+            <Button variant="bordered" onPress={() => setVisibleCount((c) => c + GUEST_PAGE_SIZE)}>
+              {t('shares.guest.showMore', { count: items.length - visibleCount })}
+            </Button>
           </div>
         )}
       </div>

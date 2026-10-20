@@ -70,6 +70,7 @@ describe('ThemeWrapper', () => {
     document.documentElement.style.colorScheme = '';
     window.localStorage.clear();
     mockUser = null;
+    vi.restoreAllMocks();
     mockMounted = true;
     mockChangeLanguage = vi.fn();
     mockI18nLanguage = 'en';
@@ -137,8 +138,18 @@ describe('ThemeWrapper', () => {
     expect(document.documentElement.lang).toBe('en');
   });
 
-  it('does not touch <html lang> when the user has no language preference', () => {
+  // #344: logged out (and guests) follow the browser language, FR/EN only.
+  it('follows the browser language when nobody is signed in', () => {
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['en-GB', 'fr']);
     document.documentElement.lang = 'fr';
+    mockUser = null;
+    mount(<span>content</span>);
+    expect(document.documentElement.lang).toBe('en');
+  });
+
+  it('falls back to French for an unsupported browser language when nobody is signed in', () => {
+    vi.spyOn(window.navigator, 'languages', 'get').mockReturnValue(['de-DE']);
+    document.documentElement.lang = 'en';
     mockUser = null;
     mount(<span>content</span>);
     expect(document.documentElement.lang).toBe('fr');

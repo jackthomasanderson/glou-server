@@ -13,15 +13,10 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 // at a time; resolving it reveals the next one, if any (rare in the shared
 // single-inventory model, but possible with concurrent editors).
 
-// TODO(FEAT-16/23): no i18n label map exists for raw InventoryItem field
-// keys anywhere in the codebase yet (InventoryForm.tsx labels are authored
-// per-field in JSX, not looked up by key), so this falls back to a
-// mechanical camelCase→"Camel Case" split rather than a translated label.
-// Every other string in this modal IS translated — this is the one
-// pragmatic exception, scoped to a rare screen (concurrent-edit conflicts
-// are uncommon in the shared single-inventory model).
-function humanizeFieldKey(key: string): string {
-  return key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
+/** Translated label of a raw InventoryItem key (the form's `inventory.fields.*`),
+ * falling back to a mechanical camelCase split for keys without one. */
+function fieldLabel(key: string, t: (key: string, options?: Record<string, unknown>) => string): string {
+  return t(`inventory.fields.${key}`, { defaultValue: key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase()) });
 }
 
 /** Mirrors `formatHistoryValue` in InventoryDetailDialog.tsx (same i18n keys,
@@ -38,8 +33,12 @@ export function ConflictResolutionModal() {
   const { t } = useTranslation();
   const { conflictMutations, resolveKeepLocal, resolveKeepServer } = useOfflineSync();
   const [isResolving, setIsResolving] = React.useState(false);
+  // "Decide later" hides a conflict for this session only; it stays queued and
+  // flagged by the connectivity indicator.
+  const [deferredIds, setDeferredIds] = React.useState<string[]>([]);
 
-  const current = conflictMutations[0];
+  const pending = conflictMutations.filter((m) => !deferredIds.includes(m.id));
+  const current = pending[0];
   const isOpen = Boolean(current);
 
   if (!current) return null;
@@ -82,11 +81,14 @@ export function ConflictResolutionModal() {
           {t('offline.conflict.title')}
         </ModalHeader>
         <ModalBody>
+          {typeof serverItem?.name === 'string' && (
+            <p className="text-sm font-semibold">{serverItem.name}</p>
+          )}
           <p className="text-sm text-foreground-500">{t('offline.conflict.description')}</p>
 
-          {conflictMutations.length > 1 && (
+          {pending.length > 1 && (
             <Chip size="sm" color="warning" variant="flat" radius="full">
-              {t('offline.conflict.remaining', { count: conflictMutations.length - 1 })}
+              {t('offline.conflict.remaining', { count: pending.length - 1 })}
             </Chip>
           )}
 
@@ -98,7 +100,7 @@ export function ConflictResolutionModal() {
             </div>
             {fields.map((field) => (
               <div key={field} className="grid grid-cols-3 gap-2 px-3 py-2 text-sm border-t border-divider">
-                <span className="text-foreground-500">{humanizeFieldKey(field)}</span>
+                <span className="text-foreground-500">{fieldLabel(field, t)}</span>
                 <span className="font-medium text-primary">{formatValue((current.patch as Record<string, unknown>)[field], t)}</span>
                 <span className="font-medium text-warning-600">{formatValue(serverItem?.[field], t)}</span>
               </div>
@@ -106,6 +108,14 @@ export function ConflictResolutionModal() {
           </div>
         </ModalBody>
         <ModalFooter>
+          <Button
+            variant="light"
+            color="default"
+            onPress={() => setDeferredIds((ids) => [...ids, current.id])}
+            isDisabled={isResolving}
+          >
+            {t('offline.conflict.decideLater')}
+          </Button>
           <Button
             variant="light"
             color="default"

@@ -5,6 +5,7 @@ import { Thermometer, Wind, Utensils } from 'lucide-react';
 import { TastingItemSummary } from '@/lib/tastings/types';
 import { getRecommendations } from '@/lib/tastings/recommendations';
 import { useTranslation } from 'react-i18next';
+import { formatTemperatureRange } from '@/lib/format';
 
 interface ServiceRecommendationsProps {
   item: TastingItemSummary;
@@ -26,7 +27,7 @@ export function ServiceRecommendations({ item }: ServiceRecommendationsProps) {
         <div className="flex items-center gap-2">
           <Thermometer size={16} className="text-foreground-500 shrink-0" />
           <span className="text-sm">
-            {reco.tempMin}–{reco.tempMax}°C
+            {formatTemperatureRange(reco.tempMin, reco.tempMax)}
           </span>
         </div>
 

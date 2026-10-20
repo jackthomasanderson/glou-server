@@ -338,6 +338,7 @@
       "openedCigar": "Opened cigars"
     },
     "alerts": {
+      "reminderDone": "Reminder done",
       "title": "Reminders to consume",
       "viewAll": "View all reminders"
     },
@@ -801,6 +802,12 @@
       "resetPasswordError": "Could not reset this member's password"
     },
     "auditLog": {
+      "filters": {
+        "search": "Search",
+        "searchPlaceholder": "Member, IP address or action",
+        "from": "From",
+        "to": "To"
+      },
       "title": "Audit Log",
       "subtitle": "All actions performed on this instance.",
       "columns": {
@@ -1456,6 +1463,9 @@
       "notesHidden": "Personal notes are hidden",
       "expired": "This share link has expired or been revoked.",
       "loadError": "Could not load this share. Check your connection and try again.",
+      "showMore": "Show more ({{count}} remaining)",
+      "search": "Search this share",
+      "sortBy": "Sort by",
       "loading": "Loading shared collection…",
       "empty": "No items in this share.",
       "scopeAll": "Full collection",
@@ -1954,7 +1964,8 @@
       "yourVersion": "Your version",
       "serverVersion": "Server version",
       "keepLocal": "Keep my version",
-      "keepServer": "Keep server version"
+      "keepServer": "Keep server version",
+      "decideLater": "Decide later"
     }
   },
   "scan": {

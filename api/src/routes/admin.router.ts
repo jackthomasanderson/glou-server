@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { routeParam } from '../lib/http';
@@ -23,7 +23,13 @@ import { backupService } from '../services/backup.service';
 const adminRouter = Router();
 
 // Audit log pages are bigger than the member-facing lists.
-const auditLogsQuerySchema = paginationQuerySchema({ defaultLimit: 50, maxLimit: 100 });
+const auditLogsQuerySchema = paginationQuerySchema({ defaultLimit: 50, maxLimit: 100 }).extend({
+    // Free text over member, IP and action; status is exact; from/to bound createdAt (inclusive days).
+    q: z.string().trim().max(100).optional(),
+    status: z.enum(['success', 'error', 'validation_error', 'not_found']).optional(),
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional(),
+});
 
 adminRouter.use(authMiddleware);
 adminRouter.use(adminMiddleware);
@@ -193,12 +199,34 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
         res.status(400).json({ error: 'VALIDATION_ERROR', details: query.error.format() });
         return;
     }
-    const { page, limit } = query.data;
+    const { page, limit, q, status, from, to } = query.data;
     const skip = (page - 1) * limit;
+
+    const where: Prisma.AuditLogWhereInput = {};
+    if (q) {
+        where.OR = [
+            { action: { contains: q, mode: 'insensitive' } },
+            { ip: { contains: q } },
+            { user: { username: { contains: q, mode: 'insensitive' } } },
+            { user: { displayName: { contains: q, mode: 'insensitive' } } },
+        ];
+    }
+    if (status) where.status = status;
+    if (from || to) {
+        where.createdAt = {};
+        if (from) where.createdAt.gte = from;
+        if (to) {
+            // `to` is a day: include all of it.
+            const end = new Date(to);
+            end.setUTCHours(23, 59, 59, 999);
+            where.createdAt.lte = end;
+        }
+    }
 
     try {
         const [logs, total] = await Promise.all([
             prisma.auditLog.findMany({
+                where,
                 skip,
                 take: limit,
                 orderBy: { createdAt: 'desc' },
@@ -208,7 +236,7 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
                     },
                 },
             }),
-            prisma.auditLog.count(),
+            prisma.auditLog.count({ where }),
         ]);
 
         res.json({

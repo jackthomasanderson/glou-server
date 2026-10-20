@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { currencySymbol, formatCurrency, formatDate, formatDateTime, formatNumber } from '../format';
+import { describe, it, expect, afterEach } from 'vitest';
+import {
+  currencySymbol, formatCurrency, formatDate, formatDateTime, formatNumber,
+  formatTemperature, formatTemperatureRange, setFormatPreferences,
+} from '../format';
 
 describe('format (#217)', () => {
   it('formats dates in the app language, not the browser one', () => {
@@ -44,5 +47,25 @@ describe('format (#217)', () => {
   it('exposes the currency symbol for input suffixes', () => {
     expect(currencySymbol('fr')).toBe('€');
     expect(currencySymbol('en')).toBe('€');
+  });
+});
+
+describe('profile format preferences (#405)', () => {
+  afterEach(() => setFormatPreferences({ tempUnit: 'CELSIUS', dateFormat: 'SYSTEM' }));
+
+  it('shows temperatures in Celsius by default and in Fahrenheit on request', () => {
+    expect(formatTemperature(18)).toBe('18°C');
+    expect(formatTemperatureRange(16, 18)).toBe('16–18°C');
+    setFormatPreferences({ tempUnit: 'FAHRENHEIT' });
+    expect(formatTemperature(18)).toBe('64°F');
+    expect(formatTemperatureRange(16, 18)).toBe('61–64°F');
+  });
+
+  it('forces the 12 or 24 hour clock in date-times when the member chose one', () => {
+    const iso = '2026-09-03T15:30:00Z';
+    setFormatPreferences({ dateFormat: 'H12' });
+    expect(formatDateTime(iso, 'fr', { timeZone: 'UTC' })).toMatch(/PM|pm/i);
+    setFormatPreferences({ dateFormat: 'H24' });
+    expect(formatDateTime(iso, 'en', { timeZone: 'UTC' })).toMatch(/15:30/);
   });
 });
