@@ -3,22 +3,23 @@ import { BudgetEnvelopeCreateInput, BudgetEnvelopePatchInput } from '../schemas/
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 /**
- * FEAT-20: Budget envelopes — personal by design, same nuance documented in
- * wishlist.service.ts and consumption-plan.service.ts (ConsumptionGoal): a
- * budget envelope is an individual spending plan, not shared-inventory data,
- * so `userId` scoping here is legitimate (not the audit-only field it is on
- * InventoryItem/Cellar/etc — see design.md invariant).
+ * ISSUE_142: budget envelopes are household-wide, not personal. `userId` on
+ * BudgetEnvelope is an audit-only field (who created the envelope), exactly
+ * like `userId` on InventoryItem — it is never used to scope what a caller
+ * can list, read, edit, delete, or count against. Every member of the
+ * household sees and manages the same envelopes and the same "spent"
+ * total, which is now the sum of `purchasePrice` across the full shared
+ * inventory for the envelope's period, not just items this caller created.
  */
 
-export async function listBudgetEnvelopes(userId: string) {
+export async function listBudgetEnvelopes() {
   return prisma.budgetEnvelope.findMany({
-    where: { userId },
     orderBy: { periodStart: 'desc' },
   });
 }
 
-export async function getBudgetEnvelope(userId: string, id: string) {
-  return prisma.budgetEnvelope.findFirst({ where: { id, userId } });
+export async function getBudgetEnvelope(id: string) {
+  return prisma.budgetEnvelope.findFirst({ where: { id } });
 }
 
 export async function createBudgetEnvelope(userId: string, input: BudgetEnvelopeCreateInput) {
@@ -32,14 +33,14 @@ export async function createBudgetEnvelope(userId: string, input: BudgetEnvelope
   });
 }
 
-export async function updateBudgetEnvelope(userId: string, id: string, patch: BudgetEnvelopePatchInput) {
-  const existing = await prisma.budgetEnvelope.findFirst({ where: { id, userId } });
+export async function updateBudgetEnvelope(id: string, patch: BudgetEnvelopePatchInput) {
+  const existing = await prisma.budgetEnvelope.findFirst({ where: { id } });
   if (!existing) return null;
   return prisma.budgetEnvelope.update({ where: { id }, data: patch });
 }
 
-export async function deleteBudgetEnvelope(userId: string, id: string): Promise<boolean> {
-  const existing = await prisma.budgetEnvelope.findFirst({ where: { id, userId } });
+export async function deleteBudgetEnvelope(id: string): Promise<boolean> {
+  const existing = await prisma.budgetEnvelope.findFirst({ where: { id } });
   if (!existing) return false;
   await prisma.budgetEnvelope.delete({ where: { id } });
   return true;
@@ -53,24 +54,16 @@ export interface BudgetProgress {
 }
 
 /**
- * "Spent" = sum of `purchasePrice` on InventoryItem rows created by THIS
- * user (`userId` on InventoryItem, its audit field — see design.md) whose
- * `createdAt` falls inside the envelope's period. This is legitimate: we are
- * not filtering the shared inventory LIST by userId (that would violate the
- * invariant — nobody's view of the cellar should shrink), we are computing
- * "how much did *I* personally spend", an aggregate that is inherently
- * personal regardless of the underlying data being shared. Every other
- * member's purchases remain fully visible to them and to this user via the
- * regular inventory views — this aggregate simply doesn't include them,
- * exactly like getGoalProgress in consumption-plan.service.ts.
+ * "Spent" = sum of `purchasePrice` across the whole shared inventory (not
+ * scoped to any one member — see file-level note) whose `createdAt` falls
+ * inside the envelope's period.
  */
-export async function getBudgetProgress(userId: string, envelopeId: string): Promise<BudgetProgress | null> {
-  const envelope = await prisma.budgetEnvelope.findFirst({ where: { id: envelopeId, userId } });
+export async function getBudgetProgress(envelopeId: string): Promise<BudgetProgress | null> {
+  const envelope = await prisma.budgetEnvelope.findFirst({ where: { id: envelopeId } });
   if (!envelope) return null;
 
   const result = await prisma.inventoryItem.aggregate({
     where: {
-      userId,
       deletedAt: null,
       // FEAT-87: a non-owned reference was never bought, so it never counts
       // as money spent, even when a price was recorded on it.
