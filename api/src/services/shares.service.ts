@@ -223,5 +223,16 @@ export const sharesService = {
     return share.writeCellarIds.includes(cellarId);
   },
 
+  /**
+   * Drops fields a guest must not write. When the share hides personal notes the
+   * guest never sees them, so any `notes` value they send is a blind overwrite of
+   * the owner's text and is ignored (ISSUE_472).
+   */
+  sanitizeGuestPatch<T extends { notes?: string | null }>(share: { hideNotes: boolean }, patch: T): T {
+    if (!share.hideNotes) return patch;
+    const { notes: _notes, ...rest } = patch;
+    return rest as T;
+  },
+
   isShareValid,
 };

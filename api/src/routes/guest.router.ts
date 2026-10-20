@@ -117,7 +117,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       return;
     }
 
-    const patch = guestInventoryUpdateSchema.parse(req.body);
+    const patch = sharesService.sanitizeGuestPatch(share, guestInventoryUpdateSchema.parse(req.body));
     const result = await inventoryService.updateItem(share.userId, itemId, patch);
 
     if (!result) {

@@ -335,6 +335,18 @@ describe('sharesService.canWriteCellar', () => {
 
 // FEAT-87: the guest showcase shows the collection, not the catalogue of
 // bottles the instance merely keeps track of.
+describe('sharesService.sanitizeGuestPatch (ISSUE_472)', () => {
+  it('drops notes when the share hides them', () => {
+    const patch = { fillLevel: 50, notes: null };
+    expect(sharesService.sanitizeGuestPatch({ hideNotes: true }, patch)).toEqual({ fillLevel: 50 });
+  });
+
+  it('keeps notes when the share shows them', () => {
+    const patch = { fillLevel: 50, notes: 'ok' };
+    expect(sharesService.sanitizeGuestPatch({ hideNotes: false }, patch)).toEqual(patch);
+  });
+});
+
 describe('guest showcase excludes non-owned references (FEAT-87)', () => {
   const share = {
     cellarIds: ['c1'],
