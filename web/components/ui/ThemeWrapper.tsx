@@ -60,7 +60,9 @@ function accentShadeVars(hex: string): Record<string, string> {
 
 export function ThemeWrapper({ children }: { children: React.ReactNode }) {
   const { data: user } = useMe();
-  const { i18n } = useTranslation();
+  // `ready` is false until the active language's file has arrived (or
+  // failed): keep the boot placeholder up meanwhile so raw keys never show (#495).
+  const { i18n, ready } = useTranslation();
   const hasMounted = useHasMounted();
   // ISSUE_080: honour the OS-level "reduce motion" accessibility setting —
   // nothing upstream of this previously read it, so it had zero effect on
@@ -120,7 +122,7 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [user?.accentColor, hasMounted]);
 
-  if (!hasMounted) {
+  if (!hasMounted || !ready) {
     return (
       <ThemeModeProvider>
         {/* Server-rendered and visible: before hydration the page was an empty

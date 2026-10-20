@@ -443,7 +443,7 @@ export const CellarDashboard: React.FC = () => {
                     </Chip>
                     {cellar.stats.alertCount > 0 && (
                       <Chip size="sm" color="warning" variant="flat">
-                        {cellar.stats.alertCount} {t('cellars.stats.alerts')}
+                        {t('cellars.stats.alertCount', { count: cellar.stats.alertCount })}
                       </Chip>
                     )}
                     {cellar.stats.estimatedValue != null && (

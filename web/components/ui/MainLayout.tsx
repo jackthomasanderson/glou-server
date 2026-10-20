@@ -1,10 +1,11 @@
 'use client';
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, Button, Tooltip } from '@heroui/react';
 import { Search, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { GlobalSearch, MobileSearch } from './GlobalSearch';
@@ -57,16 +58,6 @@ function usePageTitle() {
     return { label: t(titleKey), href: key };
   }
   return { label: t(PAGE_TITLES[key], key.slice(1)), href: key };
-}
-
-// #428: Next.js metadata sets a static bilingual tab title (e.g. "Cigars ·
-// Cigares — Glou") because the server can't know the client-side active
-// language. Once i18n is ready, override it with the active language only.
-function useBrowserTabTitle(label: string | undefined) {
-  useEffect(() => {
-    if (!label) return;
-    document.title = `${label} — Glou`;
-  }, [label]);
 }
 
 /**

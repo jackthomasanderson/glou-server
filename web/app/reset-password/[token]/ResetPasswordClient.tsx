@@ -4,12 +4,14 @@ import { Button, Input, Card, CardBody, CircularProgress } from '@heroui/react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { configClient } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { PASSWORD_MIN_LENGTH } from '@/lib/password';
 
 export function ResetPasswordClient() {
   const { t } = useTranslation();
+  useBrowserTabTitle(t('resetPassword.title'));
   const hasMounted = useHasMounted();
   const params = useParams();
   const router = useRouter();

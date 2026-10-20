@@ -4,6 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { Button, Input, Card, CardBody, Link, Checkbox } from '@heroui/react';
 import NextLink from 'next/link';
 import { useLogin, useVerify2faLogin } from '@/hooks/useAuth';
@@ -18,6 +19,7 @@ const createLoginSchema = (t: (key: string) => string) =>
 
 export function LoginForm() {
   const { t } = useTranslation('common');
+  useBrowserTabTitle(t('auth.pageTitleLogin'));
   const hasMounted = useHasMounted();
 
   const loginSchema = createLoginSchema(t);
@@ -160,7 +162,7 @@ export function LoginForm() {
                 <Input
                   {...field}
                   type="password"
-                  label={t('auth.password')}
+                  label={t('auth.passwordLabel')}
                   autoComplete="current-password"
                   variant="bordered"
                   size="md"
