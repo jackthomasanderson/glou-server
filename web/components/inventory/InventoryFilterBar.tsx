@@ -1,5 +1,6 @@
 'use client';
 import React, { useCallback, useMemo } from 'react';
+import { Input } from '@heroui/react';
 import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Filter } from 'lucide-react';
 import { InventoryItem, CATEGORY_VALUES } from '@/lib/inventory/types';
@@ -221,23 +222,25 @@ export function InventoryFilterBar({
           {t('inventory.filterByValue')}
         </p>
         <div className="flex gap-2">
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             min={0}
             aria-label={t('inventory.filters.minValue')}
             placeholder={t('inventory.filters.minValue')}
             value={minValue}
             onChange={(e) => setMinValue(e.target.value)}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
-          <input
+          <Input
             type="number"
+            variant="flat"
+            size="sm"
             min={0}
             aria-label={t('inventory.filters.maxValue')}
             placeholder={t('inventory.filters.maxValue')}
             value={maxValue}
             onChange={(e) => setMaxValue(e.target.value)}
-            className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary"
           />
         </div>
       </div>
@@ -263,13 +266,15 @@ export function InventoryFilterBar({
             {t('inventory.filterByTags')}
           </p>
           {tagUsage.length > TAG_DISPLAY_LIMIT && (
-            <input
+            <Input
               type="text"
+              variant="flat"
+              size="sm"
               aria-label={t('inventory.filters.tagSearchPlaceholder')}
               placeholder={t('inventory.filters.tagSearchPlaceholder')}
               value={tagSearchQuery}
               onChange={(e) => setTagSearchQuery(e.target.value)}
-              className="w-full text-xs rounded-xl border border-divider bg-transparent px-2 py-1.5 outline-none focus:border-primary mb-2"
+              className="mb-2"
             />
           )}
           <div className="flex flex-wrap gap-1">
