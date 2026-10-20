@@ -117,7 +117,10 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       return;
     }
 
-    const patch = guestInventoryUpdateSchema.parse(req.body);
+    const { notes, ...rest } = guestInventoryUpdateSchema.parse(req.body);
+    // ISSUE_472: a share hiding notes must never write them — the guest form
+    // starts from an empty field and would otherwise erase the owner's notes.
+    const patch = share.hideNotes ? rest : { ...rest, ...(notes !== undefined && { notes }) };
     const result = await inventoryService.updateItem(share.userId, itemId, patch);
 
     if (!result) {
