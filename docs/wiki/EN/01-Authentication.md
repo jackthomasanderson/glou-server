@@ -1,18 +1,18 @@
 # Connect to the API and access protected routes
 
-**TL;DR** : Authentication uses an HttpOnly cookie. Send your login/register requests with `credentials: 'include'` to automatically receive and use the token.
+**TL;DR**: Authentication uses an HttpOnly cookie. Send your login/register requests with `credentials: 'include'` to automatically receive and use the token.
 
 ## Prerequisites
 - Frontend and Backend must serve locally (respectively on ports 3000 and 3001).
 - The PostgreSQL database must be accessible locally (`docker-compose up -d db`).
 
-## Action : Login Flow
+## Action: Login flow
 
 1. Call the `POST /api/auth/register` (or `/login`) endpoint with your `email` (or `username`) and `password`.
-2. Ensure you have configured the web client to include credentials to accept the returned `accessToken` cookie.
+2. Configure the web client to include credentials so it accepts the returned `accessToken` cookie.
    *Example (fetch)* : `fetch('/api/auth/login', { method: 'POST', body: JSON.stringify({...}), credentials: 'include' })`
-3. Upon a successful login, the browser will store the cookie securely in the background.
-4. For calls to protected routes (`/api/inventory` or `/api/auth/me`), no manual header setup is required. The `credentials: 'include'` parameter handles the implicit cookie transmission.
+3. After a successful login, the browser stores the cookie in the background.
+4. For calls to protected routes (`/api/inventory` or `/api/auth/me`), no manual header setup is required: `credentials: 'include'` sends the cookie.
 
 > [!TIP]
 > On Next.js, our Axios / Fetch abstraction already handles cookie propagation.
@@ -22,7 +22,7 @@
 
 ## The "Firewall" (Troubleshooting)
 
-| Error / Symptom | Probable Cause | Solution |
+| Error / Symptom | Probable cause | Solution |
 | :--- | :--- | :--- |
 | `403 REGISTRATION_CLOSED` on `/api/auth/register` | Registration is closed by default once the first account (the admin) exists. | An admin turns on **Allow new accounts to register** in Administration → System Configuration → Network, see [Network & Public URL](./16-Network-Public-URL-Configuration.md). |
 | `500 Internal Server Error` (on `/api/auth/*`) | Lost connection to PostgreSQL database (`P1001` or `P1012`). | Verify the Docker `db` container is running: `docker-compose up -d db` and restart the backend if it cannot reconnect automatically. |

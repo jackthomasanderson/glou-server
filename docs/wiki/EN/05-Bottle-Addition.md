@@ -1,7 +1,7 @@
-# Add a Bottle
+# Add a bottle
 
 ## TL;DR
-Easily categorize and add new bottles to your cellar collection.
+Add a bottle to a cellar and assign its category.
 
 ## Prerequisites
 * Having created at least one **Cellar**.
@@ -9,11 +9,11 @@ Easily categorize and add new bottles to your cellar collection.
 
 ## Action
 1. From the **Bottles** or **Cellars** tab, click **+ Add**.
-2. **Step 1 (Common Section)**: Select the category: Wine, Sparkling or Spirit.
+2. **Step 1 (Common section)**: Select the category: Wine, Sparkling or Spirit.
 3. Select the destination cellar.
 4. Enter the product name and producer. Both fields offer **Google-powered autocomplete** after 2 characters. If a suggestion includes a vintage year, it is auto-extracted into the Vintage field. See [08-Autocomplete-Image.md](./08-Autocomplete-Image.md).
 5. If an identical bottle already exists in your cellar, a **duplicate warning** appears before saving. You can dismiss it and confirm the addition.
-6. **Step 2 (Specific Options)**: Fields adapt to the chosen category (e.g. grape variety for wine, age for spirits). A **Search image** icon lets you attach a photo from Wikimedia Commons.
+6. **Step 2 (Specific options)**: Fields adapt to the chosen category (e.g. grape variety for wine, age for spirits). A **Search image** icon lets you attach a photo from Wikimedia Commons.
 7. Click **Save** to add the bottle.
 
 ## The Firewall (Troubleshooting)

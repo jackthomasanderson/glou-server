@@ -2,14 +2,14 @@
 
 *[English version](CONTRIBUTING.md)*
 
-Merci de votre intérêt pour l'amélioration de Glou ! Ce document explique comment proposer des changements.
+Ce document explique comment proposer des changements à Glou.
 
 ## Comment contribuer
 
-- **Signaler un bug** — ouvrez un [rapport de bug](https://github.com/jackthomasanderson/glou-server/issues/new?template=bug_report.yml).
-- **Proposer une fonctionnalité** — ouvrez une [proposition](https://github.com/jackthomasanderson/glou-server/issues/new?template=feature_request.yml).
-- **Poser une question** — utilisez les [Discussions](https://github.com/jackthomasanderson/glou-server/discussions), pas le suivi d'issues.
-- **Signaler une faille** — voir [SECURITY_FR.md](SECURITY_FR.md). N'ouvrez jamais d'issue publique pour un problème de sécurité.
+- Signaler un bug : ouvrez un [rapport de bug](https://github.com/jackthomasanderson/glou-server/issues/new?template=bug_report.yml).
+- Proposer une fonctionnalité : ouvrez une [proposition](https://github.com/jackthomasanderson/glou-server/issues/new?template=feature_request.yml).
+- Poser une question : utilisez les [Discussions](https://github.com/jackthomasanderson/glou-server/discussions), pas le suivi d'issues.
+- Signaler une faille : voir [SECURITY_FR.md](SECURITY_FR.md). N'ouvrez jamais d'issue publique pour un problème de sécurité.
 
 ## Organisation du dépôt
 
@@ -38,7 +38,7 @@ cd web && npm ci && npm run dev
 
 ## Branches et pull requests
 
-- La branche d'intégration par défaut est **`dev`**. Branchez depuis `dev` et ouvrez votre PR **vers `dev`** — pas `main`.
+- La branche d'intégration par défaut est **`dev`**. Branchez depuis `dev` et ouvrez votre PR **vers `dev`**, pas `main`.
 - `main` suit le code publié ; `dev` est promue vers `main` par le mainteneur.
 - Gardez des PR ciblées. Un seul changement logique par PR.
 - Nommez la branche de façon parlante, ex. `fix/world-map-basemap` ou `feat/csv-import`.
@@ -61,12 +61,12 @@ npm test
 
 ### Conventions de code
 
-- **TypeScript strict** partout. `any` n'est pas accepté — typez correctement ou utilisez `unknown` avec un garde de type.
-- **Nommage métier en anglais**, explicite : `fillingLevel`, `peakMaturity`, pas d'abréviations.
-- **Validation avec Zod** pour chaque entrée et sortie d'API.
-- **La saisie manuelle est prioritaire** : l'enrichissement automatique ne doit jamais écraser un champ listé dans `locked_fields`.
-- **Les écritures en base** touchant plusieurs tables passent par un `$transaction` Prisma.
-- **L'état frontend** utilise React Query en stale-while-revalidate ; invalidez les caches liés après chaque mutation réussie.
+- TypeScript strict partout. `any` n'est pas accepté : typez correctement ou utilisez `unknown` avec un garde de type.
+- Nommage métier en anglais, explicite : `fillingLevel`, `peakMaturity`, pas d'abréviations.
+- Validation avec Zod pour chaque entrée et sortie d'API.
+- La saisie manuelle est prioritaire : l'enrichissement automatique ne doit jamais écraser un champ listé dans `locked_fields`.
+- Les écritures en base touchant plusieurs tables passent par un `$transaction` Prisma.
+- L'état frontend utilise React Query en stale-while-revalidate ; invalidez les caches liés après chaque mutation réussie.
 - Respectez le style du code environnant (nommage, commentaires, structure).
 
 ### Internationalisation

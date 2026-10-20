@@ -1,7 +1,7 @@
-# Consulter le Journal d'Audit des Actions
+# Consulter le journal d'audit des actions
 
 ## TL;DR
-Accédez à `/admin`, section **Journal d'audit**, pour voir la liste paginée de toutes les actions effectuées sur l'instance : qui, quoi, statut, IP et horodatage. Réservé aux administrateurs.
+Accédez à `/admin`, section **Journal d'audit**, pour voir la liste paginée des actions effectuées sur l'instance : qui, quoi, statut, IP et horodatage. Réservé aux administrateurs.
 
 ## Prérequis
 - Être connecté avec un compte dont `isAdmin = true`.
@@ -24,7 +24,7 @@ Chaque ligne du tableau correspond à une entrée de journal et affiche cinq col
 | Colonne | Description |
 | :--- | :--- |
 | **Date** | Horodatage complet (date + heure) de l'action, affiché dans le fuseau horaire du navigateur. |
-| **Utilisateur** | Nom d'utilisateur (`username`) de l'auteur. Affiche `—` si l'utilisateur a été supprimé. |
+| **Utilisateur** | Nom d'utilisateur (`username`) de l'auteur. Affiche `-` si l'utilisateur a été supprimé. |
 | **Action** | Code de l'action sous forme de chip (ex. `CREATE`, `DELETE`, `LOGIN`, `CELLAR_UPDATE`). |
 | **Statut** | `success` (vert) ou `danger` (rouge) selon le résultat de l'opération. |
 | **IP** | Adresse IP de la requête, en police monospace. |
@@ -64,7 +64,7 @@ Les codes d'action enregistrés dans le système :
 
 ### 5. Rétention et purge automatique
 
-Les entrées de journal âgées de plus de **90 jours** sont supprimées automatiquement au démarrage de l'API (via `purgeOldAuditLogs`). Cette valeur n'est pas configurable depuis l'interface.
+Les entrées de journal âgées de plus de **90 jours** sont supprimées au démarrage de l'API (via `purgeOldAuditLogs`). Cette valeur n'est pas configurable depuis l'interface.
 
 > [!CAUTION]
 > Les logs d'audit sont supprimés définitivement après 90 jours. Exportez les données manuellement via l'API si vous avez besoin d'un archivage long terme.
@@ -76,5 +76,5 @@ Les entrées de journal âgées de plus de **90 jours** sont supprimées automat
 | **La section journal d'audit n'est pas visible** | Seuls les comptes `isAdmin = true` accèdent à `/admin`. Vérifiez le rôle du compte dans la section **Gestion des utilisateurs** en haut de la même page. |
 | **Redirection vers `/` à l'accès de `/admin`** | Le frontend vérifie `isAdmin` côté client. Si l'authToken est expiré, la redirection se produit. Reconnectez-vous et réessayez. |
 | **Le tableau affiche un état de chargement permanent** | L'API `GET /api/admin/audit-logs` est inaccessible. Vérifiez que le service API est en cours d'exécution et que la variable `NEXT_PUBLIC_API_URL` pointe vers la bonne URL. |
-| **Colonne "Utilisateur" affiche `—`** | L'utilisateur auteur de l'action a été supprimé de la base de données. L'entrée de log est conservée mais la jointure avec `User` retourne `null`. |
+| **La colonne "Utilisateur" affiche `-`** | L'utilisateur auteur de l'action a été supprimé de la base de données. L'entrée de log est conservée mais la jointure avec `User` retourne `null`. |
 | **`INTERNAL_SERVER_ERROR` en réponse API** | Consultez les logs du container API (`docker logs glou-api`). La cause la plus fréquente est une perte de connexion à la base de données PostgreSQL. |

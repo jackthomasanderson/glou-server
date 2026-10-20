@@ -8,9 +8,9 @@ Glou est distribué sous forme d'images Docker en flux continu. Seuls les dernie
 
 | Tag | Branche | Supporté |
 | --- | --- | --- |
-| `latest` | `main` | ✅ |
-| `beta` | `dev` | ✅ (pré-version) |
-| digests plus anciens | — | ❌ |
+| `latest` | `main` | Oui |
+| `beta` | `dev` | Oui (pré-version) |
+| digests plus anciens | n/a | Non |
 
 Utilisez toujours l'image la plus récente : `docker compose pull && docker compose up -d`.
 
