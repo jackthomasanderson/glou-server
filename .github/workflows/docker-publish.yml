@@ -121,6 +121,20 @@ jobs:
         working-directory: web
         run: npm test
 
+      # #534: THIRD_PARTY_NOTICES.md must describe what the images ship.
+      # Regenerated from the production trees installed above; on a
+      # mismatch the fresh file is uploaded so it can be committed as is.
+      - name: Check third-party notices are up to date
+        run: node scripts/generate-notices.mjs && git diff --exit-code THIRD_PARTY_NOTICES.md
+
+      - name: Upload regenerated third-party notices
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: third-party-notices
+          path: THIRD_PARTY_NOTICES.md
+          retention-days: 7
+
   e2e:
     needs: test
     runs-on: ubuntu-latest
@@ -134,6 +148,11 @@ jobs:
 
       - name: Build the E2E images
         run: docker compose -f docker-compose.e2e.yml build
+
+      # #537: same step as the install guide; without it Docker creates
+      # ./backups as root and the API (uid 1001) cannot write backups.
+      - name: Create the backups folder
+        run: mkdir -p backups && sudo chown 1001:1001 backups
 
       - name: Start the E2E stack
         run: docker compose -f docker-compose.e2e.yml up -d
@@ -186,7 +205,9 @@ jobs:
         run: docker compose -f docker-compose.e2e.yml down -v
 
   build-and-push:
-    needs: test
+    # #539: the user-journey suite gates publishing — a commit that breaks
+    # sign-in or restore must not reach `latest`/`beta`.
+    needs: [test, e2e]
     # Pull requests only run `test`; images are built and pushed on merge to
     # dev/main, not from PR branches (and a forked PR has no GHCR write token).
     if: github.event_name == 'push'
@@ -204,6 +225,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # #538 (decision on #394): also build linux/arm64 for Raspberry Pi and
+      # ARM NAS hosts, emulated through QEMU. Accepted: longer builds.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
@@ -241,6 +267,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: ./api
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
@@ -253,6 +280,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: ./web
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta-web.outputs.tags }}
           labels: ${{ steps.meta-web.outputs.labels }}

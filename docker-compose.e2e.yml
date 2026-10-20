@@ -5,6 +5,7 @@ name: glou-e2e
 # by an ephemeral Postgres. No `ollama` service: the label-scan feature is out
 # of scope for the E2E suite. Throwaway secrets are inline on purpose.
 #
+#   mkdir -p backups && sudo chown 1001:1001 backups   # Linux, see #537
 #   docker compose -f docker-compose.e2e.yml up -d --build
 #   # wait for http://localhost:3000, then:  cd e2e && npx playwright test
 #   docker compose -f docker-compose.e2e.yml down -v
@@ -40,6 +41,11 @@ services:
       PORT: 3001
     # Throwaway stack, but still bound to loopback only — never expose an
     # E2E run (weak secrets above, migrations mid-flight) on all interfaces.
+    # #537: same bind mount as production, so the backup/restore spec covers
+    # the shipped configuration (the CI job creates ./backups as uid 1001,
+    # exactly as the install guide asks).
+    volumes:
+      - ./backups:/app/backups
     ports:
       - '127.0.0.1:3001:3001'
     healthcheck:

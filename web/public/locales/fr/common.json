@@ -1598,6 +1598,7 @@
     },
     "backup": {
       "description": "Configurez la sauvegarde automatique quotidienne de la base de données (pg_dump), stockée en dehors du volume applicatif.",
+      "dirNotWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échouera. Sur le serveur, à côté de docker-compose.yml, lancez : mkdir -p backups && sudo chown 1001:1001 backups, puis redémarrez la pile.",
       "enabled": "Activer les sauvegardes automatiques",
       "retentionDays": "Rétention des sauvegardes (jours)",
       "retentionDaysHint": "Les fichiers de sauvegarde plus anciens que ce délai sont supprimés automatiquement (7 jours minimum recommandé).",

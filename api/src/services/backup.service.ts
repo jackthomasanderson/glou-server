@@ -283,6 +283,23 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
 
 export const backupService = {
   /**
+   * #537: with the shipped compose file, Docker on Linux creates a missing
+   * `./backups` bind-mount source as root, and this process (uid 1001)
+   * cannot write to it — every scheduled backup would then fail silently
+   * until someone opens the Backups tab. Checked at startup (logged) and
+   * exposed to the admin UI.
+   */
+  isBackupsDirWritable(): boolean {
+    try {
+      ensureBackupsDir();
+      fs.accessSync(BACKUPS_DIR, fs.constants.W_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
    * Runs a `pg_dump`, applies retention, and always records a `BackupRun`
    * (success or failure) — never throws to the caller, matching
    * `MaintenanceService.runRetentionCleanup`'s contract so a failing

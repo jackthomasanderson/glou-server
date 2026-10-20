@@ -601,6 +601,15 @@ adminRouter.get('/backups/runs', async (req: Request, res: Response): Promise<vo
 });
 
 /**
+ * @route   GET /api/admin/backups/health
+ * @desc    Whether the API can write to its backups folder (#537)
+ * @access  Admin
+ */
+adminRouter.get('/backups/health', (_req: Request, res: Response): void => {
+  res.json({ directoryWritable: backupService.isBackupsDirWritable() });
+});
+
+/**
  * @route   POST /api/admin/backups/run
  * @desc    Trigger an immediate manual backup
  * @access  Admin Private
