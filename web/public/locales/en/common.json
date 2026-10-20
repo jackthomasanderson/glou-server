@@ -338,6 +338,7 @@
       "openedCigar": "Opened cigars"
     },
     "alerts": {
+      "reminderDone": "Reminder done",
       "title": "Reminders to consume",
       "viewAll": "View all reminders"
     },
@@ -1456,6 +1457,7 @@
       "notesHidden": "Personal notes are hidden",
       "expired": "This share link has expired or been revoked.",
       "loadError": "Could not load this share. Check your connection and try again.",
+      "showMore": "Show more ({{count}} remaining)",
       "loading": "Loading shared collection…",
       "empty": "No items in this share.",
       "scopeAll": "Full collection",

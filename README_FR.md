@@ -40,6 +40,7 @@
 
 **Prérequis :**
 - Docker installé et en cours d'exécution.
+- Un hôte Intel/AMD 64 bits (`linux/amd64`) : les images publiées ne sont pas construites pour ARM. Sur Raspberry Pi, NAS ARM ou équivalent, construisez-les localement (`docker build -t ghcr.io/jackthomasanderson/glou-server-api:latest api`, idem pour `web`) pour que `docker compose up` les utilise.
 
 **Étape 1 — Configurer**
 ```bash

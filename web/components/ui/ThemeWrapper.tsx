@@ -93,6 +93,17 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
     }
   }, [user?.language, i18n]);
 
+  // #344: before login (and for guests, who have no account) there is no
+  // profile language, so follow the browser's. Once signed in, the profile
+  // preference above takes over.
+  useEffect(() => {
+    if (user !== null) return;
+    const browser = (navigator.languages?.[0] ?? navigator.language ?? '').slice(0, 2).toLowerCase();
+    const lang = browser === 'en' ? 'en' : 'fr';
+    if (i18n.language !== lang) i18n.changeLanguage(lang);
+    if (document.documentElement.lang !== lang) document.documentElement.lang = lang;
+  }, [user, i18n]);
+
   useEffect(() => {
     if (!hasMounted) return;
     const accent = user?.accentColor || '#6366f1';

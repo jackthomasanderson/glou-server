@@ -338,6 +338,7 @@
       "openedCigar": "Cigares entamés"
     },
     "alerts": {
+      "reminderDone": "Rappel traité",
       "title": "Rappels à consommer",
       "viewAll": "Voir tous les rappels"
     },
@@ -1458,6 +1459,7 @@
       "notesHidden": "Notes personnelles masquées",
       "expired": "Ce lien de partage a expiré ou a été révoqué.",
       "loadError": "Impossible de charger ce partage. Vérifiez votre connexion et réessayez.",
+      "showMore": "Afficher la suite ({{count}} restants)",
       "loading": "Chargement de la collection partagée…",
       "empty": "Aucun article dans ce partage.",
       "scopeAll": "Collection complète",
