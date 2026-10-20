@@ -18,6 +18,7 @@ Entries start with the pull request that introduced them where there is one.
 - **Action required on instances deployed before `docker-compose.yml` started requiring `DB_PASSWORD`:** an old fallback database password (`glou_secret`) is readable in this repository's git history and must be treated as compromised. Rotate `DB_PASSWORD` on any such instance; see [Rotate the Secrets](docs/wiki/EN/29-Secret-Rotation.md#rotate-db_password) / [Changer les secrets](docs/wiki/FR/29-Rotation-Des-Secrets.md#changer-db_password) (#129).
 
 ### Added
+- Bottles you don't own: an item can be recorded as a *reference* — a wine tasted elsewhere, or a producer's whole range tracked without buying it. A reference is left out of the collection's value, the counters, the peak-maturity alerts, the consumption suggestions, the inventory counts and the guest showcase; it stays a valid tasting target, and one click stocks it when you buy it. References are hidden in the inventory until the "show references" filter is on (#432).
 - Immutable image tags named after the full commit SHA, published next to `latest`/`beta`, to roll back without hunting for a digest (#310, #78).
 - `OLLAMA_TIMEOUT_MS` (default 10 minutes) for the label scan, with an explicit `OLLAMA_TIMEOUT_AFTER_<n>MS` error (#320, #319).
 - A **Pending changes** panel behind the offline sync badge: refused edits show their reason and can be retried or discarded (#354, #337).

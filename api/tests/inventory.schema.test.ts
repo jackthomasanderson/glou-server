@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { inventoryInputSchema } from '../src/schemas/inventory.schema';
+import {
+  inventoryInputSchema,
+  guestInventoryUpdateSchema,
+} from '../src/schemas/inventory.schema';
 
 describe('inventoryInputSchema', () => {
   it('validates a minimal wine item', () => {
@@ -98,5 +101,35 @@ describe('inventoryInputSchema', () => {
       vintage: undefined,
     });
     expect(result.success).toBe(true);
+  });
+});
+
+// FEAT-87: ownership is a structural field — it defaults to owned, and a
+// guest with write access may not touch it.
+describe('isOwned (FEAT-87)', () => {
+  it('defaults a newly created item to owned', () => {
+    const result = inventoryInputSchema.safeParse({
+      category: 'wine',
+      name: 'Pétrus',
+      producer: 'Château Pétrus',
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.isOwned).toBe(true);
+  });
+
+  it('accepts an item explicitly created as a non-owned reference', () => {
+    const result = inventoryInputSchema.safeParse({
+      category: 'wine',
+      name: 'Pétrus',
+      producer: 'Château Pétrus',
+      isOwned: false,
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.isOwned).toBe(false);
+  });
+
+  it('rejects a guest trying to flip ownership', () => {
+    const result = guestInventoryUpdateSchema.safeParse({ isOwned: false });
+    expect(result.success).toBe(false);
   });
 });

@@ -55,6 +55,7 @@ const EMPTY_FORM: Partial<InventoryItem> = {
   producer: '',
   tags: [],
   grapeVarieties: [],
+  isOwned: true,
   isOpened: false,
   alertStatus: 'none',
 };
@@ -914,27 +915,62 @@ export function InventoryForm({
                           </>
                         )}
 
-                        {/* Opened status */}
+                        {/* FEAT-87: owned item vs non-owned reference. An item
+                            created before this field existed has no `isOwned`
+                            and is owned. */}
                         <div className="col-span-2 sm:col-span-4">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Button
                               size="sm"
-                              variant={values.isOpened ? 'solid' : 'bordered'}
-                              color={values.isOpened ? 'warning' : 'default'}
+                              variant={(values.isOwned ?? true) ? 'solid' : 'bordered'}
+                              color={(values.isOwned ?? true) ? 'success' : 'default'}
+                              onPress={() => setField('isOwned', true)}
+                            >
+                              {(values.isOwned ?? true) ? '✓ ' : ''}{t('inventory.fields.isOwned')}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={(values.isOwned ?? true) ? 'bordered' : 'solid'}
+                              color={(values.isOwned ?? true) ? 'default' : 'secondary'}
                               onPress={() => {
-                                const next = !values.isOpened;
-                                setField('isOpened', next);
-                                if (next && !values.openedAt) {
-                                  setField('openedAt', new Date().toISOString().split('T')[0]);
-                                }
+                                // A reference has nothing to open and no level.
+                                setField('isOwned', false);
+                                setField('isOpened', false);
+                                setField('fillLevel', null);
+                                setField('openedAt', null);
                               }}
                             >
-                              {values.isOpened ? '✓ ' : ''}{t('inventory.fields.isOpened')}
+                              {(values.isOwned ?? true) ? '' : '✓ '}{t('inventory.fields.isReference')}
                             </Button>
                           </div>
+                          {!(values.isOwned ?? true) && (
+                            <p className="text-xs text-default-500 mt-1.5">{t('inventory.fields.isReferenceHint')}</p>
+                          )}
                         </div>
 
-                        {values.isOpened && (
+                        {/* Opened status — a reference has no bottle to open */}
+                        {(values.isOwned ?? true) && (
+                          <div className="col-span-2 sm:col-span-4">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant={values.isOpened ? 'solid' : 'bordered'}
+                                color={values.isOpened ? 'warning' : 'default'}
+                                onPress={() => {
+                                  const next = !values.isOpened;
+                                  setField('isOpened', next);
+                                  if (next && !values.openedAt) {
+                                    setField('openedAt', new Date().toISOString().split('T')[0]);
+                                  }
+                                }}
+                              >
+                                {values.isOpened ? '✓ ' : ''}{t('inventory.fields.isOpened')}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
+                        {(values.isOwned ?? true) && values.isOpened && (
                           <>
                             <div className="col-span-2 sm:col-span-4">
                               <p className="text-xs text-foreground-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>

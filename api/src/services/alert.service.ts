@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessPercent } from '../lib/maturity-curve';
 import { notificationService } from './notification.service';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
@@ -50,6 +51,9 @@ export function computeReadiness(
  */
 const HAS_MATURITY_WINDOW = {
   deletedAt: null,
+  // FEAT-87: a non-owned reference has no bottle to drink, so it never
+  // raises a peak-maturity alert.
+  ...OWNED_ITEM_FILTER,
   OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
 } satisfies Prisma.InventoryItemWhereInput;
 

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
+import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={12} />,
@@ -96,6 +97,20 @@ export function InventoryCard({
           {categoryLabel.toUpperCase()}
         </Chip>
         <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+          {/* FEAT-87: a reference is only visible when the filter asks for
+              it, so it must say what it is wherever it shows up. */}
+          {!isOwnedItem(item) && (
+            <Chip
+              size="sm"
+              radius="sm"
+              classNames={{
+                base: 'h-5 bg-secondary-50 border border-secondary-200 shrink-0',
+                content: 'px-1.5 text-xs font-semibold text-secondary-700',
+              }}
+            >
+              {t('inventory.fields.isReference')}
+            </Chip>
+          )}
           {cellarName && (
             <Chip
               startContent={<MapPin size={10} />}

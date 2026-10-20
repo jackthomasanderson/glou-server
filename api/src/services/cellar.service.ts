@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput, SwapSlotsInput } from '../schemas/cellar.schema';
 import { NOT_FINISHED_ITEM_FILTER } from '../lib/finished-item';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 export type SwapSlotsResult =
   | { status: 'not_found' }
@@ -33,18 +34,18 @@ export class CellarService {
     const [aggGroups, valueGroups, alertGroups] = await Promise.all([
       prisma.inventoryItem.groupBy({
         by: ['cellarId'],
-        where: { cellarId: { in: cellarIds }, deletedAt: null },
+        where: { cellarId: { in: cellarIds }, deletedAt: null, ...OWNED_ITEM_FILTER },
         _count: { id: true },
         _sum: { quantity: true },
       }),
       prisma.inventoryItem.groupBy({
         by: ['cellarId'],
-        where: { cellarId: { in: cellarIds }, deletedAt: null, ...NOT_FINISHED_ITEM_FILTER },
+        where: { cellarId: { in: cellarIds }, deletedAt: null, ...OWNED_ITEM_FILTER, ...NOT_FINISHED_ITEM_FILTER },
         _sum: { estimatedValue: true },
       }),
       prisma.inventoryItem.groupBy({
         by: ['cellarId'],
-        where: { cellarId: { in: cellarIds }, deletedAt: null, reminderDate: { lte: today } },
+        where: { cellarId: { in: cellarIds }, deletedAt: null, ...OWNED_ITEM_FILTER, reminderDate: { lte: today } },
         _count: { id: true },
       }),
     ]);
@@ -78,16 +79,16 @@ export class CellarService {
     // the counts do not.
     const [agg, value, alertCount] = await Promise.all([
       prisma.inventoryItem.aggregate({
-        where: { cellarId: id, deletedAt: null },
+        where: { cellarId: id, deletedAt: null, ...OWNED_ITEM_FILTER },
         _count: { id: true },
         _sum: { quantity: true },
       }),
       prisma.inventoryItem.aggregate({
-        where: { cellarId: id, deletedAt: null, ...NOT_FINISHED_ITEM_FILTER },
+        where: { cellarId: id, deletedAt: null, ...OWNED_ITEM_FILTER, ...NOT_FINISHED_ITEM_FILTER },
         _sum: { estimatedValue: true },
       }),
       prisma.inventoryItem.count({
-        where: { cellarId: id, deletedAt: null, reminderDate: { lte: today } },
+        where: { cellarId: id, deletedAt: null, ...OWNED_ITEM_FILTER, reminderDate: { lte: today } },
       }),
     ]);
 

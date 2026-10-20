@@ -94,6 +94,9 @@ export interface InventoryItem {
   slotRow?: number | null;
 
   // Cross-cutting
+  // FEAT-87: false = non-owned reference (described, not possessed). Absent
+  // on items returned by an older API: treated as owned.
+  isOwned?: boolean;
   isOpened: boolean;
   fillLevel?: number | null;
   openedAt?: string | null;
@@ -148,6 +151,7 @@ export const inventoryFormSchema = z.object({
   notes: z.string().max(2000).optional(),
   purchasePrice: z.number().min(0).optional(),
   estimatedValue: z.number().min(0).optional(),
+  isOwned: z.boolean().default(true),
   isOpened: z.boolean().default(false),
   fillLevel: z.number().int().min(0).max(100).optional(),
   openedAt: z.string().optional().nullable(),

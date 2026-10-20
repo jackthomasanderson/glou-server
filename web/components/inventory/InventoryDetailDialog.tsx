@@ -10,7 +10,7 @@ import {
   X, Pencil, Flame, Thermometer, MapPin, Droplets,
   Wine, BookMarked, Dumbbell, Leaf, Sparkles, QrCode, Euro,
   FileSpreadsheet, ScanLine, History as HistoryIcon, TrendingUp,
-  Plus, Minus,
+  Plus, Minus, PackagePlus,
 } from 'lucide-react';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
@@ -22,6 +22,7 @@ import { CollectionPickerInline } from '@/components/collections/CollectionPicke
 
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
@@ -148,7 +149,8 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
 
   const handleFillCommit = useCallback(
     (value: number) => {
-      if (!item) return;
+      // FEAT-87: a non-owned reference has no bottle, so no level to set.
+      if (!item || !isOwnedItem(item)) return;
       updateMutation.mutate({
         id: item.id,
         patch: {
@@ -171,7 +173,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
 
   const handleQuantityStep = useCallback(
     (delta: number) => {
-      if (!item) return;
+      if (!item || !isOwnedItem(item)) return;
       const next = Math.max(0, Math.min(1000, localQuantity + delta));
       if (next === localQuantity) return;
       setLocalQuantity(next);
@@ -392,7 +394,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                         step={1}
                         color="primary"
                         size="sm"
-                        isDisabled={updateMutation.isPending}
+                        isDisabled={updateMutation.isPending || !isOwnedItem(d)}
                         className="py-2"
                         aria-label={t('inventory.detail.levelWine')}
                       />
@@ -416,7 +418,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                           color={localFill === value ? 'primary' : 'default'}
                           size="sm"
                           onPress={() => handlePreset(value)}
-                          isDisabled={updateMutation.isPending}
+                          isDisabled={updateMutation.isPending || !isOwnedItem(d)}
                           className="flex-1 text-xs py-3"
                         >
                           {label}
@@ -652,6 +654,21 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
               >
                 {t('tastings.logTasting')}
               </Button>
+              {/* FEAT-87: one click turns a reference into a held bottle.
+                  Cellar, slot and price are then filled by editing it, like
+                  any other bottle. */}
+              {!isOwnedItem(item) && (
+                <Button
+                  variant="bordered"
+                  color="success"
+                  startContent={<PackagePlus size={15} />}
+                  onPress={() => updateMutation.mutate({ id: item.id, patch: { isOwned: true } })}
+                  isDisabled={updateMutation.isPending}
+                  size="sm"
+                >
+                  {t('inventory.actions.stockReference')}
+                </Button>
+              )}
               <div className="flex-1" />
               {onEdit && (
                 <Button

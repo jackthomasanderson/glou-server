@@ -258,7 +258,7 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     });
 
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
-    expect(call.where).toEqual({ deletedAt: null });
+    expect(call.where).toEqual({ deletedAt: null, isOwned: true });
   });
 });
 
@@ -300,5 +300,39 @@ describe('sharesService.canWriteCellar', () => {
   it('is writable only for a cellar explicitly listed in writeCellarIds', () => {
     expect(sharesService.canWriteCellar({ writeCellarIds: ['c1'] }, 'c1')).toBe(true);
     expect(sharesService.canWriteCellar({ writeCellarIds: ['c1'] }, 'c2')).toBe(false);
+  });
+});
+
+// FEAT-87: the guest showcase shows the collection, not the catalogue of
+// bottles the instance merely keeps track of.
+describe('guest showcase excludes non-owned references (FEAT-87)', () => {
+  const share = {
+    cellarIds: ['c1'],
+    collectionIds: [],
+    userId: 'owner1',
+    hidePrices: false,
+    hideNotes: false,
+  };
+
+  it('scopes the showcase listing to owned items', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await sharesService.getInventoryForShare(share);
+
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
+  });
+
+  it('scopes the single-item lookup the same way, with no cellar scope either', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null as never);
+
+    await sharesService.getItemForShare({ ...share, cellarIds: [] }, 'i1');
+
+    const call = vi.mocked(prisma.inventoryItem.findFirst).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
   });
 });

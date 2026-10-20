@@ -139,6 +139,7 @@ export class ImportService {
       name: row.name,
       producer: row.producer,
       tags: [] as string[],
+      isOwned: true,
       isOpened: false,
       alertStatus: 'none' as const,
       cellarId,

@@ -3,13 +3,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     inventoryCountSession: { findUnique: vi.fn() },
-    inventoryItem: { findFirst: vi.fn(), update: vi.fn() },
+    inventoryItem: { findFirst: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    inventoryCountEntry: { findMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
 
 import { prisma } from '../../src/lib/prisma';
-import { applyCorrections } from '../../src/services/inventory-count.service';
+import { applyCorrections, getSessionReport } from '../../src/services/inventory-count.service';
 
 /**
  * Runs `$transaction` callbacks against a fake transaction client so the
@@ -109,5 +110,26 @@ describe('applyCorrections', () => {
       skipped: [{ targetId: 'b1', action: 'move_to_scope', reason: 'session_has_no_cellar' }],
     });
     expect(tx.update).not.toHaveBeenCalled();
+  });
+});
+
+// FEAT-87: a non-owned reference sits on no shelf, so a count session must
+// never list it as a bottle to find (it would be reported missing forever).
+describe('getSessionReport excludes non-owned references (FEAT-87)', () => {
+  it('restricts the theoretical item list to owned items', async () => {
+    vi.mocked(prisma.inventoryCountSession.findUnique).mockResolvedValue({
+      id: 's1',
+      cellarId: 'c1',
+      status: 'active',
+    } as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.inventoryCountEntry.findMany).mockResolvedValue([] as never);
+
+    await getSessionReport('s1');
+
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
+      where: Record<string, unknown>;
+    };
+    expect(call.where).toMatchObject({ cellarId: 'c1', deletedAt: null, isOwned: true });
   });
 });

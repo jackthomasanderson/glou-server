@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessIndex } from '../lib/maturity-curve';
 import { FINISHED_ITEM_STATE, isFinishedItem } from '../lib/finished-item';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 export interface CategoryStat {
   category: string;
@@ -143,7 +144,9 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   // ANALYTICS_PERIOD_SCOPE above.
   const [items, cellars, auditMovements, consumedCount] = await Promise.all([
     prisma.inventoryItem.findMany({
-      where: { deletedAt: null },
+      // FEAT-87: analytics describe what the instance holds, so non-owned
+      // references are out of every figure here — valuation and counts alike.
+      where: { deletedAt: null, ...OWNED_ITEM_FILTER },
       select: {
         category: true,
         estimatedValue: true,
@@ -178,6 +181,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     prisma.inventoryItem.count({
       where: {
         deletedAt: null,
+        ...OWNED_ITEM_FILTER,
         ...FINISHED_ITEM_STATE,
         ...consumedDateFilter,
       },

@@ -8,6 +8,7 @@ import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { Cellar } from '@/lib/cellars/types';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
+import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
@@ -92,6 +93,20 @@ export function InventoryListRow({
       <TableCell>
         <div className="flex items-center gap-1.5 min-w-0">
           <p className="text-sm font-semibold truncate max-w-[200px]">{item.name}</p>
+          {/* FEAT-87: same marker as the card view — a row that only shows
+              up with the references filter on has to say so. */}
+          {!isOwnedItem(item) && (
+            <Chip
+              size="sm"
+              radius="sm"
+              classNames={{
+                base: 'h-5 bg-secondary-50 border border-secondary-200 shrink-0',
+                content: 'px-1.5 text-xs font-semibold text-secondary-700',
+              }}
+            >
+              {t('inventory.fields.isReference')}
+            </Chip>
+          )}
           {hasPendingSync && (
             <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
               <span className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700">

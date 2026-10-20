@@ -4,6 +4,7 @@ import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../sch
 import { inventoryService } from './inventory.service';
 import { InventoryInput } from '../schemas/inventory.schema';
 import { FINISHED_ITEM_STATE } from '../lib/finished-item';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 /**
  * FEAT-12: Inventaire Physique Assisté & Réconciliation.
@@ -301,7 +302,9 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
   const [theoretical, entries] = await Promise.all([
     session.cellarId
       ? prisma.inventoryItem.findMany({
-          where: { cellarId: session.cellarId, deletedAt: null },
+          // FEAT-87: a reference is not on any shelf, so it is never part
+          // of what a count session has to find.
+          where: { cellarId: session.cellarId, deletedAt: null, ...OWNED_ITEM_FILTER },
           select: REPORT_ITEM_SELECT,
           orderBy: { name: 'asc' },
         })
@@ -392,6 +395,7 @@ function toInventoryInputForFound(
     name: entry.newItemName,
     producer: '',
     tags: [] as string[],
+    isOwned: true,
     isOpened: false,
     alertStatus: 'none' as const,
     cellarId,
