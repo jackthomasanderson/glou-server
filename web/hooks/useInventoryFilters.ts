@@ -102,8 +102,9 @@ export function useInventoryFilters({
   // Parsing filters out of the URL query string is adjusted during render
   // (React's documented pattern) rather than in an effect, guarded against
   // the previous render's searchParams so it only re-parses when navigation
-  // actually changes the query string.
-  const [prevSearchParams, setPrevSearchParams] = useState(searchParams);
+  // actually changes the query string. It starts at null so the first render
+  // (arriving from another page with filters in the URL) is parsed too.
+  const [prevSearchParams, setPrevSearchParams] = useState<typeof searchParams | null>(null);
   if (searchParams !== prevSearchParams) {
     setPrevSearchParams(searchParams);
     const filterParam = searchParams.get('filter');
