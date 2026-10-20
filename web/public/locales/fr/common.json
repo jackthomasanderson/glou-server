@@ -10,6 +10,9 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "bottles": "Actifs",
+    "wines": "Vins",
+    "sparkling": "Bulles",
+    "spirits": "Spiritueux",
     "caves": "Caves",
     "cigars": "Cigares",
     "profile": "Profil",

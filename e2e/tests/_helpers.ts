@@ -7,12 +7,16 @@ export function creds(): E2ECreds {
 }
 
 /**
- * The sidebar's "bottles" entry — rendered as `<a role="button" href="/bottles">`,
- * so neither `getByRole('link')` nor `getByRole('button', { name })` is reliable.
- * Its presence means the authenticated app shell has mounted.
+ * ISSUE_434: the sidebar's single "bottles" entry became 3 category
+ * shortcuts (`/bottles?category=wine|sparkling|spirit`) — rendered as
+ * `<a role="button" href="/bottles?category=...">`, so neither
+ * `getByRole('link')` nor `getByRole('button', { name })` is reliable.
+ * Matching on the `/bottles` href prefix (not an exact match) still means
+ * the authenticated app shell has mounted, regardless of which category
+ * shortcut happens to render first.
  */
 export function bottlesNavLink(page: Page) {
-  return page.locator('a[href="/bottles"]').first();
+  return page.locator('a[href^="/bottles"]').first();
 }
 
 /** The authenticated app routes worth smoke-testing / fuzzing. */

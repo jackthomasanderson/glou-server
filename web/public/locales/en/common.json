@@ -10,6 +10,9 @@
   "nav": {
     "dashboard": "Dashboard",
     "bottles": "Assets",
+    "wines": "Wines",
+    "sparkling": "Sparkling",
+    "spirits": "Spirits",
     "caves": "Wine Cellars",
     "cigars": "Cigars",
     "profile": "Profile",

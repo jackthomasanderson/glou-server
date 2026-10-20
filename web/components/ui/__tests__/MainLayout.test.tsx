@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 // #203 (skip link) and #195 (connectivity indicator reachable on every screen size).
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/bottles' }));
+vi.mock('next/navigation', () => ({ usePathname: () => '/bottles', useSearchParams: () => new URLSearchParams() }));
 vi.mock('next/link', () => ({ default: ({ children, href }: { children?: ReactNode; href: string }) => <a href={href}>{children}</a> }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock('@heroui/react', () => ({
