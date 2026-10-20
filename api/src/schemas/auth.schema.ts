@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PASSWORD_MIN_LENGTH } from './password';
 
 // ─── Register ─────────────────────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ export const registerSchema = z.object({
   email: z.string().email('EMAIL_INVALID'),
   password: z
     .string()
-    .min(12, 'PASSWORD_TOO_SHORT')
+    .min(PASSWORD_MIN_LENGTH, 'PASSWORD_TOO_SHORT')
     .max(128, 'PASSWORD_TOO_LONG'),
   displayName: z.string().max(60).optional().or(z.literal('')),
 });

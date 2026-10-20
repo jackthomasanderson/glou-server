@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PASSWORD_MIN_LENGTH } from './password';
 
 export const updateProfileSchema = z.object({
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/).optional(),
@@ -21,7 +22,7 @@ export type UpdateEmailInput = z.infer<typeof updateEmailSchema>;
 
 export const updatePasswordSchema = z.object({
   currentPassword: z.string(),
-  newPassword: z.string().min(8).max(100),
+  newPassword: z.string().min(PASSWORD_MIN_LENGTH).max(100),
 });
 
 export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;

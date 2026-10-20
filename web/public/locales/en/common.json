@@ -1423,7 +1423,7 @@
     "invalidToken": "This link is invalid or has expired.",
     "errors": {
       "INVALID_OR_EXPIRED_TOKEN": "This link is invalid or has expired. Please make a new request.",
-      "PASSWORD_TOO_SHORT": "Password must be at least 8 characters.",
+      "PASSWORD_TOO_SHORT": "Password must be at least 12 characters.",
       "PASSWORDS_MISMATCH": "Passwords do not match.",
       "UNEXPECTED_ERROR": "An error occurred. Please try again."
     }

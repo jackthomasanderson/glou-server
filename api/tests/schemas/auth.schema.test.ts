@@ -90,3 +90,13 @@ describe('2FA schemas', () => {
     expect(verify2faSchema.safeParse({ code: '12345678901' }).success).toBe(false);
   });
 });
+
+describe('password minimum length', () => {
+  it('is enforced identically on sign-up and password change', async () => {
+    const { updatePasswordSchema } = await import('../../src/schemas/user.schema');
+    const { PASSWORD_MIN_LENGTH } = await import('../../src/schemas/password');
+    expect(PASSWORD_MIN_LENGTH).toBe(12);
+    expect(updatePasswordSchema.safeParse({ currentPassword: 'x', newPassword: 'wine1234' }).success).toBe(false);
+    expect(updatePasswordSchema.safeParse({ currentPassword: 'x', newPassword: 'a'.repeat(12) }).success).toBe(true);
+  });
+});
