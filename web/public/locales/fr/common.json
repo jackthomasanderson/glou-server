@@ -680,6 +680,10 @@
       "H24": "24 heures",
       "H12": "12 heures (AM/PM)"
     },
+    "themes": {
+      "LIGHT": "Clair",
+      "DARK": "Sombre"
+    },
     "expertMode": {
       "title": "Mode expert / collectionneur",
       "description": "Affiche les champs avancés (dégustation structurée, fût/batch spiritueux, monitoring d'humidor) dans les formulaires."
@@ -1380,23 +1384,6 @@
     "deletionPending": "Suppression demandée",
     "deletionRequestedOn": "Votre compte sera supprimé le {{date}}, sauf annulation de votre part avant cette date.",
     "cancelDeletion": "Annuler la suppression"
-  },
-  "accessTransparency": {
-    "title": "Transparence des accès",
-    "subtitle": "Qui a accès à votre compte et à vos données en ce moment.",
-    "manage": "Gérer",
-    "sessions": {
-      "title": "Sessions actives",
-      "lastActive": "Dernière activité",
-      "loadError": "Impossible de charger les sessions actives.",
-      "empty": "Aucune session active."
-    },
-    "shares": {
-      "title": "Partages invités actifs",
-      "loadError": "Impossible de charger les partages.",
-      "empty": "Aucun partage actif.",
-      "unnamed": "Partage sans nom"
-    }
   },
   "shares": {
     "title": "Partages invités",

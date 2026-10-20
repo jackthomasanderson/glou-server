@@ -678,6 +678,10 @@
       "H24": "24 hours",
       "H12": "12 hours (AM/PM)"
     },
+    "themes": {
+      "LIGHT": "Light",
+      "DARK": "Dark"
+    },
     "expertMode": {
       "title": "Expert / collector mode",
       "description": "Shows advanced fields (structured tasting grid, spirit cask/batch, humidor monitoring) in the forms."
@@ -1378,23 +1382,6 @@
     "deletionPending": "Deletion requested",
     "deletionRequestedOn": "Your account will be deleted on {{date}} unless you cancel before then.",
     "cancelDeletion": "Cancel deletion"
-  },
-  "accessTransparency": {
-    "title": "Access Transparency",
-    "subtitle": "Who currently has access to your account and your data.",
-    "manage": "Manage",
-    "sessions": {
-      "title": "Active sessions",
-      "lastActive": "Last active",
-      "loadError": "Unable to load active sessions.",
-      "empty": "No active session."
-    },
-    "shares": {
-      "title": "Active guest shares",
-      "loadError": "Unable to load shares.",
-      "empty": "No active share.",
-      "unnamed": "Unnamed share"
-    }
   },
   "shares": {
     "title": "Guest Shares",
