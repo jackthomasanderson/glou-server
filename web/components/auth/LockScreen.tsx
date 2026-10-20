@@ -42,7 +42,7 @@ export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="lock-screen-title"
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
+      className="fixed inset-0 z-lock flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
     >
       <Card radius="lg" shadow="sm" className="max-w-sm w-full border border-divider">
         <CardBody className="px-6 py-8 flex flex-col gap-5 items-center">

@@ -98,7 +98,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
       role="dialog"
       aria-modal="true"
       aria-label={t('onboarding.dialogLabel')}
-      className="outline-none fixed inset-0 z-[9990] flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
+      className="outline-none fixed inset-0 z-wizard flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
     >
         <CircularProgress color="primary" size="md" isIndeterminate aria-label={t('status.loading')} />
       </div>
@@ -112,7 +112,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
       role="dialog"
       aria-modal="true"
       aria-label={t('onboarding.dialogLabel')}
-      className="outline-none fixed inset-0 z-[9990] flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
+      className="outline-none fixed inset-0 z-wizard flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
     >
       <div className="max-w-2xl w-full bg-content1 border border-divider rounded-2xl shadow-lg overflow-hidden">
         {/* Header: step progress + skip / close */}

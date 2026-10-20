@@ -1,11 +1,10 @@
 'use client';
-import React, { useEffect } from 'react';
-import { Avatar, Button, Chip } from '@heroui/react';
+import React from 'react';
+import { Avatar, Button, Chip, Drawer, DrawerContent } from '@heroui/react';
 import { X, Pencil, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
-import { useModalDrawer } from '@/hooks/useModalDrawer';
 import { formatDate } from '@/lib/format';
 
 interface TastingDetailDrawerProps {
@@ -18,19 +17,6 @@ interface TastingDetailDrawerProps {
 export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDetailDrawerProps) {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
-  const { overlayRef, panelRef } = useModalDrawer(open && hasMounted && !!note);
-
-  // Hand-rolled drawer (not the shared HeroUI Modal) — Escape-to-close isn't
-  // automatic here, added explicitly. Hook must run before the early return
-  // below (rules of hooks), so the "only when open" guard lives inside it.
-  useEffect(() => {
-    if (!open) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
 
   const visible = hasMounted && open && !!note;
 
@@ -43,18 +29,16 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
     : 'default';
 
   return (
-    <div ref={overlayRef} className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        className="relative w-full sm:w-[420px] h-full bg-content1 flex flex-col overflow-hidden shadow-xl outline-none"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tasting-detail-title"
-      >
-        {/* Header */}
+    <Drawer
+      isOpen={visible}
+      onClose={onClose}
+      placement="right"
+      backdrop="opaque"
+      classNames={{ base: 'max-w-[420px] shadow-xl' }}
+    >
+      <DrawerContent>
+        <>
+          {/* Header */}
         <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
           <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-0.5">
             {t('tastings.title')}
@@ -153,7 +137,8 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
             {t('actions.edit')}
           </Button>
         </div>
-      </div>
-    </div>
+        </>
+      </DrawerContent>
+    </Drawer>
   );
 }
