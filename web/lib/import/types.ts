@@ -12,6 +12,11 @@ export interface CsvImportRow {
   producer: string;
   category: ImportCategory;
   vintage?: number;
+  // #510: optional columns.
+  purchasePrice?: number;
+  region?: string;
+  quantity?: number;
+  alcoholDegree?: number;
 }
 
 export interface CsvImportError {

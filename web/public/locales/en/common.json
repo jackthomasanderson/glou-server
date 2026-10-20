@@ -1749,7 +1749,7 @@
     },
     "csv": {
       "title": "CSV Import",
-      "subtitle": "Import a .csv file with the columns: name, producer, category, vintage (optional).",
+      "subtitle": "Import a .csv file with the columns name, producer, category (wine, sparkling, spirit, cigar) and optionally vintage, price, region, quantity, ABV. French headers and category names (nom, producteur, catégorie, millésime, prix, quantité, degré; vin, bulles, spiritueux, cigare) work too.",
       "csvOnlyHint": "Only the CSV format is supported (Excel/.xlsx is not).",
       "chooseFile": "Choose a CSV file",
       "chooseAnother": "Choose another file",
@@ -1766,10 +1766,14 @@
         "NAME_TOO_LONG": "Name exceeds 200 characters",
         "PRODUCER_REQUIRED": "Producer is missing",
         "PRODUCER_TOO_LONG": "Producer exceeds 200 characters",
-        "INVALID_CATEGORY": "Invalid category (expected: wine, sparkling, spirit or cigar)",
+        "INVALID_CATEGORY": "Invalid category (expected: wine, sparkling, spirit or cigar, or vin, bulles, spiritueux, cigare)",
         "INVALID_VINTAGE": "Invalid vintage",
+        "INVALID_PRICE": "Invalid price",
+        "INVALID_QUANTITY": "Invalid quantity (whole number from 1)",
+        "INVALID_ABV": "Invalid alcohol by volume (0 to 100)",
+        "REGION_TOO_LONG": "Region exceeds 200 characters",
         "INVALID_ROW": "Invalid row",
-        "UNRECOGNIZED_COLUMNS": "Unrecognised header: none of the expected columns (name, producer, category, vintage) were found",
+        "UNRECOGNIZED_COLUMNS": "Unrecognised header: none of the expected columns (name, producer, category, vintage…) were found",
         "INVALID_ENCODING": "This file isn't saved as UTF-8: accented characters were lost. In Excel, use \"File → Save As\" and pick \"CSV UTF-8 (Comma delimited)\", then try again."
       }
     },

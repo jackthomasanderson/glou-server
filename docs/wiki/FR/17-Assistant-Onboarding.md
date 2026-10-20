@@ -33,13 +33,16 @@ L'étape d'import fichier accepte **uniquement le CSV** : il n'y a aucun support
 | Type de fichier | `.csv` (`text/csv`, ou `application/vnd.ms-excel` envoyé par certains exports Windows pour un fichier `.csv`) |
 | Taille max | 2 Mo |
 | Lignes max | 500 (les lignes supplémentaires sont silencieusement ignorées ; seules les 500 premières sont lues) |
-| Colonnes requises | `name` (≤200 car.), `producer` (≤200 car.), `category` (`wine`, `sparkling`, `spirit` ou `cigar`) |
-| Colonne optionnelle | `vintage` (nombre entier entre 1800 et l'année courante) |
+| Colonnes requises | `nom` (≤200 car.), `producteur` (≤200 car.), `catégorie` (`vin`, `bulles`/`champagne`, `spiritueux` ou `cigare`, au singulier ou au pluriel ; `wine`, `sparkling`, `spirit`, `cigar` fonctionnent aussi) |
+| Colonnes optionnelles | `millésime` (nombre entier entre 1800 et l'année courante), `prix` (`12,50 €`, `12.50`), `région`, `quantité` (cigares, entier ≥ 1, 1 par défaut), `degré` (0 à 100) |
+| Noms de colonnes | Majuscules, accents et espaces sont ignorés ; les en-têtes anglais fonctionnent aussi : `name`, `producer`, `category`, `vintage`, `price`, `region`, `quantity`, `abv` |
+
+Un spiritueux importé sans colonne `degré` n'a pas de degré d'alcool (il n'est pas mis à 0 %) ; complétez-le ensuite depuis le formulaire de l'actif.
 
 L'import se déroule en deux étapes : un **aperçu** valide chaque ligne et signale les erreurs sans rien écrire, puis la **confirmation** enregistre toutes les lignes valides dans une transaction unique tout-ou-rien. Les champs remplis depuis le CSV sont marqués avec la source `import_csv`, visible ensuite sur la fiche détaillée de l'actif (voir [18-Transparence-Sources-Historique.md](./18-Transparence-Sources-Historique.md)).
 
 > [!TIP]
-> Pour plus de 500 lignes ou des colonnes plus riches (région, prix, quantité, format...), utilisez **l'ajout manuel** pour le premier lot via l'assistant, puis ajoutez le reste en masse depuis l'écran principal d'inventaire une fois l'onboarding terminé. Cet écran n'est pas limité à 500 lignes.
+> Pour plus de 500 lignes ou d'autres colonnes (format, emplacement en cave…), utilisez **l'ajout manuel** pour le premier lot via l'assistant, puis ajoutez le reste en masse depuis l'écran principal d'inventaire une fois l'onboarding terminé. Cet écran n'est pas limité à 500 lignes.
 
 ## Le pare-feu (troubleshooting)
 
