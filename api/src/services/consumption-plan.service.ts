@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { getAlerts, computeAlertStatus, computeReadiness } from './alert.service';
 import { CurveShape } from '../lib/maturity-curve';
 import { SetGoalInput } from '../schemas/consumption-plan.schema';
-import { FINISHED_ITEM_STATE } from '../lib/finished-item';
+import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 /**
@@ -127,8 +127,9 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
       ? prisma.inventoryItem.findMany({ where: { id: { in: alertIds } }, select: SUGGESTION_SELECT })
       : Promise.resolve([] as SourceItem[]),
     prisma.inventoryItem.findMany({
-      // FEAT-87: references are never suggested for drinking.
-      where: { deletedAt: null, ...OWNED_ITEM_FILTER, isOpened: true },
+      // FEAT-87: references are never suggested for drinking. #573: neither
+      // is a finished bottle — "opened" means there is still some left.
+      where: { ...IN_STOCK_ITEM_FILTER, isOpened: true },
       select: SUGGESTION_SELECT,
     }),
   ]);

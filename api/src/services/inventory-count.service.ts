@@ -3,8 +3,7 @@ import { prisma, PrismaTransactionClient } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
 import { InventoryInput } from '../schemas/inventory.schema';
-import { FINISHED_ITEM_STATE } from '../lib/finished-item';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
+import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER, NO_SLOT } from '../lib/finished-item';
 
 /**
  * FEAT-12: Inventaire Physique Assisté & Réconciliation.
@@ -303,8 +302,10 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
     session.cellarId
       ? prisma.inventoryItem.findMany({
           // FEAT-87: a reference is not on any shelf, so it is never part
-          // of what a count session has to find.
-          where: { cellarId: session.cellarId, deletedAt: null, ...OWNED_ITEM_FILTER },
+          // of what a count session has to find. #573: nor is a finished
+          // bottle — otherwise "Mark as consumed" below could never take a
+          // missing bottle off the list.
+          where: { cellarId: session.cellarId, ...IN_STOCK_ITEM_FILTER },
           select: REPORT_ITEM_SELECT,
           orderBy: { name: 'asc' },
         })
@@ -483,7 +484,8 @@ async function applyCorrectionsInternal(
 
     if (correction.action === 'mark_consumed') {
       // Same semantics as the existing FEAT-77 stock-update flow (see
-      // consumption-plan.service.ts header): isOpened=true, fillLevel=0.
+      // consumption-plan.service.ts header): isOpened=true, fillLevel=0, and
+      // the bottle gives its grid slot back (#573, see lib/finished-item.ts).
       //
       // `lockedFields` is deliberately NOT consulted: closing a count session
       // is an explicit user decision, and the lock only exists to stop a later
@@ -494,7 +496,7 @@ async function applyCorrectionsInternal(
       // subsequent count (ISSUE_034).
       await tx.inventoryItem.update({
         where: { id: item.id },
-        data: { ...FINISHED_ITEM_STATE, updatedAt: new Date(), updatedBy: actingUserId },
+        data: { ...FINISHED_ITEM_STATE, ...NO_SLOT, updatedAt: new Date(), updatedBy: actingUserId },
       });
       appliedCount++;
       continue;

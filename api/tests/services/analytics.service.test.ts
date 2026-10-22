@@ -236,6 +236,77 @@ describe('getAnalytics — finished bottles are not valued', () => {
   });
 });
 
+// #573: a finished bottle has been drunk. It stays an inventory row (counted,
+// valued at 0 — see above), but it no longer calls for a tasting, has no place
+// in the maturity planning and no ageing ahead.
+describe('getAnalytics — finished bottles are out of the maturity planning (#573)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([
+      { id: 'c1', name: 'Cave A', type: 'VINTAGE' },
+    ] as never);
+    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(0 as never);
+  });
+
+  it('counts a finished bottle at its peak as a row, but not as urgent, in a maturity bucket or in the garde histogram', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      // Finished, and its window is open right now.
+      item({
+        category: 'wine',
+        cellarId: 'c1',
+        estimatedValue: 80,
+        alertStatus: 'peak',
+        peakMaturityFrom: thisYear,
+        peakMaturityTo: thisYear + 2,
+        isOpened: true,
+        fillLevel: 0,
+      }),
+      // In stock, no window.
+      item({ category: 'wine', cellarId: 'c1', estimatedValue: 50, alertStatus: 'none' }),
+      // In stock, still ageing.
+      item({
+        category: 'spirit',
+        estimatedValue: 30,
+        alertStatus: 'approaching',
+        peakMaturityFrom: thisYear + 10,
+        peakMaturityTo: thisYear + 10,
+      }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    // Still an inventory row: counted everywhere, valued at nothing.
+    expect(stats.totalActiveItems).toBe(3);
+    expect(stats.categoryBreakdown.find((c) => c.category === 'wine')).toMatchObject({ count: 2, valuation: 50 });
+    expect(stats.caveDistribution.find((c) => c.cellarId === 'c1')).toMatchObject({ count: 2, valuation: 50 });
+
+    // But nothing left to drink or to age.
+    expect(stats.urgentDegustationCount).toBe(0);
+    // The buckets split the two bottles in stock, so the percents are over 2
+    // (not over the 3 rows) and add up to 100.
+    expect(stats.maturityPlanning).toEqual({
+      preserve: { count: 1, percent: 50 },
+      atPeak: { count: 0, percent: 0 },
+      pastPeak: { count: 0, percent: 0 },
+      noWindow: { count: 1, percent: 50 },
+    });
+    expect(stats.gardeHistogram).toEqual([{ year: thisYear + 10, count: 1 }]);
+  });
+
+  it('keeps an opened bottle whose fill level was never entered in the maturity planning', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ alertStatus: 'peak', peakMaturityFrom: thisYear, peakMaturityTo: thisYear, isOpened: true, fillLevel: null }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.urgentDegustationCount).toBe(1);
+    expect(stats.maturityPlanning.atPeak).toEqual({ count: 1, percent: 100 });
+    expect(stats.gardeHistogram).toEqual([{ year: thisYear, count: 1 }]);
+  });
+});
+
 // FEAT-87: analytics describe what the instance holds. A non-owned reference
 // is out of every figure, counts included — so it is excluded in SQL rather
 // than zeroed out in the loop.

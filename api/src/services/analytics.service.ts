@@ -197,6 +197,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   let preserve = 0;
   let atPeak = 0;
   let pastPeak = 0;
+  let inStockCount = 0;
 
   const categoryMap: Record<string, { count: number; valuation: number }> = {};
   const regionMap: Record<string, { count: number; valuation: number }> = {};
@@ -222,7 +223,6 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     totalLiquidLiters += computeBottleVolume(item.category, item.bottleSize, item.fillLevel);
 
     if (item.category === 'cigar') cigarModulesCount += 1;
-    if (item.alertStatus === 'past' || item.alertStatus === 'peak') urgentDegustationCount += 1;
 
     if (!categoryMap[item.category]) categoryMap[item.category] = { count: 0, valuation: 0 };
     categoryMap[item.category].count += 1;
@@ -242,6 +242,21 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       regionCategoryMap[key][item.category].count += 1;
       regionCategoryMap[key][item.category].valuation += value;
     }
+
+    // Cave distribution
+    if (item.cellarId) {
+      if (!caveMap[item.cellarId]) caveMap[item.cellarId] = { count: 0, valuation: 0 };
+      caveMap[item.cellarId].count += 1;
+      caveMap[item.cellarId].valuation += value;
+    }
+
+    // #573: a finished bottle has been drunk — it no longer calls for a
+    // tasting, has no place in the maturity planning and no ageing ahead.
+    // Everything below only describes the bottles in stock.
+    if (isFinishedItem(item)) continue;
+    inStockCount += 1;
+
+    if (item.alertStatus === 'past' || item.alertStatus === 'peak') urgentDegustationCount += 1;
 
     if (item.alertStatus === 'past') {
       pastPeak += 1;
@@ -279,17 +294,11 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
         if (w >= cutoff) gardeMap[year] = (gardeMap[year] ?? 0) + 1;
       }
     }
-
-    // Cave distribution
-    if (item.cellarId) {
-      if (!caveMap[item.cellarId]) caveMap[item.cellarId] = { count: 0, valuation: 0 };
-      caveMap[item.cellarId].count += 1;
-      caveMap[item.cellarId].valuation += value;
-    }
   }
 
   const total = items.length;
-  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+  // The maturity buckets split the bottles in stock, so they add up to 100 %.
+  const pct = (n: number) => (inStockCount > 0 ? Math.round((n / inStockCount) * 100) : 0);
 
   const movements: MovementStats = {
     added: auditMovements.find(r => r.action === 'CREATE')?._count.action ?? 0,

@@ -291,6 +291,101 @@ describe('InventoryService', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  // ─── #573: a finished bottle gives its grid slot back ──────────────────────
+
+  describe('finished bottle - grid slot (#573)', () => {
+    const slotted = {
+      id: 'b1',
+      userId: 'u1',
+      lockedFields: [],
+      deletedAt: null,
+      cellarId: 'c1',
+      slotColumn: 2,
+      slotRow: 3,
+      isOpened: true,
+      fillLevel: 25,
+    };
+
+    function updateData() {
+      return (vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> }).data;
+    }
+
+    it('updateItem - finishing a slotted bottle clears its slot without the occupancy check', async () => {
+      // Every lookup returns a row: had the slot-occupancy query run, it
+      // would have reported the slot as taken and refused the write.
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(slotted as never);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...slotted, fillLevel: 0, slotColumn: null, slotRow: null } as never);
+
+      const result = await service.updateItem('u1', 'b1', { fillLevel: 0 });
+
+      expect(prisma.inventoryItem.findFirst).toHaveBeenCalledTimes(1);
+      expect(result).not.toHaveProperty('slotConflict');
+      expect(updateData()).toMatchObject({ fillLevel: 0, slotColumn: null, slotRow: null });
+      // The history records which slot the bottle left.
+      expect(result && 'changes' in result ? result.changes : null).toEqual([
+        { field: 'fillLevel', from: 25, to: 0 },
+        { field: 'slotColumn', from: 2, to: null },
+        { field: 'slotRow', from: 3, to: null },
+      ]);
+    });
+
+    it('updateItem - the released slot wins over a slot sent alongside', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(slotted as never);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
+
+      await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0, slotColumn: 2, slotRow: 3 });
+
+      expect(prisma.inventoryItem.findFirst).toHaveBeenCalledTimes(1);
+      expect(updateData()).toMatchObject({ slotColumn: null, slotRow: null });
+    });
+
+    it('updateItem - a bottle that is not finished keeps its slot', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst)
+        .mockResolvedValueOnce(slotted as never)
+        .mockResolvedValueOnce(null); // the slot-occupancy check still runs, and passes
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...slotted, fillLevel: 50 } as never);
+
+      const result = await service.updateItem('u1', 'b1', { fillLevel: 50 });
+
+      expect(prisma.inventoryItem.findFirst).toHaveBeenCalledTimes(2);
+      const data = updateData();
+      expect(data.fillLevel).toBe(50);
+      expect(data).not.toHaveProperty('slotColumn');
+      expect(data).not.toHaveProperty('slotRow');
+      expect(result && 'changes' in result ? result.changes : null).toEqual([
+        { field: 'fillLevel', from: 25, to: 50 },
+      ]);
+    });
+
+    it('bulkUpdate - finishing a slotted item clears its slot', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+        { ...slotted, isOpened: false, fillLevel: 100 },
+      ] as never);
+      const txUpdate = mockTransactionClient();
+
+      const count = await service.bulkUpdate('u1', ['b1'], { isOpened: true, fillLevel: 0 });
+
+      expect(count).toBe(1);
+      expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({
+        where: { id: 'b1' },
+        data: { isOpened: true, fillLevel: 0, slotColumn: null, slotRow: null },
+      });
+    });
+
+    it('bulkUpdate - an item left unfinished keeps its slot', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([slotted] as never);
+      const txUpdate = mockTransactionClient();
+
+      const count = await service.bulkUpdate('u1', ['b1'], { fillLevel: 50 });
+
+      expect(count).toBe(1);
+      const data = (txUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> }).data;
+      expect(data.fillLevel).toBe(50);
+      expect(data).not.toHaveProperty('slotColumn');
+      expect(data).not.toHaveProperty('slotRow');
+    });
+  });
+
   // ISSUE_141/ISSUE_068: port of web/lib/inventory/duplicate.ts's isDuplicateOf,
   // applied server-side — the one check that previously existed only in the browser.
   describe('findDuplicateCandidate', () => {
