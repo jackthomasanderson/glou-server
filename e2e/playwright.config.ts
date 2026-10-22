@@ -41,16 +41,18 @@ export default defineConfig({
     // deterministic "main user journey" spec (ux-ui.md 6.1 — see
     // add-bottle.spec.ts) rather than the full suite: the goal is a smoke
     // check that the core flow still works on a phone-sized viewport in
-    // both engines, not to triple the whole suite's CI time.
+    // both engines, not to triple the whole suite's CI time. The first-run
+    // wizard (#574) joins it: a new member's very first minute, where
+    // windows become full-screen sheets on a phone.
     {
       name: 'mobile-chrome',
       use: { ...devices['Pixel 7'] },
-      testMatch: /add-bottle\.spec\.ts/,
+      testMatch: /(add-bottle|onboarding-wizard)\.spec\.ts/,
     },
     {
       name: 'mobile-safari',
       use: { ...devices['iPhone 14'] },
-      testMatch: /add-bottle\.spec\.ts/,
+      testMatch: /(add-bottle|onboarding-wizard)\.spec\.ts/,
     },
   ],
 });
