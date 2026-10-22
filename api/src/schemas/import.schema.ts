@@ -84,7 +84,9 @@ export const csvImportRowSchema = z.object({
   alcoholDegree: z.number().min(0).max(100).optional(),
 });
 
-export type CsvImportRow = z.infer<typeof csvImportRowSchema>;
+// #466: the row type is the contract in shared/import.ts;
+// tests/contracts/shared-contracts.test.ts checks this schema infers exactly it.
+export type { CsvImportRow } from '../../../shared/import';
 
 export const confirmCsvImportSchema = z.object({
   rows: z.array(csvImportRowSchema).min(1, 'NO_ROWS').max(500, 'TOO_MANY_ROWS'),

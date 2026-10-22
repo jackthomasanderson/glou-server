@@ -27,6 +27,8 @@ services:
   api:
     build:
       context: ./api
+      additional_contexts:
+        shared: ./shared
     depends_on:
       db:
         condition: service_healthy
@@ -59,6 +61,8 @@ services:
   web:
     build:
       context: ./web
+      additional_contexts:
+        shared: ./shared
       args:
         NEXT_PUBLIC_API_URL: http://api:3001
     # Plain ordering dependency — the CI step polls the web app for readiness,

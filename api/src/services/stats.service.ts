@@ -1,22 +1,10 @@
 import { prisma } from '../lib/prisma';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import type { SidebarCounts } from '../../../shared/stats';
 
 /** Categories the sidebar groups under "Bouteilles" (cigars have their own badge). */
 const BOTTLE_CATEGORIES = ['wine', 'sparkling', 'spirit'] as const;
-
-export interface SidebarCounts {
-  bottles: number;
-  cigars: number;
-  cellars: number;
-  collections: number;
-  /** An inventory-count session is active or paused (a single one exists instance-wide). */
-  countSessionActive: boolean;
-  /** Wishlist items whose last seen price is already at or under their ceiling. */
-  wishlistReady: number;
-  /** #380: items with a reminder due today or earlier — feeds the bell's badge without the full inventory. */
-  remindersToday: number;
-}
 
 /**
  * The five numbers the sidebar badges show, computed with COUNT queries (#212).

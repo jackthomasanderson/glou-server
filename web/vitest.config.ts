@@ -15,6 +15,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      // #466: mirrors tsconfig.json's "@shared/*" -> "../shared/*".
+      '@shared': path.resolve(__dirname, '../shared'),
     },
   },
   test: {

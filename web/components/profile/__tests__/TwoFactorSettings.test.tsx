@@ -54,6 +54,10 @@ function makeUser(isTwoFactorEnabled: boolean): PublicUser {
     isAdmin: false,
     isTwoFactorEnabled,
     createdAt: '2026-01-01T00:00:00.000Z',
+    deletionRequestedAt: null,
+    hasPin: false,
+    autoLockDelayMin: null,
+    onboardingCompletedAt: null,
     mustChangePassword: false,
   };
 }

@@ -102,7 +102,7 @@ describe('2FA schemas', () => {
 describe('password minimum length', () => {
   it('is enforced identically on sign-up and password change', async () => {
     const { updatePasswordSchema } = await import('../../src/schemas/user.schema');
-    const { PASSWORD_MIN_LENGTH } = await import('../../src/schemas/password');
+    const { PASSWORD_MIN_LENGTH } = await import('../../../shared/auth');
     expect(PASSWORD_MIN_LENGTH).toBe(12);
     expect(updatePasswordSchema.safeParse({ currentPassword: 'x', newPassword: 'wine1234' }).success).toBe(false);
     expect(updatePasswordSchema.safeParse({ currentPassword: 'x', newPassword: 'a'.repeat(12) }).success).toBe(true);

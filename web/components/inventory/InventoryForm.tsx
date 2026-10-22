@@ -31,6 +31,7 @@ import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import {
   CURVE_SHAPES, DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey,
 } from '@/lib/maturity-references/curve';
+import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '@shared/inventory';
 
 interface InventoryFormProps {
   open: boolean;
@@ -362,7 +363,7 @@ export function InventoryForm({
                             selectedKeys={values.color ? [values.color] : []}
                             onSelectionChange={(keys) => setField('color', Array.from(keys)[0] || undefined)}
                           >
-                            {(['', 'red', 'white', 'rosé', 'orange']).map((c) => (
+                            {(['', ...WINE_COLORS]).map((c) => (
                               <SelectItem key={c}>{c ? t(`inventory.color.${c}`) : <em>—</em>}</SelectItem>
                             ))}
                           </Select>
@@ -409,7 +410,7 @@ export function InventoryForm({
                             selectedKeys={values.sparklingType ? [values.sparklingType] : []}
                             onSelectionChange={(keys) => setField('sparklingType', Array.from(keys)[0] || undefined)}
                           >
-                            {(['', 'champagne', 'cremant', 'prosecco', 'cava', 'petnat', 'other']).map((s) => (
+                            {(['', ...SPARKLING_TYPES]).map((s) => (
                               <SelectItem key={s}>{s ? t(`inventory.sparklingTypes.${s}`) : <em>—</em>}</SelectItem>
                             ))}
                           </Select>
@@ -420,7 +421,7 @@ export function InventoryForm({
                             selectedKeys={values.sugarLevel ? [values.sugarLevel] : []}
                             onSelectionChange={(keys) => setField('sugarLevel', Array.from(keys)[0] || undefined)}
                           >
-                            {(['', 'extra-brut', 'brut', 'extra-sec', 'sec', 'demi-sec', 'doux']).map((s) => (
+                            {(['', ...SUGAR_LEVELS]).map((s) => (
                               <SelectItem key={s}>{s ? t(`inventory.sugarLevels.${s}`) : <em>—</em>}</SelectItem>
                             ))}
                           </Select>

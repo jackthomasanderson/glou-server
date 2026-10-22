@@ -6,6 +6,7 @@ import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { isFinishedItem, NO_SLOT } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
+import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
 // endpoints (uploads/products/*) is ever safe to delete from disk — an
@@ -19,17 +20,17 @@ export interface FieldChange {
 }
 
 /**
- * Origin of a field's current value (FEAT-05). Stored per-field in
- * `InventoryItem.fieldSources` — a field with no entry in that map is
- * implicitly 'manual'. 'ocr' is populated by the FEAT-04 scan pipeline
- * (see scan.service.ts computeOcrFieldSources).
+ * Origin of a field's current value (FEAT-05), stored per field in
+ * `InventoryItem.fieldSources`; declared in shared/inventory.ts (#466) and
+ * re-exported for import.service.ts and scan.service.ts. 'ocr' is populated by
+ * the FEAT-04 scan pipeline (see scan.service.ts computeOcrFieldSources).
  *
  * #102: a fourth value, 'enrichment', used to be reserved here for a
  * third-party lookup pipeline (Vivino/Whiskybase) that was never built
  * (#74) and never wrote it — removed rather than kept as protective
  * machinery for a pipeline that doesn't exist.
  */
-export type FieldSource = 'manual' | 'ocr' | 'import_csv';
+export type { FieldSource };
 
 export type RollbackFieldResult =
   | { status: 'not_found' }
@@ -111,9 +112,6 @@ function attachReadiness<
     ),
   };
 }
-
-/** Corbeille : 7 jours avant purge définitive */
-const TRASH_RETENTION_DAYS = 7;
 
 export class InventoryService {
   /**

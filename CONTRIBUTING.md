@@ -17,6 +17,7 @@ This document explains how to propose changes to Glou.
 | --- | --- |
 | `api/` | Node.js + TypeScript, Express, Prisma, PostgreSQL, Zod, Vitest |
 | `web/` | Next.js (App Router), React Query, Tailwind CSS, HeroUI, Vitest |
+| `shared/` | TypeScript contracts read by both `api/` and `web/` (no dependencies) |
 | `docs/wiki/` | User documentation (FR/EN) |
 | `docker-compose*.yml` | Local dev and self-hosted stack |
 
@@ -35,6 +36,8 @@ To work on a package directly:
 cd api && npm ci && npm run db:generate && npm run dev
 cd web && npm ci && npm run dev
 ```
+
+**Shared contracts.** `shared/` holds the TypeScript contracts both packages read: response shapes, value lists, rule constants. Import them instead of redeclaring them — by relative path in `api/` (`../../../shared/auth`), as `@shared/auth` in `web/`. Files there import nothing but each other: no npm package, no Prisma, no zod. To build an image by hand, pass the folder as a named context: `docker build --build-context shared=./shared ./api`.
 
 ## Branching and pull requests
 

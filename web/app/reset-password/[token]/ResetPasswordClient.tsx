@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { configClient } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
-import { PASSWORD_MIN_LENGTH } from '@/lib/password';
+import { PASSWORD_MIN_LENGTH } from '@shared/auth';
 
 export function ResetPasswordClient() {
   const { t } = useTranslation();

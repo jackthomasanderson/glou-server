@@ -1,4 +1,8 @@
+import path from 'node:path';
 import withPWAInit from '@ducanh2912/next-pwa';
+// Default import of the CommonJS module: named-export detection of Next's
+// compiled CJS is not guaranteed.
+import nextConstants from 'next/constants.js';
 
 // IMPORTANT: Next.js 16 defaults to Turbopack, which does not run webpack
 // plugins — @ducanh2912/next-pwa generates the service worker via a Workbox
@@ -85,6 +89,12 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   serverExternalPackages: [],
+  // #466: the API↔web contracts live in ../shared (imported as @shared/*,
+  // see tsconfig.json). webpack — the production build — only compiles
+  // files inside web/ unless externalDir is on.
+  experimental: {
+    externalDir: true,
+  },
   // Private app: keep every page, guest-share links included, out of search
   // engines (#209). Paired with app/robots.ts, which crawlers may ignore.
   // ISSUE_053: the API's own `helmet()` only ever covers its JSON responses
@@ -132,4 +142,14 @@ const nextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+// #466: Turbopack (`next dev`) resolves nothing outside its root, which Next
+// infers as web/ (the folder holding the lockfile); ../shared needs the
+// repository root. Development only: Next forces outputFileTracingRoot to
+// the same value, which in a production build would move the standalone
+// server to .next/standalone/web/server.js and break web/Dockerfile.
+export default function config(phase) {
+  if (phase === nextConstants.PHASE_DEVELOPMENT_SERVER) {
+    return withPWA({ ...nextConfig, turbopack: { root: path.join(import.meta.dirname, '..') } });
+  }
+  return withPWA(nextConfig);
+}

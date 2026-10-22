@@ -6,18 +6,16 @@ import { useInventoryTrash, useRestoreInventoryItem } from '@/hooks/useInventory
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { InventoryListRowSkeleton } from './InventoryListRow';
+import { TRASH_RETENTION_DAYS } from '@shared/inventory';
 
 interface InventoryTrashProps {
   t: (key: string, options?: Record<string, unknown>) => string;
   lockedCategories?: string[];
 }
 
-// Mirrors api/src/services/inventory.service.ts's TRASH_RETENTION_DAYS. The
-// trash list endpoint doesn't carry a precomputed countdown (only the
+// The trash list endpoint doesn't carry a precomputed countdown (only the
 // single-item delete response does, for the undo toast), so it's recomputed
 // here from the `deletedAt` every trashed item already has.
-const TRASH_RETENTION_DAYS = 7;
-
 function daysLeft(deletedAt: string): number {
   const expiresAt = new Date(deletedAt).getTime() + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
   return Math.max(0, Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000)));

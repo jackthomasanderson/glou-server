@@ -7,6 +7,10 @@
       "ES2022"
     ],
     "outDir": "./dist",
+    // #466: ../shared holds the contracts shared with web/. An explicit rootDir
+    // keeps the dist/ layout fixed whatever files the program pulls in:
+    // dist/api/src/index.js and dist/shared/*.js (relative requires preserved).
+    "rootDir": "..",
     "strict": true,
     "noImplicitAny": true,
     "esModuleInterop": true,
@@ -19,7 +23,8 @@
   },
   "include": [
     "src/**/*",
-    "tests/**/*"
+    "tests/**/*",
+    "../shared/**/*"
   ],
   "exclude": [
     "node_modules",

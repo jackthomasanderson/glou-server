@@ -6,7 +6,7 @@ import { KeyRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useUpdatePassword } from '@/hooks/useAuth';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
-import { PASSWORD_MIN_LENGTH } from '@/lib/password';
+import { PASSWORD_MIN_LENGTH } from '@shared/auth';
 import { useRestoreFocus } from '@/hooks/useRestoreFocus';
 
 const ME_KEY = ['auth', 'me'];
