@@ -11,8 +11,9 @@ import { useMe } from '@/hooks/useAuth';
 import {
   useAdminUsers, useUpdateUserRole, useUpdateUserStatus, useResetUserPassword,
   useAdminAuditLogs, usePurgeData,
-  AdminUser, AuditLogEntry, AuditLogFilters, PurgeResult,
+  AdminUser, AuditLogEntry, AuditLogFilters,
 } from '@/hooks/useAdmin';
+import type { PurgeResponse } from '@shared/maintenance';
 import { useRouter } from 'next/navigation';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { MaturityReferencesSection } from '@/components/admin/MaturityReferencesSection';
@@ -54,7 +55,7 @@ export function AdminClient() {
   const [isPurgeDialogOpen, setIsPurgeDialogOpen] = React.useState(false);
   const [confirmationText, setConfirmationText] = React.useState('');
   const [purgePassword, setPurgePassword] = React.useState('');
-  const [purgeResult, setPurgeResult] = React.useState<PurgeResult | null>(null);
+  const [purgeResult, setPurgeResult] = React.useState<PurgeResponse | null>(null);
   const [purgeError, setPurgeError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -108,7 +109,7 @@ export function AdminClient() {
     if (confirmationText !== t('admin.maintenance.purge.keywordValue') || !purgePassword) return;
     setPurgeError(null);
     purgeAll({ password: purgePassword }, {
-      onSuccess: (data: PurgeResult) => {
+      onSuccess: (data: PurgeResponse) => {
         setPurgeResult(data);
         setIsPurgeDialogOpen(false);
         setConfirmationText('');

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CURVE_SHAPES } from '../lib/maturity-curve';
 import { categorySchema } from '../lib/category';
+import { ALERT_STATUSES, SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '../../../shared/inventory';
 
 // ─── Common fields (all categories) ─────────────────────────────────────────
 
@@ -23,7 +24,7 @@ export const commonInventorySchema = z.object({
   fillLevel: z.number().int().min(0).max(100).optional(),
   openedAt: z.coerce.date().optional().nullable(),
   reminderDate: z.coerce.date().optional().nullable(),
-  alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
+  alertStatus: z.enum(ALERT_STATUSES).default('none'),
   // FEAT-86: consumption-curve shape for this bottle's drinking window.
   // null/omitted = inherit the LINEAR default. Wine/sparkling in practice,
   // but harmless (and simplest) to accept on the common schema.
@@ -53,7 +54,7 @@ export const commonInventorySchema = z.object({
 export const wineInventorySchema = commonInventorySchema.extend({
   category: z.literal('wine'),
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
-  color: z.enum(['red', 'white', 'rosé', 'orange']).optional(),
+  color: z.enum(WINE_COLORS).optional(),
   region: z.string().max(200).optional(),
   grapeVarieties: z.array(z.string().max(100)).max(10).default([]),
   alcoholDegree: z.number().min(0).max(100).optional(),
@@ -71,8 +72,8 @@ export const wineInventorySchema = commonInventorySchema.extend({
 export const sparklingInventorySchema = commonInventorySchema.extend({
   category: z.literal('sparkling'),
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
-  sparklingType: z.enum(['champagne', 'cremant', 'prosecco', 'cava', 'petnat', 'other']).optional(),
-  sugarLevel: z.enum(['extra-brut', 'brut', 'extra-sec', 'sec', 'demi-sec', 'doux']).optional(),
+  sparklingType: z.enum(SPARKLING_TYPES).optional(),
+  sugarLevel: z.enum(SUGAR_LEVELS).optional(),
   disgorgingDate: z.coerce.date().optional(),
   baseYear: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
   peakMaturityFrom: z.number().int().min(1800).max(2200).optional().nullable(),
@@ -147,7 +148,7 @@ export const inventoryPatchSchema = z.object({
   fillLevel: z.number().int().min(0).max(100).optional().nullable(),
   openedAt: z.coerce.date().optional().nullable(),
   reminderDate: z.coerce.date().optional().nullable(),
-  alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).optional().nullable(),
+  alertStatus: z.enum(ALERT_STATUSES).optional().nullable(),
   alertsPaused: z.boolean().optional(),
   // ISSUE_031: `lockedFields` is an internal bookkeeping field written only
   // by `InventoryService.updateItem` itself — the client has no legitimate
@@ -156,7 +157,7 @@ export const inventoryPatchSchema = z.object({
   // plain field edit is supposed to trigger (see InventoryForm.tsx).
   // Wine/Sparkling
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional().nullable(),
-  color: z.enum(['red', 'white', 'rosé', 'orange']).optional().nullable(),
+  color: z.enum(WINE_COLORS).optional().nullable(),
   region: z.string().max(200).optional().nullable(),
   grapeVarieties: z.array(z.string().max(100)).max(10).optional(),
   alcoholDegree: z.number().min(0).max(100).optional().nullable(),
@@ -167,8 +168,8 @@ export const inventoryPatchSchema = z.object({
   needsAeration: z.boolean().optional().nullable(),
   serviceTemp: z.string().max(50).optional().nullable(),
   lotNumber: z.string().max(50).optional().nullable(),
-  sparklingType: z.enum(['champagne', 'cremant', 'prosecco', 'cava', 'petnat', 'other']).optional().nullable(),
-  sugarLevel: z.enum(['extra-brut', 'brut', 'extra-sec', 'sec', 'demi-sec', 'doux']).optional().nullable(),
+  sparklingType: z.enum(SPARKLING_TYPES).optional().nullable(),
+  sugarLevel: z.enum(SUGAR_LEVELS).optional().nullable(),
   disgorgingDate: z.coerce.date().optional().nullable(),
   baseYear: z.number().int().optional().nullable(),
   // Wine collector fields (Task 2, expert mode only)

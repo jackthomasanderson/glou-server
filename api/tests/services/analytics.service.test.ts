@@ -9,7 +9,8 @@ vi.mock('../../src/lib/prisma', () => ({
 }));
 
 import { prisma } from '../../src/lib/prisma';
-import { ANALYTICS_PERIOD_SCOPE, getAnalytics } from '../../src/services/analytics.service';
+import { getAnalytics } from '../../src/services/analytics.service';
+import { ANALYTICS_PERIOD_SCOPE } from '../../../shared/analytics';
 
 type ItemRow = {
   category: string;

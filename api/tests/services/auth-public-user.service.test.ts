@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, expectTypeOf, beforeEach, vi } from 'vitest';
 
 // #576: the web shows whether 2FA is on, offers the "Disable" button and asks
 // for a code before trusting a device, all from the user object the API sends
@@ -33,7 +33,8 @@ vi.mock('jsonwebtoken', () => ({
 
 import bcrypt from 'bcryptjs';
 import { prisma } from '../../src/lib/prisma';
-import { authService, type PublicUser } from '../../src/services/auth.service';
+import { authService } from '../../src/services/auth.service';
+import type { PublicUser } from '../../../shared/auth';
 
 const deviceInfo = { userAgent: 'test-agent', ip: '127.0.0.1' };
 
@@ -89,7 +90,11 @@ const PUBLIC_USER_FIELDS = [
   'createdAt', 'dateFormat', 'deletionRequestedAt', 'displayName', 'email',
   'expertMode', 'hasPin', 'id', 'isAdmin', 'isTwoFactorEnabled', 'language',
   'mustChangePassword', 'onboardingCompletedAt', 'tempUnit', 'theme', 'username',
-];
+] as const;
+
+// #466: the list is the shared contract's keys, no more, no less — a field
+// added to shared/auth.ts fails typecheck here until the list names it.
+expectTypeOf<(typeof PUBLIC_USER_FIELDS)[number]>().toEqualTypeOf<keyof PublicUser>();
 
 /** Columns that must never leave the server. */
 const SECRET_COLUMNS = ['passwordHash', 'pinHash', 'twoFactorSecret', 'backupCodes'];

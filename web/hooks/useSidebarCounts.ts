@@ -1,17 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/lib/api';
-
-export interface SidebarCounts {
-  bottles: number;
-  cigars: number;
-  cellars: number;
-  collections: number;
-  countSessionActive: boolean;
-  wishlistReady: number;
-  /** #380: items with a reminder due today or earlier, for the bell's badge. */
-  remindersToday: number;
-}
+import type { SidebarCounts } from '@shared/stats';
 
 export const SIDEBAR_COUNTS_KEY = ['stats', 'counts'];
 

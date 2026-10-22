@@ -1,26 +1,18 @@
 import { z } from 'zod';
-import { CURVE_SHAPES, type CurveShape } from '../maturity-references/curve';
-
-export type { CurveShape };
+import {
+  ALERT_STATUSES, CATEGORY_VALUES, CURVE_SHAPES,
+  type AlertStatus, type CurveShape, type FieldSource, type InventoryCategory,
+} from '@shared/inventory';
 
 // ─── Types miroirs du backend ────────────────────────────────────────────────
 
-// ISSUE_137: the single source of truth for the category list — every other
-// `type X = 'wine' | 'sparkling' | 'spirit' | 'cigar'` duplicate across
-// web/lib now aliases InventoryCategory instead of redefining it, and the
-// Zod schema below derives from the same array instead of its own literal.
-export const CATEGORY_VALUES = ['wine', 'sparkling', 'spirit', 'cigar'] as const;
-export type InventoryCategory = (typeof CATEGORY_VALUES)[number];
-export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
-
-// ─── Field source transparency (FEAT-05) ────────────────────────────────────
-// Origin of a field's current value. A field absent from `fieldSources` is
-// implicitly 'manual'. 'ocr' is populated by the FEAT-04 scan pipeline.
-//
-// #102: a fourth value, 'enrichment', used to be reserved here for a
-// third-party lookup (Vivino, Whiskybase) that was never built (#74) and
-// never set it — removed rather than kept as dead provenance machinery.
-export type FieldSource = 'manual' | 'ocr' | 'import_csv';
+// ISSUE_137 / #466: the category list is declared once, in shared/inventory.ts,
+// with the alert statuses, curve shapes and FieldSource (FEAT-05). Every
+// `type X = 'wine' | …` duplicate across web/lib aliases InventoryCategory, and
+// the Zod schema below derives from the same arrays. #102: FieldSource's unused
+// 'enrichment' value (a lookup never built, #74) was removed.
+export { CATEGORY_VALUES };
+export type { AlertStatus, CurveShape, FieldSource, InventoryCategory };
 
 export interface CollectionSummary {
   id: string;
@@ -163,7 +155,7 @@ export const inventoryFormSchema = z.object({
   fillLevel: z.number().int().min(0).max(100).optional(),
   openedAt: z.string().optional().nullable(),
   reminderDate: z.string().optional().nullable(),
-  alertStatus: z.enum(['none', 'approaching', 'peak', 'past']).default('none'),
+  alertStatus: z.enum(ALERT_STATUSES).default('none'),
   curveShape: z.enum(CURVE_SHAPES).optional().nullable(),
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
   quantity: z.number().int().min(1).optional(),

@@ -3,7 +3,7 @@ import { z } from 'zod';
 // ─── GET /analytics ──────────────────────────────────────────────────────────
 
 // The `from`/`to` range narrows the movement counters only — see
-// `ANALYTICS_PERIOD_SCOPE` in `analytics.service.ts`. Inventory aggregates
+// `ANALYTICS_PERIOD_SCOPE` in `shared/analytics.ts`. Inventory aggregates
 // always describe the cellar as it stands right now, and the response echoes
 // that scope back so clients never present the range as a page-wide filter.
 

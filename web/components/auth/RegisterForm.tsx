@@ -10,7 +10,7 @@ import NextLink from 'next/link';
 import { useRegister } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
-import { PASSWORD_MIN_LENGTH } from '@/lib/password';
+import { PASSWORD_MIN_LENGTH } from '@shared/auth';
 
 const createRegisterSchema = (t: (key: string) => string) =>
   z.object({

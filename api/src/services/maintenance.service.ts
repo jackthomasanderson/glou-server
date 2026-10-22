@@ -3,16 +3,9 @@ import { MaintenanceRun, Prisma } from '@prisma/client';
 import { purgeOldAuditLogs } from './audit.service';
 import { scanService } from './scan.service';
 import { inventoryService } from './inventory.service';
-import { authService, ACCOUNT_DELETION_GRACE_DAYS } from './auth.service';
-
-export interface PurgeResult {
-    success: boolean;
-    counts: {
-        items: number;
-        cellars: number;
-        auditLogs: number;
-    };
-}
+import { authService } from './auth.service';
+import { ACCOUNT_DELETION_GRACE_DAYS } from '../../../shared/auth';
+import type { PurgeResult } from '../../../shared/maintenance';
 
 export type MaintenanceTrigger = 'scheduled' | 'manual';
 
@@ -29,8 +22,8 @@ export interface RetentionCounts {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// #222: ACCOUNT_DELETION_GRACE_DAYS (auth.service.ts) matches the grace period
-// communicated to the user when they request deletion (GdprSection.tsx).
+// #222: ACCOUNT_DELETION_GRACE_DAYS (shared/auth.ts, #466) is also the grace
+// period the web shows when the member requests deletion (GdprSection.tsx).
 
 // Scan label photos (uploads/scans/*, 10MB max each — see scanUpload) are
 // purged after a fixed 24h window. Not exposed via SystemConfig (unlike the
