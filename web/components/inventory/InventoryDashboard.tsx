@@ -24,6 +24,7 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useInventoryFilters } from '@/hooks/useInventoryFilters';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
 import { useDuplicateResolution } from '@/hooks/useDuplicateResolution';
+import { useScanAvailability } from '@/hooks/useScan';
 import { InventoryCardSkeleton } from './InventoryCard';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import { UndoToast } from '@/components/ui/UndoToast';
@@ -94,6 +95,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const [mode, setMode] = useState<UIMode>('idle');
   const [scanOpen, setScanOpen] = useState(false);
+  const scanAvailable = useScanAvailability();
   // Only rendered once `cellars` has loaded client-side, so reading storage lazily is hydration-safe.
   const [noCellarBannerDismissed, setNoCellarBannerDismissed] = useState(() => {
     return typeof window !== 'undefined'
@@ -445,17 +447,19 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               {items && items.length > 0 && (
                 <InventoryBulkToggleButton bulkMode={bulkMode} onToggle={toggleBulkMode} t={t} />
               )}
-              <Button
-                color="secondary"
-                variant="flat"
-                startContent={<Camera size={14} />}
-                onPress={() => setScanOpen(true)}
-                size="sm"
-                aria-label={t('scan.launchButton')}
-                isDisabled={bulkMode}
-              >
-                {t('scan.launchButton')}
-              </Button>
+              {scanAvailable && (
+                <Button
+                  color="secondary"
+                  variant="flat"
+                  startContent={<Camera size={14} />}
+                  onPress={() => setScanOpen(true)}
+                  size="sm"
+                  aria-label={t('scan.launchButton')}
+                  isDisabled={bulkMode}
+                >
+                  {t('scan.launchButton')}
+                </Button>
+              )}
               <Button
                 data-testid="inventory-add-button"
                 color="primary"
@@ -529,7 +533,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
             onClose={handleCancel}
             isSubmitting={createMutation.isPending || updateMutation.isPending || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}
             t={t}
-            onScanRequested={mode === 'creating' ? () => { setMode('idle'); setScanOpen(true); } : undefined}
+            onScanRequested={mode === 'creating' && scanAvailable ? () => { setMode('idle'); setScanOpen(true); } : undefined}
           />
 
           {/* Loading skeletons */}

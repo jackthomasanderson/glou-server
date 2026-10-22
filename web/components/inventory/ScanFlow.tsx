@@ -1,15 +1,17 @@
 'use client';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ModalContent, Button, Chip, Input, Select, SelectItem, Checkbox, CircularProgress,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf } from 'lucide-react';
+import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf, PenLine } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { useInventory, useCreateInventoryItem, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
-import { useUploadScan, useScanJob } from '@/hooks/useScan';
+import { useUploadScan, useScanJob, SCAN_STATUS_QUERY_KEY } from '@/hooks/useScan';
+import { scanErrorCause, type ScanErrorCause } from '@/lib/scan/errors';
 import { findDuplicate } from '@/lib/inventory/duplicate';
 import { inventoryClient } from '@/lib/inventory/client';
 import { getDefaultCellarForCategory, setDefaultCellarForCategory } from '@/lib/scan/defaultLocations';
@@ -71,9 +73,11 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const createMutation = useCreateInventoryItem();
   const updateMutation = useUpdateInventoryItem();
   const uploadScan = useUploadScan();
+  const queryClient = useQueryClient();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>('capture');
+  const [errorCause, setErrorCause] = useState<ScanErrorCause>('failed');
   const [jobId, setJobId] = useState<string | null>(null);
   const [reviewValues, setReviewValues] = useState<Partial<InventoryItem> | null>(null);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
@@ -103,6 +107,11 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     }
   }
 
+  const showError = (code: string | null | undefined) => {
+    setErrorCause(scanErrorCause(code));
+    setPhase('error');
+  };
+
   // React to the polled job reaching a terminal state. Same
   // render-time-adjustment pattern, keyed on the job data reference so it
   // only re-runs when the polled query result actually changes.
@@ -131,9 +140,15 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       setNothingRecognised(!extracted.name?.trim() && !extracted.producer?.trim());
       setPhase('review');
     } else if (jobQuery.data?.status === 'failed') {
-      setPhase('error');
+      showError(jobQuery.data.errorMessage);
     }
   }
+
+  // The service went away since the entry points were shown: hide them again.
+  const serviceGone = phase === 'error' && errorCause === 'unavailable';
+  useEffect(() => {
+    if (serviceGone) void queryClient.invalidateQueries({ queryKey: SCAN_STATUS_QUERY_KEY });
+  }, [serviceGone, queryClient]);
 
   const resetToCapture = () => {
     setReviewValues(null);
@@ -148,8 +163,16 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
         setJobId(newJobId);
         setPhase('processing');
       },
-      onError: () => setPhase('error'),
+      onError: (err) => showError(err.message),
     });
+  };
+
+  // From the error screen: the failed job extracted nothing, so no scanJobId
+  // is sent and no field is tagged as read from the label.
+  const openManualEntry = () => {
+    setJobId(null);
+    setReviewValues(null);
+    setFullFormOpen(true);
   };
 
   const pushCartEntry = (item: InventoryItem, mode: CartEntry['mode']) => {
@@ -329,10 +352,17 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                 {phase === 'error' && (
                   <div className="flex flex-col items-center justify-center gap-4 flex-1 px-6 py-10 text-center">
                     <AlertTriangle size={48} className="text-danger" />
-                    <p className="text-sm text-danger-600">{t('scan.error')}</p>
-                    <Button color="primary" variant="bordered" onPress={resetToCapture}>
-                      {t('scan.retry')}
-                    </Button>
+                    <p role="alert" className="text-sm text-danger-600 max-w-sm">{t(`scan.errors.${errorCause}`)}</p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button color="primary" startContent={<PenLine size={16} />} onPress={openManualEntry}>
+                        {t('scan.enterManually')}
+                      </Button>
+                      {errorCause !== 'unavailable' && (
+                        <Button color="primary" variant="bordered" onPress={resetToCapture}>
+                          {t('scan.retry')}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
 
