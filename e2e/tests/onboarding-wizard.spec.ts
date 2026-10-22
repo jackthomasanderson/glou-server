@@ -32,18 +32,8 @@ async function expectOnTop(locator: Locator, what: string) {
 
 test('first-run wizard: an error toast and the add form show above the wizard', async ({ page }) => {
   const name = `E2E Wizard ${stamp()}`;
-  const refusedCellar = `E2E cave refusée ${stamp()}`;
   let cellarId: string | undefined;
   let itemId: string | undefined;
-
-  // Registered before the page loads and switched on only for step 1: set up
-  // mid-test, the route did not catch the request in WebKit.
-  let failCellarCreation = false;
-  await page.route('**/api/cellars', (route) =>
-    failCellarCreation && route.request().method() === 'POST'
-      ? route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"INTERNAL_ERROR"}' })
-      : route.continue(),
-  );
 
   try {
     // A cellar makes the wizard resume at "How do you want to add your assets?".
@@ -59,14 +49,15 @@ test('first-run wizard: an error toast and the add form show above the wizard', 
 
     // 1. "Create a cellar" fails: its error toast must not hide behind the wizard.
     await wizard.getByRole('button', { name: 'Retour' }).click();
-    await wizard.getByPlaceholder('Ex : Cave à vin').fill(refusedCellar);
-    failCellarCreation = true;
+    // A real refusal rather than a mocked one: the API caps a cellar name at
+    // 100 characters, the wizard's field does not (a mocked route never caught
+    // this request in WebKit, and the cellar got created).
+    await wizard.getByPlaceholder('Ex : Cave à vin').fill('E2E cave refusée '.padEnd(101, 'x'));
     const refused = page.waitForResponse(
       (r) => r.url().match(/\/api\/cellars\/?$/) !== null && r.request().method() === 'POST',
     );
     await wizard.getByRole('button', { name: 'Créer la cave' }).click();
-    expect((await refused).status(), 'the cellar creation was not intercepted').toBe(500);
-    failCellarCreation = false;
+    expect((await refused).status()).toBe(400);
     const errorToast = page.getByText('Impossible de créer la cave', { exact: true });
     await expectOnTop(errorToast, 'the "cannot create the cellar" toast');
     // Error toasts stay until closed (ux-ui.md 5.3); on a phone this one would
@@ -103,11 +94,5 @@ test('first-run wizard: an error toast and the add form show above the wizard', 
   } finally {
     if (itemId) await page.request.delete(`/api/inventory/${itemId}`);
     if (cellarId) await page.request.delete(`/api/cellars/${cellarId}`);
-    // Should the refused creation ever get through, it must not stay behind.
-    const list = await page.request.get('/api/cellars');
-    const cellars = ((await list.json())?.data ?? []) as { id: string; name: string }[];
-    for (const c of cellars.filter((c) => c.name === refusedCellar)) {
-      await page.request.delete(`/api/cellars/${c.id}`);
-    }
   }
 });
