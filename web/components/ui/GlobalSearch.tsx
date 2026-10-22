@@ -207,7 +207,7 @@ export function GlobalSearch() {
       />
       <ResultsStatus query={query} count={options.length} />
       {expanded && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-content1 rounded-xl shadow-lg border border-divider overflow-hidden">
+        <div className="absolute top-full left-0 right-0 mt-1 z-40 bg-content1 rounded-xl shadow-lg border border-divider overflow-hidden">
           <ResultsList
             listId={listId}
             options={options}

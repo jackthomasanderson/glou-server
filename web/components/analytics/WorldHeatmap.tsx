@@ -266,7 +266,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
 
         {hovered && (
           <div
-            className="fixed z-50 pointer-events-none bg-content1 border border-divider rounded-xl shadow-lg px-3 py-2"
+            className="fixed z-40 pointer-events-none bg-content1 border border-divider rounded-xl shadow-lg px-3 py-2"
             style={{ left: hovered.x + 12, top: hovered.y + 12 }}
           >
             <RegionTooltip marker={hovered.marker} t={t} lang={i18n.language} />

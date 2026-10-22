@@ -56,20 +56,13 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
 
   // Resume logic: skip straight to the ingestion choice if a cellar already
   // exists (created in an earlier, interrupted pass through the wizard).
-  // Adjusted during render (React's documented pattern) rather than in an
-  // effect, guarded against the previous render's values so it only fires
-  // on an actual change.
-  const [prevResumeKey, setPrevResumeKey] = useState([resumed, cellarsLoading, cellars]);
-  if (
-    resumed !== prevResumeKey[0] ||
-    cellarsLoading !== prevResumeKey[1] ||
-    cellars !== prevResumeKey[2]
-  ) {
-    setPrevResumeKey([resumed, cellarsLoading, cellars]);
-    if (!resumed && !cellarsLoading) {
-      setStep(cellars && cellars.length > 0 ? 'ingestion-choice' : 'welcome');
-      setResumed(true);
-    }
+  // Decided once, during render (React's documented pattern), as soon as the
+  // cellars are known — including when they were already loaded before the
+  // wizard opened (#574: waiting for the query to *change* left the wizard
+  // spinning forever in that case).
+  if (!resumed && !cellarsLoading) {
+    setStep(cellars && cellars.length > 0 ? 'ingestion-choice' : 'welcome');
+    setResumed(true);
   }
 
   const stepIndex = STEPS.indexOf(step);
@@ -199,8 +192,10 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
         {step === 'ingestion-execute' && ingestionMode === 'scan' && (
           <ScanIngestionStep
             cellarId={cellarId}
+            itemsAdded={itemsAdded}
             onItemAdded={() => setItemsAdded((n) => n + 1)}
             onDone={() => setStep('summary')}
+            onBack={() => setStep('ingestion-choice')}
           />
         )}
 

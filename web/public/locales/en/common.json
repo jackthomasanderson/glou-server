@@ -1767,6 +1767,13 @@
       "itemsAdded_other": "{{count}} assets added so far",
       "doneButton": "Finish adding"
     },
+    "scan": {
+      "title": "Quick scan",
+      "subtitle": "Photograph your labels one by one, then continue.",
+      "itemsAdded_one": "{{count}} asset added so far",
+      "itemsAdded_other": "{{count}} assets added so far",
+      "doneButton": "Finish adding"
+    },
     "csv": {
       "title": "CSV Import",
       "subtitle": "Import a .csv file with the columns name, producer, category (wine, sparkling, spirit, cigar) and optionally vintage, price, region, quantity, ABV. French headers and category names (nom, producteur, catégorie, millésime, prix, quantité, degré; vin, bulles, spiritueux, cigare) work too.",
