@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Fixed
+- With two-factor authentication on, the profile showed it as off, offered no way to turn it off, and *Trust this device* failed because it never asked for the code. The 2FA status is now shown correctly (#677, #576).
+
 ## v2026.10.0 - 2026-10-20
 
 ### Security
