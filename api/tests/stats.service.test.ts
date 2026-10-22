@@ -79,3 +79,34 @@ describe('statsService.getSidebarCounts excludes non-owned references (FEAT-87)'
     }
   });
 });
+
+// #573: a finished bottle (opened, nothing left) stays in the inventory for
+// its history, but the badges count what is in stock — like the inventory list
+// counter (#504) and the cellar cards. A reminder is not stock: it still counts.
+describe('statsService.getSidebarCounts counts only bottles in stock (#573)', () => {
+  it('leaves finished bottles out of the bottle and cigar badges, not out of the reminders', async () => {
+    vi.clearAllMocks();
+    db.inventoryItem.count.mockResolvedValue(0);
+    db.cellar.count.mockResolvedValue(0);
+    db.collection.count.mockResolvedValue(0);
+    db.inventoryCountSession.findFirst.mockResolvedValue(null);
+    db.wishlistItem.findMany.mockResolvedValue([]);
+
+    await statsService.getSidebarCounts('u1');
+
+    const inStock = {
+      deletedAt: null,
+      isOwned: true,
+      // `not: null` keeps an opened bottle with no recorded level counted.
+      NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
+    };
+    expect(db.inventoryItem.count).toHaveBeenCalledTimes(3);
+    expect(db.inventoryItem.count).toHaveBeenNthCalledWith(1, {
+      where: { ...inStock, category: { in: ['wine', 'sparkling', 'spirit'] } },
+    });
+    expect(db.inventoryItem.count).toHaveBeenNthCalledWith(2, { where: { ...inStock, category: 'cigar' } });
+    expect(db.inventoryItem.count).toHaveBeenNthCalledWith(3, {
+      where: { deletedAt: null, isOwned: true, reminderDate: { not: null, lte: expect.any(Date) } },
+    });
+  });
+});

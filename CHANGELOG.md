@@ -12,6 +12,7 @@ Entries start with the pull request that introduced them where there is one.
 
 ### Fixed
 - With two-factor authentication on, the profile showed it as off, offered no way to turn it off, and *Trust this device* failed because it never asked for the code. The 2FA status is now shown correctly (#677, #576).
+- A bottle you have finished (opened, nothing left) no longer counts as stock. It leaves the peak alerts and the bell, the peak e-mails, the *To drink* suggestions, the expected list of inventory counts (so *Mark as consumed* finally takes a missing bottle off it), the cellar map and the analytics maturity figures. The sidebar badge and the cellar cards count only what you hold, like the inventory list. A finished bottle gives its cellar-map slot back; an update frees the slots of bottles already finished (#678, #573).
 
 ## v2026.10.0 - 2026-10-20
 

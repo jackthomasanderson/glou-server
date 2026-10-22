@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput, SwapSlotsInput } from '../schemas/cellar.schema';
-import { NOT_FINISHED_ITEM_FILTER } from '../lib/finished-item';
+import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { toNumber } from '../lib/decimal';
 
@@ -27,22 +27,16 @@ export class CellarService {
     today.setHours(23, 59, 59, 999);
     const cellarIds = cellars.map((c) => c.id);
 
-    // ISSUE_239: the value of a cellar is what it still holds, so the
-    // valuation is a second, narrower aggregate — a finished bottle (opened,
-    // nothing left) still occupies its slot and is still counted by
-    // `totalItems`, but it is worth nothing. Prisma cannot apply two
-    // different filters inside one groupBy, hence the extra query.
-    const [aggGroups, valueGroups, alertGroups] = await Promise.all([
+    // ISSUE_239 + #573: a cellar card counts and values what the cellar
+    // still holds — the same scope as the sidebar badge and the inventory
+    // list counter (#504). A finished bottle (opened, nothing left) stays in
+    // the inventory for its history, but is neither counted nor valued here.
+    const [inStockGroups, alertGroups] = await Promise.all([
       prisma.inventoryItem.groupBy({
         by: ['cellarId'],
-        where: { cellarId: { in: cellarIds }, deletedAt: null, ...OWNED_ITEM_FILTER },
+        where: { cellarId: { in: cellarIds }, ...IN_STOCK_ITEM_FILTER },
         _count: { id: true },
-        _sum: { quantity: true },
-      }),
-      prisma.inventoryItem.groupBy({
-        by: ['cellarId'],
-        where: { cellarId: { in: cellarIds }, deletedAt: null, ...OWNED_ITEM_FILTER, ...NOT_FINISHED_ITEM_FILTER },
-        _sum: { estimatedValue: true },
+        _sum: { quantity: true, estimatedValue: true },
       }),
       prisma.inventoryItem.groupBy({
         by: ['cellarId'],
@@ -51,18 +45,17 @@ export class CellarService {
       }),
     ]);
 
-    const aggMap = new Map(aggGroups.map((g) => [g.cellarId, g]));
-    const valueMap = new Map(valueGroups.map((g) => [g.cellarId, toNumber(g._sum.estimatedValue)]));
+    const inStockMap = new Map(inStockGroups.map((g) => [g.cellarId, g]));
     const alertMap = new Map(alertGroups.map((g) => [g.cellarId, g._count.id]));
 
     return cellars.map((cellar) => {
-      const agg = aggMap.get(cellar.id);
+      const inStock = inStockMap.get(cellar.id);
       return {
         ...cellar,
         stats: {
-          totalItems: agg?._count.id ?? 0,
-          totalQuantity: agg?._sum.quantity ?? 0,
-          estimatedValue: valueMap.get(cellar.id) ?? null,
+          totalItems: inStock?._count.id ?? 0,
+          totalQuantity: inStock?._sum.quantity ?? 0,
+          estimatedValue: toNumber(inStock?._sum.estimatedValue),
           alertCount: alertMap.get(cellar.id) ?? 0,
         },
       };
@@ -76,17 +69,13 @@ export class CellarService {
     const today = new Date();
     today.setHours(23, 59, 59, 999);
 
-    // ISSUE_239: see listCellars — the valuation excludes finished bottles,
-    // the counts do not.
-    const [agg, value, alertCount] = await Promise.all([
+    // ISSUE_239 + #573: see listCellars — counts and valuation cover what
+    // the cellar still holds.
+    const [inStock, alertCount] = await Promise.all([
       prisma.inventoryItem.aggregate({
-        where: { cellarId: id, deletedAt: null, ...OWNED_ITEM_FILTER },
+        where: { cellarId: id, ...IN_STOCK_ITEM_FILTER },
         _count: { id: true },
-        _sum: { quantity: true },
-      }),
-      prisma.inventoryItem.aggregate({
-        where: { cellarId: id, deletedAt: null, ...OWNED_ITEM_FILTER, ...NOT_FINISHED_ITEM_FILTER },
-        _sum: { estimatedValue: true },
+        _sum: { quantity: true, estimatedValue: true },
       }),
       prisma.inventoryItem.count({
         where: { cellarId: id, deletedAt: null, ...OWNED_ITEM_FILTER, reminderDate: { lte: today } },
@@ -96,9 +85,9 @@ export class CellarService {
     return {
       ...cellar,
       stats: {
-        totalItems: agg._count.id,
-        totalQuantity: agg._sum.quantity ?? 0,
-        estimatedValue: toNumber(value._sum.estimatedValue),
+        totalItems: inStock._count.id,
+        totalQuantity: inStock._sum.quantity ?? 0,
+        estimatedValue: toNumber(inStock._sum.estimatedValue),
         alertCount,
       },
     };
@@ -126,7 +115,10 @@ export class CellarService {
     if (!cellar) return null;
 
     const items = await prisma.inventoryItem.findMany({
-      where: { cellarId, deletedAt: null },
+      // #573: the map shows what is on the shelves — a finished bottle has
+      // given its slot back (lib/finished-item.ts `NO_SLOT`), and a FEAT-87
+      // reference was never on one.
+      where: { cellarId, ...IN_STOCK_ITEM_FILTER },
       select: {
         id: true,
         name: true,

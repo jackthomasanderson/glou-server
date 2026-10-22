@@ -4,7 +4,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 import type { InventorySortBy, InventoryOpenedFilter } from '@/components/inventory/InventoryFilterBar';
-import { isOwnedItem } from '../lib/inventory/ownership';
+import { isFinishedItem, isOwnedItem } from '../lib/inventory/ownership';
 import { todayLocalIso } from '@/lib/format';
 
 export interface UseInventoryFiltersOptions {
@@ -211,9 +211,11 @@ export function useInventoryFilters({
     } else if (openedFilter === 'alerts') {
       if (!hasMounted) return [];
       const today = todayLocalIso();
+      // #573: a finished bottle raises no drinking-window alert, as in the
+      // bell (/api/alerts) — its stored status is history, not a call to act.
       result = result.filter((b: InventoryItem) =>
         (b.reminderDate && b.reminderDate.split('T')[0] <= today) ||
-        (b.alertStatus && b.alertStatus !== 'none' && !b.alertsPaused)
+        (b.alertStatus && b.alertStatus !== 'none' && !b.alertsPaused && !isFinishedItem(b))
       );
     }
     if (searchQuery.trim()) {

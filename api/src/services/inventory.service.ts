@@ -4,6 +4,7 @@ import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
+import { isFinishedItem, NO_SLOT } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
@@ -345,12 +346,32 @@ export class InventoryService {
       return { conflict: true, serverItem: existing };
     }
 
-    // Slot uniqueness: if assigning a grid slot, verify it is not occupied by another item
+    // `lockedFields` exists to stop a *later automated* update (OCR scan)
+    // from silently overwriting a manual edit — it must never block the user
+    // from manually editing that same field again (e.g. bumping the quantity
+    // of an already-locked duplicate, or resetting a bottle from "empty" back
+    // to "full"). Only a non-manual caller is filtered against it.
+    const safePatch = bypassFieldLock || isManualEdit
+      ? patch
+      : (Object.fromEntries(
+          Object.entries(patch).filter(([key]) => !existing.lockedFields.includes(key))
+        ) as InventoryPatch);
+
+    // #573: a bottle this patch leaves finished gives its grid slot back (see
+    // lib/finished-item.ts) — the cellar map hides it, so a slot it kept would
+    // look free yet refuse every other bottle. Judged on `safePatch`, i.e. on
+    // what is really written: a locked `fillLevel` stripped from an automated
+    // update must not unplace a bottle that stays full.
+    const finished = this.isFinishedAfter(existing, safePatch);
+
+    // Slot uniqueness: if assigning a grid slot, verify it is not occupied by
+    // another item. Not for a finished bottle (#573): it is leaving its slot,
+    // so it cannot conflict with anyone.
     const targetCellarId = 'cellarId' in patch ? patch.cellarId : existing.cellarId;
     const targetSlotColumn = 'slotColumn' in patch ? patch.slotColumn : existing.slotColumn;
     const targetSlotRow = 'slotRow' in patch ? patch.slotRow : existing.slotRow;
 
-    if (targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
+    if (!finished && targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
       const conflict = await prisma.inventoryItem.findFirst({
         where: {
           cellarId: targetCellarId,
@@ -363,18 +384,12 @@ export class InventoryService {
       if (conflict) return { item: existing, changes: [], slotConflict: true };
     }
 
-    // `lockedFields` exists to stop a *later automated* update (OCR scan)
-    // from silently overwriting a manual edit — it must never block the user
-    // from manually editing that same field again (e.g. bumping the quantity
-    // of an already-locked duplicate, or resetting a bottle from "empty" back
-    // to "full"). Only a non-manual caller is filtered against it.
-    const safePatch = bypassFieldLock || isManualEdit
-      ? patch
-      : (Object.fromEntries(
-          Object.entries(patch).filter(([key]) => !existing.lockedFields.includes(key))
-        ) as InventoryPatch);
+    // #573: the released slot goes into the recorded changes as well as the
+    // write, so the history records which slot the bottle left — and never a
+    // slot sent alongside that `NO_SLOT` overrides.
+    const writePatch: InventoryPatch = finished ? { ...safePatch, ...NO_SLOT } : safePatch;
 
-    const changes: FieldChange[] = Object.entries(safePatch)
+    const changes: FieldChange[] = Object.entries(writePatch)
       .filter(([key, val]) => {
         const existingVal = this.getField(existing, key);
         return JSON.stringify(existingVal) !== JSON.stringify(val);
@@ -385,7 +400,7 @@ export class InventoryService {
         to: val,
       }));
 
-    const dbData = this.mapInputToDb(safePatch);
+    const dbData = this.mapInputToDb(writePatch);
 
     // ─── FEAT-05: auto-lock manually-edited fields + reconcile fieldSources ──
     const extra: Record<string, unknown> = {};
@@ -533,10 +548,13 @@ export class InventoryService {
         // "N items updated" confirmation tells the truth.
         if (changedEntries.length === 0) continue;
 
+        const changed = Object.fromEntries(changedEntries) as InventoryPatch;
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
-            ...this.mapInputToDb(Object.fromEntries(changedEntries) as InventoryPatch),
+            ...this.mapInputToDb(changed),
+            // #573: an item this call leaves finished gives its grid slot back (see updateItem).
+            ...(this.isFinishedAfter(item, changed) ? NO_SLOT : {}),
             updatedAt: new Date(),
             updatedBy: userId,
           } as never,
@@ -710,6 +728,18 @@ export class InventoryService {
    */
   private getField(item: InventoryItem, key: string): unknown {
     return item[key as keyof InventoryItem];
+  }
+
+  /**
+   * #573: whether `item` is finished once `patch` is applied. A field the
+   * patch leaves `undefined` keeps its stored value (`mapInputToDb` drops
+   * it); an explicit `fillLevel: null` does overwrite it.
+   */
+  private isFinishedAfter(item: InventoryItem, patch: InventoryPatch): boolean {
+    return isFinishedItem({
+      isOpened: patch.isOpened === undefined ? item.isOpened : patch.isOpened,
+      fillLevel: patch.fillLevel === undefined ? item.fillLevel : patch.fillLevel,
+    });
   }
 }
 
