@@ -1,15 +1,17 @@
 'use client';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ModalContent, Button, Chip, Input, Select, SelectItem, Checkbox, CircularProgress,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf } from 'lucide-react';
+import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf, PenLine } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { useInventory, useCreateInventoryItem, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
-import { useUploadScan, useScanJob } from '@/hooks/useScan';
+import { useUploadScan, useScanJob, SCAN_STATUS_QUERY_KEY } from '@/hooks/useScan';
+import { scanErrorCause, type ScanErrorCause } from '@/lib/scan/errors';
 import { findDuplicate } from '@/lib/inventory/duplicate';
 import { inventoryClient } from '@/lib/inventory/client';
 import { getDefaultCellarForCategory, setDefaultCellarForCategory } from '@/lib/scan/defaultLocations';
@@ -71,9 +73,14 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const createMutation = useCreateInventoryItem();
   const updateMutation = useUpdateInventoryItem();
   const uploadScan = useUploadScan();
+  const queryClient = useQueryClient();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>('capture');
+  const [errorCause, setErrorCause] = useState<ScanErrorCause>('failed');
+  // Once the service is known to be gone, no photo can succeed in this session:
+  // after a hand-entered item, come back to the error screen, not to the camera.
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [reviewValues, setReviewValues] = useState<Partial<InventoryItem> | null>(null);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
@@ -100,8 +107,16 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       setDuplicateFound(null);
       setDuplicateCandidate(null);
       setCart([]);
+      setServiceUnavailable(false);
     }
   }
+
+  const showError = (code: string | null | undefined) => {
+    const cause = scanErrorCause(code);
+    setErrorCause(cause);
+    setServiceUnavailable(cause === 'unavailable');
+    setPhase('error');
+  };
 
   // React to the polled job reaching a terminal state. Same
   // render-time-adjustment pattern, keyed on the job data reference so it
@@ -131,9 +146,15 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       setNothingRecognised(!extracted.name?.trim() && !extracted.producer?.trim());
       setPhase('review');
     } else if (jobQuery.data?.status === 'failed') {
-      setPhase('error');
+      showError(jobQuery.data.errorMessage);
     }
   }
+
+  // The service went away since the entry points were shown: hide them again.
+  const serviceGone = phase === 'error' && errorCause === 'unavailable';
+  useEffect(() => {
+    if (serviceGone) void queryClient.invalidateQueries({ queryKey: SCAN_STATUS_QUERY_KEY });
+  }, [serviceGone, queryClient]);
 
   const resetToCapture = () => {
     setReviewValues(null);
@@ -148,8 +169,27 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
         setJobId(newJobId);
         setPhase('processing');
       },
-      onError: () => setPhase('error'),
+      onError: (err) => showError(err.message),
     });
+  };
+
+  // From the error screen: the failed job extracted nothing, so no scanJobId
+  // is sent and no field is tagged as read from the label. `reviewValues` is
+  // either empty here or what the user typed before a failed save: kept.
+  const openManualEntry = () => {
+    setJobId(null);
+    setNothingRecognised(false);
+    setFullFormOpen(true);
+  };
+
+  const afterCommit = () => {
+    if (!serviceUnavailable) {
+      resetToCapture();
+      return;
+    }
+    setReviewValues(null);
+    setJobId(null);
+    setPhase('error');
   };
 
   const pushCartEntry = (item: InventoryItem, mode: CartEntry['mode']) => {
@@ -170,7 +210,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     try {
       const created = await createMutation.mutateAsync(payload);
       pushCartEntry(created, 'created');
-      resetToCapture();
+      afterCommit();
     } catch (err) {
       // ISSUE_141: the client's own `items` was stale — the server's FEAT-65
       // check caught a match it couldn't see. Re-check against a fresh fetch
@@ -199,7 +239,9 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
 
   const handleAdvancedSubmit = (values: Partial<InventoryItem>) => {
     setFullFormOpen(false);
-    void commitItem(values);
+    // An untouched cellar field (undefined, not the explicit "none") gets the
+    // wizard's cellar, as the scan review and ManualIngestionStep do.
+    void commitItem(values.cellarId === undefined ? { ...values, cellarId: defaultCellarId } : values);
   };
 
   const handleDuplicateIncrement = async () => {
@@ -210,7 +252,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       pushCartEntry(updated, 'incremented');
       setDuplicateFound(null);
       setDuplicateCandidate(null);
-      resetToCapture();
+      afterCommit();
     } catch {
       // Reported by the mutation's onError toast.
     }
@@ -225,7 +267,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     try {
       const created = await createMutation.mutateAsync(payload);
       pushCartEntry(created, 'created');
-      resetToCapture();
+      afterCommit();
     } catch {
       // Reported by the mutation's onError toast.
     }
@@ -329,10 +371,17 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                 {phase === 'error' && (
                   <div className="flex flex-col items-center justify-center gap-4 flex-1 px-6 py-10 text-center">
                     <AlertTriangle size={48} className="text-danger" />
-                    <p className="text-sm text-danger-600">{t('scan.error')}</p>
-                    <Button color="primary" variant="bordered" onPress={resetToCapture}>
-                      {t('scan.retry')}
-                    </Button>
+                    <p role="alert" className="text-sm text-danger-600 max-w-sm">{t(`scan.errors.${errorCause}`)}</p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button color="primary" startContent={<PenLine size={16} />} onPress={openManualEntry}>
+                        {t('scan.enterManually')}
+                      </Button>
+                      {errorCause !== 'unavailable' && (
+                        <Button color="primary" variant="bordered" onPress={resetToCapture}>
+                          {t('scan.retry')}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
 

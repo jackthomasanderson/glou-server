@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { categorySchema } from '../lib/category';
+import type { ScanFailureCode } from '../../../shared/scan';
 
 // ─── FEAT-04: Scan Étiquette & Ajout Express — Vision/OCR via Ollama ─────────
 // Self-hosted, privacy-respecting vision LLM (design.md "Services OCR ...
@@ -18,6 +19,67 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'moondream';
 const DEFAULT_OLLAMA_TIMEOUT_MS = 600_000;
 const parsedTimeout = Number(process.env.OLLAMA_TIMEOUT_MS);
 const OLLAMA_TIMEOUT_MS = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : DEFAULT_OLLAMA_TIMEOUT_MS;
+
+// #639: the `ollama` service only runs with `--profile scan`. The availability
+// probe gates every scan entry point, so it must answer fast when the host does
+// not resolve, and is cached so a page load does not hit the service each time.
+const AVAILABILITY_TIMEOUT_MS = 3_000;
+const AVAILABILITY_CACHE_MS = 30_000;
+
+/** A scan failure whose cause can be told to the user. */
+export class OcrError extends Error {
+  constructor(public readonly code: ScanFailureCode, cause?: unknown) {
+    super(code, { cause });
+    this.name = 'OcrError';
+  }
+}
+
+// Node's fetch gives up by itself after 300 s without response headers
+// (undici's headersTimeout), before a longer OLLAMA_TIMEOUT_MS fires; Ollama
+// sends nothing until the analysis is over (`stream: false`).
+const FETCH_TIMEOUT_CODES = new Set(['UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT']);
+
+function isFetchTimeout(error: unknown): boolean {
+  const cause = error instanceof Error ? error.cause : undefined;
+  return typeof cause === 'object' && cause !== null && 'code' in cause && FETCH_TIMEOUT_CODES.has(String(cause.code));
+}
+
+// The in-flight or settled probe: concurrent checks share it, and a reset
+// cannot be overwritten by a probe started before it.
+let availabilityProbe: { result: Promise<boolean>; startedAt: number } | null = null;
+
+/** Ollama lists `moondream` as `moondream:latest`; a tag in OLLAMA_MODEL must match exactly. */
+function isConfiguredModel(name: string): boolean {
+  return OLLAMA_MODEL.includes(':') ? name === OLLAMA_MODEL : name === OLLAMA_MODEL || name.startsWith(`${OLLAMA_MODEL}:`);
+}
+
+/**
+ * True when the recognition service answers and the vision model is already
+ * pulled (`ollama-pull` downloads it after the first start, ~1.7 GB).
+ */
+export function isScanAvailable(): Promise<boolean> {
+  if (availabilityProbe && Date.now() - availabilityProbe.startedAt < AVAILABILITY_CACHE_MS) {
+    return availabilityProbe.result;
+  }
+  availabilityProbe = { result: probeScanService(), startedAt: Date.now() };
+  return availabilityProbe.result;
+}
+
+async function probeScanService(): Promise<boolean> {
+  try {
+    const res = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(AVAILABILITY_TIMEOUT_MS) });
+    if (!res.ok) return false;
+    const body = (await res.json()) as { models?: { name?: unknown }[] };
+    return (body.models ?? []).some((m) => typeof m.name === 'string' && isConfiguredModel(m.name));
+  } catch {
+    return false;
+  }
+}
+
+/** Forgets the cached probe, so the next scan request re-checks the service. */
+export function resetScanAvailabilityCache(): void {
+  availabilityProbe = null;
+}
 
 export const ocrExtractedDataSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -127,41 +189,53 @@ function normalizeRawExtraction(raw: unknown): OcrExtractedData {
  * best-effort extracted fields. Never throws for a "the model returned
  * garbage" case — returns `{}` instead so the caller (scan.service.ts) can
  * still surface a "done" job with an empty/partial form for manual entry.
- * Only throws for actual infrastructure failures (Ollama unreachable, HTTP
- * error, timeout) so the job is correctly marked 'failed' in that case.
+ * Only throws, as an `OcrError`, for actual infrastructure failures (Ollama
+ * unreachable, HTTP error, timeout) so the job is correctly marked 'failed'
+ * with a cause the user can be told (#639).
  */
 export async function analyzeLabelImage(imageBase64: string): Promise<OcrExtractedData> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
+  // Surface timeouts explicitly instead of a bare "AbortError" (#319).
+  const timeoutError = () => new OcrError('SCAN_TIMEOUT', new Error(`OLLAMA_TIMEOUT_AFTER_${OLLAMA_TIMEOUT_MS}MS`));
 
-  let res: Response;
+  let body: { response?: string };
   try {
-    res = await fetch(`${OLLAMA_URL}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        prompt: PROMPT,
-        images: [imageBase64],
-        stream: false,
-      }),
-      signal: controller.signal,
-    });
-  } catch (error) {
-    // Surface timeouts explicitly instead of a bare "AbortError" (#319).
-    if (controller.signal.aborted) {
-      throw new Error(`OLLAMA_TIMEOUT_AFTER_${OLLAMA_TIMEOUT_MS}MS`);
+    let res: Response;
+    try {
+      res = await fetch(`${OLLAMA_URL}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          prompt: PROMPT,
+          images: [imageBase64],
+          stream: false,
+        }),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (controller.signal.aborted || isFetchTimeout(error)) throw timeoutError();
+      resetScanAvailabilityCache();
+      throw new OcrError('SCAN_UNAVAILABLE', error);
     }
-    throw error;
+
+    if (!res.ok) {
+      // 404: the model is not pulled yet. 502-504: a proxy in front of a stopped service.
+      const unavailable = res.status === 404 || (res.status >= 502 && res.status <= 504);
+      if (unavailable) resetScanAvailabilityCache();
+      throw new OcrError(unavailable ? 'SCAN_UNAVAILABLE' : 'SCAN_FAILED', new Error(`OLLAMA_REQUEST_FAILED_${res.status}`));
+    }
+
+    try {
+      body = (await res.json()) as { response?: string };
+    } catch (error) {
+      throw controller.signal.aborted || isFetchTimeout(error) ? timeoutError() : new OcrError('SCAN_FAILED', error);
+    }
   } finally {
     clearTimeout(timeout);
   }
 
-  if (!res.ok) {
-    throw new Error(`OLLAMA_REQUEST_FAILED_${res.status}`);
-  }
-
-  const body = (await res.json()) as { response?: string };
   const rawText = body.response ?? '';
   const jsonBlock = extractFirstJsonBlock(rawText);
   const extracted = normalizeRawExtraction(jsonBlock);

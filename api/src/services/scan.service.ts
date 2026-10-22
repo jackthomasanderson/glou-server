@@ -1,7 +1,8 @@
 import fs from 'fs/promises';
 import { Prisma } from '@prisma/client';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
-import { analyzeLabelImage, OcrExtractedData } from './ocr.service';
+import { analyzeLabelImage, OcrError, OcrExtractedData } from './ocr.service';
+import type { ScanFailureCode } from '../../../shared/scan';
 import { FieldSource } from './inventory.service';
 
 // ─── FEAT-04: Scan Étiquette & Ajout Express — DB-persisted job queue ────────
@@ -47,11 +48,13 @@ export const scanService = {
     } catch (error) {
       // Persisted onto the job row for the client, but that's not enough to
       // debug from the server side (#292: users reporting repeated scan
-      // failures with no way to tell why) — log it too.
+      // failures with no way to tell why) — log it too. The job only keeps a
+      // code the client turns into a message (#639); the raw cause stays here.
       console.error(`[scan] Job ${jobId} failed:`, error);
+      const code: ScanFailureCode = error instanceof OcrError ? error.code : 'SCAN_FAILED';
       await prisma.scanJob.update({
         where: { id: jobId },
-        data: { status: 'failed', errorMessage: error instanceof Error ? error.message : String(error) },
+        data: { status: 'failed', errorMessage: code },
       });
     }
     // NOTE: the uploaded photo (uploads/scans/*) is intentionally kept on
@@ -155,7 +158,7 @@ export const scanService = {
   async recoverStuckJobs(): Promise<number> {
     const result = await prisma.scanJob.updateMany({
       where: { status: { in: ['pending', 'processing'] } },
-      data: { status: 'failed', errorMessage: 'Interrupted by a server restart.' },
+      data: { status: 'failed', errorMessage: 'SCAN_INTERRUPTED' satisfies ScanFailureCode },
     });
     return result.count;
   },

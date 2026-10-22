@@ -435,16 +435,6 @@ adminRouter.put('/config/notifications', async (req: Request, res: Response): Pr
 adminRouter.put('/config/integrations', async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = integrationsConfigSchema.parse(req.body);
-    // ISSUE_048: defense in depth, even though nothing reads this field today.
-    if (parsed.ocrUrl) {
-      try {
-        await assertUrlAllowed(parsed.ocrUrl);
-      } catch (err) {
-        console.error('[admin] PUT /config/integrations error:', err);
-        res.status(400).json({ error: 'INVALID_URL' });
-        return;
-      }
-    }
     const config = await systemConfigService.updateIntegrations(parsed, req.userId);
     res.json({ data: config });
   } catch (err) {

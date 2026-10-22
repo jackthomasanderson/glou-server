@@ -1579,11 +1579,15 @@
       "vivinoKey": "Vivino API key",
       "whiskybaseKey": "Whiskybase API key",
       "vivinoWhiskybaseNotUsedYet": "Coming soon — stored securely, but no feature reads these keys yet.",
-      "ocrUrl": "OCR service URL",
-      "ocrUrlPlaceholder": "https://ocr.example.com/extract",
       "keyPlaceholder": "Leave blank to keep current",
       "save": "Save integrations",
-      "saved": "Integrations saved."
+      "saved": "Integrations saved.",
+      "scan": {
+        "title": "Label scanning",
+        "active": "Active",
+        "inactive": "Not enabled",
+        "howToEnable": "The recognition service is not running, or its model is still downloading, so scanning is hidden from members. To enable it (about 9 GB of disk and 3 GB of memory), run the command below on the server, then wait for the model download to finish:"
+      }
     },
     "history": {
       "noHistory": "No changes recorded."
@@ -1925,8 +1929,16 @@
     },
     "uploading": "Uploading photo…",
     "processing": "Analyzing the label… this can take a few moments.",
-    "error": "Analyzing the photo failed. Try again with a sharper or better-lit photo.",
+    "errors": {
+      "unavailable": "The label recognition service is not available on this server. You can enter the item by hand.",
+      "rateLimited": "Too many scans in a short time. Try again in a few minutes.",
+      "photoRejected": "This photo could not be sent: it is too large (10 MB max) or its format is not supported (JPEG, PNG, WebP or GIF).",
+      "timeout": "The analysis took too long: this server probably lacks the power for label recognition.",
+      "interrupted": "The analysis was interrupted by a server restart. Take the photo again.",
+      "failed": "The label analysis failed for a technical reason. Try again or enter the item by hand."
+    },
     "retry": "Take another photo",
+    "enterManually": "Enter manually",
     "review": {
       "nothingRecognised": "Label not recognised: retake the photo or fill the fields in by hand.",
       "missingFields": "Fields to fill in: {{fields}}",

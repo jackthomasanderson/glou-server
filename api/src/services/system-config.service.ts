@@ -21,7 +21,6 @@ export interface GotifyConfig {
 export interface IntegrationsConfig {
   vivinoKey: string | null; // plaintext
   whiskybaseKey: string | null; // plaintext
-  ocrUrl: string | null;
 }
 
 export type NotificationPolicyConfig = {
@@ -88,7 +87,6 @@ export type PublicSystemConfig = {
   inAppEnabled: boolean;
   vivinoKeyMasked: string | null;
   whiskybaseKeyMasked: string | null;
-  ocrUrl: string | null;
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
@@ -129,7 +127,6 @@ export const systemConfigService = {
       inAppEnabled: cfg.inAppEnabled,
       vivinoKeyMasked: maskSecret(cfg.vivinoKeyEnc),
       whiskybaseKeyMasked: maskSecret(cfg.whiskybaseKeyEnc),
-      ocrUrl: cfg.ocrUrl,
       logRetentionDays: cfg.logRetentionDays,
       sessionRetentionDays: cfg.sessionRetentionDays,
       guestShareRetentionDays: cfg.guestShareRetentionDays,
@@ -215,7 +212,6 @@ export const systemConfigService = {
 
     if (data.vivinoKey !== undefined) update.vivinoKeyEnc = data.vivinoKey ? encrypt(data.vivinoKey) : null;
     if (data.whiskybaseKey !== undefined) update.whiskybaseKeyEnc = data.whiskybaseKey ? encrypt(data.whiskybaseKey) : null;
-    if (data.ocrUrl !== undefined) update.ocrUrl = data.ocrUrl;
 
     await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
     await this.logChange(userId, 'integrations', old, update);

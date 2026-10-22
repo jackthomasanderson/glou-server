@@ -42,7 +42,7 @@
    | **SMTP / Email** | SMTP server for outgoing emails (password reset, email notifications). |
    | **Notif policy** | Instance-wide switches (in-app / email / webhook). A channel disabled here stays unavailable in every user's personal preferences. |
    | **Webhook / Gotify** | URL and token for a [Gotify](https://gotify.net/) instance to receive notifications outside the app. |
-   | **API Integrations** | Optional third-party API keys (Vivino, Whiskybase) and an external OCR service URL. Stored, but **not used by any feature yet**: label scanning uses the built-in Ollama service. |
+   | **API Integrations** | Optional third-party API keys (Vivino, Whiskybase). Stored, but **not used by any feature yet**. Also shows whether label scanning (the built-in Ollama service, `--profile scan`) is active. |
    | **Retention** | How long to keep expired audit logs, sessions/trusted devices, and guest shares before permanent deletion. |
    | **Backups** | Daily automated database backup (`pg_dump`), with configurable retention and run time. |
    | **Network** | The instance's canonical public URL, access mode (direct or behind a reverse proxy), and whether new accounts may register. |

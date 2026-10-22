@@ -616,7 +616,6 @@ model SystemConfig {
   // External API integrations (FEAT-34)
   vivinoKeyEnc     String? // AES-256-GCM encrypted
   whiskybaseKeyEnc String? // AES-256-GCM encrypted
-  ocrUrl           String?
 
   // Data retention (FEAT-39) — delay after which an expired/revoked row
   // (Session, TrustedDevice, GuestShare) is permanently deleted. This is

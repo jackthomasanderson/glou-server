@@ -14,7 +14,6 @@ export interface SystemConfigPublic {
   inAppEnabled: boolean;
   vivinoKeyMasked: string | null;
   whiskybaseKeyMasked: string | null;
-  ocrUrl: string | null;
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;

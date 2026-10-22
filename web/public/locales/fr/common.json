@@ -1581,11 +1581,15 @@
       "vivinoKey": "Clé API Vivino",
       "whiskybaseKey": "Clé API Whiskybase",
       "vivinoWhiskybaseNotUsedYet": "Bientôt disponible — stockée en sécurité, mais aucune fonctionnalité ne lit encore ces clés.",
-      "ocrUrl": "URL service OCR",
-      "ocrUrlPlaceholder": "https://ocr.example.com/extract",
       "keyPlaceholder": "Laisser vide pour conserver l'actuel",
       "save": "Enregistrer les intégrations",
-      "saved": "Intégrations enregistrées."
+      "saved": "Intégrations enregistrées.",
+      "scan": {
+        "title": "Scan d'étiquette",
+        "active": "Actif",
+        "inactive": "Non activé",
+        "howToEnable": "Le service de reconnaissance n'est pas démarré, ou son modèle est encore en cours de téléchargement : le scan est donc masqué pour les membres. Pour l'activer (environ 9 Go de disque et 3 Go de mémoire), lancez sur le serveur la commande ci-dessous, puis attendez la fin du téléchargement du modèle :"
+      }
     },
     "history": {
       "noHistory": "Aucune modification enregistrée."
@@ -1927,8 +1931,16 @@
     },
     "uploading": "Envoi de la photo…",
     "processing": "Analyse de l'étiquette en cours… cela peut prendre quelques instants.",
-    "error": "L'analyse de la photo a échoué. Réessayez avec une photo plus nette ou mieux éclairée.",
+    "errors": {
+      "unavailable": "Le service de reconnaissance d'étiquettes n'est pas disponible sur ce serveur. Vous pouvez saisir l'article à la main.",
+      "rateLimited": "Trop de scans en peu de temps. Réessayez dans quelques minutes.",
+      "photoRejected": "Cette photo n'a pas pu être envoyée : elle est trop lourde (10 Mo maximum) ou son format n'est pas pris en charge (JPEG, PNG, WebP ou GIF).",
+      "timeout": "L'analyse a pris trop de temps : ce serveur manque probablement de puissance pour la reconnaissance d'étiquettes.",
+      "interrupted": "L'analyse a été interrompue par un redémarrage du serveur. Reprenez la photo.",
+      "failed": "L'analyse de l'étiquette a échoué pour une raison technique. Réessayez ou saisissez l'article à la main."
+    },
     "retry": "Reprendre une photo",
+    "enterManually": "Saisir manuellement",
     "review": {
       "nothingRecognised": "Étiquette non reconnue : reprenez la photo ou renseignez les champs à la main.",
       "missingFields": "Champs à renseigner : {{fields}}",
