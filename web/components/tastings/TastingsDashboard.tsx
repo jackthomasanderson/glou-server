@@ -185,7 +185,7 @@ export function TastingsDashboard() {
           isIconOnly
           onPress={() => setFormOpen(true)}
           aria-label={t('tastings.create')}
-          className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 right-6 z-50 shadow-lg"
+          className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 right-6 z-30 shadow-lg"
         >
           <Plus size={24} />
         </Button>

@@ -192,8 +192,10 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
         {step === 'ingestion-execute' && ingestionMode === 'scan' && (
           <ScanIngestionStep
             cellarId={cellarId}
+            itemsAdded={itemsAdded}
             onItemAdded={() => setItemsAdded((n) => n + 1)}
             onDone={() => setStep('summary')}
+            onBack={() => setStep('ingestion-choice')}
           />
         )}
 
