@@ -23,7 +23,6 @@ export const gotifyConfigSchema = z.object({
 export const integrationsConfigSchema = z.object({
   vivinoKey: z.string().optional().nullable(),
   whiskybaseKey: z.string().optional().nullable(),
-  ocrUrl: z.string().url().optional().nullable(),
 });
 
 export type SmtpConfigInput = z.infer<typeof smtpConfigSchema>;
