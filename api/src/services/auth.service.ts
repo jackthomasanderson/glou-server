@@ -125,6 +125,8 @@ export interface PublicUser {
   // #336: set by an administrator's no-SMTP password reset; the frontend
   // blocks the app behind a mandatory password-change screen while true.
   mustChangePassword: boolean;
+  // #576: drives the 2FA status and the code prompts of the security settings.
+  isTwoFactorEnabled: boolean;
 }
 
 /** Shape shared by every Prisma User read used to build a PublicUser (FEAT-30 added pinHash/autoLockDelayMin). */
@@ -149,7 +151,37 @@ interface RawUserForPublic {
   autoLockDelayMin: number | null;
   onboardingCompletedAt: Date | null;
   mustChangePassword: boolean;
+  isTwoFactorEnabled: boolean;
 }
+
+/**
+ * Columns read to build a PublicUser — every key of RawUserForPublic, nothing
+ * else. `satisfies` makes a missing or extra key a compile error, so the
+ * select can no longer drift from the interface (#576).
+ */
+const PUBLIC_USER_SELECT = {
+  id: true,
+  username: true,
+  email: true,
+  avatarUrl: true,
+  appName: true,
+  appSlogan: true,
+  displayName: true,
+  theme: true,
+  language: true,
+  tempUnit: true,
+  accentColor: true,
+  dateFormat: true,
+  expertMode: true,
+  isAdmin: true,
+  createdAt: true,
+  deletionRequestedAt: true,
+  pinHash: true,
+  autoLockDelayMin: true,
+  onboardingCompletedAt: true,
+  mustChangePassword: true,
+  isTwoFactorEnabled: true,
+} satisfies Record<keyof RawUserForPublic, true>;
 
 function signToken(payload: AuthPayload, expiresIn: SignOptions['expiresIn'] = JWT_EXPIRES_IN): string {
   const secret = process.env.JWT_SECRET;
@@ -224,6 +256,7 @@ export class AuthService {
       autoLockDelayMin: user.autoLockDelayMin,
       onboardingCompletedAt: user.onboardingCompletedAt,
       mustChangePassword: user.mustChangePassword,
+      isTwoFactorEnabled: user.isTwoFactorEnabled,
     };
   }
 
@@ -422,28 +455,7 @@ export class AuthService {
         displayName: displayName || null,
         ...(data.language ? { language: data.language } : {}),
       },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      },
+      select: PUBLIC_USER_SELECT,
     });
     const user = this.toPublicUser(rawUser);
 
@@ -527,28 +539,7 @@ export class AuthService {
   async me(userId: string): Promise<PublicUser | null> {
     const user = await prisma.user.findFirst({
       where: { id: userId },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      },
+      select: PUBLIC_USER_SELECT,
     });
     return user ? this.toPublicUser(user) : null;
   }
@@ -571,28 +562,7 @@ export class AuthService {
         ...data,
         displayName: data.displayName === undefined ? undefined : data.displayName?.trim() || null,
       },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      },
+      select: PUBLIC_USER_SELECT,
     });
     return this.toPublicUser(user);
   }
@@ -654,28 +624,7 @@ export class AuthService {
     const user = await prisma.user.update({
       where: { id: userId },
       data: { email },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      }
+      select: PUBLIC_USER_SELECT
     });
 
     if (previousEmail !== user.email) {
@@ -748,28 +697,7 @@ export class AuthService {
     const user = await prisma.user.update({
       where: { id: userId },
       data,
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      },
+      select: PUBLIC_USER_SELECT,
     });
     return this.toPublicUser(user);
   }
@@ -1168,28 +1096,7 @@ export class AuthService {
     const user = await prisma.user.update({
       where: { id: userId },
       data: { onboardingCompletedAt: new Date() },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      },
+      select: PUBLIC_USER_SELECT,
     });
     return this.toPublicUser(user);
   }

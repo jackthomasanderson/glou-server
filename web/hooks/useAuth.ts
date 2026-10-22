@@ -23,7 +23,8 @@ export interface PublicUser {
   // reveals advanced/collector sections. See hooks/useExpertMode.ts.
   expertMode: boolean;
   isAdmin: boolean;
-  isTwoFactorEnabled?: boolean;
+  // #576: required — the 2FA panel and the trust-device dialog branch on it.
+  isTwoFactorEnabled: boolean;
   createdAt: string;
   deletionRequestedAt?: string | null;
   // FEAT-30: Quick Lock & Auto-Lock (client-side lock, session/JWT stays valid)
