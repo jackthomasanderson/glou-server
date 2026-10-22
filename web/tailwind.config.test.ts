@@ -1,14 +1,28 @@
 import { describe, it, expect } from 'vitest';
+import { modal, toastRegion } from '@heroui/react';
 import config from './tailwind.config';
 
 // #574: the onboarding wizard sat at 9990, above the windows and toasts that
 // HeroUI renders outside it. The add form, the scan screen and every error
 // toast opened from the wizard were hidden underneath it.
 //
-// HeroUI's own levels, read in @heroui/theme 2.4.26: Modal/Drawer `wrapper`,
-// `base` and `backdrop` are `z-50`; the toast region is `z-[100]`.
-const HEROUI_WINDOW = 50;
-const HEROUI_TOASTS = 100;
+// HeroUI's levels are read from its own styles, so an upgrade that moves them
+// fails here instead of hiding the wizard's windows again.
+
+/** The plain `z-N` / `z-[N]` class in a HeroUI slot (variants like `before:z-[-1]` are skipped). */
+function zIndexOf(classes: string): number {
+  const match = classes.match(/(?:^|\s)z-(?:\[(\d+)\]|(\d+))(?=\s|$)/);
+  if (!match) throw new Error(`no z-index class in "${classes}"`);
+  return Number(match[1] ?? match[2]);
+}
+
+const windowSlots = modal();
+const HEROUI_WINDOW = Math.min(
+  zIndexOf(windowSlots.wrapper()),
+  zIndexOf(windowSlots.base()),
+  zIndexOf(windowSlots.backdrop()),
+);
+const HEROUI_TOASTS = zIndexOf(toastRegion().base());
 
 const scale = config.theme?.extend?.zIndex as Record<'overlay' | 'wizard' | 'lock', string>;
 const level = (name: keyof typeof scale) => Number(scale[name]);

@@ -22,7 +22,7 @@ const config: Config = {
       // One stacking order for the whole page, lowest first (ISSUE_327, #574):
       //   ≤ 30   app chrome: sticky header, sidebar, bottom nav, floating buttons
       //   40     overlay: full-screen app layers (mobile search); the app's own
-      //          popups (undo bar, map tooltip) use z-40 too
+      //          fixed popups (undo bar, bulk-action bar, map tooltip) use z-40 too
       //   45     wizard: onboarding, above the app...
       //   50     ...but under HeroUI Modal/Drawer (rendered in <body>): the add
       //          form and the scan opened from the wizard must show on top
