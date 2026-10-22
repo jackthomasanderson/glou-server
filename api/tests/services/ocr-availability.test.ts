@@ -51,6 +51,12 @@ describe('isScanAvailable', () => {
     await isScanAvailable();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('asks the service once for checks made at the same time', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ models: [{ name: 'moondream:latest' }] }));
+    await Promise.all([isScanAvailable(), isScanAvailable(), isScanAvailable()]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('analyzeLabelImage failure causes', () => {
@@ -66,6 +72,12 @@ describe('analyzeLabelImage failure causes', () => {
   it('reports SCAN_UNAVAILABLE when the service cannot be reached', async () => {
     fetchMock.mockRejectedValue(new TypeError('fetch failed'));
     await expect(failureCode()).resolves.toBe('SCAN_UNAVAILABLE');
+  });
+
+  it('reports SCAN_TIMEOUT when Node gives up waiting for the answer (300 s)', async () => {
+    const headersTimeout = Object.assign(new Error('Headers Timeout Error'), { code: 'UND_ERR_HEADERS_TIMEOUT' });
+    fetchMock.mockRejectedValue(new TypeError('fetch failed', { cause: headersTimeout }));
+    await expect(failureCode()).resolves.toBe('SCAN_TIMEOUT');
   });
 
   it('reports SCAN_UNAVAILABLE when the model is not pulled (404)', async () => {

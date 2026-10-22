@@ -34,7 +34,19 @@ export class OcrError extends Error {
   }
 }
 
-let availabilityCache: { available: boolean; checkedAt: number } | null = null;
+// Node's fetch gives up by itself after 300 s without response headers
+// (undici's headersTimeout), before a longer OLLAMA_TIMEOUT_MS fires; Ollama
+// sends nothing until the analysis is over (`stream: false`).
+const FETCH_TIMEOUT_CODES = new Set(['UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT']);
+
+function isFetchTimeout(error: unknown): boolean {
+  const cause = error instanceof Error ? error.cause : undefined;
+  return typeof cause === 'object' && cause !== null && 'code' in cause && FETCH_TIMEOUT_CODES.has(String(cause.code));
+}
+
+// The in-flight or settled probe: concurrent checks share it, and a reset
+// cannot be overwritten by a probe started before it.
+let availabilityProbe: { result: Promise<boolean>; startedAt: number } | null = null;
 
 /** Ollama lists `moondream` as `moondream:latest`; a tag in OLLAMA_MODEL must match exactly. */
 function isConfiguredModel(name: string): boolean {
@@ -45,27 +57,28 @@ function isConfiguredModel(name: string): boolean {
  * True when the recognition service answers and the vision model is already
  * pulled (`ollama-pull` downloads it after the first start, ~1.7 GB).
  */
-export async function isScanAvailable(): Promise<boolean> {
-  if (availabilityCache && Date.now() - availabilityCache.checkedAt < AVAILABILITY_CACHE_MS) {
-    return availabilityCache.available;
+export function isScanAvailable(): Promise<boolean> {
+  if (availabilityProbe && Date.now() - availabilityProbe.startedAt < AVAILABILITY_CACHE_MS) {
+    return availabilityProbe.result;
   }
-  let available = false;
+  availabilityProbe = { result: probeScanService(), startedAt: Date.now() };
+  return availabilityProbe.result;
+}
+
+async function probeScanService(): Promise<boolean> {
   try {
     const res = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(AVAILABILITY_TIMEOUT_MS) });
-    if (res.ok) {
-      const body = (await res.json()) as { models?: { name?: unknown }[] };
-      available = (body.models ?? []).some((m) => typeof m.name === 'string' && isConfiguredModel(m.name));
-    }
+    if (!res.ok) return false;
+    const body = (await res.json()) as { models?: { name?: unknown }[] };
+    return (body.models ?? []).some((m) => typeof m.name === 'string' && isConfiguredModel(m.name));
   } catch {
-    available = false;
+    return false;
   }
-  availabilityCache = { available, checkedAt: Date.now() };
-  return available;
 }
 
 /** Forgets the cached probe, so the next scan request re-checks the service. */
 export function resetScanAvailabilityCache(): void {
-  availabilityCache = null;
+  availabilityProbe = null;
 }
 
 export const ocrExtractedDataSchema = z.object({
@@ -202,7 +215,7 @@ export async function analyzeLabelImage(imageBase64: string): Promise<OcrExtract
         signal: controller.signal,
       });
     } catch (error) {
-      if (controller.signal.aborted) throw timeoutError();
+      if (controller.signal.aborted || isFetchTimeout(error)) throw timeoutError();
       resetScanAvailabilityCache();
       throw new OcrError('SCAN_UNAVAILABLE', error);
     }
@@ -217,7 +230,7 @@ export async function analyzeLabelImage(imageBase64: string): Promise<OcrExtract
     try {
       body = (await res.json()) as { response?: string };
     } catch (error) {
-      throw controller.signal.aborted ? timeoutError() : new OcrError('SCAN_FAILED', error);
+      throw controller.signal.aborted || isFetchTimeout(error) ? timeoutError() : new OcrError('SCAN_FAILED', error);
     }
   } finally {
     clearTimeout(timeout);

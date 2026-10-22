@@ -1588,7 +1588,7 @@
         "title": "Scan d'étiquette",
         "active": "Actif",
         "inactive": "Non activé",
-        "howToEnable": "Le service de reconnaissance n'est pas démarré, le scan est donc masqué pour les membres. Pour l'activer (environ 9 Go de disque et 3 Go de mémoire), lancez sur le serveur :"
+        "howToEnable": "Le service de reconnaissance n'est pas démarré, ou son modèle est encore en cours de téléchargement : le scan est donc masqué pour les membres. Pour l'activer (environ 9 Go de disque et 3 Go de mémoire), lancez sur le serveur la commande ci-dessous, puis attendez la fin du téléchargement du modèle :"
       }
     },
     "history": {

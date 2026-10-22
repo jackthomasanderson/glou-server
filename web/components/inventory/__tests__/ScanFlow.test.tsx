@@ -64,8 +64,8 @@ import { ScanFlow } from '../ScanFlow';
 
 const t = (key: string) => key;
 
-function renderAndSendPhoto() {
-  const view = render(<ScanFlow open onClose={() => {}} t={t} />);
+function renderAndSendPhoto(defaultCellarId?: string) {
+  const view = render(<ScanFlow open onClose={() => {}} defaultCellarId={defaultCellarId} t={t} />);
   const input = view.container.querySelector('input[type="file"]') as HTMLInputElement;
   fireEvent.change(input, { target: { files: [new File(['x'], 'label.jpg', { type: 'image/jpeg' })] } });
 }
@@ -148,5 +148,26 @@ describe('ScanFlow error screen offers manual entry (#639)', () => {
 
     expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
     expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ name: 'Talbot', scanJobId: undefined }));
+  });
+
+  it('comes back to manual entry, not to the camera, while the service is unavailable', async () => {
+    uploadOutcome = { error: 'SCAN_UNAVAILABLE' };
+    renderAndSendPhoto();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.enterManually' }));
+    fireEvent.click(screen.getByRole('button', { name: 'submit-manual' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'scan.enterManually' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'scan.capture.next' })).toBeNull();
+  });
+
+  it('files the hand-entered item in the first-run wizard cellar', async () => {
+    uploadOutcome = { error: 'SCAN_UNAVAILABLE' };
+    renderAndSendPhoto('cellar-1');
+    fireEvent.click(screen.getByRole('button', { name: 'scan.enterManually' }));
+    fireEvent.click(screen.getByRole('button', { name: 'submit-manual' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ cellarId: 'cellar-1' }));
   });
 });

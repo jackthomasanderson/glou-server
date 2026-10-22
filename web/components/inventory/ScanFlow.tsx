@@ -78,6 +78,9 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>('capture');
   const [errorCause, setErrorCause] = useState<ScanErrorCause>('failed');
+  // Once the service is known to be gone, no photo can succeed in this session:
+  // after a hand-entered item, come back to the error screen, not to the camera.
+  const [serviceUnavailable, setServiceUnavailable] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [reviewValues, setReviewValues] = useState<Partial<InventoryItem> | null>(null);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
@@ -104,11 +107,14 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       setDuplicateFound(null);
       setDuplicateCandidate(null);
       setCart([]);
+      setServiceUnavailable(false);
     }
   }
 
   const showError = (code: string | null | undefined) => {
-    setErrorCause(scanErrorCause(code));
+    const cause = scanErrorCause(code);
+    setErrorCause(cause);
+    setServiceUnavailable(cause === 'unavailable');
     setPhase('error');
   };
 
@@ -168,11 +174,22 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   };
 
   // From the error screen: the failed job extracted nothing, so no scanJobId
-  // is sent and no field is tagged as read from the label.
+  // is sent and no field is tagged as read from the label. `reviewValues` is
+  // either empty here or what the user typed before a failed save: kept.
   const openManualEntry = () => {
     setJobId(null);
-    setReviewValues(null);
+    setNothingRecognised(false);
     setFullFormOpen(true);
+  };
+
+  const afterCommit = () => {
+    if (!serviceUnavailable) {
+      resetToCapture();
+      return;
+    }
+    setReviewValues(null);
+    setJobId(null);
+    setPhase('error');
   };
 
   const pushCartEntry = (item: InventoryItem, mode: CartEntry['mode']) => {
@@ -193,7 +210,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     try {
       const created = await createMutation.mutateAsync(payload);
       pushCartEntry(created, 'created');
-      resetToCapture();
+      afterCommit();
     } catch (err) {
       // ISSUE_141: the client's own `items` was stale — the server's FEAT-65
       // check caught a match it couldn't see. Re-check against a fresh fetch
@@ -222,7 +239,9 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
 
   const handleAdvancedSubmit = (values: Partial<InventoryItem>) => {
     setFullFormOpen(false);
-    void commitItem(values);
+    // An untouched cellar field (undefined, not the explicit "none") gets the
+    // wizard's cellar, as the scan review and ManualIngestionStep do.
+    void commitItem(values.cellarId === undefined ? { ...values, cellarId: defaultCellarId } : values);
   };
 
   const handleDuplicateIncrement = async () => {
@@ -233,7 +252,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       pushCartEntry(updated, 'incremented');
       setDuplicateFound(null);
       setDuplicateCandidate(null);
-      resetToCapture();
+      afterCommit();
     } catch {
       // Reported by the mutation's onError toast.
     }
@@ -248,7 +267,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     try {
       const created = await createMutation.mutateAsync(payload);
       pushCartEntry(created, 'created');
-      resetToCapture();
+      afterCommit();
     } catch {
       // Reported by the mutation's onError toast.
     }

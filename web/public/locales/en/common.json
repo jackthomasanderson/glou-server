@@ -1586,7 +1586,7 @@
         "title": "Label scanning",
         "active": "Active",
         "inactive": "Not enabled",
-        "howToEnable": "The recognition service is not running, so scanning is hidden from members. To enable it (about 9 GB of disk and 3 GB of memory), run on the server:"
+        "howToEnable": "The recognition service is not running, or its model is still downloading, so scanning is hidden from members. To enable it (about 9 GB of disk and 3 GB of memory), run the command below on the server, then wait for the model download to finish:"
       }
     },
     "history": {
