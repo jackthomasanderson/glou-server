@@ -42,7 +42,7 @@
    | **SMTP / Email** | Serveur SMTP pour l'envoi d'emails (réinitialisation de mot de passe, notifications par email). |
    | **Politique de notifs** | Interrupteurs globaux (dans l'app / email / webhook) pour toute l'instance. Un canal désactivé ici reste indisponible dans les préférences de chaque utilisateur. |
    | **Webhook / Gotify** | URL et token d'une instance [Gotify](https://gotify.net/) pour recevoir les notifications hors de l'application. |
-   | **Intégrations API** | Clés API tierces optionnelles (Vivino, Whiskybase) et URL d'un service OCR externe. Enregistrées, mais **utilisées par aucune fonctionnalité pour l'instant** : le scan d'étiquette passe par le service Ollama intégré. |
+   | **Intégrations API** | Clés API tierces optionnelles (Vivino, Whiskybase). Enregistrées, mais **utilisées par aucune fonctionnalité pour l'instant**. Indique aussi si le scan d'étiquette (service Ollama intégré, `--profile scan`) est actif. |
    | **Rétention** | Délai de conservation avant suppression définitive des logs d'audit, sessions/appareils expirés et partages invités expirés. |
    | **Sauvegardes** | Sauvegarde automatique quotidienne de la base (`pg_dump`), avec rétention et heure d'exécution configurables. |
    | **Réseau** | URL publique de référence de l'instance, mode d'accès (direct ou via reverse proxy) et autorisation d'inscription de nouveaux comptes. |
