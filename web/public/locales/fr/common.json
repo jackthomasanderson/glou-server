@@ -370,6 +370,7 @@
     "deleteSuccess": "Actif déplacé dans la corbeille",
     "restoreSuccess": "Actif restauré",
     "createError": "Impossible d'ajouter l'actif",
+    "createRejected": "L'actif n'a pas été ajouté : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire, ou signalez le problème s'il vous semble correct.",
     "updateError": "Impossible de mettre à jour l'actif",
     "deleteError": "Impossible de supprimer l'actif",
     "restoreError": "Impossible de restaurer l'actif",

@@ -370,6 +370,7 @@
     "deleteSuccess": "Asset moved to trash",
     "restoreSuccess": "Asset restored",
     "createError": "Could not add the asset",
+    "createRejected": "The asset was not added: the server refused one of the values entered. Check the form, or report the problem if it looks right.",
     "updateError": "Could not update the asset",
     "deleteError": "Could not delete the asset",
     "restoreError": "Could not restore the asset",
