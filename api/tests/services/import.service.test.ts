@@ -18,6 +18,7 @@ vi.mock('../../src/lib/prisma', () => ({
 }));
 
 import { importService } from '../../src/services/import.service';
+import { IN_STOCK_ITEM_FILTER } from '../../src/lib/finished-item';
 import type { CsvImportRow } from '../../src/schemas/import.schema';
 
 const csv = (text: string) => Buffer.from(text, 'utf-8');
@@ -152,6 +153,15 @@ describe('ImportService.confirmImport', () => {
     });
     const result = await importService.confirmImport('u1', Array.from({ length: 6 }, () => row()), null);
     expect(result).toEqual({ created: 6, skippedDuplicates: 0 });
+  });
+
+  // FEAT-91 (#577): a finished bottle, a non-owned reference or one in the
+  // trash is not "already in the cellar" — a new purchase of it is imported.
+  // The SQL itself is exercised on a real database by e2e/tests/csv-import.spec.ts.
+  it('matches rows only against what is in stock', async () => {
+    await importService.confirmImport('u1', [row()], null);
+    const { where } = tx.inventoryItem.findMany.mock.calls[0]?.[0] as { where: Record<string, unknown> };
+    expect(where).toEqual({ ...IN_STOCK_ITEM_FILTER, category: { in: ['wine'] } });
   });
 
   // #633: the duplicate check used to re-read the whole category for every row.

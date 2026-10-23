@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma';
+import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { parseCsv } from '../lib/csv';
 import { csvRawRowSchema, normalizeCsvToken } from '../schemas/import.schema';
 import { InventoryInput } from '../schemas/inventory.schema';
@@ -91,8 +92,8 @@ export class ImportService {
    * app only ever ran in the browser — a bulk CSV import had no equivalent
    * at all, the highest-volume way to double an entire shelf of bottles.
    * A matched row is skipped (not an error: there's no interactive dialog to
-   * resolve it mid-import, and the row IS already in the inventory) and
-   * counted separately so the UI can report it instead of silently losing it.
+   * resolve it mid-import, and the bottle IS already in stock) and counted
+   * separately so the UI can report it instead of silently losing it.
    */
   async confirmImport(
     userId: string,
@@ -101,18 +102,19 @@ export class ImportService {
   ): Promise<{ created: number; skippedDuplicates: number }> {
     return prisma.$transaction(
       async (tx) => {
-        // FEAT-91 (#577): rows are matched against the inventory as it was
-        // before the import, read once (#633) — never against items this
-        // import has just created, which turned six identical rows into one
-        // bottle and "5 already in your inventory".
-        const existing = await tx.inventoryItem.findMany({
-          where: { deletedAt: null, category: { in: [...new Set(rows.map((row) => row.category))] } },
+        // FEAT-91 (#577): rows are matched against what was in stock before
+        // the import, read once (#633) — never against items this import has
+        // just created, which turned six identical rows into one bottle and
+        // "5 already in your inventory". A finished bottle or a non-owned
+        // reference is not in stock, so a new purchase of it is imported.
+        const inStock = await tx.inventoryItem.findMany({
+          where: { ...IN_STOCK_ITEM_FILTER, category: { in: [...new Set(rows.map((row) => row.category))] } },
         });
         let created = 0;
         let skippedDuplicates = 0;
         for (const row of rows) {
           const input = this.toInventoryInput(row, cellarId);
-          if (existing.some((item) => isDuplicateOf(item, input))) {
+          if (inStock.some((item) => isDuplicateOf(item, input))) {
             skippedDuplicates++;
             continue;
           }
