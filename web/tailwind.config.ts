@@ -19,16 +19,21 @@ const config: Config = {
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
       },
-      // ISSUE_327: a single stacking scale for the full-screen overlays that
-      // aren't HeroUI Modal/Drawer (those manage their own z-50 already).
-      // Three tiers instead of hand-picked numbers per surface: overlay
-      // (mobile sidebar drawer, mobile search) < wizard (onboarding, which
-      // must sit above the app chrome but below an auth lock) < lock (the
-      // session lock screen / forced password change, which must win
-      // against everything, including an onboarding wizard open underneath).
+      // One stacking order for the whole page, lowest first (ISSUE_327, #574):
+      //   ≤ 30   app chrome: sticky header, sidebar, bottom nav, floating buttons
+      //   40     overlay: full-screen app layers (mobile search); the app's own
+      //          fixed popups (undo bar, bulk-action bar, map tooltip) use z-40 too
+      //   45     wizard: onboarding, above the app...
+      //   50     ...but under HeroUI Modal/Drawer (rendered in <body>): the add
+      //          form and the scan opened from the wizard must show on top
+      //   100    HeroUI toast region: errors raised in the wizard stay visible
+      //   9999   lock: lock screen / forced password change, above everything,
+      //          an open window and its toasts included
+      // react-aria places popovers (Select, Autocomplete lists) at 100000 inline.
+      // The order is checked by tailwind.config.test.ts.
       zIndex: {
-        overlay: '50',
-        wizard: '9990',
+        overlay: '40',
+        wizard: '45',
         lock: '9999',
       },
     },

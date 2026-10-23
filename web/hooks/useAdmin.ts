@@ -3,6 +3,7 @@ import { client as api } from '../lib/api';
 import { notifyError, notifySuccess } from '../lib/toast';
 import { maturityReferenceClient } from '../lib/maturity-references/client';
 import { MaturityReference, MaturityReferenceInput } from '../lib/maturity-references/types';
+import type { PurgeResponse } from '@shared/maintenance';
 
 export interface AdminUser {
     id: string;
@@ -12,18 +13,6 @@ export interface AdminUser {
     isAdmin: boolean;
     isActive: boolean;
     createdAt: string;
-}
-
-// Mirrors api/src/services/maintenance.service.ts PurgeResult (the web side
-// read `counts.bottles`, which the API never sent).
-export interface PurgeResult {
-    success: boolean;
-    counts: {
-        items: number;
-        cellars: number;
-        auditLogs: number;
-    };
-    backupRunId?: string;
 }
 
 export interface AuditLogEntry {
@@ -141,7 +130,7 @@ export function usePurgeData() {
         // #489: the admin's password is re-checked server-side; `confirmation`
         // is the protocol keyword, whatever the UI language.
         mutationFn: async ({ password }: { password: string }) => {
-            const response = await api.post<PurgeResult>('/admin/maintenance/purge', { confirmation: 'SUPPRIMER', password });
+            const response = await api.post<PurgeResponse>('/admin/maintenance/purge', { confirmation: 'SUPPRIMER', password });
             return response.data;
         },
         onSuccess: () => {

@@ -13,7 +13,7 @@ router.use(authMiddleware);
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     // The range narrows the movement counters only; the response echoes its
-    // scope back (see ANALYTICS_PERIOD_SCOPE in the analytics service).
+    // scope back (see ANALYTICS_PERIOD_SCOPE in shared/analytics.ts).
     const parsed = analyticsQuerySchema.safeParse(req.query);
     if (!parsed.success) {
       res.status(400).json({ error: 'INVALID_DATE_RANGE' });

@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { authService, ExportCategory } from '../services/auth.service';
+import { authService } from '../services/auth.service';
+import type { ExportCategory } from '../../../shared/auth';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';

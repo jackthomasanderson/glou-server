@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { CurveShape, readinessPercent } from '../lib/maturity-curve';
 import { notificationService } from './notification.service';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
+import { NOT_FINISHED_ITEM_FILTER, isFinishedItem } from '../lib/finished-item';
 import { escapeHtml } from '../lib/html';
 import { systemConfigService } from './system-config.service';
 
@@ -49,7 +50,9 @@ export function computeReadiness(
  * defined — i.e. exactly the population for which `computeAlertStatus` can
  * return something other than 'none'. Shared by `getAlerts` (read path) and
  * `recomputeAlertStatuses` (maintenance path) so both always agree on the
- * set of items an alert can possibly apply to.
+ * set of items an alert can possibly apply to. `getAlerts` then leaves out
+ * finished bottles (#573); the recompute keeps them so the status shown on
+ * their card stays current, and only skips them when notifying.
  */
 const HAS_MATURITY_WINDOW = {
   deletedAt: null,
@@ -75,7 +78,8 @@ const HAS_MATURITY_WINDOW = {
  */
 export async function getAlerts() {
   const items = await prisma.inventoryItem.findMany({
-    where: { ...HAS_MATURITY_WINDOW, alertsPaused: false },
+    // #573: a finished bottle has been drunk — nothing left to act on.
+    where: { ...HAS_MATURITY_WINDOW, ...NOT_FINISHED_ITEM_FILTER, alertsPaused: false },
     orderBy: [{ updatedAt: 'desc' }],
     select: {
       id: true,
@@ -138,6 +142,8 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
       alertsPaused: true,
       peakMaturityFrom: true,
       peakMaturityTo: true,
+      isOpened: true,
+      fillLevel: true,
       updatedAt: true,
     },
   });
@@ -157,7 +163,10 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
     // anti-repeat rule — once stored as 'peak', a daily recompute no longer
     // sees a transition and stops notifying, so this fires once per item
     // until its window is edited or it leaves 'peak' and re-enters later.
-    if (nextStatus === 'peak' && !item.alertsPaused) reachedPeak.push(item);
+    //
+    // #573: the column is still kept current for a finished bottle (its card
+    // shows it), but nobody is told to open a bottle already drunk.
+    if (nextStatus === 'peak' && !item.alertsPaused && !isFinishedItem(item)) reachedPeak.push(item);
   }
 
   // #478: statuses are year-granular, so every bottle whose window opens

@@ -17,18 +17,10 @@
  *  - analytics.service.ts        — weights the garde-histogram distribution
  */
 
-export const CURVE_SHAPES = [
-  'LINEAR',
-  'BELL',
-  'EARLY_BELL',
-  'LATE_BELL',
-  'TWIN_PEAK',
-  'PLATEAU',
-] as const;
-
-export type CurveShape = (typeof CURVE_SHAPES)[number];
-
-export const DEFAULT_CURVE_SHAPE: CurveShape = 'LINEAR';
+import { CURVE_SHAPES, DEFAULT_CURVE_SHAPE, type CurveShape } from '../../../shared/inventory';
+// #466: the shape list is a contract shared with web/; the readiness maths stays here.
+export { CURVE_SHAPES, DEFAULT_CURVE_SHAPE };
+export type { CurveShape };
 
 /** Years before `peakMaturityFrom` over which readiness ramps up from ~0. */
 export const LEAD_IN_YEARS = 2;

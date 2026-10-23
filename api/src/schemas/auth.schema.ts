@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PASSWORD_MIN_LENGTH } from './password';
+import { PASSWORD_MIN_LENGTH } from '../../../shared/auth';
 
 // A 2FA code is either a 6-digit TOTP or a 20-hex-char backup code
 // (auth.service.ts BACKUP_CODE_LENGTH). The limit used to be 8-10, which

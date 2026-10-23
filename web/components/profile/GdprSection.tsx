@@ -6,23 +6,18 @@ import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter } from 'lucide-rea
 import { useTranslation } from 'react-i18next';
 import { useExportData, useRequestAccountDeletion, useCancelAccountDeletion, PublicUser, ExportCategory } from '@/hooks/useAuth';
 import { formatDate } from '@/lib/format';
+import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES } from '@shared/auth';
 
 interface GdprSectionProps {
   user: PublicUser;
 }
-
-const EXPORT_CATEGORIES: ExportCategory[] = [
-  'inventory', 'cellars', 'collections', 'tastings', 'activity',
-  'wishlist', 'budget', 'goals', 'counts', 'humidor',
-  'sessions', 'devices', 'notifications', 'configHistory',
-];
 
 export function GdprSection({ user }: GdprSectionProps) {
   const { t, i18n } = useTranslation('common');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<ExportCategory[]>(EXPORT_CATEGORIES);
+  const [selectedCategories, setSelectedCategories] = useState<ExportCategory[]>([...EXPORT_CATEGORIES]);
 
   const exportMutation = useExportData();
   const deleteMutation = useRequestAccountDeletion();
@@ -34,13 +29,11 @@ export function GdprSection({ user }: GdprSectionProps) {
 
   const isDeletionPending = !!user.deletionRequestedAt;
   // #222: the nightly retention cleanup now actually anonymizes/deactivates
-  // the account once the grace period has elapsed (ACCOUNT_DELETION_GRACE_DAYS
-  // in maintenance.service.ts) — show that real deadline rather than the
-  // request date alone.
-  const DELETION_GRACE_DAYS = 30;
+  // the account once the grace period has elapsed (ACCOUNT_DELETION_GRACE_DAYS,
+  // shared/auth.ts) — show that real deadline rather than the request date alone.
   const deletionScheduledFor = isDeletionPending && user.deletionRequestedAt
     ? formatDate(
-        new Date(new Date(user.deletionRequestedAt).getTime() + DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+        new Date(new Date(user.deletionRequestedAt).getTime() + ACCOUNT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000).toISOString(),
         i18n.language,
       )
     : null;

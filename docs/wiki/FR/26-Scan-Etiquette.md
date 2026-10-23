@@ -4,7 +4,7 @@
 Le bouton « Scanner une étiquette » ouvre l'appareil photo, envoie la photo à un modèle de vision léger auto-hébergé (Ollama + moondream) qui pré-remplit nom, producteur, catégorie et millésime, à valider en 3 actions maximum.
 
 ## Prérequis
-* Le scan d'étiquette est **optionnel et désactivé par défaut** (~9 Go de disque et ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d` : cela démarre le service `ollama` et le service ponctuel `ollama-pull`, qui télécharge le modèle `moondream` (~1,7 Go) au premier démarrage. Sans le profil `scan`, le reste de l'application fonctionne normalement et un scan échoue avec le message générique « analyse échouée ».
+* Le scan d'étiquette est **optionnel et désactivé par défaut** (~9 Go de disque et ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d` : cela démarre le service `ollama` et le service ponctuel `ollama-pull`, qui télécharge le modèle `moondream` (~1,7 Go) au premier démarrage. Sans le profil `scan`, le reste de l'application fonctionne normalement et tous les boutons de scan sont masqués (assistant de premier lancement, inventaire, formulaire d'ajout). Ils apparaissent dès que le service répond et que le modèle est téléchargé. **Admin → Configuration système → Intégrations** indique si le scan est actif.
 * Aucune configuration côté client : le scan utilise la caméra ou la galerie de l'appareil.
 
 ## Action
@@ -33,8 +33,12 @@ Le bouton « Scanner une étiquette » ouvre l'appareil photo, envoie la photo �
 
 | Erreur / Comportement | Solution |
 | :--- | :--- |
-| **Le scan échoue systématiquement** | Le profil `scan` n'est pas démarré : lancez `docker compose --profile scan up -d`. |
+| **Pas de bouton « Scanner une étiquette »** | Le profil `scan` n'est pas démarré, ou le modèle est encore en téléchargement : lancez `docker compose --profile scan up -d` et attendez la fin de `ollama-pull`. **Admin → Configuration système → Intégrations** indique si le scan est actif. |
+| **« Le service de reconnaissance d'étiquettes n'est pas disponible »** | Le service s'est arrêté après le chargement de la page. Redémarrez le profil `scan`. En attendant, **Saisir manuellement** ouvre le formulaire d'ajout sans quitter la session de scan. |
 | **Le scan reste bloqué sur « Analyse en cours » très longtemps** | Au tout premier démarrage de l'instance, le modèle `moondream` (~1,7 Go) doit être téléchargé par le service `ollama-pull` avant que le scan ne fonctionne. Patientez quelques minutes puis réessayez. Sur du matériel modeste, un scan peut légitimement prendre plusieurs minutes. |
-| **« L'analyse de la photo a échoué »** | Réessayez avec une photo plus nette ou mieux éclairée. C'est le message générique renvoyé en cas d'échec du modèle ou de timeout. Le journal de l'API les distingue : `OLLAMA_TIMEOUT_AFTER_<n>MS` signifie que le modèle n'a pas répondu à temps. L'attente est de 10 minutes par défaut ; augmentez-la avec `OLLAMA_TIMEOUT_MS` (millisecondes) dans `.env`, puis `docker compose up -d`. |
+| **« L'analyse a pris trop de temps »** | Le modèle n'a pas répondu à temps (`OLLAMA_TIMEOUT_AFTER_<n>MS` dans le journal de l'API). L'attente est de 10 minutes par défaut ; augmentez-la avec `OLLAMA_TIMEOUT_MS` (millisecondes) dans `.env`, puis `docker compose up -d`. |
+| **« Trop de scans en peu de temps »** | Chaque membre peut envoyer 10 photos par tranche de 10 minutes. Patientez quelques minutes. |
+| **« Cette photo n'a pas pu être envoyée »** | La photo dépasse 10 Mo ou n'est ni en JPEG, ni en PNG, ni en WebP, ni en GIF. |
+| **« L'analyse de l'étiquette a échoué pour une raison technique »** | Tout autre échec. Le journal de l'API (`[scan] Job … failed`) en donne la cause. |
 | **Les informations détectées sont fausses ou incomplètes** | Attendu avec un modèle de vision léger : corrigez manuellement les champs avant de cliquer « Confirmer et ajouter ». Rien n'est jamais enregistré sans validation explicite de votre part. |
 | **Doublon signalé alors que ce n'est pas le même produit** | La détection de doublon compare nom/producteur/millésime. Si deux bouteilles différentes ont des libellés très proches, choisissez de créer une nouvelle fiche plutôt que d'incrémenter le stock existant. |

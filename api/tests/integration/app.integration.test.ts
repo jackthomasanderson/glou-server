@@ -6,7 +6,7 @@ import request from 'supertest';
 // mock replaces it wholesale so nothing tries to reach a real database.
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    user: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn(), findFirst: vi.fn() },
     session: { findUnique: vi.fn() },
     inventoryItem: { findMany: vi.fn() },
     tastingNote: { findMany: vi.fn(), count: vi.fn() },
@@ -221,6 +221,34 @@ describe('unknown routes', () => {
     const res = await request(app).get('/api/does-not-exist');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'NOT_FOUND' });
+  });
+});
+
+describe('GET /api/user/me', () => {
+  // #576: the security settings read the 2FA state from this response.
+  it('tells the client whether two-factor authentication is on, without any secret', async () => {
+    vi.mocked(prisma.user.findFirst).mockResolvedValueOnce({
+      id: 'u1',
+      username: 'u1',
+      email: 'u1@example.com',
+      passwordHash: 'stored-password-hash',
+      pinHash: 'stored-pin-hash',
+      isTwoFactorEnabled: true,
+      twoFactorSecret: 'TOTP-SECRET',
+      backupCodes: ['hashed-backup-code'],
+      mustChangePassword: false,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    } as never);
+
+    const res = await request(app)
+      .get('/api/user/me')
+      .set('Authorization', `Bearer ${authToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.isTwoFactorEnabled).toBe(true);
+    for (const secret of ['passwordHash', 'pinHash', 'twoFactorSecret', 'backupCodes']) {
+      expect(res.body.data, secret).not.toHaveProperty(secret);
+    }
   });
 });
 

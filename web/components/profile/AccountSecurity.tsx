@@ -6,7 +6,7 @@ import { Lock } from 'lucide-react';
 import { PublicUser, useUpdateEmail, useUpdatePassword, useUpdatePreferences, useSetPin, useRemovePin } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
-import { PASSWORD_MIN_LENGTH } from '@/lib/password';
+import { PASSWORD_MIN_LENGTH } from '@shared/auth';
 
 export function AccountSecurity({ user }: { user: PublicUser }) {
   const { t } = useTranslation();

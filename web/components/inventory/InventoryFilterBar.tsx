@@ -4,6 +4,7 @@ import { Input } from '@heroui/react';
 import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Filter } from 'lucide-react';
 import { InventoryItem, CATEGORY_VALUES } from '@/lib/inventory/types';
+import { WINE_COLORS } from '@shared/inventory';
 import { Cellar } from '@/lib/cellars/types';
 
 export type InventorySortBy = 'default' | 'value' | 'urgency' | 'name';
@@ -204,7 +205,7 @@ export function InventoryFilterBar({
             {t('inventory.filterByWineColor')}
           </p>
           <div className="flex flex-wrap gap-1">
-            {(['red', 'white', 'rosé', 'orange'] as const).map((c) => (
+            {WINE_COLORS.map((c) => (
               <FilterChip key={c} selected={selectedWineColors.includes(c)} onPress={() =>
                   setSelectedWineColors((prev) =>
                     prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]

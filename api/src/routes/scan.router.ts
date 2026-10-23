@@ -1,10 +1,12 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 import { scanJobIdParamSchema } from '../schemas/scan.schema';
 import { scanUpload } from '../middleware/upload.middleware';
 import { scanService } from '../services/scan.service';
+import { isScanAvailable } from '../services/ocr.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { SCAN_UPLOAD_ERROR_CODES, type ScanStatus } from '../../../shared/scan';
 
 const router = Router();
 
@@ -22,6 +24,28 @@ const scanLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request) => req.userId || getClientIp(req),
+  // #639: a JSON code, so the client can say "try again in a few minutes".
+  message: { error: SCAN_UPLOAD_ERROR_CODES.rateLimited },
+});
+
+/**
+ * #639: refuses the upload before multer stores the photo and before it counts
+ * against the scan quota, when the recognition service is off (`--profile scan`).
+ */
+async function requireScanAvailable(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (await isScanAvailable()) {
+    next();
+    return;
+  }
+  res.status(503).json({ error: SCAN_UPLOAD_ERROR_CODES.unavailable });
+}
+
+// ─── GET /api/scan/status ─────────────────────────────────────────────────────
+// Whether the scan entry points should be shown at all (#639).
+
+router.get('/status', async (_req: Request, res: Response): Promise<void> => {
+  const status: ScanStatus = { available: await isScanAvailable() };
+  res.json({ data: status });
 });
 
 // ─── POST /api/scan ───────────────────────────────────────────────────────────
@@ -29,7 +53,7 @@ const scanLimiter = rateLimit({
 // the actual vision/OCR call runs in the background (see scan.service.ts).
 // The client is expected to poll GET /api/scan/jobs/:id until 'done'/'failed'.
 
-router.post('/', scanLimiter, scanUpload.single('photo'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireScanAvailable, scanLimiter, scanUpload.single('photo'), async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     if (!req.file) {

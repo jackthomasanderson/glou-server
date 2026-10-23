@@ -8,6 +8,11 @@ ARG NEXT_PUBLIC_API_URL=http://api:3001
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 COPY . .
+# #466: contracts shared with the API, imported as @shared/* -> ../shared
+# (= /shared from WORKDIR /app). Named build context "shared", see
+# docker-compose.e2e.yml / docker-publish.yml. By hand:
+# docker build --build-context shared=./shared ./web
+COPY --from=shared . /shared
 RUN npm run build
 
 # ─── Production image ────────────────────────────────────────────────────────

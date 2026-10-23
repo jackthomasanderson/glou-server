@@ -2,105 +2,7 @@ import { prisma } from '../lib/prisma';
 import { CurveShape, readinessIndex } from '../lib/maturity-curve';
 import { FINISHED_ITEM_STATE, isFinishedItem } from '../lib/finished-item';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
-
-export interface CategoryStat {
-  category: string;
-  count: number;
-  valuation: number;
-}
-
-export interface RegionStat {
-  region: string;
-  count: number;
-  valuation: number;
-}
-
-// FEAT-40/41: region × category breakdown — unlike `regionBreakdown` (capped
-// to the top 10 regions for the dashboard widget), this carries every region
-// with its per-category split so the world map can filter/heatmap by type.
-export interface RegionCategoryStat {
-  region: string;
-  category: string;
-  count: number;
-  valuation: number;
-}
-
-export interface MaturityPlanning {
-  preserve: { count: number; percent: number };
-  atPeak: { count: number; percent: number };
-  pastPeak: { count: number; percent: number };
-  // ISSUE_100: an item with no peak-maturity window (alertStatus === 'none',
-  // the only status AlertStatus's other 3 values don't already cover) isn't
-  // "ready to drink now" — the former `readyNow` bucket's name — it's simply
-  // not tracked for readiness at all (no vintage/curve data). A distinct
-  // bucket instead of folding it into a "ready now" claim the app has no
-  // actual basis for.
-  noWindow: { count: number; percent: number };
-}
-
-export interface GardePoint {
-  year: number;
-  count: number;
-}
-
-export interface CavePoint {
-  cellarId: string;
-  cellarName: string;
-  cellarType: string;
-  count: number;
-  valuation: number;
-}
-
-export interface MovementStats {
-  added: number;
-  /**
-   * Bottles actually finished during the period — same criterion as
-   * everywhere else in the app (isOpened = true, fillLevel = 0; see
-   * consumption-plan.service.ts `getGoalProgress` and
-   * inventory-count.service.ts `mark_consumed`), dated by `updatedAt`.
-   * This is NOT the number of items moved to the trash: those are counted
-   * by `deleted` below.
-   */
-  consumed: number;
-  /** Items moved to the trash during the period (audit action DELETE). */
-  deleted: number;
-  restored: number;
-}
-
-// ISSUE_035/ISSUE_104: the `from`/`to` range narrows the movement counters
-// only. Inventory aggregates (valuation, breakdowns, garde histogram,
-// maturity planning) describe the cellar as it stands right now — a bottle
-// bought in 2019 is still in the cellar today, so excluding it from the
-// valuation because it was not *added* during the range would be misleading.
-// The scope is part of the contract so clients can state it instead of
-// implying a page-wide filter.
-export const ANALYTICS_PERIOD_SCOPE = 'movements' as const;
-
-export interface AnalyticsPeriod {
-  /** Lower bound as an ISO 8601 timestamp, or null when unbounded. */
-  from: string | null;
-  /** Upper bound as an ISO 8601 timestamp, or null when unbounded. */
-  to: string | null;
-  /** Which part of the payload the range actually filters. */
-  scope: typeof ANALYTICS_PERIOD_SCOPE;
-}
-
-export interface AnalyticsStats {
-  period: AnalyticsPeriod;
-  totalValuation: number;
-  totalPurchasePrice: number;
-  totalLiquidLiters: number;
-  cigarModulesCount: number;
-  urgentDegustationCount: number;
-  totalActiveItems: number;
-  categoryBreakdown: CategoryStat[];
-  regionBreakdown: RegionStat[];
-  regionCategoryBreakdown: RegionCategoryStat[];
-  maturityPlanning: MaturityPlanning;
-  gardeHistogram: GardePoint[];
-  caveDistribution: CavePoint[];
-  movements: MovementStats;
-}
+import { ANALYTICS_PERIOD_SCOPE, type AnalyticsStats, type CavePoint, type MovementStats } from '../../../shared/analytics';
 
 function computeBottleVolume(category: string, bottleSize: string | null, fillLevel: number | null): number {
   if (category === 'cigar') return 0;
@@ -140,8 +42,10 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     ? { updatedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
     : {};
 
-  // Deliberately not spread into the inventory query — see
-  // ANALYTICS_PERIOD_SCOPE above.
+  // ISSUE_035/ISSUE_104: deliberately not spread into the inventory query
+  // (ANALYTICS_PERIOD_SCOPE, shared/analytics.ts). Inventory aggregates
+  // describe the cellar as it stands right now — a bottle bought in 2019 is
+  // still in the cellar today, so leaving it out of the valuation would mislead.
   const [items, cellars, auditMovements, consumedCount] = await Promise.all([
     prisma.inventoryItem.findMany({
       // FEAT-87: analytics describe what the instance holds, so non-owned
@@ -197,6 +101,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   let preserve = 0;
   let atPeak = 0;
   let pastPeak = 0;
+  let inStockCount = 0;
 
   const categoryMap: Record<string, { count: number; valuation: number }> = {};
   const regionMap: Record<string, { count: number; valuation: number }> = {};
@@ -222,7 +127,6 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     totalLiquidLiters += computeBottleVolume(item.category, item.bottleSize, item.fillLevel);
 
     if (item.category === 'cigar') cigarModulesCount += 1;
-    if (item.alertStatus === 'past' || item.alertStatus === 'peak') urgentDegustationCount += 1;
 
     if (!categoryMap[item.category]) categoryMap[item.category] = { count: 0, valuation: 0 };
     categoryMap[item.category].count += 1;
@@ -242,6 +146,21 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       regionCategoryMap[key][item.category].count += 1;
       regionCategoryMap[key][item.category].valuation += value;
     }
+
+    // Cave distribution
+    if (item.cellarId) {
+      if (!caveMap[item.cellarId]) caveMap[item.cellarId] = { count: 0, valuation: 0 };
+      caveMap[item.cellarId].count += 1;
+      caveMap[item.cellarId].valuation += value;
+    }
+
+    // #573: a finished bottle has been drunk — it no longer calls for a
+    // tasting, has no place in the maturity planning and no ageing ahead.
+    // Everything below only describes the bottles in stock.
+    if (isFinishedItem(item)) continue;
+    inStockCount += 1;
+
+    if (item.alertStatus === 'past' || item.alertStatus === 'peak') urgentDegustationCount += 1;
 
     if (item.alertStatus === 'past') {
       pastPeak += 1;
@@ -279,17 +198,11 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
         if (w >= cutoff) gardeMap[year] = (gardeMap[year] ?? 0) + 1;
       }
     }
-
-    // Cave distribution
-    if (item.cellarId) {
-      if (!caveMap[item.cellarId]) caveMap[item.cellarId] = { count: 0, valuation: 0 };
-      caveMap[item.cellarId].count += 1;
-      caveMap[item.cellarId].valuation += value;
-    }
   }
 
   const total = items.length;
-  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+  // The maturity buckets split the bottles in stock, so they add up to 100 %.
+  const pct = (n: number) => (inStockCount > 0 ? Math.round((n / inStockCount) * 100) : 0);
 
   const movements: MovementStats = {
     added: auditMovements.find(r => r.action === 'CREATE')?._count.action ?? 0,

@@ -5,12 +5,15 @@ import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle, Globe, CheckCircle2, AlertTriangle, Archive, Download, RotateCcw, Info, Copy, Check } from 'lucide-react';
+import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle, Globe, CheckCircle2, AlertTriangle, Archive, Download, RotateCcw, Info, Copy, Check, Camera } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, SystemConfigPublic, MaintenanceRunEntry, NetworkCheckResult, BackupRunEntry } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { useScanStatus } from '@/hooks/useScan';
 import { formatDateTime } from '@/lib/format';
 import { copyText } from '@/lib/clipboard';
+
+const SCAN_PROFILE_COMMAND = 'docker compose --profile scan up -d';
 
 export function SystemConfigSection() {
   const { t, i18n } = useTranslation();
@@ -35,7 +38,8 @@ export function SystemConfigSection() {
   const [policy, setPolicy] = useState({ smtpEnabled: false, gotifyEnabled: false, inAppEnabled: true });
 
   // Integrations
-  const [integrations, setIntegrations] = useState({ vivinoKey: '', whiskybaseKey: '', ocrUrl: '' });
+  const [integrations, setIntegrations] = useState({ vivinoKey: '', whiskybaseKey: '' });
+  const scanStatus = useScanStatus();
 
   // Retention (FEAT-39)
   const [retention, setRetention] = useState({ logRetentionDays: '90', sessionRetentionDays: '30', guestShareRetentionDays: '30' });
@@ -89,7 +93,7 @@ export function SystemConfigSection() {
       });
       setGotify({ gotifyUrl: cfg.gotifyUrl ?? '', gotifyToken: '' });
       setPolicy({ smtpEnabled: cfg.smtpEnabled, gotifyEnabled: cfg.gotifyEnabled, inAppEnabled: cfg.inAppEnabled });
-      setIntegrations({ vivinoKey: '', whiskybaseKey: '', ocrUrl: cfg.ocrUrl ?? '' });
+      setIntegrations({ vivinoKey: '', whiskybaseKey: '' });
       setRetention({
         logRetentionDays: String(cfg.logRetentionDays),
         sessionRetentionDays: String(cfg.sessionRetentionDays),
@@ -211,7 +215,6 @@ export function SystemConfigSection() {
       const updated = await configClient.updateIntegrations({
         vivinoKey: integrations.vivinoKey || undefined,
         whiskybaseKey: integrations.whiskybaseKey || undefined,
-        ocrUrl: integrations.ocrUrl || null,
       });
       setConfig(updated);
       showFeedback('success', t('adminConfig.integrations.saved'));
@@ -494,9 +497,26 @@ export function SystemConfigSection() {
                 <Input label={t('adminConfig.integrations.whiskybaseKey')} type="password" placeholder={config?.whiskybaseKeyMasked ?? t('adminConfig.integrations.keyPlaceholder')} value={integrations.whiskybaseKey} onValueChange={(v) => setIntegrations(i => ({ ...i, whiskybaseKey: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
                 <Chip size="sm" variant="flat" color="warning">{t('adminConfig.integrations.vivinoWhiskybaseNotUsedYet')}</Chip>
               </div>
-              <Input label={t('adminConfig.integrations.ocrUrl')} placeholder={t('adminConfig.integrations.ocrUrlPlaceholder')} value={integrations.ocrUrl} onValueChange={(v) => setIntegrations(i => ({ ...i, ocrUrl: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" className="sm:col-span-2" />
             </div>
             <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveIntegrations}>{t('adminConfig.integrations.save')}</Button>
+            {/* FEAT-88 (#639): label scanning has no setting here, the service runs with `--profile scan`. */}
+            <div className="flex flex-col gap-1.5 rounded-lg border border-divider p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Camera size={14} className="text-foreground-500" />
+                <span className="text-sm font-semibold">{t('adminConfig.integrations.scan.title')}</span>
+                {scanStatus.data && (
+                  <Chip size="sm" variant="flat" color={scanStatus.data.available ? 'success' : 'default'}>
+                    {t(scanStatus.data.available ? 'adminConfig.integrations.scan.active' : 'adminConfig.integrations.scan.inactive')}
+                  </Chip>
+                )}
+              </div>
+              {scanStatus.data && !scanStatus.data.available && (
+                <p className="text-xs text-foreground-500">
+                  {t('adminConfig.integrations.scan.howToEnable')}{' '}
+                  <code className="rounded bg-default-100 px-1 py-0.5 font-mono">{SCAN_PROFILE_COMMAND}</code>
+                </p>
+              )}
+            </div>
           </div>
         </Tab>
 

@@ -1,19 +1,9 @@
 import { prisma } from '../lib/prisma';
 import { parseCsv } from '../lib/csv';
-import { csvRawRowSchema, CsvImportRow, normalizeCsvToken } from '../schemas/import.schema';
+import { csvRawRowSchema, normalizeCsvToken } from '../schemas/import.schema';
 import { InventoryInput } from '../schemas/inventory.schema';
 import { inventoryService, FieldSource } from './inventory.service';
-
-export interface CsvPreviewError {
-  // 1-based row number as it would appear in a spreadsheet (header = row 1).
-  row: number;
-  reason: string;
-}
-
-export interface CsvPreviewResult {
-  valid: CsvImportRow[];
-  errors: CsvPreviewError[];
-}
+import type { CsvImportError, CsvImportPreview, CsvImportRow } from '../../../shared/import';
 
 // #510: header names accepted for each column, compared after
 // normalizeCsvToken (no case, accents, spaces or punctuation). English and
@@ -46,7 +36,7 @@ const MAX_ROWS = 500;
 
 export class ImportService {
   /** Parse + validate a CSV buffer. Never writes to the database. */
-  previewCsv(buffer: Buffer): CsvPreviewResult {
+  previewCsv(buffer: Buffer): CsvImportPreview {
     const text = buffer.toString('utf-8');
 
     // Excel's "CSV (semicolon delimited)" export on Windows writes
@@ -60,7 +50,7 @@ export class ImportService {
     const records = parseCsv(text).slice(0, MAX_ROWS).map(canonicalRecord);
 
     const valid: CsvImportRow[] = [];
-    const errors: CsvPreviewError[] = [];
+    const errors: CsvImportError[] = [];
 
     // If a file carries none of the known columns, its header line was almost
     // certainly not understood (unsupported delimiter, missing header row,

@@ -5,35 +5,11 @@ import { clearOfflineData } from '@/lib/offline/db';
 import { notifyError } from '@/lib/toast';
 import { clearQuickLock } from '@/lib/quick-lock-storage';
 import { postLoginPath } from '@/lib/auth/next-path';
+import type { ExportCategory, PublicUser as PublicUserContract } from '@shared/auth';
+import type { Wire } from '@shared/wire';
 
-export interface PublicUser {
-  id: string;
-  username: string;
-  email: string;
-  avatarUrl: string | null;
-  appName: string | null;
-  appSlogan: string | null;
-  displayName: string | null;
-  theme: 'LIGHT' | 'DARK' | 'SYSTEM';
-  language: 'FR' | 'EN';
-  tempUnit: 'CELSIUS' | 'FAHRENHEIT';
-  accentColor: string;
-  dateFormat: 'SYSTEM' | 'H24' | 'H12';
-  // "Mode expert / collectionneur" (data-model audit) — OFF by default,
-  // reveals advanced/collector sections. See hooks/useExpertMode.ts.
-  expertMode: boolean;
-  isAdmin: boolean;
-  isTwoFactorEnabled?: boolean;
-  createdAt: string;
-  deletionRequestedAt?: string | null;
-  // FEAT-30: Quick Lock & Auto-Lock (client-side lock, session/JWT stays valid)
-  hasPin?: boolean;
-  autoLockDelayMin?: number | null;
-  // FEAT-56: Setup Wizard d'Onboarding — null while not completed/skipped yet
-  onboardingCompletedAt?: string | null;
-  // #336: set by an administrator's no-SMTP password reset.
-  mustChangePassword: boolean;
-}
+/** The signed-in member as the API sends it (#466: declared once in shared/auth.ts). */
+export type PublicUser = Wire<PublicUserContract>;
 
 const ME_KEY = ['auth', 'me'];
 const SESSIONS_KEY = ['auth', 'sessions'];
@@ -361,11 +337,9 @@ export function useUntrustDevice() {
 // ─── RGPD (FEAT-38) ──────────────────────────────────────────────────────────
 
 // FEAT-18: categories are optional — omitted/empty means "export everything",
-// preserving the original FEAT-38 full-export behavior.
-export type ExportCategory =
-  | 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity'
-  | 'wishlist' | 'budget' | 'goals' | 'counts' | 'humidor'
-  | 'sessions' | 'devices' | 'notifications' | 'configHistory';
+// preserving the original FEAT-38 full-export behavior. The list itself is in
+// shared/auth.ts (#466).
+export type { ExportCategory };
 
 export function useExportData() {
   return useMutation<void, Error, ExportCategory[] | void>({

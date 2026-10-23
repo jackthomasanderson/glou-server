@@ -20,6 +20,7 @@ import { authService } from '../services/auth.service';
 import { emailService } from '../services/email.service';
 import { backupService } from '../services/backup.service';
 import { auditLog } from '../services/audit.service';
+import type { PurgeResponse } from '../../../shared/maintenance';
 
 const adminRouter = Router();
 
@@ -286,7 +287,8 @@ adminRouter.post('/maintenance/purge', async (req: Request, res: Response): Prom
             ip,
             details: { counts: result.counts, backupRunId: backup.id },
         });
-        res.json({ data: { ...result, backupRunId: backup.id } });
+        const body: PurgeResponse = { ...result, backupRunId: backup.id };
+        res.json({ data: body });
     } catch (error) {
         console.error('[Admin] Maintenance purge error:', error);
         res.status(500).json({ error: 'PURGE_FAILED' });
@@ -433,16 +435,6 @@ adminRouter.put('/config/notifications', async (req: Request, res: Response): Pr
 adminRouter.put('/config/integrations', async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = integrationsConfigSchema.parse(req.body);
-    // ISSUE_048: defense in depth, even though nothing reads this field today.
-    if (parsed.ocrUrl) {
-      try {
-        await assertUrlAllowed(parsed.ocrUrl);
-      } catch (err) {
-        console.error('[admin] PUT /config/integrations error:', err);
-        res.status(400).json({ error: 'INVALID_URL' });
-        return;
-      }
-    }
     const config = await systemConfigService.updateIntegrations(parsed, req.userId);
     res.json({ data: config });
   } catch (err) {

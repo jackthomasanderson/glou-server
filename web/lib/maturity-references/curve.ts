@@ -1,22 +1,14 @@
-// FEAT-86 — consumption / aging curve shapes (frontend mirror).
+// FEAT-86 — consumption / aging curve shapes, UI side.
 //
 // The readiness MATHS lives only on the backend (api/src/lib/maturity-curve.ts)
 // and reaches the UI as a pre-computed `readiness` percentage on inventory
-// payloads / alerts. This module only carries the shape vocabulary and a
-// purely illustrative glyph path so the UI can name and sketch each shape.
+// payloads / alerts. The shape list comes from shared/inventory.ts (#466); this
+// module adds the i18n keys and a purely illustrative glyph path so the UI can
+// name and sketch each shape.
+import type { CurveShape } from '@shared/inventory';
 
-export const CURVE_SHAPES = [
-  'LINEAR',
-  'BELL',
-  'EARLY_BELL',
-  'LATE_BELL',
-  'TWIN_PEAK',
-  'PLATEAU',
-] as const;
-
-export type CurveShape = (typeof CURVE_SHAPES)[number];
-
-export const DEFAULT_CURVE_SHAPE: CurveShape = 'LINEAR';
+export { CURVE_SHAPES, DEFAULT_CURVE_SHAPE } from '@shared/inventory';
+export type { CurveShape } from '@shared/inventory';
 
 /** i18n key for a shape's short label, e.g. t(curveShapeLabelKey('LATE_BELL')). */
 export function curveShapeLabelKey(shape: CurveShape): string {

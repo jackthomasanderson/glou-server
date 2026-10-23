@@ -17,6 +17,7 @@ import { auditLog } from './audit.service';
 import { isCookieSecure } from '../lib/cookie-secure';
 import { escapeHtml } from '../lib/html';
 import { isNotifEn } from '../lib/notif-lang';
+import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES, type ExportCategory, type PublicUser } from '../../../shared/auth';
 
 // ISSUE_090: speakeasy was abandoned in 2016; otplib is actively maintained
 // and implements the same RFC 6238 TOTP algorithm (SHA1, 30s step, 6
@@ -34,10 +35,6 @@ const BCRYPT_ROUNDS = 12;
 // Hex-encoded length of a generated backup code (crypto.randomBytes(10) -> 20 hex chars).
 // A TOTP code is always 6 digits, so checking this length is enough to tell the two apart.
 const BACKUP_CODE_LENGTH = 20;
-
-// #222/#509: a deletion request is carried out automatically, without any
-// admin action, once this grace period has elapsed (maintenance.service.ts).
-export const ACCOUNT_DELETION_GRACE_DAYS = 30;
 
 // ISSUE_043: the `2fa_pending` token only proves the first factor was passed.
 // It must not inherit the 30-day session lifetime — a stolen/leaked password
@@ -66,22 +63,15 @@ export interface DeviceInfo {
   ip?: string | null;
 }
 
-// FEAT-18: categories selectable for a filtered personal data export.
+// FEAT-18: categories selectable for a filtered personal data export (list in
+// shared/auth.ts, #466).
 // #224: wishlist / budget / goals / counts / humidor / sessions / devices /
 // notifications / configHistory were missing, so the "full" export was not.
 // Sessions and trusted devices are exported as descriptive metadata only
 // (device label, location, timestamps) — never the tokenHash/bearer token
 // that authenticates them, which would let the export itself be replayed as
 // a credential.
-export type ExportCategory =
-  | 'inventory' | 'cellars' | 'collections' | 'tastings' | 'activity'
-  | 'wishlist' | 'budget' | 'goals' | 'counts' | 'humidor'
-  | 'sessions' | 'devices' | 'notifications' | 'configHistory';
-export const ALL_EXPORT_CATEGORIES: ExportCategory[] = [
-  'inventory', 'cellars', 'collections', 'tastings', 'activity',
-  'wishlist', 'budget', 'goals', 'counts', 'humidor',
-  'sessions', 'devices', 'notifications', 'configHistory',
-];
+export const ALL_EXPORT_CATEGORIES: readonly ExportCategory[] = EXPORT_CATEGORIES;
 
 export type LoginResult =
   | { user: PublicUser; token: string; rememberMe: boolean; requires2fa?: never; viaTrustedDevice?: boolean }
@@ -97,37 +87,10 @@ export interface SessionSummary {
   isCurrent: boolean;
 }
 
-export interface PublicUser {
-  id: string;
-  username: string;
-  email: string;
-  avatarUrl: string | null;
-  appName: string | null;
-  appSlogan: string | null;
-  displayName: string | null;
-  theme: Theme;
-  language: Language;
-  tempUnit: TempUnit;
-  accentColor: string;
-  dateFormat: DateFormat;
-  // "Mode expert / collectionneur" (data-model audit, Task 1) — OFF by
-  // default, reveals advanced/collector sections client-side.
-  expertMode: boolean;
-  isAdmin: boolean;
-  createdAt: Date;
-  deletionRequestedAt?: Date | null;
-  // FEAT-30: Quick Lock & Auto-Lock
-  hasPin: boolean;
-  autoLockDelayMin: number | null;
-  // FEAT-56: Setup Wizard d'Onboarding — null while the wizard hasn't been
-  // completed or skipped yet.
-  onboardingCompletedAt: Date | null;
-  // #336: set by an administrator's no-SMTP password reset; the frontend
-  // blocks the app behind a mandatory password-change screen while true.
-  mustChangePassword: boolean;
-}
-
-/** Shape shared by every Prisma User read used to build a PublicUser (FEAT-30 added pinHash/autoLockDelayMin). */
+/**
+ * Shape shared by every Prisma User read used to build a PublicUser (FEAT-30 added pinHash/autoLockDelayMin).
+ * PublicUser itself is the contract in shared/auth.ts (#466).
+ */
 interface RawUserForPublic {
   id: string;
   username: string;
@@ -149,7 +112,37 @@ interface RawUserForPublic {
   autoLockDelayMin: number | null;
   onboardingCompletedAt: Date | null;
   mustChangePassword: boolean;
+  isTwoFactorEnabled: boolean;
 }
+
+/**
+ * Columns read to build a PublicUser — every key of RawUserForPublic, nothing
+ * else. `satisfies` makes a missing or extra key a compile error, so the
+ * select can no longer drift from the interface (#576).
+ */
+const PUBLIC_USER_SELECT = {
+  id: true,
+  username: true,
+  email: true,
+  avatarUrl: true,
+  appName: true,
+  appSlogan: true,
+  displayName: true,
+  theme: true,
+  language: true,
+  tempUnit: true,
+  accentColor: true,
+  dateFormat: true,
+  expertMode: true,
+  isAdmin: true,
+  createdAt: true,
+  deletionRequestedAt: true,
+  pinHash: true,
+  autoLockDelayMin: true,
+  onboardingCompletedAt: true,
+  mustChangePassword: true,
+  isTwoFactorEnabled: true,
+} satisfies Record<keyof RawUserForPublic, true>;
 
 function signToken(payload: AuthPayload, expiresIn: SignOptions['expiresIn'] = JWT_EXPIRES_IN): string {
   const secret = process.env.JWT_SECRET;
@@ -224,6 +217,7 @@ export class AuthService {
       autoLockDelayMin: user.autoLockDelayMin,
       onboardingCompletedAt: user.onboardingCompletedAt,
       mustChangePassword: user.mustChangePassword,
+      isTwoFactorEnabled: user.isTwoFactorEnabled,
     };
   }
 
@@ -422,28 +416,7 @@ export class AuthService {
         displayName: displayName || null,
         ...(data.language ? { language: data.language } : {}),
       },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      },
+      select: PUBLIC_USER_SELECT,
     });
     const user = this.toPublicUser(rawUser);
 
@@ -527,28 +500,7 @@ export class AuthService {
   async me(userId: string): Promise<PublicUser | null> {
     const user = await prisma.user.findFirst({
       where: { id: userId },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      },
+      select: PUBLIC_USER_SELECT,
     });
     return user ? this.toPublicUser(user) : null;
   }
@@ -571,28 +523,7 @@ export class AuthService {
         ...data,
         displayName: data.displayName === undefined ? undefined : data.displayName?.trim() || null,
       },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      },
+      select: PUBLIC_USER_SELECT,
     });
     return this.toPublicUser(user);
   }
@@ -654,28 +585,7 @@ export class AuthService {
     const user = await prisma.user.update({
       where: { id: userId },
       data: { email },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      }
+      select: PUBLIC_USER_SELECT
     });
 
     if (previousEmail !== user.email) {
@@ -748,28 +658,7 @@ export class AuthService {
     const user = await prisma.user.update({
       where: { id: userId },
       data,
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      },
+      select: PUBLIC_USER_SELECT,
     });
     return this.toPublicUser(user);
   }
@@ -1168,28 +1057,7 @@ export class AuthService {
     const user = await prisma.user.update({
       where: { id: userId },
       data: { onboardingCompletedAt: new Date() },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        avatarUrl: true,
-        appName: true,
-        appSlogan: true,
-        displayName: true,
-        theme: true,
-        language: true,
-        tempUnit: true,
-        accentColor: true,
-        dateFormat: true,
-        expertMode: true,
-        isAdmin: true,
-        createdAt: true,
-        deletionRequestedAt: true,
-        pinHash: true,
-        autoLockDelayMin: true,
-        onboardingCompletedAt: true,
-        mustChangePassword: true,
-      },
+      select: PUBLIC_USER_SELECT,
     });
     return this.toPublicUser(user);
   }

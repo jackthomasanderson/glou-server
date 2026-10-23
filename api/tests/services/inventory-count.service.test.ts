@@ -58,7 +58,15 @@ describe('applyCorrections', () => {
     expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [] });
     expect(tx.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
-      data: expect.objectContaining({ isOpened: true, fillLevel: 0, updatedBy: 'u1' }),
+      data: {
+        isOpened: true,
+        fillLevel: 0,
+        // #573: a finished bottle has left its rack and gives its slot back.
+        slotColumn: null,
+        slotRow: null,
+        updatedAt: expect.any(Date),
+        updatedBy: 'u1',
+      },
     });
   });
 
@@ -115,8 +123,10 @@ describe('applyCorrections', () => {
 
 // FEAT-87: a non-owned reference sits on no shelf, so a count session must
 // never list it as a bottle to find (it would be reported missing forever).
-describe('getSessionReport excludes non-owned references (FEAT-87)', () => {
-  it('restricts the theoretical item list to owned items', async () => {
+// #573: neither may a finished bottle — "Mark as consumed" on a missing
+// bottle finishes it, so it would otherwise stay "missing" at every count.
+describe('getSessionReport — the theoretical list is what the cellar holds (FEAT-87, #573)', () => {
+  it('restricts the theoretical item list to owned, unfinished items', async () => {
     vi.mocked(prisma.inventoryCountSession.findUnique).mockResolvedValue({
       id: 's1',
       cellarId: 'c1',
@@ -130,6 +140,12 @@ describe('getSessionReport excludes non-owned references (FEAT-87)', () => {
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(call.where).toMatchObject({ cellarId: 'c1', deletedAt: null, isOwned: true });
+    expect(call.where).toEqual({
+      cellarId: 'c1',
+      deletedAt: null,
+      isOwned: true,
+      // `not: null` keeps an opened bottle with no recorded level on the list.
+      NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
+    });
   });
 });

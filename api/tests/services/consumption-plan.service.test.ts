@@ -206,7 +206,12 @@ describe('getSuggestions', () => {
       ([args]) => (args as { where: Record<string, unknown> }).where.isOpened === true,
     );
     expect(openedCall?.[0]).toEqual({
-      where: { deletedAt: null, isOwned: true, isOpened: true },
+      where: {
+        deletedAt: null,
+        isOwned: true,
+        isOpened: true,
+        NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
+      },
       select: expect.anything(),
     });
     expect(result.map((r) => ({ id: r.id, reason: r.reason }))).toEqual([
@@ -241,6 +246,23 @@ describe('getSuggestions', () => {
     expect(rotationWhere.id).toBeUndefined();
     expect((rotationCall?.[0] as { take: number }).take).toBe(1 + 2); // needed(1) + excludeIds.size(2)
     expect(result.map((r) => r.id)).toEqual(['peak1', 'opened1', 'old1']);
+  });
+
+  // #573: a finished bottle (opened, nothing left) is opened too, but there is
+  // nothing left to finish — "opened" must mean "opened with some left".
+  it('leaves finished bottles out of the opened-items query, but keeps an opened one with no recorded level (#573)', async () => {
+    vi.mocked(getAlerts).mockResolvedValue([] as never);
+    mockFindManyByShape({});
+
+    await getSuggestions();
+
+    const openedCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls.find(
+      ([args]) => (args as { where: Record<string, unknown> }).where.isOpened === true,
+    );
+    const openedWhere = (openedCall?.[0] as { where: Record<string, unknown> }).where;
+    // `not: null` keeps the clause null-safe: without it, SQL's NOT over a
+    // NULL `fillLevel` would drop an opened bottle whose level was never set.
+    expect(openedWhere.NOT).toEqual({ isOpened: true, fillLevel: { equals: 0, not: null } });
   });
 
   it('propagates a failure from the underlying alert lookup rather than swallowing it (error case)', async () => {
