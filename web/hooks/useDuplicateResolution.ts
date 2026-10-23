@@ -90,8 +90,11 @@ export function useDuplicateResolution({
     updateMutation.mutate(
       { id: duplicateFound.id, patch: { quantity: newQty } },
       {
+        // Resolved only on success, like a creation: a failed increment
+        // (reported by the mutation's toast) leaves the form open with the
+        // entry, and the wizard does not count a bottle that was not saved.
+        onSuccess: () => onResolved(),
         onSettled: () => {
-          onResolved();
           setDuplicateFound(null);
           setDuplicateCandidate(null);
           setPendingCollectionIds([]);
