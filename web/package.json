@@ -1,6 +1,6 @@
 {
   "name": "glou-web",
-  "version": "2026.10.0",
+  "version": "2026.10.1",
   "private": true,
   "engines": {
     "node": ">=24"

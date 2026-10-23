@@ -10,6 +10,8 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+## v2026.10.1 - 2026-10-23
+
 ### Changed
 - The API image now starts `dist/api/src/index.js` instead of `dist/index.js`: the API and the web app now read one shared folder of contracts (`shared/`), so a field or a value list can no longer differ between them. This only matters if you override the API container's command. Building an image by hand now needs `--build-context shared=./shared` (#679, #466).
 
