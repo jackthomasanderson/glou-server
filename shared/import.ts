@@ -25,3 +25,12 @@ export interface CsvImportPreview {
   valid: CsvImportRow[];
   errors: CsvImportError[];
 }
+
+/**
+ * FEAT-91 (#577): how many inventory items a row becomes. design.md glossary:
+ * one item per bottle, so a wine row with quantity 6 is 6 items; a cigar item
+ * is a box, and its quantity is the number of cigars in it.
+ */
+export function csvRowItemCount(row: Pick<CsvImportRow, 'category' | 'quantity'>): number {
+  return row.category === 'cigar' ? 1 : row.quantity ?? 1;
+}

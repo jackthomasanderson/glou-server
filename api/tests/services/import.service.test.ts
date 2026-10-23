@@ -115,7 +115,7 @@ describe('ImportService.confirmImport', () => {
   // duplicate detection at all — the highest-volume way to double a shelf.
   it('skips a row that already matches an existing item instead of erroring', async () => {
     tx.inventoryItem.findMany.mockResolvedValue([
-      { producer: 'Château Pétrus', name: 'Pétrus', vintage: 2015, bottleSize: null },
+      { category: 'wine', producer: 'Château Pétrus', name: 'Pétrus', vintage: 2015, bottleSize: null },
     ]);
     const result = await importService.confirmImport('u1', [row()], null);
     expect(result).toEqual({ created: 0, skippedDuplicates: 1 });
@@ -130,9 +130,33 @@ describe('ImportService.confirmImport', () => {
 
   it('still creates a row whose vintage actually differs from the existing one', async () => {
     tx.inventoryItem.findMany.mockResolvedValue([
-      { producer: 'Château Pétrus', name: 'Pétrus', vintage: 2010, bottleSize: null },
+      { category: 'wine', producer: 'Château Pétrus', name: 'Pétrus', vintage: 2010, bottleSize: null },
     ]);
     const result = await importService.confirmImport('u1', [row({ vintage: 2015 })], null);
     expect(result).toEqual({ created: 1, skippedDuplicates: 0 });
+  });
+
+  // FEAT-91 (#577): one item per bottle (design.md glossary), so a case of 6
+  // written either way gives 6 bottles, not 1 and "5 already in your inventory".
+  it('creates one bottle per unit of a wine row\'s quantity', async () => {
+    const result = await importService.confirmImport('u1', [row({ quantity: 6 })], null);
+    expect(result).toEqual({ created: 6, skippedDuplicates: 0 });
+    expect(tx.inventoryItem.create).toHaveBeenCalledTimes(6);
+  });
+
+  it('creates every one of six identical rows instead of matching them against each other', async () => {
+    // A row created earlier in this import must not count as "already there".
+    tx.inventoryItem.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
+      tx.inventoryItem.findMany.mockResolvedValue([data]);
+      return data;
+    });
+    const result = await importService.confirmImport('u1', Array.from({ length: 6 }, () => row()), null);
+    expect(result).toEqual({ created: 6, skippedDuplicates: 0 });
+  });
+
+  // #633: the duplicate check used to re-read the whole category for every row.
+  it('reads the inventory once for the whole file, not once per row', async () => {
+    await importService.confirmImport('u1', [row(), row({ name: 'Le Pin' }), row({ category: 'spirit', name: 'Lagavulin' })], null);
+    expect(tx.inventoryItem.findMany).toHaveBeenCalledTimes(1);
   });
 });

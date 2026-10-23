@@ -391,7 +391,7 @@ describe('InventoryService', () => {
   describe('findDuplicateCandidate', () => {
     it('matches case-insensitively on producer + name + vintage for wine', async () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        { id: 'existing', producer: 'Château Pétrus', name: 'pétrus', vintage: 2015, bottleSize: '75cl' },
+        { id: 'existing', category: 'wine', producer: 'Château Pétrus', name: 'pétrus', vintage: 2015, bottleSize: '75cl' },
       ] as never);
 
       const result = await service.findDuplicateCandidate({
@@ -403,7 +403,7 @@ describe('InventoryService', () => {
 
     it('does not match a different vintage', async () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        { id: 'existing', producer: 'Château Pétrus', name: 'Pétrus', vintage: 2010, bottleSize: '75cl' },
+        { id: 'existing', category: 'wine', producer: 'Château Pétrus', name: 'Pétrus', vintage: 2010, bottleSize: '75cl' },
       ] as never);
 
       const result = await service.findDuplicateCandidate({
@@ -415,7 +415,7 @@ describe('InventoryService', () => {
 
     it('treats a missing vintage on either side as a potential match', async () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        { id: 'existing', producer: 'Château Pétrus', name: 'Pétrus', vintage: null, bottleSize: '75cl' },
+        { id: 'existing', category: 'wine', producer: 'Château Pétrus', name: 'Pétrus', vintage: null, bottleSize: '75cl' },
       ] as never);
 
       const result = await service.findDuplicateCandidate({
@@ -427,7 +427,7 @@ describe('InventoryService', () => {
 
     it('compares format (not vintage) for cigars', async () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        { id: 'existing', producer: 'Romeo y Julieta', name: 'Churchill', format: 'Churchill' },
+        { id: 'existing', category: 'cigar', producer: 'Romeo y Julieta', name: 'Churchill', format: 'Churchill' },
       ] as never);
 
       const matching = await service.findDuplicateCandidate({

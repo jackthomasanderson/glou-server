@@ -2,8 +2,8 @@ import { prisma } from '../lib/prisma';
 import { parseCsv } from '../lib/csv';
 import { csvRawRowSchema, normalizeCsvToken } from '../schemas/import.schema';
 import { InventoryInput } from '../schemas/inventory.schema';
-import { inventoryService, FieldSource } from './inventory.service';
-import type { CsvImportError, CsvImportPreview, CsvImportRow } from '../../../shared/import';
+import { inventoryService, isDuplicateOf, FieldSource } from './inventory.service';
+import { csvRowItemCount, type CsvImportError, type CsvImportPreview, type CsvImportRow } from '../../../shared/import';
 
 // #510: header names accepted for each column, compared after
 // normalizeCsvToken (no case, accents, spaces or punctuation). English and
@@ -101,17 +101,26 @@ export class ImportService {
   ): Promise<{ created: number; skippedDuplicates: number }> {
     return prisma.$transaction(
       async (tx) => {
+        // FEAT-91 (#577): rows are matched against the inventory as it was
+        // before the import, read once (#633) — never against items this
+        // import has just created, which turned six identical rows into one
+        // bottle and "5 already in your inventory".
+        const existing = await tx.inventoryItem.findMany({
+          where: { deletedAt: null, category: { in: [...new Set(rows.map((row) => row.category))] } },
+        });
         let created = 0;
         let skippedDuplicates = 0;
         for (const row of rows) {
           const input = this.toInventoryInput(row, cellarId);
-          const duplicate = await inventoryService.findDuplicateCandidate(input, tx);
-          if (duplicate) {
+          if (existing.some((item) => isDuplicateOf(item, input))) {
             skippedDuplicates++;
             continue;
           }
-          await inventoryService.createItem(userId, input, tx, this.toFieldSources(row));
-          created++;
+          const fieldSources = this.toFieldSources(row);
+          for (let i = 0; i < csvRowItemCount(row); i++) {
+            await inventoryService.createItem(userId, input, tx, fieldSources);
+            created++;
+          }
         }
         return { created, skippedDuplicates };
       },
