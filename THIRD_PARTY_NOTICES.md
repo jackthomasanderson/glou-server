@@ -329,7 +329,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | yargs-parser | 18.1.3 | ISC | https://github.com/yargs/yargs-parser |
 | yauzl | 3.4.0 | MIT | https://github.com/thejoshwolfe/yauzl |
 | zeptomatch | 2.1.0 | MIT | github:fabiospampinato/zeptomatch |
-| zod | 3.25.76 | MIT | https://github.com/colinhacks/zod |
+| zod | 4.6.7 | MIT | https://github.com/colinhacks/zod |
 
 ## Web image (`web/`)
 
