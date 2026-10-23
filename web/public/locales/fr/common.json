@@ -426,7 +426,8 @@
       "statusError": "Impossible de modifier le statut du membre"
     },
     "onboarding": {
-      "completeError": "Impossible de terminer la configuration"
+      "completeError": "Impossible de terminer la configuration",
+      "postponeError": "Impossible d'enregistrer votre choix : l'assistant pourra réapparaître."
     }
   },
   "auth": {
@@ -1730,20 +1731,36 @@
   "onboarding": {
     "dialogLabel": "Assistant de démarrage",
     "stepProgress": "Étape {{current}} sur {{total}}",
-    "skip": "Passer l'assistant",
+    "later": "Plus tard",
+    "dontShowAgain": "Ne plus afficher l'assistant",
+    "dontShowAgainToast": "Vous pourrez relancer le guide depuis votre profil.",
     "back": "Retour",
     "welcome": {
       "title": "Bienvenue sur Glou !",
       "subtitle": "Configurons ensemble votre première cave en quelques étapes rapides.",
       "languageLabel": "Langue de l'application",
-      "cta": "Commencer"
+      "cta": "Commencer",
+      "joiningSubtitle": "Vous rejoignez une cave déjà en place : voyons ce qu'elle contient."
     },
     "cellar": {
       "title": "Créez votre première cave",
       "subtitle": "Donnez un nom à votre cave pour commencer à y ranger vos actifs.",
       "namePlaceholder": "Ex : Cave à vin",
       "skipStep": "Passer cette étape",
-      "createCta": "Créer la cave"
+      "createCta": "Créer la cave",
+      "existing": "Votre cave « {{name}} » est prête",
+      "existingSubtitle": "Elle accueillera les bouteilles que vous ajoutez maintenant.",
+      "continue": "Continuer"
+    },
+    "joining": {
+      "title": "Vous rejoignez la cave de votre foyer",
+      "subtitle": "Tout est partagé : vous voyez et gérez les mêmes bouteilles que les autres membres.",
+      "cellars_one": "{{count}} cave",
+      "cellars_other": "{{count}} caves",
+      "items_one": "{{count}} bouteille en stock",
+      "items_other": "{{count}} bouteilles en stock",
+      "explore": "Découvrir la cave",
+      "addBottles": "Ajouter des bouteilles"
     },
     "ingestion": {
       "title": "Comment souhaitez-vous ajouter vos actifs ?",

@@ -18,7 +18,12 @@ The setup wizard walks a new account through creating a first cellar and loading
    - **Manual entry**: add a few bottles by hand.
 5. **Summary**: see how many items were added and which cellar they landed in, then jump to the dashboard.
 
-You can skip any step, or close the wizard and come back to it later. Closing it before completion does not mark it as done, so it reopens on your next login.
+You can skip any step. To leave the wizard:
+
+- **Later** (top right) closes it until your next sign-in, reloads and other tabs included. It resumes where you left it, with the cellar it had you create.
+- **Don't show the wizard again** (bottom) finishes it for good. You can still restart it from your profile.
+
+A member who joins an instance already filled by someone else (at least one cellar, none created by them) gets a short version: the welcome and language, then a screen showing the household's cellars and bottles in stock. They are never asked to create a first cellar.
 
 ### Re-run the wizard manually
 1. Go to **Profile**.
@@ -48,8 +53,8 @@ The import runs in two steps: a **preview** validates every row and reports erro
 
 | Error / Behavior | Fix |
 | :--- | :--- |
-| **The wizard keeps reopening on every login** | You closed it without finishing or without clicking Skip. Complete a step or explicitly skip to set the completion flag; closing the browser tab does not count. |
+| **The wizard keeps reopening on every login** | You chose **Later**, which only lasts for one sign-in. Finish it, or click **Don't show the wizard again**. |
 | **My `.xlsx` file was rejected** | Excel workbooks are not supported. Export or save the file as `.csv` first. |
 | **Only some of my rows were imported** | You went over the 500-row cap: only the first 500 rows of the file are read. Split the file and import the rest afterward from the main inventory screen. |
 | **Preview shows errors on rows that look fine** | Check `category` is exactly one of `wine`, `sparkling`, `spirit`, `cigar` (case-sensitive), and that `name`/`producer` aren't empty or over 200 characters. |
-| **I want to run the wizard again just to test something** | Visit `/profile?onboarding=1` or click **Review onboarding** in your profile. It does not touch your existing data, and finishing or skipping it again does not create duplicates on its own (duplicate detection still applies on add, see [Deduplication](./07-Global-Search.md) if relevant). |
+| **I want to run the wizard again just to test something** | Visit `/profile?onboarding=1` or click **Review the getting started guide** in your profile. It does not touch your existing data, and finishing or skipping it again does not create duplicates on its own (duplicate detection still applies on add, see [Deduplication](./07-Global-Search.md) if relevant). |

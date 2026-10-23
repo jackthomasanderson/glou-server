@@ -426,7 +426,8 @@
       "statusError": "Could not change the member's status"
     },
     "onboarding": {
-      "completeError": "Could not complete the setup"
+      "completeError": "Could not complete the setup",
+      "postponeError": "Couldn't save your choice: the wizard may show up again."
     }
   },
   "auth": {
@@ -1728,20 +1729,36 @@
   "onboarding": {
     "dialogLabel": "Setup wizard",
     "stepProgress": "Step {{current}} of {{total}}",
-    "skip": "Skip the wizard",
+    "later": "Later",
+    "dontShowAgain": "Don't show the wizard again",
+    "dontShowAgainToast": "You can restart the guide from your profile.",
     "back": "Back",
     "welcome": {
       "title": "Welcome to Glou!",
       "subtitle": "Let's set up your first cellar together in a few quick steps.",
       "languageLabel": "Application language",
-      "cta": "Get started"
+      "cta": "Get started",
+      "joiningSubtitle": "You're joining a cellar that's already set up: let's see what it holds."
     },
     "cellar": {
       "title": "Create your first cellar",
       "subtitle": "Give your cellar a name to start organizing your assets in it.",
       "namePlaceholder": "E.g. Wine cellar",
       "skipStep": "Skip this step",
-      "createCta": "Create cellar"
+      "createCta": "Create cellar",
+      "existing": "Your cellar “{{name}}” is ready",
+      "existingSubtitle": "The bottles you add now will go into it.",
+      "continue": "Continue"
+    },
+    "joining": {
+      "title": "You're joining your household's cellar",
+      "subtitle": "Everything is shared: you see and manage the same bottles as the other members.",
+      "cellars_one": "{{count}} cellar",
+      "cellars_other": "{{count}} cellars",
+      "items_one": "{{count}} bottle in stock",
+      "items_other": "{{count}} bottles in stock",
+      "explore": "Explore the cellar",
+      "addBottles": "Add bottles"
     },
     "ingestion": {
       "title": "How would you like to add your assets?",

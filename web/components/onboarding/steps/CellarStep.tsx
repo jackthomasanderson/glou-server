@@ -7,17 +7,38 @@ import { useCreateCellar } from '@/hooks/useCellars';
 import { Cellar, CellarType } from '@/lib/cellars/types';
 
 interface CellarStepProps {
+  /** The cellar this wizard already created (#685): shown instead of the creation form. */
+  existingCellar: { name: string } | null;
   onCreated: (cellar: Cellar) => void;
+  onContinue: () => void;
   onSkip: () => void;
   onBack: () => void;
 }
 
 /** Step 2/5 — simplified cellar creation (name + storage type only). */
-export function CellarStep({ onCreated, onSkip, onBack }: CellarStepProps) {
+export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBack }: CellarStepProps) {
   const { t } = useTranslation();
   const createCellar = useCreateCellar();
   const [name, setName] = useState('');
   const [type, setType] = useState<CellarType>('VINTAGE');
+
+  // #685: coming back here after creating the cellar must not create a second
+  // one for the whole household.
+  if (existingCellar) {
+    return (
+      <div className="flex flex-col gap-5 py-8 px-6">
+        <div className="text-center">
+          <Warehouse size={36} className="text-primary mx-auto mb-2" />
+          <h2 className="text-lg font-bold">{t('onboarding.cellar.existing', { name: existingCellar.name })}</h2>
+          <p className="text-sm text-foreground-500 mt-1">{t('onboarding.cellar.existingSubtitle')}</p>
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <Button variant="light" onPress={onBack}>{t('onboarding.back')}</Button>
+          <Button color="primary" variant="solid" onPress={onContinue}>{t('onboarding.cellar.continue')}</Button>
+        </div>
+      </div>
+    );
+  }
 
   const handleCreate = () => {
     if (!name.trim()) return;

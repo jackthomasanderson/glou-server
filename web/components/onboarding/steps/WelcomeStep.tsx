@@ -5,11 +5,13 @@ import { useTranslation } from 'react-i18next';
 import { useMe, useUpdatePreferences } from '@/hooks/useAuth';
 
 interface WelcomeStepProps {
+  /** FEAT-89: the member joins a cellar filled by others, they are not setting one up. */
+  joining?: boolean;
   onNext: () => void;
 }
 
 /** Step 1/5 — short pitch + language selection (persisted on the account, FEAT-56). */
-export function WelcomeStep({ onNext }: WelcomeStepProps) {
+export function WelcomeStep({ joining = false, onNext }: WelcomeStepProps) {
   const { t } = useTranslation();
   const { data: user } = useMe();
   const updatePrefs = useUpdatePreferences();
@@ -19,7 +21,7 @@ export function WelcomeStep({ onNext }: WelcomeStepProps) {
       <Sparkles size={40} className="text-primary" />
       <div>
         <h2 className="text-xl font-bold">{t('onboarding.welcome.title')}</h2>
-        <p className="text-sm text-foreground-500 mt-1 max-w-sm">{t('onboarding.welcome.subtitle')}</p>
+        <p className="text-sm text-foreground-500 mt-1 max-w-sm">{t(joining ? 'onboarding.welcome.joiningSubtitle' : 'onboarding.welcome.subtitle')}</p>
       </div>
 
       <div className="w-full max-w-xs">
