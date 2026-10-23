@@ -50,6 +50,20 @@ describe('confirmCsvImportSchema (canonical, already-typed rows)', () => {
     expect(confirmCsvImportSchema.safeParse({ rows: Array(501).fill(row) }).success).toBe(false);
   });
 
+  // FEAT-91: the 500 cap counts the items the rows become, not the rows.
+  it('accepts up to 500 items in all, counting a wine row\'s quantity as that many bottles', () => {
+    const atCap = { rows: [{ ...row, quantity: 300 }, { ...row, quantity: 200 }] };
+    expect(confirmCsvImportSchema.safeParse(atCap).success).toBe(true);
+
+    const overCap = confirmCsvImportSchema.safeParse({ rows: [{ ...row, quantity: 300 }, { ...row, quantity: 201 }] });
+    expect(overCap.success).toBe(false);
+    if (!overCap.success) expect(overCap.error.issues[0].message).toBe('TOO_MANY_ITEMS');
+
+    // A cigar row is one box, whatever its number of cigars.
+    const boxes = { rows: [{ ...row, quantity: 499 }, { ...row, category: 'cigar' as const, quantity: 1000 }] };
+    expect(confirmCsvImportSchema.safeParse(boxes).success).toBe(true);
+  });
+
   it('rejects a row whose vintage is still a string (must be pre-parsed)', () => {
     expect(csvImportRowSchema.safeParse({ ...row, vintage: '2015' }).success).toBe(false);
     expect(csvImportRowSchema.safeParse({ ...row, vintage: 2015 }).success).toBe(true);

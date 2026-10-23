@@ -1794,7 +1794,7 @@
     },
     "csv": {
       "title": "CSV Import",
-      "subtitle": "Import a .csv file with the columns name, producer, category (wine, sparkling, spirit, cigar) and optionally vintage, price, region, quantity, ABV. French headers and category names (nom, producteur, catégorie, millésime, prix, quantité, degré; vin, bulles, spiritueux, cigare) work too.",
+      "subtitle": "Import a .csv file with the columns name, producer, category (wine, sparkling, spirit, cigar) and optionally vintage, price, region, quantity (number of bottles, or of cigars per box), ABV. French headers and category names (nom, producteur, catégorie, millésime, prix, quantité, degré; vin, bulles, spiritueux, cigare) work too.",
       "csvOnlyHint": "Only the CSV format is supported (Excel/.xlsx is not).",
       "chooseFile": "Choose a CSV file",
       "chooseAnother": "Choose another file",
@@ -1806,6 +1806,17 @@
       "errorReason": "Row {{row}}: {{reason}}",
       "noValidRows": "No valid row to import.",
       "confirmButton": "Confirm import",
+      "confirmError": "The import failed: try again. Bottles already in stock will not be imported a second time.",
+      "uploadErrors": {
+        "FILE_TOO_LARGE": "This file is too large to upload (2 MB at most). Split it into several smaller files.",
+        "INVALID_FILE_TYPE": "This file is not a CSV. Save it as \"CSV UTF-8\" and try again."
+      },
+      "itemsInFile_one": "{{count}} asset in the file",
+      "itemsInFile_other": "{{count}} assets in the file",
+      "rowQuantity_one": "{{count}} bottle",
+      "rowQuantity_other": "{{count}} bottles",
+      "tooManyItems_one": "This file stands for {{count}} asset, but one import takes at most {{max}}: nothing has been imported. Split it into several files, keeping all the rows of a given wine in the same file; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
+      "tooManyItems_other": "This file stands for {{count}} assets, but one import takes at most {{max}}: nothing has been imported. Split it into several files, keeping all the rows of a given wine in the same file; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
       "errorCodes": {
         "NAME_REQUIRED": "Name is missing",
         "NAME_TOO_LONG": "Name exceeds 200 characters",
@@ -1830,8 +1841,8 @@
       "itemsAdded_one": "{{count}} asset added to your inventory",
       "itemsAdded_other": "{{count}} assets added to your inventory",
       "noItems": "No asset added yet",
-      "duplicatesSkipped_one": "{{count}} row skipped (already in your inventory)",
-      "duplicatesSkipped_other": "{{count}} rows skipped (already in your inventory)",
+      "duplicatesSkipped_one": "{{count}} row not imported: already in stock before the import",
+      "duplicatesSkipped_other": "{{count}} rows not imported: already in stock before the import",
       "adminConfig": {
         "title": "System configuration (optional)",
         "description": "As an admin, you'll be able to set up SMTP, notif policy, webhook/Gotify, API integrations, retention, backups and network later.",

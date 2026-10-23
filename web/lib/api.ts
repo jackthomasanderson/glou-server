@@ -12,7 +12,7 @@ export async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 const API_BASE = '/api';
-const DEFAULT_TIMEOUT_MS = 15000;
+export const DEFAULT_TIMEOUT_MS = 15000;
 
 /**
  * AbortSignal.timeout() only exists from Safari 16 / iOS 16. On older browsers
@@ -37,13 +37,14 @@ export const client = {
     return { data };
   },
 
-  async post<T>(url: string, data?: unknown): Promise<{ data: T }> {
+  /** `timeoutMs`: for the rare request the server is allowed to work on longer (CSV import). */
+  async post<T>(url: string, data?: unknown, { timeoutMs = DEFAULT_TIMEOUT_MS }: { timeoutMs?: number } = {}): Promise<{ data: T }> {
     const res = await fetch(`${API_BASE}${url}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
-      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
+      signal: timeoutSignal(timeoutMs),
     });
     const result = await handleResponse<T>(res);
     return { data: result };

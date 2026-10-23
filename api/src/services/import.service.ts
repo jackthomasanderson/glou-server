@@ -1,9 +1,17 @@
 import { prisma } from '../lib/prisma';
+import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { parseCsv } from '../lib/csv';
 import { csvRawRowSchema, normalizeCsvToken } from '../schemas/import.schema';
 import { InventoryInput } from '../schemas/inventory.schema';
-import { inventoryService, FieldSource } from './inventory.service';
-import type { CsvImportError, CsvImportPreview, CsvImportRow } from '../../../shared/import';
+import { inventoryService, isDuplicateOf, FieldSource } from './inventory.service';
+import {
+  CSV_IMPORT_TRANSACTION_MAX_WAIT_MS,
+  CSV_IMPORT_TRANSACTION_TIMEOUT_MS,
+  csvRowItemCount,
+  type CsvImportError,
+  type CsvImportPreview,
+  type CsvImportRow,
+} from '../../../shared/import';
 
 // #510: header names accepted for each column, compared after
 // normalizeCsvToken (no case, accents, spaces or punctuation). English and
@@ -30,9 +38,8 @@ function canonicalRecord(record: Record<string, string>): Record<string, string>
   return out;
 }
 
-// Defensive cap: this is an onboarding convenience import, not a bulk data
-// migration tool. Rows beyond this are silently ignored at preview time.
-const MAX_ROWS = 500;
+/** Arbitrary, instance-wide key of the CSV import's advisory lock (FEAT-91). */
+const CSV_IMPORT_LOCK_KEY = 5_770_641;
 
 export class ImportService {
   /** Parse + validate a CSV buffer. Never writes to the database. */
@@ -47,7 +54,10 @@ export class ImportService {
       return { valid: [], errors: [{ row: 1, reason: 'INVALID_ENCODING' }] };
     }
 
-    const records = parseCsv(text).slice(0, MAX_ROWS).map(canonicalRecord);
+    // FEAT-91 (#641): every row is read, so the screen can say when the file
+    // goes over CSV_IMPORT_MAX_ITEMS instead of dropping the rest unseen.
+    // The upload itself is capped at 2 MB (upload.middleware.ts).
+    const records = parseCsv(text).map(canonicalRecord);
 
     const valid: CsvImportRow[] = [];
     const errors: CsvImportError[] = [];
@@ -91,8 +101,8 @@ export class ImportService {
    * app only ever ran in the browser — a bulk CSV import had no equivalent
    * at all, the highest-volume way to double an entire shelf of bottles.
    * A matched row is skipped (not an error: there's no interactive dialog to
-   * resolve it mid-import, and the row IS already in the inventory) and
-   * counted separately so the UI can report it instead of silently losing it.
+   * resolve it mid-import, and the bottle IS already in stock) and counted
+   * separately so the UI can report it instead of silently losing it.
    */
   async confirmImport(
     userId: string,
@@ -101,41 +111,57 @@ export class ImportService {
   ): Promise<{ created: number; skippedDuplicates: number }> {
     return prisma.$transaction(
       async (tx) => {
+        // FEAT-91: one import at a time on the instance. A retry sent while a
+        // slow import is still being written (the screen or a proxy gave up)
+        // waits here, then finds those bottles in stock instead of importing
+        // them a second time. Released when the transaction ends.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CSV_IMPORT_LOCK_KEY}::bigint)`;
+        // FEAT-91 (#577): rows are matched against what was in stock before
+        // the import, read once (#633) — never against items this import has
+        // just created, which turned six identical rows into one bottle and
+        // "5 already in your inventory". A finished bottle or a non-owned
+        // reference is not in stock, so a new purchase of it is imported.
+        const inStock = await tx.inventoryItem.findMany({
+          where: { ...IN_STOCK_ITEM_FILTER, category: { in: [...new Set(rows.map((row) => row.category))] } },
+        });
         let created = 0;
         let skippedDuplicates = 0;
         for (const row of rows) {
           const input = this.toInventoryInput(row, cellarId);
-          const duplicate = await inventoryService.findDuplicateCandidate(input, tx);
-          if (duplicate) {
+          if (inStock.some((item) => isDuplicateOf(item, input))) {
             skippedDuplicates++;
             continue;
           }
-          await inventoryService.createItem(userId, input, tx, this.toFieldSources(row));
-          created++;
+          const fieldSources = this.toFieldSources(row, input);
+          for (let i = 0; i < csvRowItemCount(row); i++) {
+            await inventoryService.createItem(userId, input, tx, fieldSources);
+            created++;
+          }
         }
         return { created, skippedDuplicates };
       },
-      // Up to MAX_ROWS=500 chained creates comfortably exceed Prisma's 5s
+      // Up to CSV_IMPORT_MAX_ITEMS (500) chained creates comfortably exceed Prisma's 5s
       // interactive-transaction default, which rolled the whole import back
       // with no explanation (#161) — give it real headroom instead.
-      { timeout: 60000, maxWait: 10000 },
+      { timeout: CSV_IMPORT_TRANSACTION_TIMEOUT_MS, maxWait: CSV_IMPORT_TRANSACTION_MAX_WAIT_MS },
     );
   }
 
   /**
-   * Tags only the fields whose value actually came from the CSV row itself —
-   * NOT the per-category fallback default `toInventoryInput` fills in below
-   * (`cigar.quantity: 1`), a placeholder the user still needs to fill in
-   * manually, not genuine imported data (FEAT-05 transparency: a source tag
-   * must be honest).
+   * Tags only the fields whose value actually came from the CSV row itself
+   * AND is saved on the item (FEAT-05 transparency: a source tag must be
+   * honest). Not the per-category fallback default `toInventoryInput` fills
+   * in below (`cigar.quantity: 1`), and not a column the category does not
+   * keep: a wine's quantity becomes that many items (FEAT-91), a wine's ABV
+   * or a spirit's vintage is not stored.
    */
-  private toFieldSources(row: CsvImportRow): Partial<Record<string, FieldSource>> {
+  private toFieldSources(row: CsvImportRow, input: InventoryInput): Partial<Record<string, FieldSource>> {
     const sources: Partial<Record<string, FieldSource>> = {
       name: 'import_csv',
       producer: 'import_csv',
     };
     for (const field of ['vintage', 'purchasePrice', 'region', 'quantity', 'alcoholDegree'] as const) {
-      if (row[field] !== undefined) sources[field] = 'import_csv';
+      if (row[field] !== undefined && field in input) sources[field] = 'import_csv';
     }
     return sources;
   }

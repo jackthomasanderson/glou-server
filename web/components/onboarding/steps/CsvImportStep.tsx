@@ -1,10 +1,14 @@
 'use client';
 import { useRef, useState } from 'react';
 import { Button, Chip } from '@heroui/react';
-import { CheckCircle2, Upload, XCircle } from 'lucide-react';
+import { CheckCircle2, Package, Upload, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { CSV_IMPORT_MAX_ITEMS, csvRowItemCount } from '@shared/import';
 import { useCsvConfirm, useCsvPreview } from '@/hooks/useImport';
 import { CsvImportError, CsvImportRow } from '@/lib/import/types';
+
+/** Refusals of the uploaded file that get their own explanation (FEAT-91, #641). */
+const EXPLAINED_UPLOAD_ERRORS = new Set(['FILE_TOO_LARGE', 'INVALID_FILE_TYPE']);
 
 interface CsvImportStepProps {
   cellarId: string | null;
@@ -25,6 +29,10 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<CsvImportRow[]>([]);
   const [errors, setErrors] = useState<CsvImportError[]>([]);
+  // FEAT-91: a wine row with quantity 6 is 6 items; the import takes at most
+  // CSV_IMPORT_MAX_ITEMS, and a larger file is refused here, not cut short.
+  const itemCount = rows.reduce((n, row) => n + csvRowItemCount(row), 0);
+  const overLimit = itemCount > CSV_IMPORT_MAX_ITEMS;
 
   const reset = () => {
     setFileName(null);
@@ -89,7 +97,11 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
           )}
 
           {preview.isError && (
-            <p className="text-sm text-danger text-center">{t('status.error')}</p>
+            <p role="alert" className="text-sm text-danger text-center">
+              {preview.error && EXPLAINED_UPLOAD_ERRORS.has(preview.error.message)
+                ? t(`onboarding.csv.uploadErrors.${preview.error.message}`)
+                : t('status.error')}
+            </p>
           )}
 
           {!preview.isPending && (rows.length > 0 || errors.length > 0) && (
@@ -98,6 +110,11 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
                 <Chip color="success" variant="flat" size="sm" startContent={<CheckCircle2 size={14} />}>
                   {t('onboarding.csv.validRows', { count: rows.length })}
                 </Chip>
+                {rows.length > 0 && (
+                  <Chip color={overLimit ? 'danger' : 'primary'} variant="flat" size="sm" startContent={<Package size={14} />}>
+                    {t('onboarding.csv.itemsInFile', { count: itemCount })}
+                  </Chip>
+                )}
                 {errors.length > 0 && (
                   <Chip color="warning" variant="flat" size="sm" startContent={<XCircle size={14} />}>
                     {t('onboarding.csv.errorRows', { count: errors.length })}
@@ -106,14 +123,20 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
               </div>
 
               <div className="max-h-56 overflow-y-auto border border-divider rounded-lg divide-y divide-divider">
-                {rows.map((row, i) => (
-                  <div key={`row-${i}`} className="px-3 py-2 text-sm flex items-center justify-between gap-2">
-                    <span className="truncate">{row.name} — {row.producer}</span>
-                    <span className="text-foreground-400 text-xs shrink-0">
-                      {t(`categories.${row.category}`)}{row.vintage ? ` · ${row.vintage}` : ''}
-                    </span>
-                  </div>
-                ))}
+                {rows.map((row, i) => {
+                  const bottles = csvRowItemCount(row);
+                  return (
+                    <div key={`row-${i}`} className="px-3 py-2 text-sm flex items-center justify-between gap-2">
+                      <span className="truncate">{row.name} — {row.producer}</span>
+                      <span className="text-foreground-400 text-xs shrink-0 flex items-center gap-2">
+                        {bottles > 1 && (
+                          <span className="font-medium text-foreground-600">{t('onboarding.csv.rowQuantity', { count: bottles })}</span>
+                        )}
+                        <span>{t(`categories.${row.category}`)}{row.vintage ? ` · ${row.vintage}` : ''}</span>
+                      </span>
+                    </div>
+                  );
+                })}
                 {errors.map((e) => (
                   <div key={`err-${e.row}`} className="px-3 py-2 text-sm text-danger bg-danger-50">
                     {t('onboarding.csv.errorReason', {
@@ -127,6 +150,12 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
               {rows.length === 0 && (
                 <p className="text-sm text-warning-600 text-center">{t('onboarding.csv.noValidRows')}</p>
               )}
+
+              {overLimit && (
+                <p role="alert" className="text-sm text-danger text-center">
+                  {t('onboarding.csv.tooManyItems', { count: itemCount, max: CSV_IMPORT_MAX_ITEMS })}
+                </p>
+              )}
             </div>
           )}
         </>
@@ -137,7 +166,7 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
         <Button
           color="primary"
           variant="solid"
-          isDisabled={rows.length === 0 || preview.isPending}
+          isDisabled={rows.length === 0 || overLimit || preview.isPending}
           isLoading={confirm.isPending}
           onPress={handleConfirm}
         >

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CATEGORY_VALUES, categorySchema } from '../lib/category';
+import { CSV_IMPORT_MAX_ITEMS, csvRowItemCount } from '../../../shared/import';
 
 // ─── FEAT-56: CSV Import (Onboarding Setup Wizard) ───────────────────────────
 // Minimal column set, matching the wizard's "Import Fichier" step: name,
@@ -89,7 +90,13 @@ export const csvImportRowSchema = z.object({
 export type { CsvImportRow } from '../../../shared/import';
 
 export const confirmCsvImportSchema = z.object({
-  rows: z.array(csvImportRowSchema).min(1, 'NO_ROWS').max(500, 'TOO_MANY_ROWS'),
+  rows: z
+    .array(csvImportRowSchema)
+    .min(1, 'NO_ROWS')
+    .max(CSV_IMPORT_MAX_ITEMS, 'TOO_MANY_ROWS')
+    // FEAT-91: the cap counts items (a wine row with quantity 6 is 6), as the
+    // preview screen does — a client could skip that screen.
+    .refine((rows) => rows.reduce((n, row) => n + csvRowItemCount(row), 0) <= CSV_IMPORT_MAX_ITEMS, 'TOO_MANY_ITEMS'),
   cellarId: z.string().optional().nullable(),
 });
 

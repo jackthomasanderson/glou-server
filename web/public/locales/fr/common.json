@@ -1796,7 +1796,7 @@
     },
     "csv": {
       "title": "Import CSV",
-      "subtitle": "Importez un fichier .csv avec les colonnes nom, producteur, catégorie (vin, bulles, spiritueux, cigare) et, au choix, millésime, prix, région, quantité, degré. Les en-têtes et catégories en anglais (name, producer, category, vintage ; wine, sparkling, spirit, cigar) fonctionnent aussi.",
+      "subtitle": "Importez un fichier .csv avec les colonnes nom, producteur, catégorie (vin, bulles, spiritueux, cigare) et, au choix, millésime, prix, région, quantité (nombre de bouteilles, ou de cigares par boîte), degré. Les en-têtes et catégories en anglais (name, producer, category, vintage ; wine, sparkling, spirit, cigar) fonctionnent aussi.",
       "csvOnlyHint": "Seul le format CSV est pris en charge (Excel/.xlsx non supporté).",
       "chooseFile": "Choisir un fichier CSV",
       "chooseAnother": "Choisir un autre fichier",
@@ -1808,6 +1808,17 @@
       "errorReason": "Ligne {{row}} : {{reason}}",
       "noValidRows": "Aucune ligne valide à importer.",
       "confirmButton": "Confirmer l'import",
+      "confirmError": "L'import a échoué : réessayez. Les bouteilles déjà en stock ne seront pas importées une seconde fois.",
+      "uploadErrors": {
+        "FILE_TOO_LARGE": "Ce fichier est trop volumineux pour être envoyé (2 Mo au maximum). Scindez-le en plusieurs fichiers plus petits.",
+        "INVALID_FILE_TYPE": "Ce fichier n'est pas un CSV. Enregistrez-le au format « CSV UTF-8 » puis réessayez."
+      },
+      "itemsInFile_one": "{{count}} actif dans le fichier",
+      "itemsInFile_other": "{{count}} actifs dans le fichier",
+      "rowQuantity_one": "{{count}} bouteille",
+      "rowQuantity_other": "{{count}} bouteilles",
+      "tooManyItems_one": "Ce fichier représente {{count}} actif, or un import en accepte {{max}} au maximum : rien n'a été importé. Scindez-le en plusieurs fichiers, en gardant toutes les lignes d'un même vin dans le même fichier ; après ce premier import, « Revoir le guide de démarrage » (Profil) permet d'importer les suivants.",
+      "tooManyItems_other": "Ce fichier représente {{count}} actifs, or un import en accepte {{max}} au maximum : rien n'a été importé. Scindez-le en plusieurs fichiers, en gardant toutes les lignes d'un même vin dans le même fichier ; après ce premier import, « Revoir le guide de démarrage » (Profil) permet d'importer les suivants.",
       "errorCodes": {
         "NAME_REQUIRED": "Le nom est manquant",
         "NAME_TOO_LONG": "Le nom dépasse 200 caractères",
@@ -1832,8 +1843,8 @@
       "itemsAdded_one": "{{count}} actif ajouté à votre inventaire",
       "itemsAdded_other": "{{count}} actifs ajoutés à votre inventaire",
       "noItems": "Aucun actif ajouté pour le moment",
-      "duplicatesSkipped_one": "{{count}} ligne ignorée (déjà présente dans l'inventaire)",
-      "duplicatesSkipped_other": "{{count}} lignes ignorées (déjà présentes dans l'inventaire)",
+      "duplicatesSkipped_one": "{{count}} ligne non importée : déjà en stock avant l'import",
+      "duplicatesSkipped_other": "{{count}} lignes non importées : déjà en stock avant l'import",
       "adminConfig": {
         "title": "Configuration système (facultatif)",
         "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer SMTP, politique de notifs, webhook/Gotify, intégrations API, rétention, sauvegardes et réseau.",
