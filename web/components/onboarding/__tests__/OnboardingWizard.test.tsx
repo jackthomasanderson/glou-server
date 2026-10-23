@@ -8,7 +8,6 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 vi.mock('@/hooks/useRestoreFocus', () => ({ useRestoreFocus: () => {} }));
-vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn() }));
 
 const EMPTY: OnboardingState = { postponed: false, joining: false, wizardCellar: null, cellarCount: 0, inStockCount: 0 };
 let stateLoading = false;
@@ -99,6 +98,14 @@ describe('OnboardingWizard resume (#574, #685)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'choice back' }));
     expect(screen.getByText('cellar step: Cave à vin')).toBeInTheDocument();
   });
+
+  it('keeps its former behaviour when reopened from the profile: no cellar preselected', () => {
+    onboardingState = { ...EMPTY, wizardCellar: { id: 'c1', name: 'Cave à vin' }, cellarCount: 1 };
+    render(<OnboardingWizard forced onClose={onClose} />);
+    expect(screen.getByText('ingestion-choice')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'choice back' }));
+    expect(screen.getByText('cellar step: create')).toBeInTheDocument();
+  });
 });
 
 describe('OnboardingWizard for a member joining a filled cellar (FEAT-89)', () => {
@@ -149,7 +156,7 @@ describe('OnboardingWizard exits (FEAT-90)', () => {
   it('"Don\'t show again" finishes it for good and closes it', () => {
     render(<OnboardingWizard onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: 'onboarding.dontShowAgain' }));
-    expect(completeOnboarding).toHaveBeenCalledWith({ skipped: true }, expect.anything());
+    expect(completeOnboarding).toHaveBeenCalledWith({ skipped: true });
     expect(postpone).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledOnce();
   });
