@@ -10,6 +10,8 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+## v2026.10.2 - 2026-10-23
+
 ### Added
 - The first-run wizard has a *Later* button. It closes the wizard until your next sign-in, reloads and other tabs included, and the wizard then resumes where you left it. *Don't show the wizard again* finishes it for good and says it can be restarted from your profile (#694, #689).
 - A member who joins an instance already filled by someone else gets a short version of the wizard: the welcome and language, then what the household holds (cellars, bottles in stock), with *Explore the cellar* or *Add bottles*. They are no longer asked to create a first cellar (#694, #687).
@@ -17,6 +19,7 @@ Entries start with the pull request that introduced them where there is one.
 ### Fixed
 - The first-run wizard remembers the cellar it had you create. After an interruption, the add form and the file import use it, the summary names it, and going back to the cellar step no longer creates a second one (#694, #685).
 - Leaving the first-run wizard can no longer get you stuck in front of it when the server does not answer (#694, #689).
+- After a single click on *Reference* in the add form, no bottle could be added any more, even after switching back to *In the cellar*: the server refused the empty fill level and the form only said "Could not add the asset". Saving works again either way, and a value the server refuses is now named (#693, #683).
 - Importing a cellar file no longer loses bottles. A case of 6 written as one row with a quantity of 6, or as six identical rows, now gives 6 bottles instead of 1 and "5 rows skipped (already in your inventory)". A row is only skipped when that bottle was in stock before the import, and the summary says so; a bottle already drunk or a non-owned reference no longer blocks a new purchase. The preview shows how many assets the file stands for, and a file over the 500-asset limit is refused with a message instead of being cut short without a word. A refused file or a failed import now says why, the screen waits for a slow server to finish instead of giving up after 30 s, and trying again never imports the same bottles twice (#697, #577, #641).
 
 ## v2026.10.1 - 2026-10-23
