@@ -21,6 +21,7 @@ vi.mock('@/components/ui/ErrorState', () => ({
 }));
 vi.mock('@/hooks/useAuth', () => ({
   useMe: () => ({ data: state.data, isError: state.isError, isLoading: false, isFetching: false, refetch }),
+  useOnboardingState: () => ({ data: undefined, isSuccess: false, isError: false }),
 }));
 vi.mock('@/hooks/useAutoLock', () => ({
   AutoLockProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,

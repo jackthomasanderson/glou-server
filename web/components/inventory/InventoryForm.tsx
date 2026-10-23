@@ -50,6 +50,8 @@ interface InventoryFormProps {
   onScanRequested?: () => void;
   /** Category preselected when creating, for pages scoped to one category. */
   defaultCategory?: InventoryCategory;
+  /** Cellar preselected when creating (the setup wizard's cellar, FEAT-90 / #685). */
+  defaultCellarId?: string | null;
 }
 
 const EMPTY_FORM: Partial<InventoryItem> = {
@@ -74,12 +76,16 @@ const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
 const CATEGORY_COLORS = CATEGORY_CHIP_COLOR;
 
 export function InventoryForm({
-  open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested, defaultCategory,
+  open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested, defaultCategory, defaultCellarId,
 }: InventoryFormProps) {
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
   const isExpert = useExpertMode();
-  const emptyForm = defaultCategory ? { ...EMPTY_FORM, category: defaultCategory } : EMPTY_FORM;
+  const emptyForm: Partial<InventoryItem> = {
+    ...EMPTY_FORM,
+    ...(defaultCategory ? { category: defaultCategory } : {}),
+    ...(defaultCellarId ? { cellarId: defaultCellarId } : {}),
+  };
   const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? emptyForm);
   // ISSUE_119: snapshot of the values the form opened with, used to tell
   // whether closing now would throw away something the user typed.

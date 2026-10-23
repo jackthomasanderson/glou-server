@@ -12,12 +12,14 @@ interface SummaryStepProps {
   duplicatesSkipped: number;
   /** Only admins see the (optional) System Configuration pointer below — the panel itself is admin-only (see AdminPage). */
   isAdmin: boolean;
+  /** FEAT-89: a joining member creates no cellar; the cellar line would only say "none". */
+  joining?: boolean;
   isFinishing: boolean;
   onFinish: () => void;
 }
 
 /** Step 5/5 — recap of what the wizard set up, then hand off to the dashboard. */
-export function SummaryStep({ cellarName, itemsAdded, duplicatesSkipped, isAdmin, isFinishing, onFinish }: SummaryStepProps) {
+export function SummaryStep({ cellarName, itemsAdded, duplicatesSkipped, isAdmin, joining = false, isFinishing, onFinish }: SummaryStepProps) {
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -39,14 +41,16 @@ export function SummaryStep({ cellarName, itemsAdded, duplicatesSkipped, isAdmin
       </div>
 
       <div className="w-full max-w-sm flex flex-col gap-2">
-        <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
-          <Warehouse size={18} className="text-primary shrink-0" />
-          <span className="text-sm text-left">
-            {cellarName
-              ? t('onboarding.summary.cellarCreated', { name: cellarName })
-              : t('onboarding.summary.noCellar')}
-          </span>
-        </div>
+        {!joining && (
+          <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
+            <Warehouse size={18} className="text-primary shrink-0" />
+            <span className="text-sm text-left">
+              {cellarName
+                ? t('onboarding.summary.cellarCreated', { name: cellarName })
+                : t('onboarding.summary.noCellar')}
+            </span>
+          </div>
+        )}
         <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
           <Package size={18} className="text-primary shrink-0" />
           <span className="text-sm text-left">

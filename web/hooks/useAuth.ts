@@ -2,16 +2,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { clearOfflineData } from '@/lib/offline/db';
-import { notifyError } from '@/lib/toast';
+import { notifyError, notifySuccess } from '@/lib/toast';
 import { clearQuickLock } from '@/lib/quick-lock-storage';
 import { postLoginPath } from '@/lib/auth/next-path';
 import type { ExportCategory, PublicUser as PublicUserContract } from '@shared/auth';
 import type { Wire } from '@shared/wire';
+import type { OnboardingState } from '@shared/onboarding';
 
 /** The signed-in member as the API sends it (#466: declared once in shared/auth.ts). */
 export type PublicUser = Wire<PublicUserContract>;
 
 const ME_KEY = ['auth', 'me'];
+// FEAT-90: "Later" belongs to one sign-in, so a new sign-in drops the cached state.
+const ONBOARDING_STATE_KEY = ['auth', 'onboarding'];
 const SESSIONS_KEY = ['auth', 'sessions'];
 
 export interface SessionInfo {
@@ -70,6 +73,7 @@ export function useLogin() {
         return;
       }
       queryClient.setQueryData<PublicUser | null>(ME_KEY, data);
+      queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
       clearQuickLock();
       router.push(postLoginPath(window.location.search));
     },
@@ -90,6 +94,7 @@ export function useRegister() {
       apiFetch<PublicUser>('/api/auth/register', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
+      queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
       router.push('/bottles');
     },
   });
@@ -286,6 +291,7 @@ export function useVerify2faLogin() {
     mutationFn: (data) => apiFetch<PublicUser>('/api/auth/2fa/verify-login', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
+      queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
       clearQuickLock();
       router.push(postLoginPath(window.location.search));
     },
@@ -412,12 +418,41 @@ export function useUnlock() {
 
 export function useCompleteOnboarding() {
   const queryClient = useQueryClient();
-  return useMutation<PublicUser, Error, { skipped?: boolean } | void>({
+  return useMutation<PublicUser, Error, { skipped: boolean }>({
     mutationFn: (data) =>
-      apiFetch<PublicUser>('/api/user/onboarding/complete', { method: 'POST', body: JSON.stringify(data ?? {}) }),
-    onSuccess: (updatedUser) => {
+      apiFetch<PublicUser>('/api/user/onboarding/complete', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: (updatedUser, variables) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
+      // FEAT-90: "Don't show again" — say where the wizard can be found. Here
+      // rather than at the call site: the wizard has already closed by now.
+      if (variables.skipped) notifySuccess('onboarding.dontShowAgainToast');
     },
     onError: () => notifyError('toast.onboarding.completeError'),
+  });
+}
+
+
+/**
+ * FEAT-89/FEAT-90: what the setup wizard needs when it opens — postponed for
+ * this sign-in, joining a cellar filled by others, the cellar it created.
+ */
+export function useOnboardingState(enabled: boolean) {
+  return useQuery<OnboardingState>({
+    queryKey: ONBOARDING_STATE_KEY,
+    queryFn: () => apiFetch<OnboardingState>('/api/user/onboarding'),
+    enabled,
+    staleTime: Infinity,
+  });
+}
+
+/** FEAT-90 "Later": the wizard stays closed until the next sign-in. */
+export function usePostponeOnboarding() {
+  const queryClient = useQueryClient();
+  return useMutation<{ postponed: boolean }, Error, void>({
+    mutationFn: () => apiFetch<{ postponed: boolean }>('/api/user/onboarding/postpone', { method: 'POST' }),
+    onSuccess: () => {
+      queryClient.setQueryData<OnboardingState>(ONBOARDING_STATE_KEY, (old) => (old ? { ...old, postponed: true } : old));
+    },
+    onError: () => notifyError('toast.onboarding.postponeError'),
   });
 }

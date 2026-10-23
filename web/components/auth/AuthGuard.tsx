@@ -1,9 +1,9 @@
 'use client';
-import { Suspense, useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useTranslation } from 'react-i18next';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { useMe } from '@/hooks/useAuth';
+import { useMe, useOnboardingState } from '@/hooks/useAuth';
 import { AutoLockProvider, useAutoLock } from '@/hooks/useAutoLock';
 import { loginPathFor } from '@/lib/auth/next-path';
 import { LockScreen } from './LockScreen';
@@ -84,10 +84,25 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
   // #336: a forced password change takes priority over onboarding — an
   // account recovered by an admin reset must not be able to skip it.
   const showForcedPasswordChange = !isLocked && !!user?.mustChangePassword;
-  const showOnboarding = !isLocked && !showForcedPasswordChange && !!user && (user.onboardingCompletedAt == null || forcedOnboarding);
+  const onboardingPending = !!user && user.onboardingCompletedAt == null;
+  // FEAT-90: "Later" keeps the wizard closed for this sign-in. Wait for that
+  // answer before showing it; if it cannot be had, show the wizard as before.
+  const onboardingState = useOnboardingState(onboardingPending && !forcedOnboarding);
+  const postponed = onboardingState.data?.postponed ?? false;
+  const stateKnown = onboardingState.isSuccess || onboardingState.isError;
+  // Any way out closes the wizard for this visit at once, whether or not the
+  // server saved the choice: a failed save must never leave the member stuck
+  // in front of it (FEAT-90). It comes back at the next sign-in.
+  const [leftThisVisit, setLeftThisVisit] = useState(false);
+  const showOnboarding = !isLocked && !showForcedPasswordChange && !!user && (
+    forcedOnboarding || (onboardingPending && stateKnown && !postponed && !leftThisVisit)
+  );
 
   const closeOnboarding = () => {
-    if (!forcedOnboarding) return;
+    if (!forcedOnboarding) {
+      setLeftThisVisit(true);
+      return;
+    }
     const params = new URLSearchParams(searchParams.toString());
     params.delete('onboarding');
     const qs = params.toString();

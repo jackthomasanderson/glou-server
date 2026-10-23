@@ -10,6 +10,14 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Added
+- The first-run wizard has a *Later* button. It closes the wizard until your next sign-in, reloads and other tabs included, and the wizard then resumes where you left it. *Don't show the wizard again* finishes it for good and says it can be restarted from your profile (#694, #689).
+- A member who joins an instance already filled by someone else gets a short version of the wizard: the welcome and language, then what the household holds (cellars, bottles in stock), with *Explore the cellar* or *Add bottles*. They are no longer asked to create a first cellar (#694, #687).
+
+### Fixed
+- The first-run wizard remembers the cellar it had you create. After an interruption, the add form and the file import use it, the summary names it, and going back to the cellar step no longer creates a second one (#694, #685).
+- Leaving the first-run wizard can no longer get you stuck in front of it when the server does not answer (#694, #689).
+
 ## v2026.10.1 - 2026-10-23
 
 ### Changed

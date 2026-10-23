@@ -18,7 +18,12 @@ L'assistant d'onboarding guide un nouveau compte pour créer une première cave 
    - **Ajout manuel** : ajoutez quelques bouteilles à la main.
 5. **Résumé** : consultez le nombre d'actifs ajoutés et la cave concernée, puis accédez au tableau de bord.
 
-Vous pouvez passer n'importe quelle étape, ou fermer l'assistant pour y revenir plus tard. Le fermer avant la fin ne le marque pas comme terminé, il réapparaît donc à votre prochaine connexion.
+Vous pouvez passer n'importe quelle étape. Pour quitter l'assistant :
+
+- **Plus tard** (en haut à droite) le ferme jusqu'à votre prochaine connexion, rechargements et autres onglets compris. Il reprend là où vous l'avez laissé, avec la cave qu'il vous a fait créer.
+- **Ne plus afficher l'assistant** (en bas) le termine pour de bon. Vous pouvez toujours le relancer depuis votre profil.
+
+Un membre qui rejoint une instance déjà remplie par un autre (au moins une cave, aucune créée par lui) suit une version courte : l'accueil et la langue, puis un écran qui présente les caves et les bouteilles en stock du foyer. Il ne lui est jamais proposé de créer une première cave.
 
 ### Relancer l'assistant manuellement
 1. Allez dans **Profil**.
@@ -48,8 +53,8 @@ L'import se déroule en deux étapes : un **aperçu** valide chaque ligne et sig
 
 | Erreur / Comportement | Solution |
 | :--- | :--- |
-| **L'assistant réapparaît à chaque connexion** | Vous l'avez fermé sans le terminer ni cliquer sur Passer. Terminez une étape ou passez-la explicitement pour définir l'indicateur de complétion ; fermer l'onglet du navigateur ne compte pas. |
+| **L'assistant réapparaît à chaque connexion** | Vous avez choisi **Plus tard**, qui ne vaut que pour une connexion. Terminez-le, ou cliquez sur **Ne plus afficher l'assistant**. |
 | **Mon fichier `.xlsx` a été rejeté** | Les classeurs Excel ne sont pas supportés. Exportez ou enregistrez d'abord le fichier en `.csv`. |
 | **Seule une partie de mes lignes a été importée** | Vous avez dépassé le plafond de 500 lignes : seules les 500 premières lignes du fichier sont lues. Divisez le fichier et importez le reste ensuite depuis l'écran principal d'inventaire. |
 | **L'aperçu affiche des erreurs sur des lignes qui semblent correctes** | Vérifiez que `category` vaut exactement `wine`, `sparkling`, `spirit` ou `cigar` (sensible à la casse), et que `name`/`producer` ne sont ni vides ni supérieurs à 200 caractères. |
-| **Je veux relancer l'assistant juste pour tester** | Rendez-vous sur `/profile?onboarding=1` ou cliquez sur **Revoir l'onboarding** dans votre profil. Cela ne touche pas vos données existantes, et le terminer ou le passer à nouveau ne crée pas de doublons en soi (la détection de doublons reste active à l'ajout, voir [Recherche Globale](./07-Recherche-Globale.md) si pertinent). |
+| **Je veux relancer l'assistant juste pour tester** | Rendez-vous sur `/profile?onboarding=1` ou cliquez sur **Revoir le guide de démarrage** dans votre profil. Cela ne touche pas vos données existantes, et le terminer ou le passer à nouveau ne crée pas de doublons en soi (la détection de doublons reste active à l'ajout, voir [Recherche Globale](./07-Recherche-Globale.md) si pertinent). |
