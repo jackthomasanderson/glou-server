@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // `previewCsv` never touches the database, but the module graph reaches
 // `lib/prisma` through `inventory.service` — mock it so no client is built.
 const tx = {
+  $executeRaw: vi.fn(),
   inventoryItem: {
     create: vi.fn(),
     findFirst: vi.fn(),
@@ -193,6 +194,19 @@ describe('ImportService.confirmImport', () => {
     await importService.confirmImport('u1', [row()], null);
     const { where } = tx.inventoryItem.findMany.mock.calls[0]?.[0] as { where: Record<string, unknown> };
     expect(where).toEqual({ ...IN_STOCK_ITEM_FILTER, category: { in: ['wine'] } });
+  });
+
+  // FEAT-91: a retry sent while the first import is still being written must
+  // wait for it, then see its bottles in stock — not import them a second time.
+  it('waits for any import in progress before reading the stock', async () => {
+    const order: string[] = [];
+    tx.$executeRaw.mockImplementation(async () => { order.push('lock'); return 1; });
+    tx.inventoryItem.findMany.mockImplementation(async () => { order.push('read stock'); return []; });
+
+    await importService.confirmImport('u1', [row()], null);
+
+    expect(order).toEqual(['lock', 'read stock']);
+    expect(String(tx.$executeRaw.mock.calls[0]?.[0])).toContain('pg_advisory_xact_lock');
   });
 
   // #633: the duplicate check used to re-read the whole category for every row.

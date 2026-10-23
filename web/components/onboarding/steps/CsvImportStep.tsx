@@ -112,7 +112,7 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
                 </Chip>
                 {rows.length > 0 && (
                   <Chip color={overLimit ? 'danger' : 'primary'} variant="flat" size="sm" startContent={<Package size={14} />}>
-                    {t('onboarding.csv.itemsToImport', { count: itemCount })}
+                    {t('onboarding.csv.itemsInFile', { count: itemCount })}
                   </Chip>
                 )}
                 {errors.length > 0 && (

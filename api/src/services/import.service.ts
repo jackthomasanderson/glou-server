@@ -38,6 +38,9 @@ function canonicalRecord(record: Record<string, string>): Record<string, string>
   return out;
 }
 
+/** Arbitrary, instance-wide key of the CSV import's advisory lock (FEAT-91). */
+const CSV_IMPORT_LOCK_KEY = 5_770_641;
+
 export class ImportService {
   /** Parse + validate a CSV buffer. Never writes to the database. */
   previewCsv(buffer: Buffer): CsvImportPreview {
@@ -108,6 +111,11 @@ export class ImportService {
   ): Promise<{ created: number; skippedDuplicates: number }> {
     return prisma.$transaction(
       async (tx) => {
+        // FEAT-91: one import at a time on the instance. A retry sent while a
+        // slow import is still being written (the screen or a proxy gave up)
+        // waits here, then finds those bottles in stock instead of importing
+        // them a second time. Released when the transaction ends.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CSV_IMPORT_LOCK_KEY}::bigint)`;
         // FEAT-91 (#577): rows are matched against what was in stock before
         // the import, read once (#633) — never against items this import has
         // just created, which turned six identical rows into one bottle and

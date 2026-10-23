@@ -1813,12 +1813,12 @@
         "FILE_TOO_LARGE": "Ce fichier est trop volumineux pour être envoyé (2 Mo au maximum). Scindez-le en plusieurs fichiers plus petits.",
         "INVALID_FILE_TYPE": "Ce fichier n'est pas un CSV. Enregistrez-le au format « CSV UTF-8 » puis réessayez."
       },
-      "itemsToImport_one": "{{count}} actif à importer",
-      "itemsToImport_other": "{{count}} actifs à importer",
+      "itemsInFile_one": "{{count}} actif dans le fichier",
+      "itemsInFile_other": "{{count}} actifs dans le fichier",
       "rowQuantity_one": "{{count}} bouteille",
       "rowQuantity_other": "{{count}} bouteilles",
-      "tooManyItems_one": "Ce fichier représente {{count}} actif, or un import en accepte {{max}} au maximum : rien n'a été importé. Scindez-le en plusieurs fichiers ; après ce premier import, « Revoir le guide de démarrage » (Profil) permet d'importer les suivants.",
-      "tooManyItems_other": "Ce fichier représente {{count}} actifs, or un import en accepte {{max}} au maximum : rien n'a été importé. Scindez-le en plusieurs fichiers ; après ce premier import, « Revoir le guide de démarrage » (Profil) permet d'importer les suivants.",
+      "tooManyItems_one": "Ce fichier représente {{count}} actif, or un import en accepte {{max}} au maximum : rien n'a été importé. Scindez-le en plusieurs fichiers, en gardant toutes les lignes d'un même vin dans le même fichier ; après ce premier import, « Revoir le guide de démarrage » (Profil) permet d'importer les suivants.",
+      "tooManyItems_other": "Ce fichier représente {{count}} actifs, or un import en accepte {{max}} au maximum : rien n'a été importé. Scindez-le en plusieurs fichiers, en gardant toutes les lignes d'un même vin dans le même fichier ; après ce premier import, « Revoir le guide de démarrage » (Profil) permet d'importer les suivants.",
       "errorCodes": {
         "NAME_REQUIRED": "Le nom est manquant",
         "NAME_TOO_LONG": "Le nom dépasse 200 caractères",

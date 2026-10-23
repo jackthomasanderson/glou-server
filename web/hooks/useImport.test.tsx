@@ -63,6 +63,16 @@ describe('useCsvPreview', () => {
     await waitFor(() => expect(result.current.error?.message).toBe('INVALID_FILE_TYPE'));
   });
 
+  // A sign-in portal (forward auth) can answer 200 with its own login page.
+  it('treats a page that is not the API\'s answer as an unexpected error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => { throw new SyntaxError('not json'); } }));
+    const { result } = renderHook(() => useCsvPreview(), { wrapper });
+
+    result.current.mutate(file);
+
+    await waitFor(() => expect(result.current.error?.message).toBe('UNEXPECTED_ERROR'));
+  });
+
   // A reverse proxy in front of the app answers an oversized upload with its
   // own HTML page, not the API's JSON.
   it('recognises a file too large for a reverse proxy', async () => {

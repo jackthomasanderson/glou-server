@@ -53,7 +53,7 @@ describe('CsvImportStep preview (FEAT-91)', () => {
     pickFile([wine('Talbot', { quantity: 6 }), ...Array.from({ length: 11 }, (_, i) => wine(`Wine ${i}`))]);
 
     expect(screen.getByText('onboarding.csv.validRows|12')).toBeInTheDocument();
-    expect(screen.getByText('onboarding.csv.itemsToImport|17')).toBeInTheDocument();
+    expect(screen.getByText('onboarding.csv.itemsInFile|17')).toBeInTheDocument();
     expect(screen.getByText('onboarding.csv.rowQuantity|6')).toBeInTheDocument();
     expect(confirmButton()).not.toBeDisabled();
   });
@@ -61,7 +61,7 @@ describe('CsvImportStep preview (FEAT-91)', () => {
   it('counts a cigar row as one box, without a bottle quantity', () => {
     pickFile([{ name: 'Robusto', producer: 'Cohiba', category: 'cigar', quantity: 25 }]);
 
-    expect(screen.getByText('onboarding.csv.itemsToImport|1')).toBeInTheDocument();
+    expect(screen.getByText('onboarding.csv.itemsInFile|1')).toBeInTheDocument();
     expect(screen.queryByText(/onboarding\.csv\.rowQuantity/)).toBeNull();
   });
 

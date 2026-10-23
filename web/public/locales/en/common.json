@@ -1811,12 +1811,12 @@
         "FILE_TOO_LARGE": "This file is too large to upload (2 MB at most). Split it into several smaller files.",
         "INVALID_FILE_TYPE": "This file is not a CSV. Save it as \"CSV UTF-8\" and try again."
       },
-      "itemsToImport_one": "{{count}} asset to import",
-      "itemsToImport_other": "{{count}} assets to import",
+      "itemsInFile_one": "{{count}} asset in the file",
+      "itemsInFile_other": "{{count}} assets in the file",
       "rowQuantity_one": "{{count}} bottle",
       "rowQuantity_other": "{{count}} bottles",
-      "tooManyItems_one": "This file stands for {{count}} asset, but one import takes at most {{max}}: nothing has been imported. Split it into several files; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
-      "tooManyItems_other": "This file stands for {{count}} assets, but one import takes at most {{max}}: nothing has been imported. Split it into several files; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
+      "tooManyItems_one": "This file stands for {{count}} asset, but one import takes at most {{max}}: nothing has been imported. Split it into several files, keeping all the rows of a given wine in the same file; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
+      "tooManyItems_other": "This file stands for {{count}} assets, but one import takes at most {{max}}: nothing has been imported. Split it into several files, keeping all the rows of a given wine in the same file; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
       "errorCodes": {
         "NAME_REQUIRED": "Name is missing",
         "NAME_TOO_LONG": "Name exceeds 200 characters",

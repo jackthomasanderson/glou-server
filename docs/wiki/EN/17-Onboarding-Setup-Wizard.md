@@ -44,12 +44,12 @@ The file import step accepts **CSV only**: there is no `.xlsx`/Excel support. Th
 
 A spirit imported without an `abv` column has no ABV (it is not set to 0 %); fill it in later from the item's form.
 
-A case of 6 can be written either as one row with `quantity` 6 or as six identical rows: both give 6 bottles. A row is **not imported** when the same bottle was **in stock before the import** (same producer, name and format; same vintage, or no vintage on one side); the summary says so ("already in stock before the import"). Rows of the same file are never compared with each other, and a finished bottle, a non-owned reference or a bottle in the trash does not stop a new purchase of the same wine from being imported.
+A case of 6 can be written either as one row with `quantity` 6 or as six identical rows: both give 6 bottles. A row is **not imported** when the same bottle was **in stock before the import**: same producer and name; for a wine or sparkling, same vintage or no vintage on one side. An in-stock bottle whose size (or, for a cigar, format) is filled in is not recognised, as the import does not read those columns; the summary says so ("already in stock before the import"). Rows of the same file are never compared with each other, and a finished bottle, a non-owned reference or a bottle in the trash does not stop a new purchase of the same wine from being imported.
 
-The import runs in two steps: a **preview** validates every row, states how many assets will be imported and reports errors without writing anything, then **confirm** persists all valid rows in a single all-or-nothing transaction. Fields populated from the CSV are tagged with source `import_csv` (only those actually saved: a wine's quantity, which becomes a number of bottles, is not), visible later on the item's detail view (see [18-Field-Source-Transparency-History.md](./18-Field-Source-Transparency-History.md)).
+The import runs in two steps: a **preview** validates every row, states how many assets the file stands for and reports errors without writing anything, then **confirm** persists all valid rows in a single all-or-nothing transaction. Fields populated from the CSV are tagged with source `import_csv` (only those actually saved: a wine's quantity, which becomes a number of bottles, is not), visible later on the item's detail view (see [18-Field-Source-Transparency-History.md](./18-Field-Source-Transparency-History.md)).
 
 > [!TIP]
-> Beyond 500 assets, split the file: import the first part, then reopen the wizard with **Review the getting started guide** (Profile) to import the next ones. For other columns (format, cellar slot…), complete the items after the import.
+> Beyond 500 assets, split the file, keeping all the rows of a given wine in the same part (otherwise the second part would find that wine already in stock and not import it): import the first part, then reopen the wizard with **Review the getting started guide** (Profile) to import the next ones. For other columns (format, cellar slot…), complete the items after the import.
 
 ## The firewall (troubleshooting)
 
@@ -58,6 +58,6 @@ The import runs in two steps: a **preview** validates every row, states how many
 | **The wizard keeps reopening on every login** | You chose **Later**, which only lasts for one sign-in. Finish it, or click **Don't show the wizard again**. |
 | **My `.xlsx` file was rejected** | Excel workbooks are not supported. Export or save the file as `.csv` first. |
 | **The preview refuses my file: too many assets** | The file stands for more than 500 assets (a row with quantity 6 counts 6). Split it, then import the parts one after the other (see the tip above). |
-| **Rows "already in stock before the import" were not imported** | The same bottle was already in stock before the import. If it is a new purchase, add it from the inventory. |
+| **Rows "already in stock before the import" were not imported** | The same bottle was already in stock before the import (including from an earlier part of the same file). If it is a new purchase, add it from the inventory. |
 | **Preview shows errors on rows that look fine** | Each row in error gives its reason. Check the category is one of those in the table above, and that the name and producer aren't empty or over 200 characters. |
 | **I want to run the wizard again just to test something** | Visit `/profile?onboarding=1` or click **Review the getting started guide** in your profile. It does not touch your existing data, and finishing or skipping it again does not create duplicates on its own (duplicate detection still applies on add, see [Deduplication](./07-Global-Search.md) if relevant). |
