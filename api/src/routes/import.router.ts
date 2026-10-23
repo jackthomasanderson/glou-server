@@ -62,7 +62,7 @@ router.post('/csv/confirm', async (req: Request, res: Response): Promise<void> =
   } catch (error) {
     console.error('[import] POST /csv/confirm error:', error);
     if (error instanceof ZodError) {
-      const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'validation_error', details: { stage: 'confirm', issues } });
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
       return;

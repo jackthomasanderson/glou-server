@@ -118,7 +118,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('[auth] POST /register error:', error);
     if (error instanceof ZodError) {
-      const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
       return;
     }

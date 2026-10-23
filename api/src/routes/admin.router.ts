@@ -310,7 +310,7 @@ adminRouter.get('/maintenance/runs', async (req: Request, res: Response): Promis
         res.json({ data: runs });
     } catch (error) {
         if (error instanceof ZodError) {
-            res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+            res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
             return;
         }
         console.error('[Admin] Error fetching maintenance runs:', error);
@@ -384,7 +384,7 @@ adminRouter.put('/config/smtp', async (req: Request, res: Response): Promise<voi
   } catch (err) {
     console.error('[admin] PUT /config/smtp error:', err);
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
       return;
     }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
@@ -410,7 +410,7 @@ adminRouter.put('/config/gotify', async (req: Request, res: Response): Promise<v
   } catch (err) {
     console.error('[admin] PUT /config/gotify error:', err);
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
       return;
     }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
@@ -440,7 +440,7 @@ adminRouter.put('/config/integrations', async (req: Request, res: Response): Pro
   } catch (err) {
     console.error('[admin] PUT /config/integrations error:', err);
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
       return;
     }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
@@ -455,7 +455,7 @@ adminRouter.put('/config/retention', async (req: Request, res: Response): Promis
   } catch (err) {
     console.error('[admin] PUT /config/retention error:', err);
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
       return;
     }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
@@ -470,7 +470,7 @@ adminRouter.put('/config/backup', async (req: Request, res: Response): Promise<v
   } catch (err) {
     console.error('[admin] PUT /config/backup error:', err);
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
       return;
     }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
@@ -550,7 +550,7 @@ adminRouter.put('/config/network', async (req: Request, res: Response): Promise<
   } catch (err) {
     console.error('[admin] PUT /config/network error:', err);
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
       return;
     }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
@@ -575,7 +575,7 @@ adminRouter.put('/config/registration', async (req: Request, res: Response): Pro
   } catch (err) {
     console.error('[admin] PUT /config/registration error:', err);
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
       return;
     }
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
@@ -604,7 +604,7 @@ adminRouter.get('/backups/runs', async (req: Request, res: Response): Promise<vo
     res.json({ data: runs });
   } catch (error) {
     if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
       return;
     }
     console.error('[Admin] Error fetching backup runs:', error);
@@ -661,7 +661,7 @@ adminRouter.post('/backups/:id/restore', async (req: Request, res: Response): Pr
     res.json({ data: { ok: true } });
   } catch (error) {
     if (error instanceof ZodError) {
-      res.status(400).json({ error: 'CONFIRMATION_REQUIRED', details: error.errors });
+      res.status(400).json({ error: 'CONFIRMATION_REQUIRED', details: error.issues });
       return;
     }
     console.error('[Admin] Backup restore error:', error);

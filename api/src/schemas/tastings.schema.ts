@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const TASTING_READINESS_VALUES = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'] as const;
 
 export const tastingCreateSchema = z.object({
-  itemId: z.string().uuid().optional(),
+  itemId: z.string().guid().optional(),
   tastedAt: z.string().date().optional(),
   context: z.string().max(200).optional(),
   rating: z.number().int().min(1).max(5).optional(),
