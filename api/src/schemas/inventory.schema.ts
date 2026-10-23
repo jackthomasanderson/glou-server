@@ -21,7 +21,9 @@ export const commonInventorySchema = z.object({
   // "add a bottle" path and every existing client keep their behaviour.
   isOwned: z.boolean().default(true),
   isOpened: z.boolean().default(false),
-  fillLevel: z.number().int().min(0).max(100).optional(),
+  // #683: nullable like on the patch schema — the form sends null when the
+  // item is marked as a reference (no level), and rejecting it blocked every add.
+  fillLevel: z.number().int().min(0).max(100).optional().nullable(),
   openedAt: z.coerce.date().optional().nullable(),
   reminderDate: z.coerce.date().optional().nullable(),
   alertStatus: z.enum(ALERT_STATUSES).default('none'),

@@ -128,6 +128,32 @@ describe('isOwned (FEAT-87)', () => {
     expect(result.success && result.data.isOwned).toBe(false);
   });
 
+  // #683: the form's "Reference" button clears the level and opening date to
+  // null; the create schema used to reject that null, so no item could be added.
+  it('accepts a reference sent by the form with a cleared level and opening date', () => {
+    const result = inventoryInputSchema.safeParse({
+      category: 'wine',
+      name: 'Sylvaner Tradition',
+      producer: 'Bott Frères',
+      isOwned: false,
+      isOpened: false,
+      fillLevel: null,
+      openedAt: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts an owned item whose level was cleared by toggling Reference then back', () => {
+    const result = inventoryInputSchema.safeParse({
+      category: 'wine',
+      name: 'Sylvaner Tradition',
+      producer: 'Bott Frères',
+      isOwned: true,
+      fillLevel: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
   it('rejects a guest trying to flip ownership', () => {
     const result = guestInventoryUpdateSchema.safeParse({ isOwned: false });
     expect(result.success).toBe(false);

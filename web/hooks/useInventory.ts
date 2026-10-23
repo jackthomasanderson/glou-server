@@ -130,7 +130,10 @@ export function useCreateInventoryItem() {
     onError: (error) => {
       // DUPLICATE_CANDIDATE is not a failure: the caller turns it into the
       // duplicate-resolution dialog.
-      if (error.message !== 'DUPLICATE_CANDIDATE') notifyError('toast.createError');
+      if (error.message === 'DUPLICATE_CANDIDATE') return;
+      // #683: say when the server refused a value, so the user can tell a
+      // form problem from a connection problem.
+      notifyError(error.message === 'VALIDATION_ERROR' ? 'toast.createRejected' : 'toast.createError');
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
