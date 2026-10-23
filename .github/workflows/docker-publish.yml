@@ -212,6 +212,11 @@ jobs:
     # dev/main, not from PR branches (and a forked PR has no GHCR write token).
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    # The emulated linux/arm64 build occasionally hangs (two runs sat ~5h on
+    # "Build and push API", which normally takes ~9 min). Fail fast instead of
+    # waiting for GitHub's 6h default, which also blocks the next push on the
+    # same branch through the concurrency group. Slowest healthy job: ~35 min.
+    timeout-minutes: 90
     permissions:
       contents: read
       packages: write
