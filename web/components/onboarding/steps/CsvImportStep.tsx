@@ -7,6 +7,9 @@ import { CSV_IMPORT_MAX_ITEMS, csvRowItemCount } from '@shared/import';
 import { useCsvConfirm, useCsvPreview } from '@/hooks/useImport';
 import { CsvImportError, CsvImportRow } from '@/lib/import/types';
 
+/** Refusals of the uploaded file that get their own explanation (FEAT-91, #641). */
+const EXPLAINED_UPLOAD_ERRORS = new Set(['FILE_TOO_LARGE', 'INVALID_FILE_TYPE']);
+
 interface CsvImportStepProps {
   cellarId: string | null;
   onImported: (count: number, skippedDuplicates: number) => void;
@@ -94,7 +97,11 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
           )}
 
           {preview.isError && (
-            <p className="text-sm text-danger text-center">{t('status.error')}</p>
+            <p role="alert" className="text-sm text-danger text-center">
+              {preview.error && EXPLAINED_UPLOAD_ERRORS.has(preview.error.message)
+                ? t(`onboarding.csv.uploadErrors.${preview.error.message}`)
+                : t('status.error')}
+            </p>
           )}
 
           {!preview.isPending && (rows.length > 0 || errors.length > 0) && (

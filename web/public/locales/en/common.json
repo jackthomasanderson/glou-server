@@ -1806,6 +1806,11 @@
       "errorReason": "Row {{row}}: {{reason}}",
       "noValidRows": "No valid row to import.",
       "confirmButton": "Confirm import",
+      "confirmError": "The import failed: try again. Bottles already in stock will not be imported a second time.",
+      "uploadErrors": {
+        "FILE_TOO_LARGE": "This file is too large to upload (2 MB at most). Split it into several smaller files.",
+        "INVALID_FILE_TYPE": "This file is not a CSV. Save it as \"CSV UTF-8\" and try again."
+      },
       "itemsToImport_one": "{{count}} asset to import",
       "itemsToImport_other": "{{count}} assets to import",
       "rowQuantity_one": "{{count}} bottle",

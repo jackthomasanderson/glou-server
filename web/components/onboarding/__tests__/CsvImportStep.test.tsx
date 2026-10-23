@@ -14,12 +14,16 @@ vi.mock('react-i18next', () => ({
 }));
 
 let previewResult: CsvImportPreview = { valid: [], errors: [] };
+let previewError: Error | null = null;
 const confirmMutate = vi.fn();
 vi.mock('@/hooks/useImport', () => ({
   useCsvPreview: () => ({
-    mutate: (_file: File, { onSuccess }: { onSuccess: (data: CsvImportPreview) => void }) => onSuccess(previewResult),
+    mutate: (_file: File, { onSuccess }: { onSuccess: (data: CsvImportPreview) => void }) => {
+      if (!previewError) onSuccess(previewResult);
+    },
     isPending: false,
-    isError: false,
+    isError: previewError !== null,
+    error: previewError,
   }),
   useCsvConfirm: () => ({ mutate: confirmMutate, isPending: false }),
 }));
@@ -39,7 +43,10 @@ function pickFile(rows: CsvImportRow[]) {
 
 const confirmButton = () => screen.getByRole('button', { name: 'onboarding.csv.confirmButton' });
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  previewError = null;
+});
 
 describe('CsvImportStep preview (FEAT-91)', () => {
   it('counts the bottles a quantity stands for, next to the valid rows', () => {
@@ -72,5 +79,21 @@ describe('CsvImportStep preview (FEAT-91)', () => {
 
     expect(screen.queryByText(/onboarding\.csv\.tooManyItems/)).toBeNull();
     expect(confirmButton()).not.toBeDisabled();
+  });
+});
+
+describe('CsvImportStep refused file (FEAT-91, #641)', () => {
+  it('says why the server refused the file', () => {
+    previewError = new Error('FILE_TOO_LARGE');
+    pickFile([]);
+
+    expect(screen.getByText('onboarding.csv.uploadErrors.FILE_TOO_LARGE')).toBeInTheDocument();
+  });
+
+  it('falls back to the generic message for an unexpected failure', () => {
+    previewError = new Error('UNEXPECTED_ERROR');
+    pickFile([]);
+
+    expect(screen.getByText('status.error')).toBeInTheDocument();
   });
 });

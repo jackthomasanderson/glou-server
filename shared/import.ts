@@ -34,6 +34,15 @@ export interface CsvImportPreview {
 export const CSV_IMPORT_MAX_ITEMS = 500;
 
 /**
+ * Budget of the confirm transaction on the server: it may wait this long for
+ * a database connection (`maxWait`), then run for up to `TIMEOUT` (#161).
+ * The web client waits at least as long (FEAT-91, #641), so it never gives up
+ * on an import the server is still writing.
+ */
+export const CSV_IMPORT_TRANSACTION_MAX_WAIT_MS = 10_000;
+export const CSV_IMPORT_TRANSACTION_TIMEOUT_MS = 60_000;
+
+/**
  * FEAT-91 (#577): how many inventory items a row becomes. design.md glossary:
  * one item per bottle, so a wine row with quantity 6 is 6 items; a cigar item
  * is a box, and its quantity is the number of cigars in it.

@@ -4,7 +4,14 @@ import { parseCsv } from '../lib/csv';
 import { csvRawRowSchema, normalizeCsvToken } from '../schemas/import.schema';
 import { InventoryInput } from '../schemas/inventory.schema';
 import { inventoryService, isDuplicateOf, FieldSource } from './inventory.service';
-import { csvRowItemCount, type CsvImportError, type CsvImportPreview, type CsvImportRow } from '../../../shared/import';
+import {
+  CSV_IMPORT_TRANSACTION_MAX_WAIT_MS,
+  CSV_IMPORT_TRANSACTION_TIMEOUT_MS,
+  csvRowItemCount,
+  type CsvImportError,
+  type CsvImportPreview,
+  type CsvImportRow,
+} from '../../../shared/import';
 
 // #510: header names accepted for each column, compared after
 // normalizeCsvToken (no case, accents, spaces or punctuation). English and
@@ -128,7 +135,7 @@ export class ImportService {
       // Up to CSV_IMPORT_MAX_ITEMS (500) chained creates comfortably exceed Prisma's 5s
       // interactive-transaction default, which rolled the whole import back
       // with no explanation (#161) — give it real headroom instead.
-      { timeout: 60000, maxWait: 10000 },
+      { timeout: CSV_IMPORT_TRANSACTION_TIMEOUT_MS, maxWait: CSV_IMPORT_TRANSACTION_MAX_WAIT_MS },
     );
   }
 

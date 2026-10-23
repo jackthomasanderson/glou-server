@@ -1808,6 +1808,11 @@
       "errorReason": "Ligne {{row}} : {{reason}}",
       "noValidRows": "Aucune ligne valide à importer.",
       "confirmButton": "Confirmer l'import",
+      "confirmError": "L'import a échoué : réessayez. Les bouteilles déjà en stock ne seront pas importées une seconde fois.",
+      "uploadErrors": {
+        "FILE_TOO_LARGE": "Ce fichier est trop volumineux pour être envoyé (2 Mo au maximum). Scindez-le en plusieurs fichiers plus petits.",
+        "INVALID_FILE_TYPE": "Ce fichier n'est pas un CSV. Enregistrez-le au format « CSV UTF-8 » puis réessayez."
+      },
       "itemsToImport_one": "{{count}} actif à importer",
       "itemsToImport_other": "{{count}} actifs à importer",
       "rowQuantity_one": "{{count}} bouteille",
