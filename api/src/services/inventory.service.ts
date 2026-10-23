@@ -113,6 +113,35 @@ function attachReadiness<
   };
 }
 
+/** What the FEAT-65 "same bottle" rule compares. */
+type DuplicateKey = Pick<InventoryPatch, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>;
+
+/**
+ * FEAT-65 "same bottle" rule, mirroring the client's `isDuplicateOf`
+ * (`web/lib/inventory/duplicate.ts`). Pure, so a caller holding a list of
+ * candidates (the CSV import, FEAT-91) does not re-read the database per row.
+ */
+export function isDuplicateOf(
+  item: Pick<InventoryItem, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>,
+  data: DuplicateKey,
+): boolean {
+  const normalize = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
+  if (!data.category || !data.producer || !data.name || item.category !== data.category) return false;
+  if (normalize(item.producer) !== normalize(data.producer)) return false;
+  if (normalize(item.name) !== normalize(data.name)) return false;
+
+  if (data.category === 'cigar') {
+    return normalize(item.format) === normalize(data.format);
+  }
+  if (data.category === 'spirit') {
+    return normalize(item.bottleSize) === normalize(data.bottleSize);
+  }
+  // wine / sparkling — a missing vintage on either side is a potential
+  // match (let the caller decide), same as the client's vintageMatch.
+  const vintageMatches = data.vintage == null || item.vintage == null || item.vintage === data.vintage;
+  return vintageMatches && normalize(item.bottleSize) === normalize(data.bottleSize);
+}
+
 export class InventoryService {
   /**
    * ISSUE_083: an unbounded `findMany` here loads the entire inventory into
@@ -223,31 +252,16 @@ export class InventoryService {
    * logic exactly rather than re-deriving an equivalent SQL predicate.
    */
   async findDuplicateCandidate(
-    data: Pick<InventoryPatch, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>,
+    data: DuplicateKey,
     client: PrismaClientOrTx = prisma,
   ): Promise<InventoryItem | null> {
     if (!data.category || !data.producer || !data.name) return null;
-    const normalize = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
 
     const candidates = await client.inventoryItem.findMany({
       where: { category: data.category, deletedAt: null },
     });
 
-    return candidates.find((item) => {
-      if (normalize(item.producer) !== normalize(data.producer)) return false;
-      if (normalize(item.name) !== normalize(data.name)) return false;
-
-      if (data.category === 'cigar') {
-        return normalize(item.format) === normalize(data.format);
-      }
-      if (data.category === 'spirit') {
-        return normalize(item.bottleSize) === normalize(data.bottleSize);
-      }
-      // wine / sparkling — a missing vintage on either side is a potential
-      // match (let the caller decide), same as the client's vintageMatch.
-      const vintageMatches = data.vintage == null || item.vintage == null || item.vintage === data.vintage;
-      return vintageMatches && normalize(item.bottleSize) === normalize(data.bottleSize);
-    }) ?? null;
+    return candidates.find((item) => isDuplicateOf(item, data)) ?? null;
   }
 
   /**

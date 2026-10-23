@@ -49,3 +49,41 @@ test('add a bottle through the form, see it in the list, then detect the duplica
     }
   }
 });
+
+// #683: the "Reference" button clears the fill level to null, which the API
+// used to reject — no item could be saved afterwards, even after switching
+// back to "In the cellar". Covers both outcomes of that toggle.
+for (const owned of [false, true]) {
+  test(`save a bottle after marking it as a reference${owned ? ' then back to owned' : ''}`, async ({ page }) => {
+    const name = `E2E Reference ${owned ? 'owned' : 'ref'} ${Date.now()}`;
+    let id: string | undefined;
+
+    try {
+      await page.goto('/bottles');
+      await page.getByTestId('inventory-add-button').click();
+      const dialog = page.getByRole('dialog');
+
+      await dialog.getByTestId('inventory-name-input').fill(name);
+      await dialog.getByTestId('inventory-producer-input').fill('E2E Domaine');
+      await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
+      await dialog.getByRole('button', { name: /Référence$/ }).click();
+      if (owned) await dialog.getByRole('button', { name: /En cave$/ }).click();
+
+      const created = page.waitForResponse(
+        (r) => r.url().match(/\/api\/inventory\/?$/) !== null && r.request().method() === 'POST',
+      );
+      await dialog.getByTestId('inventory-form-submit').click();
+
+      const res = await created;
+      expect(res.status()).toBe(201);
+      const item = (await res.json())?.data as { id: string; isOwned: boolean };
+      id = item.id;
+      expect(item.isOwned).toBe(owned);
+      await expect(dialog).toBeHidden();
+    } finally {
+      if (id) {
+        await page.request.delete(`/api/inventory/${id}`);
+      }
+    }
+  });
+}

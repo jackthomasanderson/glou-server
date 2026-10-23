@@ -562,6 +562,10 @@ model Session {
   lastActiveAt DateTime  @default(now())
   expiresAt    DateTime
   revokedAt    DateTime?
+  // FEAT-90: "Later" in the setup wizard. It keeps the wizard closed for this
+  // sign-in only (reloads and other tabs included); the next sign-in is a new
+  // session, so the wizard comes back.
+  onboardingPostponedAt DateTime?
 
   // No standalone `@@index([userId])` — `[userId, revokedAt]` below already
   // covers it via the leftmost-prefix rule (data-model audit finding).

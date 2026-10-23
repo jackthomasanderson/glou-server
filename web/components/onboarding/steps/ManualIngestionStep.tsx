@@ -83,6 +83,7 @@ export function ManualIngestionStep({ cellarId, itemsAdded, onItemAdded, onDone,
 
       <InventoryForm
         open={formOpen}
+        defaultCellarId={cellarId}
         onSubmit={handleSubmit}
         onClose={() => setFormOpen(false)}
         isSubmitting={createItem.isPending || updateItem.isPending}

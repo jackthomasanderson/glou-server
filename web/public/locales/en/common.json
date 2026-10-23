@@ -370,6 +370,7 @@
     "deleteSuccess": "Asset moved to trash",
     "restoreSuccess": "Asset restored",
     "createError": "Could not add the asset",
+    "createRejected": "The asset was not added: the server refused one of the values entered. Check the form, or report the problem if it looks right.",
     "updateError": "Could not update the asset",
     "deleteError": "Could not delete the asset",
     "restoreError": "Could not restore the asset",
@@ -425,7 +426,8 @@
       "statusError": "Could not change the member's status"
     },
     "onboarding": {
-      "completeError": "Could not complete the setup"
+      "completeError": "Could not complete the setup",
+      "postponeError": "Couldn't save your choice: the wizard may show up again."
     }
   },
   "auth": {
@@ -1727,20 +1729,36 @@
   "onboarding": {
     "dialogLabel": "Setup wizard",
     "stepProgress": "Step {{current}} of {{total}}",
-    "skip": "Skip the wizard",
+    "later": "Later",
+    "dontShowAgain": "Don't show the wizard again",
+    "dontShowAgainToast": "You can restart the guide from your profile.",
     "back": "Back",
     "welcome": {
       "title": "Welcome to Glou!",
       "subtitle": "Let's set up your first cellar together in a few quick steps.",
       "languageLabel": "Application language",
-      "cta": "Get started"
+      "cta": "Get started",
+      "joiningSubtitle": "You're joining a cellar that's already set up: let's see what it holds."
     },
     "cellar": {
       "title": "Create your first cellar",
       "subtitle": "Give your cellar a name to start organizing your assets in it.",
       "namePlaceholder": "E.g. Wine cellar",
       "skipStep": "Skip this step",
-      "createCta": "Create cellar"
+      "createCta": "Create cellar",
+      "existing": "Your cellar “{{name}}” is ready",
+      "existingSubtitle": "The bottles you add now will go into it.",
+      "continue": "Continue"
+    },
+    "joining": {
+      "title": "You're joining your household's cellar",
+      "subtitle": "Everything is shared: you see and manage the same bottles as the other members.",
+      "cellars_one": "{{count}} cellar",
+      "cellars_other": "{{count}} cellars",
+      "items_one": "{{count}} bottle in stock",
+      "items_other": "{{count}} bottles in stock",
+      "explore": "Explore the cellar",
+      "addBottles": "Add bottles"
     },
     "ingestion": {
       "title": "How would you like to add your assets?",
@@ -1776,7 +1794,7 @@
     },
     "csv": {
       "title": "CSV Import",
-      "subtitle": "Import a .csv file with the columns name, producer, category (wine, sparkling, spirit, cigar) and optionally vintage, price, region, quantity, ABV. French headers and category names (nom, producteur, catégorie, millésime, prix, quantité, degré; vin, bulles, spiritueux, cigare) work too.",
+      "subtitle": "Import a .csv file with the columns name, producer, category (wine, sparkling, spirit, cigar) and optionally vintage, price, region, quantity (number of bottles, or of cigars per box), ABV. French headers and category names (nom, producteur, catégorie, millésime, prix, quantité, degré; vin, bulles, spiritueux, cigare) work too.",
       "csvOnlyHint": "Only the CSV format is supported (Excel/.xlsx is not).",
       "chooseFile": "Choose a CSV file",
       "chooseAnother": "Choose another file",
@@ -1788,6 +1806,17 @@
       "errorReason": "Row {{row}}: {{reason}}",
       "noValidRows": "No valid row to import.",
       "confirmButton": "Confirm import",
+      "confirmError": "The import failed: try again. Bottles already in stock will not be imported a second time.",
+      "uploadErrors": {
+        "FILE_TOO_LARGE": "This file is too large to upload (2 MB at most). Split it into several smaller files.",
+        "INVALID_FILE_TYPE": "This file is not a CSV. Save it as \"CSV UTF-8\" and try again."
+      },
+      "itemsInFile_one": "{{count}} asset in the file",
+      "itemsInFile_other": "{{count}} assets in the file",
+      "rowQuantity_one": "{{count}} bottle",
+      "rowQuantity_other": "{{count}} bottles",
+      "tooManyItems_one": "This file stands for {{count}} asset, but one import takes at most {{max}}: nothing has been imported. Split it into several files, keeping all the rows of a given wine in the same file; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
+      "tooManyItems_other": "This file stands for {{count}} assets, but one import takes at most {{max}}: nothing has been imported. Split it into several files, keeping all the rows of a given wine in the same file; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
       "errorCodes": {
         "NAME_REQUIRED": "Name is missing",
         "NAME_TOO_LONG": "Name exceeds 200 characters",
@@ -1812,8 +1841,8 @@
       "itemsAdded_one": "{{count}} asset added to your inventory",
       "itemsAdded_other": "{{count}} assets added to your inventory",
       "noItems": "No asset added yet",
-      "duplicatesSkipped_one": "{{count}} row skipped (already in your inventory)",
-      "duplicatesSkipped_other": "{{count}} rows skipped (already in your inventory)",
+      "duplicatesSkipped_one": "{{count}} row not imported: already in stock before the import",
+      "duplicatesSkipped_other": "{{count}} rows not imported: already in stock before the import",
       "adminConfig": {
         "title": "System configuration (optional)",
         "description": "As an admin, you'll be able to set up SMTP, notif policy, webhook/Gotify, API integrations, retention, backups and network later.",

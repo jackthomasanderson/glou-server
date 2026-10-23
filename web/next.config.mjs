@@ -94,6 +94,13 @@ const nextConfig = {
   // files inside web/ unless externalDir is on.
   experimental: {
     externalDir: true,
+    // FEAT-91 (#641): the /api rewrite below cut every request at 30 s, long
+    // before a CSV import's transaction budget (CSV_IMPORT_TRANSACTION_* in
+    // shared/import.ts, 70 s in all): the screen reported a failure while the
+    // import went on. Kept above that budget and at most the browser's own
+    // wait (CONFIRM_TIMEOUT_MS) — lib/__tests__/import-timeouts.test.ts checks
+    // both. Ordinary requests still give up at 15 s in the browser.
+    proxyTimeout: 80_000,
   },
   // Private app: keep every page, guest-share links included, out of search
   // engines (#209). Paired with app/robots.ts, which crawlers may ignore.
