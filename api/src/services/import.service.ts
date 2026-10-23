@@ -118,7 +118,7 @@ export class ImportService {
             skippedDuplicates++;
             continue;
           }
-          const fieldSources = this.toFieldSources(row);
+          const fieldSources = this.toFieldSources(row, input);
           for (let i = 0; i < csvRowItemCount(row); i++) {
             await inventoryService.createItem(userId, input, tx, fieldSources);
             created++;
@@ -134,19 +134,20 @@ export class ImportService {
   }
 
   /**
-   * Tags only the fields whose value actually came from the CSV row itself —
-   * NOT the per-category fallback default `toInventoryInput` fills in below
-   * (`cigar.quantity: 1`), a placeholder the user still needs to fill in
-   * manually, not genuine imported data (FEAT-05 transparency: a source tag
-   * must be honest).
+   * Tags only the fields whose value actually came from the CSV row itself
+   * AND is saved on the item (FEAT-05 transparency: a source tag must be
+   * honest). Not the per-category fallback default `toInventoryInput` fills
+   * in below (`cigar.quantity: 1`), and not a column the category does not
+   * keep: a wine's quantity becomes that many items (FEAT-91), a wine's ABV
+   * or a spirit's vintage is not stored.
    */
-  private toFieldSources(row: CsvImportRow): Partial<Record<string, FieldSource>> {
+  private toFieldSources(row: CsvImportRow, input: InventoryInput): Partial<Record<string, FieldSource>> {
     const sources: Partial<Record<string, FieldSource>> = {
       name: 'import_csv',
       producer: 'import_csv',
     };
     for (const field of ['vintage', 'purchasePrice', 'region', 'quantity', 'alcoholDegree'] as const) {
-      if (row[field] !== undefined) sources[field] = 'import_csv';
+      if (row[field] !== undefined && field in input) sources[field] = 'import_csv';
     }
     return sources;
   }

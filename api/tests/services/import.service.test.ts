@@ -155,6 +155,30 @@ describe('ImportService.confirmImport', () => {
     expect(result).toEqual({ created: 6, skippedDuplicates: 0 });
   });
 
+  const createdData = (call = 0) => tx.inventoryItem.create.mock.calls[call]?.[0]?.data as Record<string, unknown>;
+
+  // FEAT-91: a cigar item is a box; its quantity is the number of cigars in it.
+  it('imports a cigar row as one box holding its quantity, tagged as coming from the file', async () => {
+    const result = await importService.confirmImport(
+      'u1', [row({ category: 'cigar', vintage: undefined, name: 'Robusto', producer: 'Cohiba', quantity: 25 })], null,
+    );
+    expect(result).toEqual({ created: 1, skippedDuplicates: 0 });
+    expect(createdData()).toMatchObject({ quantity: 25, fieldSources: { quantity: 'import_csv' } });
+  });
+
+  // FEAT-05 honesty: a field is tagged "from the CSV file" only if its value is saved.
+  it('never tags a value it does not save as coming from the file', async () => {
+    await importService.confirmImport('u1', [
+      row({ quantity: 6, alcoholDegree: 13.5 }),
+      row({ category: 'spirit', name: 'Lagavulin', vintage: 2010 }),
+    ], null);
+    const wineSources = createdData(0).fieldSources as Record<string, unknown>;
+    expect(wineSources).not.toHaveProperty('quantity');
+    expect(wineSources).not.toHaveProperty('alcoholDegree');
+    expect(wineSources).toMatchObject({ vintage: 'import_csv' });
+    expect(createdData(6).fieldSources).not.toHaveProperty('vintage');
+  });
+
   // FEAT-91 (#577): a finished bottle, a non-owned reference or one in the
   // trash is not "already in the cellar" — a new purchase of it is imported.
   // The SQL itself is exercised on a real database by e2e/tests/csv-import.spec.ts.
