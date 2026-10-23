@@ -1,10 +1,14 @@
 'use client';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Button } from '@heroui/react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { InventoryForm } from '@/components/inventory/InventoryForm';
-import { useCreateInventoryItem } from '@/hooks/useInventory';
+import { DuplicateDialog } from '@/components/inventory/DuplicateDialog';
+import { useCreateInventoryItem, useInventory, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { useCellars } from '@/hooks/useCellars';
+import { useAddItemsToCollection } from '@/hooks/useCollections';
+import { useDuplicateResolution } from '@/hooks/useDuplicateResolution';
 import { InventoryItem } from '@/lib/inventory/types';
 
 interface ManualIngestionStepProps {
@@ -19,22 +23,39 @@ interface ManualIngestionStepProps {
  * Step 4/5 (manual path) — reuses the existing `InventoryForm` as-is,
  * repeatable so the user can add several assets before continuing.
  *
- * Duplicate detection (as done on the main inventory dashboard) is
- * intentionally skipped here: onboarding starts from an empty/near-empty
- * inventory, so the collision it guards against essentially cannot occur.
- * Collection assignment is likewise not wired in — no collection exists yet
- * at this point in a fresh account, so the picker would always be empty.
+ * Saving goes through the same duplicate flow as the inventory page
+ * (`useDuplicateResolution`): a household often enters several bottles of the
+ * same wine, and the server refuses a duplicate until the member chooses
+ * (AUDIT_006 — this step used to ignore that refusal, so the second bottle
+ * silently did nothing).
  */
 export function ManualIngestionStep({ cellarId, itemsAdded, onItemAdded, onDone, onBack }: ManualIngestionStepProps) {
   const { t } = useTranslation();
   const [formOpen, setFormOpen] = useState(false);
+  const { data: items } = useInventory();
+  const { data: cellars } = useCellars();
   const createItem = useCreateInventoryItem();
+  const updateItem = useUpdateInventoryItem();
+  const addItemsToCollection = useAddItemsToCollection();
 
-  const handleSubmit = (values: Partial<InventoryItem>) => {
-    createItem.mutate(
-      { ...values, cellarId: values.cellarId ?? cellarId },
-      { onSuccess: () => { setFormOpen(false); onItemAdded(); } },
-    );
+  // A new item has no collection yet, so syncing is only ever adding.
+  const syncCollections = useCallback(
+    async (itemId: string, collectionIds: string[]) => {
+      await Promise.all(collectionIds.map((id) => addItemsToCollection.mutateAsync({ id, itemIds: [itemId] })));
+    },
+    [addItemsToCollection],
+  );
+
+  const duplicate = useDuplicateResolution({
+    items,
+    createMutation: createItem,
+    updateMutation: updateItem,
+    syncCollections,
+    onResolved: () => { setFormOpen(false); onItemAdded(); },
+  });
+
+  const handleSubmit = (values: Partial<InventoryItem>, collectionIds: string[]) => {
+    void duplicate.handleCreate({ ...values, cellarId: values.cellarId ?? cellarId }, collectionIds);
   };
 
   return (
@@ -64,9 +85,21 @@ export function ManualIngestionStep({ cellarId, itemsAdded, onItemAdded, onDone,
         open={formOpen}
         onSubmit={handleSubmit}
         onClose={() => setFormOpen(false)}
-        isSubmitting={createItem.isPending}
+        isSubmitting={createItem.isPending || updateItem.isPending}
         t={t}
       />
+
+      {duplicate.duplicateFound && duplicate.duplicateCandidate && (
+        <DuplicateDialog
+          duplicate={duplicate.duplicateFound}
+          candidate={duplicate.duplicateCandidate}
+          cellars={cellars ?? []}
+          t={t}
+          onIncrement={duplicate.handleDuplicateIncrement}
+          onCreateAnyway={() => void duplicate.handleDuplicateCreateAnyway()}
+          onCancel={duplicate.handleDuplicateCancel}
+        />
+      )}
 
       <div className="flex items-center gap-2 mt-2">
         <Button variant="light" onPress={onBack}>{t('onboarding.back')}</Button>

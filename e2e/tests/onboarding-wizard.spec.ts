@@ -30,10 +30,11 @@ async function expectOnTop(locator: Locator, what: string) {
   await expect.poll(() => isOnTop(locator), { message: `${what} is covered by another layer` }).toBe(true);
 }
 
-test('first-run wizard: an error toast and the add form show above the wizard', async ({ page }) => {
+test('first-run wizard: an error toast, the add form and the duplicate choice show above the wizard', async ({ page }) => {
   const name = `E2E Wizard ${stamp()}`;
   let cellarId: string | undefined;
   let itemId: string | undefined;
+  let secondItemId: string | undefined;
 
   try {
     // A cellar makes the wizard resume at "How do you want to add your assets?".
@@ -86,13 +87,32 @@ test('first-run wizard: an error toast and the add form show above the wizard', 
     await expect(nameInput).toBeHidden();
     await expect(wizard.getByText('1 actif ajouté pour l\'instant')).toBeVisible();
 
-    // 3. The wizard carries on to its summary, then hands over to the app.
+    // 3. A second bottle of the same wine (AUDIT_006): saving it used to do
+    // nothing at all. The duplicate choice now shows, on top.
+    await wizard.getByRole('button', { name: 'Ajouter un actif' }).click();
+    await nameInput.fill(name);
+    await page.getByTestId('inventory-producer-input').fill('E2E Domaine');
+    await page.getByTestId('inventory-form-submit').click();
+    const createAnyway = page.getByTestId('duplicate-create-anyway');
+    await expectOnTop(createAnyway, 'the duplicate choice');
+    const createdAgain = page.waitForResponse(
+      (r) => r.url().match(/\/api\/inventory\/?$/) !== null && r.request().method() === 'POST',
+    );
+    await createAnyway.click();
+    const resAgain = await createdAgain;
+    expect(resAgain.status()).toBe(201);
+    secondItemId = (await resAgain.json())?.data?.id as string;
+    await expect(nameInput).toBeHidden();
+    await expect(wizard.getByText('2 actifs ajoutés pour l\'instant')).toBeVisible();
+
+    // 4. The wizard carries on to its summary, then hands over to the app.
     await wizard.getByRole('button', { name: 'Terminer l\'ajout' }).click();
-    await expect(wizard.getByText('1 actif ajouté à votre inventaire')).toBeVisible();
+    await expect(wizard.getByText('2 actifs ajoutés à votre inventaire')).toBeVisible();
     await wizard.getByRole('button', { name: 'Accéder au tableau de bord' }).click();
     await expect(wizard).toBeHidden();
   } finally {
     if (itemId) await page.request.delete(`/api/inventory/${itemId}`);
+    if (secondItemId) await page.request.delete(`/api/inventory/${secondItemId}`);
     if (cellarId) await page.request.delete(`/api/cellars/${cellarId}`);
   }
 });
