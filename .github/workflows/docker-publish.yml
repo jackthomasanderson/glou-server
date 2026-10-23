@@ -175,18 +175,26 @@ jobs:
         working-directory: e2e
         run: npm ci
 
-      - name: Install Playwright browser
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium webkit
-
       # Deterministic user-journey specs only. The gremlins fuzz
       # (monkey.spec.ts) is gated behind E2E_MONKEY and runs in the
       # `nightly-e2e-fuzz` workflow instead — it's slow and non-deterministic.
+      #
+      # Runs inside Playwright's official image, which already carries the
+      # browsers and their system libraries. `playwright install --with-deps`
+      # pulled ~190 apt packages from the Azure Ubuntu mirror, which
+      # intermittently crawled at ~40 kB/s and stretched this step to 30-50 min.
+      # The image tag follows the version npm ci just installed, so a
+      # Playwright bump needs no change here. `--network host` reaches the
+      # stack on localhost:3000/3001.
       - name: Run Playwright user-journey suite
         working-directory: e2e
-        env:
-          CI: 'true'
-        run: npx playwright test
+        timeout-minutes: 20
+        run: |
+          version=$(node -p "require('./node_modules/@playwright/test/package.json').version")
+          docker run --rm --network host --ipc=host -e CI=true \
+            -v "$PWD":/e2e -w /e2e \
+            "mcr.microsoft.com/playwright:v${version}-noble" \
+            npx playwright test
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
