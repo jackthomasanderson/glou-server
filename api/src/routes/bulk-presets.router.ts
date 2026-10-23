@@ -30,7 +30,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('[bulk-presets] POST / error:', error);
     if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
       return;
     }
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });

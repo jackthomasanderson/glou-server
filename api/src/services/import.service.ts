@@ -82,7 +82,7 @@ export class ImportService {
         // A single machine-readable code (e.g. 'NAME_REQUIRED') — the
         // frontend maps it to a localized message; falls back to the raw
         // code if a row somehow fails validation in an unmapped way.
-        const reason = result.error.errors[0]?.message ?? 'INVALID_ROW';
+        const reason = result.error.issues[0]?.message ?? 'INVALID_ROW';
         errors.push({ row: rowNumber, reason });
       }
     });

@@ -217,7 +217,7 @@ export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
 // no length cap — bounded only by the 2MB request body limit, i.e. tens of
 // thousands of ids could reach a single `updateMany`.
 export const bulkUpdateSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1).max(500),
+  ids: z.array(z.string().guid()).min(1).max(500),
   patch: inventoryPatchSchema,
 });
 

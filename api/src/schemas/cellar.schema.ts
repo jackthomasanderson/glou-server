@@ -46,6 +46,9 @@ export const createCellarSchema = cellarBaseSchema;
 
 export const updateCellarSchema = cellarFields
   .partial()
+  // zod 4 applies a field's .default() even under .partial(): a PATCH that
+  // omits `type` must leave it unchanged, not reset it to VINTAGE.
+  .extend({ type: cellarFields.shape.type.unwrap().optional() })
   .refine(zonesValid, {
     message: 'Hot zone and cold zone rows cannot exceed total rows',
     path: ['hotZoneRows'],
@@ -63,8 +66,8 @@ export type UpdateCellarInput = z.infer<typeof updateCellarSchema>;
 // server-side (see CellarService.swapSlots), so a stale or spoofed
 // coordinate in the request body can't desynchronise the grid.
 export const swapSlotsSchema = z.object({
-  itemAId: z.string().uuid(),
-  itemBId: z.string().uuid(),
+  itemAId: z.string().guid(),
+  itemBId: z.string().guid(),
 }).refine((data) => data.itemAId !== data.itemBId, {
   message: 'itemAId and itemBId must be different items',
   path: ['itemBId'],

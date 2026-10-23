@@ -88,7 +88,7 @@ router.post('/sessions', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('[inventory-count] POST /sessions error:', error);
     if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
       return;
     }
     void auditLog({
@@ -208,7 +208,7 @@ router.post('/sessions/:id/scan', async (req: Request, res: Response): Promise<v
   } catch (error) {
     console.error('[inventory-count] POST /sessions/:id/scan error:', error);
     if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
       return;
     }
     void auditLog({
@@ -254,7 +254,7 @@ router.post('/sessions/:id/found', async (req: Request, res: Response): Promise<
   } catch (error) {
     console.error('[inventory-count] POST /sessions/:id/found error:', error);
     if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
       return;
     }
     void auditLog({
@@ -334,7 +334,7 @@ router.post('/sessions/:id/complete', async (req: Request, res: Response): Promi
   } catch (error) {
     console.error('[inventory-count] POST /sessions/:id/complete error:', error);
     if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.errors });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
       return;
     }
     void auditLog({
