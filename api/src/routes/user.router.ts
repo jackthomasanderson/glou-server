@@ -11,6 +11,7 @@ import { assertUrlAllowed } from '../lib/ssrf';
 import { notificationService } from '../services/notification.service';
 import { systemConfigService } from '../services/system-config.service';
 import { auditLog } from '../services/audit.service';
+import { onboardingService } from '../services/onboarding.service';
 
 const router = Router();
 
@@ -194,6 +195,36 @@ router.post('/onboarding/complete', authMiddleware, async (req: Request, res: Re
       res.status(400).json({ error: 'VALIDATION_ERROR', details: err.errors });
       return;
     }
+    next(err);
+  }
+});
+
+/**
+ * GET /api/user/onboarding
+ * FEAT-89/FEAT-90: what the setup wizard needs when it opens — postponed for
+ * this sign-in, joining an instance filled by others, the cellar it created.
+ */
+router.get('/onboarding', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.json({ data: await onboardingService.getState(req.userId, req.sessionId) });
+  } catch (err: unknown) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/user/onboarding/postpone
+ * FEAT-90 "Later": the wizard stays closed for the current sign-in only. Not
+ * written to the audit log: it is a display preference, not a security event.
+ */
+router.post('/onboarding/postpone', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    if (!(await onboardingService.postpone(req.userId, req.sessionId))) {
+      res.status(409).json({ error: 'NO_SESSION' });
+      return;
+    }
+    res.json({ data: { postponed: true } });
+  } catch (err: unknown) {
     next(err);
   }
 });
