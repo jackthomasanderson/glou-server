@@ -87,6 +87,13 @@ describe('ImportService.previewCsv', () => {
     expect(result.errors).toEqual([{ row: 2, reason: 'INVALID_ABV' }]);
   });
 
+  // FEAT-91 (#641): rows past 500 used to be dropped without a word; the
+  // preview now returns them all, and the screen says the file is too large.
+  it('reads every row of the file, past 500', () => {
+    const rows = Array.from({ length: 720 }, (_, i) => `Wine ${i},Domaine,wine`).join('\n');
+    expect(importService.previewCsv(csv(`name,producer,category\n${rows}\n`)).valid).toHaveLength(720);
+  });
+
   it('returns an empty preview for an empty file', () => {
     expect(importService.previewCsv(csv(''))).toEqual({ valid: [], errors: [] });
   });

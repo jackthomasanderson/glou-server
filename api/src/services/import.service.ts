@@ -31,10 +31,6 @@ function canonicalRecord(record: Record<string, string>): Record<string, string>
   return out;
 }
 
-// Defensive cap: this is an onboarding convenience import, not a bulk data
-// migration tool. Rows beyond this are silently ignored at preview time.
-const MAX_ROWS = 500;
-
 export class ImportService {
   /** Parse + validate a CSV buffer. Never writes to the database. */
   previewCsv(buffer: Buffer): CsvImportPreview {
@@ -48,7 +44,10 @@ export class ImportService {
       return { valid: [], errors: [{ row: 1, reason: 'INVALID_ENCODING' }] };
     }
 
-    const records = parseCsv(text).slice(0, MAX_ROWS).map(canonicalRecord);
+    // FEAT-91 (#641): every row is read, so the screen can say when the file
+    // goes over CSV_IMPORT_MAX_ITEMS instead of dropping the rest unseen.
+    // The upload itself is capped at 2 MB (upload.middleware.ts).
+    const records = parseCsv(text).map(canonicalRecord);
 
     const valid: CsvImportRow[] = [];
     const errors: CsvImportError[] = [];
@@ -126,7 +125,7 @@ export class ImportService {
         }
         return { created, skippedDuplicates };
       },
-      // Up to MAX_ROWS=500 chained creates comfortably exceed Prisma's 5s
+      // Up to CSV_IMPORT_MAX_ITEMS (500) chained creates comfortably exceed Prisma's 5s
       // interactive-transaction default, which rolled the whole import back
       // with no explanation (#161) — give it real headroom instead.
       { timeout: 60000, maxWait: 10000 },
