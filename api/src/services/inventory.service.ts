@@ -549,6 +549,17 @@ export class InventoryService {
 
     if (existing.length === 0) return 0;
 
+    // #706: as in updateItem, a patch moving one end of the peak window is
+    // checked against each item's stored other end, before anything is written.
+    if ('peakMaturityFrom' in patch || 'peakMaturityTo' in patch) {
+      for (const item of existing) {
+        peakWindowSchema.parse({
+          peakMaturityFrom: 'peakMaturityFrom' in patch ? patch.peakMaturityFrom : item.peakMaturityFrom,
+          peakMaturityTo: 'peakMaturityTo' in patch ? patch.peakMaturityTo : item.peakMaturityTo,
+        });
+      }
+    }
+
     let updatedCount = 0;
     await prisma.$transaction(async (tx) => {
       for (const item of existing) {

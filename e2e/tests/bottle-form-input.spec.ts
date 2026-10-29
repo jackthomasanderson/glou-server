@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Route } from '@playwright/test';
 
 /**
  * #706: the bottle form rewrote what the user typed. "24.05" became "245"
@@ -39,19 +39,30 @@ test('the bottle form keeps what is typed and refuses a reversed peak window', a
     const price = dialog.getByLabel("Prix d'achat (€)");
     await price.pressSequentially('24.05');
     await expect(price).toHaveValue('24.05');
+    // The French keystrokes of the report: the page is lang="fr", so the
+    // number field takes the comma and reports "24.05".
+    const estimated = dialog.getByLabel('Valeur estimée (€)');
+    await estimated.pressSequentially('24,05');
+    await expect(estimated).toHaveValue('24.05');
 
     const grapes = dialog.getByLabel('Cépages');
     await grapes.pressSequentially('Pinot Noir, Gamay');
     await expect(grapes).toHaveValue('Pinot Noir, Gamay');
 
-    // Saving with the reversed window sends nothing.
-    let posted = false;
-    page.on('request', (r) => {
-      if (r.method() === 'POST' && /\/api\/inventory\/?$/.test(r.url())) posted = true;
-    });
+    // Saving with the reversed window sends nothing: any POST is recorded
+    // (and aborted) during a grace period after the click.
+    let posted = 0;
+    const recordPost = async (route: Route) => {
+      if (route.request().method() !== 'POST') return route.fallback();
+      posted++;
+      await route.abort();
+    };
+    await page.route(/\/api\/inventory\/?$/, recordPost);
     await dialog.getByTestId('inventory-form-submit').click();
+    await page.waitForTimeout(1000);
+    expect(posted).toBe(0);
     await expect(peakError).toBeVisible();
-    expect(posted).toBe(false);
+    await page.unroute(/\/api\/inventory\/?$/, recordPost);
 
     await peakTo.fill('2040');
     await expect(peakError).toBeHidden();
@@ -65,6 +76,7 @@ test('the bottle form keeps what is typed and refuses a reversed peak window', a
     const item = (await res.json()).data as {
       id: string;
       purchasePrice: number | string;
+      estimatedValue: number | string;
       grapeVarieties: string[];
       cellarId: string | null;
       peakMaturityFrom: number;
@@ -72,6 +84,7 @@ test('the bottle form keeps what is typed and refuses a reversed peak window', a
     };
     id = item.id;
     expect(Number(item.purchasePrice)).toBe(24.05);
+    expect(Number(item.estimatedValue)).toBe(24.05);
     expect(item.grapeVarieties).toEqual(['Pinot Noir', 'Gamay']);
     expect(item.cellarId).toBeNull();
     expect([item.peakMaturityFrom, item.peakMaturityTo]).toEqual([2035, 2040]);

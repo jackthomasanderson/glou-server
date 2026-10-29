@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import React, { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { NumberInput, ParsedInput } from '../ParsedInput';
+import { ParsedNumberInput, ParsedInput } from '../ParsedInput';
 
 // #706: a controlled field rendering its parsed value back rewrote what the
 // user typed ("24,05" → "245"). A plain controlled <input> stands in for
@@ -21,13 +21,13 @@ function PriceField({ onValue }: { onValue?: (v: number | undefined) => void }) 
   const [price, setPrice] = useState<number | undefined>();
   return (
     <>
-      <NumberInput label="price" value={price} onValueChange={(v) => { setPrice(v); onValue?.(v); }} />
+      <ParsedNumberInput label="price" value={price} onValueChange={(v) => { setPrice(v); onValue?.(v); }} />
       <button onClick={() => setPrice(2019)}>fill</button>
     </>
   );
 }
 
-describe('NumberInput', () => {
+describe('ParsedNumberInput', () => {
   it('keeps a 0 typed right after the decimal separator', () => {
     const onValue = vi.fn();
     render(<PriceField onValue={onValue} />);
@@ -67,14 +67,15 @@ describe('NumberInput', () => {
     expect(input.value).toBe('2019');
   });
 
-  it('lets a field with a fallback be emptied to type over it', () => {
+  // The wish quantity: kept empty while typed over, defaulted only on save.
+  it('lets a quantity of 3 be emptied to type over it', () => {
     function Quantity() {
-      const [qty, setQty] = useState(1);
-      return <NumberInput label="qty" value={qty} onValueChange={(v) => setQty(v ?? 1)} />;
+      const [qty, setQty] = useState<number | undefined>(3);
+      return <ParsedNumberInput label="qty" value={qty} onValueChange={setQty} />;
     }
     render(<Quantity />);
     const input = screen.getByLabelText('qty') as HTMLInputElement;
-    expect(input.value).toBe('1');
+    expect(input.value).toBe('3');
     fireEvent.change(input, { target: { value: '' } });
     expect(input.value).toBe('');
     fireEvent.change(input, { target: { value: '3' } });

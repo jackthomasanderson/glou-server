@@ -24,7 +24,7 @@ import { CollectionSelector } from './CollectionSelector';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { NumberInput, ParsedInput } from '@/components/ui/ParsedInput';
+import { ParsedNumberInput, ParsedInput } from '@/components/ui/ParsedInput';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
 import { searchClient } from '@/lib/search/client';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
@@ -92,8 +92,9 @@ export function InventoryForm({
   // whether closing now would throw away something the user typed.
   const [baseline, setBaseline] = useState<Partial<InventoryItem>>(initialValues ?? emptyForm);
   const [submitAttempted, setSubmitAttempted] = useState(false);
-  // Inline errors show on blur or on submit (ux-ui.md §5.3).
-  const [peakWindowBlurred, setPeakWindowBlurred] = useState(false);
+  // Inline errors show on blur or on submit (ux-ui.md §5.3), and go away
+  // while the field is typed in again, so a year being typed never shows red.
+  const [peakWindowChecked, setPeakWindowChecked] = useState(false);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [showOptionals, setShowOptionals] = useState(false);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
@@ -119,7 +120,7 @@ export function InventoryForm({
       setValues(initialValues ?? emptyForm);
       setBaseline(initialValues ?? emptyForm);
       setSubmitAttempted(false);
-      setPeakWindowBlurred(false);
+      setPeakWindowChecked(false);
       setSelectedCollections(
         initialValues?.collections?.map(ic => ({
           id: ic.id, name: ic.name, color: ic.color, icon: ic.icon ?? undefined,
@@ -162,10 +163,11 @@ export function InventoryForm({
             ? prev
             : { ...prev, photoUrl: path ?? undefined });
       } catch { /* ignore */ } finally {
-        setIsAutoLoading(false);
+        // A newer search owns the spinner once this one is stale.
+        if (!cancelled) setIsAutoLoading(false);
       }
     }, 1200);
-    return () => { cancelled = true; clearTimeout(timer); };
+    return () => { cancelled = true; clearTimeout(timer); setIsAutoLoading(false); };
   }, [values.name, values.producer, values.photoUrl, isEditing, autoPhoto]);
 
   const missingName = !values.name?.trim();
@@ -194,6 +196,7 @@ export function InventoryForm({
     e.preventDefault();
     if (!canSave) {
       setSubmitAttempted(true);
+      setPeakWindowChecked(true);
       notifyError(missingRequired ? 'inventory.validation.missingFields' : 'inventory.validation.peakWindowOrder');
       return;
     }
@@ -376,7 +379,7 @@ export function InventoryForm({
                       {/* Wine essential */}
                       {isWine && (
                         <>
-                          <NumberInput
+                          <ParsedNumberInput
                             data-testid="inventory-vintage-input"
                             label={t('inventory.fields.vintage')}
                             variant="bordered"
@@ -406,7 +409,7 @@ export function InventoryForm({
                               onValueChange={(v) => setField('region', v)}
                             />
                           </div>
-                          <NumberInput
+                          <ParsedNumberInput
                             label={t('inventory.fields.alcoholDegree')}
                             variant="bordered"
                             size="sm"
@@ -421,7 +424,7 @@ export function InventoryForm({
                       {/* Sparkling essential */}
                       {isSparkling && (
                         <>
-                          <NumberInput
+                          <ParsedNumberInput
                             data-testid="inventory-vintage-input"
                             label={t('inventory.fields.vintage')}
                             variant="bordered"
@@ -482,7 +485,7 @@ export function InventoryForm({
                             />
                           </div>
                           <div className="col-span-2">
-                            <NumberInput
+                            <ParsedNumberInput
                               label={t('inventory.fields.alcoholDegree')}
                               variant="bordered"
                               size="sm"
@@ -496,7 +499,7 @@ export function InventoryForm({
                             />
                           </div>
                           <div className="col-span-2">
-                            <NumberInput
+                            <ParsedNumberInput
                               label={t('inventory.fields.declaredAge')}
                               variant="bordered"
                               size="sm"
@@ -519,7 +522,7 @@ export function InventoryForm({
                             value={values.format ?? ''}
                             onValueChange={(v) => setField('format', v)}
                           />
-                          <NumberInput
+                          <ParsedNumberInput
                             label={t('inventory.fields.quantity')}
                             variant="bordered"
                             size="sm"
@@ -530,7 +533,7 @@ export function InventoryForm({
                             onValueChange={(v) => setField('quantity', v)}
                             min={1}
                           />
-                          <NumberInput
+                          <ParsedNumberInput
                             label={t('inventory.fields.manufactureYear')}
                             variant="bordered"
                             size="sm"
@@ -549,25 +552,25 @@ export function InventoryForm({
                             <span className="text-xs text-foreground-500 px-2">{t('inventory.fields.peakMaturity')}</span>
                             <div className="flex-1 h-px bg-divider" />
                           </div>
-                          <NumberInput
+                          <ParsedNumberInput
                             label={t('inventory.fields.peakMaturityFrom')}
                             variant="bordered"
                             size="sm"
                             placeholder={t('inventory.fields.yearExample', { year: 2025 })}
                             value={values.peakMaturityFrom}
-                            onValueChange={(v) => setField('peakMaturityFrom', v ?? null)}
-                            onBlur={() => setPeakWindowBlurred(true)}
+                            onValueChange={(v) => { setPeakWindowChecked(false); setField('peakMaturityFrom', v ?? null); }}
+                            onBlur={() => setPeakWindowChecked(true)}
                             min={1800} max={2200}
                           />
-                          <NumberInput
+                          <ParsedNumberInput
                             label={t('inventory.fields.peakMaturityTo')}
                             variant="bordered"
                             size="sm"
                             placeholder={t('inventory.fields.yearExample', { year: 2030 })}
                             value={values.peakMaturityTo}
-                            onValueChange={(v) => setField('peakMaturityTo', v ?? null)}
-                            onBlur={() => setPeakWindowBlurred(true)}
-                            isInvalid={peakWindowReversed && (peakWindowBlurred || submitAttempted)}
+                            onValueChange={(v) => { setPeakWindowChecked(false); setField('peakMaturityTo', v ?? null); }}
+                            onBlur={() => setPeakWindowChecked(true)}
+                            isInvalid={peakWindowReversed && peakWindowChecked}
                             errorMessage={t('inventory.validation.peakWindowOrder')}
                             min={1800} max={2200}
                           />
@@ -696,7 +699,7 @@ export function InventoryForm({
                                 value={values.caskNumber ?? ''}
                                 onValueChange={(v) => setField('caskNumber', v)}
                               />
-                              <NumberInput
+                              <ParsedNumberInput
                                 label={t('inventory.fields.caskProof')}
                                 variant="bordered"
                                 size="sm"
@@ -743,7 +746,7 @@ export function InventoryForm({
                         />
 
                         {/* Purchase price */}
-                        <NumberInput
+                        <ParsedNumberInput
                           label={t('inventory.fields.purchasePrice')}
                           variant="bordered"
                           size="sm"
@@ -765,7 +768,7 @@ export function InventoryForm({
                         </div>
 
                         {/* Estimated value */}
-                        <NumberInput
+                        <ParsedNumberInput
                           label={t('inventory.fields.estimatedValue')}
                           variant="bordered"
                           size="sm"
@@ -838,7 +841,7 @@ export function InventoryForm({
                             )}
                             {isSparkling && (
                               <>
-                                <NumberInput
+                                <ParsedNumberInput
                                   label={t('inventory.fields.baseYear')}
                                   variant="bordered"
                                   size="sm"
@@ -911,7 +914,7 @@ export function InventoryForm({
                               value={values.factoryCode ?? ''}
                               onValueChange={(v) => setField('factoryCode', v)}
                             />
-                            <NumberInput
+                            <ParsedNumberInput
                               label={t('inventory.fields.recommendedHumidity')}
                               variant="bordered"
                               size="sm"

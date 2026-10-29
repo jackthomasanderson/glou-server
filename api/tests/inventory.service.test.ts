@@ -199,6 +199,17 @@ describe('InventoryService', () => {
     expect(prisma.inventoryItem.update).toHaveBeenCalled();
   });
 
+  it('bulkUpdate - refuses moving one end of the window before an item\'s stored start', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'b1', lockedFields: [], deletedAt: null, peakMaturityFrom: 2025, peakMaturityTo: 2040 },
+      { id: 'b2', lockedFields: [], deletedAt: null, peakMaturityFrom: 2035, peakMaturityTo: 2040 },
+    ] as never);
+
+    await expect(service.bulkUpdate('u1', ['b1', 'b2'], { peakMaturityTo: 2030 })).rejects.toThrow(ZodError);
+    // Nothing is written, not even for b1, whose window would have stayed in order.
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   // ─── FEAT-16/23: offline sync optimistic concurrency ──────────────────────
 
   it('updateItem - returns a conflict when expectedUpdatedAt no longer matches the server value', async () => {

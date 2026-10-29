@@ -49,8 +49,11 @@ type NumberInputProps = Omit<ParsedInputProps<number | null | undefined>, 'forma
   onValueChange: (value: number | undefined) => void;
 };
 
-/** A `type="number"` field that keeps "24,0" or "24," while it is typed. */
-export function NumberInput({ onValueChange, ...props }: NumberInputProps) {
+/**
+ * A `type="number"` field that keeps "24,0" or "24," while it is typed.
+ * Not HeroUI's own `NumberInput`, a different component.
+ */
+export function ParsedNumberInput({ onValueChange, ...props }: NumberInputProps) {
   return (
     <ParsedInput
       type="number"

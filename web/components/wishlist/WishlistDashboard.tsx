@@ -16,7 +16,7 @@ import { CATEGORY_VALUES } from '@/lib/inventory/types';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { NumberInput } from '@/components/ui/ParsedInput';
+import { ParsedNumberInput } from '@/components/ui/ParsedInput';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -29,7 +29,10 @@ const STATUS_COLOR: Record<string, 'primary' | 'success' | 'default'> = {
   cancelled: 'default',
 };
 
-const EMPTY_FORM: WishlistCreateInput = {
+// The quantity may be empty while it is typed over; it is saved as 1 (#706).
+type WishlistForm = Omit<WishlistCreateInput, 'targetQuantity'> & { targetQuantity?: number };
+
+const EMPTY_FORM: WishlistForm = {
   name: '', producer: '', category: 'wine', vintage: null, targetQuantity: 1, maxPrice: null, notes: '',
 };
 
@@ -45,9 +48,9 @@ export function WishlistDashboard() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<WishlistItem | null>(null);
-  const [form, setForm] = useState<WishlistCreateInput>(EMPTY_FORM);
+  const [form, setForm] = useState<WishlistForm>(EMPTY_FORM);
   // ISSUE_119: values the form opened with, to detect unsaved input on close.
-  const [formBaseline, setFormBaseline] = useState<WishlistCreateInput>(EMPTY_FORM);
+  const [formBaseline, setFormBaseline] = useState<WishlistForm>(EMPTY_FORM);
   const [deleting, setDeleting] = useState<WishlistItem | null>(null);
   const [priceTarget, setPriceTarget] = useState<WishlistItem | null>(null);
   const [priceValue, setPriceValue] = useState('');
@@ -62,7 +65,7 @@ export function WishlistDashboard() {
   };
   const openEdit = (item: WishlistItem) => {
     setEditing(item);
-    const nextForm: WishlistCreateInput = {
+    const nextForm: WishlistForm = {
       name: item.name, producer: item.producer ?? '', category: item.category,
       vintage: item.vintage, targetQuantity: item.targetQuantity, maxPrice: item.maxPrice, notes: item.notes ?? '',
     };
@@ -82,11 +85,12 @@ export function WishlistDashboard() {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) return;
+    const data: WishlistCreateInput = { ...form, targetQuantity: form.targetQuantity ?? 1 };
     try {
       if (editing) {
-        await updateMutation.mutateAsync({ id: editing.id, data: form });
+        await updateMutation.mutateAsync({ id: editing.id, data });
       } else {
-        await createMutation.mutateAsync(form);
+        await createMutation.mutateAsync(data);
       }
       closeForm();
     } catch {
@@ -273,21 +277,21 @@ export function WishlistDashboard() {
                   {CATEGORIES.map((c) => <SelectItem key={c}>{t(`wishlist.categories.${c}`)}</SelectItem>)}
                 </Select>
                 <div className="grid grid-cols-2 gap-4">
-                  <NumberInput
+                  <ParsedNumberInput
                     label={t('wishlist.form.vintage')}
                     value={form.vintage}
                     onValueChange={(v) => setForm((f) => ({ ...f, vintage: v ?? null }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
-                  <NumberInput
+                  <ParsedNumberInput
                     min={1}
                     label={t('wishlist.form.targetQuantity')}
                     value={form.targetQuantity}
-                    onValueChange={(v) => setForm((f) => ({ ...f, targetQuantity: v ?? 1 }))}
+                    onValueChange={(v) => setForm((f) => ({ ...f, targetQuantity: v }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
                 </div>
-                <NumberInput
+                <ParsedNumberInput
                   min={0}
                   label={t('wishlist.form.maxPrice')}
                   description={t('wishlist.form.maxPriceHint')}
