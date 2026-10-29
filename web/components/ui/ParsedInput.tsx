@@ -11,7 +11,7 @@ type ParsedInputProps<T> = Omit<InputProps, 'value' | 'onValueChange'> & {
   format: (value: T) => string;
   parse: (text: string) => T;
   /** A keystroke whose text fails this is ignored, like in a number field. */
-  accept?: (text: string) => boolean;
+  allowText?: (text: string) => boolean;
 };
 
 /**
@@ -23,7 +23,7 @@ type ParsedInputProps<T> = Omit<InputProps, 'value' | 'onValueChange'> & {
  * lost its spaces and commas (#706). The text is only replaced when the
  * value changes to something the text does not already stand for.
  */
-export function ParsedInput<T>({ value, onValueChange, format, parse, accept, ...props }: ParsedInputProps<T>) {
+export function ParsedInput<T>({ value, onValueChange, format, parse, allowText, ...props }: ParsedInputProps<T>) {
   const shown = format(value);
   const [text, setText] = useState(shown);
   // Compared as text, not by identity: `value ?? []` is a new array on
@@ -38,7 +38,7 @@ export function ParsedInput<T>({ value, onValueChange, format, parse, accept, ..
       {...props}
       value={text}
       onValueChange={(next) => {
-        if (accept && !accept(next)) return;
+        if (allowText && !allowText(next)) return;
         setText(next);
         onValueChange(parse(next));
       }}
@@ -58,7 +58,7 @@ const parseDecimal = (text: string) => {
   return text.trim() === '' || Number.isNaN(n) ? undefined : n;
 };
 
-type NumberInputProps = Omit<ParsedInputProps<NumberValue>, 'format' | 'parse' | 'accept' | 'onValueChange'> & {
+type NumberInputProps = Omit<ParsedInputProps<NumberValue>, 'format' | 'parse' | 'allowText' | 'onValueChange'> & {
   /** `undefined` when the field is emptied. */
   onValueChange: (value: number | undefined) => void;
   /**
@@ -87,7 +87,7 @@ export function ParsedNumberInput({ onValueChange, decimal = false, ...props }: 
       type="text"
       format={(n) => formatInteger(n).replace('.', separator)}
       parse={parseDecimal}
-      accept={(text) => DECIMAL_TEXT.test(text.trim())}
+      allowText={(text) => DECIMAL_TEXT.test(text.trim())}
       onValueChange={emit}
     />
   );
