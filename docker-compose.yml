@@ -111,7 +111,7 @@ services:
   # ~3 GB of RAM. Enable with: docker compose --profile scan up -d
   ollama:
     profiles: ["scan"]
-    image: ollama/ollama:0.40.6  # pinned (#540); Renovate proposes updates
+    image: ollama/ollama:0.40.13  # pinned (#540); Renovate proposes updates
     restart: unless-stopped
     mem_limit: 4g
     environment:
@@ -134,7 +134,7 @@ services:
   # One-shot: downloads the model (~1.7 GB) into ollama_data, then exits (0).
   ollama-pull:
     profiles: ["scan"]
-    image: ollama/ollama:0.40.6  # pinned (#540); Renovate proposes updates
+    image: ollama/ollama:0.40.13  # pinned (#540); Renovate proposes updates
     restart: "no"
     depends_on:
       ollama:
