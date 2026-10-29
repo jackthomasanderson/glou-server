@@ -1,14 +1,14 @@
 'use client';
 import React, { useEffect } from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input,
 } from '@heroui/react';
 import { useForm, Controller } from 'react-hook-form';
 import { CollectionFormValues, Collection } from '@/lib/collections/types';
 import { useTranslation } from 'react-i18next';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 
 const PRESET_COLORS = [
@@ -68,18 +68,16 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
     isLocked: !!isLoading,
   });
 
-  const isMobile = useIsMobile();
-
   return (
     <>
-    <Modal
+    <ResponsiveModal
       isOpen={open && !guard.isConfirmOpen}
       onClose={guard.requestClose}
       {...guard.dismissProps}
-      size={isMobile ? 'full' : 'sm'}
+      size="sm"
       radius="lg"
       backdrop="opaque"
-      placement={isMobile ? 'bottom' : 'center'}
+      placement="top"
     >
       <ModalContent>
         {() => (
@@ -174,7 +172,7 @@ export function CollectionForm({ open, onClose, onSubmit, initial, isLoading }: 
           </form>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
 
     <DiscardChangesDialog
       isOpen={guard.isConfirmOpen}

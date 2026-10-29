@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Textarea, Select, SelectItem, Autocomplete, AutocompleteItem,
 } from '@heroui/react';
 import { Star, FlaskConical } from 'lucide-react';
@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { notifyError } from '@/lib/toast';
 import { applyStockChoice, type StockChoice } from '@/lib/tastings/stockChoice';
@@ -152,24 +152,22 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   const inventoryOptions = items?.filter((i) => !i.deletedAt) ?? [];
   const hasError = !!(createMutation.error || updateMutation.error);
   const showStockDialog = !!stockDialogItemId;
-  const isMobile = useIsMobile();
 
   return (
     <>
-      <Modal
+      <ResponsiveModal
         isOpen={open && !showStockDialog && !guard.isConfirmOpen}
         onClose={guard.requestClose}
         {...guard.dismissProps}
-        size={isMobile ? 'full' : 'md'}
+        size="md"
         radius="lg"
         backdrop="opaque"
-        placement={isMobile ? 'bottom' : 'center'}
+        placement="top"
         scrollBehavior="inside"
-        classNames={{ base: "max-h-[90dvh]" }}
       >
         <ModalContent>
           {() => (
-            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
+            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full min-h-0 overflow-hidden">
               <ModalHeader>
                 {editNote ? t('tastings.edit') : t('tastings.create')}
               </ModalHeader>
@@ -432,10 +430,10 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
             </form>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* FEAT-77: Stock update suggestion after tasting creation */}
-      <Modal
+      <ResponsiveModal
         isOpen={showStockDialog}
         onClose={() => handleStockChoice('ignore')}
         size="sm"
@@ -484,7 +482,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       <DiscardChangesDialog
         isOpen={guard.isConfirmOpen}

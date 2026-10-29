@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Select, SelectItem, Textarea, Card, CardBody, Chip, Spinner,
 } from '@heroui/react';
 import { Plus, Gift, Tag, ArrowRightCircle } from 'lucide-react';
@@ -15,7 +15,7 @@ import { WishlistItem, WishlistCategory, WishlistCreateInput } from '@/lib/wishl
 import { CATEGORY_VALUES } from '@/lib/inventory/types';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -42,7 +42,6 @@ export function WishlistDashboard() {
   const convertMutation = useConvertToInventory();
   const { data: cellars } = useCellars();
 
-  const isMobile = useIsMobile();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<WishlistItem | null>(null);
   const [form, setForm] = useState<WishlistCreateInput>(EMPTY_FORM);
@@ -238,11 +237,11 @@ export function WishlistDashboard() {
       )}
 
       {/* Create / Edit form */}
-      <Modal
+      <ResponsiveModal
         isOpen={formOpen && !formGuard.isConfirmOpen}
         onClose={formGuard.requestClose}
         {...formGuard.dismissProps}
-        size={isMobile ? 'full' : '2xl'} radius="lg" backdrop="opaque" placement={isMobile ? 'bottom' : 'center'}
+        size="2xl" radius="lg" backdrop="opaque" placement="top" scrollBehavior="inside"
       >
         <ModalContent>
           {() => (
@@ -320,7 +319,7 @@ export function WishlistDashboard() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       <DiscardChangesDialog
         isOpen={formGuard.isConfirmOpen}
@@ -329,7 +328,7 @@ export function WishlistDashboard() {
       />
 
       {/* Price seen */}
-      <Modal isOpen={!!priceTarget} onClose={() => setPriceTarget(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={!!priceTarget} onClose={() => setPriceTarget(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {() => (
             <>
@@ -361,10 +360,10 @@ export function WishlistDashboard() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* Convert to inventory */}
-      <Modal isOpen={!!convertTarget} onClose={() => setConvertTarget(null)} size="2xl" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={!!convertTarget} onClose={() => setConvertTarget(null)} size="2xl" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {() => (
             <>
@@ -428,10 +427,10 @@ export function WishlistDashboard() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       {/* Delete confirm */}
-      <Modal isOpen={!!deleting} onClose={() => setDeleting(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={!!deleting} onClose={() => setDeleting(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>
           {() => (
             <>
@@ -452,7 +451,7 @@ export function WishlistDashboard() {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
   );
 }

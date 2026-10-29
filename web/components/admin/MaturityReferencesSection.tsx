@@ -136,7 +136,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
     : t('admin.maturityRefs.hints.windowAbsolute');
 
   return (
-    <ResponsiveModal isOpen={open} onClose={onClose} size="md" radius="lg" backdrop="opaque" placement="center">
+    <ResponsiveModal isOpen={open} onClose={onClose} size="md" radius="lg" backdrop="opaque" placement="top" scrollBehavior="inside">
       <ModalContent>
         {() => (
           <>

@@ -267,7 +267,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
       </ResponsiveModal>
 
       {/* Password Modal */}
-      <ResponsiveModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="top">
         <ModalContent>
           {(onClose) => (
             <>
@@ -321,7 +321,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
       </ResponsiveModal>
 
       {/* PIN Modal (FEAT-30) */}
-      <ResponsiveModal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
+      <ResponsiveModal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="top">
         <ModalContent>
           {(onClose) => (
             <>

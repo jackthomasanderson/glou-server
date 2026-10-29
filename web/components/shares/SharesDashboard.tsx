@@ -141,7 +141,7 @@ export function SharesDashboard() {
         isOpen={formOpen}
         onClose={() => setFormOpen(false)}
         size="sm"
-        placement="center"
+        placement="top"
         scrollBehavior="inside"
       >
         <ModalContent>
