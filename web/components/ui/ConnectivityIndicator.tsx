@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
-import { Tooltip, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
+import { Tooltip, ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { WifiOff } from 'lucide-react';
 import { useConnectivity } from '@/hooks/useConnectivity';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
@@ -81,7 +82,7 @@ export function ConnectivityIndicator() {
     {/* Outside the button: its children are presentational, so a live region
         inside it would never be announced. */}
     <span role="status" className="sr-only">{tooltipContent}</span>
-    <Modal isOpen={panelOpen} onOpenChange={setPanelOpen} size="lg" scrollBehavior="inside">
+    <ResponsiveModal isOpen={panelOpen} onOpenChange={setPanelOpen} size="lg" scrollBehavior="inside">
       <ModalContent>
         {(onClose) => (
           <>
@@ -95,7 +96,7 @@ export function ConnectivityIndicator() {
           </>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
     </span>
   );
 }

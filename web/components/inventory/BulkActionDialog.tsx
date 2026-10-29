@@ -126,7 +126,7 @@ export function BulkActionDialog({
 
   return (
     <>
-    <ResponsiveModal isOpen={open} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="center" scrollBehavior="inside">
+    <ResponsiveModal isOpen={open} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="top" scrollBehavior="inside">
       <ModalContent>
         {() => (
           <>

@@ -13,6 +13,26 @@ const eslintConfig = [
   {
     ignores: ['node_modules/**', '.next/**', 'public/**'],
   },
+  // #654: dialogs go through ResponsiveModal, which turns them into a
+  // full-screen sheet on phones (ux-ui.md §5.4). Six plain `Modal`s had
+  // slipped past the #328 migration with nothing to catch them.
+  {
+    files: ['**/*.{ts,tsx}'],
+    ignores: [
+      'components/ui/ResponsiveModal.tsx', // the wrapper itself
+      'components/ui/BottomNav.tsx', // the "More" menu is a bottom sheet on purpose, never full-screen
+      '**/__tests__/**', // test doubles of @heroui/react
+    ],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: '@heroui/react',
+          importNames: ['Modal'],
+          message: 'Use ResponsiveModal from @/components/ui/ResponsiveModal: it opens full-screen on phones (ux-ui.md §5.4).',
+        }],
+      }],
+    },
+  },
 ];
 
 export default eslintConfig;

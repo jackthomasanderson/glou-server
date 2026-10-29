@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Chip, Divider, Input, Select, SelectItem,
 } from '@heroui/react';
 import i18n from '@/lib/i18n';
@@ -23,7 +23,7 @@ import { MaturitySuggestionField } from './MaturitySuggestionField';
 import { CollectionSelector } from './CollectionSelector';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
 import { searchClient } from '@/lib/search/client';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
@@ -197,18 +197,17 @@ export function InventoryForm({
   const isWineOrSparkling = isWine || isSparkling;
 
   const numField = (val: string, fallback?: number) => (val ? Number(val) : fallback);
-  const isMobile = useIsMobile();
 
   return (
     <>
-    <Modal
+    <ResponsiveModal
       isOpen={open && !guard.isConfirmOpen}
       onClose={guard.requestClose}
       {...guard.dismissProps}
-      size={isMobile ? 'full' : '4xl'}
+      size="4xl"
       radius="lg"
       backdrop="opaque"
-      placement={isMobile ? 'bottom' : 'center'}
+      placement="top"
       scrollBehavior="inside"
       hideCloseButton
     >
@@ -1035,7 +1034,7 @@ export function InventoryForm({
           </form>
         )}
       </ModalContent>
-    </Modal>
+    </ResponsiveModal>
 
     <DiscardChangesDialog
       isOpen={guard.isConfirmOpen}

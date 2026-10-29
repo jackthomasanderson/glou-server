@@ -15,3 +15,43 @@ describe('Select menus open without a flash (#709)', () => {
     expect(Number(pkg.version.split('.')[0])).toBeGreaterThanOrEqual(12);
   });
 });
+
+/**
+ * The props written on a dialog's opening tag: everything from `<ResponsiveModal`
+ * up to its `<ModalContent>`. A plain regex on `>` would stop at the first
+ * arrow function (`onClose={() => …}`).
+ */
+function dialogProps(file: string, isOpen: string): string {
+  const code = readFileSync(join(root, file), 'utf8');
+  for (const start of code.matchAll(/<ResponsiveModal\b/g)) {
+    const props = code.slice(start.index, code.indexOf('<ModalContent', start.index));
+    if (props.includes(`isOpen={${isOpen}}`)) return props;
+  }
+  throw new Error(`${file}: no <ResponsiveModal isOpen={${isOpen}}>`);
+}
+
+describe('Form dialogs keep their fields still while you fill them (#709, ux-ui.md §4.5)', () => {
+  // A centred dialog re-centres whenever its height changes, moving every
+  // field. These forms grow while being filled in (sections that open,
+  // checkboxes that reveal fields, a growing textarea, inline validation), so
+  // they are anchored to the top on desktop. ResponsiveModal still turns them
+  // into a full-screen bottom sheet on phones.
+  const forms: Array<[file: string, isOpen: string]> = [
+    ['components/inventory/InventoryForm.tsx', 'open && !guard.isConfirmOpen'],
+    ['components/cellars/CellarDashboard.tsx', 'openForm && !formGuard.isConfirmOpen'],
+    ['components/tastings/TastingForm.tsx', 'open && !showStockDialog && !guard.isConfirmOpen'],
+    ['components/wishlist/WishlistDashboard.tsx', 'formOpen && !formGuard.isConfirmOpen'],
+    ['components/collections/CollectionForm.tsx', 'open && !guard.isConfirmOpen'],
+    ['components/admin/MaturityReferencesSection.tsx', 'open'],
+    ['components/inventory/BulkActionDialog.tsx', 'open'],
+  ];
+
+  it.each(forms)('%s is anchored to the top', (file, isOpen) => {
+    expect(dialogProps(file, isOpen)).toContain('placement="top"');
+  });
+
+  it('the cellar form scrolls inside its panel instead of growing past the screen', () => {
+    expect(dialogProps('components/cellars/CellarDashboard.tsx', 'openForm && !formGuard.isConfirmOpen'))
+      .toContain('scrollBehavior="inside"');
+  });
+});
