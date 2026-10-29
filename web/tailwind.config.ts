@@ -5,8 +5,8 @@ const config: Config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
-    // HeroUI's own classes are not listed here: Tailwind 4 ignores
-    // node_modules globs in `content`. globals.css @sources them (#721).
+    // HeroUI's own classes are not listed here: Tailwind 4 drops these globs
+    // when a .gitignore lists node_modules. globals.css @sources them (#721).
   ],
   theme: {
     extend: {

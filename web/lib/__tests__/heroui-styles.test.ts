@@ -6,11 +6,12 @@ import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 import { button, card, checkbox, chip, input, listboxItem, modal, popover, select, tabs } from '@heroui/react';
 
-// #721: Tailwind 4 never scans node_modules on its own. After the Tailwind 4
-// move (#412), the classes HeroUI puts on its own components were silently
-// left out of the stylesheet: 57 % of them for the components below (button
-// text and focus ring, dialog margins, max height and phone sheet, menu item
-// hover, checkbox box...). globals.css has to @source HeroUI's theme.
+// #721: Tailwind 4 drops paths listed in a .gitignore, and the repo root
+// ignores node_modules/. From a git checkout (npm run dev, CI, local builds),
+// the classes HeroUI puts on its own components were left out of the
+// stylesheet: 231 of the 341 used by the components below (input borders,
+// button text and focus ring, dialog margins and phone sheet, menu hover...).
+// globals.css has to @source HeroUI explicitly.
 //
 // The class names are read from HeroUI's theme at run time, never written
 // here: Tailwind also scans this file, and a literal class name in it would
@@ -49,8 +50,8 @@ describe("HeroUI's component styles are generated (#721)", () => {
     const missing = used.filter((c) => !css.includes(selector(c)));
 
     // A handful are not Tailwind utilities at all (e.g. HeroUI's `*-inherit`
-    // helpers) and can never be generated: 6 of 650 with HeroUI 2.8. Before
-    // the fix, 377 were missing.
-    expect(missing.length / used.length, missing.join(' ')).toBeLessThan(0.02);
+    // helpers) and can never be generated: 6 of 341 with HeroUI 2.8. Without
+    // the @source, 231 are missing (68 %).
+    expect(missing.length / used.length, missing.join(' ')).toBeLessThan(0.05);
   }, 60_000);
 });

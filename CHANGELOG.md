@@ -11,7 +11,7 @@ Entries start with the pull request that introduced them where there is one.
 ## Unreleased
 
 ### Fixed
-- The interface looks as designed again. Since v2026.10.0, part of the styles of the interface library were left out of the app: on the sign-in page and everywhere else, fields had no border, the main buttons had dark text, cards and buttons had square corners, the keyboard focus ring was missing, menu items did not highlight under the pointer, and dialogs neither stayed inside their panel nor filled the screen on a phone (#722, #721).
+- Running the web app from a source checkout (`npm run dev` or a local build) showed it with two thirds of the interface library's styles missing: fields without borders, square buttons with dark text, no keyboard focus ring, dialogs not full-screen on a phone. Published images were not affected (#722, #721).
 
 ## v2026.10.2 - 2026-10-23
 
