@@ -6,13 +6,15 @@ import { test, expect } from '@playwright/test';
  * so the server kept the old vintage, price or colour. An emptied reminder
  * date was sent as '' and refused, so the save failed outright.
  */
-test('emptying the vintage, price, colour and reminder of a bottle clears them', async ({ page }) => {
+test('emptying the vintage, price, colour and dates of a bottle clears them', async ({ page }) => {
   const api = page.request;
   const name = `E2E #726 ${Date.now()}`;
   const created = await api.post('/api/inventory', {
     data: {
       category: 'wine', name, producer: 'E2E Domaine',
-      vintage: 2015, purchasePrice: 20, color: 'red', reminderDate: '2027-01-15',
+      vintage: 2015, purchasePrice: 20, color: 'red',
+      // Opened (not finished): the opening and reminder dates only show then.
+      isOpened: true, fillLevel: 50, openedAt: '2026-01-10', reminderDate: '2027-01-15',
     },
   });
   expect(created.status(), await created.text()).toBe(201);
@@ -43,7 +45,11 @@ test('emptying the vintage, price, colour and reminder of a bottle clears them',
 
     await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
     await dialog.getByLabel("Prix d'achat (€)").fill('');
-    await dialog.getByLabel('Rappel de consommation').fill('');
+    const opened = dialog.getByLabel('Ouverte le');
+    const reminder = dialog.getByLabel('Rappel de consommation');
+    await expect(reminder).toHaveValue('2027-01-15');
+    await opened.fill('');
+    await reminder.fill('');
 
     const saved = page.waitForResponse(
       (r) => r.url().endsWith(`/api/inventory/${id}`) && r.request().method() === 'PATCH',
@@ -58,6 +64,7 @@ test('emptying the vintage, price, colour and reminder of a bottle clears them',
     expect(item.purchasePrice).toBeNull();
     expect(item.color).toBeNull();
     expect(item.reminderDate).toBeNull();
+    expect(item.openedAt).toBeNull();
     // Untouched fields stay.
     expect(item.name).toBe(name);
   } finally {
