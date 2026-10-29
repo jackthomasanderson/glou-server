@@ -41,8 +41,9 @@ test('emptying the vintage, price, colour and dates of a bottle clears them', as
 
     // Colour back to "—".
     await dialog.locator('button[data-slot="trigger"]', { hasText: 'Rouge' }).click();
-    // By its text: the "—" item has no plain-text label, so no accessible name to match.
-    await page.getByRole('listbox').getByRole('option').filter({ hasText: '—' }).click();
+    // By CSS: the open list is drawn but absent from the accessibility tree
+    // inside the form window, so getByRole never finds its options.
+    await page.locator('[role="option"]').filter({ hasText: '—' }).click();
 
     await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
     await dialog.getByLabel("Prix d'achat (€)").fill('');
