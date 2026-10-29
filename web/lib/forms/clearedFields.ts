@@ -10,7 +10,7 @@
 export function withClearedFields<T extends object>(initial: object | undefined, values: T): T {
   if (!initial) return values;
   const before = initial as Record<string, unknown>;
-  const out: Record<string, unknown> = { ...values };
+  const out = { ...values } as Record<string, unknown>;
   for (const [key, value] of Object.entries(values)) {
     if (value === undefined && before[key] != null) out[key] = null;
   }
