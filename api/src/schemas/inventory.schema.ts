@@ -45,7 +45,9 @@ export const commonInventorySchema = z.object({
   appellation: z.string().max(200).optional(),
   classification: z.string().max(200).optional(),
   caskType: z.string().max(100).optional(),
-  batchDate: z.coerce.date().optional(),
+  // Nullable: the form sends null for a cleared date, which z.coerce.date()
+  // alone turned into 1970-01-01 (#726).
+  batchDate: z.coerce.date().optional().nullable(),
   isSingleCask: z.boolean().optional(),
   caskNumber: z.string().max(100).optional(),
   caskProof: z.number().min(0).max(100).optional(),
@@ -91,7 +93,8 @@ export const sparklingInventorySchema = commonInventorySchema.extend({
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
   sparklingType: z.enum(SPARKLING_TYPES).optional(),
   sugarLevel: z.enum(SUGAR_LEVELS).optional(),
-  disgorgingDate: z.coerce.date().optional(),
+  // Nullable, see batchDate (#726).
+  disgorgingDate: z.coerce.date().optional().nullable(),
   baseYear: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
   peakMaturityFrom: z.number().int().min(1800).max(2200).optional().nullable(),
   peakMaturityTo: z.number().int().min(1800).max(2200).optional().nullable(),

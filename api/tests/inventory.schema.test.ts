@@ -179,3 +179,13 @@ describe('peak window order (#706)', () => {
     expect(inventoryInputSchema.safeParse({ ...wine, peakMaturityFrom: 2030, peakMaturityTo: null }).success).toBe(true);
   });
 });
+
+// #726: a date typed then cleared in the add form is sent as null.
+describe('cleared dates on creation (#726)', () => {
+  it('keeps a null batch or disgorging date null instead of 1970-01-01', () => {
+    const wine = inventoryInputSchema.safeParse({ category: 'wine', name: 'Pétrus', producer: 'Château Pétrus', batchDate: null });
+    expect(wine.success && wine.data.batchDate).toBeNull();
+    const sparkling = inventoryInputSchema.safeParse({ category: 'sparkling', name: 'Brut', producer: 'Maison', disgorgingDate: null });
+    expect(sparkling.success && (sparkling.data as { disgorgingDate?: Date | null }).disgorgingDate).toBeNull();
+  });
+});

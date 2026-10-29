@@ -26,6 +26,7 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ParsedNumberInput, ParsedInput } from '@/components/ui/ParsedInput';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
+import { withClearedFields } from '@/lib/forms/clearedFields';
 import { searchClient } from '@/lib/search/client';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
@@ -209,9 +210,11 @@ export function InventoryForm({
     // cellarId 'none' is a UI sentinel → null.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { alertStatus: _drop, readiness: _drop2, lockedFields: _drop3, ...rest } = values;
+    // #726: an emptied field is undefined, which the PATCH would drop.
+    const sent = isEditing ? withClearedFields(initialValues, rest) : rest;
     const patch = {
-      ...rest,
-      cellarId: rest.cellarId === ('none' as string) || rest.cellarId === '' ? null : rest.cellarId,
+      ...sent,
+      cellarId: sent.cellarId === ('none' as string) || sent.cellarId === '' ? null : sent.cellarId,
     };
     onSubmit(patch, selectedCollections.map(c => c.id));
   };
@@ -1007,7 +1010,7 @@ export function InventoryForm({
                               variant="bordered"
                               size="sm"
                               value={typeof values.openedAt === 'string' ? values.openedAt.split('T')[0] : ''}
-                              onValueChange={(v) => setField('openedAt', v)}
+                              onValueChange={(v) => setField('openedAt', v || null)}
                             />
                             <Input
                               label={t('inventory.fields.reminderDate')}
@@ -1015,7 +1018,7 @@ export function InventoryForm({
                               variant="bordered"
                               size="sm"
                               value={typeof values.reminderDate === 'string' ? values.reminderDate.split('T')[0] : ''}
-                              onValueChange={(v) => setField('reminderDate', v)}
+                              onValueChange={(v) => setField('reminderDate', v || null)}
                             />
                           </>
                         )}
