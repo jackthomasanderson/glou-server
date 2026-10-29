@@ -14,7 +14,7 @@ Entries start with the pull request that introduced them where there is one.
 - Running the web app from a source checkout (`npm run dev` or a local build) showed it with two thirds of the interface library's styles missing: fields without borders, square buttons with dark text, no keyboard focus ring, dialogs not full-screen on a phone. Published images were not affected (#722, #721).
 - Select menus no longer flash about a third of a second after opening (#723, #709).
 - Form windows no longer jump while you fill them in. Opening a section, a field that appears, a password strength gauge or an error message used to re-centre the whole window and move every field, sometimes under the pointer. Forms that change height as you fill them (bottle, cellar, tasting, wish, collection, share link, bulk action, maturity reference, password and PIN) now stay anchored at the top on a computer, and the longer ones scroll inside their window (#723, #709).
-- A tasting without stars can be saved again. Saving one, or removing the stars of a rated tasting, was refused with "Could not save" (#704).
+- A tasting without stars can be saved again. Saving one, or removing the stars of a rated tasting, was refused with "Could not save" (#724, #704).
 - With every section open, the tasting window spilled out of its panel and its Cancel and Save buttons were drawn below it, on the dark backdrop. It now scrolls inside its panel and keeps its buttons in view (#723, #704).
 - On a phone, the last six windows that still opened as a small box now open full-screen like the others: wish price, conversion and deletion, the stock question after a tasting, cellar deletion and the list of changes waiting to be sent (#723, #654).
 
