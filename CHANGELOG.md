@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Fixed
+- Running the web app from a source checkout (`npm run dev` or a local build) showed it with two thirds of the interface library's styles missing: fields without borders, square buttons with dark text, no keyboard focus ring, dialogs not full-screen on a phone. Published images were not affected (#722, #721).
+
 ## v2026.10.2 - 2026-10-23
 
 ### Added

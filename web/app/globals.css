@@ -3,6 +3,15 @@
  * loading one instead of rewriting it as native CSS `@theme`. */
 @import "tailwindcss";
 @config "../tailwind.config.ts";
+/* #721: Tailwind 4 drops any path listed in a .gitignore, and the repo-root
+ * .gitignore lists node_modules/, so the JS config's `content` globs into
+ * node_modules no longer count from a git checkout. `npm run dev` and local
+ * builds lost two thirds of HeroUI's component classes; the Docker image,
+ * built from ./web without that .gitignore, kept them. Only an explicit
+ * @source of the directory gets past it (a glob does not). The whole
+ * @heroui directory, not only its theme: chip, input and avatar set a few
+ * classes of their own (e.g. a chip's start content max height). */
+@source "../node_modules/@heroui";
 
 /* Reserve the vertical scrollbar's width at all times, whether or not the
  * page currently needs to scroll. Without this, an absolutely-positioned
