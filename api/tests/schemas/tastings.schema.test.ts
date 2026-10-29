@@ -39,6 +39,13 @@ describe('tastingCreateSchema', () => {
     expect(tastingCreateSchema.safeParse({ rating: 3.5 }).success).toBe(false);
   });
 
+  it('treats a cleared date field as no date (#704)', () => {
+    const res = tastingCreateSchema.safeParse({ tastedAt: '' });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.tastedAt).toBeUndefined();
+    expect(tastingPatchSchema.safeParse({ tastedAt: '' }).success).toBe(true);
+  });
+
   // #704: the tasting form sends `rating: null` when no star is picked.
   it('accepts a tasting with no rating (null)', () => {
     expect(tastingCreateSchema.safeParse({ rating: null }).success).toBe(true);

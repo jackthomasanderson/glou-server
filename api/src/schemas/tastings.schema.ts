@@ -4,7 +4,9 @@ export const TASTING_READINESS_VALUES = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST']
 
 export const tastingCreateSchema = z.object({
   itemId: z.string().guid().optional(),
-  tastedAt: z.string().date().optional(),
+  // A cleared date field sends '': no date, i.e. today on create and
+  // unchanged on edit, instead of a 400 (#704).
+  tastedAt: z.preprocess((v) => (v === '' ? undefined : v), z.string().date().optional()).optional(),
   context: z.string().max(200).optional(),
   // Nullable like `readiness`: the form sends `null` for "no stars", both
   // for a new tasting and to clear the rating of an existing one (#704).

@@ -61,10 +61,15 @@ test('a tasting can be saved without stars, and its stars removed', async ({ pag
     );
     tastingIds.push(rated.id);
     expect(rated.rating).toBe(4);
-    const cleared = await okData<Row & { rating: number | null }>(
-      await api.patch(`/api/tastings/${rated.id}`, { data: { rating: null } }),
+    // What the edit dialog sends (TastingsDashboard editValues), date cleared.
+    const cleared = await okData<Row & { rating: number | null; tastedAt: string }>(
+      await api.patch(`/api/tastings/${rated.id}`, {
+        data: { itemId, tastedAt: '', context: '', rating: null, notes: '', foodPairing: '', photoUrl: null },
+      }),
     );
     expect(cleared.rating).toBeNull();
+    // A cleared date leaves the stored one unchanged.
+    expect(cleared.tastedAt.slice(0, 10)).toBe(formDefaults.tastedAt);
 
     // Rate one again: the average counts it and ignores the unrated one.
     await okData(await api.patch(`/api/tastings/${rated.id}`, { data: { rating: 3 } }));
