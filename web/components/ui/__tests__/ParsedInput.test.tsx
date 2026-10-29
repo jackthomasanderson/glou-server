@@ -12,6 +12,8 @@ vi.mock('@heroui/react', () => ({
   ),
 }));
 
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ i18n: { language: 'fr' } }) }));
+
 /** Types `text` one character at a time, like a keyboard. */
 function typeInto(input: HTMLElement, text: string) {
   for (let i = 1; i <= text.length; i++) fireEvent.change(input, { target: { value: text.slice(0, i) } });
@@ -80,6 +82,44 @@ describe('ParsedNumberInput', () => {
     expect(input.value).toBe('');
     fireEvent.change(input, { target: { value: '3' } });
     expect(input.value).toBe('3');
+  });
+});
+
+// A number field only takes the browser locale's separator: "24,05" in an
+// English Chromium gave 2405 (seen in CI). Decimal fields are text fields.
+describe('ParsedNumberInput decimal', () => {
+  function Estimated({ onValue, initial }: { onValue?: (v: number | undefined) => void; initial?: number }) {
+    const [v, setV] = useState<number | undefined>(initial);
+    return <ParsedNumberInput decimal label="value" value={v} onValueChange={(n) => { setV(n); onValue?.(n); }} />;
+  }
+
+  it('takes "24,05" and "24.05" alike', () => {
+    const onValue = vi.fn();
+    render(<Estimated onValue={onValue} />);
+    const input = screen.getByLabelText('value') as HTMLInputElement;
+    typeInto(input, '24,05');
+    expect(input.value).toBe('24,05');
+    expect(onValue).toHaveBeenLastCalledWith(24.05);
+    fireEvent.change(input, { target: { value: '' } });
+    typeInto(input, '24.05');
+    expect(input.value).toBe('24.05');
+    expect(onValue).toHaveBeenLastCalledWith(24.05);
+  });
+
+  it('ignores a keystroke that is not part of a number', () => {
+    const onValue = vi.fn();
+    render(<Estimated onValue={onValue} />);
+    const input = screen.getByLabelText('value') as HTMLInputElement;
+    typeInto(input, '24,0');
+    fireEvent.change(input, { target: { value: '24,0,' } });
+    fireEvent.change(input, { target: { value: '24,0a' } });
+    expect(input.value).toBe('24,0');
+    expect(onValue).toHaveBeenLastCalledWith(24);
+  });
+
+  it('shows a stored value with the French separator', () => {
+    render(<Estimated initial={24.05} />);
+    expect((screen.getByLabelText('value') as HTMLInputElement).value).toBe('24,05');
   });
 });
 

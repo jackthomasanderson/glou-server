@@ -1,6 +1,8 @@
 'use client';
 import React, { useState } from 'react';
 import { Input, InputProps } from '@heroui/react';
+import { useTranslation } from 'react-i18next';
+import { decimalSeparator } from '@/lib/format';
 
 type ParsedInputProps<T> = Omit<InputProps, 'value' | 'onValueChange'> & {
   value: T;
@@ -8,6 +10,8 @@ type ParsedInputProps<T> = Omit<InputProps, 'value' | 'onValueChange'> & {
   /** Text shown for a value set from outside (form reset, autocomplete). */
   format: (value: T) => string;
   parse: (text: string) => T;
+  /** A keystroke whose text fails this is ignored, like in a number field. */
+  accept?: (text: string) => boolean;
 };
 
 /**
@@ -19,7 +23,7 @@ type ParsedInputProps<T> = Omit<InputProps, 'value' | 'onValueChange'> & {
  * lost its spaces and commas (#706). The text is only replaced when the
  * value changes to something the text does not already stand for.
  */
-export function ParsedInput<T>({ value, onValueChange, format, parse, ...props }: ParsedInputProps<T>) {
+export function ParsedInput<T>({ value, onValueChange, format, parse, accept, ...props }: ParsedInputProps<T>) {
   const shown = format(value);
   const [text, setText] = useState(shown);
   // Compared as text, not by identity: `value ?? []` is a new array on
@@ -34,6 +38,7 @@ export function ParsedInput<T>({ value, onValueChange, format, parse, ...props }
       {...props}
       value={text}
       onValueChange={(next) => {
+        if (accept && !accept(next)) return;
         setText(next);
         onValueChange(parse(next));
       }}
@@ -41,26 +46,49 @@ export function ParsedInput<T>({ value, onValueChange, format, parse, ...props }
   );
 }
 
-const formatNumber = (n: number | null | undefined) => (n == null || Number.isNaN(n) ? '' : String(n));
-const parseNumber = (text: string) => (text.trim() === '' ? undefined : Number(text));
+type NumberValue = number | null | undefined;
 
-type NumberInputProps = Omit<ParsedInputProps<number | null | undefined>, 'format' | 'parse' | 'onValueChange'> & {
+const formatInteger = (n: NumberValue) => (n == null || Number.isNaN(n) ? '' : String(n));
+const parseInteger = (text: string) => (text.trim() === '' ? undefined : Number(text));
+
+// Digits with at most one separator, either "," or ".": "24,05", "24.", ",5".
+const DECIMAL_TEXT = /^\d*[.,]?\d*$/;
+const parseDecimal = (text: string) => {
+  const n = Number(text.trim().replace(',', '.'));
+  return text.trim() === '' || Number.isNaN(n) ? undefined : n;
+};
+
+type NumberInputProps = Omit<ParsedInputProps<NumberValue>, 'format' | 'parse' | 'accept' | 'onValueChange'> & {
   /** `undefined` when the field is emptied. */
   onValueChange: (value: number | undefined) => void;
+  /**
+   * A price, a degree: a text field taking "," as well as ".". A number field
+   * only takes the separator of the browser's locale and drops the other
+   * one, so "24,05" in an English browser became 2405 (#706).
+   */
+  decimal?: boolean;
 };
 
 /**
- * A `type="number"` field that keeps "24,0" or "24," while it is typed.
+ * A number field that keeps "24,0" or "24," while it is typed.
  * Not HeroUI's own `NumberInput`, a different component.
  */
-export function ParsedNumberInput({ onValueChange, ...props }: NumberInputProps) {
+export function ParsedNumberInput({ onValueChange, decimal = false, ...props }: NumberInputProps) {
+  const { i18n } = useTranslation();
+  const separator = decimalSeparator(i18n.language);
+  const emit = (v: NumberValue) => onValueChange(v ?? undefined);
+  if (!decimal) {
+    return <ParsedInput type="number" {...props} format={formatInteger} parse={parseInteger} onValueChange={emit} />;
+  }
   return (
     <ParsedInput
-      type="number"
+      inputMode="decimal"
       {...props}
-      format={formatNumber}
-      parse={parseNumber}
-      onValueChange={(v) => onValueChange(v ?? undefined)}
+      type="text"
+      format={(n) => formatInteger(n).replace('.', separator)}
+      parse={parseDecimal}
+      accept={(text) => DECIMAL_TEXT.test(text.trim())}
+      onValueChange={emit}
     />
   );
 }

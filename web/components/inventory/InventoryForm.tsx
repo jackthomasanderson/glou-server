@@ -409,14 +409,13 @@ export function InventoryForm({
                               onValueChange={(v) => setField('region', v)}
                             />
                           </div>
-                          <ParsedNumberInput
+                          <ParsedNumberInput decimal
                             label={t('inventory.fields.alcoholDegree')}
                             variant="bordered"
                             size="sm"
                             value={values.alcoholDegree}
                             onValueChange={(v) => setField('alcoholDegree', v)}
                             endContent={<span className="text-xs text-foreground-500">%</span>}
-                            min={0} max={100} step={0.1}
                           />
                         </>
                       )}
@@ -485,7 +484,7 @@ export function InventoryForm({
                             />
                           </div>
                           <div className="col-span-2">
-                            <ParsedNumberInput
+                            <ParsedNumberInput decimal
                               label={t('inventory.fields.alcoholDegree')}
                               variant="bordered"
                               size="sm"
@@ -495,7 +494,6 @@ export function InventoryForm({
                               value={values.alcoholDegree}
                               onValueChange={(v) => setField('alcoholDegree', v)}
                               endContent={<span className="text-xs text-foreground-500">%</span>}
-                              min={0} max={100} step={0.1}
                             />
                           </div>
                           <div className="col-span-2">
@@ -699,14 +697,13 @@ export function InventoryForm({
                                 value={values.caskNumber ?? ''}
                                 onValueChange={(v) => setField('caskNumber', v)}
                               />
-                              <ParsedNumberInput
+                              <ParsedNumberInput decimal
                                 label={t('inventory.fields.caskProof')}
                                 variant="bordered"
                                 size="sm"
                                 value={values.caskProof}
                                 onValueChange={(v) => setField('caskProof', v)}
                                 endContent={<span className="text-xs text-foreground-500">%</span>}
-                                min={0} max={100} step={0.1}
                               />
                               <div className="flex items-center">
                                 <FilterChip
@@ -746,14 +743,13 @@ export function InventoryForm({
                         />
 
                         {/* Purchase price */}
-                        <ParsedNumberInput
+                        <ParsedNumberInput decimal
                           label={t('inventory.fields.purchasePrice')}
                           variant="bordered"
                           size="sm"
                           value={values.purchasePrice}
                           onValueChange={(v) => setField('purchasePrice', v)}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
-                          min={0} step={0.01} inputMode="decimal"
                         />
 
                         {/* Purchase place */}
@@ -768,14 +764,13 @@ export function InventoryForm({
                         </div>
 
                         {/* Estimated value */}
-                        <ParsedNumberInput
+                        <ParsedNumberInput decimal
                           label={t('inventory.fields.estimatedValue')}
                           variant="bordered"
                           size="sm"
                           value={values.estimatedValue}
                           onValueChange={(v) => setField('estimatedValue', v)}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
-                          min={0} step={0.01} inputMode="decimal"
                         />
 
                         {/* Notes */}
@@ -914,14 +909,13 @@ export function InventoryForm({
                               value={values.factoryCode ?? ''}
                               onValueChange={(v) => setField('factoryCode', v)}
                             />
-                            <ParsedNumberInput
+                            <ParsedNumberInput decimal
                               label={t('inventory.fields.recommendedHumidity')}
                               variant="bordered"
                               size="sm"
                               value={values.recommendedHumidity}
                               onValueChange={(v) => setField('recommendedHumidity', v)}
                               endContent={<span className="text-xs text-foreground-500">%</span>}
-                              min={50} max={100}
                             />
                             <div className="col-span-2">
                               <Input

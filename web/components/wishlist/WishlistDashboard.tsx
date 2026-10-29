@@ -292,7 +292,7 @@ export function WishlistDashboard() {
                   />
                 </div>
                 <ParsedNumberInput
-                  min={0}
+                  decimal
                   label={t('wishlist.form.maxPrice')}
                   description={t('wishlist.form.maxPriceHint')}
                   value={form.maxPrice}

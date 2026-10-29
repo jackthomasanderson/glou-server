@@ -39,11 +39,12 @@ test('the bottle form keeps what is typed and refuses a reversed peak window', a
     const price = dialog.getByLabel("Prix d'achat (€)");
     await price.pressSequentially('24.05');
     await expect(price).toHaveValue('24.05');
-    // The French keystrokes of the report: the page is lang="fr", so the
-    // number field takes the comma and reports "24.05".
+    // The French keystrokes of the report. A number field only takes the
+    // browser locale's separator (this Chromium dropped the comma: 2405), so
+    // decimal fields are text fields taking either one.
     const estimated = dialog.getByLabel('Valeur estimée (€)');
     await estimated.pressSequentially('24,05');
-    await expect(estimated).toHaveValue('24.05');
+    await expect(estimated).toHaveValue('24,05');
 
     const grapes = dialog.getByLabel('Cépages');
     await grapes.pressSequentially('Pinot Noir, Gamay');

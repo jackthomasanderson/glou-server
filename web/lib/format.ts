@@ -98,6 +98,11 @@ export function currencySymbol(lang: string | undefined): string {
   );
 }
 
+/** The decimal separator of the interface language: "," in French. */
+export function decimalSeparator(lang: string | undefined): string {
+  return new Intl.NumberFormat(toLocale(lang)).formatToParts(1.5).find((p) => p.type === 'decimal')?.value ?? '.';
+}
+
 export function formatNumber(n: number, lang: string | undefined, options?: Intl.NumberFormatOptions): string {
   return n.toLocaleString(toLocale(lang), options);
 }
