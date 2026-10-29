@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Chip, Divider, Input, Select, SelectItem,
@@ -24,6 +24,7 @@ import { CollectionSelector } from './CollectionSelector';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ParsedNumberInput, ParsedInput } from '@/components/ui/ParsedInput';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
 import { searchClient } from '@/lib/search/client';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
@@ -91,11 +92,15 @@ export function InventoryForm({
   // whether closing now would throw away something the user typed.
   const [baseline, setBaseline] = useState<Partial<InventoryItem>>(initialValues ?? emptyForm);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  // Inline errors show on blur or on submit (ux-ui.md §5.3), and go away
+  // while the field is typed in again, so a year being typed never shows red.
+  const [peakWindowChecked, setPeakWindowChecked] = useState(false);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [showOptionals, setShowOptionals] = useState(false);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
-  const imageDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Last automatic photo pick and the "producer name" it was made for.
+  const [autoPhoto, setAutoPhoto] = useState<{ query: string; path: string | null } | null>(null);
   const isEditing = Boolean(initialValues?.id);
 
   const setField = (field: string, value: unknown) =>
@@ -115,6 +120,7 @@ export function InventoryForm({
       setValues(initialValues ?? emptyForm);
       setBaseline(initialValues ?? emptyForm);
       setSubmitAttempted(false);
+      setPeakWindowChecked(false);
       setSelectedCollections(
         initialValues?.collections?.map(ic => ({
           id: ic.id, name: ic.name, color: ic.color, icon: ic.icon ?? undefined,
@@ -124,34 +130,56 @@ export function InventoryForm({
       setShowOptionals(false);
       setPrefetchedImages([]);
       setIsAutoLoading(false);
+      setAutoPhoto(null);
     }
   }
 
+  // The automatic photo (#227) follows the name until the user picks one.
+  // It used to be fetched once, after the first 1.2 s pause, so a pause while
+  // typing attached the photo of a half-typed name for good (#706).
   useEffect(() => {
-    if (isEditing || !values.name?.trim() || !values.producer?.trim() || values.photoUrl) return;
-    if (imageDebounceRef.current) clearTimeout(imageDebounceRef.current);
-    imageDebounceRef.current = setTimeout(async () => {
+    if (isEditing || !values.name?.trim() || !values.producer?.trim()) return;
+    const query = `${values.producer} ${values.name}`.trim();
+    const previousPath = autoPhoto?.path ?? null;
+    // A photo that is not the last automatic pick was chosen by the user.
+    const userPhoto = Boolean(values.photoUrl) && values.photoUrl !== previousPath;
+    // Same query as the last pick: done, even if the user removed that photo.
+    if (userPhoto || autoPhoto?.query === query) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
       setIsAutoLoading(true);
       try {
-        const q = `${values.producer} ${values.name}`.trim();
-        const results = await searchClient.searchImages(q);
+        const results = await searchClient.searchImages(query);
+        if (cancelled) return;
         setPrefetchedImages(results);
-        if (results.length > 0) {
-          const path = await searchClient.saveImageFromUrl(results[0].url);
-          if (path) setField('photoUrl', path);
-        }
+        const path = (results.length > 0 && (await searchClient.saveImageFromUrl(results[0].url))) || null;
+        // Typed on, or picked a photo, meanwhile: this result is stale.
+        if (cancelled) return;
+        setAutoPhoto({ query, path });
+        // Only an empty field or the previous automatic pick is replaced; with
+        // no photo found for the new name, the stale one is removed.
+        setValues((prev) =>
+          (!prev.photoUrl && !path) || (prev.photoUrl && prev.photoUrl !== previousPath)
+            ? prev
+            : { ...prev, photoUrl: path ?? undefined });
       } catch { /* ignore */ } finally {
-        setIsAutoLoading(false);
+        // A newer search owns the spinner once this one is stale.
+        if (!cancelled) setIsAutoLoading(false);
       }
     }, 1200);
-    return () => { if (imageDebounceRef.current) clearTimeout(imageDebounceRef.current); };
-  }, [values.name, values.producer, values.photoUrl, isEditing]);
+    return () => { cancelled = true; clearTimeout(timer); setIsAutoLoading(false); };
+  }, [values.name, values.producer, values.photoUrl, isEditing, autoPhoto]);
 
   const missingName = !values.name?.trim();
   const missingProducer = !values.producer?.trim();
   const missingAlcoholDegree = values.category === 'spirit' && (values.alcoholDegree == null || Number.isNaN(values.alcoholDegree));
   const missingQuantity = values.category === 'cigar' && (values.quantity == null || Number.isNaN(values.quantity));
-  const canSave = Boolean(values.category) && !missingName && !missingProducer && !missingAlcoholDegree && !missingQuantity;
+  // #706: a peak window ending before it starts is refused, as by the API.
+  const peakWindowReversed = ['wine', 'sparkling'].includes(values.category ?? '')
+    && values.peakMaturityFrom != null && values.peakMaturityTo != null
+    && values.peakMaturityTo < values.peakMaturityFrom;
+  const missingRequired = !values.category || missingName || missingProducer || missingAlcoholDegree || missingQuantity;
+  const canSave = !missingRequired && !peakWindowReversed;
 
   // ISSUE_119: closing a half-filled form must never discard the entry silently.
   const baselineCollectionIds = initialValues?.collections?.map(c => c.id) ?? [];
@@ -168,7 +196,8 @@ export function InventoryForm({
     e.preventDefault();
     if (!canSave) {
       setSubmitAttempted(true);
-      notifyError('inventory.validation.missingFields');
+      setPeakWindowChecked(true);
+      notifyError(missingRequired ? 'inventory.validation.missingFields' : 'inventory.validation.peakWindowOrder');
       return;
     }
     // alertStatus is recomputed server-side from peakMaturity — never send it as-is.
@@ -195,8 +224,6 @@ export function InventoryForm({
   const isSpirit = category === 'spirit';
   const isCigar = category === 'cigar';
   const isWineOrSparkling = isWine || isSparkling;
-
-  const numField = (val: string, fallback?: number) => (val ? Number(val) : fallback);
 
   return (
     <>
@@ -332,7 +359,9 @@ export function InventoryForm({
                         onSelectionChange={(keys) => setField('cellarId', Array.from(keys)[0] === 'none' ? null : Array.from(keys)[0])}
                       >
                         {(item) => (
-                          <SelectItem key={item.id}>
+                          // textValue is what the trigger shows: without it, the
+                          // selected "Aucune cave" showed a blank field (#706).
+                          <SelectItem key={item.id} textValue={item.name}>
                             {item.id === 'none' ? <em>{item.name}</em> : item.name}
                           </SelectItem>
                         )}
@@ -350,14 +379,13 @@ export function InventoryForm({
                       {/* Wine essential */}
                       {isWine && (
                         <>
-                          <Input
+                          <ParsedNumberInput
                             data-testid="inventory-vintage-input"
                             label={t('inventory.fields.vintage')}
-                            type="number"
                             variant="bordered"
                             size="sm"
-                            value={String(values.vintage ?? '')}
-                            onValueChange={(v) => setField('vintage', numField(v))}
+                            value={values.vintage}
+                            onValueChange={(v) => setField('vintage', v)}
                             description={t('inventory.fields.noVintage')}
                             min={1800} max={new Date().getFullYear()}
                           />
@@ -381,15 +409,13 @@ export function InventoryForm({
                               onValueChange={(v) => setField('region', v)}
                             />
                           </div>
-                          <Input
+                          <ParsedNumberInput decimal
                             label={t('inventory.fields.alcoholDegree')}
-                            type="number"
                             variant="bordered"
                             size="sm"
-                            value={String(values.alcoholDegree ?? '')}
-                            onValueChange={(v) => setField('alcoholDegree', numField(v))}
+                            value={values.alcoholDegree}
+                            onValueChange={(v) => setField('alcoholDegree', v)}
                             endContent={<span className="text-xs text-foreground-500">%</span>}
-                            min={0} max={100} step={0.1}
                           />
                         </>
                       )}
@@ -397,14 +423,13 @@ export function InventoryForm({
                       {/* Sparkling essential */}
                       {isSparkling && (
                         <>
-                          <Input
+                          <ParsedNumberInput
                             data-testid="inventory-vintage-input"
                             label={t('inventory.fields.vintage')}
-                            type="number"
                             variant="bordered"
                             size="sm"
-                            value={String(values.vintage ?? '')}
-                            onValueChange={(v) => setField('vintage', numField(v))}
+                            value={values.vintage}
+                            onValueChange={(v) => setField('vintage', v)}
                             description={t('inventory.fields.noVintage')}
                             min={1800} max={new Date().getFullYear()}
                           />
@@ -459,28 +484,25 @@ export function InventoryForm({
                             />
                           </div>
                           <div className="col-span-2">
-                            <Input
+                            <ParsedNumberInput decimal
                               label={t('inventory.fields.alcoholDegree')}
-                              type="number"
                               variant="bordered"
                               size="sm"
                               isRequired
                               isInvalid={submitAttempted && missingAlcoholDegree}
                               errorMessage={t('inventory.validation.required')}
-                              value={String(values.alcoholDegree ?? '')}
-                              onValueChange={(v) => setField('alcoholDegree', numField(v))}
+                              value={values.alcoholDegree}
+                              onValueChange={(v) => setField('alcoholDegree', v)}
                               endContent={<span className="text-xs text-foreground-500">%</span>}
-                              min={0} max={100} step={0.1}
                             />
                           </div>
                           <div className="col-span-2">
-                            <Input
+                            <ParsedNumberInput
                               label={t('inventory.fields.declaredAge')}
-                              type="number"
                               variant="bordered"
                               size="sm"
-                              value={String(values.declaredAge ?? '')}
-                              onValueChange={(v) => setField('declaredAge', numField(v))}
+                              value={values.declaredAge}
+                              onValueChange={(v) => setField('declaredAge', v)}
                               endContent={<span className="text-xs text-foreground-500">{t('inventory.fields.declaredAgeUnit')}</span>}
                               min={0} max={200}
                             />
@@ -498,25 +520,23 @@ export function InventoryForm({
                             value={values.format ?? ''}
                             onValueChange={(v) => setField('format', v)}
                           />
-                          <Input
+                          <ParsedNumberInput
                             label={t('inventory.fields.quantity')}
-                            type="number"
                             variant="bordered"
                             size="sm"
                             isRequired
                             isInvalid={submitAttempted && missingQuantity}
                             errorMessage={t('inventory.validation.required')}
-                            value={String(values.quantity ?? '')}
-                            onValueChange={(v) => setField('quantity', numField(v))}
+                            value={values.quantity}
+                            onValueChange={(v) => setField('quantity', v)}
                             min={1}
                           />
-                          <Input
+                          <ParsedNumberInput
                             label={t('inventory.fields.manufactureYear')}
-                            type="number"
                             variant="bordered"
                             size="sm"
-                            value={String(values.manufactureYear ?? '')}
-                            onValueChange={(v) => setField('manufactureYear', numField(v))}
+                            value={values.manufactureYear}
+                            onValueChange={(v) => setField('manufactureYear', v)}
                             min={1900} max={2100}
                           />
                         </>
@@ -530,24 +550,26 @@ export function InventoryForm({
                             <span className="text-xs text-foreground-500 px-2">{t('inventory.fields.peakMaturity')}</span>
                             <div className="flex-1 h-px bg-divider" />
                           </div>
-                          <Input
+                          <ParsedNumberInput
                             label={t('inventory.fields.peakMaturityFrom')}
-                            type="number"
                             variant="bordered"
                             size="sm"
                             placeholder={t('inventory.fields.yearExample', { year: 2025 })}
-                            value={String(values.peakMaturityFrom ?? '')}
-                            onValueChange={(v) => setField('peakMaturityFrom', v ? Number(v) : null)}
+                            value={values.peakMaturityFrom}
+                            onValueChange={(v) => { setPeakWindowChecked(false); setField('peakMaturityFrom', v ?? null); }}
+                            onBlur={() => setPeakWindowChecked(true)}
                             min={1800} max={2200}
                           />
-                          <Input
+                          <ParsedNumberInput
                             label={t('inventory.fields.peakMaturityTo')}
-                            type="number"
                             variant="bordered"
                             size="sm"
                             placeholder={t('inventory.fields.yearExample', { year: 2030 })}
-                            value={String(values.peakMaturityTo ?? '')}
-                            onValueChange={(v) => setField('peakMaturityTo', v ? Number(v) : null)}
+                            value={values.peakMaturityTo}
+                            onValueChange={(v) => { setPeakWindowChecked(false); setField('peakMaturityTo', v ?? null); }}
+                            onBlur={() => setPeakWindowChecked(true)}
+                            isInvalid={peakWindowReversed && peakWindowChecked}
+                            errorMessage={t('inventory.validation.peakWindowOrder')}
                             min={1800} max={2200}
                           />
                           {/* FEAT-86: consumption-curve shape override */}
@@ -675,15 +697,13 @@ export function InventoryForm({
                                 value={values.caskNumber ?? ''}
                                 onValueChange={(v) => setField('caskNumber', v)}
                               />
-                              <Input
+                              <ParsedNumberInput decimal
                                 label={t('inventory.fields.caskProof')}
-                                type="number"
                                 variant="bordered"
                                 size="sm"
-                                value={String(values.caskProof ?? '')}
-                                onValueChange={(v) => setField('caskProof', numField(v))}
+                                value={values.caskProof}
+                                onValueChange={(v) => setField('caskProof', v)}
                                 endContent={<span className="text-xs text-foreground-500">%</span>}
-                                min={0} max={100} step={0.1}
                               />
                               <div className="flex items-center">
                                 <FilterChip
@@ -723,15 +743,13 @@ export function InventoryForm({
                         />
 
                         {/* Purchase price */}
-                        <Input
+                        <ParsedNumberInput decimal
                           label={t('inventory.fields.purchasePrice')}
-                          type="number"
                           variant="bordered"
                           size="sm"
-                          value={String(values.purchasePrice ?? '')}
-                          onValueChange={(v) => setField('purchasePrice', numField(v))}
+                          value={values.purchasePrice}
+                          onValueChange={(v) => setField('purchasePrice', v)}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
-                          min={0} step={0.01} inputMode="decimal"
                         />
 
                         {/* Purchase place */}
@@ -746,15 +764,13 @@ export function InventoryForm({
                         </div>
 
                         {/* Estimated value */}
-                        <Input
+                        <ParsedNumberInput decimal
                           label={t('inventory.fields.estimatedValue')}
-                          type="number"
                           variant="bordered"
                           size="sm"
-                          value={String(values.estimatedValue ?? '')}
-                          onValueChange={(v) => setField('estimatedValue', numField(v))}
+                          value={values.estimatedValue}
+                          onValueChange={(v) => setField('estimatedValue', v)}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
-                          min={0} step={0.01} inputMode="decimal"
                         />
 
                         {/* Notes */}
@@ -780,6 +796,7 @@ export function InventoryForm({
                             />
                             <Input
                               label={t('inventory.fields.serviceTemp')}
+                              placeholder={t('inventory.fields.serviceTempPlaceholder')}
                               variant="bordered"
                               size="sm"
                               value={values.serviceTemp ?? ''}
@@ -788,15 +805,15 @@ export function InventoryForm({
                             {isWine && (
                               <>
                                 <div className="col-span-2 sm:col-span-4">
-                                  <Input
+                                  <ParsedInput
                                     label={t('inventory.fields.grapeVarieties')}
                                     placeholder={t('inventory.fields.grapeVarietiesHint')}
                                     variant="bordered"
                                     size="sm"
-                                    value={(values.grapeVarieties ?? []).join(', ')}
-                                    onValueChange={(v) =>
-                                      setField('grapeVarieties', v ? v.split(',').map((s) => s.trim()).filter(Boolean) : [])
-                                    }
+                                    value={values.grapeVarieties ?? []}
+                                    format={(list) => list.join(', ')}
+                                    parse={(text) => text.split(',').map((s) => s.trim()).filter(Boolean)}
+                                    onValueChange={(list) => setField('grapeVarieties', list)}
                                   />
                                 </div>
                                 <Input
@@ -819,13 +836,12 @@ export function InventoryForm({
                             )}
                             {isSparkling && (
                               <>
-                                <Input
+                                <ParsedNumberInput
                                   label={t('inventory.fields.baseYear')}
-                                  type="number"
                                   variant="bordered"
                                   size="sm"
-                                  value={String(values.baseYear ?? '')}
-                                  onValueChange={(v) => setField('baseYear', numField(v))}
+                                  value={values.baseYear}
+                                  onValueChange={(v) => setField('baseYear', v)}
                                   min={1800} max={2100}
                                 />
                                 <Input
@@ -893,15 +909,13 @@ export function InventoryForm({
                               value={values.factoryCode ?? ''}
                               onValueChange={(v) => setField('factoryCode', v)}
                             />
-                            <Input
+                            <ParsedNumberInput decimal
                               label={t('inventory.fields.recommendedHumidity')}
-                              type="number"
                               variant="bordered"
                               size="sm"
-                              value={String(values.recommendedHumidity ?? '')}
-                              onValueChange={(v) => setField('recommendedHumidity', numField(v))}
+                              value={values.recommendedHumidity}
+                              onValueChange={(v) => setField('recommendedHumidity', v)}
                               endContent={<span className="text-xs text-foreground-500">%</span>}
-                              min={50} max={100}
                             />
                             <div className="col-span-2">
                               <Input

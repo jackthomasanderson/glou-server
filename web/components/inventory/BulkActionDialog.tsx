@@ -198,7 +198,7 @@ export function BulkActionDialog({
                       onSelectionChange={(keys) => setField('cellarId', Array.from(keys)[0] === 'none' ? null : Array.from(keys)[0] as string)}
                     >
                       {(item) => (
-                        <SelectItem key={item.id}>
+                        <SelectItem key={item.id} textValue={item.name}>
                           {item.id === 'none' ? <em>{item.name}</em> : item.name}
                         </SelectItem>
                       )}
