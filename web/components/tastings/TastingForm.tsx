@@ -164,11 +164,10 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
         backdrop="opaque"
         placement="top"
         scrollBehavior="inside"
-        classNames={{ base: "max-h-[90dvh]" }}
       >
         <ModalContent>
           {() => (
-            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
+            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full min-h-0 overflow-hidden">
               <ModalHeader>
                 {editNote ? t('tastings.edit') : t('tastings.create')}
               </ModalHeader>

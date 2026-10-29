@@ -241,7 +241,7 @@ export function WishlistDashboard() {
         isOpen={formOpen && !formGuard.isConfirmOpen}
         onClose={formGuard.requestClose}
         {...formGuard.dismissProps}
-        size="2xl" radius="lg" backdrop="opaque" placement="top"
+        size="2xl" radius="lg" backdrop="opaque" placement="top" scrollBehavior="inside"
       >
         <ModalContent>
           {() => (

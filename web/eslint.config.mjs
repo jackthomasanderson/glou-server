@@ -25,11 +25,11 @@ const eslintConfig = [
     ],
     rules: {
       'no-restricted-imports': ['error', {
-        paths: [{
-          name: '@heroui/react',
+        paths: ['@heroui/react', '@heroui/modal'].map((name) => ({
+          name,
           importNames: ['Modal'],
           message: 'Use ResponsiveModal from @/components/ui/ResponsiveModal: it opens full-screen on phones (ux-ui.md §5.4).',
-        }],
+        })),
       }],
     },
   },
