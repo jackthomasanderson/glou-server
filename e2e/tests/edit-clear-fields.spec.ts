@@ -41,7 +41,8 @@ test('emptying the vintage, price, colour and dates of a bottle clears them', as
 
     // Colour back to "—".
     await dialog.locator('button[data-slot="trigger"]', { hasText: 'Rouge' }).click();
-    await page.getByRole('option', { name: '—', exact: true }).click();
+    // By its text: the "—" item has no plain-text label, so no accessible name to match.
+    await page.getByRole('listbox').getByRole('option').filter({ hasText: '—' }).click();
 
     await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
     await dialog.getByLabel("Prix d'achat (€)").fill('');
