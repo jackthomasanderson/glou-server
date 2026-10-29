@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
-import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
+import { InventoryPatch, InventoryInput, peakWindowSchema } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { isFinishedItem, NO_SLOT } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
@@ -458,6 +458,11 @@ export class InventoryService {
 
     const from = ('peakMaturityFrom' in safePatch ? safePatch.peakMaturityFrom : existing.peakMaturityFrom) as number | null | undefined;
     const to = ('peakMaturityTo' in safePatch ? safePatch.peakMaturityTo : existing.peakMaturityTo) as number | null | undefined;
+    // #706: a patch moving only one end of the window is checked against the
+    // stored other end. Throws a ZodError, which the router answers with 400.
+    if ('peakMaturityFrom' in safePatch || 'peakMaturityTo' in safePatch) {
+      peakWindowSchema.parse({ peakMaturityFrom: from, peakMaturityTo: to });
+    }
     const alertStatus = computeAlertStatus(from, to);
 
     let item: InventoryItem;

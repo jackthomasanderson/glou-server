@@ -16,6 +16,7 @@ import { CATEGORY_VALUES } from '@/lib/inventory/types';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { NumberInput } from '@/components/ui/ParsedInput';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -272,29 +273,26 @@ export function WishlistDashboard() {
                   {CATEGORIES.map((c) => <SelectItem key={c}>{t(`wishlist.categories.${c}`)}</SelectItem>)}
                 </Select>
                 <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    type="number"
+                  <NumberInput
                     label={t('wishlist.form.vintage')}
-                    value={form.vintage != null ? String(form.vintage) : ''}
-                    onValueChange={(v) => setForm((f) => ({ ...f, vintage: v ? Number(v) : null }))}
+                    value={form.vintage}
+                    onValueChange={(v) => setForm((f) => ({ ...f, vintage: v ?? null }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
-                  <Input
-                    type="number"
+                  <NumberInput
                     min={1}
                     label={t('wishlist.form.targetQuantity')}
-                    value={String(form.targetQuantity)}
-                    onValueChange={(v) => setForm((f) => ({ ...f, targetQuantity: v ? Number(v) : 1 }))}
+                    value={form.targetQuantity}
+                    onValueChange={(v) => setForm((f) => ({ ...f, targetQuantity: v ?? 1 }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
                 </div>
-                <Input
-                  type="number"
+                <NumberInput
                   min={0}
                   label={t('wishlist.form.maxPrice')}
                   description={t('wishlist.form.maxPriceHint')}
-                  value={form.maxPrice != null ? String(form.maxPrice) : ''}
-                  onValueChange={(v) => setForm((f) => ({ ...f, maxPrice: v ? Number(v) : null }))}
+                  value={form.maxPrice}
+                  onValueChange={(v) => setForm((f) => ({ ...f, maxPrice: v ?? null }))}
                   variant="bordered" size="md" radius="md" labelPlacement="outside"
                 />
                 <Textarea

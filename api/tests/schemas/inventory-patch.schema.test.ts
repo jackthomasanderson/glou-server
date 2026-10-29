@@ -52,6 +52,14 @@ describe('inventoryPatchSchema', () => {
     expect(inventoryPatchSchema.safeParse({ slotColumn: 0 }).success).toBe(false);
     expect(inventoryPatchSchema.safeParse({ slotRow: 101 }).success).toBe(false);
   });
+
+  // #706: what the bottle form sends, both ends at once.
+  it('rejects a peak window that ends before it starts', () => {
+    expect(inventoryPatchSchema.safeParse({ peakMaturityFrom: 2035, peakMaturityTo: 2028 }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ peakMaturityFrom: 2028, peakMaturityTo: 2035 }).success).toBe(true);
+    // One end alone is checked against the stored one in updateItem.
+    expect(inventoryPatchSchema.safeParse({ peakMaturityTo: 2028 }).success).toBe(true);
+  });
 });
 
 describe('guestInventoryUpdateSchema (FEAT-37, strict allow-list)', () => {

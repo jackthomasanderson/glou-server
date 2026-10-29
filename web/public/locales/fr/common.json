@@ -119,7 +119,8 @@
   "inventory": {
     "validation": {
       "required": "Ce champ est obligatoire",
-      "missingFields": "Complétez les champs obligatoires avant d'enregistrer"
+      "missingFields": "Complétez les champs obligatoires avant d'enregistrer",
+      "peakWindowOrder": "La fin de l'apogée ne peut pas précéder son début"
     },
     "noNotifications": "Aucune notification",
     "perPage": "{{count}} par page",
@@ -216,6 +217,7 @@
       "curveShapeHint": "Comment la maturité évolue dans la fenêtre. Remplace la référence de cave pour cette bouteille uniquement.",
       "needsAeration": "Nécessite aération",
       "serviceTemp": "Température de service",
+      "serviceTempPlaceholder": "ex : 16–18 °C",
       "storageTemp": "Température de conservation",
       "lotNumber": "Numéro de lot",
       "sparklingType": "Type",

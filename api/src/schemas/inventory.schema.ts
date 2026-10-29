@@ -51,6 +51,21 @@ export const commonInventorySchema = z.object({
   caskProof: z.number().min(0).max(100).optional(),
 });
 
+// ─── Peak window order ───────────────────────────────────────────────────────
+// #706: a drinking window must not end before it starts — same rule as the
+// maturity references (maturity-reference.schema.ts). A reversed window used
+// to be stored as is and skewed the peak alerts.
+
+type PeakWindow = { peakMaturityFrom?: number | null; peakMaturityTo?: number | null };
+const peakWindowInOrder = (d: PeakWindow) =>
+  d.peakMaturityFrom == null || d.peakMaturityTo == null || d.peakMaturityTo >= d.peakMaturityFrom;
+const PEAK_WINDOW_ORDER = { message: 'peakMaturityTo must be >= peakMaturityFrom', path: ['peakMaturityTo'] };
+
+/** The window an item ends up with once a patch is applied to it (see InventoryService.updateItem). */
+export const peakWindowSchema = z
+  .object({ peakMaturityFrom: z.number().nullish(), peakMaturityTo: z.number().nullish() })
+  .refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
+
 // ─── Wine-specific schema ────────────────────────────────────────────────────
 
 export const wineInventorySchema = commonInventorySchema.extend({
@@ -67,7 +82,7 @@ export const wineInventorySchema = commonInventorySchema.extend({
   serviceTemp: z.string().max(50).optional(),
   // lotNumber/appellation/classification/cask fields moved to
   // commonInventorySchema (available on every category, see there).
-});
+}).refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
 
 // ─── Sparkling-specific schema ───────────────────────────────────────────────
 
@@ -83,7 +98,7 @@ export const sparklingInventorySchema = commonInventorySchema.extend({
   serviceTemp: z.string().max(50).optional(),
   alcoholDegree: z.number().min(0).max(100).optional(),
   bottleSize: z.string().max(50).optional(),
-});
+}).refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
 
 // ─── Spirit-specific schema ──────────────────────────────────────────────────
 
@@ -209,7 +224,9 @@ export const inventoryPatchSchema = z.object({
   // exactly like before this field existed (last-write-wins, unchanged
   // behavior for every caller that doesn't send it).
   expectedUpdatedAt: z.string().datetime().optional(),
-});
+  // Both years in one patch (what the bottle form sends). A patch carrying
+  // only one is checked against the stored other one in updateItem.
+}).refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
 
 export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
 

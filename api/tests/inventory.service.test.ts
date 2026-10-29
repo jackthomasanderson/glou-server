@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { ZodError } from 'zod';
 import { InventoryService } from '../src/services/inventory.service';
 
 // Mock Prisma pour tests unitaires sans DB
@@ -178,6 +179,24 @@ describe('InventoryService', () => {
     const updateData = updateCall?.[0] as { data: Record<string, unknown> };
     expect(updateData.data.name).toBeUndefined();
     expect(updateData.data.producer).toBe('New Producer');
+  });
+
+  // #706: a patch moving one end of the window is checked against the other.
+  it('updateItem - refuses a patch whose window would end before the stored start', async () => {
+    const existingItem = { id: 'b1', userId: 'u1', lockedFields: [], deletedAt: null, peakMaturityFrom: 2035, peakMaturityTo: 2040 };
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
+
+    await expect(service.updateItem('u1', 'b1', { peakMaturityTo: 2028 })).rejects.toThrow(ZodError);
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+
+  it('updateItem - accepts moving one end while the window stays in order', async () => {
+    const existingItem = { id: 'b1', userId: 'u1', lockedFields: [], deletedAt: null, peakMaturityFrom: 2035, peakMaturityTo: 2040 };
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
+    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, peakMaturityTo: 2036 } as never);
+
+    await service.updateItem('u1', 'b1', { peakMaturityTo: 2036 });
+    expect(prisma.inventoryItem.update).toHaveBeenCalled();
   });
 
   // ─── FEAT-16/23: offline sync optimistic concurrency ──────────────────────

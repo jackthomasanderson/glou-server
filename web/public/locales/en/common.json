@@ -119,7 +119,8 @@
   "inventory": {
     "validation": {
       "required": "This field is required",
-      "missingFields": "Fill in the required fields before saving"
+      "missingFields": "Fill in the required fields before saving",
+      "peakWindowOrder": "The end of the peak cannot come before its start"
     },
     "noNotifications": "No notifications",
     "perPage": "{{count}} per page",
@@ -216,6 +217,7 @@
       "curveShapeHint": "How readiness evolves across the window. Overrides the cave reference for this bottle only.",
       "needsAeration": "Needs aeration",
       "serviceTemp": "Service temperature",
+      "serviceTempPlaceholder": "e.g. 16–18 °C",
       "storageTemp": "Storage temperature",
       "lotNumber": "Lot number",
       "sparklingType": "Type",

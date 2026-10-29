@@ -495,7 +495,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       }}
                     >
                       {(item) => (
-                        <SelectItem key={item.id}>{item.id === 'none' ? <em>{item.name}</em> : item.name}</SelectItem>
+                        <SelectItem key={item.id} textValue={item.name}>{item.id === 'none' ? <em>{item.name}</em> : item.name}</SelectItem>
                       )}
                     </Select>
 
