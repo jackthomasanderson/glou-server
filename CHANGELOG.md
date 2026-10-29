@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Fixed
+- The interface looks as designed again. Since v2026.10.0, part of the styles of the interface library were left out of the app: on the sign-in page and everywhere else, fields had no border, the main buttons had dark text, cards and buttons had square corners, the keyboard focus ring was missing, menu items did not highlight under the pointer, and dialogs neither stayed inside their panel nor filled the screen on a phone (#721).
+
 ## v2026.10.2 - 2026-10-23
 
 ### Added

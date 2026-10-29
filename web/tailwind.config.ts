@@ -5,14 +5,8 @@ const config: Config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
-    // Broadened from just `@heroui/theme` to every `@heroui/*` package: some
-    // component-internal utility classes (e.g. the mobile bottom-sheet
-    // Modal's `h-(--visual-viewport-height)`) live in the component
-    // packages themselves (@heroui/modal, @heroui/overlays, ...), not in
-    // the theme package's tailwind-variants definitions. Missing them left
-    // those classes ungenerated, so the affected elements silently fell
-    // back to an unstyled/mispositioned height.
-    './node_modules/@heroui/**/dist/**/*.{js,ts,jsx,tsx}',
+    // HeroUI's own classes are not listed here: Tailwind 4 ignores
+    // node_modules globs in `content`. globals.css @sources them (#721).
   ],
   theme: {
     extend: {

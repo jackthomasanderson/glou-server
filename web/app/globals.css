@@ -3,6 +3,12 @@
  * loading one instead of rewriting it as native CSS `@theme`. */
 @import "tailwindcss";
 @config "../tailwind.config.ts";
+/* #721: Tailwind 4 never scans node_modules by itself, and the JS config's
+ * `content` globs do not change that. HeroUI's own component classes live in
+ * its theme package: without this line two thirds of them were missing
+ * (button text, focus rings, dialog size and margins, phone sheets...).
+ * Path from HeroUI's Tailwind 4 setup. */
+@source "../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}";
 
 /* Reserve the vertical scrollbar's width at all times, whether or not the
  * page currently needs to scroll. Without this, an absolutely-positioned
