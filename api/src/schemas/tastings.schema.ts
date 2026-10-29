@@ -6,7 +6,9 @@ export const tastingCreateSchema = z.object({
   itemId: z.string().guid().optional(),
   tastedAt: z.string().date().optional(),
   context: z.string().max(200).optional(),
-  rating: z.number().int().min(1).max(5).optional(),
+  // Nullable like `readiness`: the form sends `null` for "no stars", both
+  // for a new tasting and to clear the rating of an existing one (#704).
+  rating: z.number().int().min(1).max(5).optional().nullable(),
   readiness: z.enum(TASTING_READINESS_VALUES).optional().nullable(),
   notes: z.string().max(5000).optional(),
   foodPairing: z.string().max(500).optional(),
