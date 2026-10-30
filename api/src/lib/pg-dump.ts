@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
-import { Transform } from 'stream';
+import { Transform, Writable } from 'stream';
 import { pipeline } from 'stream/promises';
 
 // The pg_dump half of the backups (FEAT-18), without any Prisma import: the
@@ -82,6 +82,23 @@ export function backupFileDate(name: string, stats: fs.Stats): Date {
     if (!Number.isNaN(date.getTime())) return date;
   }
   return stats.mtime;
+}
+
+/**
+ * Reads a `.sql.gz` to its end without keeping it in memory: false when it is
+ * truncated or not gzip at all (e.g. left behind by a pg_dump killed mid-way).
+ */
+export async function isCompleteGzip(filePath: string): Promise<boolean> {
+  try {
+    await pipeline(
+      fs.createReadStream(filePath),
+      zlib.createGunzip(),
+      new Writable({ write(_chunk, _enc, callback) { callback(); } }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function ensureBackupsDir(): void {

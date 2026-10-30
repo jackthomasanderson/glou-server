@@ -10,6 +10,10 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Added
+- Before applying a database migration, an update now backs the database up automatically into `./backups/glou-backup-before-migration-<date>.sql.gz`. That file is never deleted by retention: it is the only way back to the previous version, so delete it yourself once you trust the update. If the backup cannot be taken, nothing is migrated and the API does not start; if a migration fails and the API restarts in a loop, the backup already taken is reused instead of a new one each time (#754).
+- **On Linux, before your next update:** run `mkdir -p backups && sudo chown 1001:1001 backups` in your Glou folder. Without it the automatic backup cannot be written and the API no longer starts after an update that brings a migration (#754).
+
 ### Fixed
 - The quick start on the project website now has the Linux step that lets nightly backups work (`mkdir -p backups && sudo chown 1001:1001 backups`), and its update line asks for a backup first. If you installed from the website on Linux, run `sudo chown 1001:1001 backups` in your Glou folder before your next update (#752, #667).
 

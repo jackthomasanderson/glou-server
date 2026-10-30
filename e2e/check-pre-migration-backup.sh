@@ -6,8 +6,12 @@
 #   1. the stack's first start (new database) took no backup and said so;
 #   2. with one migration made pending again on a database that has accounts,
 #      the step writes glou-backup-before-migration-*.sql.gz to ./backups;
-#   3. with ./backups owned by root (the usual Linux mistake), the image's own
-#      start command stops with a [backup] message and migrates nothing.
+#   3. started again with the migration still pending and Glou not run since
+#      (what restart: unless-stopped does after a failed migrate deploy), the
+#      step reuses that backup and writes no new file;
+#   4. once Glou has run since that backup, with ./backups owned by root (the
+#      usual Linux mistake), the image's own start command stops with a
+#      [backup] message and migrates nothing.
 #
 # Usage, with the E2E stack up and after the Playwright suite has run (it
 # creates the accounts):
@@ -39,6 +43,7 @@ latest=$(psql_e2e -c 'SELECT migration_name FROM _prisma_migrations ORDER BY mig
 hidden="${latest}__e2e_hidden"
 restore_history() {
   psql_e2e -c "UPDATE _prisma_migrations SET migration_name = '$latest' WHERE migration_name = '$hidden'" >/dev/null || true
+  psql_e2e -c "DELETE FROM backup_runs WHERE id = 'e2e-pre-migration'" >/dev/null || true
   sudo chown 1001:1001 "$backups" || true
 }
 trap restore_history EXIT
@@ -61,7 +66,21 @@ grep -q "$latest" <<<"$out" || { echo "The log does not name the pending migrati
 echo "Backup written: $files"
 echo "::endgroup::"
 
-echo "::group::3. Backups folder owned by root: the start command stops before migrating"
+echo "::group::3. Started again, Glou not run since: the backup is reused, no new file"
+set +e
+out=$(docker compose run --rm --no-deps -T api node dist/api/src/scripts/pre-migrate.js 2>&1)
+code=$?
+set -e
+echo "$out"
+[ "$code" = 0 ] || { echo "The pre-migration step failed on the second start (exit $code)."; exit 1; }
+grep -q "No new backup: /app/backups/$(basename "$files")" <<<"$out" || { echo "The earlier backup was not reused."; exit 1; }
+[ "$(before_migration_files | grep -c .)" = 1 ] || { echo "A second pre-migration backup was written: $(before_migration_files)"; exit 1; }
+echo "::endgroup::"
+
+echo "::group::4. Glou ran since, backups folder owned by root: the start command stops before migrating"
+# What an API start does: it lists the file in the backup history. The data
+# may have changed since, so the step must take a new backup.
+psql_e2e -c "INSERT INTO backup_runs (id, \"runAt\", trigger, success, \"filePath\") VALUES ('e2e-pre-migration', now(), 'scheduled', true, '/app/backups/$(basename "$files")')" >/dev/null
 sudo chown root:root "$backups"
 sudo chmod 755 "$backups"
 set +e

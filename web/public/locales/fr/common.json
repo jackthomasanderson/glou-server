@@ -1692,6 +1692,7 @@
         "noHistory": "Aucune sauvegarde enregistrée.",
         "download": "Télécharger cette sauvegarde",
         "restore": "Restaurer cette sauvegarde",
+        "beforeMigration": "Avant mise à jour, conservée",
         "trigger": {
           "scheduled": "Planifiée",
           "manual": "Manuelle"

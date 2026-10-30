@@ -11,7 +11,7 @@ Glou applique ses migrations de base automatiquement au démarrage de l'API, et 
 ## La sauvegarde prise avant de migrer
 * Quand l'API démarre et trouve des migrations qu'elle n'a pas encore appliquées, sur une instance qui a déjà au moins un compte, elle sauvegarde d'abord toute la base, avec le même `pg_dump` que la sauvegarde nocturne. Une nouvelle installation, ou une mise à jour sans migration, ne prend pas cette sauvegarde.
 * Le fichier est `./backups/glou-backup-before-migration-<date>.sql.gz` (`/app/backups` dans le conteneur). Une fois l'API démarrée, il apparaît aussi dans Admin → Configuration système → Sauvegardes, d'où vous pouvez le télécharger.
-* Il est **conservé jusqu'à ce que vous le supprimiez** : la rétention de 7 jours ne l'efface jamais, car c'est le seul moyen de revenir à la version précédente. Supprimez-le de `./backups` quand vous faites confiance à la mise à jour.
+* Il est **conservé jusqu'à ce que vous le supprimiez** : la rétention (7 jours par défaut) ne l'efface jamais, car c'est le seul moyen de revenir à la version précédente. Supprimez-le de `./backups` quand vous faites confiance à la mise à jour.
 * S'il ne peut pas être écrit, rien n'est migré et l'API ne démarre pas : le journal de l'`api` dit pourquoi (voir Dépannage).
 * Une sauvegarde manuelle avant la mise à jour (Admin → Configuration système → Sauvegardes → **Sauvegarder maintenant**) reste possible, mais n'est plus nécessaire.
 
@@ -48,7 +48,7 @@ Chaque build est aussi publié sous un tag immuable nommé d'après le hash de c
 
 | Symptôme | Cause et solution |
 |---|---|
-| L'API redémarre en boucle après une mise à jour, le journal montre une erreur de migration | Ne réessayez pas à l'aveugle. Lisez la première ligne d'erreur, gardez le journal, et revenez en arrière comme ci-dessus ; ouvrez ensuite une issue avec le journal. |
+| L'API redémarre en boucle après une mise à jour, le journal montre une erreur de migration | Ne réessayez pas à l'aveugle. Chaque redémarrage réutilise la sauvegarde déjà prise (`[backup] … No new backup: …`) : la boucle ne remplit pas le disque. Lisez la première ligne d'erreur, gardez le journal, et revenez en arrière comme ci-dessus ; ouvrez ensuite une issue avec le journal. |
 | `Erreur de migration Prisma` au premier démarrage | La base n'était pas encore prête : `docker compose restart api`. |
 | L'API ne démarre pas, le journal montre `[backup] Migrations are pending, but /app/backups is not writable` | Docker a créé `./backups` en root. Rien n'a été migré. À côté de `docker-compose.yml` : `mkdir -p backups && sudo chown 1001:1001 backups`, puis `docker compose up -d`. |
 | L'API ne démarre pas, le journal montre `[backup] Migrations are pending, but the backup taken before migrating failed: …` | Rien n'a été migré. Lisez la cause en fin de ligne : erreur de permission ou système de fichiers en lecture seule (`sudo chown 1001:1001 backups`), disque plein (libérez de la place). Puis `docker compose up -d`. |

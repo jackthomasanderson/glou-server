@@ -11,7 +11,7 @@ Glou applies its database migrations automatically when the API starts, and **mi
 ## The backup taken before migrating
 * When the API starts and finds migrations it has not applied yet, on an instance that already has at least one account, it first backs up the whole database, with the same `pg_dump` as the nightly backup. A new installation or an update without migrations takes no such backup.
 * The file is `./backups/glou-backup-before-migration-<date>.sql.gz` (`/app/backups` inside the container). Once the API has started, it is also listed in Admin → System Configuration → Backups, where you can download it.
-* It is **kept until you delete it**: the 7-day retention never removes it, since it is the only way back to the previous version. Delete it from `./backups` once you trust the update.
+* It is **kept until you delete it**: retention (7 days by default) never removes it, since it is the only way back to the previous version. Delete it from `./backups` once you trust the update.
 * If it cannot be written, nothing is migrated and the API does not start: the `api` log says why (see Troubleshooting).
 * A manual backup before updating (Admin → System Configuration → Backups → **Back up now**) remains possible, but is no longer needed.
 
@@ -48,7 +48,7 @@ Each build is also published under an immutable tag named after the full commit 
 
 | Symptom | Cause and fix |
 |---|---|
-| The API restarts in a loop after an upgrade, the log shows a migration error | Do not retry blindly. Read the first error line, keep the log, and go back as above; then open an issue with the log. |
+| The API restarts in a loop after an upgrade, the log shows a migration error | Do not retry blindly. Each restart reuses the backup already taken (`[backup] … No new backup: …`), so the loop does not fill the disk. Read the first error line, keep the log, and go back as above; then open an issue with the log. |
 | `Prisma migration error on startup` at first start | The database was not ready yet: `docker compose restart api`. |
 | The API does not start, the log shows `[backup] Migrations are pending, but /app/backups is not writable` | Docker created `./backups` as root. Nothing was migrated. Next to `docker-compose.yml`: `mkdir -p backups && sudo chown 1001:1001 backups`, then `docker compose up -d`. |
 | The API does not start, the log shows `[backup] Migrations are pending, but the backup taken before migrating failed: …` | Nothing was migrated. Read the reason at the end of the line: a permission or read-only error (`sudo chown 1001:1001 backups`), no space left (free disk space). Then `docker compose up -d`. |

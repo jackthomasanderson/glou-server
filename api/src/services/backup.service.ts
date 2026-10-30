@@ -2,15 +2,13 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
-import { Writable } from 'stream';
-import { pipeline } from 'stream/promises';
 import { prisma } from '../lib/prisma';
 import { BackupRun, Prisma } from '@prisma/client';
 import { auditLog } from './audit.service';
 import { notificationService } from './notification.service';
 import { isNotifEn } from '../lib/notif-lang';
 import { escapeHtml } from '../lib/html';
-import { BACKUPS_DIR, CHILD_PROCESS_TIMEOUT_MS, DbConnParams, backupFileDate, backupFileName, ensureBackupsDir, execPgDump, filterUnsupportedSetStatements, isBackupFileName, isBeforeMigrationBackup, parseDatabaseUrl } from '../lib/pg-dump';
+import { BACKUPS_DIR, CHILD_PROCESS_TIMEOUT_MS, DbConnParams, backupFileDate, backupFileName, ensureBackupsDir, execPgDump, filterUnsupportedSetStatements, isBackupFileName, isCompleteGzip, isBeforeMigrationBackup, parseDatabaseUrl } from '../lib/pg-dump';
 
 export { BACKUPS_DIR };
 
@@ -100,22 +98,6 @@ function withBackupLock<T>(task: () => Promise<T>): Promise<T> {
   return run;
 }
 
-/**
- * Reads a `.sql.gz` to its end without keeping it in memory: false when it is
- * truncated or not gzip at all (e.g. left behind by a pg_dump killed mid-way).
- */
-async function isCompleteGzip(filePath: string): Promise<boolean> {
-  try {
-    await pipeline(
-      fs.createReadStream(filePath),
-      zlib.createGunzip(),
-      new Writable({ write(_chunk, _enc, callback) { callback(); } }),
-    );
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 
 /**

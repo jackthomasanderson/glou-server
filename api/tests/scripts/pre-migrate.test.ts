@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import zlib from 'zlib';
 import {
   preMigrate,
   readMigrationState,
@@ -15,13 +16,25 @@ import {
 // on an instance in use, and refuses to start if that backup fails.
 
 /** A stubbed database: which tables exist, which migrations are applied, whether an account exists. */
-function fakeDb(opts: { migrationsTable?: boolean; applied?: string[]; userTable?: boolean; hasUser?: boolean }) {
-  const { migrationsTable = true, applied = [], userTable = true, hasUser = true } = opts;
+function fakeDb(opts: {
+  migrationsTable?: boolean; applied?: string[]; userTable?: boolean; hasUser?: boolean;
+  /** backup_runs: undefined = no table; else the file paths it lists. */
+  backupRuns?: string[];
+  /** Latest finished_at / rolled_back_at in _prisma_migrations. */
+  lastMigrationChange?: Date | null;
+}) {
+  const {
+    migrationsTable = true, applied = [], userTable = true, hasUser = true,
+    backupRuns, lastMigrationChange = new Date('2026-10-01T00:00:00Z'),
+  } = opts;
   const queries: string[] = [];
   const db: Queryable & { end: () => Promise<void> } = {
     async query<R extends Record<string, unknown>>(sql: string) {
       queries.push(sql);
       if (sql.includes("to_regclass('_prisma_migrations')")) return { rows: [{ exists: migrationsTable }] as unknown as R[] };
+      if (sql.includes("to_regclass('backup_runs')")) return { rows: [{ exists: backupRuns !== undefined }] as unknown as R[] };
+      if (sql.includes('FROM backup_runs')) return { rows: (backupRuns ?? []).map((filePath) => ({ filePath })) as unknown as R[] };
+      if (sql.includes('max(GREATEST(finished_at, rolled_back_at))')) return { rows: [{ last: lastMigrationChange }] as unknown as R[] };
       if (sql.includes('FROM _prisma_migrations')) {
         // A failed (unfinished) or rolled-back row is excluded by the query itself.
         expect(sql).toMatch(/finished_at IS NOT NULL/);
@@ -61,7 +74,7 @@ afterEach(() => {
 function deps(db: ReturnType<typeof fakeDb>['db'], overrides: Partial<PreMigrateDeps> = {}) {
   const logs: string[] = [];
   const errors: string[] = [];
-  const dump = vi.fn(async (dest: string) => { fs.writeFileSync(dest, 'gzipped dump'); });
+  const dump = vi.fn(async (dest: string) => { fs.writeFileSync(dest, zlib.gzipSync('-- dump')); });
   const d: PreMigrateDeps = {
     connect: async () => db,
     migrationsDir,
@@ -196,6 +209,79 @@ describe('preMigrate', () => {
     expect(await preMigrate(d)).toBe(1);
     expect(dump).not.toHaveBeenCalled();
     expect(errors[0]).toMatch(/^\[backup\] Could not check for pending migrations: connect ECONNREFUSED/);
+  });
+});
+
+describe('preMigrate after a failed migrate deploy (restart loop)', () => {
+  // `restart: unless-stopped` starts the container again after `prisma migrate
+  // deploy` fails: the migration is still pending. Without a guard, every start
+  // would write another full dump that retention never deletes.
+  const LATER = new Date('2026-11-01T08:31:00.000Z');
+
+  async function firstStart(db: ReturnType<typeof fakeDb>['db']) {
+    const first = deps(db);
+    expect(await preMigrate(first.d)).toBe(0);
+    expect(backupFiles()).toEqual([EXPECTED_NAME]);
+  }
+
+  it('second start after a failed deploy: no new file, the earlier backup is named in the log', async () => {
+    // The failed migration's row has no finished_at: the last change stays before the backup.
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [] });
+    await firstStart(db);
+
+    const second = deps(db, { now: () => LATER });
+    expect(await preMigrate(second.d)).toBe(0);
+    expect(second.dump).not.toHaveBeenCalled();
+    expect(backupFiles()).toEqual([EXPECTED_NAME]);
+    expect(second.logs.join('\n')).toContain(`No new backup: ${path.join(backupsDir, EXPECTED_NAME)}`);
+
+    // Nor on the tenth start.
+    for (let i = 0; i < 8; i++) expect(await preMigrate(deps(db, { now: () => LATER }).d)).toBe(0);
+    expect(backupFiles()).toEqual([EXPECTED_NAME]);
+  });
+
+  it('Glou ran since that backup (listed in backup_runs): a new backup', async () => {
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [`/app/backups/${EXPECTED_NAME}`] });
+    await firstStart(db);
+    const second = deps(db, { now: () => LATER });
+    expect(await preMigrate(second.d)).toBe(0);
+    expect(second.dump).toHaveBeenCalledTimes(1);
+    expect(backupFiles()).toHaveLength(2);
+  });
+
+  it('a migration finished after that backup: a new backup', async () => {
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [], lastMigrationChange: new Date('2026-11-01T08:30:30Z') });
+    await firstStart(db);
+    const second = deps(db, { now: () => LATER });
+    expect(await preMigrate(second.d)).toBe(0);
+    expect(second.dump).toHaveBeenCalledTimes(1);
+    expect(backupFiles()).toHaveLength(2);
+  });
+
+  it('the earlier file is truncated (container killed mid-dump): a new backup', async () => {
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [] });
+    fs.mkdirSync(backupsDir, { recursive: true });
+    fs.writeFileSync(path.join(backupsDir, EXPECTED_NAME), zlib.gzipSync('-- dump').subarray(0, 10));
+    const second = deps(db, { now: () => LATER });
+    expect(await preMigrate(second.d)).toBe(0);
+    expect(second.dump).toHaveBeenCalledTimes(1);
+  });
+
+  it('no backup_runs table (cannot tell whether Glou ran): a new backup', async () => {
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2) });
+    await firstStart(db);
+    const second = deps(db, { now: () => LATER });
+    expect(await preMigrate(second.d)).toBe(0);
+    expect(second.dump).toHaveBeenCalledTimes(1);
+  });
+
+  it('a scheduled backup is never reused: only glou-backup-before-migration-* files count', async () => {
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [] });
+    fs.mkdirSync(backupsDir, { recursive: true });
+    fs.writeFileSync(path.join(backupsDir, 'glou-backup-2026-11-01T08-00-00-000Z.sql.gz'), zlib.gzipSync('-- dump'));
+    const run = deps(db);
+    expect(await preMigrate(run.d)).toBe(0);
+    expect(run.dump).toHaveBeenCalledTimes(1);
   });
 });
 

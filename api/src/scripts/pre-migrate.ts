@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import { Client } from 'pg';
-import { BACKUPS_DIR, backupFileName, execPgDump, parseDatabaseUrl } from '../lib/pg-dump';
+import {
+  BACKUPS_DIR, backupFileDate, backupFileName, execPgDump, isBeforeMigrationBackup, isCompleteGzip, parseDatabaseUrl,
+} from '../lib/pg-dump';
 
 // design.md "Sauvegarde & Migration": before `prisma migrate deploy`, the
 // API image's start command runs this step. When migrations are pending on a
@@ -92,6 +94,62 @@ export function dumpFailedMessage(error: unknown): string {
     + 'Then: docker compose up -d';
 }
 
+/**
+ * A backup taken before migrating by an earlier start that still holds the
+ * database as it is now, or null.
+ *
+ * Why: when `prisma migrate deploy` fails after this step (a migration that
+ * errors, P3009 on the next try...), `restart: unless-stopped` starts the
+ * container again and again. Without this check, every start would dump the
+ * whole database once more into a file retention never deletes, until the
+ * disk (PostgreSQL's too) is full.
+ *
+ * When can an earlier file be trusted? The data only changes while a Glou
+ * API runs, and every API start lists the files of the backups folder in
+ * `backup_runs` (backupService.syncHistoryWithFiles, in every image since
+ * v2026.10.3). So the newest glou-backup-before-migration-* file still
+ * matches the database when:
+ *   - no `backup_runs` row names it: no API has started since it was written
+ *     (a restore re-lists the files too, so it would name it);
+ *   - it is newer than every migration that finished or was rolled back in
+ *     `_prisma_migrations`: no migration ran on the data after it;
+ *   - it is a complete gzip: not cut short by a container killed mid-dump.
+ * Anything else, or any doubt (no `backup_runs` table, unreadable folder),
+ * means a new backup. This is sturdier than a name built from the last
+ * applied migration, which stays the same when the previous image is put
+ * back and keeps running on changing data.
+ */
+export async function findReusableBackup(db: Queryable, backupsDir: string): Promise<string | null> {
+  let names: string[];
+  try {
+    names = fs.readdirSync(backupsDir).filter(isBeforeMigrationBackup);
+  } catch {
+    return null;
+  }
+  if (!names.length) return null;
+  const dated = names
+    .map((name) => ({ name, date: backupFileDate(name, fs.statSync(path.join(backupsDir, name))) }))
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
+  const newest = dated[0];
+
+  const table = await db.query<{ exists: boolean }>("SELECT to_regclass('backup_runs') IS NOT NULL AS exists");
+  if (!table.rows[0]?.exists) return null;
+  const listed = await db.query<{ filePath: string }>(
+    'SELECT "filePath" FROM backup_runs WHERE "filePath" IS NOT NULL',
+  );
+  if (listed.rows.some((row) => path.basename(row.filePath) === newest.name)) return null;
+
+  // GREATEST skips NULLs: a failed migration (finished_at NULL) does not count.
+  const last = await db.query<{ last: Date | string | null }>(
+    'SELECT max(GREATEST(finished_at, rolled_back_at)) AS last FROM _prisma_migrations',
+  );
+  const lastChange = last.rows[0]?.last;
+  if (lastChange && newest.date.getTime() <= new Date(lastChange).getTime()) return null;
+
+  const fullPath = path.join(backupsDir, newest.name);
+  return (await isCompleteGzip(fullPath)) ? fullPath : null;
+}
+
 export interface PreMigrateDeps {
   connect: () => Promise<Queryable & { end: () => Promise<void> }>;
   migrationsDir: string;
@@ -105,11 +163,16 @@ export interface PreMigrateDeps {
 /** Runs the step. Returns the process exit code: 0 lets the migrations run, 1 stops the start. */
 export async function preMigrate(deps: PreMigrateDeps): Promise<number> {
   let state: MigrationState;
+  let reusable: string | null = null;
   try {
     const shipped = listMigrationFolders(deps.migrationsDir);
     const db = await deps.connect();
     try {
       state = await readMigrationState(db, shipped);
+      if (state.kind === 'pending' && state.hasData) {
+        // Any doubt means a new backup, never a failed start.
+        reusable = await findReusableBackup(db, deps.backupsDir).catch(() => null);
+      }
     } finally {
       await db.end().catch(() => undefined);
     }
@@ -130,6 +193,13 @@ export async function preMigrate(deps: PreMigrateDeps): Promise<number> {
   }
   if (!state.hasData) {
     deps.log(`[backup] ${state.pending.length} pending migration(s) on a database with no account yet: no backup needed.`);
+    return 0;
+  }
+
+  if (reusable) {
+    deps.log(`[backup] ${state.pending.length} pending migration(s) (${state.pending.join(', ')}). `
+      + `No new backup: ${reusable} was taken by an earlier start and Glou has not run since, so it still holds `
+      + 'the database as it is. If the migrations keep failing, see the upgrade guide (wiki page 31).');
     return 0;
   }
 
