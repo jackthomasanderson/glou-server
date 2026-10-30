@@ -27,7 +27,7 @@ Each build is also published under an immutable tag named after the full commit 
 1. Stop the stack: `docker compose down` (this keeps your volumes).
 2. In `docker-compose.yml`, pin the two images to the commit SHA tag you want, for example `image: ghcr.io/jackthomasanderson/glou-server-api:a1b2c3…`, or to the digests you noted, e.g. `image: ghcr.io/jackthomasanderson/glou-server-api@sha256:…`.
 3. Start only the database: `docker compose up -d db`.
-4. Restore the backup taken before the upgrade, with the command of [Disaster recovery](./30-Disaster-Recovery.md) step 3.
+4. Restore the backup taken before the upgrade (a `glou-backup-….sql.gz` file in the `./backups` folder, next to `docker-compose.yml`) with the two commands of [Disaster recovery](./30-Disaster-Recovery.md) step 3: check the file, then restore it.
 5. Start everything: `docker compose up -d`. The older API finds a database matching its own version and starts normally.
 
 > [!CAUTION]

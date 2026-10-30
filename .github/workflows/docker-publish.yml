@@ -196,6 +196,11 @@ jobs:
             "mcr.microsoft.com/playwright:v${version}-noble" \
             npx playwright test
 
+      # #665: the disaster-recovery page's restore command, run as written on
+      # the backup the backup-restore spec downloaded, into an empty database.
+      - name: Restore a downloaded backup with the documented command
+        run: bash e2e/check-documented-restore.sh
+
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

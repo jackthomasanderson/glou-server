@@ -1655,6 +1655,7 @@
         "body": "Le fichier contient toute la base, y compris l'empreinte du mot de passe et le secret de double authentification de chaque compte. Confirmez avec votre mot de passe.",
         "error": "Le téléchargement a échoué."
       },
+      "dirCheckFailed": "Glou n'a pas pu vérifier s'il peut écrire dans le dossier des sauvegardes. Rechargez la page ; si ce message reste affiché, consultez les journaux de l'API (docker compose logs api).",
       "dirNotWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échouera. Sur le serveur, à côté de docker-compose.yml, lancez : mkdir -p backups && sudo chown 1001:1001 backups, puis redémarrez la pile.",
       "enabled": "Activer les sauvegardes automatiques",
       "retentionDays": "Rétention des sauvegardes (jours)",

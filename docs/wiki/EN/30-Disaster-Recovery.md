@@ -9,14 +9,16 @@ Three things are needed to rebuild everything: the **database backup** (`.sql.gz
 |---|---|---|
 | Accounts, inventory, cellars, tastings, settings | PostgreSQL (`db_data` volume) | Yes |
 | Photos (bottle pictures, avatars, scan photos) | `api_uploads` volume (`/app/uploads`) | **No** |
-| Backup files themselves | `api_backups` volume (`/app/backups`) | n/a |
+| Backup files themselves | `./backups` folder, next to `docker-compose.yml` (`/app/backups` in the API container) | n/a |
 | Secrets (`JWT_SECRET`, `CONFIG_ENCRYPTION_KEY`) | your `.env` | **No** |
 
 If the host disk dies, the backup files die with it unless you copied them elsewhere.
 
 ## Prerequisites (do this *before* you need it)
 1. Backups enabled: Admin → System Configuration → Backups → **Enabled**.
-2. Regularly copy off the host: the newest file of the `api_backups` volume (or **Download** it from the backup history), your `.env`, and the `api_uploads` volume.
+2. Regularly copy off the host: the newest file of the `./backups` folder (or **Download** it from the backup history), your `.env`, and the `api_uploads` volume.
+   > [!NOTE]
+   > If an old `api_backups` volume still exists, it only holds backups from before the 2026.10 upgrade; check the date before restoring one of them.
 3. Know where your `docker-compose.yml` and `.env` are kept.
 
 ## Rebuild on a new host
@@ -31,10 +33,10 @@ If the host disk dies, the backup files die with it unless you copied them elsew
 
    Then restore it:
    ```bash
-   (printf 'DROP SCHEMA IF EXISTS public CASCADE;\nCREATE SCHEMA public;\n'; gunzip -c glou-backup-XXXX.sql.gz) \
+   (printf 'DROP SCHEMA IF EXISTS public CASCADE;\nCREATE SCHEMA public;\n'; gunzip -c glou-backup-XXXX.sql.gz | sed '/^SET transaction_timeout/d') \
      | docker compose exec -T db psql -U glou -d glou_db -v ON_ERROR_STOP=1 --single-transaction
    ```
-   An SQL error in the file aborts the whole restore and rolls back; a truncated file is what the `gunzip -t` check above is for.
+   An SQL error in the file aborts the whole restore and rolls back; a truncated file is what the `gunzip -t` check above is for. The `sed` part removes a setting that older backups contain and that PostgreSQL 15 rejects; it changes nothing in newer backups. If you changed `DB_USER` or `DB_NAME` in your `.env`, use those values instead of `glou` and `glou_db`.
 4. Restart the API so it applies any database update the backup predates: `docker compose restart api`.
 5. Restore the photos into the `api_uploads` volume, for example:
    ```bash
@@ -56,5 +58,7 @@ Replace `<project>` with the prefix shown by `docker volume ls` (usually the fol
 |---|---|
 | `gunzip -t` reports `unexpected end of file` or `not in gzip format` | The file is incomplete: copy it again, or use an older backup. Do not restore it. |
 | The restore stops with `already exists` errors | The schema was not reset: keep the first `printf` line of the command. |
+| The restore stops with `unrecognized configuration parameter "transaction_timeout"` | The `sed '/^SET transaction_timeout/d'` part of the command is missing: copy the whole command again. |
+| The restore stops with `invalid command \restrict` | The database image on this host is older than PostgreSQL 15.14: update it with `docker compose pull db && docker compose up -d db`, then run the command again. |
 | Everything is back but emails/Gotify fail | `CONFIG_ENCRYPTION_KEY` differs from the one the backup was made with. Use the original `.env`, or re-enter the settings as described in [Rotate the secrets](./29-Secret-Rotation.md). |
 | Bottle pictures are missing | The photo volume was not restored (it is not part of the database backup). |
