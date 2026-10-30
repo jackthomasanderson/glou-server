@@ -46,6 +46,9 @@ services:
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
       # Empty = Secure cookies only when APP_URL is https://. Set true if TLS is terminated upstream while APP_URL says http.
       COOKIE_SECURE: ${COOKIE_SECURE:-}
+      # #575: the instance's time zone (IANA name). Members' quiet hours and the
+      # scheduled jobs (alerts at 10:00, maintenance at 3:00) are read in it.
+      TZ: ${TZ:-Europe/Paris}
       # Only used by label scan; see the `scan` profile below.
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       # #639: must match the model `ollama-pull` downloads, or scanning stays hidden.

@@ -4,15 +4,12 @@ import { systemConfigService } from './system-config.service';
 import { htmlToPlainText } from '../lib/html';
 import { normalizeGotifyUrl } from '../lib/gotify-url';
 import { assertUrlAllowed } from '../lib/ssrf';
+import { isWithinQuietHours } from '../lib/quiet-hours';
+import { isNotificationCategoryEnabled, type NotificationCategory } from '../../../shared/notifications';
 
 // #469: only categories with a real emitter (consumption, shares,
 // permissions and new_users never had one and were removed from the UI in #338).
-export type NotificationCategory =
-  | 'peak'
-  | 'temperature'
-  | 'security'
-  | 'wishlist'
-  | 'backup';
+export type { NotificationCategory };
 
 interface NotificationPayload {
   userId: string;
@@ -39,23 +36,23 @@ export const notificationService = {
       prisma.user.findUnique({ where: { id: payload.userId } }),
       systemConfigService.getPublic(),
     ]);
-    if (!user) return;
+    // #591: a deactivated or anonymised account receives nothing, whatever
+    // the caller's recipient list. No exception, security included: every
+    // security event needs an account that can still sign in.
+    if (!user || !user.isActive) return;
 
-    const now = new Date();
-    const hour = now.getHours();
-
-    // Check quiet hours
-    if (!payload.bypassQuietHours && user.notifQuietStart != null && user.notifQuietEnd != null) {
-      const inQuiet = user.notifQuietStart <= user.notifQuietEnd
-        ? hour >= user.notifQuietStart && hour < user.notifQuietEnd
-        : hour >= user.notifQuietStart || hour < user.notifQuietEnd;
-      if (inQuiet) return;
+    // Quiet hours drop the message (they do not delay it), in the instance's
+    // time zone (#575). Senders run in the daytime for that reason.
+    if (
+      !payload.bypassQuietHours
+      && user.notifQuietStart != null && user.notifQuietEnd != null
+      && isWithinQuietHours(user.notifQuietStart, user.notifQuietEnd, new Date())
+    ) {
+      return;
     }
 
     // Check category subscription
-    if (user.notifCategories.length > 0 && !user.notifCategories.includes(payload.category)) {
-      return;
-    }
+    if (!isNotificationCategoryEnabled(user.notifCategories, payload.category)) return;
 
     // Email channel
     if (user.notifEmail && policy.smtpEnabled) {
