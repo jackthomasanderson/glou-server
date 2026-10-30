@@ -18,6 +18,7 @@ export const DEFAULT_CURVE_SHAPE: CurveShape = 'LINEAR';
 
 // Closed lists stored as plain strings: the API validates them, the web offers them.
 export const WINE_COLORS = ['red', 'white', 'rosé', 'orange'] as const;
+export type WineColor = (typeof WINE_COLORS)[number];
 export const SPARKLING_TYPES = ['champagne', 'cremant', 'prosecco', 'cava', 'petnat', 'other'] as const;
 /** Dosage of a sparkling wine. */
 export const SUGAR_LEVELS = ['extra-brut', 'brut', 'extra-sec', 'sec', 'demi-sec', 'doux'] as const;
