@@ -22,6 +22,7 @@ Entries start with the pull request that introduced them where there is one.
 - With every section open, the tasting window spilled out of its panel and its Cancel and Save buttons were drawn below it, on the dark backdrop. It now scrolls inside its panel and keeps its buttons in view (#723, #704).
 - On a phone, the last six windows that still opened as a small box now open full-screen like the others: wish price, conversion and deletion, the stock question after a tasting, cellar deletion and the list of changes waiting to be sent (#723, #654).
 - Food pairing now suggests the red and white wines in your cellar: "Viande" or "agneau" used to find nothing, and only rosé and orange wines ever came up. A white wine now gets white-wine serving advice instead of a red's (16–18 °C, aeration, lamb), and a wine without a colour gets none rather than a wrong one (#731, #703).
+- On a phone, the first-run wizard scrolls and fills the screen. When a step was taller than the screen, such as the preview of a cellar file, its top and bottom were cut off with no way to reach them: *Confirm import*, *Back*, *Skip this step* or *Later* could not be pressed. Each step now opens at its top. On a narrow phone, the cellar step's buttons ran past the edge of the card and cut *Create cellar* off; they now wrap onto two lines. On a computer, a window too short for the wizard now scrolls too (#730, #686).
 
 ## v2026.10.2 - 2026-10-23
 
