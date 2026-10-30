@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { configClient } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { authErrorMessage } from '@/lib/auth/error-message';
 
 export function ForgotPasswordClient() {
   const { t } = useTranslation();
@@ -27,10 +28,7 @@ export function ForgotPasswordClient() {
       await configClient.forgotPassword(email.trim().toLowerCase());
       setDone(true);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'UNEXPECTED_ERROR';
-      const key = `forgotPassword.errors.${msg}`;
-      const translated = t(key);
-      setError(translated === key ? t('forgotPassword.errors.UNEXPECTED_ERROR') : translated);
+      setError(authErrorMessage(t, err, 'forgotPassword.errors'));
     } finally {
       setLoading(false);
     }

@@ -467,7 +467,9 @@
       "SESSION_REVOKED": "Your session was disconnected remotely. Please sign in again.",
       "INVALID_TOTP_CODE": "Incorrect verification code.",
       "2FA_TEMPORARILY_LOCKED": "Too many incorrect codes. Verification is locked for 15 minutes.",
-      "TOKEN_INVALID_OR_EXPIRED": "Your sign-in request has expired. Please sign in again."
+      "TOKEN_INVALID_OR_EXPIRED": "Your sign-in request has expired. Please sign in again.",
+      "TOO_MANY_REQUESTS_one": "Too many attempts. Wait {{count}} minute before trying again.",
+      "TOO_MANY_REQUESTS_other": "Too many attempts. Wait {{count}} minutes before trying again."
     },
     "passwordStrength": {
       "weak": "Weak",
@@ -503,7 +505,8 @@
     "pinLabel": "PIN code",
     "unlockButton": "Unlock",
     "error": "Incorrect password or PIN code.",
-    "backToLogin": "Sign out"
+    "backToLogin": "Sign out",
+    "sessionEnded": "Your session has ended. Please sign in again."
   },
   "forcedPasswordChange": {
     "title": "Set a new password",
@@ -763,7 +766,7 @@
       "codesConfirmed": "I've saved my codes",
       "disableTitle": "Disable two-factor authentication",
       "disableHint": "For security reasons, please enter your current password and a valid 2FA code.",
-      "codeOrBackup": "2FA code or backup code"
+      "backupCodeLabel": "Backup code"
     },
     "sessions": {
       "title": "Active Sessions",

@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useSessions, useRevokeSession, useTrustDevice, useUntrustDevice, useMe, SessionInfo } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { TwoFactorCodeInput } from '@/components/auth/TwoFactorCodeInput';
 import { formatDateTime, formatDeviceLabel } from '@/lib/format';
 
 export function SessionsPanel() {
@@ -232,17 +233,7 @@ export function SessionsPanel() {
                   labelPlacement="outside"
                 />
                 {user?.isTwoFactorEnabled && (
-                  <Input
-                    label={t('profile.twoFactor.codeOrBackup')}
-                    value={trustCode}
-                    onValueChange={setTrustCode}
-                    variant="bordered"
-                    size="md"
-                    radius="md"
-                    labelPlacement="outside"
-                    maxLength={20}
-                    autoComplete="off"
-                  />
+                  <TwoFactorCodeInput value={trustCode} onValueChange={setTrustCode} allowBackupCode isDisabled={trustDevice.isPending} />
                 )}
               </ModalBody>
               <ModalFooter>

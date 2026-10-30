@@ -2,6 +2,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { clearOfflineData } from '@/lib/offline/db';
+import { apiErrorFrom } from '@/lib/api';
+import { fetchOrNetworkError } from '@/lib/network-error';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { clearQuickLock } from '@/lib/quick-lock-storage';
 import { postLoginPath } from '@/lib/auth/next-path';
@@ -31,13 +33,15 @@ async function apiFetch<T>(
   url: string,
   options?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(url, {
+  const res = await fetchOrNetworkError(url, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     ...options,
   });
-  const json = (await res.json()) as { data?: T; error?: string; details?: string };
-  if (!res.ok) throw new Error(json.error ?? 'UNEXPECTED_ERROR');
+  // #640: a refusal that is not JSON (a 429 from a limiter, a proxy's 502)
+  // used to fail here on parsing and read as "unexpected error".
+  if (!res.ok) throw await apiErrorFrom(res);
+  const json = (await res.json()) as { data?: T };
   return json.data as T;
 }
 

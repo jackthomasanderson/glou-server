@@ -11,6 +11,7 @@ import { useRegister } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { PASSWORD_MIN_LENGTH } from '@shared/auth';
+import { authErrorMessage } from '@/lib/auth/error-message';
 
 const createRegisterSchema = (t: (key: string) => string) =>
   z.object({
@@ -50,9 +51,7 @@ export function RegisterForm() {
     const language = i18n?.language?.startsWith('en') ? 'EN' : 'FR';
     registerMutation.mutate({ username, email, password, language }, {
       onError: (error) => {
-        const msgKey = `auth.errors.${error.message}`;
-        const translated = t(msgKey);
-        setApiError(translated === msgKey ? t('auth.errors.UNEXPECTED_ERROR') : translated);
+        setApiError(authErrorMessage(t, error));
       },
     });
   };

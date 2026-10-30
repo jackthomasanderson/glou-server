@@ -1,10 +1,15 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Avatar, Button, Card, CardBody, Input, Tabs, Tab } from '@heroui/react';
 import { Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useLogout } from '@/hooks/useAuth';
 import { useRestoreFocus } from '@/hooks/useRestoreFocus';
+import { authErrorMessage } from '@/lib/auth/error-message';
+
+// The session behind the lock has ended (revoked elsewhere, expired, account
+// deactivated): no code can unlock it, only signing in again.
+const SESSION_ENDED_CODES = new Set(['UNAUTHORIZED', 'SESSION_REVOKED', 'TOKEN_INVALID_OR_EXPIRED', 'ACCOUNT_DEACTIVATED']);
 
 interface LockScreenProps {
   unlock: (password?: string, pin?: string) => Promise<boolean>;
@@ -13,7 +18,7 @@ interface LockScreenProps {
 
 export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
   const { t } = useTranslation();
-  const { data: user } = useMe();
+  const { data: user, refetch: refetchMe } = useMe();
   const logoutMutation = useLogout();
   useRestoreFocus();
 
@@ -22,19 +27,37 @@ export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
   const [password, setPassword] = useState('');
   const [pin, setPin] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // The field is disabled while unlocking, so it loses focus: give it back
+  // once it is enabled again, to type the code again straight away.
+  const fieldRef = useRef<HTMLInputElement>(null);
+  const [refocusRequest, setRefocusRequest] = useState(0);
+  useEffect(() => {
+    if (refocusRequest > 0 && !isUnlocking) fieldRef.current?.focus();
+  }, [refocusRequest, isUnlocking]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isUnlocking) return;
     setErrorMsg(null);
-    const ok = mode === 'password'
-      ? await unlock(password, undefined)
-      : await unlock(undefined, pin);
-    if (!ok) {
+    try {
+      const ok = mode === 'password'
+        ? await unlock(password, undefined)
+        : await unlock(undefined, pin);
+      if (ok) return;
       setErrorMsg(t('lock.error'));
       setPassword('');
       setPin('');
+    } catch (err) {
+      if (err instanceof Error && SESSION_ENDED_CODES.has(err.message)) {
+        setErrorMsg(t('lock.sessionEnded'));
+        // `/me` now answers 401 too, and AuthGuard takes the member to sign-in.
+        void refetchMe();
+        return;
+      }
+      // #582: too many attempts or no server — say which, instead of a spinner that stops.
+      setErrorMsg(authErrorMessage(t, err));
     }
+    setRefocusRequest((n) => n + 1);
   };
 
   return (
@@ -92,8 +115,9 @@ export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
               <Input
                 label={t('lock.passwordLabel')}
                 type="password"
+                ref={fieldRef}
                 value={password}
-                onValueChange={setPassword}
+                onValueChange={(v) => { setPassword(v); setErrorMsg(null); }}
                 variant="bordered"
                 size="md"
                 radius="md"
@@ -109,8 +133,9 @@ export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
+                ref={fieldRef}
                 value={pin}
-                onValueChange={(v) => setPin(v.replace(/\D/g, ''))}
+                onValueChange={(v) => { setPin(v.replace(/\D/g, '')); setErrorMsg(null); }}
                 variant="bordered"
                 size="md"
                 radius="md"
