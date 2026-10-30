@@ -570,4 +570,71 @@ describe('InventoryService', () => {
       expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
     });
   });
+
+  // #471 (FEAT-92/94): every unit belongs to a family, created with it.
+  describe('createItem', () => {
+    const wine = {
+      category: 'wine', name: 'Talbot', producer: 'Château Talbot', vintage: 2015, region: 'Bordeaux',
+      notes: 'Gift', tags: ['gift'], purchasePrice: 20, cellarId: 'c1', bottleSize: '75cl',
+      grapeVarieties: [], isOwned: true, isOpened: false, alertStatus: 'none', lockedFields: [],
+    };
+    const created = () => vi.mocked(prisma.inventoryItem.create).mock.calls[0]?.[0]?.data as Record<string, any>;
+
+    beforeEach(() => {
+      vi.mocked(prisma.inventoryItem.create).mockResolvedValue({ id: 'i1' } as never);
+    });
+
+    it('creates the family in the same write, with the description and the creator', async () => {
+      await service.createItem('u1', wine as never);
+
+      const product = created().product.create;
+      expect(product).toMatchObject({
+        userId: 'u1', category: 'wine', name: 'Talbot', producer: 'Château Talbot', vintage: 2015,
+        region: 'Bordeaux', notes: 'Gift', tags: ['gift'], alertStatus: 'none',
+      });
+      expect(product).not.toHaveProperty('purchasePrice');
+      expect(product).not.toHaveProperty('cellarId');
+      expect(product).not.toHaveProperty('bottleSize');
+      expect(product).not.toHaveProperty('isOwned');
+    });
+
+    it('keeps writing the unit\'s own columns and the transitional description mirror', async () => {
+      await service.createItem('u1', wine as never);
+
+      expect(created()).toMatchObject({
+        name: 'Talbot', region: 'Bordeaux', purchasePrice: 20, bottleSize: '75cl',
+        user: { connect: { id: 'u1' } }, cellar: { connect: { id: 'c1' } },
+      });
+      expect(created()).not.toHaveProperty('userId');
+      expect(created()).not.toHaveProperty('cellarId');
+    });
+
+    it('creates a unit without a cellar', async () => {
+      await service.createItem('u1', { ...wine, cellarId: null } as never);
+
+      expect(created()).not.toHaveProperty('cellar');
+    });
+
+    it('dates the purchase today when none is given (D6)', async () => {
+      await service.createItem('u1', wine as never);
+
+      const purchasedAt = created().purchasedAt as Date;
+      const now = new Date();
+      expect(purchasedAt.toISOString().slice(0, 10)).toBe(
+        `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+      );
+    });
+
+    it('splits field sources and locks between the family and the unit', async () => {
+      await service.createItem(
+        'u1', { ...wine, lockedFields: ['name', 'purchasePrice'] } as never, undefined,
+        { name: 'import_csv', purchasePrice: 'import_csv' },
+      );
+
+      expect(created().product.create).toMatchObject({
+        fieldSources: { name: 'import_csv' }, lockedFields: ['name'],
+      });
+      expect(created().fieldSources).toEqual({ name: 'import_csv', purchasePrice: 'import_csv' });
+    });
+  });
 });

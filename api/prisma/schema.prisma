@@ -84,6 +84,7 @@ model User {
   webhookUrl         String?
 
   inventory    InventoryItem[]
+  products     Product[]
   auditLogs    AuditLog[]
   cellars      Cellar[]
   bulkPresets  BulkPreset[]
@@ -170,13 +171,133 @@ model Cellar {
   @@map("cellars")
 }
 
+// #471 (FEAT-92/94): a family — what describes a wine, sparkling wine, spirit
+// or cigar, whatever its physical units (InventoryItem). One family = one card;
+// correcting its description corrects all its units. Field split: design.md
+// "Où vit une donnée". Every column below except `otherPhotoUrls` also still
+// exists on `bottles` as a transitional mirror (removed at the end of #471).
+model Product {
+  id     String @id @default(uuid())
+  // Audit field (creator), not an ownership field — same rule as InventoryItem.userId.
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  category       BottleCategory
+  name           String
+  producer       String
+  // Legacy free-text label, distinct from the Collection model.
+  collection     String?
+  tags           String[]       @default([])
+  photoUrl       String?
+  // Photos of the merged records that were not kept as `photoUrl`; still
+  // referenced, so the orphan-photo cleanup must not delete them.
+  otherPhotoUrls String[]       @default([])
+  notes          String?
+
+  // Wine & Sparkling
+  vintage        Int?
+  color          String?
+  region         String?
+  grapeVarieties String[]  @default([])
+  alcoholDegree  Float?
+  needsAeration  Boolean?
+  serviceTemp    String?
+  lotNumber      String?
+  batchDate      DateTime?
+  appellation    String?
+  classification String?
+  sparklingType  String?
+  sugarLevel     String?
+  disgorgingDate DateTime?
+  baseYear       Int?
+
+  // Spirit
+  spiritType      String?
+  edition         String?
+  declaredAge     Int?
+  caskType        String?
+  additions       String?
+  aromaticProfile String?
+  isSingleCask    Boolean?
+  caskNumber      String?
+  caskProof       Float?
+
+  // Cigar
+  format               String?
+  manufactureYear      Int?
+  leafOrigin           String?
+  factoryCode          String?
+  recommendedHumidity  Float?
+  humidificationSystem String?
+
+  // Drinking window, alerts and reminders: true of every bottle of the wine.
+  peakMaturityFrom          Int?
+  peakMaturityTo            Int?
+  curveShape                CurveShape?
+  alertsPaused              Boolean      @default(false)
+  consumptionPostponedUntil DateTime?
+  reminderDate              DateTime?
+  alertStatus               AlertStatus?
+
+  updatedBy    String?
+  // Only here: automated enrichment (OCR scan) only ever writes description.
+  lockedFields String[] @default([])
+  // Per-field source tag of this table's own columns (FEAT-05).
+  fieldSources Json?
+
+  // Whole-family trash: the same timestamp is written on the family and on
+  // its units that were not already trashed (design.md glossary "Corbeille").
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items             InventoryItem[]
+  tastingNotes      TastingNote[]
+  auditLogs         AuditLog[]
+  collections       Collection[]         @relation("CollectionProducts")
+  distinctions      ProductDistinction[] @relation("ProductDistinctionFirst")
+  otherDistinctions ProductDistinction[] @relation("ProductDistinctionSecond")
+
+  @@index([userId])
+  @@index([deletedAt])
+  @@index([category, deletedAt])
+  @@index([alertStatus])
+  @@index([name])
+  @@index([producer])
+  @@index([vintage])
+  @@map("products")
+}
+
+// "C'est un autre vin": two families with the same productKey that the members
+// declared different wines, so "À regrouper ?" never proposes them again. One
+// row per pair, ids ordered (a CHECK constraint `productId < otherProductId`
+// exists in the database — not expressible in Prisma's schema language).
+model ProductDistinction {
+  productId      String
+  product        Product  @relation("ProductDistinctionFirst", fields: [productId], references: [id], onDelete: Cascade)
+  otherProductId String
+  otherProduct   Product  @relation("ProductDistinctionSecond", fields: [otherProductId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@id([productId, otherProductId])
+  @@index([otherProductId])
+  @@map("product_distinctions")
+}
+
 // Soft-delete via deletedAt
+// #471: an "actif" — the physical units of a family (Product): a group of
+// identical intact units (`quantity`), or a sub-record with its own state.
 model InventoryItem {
   id     String @id @default(uuid())
   // ISSUE_098: audit field, not an ownership field — see the matching note
   // on Cellar.userId. Deleting a member must never erase shared inventory.
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  // #471: the family. Restrict: a family is only purged once it has no unit.
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   cellarId String?
   cellar   Cellar? @relation(fields: [cellarId], references: [id], onDelete: SetNull)
@@ -185,6 +306,26 @@ model InventoryItem {
   slotColumn Int?
   slotRow    Int?
 
+  // #471: day of purchase, part of a group's identity (groupKey). A date, no
+  // time: exchanged as a YYYY-MM-DD string, never turned into a local Date.
+  purchasedAt   DateTime?       @db.Date
+  // #471 cigars: a group of `quantity` closed boxes of `cigarsPerBox` cigars,
+  // or `quantity` single cigars when null. `cigarsLeft`: cigars left in an
+  // opened box (null = closed and full).
+  cigarsPerBox  Int?
+  cigarsLeft    Int?
+  // #471: the group a sub-record was detached from, so it can be put back.
+  parentItemId  String?
+  parentItem    InventoryItem?  @relation("DetachedFrom", fields: [parentItemId], references: [id], onDelete: SetNull)
+  detachedItems InventoryItem[] @relation("DetachedFrom")
+  // #471: broken, given away or lost — out of stock, still in spending.
+  writtenOffAt  DateTime?
+  // #471: a split guessed by the families transformation, to be confirmed.
+  needsReview   Boolean         @default(false)
+
+  // Transitional mirror (#471): every description column below also lives on
+  // Product, which is the source of truth for them; this copy is kept until
+  // the end of the families work so unmigrated readers keep working.
   // Common fields
   category       BottleCategory
   name           String
@@ -317,6 +458,8 @@ model InventoryItem {
   @@index([name])
   @@index([vintage])
   @@index([producer])
+  @@index([productId])
+  @@index([parentItemId])
   // #173: a partial UNIQUE INDEX on (cellarId, slotColumn, slotRow) WHERE
   // "deletedAt" IS NULL also exists in the database (migration
   // 20261010020000_unique_slot_and_session_constraints) — Prisma's schema
@@ -333,6 +476,10 @@ model AuditLog {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   bottleId  String?
   bottle    InventoryItem?  @relation(fields: [bottleId], references: [id], onDelete: SetNull)
+  // #471: the family the change belongs to (description changes are logged
+  // on the family, unit changes on the unit and its family).
+  productId String?
+  product   Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
   action    String // CREATE, READ, UPDATE, DELETE, RESTORE, LIST
   status    String // success, error, validation_error, not_found
   ip        String
@@ -342,6 +489,7 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([createdAt])
+  @@index([productId])
   @@map("audit_logs")
 }
 
@@ -430,6 +578,7 @@ model Collection {
   userId    String
   user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   items     InventoryItem[] @relation("CollectionItems")
+  products  Product[]       @relation("CollectionProducts")
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
@@ -481,6 +630,13 @@ model TastingNote {
   user        User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   itemId      String?
   item        InventoryItem?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  // #471: the family tasted — tastings are shown on the family. `itemId`
+  // stays the unit tasted, empty for a wine tasted elsewhere.
+  productId   String?
+  product     Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+  // #471: copy of the guest's name when a guest notes the tasting (not a
+  // foreign key: the share may be deleted afterwards).
+  guestName   String?
   tastedAt    DateTime          @default(now())
   context     String?
   rating      Int?
@@ -510,6 +666,7 @@ model TastingNote {
 
   @@index([userId])
   @@index([itemId])
+  @@index([productId])
   @@map("tasting_notes")
 }
 
@@ -835,6 +992,8 @@ model InventoryCountEntry {
   newItemName     String?
   newItemCategory BottleCategory?
   newItemQuantity Int?
+  // #471: units found for a group; null = the whole item (single unit).
+  foundQuantity   Int?
 
   scannedAt DateTime @default(now())
 

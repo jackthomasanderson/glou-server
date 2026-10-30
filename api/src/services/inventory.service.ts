@@ -7,6 +7,7 @@ import { computeAlertStatus, computeReadiness } from './alert.service';
 import { isFinishedItem, NO_SLOT } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
+import { isProductField, pickProductFields, todayAsPurchaseDate } from '../lib/product-fields';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
 // endpoints (uploads/products/*) is ever safe to delete from disk — an
@@ -296,8 +297,36 @@ export class InventoryService {
     if (fieldSources && Object.keys(fieldSources).length > 0) {
       extra.fieldSources = fieldSources;
     }
+
+    // #471: the unit is created with its own family, in the same write. The
+    // description is still written on the unit too (transitional mirror read
+    // by every existing path); the family keeps its own locks and sources.
+    const { cellarId, ...itemData } = dbData;
+    const { category, name, producer } = data;
+    const productSources = pickProductFields(fieldSources ?? {});
+    const product = {
+      userId,
+      ...pickProductFields({ ...dbData, alertStatus }),
+      category,
+      name,
+      producer,
+      lockedFields: (data.lockedFields ?? []).filter(isProductField),
+      ...(Object.keys(productSources).length > 0 ? { fieldSources: productSources } : {}),
+    };
     return client.inventoryItem.create({
-      data: { id: uuidv4(), userId, ...dbData, ...extra, alertStatus } as never,
+      data: {
+        id: uuidv4(),
+        purchasedAt: todayAsPurchaseDate(),
+        ...itemData,
+        ...extra,
+        category,
+        name,
+        producer,
+        alertStatus,
+        user: { connect: { id: userId } },
+        ...(cellarId ? { cellar: { connect: { id: cellarId } } } : {}),
+        product: { create: product },
+      } satisfies Prisma.InventoryItemCreateInput,
     });
   }
 
