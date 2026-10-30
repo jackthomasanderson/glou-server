@@ -1976,7 +1976,8 @@
       "serverVersion": "Server version",
       "keepLocal": "Keep my version",
       "keepServer": "Keep server version",
-      "decideLater": "Decide later"
+      "decideLater": "Decide later",
+      "noDifference": "Your change and the server version hold the same values."
     }
   },
   "scan": {

@@ -26,7 +26,7 @@ vi.mock('./db', () => ({
   }),
 }));
 
-import { flushQueue } from './syncEngine';
+import { flushQueue, cancelSyncRetry, deferConflict, getDeferredConflictIds } from './syncEngine';
 
 function fakeQueryClient() {
   return {
@@ -54,10 +54,35 @@ beforeEach(() => {
   store.clear();
   cachedItems.clear();
   vi.clearAllMocks();
+  cancelSyncRetry();
+  window.sessionStorage.clear();
 });
 afterEach(() => {
+  cancelSyncRetry();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+/** Fake API holding one item's version: refuses a stale `expectedUpdatedAt`
+ * like api/src/services/inventory.service.ts::updateItem, and moves the
+ * version forward on each accepted change. */
+function versionedServer(initial: string) {
+  let version = initial;
+  let counter = 0;
+  const received: Array<Record<string, unknown>> = [];
+  const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+    received.push(body);
+    const id = url.split('/').pop();
+    if (body.expectedUpdatedAt !== version) {
+      return errResponse(409, { data: { id, updatedAt: version } });
+    }
+    counter += 1;
+    version = `v-${counter + 1}`;
+    return okResponse({ id, updatedAt: version, ...body });
+  });
+  return { fetchMock, received, version: () => version };
+}
 
 describe('flushQueue — FIFO replay', () => {
   it('replays independent items in emission order and clears them on success', async () => {
@@ -98,7 +123,7 @@ describe('flushQueue — failure isolation', () => {
     queue({ id: 'b1', itemId: 'B', createdAt: 't3' });
 
     const fetchMock = vi.fn(async (url: string) => {
-      if (url.endsWith('/A')) return errResponse(500, { error: 'BOOM' });
+      if (url.endsWith('/A')) return errResponse(400, { error: 'VALIDATION_ERROR' });
       return okResponse({ id: 'B', updatedAt: 'x' });
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -160,5 +185,136 @@ describe('flushQueue — failure isolation', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(store.has('m1')).toBe(false);
     expect(store.has('m2')).toBe(false);
+  });
+});
+
+describe('flushQueue — several changes to the same item (#585)', () => {
+  it('two successful mutations of the same item sync without a conflict', async () => {
+    // Opened at 50 %, then finished, both offline from version v-1.
+    queue({ id: 'm1', itemId: 'A', createdAt: 't1', patch: { isOpened: true, fillLevel: 50 }, expectedUpdatedAt: 'v-1' });
+    queue({ id: 'm2', itemId: 'A', createdAt: 't2', patch: { fillLevel: 0 }, expectedUpdatedAt: 'v-1' });
+    const server = versionedServer('v-1');
+    vi.stubGlobal('fetch', server.fetchMock);
+
+    await flushQueue(fakeQueryClient());
+
+    expect(store.size).toBe(0);
+    expect(server.received.map((b) => b.expectedUpdatedAt)).toEqual(['v-1', 'v-2']);
+    expect(cachedItems.get('A')).toMatchObject({ fillLevel: 0, updatedAt: 'v-3' });
+  });
+
+  it('keeps two "drink one" on the same item as two separate requests, never merged', async () => {
+    queue({ id: 'd1', itemId: 'G', createdAt: 't1', patch: { drink: 1 }, expectedUpdatedAt: 'v-1' });
+    queue({ id: 'd2', itemId: 'G', createdAt: 't2', patch: { drink: 1 }, expectedUpdatedAt: 'v-1' });
+    const server = versionedServer('v-1');
+    vi.stubGlobal('fetch', server.fetchMock);
+
+    await flushQueue(fakeQueryClient());
+
+    expect(server.fetchMock).toHaveBeenCalledTimes(2);
+    expect(server.received).toEqual([
+      { drink: 1, expectedUpdatedAt: 'v-1' },
+      { drink: 1, expectedUpdatedAt: 'v-2' },
+    ]);
+  });
+
+  it('keeps the new expected version of a later change that has to wait for another attempt', async () => {
+    queue({ id: 'm1', itemId: 'A', createdAt: 't1', patch: { fillLevel: 50 }, expectedUpdatedAt: 'v-1' });
+    queue({ id: 'm2', itemId: 'A', createdAt: 't2', patch: { fillLevel: 0 }, expectedUpdatedAt: 'v-1' });
+    const server = versionedServer('v-1');
+    let calls = 0;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      calls += 1;
+      if (calls === 2) return errResponse(503);
+      return server.fetchMock(url, init);
+    }));
+
+    await flushQueue(fakeQueryClient());
+    expect(store.get('m2')).toMatchObject({ status: 'pending', expectedUpdatedAt: 'v-2' });
+
+    await flushQueue(fakeQueryClient());
+    expect(store.size).toBe(0);
+  });
+
+  it('shows the still-queued changes on top of the server answer', async () => {
+    queue({ id: 'm1', itemId: 'A', createdAt: 't1', patch: { fillLevel: 50 }, expectedUpdatedAt: 'v-1' });
+    queue({ id: 'm2', itemId: 'A', createdAt: 't2', patch: { fillLevel: 0 }, expectedUpdatedAt: 'v-1' });
+    let calls = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      calls += 1;
+      return calls === 1 ? okResponse({ id: 'A', updatedAt: 'v-2', fillLevel: 50 }) : errResponse(503);
+    }));
+
+    await flushQueue(fakeQueryClient());
+
+    expect(cachedItems.get('A')).toMatchObject({ fillLevel: 0, updatedAt: 'v-2' });
+  });
+});
+
+describe('flushQueue — temporary server errors (#585)', () => {
+  it.each([500, 502, 503, 429, 401, 408])('a %i leaves the change pending, without blocking it', async (status) => {
+    queue({ id: 'a1', itemId: 'A', createdAt: 't1' });
+    vi.stubGlobal('fetch', vi.fn(async () => errResponse(status, { error: 'SERVER_UNAVAILABLE' })));
+
+    await flushQueue(fakeQueryClient());
+
+    expect(store.get('a1')?.status).toBe('pending');
+    expect(store.get('a1')?.errorReason).toBeUndefined();
+  });
+
+  it('a network failure leaves the change pending', async () => {
+    queue({ id: 'a1', itemId: 'A', createdAt: 't1' });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+
+    await flushQueue(fakeQueryClient());
+
+    expect(store.get('a1')?.status).toBe('pending');
+  });
+
+  it('stops the replay on a temporary error: the server is unavailable for every item', async () => {
+    queue({ id: 'a1', itemId: 'A', createdAt: 't1' });
+    queue({ id: 'b1', itemId: 'B', createdAt: 't2' });
+    const fetchMock = vi.fn(async () => errResponse(503));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await flushQueue(fakeQueryClient());
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(store.get('b1')?.status).toBe('pending');
+  });
+
+  it('5xx → stays pending, then goes through on the next attempt without user action', async () => {
+    vi.useFakeTimers();
+    queue({ id: 'a1', itemId: 'A', createdAt: 't1' });
+    let serverUp = false;
+    const fetchMock = vi.fn(async () => (serverUp ? okResponse({ id: 'A', updatedAt: 'x' }) : errResponse(500)));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await flushQueue(fakeQueryClient());
+    expect(store.get('a1')?.status).toBe('pending');
+
+    serverUp = true;
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(store.has('a1')).toBe(false);
+  });
+
+  it('a real refusal (400) still marks the change failed, with its reason', async () => {
+    queue({ id: 'a1', itemId: 'A', createdAt: 't1' });
+    vi.stubGlobal('fetch', vi.fn(async () => errResponse(400, { error: 'VALIDATION_ERROR' })));
+
+    await flushQueue(fakeQueryClient());
+
+    expect(store.get('a1')).toMatchObject({ status: 'failed', errorReason: 'VALIDATION_ERROR' });
+  });
+});
+
+describe('"Decide later" on a conflict (#585)', () => {
+  it('is remembered for the browser session, outside any component', () => {
+    deferConflict('c1');
+    deferConflict('c1');
+    deferConflict('c2');
+    expect(getDeferredConflictIds()).toEqual(['c1', 'c2']);
+    expect(JSON.parse(window.sessionStorage.getItem('glou.offline.deferredConflicts') ?? '[]')).toEqual(['c1', 'c2']);
   });
 });
