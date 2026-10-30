@@ -23,14 +23,19 @@ test('food pairing suggests the red and white wines in stock', async ({ page }) 
     await page.goto('/cellar-journal');
     await page.getByRole('tab', { name: 'Accords mets & bouteilles' }).click();
 
+    // The red wine's card; its reason chip names the pairing that matched,
+    // so each search is checked on what it alone displays.
+    const redCard = page.locator('div').filter({ hasText: red }).filter({ hasText: 'Accorde avec' }).last();
+
     // The quick "Viande" suggestion.
     await page.getByRole('button', { name: 'Viande', exact: true }).click();
-    await expect(page.getByText(red)).toBeVisible();
+    await expect(redCard).toContainText('Accorde avec : Viande rouge grillée');
     await expect(page.getByText(white)).toHaveCount(0);
 
     const search = page.getByLabel('Plat ou type de met');
     await search.fill('agneau');
-    await expect(page.getByText(red)).toBeVisible();
+    await expect(redCard).toContainText('Accorde avec : Agneau');
+    await expect(redCard).not.toContainText('Viande rouge grillée');
 
     await search.fill('poisson');
     await expect(page.getByText(white)).toBeVisible();
