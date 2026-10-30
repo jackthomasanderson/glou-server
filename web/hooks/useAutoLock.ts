@@ -59,10 +59,20 @@ function useAutoLockState(): AutoLockState {
     setLocked(true);
   }, [setLocked]);
 
-  /** Verify password or PIN against the server; unlocks on success. Never re-authenticates. */
+  /**
+   * Verify password or PIN against the server; unlocks on success. Never re-authenticates.
+   * Resolves `false` for a wrong password or PIN; rejects on any other failure
+   * (too many attempts, server unreachable) so the lock screen can say which (#582).
+   */
   const unlock = useCallback(
     async (password?: string, pin?: string): Promise<boolean> => {
-      const result = await unlockMutation.mutateAsync({ password, pin });
+      let result: { ok: boolean };
+      try {
+        result = await unlockMutation.mutateAsync({ password, pin });
+      } catch (err) {
+        if (err instanceof Error && err.message === 'INVALID_CREDENTIALS') return false;
+        throw err;
+      }
       if (result.ok) {
         const now = Date.now();
         lastActivityRef.current = now;

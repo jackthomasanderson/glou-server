@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { handleResponse } from '../api';
+import { ApiError, apiErrorFrom, handleResponse } from '../api';
 
 function mockResponse(status: number, body: unknown): Response {
   return {
@@ -36,5 +36,29 @@ describe('handleResponse', () => {
       json: () => Promise.reject(new Error('not json')),
     } as unknown as Response;
     await expect(handleResponse(res)).rejects.toThrow('NETWORK_ERROR');
+  });
+});
+
+// #640: a throttled sign-in or reset must read as "wait", with how long.
+describe('apiErrorFrom', () => {
+  it('keeps the code, the status and the wait of a JSON 429', async () => {
+    const err = await apiErrorFrom(mockResponse(429, { error: 'TOO_MANY_REQUESTS', retryAfter: 840 }));
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toMatchObject({ message: 'TOO_MANY_REQUESTS', status: 429, retryAfter: 840 });
+  });
+
+  it('reads a plain-text 429 as TOO_MANY_REQUESTS, with the Retry-After header', async () => {
+    const res = {
+      ok: false,
+      status: 429,
+      headers: new Headers({ 'Retry-After': '120' }),
+      json: () => Promise.reject(new SyntaxError('Unexpected token T')),
+    } as unknown as Response;
+    expect(await apiErrorFrom(res)).toMatchObject({ message: 'TOO_MANY_REQUESTS', retryAfter: 120 });
+  });
+
+  it('handleResponse throws the same ApiError', async () => {
+    await expect(handleResponse(mockResponse(429, { error: 'TOO_MANY_REQUESTS', retryAfter: 60 })))
+      .rejects.toMatchObject({ message: 'TOO_MANY_REQUESTS', retryAfter: 60 });
   });
 });

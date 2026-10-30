@@ -467,7 +467,9 @@
       "SESSION_REVOKED": "Votre session a été déconnectée à distance. Merci de vous reconnecter.",
       "INVALID_TOTP_CODE": "Code de vérification incorrect.",
       "2FA_TEMPORARILY_LOCKED": "Trop de codes incorrects. La vérification est bloquée pendant 15 minutes.",
-      "TOKEN_INVALID_OR_EXPIRED": "Votre demande de connexion a expiré. Merci de vous identifier à nouveau."
+      "TOKEN_INVALID_OR_EXPIRED": "Votre demande de connexion a expiré. Merci de vous identifier à nouveau.",
+      "TOO_MANY_REQUESTS_one": "Trop de tentatives. Patientez {{count}} minute avant de réessayer.",
+      "TOO_MANY_REQUESTS_other": "Trop de tentatives. Patientez {{count}} minutes avant de réessayer."
     },
     "passwordStrength": {
       "weak": "Faible",
@@ -765,7 +767,7 @@
       "codesConfirmed": "J'ai sauvegardé mes codes",
       "disableTitle": "Désactiver la double authentification",
       "disableHint": "Pour des raisons de sécurité, veuillez renseigner votre mot de passe actuel ainsi qu'un code 2FA valide.",
-      "codeOrBackup": "Code 2FA ou code de secours"
+      "backupCodeLabel": "Code de secours"
     },
     "sessions": {
       "title": "Sessions actives",

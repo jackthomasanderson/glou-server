@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { configClient } from '@/lib/config/client';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { authErrorMessage } from '@/lib/auth/error-message';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { PASSWORD_MIN_LENGTH } from '@shared/auth';
 
 export function ResetPasswordClient() {
@@ -35,14 +37,25 @@ export function ResetPasswordClient() {
     if (!token) setValidating(false);
   }
 
+  // #640: only the server's `valid: false` means the link is dead. A failed
+  // check (offline, server restarting, throttled) offers to try again instead.
+  const [checkFailure, setCheckFailure] = useState<{ error: unknown } | null>(null);
+  const [checkAttempt, setCheckAttempt] = useState(0);
+
   useEffect(() => {
     if (!token) return;
     configClient.validateResetToken(token).then(({ valid }) => {
       setTokenValid(valid);
-    }).catch(() => {
-      setTokenValid(false);
+    }).catch((error: unknown) => {
+      setCheckFailure({ error });
     }).finally(() => setValidating(false));
-  }, [token]);
+  }, [token, checkAttempt]);
+
+  const retryCheck = () => {
+    setCheckFailure(null);
+    setValidating(true);
+    setCheckAttempt((n) => n + 1);
+  };
 
   if (!hasMounted) return null;
 
@@ -56,10 +69,7 @@ export function ResetPasswordClient() {
       await configClient.resetPassword(token, newPassword);
       setDone(true);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'UNEXPECTED_ERROR';
-      const key = `resetPassword.errors.${msg}`;
-      const translated = t(key);
-      setError(translated === key ? t('resetPassword.errors.UNEXPECTED_ERROR') : translated);
+      setError(authErrorMessage(t, err, 'resetPassword.errors'));
     } finally {
       setLoading(false);
     }
@@ -82,7 +92,9 @@ export function ResetPasswordClient() {
             {tokenValid && <p className="text-sm text-foreground-500 mt-1">{t('resetPassword.description')}</p>}
           </div>
 
-          {!tokenValid ? (
+          {checkFailure ? (
+            <ErrorState message={authErrorMessage(t, checkFailure.error, 'resetPassword.errors')} onRetry={retryCheck} />
+          ) : !tokenValid ? (
             <div className="flex flex-col gap-4 text-center">
               <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-4">
                 {t('resetPassword.invalidToken')}

@@ -5,6 +5,7 @@ import { Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useLogout } from '@/hooks/useAuth';
 import { useRestoreFocus } from '@/hooks/useRestoreFocus';
+import { authErrorMessage } from '@/lib/auth/error-message';
 
 interface LockScreenProps {
   unlock: (password?: string, pin?: string) => Promise<boolean>;
@@ -27,13 +28,18 @@ export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
     e.preventDefault();
     if (isUnlocking) return;
     setErrorMsg(null);
-    const ok = mode === 'password'
-      ? await unlock(password, undefined)
-      : await unlock(undefined, pin);
-    if (!ok) {
-      setErrorMsg(t('lock.error'));
-      setPassword('');
-      setPin('');
+    try {
+      const ok = mode === 'password'
+        ? await unlock(password, undefined)
+        : await unlock(undefined, pin);
+      if (!ok) {
+        setErrorMsg(t('lock.error'));
+        setPassword('');
+        setPin('');
+      }
+    } catch (err) {
+      // #582: too many attempts or no server — say which, instead of a spinner that stops.
+      setErrorMsg(authErrorMessage(t, err));
     }
   };
 

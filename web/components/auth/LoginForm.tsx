@@ -10,6 +10,7 @@ import NextLink from 'next/link';
 import { useLogin, useVerify2faLogin } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { configClient } from '@/lib/config/client';
+import { authErrorMessage } from '@/lib/auth/error-message';
 
 const createLoginSchema = (t: (key: string) => string) =>
   z.object({
@@ -57,9 +58,7 @@ export function LoginForm() {
         if (res?.requires2fa) setStep('2fa');
       },
       onError: (error) => {
-        const msgKey = `auth.errors.${error.message}`;
-        const translated = t(msgKey);
-        setApiError(translated === msgKey ? t('auth.errors.UNEXPECTED_ERROR') : translated);
+        setApiError(authErrorMessage(t, error));
       },
     });
   };
@@ -70,9 +69,7 @@ export function LoginForm() {
     setApiError(null);
     verifyMutation.mutate({ code, trustDevice }, {
       onError: (error) => {
-        const msgKey = `auth.errors.${error.message}`;
-        const translated = t(msgKey);
-        setApiError(translated === msgKey ? t('auth.errors.UNEXPECTED_ERROR') : translated);
+        setApiError(authErrorMessage(t, error));
       },
     });
   };

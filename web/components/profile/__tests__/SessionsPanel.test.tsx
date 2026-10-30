@@ -62,7 +62,7 @@ describe('SessionsPanel trust-device dialog (#576)', () => {
   it('asks only for the password when 2FA is off', () => {
     mockTwoFactor = false;
     const { dialog, confirmButton } = openTrustDialog();
-    expect(within(dialog).queryByLabelText('profile.twoFactor.codeOrBackup')).toBeNull();
+    expect(within(dialog).queryByLabelText('profile.twoFactor.codeLabel')).toBeNull();
 
     fireEvent.change(within(dialog).getByLabelText('profile.passwordLabel'), { target: { value: 'secret' } });
     expect(confirmButton().disabled).toBe(false);
@@ -73,7 +73,7 @@ describe('SessionsPanel trust-device dialog (#576)', () => {
   it('also requires and sends the 2FA code when 2FA is on', () => {
     mockTwoFactor = true;
     const { dialog, confirmButton } = openTrustDialog();
-    const code = within(dialog).getByLabelText('profile.twoFactor.codeOrBackup');
+    const code = within(dialog).getByLabelText('profile.twoFactor.codeLabel');
 
     fireEvent.change(within(dialog).getByLabelText('profile.passwordLabel'), { target: { value: 'secret' } });
     expect(confirmButton().disabled).toBe(true);
