@@ -21,6 +21,7 @@ Entries start with the pull request that introduced them where there is one.
 - The automatic bottle photo now follows the name you end up typing. A pause while typing used to attach the photo found for a half-typed name for good. A photo you choose yourself is never replaced (#725, #706).
 - With every section open, the tasting window spilled out of its panel and its Cancel and Save buttons were drawn below it, on the dark backdrop. It now scrolls inside its panel and keeps its buttons in view (#723, #704).
 - On a phone, the last six windows that still opened as a small box now open full-screen like the others: wish price, conversion and deletion, the stock question after a tasting, cellar deletion and the list of changes waiting to be sent (#723, #654).
+- Food pairing now suggests the red and white wines in your cellar: "Viande" or "agneau" used to find nothing, and only rosé and orange wines ever came up. A white wine now gets white-wine serving advice instead of a red's (16–18 °C, aeration, lamb), and a wine without a colour gets none rather than a wrong one (#731, #703).
 
 ## v2026.10.2 - 2026-10-23
 
