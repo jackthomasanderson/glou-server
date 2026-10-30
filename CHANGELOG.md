@@ -35,6 +35,8 @@ Entries start with the pull request that introduced them where there is one.
 - Peak and humidor alerts are no longer lost in night-time quiet hours. They were sent at 3 a.m. and a message that falls in your quiet hours is dropped, not delayed, so a 22:00 → 07:00 range swallowed every one of them. They are now sent at 10:00. Quiet hours, and the times of the daily jobs, are now read in the instance's time zone instead of UTC. It is `Europe/Paris` unless you set another one with `TZ` in `.env`; an existing `docker-compose.yml` also needs the `TZ` line of the new one for that setting to apply. The setting now says what happens to a message during quiet hours (#741, #575).
 - Turning off one notification category no longer turns off all the others. From the default (every category on), unticking one used to leave it as the only one on, peak alerts included. Lists saved that way are left as they are: check your categories in your profile (#741, #583).
 - A deactivated or deleted account no longer receives the household's humidor alerts, nor any other notification (#741, #591).
+- Saving a bottle no longer overwrites what someone else changed while your form was open: it now says the bottle was changed in the meantime and saves nothing, so you can reopen it and start from the latest version. Saving also only touches the fields you changed, so correcting a price no longer removes the scan and import badges of the other fields or marks them as set by hand (#735, #572).
+- A bottle's name can be corrected when editing it. The field was greyed out, so a typo or a misread label could only be fixed by deleting and recreating the bottle (#735, #643).
 
 ## v2026.10.2 - 2026-10-23
 

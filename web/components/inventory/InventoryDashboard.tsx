@@ -6,10 +6,13 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
 import { Plus, Search, Warehouse, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { InventoryItem } from '@/lib/inventory/types';
 import { glouKey, readStorageMigrating, safeWriteStorage } from '@/lib/safe-storage';
 import { isFinishedItem, isOwnedItem } from '@/lib/inventory/ownership';
+import { newestCopy } from '@/lib/inventory/newestCopy';
 import {
+  INVENTORY_KEY,
   useInventory,
   useInventoryTruncated,
   useCreateInventoryItem,
@@ -73,6 +76,7 @@ function getIsMobileServerSnapshot() {
 const NO_CELLAR_BANNER_KEY = glouKey('no-cellar-banner-dismissed');
 
 export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardProps) {
+  const queryClient = useQueryClient();
   const { data: items, isLoading, isError, refetch, isRefetching } = useInventory();
   const isTruncated = useInventoryTruncated();
   const { data: cellars } = useCellars();
@@ -106,6 +110,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     safeWriteStorage(localStorage, NO_CELLAR_BANNER_KEY, '1');
   }, []);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  // #572: the version the open edit form's save must still find on the
+  // server, so a change made meanwhile by someone else is not overwritten.
+  // Moves on with each save that went through: one whose collections then
+  // failed keeps the form open, and its retry must not conflict with itself.
+  const [editingVersion, setEditingVersion] = useState<string | null>(null);
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
   const [undoTarget, setUndoTarget] = useState<InventoryItem | null>(null);
 
@@ -268,7 +277,15 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     async (values: Partial<InventoryItem>, newCollectionIds: string[]) => {
       if (!editingItem) return;
       try {
-        await updateMutation.mutateAsync({ id: editingItem.id, patch: values });
+        // Only the collections changed: no PATCH, which would bump the version for nothing.
+        if (Object.keys(values).length > 0) {
+          const saved = await updateMutation.mutateAsync({
+            id: editingItem.id,
+            patch: values,
+            expectedUpdatedAt: editingVersion ?? editingItem.updatedAt,
+          });
+          setEditingVersion(saved.updatedAt);
+        }
         const oldIds = (editingItem.collections ?? []).map(c => c.id);
         await syncCollections(editingItem.id, newCollectionIds, oldIds);
       } catch {
@@ -279,7 +296,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       setMode('idle');
       setEditingItem(null);
     },
-    [editingItem, updateMutation, syncCollections]
+    [editingItem, editingVersion, updateMutation, syncCollections]
   );
 
   const handleDelete = useCallback(
@@ -295,10 +312,18 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     setUndoTarget(null);
   }, [undoTarget, restoreMutation]);
 
+  // The copy handed over may predate a change made since (e.g. the fill level
+  // set in the detail window): the form must open with the latest one.
   const handleEdit = useCallback((item: InventoryItem) => {
-    setEditingItem(item);
+    const latest = newestCopy(
+      item,
+      queryClient.getQueryData<InventoryItem>(['inventory', item.id]),
+      queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY)?.find((i) => i.id === item.id),
+    );
+    setEditingItem(latest);
+    setEditingVersion(latest.updatedAt);
     setMode('editing');
-  }, []);
+  }, [queryClient]);
 
   const handleView = useCallback((item: InventoryItem) => setViewingItem(item), []);
   const handleCancel = useCallback(() => { setMode('idle'); setEditingItem(null); }, []);

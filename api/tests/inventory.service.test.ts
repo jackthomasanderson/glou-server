@@ -259,6 +259,29 @@ describe('InventoryService', () => {
     expect(updateData.data.isOpened).toBe(true);
   });
 
+  // #572: the edit form now sends only the changed fields. The other fields
+  // must keep their scan/import source and stay unlocked.
+  it('updateItem - a one-field manual edit locks that field only and keeps the other sources', async () => {
+    const existingItem = {
+      id: 'b1',
+      userId: 'u1',
+      lockedFields: ['notes'],
+      fieldSources: { name: 'ocr', vintage: 'ocr', region: 'import_csv' },
+      deletedAt: null,
+      purchasePrice: 20,
+    };
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
+    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, purchasePrice: 25 } as never);
+
+    await service.updateItem('u1', 'b1', { purchasePrice: 25 });
+
+    const updateData = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(updateData.data.purchasePrice).toBe(25);
+    expect(updateData.data.lockedFields).toEqual(['notes', 'purchasePrice']);
+    // Provenance untouched: the column is not even rewritten.
+    expect(updateData.data.fieldSources).toBeUndefined();
+  });
+
   // ─── ISSUE_034: bulk actions must not be neutralised by lockedFields ──────
 
   /**

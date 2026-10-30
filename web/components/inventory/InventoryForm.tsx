@@ -26,7 +26,7 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ParsedNumberInput, ParsedInput } from '@/components/ui/ParsedInput';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
-import { withClearedFields } from '@/lib/forms/clearedFields';
+import { buildEditPatch } from '@/lib/forms/editPatch';
 import { searchClient } from '@/lib/search/client';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
@@ -210,12 +210,11 @@ export function InventoryForm({
     // cellarId 'none' is a UI sentinel → null.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { alertStatus: _drop, readiness: _drop2, lockedFields: _drop3, ...rest } = values;
-    // #726: an emptied field is undefined, which the PATCH would drop.
-    const sent = isEditing ? withClearedFields(initialValues, rest) : rest;
-    const patch = {
-      ...sent,
-      cellarId: sent.cellarId === ('none' as string) || sent.cellarId === '' ? null : sent.cellarId,
-    };
+    // #572: an edit sends only the fields the user changed (emptied ones as null).
+    const sent: Partial<InventoryItem> = isEditing && initialValues ? buildEditPatch(initialValues, rest) : rest;
+    const patch = 'cellarId' in sent
+      ? { ...sent, cellarId: sent.cellarId === ('none' as string) || sent.cellarId === '' ? null : sent.cellarId }
+      : sent;
     onSubmit(patch, selectedCollections.map(c => c.id));
   };
 
@@ -341,7 +340,10 @@ export function InventoryForm({
                           }))
                         }
                         category={values.category ?? 'wine'}
-                        disabled={isEditing}
+                        // #643: the name can be corrected; a suggestion would
+                        // overwrite the producer, vintage and region of the bottle.
+                        suggestions={!isEditing}
+                        autoFocus={!isEditing}
                         isInvalid={submitAttempted && missingName}
                       />
                       <ProducerAutocomplete
