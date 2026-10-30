@@ -36,6 +36,25 @@ const lastActiveWriteCache = new Map<string, number>();
 // correctness issue, just re-arms the throttle.
 const LAST_ACTIVE_CACHE_MAX_ENTRIES = 2000;
 
+/**
+ * `null` when the token is malformed, forged or expired, or is not a session
+ * token: the trusted-device cookie is signed with the same secret but carries
+ * no `userId`.
+ */
+function verifyToken(token: string, secret: string): AuthPayload | null {
+  let payload: unknown;
+  try {
+    payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
+  } catch {
+    return null;
+  }
+  if (typeof payload !== 'object' || payload === null) return null;
+  const { userId, sessionId } = payload as { userId?: unknown; sessionId?: unknown };
+  if (typeof userId !== 'string') return null;
+  if (sessionId !== undefined && typeof sessionId !== 'string') return null;
+  return payload as AuthPayload;
+}
+
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   // Extract token from Authorization header (Bearer) or HttpOnly cookie
   const authHeader = req.headers.authorization;
@@ -55,13 +74,20 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     return;
   }
 
-  try {
-    const payload = jwt.verify(token, secret, { algorithms: ['HS256'] }) as AuthPayload;
-    if (payload.scope === '2fa_pending') {
-      res.status(403).json({ error: '2FA_REQUIRED' });
-      return;
-    }
+  const payload = verifyToken(token, secret);
+  if (!payload) {
+    res.status(401).json({ error: 'TOKEN_INVALID_OR_EXPIRED' });
+    return;
+  }
+  if (payload.scope === '2fa_pending') {
+    res.status(403).json({ error: '2FA_REQUIRED' });
+    return;
+  }
 
+  // #581: only the token check above may answer "invalid or expired". A
+  // database failure below (PostgreSQL restarting) is an outage, not a
+  // sign-out: it goes to the error handler, which answers 503.
+  try {
     // Verify account is still active (immediate effect on deactivation)
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
@@ -101,10 +127,11 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     req.userId = payload.userId;
     req.userEmail = payload.email;
     req.sessionId = payload.sessionId ?? '';
-    next();
-  } catch {
-    res.status(401).json({ error: 'TOKEN_INVALID_OR_EXPIRED' });
+  } catch (err) {
+    next(err);
+    return;
   }
+  next();
 }
 
 /** 

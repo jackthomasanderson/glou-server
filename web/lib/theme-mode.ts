@@ -12,7 +12,7 @@
 // Safari and `matchMedia` is missing from jsdom, and neither must ever break
 // the render.
 
-import { readStorageMigrating, safeRemoveStorage } from './safe-storage';
+import { readStorageMigrating, safeRemoveStorage, safeWriteStorage } from './safe-storage';
 
 export type ThemeMode = 'light' | 'dark';
 
@@ -29,29 +29,19 @@ export function isThemeMode(value: unknown): value is ThemeMode {
 }
 
 export function readStoredTheme(): ThemeMode | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const stored = readStorageMigrating(window.localStorage, THEME_STORAGE_KEY, LEGACY_THEME_STORAGE_KEY);
-    return isThemeMode(stored) ? stored : null;
-  } catch {
-    return null;
-  }
+  const stored = readStorageMigrating('local', THEME_STORAGE_KEY, LEGACY_THEME_STORAGE_KEY);
+  return isThemeMode(stored) ? stored : null;
 }
 
 export function writeStoredTheme(mode: ThemeMode): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(THEME_STORAGE_KEY, mode);
-  } catch {
-    // Storage disabled/full: the in-memory state still drives this session.
-  }
+  // Storage blocked/full: the in-memory state still drives this session.
+  safeWriteStorage('local', THEME_STORAGE_KEY, mode);
 }
 
 /** #513: forget the cached choice so the OS preference drives the mode again. */
 export function clearStoredTheme(): void {
-  if (typeof window === 'undefined') return;
-  safeRemoveStorage(window.localStorage, THEME_STORAGE_KEY);
-  safeRemoveStorage(window.localStorage, LEGACY_THEME_STORAGE_KEY);
+  safeRemoveStorage('local', THEME_STORAGE_KEY);
+  safeRemoveStorage('local', LEGACY_THEME_STORAGE_KEY);
 }
 
 /** `null` when the browser cannot report an OS preference. */

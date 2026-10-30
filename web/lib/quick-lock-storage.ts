@@ -6,32 +6,23 @@ import { safeReadStorage, safeRemoveStorage, safeWriteStorage } from './safe-sto
 export const LOCK_STORAGE_KEY = 'glou:locked';
 export const ACTIVITY_STORAGE_KEY = 'glou:last-activity';
 
-function store(): Storage | null {
-  return typeof window === 'undefined' ? null : window.localStorage;
-}
-
 export function readStoredLock(): boolean {
-  const s = store();
-  return s ? safeReadStorage(s, LOCK_STORAGE_KEY) === 'true' : false;
+  return safeReadStorage('local', LOCK_STORAGE_KEY) === 'true';
 }
 
 export function writeStoredLock(locked: boolean): void {
-  const s = store();
-  if (!s) return;
-  if (locked) safeWriteStorage(s, LOCK_STORAGE_KEY, 'true');
-  else safeRemoveStorage(s, LOCK_STORAGE_KEY);
+  if (locked) safeWriteStorage('local', LOCK_STORAGE_KEY, 'true');
+  else safeRemoveStorage('local', LOCK_STORAGE_KEY);
 }
 
 export function readStoredActivity(): number {
-  const s = store();
-  const raw = s ? safeReadStorage(s, ACTIVITY_STORAGE_KEY) : null;
+  const raw = safeReadStorage('local', ACTIVITY_STORAGE_KEY);
   const parsed = raw ? Number(raw) : NaN;
   return Number.isFinite(parsed) ? parsed : Date.now();
 }
 
 export function writeStoredActivity(at: number): void {
-  const s = store();
-  if (s) safeWriteStorage(s, ACTIVITY_STORAGE_KEY, String(at));
+  safeWriteStorage('local', ACTIVITY_STORAGE_KEY, String(at));
 }
 
 /** A fresh sign-in (or a sign-out) starts unlocked: a lock belongs to a session. */

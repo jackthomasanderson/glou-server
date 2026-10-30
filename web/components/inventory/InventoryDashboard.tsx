@@ -102,12 +102,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const scanAvailable = useScanAvailability();
   // Only rendered once `cellars` has loaded client-side, so reading storage lazily is hydration-safe.
   const [noCellarBannerDismissed, setNoCellarBannerDismissed] = useState(() => {
-    return typeof window !== 'undefined'
-      && readStorageMigrating(localStorage, NO_CELLAR_BANNER_KEY, 'glou.noCellarBannerDismissed') === '1';
+    return readStorageMigrating('local', NO_CELLAR_BANNER_KEY, 'glou.noCellarBannerDismissed') === '1';
   });
   const dismissNoCellarBanner = useCallback(() => {
     setNoCellarBannerDismissed(true);
-    safeWriteStorage(localStorage, NO_CELLAR_BANNER_KEY, '1');
+    safeWriteStorage('local', NO_CELLAR_BANNER_KEY, '1');
   }, []);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   // #572: the version the open edit form's save must still find on the
