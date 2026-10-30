@@ -8,6 +8,7 @@ import { recomputeAlertStatuses } from './services/alert.service';
 import { checkHumidorDrift } from './services/humidor.service';
 import { backupService, BACKUPS_DIR } from './services/backup.service';
 import { findSecretProblems, describeSecretProblem } from './lib/startup-secrets';
+import { DAILY_ALERTS_CRON, DAILY_ALERTS_HOUR, isDailyAlertsSlotPassed } from './lib/alerts-schedule';
 
 // ─── Startup secret guard ────────────────────────────────────────────────────
 // Security hardening: `.env.example` ships two placeholder secrets
@@ -82,15 +83,24 @@ async function bootstrap(): Promise<void> {
   // year, so it goes stale on its own every 1st of January. Realign it on
   // startup and once a day, otherwise the consumers reading it straight from
   // SQL (analytics, guest shares) keep reporting a frozen picture.
-  void runAlertStatusRecompute('startup');
+  // #575: the recompute sends the peak alerts, so a startup before today's
+  // alert run leaves it to that run instead of sending them at night.
+  if (isDailyAlertsSlotPassed(new Date())) void runAlertStatusRecompute('startup');
+  else console.info(`[startup] Alert status recompute left to the ${DAILY_ALERTS_HOUR}:00 run`);
 
-  // Scheduled daily at 3:00 AM server time — chosen as a low-traffic window
-  // for a self-hosted home-lab instance, well outside typical usage hours.
+  // Cron hours are the instance's local time (`TZ`, see docker-compose.yml).
+  // Daily maintenance at 3:00 AM — a low-traffic window for a self-hosted
+  // home-lab instance.
   cron.schedule('0 3 * * *', () => {
     void MaintenanceService.runRetentionCleanup('scheduled').then((run) => {
       if (run.success) console.info('[cron] Retention cleanup completed:', run.counts);
       else console.error('[cron] Retention cleanup failed:', run.error);
     });
+  });
+
+  // #575: the jobs that notify members run in the daytime — at 3 AM, any
+  // night-time quiet hours dropped their alerts for good.
+  cron.schedule(DAILY_ALERTS_CRON, () => {
     void runAlertStatusRecompute('cron');
 
     // ISSUE_027: a humidor reading only ever gets recorded by a human typing

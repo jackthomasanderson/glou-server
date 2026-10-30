@@ -106,7 +106,7 @@ describe('backupService.runBackup failure handling (#234)', () => {
     findFirst.mockResolvedValue({ success: true, runAt: at(24) });
     const out = await backupService.runBackup('scheduled');
     expect(out.success).toBe(false);
-    expect(userFindMany).toHaveBeenCalledWith({ where: { isAdmin: true }, select: { id: true, language: true, notifLanguage: true } });
+    expect(userFindMany).toHaveBeenCalledWith({ where: { isAdmin: true, isActive: true }, select: { id: true, language: true, notifLanguage: true } });
     expect(send).toHaveBeenCalledTimes(2);
     const [fr, en] = send.mock.calls.map((c) => c[0] as { userId: string; category: string; subject: string; bypassQuietHours: boolean });
     expect(fr).toMatchObject({ userId: 'a1', category: 'backup', bypassQuietHours: true });

@@ -29,7 +29,7 @@ Set how long Glou keeps audit logs, expired sessions and unused guest shares/inv
 - **Duration** in milliseconds and what was purged (logs / sessions / guest shares).
 
 > [!TIP]
-> The automatic job runs every day at 03:00 server time (`node-cron`) and also once whenever the server process starts, so a redeploy or container restart does not leave stale data for up to 24h.
+> The automatic job runs every day at 03:00 in the instance's time zone (`TZ`, see [Configuration](./02-Configuration.md)) and also once whenever the server process starts, so a redeploy or container restart does not leave stale data for up to 24h.
 
 > [!CAUTION]
 > This tab only removes data that is **already expired or revoked** (old logs, dead sessions, dead invitations). It is unrelated to the "Purge all data" action in the danger zone, which wipes all business data (cellars, bottles, tastings) after typing a confirmation keyword.

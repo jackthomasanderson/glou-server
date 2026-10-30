@@ -1500,7 +1500,8 @@
     },
     "categories": {
       "title": "Alert categories",
-      "all": "All categories",
+      "hint": "Tap a category to stop receiving it.",
+      "lastOne": "At least one category stays on. To receive nothing at all, turn off the channels above.",
       "peak": "Peak maturity reached",
       "temperature": "Temperature/humidity variations",
       "security": "Account security",
@@ -1510,6 +1511,7 @@
     "quietHours": {
       "title": "Quiet hours",
       "description": "No notifications during this time range",
+      "dropped": "A message that falls in this range is dropped, not delayed. Hours are those of the server's time zone. Peak and humidor alerts are sent at {{hour}}:00; alerts about your account's security and backup failures always get through.",
       "from": "From",
       "to": "To",
       "disabled": "Disabled",

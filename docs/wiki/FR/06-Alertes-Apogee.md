@@ -51,7 +51,7 @@ Dans la cloche de notifications, cliquez sur l'icône cloche à droite de la lig
 
 ### 5. Notifications
 
-Les statuts sont recalculés une fois par jour. Quand des bouteilles entrent dans leur fenêtre d'apogée, chaque membre reçoit **une seule** notification pour la journée (email, Gotify, selon ses préférences) : le nom de la bouteille s'il n'y en a qu'une, sinon un récapitulatif des dix premières avec un lien vers les alertes. Les statuts changeant par année civile, la plupart des bouteilles entrent dans leur fenêtre le 1er janvier.
+Les statuts sont recalculés une fois par jour, à 10 h dans le fuseau horaire de l'instance (`TZ`, voir [Configuration](./02-Configuration.md)), pour qu'une plage silencieuse nocturne n'avale pas la notification. Quand des bouteilles entrent dans leur fenêtre d'apogée, chaque membre reçoit **une seule** notification pour la journée (email, Gotify, selon ses préférences) : le nom de la bouteille s'il n'y en a qu'une, sinon un récapitulatif des dix premières avec un lien vers les alertes. Les statuts changeant par année civile, la plupart des bouteilles entrent dans leur fenêtre le 1er janvier.
 
 Aucune notification n'est envoyée pour une bouteille ajoutée, ou dont la fenêtre est modifiée, alors qu'elle est déjà dans sa fenêtre : elle apparaît directement **À l'apogée** dans la liste et dans la cloche.
 

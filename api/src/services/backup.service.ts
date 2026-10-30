@@ -48,7 +48,7 @@ const OVERDUE_AFTER_MS = 25 * 60 * 60 * 1000;
  */
 async function notifyAdminsOfBackupFailure(error: string): Promise<void> {
   try {
-    const admins = await prisma.user.findMany({ where: { isAdmin: true }, select: { id: true, language: true, notifLanguage: true } });
+    const admins = await prisma.user.findMany({ where: { isAdmin: true, isActive: true }, select: { id: true, language: true, notifLanguage: true } });
     await Promise.all(admins.map((admin) => {
       const en = isNotifEn(admin);
       const subject = en ? 'Glou — database backup failed' : 'Glou — échec de la sauvegarde de la base';

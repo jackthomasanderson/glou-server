@@ -183,3 +183,50 @@ describe('checkHumidorDrift (ISSUE_027)', () => {
     expect(notificationService.send).not.toHaveBeenCalled();
   });
 });
+
+describe('humidor alerts skip deactivated members (#591)', () => {
+  const EIGHT_DAYS_AGO = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+  // The household as the database holds it: one active member, one an admin
+  // deactivated, one anonymised after an account deletion.
+  const members = [
+    { id: 'active', language: 'FR', notifLanguage: null, isActive: true },
+    { id: 'deactivated', language: 'FR', notifLanguage: null, isActive: false },
+    { id: 'anonymised', language: 'EN', notifLanguage: null, isActive: false },
+  ];
+  // Answers like Prisma would: the `isActive` filter, when asked for, applies.
+  const userTable = (args?: { where?: { isActive?: boolean } }) => Promise.resolve(
+    members
+      .filter((m) => args?.where?.isActive === undefined || m.isActive === args.where.isActive)
+      .map(({ id, language, notifLanguage }) => ({ id, language, notifLanguage })),
+  );
+
+  it('the daily stale-reading check notifies active members only', async () => {
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([
+      { id: 'c1', name: 'Living-room humidor', createdAt: EIGHT_DAYS_AGO, targetHumidityMin: 62, targetHumidityMax: 72 },
+    ] as never);
+    vi.mocked(prisma.humidorReading.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.user.findMany).mockImplementation(userTable as never);
+
+    const res = await checkHumidorDrift();
+
+    expect(res).toEqual({ scanned: 1, alerted: 1 });
+    expect(notificationService.send).toHaveBeenCalledTimes(1);
+    expect(notificationService.send).toHaveBeenCalledWith(expect.objectContaining({ userId: 'active' }));
+    expect(notificationService.send).not.toHaveBeenCalledWith(expect.objectContaining({ userId: 'deactivated' }));
+    expect(notificationService.send).not.toHaveBeenCalledWith(expect.objectContaining({ userId: 'anonymised' }));
+  });
+
+  it('an out-of-range reading notifies active members only', async () => {
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue({
+      id: 'c1', name: 'Living-room humidor', targetHumidityMin: 62, targetHumidityMax: 72,
+    } as never);
+    vi.mocked(prisma.humidorReading.create).mockResolvedValue({ humidityPercent: 80 } as never);
+    vi.mocked(prisma.user.findMany).mockImplementation(userTable as never);
+
+    await humidorService.recordReading('active', { cellarId: 'c1', humidityPercent: 80, source: 'manual' });
+    await new Promise((r) => setImmediate(r));
+
+    expect(notificationService.send).toHaveBeenCalledTimes(1);
+    expect(notificationService.send).toHaveBeenCalledWith(expect.objectContaining({ userId: 'active' }));
+  });
+});

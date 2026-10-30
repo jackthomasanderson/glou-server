@@ -1502,7 +1502,8 @@
     },
     "categories": {
       "title": "Catégories d'alertes",
-      "all": "Toutes les catégories",
+      "hint": "Touchez une catégorie pour ne plus la recevoir.",
+      "lastOne": "Au moins une catégorie reste active. Pour ne plus rien recevoir, désactivez les canaux ci-dessus.",
       "peak": "Apogée atteinte",
       "temperature": "Variations température/hygrométrie",
       "security": "Sécurité du compte",
@@ -1512,6 +1513,7 @@
     "quietHours": {
       "title": "Plage silencieuse",
       "description": "Aucune notification pendant cette plage horaire",
+      "dropped": "Un message qui tombe dans cette plage est supprimé, pas différé. Les heures sont celles du fuseau horaire du serveur. Les alertes d'apogée et d'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte et les échecs de sauvegarde passent toujours.",
       "from": "De",
       "to": "À",
       "disabled": "Désactivée",
