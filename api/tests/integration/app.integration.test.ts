@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 
@@ -18,6 +18,7 @@ vi.mock('../../src/lib/prisma', () => ({
 
 import { prisma } from '../../src/lib/prisma';
 import { createApp } from '../../src/app';
+import { backupService } from '../../src/services/backup.service';
 import pkg from '../../package.json';
 
 const JWT_SECRET = 'integration-test-secret';
@@ -313,5 +314,24 @@ describe('GET /api/admin/audit-logs filters', () => {
       .get('/api/admin/audit-logs?status=bogus')
       .set('Authorization', `Bearer ${authToken()}`);
     expect(res.status).toBe(400);
+  });
+});
+
+// #669: the route answered `{ directoryWritable }` without the `data` envelope
+// every web call unwraps, so the "backups folder not writable" banner never showed.
+describe('GET /api/admin/backups/health', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true, isAdmin: true } as never);
+  });
+  let writableSpy: ReturnType<typeof vi.spyOn> | undefined;
+  afterEach(() => {
+    writableSpy?.mockRestore();
+  });
+
+  it.each([false, true])('answers { data: { directoryWritable: %s } }', async (writable) => {
+    writableSpy = vi.spyOn(backupService, 'isBackupsDirWritable').mockReturnValue(writable);
+    const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { directoryWritable: writable } });
   });
 });

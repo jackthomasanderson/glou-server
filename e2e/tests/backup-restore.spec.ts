@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { gunzipSync } from 'node:zlib';
 import { creds } from './_helpers';
+
+/** Read by e2e/check-documented-restore.sh, which CI runs after this suite (#665). */
+const DOWNLOADED_BACKUP = './.backup-download/glou-backup.sql.gz';
 
 // ISSUE_020 ("no restore has ever been proven"): a real backup/restore
 // round-trip against the actual running stack, not a mock. The E2E user is
@@ -18,6 +24,19 @@ test('a manual backup can actually restore the database it was taken from', asyn
   const run = (await backupRes.json())?.data;
   expect(run?.id).toBeTruthy();
   expect(run?.success).toBe(true);
+
+  // #665: the file an admin downloads must restore on the shipped PostgreSQL 15
+  // with the wiki's plain `gunzip | psql`: no `SET transaction_timeout` line.
+  const download = await page.request.post(`/api/admin/backups/${run.id}/download`, {
+    data: { password: creds().password },
+  });
+  expect(download.ok()).toBe(true);
+  const dump = await download.body();
+  const sql = gunzipSync(dump).toString('utf8'); // throws on a truncated file
+  expect(sql).toContain('CREATE TABLE public."User"');
+  expect(sql.match(/^SET transaction_timeout/gm)).toBeNull();
+  mkdirSync(dirname(DOWNLOADED_BACKUP), { recursive: true });
+  writeFileSync(DOWNLOADED_BACKUP, dump);
 
   // Create something that exists only AFTER the backup was taken.
   const marker = `E2E Restore Marker ${Date.now()}`;

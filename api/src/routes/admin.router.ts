@@ -618,7 +618,7 @@ adminRouter.get('/backups/runs', async (req: Request, res: Response): Promise<vo
  * @access  Admin
  */
 adminRouter.get('/backups/health', (_req: Request, res: Response): void => {
-  res.json({ directoryWritable: backupService.isBackupsDirWritable() });
+  res.json({ data: { directoryWritable: backupService.isBackupsDirWritable() } });
 });
 
 /**

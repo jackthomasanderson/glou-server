@@ -9,14 +9,16 @@ Pour tout reconstruire il faut trois choses : la **sauvegarde de la base** (`.sq
 |---|---|---|
 | Comptes, inventaire, caves, dégustations, réglages | PostgreSQL (volume `db_data`) | Oui |
 | Photos (bouteilles, avatars, photos de scan) | volume `api_uploads` (`/app/uploads`) | **Non** |
-| Les fichiers de sauvegarde eux-mêmes | volume `api_backups` (`/app/backups`) | sans objet |
+| Les fichiers de sauvegarde eux-mêmes | dossier `./backups`, à côté de `docker-compose.yml` (`/app/backups` dans le conteneur de l'API) | sans objet |
 | Secrets (`JWT_SECRET`, `CONFIG_ENCRYPTION_KEY`) | votre `.env` | **Non** |
 
 Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf si vous les avez copiés ailleurs.
 
 ## Prérequis (à faire *avant* d'en avoir besoin)
 1. Sauvegardes activées : Admin → Configuration système → Sauvegardes → **Activé**.
-2. Copiez régulièrement hors de la machine : le fichier le plus récent du volume `api_backups` (ou **Télécharger** depuis l'historique), votre `.env`, et le volume `api_uploads`.
+2. Copiez régulièrement hors de la machine : le fichier le plus récent du dossier `./backups` (ou **Télécharger** depuis l'historique), votre `.env`, et le volume `api_uploads`.
+   > [!NOTE]
+   > S'il existe encore un ancien volume `api_backups`, il ne contient que des sauvegardes antérieures à la mise à jour 2026.10 ; vérifiez la date avant d'en restaurer une.
 3. Sachez où sont rangés votre `docker-compose.yml` et votre `.env`.
 
 ## Reconstruire sur une nouvelle machine
@@ -31,10 +33,10 @@ Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf 
 
    Puis restaurez-le :
    ```bash
-   (printf 'DROP SCHEMA IF EXISTS public CASCADE;\nCREATE SCHEMA public;\n'; gunzip -c glou-backup-XXXX.sql.gz) \
+   (printf 'DROP SCHEMA IF EXISTS public CASCADE;\nCREATE SCHEMA public;\n'; gunzip -c glou-backup-XXXX.sql.gz | sed '/^SET transaction_timeout/d') \
      | docker compose exec -T db psql -U glou -d glou_db -v ON_ERROR_STOP=1 --single-transaction
    ```
-   Une erreur SQL dans le fichier annule toute la restauration ; un fichier tronqué, c'est le rôle de la vérification `gunzip -t` ci-dessus.
+   Une erreur SQL dans le fichier annule toute la restauration ; un fichier tronqué, c'est le rôle de la vérification `gunzip -t` ci-dessus. La partie `sed` retire un réglage que contiennent les anciennes sauvegardes et que PostgreSQL 15 refuse ; elle ne change rien aux sauvegardes plus récentes. Si vous avez changé `DB_USER` ou `DB_NAME` dans votre `.env`, utilisez ces valeurs à la place de `glou` et `glou_db`.
 4. Redémarrez l'API pour qu'elle applique les mises à jour de base postérieures à la sauvegarde : `docker compose restart api`.
 5. Restaurez les photos dans le volume `api_uploads`, par exemple :
    ```bash
@@ -56,5 +58,7 @@ Remplacez `<projet>` par le préfixe affiché par `docker volume ls` (en génér
 |---|---|
 | `gunzip -t` signale `unexpected end of file` ou `not in gzip format` | Le fichier est incomplet : recopiez-le, ou utilisez une sauvegarde plus ancienne. Ne le restaurez pas. |
 | La restauration s'arrête avec des erreurs `already exists` | Le schéma n'a pas été réinitialisé : gardez la première ligne `printf` de la commande. |
+| La restauration s'arrête avec `unrecognized configuration parameter "transaction_timeout"` | La partie `sed '/^SET transaction_timeout/d'` de la commande manque : recopiez la commande en entier. |
+| La restauration s'arrête avec `invalid command \restrict` | L'image de la base sur cette machine est antérieure à PostgreSQL 15.14 : mettez-la à jour avec `docker compose pull db && docker compose up -d db`, puis relancez la commande. |
 | Tout est revenu mais les emails/Gotify échouent | `CONFIG_ENCRYPTION_KEY` diffère de celle de la sauvegarde. Utilisez le `.env` d'origine, ou ressaisissez les réglages comme décrit dans [Changer les secrets](./29-Rotation-Des-Secrets.md). |
 | Les photos des bouteilles manquent | Le volume des photos n'a pas été restauré (il ne fait pas partie de la sauvegarde de la base). |

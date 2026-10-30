@@ -60,7 +60,8 @@ export function SystemConfigSection() {
   const [backup, setBackup] = useState({ backupEnabled: false, backupRetentionDays: '7', backupHourUtc: '3' });
   const [backupRuns, setBackupRuns] = useState<BackupRunEntry[]>([]);
   const [backupRunsLoading, setBackupRunsLoading] = useState(true);
-  const [backupDirWritable, setBackupDirWritable] = useState<boolean | null>(null);
+  // null while unknown; 'unchecked' when the check itself failed (#669).
+  const [backupDirWritable, setBackupDirWritable] = useState<boolean | 'unchecked' | null>(null);
   const [runningBackup, setRunningBackup] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<BackupRunEntry | null>(null);
   const [restoreConfirmText, setRestoreConfirmText] = useState('');
@@ -113,7 +114,7 @@ export function SystemConfigSection() {
     configClient.getHistory().then(setHistory).catch(() => {});
     configClient.getMaintenanceRuns().then(setRuns).catch(() => {}).finally(() => setRunsLoading(false));
     configClient.getBackupRuns().then(setBackupRuns).catch(() => {}).finally(() => setBackupRunsLoading(false));
-    configClient.getBackupHealth().then(({ directoryWritable }) => setBackupDirWritable(directoryWritable)).catch(() => {});
+    configClient.getBackupHealth().then(({ directoryWritable }) => setBackupDirWritable(directoryWritable)).catch(() => setBackupDirWritable('unchecked'));
     configClient.getVersion().then(({ version }) => setVersion(version)).catch(() => {});
   }, []);
 
@@ -650,6 +651,12 @@ export function SystemConfigSection() {
               <div role="alert" className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm border bg-danger-50 border-danger-200 text-danger-700">
                 <AlertTriangle size={16} className="shrink-0 mt-0.5" />
                 <span>{t('adminConfig.backup.dirNotWritable')}</span>
+              </div>
+            )}
+            {backupDirWritable === 'unchecked' && (
+              <div role="alert" className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm border bg-warning-50 border-warning-200 text-warning-700">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                <span>{t('adminConfig.backup.dirCheckFailed')}</span>
               </div>
             )}
 

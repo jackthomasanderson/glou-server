@@ -1653,6 +1653,7 @@
         "body": "The file contains the whole database, including every account's password hash and two-factor secret. Confirm with your password.",
         "error": "Download failed."
       },
+      "dirCheckFailed": "Glou could not check whether it can write to the backups folder. Reload the page; if this message stays, check the API logs (docker compose logs api).",
       "dirNotWritable": "The backups folder is not writable by Glou: every backup will fail. On the server, next to docker-compose.yml, run: mkdir -p backups && sudo chown 1001:1001 backups, then restart the stack.",
       "enabled": "Enable automatic backups",
       "retentionDays": "Backup retention (days)",

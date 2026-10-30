@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
 import { Transform } from 'stream';
+import { pipeline } from 'stream/promises';
 import { prisma } from '../lib/prisma';
 import { BackupRun } from '@prisma/client';
 import { auditLog } from './audit.service';
@@ -22,8 +23,10 @@ import { escapeHtml } from '../lib/html';
 // and reopen the exact shell-injection surface this service must avoid).
 // `child_process.spawn` (no shell) gives streaming stdout, which is piped
 // in-process through `zlib.createGzip()` — this keeps the requested
-// `.sql.gz` naming/format (plain SQL, gzip-compressed, restorable with a
-// plain `gunzip | psql`) while never invoking a shell.
+// `.sql.gz` naming/format (plain SQL, gzip-compressed) while never invoking
+// a shell. The dump is filtered on the way (see
+// filterUnsupportedSetStatements) so the file restores with the plain
+// `gunzip | psql` of the disaster-recovery guide (wiki page 30).
 export const BACKUPS_DIR = path.resolve(process.cwd(), 'backups');
 
 const FILENAME_PREFIX = 'glou-backup-';
@@ -109,62 +112,75 @@ function resolveInsideBackupsDir(filePath: string): string {
 /**
  * Runs `pg_dump` via `spawn` (array argv, no shell — no string interpolation
  * of user/DB-supplied values is ever built into a command string) and pipes
- * its stdout through `zlib.createGzip()` straight into `destPath`. The
- * password is passed via the `PGPASSWORD` env var of the child process only,
- * never as a CLI argument (which would leak into `ps`/process listings).
+ * its stdout through the SET filter and `zlib.createGzip()` straight into
+ * `destPath`. The password is passed via the `PGPASSWORD` env var of the
+ * child process only, never as a CLI argument (which would leak into
+ * `ps`/process listings).
+ *
+ * Resolves only once BOTH pg_dump has exited with code 0 AND the file has
+ * been completely written, flushed to disk and closed (#670): a write error
+ * at the very end (full disk) must fail the backup, not surface after it was
+ * recorded as successful.
  */
 async function execPgDump(conn: DbConnParams, destPath: string): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const args = [
-      '--host', conn.host,
-      '--port', conn.port,
-      '--username', conn.user,
-      '--no-password',
-      '--format', 'plain',
-      '--dbname', conn.database,
-    ];
-    const child = spawn('pg_dump', args, {
-      env: { ...process.env, PGPASSWORD: conn.password },
-      stdio: ['ignore', 'pipe', 'pipe'],
+  const args = [
+    '--host', conn.host,
+    '--port', conn.port,
+    '--username', conn.user,
+    '--no-password',
+    '--format', 'plain',
+    '--dbname', conn.database,
+  ];
+  const child = spawn('pg_dump', args, {
+    env: { ...process.env, PGPASSWORD: conn.password },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let stderr = '';
+  child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+
+  let spawnFailed = false;
+  const exited = new Promise<void>((resolve, reject) => {
+    child.on('error', (err) => {
+      spawnFailed = true;
+      reject(new Error(`PG_DUMP_SPAWN_FAILED: ${err.message}`));
     });
+    child.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`PG_DUMP_FAILED (exit ${code}): ${stderr.trim() || 'unknown error'}`));
+    });
+  });
 
-    let stderr = '';
-    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+  const written = pipeline(
+    child.stdout,
+    filterUnsupportedSetStatements(),
+    zlib.createGzip(),
+    // `flush`: fsync before closing, so a late disk error fails the pipeline.
+    fs.createWriteStream(destPath, { flush: true }),
+  ).catch((err: Error) => {
+    // Nothing reads pg_dump's output any more: stop it rather than let it hang.
+    child.kill('SIGKILL');
+    throw new Error(`WRITE_FAILED: ${err.message}`);
+  });
 
-    const gzip = zlib.createGzip();
-    const out = fs.createWriteStream(destPath);
-
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
       child.kill('SIGKILL');
       reject(new Error(`PG_DUMP_TIMED_OUT after ${CHILD_PROCESS_TIMEOUT_MS / 1000}s`));
     }, CHILD_PROCESS_TIMEOUT_MS);
-    const fail = (err: Error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      reject(err);
-    };
-
-    child.on('error', (err) => fail(new Error(`PG_DUMP_SPAWN_FAILED: ${err.message}`)));
-    gzip.on('error', (err) => fail(new Error(`GZIP_FAILED: ${err.message}`)));
-    out.on('error', (err) => fail(new Error(`WRITE_FAILED: ${err.message}`)));
-
-    child.stdout.pipe(gzip).pipe(out);
-
-    child.on('close', (code) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`PG_DUMP_FAILED (exit ${code}): ${stderr.trim() || 'unknown error'}`));
-      }
-    });
   });
+
+  try {
+    const [dump, write] = await Promise.race([Promise.allSettled([exited, written]), timedOut]);
+    // pg_dump could not even start: that is the cause, whatever the file says.
+    if (dump.status === 'rejected' && spawnFailed) throw dump.reason;
+    // A write failure kills pg_dump, so its own exit error is only a consequence.
+    if (write.status === 'rejected') throw write.reason;
+    if (dump.status === 'rejected') throw dump.reason;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -189,21 +205,51 @@ const CHILD_PROCESS_TIMEOUT_MS = 30 * 60 * 1000;
 // rolling back the whole single-transaction restore. Filtering such a line
 // out is safe — it's a session-scoped setting for the dump/restore session,
 // never data or schema — so a dump stays restorable across the server
-// versions this image's pg_dump may legitimately run ahead of.
+// versions this image's pg_dump may legitimately run ahead of. Applied when
+// the dump is written (#665), so every new file restores with a plain
+// `gunzip | psql`, and again at restore time for files written before that.
 const UNSUPPORTED_RESTORE_SET_STATEMENTS = /^SET transaction_timeout\b/i;
 
+/** Lines of the session preamble pg_dump writes before the first object. */
+const DUMP_PREAMBLE_LINE = /^(--|SET |SELECT |\\|$)/;
+
+/**
+ * Drops the unsupported `SET` lines from the dump's preamble only: once the
+ * first object definition starts, chunks pass through untouched, so table
+ * data can never be altered. Decoded as latin1, which maps every byte to one
+ * character and back, so a multi-byte UTF-8 character split across two
+ * chunks survives intact.
+ */
 function filterUnsupportedSetStatements(): Transform {
   let carry = '';
+  let inPreamble = true;
   return new Transform({
     transform(chunk: Buffer, _enc, callback) {
-      carry += chunk.toString('utf8');
+      if (!inPreamble) {
+        callback(null, chunk);
+        return;
+      }
+      carry += chunk.toString('latin1');
       const lines = carry.split('\n');
       carry = lines.pop() ?? '';
-      const kept = lines.filter((line) => !UNSUPPORTED_RESTORE_SET_STATEMENTS.test(line));
-      callback(null, kept.length ? kept.join('\n') + '\n' : '');
+      const kept: string[] = [];
+      for (const line of lines) {
+        if (inPreamble && !DUMP_PREAMBLE_LINE.test(line)) inPreamble = false;
+        if (inPreamble && UNSUPPORTED_RESTORE_SET_STATEMENTS.test(line)) continue;
+        kept.push(line);
+      }
+      let out = kept.length ? kept.join('\n') + '\n' : '';
+      if (!inPreamble) {
+        out += carry;
+        carry = '';
+      }
+      callback(null, Buffer.from(out, 'latin1'));
     },
     flush(callback) {
-      callback(null, UNSUPPORTED_RESTORE_SET_STATEMENTS.test(carry) ? '' : carry);
+      if (carry && !(inPreamble && UNSUPPORTED_RESTORE_SET_STATEMENTS.test(carry))) {
+        this.push(Buffer.from(carry, 'latin1'));
+      }
+      callback();
     },
   });
 }
