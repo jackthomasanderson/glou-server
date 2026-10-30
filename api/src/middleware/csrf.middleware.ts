@@ -56,7 +56,11 @@ function allowedOrigins(): Set<string> {
   return new Set(raw);
 }
 
-/** True when `origin`'s host[:port] is the host this request was addressed to. */
+/**
+ * True when `origin`'s host[:port] is the host this request was addressed to.
+ * The scheme is deliberately ignored: behind a TLS-terminating proxy the page
+ * is https while the request reaching us is plain http.
+ */
 function isSameHost(origin: string, req: Request): boolean {
   let originHost: string;
   try {

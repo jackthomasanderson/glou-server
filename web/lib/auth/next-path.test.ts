@@ -95,6 +95,13 @@ describe('post-login destination never leaves the site (#602)', () => {
     }
   });
 
+  it('keeps a backslash typed in the query string or the anchor', () => {
+    expect(safeNextPath('/bottles?q=a\\b')).toBe('/bottles?q=a\\b');
+    expect(safeNextPath('/bottles#a\\b')).toBe('/bottles#a\\b');
+    expect(loginPathFor('/bottles?q=a\\b')).toBe(`/login?next=${encodeURIComponent('/bottles?q=a\\b')}`);
+    expect(safeNextPath('/\\evil.example?q=1')).toBeNull();
+  });
+
   it('still restores a bottle page with its query string and hash', () => {
     const page = '/bottles/42?scan=abc&tab=notes#tasting';
     const login = loginPathFor(page);

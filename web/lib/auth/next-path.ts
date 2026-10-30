@@ -36,9 +36,11 @@ function sameOriginPath(value: string): URL | null {
 
 export function safeNextPath(raw: string | null | undefined): string | null {
   if (!raw || !raw.startsWith('/')) return null;
-  // Paths we build ourselves are percent-encoded: a raw control character or
-  // backslash only comes from a crafted link.
-  if (hasControlChar(raw) || raw.includes('\\')) return null;
+  // Before `?`/`#`, where the host could be smuggled in, a raw control
+  // character or backslash only comes from a crafted link. After them,
+  // browsers keep `\` as typed in `location.search` and `location.hash`.
+  const pathPart = raw.split(/[?#]/, 1)[0];
+  if (hasControlChar(pathPart) || pathPart.includes('\\')) return null;
   const url = sameOriginPath(raw);
   if (!url) return null;
   const path = url.pathname + url.search + url.hash;
