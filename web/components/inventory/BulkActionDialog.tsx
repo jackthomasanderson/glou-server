@@ -20,6 +20,25 @@ interface BulkActionDialogProps {
   t: (key: string, options?: Record<string, unknown>) => string;
 }
 
+const NO_FIELDS_ENABLED = {
+  cellarId: false,
+  tags: false,
+  isOpened: false,
+  fillLevel: false,
+};
+
+const DEFAULT_VALUES: Partial<InventoryItem> = {
+  cellarId: null,
+  tags: [],
+  isOpened: false,
+  fillLevel: 100,
+};
+
+/** A bottle's tags as a sorted list; a missing list counts as empty. */
+function sortedTags(tags: unknown): string[] {
+  return Array.isArray(tags) ? [...tags].sort() : [];
+}
+
 export function BulkActionDialog({
   open,
   onClose,
@@ -33,23 +52,26 @@ export function BulkActionDialog({
   const createPresetMutation = useCreateBulkPreset();
   const deletePresetMutation = useDeleteBulkPreset();
 
-  const [enabledFields, setEnabledFields] = useState({
-    cellarId: false,
-    tags: false,
-    isOpened: false,
-    fillLevel: false,
-  });
-
-  const [values, setValues] = useState<Partial<InventoryItem>>({
-    cellarId: null,
-    tags: [],
-    isOpened: false,
-    fillLevel: 100,
-  });
+  const [enabledFields, setEnabledFields] = useState(NO_FIELDS_ENABLED);
+  const [values, setValues] = useState<Partial<InventoryItem>>(DEFAULT_VALUES);
 
   const [presetName, setPresetName] = useState('');
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [deletingPresetId, setDeletingPresetId] = useState<string | null>(null);
+
+  // The dialog stays mounted while closed: every opening starts blank, so a
+  // cancelled edit never carries over. Adjusted during render (React's
+  // documented pattern) rather than in an effect.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setEnabledFields(NO_FIELDS_ENABLED);
+      setValues(DEFAULT_VALUES);
+      setPresetName('');
+      setShowSavePreset(false);
+    }
+  }
 
   const toggleField = (field: keyof typeof enabledFields) => {
     setEnabledFields((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -94,11 +116,13 @@ export function BulkActionDialog({
     // screen displays; real collections are managed from the Collections page.
     const fields = ['cellarId', 'tags', 'isOpened', 'fillLevel'] as const;
     const result: Record<string, { before: string; after: string; changed: boolean }> = {};
+    // Nothing to preview while closed or with nothing selected.
+    if (!open || selectedItems.length === 0) return result;
     fields.forEach((field) => {
       if (!enabledFields[field]) { result[field] = { before: '', after: '', changed: false }; return; }
       const uniqueValues = new Set(selectedItems.map(b => {
         const val = b[field as keyof InventoryItem];
-        if (field === 'tags' && Array.isArray(val)) return JSON.stringify([...val].sort());
+        if (field === 'tags') return JSON.stringify(sortedTags(val));
         return val;
       }));
       let beforeText = '';
@@ -108,19 +132,19 @@ export function BulkActionDialog({
         const val = Array.from(uniqueValues)[0];
         if (field === 'cellarId') beforeText = cellars?.find(c => c.id === val)?.name || t('inventory.noCellar');
         else if (field === 'isOpened') beforeText = val ? t('inventory.sealedStatus.opened') : t('inventory.sealedStatus.sealed');
-        else if (field === 'tags') beforeText = (JSON.parse(val as string) as string[]).join(', ') || t('status.empty');
+        else if (field === 'tags') beforeText = sortedTags(selectedItems[0].tags).join(', ') || t('status.empty');
         else beforeText = (val as string) || t('status.empty');
       }
       const afterVal = values[field as keyof Partial<InventoryItem>];
       let afterText = '';
       if (field === 'cellarId') afterText = cellars?.find(c => c.id === afterVal)?.name || t('inventory.noCellar');
       else if (field === 'isOpened') afterText = afterVal ? t('inventory.sealedStatus.opened') : t('inventory.sealedStatus.sealed');
-      else if (field === 'tags') afterText = (afterVal as string[]).join(', ') || t('status.empty');
+      else if (field === 'tags') afterText = (Array.isArray(afterVal) ? afterVal : []).join(', ') || t('status.empty');
       else afterText = (afterVal as string) || t('status.empty');
       result[field] = { before: beforeText, after: afterText, changed: true };
     });
     return result;
-  }, [selectedItems, enabledFields, values, cellars, t]);
+  }, [open, selectedItems, enabledFields, values, cellars, t]);
 
   const hasChanges = Object.values(enabledFields).some(v => v);
 
