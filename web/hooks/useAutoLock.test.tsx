@@ -3,6 +3,7 @@ import { act, render, renderHook, screen } from '@testing-library/react';
 import { AutoLockProvider, useAutoLock } from './useAutoLock';
 import { LOCK_STORAGE_KEY, clearQuickLock } from '@/lib/quick-lock-storage';
 import { ApiError } from '@/lib/api';
+import { NetworkError } from '@/lib/network-error';
 
 const mutateAsync = vi.fn();
 vi.mock('./useAuth', () => ({
@@ -77,9 +78,9 @@ describe('unlock outcome (#582)', () => {
   });
 
   it('rejects when the server cannot be reached', async () => {
-    mutateAsync.mockRejectedValue(new TypeError('Failed to fetch'));
+    mutateAsync.mockRejectedValue(new NetworkError(new TypeError('Failed to fetch')));
     const result = renderLocked();
-    await expect(result.current.unlock('pw')).rejects.toBeInstanceOf(TypeError);
+    await expect(result.current.unlock('pw')).rejects.toBeInstanceOf(NetworkError);
   });
 
   it('unlocks on the right code', async () => {

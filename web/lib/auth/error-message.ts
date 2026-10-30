@@ -1,11 +1,12 @@
 import { AUTH_RATE_LIMIT_WINDOW_MINUTES, TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
+import { NetworkError } from '@/lib/network-error';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 /** The request never got an answer: offline, server down, or timed out. */
 function isNetworkFailure(err: unknown): boolean {
-  const name = (err as { name?: unknown } | null)?.name;
-  return err instanceof TypeError || name === 'AbortError' || name === 'TimeoutError'
+  return err instanceof NetworkError
+    || (err as { name?: unknown } | null)?.name === 'TimeoutError'
     || (err instanceof Error && err.message === 'NETWORK_ERROR');
 }
 

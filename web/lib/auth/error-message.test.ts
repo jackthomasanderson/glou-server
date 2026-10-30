@@ -3,6 +3,7 @@ import i18next, { type i18n as I18n } from 'i18next';
 import en from '../../public/locales/en/common.json';
 import fr from '../../public/locales/fr/common.json';
 import { ApiError } from '../api';
+import { NetworkError } from '../network-error';
 import { authErrorMessage } from './error-message';
 
 // #640 / #652 / #582: auth failures read as sentences in the member's language.
@@ -42,8 +43,15 @@ describe('authErrorMessage', () => {
   it('no answer from the server: says it cannot be reached', async () => {
     await i18n.changeLanguage('en');
     const unreachable = 'Cannot reach the server. Check your connection and try again.';
-    expect(authErrorMessage(t, new TypeError('Failed to fetch'))).toBe(unreachable);
+    expect(authErrorMessage(t, new NetworkError(new TypeError('Failed to fetch')))).toBe(unreachable);
+    expect(authErrorMessage(t, new DOMException('The operation timed out.', 'TimeoutError'))).toBe(unreachable);
     expect(authErrorMessage(t, new ApiError('NETWORK_ERROR', 502), 'forgotPassword.errors')).toBe(unreachable);
+  });
+
+  it('a TypeError from our own code is not mistaken for an unreachable server', async () => {
+    await i18n.changeLanguage('en');
+    expect(authErrorMessage(t, new TypeError("Cannot read properties of undefined (reading 'ok')")))
+      .toBe('An unexpected error occurred.');
   });
 
   it('a known code is translated, never shown raw (#652)', async () => {

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { ApiError } from '@/lib/api';
+import { NetworkError } from '@/lib/network-error';
 
 // The interpolated count is appended so the "wait N minutes" message can be checked.
 vi.mock('react-i18next', () => ({
@@ -9,23 +10,28 @@ vi.mock('react-i18next', () => ({
     t: (k: string, o?: { count?: number }) => (o?.count === undefined ? k : `${k}:${o.count}`),
   }),
 }));
+const refetchMe = vi.fn();
 vi.mock('@/hooks/useAuth', () => ({
-  useMe: () => ({ data: { username: 'alice', hasPin: false, avatarUrl: null } }),
+  useMe: () => ({ data: { username: 'alice', hasPin: false, avatarUrl: null }, refetch: refetchMe }),
   useLogout: () => ({ mutate: vi.fn(), isPending: false }),
 }));
-vi.mock('@heroui/react', () => ({
-  Avatar: () => <span />,
-  Button: ({ children, type, onPress, isDisabled }: {
-    children?: ReactNode; type?: 'submit' | 'button'; onPress?: () => void; isDisabled?: boolean;
-  }) => <button type={type ?? 'button'} onClick={onPress} disabled={isDisabled}>{children}</button>,
-  Card: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  CardBody: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  Input: ({ label, type, value, onValueChange }: {
-    label?: string; type?: string; value?: string; onValueChange?: (v: string) => void;
-  }) => <input aria-label={label} type={type} value={value} onChange={(e) => onValueChange?.(e.target.value)} />,
-  Tabs: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
-  Tab: () => null,
-}));
+vi.mock('@heroui/react', async () => {
+  const { forwardRef } = await import('react');
+  type InputProps = { label?: string; type?: string; value?: string; onValueChange?: (v: string) => void };
+  return {
+    Avatar: () => <span />,
+    Button: ({ children, type, onPress, isDisabled }: {
+      children?: ReactNode; type?: 'submit' | 'button'; onPress?: () => void; isDisabled?: boolean;
+    }) => <button type={type ?? 'button'} onClick={onPress} disabled={isDisabled}>{children}</button>,
+    Card: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+    CardBody: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+    Input: forwardRef<HTMLInputElement, InputProps>(function Input({ label, type, value, onValueChange }, ref) {
+      return <input ref={ref} aria-label={label} type={type} value={value} onChange={(e) => onValueChange?.(e.target.value)} />;
+    }),
+    Tabs: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+    Tab: () => null,
+  };
+});
 
 import { LockScreen } from '../LockScreen';
 
@@ -51,7 +57,7 @@ describe('LockScreen failed unlock (#582)', () => {
     return field;
   }
 
-  it('wrong code: announces "incorrect password or PIN" and clears the field', async () => {
+  it('wrong code: announces "incorrect password or PIN", clears the field and puts the focus back in it', async () => {
     const unlock = vi.fn().mockResolvedValue(false);
     const field = submitPassword(unlock);
 
@@ -59,6 +65,21 @@ describe('LockScreen failed unlock (#582)', () => {
     expect(alert.textContent).toBe('lock.error');
     expect(unlock).toHaveBeenCalledWith('wrong-password', undefined);
     expect(field.value).toBe('');
+    await waitFor(() => expect(document.activeElement).toBe(field));
+  });
+
+  it('typing again clears the message', async () => {
+    const field = submitPassword(vi.fn().mockResolvedValue(false));
+    await screen.findByRole('alert');
+    fireEvent.change(field, { target: { value: 'a' } });
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('a session that has ended says so and lets the guard send the member to sign-in', async () => {
+    refetchMe.mockClear();
+    submitPassword(vi.fn().mockRejectedValue(new ApiError('SESSION_REVOKED', 401)));
+    expect((await screen.findByRole('alert')).textContent).toBe('lock.sessionEnded');
+    expect(refetchMe).toHaveBeenCalled();
   });
 
   it('too many attempts: says how many minutes to wait', async () => {
@@ -67,7 +88,7 @@ describe('LockScreen failed unlock (#582)', () => {
   });
 
   it('server unreachable: says so', async () => {
-    submitPassword(vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    submitPassword(vi.fn().mockRejectedValue(new NetworkError(new TypeError('Failed to fetch'))));
     expect((await screen.findByRole('alert')).textContent).toBe('status.serverUnreachable');
   });
 

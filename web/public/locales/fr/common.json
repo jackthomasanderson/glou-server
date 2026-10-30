@@ -505,7 +505,8 @@
     "pinLabel": "Code PIN",
     "unlockButton": "Déverrouiller",
     "error": "Mot de passe ou code PIN incorrect.",
-    "backToLogin": "Se déconnecter"
+    "backToLogin": "Se déconnecter",
+    "sessionEnded": "Votre session a pris fin. Merci de vous reconnecter."
   },
   "forcedPasswordChange": {
     "title": "Choisissez un nouveau mot de passe",

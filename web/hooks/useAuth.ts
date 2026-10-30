@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { clearOfflineData } from '@/lib/offline/db';
 import { apiErrorFrom } from '@/lib/api';
+import { fetchOrNetworkError } from '@/lib/network-error';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { clearQuickLock } from '@/lib/quick-lock-storage';
 import { postLoginPath } from '@/lib/auth/next-path';
@@ -32,7 +33,7 @@ async function apiFetch<T>(
   url: string,
   options?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(url, {
+  const res = await fetchOrNetworkError(url, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     ...options,

@@ -1,4 +1,5 @@
 import { TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
+import { fetchOrNetworkError } from './network-error';
 
 type ApiErrorBody = { error?: unknown; retryAfter?: unknown; details?: unknown };
 
@@ -53,7 +54,7 @@ export function timeoutSignal(ms: number): AbortSignal {
 
 export const client = {
   async get<T>(url: string): Promise<{ data: T }> {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
@@ -64,7 +65,7 @@ export const client = {
 
   /** `timeoutMs`: for the rare request the server is allowed to work on longer (CSV import). */
   async post<T>(url: string, data?: unknown, { timeoutMs = DEFAULT_TIMEOUT_MS }: { timeoutMs?: number } = {}): Promise<{ data: T }> {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -76,7 +77,7 @@ export const client = {
   },
 
   async patch<T>(url: string, data?: unknown): Promise<{ data: T }> {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -88,7 +89,7 @@ export const client = {
   },
 
   async put<T>(url: string, data?: unknown): Promise<{ data: T }> {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -100,7 +101,7 @@ export const client = {
   },
 
   async delete<T>(url: string): Promise<{ data: T }> {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

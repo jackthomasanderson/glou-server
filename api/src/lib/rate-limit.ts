@@ -19,13 +19,18 @@ export function sendTooManyRequests(_req: Request, res: Response, _next: NextFun
   res.status(options.statusCode).json(body);
 }
 
-/** A limiter for the sign-in, sign-up, 2FA, password-reset and unlock forms: `max` attempts per IP over the auth window. */
-export function authRateLimit(max: number): RateLimitRequestHandler {
+/**
+ * A limiter for the sign-in, sign-up, 2FA, password-reset and unlock forms:
+ * `max` attempts per IP over the auth window. `skipSuccessfulRequests` counts
+ * only refused attempts (a household unlocking the same tablet all day).
+ */
+export function authRateLimit(max: number, { skipSuccessfulRequests = false }: { skipSuccessfulRequests?: boolean } = {}): RateLimitRequestHandler {
   return rateLimit({
     windowMs: AUTH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
     max,
     standardHeaders: true,
     legacyHeaders: false,
+    skipSuccessfulRequests,
     handler: sendTooManyRequests,
   });
 }

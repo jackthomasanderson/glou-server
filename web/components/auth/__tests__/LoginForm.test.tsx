@@ -83,6 +83,10 @@ describe('LoginForm throttled (#640)', () => {
     signIn();
     await screen.findByText('auth.twoFactor.hint');
     const code = screen.getByRole('textbox');
+    // #652 review: the shared code field, with the numeric keypad pattern.
+    expect(code.getAttribute('inputmode')).toBe('numeric');
+    expect(code.getAttribute('pattern')).toBe('[0-9]*');
+    expect(code.getAttribute('autocomplete')).toBe('one-time-code');
     fireEvent.change(code, { target: { value: '123456' } });
     fireEvent.submit(code.closest('form') as HTMLFormElement);
     await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('auth.errors.TOO_MANY_REQUESTS:5'));

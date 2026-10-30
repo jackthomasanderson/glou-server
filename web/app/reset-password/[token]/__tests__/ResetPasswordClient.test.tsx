@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { ApiError } from '@/lib/api';
+import { NetworkError } from '@/lib/network-error';
 
 // #640 — a reset link checked while the server was briefly unreachable was
 // declared "invalid or expired", and a throttled reset said "try again".
@@ -49,7 +50,7 @@ beforeEach(() => {
 
 describe('ResetPasswordClient link check (#640)', () => {
   it('a network error offers to retry instead of calling the link invalid', async () => {
-    validateResetToken.mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce({ valid: true });
+    validateResetToken.mockRejectedValueOnce(new NetworkError(new TypeError('Failed to fetch'))).mockResolvedValueOnce({ valid: true });
     render(<ResetPasswordClient />);
 
     expect(await screen.findByText('status.serverUnreachable')).toBeInTheDocument();

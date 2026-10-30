@@ -17,7 +17,8 @@ import { isCookieSecure } from '../lib/cookie-secure';
 
 const passwordResetLimiter = authRateLimit(5);
 // FEAT-30: a PIN is only 4-6 digits — throttle unlock attempts hard to make brute-force impractical.
-const unlockLimiter = authRateLimit(10);
+// Only wrong codes count: a family tablet is unlocked many times a day (#582).
+const unlockLimiter = authRateLimit(10, { skipSuccessfulRequests: true });
 
 const router = Router();
 

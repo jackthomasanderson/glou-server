@@ -505,7 +505,8 @@
     "pinLabel": "PIN code",
     "unlockButton": "Unlock",
     "error": "Incorrect password or PIN code.",
-    "backToLogin": "Sign out"
+    "backToLogin": "Sign out",
+    "sessionEnded": "Your session has ended. Please sign in again."
   },
   "forcedPasswordChange": {
     "title": "Set a new password",

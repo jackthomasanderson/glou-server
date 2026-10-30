@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { ApiError, apiErrorFrom, handleResponse } from '../api';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { ApiError, apiErrorFrom, client, handleResponse } from '../api';
+import { NetworkError } from '../network-error';
 
 function mockResponse(status: number, body: unknown): Response {
   return {
@@ -60,5 +61,24 @@ describe('apiErrorFrom', () => {
   it('handleResponse throws the same ApiError', async () => {
     await expect(handleResponse(mockResponse(429, { error: 'TOO_MANY_REQUESTS', retryAfter: 60 })))
       .rejects.toMatchObject({ message: 'TOO_MANY_REQUESTS', retryAfter: 60 });
+  });
+});
+
+// #582/#640: a request that got no answer is told apart from a bug in our own
+// code, while staying a TypeError for the offline queue (useUpdateInventoryItem).
+describe('client without an answer', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('rethrows fetch\'s TypeError as a NetworkError', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    const err = await client.get('/x').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NetworkError);
+    expect(err).toBeInstanceOf(TypeError);
+  });
+
+  it('leaves a timeout as it is', async () => {
+    const timeout = new DOMException('The operation timed out.', 'TimeoutError');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(timeout));
+    await expect(client.get('/x')).rejects.toBe(timeout);
   });
 });
