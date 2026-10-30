@@ -52,9 +52,12 @@
    > This panel is admin-only (`/admin`, access denied otherwise).
 
 **Updating to a new version**:
+
+Back up first (**Administration → System Configuration → Backups → Back up now**): database migrations cannot be undone. On Linux, check that `backups` belongs to uid 1001 (`sudo chown 1001:1001 backups`), otherwise the backup fails. Then:
 ```bash
 docker compose pull && docker compose up -d
 ```
+To go back, see [Upgrade & Roll Back](./31-Upgrades-And-Rollback.md).
 
 **Troubleshooting**:
 

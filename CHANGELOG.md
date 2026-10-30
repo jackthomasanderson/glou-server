@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Fixed
+- The quick start on the project website now has the Linux step that lets nightly backups work (`mkdir -p backups && sudo chown 1001:1001 backups`), and its update line asks for a backup first. If you installed from the website on Linux, run `sudo chown 1001:1001 backups` in your Glou folder before your next update (#667).
+
 ## v2026.10.3 - 2026-10-30
 
 ### Added

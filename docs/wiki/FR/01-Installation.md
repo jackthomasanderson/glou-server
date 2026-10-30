@@ -52,9 +52,12 @@
    > Ce panneau est réservé aux comptes administrateur (`/admin`, accès refusé sinon).
 
 **Mise à jour vers une nouvelle version** :
+
+Sauvegardez d'abord (**Administration → Configuration Système → Sauvegardes → Sauvegarder maintenant**) : les migrations de la base ne peuvent pas être annulées. Sous Linux, vérifiez que `backups` appartient à l'uid 1001 (`sudo chown 1001:1001 backups`), sinon la sauvegarde échoue. Puis :
 ```bash
 docker compose pull && docker compose up -d
 ```
+Pour revenir en arrière, voir [Mettre à jour & revenir en arrière](./31-Mises-A-Jour-Et-Retour-Arriere.md).
 
 **Le "Pare-feu" (Troubleshooting)** :
 
