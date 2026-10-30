@@ -133,7 +133,7 @@ describe('TwoFactorSettings messages and code fields (#652)', () => {
 
   function openEnable() {
     render(<TwoFactorSettings user={makeUser(false)} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Enable' }));
+    fireEvent.click(screen.getByRole('button', { name: translate('profile.twoFactor.enable') }));
     return screen.getByRole('dialog');
   }
 
