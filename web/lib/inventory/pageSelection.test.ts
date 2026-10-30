@@ -37,7 +37,8 @@ describe('mergePageSelection', () => {
     const result = mergePageSelection(new Set(['x']), page, reported);
     expect(result).toBe(reported);
     expect((result as unknown as AnchoredSet).anchorKey).toBe('a');
-    expect(result).toEqual(new Set(['a', 'b', 'x']));
+    // Contents only: toEqual would also compare the subclass and its anchor.
+    expect([...result].sort()).toEqual(['a', 'b', 'x']);
   });
 
   it('does not modify the previous selection', () => {
