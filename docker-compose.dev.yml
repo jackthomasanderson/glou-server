@@ -43,6 +43,9 @@ services:
       TZ: ${TZ:-Europe/Paris}
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-moondream}
+      # Requests allowed per address every 15 min on the API and uploads. Empty = 1000;
+      # raise it to run the whole Playwright suite against this stack.
+      API_RATE_LIMIT_MAX: ${API_RATE_LIMIT_MAX:-}
       PORT: 3001
     ports:
       - "3001:3001"

@@ -32,6 +32,7 @@ import { scanRouter } from './routes/scan.router';
 import humidorRouter from './routes/humidor.router';
 import { APP_VERSION } from './lib/app-version';
 import { redactUrlSecrets } from './lib/log-redact';
+import { apiRateLimitMax } from './lib/rate-limit-max';
 
 // ─── Express app assembly ────────────────────────────────────────────────────
 // Extracted from index.ts so it can be imported without side effects (no
@@ -93,10 +94,12 @@ export function createApp(): express.Express {
   // enough not to interfere with normal interactive use (and the offline sync
   // engine replaying a backlog); `/api/auth/*` keeps its own much tighter
   // limiter below. Keyed on `req.ip`, which is the real client address thanks
-  // to the `trust proxy` setting above.
+  // to the `trust proxy` setting above. API_RATE_LIMIT_MAX can raise the
+  // ceiling (see lib/rate-limit-max.ts).
+  const baselineMax = apiRateLimitMax();
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000,
+    max: baselineMax,
     standardHeaders: true,
     legacyHeaders: false,
   });
@@ -155,7 +158,7 @@ export function createApp(): express.Express {
   // authorization (authMiddleware) with no rate limit of its own at all.
   const uploadsLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000,
+    max: baselineMax,
     standardHeaders: true,
     legacyHeaders: false,
   });

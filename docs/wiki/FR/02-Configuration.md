@@ -30,6 +30,7 @@
 | `OLLAMA_URL` | `http://ollama:11434` | Modèle de vision utilisé par le [scan d'étiquette](./26-Scan-Etiquette.md) (uniquement avec `--profile scan`). |
 | `OLLAMA_MODEL` | `moondream` | Nom du modèle utilisé pour le scan. |
 | `OLLAMA_TIMEOUT_MS` | `600000` | Durée maximale d'attente du modèle par scan, en millisecondes. |
+| `API_RATE_LIMIT_MAX` | `1000` | Avancé. Requêtes autorisées par adresse IP toutes les 15 minutes sur l'API et les images envoyées ; un entier positif, toute autre valeur est ignorée avec un avertissement dans les journaux de l'API. À relever seulement si beaucoup d'appareils partagent une même adresse et reçoivent `Too many requests`. Les limites de connexion et de réinitialisation du mot de passe ne changent pas. |
 
 > [!NOTE]
 > `PUID`/`PGID` ne sont pas pris en charge : le conteneur API tourne toujours sous l'utilisateur `1001:1001`.
