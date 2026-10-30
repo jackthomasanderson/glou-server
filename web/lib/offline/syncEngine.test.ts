@@ -389,6 +389,25 @@ describe('flushQueue — review follow-ups (#585)', () => {
     expect(store.get('c1')?.status).toBe('failed');
   });
 
+  it('never counts an expired session (401) or a pending second factor, so the change waits as long as needed', async () => {
+    queue({ id: 'a1', itemId: 'A', createdAt: 't1', temporaryFailures: MAX_TEMPORARY_FAILURES - 1 });
+    for (const answer of [
+      () => errResponse(401, { error: 'TOKEN_INVALID_OR_EXPIRED' }),
+      () => errResponse(403, { error: '2FA_REQUIRED' }),
+    ]) {
+      vi.stubGlobal('fetch', vi.fn(async () => answer()));
+      for (let i = 0; i < MAX_TEMPORARY_FAILURES + 2; i += 1) await flushQueue(fakeQueryClient());
+      expect(store.get('a1')).toMatchObject({ status: 'pending', temporaryFailures: MAX_TEMPORARY_FAILURES - 1 });
+    }
+  });
+
+  it('does not count a flush that got no answer (e.g. the one run when the page mounts while offline)', async () => {
+    queue({ id: 'a1', itemId: 'A', createdAt: 't1', temporaryFailures: MAX_TEMPORARY_FAILURES - 1 });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    for (let i = 0; i < MAX_TEMPORARY_FAILURES + 2; i += 1) await flushQueue(fakeQueryClient());
+    expect(store.get('a1')).toMatchObject({ status: 'pending', temporaryFailures: MAX_TEMPORARY_FAILURES - 1 });
+  });
+
   it('does not refetch the list when nothing reached the server', async () => {
     queue({ id: 'a1', itemId: 'A', createdAt: 't1' });
     vi.stubGlobal('fetch', vi.fn(async () => errResponse(503)));

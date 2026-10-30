@@ -204,17 +204,20 @@ async function markMutation(id: string, patch: Partial<QueuedMutation>): Promise
 type PatchOutcome =
   | { kind: 'success'; item: InventoryItem }
   | { kind: 'conflict'; serverItem: InventoryItem }
-  /** Temporary: no answer (`reason` unset), or an answer that says "try
-   * again later" (`reason` set). */
+  /** Temporary. `reason` is set only for an answer from the server that
+   * says "try again later" (408, 429, 5xx): those count towards
+   * MAX_TEMPORARY_FAILURES. No answer (offline) and a session problem (401,
+   * 403 `2FA_REQUIRED`) leave it unset: they depend on the network or the
+   * session, not on the change, and wait as long as needed. */
   | { kind: 'retry'; reason?: string }
   /** A real refusal of this change (validation, forbidden, gone…). */
   | { kind: 'error'; message: string };
 
-/** #585: statuses that say nothing about the change itself — the session
- * expired, the request timed out, the rate limit was hit or the server is
- * failing or restarting. The change stays queued and is tried again. */
+/** #585: statuses that say nothing about the change itself — the request
+ * timed out, the rate limit was hit or the server is failing or restarting.
+ * The change stays queued and is tried again. */
 function isTemporaryStatus(status: number): boolean {
-  return status === 401 || status === 408 || status === 429 || status >= 500;
+  return status === 408 || status === 429 || status >= 500;
 }
 
 /**
@@ -247,10 +250,12 @@ async function patchInventoryItem(itemId: string, patch: Record<string, unknown>
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string; details?: string } | null;
     const reason = body?.details ?? body?.error ?? `HTTP ${res.status}`;
-    // A session waiting for its second factor is refused with 403
-    // `2FA_REQUIRED` (api/src/middleware/auth.middleware.ts): nothing wrong
-    // with the change, it goes through once the member has signed in.
-    if (isTemporaryStatus(res.status) || body?.error === '2FA_REQUIRED') return { kind: 'retry', reason };
+    // An expired session (401) or one waiting for its second factor (403
+    // `2FA_REQUIRED`, api/src/middleware/auth.middleware.ts): nothing wrong
+    // with the change, it goes through once the member has signed in again,
+    // however long that takes — never counted as a refusal.
+    if (res.status === 401 || body?.error === '2FA_REQUIRED') return { kind: 'retry' };
+    if (isTemporaryStatus(res.status)) return { kind: 'retry', reason };
     return { kind: 'error', message: reason };
   }
   const body = (await res.json()) as { data: InventoryItem };
