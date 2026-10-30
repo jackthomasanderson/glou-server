@@ -180,7 +180,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const {
     bulkMode, setBulkMode,
-    selectedIds,
+    selectedIds, setSelectedIds,
     anchorId, setAnchorId,
     toggleBulkMode,
     handleSelectToggle,
@@ -370,9 +370,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     setShowAllTags,
   };
 
-  // Shared prop bag for the grid/list item-view components: both take the
-  // exact same shape (see InventoryGridView / InventoryListView), only the
-  // rendering (cards vs table) differs.
+  // Shared prop bag for the grid/list item-view components (see
+  // InventoryGridView / InventoryListView), only the rendering (cards vs
+  // table) differs. The list's table reports its selection as a whole, so it
+  // also gets the setter of the same selection (and ignores the card toggle).
   const itemsViewProps = {
     items: paginatedItems,
     cellars,
@@ -627,7 +628,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* List view */}
           {!isLoading && filteredItems.length > 0 && effectiveViewMode === 'list' && (
-            <InventoryListView {...itemsViewProps} />
+            <InventoryListView {...itemsViewProps} onSelectedIdsChange={setSelectedIds} />
           )}
         </div>
       </div>
