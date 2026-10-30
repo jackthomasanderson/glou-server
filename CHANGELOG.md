@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Added
+- Advanced setting `API_RATE_LIMIT_MAX` in `.env`: how many requests one address may send every 15 minutes (1000 by default), to raise if many devices share one address and get *Too many requests*. The sign-in and password-reset limits do not change (#746).
+
 ### Fixed
 - Running the web app from a source checkout (`npm run dev` or a local build) showed it with two thirds of the interface library's styles missing: fields without borders, square buttons with dark text, no keyboard focus ring, dialogs not full-screen on a phone. Published images were not affected (#722, #721).
 - Select menus no longer flash about a third of a second after opening (#723, #709).
