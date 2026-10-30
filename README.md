@@ -67,13 +67,13 @@ Docker pulls the pre-built images and starts the stack. No compilation required.
 
 **Step 3: Create your account**
 
-Open [http://localhost:3000](http://localhost:3000) and click **Register**. The first account you create is automatically granted admin privileges.
+Open [http://localhost:3000](http://localhost:3000), click **Sign up** (under the sign-in form), then **Create account**. The first account you create is automatically granted admin privileges.
 
 > [!NOTE]
 > Once that first account exists, **registration is closed**. To let other people sign up, an admin turns on **Allow new accounts to register** in **Administration → System Configuration → Network**, and can turn it off again afterwards.
 
 > [!TIP]
-> To update to a new version: `docker compose pull && docker compose up -d`. Back up first (**Administration → System Configuration → Backups → Run now**); to go back, see [Upgrade & Roll Back](./docs/wiki/EN/31-Upgrades-And-Rollback.md).
+> To update to a new version: `docker compose pull && docker compose up -d`. Back up first (**Administration → System Configuration → Backups → Back up now**); to go back, see [Upgrade & Roll Back](./docs/wiki/EN/31-Upgrades-And-Rollback.md).
 
 *For advanced configuration, environment variables, and troubleshooting, see the [Wiki](./docs/wiki/EN/_wiki.md).*
 
