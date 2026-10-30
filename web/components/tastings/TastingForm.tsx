@@ -8,7 +8,7 @@ import { Star, FlaskConical } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { TastingFormValues, TastingReadiness } from '@/lib/tastings/types';
 import { useCreateTasting, useUpdateTasting } from '@/hooks/useTastings';
-import { useInventory, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { useInventory, useInventoryItemLookup, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { ServiceRecommendations } from './ServiceRecommendations';
 import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
@@ -17,9 +17,9 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { notifyError } from '@/lib/toast';
-import { applyStockChoice, type StockChoice } from '@/lib/tastings/stockChoice';
+import { applyStockChoice, stockChoicesFor, type StockChoice } from '@/lib/tastings/stockChoice';
+import { blankTastingValues } from '@/lib/tastings/formValues';
 import { isOwnedItem } from '@/lib/inventory/ownership';
-import { todayLocalIso } from '@/lib/format';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
@@ -40,59 +40,42 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   const createMutation = useCreateTasting();
   const updateMutation = useUpdateTasting();
   const updateInventory = useUpdateInventoryItem();
+  const lookUpItem = useInventoryItemLookup();
   const isExpert = useExpertMode();
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [stockDialogItemId, setStockDialogItemId] = useState<string | null>(null);
+  // The tasted item as it was when the stock question was asked.
+  const [stockQuestion, setStockQuestion] = useState<{ itemId: string; item?: InventoryItem } | null>(null);
 
   const {
     control,
     handleSubmit,
     reset,
     watch,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = useForm<TastingFormValues>({
-    defaultValues: {
-      itemId: initialItemId,
-      rating: null,
-      readiness: null,
-      notes: '',
-      context: '',
-      foodPairing: initialFoodPairing ?? '',
-      tastedAt: todayLocalIso(),
-      robe: null,
-      nez: null,
-      bouche: null,
-      tanin: null,
-      acidite: null,
-      longueurBouche: null,
-    },
+    defaultValues: blankTastingValues(initialItemId, initialFoodPairing),
   });
 
   const watchedItemId = watch('itemId');
 
-  useEffect(() => {
-    if (open) {
-      if (editNote) {
-        reset(editNote.values);
-      } else {
-        reset({
-          itemId: initialItemId,
-          rating: null,
-          readiness: null,
-          notes: '',
-          context: '',
-          foodPairing: initialFoodPairing ?? '',
-          tastedAt: todayLocalIso(),
-          robe: null,
-          nez: null,
-          bouche: null,
-          tanin: null,
-          acidite: null,
-          longueurBouche: null,
-        });
-      }
+  // The form is filled when the dialog opens or turns to another tasting, not
+  // on every render of the parent: a background refetch rebuilds `editNote`
+  // and used to wipe what was being typed (#642). Adjusted during render
+  // (React's documented pattern), applied by the effect below.
+  const formSession = open ? JSON.stringify([editNote?.id, initialItemId, initialFoodPairing]) : null;
+  const [prevFormSession, setPrevFormSession] = useState<string | null>(null);
+  const [startValues, setStartValues] = useState<TastingFormValues | null>(null);
+  if (formSession !== prevFormSession) {
+    setPrevFormSession(formSession);
+    if (formSession !== null) {
+      // A copy: a draft typed in an earlier session never leaks into this one.
+      setStartValues(editNote ? { ...editNote.values } : blankTastingValues(initialItemId, initialFoodPairing));
     }
-  }, [open, initialItemId, initialFoodPairing, editNote, reset]);
+  }
+
+  useEffect(() => {
+    if (startValues) reset(startValues);
+  }, [startValues, reset]);
 
   useEffect(() => {
     if (watchedItemId && items) {
@@ -103,7 +86,8 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
     }
   }, [watchedItemId, items]);
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  // isSubmitting also covers reading the tasted item's stock after the save.
+  const isSaving = createMutation.isPending || updateMutation.isPending || isSubmitting;
 
   // ISSUE_119: once a field has been edited, the modal can no longer be
   // dismissed by a backdrop click or Escape, and the explicit cancel
@@ -123,10 +107,12 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
       } else {
         const note = await createMutation.mutateAsync(values);
         // FEAT-87: a non-owned reference has no bottle to mark as opened or
-        // finished, so the stock question is skipped for it.
-        const tastedItem = note.itemId ? items?.find((i) => i.id === note.itemId) : undefined;
-        if (note.itemId && (!tastedItem || isOwnedItem(tastedItem))) {
-          setStockDialogItemId(note.itemId);
+        // finished, so the stock question is skipped for it, as for an item
+        // with nothing to update (empty box, finished bottle) or whose stock
+        // could not be read.
+        const tastedItem = note.itemId ? await lookUpItem(note.itemId) : undefined;
+        if (note.itemId && tastedItem && isOwnedItem(tastedItem) && stockChoicesFor(tastedItem).length > 0) {
+          setStockQuestion({ itemId: note.itemId, item: tastedItem });
         } else {
           onClose();
         }
@@ -137,21 +123,23 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   };
 
   const handleStockChoice = async (choice: StockChoice) => {
-    const canClose = stockDialogItemId
+    const canClose = stockQuestion
       ? await applyStockChoice(
           choice,
-          (patch) => updateInventory.mutateAsync({ id: stockDialogItemId, patch }),
+          stockQuestion.item,
+          (patch) => updateInventory.mutateAsync({ id: stockQuestion.itemId, patch }),
           () => notifyError('tastings.stockUpdate.error'),
         )
       : true;
     if (!canClose) return;
-    setStockDialogItemId(null);
+    setStockQuestion(null);
     onClose();
   };
 
   const inventoryOptions = items?.filter((i) => !i.deletedAt) ?? [];
   const hasError = !!(createMutation.error || updateMutation.error);
-  const showStockDialog = !!stockDialogItemId;
+  const showStockDialog = !!stockQuestion;
+  const stockChoices = stockQuestion ? stockChoicesFor(stockQuestion.item) : [];
 
   return (
     <>
@@ -453,24 +441,20 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                 </p>
               </ModalBody>
               <ModalFooter className="flex-col gap-2">
-                <Button
-                  color="warning"
-                  variant="flat"
-                  fullWidth
-                  onPress={() => handleStockChoice('opened')}
-                  isLoading={updateInventory.isPending}
-                >
-                  {t('tastings.stockUpdate.opened')}
-                </Button>
-                <Button
-                  color="danger"
-                  variant="flat"
-                  fullWidth
-                  onPress={() => handleStockChoice('consumed')}
-                  isLoading={updateInventory.isPending}
-                >
-                  {t('tastings.stockUpdate.consumed')}
-                </Button>
+                {stockChoices.map((choice) => (
+                  <Button
+                    key={choice}
+                    color={choice === 'consumed' ? 'danger' : 'warning'}
+                    variant="flat"
+                    fullWidth
+                    onPress={() => handleStockChoice(choice)}
+                    isLoading={updateInventory.isPending}
+                  >
+                    {choice === 'removeOneCigar'
+                      ? t('tastings.stockUpdate.removeOneCigar', { count: (stockQuestion?.item?.quantity ?? 0) - 1 })
+                      : t(`tastings.stockUpdate.${choice}`)}
+                  </Button>
+                ))}
                 <Button
                   variant="light"
                   fullWidth

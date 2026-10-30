@@ -1024,6 +1024,8 @@
       "description": "Did this tasting change the state of the asset in your cellar?",
       "opened": "Asset opened",
       "consumed": "Asset consumed (empty)",
+      "removeOneCigar_one": "Remove one cigar from the box ({{count}} left)",
+      "removeOneCigar_other": "Remove one cigar from the box ({{count}} left)",
       "ignore": "Do not update stock",
       "error": "Stock update failed. Please try again."
     },

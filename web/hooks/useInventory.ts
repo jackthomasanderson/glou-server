@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryClient } from '@/lib/inventory/client';
 import { InventoryItem, InventoryHistoryEntry } from '@/lib/inventory/types';
@@ -104,6 +104,30 @@ export function useInventoryItem(id: string) {
     queryFn: () => inventoryClient.get(id),
     enabled: !!id,
   });
+}
+
+/**
+ * Latest known state of one item: from the loaded list, else from its own
+ * cache entry (filled by the item sheet), else from the server. Resolves
+ * undefined when it cannot be had. The list can miss an item: capped at
+ * 2,000 rows (#475), not loaded yet, or failed.
+ */
+export function useInventoryItemLookup() {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (id: string): Promise<InventoryItem | undefined> => {
+      const known =
+        queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY)?.find((item) => item.id === id) ??
+        queryClient.getQueryData<InventoryItem>(['inventory', id]);
+      if (known) return known;
+      try {
+        return await queryClient.fetchQuery({ queryKey: ['inventory', id], queryFn: () => inventoryClient.get(id) });
+      } catch {
+        return undefined;
+      }
+    },
+    [queryClient],
+  );
 }
 
 export function useInventoryItemHistory(id: string, enabled: boolean) {
