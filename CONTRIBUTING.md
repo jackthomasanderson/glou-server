@@ -71,6 +71,9 @@ npm test               # vitest
 # web/
 npm run lint
 npm test
+
+# e2e/
+npm run typecheck      # the Playwright specs are type-checked too
 ```
 
 ### Coding conventions

@@ -146,6 +146,17 @@ jobs:
         with:
           node-version: 24
 
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: npm ci
+
+      # #627: Playwright strips types without checking them, so a type error
+      # in a spec only surfaced when that line ran, or never. Checked before
+      # the ~4-min image build so it fails fast.
+      - name: Typecheck E2E
+        working-directory: e2e
+        run: npm run typecheck
+
       - name: Build the E2E images
         run: docker compose -f docker-compose.e2e.yml build
 
@@ -170,10 +181,6 @@ jobs:
           docker compose -f docker-compose.e2e.yml ps
           docker compose -f docker-compose.e2e.yml logs --tail=150
           exit 1
-
-      - name: Install E2E dependencies
-        working-directory: e2e
-        run: npm ci
 
       # Deterministic user-journey specs only. The gremlins fuzz
       # (monkey.spec.ts) is gated behind E2E_MONKEY and runs in the
