@@ -414,6 +414,9 @@
       "convertError": "Impossible de transformer le souhait en article de l'inventaire"
     },
     "bulkUpdateError": "Impossible de modifier les actifs sélectionnés",
+    "bulkPreset": {
+      "deleteError": "Impossible de supprimer le modèle d'actions"
+    },
     "share": {
       "createError": "Impossible de créer le lien de partage",
       "revokeError": "Impossible de révoquer le lien de partage"
@@ -663,7 +666,14 @@
     "remove": "Supprimer l'image",
     "pasteUrl": "Coller une URL d'image",
     "upload": "Uploader une image depuis votre appareil",
-    "urlPlaceholder": "https://… (URL de l'image)"
+    "urlPlaceholder": "https://… (URL de l'image)",
+    "errors": {
+      "tooLarge": "Cette photo est trop volumineuse (5 Mo au maximum). Choisissez-en une plus légère.",
+      "unsupportedType": "Ce format d'image n'est pas pris en charge. Utilisez une photo JPEG, PNG, WebP, GIF ou AVIF.",
+      "invalidUrl": "Saisissez une adresse d'image commençant par https://.",
+      "fetchFailed": "Impossible de télécharger cette image. Vérifiez l'adresse ou choisissez-en une autre.",
+      "failed": "La photo n'a pas pu être enregistrée. Vérifiez votre connexion et réessayez."
+    }
   },
   "autocomplete": {
     "internal": "Mon inventaire",

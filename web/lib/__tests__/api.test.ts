@@ -17,6 +17,18 @@ describe('handleResponse', () => {
     expect(result).toEqual({ id: '1', name: 'test' });
   });
 
+  // #580: a delete answered 204 No Content was read as JSON and reported as a failure.
+  it('returns undefined on 204 No Content without reading a body', async () => {
+    const res = new Response(null, { status: 204 });
+    await expect(handleResponse<void>(res)).resolves.toBeUndefined();
+  });
+
+  it('returns undefined on 205 Reset Content and on an empty 200', async () => {
+    await expect(handleResponse<void>(new Response(null, { status: 205 }))).resolves.toBeUndefined();
+    const empty = new Response('', { status: 200, headers: { 'Content-Length': '0' } });
+    await expect(handleResponse<void>(empty)).resolves.toBeUndefined();
+  });
+
   it('throws error message from body.error on non-ok response', async () => {
     const res = mockResponse(400, { error: 'VALIDATION_ERROR' });
     await expect(handleResponse(res)).rejects.toThrow('VALIDATION_ERROR');

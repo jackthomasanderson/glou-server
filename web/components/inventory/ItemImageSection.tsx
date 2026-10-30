@@ -8,6 +8,7 @@ import { InventoryCategory } from '@/lib/inventory/types';
 import { getCategoryPlaceholderSolid } from '@/lib/analytics/categoryColors';
 import { searchClient } from '@/lib/search/client';
 import { downscaleImage } from '@/lib/image-resize';
+import { notifyError } from '@/lib/toast';
 
 const PLACEHOLDER_ICON: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={40} className="opacity-30 text-white" />,
@@ -27,16 +28,18 @@ interface ItemImageSectionProps {
 
 type Mode = 'idle' | 'url';
 
-async function saveFromUrl(url: string): Promise<string | null> {
-  try {
-    return await searchClient.saveImageFromUrl(url);
-  } catch {
-    return null;
-  }
-}
+/** #645: the API codes a member can act on; any other failure gets the generic message. */
+const PHOTO_ERROR_KEYS: Record<string, string> = {
+  FILE_TOO_LARGE: 'itemImage.errors.tooLarge',
+  IMAGE_TOO_LARGE: 'itemImage.errors.tooLarge',
+  INVALID_FILE_TYPE: 'itemImage.errors.unsupportedType',
+  INVALID_IMAGE_TYPE: 'itemImage.errors.unsupportedType',
+  INVALID_URL: 'itemImage.errors.invalidUrl',
+  FETCH_FAILED: 'itemImage.errors.fetchFailed',
+};
 
-async function uploadFile(file: File): Promise<string | null> {
-  return searchClient.uploadImage(file);
+function photoErrorKey(err: unknown): string {
+  return (err instanceof Error && PHOTO_ERROR_KEYS[err.message]) || 'itemImage.errors.failed';
 }
 
 export function ItemImageSection({
@@ -53,23 +56,42 @@ export function ItemImageSection({
   const [urlInput, setUrlInput] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const handleUrlConfirm = async () => {
-    if (!urlInput.trim()) return;
+  /**
+   * Stores a photo with the overlay up. Whatever goes wrong (refusal, non-JSON
+   * answer, network or timeout), the overlay goes away, the member is told why
+   * and the current photo stays (#645).
+   */
+  const savePhoto = async (save: () => Promise<string | null>): Promise<boolean> => {
     setSaving(true);
-    const local = await saveFromUrl(urlInput.trim());
-    setSaving(false);
-    if (local) { onPhotoChange(local); setMode('idle'); setUrlInput(''); }
+    let local: string | null = null;
+    try {
+      local = await save();
+    } catch (err) {
+      notifyError(photoErrorKey(err));
+      return false;
+    } finally {
+      setSaving(false);
+    }
+    if (!local) {
+      notifyError(photoErrorKey(null));
+      return false;
+    }
+    onPhotoChange(local);
+    return true;
+  };
+
+  const handleUrlConfirm = async () => {
+    const url = urlInput.trim();
+    if (!url) return;
+    if (await savePhoto(() => searchClient.saveImageFromUrl(url))) { setMode('idle'); setUrlInput(''); }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = '';
-    setSaving(true);
     // #494: a phone photo is downscaled before upload (thumbnails are 120 px).
-    const local = await uploadFile(await downscaleImage(file));
-    setSaving(false);
-    if (local) onPhotoChange(local);
+    await savePhoto(async () => searchClient.uploadImage(await downscaleImage(file)));
   };
 
   const isLocal = photoUrl.startsWith('/uploads/');
@@ -86,7 +108,7 @@ export function ItemImageSection({
         }}
       >
         {(saving || isAutoLoading) && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/35">
+          <div role="status" aria-label={t('status.loading')} className="absolute inset-0 z-20 flex items-center justify-center bg-black/35">
             <Loader2 size={28} className="animate-spin text-white" />
           </div>
         )}
@@ -199,7 +221,7 @@ export function ItemImageSection({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
         className="hidden"
         onChange={handleFileChange}
       />
