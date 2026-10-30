@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import multer from 'multer';
 import { Prisma } from '@prisma/client';
 import { AppError, PRISMA_ERROR_MAP } from '../lib/errors';
+import { redactUrlSecrets } from '../lib/log-redact';
 
 // ─── Global error handler ────────────────────────────────────────────────────
 // The one place where a thrown value becomes an HTTP response (design.md,
@@ -120,7 +121,8 @@ export function errorMiddleware(
   next: NextFunction,
 ): void {
   const { status, code, details } = classifyError(err);
-  const where = `${req.method} ${req.originalUrl}`;
+  // Guest share links carry their token in the path: never log it (#612).
+  const where = `${req.method} ${redactUrlSecrets(req.originalUrl)}`;
 
   // Server-side failures keep the full error (message, stack, cause) in the
   // container logs; client-side ones are noted without the stack so a bad

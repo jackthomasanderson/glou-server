@@ -54,4 +54,12 @@ describe('AuthGuard on server errors (#341)', () => {
     render(<AuthGuard><div>app</div></AuthGuard>);
     expect(replace).toHaveBeenCalledWith('/login');
   });
+
+  it('remembers the requested page, query string and hash included (#602)', () => {
+    window.history.replaceState(null, '', '/bottles/42?scan=abc#tasting');
+    state.data = null;
+    render(<AuthGuard><div>app</div></AuthGuard>);
+    expect(replace).toHaveBeenCalledWith(`/login?next=${encodeURIComponent('/bottles/42?scan=abc#tasting')}`);
+    window.history.replaceState(null, '', '/');
+  });
 });

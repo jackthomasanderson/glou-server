@@ -11,6 +11,10 @@ describe('redactUrlSecrets (#490)', () => {
     expect(redactUrlSecrets('https://glou.local/reset-password/tok?lang=fr')).toBe('https://glou.local/reset-password/***?lang=fr');
   });
 
+  it('masks the token whatever the case of the route, since Express routes it anyway', () => {
+    expect(redactUrlSecrets('/api/GUEST/3f9a0c/inventory')).toBe('/api/GUEST/***/inventory');
+  });
+
   it('leaves other URLs untouched', () => {
     expect(redactUrlSecrets('/api/inventory/42')).toBe('/api/inventory/42');
     expect(redactUrlSecrets(undefined)).toBeUndefined();

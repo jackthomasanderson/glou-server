@@ -105,6 +105,38 @@ describe('CSRF guard (Fetch Metadata / Origin)', () => {
     expect(res.status).toBe(401); // passed CSRF, failed auth (no token)
   });
 
+  it('blocks another app of the same domain whose Origin is not trusted (#600)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const res = await request(app)
+      .post('/api/user/delete-account')
+      .set('Host', 'glou.home.example')
+      .set('Sec-Fetch-Site', 'same-site')
+      .set('Origin', 'https://photos.home.example');
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('CSRF_ORIGIN_REJECTED');
+    warn.mockRestore();
+  });
+
+  it('keeps the guest share token out of the CSRF and error log lines (#612)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const token = 'gst_SuperSecretToken123';
+    const rejected = await request(app)
+      .patch(`/api/guest/${token}/inventory/7`)
+      .set('Origin', 'https://evil.example')
+      .send({ quantity: 1 });
+    const malformed = await request(app)
+      .patch(`/api/guest/${token}/inventory/7`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .set('Content-Type', 'application/json')
+      .send('{"quantity": 1,');
+    expect(rejected.status).toBe(403);
+    expect(malformed.status).toBe(400);
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toContain('/api/guest/***/inventory/7');
+    expect(logged).not.toContain(token);
+    warn.mockRestore();
+  });
+
   it('does not gate safe methods', async () => {
     const res = await request(app).get('/api/tastings').set('Sec-Fetch-Site', 'cross-site');
     expect(res.status).toBe(401); // CSRF-exempt, still needs auth

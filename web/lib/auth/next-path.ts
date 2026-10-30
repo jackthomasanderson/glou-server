@@ -3,17 +3,49 @@
  * to `/login?next=<the page they asked for>` (a bottle QR code, an emailed
  * link, a bookmark), and sign-in / 2FA return there.
  *
- * Only same-origin paths are accepted: "/bottles?scan=1" yes, "//evil.example"
- * or "/\evil.example" (both read as another host by browsers) no — otherwise
- * the login page would become an open redirect.
+ * Only same-origin paths are accepted, otherwise the login page would become
+ * an open redirect (#602). Comparing prefixes is not enough: browsers drop
+ * tabs and newlines from a URL, read `\` as `/` and resolve `..`, so
+ * "/\t/evil.example", "/\evil.example" and "/..//evil.example" all end up as
+ * "//evil.example", another host. The value is parsed the way the browser will
+ * read it, and only its normalised path is kept, if it stays on this origin.
  */
 export const DEFAULT_LANDING = '/bottles';
 
+// Stand-in origin for the parse: only "does it leave the origin" matters, and
+// a fixed one gives the same answer on the server and in every test.
+const BASE = 'https://next-path.invalid';
+
+/** C0 control characters and DEL: browsers strip or reject them in URLs. */
+function hasControlChar(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+
+function sameOriginPath(value: string): URL | null {
+  try {
+    const url = new URL(value, BASE);
+    return url.origin === BASE ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 export function safeNextPath(raw: string | null | undefined): string | null {
   if (!raw || !raw.startsWith('/')) return null;
-  if (raw.startsWith('//') || raw.startsWith('/\\')) return null;
-  if (raw === '/login' || raw.startsWith('/login?') || raw.startsWith('/login/')) return null;
-  return raw;
+  // Paths we build ourselves are percent-encoded: a raw control character or
+  // backslash only comes from a crafted link.
+  if (hasControlChar(raw) || raw.includes('\\')) return null;
+  const url = sameOriginPath(raw);
+  if (!url) return null;
+  const path = url.pathname + url.search + url.hash;
+  // `..` resolution can turn "/..//evil.example" into "//evil.example".
+  if (path.startsWith('//') || !sameOriginPath(path)) return null;
+  if (url.pathname === '/login' || url.pathname.startsWith('/login/')) return null;
+  return path;
 }
 
 /** `/login`, or `/login?next=…` when the current page is worth coming back to. */
