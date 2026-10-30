@@ -343,10 +343,10 @@ export class InventoryService {
     if (!existing) return null;
 
     // ─── Optimistic concurrency check (FEAT-16/23) ───────────────────────────
-    // Opt-in: only the offline sync queue sends `expectedUpdatedAt` (the
-    // item's `updatedAt` as known when the mutation was queued, possibly
-    // while offline). Every other caller omits it and keeps today's
-    // unconditional last-write-wins behavior. Compared in milliseconds since
+    // Opt-in: the offline sync queue and the bottle edit form (#572) send
+    // `expectedUpdatedAt`, the item's `updatedAt` as known when the change
+    // was made (possibly while offline). Every other caller omits it and
+    // keeps the unconditional last-write-wins behavior. Compared in milliseconds since
     // the wire format is an ISO string round-tripped through JSON.
     if (
       expectedUpdatedAt !== undefined &&

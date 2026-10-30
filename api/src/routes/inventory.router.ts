@@ -194,8 +194,8 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     if ('conflict' in result) {
-      // FEAT-16/23: the offline sync queue sent `expectedUpdatedAt` and it no
-      // longer matches — someone else modified this item in the meantime.
+      // FEAT-16/23, #572: the offline sync queue or the edit form sent
+      // `expectedUpdatedAt` and it no longer matches — someone else modified this item in the meantime.
       // Return the current server state so the client can offer conflict
       // resolution instead of silently overwriting it.
       void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: 'CONFLICT' } });

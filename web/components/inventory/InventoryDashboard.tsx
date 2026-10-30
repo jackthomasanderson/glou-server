@@ -106,6 +106,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     safeWriteStorage(localStorage, NO_CELLAR_BANNER_KEY, '1');
   }, []);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  // #572: the version the open edit form's save must still find on the
+  // server, so a change made meanwhile by someone else is not overwritten.
+  // Moves on with each save that went through: one whose collections then
+  // failed keeps the form open, and its retry must not conflict with itself.
+  const [editingVersion, setEditingVersion] = useState<string | null>(null);
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
   const [undoTarget, setUndoTarget] = useState<InventoryItem | null>(null);
 
@@ -268,7 +273,15 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     async (values: Partial<InventoryItem>, newCollectionIds: string[]) => {
       if (!editingItem) return;
       try {
-        await updateMutation.mutateAsync({ id: editingItem.id, patch: values });
+        // Only the collections changed: no PATCH, which would bump the version for nothing.
+        if (Object.keys(values).length > 0) {
+          const saved = await updateMutation.mutateAsync({
+            id: editingItem.id,
+            patch: values,
+            expectedUpdatedAt: editingVersion ?? editingItem.updatedAt,
+          });
+          setEditingVersion(saved.updatedAt);
+        }
         const oldIds = (editingItem.collections ?? []).map(c => c.id);
         await syncCollections(editingItem.id, newCollectionIds, oldIds);
       } catch {
@@ -279,7 +292,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       setMode('idle');
       setEditingItem(null);
     },
-    [editingItem, updateMutation, syncCollections]
+    [editingItem, editingVersion, updateMutation, syncCollections]
   );
 
   const handleDelete = useCallback(
@@ -297,6 +310,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const handleEdit = useCallback((item: InventoryItem) => {
     setEditingItem(item);
+    setEditingVersion(item.updatedAt);
     setMode('editing');
   }, []);
 

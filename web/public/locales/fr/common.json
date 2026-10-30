@@ -374,6 +374,7 @@
     "createError": "Impossible d'ajouter l'actif",
     "createRejected": "L'actif n'a pas été ajouté : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire, ou signalez le problème s'il vous semble correct.",
     "updateError": "Impossible de mettre à jour l'actif",
+    "updateConflict": "Non enregistré : cet actif a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
     "deleteError": "Impossible de supprimer l'actif",
     "restoreError": "Impossible de restaurer l'actif",
     "collection": {

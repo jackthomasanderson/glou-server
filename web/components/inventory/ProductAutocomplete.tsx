@@ -15,11 +15,13 @@ interface Props {
   onChange: (name: string) => void;
   onSelect: (s: ProductSuggestion) => void;
   category: string;
-  disabled?: boolean;
+  /** Off: a plain name field, nothing looked up or proposed (an existing bottle's name, #643). */
+  suggestions?: boolean;
+  autoFocus?: boolean;
   isInvalid?: boolean;
 }
 
-export function ProductAutocomplete({ value, onChange, onSelect, category, disabled, isInvalid }: Props) {
+export function ProductAutocomplete({ value, onChange, onSelect, category, suggestions = true, autoFocus, isInvalid }: Props) {
   const { t, i18n } = useTranslation();
   const isOnline = useConnectivity();
   const { shouldWarn, dismiss } = useConnectivityWarning('autocomplete');
@@ -32,7 +34,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
   const [loadingExternal, setLoadingExternal] = useState(false);
 
   const internalOptions = useMemo<ProductSuggestion[]>(() => {
-    if (!value.trim() || !inventoryItems) return [];
+    if (!suggestions || !value.trim() || !inventoryItems) return [];
     const q = value.trim().toLowerCase();
     const seen = new Set<string>();
     return inventoryItems
@@ -56,7 +58,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
         format: item.format,
         region: item.region,
       }));
-  }, [value, inventoryItems]);
+  }, [suggestions, value, inventoryItems]);
 
   const options = useMemo(
     () => [...internalOptions, ...externalOptions],
@@ -65,6 +67,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
 
   const handleInputChange = (val: string) => {
     onChange(val);
+    if (!suggestions) return;
     setIsOpen(true);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -114,19 +117,20 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, disab
         size="sm"
         label={t('inventory.fields.name')}
         value={value}
-        role="combobox"
-        aria-expanded={expanded}
-        aria-controls={listId}
-        aria-autocomplete="list"
-        aria-haspopup="listbox"
-        aria-activedescendant={expanded && keys.activeIndex >= 0 ? optionDomId(listId, keys.activeIndex) : undefined}
+        {...(suggestions ? {
+          role: 'combobox',
+          'aria-expanded': expanded,
+          'aria-controls': listId,
+          'aria-autocomplete': 'list' as const,
+          'aria-haspopup': 'listbox' as const,
+          'aria-activedescendant': expanded && keys.activeIndex >= 0 ? optionDomId(listId, keys.activeIndex) : undefined,
+          onFocus: () => { if (value.trim()) setIsOpen(true); },
+          // Rows never take focus (aria-activedescendant): a blur means the user left.
+          onBlur: () => { setIsOpen(false); keys.resetActive(); },
+          onKeyDown: keys.onKeyDown,
+        } : {})}
         onValueChange={(v) => { handleInputChange(v); keys.resetActive(); }}
-        onFocus={() => { if (value.trim()) setIsOpen(true); }}
-        // Rows never take focus (aria-activedescendant): a blur means the user left.
-        onBlur={() => { setIsOpen(false); keys.resetActive(); }}
-        onKeyDown={keys.onKeyDown}
-        autoFocus={!disabled}
-        isDisabled={disabled}
+        autoFocus={autoFocus}
         endContent={
           loadingExternal ? <Loader2 size={14} className="animate-spin text-foreground-500" /> : undefined
         }
