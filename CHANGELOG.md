@@ -14,9 +14,9 @@ Entries start with the pull request that introduced them where there is one.
 - Advanced setting `API_RATE_LIMIT_MAX` in `.env`: how many requests one address may send every 15 minutes (1000 by default), to raise if many devices share one address and get *Too many requests*. The sign-in and password-reset limits do not change (#746).
 
 ### Security
-- Another app hosted under the same domain (for example `photos.home.example` next to `glou.home.example`) can no longer send requests to Glou on behalf of a signed-in member. Its address must be listed in `APP_URL`, `CORS_ORIGIN` or `CSRF_TRUSTED_ORIGINS` (#PR, #600).
-- Guest share links no longer appear in clear text in the error and rejected-request lines of the `api` log (#PR, #612).
-- A crafted sign-in link can no longer send you to another website once signed in; the page you asked for, query string and anchor included, is still restored after sign-in and after the two-factor step (#PR, #602).
+- Another app hosted under the same domain (for example `photos.home.example` next to `glou.home.example`) can no longer send requests to Glou on behalf of a signed-in member. Its address must be listed in `APP_URL`, `CORS_ORIGIN` or `CSRF_TRUSTED_ORIGINS` (#740, #600).
+- Guest share links no longer appear in clear text in the error and rejected-request lines of the `api` log (#740, #612).
+- A crafted sign-in link can no longer send you to another website once signed in; the page you asked for, query string and anchor included, is still restored after sign-in and after the two-factor step (#740, #602).
 
 ### Fixed
 - Running the web app from a source checkout (`npm run dev` or a local build) showed it with two thirds of the interface library's styles missing: fields without borders, square buttons with dark text, no keyboard focus ring, dialogs not full-screen on a phone. Published images were not affected (#722, #721).
