@@ -28,6 +28,7 @@ vi.mock('@/hooks/useInventory', () => ({
 }));
 vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: [] }) }));
 vi.mock('@/hooks/useCollections', () => ({ useAddItemsToCollection: () => ({ mutateAsync: addToCollection }) }));
+vi.mock('@/lib/toast', () => ({ notifyError: vi.fn() }));
 vi.mock('@/lib/inventory/client', () => ({ inventoryClient: { list: () => freshList() } }));
 
 // The real form is heavy; this stand-in submits whatever the test sets.

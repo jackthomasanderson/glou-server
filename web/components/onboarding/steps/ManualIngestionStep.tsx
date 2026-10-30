@@ -9,6 +9,7 @@ import { useCreateInventoryItem, useInventory, useUpdateInventoryItem } from '@/
 import { useCellars } from '@/hooks/useCellars';
 import { useAddItemsToCollection } from '@/hooks/useCollections';
 import { useDuplicateResolution } from '@/hooks/useDuplicateResolution';
+import { applyCollectionChanges } from '@/lib/collections/sync';
 import { InventoryItem } from '@/lib/inventory/types';
 
 interface ManualIngestionStepProps {
@@ -41,7 +42,7 @@ export function ManualIngestionStep({ cellarId, itemsAdded, onItemAdded, onDone,
   // A new item has no collection yet, so syncing is only ever adding.
   const syncCollections = useCallback(
     async (itemId: string, collectionIds: string[]) => {
-      await Promise.all(collectionIds.map((id) => addItemsToCollection.mutateAsync({ id, itemIds: [itemId] })));
+      await applyCollectionChanges(collectionIds.map((id) => addItemsToCollection.mutateAsync({ id, itemIds: [itemId] })));
     },
     [addItemsToCollection],
   );

@@ -414,6 +414,9 @@
       "convertError": "Could not turn the wish into an inventory item"
     },
     "bulkUpdateError": "Could not update the selected assets",
+    "bulkPreset": {
+      "deleteError": "Could not delete the action preset"
+    },
     "share": {
       "createError": "Could not create the share link",
       "revokeError": "Could not revoke the share link"
@@ -661,7 +664,14 @@
     "remove": "Remove image",
     "pasteUrl": "Paste an image URL",
     "upload": "Upload an image from your device",
-    "urlPlaceholder": "https://… (image URL)"
+    "urlPlaceholder": "https://… (image URL)",
+    "errors": {
+      "tooLarge": "This photo is too large (5 MB at most). Choose a smaller one.",
+      "unsupportedType": "This image format is not supported. Use a JPEG, PNG, WebP, GIF or AVIF photo.",
+      "invalidUrl": "Enter an image address starting with https://.",
+      "fetchFailed": "This image could not be downloaded. Check the address or choose another image.",
+      "failed": "The photo could not be saved. Check your connection and try again."
+    }
   },
   "autocomplete": {
     "internal": "My inventory",

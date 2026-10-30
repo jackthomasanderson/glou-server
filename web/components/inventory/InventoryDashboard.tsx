@@ -32,6 +32,7 @@ import { InventoryCardSkeleton } from './InventoryCard';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import { UndoToast } from '@/components/ui/UndoToast';
 import { notifySuccess } from '@/lib/toast';
+import { applyCollectionChanges } from '@/lib/collections/sync';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
 import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
 import { InventoryListRowSkeleton } from './InventoryListRow';
@@ -230,7 +231,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       const newSet = new Set(newCollectionIds);
       const toAdd = newCollectionIds.filter(id => !oldSet.has(id));
       const toRemove = oldCollectionIds.filter(id => !newSet.has(id));
-      await Promise.all([
+      await applyCollectionChanges([
         ...toAdd.map(colId => addItemsToCollectionMutation.mutateAsync({ id: colId, itemIds: [itemId] })),
         ...toRemove.map(colId => removeItemFromCollectionMutation.mutateAsync({ id: colId, itemId })),
       ]);
@@ -288,7 +289,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         const oldIds = (editingItem.collections ?? []).map(c => c.id);
         await syncCollections(editingItem.id, newCollectionIds, oldIds);
       } catch {
-        // Reported by the mutation's onError toast; keep the form open.
+        // Reported by the update's onError toast or by applyCollectionChanges; keep the form open.
         return;
       }
       notifySuccess('toast.updateSuccess');

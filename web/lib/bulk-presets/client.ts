@@ -20,6 +20,6 @@ export const bulkPresetClient = {
   },
 
   async delete(id: string): Promise<void> {
-    await client.delete(`/bulk-presets/${id}`);
+    await client.delete<void>(`/bulk-presets/${id}`);
   },
 };

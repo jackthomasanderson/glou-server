@@ -33,6 +33,8 @@ export async function apiErrorFrom(res: Response): Promise<ApiError> {
 
 export async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) throw await apiErrorFrom(res);
+  // A 204/205 (a delete, mostly) or an empty answer has no body to read.
+  if (res.status === 204 || res.status === 205 || res.headers?.get('content-length') === '0') return undefined as T;
   const body = await res.json() as { data: T };
   return body.data;
 }
