@@ -4,7 +4,7 @@
 Glou applies its database migrations automatically when the API starts, and **migrations only go forward**: there is no "down" migration. Going back means restoring the backup you took before the upgrade, with the previous image. Take that backup first, and note the image you are running.
 
 ## Prerequisites
-* Shell access to the host, and a **fresh backup** (Admin → System Configuration → Backups → **Run now**).
+* Shell access to the host, and a **fresh backup** (Admin → System Configuration → Backups → **Back up now**).
 * The database backup alone is enough to undo schema changes; photos are not touched by migrations.
 
 > [!WARNING]

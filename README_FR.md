@@ -67,7 +67,7 @@ Docker télécharge les images pré-construites et démarre la stack. Aucune com
 
 **Étape 3 : Créer votre compte**
 
-Rendez-vous sur [http://localhost:3000](http://localhost:3000) et cliquez sur **S'inscrire**. Le premier compte créé reçoit automatiquement les droits administrateur.
+Rendez-vous sur [http://localhost:3000](http://localhost:3000), cliquez sur **S'inscrire** (sous le formulaire de connexion), puis sur **Créer mon compte**. Le premier compte créé reçoit automatiquement les droits administrateur.
 
 > [!NOTE]
 > Une fois ce premier compte créé, **l'inscription est fermée**. Pour laisser d'autres personnes s'inscrire, un admin active **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Réseau**, et peut la désactiver ensuite.
