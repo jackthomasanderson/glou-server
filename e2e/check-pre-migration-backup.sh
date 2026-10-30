@@ -6,9 +6,11 @@
 #   1. the stack's first start (new database) took no backup and said so;
 #   2. with one migration made pending again on a database that has accounts,
 #      the step writes glou-backup-before-migration-*.sql.gz to ./backups;
-#   3. started again with the migration still pending and Glou not run since
-#      (what restart: unless-stopped does after a failed migrate deploy), the
-#      step reuses that backup and writes no new file;
+#   3. started again with the migration still pending but no failed attempt
+#      recorded in _prisma_migrations, the step takes a new backup (the data
+#      may have changed); with a failed migration row newer than that backup
+#      (what restart: unless-stopped does after a failed migrate deploy), it
+#      reuses that backup and writes no new file;
 #   4. once Glou has run since that backup, with ./backups owned by root (the
 #      usual Linux mistake), the image's own start command stops with a
 #      [backup] message and migrates nothing.
@@ -44,6 +46,7 @@ hidden="${latest}__e2e_hidden"
 restore_history() {
   psql_e2e -c "UPDATE _prisma_migrations SET migration_name = '$latest' WHERE migration_name = '$hidden'" >/dev/null || true
   psql_e2e -c "DELETE FROM backup_runs WHERE id = 'e2e-pre-migration'" >/dev/null || true
+  psql_e2e -c "DELETE FROM _prisma_migrations WHERE id = 'e2e-failed-attempt'" >/dev/null || true
   sudo chown 1001:1001 "$backups" || true
 }
 trap restore_history EXIT
@@ -66,21 +69,37 @@ grep -q "$latest" <<<"$out" || { echo "The log does not name the pending migrati
 echo "Backup written: $files"
 echo "::endgroup::"
 
-echo "::group::3. Started again, Glou not run since: the backup is reused, no new file"
+pre_migrate() { docker compose run --rm --no-deps -T api node dist/api/src/scripts/pre-migrate.js 2>&1; }
+
+echo "::group::3. Started again: a new backup without a failed attempt, the same one with it"
 set +e
-out=$(docker compose run --rm --no-deps -T api node dist/api/src/scripts/pre-migrate.js 2>&1)
+out=$(pre_migrate)
 code=$?
 set -e
 echo "$out"
 [ "$code" = 0 ] || { echo "The pre-migration step failed on the second start (exit $code)."; exit 1; }
-grep -q "No new backup: /app/backups/$(basename "$files")" <<<"$out" || { echo "The earlier backup was not reused."; exit 1; }
-[ "$(before_migration_files | grep -c .)" = 1 ] || { echo "A second pre-migration backup was written: $(before_migration_files)"; exit 1; }
+[ "$(before_migration_files | grep -c .)" = 2 ] \
+  || { echo "No failed migration row: expected a new backup, found: $(before_migration_files)"; exit 1; }
+newest=$(before_migration_files | tail -1)
+
+# What a failed prisma migrate deploy leaves: a row that started, never finished.
+psql_e2e -c "INSERT INTO _prisma_migrations (id, checksum, migration_name, started_at, applied_steps_count) VALUES ('e2e-failed-attempt', 'e2e', '${latest}__e2e_failed', now(), 0)" >/dev/null
+set +e
+out=$(pre_migrate)
+code=$?
+set -e
+echo "$out"
+[ "$code" = 0 ] || { echo "The pre-migration step failed on the restart after a failed deploy (exit $code)."; exit 1; }
+grep -q "No new backup: /app/backups/$(basename "$newest")" <<<"$out" || { echo "The earlier backup was not reused."; exit 1; }
+[ "$(before_migration_files | grep -c .)" = 2 ] || { echo "Another pre-migration backup was written: $(before_migration_files)"; exit 1; }
+psql_e2e -c "DELETE FROM _prisma_migrations WHERE id = 'e2e-failed-attempt'" >/dev/null
 echo "::endgroup::"
 
 echo "::group::4. Glou ran since, backups folder owned by root: the start command stops before migrating"
-# What an API start does: it lists the file in the backup history. The data
-# may have changed since, so the step must take a new backup.
-psql_e2e -c "INSERT INTO backup_runs (id, \"runAt\", trigger, success, \"filePath\") VALUES ('e2e-pre-migration', now(), 'scheduled', true, '/app/backups/$(basename "$files")')" >/dev/null
+# A failed attempt, but Glou ran since (an API start lists the file in the
+# backup history): the data may have changed, so a new backup is needed.
+psql_e2e -c "INSERT INTO _prisma_migrations (id, checksum, migration_name, started_at, applied_steps_count) VALUES ('e2e-failed-attempt', 'e2e', '${latest}__e2e_failed', now(), 0)" >/dev/null
+psql_e2e -c "INSERT INTO backup_runs (id, \"runAt\", trigger, success, \"filePath\") VALUES ('e2e-pre-migration', now(), 'scheduled', true, '/app/backups/$(basename "$newest")')" >/dev/null
 sudo chown root:root "$backups"
 sudo chmod 755 "$backups"
 set +e
@@ -97,7 +116,7 @@ grep -q '^\[backup\] Migrations are pending, but /app/backups is not writable' <
 grep -q 'sudo chown 1001:1001 backups' <<<"$out" || { echo "The message does not say how to fix the folder."; exit 1; }
 applied=$(psql_e2e -c "SELECT count(*) FROM _prisma_migrations WHERE migration_name = '$latest'")
 [ "$applied" = 0 ] || { echo "A migration ran although the backup failed."; exit 1; }
-[ "$(before_migration_files | grep -c .)" = 1 ] || { echo "A file was left behind by the failed backup."; exit 1; }
+[ "$(before_migration_files | grep -c .)" = 2 ] || { echo "A file was left behind by the failed backup."; exit 1; }
 echo "::endgroup::"
 
 echo "The pre-migration backup is taken when needed, and its failure stops the start."

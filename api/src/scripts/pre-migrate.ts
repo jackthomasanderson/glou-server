@@ -104,20 +104,32 @@ export function dumpFailedMessage(error: unknown): string {
  * whole database once more into a file retention never deletes, until the
  * disk (PostgreSQL's too) is full.
  *
- * When can an earlier file be trusted? The data only changes while a Glou
- * API runs, and every API start lists the files of the backups folder in
- * `backup_runs` (backupService.syncHistoryWithFiles, in every image since
- * v2026.10.3). So the newest glou-backup-before-migration-* file still
- * matches the database when:
- *   - no `backup_runs` row names it: no API has started since it was written
- *     (a restore re-lists the files too, so it would name it);
- *   - it is newer than every migration that finished or was rolled back in
- *     `_prisma_migrations`: no migration ran on the data after it;
+ * When can an earlier file be trusted? Only while the failed attempt it was
+ * taken for has left its trace in the database: a `_prisma_migrations` row
+ * that started but never finished nor was rolled back. While that row exists,
+ * `prisma migrate deploy` refuses to run (P3009) in every Glou image, old or
+ * new, so no API can start and the data cannot change. Restoring any dump
+ * taken before that attempt (from the admin page, or by hand as in wiki
+ * page 30) erases the row; `prisma migrate resolve --rolled-back` sets its
+ * rolled_back_at; either way the next start takes a new backup. The `backup_runs` list
+ * alone is not enough: images before v2026.10.3 do not list the files there,
+ * and a restore by hand does not either.
+ *
+ * So the newest glou-backup-before-migration-* file is reused only when all
+ * of these hold:
+ *   - a failed migration row exists that started at or after the file's time:
+ *     the attempt this very backup was taken for;
+ *   - no `backup_runs` row names the file: no API (v2026.10.3 or later) has
+ *     started since it was written;
+ *   - it is newer than every migration that finished or was rolled back:
+ *     no migration ran on the data after it;
  *   - it is a complete gzip: not cut short by a container killed mid-dump.
- * Anything else, or any doubt (no `backup_runs` table, unreadable folder),
- * means a new backup. This is sturdier than a name built from the last
- * applied migration, which stays the same when the previous image is put
- * back and keeps running on changing data.
+ * Anything else, or any doubt (no `backup_runs` table, unreadable folder, a
+ * query that fails), means a new backup. No maximum age: while the failed
+ * row is there, the data is frozen however long the loop lasts, and an age
+ * limit would only bring back one full dump per period in a loop nobody
+ * watches. A name built from the last applied migration was rejected: it
+ * stays the same when the previous image is put back and runs on new data.
  */
 export async function findReusableBackup(db: Queryable, backupsDir: string): Promise<string | null> {
   let names: string[];
@@ -131,6 +143,12 @@ export async function findReusableBackup(db: Queryable, backupsDir: string): Pro
     .map((name) => ({ name, date: backupFileDate(name, fs.statSync(path.join(backupsDir, name))) }))
     .sort((a, b) => b.date.getTime() - a.date.getTime());
   const newest = dated[0];
+
+  // The trace of the failed attempt: without it, the data may have changed.
+  const failed = await db.query<{ started_at: Date | string }>(
+    'SELECT started_at FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL',
+  );
+  if (!failed.rows.some((row) => new Date(row.started_at).getTime() >= newest.date.getTime())) return null;
 
   const table = await db.query<{ exists: boolean }>("SELECT to_regclass('backup_runs') IS NOT NULL AS exists");
   if (!table.rows[0]?.exists) return null;

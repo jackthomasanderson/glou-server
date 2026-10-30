@@ -22,10 +22,12 @@ function fakeDb(opts: {
   backupRuns?: string[];
   /** Latest finished_at / rolled_back_at in _prisma_migrations. */
   lastMigrationChange?: Date | null;
+  /** started_at of the failed rows (finished_at and rolled_back_at NULL) in _prisma_migrations. */
+  failedStartedAt?: Date[];
 }) {
   const {
     migrationsTable = true, applied = [], userTable = true, hasUser = true,
-    backupRuns, lastMigrationChange = new Date('2026-10-01T00:00:00Z'),
+    backupRuns, lastMigrationChange = new Date('2026-10-01T00:00:00Z'), failedStartedAt = [],
   } = opts;
   const queries: string[] = [];
   const db: Queryable & { end: () => Promise<void> } = {
@@ -34,6 +36,9 @@ function fakeDb(opts: {
       if (sql.includes("to_regclass('_prisma_migrations')")) return { rows: [{ exists: migrationsTable }] as unknown as R[] };
       if (sql.includes("to_regclass('backup_runs')")) return { rows: [{ exists: backupRuns !== undefined }] as unknown as R[] };
       if (sql.includes('FROM backup_runs')) return { rows: (backupRuns ?? []).map((filePath) => ({ filePath })) as unknown as R[] };
+      if (sql.includes('WHERE finished_at IS NULL AND rolled_back_at IS NULL')) {
+        return { rows: failedStartedAt.map((started_at) => ({ started_at })) as unknown as R[] };
+      }
       if (sql.includes('max(GREATEST(finished_at, rolled_back_at))')) return { rows: [{ last: lastMigrationChange }] as unknown as R[] };
       if (sql.includes('FROM _prisma_migrations')) {
         // A failed (unfinished) or rolled-back row is excluded by the query itself.
@@ -217,6 +222,8 @@ describe('preMigrate after a failed migrate deploy (restart loop)', () => {
   // deploy` fails: the migration is still pending. Without a guard, every start
   // would write another full dump that retention never deletes.
   const LATER = new Date('2026-11-01T08:31:00.000Z');
+  // The failed deploy right after the first start's backup (NOW).
+  const FAILED = [new Date('2026-11-01T08:30:05.000Z')];
 
   async function firstStart(db: ReturnType<typeof fakeDb>['db']) {
     const first = deps(db);
@@ -226,7 +233,7 @@ describe('preMigrate after a failed migrate deploy (restart loop)', () => {
 
   it('second start after a failed deploy: no new file, the earlier backup is named in the log', async () => {
     // The failed migration's row has no finished_at: the last change stays before the backup.
-    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [] });
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [], failedStartedAt: FAILED });
     await firstStart(db);
 
     const second = deps(db, { now: () => LATER });
@@ -241,7 +248,7 @@ describe('preMigrate after a failed migrate deploy (restart loop)', () => {
   });
 
   it('Glou ran since that backup (listed in backup_runs): a new backup', async () => {
-    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [`/app/backups/${EXPECTED_NAME}`] });
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [`/app/backups/${EXPECTED_NAME}`], failedStartedAt: FAILED });
     await firstStart(db);
     const second = deps(db, { now: () => LATER });
     expect(await preMigrate(second.d)).toBe(0);
@@ -250,7 +257,9 @@ describe('preMigrate after a failed migrate deploy (restart loop)', () => {
   });
 
   it('a migration finished after that backup: a new backup', async () => {
-    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [], lastMigrationChange: new Date('2026-11-01T08:30:30Z') });
+    const { db } = fakeDb({
+      applied: SHIPPED.slice(0, 2), backupRuns: [], failedStartedAt: FAILED, lastMigrationChange: new Date('2026-11-01T08:30:30Z'),
+    });
     await firstStart(db);
     const second = deps(db, { now: () => LATER });
     expect(await preMigrate(second.d)).toBe(0);
@@ -259,7 +268,7 @@ describe('preMigrate after a failed migrate deploy (restart loop)', () => {
   });
 
   it('the earlier file is truncated (container killed mid-dump): a new backup', async () => {
-    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [] });
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [], failedStartedAt: FAILED });
     fs.mkdirSync(backupsDir, { recursive: true });
     fs.writeFileSync(path.join(backupsDir, EXPECTED_NAME), zlib.gzipSync('-- dump').subarray(0, 10));
     const second = deps(db, { now: () => LATER });
@@ -268,7 +277,7 @@ describe('preMigrate after a failed migrate deploy (restart loop)', () => {
   });
 
   it('no backup_runs table (cannot tell whether Glou ran): a new backup', async () => {
-    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2) });
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), failedStartedAt: FAILED });
     await firstStart(db);
     const second = deps(db, { now: () => LATER });
     expect(await preMigrate(second.d)).toBe(0);
@@ -276,12 +285,41 @@ describe('preMigrate after a failed migrate deploy (restart loop)', () => {
   });
 
   it('a scheduled backup is never reused: only glou-backup-before-migration-* files count', async () => {
-    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [] });
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [], failedStartedAt: FAILED });
     fs.mkdirSync(backupsDir, { recursive: true });
     fs.writeFileSync(path.join(backupsDir, 'glou-backup-2026-11-01T08-00-00-000Z.sql.gz'), zlib.gzipSync('-- dump'));
     const run = deps(db);
     expect(await preMigrate(run.d)).toBe(0);
     expect(run.dump).toHaveBeenCalledTimes(1);
+  });
+  it('file not listed, newer than every finished migration, but NO failed migration row: a new backup', async () => {
+    // Nothing in the database ties the file to a failed attempt: the data may have changed since.
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [] });
+    await firstStart(db);
+    const second = deps(db, { now: () => LATER });
+    expect(await preMigrate(second.d)).toBe(0);
+    expect(second.dump).toHaveBeenCalledTimes(1);
+    expect(backupFiles()).toHaveLength(2);
+  });
+
+  it('that backup restored, the previous image (before v2026.10.3) used for days, then the update again: a new backup', async () => {
+    // The restore brought back the history as it was before the attempt: no failed row,
+    // and an image that old never lists files in backup_runs.
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [], failedStartedAt: FAILED });
+    await firstStart(db);
+    const afterRestore = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [] }).db;
+    const retry = deps(afterRestore, { now: () => new Date('2026-11-05T09:00:00.000Z') });
+    expect(await preMigrate(retry.d)).toBe(0);
+    expect(retry.dump).toHaveBeenCalledTimes(1);
+    expect(backupFiles()).toHaveLength(2);
+  });
+
+  it('a failed row older than the file (from an earlier attempt): a new backup', async () => {
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [], failedStartedAt: [new Date('2026-10-20T00:00:00Z')] });
+    await firstStart(db);
+    const second = deps(db, { now: () => LATER });
+    expect(await preMigrate(second.d)).toBe(0);
+    expect(second.dump).toHaveBeenCalledTimes(1);
   });
 });
 
