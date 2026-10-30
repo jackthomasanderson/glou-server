@@ -17,8 +17,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isLoading && user === null) {
-      // #507: come back to the requested page (QR code, link) after sign-in.
-      router.replace(loginPathFor(window.location.pathname + window.location.search));
+      // #507: come back to the requested page (QR code, link) after sign-in,
+      // hash included (#602).
+      const { pathname, search, hash } = window.location;
+      router.replace(loginPathFor(pathname + search + hash));
     }
   }, [isLoading, user, router]);
 

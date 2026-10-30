@@ -139,6 +139,22 @@ describe('errorMiddleware', () => {
     expect(json).toHaveBeenCalledWith({ error: 'VALIDATION_ERROR', details: { page: ['bad'] } });
   });
 
+  // #612: a guest share link carries its token in the path.
+  it('does not print the guest share token, for client or server errors', () => {
+    const token = 'gst_SuperSecretToken123';
+    const guestReq = { method: 'PATCH', originalUrl: `/api/guest/${token}/inventory/7?x=1` } as Request;
+
+    errorMiddleware(new AppError(400, 'MALFORMED_JSON'), guestReq, res, next);
+    errorMiddleware(new Error('boom'), guestReq, res, next);
+
+    const logged = JSON.stringify([
+      (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls,
+      (console.error as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => c.slice(0, -1)),
+    ]);
+    expect(logged).toContain('PATCH /api/guest/***/inventory/7?x=1');
+    expect(logged).not.toContain(token);
+  });
+
   it('delegates to Express when the response has already started', () => {
     const started = { status, headersSent: true } as unknown as Response;
     const err = new Error('stream died');
