@@ -215,6 +215,15 @@ describe('database outage during authentication (#581)', () => {
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
+  it('answers 401, not 500, for a validly signed token that is not a session token', async () => {
+    // The trusted-device cookie is signed with the same secret: { tdt }.
+    const trustedDevice = jwt.sign({ tdt: 'x' }, JWT_SECRET, { algorithm: 'HS256' });
+    const res = await request(app).get('/api/tastings').set('Authorization', `Bearer ${trustedDevice}`);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('TOKEN_INVALID_OR_EXPIRED');
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
   it('still answers 401 TOKEN_INVALID_OR_EXPIRED for a token signed with another secret', async () => {
     const forged = jwt.sign({ userId: 'u1', email: 'u1@example.com', scope: 'full' }, 'another-secret', { algorithm: 'HS256' });
     const res = await request(app).get('/api/tastings').set('Authorization', `Bearer ${forged}`);

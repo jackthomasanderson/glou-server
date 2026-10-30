@@ -36,13 +36,23 @@ const lastActiveWriteCache = new Map<string, number>();
 // correctness issue, just re-arms the throttle.
 const LAST_ACTIVE_CACHE_MAX_ENTRIES = 2000;
 
-/** `null` when the token is malformed, forged or expired. */
+/**
+ * `null` when the token is malformed, forged or expired, or is not a session
+ * token: the trusted-device cookie is signed with the same secret but carries
+ * no `userId`.
+ */
 function verifyToken(token: string, secret: string): AuthPayload | null {
+  let payload: unknown;
   try {
-    return jwt.verify(token, secret, { algorithms: ['HS256'] }) as AuthPayload;
+    payload = jwt.verify(token, secret, { algorithms: ['HS256'] });
   } catch {
     return null;
   }
+  if (typeof payload !== 'object' || payload === null) return null;
+  const { userId, sessionId } = payload as { userId?: unknown; sessionId?: unknown };
+  if (typeof userId !== 'string') return null;
+  if (sessionId !== undefined && typeof sessionId !== 'string') return null;
+  return payload as AuthPayload;
 }
 
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
