@@ -26,9 +26,9 @@ Entries start with the pull request that introduced them where there is one.
 - Editing a tasting now shows its perceived maturity and, in expert mode, its tasting grid (appearance, nose, palate, tannin, acidity, finish), which used to appear empty. Saving a tasting without touching it no longer erases its perceived maturity, and what you type in the tasting window is no longer wiped when the page refreshes its data in the background (#736, #642).
 - After a tasting, the stock question no longer puts an already opened bottle back to 50 % with today as its opening date: for an opened bottle it only offers to mark it empty (#736, #595).
 - After a cigar tasting, the stock question offers to remove one cigar from the box instead of marking the whole box empty (#736, #586).
-- Backups restore again with the disaster-recovery and rollback procedures of the wiki: every backup stopped them at its first line on the PostgreSQL 15 database Glou ships, and the database stayed empty. New backups no longer contain that line, and the documented command now also restores older ones. The disaster-recovery page now sends you to the `./backups` folder instead of an old Docker volume that only holds backups from before 2026.10 (#737, #665).
+- Backups restore again with the disaster-recovery and rollback procedures of the wiki: every backup stopped them near its start, on a setting the PostgreSQL 15 database Glou ships rejects, and nothing was restored. New backups no longer contain that setting, and the documented command now also restores older ones. The disaster-recovery page now sends you to the `./backups` folder instead of an old Docker volume that only holds backups from before 2026.10 (#737, #665).
 - A backup is recorded as successful only once its file is completely written. A disk that filled up during the last moments of a backup left a truncated file marked successful, and older good backups could then be deleted by the retention (#737, #670).
-- The Backups tab warns again when Glou cannot write to its backups folder; it never did. If the check itself fails, the tab says so instead of staying silent (#737, #669).
+- The Backups tab now warns when Glou cannot write to its backups folder. If the check itself fails, the tab says so instead of staying silent (#737, #669).
 
 ## v2026.10.2 - 2026-10-23
 

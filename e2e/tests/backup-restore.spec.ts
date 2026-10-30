@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { creds } from './_helpers';
 
-/** Read by e2e/check-documented-restore.sh, which CI runs after this suite (#665). */
-const DOWNLOADED_BACKUP = './.backup-download/glou-backup.sql.gz';
+/** e2e/.backup-download/: read by e2e/check-documented-restore.sh, which CI runs after this suite (#665). */
+const DOWNLOADED_BACKUP = fileURLToPath(new URL('../.backup-download/glou-backup.sql.gz', import.meta.url));
 
 // ISSUE_020 ("no restore has ever been proven"): a real backup/restore
 // round-trip against the actual running stack, not a mock. The E2E user is

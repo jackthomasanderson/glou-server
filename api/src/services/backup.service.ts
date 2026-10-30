@@ -151,16 +151,24 @@ async function execPgDump(conn: DbConnParams, destPath: string): Promise<void> {
     });
   });
 
-  const written = pipeline(
-    child.stdout,
-    filterUnsupportedSetStatements(),
-    zlib.createGzip(),
-    // `flush`: fsync before closing, so a late disk error fails the pipeline.
-    fs.createWriteStream(destPath, { flush: true }),
-  ).catch((err: Error) => {
+  const filter = filterUnsupportedSetStatements();
+  const gzip = zlib.createGzip();
+  // `flush`: fsync before closing, so a late disk error fails the pipeline.
+  const out = fs.createWriteStream(destPath, { flush: true });
+
+  // The pipeline hands its first error to every stream it tears down: the
+  // first stream to report it is the one that actually failed.
+  let failedStage: string | undefined;
+  const failedAt = (stage: string) => () => { failedStage ??= stage; };
+  child.stdout.on('error', failedAt('PG_DUMP_OUTPUT_FAILED'));
+  filter.on('error', failedAt('FILTER_FAILED'));
+  gzip.on('error', failedAt('GZIP_FAILED'));
+  out.on('error', failedAt('WRITE_FAILED'));
+
+  const written = pipeline(child.stdout, filter, gzip, out).catch((err: Error) => {
     // Nothing reads pg_dump's output any more: stop it rather than let it hang.
     child.kill('SIGKILL');
-    throw new Error(`WRITE_FAILED: ${err.message}`);
+    throw new Error(`${failedStage ?? 'DUMP_STREAM_FAILED'}: ${err.message}`);
   });
 
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -175,7 +183,7 @@ async function execPgDump(conn: DbConnParams, destPath: string): Promise<void> {
     const [dump, write] = await Promise.race([Promise.allSettled([exited, written]), timedOut]);
     // pg_dump could not even start: that is the cause, whatever the file says.
     if (dump.status === 'rejected' && spawnFailed) throw dump.reason;
-    // A write failure kills pg_dump, so its own exit error is only a consequence.
+    // A stream failure kills pg_dump, so its own exit error is only a consequence.
     if (write.status === 'rejected') throw write.reason;
     if (dump.status === 'rejected') throw dump.reason;
   } finally {

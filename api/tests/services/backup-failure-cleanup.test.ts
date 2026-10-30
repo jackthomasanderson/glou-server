@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import { EventEmitter } from 'events';
-import { PassThrough, Writable } from 'stream';
+import { PassThrough, Transform, Writable } from 'stream';
 import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
@@ -159,6 +159,22 @@ describe('backupService.runBackup — success only once the file is complete (#6
 
     expect(dump.kill).toHaveBeenCalled();
     expect(recorded()).toEqual(expect.objectContaining({ success: false, error: expect.stringMatching(/^WRITE_FAILED: ENOSPC/) }));
+    expect(retention).not.toHaveBeenCalled();
+  });
+  it('names the compression step, not the disk, when compression fails', async () => {
+    vi.spyOn(zlib, 'createGzip').mockImplementation((() => new Transform({
+      transform(_chunk, _enc, callback) { callback(new Error('invalid deflate state')); },
+    })) as unknown as typeof zlib.createGzip);
+    const dump = new FakeDump();
+    spawnMock.mockReturnValue(dump);
+
+    const run = backupService.runBackup('manual');
+    dump.stdout.end('CREATE TABLE t (id int);\n');
+    dump.emit('close', 0);
+    await run;
+
+    expect(recorded()).toEqual(expect.objectContaining({ success: false, error: 'GZIP_FAILED: invalid deflate state' }));
+    expect(created()).toEqual([]);
     expect(retention).not.toHaveBeenCalled();
   });
 });
