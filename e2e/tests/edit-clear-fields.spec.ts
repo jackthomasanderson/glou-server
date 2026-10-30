@@ -39,11 +39,22 @@ test('emptying the vintage, price, colour and dates of a bottle clears them', as
     await expect(vintage).toHaveValue('2015');
     await vintage.fill('');
 
-    // Colour back to "—".
-    await dialog.locator('button[data-slot="trigger"]', { hasText: 'Rouge' }).click();
+    // Colour back to "—", from the keyboard. A click lands while the window
+    // is still animating in: Playwright then retries by force-scrolling the
+    // trigger into view, and the list the click opens closes on that scroll
+    // (an open Select closes when its form scrolls), so the option never shows.
+    const colour = dialog.locator('button[data-slot="trigger"]', { hasText: 'Couleur' });
+    await expect(colour).toContainText('Rouge');
+    await colour.press('Enter');
     // By CSS: the open list is drawn but absent from the accessibility tree
     // inside the form window, so getByRole never finds its options.
-    await page.locator('[role="option"]').filter({ hasText: '—' }).click();
+    const options = page.locator('[role="option"]');
+    await expect(options.filter({ hasText: 'Rouge' })).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(options.filter({ hasText: '—' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(options).toHaveCount(0);
+    await expect(colour).not.toContainText('Rouge');
 
     await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
     await dialog.getByLabel("Prix d'achat (€)").fill('');
