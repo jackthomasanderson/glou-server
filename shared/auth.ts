@@ -3,6 +3,21 @@
 /** Minimum password length: enforced by the API, shown by every web form (sign-up, change, reset). */
 export const PASSWORD_MIN_LENGTH = 12;
 
+/**
+ * #640: sign-in, sign-up, 2FA, password-reset and unlock attempts are counted
+ * over this window; once over the limit, a member waits at most this long.
+ */
+export const AUTH_RATE_LIMIT_WINDOW_MINUTES = 15;
+
+/** #640: error code of a 429 from those limiters. */
+export const TOO_MANY_REQUESTS_ERROR = 'TOO_MANY_REQUESTS';
+
+/** #640: body of that 429. `retryAfter`: seconds before a new attempt is accepted. */
+export interface TooManyRequestsBody {
+  error: typeof TOO_MANY_REQUESTS_ERROR;
+  retryAfter: number;
+}
+
 /** #222/#509: days between a deletion request and the automatic anonymisation of the account. */
 export const ACCOUNT_DELETION_GRACE_DAYS = 30;
 

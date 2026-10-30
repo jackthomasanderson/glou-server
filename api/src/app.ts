@@ -33,6 +33,7 @@ import humidorRouter from './routes/humidor.router';
 import { APP_VERSION } from './lib/app-version';
 import { redactUrlSecrets } from './lib/log-redact';
 import { apiRateLimitMax } from './lib/rate-limit-max';
+import { authRateLimit } from './lib/rate-limit';
 
 // ─── Express app assembly ────────────────────────────────────────────────────
 // Extracted from index.ts so it can be imported without side effects (no
@@ -167,12 +168,7 @@ export function createApp(): express.Express {
 
   // ─── Routes ───────────────────────────────────────────────────────────────
 
-  const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 20,
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
+  const authLimiter = authRateLimit(20);
   app.use('/api/auth/login', authLimiter);
   app.use('/api/auth/register', authLimiter);
   app.use('/api/auth/2fa', authLimiter);
