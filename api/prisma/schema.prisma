@@ -200,7 +200,7 @@ model InventoryItem {
 
   // Contextual — Wine & Sparkling
   vintage        Int? // millésime, null = sans année
-  color          String? // rouge/blanc/rosé/orange
+  color          String? // red/white/rosé/orange (shared WINE_COLORS)
   region         String?
   grapeVarieties String[]  @default([])
   alcoholDegree  Float?
