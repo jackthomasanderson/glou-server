@@ -8,7 +8,7 @@ import { Star, FlaskConical } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { TastingFormValues, TastingReadiness } from '@/lib/tastings/types';
 import { useCreateTasting, useUpdateTasting } from '@/hooks/useTastings';
-import { useInventory, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { useInventory, useInventoryItemLookup, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { ServiceRecommendations } from './ServiceRecommendations';
 import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
@@ -40,6 +40,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   const createMutation = useCreateTasting();
   const updateMutation = useUpdateTasting();
   const updateInventory = useUpdateInventoryItem();
+  const lookUpItem = useInventoryItemLookup();
   const isExpert = useExpertMode();
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   // The tasted item as it was when the stock question was asked.
@@ -50,7 +51,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
     handleSubmit,
     reset,
     watch,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = useForm<TastingFormValues>({
     defaultValues: blankTastingValues(initialItemId, initialFoodPairing),
   });
@@ -67,7 +68,8 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   if (formSession !== prevFormSession) {
     setPrevFormSession(formSession);
     if (formSession !== null) {
-      setStartValues(editNote ? editNote.values : blankTastingValues(initialItemId, initialFoodPairing));
+      // A copy: a draft typed in an earlier session never leaks into this one.
+      setStartValues(editNote ? { ...editNote.values } : blankTastingValues(initialItemId, initialFoodPairing));
     }
   }
 
@@ -84,7 +86,8 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
     }
   }, [watchedItemId, items]);
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  // isSubmitting also covers reading the tasted item's stock after the save.
+  const isSaving = createMutation.isPending || updateMutation.isPending || isSubmitting;
 
   // ISSUE_119: once a field has been edited, the modal can no longer be
   // dismissed by a backdrop click or Escape, and the explicit cancel
@@ -104,10 +107,11 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
       } else {
         const note = await createMutation.mutateAsync(values);
         // FEAT-87: a non-owned reference has no bottle to mark as opened or
-        // finished, so the stock question is skipped for it, as for an empty
-        // cigar box, which has nothing left to update.
-        const tastedItem = note.itemId ? items?.find((i) => i.id === note.itemId) : undefined;
-        if (note.itemId && (!tastedItem || isOwnedItem(tastedItem)) && stockChoicesFor(tastedItem).length > 0) {
+        // finished, so the stock question is skipped for it, as for an item
+        // with nothing to update (empty box, finished bottle) or whose stock
+        // could not be read.
+        const tastedItem = note.itemId ? await lookUpItem(note.itemId) : undefined;
+        if (note.itemId && tastedItem && isOwnedItem(tastedItem) && stockChoicesFor(tastedItem).length > 0) {
           setStockQuestion({ itemId: note.itemId, item: tastedItem });
         } else {
           onClose();

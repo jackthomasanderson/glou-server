@@ -532,7 +532,7 @@ export function InventoryForm({
                             errorMessage={t('inventory.validation.required')}
                             value={values.quantity}
                             onValueChange={(v) => setField('quantity', v)}
-                            min={1}
+                            min={0}
                           />
                           <ParsedNumberInput
                             label={t('inventory.fields.manufactureYear')}

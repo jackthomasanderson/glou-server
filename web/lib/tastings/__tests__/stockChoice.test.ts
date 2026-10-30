@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { applyStockChoice, stockChoicesFor, stockPatchFor, type TastedItemStock } from '../stockChoice';
 
 const closedBottle: TastedItemStock = { category: 'wine', isOpened: false };
-const openedBottle: TastedItemStock = { category: 'wine', isOpened: true };
+const openedBottle: TastedItemStock = { category: 'wine', isOpened: true, fillLevel: 20 };
+const finishedBottle: TastedItemStock = { category: 'wine', isOpened: true, fillLevel: 0 };
 const cigarBox = (quantity: number | null): TastedItemStock => ({ category: 'cigar', isOpened: false, quantity });
 
 describe('stockPatchFor', () => {
@@ -25,13 +26,11 @@ describe('stockPatchFor', () => {
     });
   });
 
-  it('keeps the closed-bottle behaviour when the tasted item is unknown', () => {
-    const now = new Date('2026-10-05T10:00:00.000Z');
-    expect(stockPatchFor('opened', undefined, now)).toEqual({
-      isOpened: true,
-      fillLevel: 50,
-      openedAt: '2026-10-05T10:00:00.000Z',
-    });
+  // An unknown item may be an opened bottle or a cigar box: no guess.
+  it('updates nothing when the tasted item is unknown', () => {
+    expect(stockPatchFor('opened', undefined)).toBeNull();
+    expect(stockPatchFor('consumed', undefined)).toBeNull();
+    expect(stockPatchFor('removeOneCigar', undefined)).toBeNull();
   });
 
   // #595: an opened bottle at 20 % went back to 50 %, opened today.
@@ -63,7 +62,15 @@ describe('stockPatchFor', () => {
 describe('stockChoicesFor', () => {
   it('offers "opened" and "consumed" for a closed bottle', () => {
     expect(stockChoicesFor(closedBottle)).toEqual(['opened', 'consumed']);
-    expect(stockChoicesFor(undefined)).toEqual(['opened', 'consumed']);
+  });
+
+  it('has nothing to ask when the tasted item is unknown', () => {
+    expect(stockChoicesFor(undefined)).toEqual([]);
+  });
+
+  it('has nothing to ask for a finished bottle', () => {
+    expect(stockChoicesFor(finishedBottle)).toEqual([]);
+    expect(stockPatchFor('consumed', finishedBottle)).toBeNull();
   });
 
   it('offers only "consumed" for an already opened bottle (#595)', () => {

@@ -1,9 +1,10 @@
 import type { InventoryItem } from '@/lib/inventory/types';
+import { isFinishedItem } from '@/lib/inventory/ownership';
 
 export type StockChoice = 'opened' | 'consumed' | 'removeOneCigar' | 'ignore';
 
 /** Stock state of the tasted item; undefined when it is not known. */
-export type TastedItemStock = Pick<InventoryItem, 'category' | 'isOpened' | 'quantity'>;
+export type TastedItemStock = Pick<InventoryItem, 'category' | 'isOpened' | 'fillLevel' | 'quantity'>;
 
 export type StockPatch =
   | { isOpened: true; fillLevel: number; openedAt?: string }
@@ -14,12 +15,17 @@ export type StockPatch =
  * leaving the stock alone. An empty list means there is nothing to ask.
  */
 export function stockChoicesFor(item?: TastedItemStock): StockChoice[] {
+  // Unknown stock: any update could be wrong (refill an opened bottle,
+  // empty a cigar box), so nothing is offered.
+  if (!item) return [];
   // #586: a box's stock is its number of cigars; one smoked cigar is one
   // cigar less, never the whole box emptied or "opened".
-  if (item?.category === 'cigar') return (item.quantity ?? 0) > 0 ? ['removeOneCigar'] : [];
+  if (item.category === 'cigar') return (item.quantity ?? 0) > 0 ? ['removeOneCigar'] : [];
+  // A finished bottle has nothing left to update.
+  if (isFinishedItem(item)) return [];
   // #595: an opened bottle is already opened; "opened" would put its level
   // back to 50 % and replace its opening date.
-  return item?.isOpened ? ['consumed'] : ['opened', 'consumed'];
+  return item.isOpened ? ['consumed'] : ['opened', 'consumed'];
 }
 
 /** Inventory patch a stock choice stands for; null when the stock is left alone. */

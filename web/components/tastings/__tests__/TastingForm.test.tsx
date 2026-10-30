@@ -19,6 +19,9 @@ let inventory: InventoryItem[] = [];
 const createMutateAsync = vi.fn();
 const updateMutateAsync = vi.fn();
 const inventoryUpdate = vi.fn();
+// The tasted item's latest stock, as the inventory lookup resolves it.
+let lookedUp: InventoryItem[] = [];
+const lookUpItem = vi.fn(async (id: string) => lookedUp.find((i) => i.id === id));
 
 vi.mock('@/hooks/useTastings', () => ({
   useCreateTasting: () => ({ mutateAsync: createMutateAsync, isPending: false, error: null }),
@@ -27,6 +30,7 @@ vi.mock('@/hooks/useTastings', () => ({
 vi.mock('@/hooks/useInventory', () => ({
   useInventory: () => ({ data: inventory }),
   useUpdateInventoryItem: () => ({ mutateAsync: inventoryUpdate, isPending: false }),
+  useInventoryItemLookup: () => lookUpItem,
 }));
 vi.mock('@/hooks/useExpertMode', () => ({ useExpertMode: () => true }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn() }));
@@ -138,6 +142,7 @@ const field = (label: string) => screen.getByLabelText(label);
 beforeEach(() => {
   vi.clearAllMocks();
   inventory = [item({ id: 'wine-1', category: 'wine' })];
+  lookedUp = inventory;
   updateMutateAsync.mockResolvedValue(expertTasting);
   inventoryUpdate.mockResolvedValue(undefined);
 });
@@ -229,6 +234,7 @@ describe('stock question after a new tasting (#595, #586)', () => {
 
   it('offers "opened" and "consumed" for a closed bottle', async () => {
     inventory = [item({ id: 'wine-1', category: 'wine', isOpened: false })];
+    lookedUp = inventory;
     await saveNewTastingOf('wine-1');
 
     expect(await screen.findByRole('button', { name: 'tastings.stockUpdate.opened' })).toBeInTheDocument();
@@ -242,6 +248,7 @@ describe('stock question after a new tasting (#595, #586)', () => {
 
   it('never offers to reopen an already opened bottle (#595)', async () => {
     inventory = [item({ id: 'wine-1', category: 'wine', isOpened: true, fillLevel: 20, openedAt: '2026-10-10' })];
+    lookedUp = inventory;
     await saveNewTastingOf('wine-1');
 
     expect(await screen.findByRole('button', { name: 'tastings.stockUpdate.consumed' })).toBeInTheDocument();
@@ -253,6 +260,7 @@ describe('stock question after a new tasting (#595, #586)', () => {
 
   it('removes exactly one cigar from the box, never the whole box (#586)', async () => {
     inventory = [item({ id: 'cigar-1', category: 'cigar', quantity: 25 })];
+    lookedUp = inventory;
     const onClose = vi.fn();
     await saveNewTastingOf('cigar-1', onClose);
 
@@ -265,8 +273,42 @@ describe('stock question after a new tasting (#595, #586)', () => {
     expect(inventoryUpdate).toHaveBeenCalledWith({ id: 'cigar-1', patch: { quantity: 24 } });
   });
 
+  // The list misses it (2,000-row cap, not loaded, failed), but the item's
+  // own cache entry or the server knows it: the box is still a box.
+  it('reads the stock of an item missing from the loaded list', async () => {
+    inventory = [];
+    lookedUp = [item({ id: 'cigar-1', category: 'cigar', quantity: 25 })];
+    await saveNewTastingOf('cigar-1');
+
+    expect(await screen.findByRole('button', { name: 'tastings.stockUpdate.removeOneCigar|24' })).toBeInTheDocument();
+    expect(lookUpItem).toHaveBeenCalledWith('cigar-1');
+    expect(screen.queryByRole('button', { name: 'tastings.stockUpdate.consumed' })).toBeNull();
+  });
+
+  it('asks nothing when the stock of the tasted item cannot be read', async () => {
+    inventory = [];
+    lookedUp = [];
+    const onClose = vi.fn();
+    await saveNewTastingOf('wine-1', onClose);
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('tastings.stockUpdate.title')).toBeNull();
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  it('asks nothing for a non-owned reference', async () => {
+    inventory = [item({ id: 'wine-1', category: 'wine', isOwned: false })];
+    lookedUp = inventory;
+    const onClose = vi.fn();
+    await saveNewTastingOf('wine-1', onClose);
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('tastings.stockUpdate.title')).toBeNull();
+  });
+
   it('asks nothing for an empty cigar box', async () => {
     inventory = [item({ id: 'cigar-1', category: 'cigar', quantity: 0 })];
+    lookedUp = inventory;
     const onClose = vi.fn();
     await saveNewTastingOf('cigar-1', onClose);
 
