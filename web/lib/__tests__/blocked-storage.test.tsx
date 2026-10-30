@@ -64,8 +64,15 @@ describe('site data blocked by the browser (#584)', () => {
   it('the translation module loads and can switch language', async () => {
     vi.resetModules();
     const { default: i18n } = await import('@/lib/i18n');
-    expect(['fr', 'en']).toContain(i18n.language);
-    await expect(i18n.changeLanguage('en')).resolves.toBeDefined();
+    // Detected from the browser, since nothing could be read from storage.
+    expect(i18n.options.lng).toMatch(/^(fr|en)$/);
+    if (!i18n.isInitialized) {
+      await new Promise<void>((resolve) => i18n.on('initialized', () => resolve()));
+    }
+    // Each change tries to remember the language: it must not throw either.
+    await i18n.changeLanguage('fr');
+    expect(i18n.language).toBe('fr');
+    await i18n.changeLanguage('en');
     expect(i18n.language).toBe('en');
   });
 
