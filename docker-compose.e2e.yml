@@ -40,6 +40,10 @@ services:
       APP_URL: http://localhost:3000
       CORS_ORIGIN: http://localhost:3000
       PORT: 3001
+      # The whole suite (and the nightly fuzz) comes from one address within
+      # one 15-minute window: the production ceiling of 1000 made late specs
+      # fail with 429. Sign-in and reset limits stay at their production values.
+      API_RATE_LIMIT_MAX: 100000
     # Throwaway stack, but still bound to loopback only — never expose an
     # E2E run (weak secrets above, migrations mid-flight) on all interfaces.
     # #537: same bind mount as production, so the backup/restore spec covers

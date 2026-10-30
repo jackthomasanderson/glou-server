@@ -335,3 +335,25 @@ describe('GET /api/admin/backups/health', () => {
     expect(res.body).toEqual({ data: { directoryWritable: writable } });
   });
 });
+
+describe('baseline rate limit (API_RATE_LIMIT_MAX)', () => {
+  afterEach(() => {
+    delete process.env.API_RATE_LIMIT_MAX;
+  });
+
+  it('allows 1000 requests per window by default', async () => {
+    const res = await request(app).get('/api/version');
+    expect(res.headers['ratelimit-limit']).toBe('1000');
+  });
+
+  it('applies the override to /api and /uploads', async () => {
+    process.env.API_RATE_LIMIT_MAX = '2';
+    const limited = createApp();
+    expect((await request(limited).get('/api/version')).status).toBe(200);
+    expect((await request(limited).get('/api/version')).status).toBe(200);
+    expect((await request(limited).get('/api/version')).status).toBe(429);
+
+    const upload = await request(limited).get('/uploads/missing.jpg');
+    expect(upload.headers['ratelimit-limit']).toBe('2');
+  });
+});

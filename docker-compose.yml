@@ -51,6 +51,8 @@ services:
       # #639: must match the model `ollama-pull` downloads, or scanning stays hidden.
       OLLAMA_MODEL: ${OLLAMA_MODEL:-moondream}
       OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-600000}
+      # Advanced: requests allowed per address every 15 min on the API and uploads. Empty = 1000.
+      API_RATE_LIMIT_MAX: ${API_RATE_LIMIT_MAX:-}
       PORT: 3001
     # ISSUE_016: the browser never calls the API directly (web/lib/api.ts
     # uses the relative /api path, rewritten server-side by Next — see
