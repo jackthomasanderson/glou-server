@@ -23,7 +23,6 @@ interface InventoryListRowProps {
   cellar?: Cellar;
   onEdit: (item: InventoryItem) => void;
   onDelete: (item: InventoryItem) => void;
-  onView?: (item: InventoryItem) => void;
   t: (key: string) => string;
   /** FEAT-16/23: true when this item has one or more offline mutations still
    * sitting in the local sync queue (not yet confirmed by the server). */
@@ -32,7 +31,7 @@ interface InventoryListRowProps {
 
 export function InventoryListRow({
   item, categoryLabel, cellar,
-  onEdit, onDelete, onView, t,
+  onEdit, onDelete, t,
   hasPendingSync = false,
 }: InventoryListRowProps) {
   const isTemp = item.id.startsWith('temp-');
@@ -51,7 +50,6 @@ export function InventoryListRow({
         'cursor-pointer',
         'transition-colors',
       ].filter(Boolean).join(' ')}
-      onClick={() => onView?.(item)}
     >
       <TableCell className="w-10 pr-0">
         <Tooltip content={categoryLabel} delay={500}>

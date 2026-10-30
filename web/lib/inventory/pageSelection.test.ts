@@ -28,6 +28,18 @@ describe('mergePageSelection', () => {
     expect(mergePageSelection(new Set(), page, new Set(['gone', 'a']))).toEqual(new Set(['a']));
   });
 
+  it('returns the reported set itself, so its shift-click anchor survives', () => {
+    // Stands in for the table's selection set, which carries the range anchor.
+    class AnchoredSet extends Set<string | number> {
+      anchorKey: string | null = 'a';
+    }
+    const reported = new AnchoredSet(['a', 'b']);
+    const result = mergePageSelection(new Set(['x']), page, reported);
+    expect(result).toBe(reported);
+    expect((result as unknown as AnchoredSet).anchorKey).toBe('a');
+    expect(result).toEqual(new Set(['a', 'b', 'x']));
+  });
+
   it('does not modify the previous selection', () => {
     const previous = new Set(['a']);
     mergePageSelection(previous, page, new Set(['b']));

@@ -107,7 +107,6 @@ export function InventoryListView({
               cellar: cellars?.find((c: Cellar) => c.id === item.cellarId) ?? undefined,
               onEdit,
               onDelete,
-              onView: bulkMode ? undefined : onView,
               t,
               hasPendingSync: pendingSyncItemIds.has(item.id),
             }),
