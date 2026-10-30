@@ -8,6 +8,7 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, Wine, Search } from 'lucide-react';
 import { useTastings, useDeleteTasting } from '@/hooks/useTastings';
 import { TastingNote, TastingFormValues } from '@/lib/tastings/types';
+import { tastingToFormValues } from '@/lib/tastings/formValues';
 import { TastingCard } from './TastingCard';
 import { TastingDetailDrawer } from './TastingDetailDrawer';
 import { TastingForm } from './TastingForm';
@@ -55,18 +56,7 @@ export function TastingsDashboard() {
   };
 
   const editValues: { id: string; values: TastingFormValues } | undefined = editing
-    ? {
-        id: editing.id,
-        values: {
-          itemId: editing.itemId ?? undefined,
-          tastedAt: editing.tastedAt.split('T')[0],
-          context: editing.context ?? '',
-          rating: editing.rating ?? null,
-          notes: editing.notes ?? '',
-          foodPairing: editing.foodPairing ?? '',
-          photoUrl: editing.photoUrl ?? null,
-        },
-      }
+    ? { id: editing.id, values: tastingToFormValues(editing) }
     : undefined;
 
   const totalPages = data ? Math.ceil(data.total / data.limit) : 0;

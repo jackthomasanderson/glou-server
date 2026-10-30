@@ -1026,6 +1026,8 @@
       "description": "Cette dégustation a-t-elle modifié l'état de l'actif dans votre cave ?",
       "opened": "Actif entamé",
       "consumed": "Actif consommé (vide)",
+      "removeOneCigar_one": "Retirer un cigare de la boîte ({{count}} restant)",
+      "removeOneCigar_other": "Retirer un cigare de la boîte ({{count}} restants)",
       "ignore": "Ne pas modifier le stock",
       "error": "La mise à jour du stock a échoué. Réessayez."
     },
