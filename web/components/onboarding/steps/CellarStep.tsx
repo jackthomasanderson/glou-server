@@ -85,11 +85,13 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
         </Select>
       </div>
 
-      <div className="flex items-center justify-between mt-2">
+      {/* Three buttons do not fit side by side on a phone (#686): they wrap,
+          keeping the reading order, instead of running off the card. */}
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
         <Button variant="light" onPress={onBack} isDisabled={createCellar.isPending}>
           {t('onboarding.back')}
         </Button>
-        <div className="flex gap-2">
+        <div className="ml-auto flex flex-wrap justify-end gap-2">
           <Button variant="light" onPress={onSkip} isDisabled={createCellar.isPending}>
             {t('onboarding.cellar.skipStep')}
           </Button>

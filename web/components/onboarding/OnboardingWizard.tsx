@@ -23,6 +23,8 @@ const INSTALLER_STEPS = ['welcome', 'cellar', 'ingestion-choice', 'ingestion-exe
 const JOINING_STEPS = ['welcome', 'joining', 'ingestion-choice', 'ingestion-execute', 'summary'] as const;
 type Step = (typeof INSTALLER_STEPS)[number] | (typeof JOINING_STEPS)[number];
 
+const OVERLAY = 'outline-none fixed inset-0 z-wizard bg-background/95 backdrop-blur-md';
+
 interface OnboardingWizardProps {
   /** True when reopened on demand from the profile page (already completed once). */
   forced?: boolean;
@@ -114,7 +116,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
       role="dialog"
       aria-modal="true"
       aria-label={t('onboarding.dialogLabel')}
-      className="outline-none fixed inset-0 z-wizard flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
+      className={`${OVERLAY} flex items-center justify-center p-4`}
     >
         <CircularProgress color="primary" size="md" isIndeterminate aria-label={t('status.loading')} />
       </div>
@@ -128,9 +130,13 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
       role="dialog"
       aria-modal="true"
       aria-label={t('onboarding.dialogLabel')}
-      className="outline-none fixed inset-0 z-wizard flex items-center justify-center bg-background/95 backdrop-blur-md p-4"
+      className={`${OVERLAY} flex overflow-y-auto overscroll-contain md:p-4`}
     >
-      <div className="max-w-2xl w-full bg-content1 border border-divider rounded-2xl shadow-lg overflow-hidden">
+      {/* The layer scrolls when a step is taller than the screen (#686): `m-auto`
+          centres the card only while it fits, so its top never goes out of
+          reach. Below `md`, the breakpoint where every dialog becomes a
+          full-screen sheet (ux-ui.md §5.4), the card fills the screen. */}
+      <div className="m-auto w-full max-w-2xl min-h-full md:min-h-0 bg-content1 md:border md:border-divider md:rounded-2xl md:shadow-lg overflow-hidden">
         {/* Header: step progress + skip / close */}
         <div className="flex items-center justify-between px-6 pt-5 pb-1">
           <div className="flex gap-1.5">
