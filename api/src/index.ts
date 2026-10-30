@@ -141,6 +141,14 @@ async function bootstrap(): Promise<void> {
     );
   }
 
+  // #666: list in the history every backup file of ./backups it misses, e.g.
+  // one copied there by hand to recover on a new machine.
+  void backupService.syncHistoryWithFiles()
+    .then((count) => {
+      if (count > 0) console.info(`[startup] Added ${count} backup file(s) found in ${BACKUPS_DIR} to the history`);
+    })
+    .catch((err) => console.error('[startup] Backup history resync failed:', err));
+
   // FEAT-18: scheduled database backups (pg_dump). Ticks hourly and re-reads
   // SystemConfig (backupEnabled/backupHourUtc) on every tick — see
   // backupService.runScheduledIfDue — so an admin can enable/disable or

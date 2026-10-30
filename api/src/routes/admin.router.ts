@@ -638,7 +638,8 @@ adminRouter.post('/backups/run', async (req: Request, res: Response): Promise<vo
 
 /**
  * @route   POST /api/admin/backups/:id/restore
- * @desc    DESTRUCTIVE — restores the database from a previous backup run.
+ * @desc    DESTRUCTIVE — restores the database from a previous backup run,
+ *          after a safety backup of the current state.
  *          Requires an explicit `confirm: true` in the body on top of admin
  *          auth, so a scripted/direct API call can never trigger it by
  *          accident (the frontend additionally requires a typed keyword).
@@ -657,8 +658,9 @@ adminRouter.post('/backups/:id/restore', async (req: Request, res: Response): Pr
       res.status(404).json({ error: 'BACKUP_NOT_FOUND' });
       return;
     }
-    await backupService.restoreBackup(run.filePath, req.userId, getClientIp(req));
-    res.json({ data: { ok: true } });
+    // Takes a safety backup first and refuses the restore if it fails (#666).
+    const { safetyBackupRunId } = await backupService.restoreBackup(run.filePath, req.userId, getClientIp(req));
+    res.json({ data: { ok: true, safetyBackupRunId } });
   } catch (error) {
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'CONFIRMATION_REQUIRED', details: error.issues });

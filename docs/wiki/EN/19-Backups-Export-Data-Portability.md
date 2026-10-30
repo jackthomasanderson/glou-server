@@ -33,11 +33,12 @@ Schedule database backups from Admin, restore one when needed, export your own d
 1. Find the run you want in the backup history and click **Restore**.
 
    > [!CAUTION]
-   > Restoring is destructive: it overwrites **all current data** with the content of that backup file. There is no undo. The dialog requires you to type a confirmation keyword before the **Confirm** button becomes clickable.
+   > Restoring is destructive: it overwrites **all current data** with the content of that backup file. The dialog requires you to type a confirmation keyword and your password before the **Confirm** button becomes clickable.
 
-2. Confirm. The restore is logged in the audit trail regardless of whether it succeeds or fails.
+2. Confirm. A backup of the current data is taken first and added to the history: to undo the restore, restore that backup. If this safety backup fails (full disk…), nothing is restored and your data is untouched. The restore is logged in the audit trail regardless of whether it succeeds or fails.
 3. The restore is all-or-nothing: if the backup file is damaged or incomplete, it fails and your current data is untouched. After restoring a backup made by an **older version** of Glou, restart the API (`docker compose restart api`) so it applies any database update the backup predates.
 4. You can also **Download** a backup file directly from the history list instead of restoring it in place.
+5. After a restore, the history still lists every backup file of `./backups`, including those newer than the restored one. A backup file copied by hand into `./backups` (for example to recover on a new machine) appears in the history after an API restart (`docker compose restart api`); it can then be restored or downloaded like any other. Keep its original name (`glou-backup-<date>.sql.gz`): the date shown comes from it, while a renamed file is dated by its last modification. A damaged or incomplete file is not listed (the API logs say why).
 
 ### Export your data (full or filtered by category)
 1. Go to **Profile → Data & Privacy (GDPR section)**.
@@ -52,14 +53,15 @@ Back up `.env` wherever you already keep secrets (a password manager, an encrypt
 ### Where backups actually live, and proving a restore works
 Backup dumps land in `./backups` on the **host**, bind-mounted into the container (`docker-compose.yml`), not in a Docker-managed named volume — so whatever backup tool you already run on the host (`restic`, a NAS snapshot, `rsync` to another machine…) sees and collects them on its own, and a disk failure doesn't take out the database and its backups together.
 
-A restore actually working isn't just asserted here: `e2e/tests/backup-restore.spec.ts` runs a real backup → create data → restore → confirm the new data is gone cycle against a live instance on every CI run (see `.github/workflows/docker-publish.yml`'s `e2e` job) — a continuously re-verified proof, rather than a single dated note that goes stale the moment something changes.
+A restore actually working isn't just asserted here: `e2e/tests/backup-restore.spec.ts` runs a real backup → create data → restore → confirm the new data is gone, and that the safety backup and the newer backups are still listed, cycle against a live instance on every CI run (see `.github/workflows/docker-publish.yml`'s `e2e` job) — a continuously re-verified proof, rather than a single dated note that goes stale the moment something changes.
 
 ## The firewall (troubleshooting)
 
 | Error / Behavior | Fix |
 | :--- | :--- |
 | **Backups are enabled but no file ever appears** | Check the **Hour (UTC)** value against the current UTC time: the job only fires during that hour once enabled. Or click **Run now** to test immediately. |
-| **I clicked Restore and now my data is different than before** | Expected: restore overwrites all current data with the backup's content. If this was a mistake, restore a more recent backup (or the pre-restore state if you took a manual backup right before). |
+| **I clicked Restore and now my data is different than before** | Expected: restore overwrites all current data with the backup's content. If this was a mistake, restore the backup taken automatically just before the restore: it is the most recent **Manual** entry of the history. |
+| **The restore was refused: the backup taken before the restore failed** | Nothing was restored. The failed backup is in the history with its error: fix the cause (usually disk space or the `./backups` permissions), then restore again. |
 | **My export file only has some of my data** | You used **Filter** and only selected certain categories. Use the plain **Export** button for a full export instead. |
 | **Where are backup files actually stored?** | `./backups` on the host (bind-mounted, see above) — point your own backup tool at that directory. |
 | **A restored backup's SMTP/Gotify/API-key fields are empty** | The dump was taken (or is being restored) on an instance whose `.env` has a different `CONFIG_ENCRYPTION_KEY` than the one that encrypted those fields. Re-enter them, and keep `CONFIG_ENCRYPTION_KEY` backed up with your other secrets — see "Back up `.env` too, separately" above. |
