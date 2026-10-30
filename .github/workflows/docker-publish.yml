@@ -208,6 +208,11 @@ jobs:
       - name: Restore a downloaded backup with the documented command
         run: bash e2e/check-documented-restore.sh
 
+      # FEAT-94: the API image backs the database up before pending
+      # migrations, and does not start (nothing migrated) when it cannot.
+      - name: Check the backup taken before migrating
+        run: bash e2e/check-pre-migration-backup.sh
+
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
