@@ -646,6 +646,7 @@
       "empty": "Aucune modification en attente.",
       "retry": "Réessayer",
       "discard": "Abandonner",
+      "resolve": "Résoudre",
       "failed": "Refusée par le serveur",
       "reason": "Motif",
       "unknownItem": "Bouteille inconnue",

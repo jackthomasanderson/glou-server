@@ -38,6 +38,9 @@ const listeners = new Set<() => void>();
 // probe keeps answering "online" while the API itself fails.
 const RETRY_BASE_DELAY_MS = 5_000;
 const RETRY_MAX_DELAY_MS = 60_000;
+/** Server answers "try again later" tolerated per change before it is
+ * marked `failed` (about 8 minutes with the delays above). */
+export const MAX_TEMPORARY_FAILURES = 10;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let retryAttempt = 0;
 
@@ -100,6 +103,39 @@ export function deferConflict(mutationId: string): void {
   notifyListeners();
 }
 
+/** "Resolve" from the pending changes panel: the postponed conflict comes
+ * back in the conflict dialog. */
+export function undeferConflict(mutationId: string): void {
+  if (typeof window === 'undefined') return;
+  const ids = getDeferredConflictIds().filter((id) => id !== mutationId);
+  try {
+    window.sessionStorage.setItem(DEFERRED_CONFLICTS_KEY, JSON.stringify(ids));
+  } catch {
+    // Storage blocked: nothing was remembered either.
+  }
+  notifyListeners();
+}
+
+/**
+ * #585: the inventory as the device should show it — the server's list with
+ * the changes still queued on this device laid over it, so a refetch (after
+ * another change went through, or a page load) does not wipe them from the
+ * screen while they wait. A change in conflict is left out: the dialog shows
+ * both versions. Best effort: without IndexedDB the list is returned as is.
+ */
+export async function overlayQueuedChanges(items: InventoryItem[]): Promise<InventoryItem[]> {
+  let queued: QueuedMutation[];
+  try {
+    queued = (await getAllQueuedMutations()).filter((m) => m.status !== 'conflict');
+  } catch {
+    return items;
+  }
+  if (queued.length === 0) return items;
+  return items.map((item) =>
+    queued.reduce<InventoryItem>((shown, m) => (m.itemId === item.id ? { ...shown, ...m.patch } : shown), item),
+  );
+}
+
 export async function getQueuedMutations(): Promise<QueuedMutation[]> {
   return getAllQueuedMutations();
 }
@@ -154,7 +190,7 @@ export async function removeQueuedMutation(id: string, queryClient?: QueryClient
 /** Puts a `failed` mutation back in the queue so the next flush retries it
  * (and the later edits of the same item, blocked behind it, can follow). */
 export async function retryFailedMutation(id: string, queryClient: QueryClient): Promise<void> {
-  await markMutation(id, { status: 'pending', errorReason: undefined });
+  await markMutation(id, { status: 'pending', errorReason: undefined, temporaryFailures: 0 });
   await flushQueue(queryClient);
 }
 
@@ -168,8 +204,9 @@ async function markMutation(id: string, patch: Partial<QueuedMutation>): Promise
 type PatchOutcome =
   | { kind: 'success'; item: InventoryItem }
   | { kind: 'conflict'; serverItem: InventoryItem }
-  /** Temporary: no answer, or an answer that says "try again later". */
-  | { kind: 'retry' }
+  /** Temporary: no answer (`reason` unset), or an answer that says "try
+   * again later" (`reason` set). */
+  | { kind: 'retry'; reason?: string }
   /** A real refusal of this change (validation, forbidden, gone…). */
   | { kind: 'error'; message: string };
 
@@ -207,10 +244,14 @@ async function patchInventoryItem(itemId: string, patch: Record<string, unknown>
     if (body?.data) return { kind: 'conflict', serverItem: body.data };
     return { kind: 'error', message: 'CONFLICT' };
   }
-  if (isTemporaryStatus(res.status)) return { kind: 'retry' };
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string; details?: string } | null;
-    return { kind: 'error', message: body?.details ?? body?.error ?? `HTTP ${res.status}` };
+    const reason = body?.details ?? body?.error ?? `HTTP ${res.status}`;
+    // A session waiting for its second factor is refused with 403
+    // `2FA_REQUIRED` (api/src/middleware/auth.middleware.ts): nothing wrong
+    // with the change, it goes through once the member has signed in.
+    if (isTemporaryStatus(res.status) || body?.error === '2FA_REQUIRED') return { kind: 'retry', reason };
+    return { kind: 'error', message: reason };
   }
   const body = (await res.json()) as { data: InventoryItem };
   return { kind: 'success', item: body.data };
@@ -236,6 +277,7 @@ async function patchInventoryItem(itemId: string, patch: Record<string, unknown>
 export async function flushQueue(queryClient: QueryClient): Promise<void> {
   if (isFlushing) return;
   isFlushing = true;
+  let anySynced = false;
   try {
     const queued = await getAllQueuedMutations();
     // A mutation can be left in `syncing` if the tab closed or the network
@@ -275,6 +317,7 @@ export async function flushQueue(queryClient: QueryClient): Promise<void> {
 
       if (outcome.kind === 'success') {
         await deleteQueuedMutation(mutation.id);
+        anySynced = true;
         const later = await rebaseLaterMutations(mutation, outcome.item.updatedAt);
         // Keep showing the changes still waiting for this item on top of
         // the server's answer.
@@ -286,7 +329,15 @@ export async function flushQueue(queryClient: QueryClient): Promise<void> {
         queryClient.setQueryData(inventoryItemKey(shown.id), shown);
         notifyListeners();
       } else if (outcome.kind === 'retry') {
-        await markMutation(mutation.id, { status: 'pending' });
+        const failures = (current.temporaryFailures ?? 0) + (outcome.reason ? 1 : 0);
+        if (outcome.reason && failures >= MAX_TEMPORARY_FAILURES) {
+          // The server keeps refusing this one: hand it to the member
+          // (Retry / Discard) and let the rest of the queue have its turn.
+          await markMutation(mutation.id, { status: 'failed', errorReason: outcome.reason, temporaryFailures: failures });
+          blockedItemIds.add(mutation.itemId);
+          continue;
+        }
+        await markMutation(mutation.id, { status: 'pending', temporaryFailures: failures });
         mustRetry = true;
         break;
       } else if (outcome.kind === 'conflict') {
@@ -301,7 +352,9 @@ export async function flushQueue(queryClient: QueryClient): Promise<void> {
     else cancelSyncRetry();
   } finally {
     isFlushing = false;
-    void queryClient.invalidateQueries({ queryKey: INVENTORY_LIST_KEY });
+    // Refetch only when something reached the server; the refetched list
+    // keeps the changes still queued on top (`overlayQueuedChanges`).
+    if (anySynced) void queryClient.invalidateQueries({ queryKey: INVENTORY_LIST_KEY });
   }
 }
 
@@ -316,7 +369,11 @@ async function rebaseLaterMutations(done: QueuedMutation, newUpdatedAt: string):
     (m) => m.itemId === done.itemId && m.id !== done.id && m.createdAt >= done.createdAt,
   );
   const rebased: QueuedMutation[] = [];
-  for (const m of later) {
+  for (const listed of later) {
+    // Read again right before writing: the member may have discarded it
+    // meanwhile, and writing it back would revive it.
+    const m = await getQueuedMutation(listed.id);
+    if (!m) continue;
     // A conflict keeps the version it was compared with: the user decides.
     const next = m.status === 'conflict' ? m : { ...m, expectedUpdatedAt: newUpdatedAt };
     if (next !== m) await putQueuedMutation(next);

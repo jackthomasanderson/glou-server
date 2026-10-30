@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import type { QueuedMutation } from '@/lib/offline/db';
@@ -57,6 +57,7 @@ vi.mock('@heroui/react', () => ({
 }));
 
 import { ConflictResolutionModal } from '../ConflictResolutionModal';
+import { PendingChangesList } from '../PendingChangesList';
 
 const serverItem = {
   id: 'A', userId: 'u1', name: 'Château Test', region: 'Bordeaux', cellarId: 'c-up',
@@ -129,5 +130,26 @@ describe('ConflictResolutionModal (#585)', () => {
 
     expect(await screen.findByText('Second vin')).toBeInTheDocument();
     expect(screen.queryByText('Premier vin')).toBeNull();
+  });
+
+  it('"Resolve" in the pending changes panel reopens a postponed conflict', async () => {
+    store.set('A', conflict('A', 't1', { fillLevel: 0 }, 'Premier vin'));
+    const onResolveConflict = vi.fn();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConflictResolutionModal />
+        <PendingChangesList onResolveConflict={onResolveConflict} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('Premier vin')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: fr.offline.conflict.decideLater }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+
+    fireEvent.click(screen.getByRole('button', { name: fr.connectivity.panel.resolve }));
+
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Premier vin');
+    expect(onResolveConflict).toHaveBeenCalled();
   });
 });

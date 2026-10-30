@@ -10,6 +10,7 @@ import {
   removeQueuedMutation,
   retryFailedMutation,
   deferConflict,
+  undeferConflict,
   getDeferredConflictIds,
   resolveConflictKeepLocal,
   resolveConflictKeepServer,
@@ -87,6 +88,8 @@ export function useOfflineSync() {
     /** Conflicts postponed with "Decide later" during this browser session. */
     deferredConflictIds,
     deferConflict,
+    /** Brings a postponed conflict back in the conflict dialog. */
+    undeferConflict,
     isSyncing: syncingCount > 0,
     hasPendingWork: pendingCount + syncingCount + failedCount + conflictMutations.length > 0,
     removeMutation: (id: string) => removeQueuedMutation(id, queryClient),

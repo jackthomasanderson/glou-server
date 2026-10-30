@@ -644,6 +644,7 @@
       "empty": "No pending changes.",
       "retry": "Retry",
       "discard": "Discard",
+      "resolve": "Resolve",
       "failed": "Refused by the server",
       "reason": "Reason",
       "unknownItem": "Unknown bottle",
