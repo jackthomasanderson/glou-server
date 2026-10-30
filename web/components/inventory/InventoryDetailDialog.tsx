@@ -688,7 +688,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 <Button
                   color="primary"
                   startContent={<Pencil size={15} />}
-                  onPress={() => { onClose(); onEdit(item); }}
+                  onPress={() => { onClose(); onEdit(d); }}
                   size="sm"
                 >
                   {t('actions.edit')}

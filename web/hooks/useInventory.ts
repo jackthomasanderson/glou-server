@@ -220,7 +220,7 @@ export function useUpdateInventoryItem() {
       );
       queryClient.setQueryData<InventoryItem>(['inventory', updatedItem.id], updatedItem);
     },
-    onError: (error, { id }) => {
+    onError: (error) => {
       if (error.message !== 'CONFLICT') {
         notifyError('toast.updateError');
         return;

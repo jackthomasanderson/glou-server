@@ -6,10 +6,13 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
 import { Plus, Search, Warehouse, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { InventoryItem } from '@/lib/inventory/types';
 import { glouKey, readStorageMigrating, safeWriteStorage } from '@/lib/safe-storage';
 import { isFinishedItem, isOwnedItem } from '@/lib/inventory/ownership';
+import { newestCopy } from '@/lib/inventory/newestCopy';
 import {
+  INVENTORY_KEY,
   useInventory,
   useInventoryTruncated,
   useCreateInventoryItem,
@@ -73,6 +76,7 @@ function getIsMobileServerSnapshot() {
 const NO_CELLAR_BANNER_KEY = glouKey('no-cellar-banner-dismissed');
 
 export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardProps) {
+  const queryClient = useQueryClient();
   const { data: items, isLoading, isError, refetch, isRefetching } = useInventory();
   const isTruncated = useInventoryTruncated();
   const { data: cellars } = useCellars();
@@ -308,11 +312,18 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     setUndoTarget(null);
   }, [undoTarget, restoreMutation]);
 
+  // The copy handed over may predate a change made since (e.g. the fill level
+  // set in the detail window): the form must open with the latest one.
   const handleEdit = useCallback((item: InventoryItem) => {
-    setEditingItem(item);
-    setEditingVersion(item.updatedAt);
+    const latest = newestCopy(
+      item,
+      queryClient.getQueryData<InventoryItem>(['inventory', item.id]),
+      queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY)?.find((i) => i.id === item.id),
+    );
+    setEditingItem(latest);
+    setEditingVersion(latest.updatedAt);
     setMode('editing');
-  }, []);
+  }, [queryClient]);
 
   const handleView = useCallback((item: InventoryItem) => setViewingItem(item), []);
   const handleCancel = useCallback(() => { setMode('idle'); setEditingItem(null); }, []);

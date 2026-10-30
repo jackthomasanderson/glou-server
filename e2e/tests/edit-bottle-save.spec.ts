@@ -1,4 +1,4 @@
-import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
+import { test, expect, type Page, type Locator, type APIRequestContext } from '@playwright/test';
 
 /**
  * #572: saving the edit form sent the whole bottle as it was when the form
@@ -23,8 +23,8 @@ async function getBottle(api: APIRequestContext, id: string) {
   return (await (await api.get(`/api/inventory/${id}`)).json()).data as Record<string, unknown>;
 }
 
-/** Opens the bottle from the global search, then its edit form. */
-async function openEditForm(page: Page, name: string) {
+/** Opens the bottle's detail window from the global search. */
+async function openDetail(page: Page, name: string) {
   await page.goto('/cellars');
   const search = page.getByRole('combobox').filter({ visible: true }).first();
   await search.fill(name);
@@ -32,9 +32,14 @@ async function openEditForm(page: Page, name: string) {
   await search.press('ArrowDown');
   await search.press('Enter');
   await expect(page.locator('#inventory-detail-title')).toHaveText(name);
+  return page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });
+}
+
+/** Opens the bottle's edit form, from its detail window unless one is given. */
+async function openEditForm(page: Page, name: string, detail?: Locator) {
+  const from = detail ?? await openDetail(page, name);
   // The detail window's own button: the cards behind have "Modifier" ones too.
-  const detail = page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });
-  await detail.getByRole('button', { name: 'Modifier', exact: true }).click();
+  await from.getByRole('button', { name: 'Modifier', exact: true }).click();
   // The form window: the detail one may still be closing.
   const dialog = page.getByRole('dialog').filter({ has: page.getByTestId('inventory-form-submit') });
   await expect(dialog.getByTestId('inventory-name-input')).toHaveValue(name);
@@ -139,6 +144,41 @@ test('saving a form opened before someone else changed the bottle does not overw
     expect(item.isOpened).toBe(true);
     expect(item.fillLevel).toBe(50);
     expect(Number(item.purchasePrice)).toBe(20);
+  } finally {
+    await api.delete(`/api/inventory/${id}`).catch(() => {});
+  }
+});
+
+test('a fill level set in the detail window is kept when the bottle is then edited (#572)', async ({ page }) => {
+  const api = page.request;
+  const name = `E2E #572 detail ${Date.now()}`;
+  const { id } = await createBottle(api, name);
+
+  try {
+    // Half full from the detail window: a save the edit form opened next
+    // must start from, not conflict with.
+    const detail = await openDetail(page, name);
+    const filled = patchOf(page, id);
+    await detail.getByRole('button', { name: 'Moitié', exact: true }).click();
+    expect((await filled).status()).toBe(200);
+
+    const dialog = await openEditForm(page, name, detail);
+    await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
+    const price = dialog.getByLabel("Prix d'achat (€)");
+    await price.fill('');
+    await price.pressSequentially('25');
+
+    const saved = patchOf(page, id);
+    await dialog.getByTestId('inventory-form-submit').click();
+    const res = await saved;
+    expect(res.status(), await res.text()).toBe(200);
+    expect(Object.keys(res.request().postDataJSON() as object).sort()).toEqual(['expectedUpdatedAt', 'purchasePrice']);
+    await expect(dialog).toBeHidden();
+
+    const item = await getBottle(api, id);
+    expect(item.isOpened).toBe(true);
+    expect(item.fillLevel).toBe(50);
+    expect(Number(item.purchasePrice)).toBe(25);
   } finally {
     await api.delete(`/api/inventory/${id}`).catch(() => {});
   }
