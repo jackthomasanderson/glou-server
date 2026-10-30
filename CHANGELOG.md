@@ -10,6 +10,8 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+## v2026.10.3 - 2026-10-30
+
 ### Added
 - Advanced setting `API_RATE_LIMIT_MAX` in `.env`: how many requests one address may send every 15 minutes (1000 by default), to raise if many devices share one address and get *Too many requests*. The sign-in and password-reset limits do not change (#746).
 
