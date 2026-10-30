@@ -67,8 +67,11 @@ test('bottles can be selected in list view, and a cancelled bulk action does not
     await page.getByRole('button', { name: 'Actions groupées', exact: true }).click();
     const dialog = page.getByRole('dialog').filter({ hasText: 'Champs à modifier' });
     await expect(dialog).toBeVisible();
-    await dialog.getByText('Étiquettes', { exact: true }).click();
-    await expect(dialog.getByRole('checkbox', { name: 'Étiquettes' })).toBeChecked();
+    // HeroUI's checkbox input is a transparent layer over its whole label:
+    // tick the input itself, a click on the label text counts as covered.
+    const tags = dialog.getByRole('checkbox', { name: 'Étiquettes' });
+    await tags.check();
+    await expect(tags).toBeChecked();
     await expect(dialog.getByText('Récapitulatif des changements')).toBeVisible();
     await dialog.getByRole('button', { name: 'Annuler', exact: true }).click();
     await expect(dialog).toBeHidden();
