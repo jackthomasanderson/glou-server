@@ -23,6 +23,9 @@ Entries start with the pull request that introduced them where there is one.
 - On a phone, the last six windows that still opened as a small box now open full-screen like the others: wish price, conversion and deletion, the stock question after a tasting, cellar deletion and the list of changes waiting to be sent (#723, #654).
 - Food pairing now suggests the red and white wines in your cellar: "Viande" or "agneau" used to find nothing, and only rosé and orange wines ever came up. A white wine now gets white-wine serving advice instead of a red's (16–18 °C, aeration, lamb), and a wine without a colour gets none rather than a wrong one (#731, #703).
 - On a phone, the first-run wizard scrolls and fills the screen. When a step was taller than the screen, such as the preview of a cellar file, its top and bottom were cut off with no way to reach them: *Confirm import*, *Back*, *Skip this step* or *Later* could not be pressed. Each step now opens at its top. On a narrow phone, the cellar step's buttons ran past the edge of the card and cut *Create cellar* off; they now wrap onto two lines. On a computer, a window too short for the wizard now scrolls too (#730, #686).
+- Editing a tasting now shows its perceived maturity and, in expert mode, its tasting grid (appearance, nose, palate, tannin, acidity, finish), which used to appear empty. Saving a tasting without touching it no longer erases its perceived maturity, and what you type in the tasting window is no longer wiped when the page refreshes its data in the background (#736, #642).
+- After a tasting, the stock question no longer puts an already opened bottle back to 50 % with today as its opening date: for an opened bottle it only offers to mark it empty (#736, #595).
+- After a cigar tasting, the stock question offers to remove one cigar from the box instead of marking the whole box empty (#736, #586).
 
 ## v2026.10.2 - 2026-10-23
 
