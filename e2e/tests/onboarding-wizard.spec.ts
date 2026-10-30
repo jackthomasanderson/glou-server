@@ -32,15 +32,23 @@ async function expectOnTop(locator: Locator, what: string) {
 
 /**
  * #686: some wizard steps are taller than a phone's screen. Every button must
- * then be brought on screen by scrolling, whole, with its label not cut off
- * (a HeroUI button squeezed by a full row shrinks and clips its text), and be
- * the element really under the finger.
+ * then be brought on screen by scrolling, whole, and be the element really
+ * under the finger. Scrolling a button into view also scrolls an
+ * `overflow: hidden` card sideways, which a finger cannot do: no box between
+ * the button and the dialog may be wider than its own width.
  */
 async function expectReachable(locator: Locator, what: string) {
   await locator.scrollIntoViewIfNeeded();
   await expect(locator, `${what} cannot be scrolled on screen`).toBeInViewport({ ratio: 0.95 });
-  const clipped = await locator.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
-  expect(clipped, `${what} has its label cut off`).toBe(false);
+  const sideways = await locator.evaluate((el) => {
+    const dialog = el.closest('[role="dialog"]');
+    for (let box = el.parentElement; box; box = box.parentElement) {
+      if (box.scrollLeft !== 0 || box.scrollWidth > box.clientWidth + 1) return true;
+      if (box === dialog) break;
+    }
+    return false;
+  });
+  expect(sideways, `${what} sits in a row wider than the screen`).toBe(false);
   await expectOnTop(locator, what);
 }
 
