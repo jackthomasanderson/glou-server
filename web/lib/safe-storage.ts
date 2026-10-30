@@ -1,30 +1,40 @@
-// A browser configured to block site data (Safari/Chrome/Firefox "block all
-// cookies", or a hardened browsing mode) makes `localStorage`/`sessionStorage`
-// throw on read *and* write, rather than behaving like an empty store (#398).
-// These wrappers give every caller the same defensive behaviour already used
-// in `web/lib/theme-mode.ts` and elsewhere, without repeating the try/catch.
+// A browser configured to block site data (Chrome "Sites can't save data",
+// Firefox "block all cookies", hardened modes) makes storage throw: not only
+// `getItem`/`setItem`, but merely reading the `window.localStorage` /
+// `window.sessionStorage` property (#398, #584). So these helpers take the
+// storage *area* and resolve the property inside their own try/catch: the
+// caller never touches the getter. On the server (SSR) there is no storage
+// and they behave like an empty store.
 
-export function safeReadStorage(storage: Storage, key: string): string | null {
+export type StorageArea = 'local' | 'session';
+
+function resolveStorage(area: StorageArea): Storage | null {
+  if (typeof window === 'undefined') return null;
+  // May throw (SecurityError) when site data is blocked: callers catch.
+  return area === 'local' ? window.localStorage : window.sessionStorage;
+}
+
+export function safeReadStorage(area: StorageArea, key: string): string | null {
   try {
-    return storage.getItem(key);
+    return resolveStorage(area)?.getItem(key) ?? null;
   } catch {
     return null;
   }
 }
 
-export function safeWriteStorage(storage: Storage, key: string, value: string): void {
+export function safeWriteStorage(area: StorageArea, key: string, value: string): void {
   try {
-    storage.setItem(key, value);
+    resolveStorage(area)?.setItem(key, value);
   } catch {
-    // Storage disabled/full: callers fall back to in-memory state only.
+    // Storage blocked/full: callers fall back to in-memory state only.
   }
 }
 
-export function safeRemoveStorage(storage: Storage, key: string): void {
+export function safeRemoveStorage(area: StorageArea, key: string): void {
   try {
-    storage.removeItem(key);
+    resolveStorage(area)?.removeItem(key);
   } catch {
-    // Storage disabled/full: nothing to clean up.
+    // Storage blocked: nothing to clean up.
   }
 }
 
@@ -42,13 +52,13 @@ export function glouKey(name: string): string {
  * loses a saved preference: the value is moved to the new key and the
  * legacy one removed.
  */
-export function readStorageMigrating(storage: Storage, key: string, legacyKey: string): string | null {
-  const current = safeReadStorage(storage, key);
+export function readStorageMigrating(area: StorageArea, key: string, legacyKey: string): string | null {
+  const current = safeReadStorage(area, key);
   if (current !== null) return current;
-  const legacy = safeReadStorage(storage, legacyKey);
+  const legacy = safeReadStorage(area, legacyKey);
   if (legacy !== null) {
-    safeWriteStorage(storage, key, legacy);
-    safeRemoveStorage(storage, legacyKey);
+    safeWriteStorage(area, key, legacy);
+    safeRemoveStorage(area, legacyKey);
   }
   return legacy;
 }

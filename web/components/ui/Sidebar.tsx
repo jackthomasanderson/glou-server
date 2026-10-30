@@ -274,7 +274,7 @@ export function Sidebar() {
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    const saved = readStorageMigrating(localStorage, STORAGE_KEY, LEGACY_STORAGE_KEY);
+    const saved = readStorageMigrating('local', STORAGE_KEY, LEGACY_STORAGE_KEY);
     // Deferred to after mount rather than a lazy useState initializer:
     // localStorage isn't available during SSR, so reading it synchronously
     // in the initializer would make the client's first render diverge
@@ -289,7 +289,7 @@ export function Sidebar() {
   const toggle = () => {
     const next = !expanded;
     setExpanded(next);
-    safeWriteStorage(localStorage, STORAGE_KEY, String(next));
+    safeWriteStorage('local', STORAGE_KEY, String(next));
   };
 
   const desktopWidth = expanded ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED_WIDTH;

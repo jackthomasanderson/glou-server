@@ -7,12 +7,12 @@ export function useConnectivityWarning(featureKey: string) {
   const isOnline = useConnectivity();
   const key = glouKey(`connectivity-warned:${featureKey}`);
   const [dismissed, setDismissed] = useState(
-    () => typeof window !== 'undefined' && safeReadStorage(sessionStorage, key) === '1'
+    () => safeReadStorage('session', key) === '1'
   );
 
   useEffect(() => {
     if (isOnline === true) {
-      safeRemoveStorage(sessionStorage, key);
+      safeRemoveStorage('session', key);
       // Reacting to connectivity being restored (an external system, not a
       // prop/state derivation) — resetting local state here is the effect's
       // actual purpose, not an avoidable render-time computation.
@@ -23,7 +23,7 @@ export function useConnectivityWarning(featureKey: string) {
 
   const shouldWarn = isOnline === false && !dismissed;
   const dismiss = () => {
-    safeWriteStorage(sessionStorage, key, '1');
+    safeWriteStorage('session', key, '1');
     setDismissed(true);
   };
 

@@ -28,7 +28,8 @@ const LANG_STORAGE_KEY = 'glou:lang';
 
 function initialLanguage(): 'fr' | 'en' {
   if (typeof window === 'undefined') return 'fr';
-  const saved = safeReadStorage(window.localStorage, LANG_STORAGE_KEY);
+  // Runs at import, before any page renders: must never throw (#584).
+  const saved = safeReadStorage('local', LANG_STORAGE_KEY);
   if (saved === 'fr' || saved === 'en') return saved;
   const browser = (navigator.languages?.[0] ?? navigator.language ?? '').slice(0, 2).toLowerCase();
   return browser === 'en' ? 'en' : 'fr';
@@ -56,7 +57,7 @@ i18n
   });
 
 if (typeof window !== 'undefined') {
-  i18n.on('languageChanged', (lng) => safeWriteStorage(window.localStorage, LANG_STORAGE_KEY, lng));
+  i18n.on('languageChanged', (lng) => safeWriteStorage('local', LANG_STORAGE_KEY, lng));
 }
 
 export default i18n;
