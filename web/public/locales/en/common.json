@@ -1688,12 +1688,16 @@
       },
       "restore": {
         "modalTitle": "Confirm restore",
-        "modalBody": "This action is irreversible and immediately overwrites all current data on this instance with the content of this backup.",
+        "modalBody": "This immediately overwrites all current data on this instance with the content of this backup.",
+        "safetyCopy": "A backup of the current data is taken first and stays in the history: restore it to undo this restore. If that backup fails, nothing is restored.",
         "modalHint": "Type \"{{keyword}}\" to confirm:",
         "keyword": "RESTORE",
         "confirm": "Confirm restore",
         "success": "Restore completed successfully.",
-        "error": "Restore failed."
+        "error": "Restore failed.",
+        "errors": {
+          "BACKUP_BEFORE_RESTORE_FAILED": "The backup of the current data taken before the restore failed, so nothing was restored. Check the backup history."
+        }
       }
     },
     "network": {

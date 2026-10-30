@@ -346,9 +346,13 @@ export function SystemConfigSection() {
       showFeedback('success', t('adminConfig.backup.restore.success'));
       closeRestore();
     } catch (err) {
-      showFeedback('error', passwordErrorMessage(err, 'adminConfig.backup.restore.error'));
+      showFeedback('error', err instanceof Error && err.message === 'BACKUP_BEFORE_RESTORE_FAILED'
+        ? t('adminConfig.backup.restore.errors.BACKUP_BEFORE_RESTORE_FAILED')
+        : passwordErrorMessage(err, 'adminConfig.backup.restore.error'));
     } finally {
       setRestoring(false);
+      // The safety backup taken first (or its failure) is now in the history (#666).
+      configClient.getBackupRuns().then(setBackupRuns).catch(() => {});
     }
   };
 
@@ -912,6 +916,7 @@ export function SystemConfigSection() {
           <ModalHeader className="text-danger">{t('adminConfig.backup.restore.modalTitle')}</ModalHeader>
           <ModalBody className="flex flex-col gap-4">
             <p className="text-sm text-foreground-600">{t('adminConfig.backup.restore.modalBody')}</p>
+            <p className="text-sm text-foreground-600">{t('adminConfig.backup.restore.safetyCopy')}</p>
             {restoreTarget && (
               <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(restoreTarget.runAt, i18n.language) : ''}</p>
             )}

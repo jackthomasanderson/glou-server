@@ -5,7 +5,7 @@ import zlib from 'zlib';
 import { Transform } from 'stream';
 import { pipeline } from 'stream/promises';
 import { prisma } from '../lib/prisma';
-import { BackupRun } from '@prisma/client';
+import { BackupRun, Prisma } from '@prisma/client';
 import { auditLog } from './audit.service';
 import { notificationService } from './notification.service';
 import { isNotifEn } from '../lib/notif-lang';
@@ -31,6 +31,8 @@ export const BACKUPS_DIR = path.resolve(process.cwd(), 'backups');
 
 const FILENAME_PREFIX = 'glou-backup-';
 const FILENAME_SUFFIX = '.sql.gz';
+/** runBackup's file timestamp: an ISO date with `:` and `.` turned into `-`. */
+const FILENAME_TIMESTAMP = /^glou-backup-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.sql\.gz$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /**
  * A backup is overdue once the last successful one is older than a day plus a
@@ -65,6 +67,11 @@ async function notifyAdminsOfBackupFailure(error: string): Promise<void> {
 
 export type BackupTrigger = 'scheduled' | 'manual';
 
+export interface RunBackupOptions {
+  /** Delete the files older than the retention window afterwards (default true). */
+  applyRetention?: boolean;
+}
+
 interface DbConnParams {
   host: string;
   port: string;
@@ -88,6 +95,20 @@ function parseDatabaseUrl(): DbConnParams {
     password: decodeURIComponent(url.password),
     database: decodeURIComponent(url.pathname.replace(/^\//, '')),
   };
+}
+
+function isBackupFileName(name: string): boolean {
+  return name.startsWith(FILENAME_PREFIX) && name.endsWith(FILENAME_SUFFIX);
+}
+
+/** When a backup file was taken: from its name when runBackup wrote it, else from the file itself. */
+function backupFileDate(name: string, stats: fs.Stats): Date {
+  const m = FILENAME_TIMESTAMP.exec(name);
+  if (m) {
+    const date = new Date(`${m[1]}T${m[2]}:${m[3]}:${m[4]}.${m[5]}Z`);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  return stats.mtime;
 }
 
 function ensureBackupsDir(): void {
@@ -359,7 +380,8 @@ export const backupService = {
    * `MaintenanceService.runRetentionCleanup`'s contract so a failing
    * scheduled run can never crash the process.
    */
-  async runBackup(trigger: BackupTrigger, userId?: string): Promise<BackupRun> {
+  async runBackup(trigger: BackupTrigger, userId?: string, options: RunBackupOptions = {}): Promise<BackupRun> {
+    const { applyRetention = true } = options;
     const startedAt = Date.now();
     let destPath: string | undefined;
 
@@ -373,7 +395,7 @@ export const backupService = {
       await execPgDump(conn, destPath);
       const stats = fs.statSync(destPath);
 
-      await this.enforceRetention();
+      if (applyRetention) await this.enforceRetention();
 
       return await prisma.backupRun.create({
         data: {
@@ -455,7 +477,7 @@ export const backupService = {
     }
 
     for (const entry of entries) {
-      if (!entry.startsWith(FILENAME_PREFIX) || !entry.endsWith(FILENAME_SUFFIX)) continue;
+      if (!isBackupFileName(entry)) continue;
       const fullPath = path.join(BACKUPS_DIR, entry);
       try {
         const stats = fs.statSync(fullPath);
@@ -474,21 +496,37 @@ export const backupService = {
    * re-resolved inside BACKUPS_DIR (see resolveInsideBackupsDir), exactly
    * like authService.deleteAvatar's traversal guard. Always writes an
    * AuditLog entry (success or failure) before returning/throwing.
+   *
+   * #666: a backup of the current state is taken first, and the restore is
+   * refused (BACKUP_BEFORE_RESTORE_FAILED) if it fails, so picking the wrong
+   * file can always be undone. The backup history lives in the database the
+   * dump replaces: it is carried over the restore and resynchronised with the
+   * backups folder, so the newer backups and the safety copy stay listed.
    */
-  async restoreBackup(filePath: string, userId: string, ip: string): Promise<void> {
+  async restoreBackup(filePath: string, userId: string, ip: string): Promise<{ safetyBackupRunId: string }> {
     const safePath = resolveInsideBackupsDir(filePath);
     if (!fs.existsSync(safePath)) throw new Error('BACKUP_FILE_NOT_FOUND');
 
     const conn = parseDatabaseUrl();
+    let safetyBackupRunId: string | undefined;
     try {
+      // No retention here: it could delete the very file about to be restored.
+      const safetyCopy = await this.runBackup('manual', userId, { applyRetention: false });
+      if (!safetyCopy.success) throw new Error('BACKUP_BEFORE_RESTORE_FAILED');
+      safetyBackupRunId = safetyCopy.id;
+
+      const history = await prisma.backupRun.findMany();
       await execPsqlRestore(conn, safePath);
+      await this.carryOverHistory(history);
+
       await auditLog({
         userId,
         action: 'BACKUP_RESTORE',
         status: 'success',
         ip,
-        details: { filePath: safePath },
+        details: { filePath: safePath, safetyBackupRunId },
       });
+      return { safetyBackupRunId };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
       await auditLog({
@@ -496,10 +534,70 @@ export const backupService = {
         action: 'BACKUP_RESTORE',
         status: 'error',
         ip,
-        details: { filePath: safePath, error: message },
+        details: { filePath: safePath, error: message, safetyBackupRunId },
       });
       throw error;
     }
+  },
+
+  /**
+   * After a restore, the `backup_runs` table is the one from the dump: puts
+   * back the rows it predates (the restored backup's own row is written after
+   * its dump, every later run is missing). The data is restored by then, so a
+   * failure here is logged, not reported as a failed restore.
+   */
+  async carryOverHistory(history: BackupRun[]): Promise<void> {
+    try {
+      if (history.length) await prisma.backupRun.createMany({ data: history, skipDuplicates: true });
+      await this.syncHistoryWithFiles();
+    } catch (err) {
+      console.error('[backup] Could not restore the backup history after a restore:', err);
+    }
+  },
+
+  /**
+   * Lists in the history every backup file of BACKUPS_DIR it does not know
+   * about (#666): a file copied there by hand, e.g. to recover on a new
+   * machine, or one whose row was lost. Its date comes from its name, its size
+   * from the disk. Called at startup and after every restore.
+   */
+  async syncHistoryWithFiles(): Promise<number> {
+    let entries: string[];
+    try {
+      entries = fs.readdirSync(BACKUPS_DIR).filter(isBackupFileName);
+    } catch {
+      return 0;
+    }
+    if (!entries.length) return 0;
+
+    const known = await prisma.backupRun.findMany({
+      where: { success: true, filePath: { not: null } },
+      select: { filePath: true },
+    });
+    const knownNames = new Set(known.map((run) => path.basename(run.filePath ?? '')));
+
+    const missing: Prisma.BackupRunCreateManyInput[] = [];
+    for (const name of entries) {
+      if (knownNames.has(name)) continue;
+      const fullPath = path.join(BACKUPS_DIR, name);
+      try {
+        const stats = fs.statSync(fullPath);
+        if (!stats.isFile() || stats.size === 0) continue;
+        missing.push({
+          // Who took it is unknown: listed as a manual backup with no user.
+          trigger: 'manual',
+          userId: null,
+          success: true,
+          filePath: fullPath,
+          fileSizeBytes: stats.size,
+          runAt: backupFileDate(name, stats),
+        });
+      } catch (err) {
+        console.error(`[backup] Could not read ${name} while listing the backups folder:`, err);
+      }
+    }
+    if (missing.length) await prisma.backupRun.createMany({ data: missing });
+    return missing.length;
   },
 
   /**

@@ -50,6 +50,12 @@ test('a manual backup can actually restore the database it was taken from', asyn
   const itemsBefore = (await beforeRestore.json())?.data ?? [];
   expect(itemsBefore.some((i: { name: string }) => i.name === marker)).toBe(true);
 
+  // #666: a backup newer than the one about to be restored.
+  const newerRes = await page.request.post('/api/admin/backups/run');
+  expect(newerRes.ok()).toBe(true);
+  const newer = (await newerRes.json())?.data;
+  expect(newer?.success).toBe(true);
+
   // #489: restore re-asks the admin's password.
   const wrongPassword = await page.request.post(`/api/admin/backups/${run.id}/restore`, {
     data: { confirm: true, password: 'not-the-password' },
@@ -60,7 +66,11 @@ test('a manual backup can actually restore the database it was taken from', asyn
     data: { confirm: true, password: creds().password },
   });
   expect(restoreRes.ok()).toBe(true);
-  expect((await restoreRes.json())?.data?.ok).toBe(true);
+  const restored = (await restoreRes.json())?.data;
+  expect(restored?.ok).toBe(true);
+  // #666: a safety backup of the current state was taken first.
+  const safetyId: string = restored?.safetyBackupRunId;
+  expect(safetyId).toBeTruthy();
 
   // The marker created after the backup must be gone; it never existed in
   // the dump that was just restored.
@@ -68,4 +78,28 @@ test('a manual backup can actually restore the database it was taken from', asyn
   expect(afterRestore.ok()).toBe(true);
   const itemsAfter = (await afterRestore.json())?.data ?? [];
   expect(itemsAfter.some((i: { name: string }) => i.name === marker)).toBe(false);
+
+  // #666: the history comes from the database the restore just replaced. The
+  // restored backup, the newer one and the safety copy must all still be
+  // listed, and still downloadable.
+  const historyRes = await page.request.get('/api/admin/backups/runs?limit=100');
+  expect(historyRes.ok()).toBe(true);
+  const history: Array<{ id: string; success: boolean; runAt: string }> = (await historyRes.json())?.data ?? [];
+  const ids = history.map((r) => r.id);
+  expect(ids).toEqual(expect.arrayContaining([run.id, newer.id, safetyId]));
+  const safety = history.find((r) => r.id === safetyId);
+  expect(safety?.success).toBe(true);
+  expect(new Date(safety!.runAt).getTime()).toBeGreaterThan(new Date(newer.runAt).getTime());
+
+  const newerDownload = await page.request.post(`/api/admin/backups/${newer.id}/download`, {
+    data: { password: creds().password },
+  });
+  expect(newerDownload.ok()).toBe(true);
+
+  // The safety copy holds what the restore overwrote: the marker.
+  const safetyDownload = await page.request.post(`/api/admin/backups/${safetyId}/download`, {
+    data: { password: creds().password },
+  });
+  expect(safetyDownload.ok()).toBe(true);
+  expect(gunzipSync(await safetyDownload.body()).toString('utf8')).toContain(marker);
 });

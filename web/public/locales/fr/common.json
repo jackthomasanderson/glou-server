@@ -1690,12 +1690,16 @@
       },
       "restore": {
         "modalTitle": "Confirmer la restauration",
-        "modalBody": "Cette action est irréversible et écrase immédiatement toutes les données actuelles de l'instance par le contenu de cette sauvegarde.",
+        "modalBody": "Cette action écrase immédiatement toutes les données actuelles de l'instance par le contenu de cette sauvegarde.",
+        "safetyCopy": "Une sauvegarde des données actuelles est prise d'abord et reste dans l'historique : restaurez-la pour annuler cette restauration. Si cette sauvegarde échoue, rien n'est restauré.",
         "modalHint": "Saisissez « {{keyword}} » pour confirmer :",
         "keyword": "RESTAURER",
         "confirm": "Confirmer la restauration",
         "success": "Restauration effectuée avec succès.",
-        "error": "La restauration a échoué."
+        "error": "La restauration a échoué.",
+        "errors": {
+          "BACKUP_BEFORE_RESTORE_FAILED": "La sauvegarde des données actuelles prise avant la restauration a échoué : rien n'a été restauré. Consultez l'historique des sauvegardes."
+        }
       }
     },
     "network": {

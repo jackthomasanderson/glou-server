@@ -12,6 +12,7 @@ vi.mock('../../src/lib/prisma', () => ({
     inventoryItem: { findMany: vi.fn() },
     tastingNote: { findMany: vi.fn(), count: vi.fn() },
     auditLog: { findMany: vi.fn(), count: vi.fn() },
+    backupRun: { findUnique: vi.fn() },
     $queryRaw: vi.fn(),
   },
   connectWithRetry: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock('../../src/lib/prisma', () => ({
 import { prisma } from '../../src/lib/prisma';
 import { createApp } from '../../src/app';
 import { backupService } from '../../src/services/backup.service';
+import { authService } from '../../src/services/auth.service';
 import pkg from '../../package.json';
 
 const JWT_SECRET = 'integration-test-secret';
@@ -455,5 +457,62 @@ describe('baseline rate limit (API_RATE_LIMIT_MAX)', () => {
 
     const upload = await request(limited).get('/uploads/missing.jpg');
     expect(upload.headers['ratelimit-limit']).toBe('2');
+  });
+});
+
+// #666: a restore from the interface takes a safety backup first and is refused,
+// with a code the dialog translates, when that backup fails.
+describe('POST /api/admin/backups/:id/restore', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true, isAdmin: true } as never);
+    vi.mocked(prisma.backupRun.findUnique).mockResolvedValue(
+      { id: 'b1', success: true, filePath: '/app/backups/glou-backup-2026-10-27T03-00-00-000Z.sql.gz' } as never,
+    );
+  });
+  const spies: Array<{ mockRestore: () => void }> = [];
+  afterEach(() => {
+    spies.splice(0).forEach((s) => s.mockRestore());
+  });
+
+  const restore = () => request(app)
+    .post('/api/admin/backups/b1/restore')
+    .set('Authorization', `Bearer ${authToken()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send({ confirm: true, password: 'pw' });
+
+  it('answers with the safety backup taken before the restore', async () => {
+    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    const restoreSpy = vi.spyOn(backupService, 'restoreBackup').mockResolvedValue({ safetyBackupRunId: 'safety-1' });
+    spies.push(restoreSpy);
+
+    const res = await restore();
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { ok: true, safetyBackupRunId: 'safety-1' } });
+    expect(restoreSpy).toHaveBeenCalledWith('/app/backups/glou-backup-2026-10-27T03-00-00-000Z.sql.gz', 'u1', expect.any(String));
+  });
+
+  it('answers BACKUP_BEFORE_RESTORE_FAILED when the safety backup fails', async () => {
+    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error('BACKUP_BEFORE_RESTORE_FAILED')));
+    spies.push(vi.spyOn(console, 'error').mockImplementation(() => {}));
+
+    const res = await restore();
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('BACKUP_BEFORE_RESTORE_FAILED');
+  });
+
+  it('takes no backup at all on a wrong password', async () => {
+    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(false));
+    const runSpy = vi.spyOn(backupService, 'runBackup');
+    const restoreSpy = vi.spyOn(backupService, 'restoreBackup');
+    spies.push(runSpy, restoreSpy);
+
+    const res = await restore();
+
+    expect(res.status).toBe(403);
+    expect(runSpy).not.toHaveBeenCalled();
+    expect(restoreSpy).not.toHaveBeenCalled();
   });
 });
