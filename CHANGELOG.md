@@ -37,6 +37,7 @@ Entries start with the pull request that introduced them where there is one.
 - A deactivated or deleted account no longer receives the household's humidor alerts, nor any other notification (#741, #591).
 - Saving a bottle no longer overwrites what someone else changed while your form was open: it now says the bottle was changed in the meantime and saves nothing, so you can reopen it and start from the latest version. Saving also only touches the fields you changed, so correcting a price no longer removes the scan and import badges of the other fields or marks them as set by hand (#735, #572).
 - A bottle's name can be corrected when editing it. The field was greyed out, so a typo or a misread label could only be fixed by deleting and recreating the bottle (#735, #643).
+- Bottles can be selected in list view: selection mode showed no checkboxes there and a click on a row selected nothing. Cancelling a bulk action and then leaving selection mode no longer replaces the page with an error, and the bulk action window now opens with no field ticked each time (#732, #705).
 
 ## v2026.10.2 - 2026-10-23
 
