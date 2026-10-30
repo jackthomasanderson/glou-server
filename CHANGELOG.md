@@ -45,6 +45,7 @@ Entries start with the pull request that introduced them where there is one.
 - Bottles can be selected in list view: selection mode showed no checkboxes there and a click on a row selected nothing. Cancelling a bulk action and then leaving selection mode no longer replaces the page with an error, and the bulk action window now opens with no field ticked each time (#732, #705).
 - Glou no longer crashes in a browser set to block site data (Chrome "Sites can't save data", Firefox "block all cookies"): even the sign-in page used to fail with a bare "Application error". Preferences such as the language or the quick lock are simply not remembered there (#734, #584).
 - When the database restarts (after an update, for instance), members are no longer sent back to the sign-in screen as if their session had expired; opening the app meanwhile shows "Cannot reach the server" with a retry button (#734, #581).
+- Restoring a backup from the Backups tab now first takes a backup of the current data, which stays in the history so a wrong restore can be undone; if that backup fails, nothing is restored. After a restore, the history still lists every backup, including those newer than the restored one, and a backup file copied by hand into the `./backups` folder appears in it after a restart (#745, #666).
 
 ## v2026.10.2 - 2026-10-23
 
