@@ -4,7 +4,9 @@ on:
   push:
     branches: [main, dev]
   pull_request:
-    branches: [main, dev]
+    # feat/families: integration branch of the family model (#471); its lot PRs
+    # run the test job, publishing stays limited to pushes on main/dev.
+    branches: [main, dev, feat/families]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
