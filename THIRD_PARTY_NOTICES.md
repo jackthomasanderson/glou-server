@@ -91,7 +91,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | basic-auth | 2.0.1 | MIT | jshttp/basic-auth |
 | bcryptjs | 3.0.3 | BSD-3-Clause | https://github.com/dcodeIO/bcrypt.js |
 | better-result | 2.10.0 | MIT | https://github.com/dmmulroy/better-result |
-| body-parser | 2.3.0 | MIT | expressjs/body-parser |
+| body-parser | 2.4.0 | MIT | expressjs/body-parser |
 | buffer-equal-constant-time | 1.0.1 | BSD-3-Clause | git@github.com:goinstant/buffer-equal-constant-time |
 | busboy | 1.6.0 | MIT | http://github.com/mscdex/busboy |
 | bytes | 3.1.2 | MIT | visionmedia/bytes.js |
@@ -161,7 +161,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | fast-decode-uri-component | 1.0.1 | MIT | https://github.com/delvedor/fast-decode-uri-component |
 | fast-deep-equal | 3.1.3 | MIT | https://github.com/epoberezkin/fast-deep-equal |
 | fast-querystring | 1.1.2 | MIT | https://github.com/anonrig/fast-querystring |
-| fast-uri | 3.1.8 | BSD-3-Clause | https://github.com/fastify/fast-uri |
+| fast-uri | 3.1.9 | BSD-3-Clause | https://github.com/fastify/fast-uri |
 | finalhandler | 2.1.1 | MIT | pillarjs/finalhandler |
 | find-my-way | 9.7.0 | MIT | https://github.com/delvedor/find-my-way |
 | find-up | 4.1.0 | MIT | sindresorhus/find-up |
@@ -189,7 +189,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | iconv-lite | 0.7.3 | MIT | https://github.com/pillarjs/iconv-lite |
 | inherits | 2.0.4 | ISC | https://github.com/isaacs/inherits |
 | internmap | 2.0.3 | ISC | https://github.com/mbostock/internmap |
-| ip-address | 10.7.3 | MIT | https://github.com/beaugunderson/ip-address |
+| ip-address | 10.7.5 | MIT | https://github.com/beaugunderson/ip-address |
 | ipaddr.js | 1.9.1 | MIT | https://github.com/whitequark/ipaddr.js |
 | is-fullwidth-code-point | 3.0.0 | MIT | sindresorhus/is-fullwidth-code-point |
 | is-promise | 4.0.0 | MIT | https://github.com/then/is-promise |
@@ -223,12 +223,12 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | morgan | 1.12.1 | MIT | expressjs/morgan |
 | ms | 2.0.0 | MIT | zeit/ms |
 | ms | 2.1.3 | MIT | vercel/ms |
-| multer | 2.4.0 | MIT | https://github.com/expressjs/multer |
+| multer | 2.5.0 | MIT | https://github.com/expressjs/multer |
 | mysql2 | 3.24.4 | MIT | https://github.com/sidorares/node-mysql2 |
 | named-placeholders | 1.1.6 | MIT | https://github.com/mysqljs/named-placeholders |
 | negotiator | 1.1.0 | MIT | jshttp/negotiator |
 | node-cron | 3.0.3 | ISC | https://github.com/merencia/node-cron |
-| nodemailer | 10.0.13 | MIT-0 | https://github.com/nodemailer/nodemailer |
+| nodemailer | 10.3.1 | MIT-0 | https://github.com/nodemailer/nodemailer |
 | object-assign | 4.1.1 | MIT | sindresorhus/object-assign |
 | object-inspect | 1.13.4 | MIT | https://github.com/inspect-js/object-inspect |
 | ohash | 2.0.12 | MIT | unjs/ohash |
@@ -267,7 +267,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | proxy-addr | 2.0.8 | MIT | jshttp/proxy-addr |
 | pure-rand | 6.1.0 | MIT | https://github.com/dubzzz/pure-rand |
 | qrcode | 1.5.4 | MIT | https://github.com/soldair/node-qrcode |
-| qs | 6.16.0 | BSD-3-Clause | https://github.com/ljharb/qs |
+| qs | 6.17.1 | BSD-3-Clause | https://github.com/ljharb/qs |
 | range-parser | 1.3.0 | MIT | jshttp/range-parser |
 | raw-body | 3.0.2 | MIT | stream-utils/raw-body |
 | rc9 | 3.1.0 | MIT | unjs/rc9 |
@@ -793,7 +793,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | fast-deep-equal | 3.1.3 | MIT | https://github.com/epoberezkin/fast-deep-equal |
 | fast-glob | 3.3.2 | MIT | mrmlnc/fast-glob |
 | fast-json-stable-stringify | 2.1.0 | MIT | https://github.com/epoberezkin/fast-json-stable-stringify |
-| fast-uri | 3.1.8 | BSD-3-Clause | https://github.com/fastify/fast-uri |
+| fast-uri | 3.1.9 | BSD-3-Clause | https://github.com/fastify/fast-uri |
 | fastq | 1.20.1 | ISC | https://github.com/mcollina/fastq |
 | filelist | 1.0.6 | Apache-2.0 | https://github.com/mde/filelist |
 | fill-range | 7.1.1 | MIT | jonschlinkert/fill-range |
@@ -945,8 +945,8 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | semver | 6.3.1 | ISC | https://github.com/npm/node-semver |
 | semver | 7.6.3 | ISC | https://github.com/npm/node-semver |
 | semver | 7.8.5 | ISC | https://github.com/npm/node-semver |
-| serialize-javascript | 7.1.2 | BSD-3-Clause | https://github.com/yahoo/serialize-javascript |
-| seroval | 1.6.9 | MIT | https://github.com/lxsmnsyc/seroval |
+| serialize-javascript | 7.1.4 | BSD-3-Clause | https://github.com/yahoo/serialize-javascript |
+| seroval | 1.6.12 | MIT | https://github.com/lxsmnsyc/seroval |
 | seroval-plugins | 1.6.9 | MIT | https://github.com/lxsmnsyc/seroval |
 | set-function-length | 1.2.2 | MIT | https://github.com/ljharb/set-function-length |
 | set-function-name | 2.0.2 | MIT | https://github.com/ljharb/set-function-name |
