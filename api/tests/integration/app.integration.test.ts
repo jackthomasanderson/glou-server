@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
+import { Prisma } from '@prisma/client';
 
 // Every router imported by createApp() ultimately imports this module; the
 // mock replaces it wholesale so nothing tries to reach a real database.
@@ -167,6 +168,58 @@ describe('authenticated request plumbing', () => {
       .set('Authorization', `Bearer ${authToken()}`);
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('ACCOUNT_DEACTIVATED');
+  });
+});
+
+// #581: a database restart used to answer 401 "token invalid or expired",
+// which the web app rightly reads as "signed out".
+describe('database outage during authentication (#581)', () => {
+  function databaseUnreachable(): Prisma.PrismaClientKnownRequestError {
+    return new Prisma.PrismaClientKnownRequestError("Can't reach database server", {
+      code: 'P1001',
+      clientVersion: '7.0.0',
+    });
+  }
+
+  it('answers 503, not 401, when the account lookup fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(prisma.user.findUnique).mockRejectedValue(databaseUnreachable());
+    for (const path of ['/api/user/me', '/api/tastings', '/api/inventory']) {
+      const res = await request(app).get(path).set('Authorization', `Bearer ${authToken()}`);
+      expect(res.status, path).toBe(503);
+      expect(res.body.error, path).toBe('DATABASE_UNAVAILABLE');
+    }
+    consoleError.mockRestore();
+  });
+
+  it('answers 503, not 401, when the session lookup fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(prisma.session.findUnique).mockRejectedValueOnce(databaseUnreachable());
+    const res = await request(app)
+      .get('/api/tastings')
+      .set('Authorization', `Bearer ${authToken({ sessionId: 's1' })}`);
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('DATABASE_UNAVAILABLE');
+    consoleError.mockRestore();
+  });
+
+  it('still answers 401 TOKEN_INVALID_OR_EXPIRED for an expired token', async () => {
+    const expired = jwt.sign(
+      { userId: 'u1', email: 'u1@example.com', scope: 'full', exp: Math.floor(Date.now() / 1000) - 60 },
+      JWT_SECRET,
+      { algorithm: 'HS256' },
+    );
+    const res = await request(app).get('/api/tastings').set('Authorization', `Bearer ${expired}`);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('TOKEN_INVALID_OR_EXPIRED');
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('still answers 401 TOKEN_INVALID_OR_EXPIRED for a token signed with another secret', async () => {
+    const forged = jwt.sign({ userId: 'u1', email: 'u1@example.com', scope: 'full' }, 'another-secret', { algorithm: 'HS256' });
+    const res = await request(app).get('/api/tastings').set('Authorization', `Bearer ${forged}`);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('TOKEN_INVALID_OR_EXPIRED');
   });
 });
 
