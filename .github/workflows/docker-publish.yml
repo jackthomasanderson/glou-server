@@ -184,6 +184,12 @@ jobs:
           docker compose -f docker-compose.e2e.yml logs --tail=150
           exit 1
 
+      # #471: the families migrations replayed on a small instance at the
+      # previous schema, in its own database, through the image just built
+      # (e2e/migration/). Before the suite: it fails in seconds.
+      - name: Migration bench (families)
+        run: bash e2e/migration/check-families-migration.sh
+
       # Deterministic user-journey specs only. The gremlins fuzz
       # (monkey.spec.ts) is gated behind E2E_MONKEY and runs in the
       # `nightly-e2e-fuzz` workflow instead — it's slow and non-deterministic.
