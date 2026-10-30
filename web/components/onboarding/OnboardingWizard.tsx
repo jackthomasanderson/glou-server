@@ -63,6 +63,12 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
   const [itemsAdded, setItemsAdded] = useState(0);
   const [duplicatesSkipped, setDuplicatesSkipped] = useState(0);
 
+  // The layer is the scroll container (#686): a new step starts at its top,
+  // not where the previous, taller one was left.
+  useEffect(() => {
+    if (dialogRef.current) dialogRef.current.scrollTop = 0;
+  }, [step, ingestionMode]);
+
   // Resume logic, decided once during render (React's documented pattern) as
   // soon as the wizard's state is known — including when it was already
   // loaded before the wizard opened (#574: waiting for it to *change* left the
@@ -135,8 +141,9 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
       {/* The layer scrolls when a step is taller than the screen (#686): `m-auto`
           centres the card only while it fits, so its top never goes out of
           reach. Below `md`, the breakpoint where every dialog becomes a
-          full-screen sheet (ux-ui.md §5.4), the card fills the screen. */}
-      <div className="m-auto w-full max-w-2xl min-h-full md:min-h-0 bg-content1 md:border md:border-divider md:rounded-2xl md:shadow-lg overflow-hidden">
+          full-screen sheet (ux-ui.md §5.4), the card fills the screen and
+          keeps clear of the notch and the home indicator. */}
+      <div className="m-auto w-full md:max-w-2xl min-h-full md:min-h-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:pt-0 md:pb-0 bg-content1 md:border md:border-divider md:rounded-2xl md:shadow-lg overflow-hidden">
         {/* Header: step progress + skip / close */}
         <div className="flex items-center justify-between px-6 pt-5 pb-1">
           <div className="flex gap-1.5">

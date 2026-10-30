@@ -143,7 +143,6 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
   // Phones only: the desktop window has room for every step. One journey, one
   // page load: the suite shares the API's per-address rate limit.
   test.skip(!isMobile, 'phone layout');
-  const deviceViewport = page.viewportSize();
   const id = stamp();
   let cellarId: string | undefined;
 
@@ -182,25 +181,38 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
     await expectReachable(back, 'Back (cellar step, landscape)');
     await expectReachable(createCellar, 'Create cellar (landscape)');
     await expectReachable(skip, 'Skip this step (cellar step, landscape)');
+    // Scrolled down to its buttons, the cellar step hands over to a step that
+    // starts at its top.
+    const scrollTop = () => wizard.evaluate((el) => el.scrollTop);
+    expect(await scrollTop()).toBeGreaterThan(0);
     await skip.click();
     await expect(methodTitle).toBeVisible();
+    await expect.poll(scrollTop, { message: 'the method step opens scrolled down' }).toBe(0);
+    const importCard = wizard.getByText('Import Fichier', { exact: true });
     await expectReachable(close, 'the close button (method step, landscape)');
-    await expectReachable(wizard.getByText('Import Fichier', { exact: true }), 'the file import card (landscape)');
+    await expectReachable(importCard, 'the file import card (landscape)');
     await expectReachable(back, 'Back (method step, landscape)');
     await expectReachable(skip, 'Skip this step (method step, landscape)');
 
-    // 3. Back to the project's own phone (an iPhone 14 in mobile-safari): the
-    // preview of a ten-row file pushed "Confirm import" below the screen.
-    if (deviceViewport) await page.setViewportSize(deviceViewport);
-    await wizard.getByText('Import Fichier', { exact: true }).click();
+    // 3. Back to the 375 px phone. The preview of a cellar file is taller than
+    // its screen, as it is than an iPhone 14's: "Confirm import" fell below it.
+    // Six rows fill the preview list.
+    await page.setViewportSize({ width: 375, height: 553 });
+    await importCard.click();
+    await expect(wizard.getByText('Import CSV', { exact: true })).toBeVisible();
+    await expect.poll(scrollTop, { message: 'the file import step opens scrolled down' }).toBe(0);
     const csv = [
       'Nom;Producteur;Catégorie;Millésime',
-      ...Array.from({ length: 10 }, (_, i) => `Wizard ${i + 1} ${id};Domaine E2E;Vin;${2010 + i}`),
+      ...Array.from({ length: 6 }, (_, i) => `Wizard ${i + 1} ${id};Domaine E2E;Vin;${2010 + i}`),
     ].join('\n');
     await wizard.locator('input[type="file"]').setInputFiles({
       name: 'cave.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8'),
     });
-    await expect(wizard.getByText('10 lignes valides')).toBeVisible();
+    await expect(wizard.getByText('6 lignes valides')).toBeVisible();
+    expect(
+      await wizard.evaluate((el) => el.scrollHeight > el.clientHeight),
+      'the preview fits the screen, so this check would not go through scrolling',
+    ).toBe(true);
     await expectReachable(close, 'the close button (file preview)');
     await expectReachable(back, 'Back (file preview)');
     const confirm = wizard.getByRole('button', { name: 'Confirmer l\'import' });
@@ -211,7 +223,7 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
     await confirm.click();
     expect((await imported).ok()).toBe(true);
 
-    await expect(wizard.getByText('10 actifs ajoutés à votre inventaire')).toBeVisible();
+    await expect(wizard.getByText('6 actifs ajoutés à votre inventaire')).toBeVisible();
     const finish = wizard.getByRole('button', { name: 'Accéder au tableau de bord' });
     await expectReachable(finish, 'Go to the dashboard');
     await finish.click();
