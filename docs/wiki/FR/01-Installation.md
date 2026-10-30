@@ -31,7 +31,7 @@
    L'API tourne sous l'uid non privilégié 1001 et écrit ses sauvegardes nocturnes dans `./backups`. Si le dossier n'existe pas, Docker le crée en root et chaque sauvegarde échoue avec « Permission denied » (l'API le signale au démarrage et **Administration → Configuration Système → Sauvegardes** affiche un avertissement). Docker Desktop sous macOS/Windows n'a pas besoin de cette étape.
    Docker télécharge `glou-server-api` et `glou-server-web` depuis GHCR automatiquement. Cela démarre uniquement la base, l'API et le web (~1,5 Go de RAM). Pour le scan d'étiquette optionnel (~9 Go de disque et ~3 Go de RAM en plus), utilisez `docker compose --profile scan up -d`.
 
-4. Ouvrir [http://localhost:3000](http://localhost:3000) et cliquer sur **S'inscrire**.
+4. Ouvrir [http://localhost:3000](http://localhost:3000), cliquer sur **S'inscrire** (sous le formulaire de connexion), puis sur **Créer mon compte**.
    Le premier compte créé reçoit automatiquement les droits administrateur. **L'inscription est ensuite fermée** : les autres personnes ne peuvent s'inscrire qu'une fois que l'admin a activé **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Réseau**.
 
 5. *(Facultatif)* Configurer l'instance depuis **Administration → Configuration Système**.

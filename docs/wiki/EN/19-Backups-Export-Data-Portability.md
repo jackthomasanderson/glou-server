@@ -26,7 +26,7 @@ Schedule database backups from Admin, restore one when needed, export your own d
 > Failures are reported. If a scheduled backup fails (full disk, database unreachable…), every administrator is notified through their enabled channels (email, Gotify/webhook), once per failure streak, then again after 24 hours if it keeps failing, not every hour. The category is called **Backup failures (admin)** in Profile → Notifications. Old backup files are only deleted after a *successful* backup, so a failing run never wipes the last good dump.
 
 ### Run a backup immediately
-1. In the same tab, click **Run now**.
+1. In the same tab, click **Back up now**.
 2. Once complete, the new run appears at the top of the history with its file size.
 
 ### Restore a backup
@@ -59,7 +59,7 @@ A restore actually working isn't just asserted here: `e2e/tests/backup-restore.s
 
 | Error / Behavior | Fix |
 | :--- | :--- |
-| **Backups are enabled but no file ever appears** | Check the **Hour (UTC)** value against the current UTC time: the job only fires during that hour once enabled. Or click **Run now** to test immediately. |
+| **Backups are enabled but no file ever appears** | Check the **Hour (UTC)** value against the current UTC time: the job only fires during that hour once enabled. Or click **Back up now** to test immediately. |
 | **I clicked Restore and now my data is different than before** | Expected: restore overwrites all current data with the backup's content. If this was a mistake, restore the backup taken automatically just before the restore: it is the most recent **Manual** entry of the history. |
 | **The restore was refused: the backup taken before the restore failed** | Nothing was restored. The failed backup is in the history with its error: fix the cause (usually disk space or the `./backups` permissions), then restore again. |
 | **My export file only has some of my data** | You used **Filter** and only selected certain categories. Use the plain **Export** button for a full export instead. |

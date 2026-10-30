@@ -31,7 +31,7 @@
    The API runs as the unprivileged uid 1001 and writes its nightly backups to `./backups`. If the folder does not exist, Docker creates it owned by root and every backup fails with "Permission denied" (the API logs it at startup and **Administration → System Configuration → Backups** shows a warning). Docker Desktop on macOS/Windows does not need this step.
    Docker pulls `glou-server-api` and `glou-server-web` from GHCR automatically. This starts the database, API and web only (~1.5 GB of RAM). For the optional label scan (~9 GB of disk, ~3 GB of RAM more), use `docker compose --profile scan up -d` instead.
 
-4. Open [http://localhost:3000](http://localhost:3000) and click **Register**.
+4. Open [http://localhost:3000](http://localhost:3000), click **Sign up** (under the sign-in form), then **Create account**.
    The first account you create is automatically granted admin privileges. **Registration is then closed**: other people can only sign up once an admin turns on **Allow new accounts to register** in **Administration → System Configuration → Network**.
 
 5. *(Optional)* Configure the instance from **Administration → System Configuration**.

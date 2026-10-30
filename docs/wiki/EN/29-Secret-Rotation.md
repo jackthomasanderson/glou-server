@@ -8,7 +8,7 @@ All three secrets live in your `.env`. Changing **`JWT_SECRET`** logs everyone o
 
 ## Prerequisites
 * Shell access to the host running `docker compose`.
-* A fresh backup (Admin → System Configuration → Backups → **Run now**) and a copy of your current `.env`.
+* A fresh backup (Admin → System Configuration → Backups → **Back up now**) and a copy of your current `.env`.
 
 ## What each secret protects
 
