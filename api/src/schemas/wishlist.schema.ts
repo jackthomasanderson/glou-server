@@ -18,6 +18,9 @@ export type WishlistCreateInput = z.infer<typeof wishlistCreateSchema>;
 // ─── PATCH /wishlist/items/:id ────────────────────────────────────────────────
 
 export const wishlistPatchSchema = wishlistCreateSchema.partial().extend({
+  // zod 4 applies a field's .default() even under .partial(): a PATCH that
+  // omits `targetQuantity` must leave it unchanged, not reset it to 1.
+  targetQuantity: wishlistCreateSchema.shape.targetQuantity.unwrap().optional(),
   status: z.enum(['active', 'acquired', 'cancelled']).optional(),
 });
 

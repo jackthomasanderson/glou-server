@@ -57,6 +57,8 @@ export function useDeleteCollection() {
   });
 }
 
+// Adding to and removing from a collection raise no toast themselves: a save
+// runs several in parallel, and its caller reports a failure once.
 export function useAddItemsToCollection() {
   const queryClient = useQueryClient();
   return useMutation<Collection, Error, { id: string; itemIds: string[] }>({

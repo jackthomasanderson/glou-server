@@ -51,7 +51,7 @@ In the notification bell, click the bell icon on the right side of a bottle's ro
 
 ### 5. Notifications
 
-Statuses are recomputed once a day. When bottles enter their drinking window, every member receives **one** notification for the day (email, Gotify, per their preferences): the bottle's name if there is only one, otherwise a summary listing the first ten with a link to the alerts. Since statuses change by calendar year, most bottles enter their window on 1 January.
+Statuses are recomputed once a day, at 10:00 in the instance's time zone (`TZ`, see [Configuration](./02-Configuration.md)), so that night-time quiet hours do not swallow the notification. When bottles enter their drinking window, every member receives **one** notification for the day (email, Gotify, per their preferences): the bottle's name if there is only one, otherwise a summary listing the first ten with a link to the alerts. Since statuses change by calendar year, most bottles enter their window on 1 January.
 
 No notification is sent for a bottle that is added, or whose window is edited, while it is already inside its window: it shows directly as **At peak** in the list and the bell.
 

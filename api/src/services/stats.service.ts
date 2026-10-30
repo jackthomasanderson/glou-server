@@ -16,12 +16,11 @@ const BOTTLE_CATEGORIES = ['wine', 'sparkling', 'spirit'] as const;
  */
 export const statsService = {
   async getSidebarCounts(userId: string): Promise<SidebarCounts> {
-    // End of "today" in UTC — matches the frontend's own
-    // `reminderDate.split('T')[0] <= today` (ISO date) comparison closely
-    // enough for a badge count; the detailed list (NotificationBell, on
+    // End of "today" in the instance's time zone (`TZ`, #575), like the
+    // cellar cards' reminder count; the detailed list (NotificationBell, on
     // open) still recomputes it client-side from the real items.
     const endOfToday = new Date();
-    endOfToday.setUTCHours(23, 59, 59, 999);
+    endOfToday.setHours(23, 59, 59, 999);
 
     const [bottles, cigars, cellars, collections, activeSession, pricedWishes, remindersToday] = await Promise.all([
       // #573: what is in stock, like the list counter (#504) and the cellar cards.

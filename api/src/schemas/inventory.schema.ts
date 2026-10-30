@@ -45,11 +45,28 @@ export const commonInventorySchema = z.object({
   appellation: z.string().max(200).optional(),
   classification: z.string().max(200).optional(),
   caskType: z.string().max(100).optional(),
-  batchDate: z.coerce.date().optional(),
+  // Nullable: the form sends null for a cleared date, which z.coerce.date()
+  // alone turned into 1970-01-01 (#726).
+  batchDate: z.coerce.date().optional().nullable(),
   isSingleCask: z.boolean().optional(),
   caskNumber: z.string().max(100).optional(),
   caskProof: z.number().min(0).max(100).optional(),
 });
+
+// ─── Peak window order ───────────────────────────────────────────────────────
+// #706: a drinking window must not end before it starts — same rule as the
+// maturity references (maturity-reference.schema.ts). A reversed window used
+// to be stored as is and skewed the peak alerts.
+
+type PeakWindow = { peakMaturityFrom?: number | null; peakMaturityTo?: number | null };
+const peakWindowInOrder = (d: PeakWindow) =>
+  d.peakMaturityFrom == null || d.peakMaturityTo == null || d.peakMaturityTo >= d.peakMaturityFrom;
+const PEAK_WINDOW_ORDER = { message: 'peakMaturityTo must be >= peakMaturityFrom', path: ['peakMaturityTo'] };
+
+/** The window an item ends up with once a patch is applied to it (see InventoryService.updateItem). */
+export const peakWindowSchema = z
+  .object({ peakMaturityFrom: z.number().nullish(), peakMaturityTo: z.number().nullish() })
+  .refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
 
 // ─── Wine-specific schema ────────────────────────────────────────────────────
 
@@ -67,7 +84,7 @@ export const wineInventorySchema = commonInventorySchema.extend({
   serviceTemp: z.string().max(50).optional(),
   // lotNumber/appellation/classification/cask fields moved to
   // commonInventorySchema (available on every category, see there).
-});
+}).refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
 
 // ─── Sparkling-specific schema ───────────────────────────────────────────────
 
@@ -76,14 +93,15 @@ export const sparklingInventorySchema = commonInventorySchema.extend({
   vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
   sparklingType: z.enum(SPARKLING_TYPES).optional(),
   sugarLevel: z.enum(SUGAR_LEVELS).optional(),
-  disgorgingDate: z.coerce.date().optional(),
+  // Nullable, see batchDate (#726).
+  disgorgingDate: z.coerce.date().optional().nullable(),
   baseYear: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
   peakMaturityFrom: z.number().int().min(1800).max(2200).optional().nullable(),
   peakMaturityTo: z.number().int().min(1800).max(2200).optional().nullable(),
   serviceTemp: z.string().max(50).optional(),
   alcoholDegree: z.number().min(0).max(100).optional(),
   bottleSize: z.string().max(50).optional(),
-});
+}).refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
 
 // ─── Spirit-specific schema ──────────────────────────────────────────────────
 
@@ -203,13 +221,15 @@ export const inventoryPatchSchema = z.object({
   slotColumn: z.number().int().min(1).max(100).optional().nullable(),
   slotRow: z.number().int().min(1).max(100).optional().nullable(),
   // ─── Offline sync optimistic concurrency (FEAT-16/23) ──────────────────────
-  // Set by the web app's offline sync queue: the `updatedAt` of the item AS
-  // KNOWN when the mutation was queued (possibly while offline). Opt-in — if
+  // Set by the web app's offline sync queue and bottle edit form (#572): the
+  // `updatedAt` of the item AS KNOWN when the change was made. Opt-in — if
   // omitted, `InventoryService.updateItem` applies the patch unconditionally
   // exactly like before this field existed (last-write-wins, unchanged
   // behavior for every caller that doesn't send it).
   expectedUpdatedAt: z.string().datetime().optional(),
-});
+  // Both years in one patch (what the bottle form sends). A patch carrying
+  // only one is checked against the stored other one in updateItem.
+}).refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
 
 export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
 
@@ -217,7 +237,7 @@ export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
 // no length cap — bounded only by the 2MB request body limit, i.e. tens of
 // thousands of ids could reach a single `updateMany`.
 export const bulkUpdateSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1).max(500),
+  ids: z.array(z.string().guid()).min(1).max(500),
   patch: inventoryPatchSchema,
 });
 

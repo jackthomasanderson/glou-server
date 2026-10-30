@@ -94,7 +94,7 @@ export const humidorService = {
 };
 
 /**
- * Fans a single event out to every instance member, each in their own
+ * Fans a single event out to every active member, each in their own
  * notification-preference language — same pattern as
  * `backup.service.ts#notifyAdminsOfBackupFailure`, minus the `isAdmin`
  * filter (ISSUE_027: a humidor is shared household equipment, every member
@@ -105,7 +105,8 @@ async function notifyAllMembers(
   subjectFor: (isEn: boolean) => string,
   htmlBodyFor: (isEn: boolean) => string,
 ): Promise<void> {
-  const users = await prisma.user.findMany({ select: { id: true, language: true, notifLanguage: true } });
+  // #591: same recipients as the peak alerts — active members only.
+  const users = await prisma.user.findMany({ where: { isActive: true }, select: { id: true, language: true, notifLanguage: true } });
   await Promise.all(users.map((user) => {
     const isEn = (user.notifLanguage ?? user.language) === 'EN';
     return notificationService.send({

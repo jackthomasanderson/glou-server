@@ -46,11 +46,16 @@ services:
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:-}
       # Empty = Secure cookies only when APP_URL is https://. Set true if TLS is terminated upstream while APP_URL says http.
       COOKIE_SECURE: ${COOKIE_SECURE:-}
+      # #575: the instance's time zone (IANA name). Members' quiet hours and the
+      # scheduled jobs (alerts at 10:00, maintenance at 3:00) are read in it.
+      TZ: ${TZ:-Europe/Paris}
       # Only used by label scan; see the `scan` profile below.
       OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
       # #639: must match the model `ollama-pull` downloads, or scanning stays hidden.
       OLLAMA_MODEL: ${OLLAMA_MODEL:-moondream}
       OLLAMA_TIMEOUT_MS: ${OLLAMA_TIMEOUT_MS:-600000}
+      # Advanced: requests allowed per address every 15 min on the API and uploads. Empty = 1000.
+      API_RATE_LIMIT_MAX: ${API_RATE_LIMIT_MAX:-}
       PORT: 3001
     # ISSUE_016: the browser never calls the API directly (web/lib/api.ts
     # uses the relative /api path, rewritten server-side by Next — see

@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
+import { Prisma } from '@prisma/client';
 
 // Every router imported by createApp() ultimately imports this module; the
 // mock replaces it wholesale so nothing tries to reach a real database.
@@ -11,6 +12,7 @@ vi.mock('../../src/lib/prisma', () => ({
     inventoryItem: { findMany: vi.fn() },
     tastingNote: { findMany: vi.fn(), count: vi.fn() },
     auditLog: { findMany: vi.fn(), count: vi.fn() },
+    backupRun: { findUnique: vi.fn() },
     $queryRaw: vi.fn(),
   },
   connectWithRetry: vi.fn(),
@@ -18,6 +20,8 @@ vi.mock('../../src/lib/prisma', () => ({
 
 import { prisma } from '../../src/lib/prisma';
 import { createApp } from '../../src/app';
+import { backupService } from '../../src/services/backup.service';
+import { authService } from '../../src/services/auth.service';
 import pkg from '../../package.json';
 
 const JWT_SECRET = 'integration-test-secret';
@@ -104,6 +108,44 @@ describe('CSRF guard (Fetch Metadata / Origin)', () => {
     expect(res.status).toBe(401); // passed CSRF, failed auth (no token)
   });
 
+  it('blocks another app of the same domain whose Origin is not trusted (#600)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const res = await request(app)
+        .post('/api/user/delete-account')
+        .set('Host', 'glou.home.example')
+        .set('Sec-Fetch-Site', 'same-site')
+        .set('Origin', 'https://photos.home.example');
+      expect(res.status).toBe(403);
+      expect(res.body.error).toBe('CSRF_ORIGIN_REJECTED');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('keeps the guest share token out of the CSRF and error log lines (#612)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const token = 'gst_SuperSecretToken123';
+      const rejected = await request(app)
+        .patch(`/api/guest/${token}/inventory/7`)
+        .set('Origin', 'https://evil.example')
+        .send({ quantity: 1 });
+      const malformed = await request(app)
+        .patch(`/api/guest/${token}/inventory/7`)
+        .set('Sec-Fetch-Site', 'same-origin')
+        .set('Content-Type', 'application/json')
+        .send('{"quantity": 1,');
+      expect(rejected.status).toBe(403);
+      expect(malformed.status).toBe(400);
+      const logged = JSON.stringify(warn.mock.calls);
+      expect(logged).toContain('/api/guest/***/inventory/7');
+      expect(logged).not.toContain(token);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('does not gate safe methods', async () => {
     const res = await request(app).get('/api/tastings').set('Sec-Fetch-Site', 'cross-site');
     expect(res.status).toBe(401); // CSRF-exempt, still needs auth
@@ -128,6 +170,67 @@ describe('authenticated request plumbing', () => {
       .set('Authorization', `Bearer ${authToken()}`);
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('ACCOUNT_DEACTIVATED');
+  });
+});
+
+// #581: a database restart used to answer 401 "token invalid or expired",
+// which the web app rightly reads as "signed out".
+describe('database outage during authentication (#581)', () => {
+  function databaseUnreachable(): Prisma.PrismaClientKnownRequestError {
+    return new Prisma.PrismaClientKnownRequestError("Can't reach database server", {
+      code: 'P1001',
+      clientVersion: '7.0.0',
+    });
+  }
+
+  it('answers 503, not 401, when the account lookup fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(prisma.user.findUnique).mockRejectedValue(databaseUnreachable());
+    for (const path of ['/api/user/me', '/api/tastings', '/api/inventory']) {
+      const res = await request(app).get(path).set('Authorization', `Bearer ${authToken()}`);
+      expect(res.status, path).toBe(503);
+      expect(res.body.error, path).toBe('DATABASE_UNAVAILABLE');
+    }
+    consoleError.mockRestore();
+  });
+
+  it('answers 503, not 401, when the session lookup fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.mocked(prisma.session.findUnique).mockRejectedValueOnce(databaseUnreachable());
+    const res = await request(app)
+      .get('/api/tastings')
+      .set('Authorization', `Bearer ${authToken({ sessionId: 's1' })}`);
+    expect(res.status).toBe(503);
+    expect(res.body.error).toBe('DATABASE_UNAVAILABLE');
+    consoleError.mockRestore();
+  });
+
+  it('still answers 401 TOKEN_INVALID_OR_EXPIRED for an expired token', async () => {
+    const expired = jwt.sign(
+      { userId: 'u1', email: 'u1@example.com', scope: 'full', exp: Math.floor(Date.now() / 1000) - 60 },
+      JWT_SECRET,
+      { algorithm: 'HS256' },
+    );
+    const res = await request(app).get('/api/tastings').set('Authorization', `Bearer ${expired}`);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('TOKEN_INVALID_OR_EXPIRED');
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('answers 401, not 500, for a validly signed token that is not a session token', async () => {
+    // The trusted-device cookie is signed with the same secret: { tdt }.
+    const trustedDevice = jwt.sign({ tdt: 'x' }, JWT_SECRET, { algorithm: 'HS256' });
+    const res = await request(app).get('/api/tastings').set('Authorization', `Bearer ${trustedDevice}`);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('TOKEN_INVALID_OR_EXPIRED');
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('still answers 401 TOKEN_INVALID_OR_EXPIRED for a token signed with another secret', async () => {
+    const forged = jwt.sign({ userId: 'u1', email: 'u1@example.com', scope: 'full' }, 'another-secret', { algorithm: 'HS256' });
+    const res = await request(app).get('/api/tastings').set('Authorization', `Bearer ${forged}`);
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('TOKEN_INVALID_OR_EXPIRED');
   });
 });
 
@@ -313,5 +416,103 @@ describe('GET /api/admin/audit-logs filters', () => {
       .get('/api/admin/audit-logs?status=bogus')
       .set('Authorization', `Bearer ${authToken()}`);
     expect(res.status).toBe(400);
+  });
+});
+
+// #669: the route answered `{ directoryWritable }` without the `data` envelope
+// every web call unwraps, so the "backups folder not writable" banner never showed.
+describe('GET /api/admin/backups/health', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true, isAdmin: true } as never);
+  });
+  let writableSpy: ReturnType<typeof vi.spyOn> | undefined;
+  afterEach(() => {
+    writableSpy?.mockRestore();
+  });
+
+  it.each([false, true])('answers { data: { directoryWritable: %s } }', async (writable) => {
+    writableSpy = vi.spyOn(backupService, 'isBackupsDirWritable').mockReturnValue(writable);
+    const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { directoryWritable: writable } });
+  });
+});
+
+describe('baseline rate limit (API_RATE_LIMIT_MAX)', () => {
+  afterEach(() => {
+    delete process.env.API_RATE_LIMIT_MAX;
+  });
+
+  it('allows 1000 requests per window by default', async () => {
+    const res = await request(app).get('/api/version');
+    expect(res.headers['ratelimit-limit']).toBe('1000');
+  });
+
+  it('applies the override to /api and /uploads', async () => {
+    process.env.API_RATE_LIMIT_MAX = '2';
+    const limited = createApp();
+    expect((await request(limited).get('/api/version')).status).toBe(200);
+    expect((await request(limited).get('/api/version')).status).toBe(200);
+    expect((await request(limited).get('/api/version')).status).toBe(429);
+
+    const upload = await request(limited).get('/uploads/missing.jpg');
+    expect(upload.headers['ratelimit-limit']).toBe('2');
+  });
+});
+
+// #666: a restore from the interface takes a safety backup first and is refused,
+// with a code the dialog translates, when that backup fails.
+describe('POST /api/admin/backups/:id/restore', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true, isAdmin: true } as never);
+    vi.mocked(prisma.backupRun.findUnique).mockResolvedValue(
+      { id: 'b1', success: true, filePath: '/app/backups/glou-backup-2026-10-27T03-00-00-000Z.sql.gz' } as never,
+    );
+  });
+  const spies: Array<{ mockRestore: () => void }> = [];
+  afterEach(() => {
+    spies.splice(0).forEach((s) => s.mockRestore());
+  });
+
+  const restore = () => request(app)
+    .post('/api/admin/backups/b1/restore')
+    .set('Authorization', `Bearer ${authToken()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send({ confirm: true, password: 'pw' });
+
+  it('answers with the safety backup taken before the restore', async () => {
+    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    const restoreSpy = vi.spyOn(backupService, 'restoreBackup').mockResolvedValue({ safetyBackupRunId: 'safety-1' });
+    spies.push(restoreSpy);
+
+    const res = await restore();
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { ok: true, safetyBackupRunId: 'safety-1' } });
+    expect(restoreSpy).toHaveBeenCalledWith('/app/backups/glou-backup-2026-10-27T03-00-00-000Z.sql.gz', 'u1', expect.any(String));
+  });
+
+  it('answers BACKUP_BEFORE_RESTORE_FAILED when the safety backup fails', async () => {
+    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error('BACKUP_BEFORE_RESTORE_FAILED')));
+    spies.push(vi.spyOn(console, 'error').mockImplementation(() => {}));
+
+    const res = await restore();
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('BACKUP_BEFORE_RESTORE_FAILED');
+  });
+
+  it('takes no backup at all on a wrong password', async () => {
+    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(false));
+    const runSpy = vi.spyOn(backupService, 'runBackup');
+    const restoreSpy = vi.spyOn(backupService, 'restoreBackup');
+    spies.push(runSpy, restoreSpy);
+
+    const res = await restore();
+
+    expect(res.status).toBe(403);
+    expect(runSpy).not.toHaveBeenCalled();
+    expect(restoreSpy).not.toHaveBeenCalled();
   });
 });

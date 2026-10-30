@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryClient } from '@/lib/inventory/client';
 import { InventoryItem, InventoryHistoryEntry } from '@/lib/inventory/types';
@@ -106,6 +106,30 @@ export function useInventoryItem(id: string) {
   });
 }
 
+/**
+ * Latest known state of one item: from the loaded list, else from its own
+ * cache entry (filled by the item sheet), else from the server. Resolves
+ * undefined when it cannot be had. The list can miss an item: capped at
+ * 2,000 rows (#475), not loaded yet, or failed.
+ */
+export function useInventoryItemLookup() {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (id: string): Promise<InventoryItem | undefined> => {
+      const known =
+        queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY)?.find((item) => item.id === id) ??
+        queryClient.getQueryData<InventoryItem>(['inventory', id]);
+      if (known) return known;
+      try {
+        return await queryClient.fetchQuery({ queryKey: ['inventory', id], queryFn: () => inventoryClient.get(id) });
+      } catch {
+        return undefined;
+      }
+    },
+    [queryClient],
+  );
+}
+
 export function useInventoryItemHistory(id: string, enabled: boolean) {
   return useQuery<InventoryHistoryEntry[]>({
     queryKey: ['inventory', id, 'history'],
@@ -144,12 +168,23 @@ export function useCreateInventoryItem() {
 
 // ─── Mutation: Update ────────────────────────────────────────────────────────
 
+/**
+ * `expectedUpdatedAt` (the edit form, #572): the version the change was made
+ * from. A change made meanwhile by someone else is then refused (409
+ * `CONFLICT`) instead of overwritten.
+ */
+export interface UpdateInventoryItemVariables {
+  id: string;
+  patch: Partial<InventoryItem>;
+  expectedUpdatedAt?: string;
+}
+
 export function useUpdateInventoryItem() {
   const queryClient = useQueryClient();
-  return useMutation<InventoryItem, Error, { id: string; patch: Partial<InventoryItem> }>({
-    mutationFn: async ({ id, patch }: { id: string; patch: Partial<InventoryItem> }) => {
+  return useMutation<InventoryItem, Error, UpdateInventoryItemVariables>({
+    mutationFn: async ({ id, patch, expectedUpdatedAt }: UpdateInventoryItemVariables) => {
       try {
-        return await inventoryClient.update(id, patch);
+        return await inventoryClient.update(id, patch, expectedUpdatedAt);
       } catch (error) {
         // FEAT-16/23 offline resilience: `fetch` throws a `TypeError` only
         // when the request never reached the network at all (no
@@ -168,7 +203,7 @@ export function useUpdateInventoryItem() {
         // loaded in this session) — nothing sensible to queue.
         if (!cachedItem) throw error;
 
-        await enqueueMutation(queryClient, id, patch, cachedItem.updatedAt);
+        await enqueueMutation(queryClient, id, patch, expectedUpdatedAt ?? cachedItem.updatedAt);
         // Optimistic UI: resolve successfully with the merged local state
         // instead of surfacing an error — the mutation is safely queued and
         // `ConnectivityIndicator` reflects the pending count.
@@ -185,7 +220,16 @@ export function useUpdateInventoryItem() {
       );
       queryClient.setQueryData<InventoryItem>(['inventory', updatedItem.id], updatedItem);
     },
-    onError: () => notifyError('toast.updateError'),
+    onError: (error) => {
+      if (error.message !== 'CONFLICT') {
+        notifyError('toast.updateError');
+        return;
+      }
+      // #572: changed meanwhile. Nothing was written; fetch the current
+      // version so the bottle opens with it next time.
+      notifyError('toast.updateConflict');
+      void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
+    },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
       // The sidebar badges (useSidebarCounts) normally piggyback on an

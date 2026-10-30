@@ -73,6 +73,41 @@ describe('classifyError', () => {
     expect(classifyError(initError)).toEqual({ status: 503, code: 'DATABASE_UNAVAILABLE' });
   });
 
+  // #581: what a PostgreSQL restart looks like through @prisma/adapter-pg.
+  it('reports every shape of a database restart as 503', () => {
+    const unavailable = { status: 503, code: 'DATABASE_UNAVAILABLE' };
+    for (const code of ['P1001', 'P1008', 'P1017', 'P2037', 'EAI_AGAIN', 'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE']) {
+      expect(classifyError(prismaKnownError(code)), code).toEqual(unavailable);
+    }
+    for (const pgCode of ['57P01', '57P02', '57P03', '53300']) {
+      const withMeta = new Prisma.PrismaClientKnownRequestError('internal prisma detail', {
+        code: 'P2039',
+        clientVersion: '7.0.0',
+        meta: { driverAdapterError: { cause: { kind: 'postgres', originalCode: pgCode } } },
+      });
+      expect(classifyError(withMeta), pgCode).toEqual(unavailable);
+      const messageOnly = new Prisma.PrismaClientKnownRequestError(
+        `Database error. Code: \`${pgCode}\`. Message: \`the database system is starting up\``,
+        { code: 'P2039', clientVersion: '7.0.0' },
+      );
+      expect(classifyError(messageOnly), pgCode).toEqual(unavailable);
+    }
+    const terminated = new Prisma.PrismaClientUnknownRequestError('Connection terminated unexpectedly', {
+      clientVersion: '7.0.0',
+    });
+    expect(classifyError(terminated)).toEqual(unavailable);
+    expect(classifyError(new Error('Connection terminated unexpectedly'))).toEqual(unavailable);
+  });
+
+  it('keeps other database errors carrying a PostgreSQL code a 500', () => {
+    const syntaxError = new Prisma.PrismaClientKnownRequestError('internal prisma detail', {
+      code: 'P2039',
+      clientVersion: '7.0.0',
+      meta: { driverAdapterError: { cause: { kind: 'postgres', originalCode: '42601' } } },
+    });
+    expect(classifyError(syntaxError)).toEqual({ status: 500, code: 'UNEXPECTED_ERROR' });
+  });
+
   it('keeps an unknown Prisma failure a 500 rather than guessing a 4xx', () => {
     expect(classifyError(prismaKnownError('P2026'))).toEqual({
       status: 500,
@@ -137,6 +172,22 @@ describe('errorMiddleware', () => {
   it('includes details only when the error carries them', () => {
     errorMiddleware(new AppError(400, 'VALIDATION_ERROR', { details: { page: ['bad'] } }), req, res, next);
     expect(json).toHaveBeenCalledWith({ error: 'VALIDATION_ERROR', details: { page: ['bad'] } });
+  });
+
+  // #612: a guest share link carries its token in the path.
+  it('does not print the guest share token, for client or server errors', () => {
+    const token = 'gst_SuperSecretToken123';
+    const guestReq = { method: 'PATCH', originalUrl: `/api/guest/${token}/inventory/7?x=1` } as Request;
+
+    errorMiddleware(new AppError(400, 'MALFORMED_JSON'), guestReq, res, next);
+    errorMiddleware(new Error('boom'), guestReq, res, next);
+
+    const logged = JSON.stringify([
+      (console.warn as unknown as ReturnType<typeof vi.fn>).mock.calls,
+      (console.error as unknown as ReturnType<typeof vi.fn>).mock.calls.map((c) => c.slice(0, -1)),
+    ]);
+    expect(logged).toContain('PATCH /api/guest/***/inventory/7?x=1');
+    expect(logged).not.toContain(token);
   });
 
   it('delegates to Express when the response has already started', () => {

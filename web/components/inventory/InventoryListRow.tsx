@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import {
-  TableRow, TableCell, Chip, Tooltip, Skeleton, Checkbox, Button,
+  TableRow, TableCell, Chip, Tooltip, Skeleton, Button,
 } from '@heroui/react';
 import { Wine, Sparkles, GlassWater, Leaf, Pencil, Trash2, Clock } from 'lucide-react';
 import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
@@ -23,11 +23,7 @@ interface InventoryListRowProps {
   cellar?: Cellar;
   onEdit: (item: InventoryItem) => void;
   onDelete: (item: InventoryItem) => void;
-  onView?: (item: InventoryItem) => void;
   t: (key: string) => string;
-  isSelected?: boolean;
-  isAnchor?: boolean;
-  onSelectToggle?: (item: InventoryItem, event?: React.MouseEvent) => void;
   /** FEAT-16/23: true when this item has one or more offline mutations still
    * sitting in the local sync queue (not yet confirmed by the server). */
   hasPendingSync?: boolean;
@@ -35,8 +31,7 @@ interface InventoryListRowProps {
 
 export function InventoryListRow({
   item, categoryLabel, cellar,
-  onEdit, onDelete, onView, t,
-  isSelected = false, isAnchor = false, onSelectToggle,
+  onEdit, onDelete, t,
   hasPendingSync = false,
 }: InventoryListRowProps) {
   const isTemp = item.id.startsWith('temp-');
@@ -52,31 +47,10 @@ export function InventoryListRow({
     <TableRow
       className={[
         isTemp ? 'opacity-75' : '',
-        (onView || onSelectToggle) ? 'cursor-pointer' : 'cursor-default',
+        'cursor-pointer',
         'transition-colors',
-        isSelected ? '!bg-primary-100 dark:!bg-primary-900/25' : '',
-        isAnchor && isSelected ? 'ring-1 ring-inset ring-primary' : '',
       ].filter(Boolean).join(' ')}
-      onClick={(e) => onSelectToggle ? onSelectToggle(item, e) : onView?.(item)}
     >
-      <TableCell
-        onClick={(e) => e.stopPropagation()}
-        className={[
-          onSelectToggle ? 'w-10 pr-0' : 'w-0 p-0',
-          isSelected && onSelectToggle ? 'border-l-2 border-primary' : '',
-        ].filter(Boolean).join(' ')}
-      >
-        {onSelectToggle ? (
-          <Checkbox
-            isSelected={isSelected}
-            onValueChange={() => onSelectToggle(item)}
-            size="sm"
-            color="primary"
-            aria-label={t('actions.select')}
-          />
-        ) : null}
-      </TableCell>
-
       <TableCell className="w-10 pr-0">
         <Tooltip content={categoryLabel} delay={500}>
           <Chip

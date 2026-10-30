@@ -2,9 +2,10 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import zlib from 'zlib';
-import { Transform } from 'stream';
+import { Transform, Writable } from 'stream';
+import { pipeline } from 'stream/promises';
 import { prisma } from '../lib/prisma';
-import { BackupRun } from '@prisma/client';
+import { BackupRun, Prisma } from '@prisma/client';
 import { auditLog } from './audit.service';
 import { notificationService } from './notification.service';
 import { isNotifEn } from '../lib/notif-lang';
@@ -22,12 +23,16 @@ import { escapeHtml } from '../lib/html';
 // and reopen the exact shell-injection surface this service must avoid).
 // `child_process.spawn` (no shell) gives streaming stdout, which is piped
 // in-process through `zlib.createGzip()` — this keeps the requested
-// `.sql.gz` naming/format (plain SQL, gzip-compressed, restorable with a
-// plain `gunzip | psql`) while never invoking a shell.
+// `.sql.gz` naming/format (plain SQL, gzip-compressed) while never invoking
+// a shell. The dump is filtered on the way (see
+// filterUnsupportedSetStatements) so the file restores with the plain
+// `gunzip | psql` of the disaster-recovery guide (wiki page 30).
 export const BACKUPS_DIR = path.resolve(process.cwd(), 'backups');
 
 const FILENAME_PREFIX = 'glou-backup-';
 const FILENAME_SUFFIX = '.sql.gz';
+/** runBackup's file timestamp: an ISO date with `:` and `.` turned into `-`. */
+const FILENAME_TIMESTAMP = /^glou-backup-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.sql\.gz$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /**
  * A backup is overdue once the last successful one is older than a day plus a
@@ -36,6 +41,24 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  */
 const OVERDUE_AFTER_MS = 25 * 60 * 60 * 1000;
 
+/** Which backup failed: the alert must not call a manual one "scheduled" (#666). */
+type BackupFailureKind = 'scheduled' | 'manual' | 'beforeRestore';
+
+const BACKUP_FAILURE_TEXT: Record<BackupFailureKind, Record<'en' | 'fr', { what: string; follow: string }>> = {
+  scheduled: {
+    en: { what: 'The scheduled database backup failed:', follow: 'No new backup is being produced. ' },
+    fr: { what: 'La sauvegarde planifiée de la base a échoué :', follow: "Aucune nouvelle sauvegarde n'est produite. " },
+  },
+  manual: {
+    en: { what: 'A database backup started from the admin panel failed:', follow: '' },
+    fr: { what: "Une sauvegarde de la base lancée depuis l'administration a échoué :", follow: '' },
+  },
+  beforeRestore: {
+    en: { what: 'The backup of the current data taken before a restore failed:', follow: 'The restore was cancelled; nothing was changed. ' },
+    fr: { what: 'La sauvegarde des données actuelles prise avant une restauration a échoué :', follow: "La restauration a été annulée ; rien n'a été modifié. " },
+  },
+};
+
 /**
  * Tells the administrators that backups are failing (#234). Before this, a failed
  * run was visible only in the container logs and in a history table nobody opens,
@@ -43,15 +66,16 @@ const OVERDUE_AFTER_MS = 25 * 60 * 60 * 1000;
  * last good dump. Throttled: one message per failure streak, not one per hourly
  * retry.
  */
-async function notifyAdminsOfBackupFailure(error: string): Promise<void> {
+async function notifyAdminsOfBackupFailure(error: string, kind: BackupFailureKind): Promise<void> {
   try {
-    const admins = await prisma.user.findMany({ where: { isAdmin: true }, select: { id: true, language: true, notifLanguage: true } });
+    const admins = await prisma.user.findMany({ where: { isAdmin: true, isActive: true }, select: { id: true, language: true, notifLanguage: true } });
     await Promise.all(admins.map((admin) => {
       const en = isNotifEn(admin);
       const subject = en ? 'Glou — database backup failed' : 'Glou — échec de la sauvegarde de la base';
+      const { what, follow } = BACKUP_FAILURE_TEXT[kind][en ? 'en' : 'fr'];
       const htmlBody = en
-        ? `<p>The scheduled database backup failed:</p><pre>${escapeHtml(error)}</pre><p>No new backup is being produced. Check the disk space and the API logs, then use <b>Run now</b> in Admin → System Configuration → Backups.</p>`
-        : `<p>La sauvegarde planifiée de la base a échoué :</p><pre>${escapeHtml(error)}</pre><p>Aucune nouvelle sauvegarde n'est produite. Vérifiez l'espace disque et les logs de l'API, puis utilisez <b>Exécuter maintenant</b> dans Admin → Configuration système → Sauvegardes.</p>`;
+        ? `<p>${what}</p><pre>${escapeHtml(error)}</pre><p>${follow}Check the disk space and the API logs, then use <b>Run now</b> in Admin → System Configuration → Backups.</p>`
+        : `<p>${what}</p><pre>${escapeHtml(error)}</pre><p>${follow}Vérifiez l'espace disque et les logs de l'API, puis utilisez <b>Exécuter maintenant</b> dans Admin → Configuration système → Sauvegardes.</p>`;
       return notificationService.send({ userId: admin.id, category: 'backup', subject, htmlBody, bypassQuietHours: true });
     }));
   } catch (err) {
@@ -61,6 +85,51 @@ async function notifyAdminsOfBackupFailure(error: string): Promise<void> {
 }
 
 export type BackupTrigger = 'scheduled' | 'manual';
+
+export interface RunBackupOptions {
+  /**
+   * The safety copy taken before a restore: no retention afterwards (it could
+   * delete the very file about to be restored), and named as such in the
+   * failure alert.
+   */
+  beforeRestore?: boolean;
+}
+
+/** Files runBackup is still writing: not listed by syncHistoryWithFiles. */
+const backupsInProgress = new Set<string>();
+
+/**
+ * pg_dump and the restore must never run at the same time (a dump taken
+ * mid-restore, two restores interleaved): runBackup and the restore itself
+ * queue on this in-process lock.
+ */
+let backupLockTail: Promise<void> | null = null;
+function withBackupLock<T>(task: () => Promise<T>): Promise<T> {
+  const previous = backupLockTail;
+  // Free: start right away, exactly as without the lock.
+  const run = previous ? previous.then(task) : task();
+  const tail = run.then(() => undefined, () => undefined);
+  backupLockTail = tail;
+  void tail.then(() => { if (backupLockTail === tail) backupLockTail = null; });
+  return run;
+}
+
+/**
+ * Reads a `.sql.gz` to its end without keeping it in memory: false when it is
+ * truncated or not gzip at all (e.g. left behind by a pg_dump killed mid-way).
+ */
+async function isCompleteGzip(filePath: string): Promise<boolean> {
+  try {
+    await pipeline(
+      fs.createReadStream(filePath),
+      zlib.createGunzip(),
+      new Writable({ write(_chunk, _enc, callback) { callback(); } }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 interface DbConnParams {
   host: string;
@@ -87,6 +156,20 @@ function parseDatabaseUrl(): DbConnParams {
   };
 }
 
+function isBackupFileName(name: string): boolean {
+  return name.startsWith(FILENAME_PREFIX) && name.endsWith(FILENAME_SUFFIX);
+}
+
+/** When a backup file was taken: from its name when runBackup wrote it, else from the file itself. */
+function backupFileDate(name: string, stats: fs.Stats): Date {
+  const m = FILENAME_TIMESTAMP.exec(name);
+  if (m) {
+    const date = new Date(`${m[1]}T${m[2]}:${m[3]}:${m[4]}.${m[5]}Z`);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  return stats.mtime;
+}
+
 function ensureBackupsDir(): void {
   fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 }
@@ -109,62 +192,83 @@ function resolveInsideBackupsDir(filePath: string): string {
 /**
  * Runs `pg_dump` via `spawn` (array argv, no shell — no string interpolation
  * of user/DB-supplied values is ever built into a command string) and pipes
- * its stdout through `zlib.createGzip()` straight into `destPath`. The
- * password is passed via the `PGPASSWORD` env var of the child process only,
- * never as a CLI argument (which would leak into `ps`/process listings).
+ * its stdout through the SET filter and `zlib.createGzip()` straight into
+ * `destPath`. The password is passed via the `PGPASSWORD` env var of the
+ * child process only, never as a CLI argument (which would leak into
+ * `ps`/process listings).
+ *
+ * Resolves only once BOTH pg_dump has exited with code 0 AND the file has
+ * been completely written, flushed to disk and closed (#670): a write error
+ * at the very end (full disk) must fail the backup, not surface after it was
+ * recorded as successful.
  */
 async function execPgDump(conn: DbConnParams, destPath: string): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const args = [
-      '--host', conn.host,
-      '--port', conn.port,
-      '--username', conn.user,
-      '--no-password',
-      '--format', 'plain',
-      '--dbname', conn.database,
-    ];
-    const child = spawn('pg_dump', args, {
-      env: { ...process.env, PGPASSWORD: conn.password },
-      stdio: ['ignore', 'pipe', 'pipe'],
+  const args = [
+    '--host', conn.host,
+    '--port', conn.port,
+    '--username', conn.user,
+    '--no-password',
+    '--format', 'plain',
+    '--dbname', conn.database,
+  ];
+  const child = spawn('pg_dump', args, {
+    env: { ...process.env, PGPASSWORD: conn.password },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let stderr = '';
+  child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+
+  let spawnFailed = false;
+  const exited = new Promise<void>((resolve, reject) => {
+    child.on('error', (err) => {
+      spawnFailed = true;
+      reject(new Error(`PG_DUMP_SPAWN_FAILED: ${err.message}`));
     });
+    child.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`PG_DUMP_FAILED (exit ${code}): ${stderr.trim() || 'unknown error'}`));
+    });
+  });
 
-    let stderr = '';
-    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+  const filter = filterUnsupportedSetStatements();
+  const gzip = zlib.createGzip();
+  // `flush`: fsync before closing, so a late disk error fails the pipeline.
+  const out = fs.createWriteStream(destPath, { flush: true });
 
-    const gzip = zlib.createGzip();
-    const out = fs.createWriteStream(destPath);
+  // The pipeline hands its first error to every stream it tears down: the
+  // first stream to report it is the one that actually failed.
+  let failedStage: string | undefined;
+  const failedAt = (stage: string) => () => { failedStage ??= stage; };
+  child.stdout.on('error', failedAt('PG_DUMP_OUTPUT_FAILED'));
+  filter.on('error', failedAt('FILTER_FAILED'));
+  gzip.on('error', failedAt('GZIP_FAILED'));
+  out.on('error', failedAt('WRITE_FAILED'));
 
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
+  const written = pipeline(child.stdout, filter, gzip, out).catch((err: Error) => {
+    // Nothing reads pg_dump's output any more: stop it rather than let it hang.
+    child.kill('SIGKILL');
+    throw new Error(`${failedStage ?? 'DUMP_STREAM_FAILED'}: ${err.message}`);
+  });
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
       child.kill('SIGKILL');
       reject(new Error(`PG_DUMP_TIMED_OUT after ${CHILD_PROCESS_TIMEOUT_MS / 1000}s`));
     }, CHILD_PROCESS_TIMEOUT_MS);
-    const fail = (err: Error) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      reject(err);
-    };
-
-    child.on('error', (err) => fail(new Error(`PG_DUMP_SPAWN_FAILED: ${err.message}`)));
-    gzip.on('error', (err) => fail(new Error(`GZIP_FAILED: ${err.message}`)));
-    out.on('error', (err) => fail(new Error(`WRITE_FAILED: ${err.message}`)));
-
-    child.stdout.pipe(gzip).pipe(out);
-
-    child.on('close', (code) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`PG_DUMP_FAILED (exit ${code}): ${stderr.trim() || 'unknown error'}`));
-      }
-    });
   });
+
+  try {
+    const [dump, write] = await Promise.race([Promise.allSettled([exited, written]), timedOut]);
+    // pg_dump could not even start: that is the cause, whatever the file says.
+    if (dump.status === 'rejected' && spawnFailed) throw dump.reason;
+    // A stream failure kills pg_dump, so its own exit error is only a consequence.
+    if (write.status === 'rejected') throw write.reason;
+    if (dump.status === 'rejected') throw dump.reason;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -189,21 +293,51 @@ const CHILD_PROCESS_TIMEOUT_MS = 30 * 60 * 1000;
 // rolling back the whole single-transaction restore. Filtering such a line
 // out is safe — it's a session-scoped setting for the dump/restore session,
 // never data or schema — so a dump stays restorable across the server
-// versions this image's pg_dump may legitimately run ahead of.
+// versions this image's pg_dump may legitimately run ahead of. Applied when
+// the dump is written (#665), so every new file restores with a plain
+// `gunzip | psql`, and again at restore time for files written before that.
 const UNSUPPORTED_RESTORE_SET_STATEMENTS = /^SET transaction_timeout\b/i;
 
+/** Lines of the session preamble pg_dump writes before the first object. */
+const DUMP_PREAMBLE_LINE = /^(--|SET |SELECT |\\|$)/;
+
+/**
+ * Drops the unsupported `SET` lines from the dump's preamble only: once the
+ * first object definition starts, chunks pass through untouched, so table
+ * data can never be altered. Decoded as latin1, which maps every byte to one
+ * character and back, so a multi-byte UTF-8 character split across two
+ * chunks survives intact.
+ */
 function filterUnsupportedSetStatements(): Transform {
   let carry = '';
+  let inPreamble = true;
   return new Transform({
     transform(chunk: Buffer, _enc, callback) {
-      carry += chunk.toString('utf8');
+      if (!inPreamble) {
+        callback(null, chunk);
+        return;
+      }
+      carry += chunk.toString('latin1');
       const lines = carry.split('\n');
       carry = lines.pop() ?? '';
-      const kept = lines.filter((line) => !UNSUPPORTED_RESTORE_SET_STATEMENTS.test(line));
-      callback(null, kept.length ? kept.join('\n') + '\n' : '');
+      const kept: string[] = [];
+      for (const line of lines) {
+        if (inPreamble && !DUMP_PREAMBLE_LINE.test(line)) inPreamble = false;
+        if (inPreamble && UNSUPPORTED_RESTORE_SET_STATEMENTS.test(line)) continue;
+        kept.push(line);
+      }
+      let out = kept.length ? kept.join('\n') + '\n' : '';
+      if (!inPreamble) {
+        out += carry;
+        carry = '';
+      }
+      callback(null, Buffer.from(out, 'latin1'));
     },
     flush(callback) {
-      callback(null, UNSUPPORTED_RESTORE_SET_STATEMENTS.test(carry) ? '' : carry);
+      if (carry && !(inPreamble && UNSUPPORTED_RESTORE_SET_STATEMENTS.test(carry))) {
+        this.push(Buffer.from(carry, 'latin1'));
+      }
+      callback();
     },
   });
 }
@@ -305,21 +439,29 @@ export const backupService = {
    * `MaintenanceService.runRetentionCleanup`'s contract so a failing
    * scheduled run can never crash the process.
    */
-  async runBackup(trigger: BackupTrigger, userId?: string): Promise<BackupRun> {
+  runBackup(trigger: BackupTrigger, userId?: string, options: RunBackupOptions = {}): Promise<BackupRun> {
+    return withBackupLock(() => this.runBackupUnlocked(trigger, userId, options));
+  },
+
+  /** runBackup's work, for a caller already holding the backup lock. */
+  async runBackupUnlocked(trigger: BackupTrigger, userId: string | undefined, options: RunBackupOptions): Promise<BackupRun> {
+    const { beforeRestore = false } = options;
     const startedAt = Date.now();
     let destPath: string | undefined;
+    let filename: string | undefined;
 
     try {
       ensureBackupsDir();
       const conn = parseDatabaseUrl();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `${FILENAME_PREFIX}${timestamp}${FILENAME_SUFFIX}`;
+      filename = `${FILENAME_PREFIX}${timestamp}${FILENAME_SUFFIX}`;
       destPath = path.join(BACKUPS_DIR, filename);
+      backupsInProgress.add(filename);
 
       await execPgDump(conn, destPath);
       const stats = fs.statSync(destPath);
 
-      await this.enforceRetention();
+      if (!beforeRestore) await this.enforceRetention();
 
       return await prisma.backupRun.create({
         data: {
@@ -350,8 +492,10 @@ export const backupService = {
         },
       });
       const alreadyReported = previous && !previous.success && Date.now() - previous.runAt.getTime() < DAY_MS;
-      if (!alreadyReported) await notifyAdminsOfBackupFailure(message);
+      if (!alreadyReported) await notifyAdminsOfBackupFailure(message, beforeRestore ? 'beforeRestore' : trigger);
       return run;
+    } finally {
+      if (filename) backupsInProgress.delete(filename);
     }
   },
 
@@ -401,7 +545,7 @@ export const backupService = {
     }
 
     for (const entry of entries) {
-      if (!entry.startsWith(FILENAME_PREFIX) || !entry.endsWith(FILENAME_SUFFIX)) continue;
+      if (!isBackupFileName(entry)) continue;
       const fullPath = path.join(BACKUPS_DIR, entry);
       try {
         const stats = fs.statSync(fullPath);
@@ -420,21 +564,40 @@ export const backupService = {
    * re-resolved inside BACKUPS_DIR (see resolveInsideBackupsDir), exactly
    * like authService.deleteAvatar's traversal guard. Always writes an
    * AuditLog entry (success or failure) before returning/throwing.
+   *
+   * #666: a backup of the current state is taken first, and the restore is
+   * refused (BACKUP_BEFORE_RESTORE_FAILED) if it fails, so picking the wrong
+   * file can always be undone. The backup history lives in the database the
+   * dump replaces: it is carried over the restore and resynchronised with the
+   * backups folder, so the newer backups and the safety copy stay listed.
    */
-  async restoreBackup(filePath: string, userId: string, ip: string): Promise<void> {
+  async restoreBackup(filePath: string, userId: string, ip: string): Promise<{ safetyBackupRunId: string }> {
     const safePath = resolveInsideBackupsDir(filePath);
     if (!fs.existsSync(safePath)) throw new Error('BACKUP_FILE_NOT_FOUND');
 
     const conn = parseDatabaseUrl();
+    let safetyBackupRunId: string | undefined;
     try {
-      await execPsqlRestore(conn, safePath);
+      // Safety copy and restore under one lock: no other backup or restore in between.
+      safetyBackupRunId = await withBackupLock(async () => {
+        const safetyCopy = await this.runBackupUnlocked('manual', userId, { beforeRestore: true });
+        if (!safetyCopy.success) throw new Error('BACKUP_BEFORE_RESTORE_FAILED');
+        safetyBackupRunId = safetyCopy.id;
+
+        const history = await prisma.backupRun.findMany();
+        await execPsqlRestore(conn, safePath);
+        await this.carryOverHistory(history);
+        return safetyCopy.id;
+      });
+
       await auditLog({
         userId,
         action: 'BACKUP_RESTORE',
         status: 'success',
         ip,
-        details: { filePath: safePath },
+        details: { filePath: safePath, safetyBackupRunId },
       });
+      return { safetyBackupRunId };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
       await auditLog({
@@ -442,10 +605,82 @@ export const backupService = {
         action: 'BACKUP_RESTORE',
         status: 'error',
         ip,
-        details: { filePath: safePath, error: message },
+        details: { filePath: safePath, error: message, safetyBackupRunId },
       });
       throw error;
     }
+  },
+
+  /**
+   * After a restore, the `backup_runs` table is the one from the dump: puts
+   * back the rows it predates (the restored backup's own row is written after
+   * its dump, every later run is missing). The data is restored by then, so a
+   * failure here is logged, not reported as a failed restore.
+   */
+  async carryOverHistory(history: BackupRun[]): Promise<void> {
+    try {
+      if (history.length) await prisma.backupRun.createMany({ data: history, skipDuplicates: true });
+    } catch (err) {
+      console.error('[backup] Could not restore the backup history after a restore:', err);
+    }
+    // Separately: even if the rows could not be written back (e.g. an older
+    // backup_runs schema), the files, safety copy included, get listed.
+    try {
+      await this.syncHistoryWithFiles();
+    } catch (err) {
+      console.error('[backup] Could not resync the backup history with the backups folder:', err);
+    }
+  },
+
+  /**
+   * Lists in the history every backup file of BACKUPS_DIR it does not know
+   * about (#666): a file copied there by hand, e.g. to recover on a new
+   * machine, or one whose row was lost. Its date comes from its name, its size
+   * from the disk. Called at startup and after every restore. A file still
+   * being written, or truncated (a pg_dump killed mid-way), is not listed: it
+   * would pass for the latest good backup and hold back the catch-up run.
+   */
+  async syncHistoryWithFiles(): Promise<number> {
+    let entries: string[];
+    try {
+      entries = fs.readdirSync(BACKUPS_DIR).filter(isBackupFileName);
+    } catch {
+      return 0;
+    }
+    if (!entries.length) return 0;
+
+    const known = await prisma.backupRun.findMany({
+      where: { success: true, filePath: { not: null } },
+      select: { filePath: true },
+    });
+    const knownNames = new Set(known.map((run) => path.basename(run.filePath ?? '')));
+
+    const missing: Prisma.BackupRunCreateManyInput[] = [];
+    for (const name of entries) {
+      if (knownNames.has(name) || backupsInProgress.has(name)) continue;
+      const fullPath = path.join(BACKUPS_DIR, name);
+      try {
+        const stats = fs.statSync(fullPath);
+        if (!stats.isFile() || stats.size === 0) continue;
+        if (!(await isCompleteGzip(fullPath))) {
+          console.error(`[backup] ${name} is truncated or not a gzip file: not listed in the backup history`);
+          continue;
+        }
+        missing.push({
+          // Who took it is unknown: listed as a manual backup with no user.
+          trigger: 'manual',
+          userId: null,
+          success: true,
+          filePath: fullPath,
+          fileSizeBytes: stats.size,
+          runAt: backupFileDate(name, stats),
+        });
+      } catch (err) {
+        console.error(`[backup] Could not read ${name} while listing the backups folder:`, err);
+      }
+    }
+    if (missing.length) await prisma.backupRun.createMany({ data: missing });
+    return missing.length;
   },
 
   /**

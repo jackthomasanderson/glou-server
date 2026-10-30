@@ -42,27 +42,25 @@ export const csvRawRowSchema = z.object({
   producer: z.string().trim().min(1, 'PRODUCER_REQUIRED').max(200, 'PRODUCER_TOO_LONG'),
   category: z.preprocess(
     (v) => (typeof v === 'string' ? CATEGORY_ALIASES[normalizeCsvToken(v)] ?? v.trim().toLowerCase() : v),
-    z.enum(CATEGORY_VALUES, {
-      errorMap: () => ({ message: 'INVALID_CATEGORY' }),
-    }),
+    z.enum(CATEGORY_VALUES, { error: 'INVALID_CATEGORY' }),
   ),
   // #510: optional columns, so an import is not reduced to four fields.
   purchasePrice: z.preprocess(
     toNumber,
-    z.coerce.number({ invalid_type_error: 'INVALID_PRICE' }).min(0, 'INVALID_PRICE').max(10_000_000, 'INVALID_PRICE').optional(),
+    z.coerce.number({ error: 'INVALID_PRICE' }).min(0, 'INVALID_PRICE').max(10_000_000, 'INVALID_PRICE').optional(),
   ),
   region: z.preprocess(emptyToUndefined, z.string().trim().max(200, 'REGION_TOO_LONG').optional()),
   quantity: z.preprocess(
     emptyToUndefined,
-    z.coerce.number({ invalid_type_error: 'INVALID_QUANTITY' }).int('INVALID_QUANTITY').min(1, 'INVALID_QUANTITY').max(1000, 'INVALID_QUANTITY').optional(),
+    z.coerce.number({ error: 'INVALID_QUANTITY' }).int('INVALID_QUANTITY').min(1, 'INVALID_QUANTITY').max(1000, 'INVALID_QUANTITY').optional(),
   ),
   alcoholDegree: z.preprocess(
     toNumber,
-    z.coerce.number({ invalid_type_error: 'INVALID_ABV' }).min(0, 'INVALID_ABV').max(100, 'INVALID_ABV').optional(),
+    z.coerce.number({ error: 'INVALID_ABV' }).min(0, 'INVALID_ABV').max(100, 'INVALID_ABV').optional(),
   ),
   vintage: z.preprocess(
     emptyToUndefined,
-    z.coerce.number({ invalid_type_error: 'INVALID_VINTAGE' })
+    z.coerce.number({ error: 'INVALID_VINTAGE' })
       .int('INVALID_VINTAGE')
       .min(1800, 'INVALID_VINTAGE')
       .max(new Date().getFullYear(), 'INVALID_VINTAGE')

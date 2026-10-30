@@ -18,11 +18,7 @@ export const budgetClient = {
   },
 
   async delete(id: string): Promise<void> {
-    const res = await fetch(`/api/wishlist/budget-envelopes/${id}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    if (!res.ok && res.status !== 204) throw new Error('DELETE_FAILED');
+    await client.delete<void>(`/wishlist/budget-envelopes/${id}`);
   },
 
   async getProgress(id: string): Promise<BudgetProgress> {

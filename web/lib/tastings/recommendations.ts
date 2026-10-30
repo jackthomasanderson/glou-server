@@ -1,3 +1,4 @@
+import type { WineColor } from '@shared/inventory';
 import { InventoryCategory } from '@/lib/inventory/types';
 
 export interface ServiceReco {
@@ -8,9 +9,11 @@ export interface ServiceReco {
   foodPairings: string[];
 }
 
-const WINE_RECOS: Record<string, ServiceReco> = {
-  rouge: { tempMin: 16, tempMax: 18, aerationMin: 30, aerationMax: 60, foodPairings: ['Viande rouge grillée', 'Fromage affiné', 'Agneau', 'Champignons'] },
-  blanc: { tempMin: 10, tempMax: 12, aerationMin: 0, aerationMax: 15, foodPairings: ['Poisson', 'Fruits de mer', 'Chèvre frais', 'Volaille'] },
+// Keyed on the colour values stored on a bottle (shared WINE_COLORS), so a
+// missing colour is a type error rather than a silent mismatch (#703).
+const WINE_RECOS: Record<WineColor, ServiceReco> = {
+  red: { tempMin: 16, tempMax: 18, aerationMin: 30, aerationMax: 60, foodPairings: ['Viande rouge grillée', 'Fromage affiné', 'Agneau', 'Champignons'] },
+  white: { tempMin: 10, tempMax: 12, aerationMin: 0, aerationMax: 15, foodPairings: ['Poisson', 'Fruits de mer', 'Chèvre frais', 'Volaille'] },
   rosé: { tempMin: 10, tempMax: 12, aerationMin: 0, aerationMax: 0, foodPairings: ['Salade niçoise', 'Pizza', 'Barbecue léger', 'Charcuterie'] },
   orange: { tempMin: 12, tempMax: 14, aerationMin: 15, aerationMax: 30, foodPairings: ['Curry', 'Cuisine orientale', 'Fromage à pâte pressée'] },
 };
@@ -41,5 +44,7 @@ export function getRecommendations(category: InventoryCategory, subtype?: string
   const categoryRecos = RECOS[category];
   if (!categoryRecos) return null;
   if (subtype && categoryRecos[subtype]) return categoryRecos[subtype];
-  return categoryRecos['default'] ?? Object.values(categoryRecos)[0] ?? null;
+  // No guessing from another entry: a wine without a known colour gets no
+  // advice rather than a red wine's (#703).
+  return categoryRecos['default'] ?? null;
 }

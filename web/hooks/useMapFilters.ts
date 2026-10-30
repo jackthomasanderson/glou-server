@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { MapFiltersState, DEFAULT_MAP_FILTERS } from '@/lib/analytics/mapFilters';
-import { glouKey, readStorageMigrating } from '@/lib/safe-storage';
+import { glouKey, readStorageMigrating, safeRemoveStorage, safeWriteStorage } from '@/lib/safe-storage';
 
 // FEAT-42: persist the map explorer filters across navigation, following the
 // same localStorage pattern as useViewMode/usePageSize.
@@ -35,7 +35,7 @@ export function useMapFilters(): [MapFiltersState, (next: MapFiltersState) => vo
 
   useEffect(() => {
     try {
-      const stored = readStorageMigrating(localStorage, STORAGE_KEY, LEGACY_STORAGE_KEY);
+      const stored = readStorageMigrating('local', STORAGE_KEY, LEGACY_STORAGE_KEY);
       // Deferred to after mount rather than a lazy useState initializer:
       // localStorage isn't available during SSR, so reading it synchronously
       // in the initializer would make the client's first render diverge
@@ -47,16 +47,12 @@ export function useMapFilters(): [MapFiltersState, (next: MapFiltersState) => vo
 
   const setFilters = useCallback((next: MapFiltersState) => {
     setFiltersState(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {}
+    safeWriteStorage('local', STORAGE_KEY, JSON.stringify(next));
   }, []);
 
   const clearFilters = useCallback(() => {
     setFiltersState(DEFAULT_MAP_FILTERS);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {}
+    safeRemoveStorage('local', STORAGE_KEY);
   }, []);
 
   return [filters, setFilters, clearFilters];

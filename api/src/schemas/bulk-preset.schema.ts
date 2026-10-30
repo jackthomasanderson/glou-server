@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { inventoryPatchSchema } from './inventory.schema';
 
 export const bulkPresetSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().guid().optional(),
   name: z.string().min(1, 'Name is required').max(100),
   payload: inventoryPatchSchema,
-  userId: z.string().uuid().optional(),
+  userId: z.string().guid().optional(),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
 });

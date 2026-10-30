@@ -119,7 +119,8 @@
   "inventory": {
     "validation": {
       "required": "Ce champ est obligatoire",
-      "missingFields": "Complétez les champs obligatoires avant d'enregistrer"
+      "missingFields": "Complétez les champs obligatoires avant d'enregistrer",
+      "peakWindowOrder": "La fin de l'apogée ne peut pas précéder son début"
     },
     "noNotifications": "Aucune notification",
     "perPage": "{{count}} par page",
@@ -216,6 +217,7 @@
       "curveShapeHint": "Comment la maturité évolue dans la fenêtre. Remplace la référence de cave pour cette bouteille uniquement.",
       "needsAeration": "Nécessite aération",
       "serviceTemp": "Température de service",
+      "serviceTempPlaceholder": "ex : 16–18 °C",
       "storageTemp": "Température de conservation",
       "lotNumber": "Numéro de lot",
       "sparklingType": "Type",
@@ -372,6 +374,7 @@
     "createError": "Impossible d'ajouter l'actif",
     "createRejected": "L'actif n'a pas été ajouté : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire, ou signalez le problème s'il vous semble correct.",
     "updateError": "Impossible de mettre à jour l'actif",
+    "updateConflict": "Non enregistré : cet actif a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
     "deleteError": "Impossible de supprimer l'actif",
     "restoreError": "Impossible de restaurer l'actif",
     "collection": {
@@ -411,6 +414,9 @@
       "convertError": "Impossible de transformer le souhait en article de l'inventaire"
     },
     "bulkUpdateError": "Impossible de modifier les actifs sélectionnés",
+    "bulkPreset": {
+      "deleteError": "Impossible de supprimer le modèle d'actions"
+    },
     "share": {
       "createError": "Impossible de créer le lien de partage",
       "revokeError": "Impossible de révoquer le lien de partage"
@@ -464,7 +470,9 @@
       "SESSION_REVOKED": "Votre session a été déconnectée à distance. Merci de vous reconnecter.",
       "INVALID_TOTP_CODE": "Code de vérification incorrect.",
       "2FA_TEMPORARILY_LOCKED": "Trop de codes incorrects. La vérification est bloquée pendant 15 minutes.",
-      "TOKEN_INVALID_OR_EXPIRED": "Votre demande de connexion a expiré. Merci de vous identifier à nouveau."
+      "TOKEN_INVALID_OR_EXPIRED": "Votre demande de connexion a expiré. Merci de vous identifier à nouveau.",
+      "TOO_MANY_REQUESTS_one": "Trop de tentatives. Patientez {{count}} minute avant de réessayer.",
+      "TOO_MANY_REQUESTS_other": "Trop de tentatives. Patientez {{count}} minutes avant de réessayer."
     },
     "passwordStrength": {
       "weak": "Faible",
@@ -500,7 +508,8 @@
     "pinLabel": "Code PIN",
     "unlockButton": "Déverrouiller",
     "error": "Mot de passe ou code PIN incorrect.",
-    "backToLogin": "Se déconnecter"
+    "backToLogin": "Se déconnecter",
+    "sessionEnded": "Votre session a pris fin. Merci de vous reconnecter."
   },
   "forcedPasswordChange": {
     "title": "Choisissez un nouveau mot de passe",
@@ -657,7 +666,14 @@
     "remove": "Supprimer l'image",
     "pasteUrl": "Coller une URL d'image",
     "upload": "Uploader une image depuis votre appareil",
-    "urlPlaceholder": "https://… (URL de l'image)"
+    "urlPlaceholder": "https://… (URL de l'image)",
+    "errors": {
+      "tooLarge": "Cette photo est trop volumineuse (5 Mo au maximum). Choisissez-en une plus légère.",
+      "unsupportedType": "Ce format d'image n'est pas pris en charge. Utilisez une photo JPEG, PNG, WebP, GIF ou AVIF.",
+      "invalidUrl": "Saisissez une adresse d'image commençant par https://.",
+      "fetchFailed": "Impossible de télécharger cette image. Vérifiez l'adresse ou choisissez-en une autre.",
+      "failed": "La photo n'a pas pu être enregistrée. Vérifiez votre connexion et réessayez."
+    }
   },
   "autocomplete": {
     "internal": "Mon inventaire",
@@ -762,7 +778,7 @@
       "codesConfirmed": "J'ai sauvegardé mes codes",
       "disableTitle": "Désactiver la double authentification",
       "disableHint": "Pour des raisons de sécurité, veuillez renseigner votre mot de passe actuel ainsi qu'un code 2FA valide.",
-      "codeOrBackup": "Code 2FA ou code de secours"
+      "backupCodeLabel": "Code de secours"
     },
     "sessions": {
       "title": "Sessions actives",
@@ -1024,6 +1040,8 @@
       "description": "Cette dégustation a-t-elle modifié l'état de l'actif dans votre cave ?",
       "opened": "Actif entamé",
       "consumed": "Actif consommé (vide)",
+      "removeOneCigar_one": "Retirer un cigare de la boîte ({{count}} restant)",
+      "removeOneCigar_other": "Retirer un cigare de la boîte ({{count}} restants)",
       "ignore": "Ne pas modifier le stock",
       "error": "La mise à jour du stock a échoué. Réessayez."
     },
@@ -1498,7 +1516,8 @@
     },
     "categories": {
       "title": "Catégories d'alertes",
-      "all": "Toutes les catégories",
+      "hint": "Touchez une catégorie pour l'activer ou la désactiver.",
+      "lastOne": "Au moins une catégorie reste active. Pour ne plus rien recevoir, désactivez les canaux ci-dessus.",
       "peak": "Apogée atteinte",
       "temperature": "Variations température/hygrométrie",
       "security": "Sécurité du compte",
@@ -1508,6 +1527,7 @@
     "quietHours": {
       "title": "Plage silencieuse",
       "description": "Aucune notification pendant cette plage horaire",
+      "dropped": "Un message qui tombe dans cette plage est supprimé, pas différé. Les heures sont celles du fuseau horaire du serveur. Les alertes d'apogée et d'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte et les échecs de sauvegarde passent toujours.",
       "from": "De",
       "to": "À",
       "disabled": "Désactivée",
@@ -1651,6 +1671,7 @@
         "body": "Le fichier contient toute la base, y compris l'empreinte du mot de passe et le secret de double authentification de chaque compte. Confirmez avec votre mot de passe.",
         "error": "Le téléchargement a échoué."
       },
+      "dirCheckFailed": "Glou n'a pas pu vérifier s'il peut écrire dans le dossier des sauvegardes. Rechargez la page ; si ce message reste affiché, consultez les journaux de l'API (docker compose logs api).",
       "dirNotWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échouera. Sur le serveur, à côté de docker-compose.yml, lancez : mkdir -p backups && sudo chown 1001:1001 backups, puis redémarrez la pile.",
       "enabled": "Activer les sauvegardes automatiques",
       "retentionDays": "Rétention des sauvegardes (jours)",
@@ -1682,12 +1703,17 @@
       },
       "restore": {
         "modalTitle": "Confirmer la restauration",
-        "modalBody": "Cette action est irréversible et écrase immédiatement toutes les données actuelles de l'instance par le contenu de cette sauvegarde.",
+        "modalBody": "Cette action écrase immédiatement toutes les données actuelles de l'instance par le contenu de cette sauvegarde.",
+        "safetyCopy": "Une sauvegarde des données actuelles est prise d'abord et reste dans l'historique : restaurez-la pour annuler cette restauration. Si cette sauvegarde échoue, rien n'est restauré.",
         "modalHint": "Saisissez « {{keyword}} » pour confirmer :",
         "keyword": "RESTAURER",
         "confirm": "Confirmer la restauration",
         "success": "Restauration effectuée avec succès.",
-        "error": "La restauration a échoué."
+        "error": "La restauration a échoué.",
+        "errors": {
+          "BACKUP_BEFORE_RESTORE_FAILED": "La sauvegarde des données actuelles prise avant la restauration a échoué : rien n'a été restauré. Consultez l'historique des sauvegardes.",
+          "TIMEOUT": "La restauration prend plus de temps que prévu et se poursuit sur le serveur. Patientez quelques minutes, puis rechargez la page et consultez l'historique des sauvegardes."
+        }
       }
     },
     "network": {

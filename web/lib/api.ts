@@ -1,12 +1,40 @@
-type ApiError = { error: string; details?: unknown };
+import { TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
+import { fetchOrNetworkError } from './network-error';
+
+type ApiErrorBody = { error?: unknown; retryAfter?: unknown; details?: unknown };
+
+/**
+ * A refusal from the API. `message` is the stable error code callers translate;
+ * `retryAfter` (seconds) comes with TOO_MANY_REQUESTS (#640).
+ */
+export class ApiError extends Error {
+  constructor(code: string, readonly status: number, readonly retryAfter?: number) {
+    super(code);
+    this.name = 'ApiError';
+  }
+}
+
+function retryAfterHeader(res: Response): number | undefined {
+  const seconds = Number(res.headers?.get('Retry-After'));
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
+}
+
+/** Reads a non-OK response into an ApiError. */
+export async function apiErrorFrom(res: Response): Promise<ApiError> {
+  const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
+  const retryAfter = typeof body?.retryAfter === 'number' ? body.retryAfter : retryAfterHeader(res);
+  // body.details carries structured debug data (e.g. Zod's err.format()), never a
+  // displayable message — only body.error is the stable code callers can translate.
+  if (typeof body?.error === 'string') return new ApiError(body.error, res.status, retryAfter);
+  // A throttling proxy may answer 429 in plain text: still "wait", not "network error".
+  if (res.status === 429) return new ApiError(TOO_MANY_REQUESTS_ERROR, res.status, retryAfter);
+  return new ApiError(body ? `HTTP ${res.status}` : 'NETWORK_ERROR', res.status);
+}
 
 export async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const body = (await res.json().catch(() => ({ error: 'NETWORK_ERROR' }))) as ApiError;
-    // body.details carries structured debug data (e.g. Zod's err.format()), never a
-    // displayable message — only body.error is the stable code callers can translate.
-    throw new Error(body.error ?? `HTTP ${res.status}`);
-  }
+  if (!res.ok) throw await apiErrorFrom(res);
+  // A 204/205 (a delete, mostly) or an empty answer has no body to read.
+  if (res.status === 204 || res.status === 205 || res.headers?.get('content-length') === '0') return undefined as T;
   const body = await res.json() as { data: T };
   return body.data;
 }
@@ -28,7 +56,7 @@ export function timeoutSignal(ms: number): AbortSignal {
 
 export const client = {
   async get<T>(url: string): Promise<{ data: T }> {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
@@ -39,7 +67,7 @@ export const client = {
 
   /** `timeoutMs`: for the rare request the server is allowed to work on longer (CSV import). */
   async post<T>(url: string, data?: unknown, { timeoutMs = DEFAULT_TIMEOUT_MS }: { timeoutMs?: number } = {}): Promise<{ data: T }> {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -51,7 +79,7 @@ export const client = {
   },
 
   async patch<T>(url: string, data?: unknown): Promise<{ data: T }> {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -63,7 +91,7 @@ export const client = {
   },
 
   async put<T>(url: string, data?: unknown): Promise<{ data: T }> {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -75,7 +103,7 @@ export const client = {
   },
 
   async delete<T>(url: string): Promise<{ data: T }> {
-    const res = await fetch(`${API_BASE}${url}`, {
+    const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

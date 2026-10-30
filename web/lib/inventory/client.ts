@@ -44,8 +44,13 @@ export const inventoryClient = {
     return result;
   },
 
-  async update(id: string, patch: Partial<InventoryItem>): Promise<InventoryItem> {
-    const { data: result } = await client.patch<InventoryItem>(`/inventory/${id}`, patch);
+  /**
+   * `expectedUpdatedAt`: the version the change was made from. If the item
+   * changed since, the API refuses with 409 `CONFLICT` instead of overwriting (#572).
+   */
+  async update(id: string, patch: Partial<InventoryItem>, expectedUpdatedAt?: string): Promise<InventoryItem> {
+    const body = expectedUpdatedAt ? { ...patch, expectedUpdatedAt } : patch;
+    const { data: result } = await client.patch<InventoryItem>(`/inventory/${id}`, body);
     return result;
   },
 

@@ -12,7 +12,7 @@ export const collectionCreateSchema = z.object({
 export const collectionPatchSchema = collectionCreateSchema.partial();
 
 export const collectionItemsSchema = z.object({
-  itemIds: z.array(z.string().uuid()).min(1),
+  itemIds: z.array(z.string().guid()).min(1),
 });
 
 export type CollectionCreateInput = z.infer<typeof collectionCreateSchema>;

@@ -5,16 +5,23 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 // not move on submit, so a screen-reader user heard silence.
 
 const mutate = vi.fn();
+const verifyMutate = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock('next/link', () => ({ default: ({ children, href }: { children?: React.ReactNode; href: string }) => <a href={href}>{children}</a> }));
-vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+// The interpolated count is appended so the "wait N minutes" message can be checked.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (k: string, o?: { count?: number }) => (o?.count === undefined ? k : `${k}:${o.count}`),
+  }),
+}));
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
 vi.mock('@/hooks/useAuth', () => ({
   useLogin: () => ({ mutate, isPending: false }),
-  useVerify2faLogin: () => ({ mutate: vi.fn(), isPending: false }),
+  useVerify2faLogin: () => ({ mutate: verifyMutate, isPending: false }),
 }));
 
 import { LoginForm } from '../LoginForm';
+import { ApiError } from '@/lib/api';
 
 describe('LoginForm error announcement (#201)', () => {
   it('announces a failed sign-in through an alert', async () => {
@@ -44,5 +51,44 @@ describe('LoginForm required fields (#206)', () => {
     for (const input of [identifier, password]) {
       expect(input.required || input.getAttribute('aria-required') === 'true').toBe(true);
     }
+  });
+});
+
+// #640 — after too many attempts the limiter's answer read as "unexpected
+// error", and members kept trying, extending the block.
+describe('LoginForm throttled (#640)', () => {
+  function signIn() {
+    render(<LoginForm />);
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: 'alice' } });
+    const password = document.querySelector('input[type="password"]') as HTMLInputElement;
+    fireEvent.change(password, { target: { value: 'a-password' } });
+    fireEvent.submit(password.closest('form') as HTMLFormElement);
+  }
+
+  it('sign-in: says how long to wait', async () => {
+    mutate.mockImplementation((_values: unknown, opts: { onError: (e: Error) => void }) => {
+      opts.onError(new ApiError('TOO_MANY_REQUESTS', 429, 900));
+    });
+    signIn();
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('auth.errors.TOO_MANY_REQUESTS:15'));
+  });
+
+  it('2FA code: says how long to wait', async () => {
+    mutate.mockImplementation((_values: unknown, opts: { onSuccess: (r: { requires2fa: boolean }) => void }) => {
+      opts.onSuccess({ requires2fa: true });
+    });
+    verifyMutate.mockImplementation((_values: unknown, opts: { onError: (e: Error) => void }) => {
+      opts.onError(new ApiError('TOO_MANY_REQUESTS', 429, 300));
+    });
+    signIn();
+    await screen.findByText('auth.twoFactor.hint');
+    const code = screen.getByRole('textbox');
+    // #652 review: the shared code field, with the numeric keypad pattern.
+    expect(code.getAttribute('inputmode')).toBe('numeric');
+    expect(code.getAttribute('pattern')).toBe('[0-9]*');
+    expect(code.getAttribute('autocomplete')).toBe('one-time-code');
+    fireEvent.change(code, { target: { value: '123456' } });
+    fireEvent.submit(code.closest('form') as HTMLFormElement);
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('auth.errors.TOO_MANY_REQUESTS:5'));
   });
 });

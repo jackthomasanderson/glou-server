@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 /** Path param validation for GET /api/scan/jobs/:id */
 export const scanJobIdParamSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().guid(),
 });
 
 /**
@@ -15,4 +15,4 @@ export const scanJobIdParamSchema = z.object({
  * trusting a client-supplied field-source map, so a client can never spoof an
  * 'ocr' tag on a field the job didn't really extract.
  */
-export const scanJobIdHintSchema = z.string().uuid().optional();
+export const scanJobIdHintSchema = z.string().guid().optional();

@@ -34,6 +34,15 @@ describe('useMe (#341)', () => {
     expect(result.current.data).toBeUndefined();
   });
 
+  // #581: the API answers 503 while the database restarts; that is an
+  // outage to retry, not a sign-out.
+  it('errors (no null) on 503 DATABASE_UNAVAILABLE', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({ error: 'DATABASE_UNAVAILABLE' }) }));
+    const { result } = run();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
+  });
+
   it('errors on network failure', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
     const { result } = run();

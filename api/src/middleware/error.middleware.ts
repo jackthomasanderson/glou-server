@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import multer from 'multer';
 import { Prisma } from '@prisma/client';
 import { AppError, PRISMA_ERROR_MAP } from '../lib/errors';
+import { redactUrlSecrets } from '../lib/log-redact';
 
 // ─── Global error handler ────────────────────────────────────────────────────
 // The one place where a thrown value becomes an HTTP response (design.md,
@@ -66,6 +67,36 @@ function statusFrom(value: unknown): number | undefined {
     : undefined;
 }
 
+// How a PostgreSQL outage reaches us through @prisma/adapter-pg (#581): the
+// adapter maps only a few socket errors to P1xxx codes; the rest arrive as a
+// generic P2039 carrying the PostgreSQL code, as P2037, as the raw socket
+// code, or as pg's own "Connection terminated" error.
+/** 57P01 admin shutdown, 57P02 crash shutdown, 57P03 starting up, 53300 too many connections. */
+const PG_UNAVAILABLE_CODES = new Set(['57P01', '57P02', '57P03', '53300']);
+const SOCKET_UNAVAILABLE_CODES = new Set(['EAI_AGAIN', 'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE']);
+
+function postgresCodeOf(err: Prisma.PrismaClientKnownRequestError): string | undefined {
+  const adapterError = (err.meta as { driverAdapterError?: { cause?: { originalCode?: unknown } } } | undefined)
+    ?.driverAdapterError;
+  const fromMeta = adapterError?.cause?.originalCode;
+  if (typeof fromMeta === 'string') return fromMeta;
+  // P2039 message: "Database error. Code: `57P03`. Message: `...`".
+  return /Code: `([0-9A-Z]{5})`/.exec(err.message)?.[1];
+}
+
+/** True when the database is down or restarting: a 503, never a 4xx or a sign-out. */
+export function isDatabaseUnavailable(err: unknown): boolean {
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code.startsWith('P1') || err.code === 'P2037') return true;
+    if (SOCKET_UNAVAILABLE_CODES.has(err.code)) return true;
+    const pgCode = postgresCodeOf(err);
+    return pgCode !== undefined && PG_UNAVAILABLE_CODES.has(pgCode);
+  }
+  if (!(err instanceof Error)) return false;
+  if (err.name === 'PrismaClientInitializationError') return true;
+  return err.message.includes('Connection terminated');
+}
+
 /**
  * Map an unknown thrown value onto an HTTP status and a stable error code.
  * Exported so the mapping can be unit-tested without spinning up the app.
@@ -83,17 +114,12 @@ export function classifyError(err: unknown): ClassifiedError {
     return MULTER_ERRORS[err.code] ?? { status: 400, code: 'UPLOAD_REJECTED' };
   }
 
-  if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    // P1xxx is the "cannot reach / authenticate against the database" family:
-    // a genuine outage, which is a 503 and must never read as "not found".
-    if (err.code.startsWith('P1')) {
-      return { status: 503, code: 'DATABASE_UNAVAILABLE' };
-    }
-    return PRISMA_ERROR_MAP[err.code] ?? { status: 500, code: 'UNEXPECTED_ERROR' };
+  if (isDatabaseUnavailable(err)) {
+    return { status: 503, code: 'DATABASE_UNAVAILABLE' };
   }
 
-  if (err instanceof Error && err.name === 'PrismaClientInitializationError') {
-    return { status: 503, code: 'DATABASE_UNAVAILABLE' };
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    return PRISMA_ERROR_MAP[err.code] ?? { status: 500, code: 'UNEXPECTED_ERROR' };
   }
 
   if (typeof err === 'object' && err !== null) {
@@ -120,7 +146,8 @@ export function errorMiddleware(
   next: NextFunction,
 ): void {
   const { status, code, details } = classifyError(err);
-  const where = `${req.method} ${req.originalUrl}`;
+  // Guest share links carry their token in the path: never log it (#612).
+  const where = `${req.method} ${redactUrlSecrets(req.originalUrl)}`;
 
   // Server-side failures keep the full error (message, stack, cause) in the
   // container logs; client-side ones are noted without the stack so a bad

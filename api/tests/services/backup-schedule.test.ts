@@ -106,7 +106,7 @@ describe('backupService.runBackup failure handling (#234)', () => {
     findFirst.mockResolvedValue({ success: true, runAt: at(24) });
     const out = await backupService.runBackup('scheduled');
     expect(out.success).toBe(false);
-    expect(userFindMany).toHaveBeenCalledWith({ where: { isAdmin: true }, select: { id: true, language: true, notifLanguage: true } });
+    expect(userFindMany).toHaveBeenCalledWith({ where: { isAdmin: true, isActive: true }, select: { id: true, language: true, notifLanguage: true } });
     expect(send).toHaveBeenCalledTimes(2);
     const [fr, en] = send.mock.calls.map((c) => c[0] as { userId: string; category: string; subject: string; bypassQuietHours: boolean });
     expect(fr).toMatchObject({ userId: 'a1', category: 'backup', bypassQuietHours: true });
@@ -149,6 +149,24 @@ describe('backupService.runBackup failure handling (#234)', () => {
     expect(send.mock.calls[0][0].htmlBody).toContain('<pre>DATABASE_URL_NOT_SET</pre>');
     // retention is only applied after a successful dump, never when it failed
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  // #666: every failed backup was announced as "the scheduled backup", even
+  // one started by hand or the safety copy taken before a restore.
+  it.each([
+    ['scheduled', {}, 'The scheduled database backup failed', 'La sauvegarde planifiée de la base a échoué'],
+    ['manual', {}, 'A database backup started from the admin panel failed', "Une sauvegarde de la base lancée depuis l'administration a échoué"],
+    ['manual', { beforeRestore: true }, 'taken before a restore failed', 'prise avant une restauration a échoué'],
+  ] as const)('names the %s backup %o for what it is, in both languages', async (trigger, options, en, fr) => {
+    findFirst.mockResolvedValue(null);
+    await backupService.runBackup(trigger, undefined, options);
+    const [frBody, enBody] = send.mock.calls.map((c) => (c[0] as { htmlBody: string }).htmlBody);
+    expect(enBody).toContain(en);
+    expect(frBody).toContain(fr);
+    if (trigger === 'manual') {
+      expect(enBody).not.toContain('scheduled');
+      expect(frBody).not.toContain('planifiée');
+    }
   });
 
   it('a notification failure never breaks the backup bookkeeping', async () => {

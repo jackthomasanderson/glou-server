@@ -152,7 +152,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     res.json({ data: visible });
   } catch (error) {
     if (error instanceof ZodError) {
-      const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({
         userId: share.userId,
         action: 'GUEST_UPDATE',

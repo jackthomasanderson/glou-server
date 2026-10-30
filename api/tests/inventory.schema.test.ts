@@ -159,3 +159,33 @@ describe('isOwned (FEAT-87)', () => {
     expect(result.success).toBe(false);
   });
 });
+
+// #706: a drinking window ending before it starts was stored as is.
+describe('peak window order (#706)', () => {
+  const wine = { category: 'wine', name: 'Pétrus', producer: 'Château Pétrus' };
+
+  it('rejects a window that ends before it starts, on peakMaturityTo', () => {
+    const res = inventoryInputSchema.safeParse({ ...wine, peakMaturityFrom: 2035, peakMaturityTo: 2028 });
+    expect(res.success).toBe(false);
+    if (!res.success) expect(res.error.issues[0].path).toEqual(['peakMaturityTo']);
+    expect(
+      inventoryInputSchema.safeParse({ ...wine, category: 'sparkling', peakMaturityFrom: 2035, peakMaturityTo: 2028 }).success,
+    ).toBe(false);
+  });
+
+  it('accepts a one-year window and a window with only one end', () => {
+    expect(inventoryInputSchema.safeParse({ ...wine, peakMaturityFrom: 2030, peakMaturityTo: 2030 }).success).toBe(true);
+    expect(inventoryInputSchema.safeParse({ ...wine, peakMaturityFrom: 2030 }).success).toBe(true);
+    expect(inventoryInputSchema.safeParse({ ...wine, peakMaturityFrom: 2030, peakMaturityTo: null }).success).toBe(true);
+  });
+});
+
+// #726: a date typed then cleared in the add form is sent as null.
+describe('cleared dates on creation (#726)', () => {
+  it('keeps a null batch or disgorging date null instead of 1970-01-01', () => {
+    const wine = inventoryInputSchema.safeParse({ category: 'wine', name: 'Pétrus', producer: 'Château Pétrus', batchDate: null });
+    expect(wine.success && wine.data.batchDate).toBeNull();
+    const sparkling = inventoryInputSchema.safeParse({ category: 'sparkling', name: 'Brut', producer: 'Maison', disgorgingDate: null });
+    expect(sparkling.success && (sparkling.data as { disgorgingDate?: Date | null }).disgorgingDate).toBeNull();
+  });
+});

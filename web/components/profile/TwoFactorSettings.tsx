@@ -8,6 +8,8 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGenerate2fa, useTurnOn2fa, useTurnOff2fa, PublicUser, useMe } from '@/hooks/useAuth';
+import { TwoFactorCodeInput } from '@/components/auth/TwoFactorCodeInput';
+import { authErrorMessage } from '@/lib/auth/error-message';
 
 export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
@@ -20,6 +22,11 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // #652: codes like INVALID_TOTP_CODE used to be shown as is. Here the
+  // password is the only one checked, so INVALID_CREDENTIALS means it is wrong.
+  const errorText = (err: Error) =>
+    err.message === 'INVALID_CREDENTIALS' ? t('profile.passwordError') : authErrorMessage(t, err);
+
   const generateMutation = useGenerate2fa();
   const turnOnMutation = useTurnOn2fa();
   const turnOffMutation = useTurnOff2fa();
@@ -29,7 +36,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
     setIsTurnOnModalOpen(true);
     generateMutation.mutate(undefined, {
       onSuccess: (data) => setSetupData(data),
-      onError: (err) => setErrorMsg(err.message),
+      onError: (err) => setErrorMsg(errorText(err)),
     });
   };
 
@@ -37,7 +44,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
     setErrorMsg(null);
     turnOnMutation.mutate({ code }, {
       onSuccess: (res) => { setBackupCodes(res.backupCodes); refetchMe(); },
-      onError: (err) => setErrorMsg(err.message),
+      onError: (err) => setErrorMsg(errorText(err)),
     });
   };
 
@@ -58,7 +65,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
         setCode('');
         refetchMe();
       },
-      onError: (err) => setErrorMsg(err.message),
+      onError: (err) => setErrorMsg(errorText(err)),
     });
   };
 
@@ -144,18 +151,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                     <p className="text-sm text-center text-foreground-600">
                       {t('profile.twoFactor.step2')}
                     </p>
-                    <Input
-                      label={t('profile.twoFactor.codeLabel')}
-                      value={code}
-                      onValueChange={setCode}
-                      variant="bordered"
-                      size="md"
-                      radius="md"
-                      labelPlacement="outside"
-                      maxLength={6}
-                      autoComplete="off"
-                      className="w-full"
-                    />
+                    <TwoFactorCodeInput value={code} onValueChange={setCode} isDisabled={turnOnMutation.isPending} />
                   </div>
                 ) : null}
               </ModalBody>
@@ -217,17 +213,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                   radius="md"
                   labelPlacement="outside"
                 />
-                <Input
-                  label={t('profile.twoFactor.codeOrBackup')}
-                  value={code}
-                  onValueChange={setCode}
-                  variant="bordered"
-                  size="md"
-                  radius="md"
-                  labelPlacement="outside"
-                  maxLength={20}
-                  autoComplete="off"
-                />
+                <TwoFactorCodeInput value={code} onValueChange={setCode} allowBackupCode isDisabled={turnOffMutation.isPending} />
               </ModalBody>
               <ModalFooter>
                 <Button color="danger" variant="light" onPress={onClose} isDisabled={turnOffMutation.isPending}>

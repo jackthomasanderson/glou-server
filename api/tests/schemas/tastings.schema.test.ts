@@ -39,6 +39,18 @@ describe('tastingCreateSchema', () => {
     expect(tastingCreateSchema.safeParse({ rating: 3.5 }).success).toBe(false);
   });
 
+  it('treats a cleared date field as no date (#704)', () => {
+    const res = tastingCreateSchema.safeParse({ tastedAt: '' });
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.data.tastedAt).toBeUndefined();
+    expect(tastingPatchSchema.safeParse({ tastedAt: '' }).success).toBe(true);
+  });
+
+  // #704: the tasting form sends `rating: null` when no star is picked.
+  it('accepts a tasting with no rating (null)', () => {
+    expect(tastingCreateSchema.safeParse({ rating: null }).success).toBe(true);
+  });
+
   it('rejects an unknown readiness value but accepts null', () => {
     expect(tastingCreateSchema.safeParse({ readiness: 'MATURE' }).success).toBe(false);
     expect(tastingCreateSchema.safeParse({ readiness: null }).success).toBe(true);
@@ -59,5 +71,10 @@ describe('tastingPatchSchema', () => {
     expect(tastingPatchSchema.safeParse({}).success).toBe(true);
     expect(tastingPatchSchema.safeParse({ rating: 5 }).success).toBe(true);
     expect(tastingPatchSchema.safeParse({ rating: 9 }).success).toBe(false);
+  });
+
+  // #704: removing the stars of a rated tasting sends `rating: null`.
+  it('clears a rating with null', () => {
+    expect(tastingPatchSchema.safeParse({ rating: null }).success).toBe(true);
   });
 });

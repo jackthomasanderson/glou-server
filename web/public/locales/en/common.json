@@ -119,7 +119,8 @@
   "inventory": {
     "validation": {
       "required": "This field is required",
-      "missingFields": "Fill in the required fields before saving"
+      "missingFields": "Fill in the required fields before saving",
+      "peakWindowOrder": "The end of the peak cannot come before its start"
     },
     "noNotifications": "No notifications",
     "perPage": "{{count}} per page",
@@ -216,6 +217,7 @@
       "curveShapeHint": "How readiness evolves across the window. Overrides the cave reference for this bottle only.",
       "needsAeration": "Needs aeration",
       "serviceTemp": "Service temperature",
+      "serviceTempPlaceholder": "e.g. 16–18 °C",
       "storageTemp": "Storage temperature",
       "lotNumber": "Lot number",
       "sparklingType": "Type",
@@ -372,6 +374,7 @@
     "createError": "Could not add the asset",
     "createRejected": "The asset was not added: the server refused one of the values entered. Check the form, or report the problem if it looks right.",
     "updateError": "Could not update the asset",
+    "updateConflict": "Not saved: this asset was changed in the meantime, by another member or on another device. Close the form and open it again to start from the latest version.",
     "deleteError": "Could not delete the asset",
     "restoreError": "Could not restore the asset",
     "collection": {
@@ -411,6 +414,9 @@
       "convertError": "Could not turn the wish into an inventory item"
     },
     "bulkUpdateError": "Could not update the selected assets",
+    "bulkPreset": {
+      "deleteError": "Could not delete the action preset"
+    },
     "share": {
       "createError": "Could not create the share link",
       "revokeError": "Could not revoke the share link"
@@ -464,7 +470,9 @@
       "SESSION_REVOKED": "Your session was disconnected remotely. Please sign in again.",
       "INVALID_TOTP_CODE": "Incorrect verification code.",
       "2FA_TEMPORARILY_LOCKED": "Too many incorrect codes. Verification is locked for 15 minutes.",
-      "TOKEN_INVALID_OR_EXPIRED": "Your sign-in request has expired. Please sign in again."
+      "TOKEN_INVALID_OR_EXPIRED": "Your sign-in request has expired. Please sign in again.",
+      "TOO_MANY_REQUESTS_one": "Too many attempts. Wait {{count}} minute before trying again.",
+      "TOO_MANY_REQUESTS_other": "Too many attempts. Wait {{count}} minutes before trying again."
     },
     "passwordStrength": {
       "weak": "Weak",
@@ -500,7 +508,8 @@
     "pinLabel": "PIN code",
     "unlockButton": "Unlock",
     "error": "Incorrect password or PIN code.",
-    "backToLogin": "Sign out"
+    "backToLogin": "Sign out",
+    "sessionEnded": "Your session has ended. Please sign in again."
   },
   "forcedPasswordChange": {
     "title": "Set a new password",
@@ -655,7 +664,14 @@
     "remove": "Remove image",
     "pasteUrl": "Paste an image URL",
     "upload": "Upload an image from your device",
-    "urlPlaceholder": "https://… (image URL)"
+    "urlPlaceholder": "https://… (image URL)",
+    "errors": {
+      "tooLarge": "This photo is too large (5 MB at most). Choose a smaller one.",
+      "unsupportedType": "This image format is not supported. Use a JPEG, PNG, WebP, GIF or AVIF photo.",
+      "invalidUrl": "Enter an image address starting with https://.",
+      "fetchFailed": "This image could not be downloaded. Check the address or choose another image.",
+      "failed": "The photo could not be saved. Check your connection and try again."
+    }
   },
   "autocomplete": {
     "internal": "My inventory",
@@ -760,7 +776,7 @@
       "codesConfirmed": "I've saved my codes",
       "disableTitle": "Disable two-factor authentication",
       "disableHint": "For security reasons, please enter your current password and a valid 2FA code.",
-      "codeOrBackup": "2FA code or backup code"
+      "backupCodeLabel": "Backup code"
     },
     "sessions": {
       "title": "Active Sessions",
@@ -1022,6 +1038,8 @@
       "description": "Did this tasting change the state of the asset in your cellar?",
       "opened": "Asset opened",
       "consumed": "Asset consumed (empty)",
+      "removeOneCigar_one": "Remove one cigar from the box ({{count}} left)",
+      "removeOneCigar_other": "Remove one cigar from the box ({{count}} left)",
       "ignore": "Do not update stock",
       "error": "Stock update failed. Please try again."
     },
@@ -1496,7 +1514,8 @@
     },
     "categories": {
       "title": "Alert categories",
-      "all": "All categories",
+      "hint": "Tap a category to turn it on or off.",
+      "lastOne": "At least one category stays on. To receive nothing at all, turn off the channels above.",
       "peak": "Peak maturity reached",
       "temperature": "Temperature/humidity variations",
       "security": "Account security",
@@ -1506,6 +1525,7 @@
     "quietHours": {
       "title": "Quiet hours",
       "description": "No notifications during this time range",
+      "dropped": "A message that falls in this range is dropped, not delayed. Hours are those of the server's time zone. Peak and humidor alerts are sent at {{hour}}:00; alerts about your account's security and backup failures always get through.",
       "from": "From",
       "to": "To",
       "disabled": "Disabled",
@@ -1649,6 +1669,7 @@
         "body": "The file contains the whole database, including every account's password hash and two-factor secret. Confirm with your password.",
         "error": "Download failed."
       },
+      "dirCheckFailed": "Glou could not check whether it can write to the backups folder. Reload the page; if this message stays, check the API logs (docker compose logs api).",
       "dirNotWritable": "The backups folder is not writable by Glou: every backup will fail. On the server, next to docker-compose.yml, run: mkdir -p backups && sudo chown 1001:1001 backups, then restart the stack.",
       "enabled": "Enable automatic backups",
       "retentionDays": "Backup retention (days)",
@@ -1680,12 +1701,17 @@
       },
       "restore": {
         "modalTitle": "Confirm restore",
-        "modalBody": "This action is irreversible and immediately overwrites all current data on this instance with the content of this backup.",
+        "modalBody": "This immediately overwrites all current data on this instance with the content of this backup.",
+        "safetyCopy": "A backup of the current data is taken first and stays in the history: restore it to undo this restore. If that backup fails, nothing is restored.",
         "modalHint": "Type \"{{keyword}}\" to confirm:",
         "keyword": "RESTORE",
         "confirm": "Confirm restore",
         "success": "Restore completed successfully.",
-        "error": "Restore failed."
+        "error": "Restore failed.",
+        "errors": {
+          "BACKUP_BEFORE_RESTORE_FAILED": "The backup of the current data taken before the restore failed, so nothing was restored. Check the backup history.",
+          "TIMEOUT": "The restore is taking longer than expected and is still running on the server. Wait a few minutes, then reload the page and check the backup history."
+        }
       }
     },
     "network": {

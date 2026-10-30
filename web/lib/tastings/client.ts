@@ -21,8 +21,7 @@ export const tastingsClient = {
   },
 
   async delete(id: string): Promise<void> {
-    const res = await fetch(`/api/tastings/${id}`, { method: 'DELETE', credentials: 'include' });
-    if (!res.ok && res.status !== 204) throw new Error('DELETE_FAILED');
+    await client.delete<void>(`/tastings/${id}`);
   },
 
   async itemStats(itemId: string): Promise<TastingItemStats | null> {

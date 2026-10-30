@@ -4,11 +4,20 @@ name: Nightly UI Fuzz (gremlins)
 # own schedule against a throwaway stack rather than on every PR. A failure
 # here means a page threw an uncaught exception / logged a console error /
 # hit a crash screen under fuzzing — check the uploaded report + the seed.
+#
+# #627: the seed is the run number, so every night explores a different
+# sequence; replay one with "Run workflow" and its seed. A failed scheduled
+# run opens (or comments on) a "Nightly fuzz failed" issue.
 
 on:
   schedule:
     - cron: '17 3 * * *' # 03:17 UTC daily (off the hour, low-traffic window)
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: 'Seed to replay (empty = this run number)'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -16,6 +25,11 @@ permissions:
 jobs:
   fuzz:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    env:
+      E2E_MONKEY_SEED: ${{ inputs.seed || github.run_number }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -52,16 +66,18 @@ jobs:
         working-directory: e2e
         run: npm ci
 
-      - name: Install Playwright browser
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium
-
+      # Same as docker-publish.yml's e2e job: Playwright's official image
+      # instead of `playwright install --with-deps` and its slow apt mirror.
       - name: Run the gremlins fuzz
         working-directory: e2e
-        env:
-          CI: 'true'
-          E2E_MONKEY: '1'
-        run: npx playwright test monkey.spec.ts
+        timeout-minutes: 30
+        run: |
+          echo "Fuzz seed: $E2E_MONKEY_SEED (replay: E2E_MONKEY_SEED=$E2E_MONKEY_SEED)"
+          version=$(node -p "require('./node_modules/@playwright/test/package.json').version")
+          docker run --rm --network host --ipc=host -e CI=true -e E2E_MONKEY=1 -e E2E_MONKEY_SEED \
+            -v "$PWD":/e2e -w /e2e \
+            "mcr.microsoft.com/playwright:v${version}-noble" \
+            npx playwright test monkey.spec.ts
 
       - name: Upload fuzz report
         if: ${{ !cancelled() }}
@@ -78,3 +94,23 @@ jobs:
       - name: Tear down
         if: always()
         run: docker compose -f docker-compose.e2e.yml down -v
+
+      # #627: a failure used to trigger only GitHub's default e-mail. One open
+      # issue collects the failures: created the first time, commented after.
+      - name: Report the failure in an issue
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Nightly fuzz failed"
+          body=$(printf 'The nightly UI fuzz failed on %s (commit %s).\n\n- Run, report and stack logs: %s\n- Seed: `%s`, replay with **Run workflow** and this seed, or locally with `E2E_ALLOW_MONKEY=1 E2E_MONKEY_SEED=%s npx playwright test monkey.spec.ts`\n' \
+            "$(date -u +%Y-%m-%d)" "$GITHUB_SHA" "$RUN_URL" "$E2E_MONKEY_SEED" "$E2E_MONKEY_SEED")
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi

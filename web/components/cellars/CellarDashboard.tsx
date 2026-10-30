@@ -18,7 +18,6 @@ import {
   TableRow,
   TableCell,
   Divider,
-  Modal,
   ModalContent,
   ModalHeader,
   ModalBody,
@@ -46,7 +45,7 @@ import { useViewMode } from '@/hooks/useViewMode';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
-import { useIsMobile } from '@/hooks/useIsMobile';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 
@@ -113,7 +112,6 @@ export const CellarDashboard: React.FC = () => {
     [cellarTypeOptions, t],
   );
 
-  const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useViewMode('cellars');
   const [openForm, setOpenForm] = useState(false);
   const [showGridConfig, setShowGridConfig] = useState(false);
@@ -577,12 +575,13 @@ export const CellarDashboard: React.FC = () => {
       )}
 
       {/* Form Modal */}
-      <Modal
+      <ResponsiveModal
         isOpen={openForm && !formGuard.isConfirmOpen}
         onClose={formGuard.requestClose}
         {...formGuard.dismissProps}
-        size={isMobile ? 'full' : 'md'}
-        placement={isMobile ? 'bottom' : 'center'}
+        size="md"
+        placement="top"
+        scrollBehavior="inside"
       >
         <ModalContent>
           <ModalHeader>
@@ -731,7 +730,7 @@ export const CellarDashboard: React.FC = () => {
             </Button>
           </ModalFooter>
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
 
       <DiscardChangesDialog
         isOpen={formGuard.isConfirmOpen}
@@ -740,7 +739,7 @@ export const CellarDashboard: React.FC = () => {
       />
 
       {/* Delete confirm */}
-      <Modal
+      <ResponsiveModal
         isOpen={!!deletingCellar}
         onClose={() => setDeletingCellar(null)}
         size="sm"
@@ -772,7 +771,7 @@ export const CellarDashboard: React.FC = () => {
             </>
           )}
         </ModalContent>
-      </Modal>
+      </ResponsiveModal>
     </div>
   );
 };

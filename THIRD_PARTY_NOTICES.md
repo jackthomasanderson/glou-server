@@ -329,7 +329,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | yargs-parser | 18.1.3 | ISC | https://github.com/yargs/yargs-parser |
 | yauzl | 3.4.0 | MIT | https://github.com/thejoshwolfe/yauzl |
 | zeptomatch | 2.1.0 | MIT | github:fabiospampinato/zeptomatch |
-| zod | 3.25.76 | MIT | https://github.com/colinhacks/zod |
+| zod | 4.6.7 | MIT | https://github.com/colinhacks/zod |
 
 ## Web image (`web/`)
 
@@ -798,7 +798,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | filelist | 1.0.6 | Apache-2.0 | https://github.com/mde/filelist |
 | fill-range | 7.1.1 | MIT | jonschlinkert/fill-range |
 | for-each | 0.3.5 | MIT | https://github.com/Raynos/for-each |
-| framer-motion | 11.18.2 | MIT | https://github.com/motiondivision/motion/ |
+| framer-motion | 12.43.0 | MIT | https://github.com/motiondivision/motion/ |
 | fs-extra | 9.1.0 | MIT | https://github.com/jprichardson/node-fs-extra |
 | fs.realpath | 1.0.0 | ISC | https://github.com/isaacs/fs.realpath |
 | function-bind | 1.1.2 | MIT | https://github.com/Raynos/function-bind |
@@ -888,9 +888,9 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | minimatch | 3.1.5 | ISC | https://github.com/isaacs/minimatch |
 | minimatch | 5.1.9 | ISC | https://github.com/isaacs/minimatch |
 | minimizer-webpack-plugin | 5.13.1 | MIT | webpack/minimizer-webpack-plugin |
-| motion | 11.18.2 | MIT | https://github.com/motiondivision/motion |
-| motion-dom | 11.18.1 | MIT | https://github.com/motiondivision/motion |
-| motion-utils | 11.18.1 | MIT | https://github.com/motiondivision/motion |
+| motion | 12.43.0 | MIT | https://github.com/motiondivision/motion |
+| motion-dom | 12.43.0 | MIT | https://github.com/motiondivision/motion |
+| motion-utils | 12.39.0 | MIT | https://github.com/motiondivision/motion |
 | ms | 2.1.3 | MIT | vercel/ms |
 | nanoid | 3.3.20 | MIT | ai/nanoid |
 | next | 16.4.2 | MIT | vercel/next.js |

@@ -5,6 +5,7 @@ import { Plus, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Collection } from '@/lib/collections/types';
 import { useCollections, useAddItemsToCollection, useRemoveItemFromCollection } from '@/hooks/useCollections';
+import { notifyError } from '@/lib/toast';
 
 interface CollectionPickerInlineProps {
   itemId: string;
@@ -43,12 +44,14 @@ export function CollectionPickerInline({ itemId, currentCollections }: Collectio
 
   const isMutating = addMutation.isPending || removeMutation.isPending;
 
+  const reportFailure = () => notifyError('toast.collection.updateError');
+
   const handleRemove = (col: { id: string; name: string }) => {
-    removeMutation.mutate({ id: col.id, itemId });
+    removeMutation.mutate({ id: col.id, itemId }, { onError: reportFailure });
   };
 
   const handleAdd = (col: Collection) => {
-    addMutation.mutate({ id: col.id, itemIds: [itemId] });
+    addMutation.mutate({ id: col.id, itemIds: [itemId] }, { onError: reportFailure });
     setDropdownOpen(false);
   };
 

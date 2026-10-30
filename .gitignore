@@ -40,6 +40,7 @@ venv/
 e2e/playwright-report/
 e2e/test-results/
 e2e/.auth/
+e2e/.backup-download/
 
 # --- Uploads & temporaires applicatifs ---
 api/uploads/
@@ -62,3 +63,6 @@ _projet/
 AGENTS.md
 CLAUDE.md
 TUTORIEL.md
+# --- Docker ---
+# Exception : .github/workflows/ reste suivi, nécessaire au fonctionnement
+# de la CI GitHub (voir .github/workflows/README.md).

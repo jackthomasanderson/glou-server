@@ -15,12 +15,19 @@ const GREMLINS_PATH = fileURLToPath(
  * runs on its own schedule against a throwaway stack — the nightly
  * `nightly-e2e-fuzz` workflow (E2E_MONKEY=1), or locally with E2E_ALLOW_MONKEY=1.
  * The per-PR `e2e` job skips it (fast, deterministic parcours only).
+ *
+ * The nightly workflow passes a new seed on every run (#627); the seed is in
+ * the failure message, so any run can be replayed with E2E_MONKEY_SEED.
  */
-const SEED = Number(process.env.E2E_MONKEY_SEED ?? 202608);
+const SEED = Number(process.env.E2E_MONKEY_SEED || 202608);
 const GREMLIN_COUNT = Number(process.env.E2E_MONKEY_NB ?? 250);
 const ROUTES = ['/bottles', '/cigars', '/collections', '/cellars', '/cellar-journal', '/analytics-terroirs', '/wishlist-budget', '/profile'];
 
 test.describe('gremlins UI fuzz', () => {
+  // A retry would replay the same seed and could pass on timing alone,
+  // hiding an intermittent crash: one attempt per run.
+  test.describe.configure({ retries: 0 });
+
   test.skip(
     !process.env.E2E_MONKEY && !process.env.E2E_ALLOW_MONKEY,
     'monkey fuzz — nightly workflow only (E2E_MONKEY), or local with E2E_ALLOW_MONKEY=1',

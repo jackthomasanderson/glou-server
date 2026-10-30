@@ -1,0 +1,153 @@
+import { describe, it, expect, vi } from 'vitest';
+import React, { useState } from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ParsedNumberInput, ParsedInput } from '../ParsedInput';
+
+// #706: a controlled field rendering its parsed value back rewrote what the
+// user typed ("24,05" → "245"). A plain controlled <input> stands in for
+// HeroUI's, which is what React rewrites the same way.
+vi.mock('@heroui/react', () => ({
+  Input: ({ value, onValueChange, label }: { value: string; onValueChange: (v: string) => void; label: string }) => (
+    <input aria-label={label} value={value} onChange={(e) => onValueChange(e.target.value)} />
+  ),
+}));
+
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ i18n: { language: 'fr' } }) }));
+
+/** Types `text` one character at a time, like a keyboard. */
+function typeInto(input: HTMLElement, text: string) {
+  for (let i = 1; i <= text.length; i++) fireEvent.change(input, { target: { value: text.slice(0, i) } });
+}
+
+function PriceField({ onValue }: { onValue?: (v: number | undefined) => void }) {
+  const [price, setPrice] = useState<number | undefined>();
+  return (
+    <>
+      <ParsedNumberInput label="price" value={price} onValueChange={(v) => { setPrice(v); onValue?.(v); }} />
+      <button onClick={() => setPrice(2019)}>fill</button>
+    </>
+  );
+}
+
+describe('ParsedNumberInput', () => {
+  it('keeps a 0 typed right after the decimal separator', () => {
+    const onValue = vi.fn();
+    render(<PriceField onValue={onValue} />);
+    const input = screen.getByLabelText('price') as HTMLInputElement;
+
+    typeInto(input, '24.0');
+    expect(input.value).toBe('24.0');
+    expect(onValue).toHaveBeenLastCalledWith(24);
+
+    typeInto(input, '24.05');
+    expect(input.value).toBe('24.05');
+    expect(onValue).toHaveBeenLastCalledWith(24.05);
+  });
+
+  it('keeps a trailing 0 ("24.90")', () => {
+    render(<PriceField />);
+    const input = screen.getByLabelText('price') as HTMLInputElement;
+    typeInto(input, '24.90');
+    expect(input.value).toBe('24.90');
+  });
+
+  it('reports an emptied field as undefined', () => {
+    const onValue = vi.fn();
+    render(<PriceField onValue={onValue} />);
+    const input = screen.getByLabelText('price') as HTMLInputElement;
+    typeInto(input, '7');
+    fireEvent.change(input, { target: { value: '' } });
+    expect(onValue).toHaveBeenLastCalledWith(undefined);
+    expect(input.value).toBe('');
+  });
+
+  it('shows a value set from outside (reset, autocomplete)', () => {
+    render(<PriceField />);
+    const input = screen.getByLabelText('price') as HTMLInputElement;
+    typeInto(input, '24.0');
+    fireEvent.click(screen.getByText('fill'));
+    expect(input.value).toBe('2019');
+  });
+
+  // The wish quantity: kept empty while typed over, defaulted only on save.
+  it('lets a quantity of 3 be emptied to type over it', () => {
+    function Quantity() {
+      const [qty, setQty] = useState<number | undefined>(3);
+      return <ParsedNumberInput label="qty" value={qty} onValueChange={setQty} />;
+    }
+    render(<Quantity />);
+    const input = screen.getByLabelText('qty') as HTMLInputElement;
+    expect(input.value).toBe('3');
+    fireEvent.change(input, { target: { value: '' } });
+    expect(input.value).toBe('');
+    fireEvent.change(input, { target: { value: '3' } });
+    expect(input.value).toBe('3');
+  });
+});
+
+// A number field only takes the browser locale's separator: "24,05" in an
+// English Chromium gave 2405 (seen in CI). Decimal fields are text fields.
+describe('ParsedNumberInput decimal', () => {
+  function Estimated({ onValue, initial }: { onValue?: (v: number | undefined) => void; initial?: number }) {
+    const [v, setV] = useState<number | undefined>(initial);
+    return <ParsedNumberInput decimal label="value" value={v} onValueChange={(n) => { setV(n); onValue?.(n); }} />;
+  }
+
+  it('takes "24,05" and "24.05" alike', () => {
+    const onValue = vi.fn();
+    render(<Estimated onValue={onValue} />);
+    const input = screen.getByLabelText('value') as HTMLInputElement;
+    typeInto(input, '24,05');
+    expect(input.value).toBe('24,05');
+    expect(onValue).toHaveBeenLastCalledWith(24.05);
+    fireEvent.change(input, { target: { value: '' } });
+    typeInto(input, '24.05');
+    expect(input.value).toBe('24.05');
+    expect(onValue).toHaveBeenLastCalledWith(24.05);
+  });
+
+  it('ignores a keystroke that is not part of a number', () => {
+    const onValue = vi.fn();
+    render(<Estimated onValue={onValue} />);
+    const input = screen.getByLabelText('value') as HTMLInputElement;
+    typeInto(input, '24,0');
+    fireEvent.change(input, { target: { value: '24,0,' } });
+    fireEvent.change(input, { target: { value: '24,0a' } });
+    expect(input.value).toBe('24,0');
+    expect(onValue).toHaveBeenLastCalledWith(24);
+  });
+
+  it('shows a stored value with the French separator', () => {
+    render(<Estimated initial={24.05} />);
+    expect((screen.getByLabelText('value') as HTMLInputElement).value).toBe('24,05');
+  });
+});
+
+describe('ParsedInput (comma-separated list)', () => {
+  function Grapes({ onValue }: { onValue: (v: string[]) => void }) {
+    const [list, setList] = useState<string[] | undefined>();
+    return (
+      <ParsedInput
+        label="grapes"
+        value={list ?? []}
+        format={(l) => l.join(', ')}
+        parse={(text) => text.split(',').map((s) => s.trim()).filter(Boolean)}
+        onValueChange={(l) => { setList(l); onValue(l); }}
+      />
+    );
+  }
+
+  it('keeps spaces and commas while typing "Pinot Noir, Gamay"', () => {
+    const onValue = vi.fn();
+    render(<Grapes onValue={onValue} />);
+    const input = screen.getByLabelText('grapes') as HTMLInputElement;
+
+    typeInto(input, 'Pinot Noir, ');
+    expect(input.value).toBe('Pinot Noir, ');
+    expect(onValue).toHaveBeenLastCalledWith(['Pinot Noir']);
+
+    typeInto(input, 'Pinot Noir, Gamay');
+    expect(input.value).toBe('Pinot Noir, Gamay');
+    expect(onValue).toHaveBeenLastCalledWith(['Pinot Noir', 'Gamay']);
+  });
+});

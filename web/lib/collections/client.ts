@@ -18,11 +18,7 @@ export const collectionsClient = {
   },
 
   async delete(id: string): Promise<void> {
-    const res = await fetch(`/api/collections/${id}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    if (!res.ok && res.status !== 204) throw new Error('DELETE_FAILED');
+    await client.delete<void>(`/collections/${id}`);
   },
 
   async addItems(id: string, itemIds: string[]): Promise<Collection> {
@@ -31,11 +27,7 @@ export const collectionsClient = {
   },
 
   async removeItem(id: string, itemId: string): Promise<Collection> {
-    const res = await fetch(`/api/collections/${id}/items/${itemId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-    const body = await res.json() as { data: Collection };
-    return body.data;
+    const { data } = await client.delete<Collection>(`/collections/${id}/items/${itemId}`);
+    return data;
   },
 };

@@ -24,7 +24,12 @@ export const maturityReferenceSchema = maturityReferenceBase.refine(
   { message: 'windowTo must be >= windowFrom', path: ['windowTo'] },
 );
 
-export const maturityReferencePatchSchema = maturityReferenceBase.partial();
+// zod 4 applies a field's .default() even under .partial(): a PATCH that
+// omits `curveShape` or `priority` must leave them unchanged, not reset them.
+export const maturityReferencePatchSchema = maturityReferenceBase.partial().extend({
+  curveShape: maturityReferenceBase.shape.curveShape.unwrap().optional(),
+  priority: maturityReferenceBase.shape.priority.unwrap().optional(),
+});
 
 export type MaturityReferenceInput = z.infer<typeof maturityReferenceSchema>;
 export type MaturityReferencePatch = z.infer<typeof maturityReferencePatchSchema>;

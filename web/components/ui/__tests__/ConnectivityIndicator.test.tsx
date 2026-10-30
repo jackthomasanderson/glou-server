@@ -11,6 +11,9 @@ const state = {
 
 vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => state.online }));
 vi.mock('@/hooks/useOfflineSync', () => ({ useOfflineSync: () => state.sync }));
+// The pending-changes panel is a ResponsiveModal (#654), which reads the
+// viewport width through matchMedia, absent from jsdom.
+vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (k: string, o?: { count?: number }) => (o?.count !== undefined ? `${k}:${o.count}` : k),

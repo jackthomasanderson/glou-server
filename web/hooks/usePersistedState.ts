@@ -25,10 +25,9 @@ export function usePersistedState<T>(
   const [value, setValueState] = useState<T>(defaultValue);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
     const raw = legacyKey
-      ? readStorageMigrating(window.localStorage, key, legacyKey)
-      : safeReadStorage(window.localStorage, key);
+      ? readStorageMigrating('local', key, legacyKey)
+      : safeReadStorage('local', key);
     const parsed = raw === null ? null : parse(raw);
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (parsed !== null) setValueState(parsed);
@@ -39,7 +38,7 @@ export function usePersistedState<T>(
   const setValue = useCallback(
     (next: T) => {
       setValueState(next);
-      if (typeof window !== 'undefined') safeWriteStorage(window.localStorage, key, serialize(next));
+      safeWriteStorage('local', key, serialize(next));
     },
     [key, serialize],
   );

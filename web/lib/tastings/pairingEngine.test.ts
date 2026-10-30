@@ -5,7 +5,13 @@ describe('matchDishToPairings', () => {
   it('matches a red-meat dish to red wine via the synonym dictionary (nominal case)', () => {
     const matches = matchDishToPairings('Bœuf bourguignon');
     expect(matches.length).toBeGreaterThan(0);
-    expect(matches[0]).toMatchObject({ category: 'wine', subtype: 'rouge' });
+    expect(matches[0]).toMatchObject({ category: 'wine', subtype: 'red' });
+  });
+
+  it.each(['Viande', 'agneau'])('matches "%s" to red wine, the colour stored on bottles (#703)', (query) => {
+    expect(matchDishToPairings(query)).toContainEqual(
+      expect.objectContaining({ category: 'wine', subtype: 'red' }),
+    );
   });
 
   it('is accent- and case-insensitive', () => {

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { ZodError } from 'zod';
 import { InventoryService } from '../src/services/inventory.service';
 
 // Mock Prisma pour tests unitaires sans DB
@@ -180,6 +181,35 @@ describe('InventoryService', () => {
     expect(updateData.data.producer).toBe('New Producer');
   });
 
+  // #706: a patch moving one end of the window is checked against the other.
+  it('updateItem - refuses a patch whose window would end before the stored start', async () => {
+    const existingItem = { id: 'b1', userId: 'u1', lockedFields: [], deletedAt: null, peakMaturityFrom: 2035, peakMaturityTo: 2040 };
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
+
+    await expect(service.updateItem('u1', 'b1', { peakMaturityTo: 2028 })).rejects.toThrow(ZodError);
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+
+  it('updateItem - accepts moving one end while the window stays in order', async () => {
+    const existingItem = { id: 'b1', userId: 'u1', lockedFields: [], deletedAt: null, peakMaturityFrom: 2035, peakMaturityTo: 2040 };
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
+    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, peakMaturityTo: 2036 } as never);
+
+    await service.updateItem('u1', 'b1', { peakMaturityTo: 2036 });
+    expect(prisma.inventoryItem.update).toHaveBeenCalled();
+  });
+
+  it('bulkUpdate - refuses moving one end of the window before an item\'s stored start', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'b1', lockedFields: [], deletedAt: null, peakMaturityFrom: 2025, peakMaturityTo: 2040 },
+      { id: 'b2', lockedFields: [], deletedAt: null, peakMaturityFrom: 2035, peakMaturityTo: 2040 },
+    ] as never);
+
+    await expect(service.bulkUpdate('u1', ['b1', 'b2'], { peakMaturityTo: 2030 })).rejects.toThrow(ZodError);
+    // Nothing is written, not even for b1, whose window would have stayed in order.
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
   // ─── FEAT-16/23: offline sync optimistic concurrency ──────────────────────
 
   it('updateItem - returns a conflict when expectedUpdatedAt no longer matches the server value', async () => {
@@ -227,6 +257,29 @@ describe('InventoryService', () => {
     // `expectedUpdatedAt` must never leak into the Prisma write payload.
     expect(updateData.data.expectedUpdatedAt).toBeUndefined();
     expect(updateData.data.isOpened).toBe(true);
+  });
+
+  // #572: the edit form now sends only the changed fields. The other fields
+  // must keep their scan/import source and stay unlocked.
+  it('updateItem - a one-field manual edit locks that field only and keeps the other sources', async () => {
+    const existingItem = {
+      id: 'b1',
+      userId: 'u1',
+      lockedFields: ['notes'],
+      fieldSources: { name: 'ocr', vintage: 'ocr', region: 'import_csv' },
+      deletedAt: null,
+      purchasePrice: 20,
+    };
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
+    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, purchasePrice: 25 } as never);
+
+    await service.updateItem('u1', 'b1', { purchasePrice: 25 });
+
+    const updateData = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+    expect(updateData.data.purchasePrice).toBe(25);
+    expect(updateData.data.lockedFields).toEqual(['notes', 'purchasePrice']);
+    // Provenance untouched: the column is not even rewritten.
+    expect(updateData.data.fieldSources).toBeUndefined();
   });
 
   // ─── ISSUE_034: bulk actions must not be neutralised by lockedFields ──────

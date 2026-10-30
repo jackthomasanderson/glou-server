@@ -1,13 +1,13 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
-import rateLimit from 'express-rate-limit';
 import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema, trustDeviceSchema } from '../schemas/auth.schema';
 import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.schema';
 import { PASSWORD_MIN_LENGTH } from '../../../shared/auth';
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
+import { authRateLimit } from '../lib/rate-limit';
 import { auditLog } from '../services/audit.service';
 import { AuthPayload } from '../services/auth.service';
 import { passwordResetService } from '../services/password-reset.service';
@@ -15,9 +15,10 @@ import { systemConfigService } from '../services/system-config.service';
 import { prisma } from '../lib/prisma';
 import { isCookieSecure } from '../lib/cookie-secure';
 
-const passwordResetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
+const passwordResetLimiter = authRateLimit(5);
 // FEAT-30: a PIN is only 4-6 digits — throttle unlock attempts hard to make brute-force impractical.
-const unlockLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
+// Only wrong codes count: a family tablet is unlocked many times a day (#582).
+const unlockLimiter = authRateLimit(10, { skipSuccessfulRequests: true });
 
 const router = Router();
 
@@ -118,7 +119,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('[auth] POST /register error:', error);
     if (error instanceof ZodError) {
-      const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
       return;
     }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: { user: { findUnique: vi.fn() } },
@@ -14,11 +14,14 @@ const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 
 import { prisma } from '../../src/lib/prisma';
+import { emailService } from '../../src/services/email.service';
 import { notificationService } from '../../src/services/notification.service';
+import { hourInTimeZone } from '../../src/lib/quiet-hours';
 
 const baseUser = {
   id: 'u1',
   email: 'a@b.com',
+  isActive: true,
   notifEmail: false,
   notifInApp: false,
   notifWebhook: true,
@@ -49,6 +52,80 @@ describe('notificationService.send — webhook SSRF guard (ISSUE_048)', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toContain('1.2.3.4');
+  });
+});
+
+describe('notificationService.send — inactive accounts (#591)', () => {
+  const allChannels = { ...baseUser, notifEmail: true, notifWebhook: true };
+
+  it('sends nothing to a deactivated or anonymised account, on any channel', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...allChannels, isActive: false } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'temperature', subject: 's', htmlBody: 'b' });
+
+    expect(emailService.send).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('has no exception: a security message that bypasses quiet hours is not sent either', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...allChannels, isActive: false } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b', bypassQuietHours: true });
+
+    expect(emailService.send).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('still reaches an active account on every enabled channel', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...allChannels } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'temperature', subject: 's', htmlBody: 'b' });
+
+    expect(emailService.send).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('notificationService.send — quiet hours (#575)', () => {
+  // A fixed instant; the range is built around its hour in the process's
+  // time zone, the one the API reads quiet hours in.
+  const now = new Date('2027-01-01T09:15:00Z');
+  const hour = hourInTimeZone(now);
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('drops a message that falls inside the range', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      ...baseUser, notifQuietStart: hour, notifQuietEnd: (hour + 1) % 24,
+    } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'peak', subject: 's', htmlBody: 'b' });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sends a message outside the range', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      ...baseUser, notifQuietStart: (hour + 1) % 24, notifQuietEnd: (hour + 2) % 24,
+    } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'peak', subject: 's', htmlBody: 'b' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('a security message bypasses the range', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      ...baseUser, notifQuietStart: hour, notifQuietEnd: (hour + 1) % 24,
+    } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b', bypassQuietHours: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

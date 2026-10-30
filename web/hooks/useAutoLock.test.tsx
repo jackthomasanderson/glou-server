@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, renderHook, screen } from '@testing-library/react';
 import { AutoLockProvider, useAutoLock } from './useAutoLock';
 import { LOCK_STORAGE_KEY, clearQuickLock } from '@/lib/quick-lock-storage';
+import { ApiError } from '@/lib/api';
+import { NetworkError } from '@/lib/network-error';
 
+const mutateAsync = vi.fn();
 vi.mock('./useAuth', () => ({
   useMe: () => ({ data: { id: 'u1', autoLockDelayMin: null } }),
-  useUnlock: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUnlock: () => ({ mutateAsync, isPending: false }),
 }));
 
 function Probe() {
@@ -42,5 +45,50 @@ describe('quick lock shared across tabs (#487)', () => {
     window.localStorage.setItem(LOCK_STORAGE_KEY, 'true');
     clearQuickLock();
     expect(window.localStorage.getItem(LOCK_STORAGE_KEY)).toBeNull();
+  });
+});
+
+// #582: the server answers a wrong code with 401 INVALID_CREDENTIALS, which the
+// mutation throws: `unlock` never resolved `false`, so no message was shown.
+describe('unlock outcome (#582)', () => {
+  function renderLocked() {
+    window.localStorage.setItem(LOCK_STORAGE_KEY, 'true');
+    return renderHook(() => useAutoLock(), { wrapper: AutoLockProvider }).result;
+  }
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    mutateAsync.mockReset();
+  });
+
+  it('resolves false for a wrong password or PIN, and stays locked', async () => {
+    mutateAsync.mockRejectedValue(new ApiError('INVALID_CREDENTIALS', 401));
+    const result = renderLocked();
+    await act(async () => {
+      await expect(result.current.unlock(undefined, '0000')).resolves.toBe(false);
+    });
+    expect(result.current.isLocked).toBe(true);
+  });
+
+  it('rejects on too many attempts, so the lock screen can say to wait', async () => {
+    mutateAsync.mockRejectedValue(new ApiError('TOO_MANY_REQUESTS', 429, 900));
+    const result = renderLocked();
+    await expect(result.current.unlock('pw')).rejects.toMatchObject({ message: 'TOO_MANY_REQUESTS', retryAfter: 900 });
+    expect(result.current.isLocked).toBe(true);
+  });
+
+  it('rejects when the server cannot be reached', async () => {
+    mutateAsync.mockRejectedValue(new NetworkError(new TypeError('Failed to fetch')));
+    const result = renderLocked();
+    await expect(result.current.unlock('pw')).rejects.toBeInstanceOf(NetworkError);
+  });
+
+  it('unlocks on the right code', async () => {
+    mutateAsync.mockResolvedValue({ ok: true });
+    const result = renderLocked();
+    await act(async () => {
+      await expect(result.current.unlock('pw')).resolves.toBe(true);
+    });
+    expect(result.current.isLocked).toBe(false);
   });
 });

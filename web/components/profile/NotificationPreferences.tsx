@@ -1,17 +1,30 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { Button, Input, Switch, Chip, Skeleton, Select, SelectItem } from '@heroui/react';
 import { Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, NotificationPrefs } from '@/lib/config/client';
+import {
+  DAILY_ALERTS_HOUR, NOTIFICATION_CATEGORIES, isNotificationCategoryEnabled, type NotificationCategory,
+} from '@shared/notifications';
 
-// #338: only categories with a real emitter are offered here — consumption,
-// shares, permissions and new_users have none, so ticking them did nothing.
-const ALL_CATEGORIES = ['peak', 'temperature', 'security', 'wishlist', 'backup'] as const;
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+/**
+ * #583: the stored list says which categories are received, empty meaning
+ * all of them. Toggling starts from what is actually received — toggling
+ * against the stored `[]` turned the unticked category into the only one on.
+ * Every category ticked again is saved as `[]`.
+ */
+function toggledCategories(stored: string[], cat: NotificationCategory): string[] {
+  const enabled = NOTIFICATION_CATEGORIES.filter((c) => isNotificationCategoryEnabled(stored, c));
+  const next = enabled.includes(cat) ? enabled.filter((c) => c !== cat) : [...enabled, cat];
+  return next.length === NOTIFICATION_CATEGORIES.length ? [] : next;
+}
 
 export function NotificationPreferences() {
   const { t } = useTranslation();
+  const categoriesHintId = useId();
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,11 +69,9 @@ export function NotificationPreferences() {
     }
   };
 
-  const toggleCategory = (cat: string) => {
+  const toggleCategory = (cat: NotificationCategory) => {
     if (!prefs) return;
-    const current = prefs.notifCategories;
-    const next = current.includes(cat) ? current.filter(c => c !== cat) : [...current, cat];
-    save({ notifCategories: next });
+    save({ notifCategories: toggledCategories(prefs.notifCategories, cat) });
   };
 
   if (loading) {
@@ -73,6 +84,7 @@ export function NotificationPreferences() {
   if (!prefs) return null;
 
   const { policy } = prefs;
+  const enabledCount = NOTIFICATION_CATEGORIES.filter((c) => isNotificationCategoryEnabled(prefs.notifCategories, c)).length;
 
   return (
     <div className="bg-content1 border border-divider rounded-2xl p-6">
@@ -156,29 +168,40 @@ export function NotificationPreferences() {
       <div className="flex flex-col gap-3 mb-5 pt-4 border-t border-divider">
         <p className="text-xs font-semibold text-foreground-400 uppercase tracking-wide">{t('notifications.categories.title')}</p>
         <div className="flex flex-wrap gap-2">
-          {ALL_CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              aria-pressed={prefs.notifCategories.length === 0 || prefs.notifCategories.includes(cat)}
-              onClick={() => toggleCategory(cat)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                prefs.notifCategories.length === 0 || prefs.notifCategories.includes(cat)
-                  ? 'bg-primary border-primary text-white'
-                  : 'bg-transparent border-divider text-foreground-500 hover:border-primary hover:text-primary'
-              }`}
-            >
-              {t(`notifications.categories.${cat}`)}
-            </button>
-          ))}
+          {NOTIFICATION_CATEGORIES.map((cat) => {
+            const enabled = isNotificationCategoryEnabled(prefs.notifCategories, cat);
+            // An empty list means "all": the last category on cannot be turned
+            // off here — the channel switches above stop everything.
+            const isLastOn = enabled && enabledCount === 1;
+            return (
+              <button
+                key={cat}
+                type="button"
+                aria-pressed={enabled}
+                disabled={isLastOn}
+                aria-describedby={isLastOn ? categoriesHintId : undefined}
+                onClick={() => toggleCategory(cat)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  enabled
+                    ? 'bg-primary border-primary text-white'
+                    : 'bg-transparent border-divider text-foreground-500 hover:border-primary hover:text-primary'
+                }`}
+              >
+                {t(`notifications.categories.${cat}`)}
+              </button>
+            );
+          })}
         </div>
-        <p className="text-xs text-foreground-400">{t('notifications.categories.all')}</p>
+        <p id={categoriesHintId} className="text-xs text-foreground-400">
+          {t(enabledCount === 1 ? 'notifications.categories.lastOne' : 'notifications.categories.hint')}
+        </p>
       </div>
 
       {/* Quiet hours */}
       <div className="flex flex-col gap-3 mb-5 pt-4 border-t border-divider">
         <p className="text-xs font-semibold text-foreground-400 uppercase tracking-wide">{t('notifications.quietHours.title')}</p>
         <p className="text-xs text-foreground-500">{t('notifications.quietHours.description')}</p>
+        <p className="text-xs text-foreground-400">{t('notifications.quietHours.dropped', { hour: DAILY_ALERTS_HOUR })}</p>
         <div className="flex items-center gap-3 flex-wrap">
           <Select
             variant="flat"

@@ -5,6 +5,7 @@ import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
 import { InventoryListRow } from './InventoryListRow';
 import { PaginationBar } from '@/components/ui/PaginationBar';
+import { mergePageSelection } from '@/lib/inventory/pageSelection';
 
 interface ColDef {
   key: string;
@@ -24,8 +25,8 @@ export interface InventoryListViewProps {
   t: (key: string, options?: Record<string, unknown>) => string;
   bulkMode: boolean;
   selectedIds: Set<string>;
-  anchorId: string | null;
-  onSelectToggle: (item: InventoryItem, event?: React.MouseEvent) => void;
+  /** Replaces the bulk selection (the same one the card view edits). */
+  onSelectedIdsChange: (ids: Set<string>) => void;
   pendingSyncItemIds: Set<string>;
 
   page: number;
@@ -45,8 +46,7 @@ export function InventoryListView({
   t,
   bulkMode,
   selectedIds,
-  anchorId,
-  onSelectToggle,
+  onSelectedIdsChange,
   pendingSyncItemIds,
   page,
   totalPages,
@@ -54,7 +54,6 @@ export function InventoryListView({
   setCurrentPage,
 }: InventoryListViewProps) {
   const tableColumns = useMemo<ColDef[]>(() => [
-    { key: 'check', label: ' ', width: 40, className: bulkMode ? undefined : 'w-0 p-0' },
     { key: 'icon', label: ' ', width: 40 },
     { key: 'name', label: t('inventory.fields.name') },
     { key: 'producer', label: t('inventory.fields.producer'), className: 'hidden sm:table-cell' },
@@ -64,10 +63,16 @@ export function InventoryListView({
     { key: 'peak', label: t('view.columns.peak'), className: 'text-center hidden sm:table-cell' },
     { key: 'status', label: t('view.columns.status'), className: 'hidden sm:table-cell' },
     { key: 'actions', label: t('admin.maturityRefs.columns.actions'), className: 'text-right' },
-  ], [bulkMode, t]);
+  ], [t]);
 
   return (
     <>
+      {/* Selection mode uses the table's own selection, which draws the
+          checkboxes and ticks a row on click. Rows hand-built with their own
+          checkbox stayed as first drawn: the table reuses a row until its
+          bottle, its columns or the selection mode change. No row action while
+          selecting: with one, a click opens the row instead of ticking it as
+          long as nothing is selected. */}
       <Table
         isCompact
         isStriped={false}
@@ -75,8 +80,13 @@ export function InventoryListView({
         radius="none"
         classNames={{ wrapper: 'border border-divider rounded-xl' }}
         aria-label={t('nav.bottles')}
-        onRowAction={(key) => {
-          if (bulkMode) return;
+        selectionMode={bulkMode ? 'multiple' : 'none'}
+        color="primary"
+        selectedKeys={selectedIds}
+        onSelectionChange={(keys) =>
+          onSelectedIdsChange(mergePageSelection(selectedIds, items.map((i) => i.id), keys))
+        }
+        onRowAction={bulkMode ? undefined : (key) => {
           const found = items.find((i) => i.id === String(key));
           if (!found) return;
           onView(found);
@@ -97,11 +107,7 @@ export function InventoryListView({
               cellar: cellars?.find((c: Cellar) => c.id === item.cellarId) ?? undefined,
               onEdit,
               onDelete,
-              onView: bulkMode ? undefined : onView,
               t,
-              isSelected: selectedIds.has(item.id),
-              isAnchor: item.id === anchorId,
-              onSelectToggle: bulkMode ? onSelectToggle : undefined,
               hasPendingSync: pendingSyncItemIds.has(item.id),
             }),
             { key: item.id }

@@ -146,6 +146,17 @@ jobs:
         with:
           node-version: 24
 
+      - name: Install E2E dependencies
+        working-directory: e2e
+        run: npm ci
+
+      # #627: Playwright strips types without checking them, so a type error
+      # in a spec only surfaced when that line ran, or never. Checked before
+      # the ~4-min image build so it fails fast.
+      - name: Typecheck E2E
+        working-directory: e2e
+        run: npm run typecheck
+
       - name: Build the E2E images
         run: docker compose -f docker-compose.e2e.yml build
 
@@ -171,22 +182,31 @@ jobs:
           docker compose -f docker-compose.e2e.yml logs --tail=150
           exit 1
 
-      - name: Install E2E dependencies
-        working-directory: e2e
-        run: npm ci
-
-      - name: Install Playwright browser
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium webkit
-
       # Deterministic user-journey specs only. The gremlins fuzz
       # (monkey.spec.ts) is gated behind E2E_MONKEY and runs in the
       # `nightly-e2e-fuzz` workflow instead — it's slow and non-deterministic.
+      #
+      # Runs inside Playwright's official image, which already carries the
+      # browsers and their system libraries. `playwright install --with-deps`
+      # pulled ~190 apt packages from the Azure Ubuntu mirror, which
+      # intermittently crawled at ~40 kB/s and stretched this step to 30-50 min.
+      # The image tag follows the version npm ci just installed, so a
+      # Playwright bump needs no change here. `--network host` reaches the
+      # stack on localhost:3000/3001.
       - name: Run Playwright user-journey suite
         working-directory: e2e
-        env:
-          CI: 'true'
-        run: npx playwright test
+        timeout-minutes: 20
+        run: |
+          version=$(node -p "require('./node_modules/@playwright/test/package.json').version")
+          docker run --rm --network host --ipc=host -e CI=true \
+            -v "$PWD":/e2e -w /e2e \
+            "mcr.microsoft.com/playwright:v${version}-noble" \
+            npx playwright test
+
+      # #665: the disaster-recovery page's restore command, run as written on
+      # the backup the backup-restore spec downloaded, into an empty database.
+      - name: Restore a downloaded backup with the documented command
+        run: bash e2e/check-documented-restore.sh
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
@@ -212,6 +232,11 @@ jobs:
     # dev/main, not from PR branches (and a forked PR has no GHCR write token).
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    # The emulated linux/arm64 build occasionally hangs (two runs sat ~5h on
+    # "Build and push API", which normally takes ~9 min). Fail fast instead of
+    # waiting for GitHub's 6h default, which also blocks the next push on the
+    # same branch through the concurrency group. Slowest healthy job: ~35 min.
+    timeout-minutes: 90
     permissions:
       contents: read
       packages: write

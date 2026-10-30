@@ -29,7 +29,7 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
 - **Durée** en millisecondes et le détail de ce qui a été purgé (logs / sessions / partages invités).
 
 > [!TIP]
-> La tâche automatique s'exécute chaque jour à 03h00 heure serveur (`node-cron`) et aussi une fois à chaque démarrage du serveur : un redéploiement ou un redémarrage de conteneur ne laisse donc pas de données obsolètes jusqu'à 24h.
+> La tâche automatique s'exécute chaque jour à 03h00 dans le fuseau horaire de l'instance (`TZ`, voir [Configuration](./02-Configuration.md)) et aussi une fois à chaque démarrage du serveur : un redéploiement ou un redémarrage de conteneur ne laisse donc pas de données obsolètes jusqu'à 24h.
 
 > [!CAUTION]
 > Cet onglet ne supprime que des données **déjà expirées ou révoquées** (vieux logs, sessions mortes, invitations mortes). Elle n'a aucun rapport avec l'action "Purger toutes les données" de la zone dangereuse, qui efface toutes les données métier (caves, bouteilles, dégustations) après saisie d'un mot de confirmation.

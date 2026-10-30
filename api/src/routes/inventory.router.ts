@@ -121,7 +121,7 @@ router.post('/bulk', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('[inventory] POST /bulk error:', error);
     if (error instanceof ZodError) {
-      const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, action: 'UPDATE', status: 'validation_error', ip, details: { issues, bulk: true } });
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
       return;
@@ -170,7 +170,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('[inventory] POST / error:', error);
     if (error instanceof ZodError) {
-      const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, action: 'CREATE', status: 'validation_error', ip, details: { issues } });
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
       return;
@@ -194,8 +194,8 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     if ('conflict' in result) {
-      // FEAT-16/23: the offline sync queue sent `expectedUpdatedAt` and it no
-      // longer matches — someone else modified this item in the meantime.
+      // FEAT-16/23, #572: the offline sync queue or the edit form sent
+      // `expectedUpdatedAt` and it no longer matches — someone else modified this item in the meantime.
       // Return the current server state so the client can offer conflict
       // resolution instead of silently overwriting it.
       void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: 'CONFLICT' } });
@@ -212,7 +212,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('[inventory] PATCH /:id error:', error);
     if (error instanceof ZodError) {
-      const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, action: 'UPDATE', status: 'validation_error', ip, bottleId: id, details: { issues } });
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
       return;
@@ -298,7 +298,7 @@ router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> 
   } catch (error) {
     console.error('[inventory] POST /:id/rollback error:', error);
     if (error instanceof ZodError) {
-      const issues = error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, bottleId: id, details: { issues } });
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
       return;
