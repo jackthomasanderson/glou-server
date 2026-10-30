@@ -42,6 +42,11 @@ RUN apk add --no-cache openssl postgresql-client && \
 
 WORKDIR /app
 
+# #575: instance time zone, for members' quiet hours and the cron hours.
+# Compose passes TZ from .env over it. Node reads zones from its bundled ICU
+# data, so no tzdata package is needed.
+ENV TZ=Europe/Paris
+
 COPY --from=builder /build/api/package*.json ./
 # ISSUE_090: the CMD below invokes `npx prisma migrate deploy`, which needs
 # the `prisma` CLI package itself — not just the `@prisma/client` runtime

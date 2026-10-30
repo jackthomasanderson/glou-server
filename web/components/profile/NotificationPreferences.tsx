@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
 import { Button, Input, Switch, Chip, Skeleton, Select, SelectItem } from '@heroui/react';
 import { Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,7 @@ function toggledCategories(stored: string[], cat: NotificationCategory): string[
 
 export function NotificationPreferences() {
   const { t } = useTranslation();
+  const categoriesHintId = useId();
   const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -178,8 +179,9 @@ export function NotificationPreferences() {
                 type="button"
                 aria-pressed={enabled}
                 disabled={isLastOn}
+                aria-describedby={isLastOn ? categoriesHintId : undefined}
                 onClick={() => toggleCategory(cat)}
-                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors disabled:cursor-not-allowed ${
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   enabled
                     ? 'bg-primary border-primary text-white'
                     : 'bg-transparent border-divider text-foreground-500 hover:border-primary hover:text-primary'
@@ -190,7 +192,7 @@ export function NotificationPreferences() {
             );
           })}
         </div>
-        <p className="text-xs text-foreground-400">
+        <p id={categoriesHintId} className="text-xs text-foreground-400">
           {t(enabledCount === 1 ? 'notifications.categories.lastOne' : 'notifications.categories.hint')}
         </p>
       </div>

@@ -47,6 +47,15 @@ describe('statsService.getSidebarCounts (#212)', () => {
     expect((await statsService.getSidebarCounts('u1')).countSessionActive).toBe(true);
   });
 
+  it('counts reminders due by the end of today in local time, like the cellar cards', async () => {
+    await statsService.getSidebarCounts('u1');
+    const reminderCall = db.inventoryItem.count.mock.calls.find(([arg]) => arg.where.reminderDate);
+    const endOfToday = reminderCall?.[0].where.reminderDate.lte as Date;
+    const expected = new Date();
+    expected.setHours(23, 59, 59, 999);
+    expect(endOfToday.getTime()).toBe(expected.getTime());
+  });
+
   it('counts only wishlist items already at or under the price ceiling', async () => {
     db.wishlistItem.findMany.mockResolvedValue([
       { lastSeenPrice: 10, maxPrice: 12 },

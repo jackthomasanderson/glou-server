@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { hourInTimeZone, isWithinQuietHours } from '../../src/lib/quiet-hours';
-import { DAILY_ALERTS_CRON, DAILY_ALERTS_HOUR, isDailyAlertsSlotPassed } from '../../src/lib/alerts-schedule';
+import {
+  ALERTS_CATCH_UP_END_HOUR, DAILY_ALERTS_CRON, DAILY_ALERTS_HOUR, isAlertsCatchUpWindow,
+} from '../../src/lib/alerts-schedule';
 
 // #575: the hours a member picks are wall-clock hours of the instance's time
 // zone, not the container's UTC clock.
@@ -70,10 +72,17 @@ describe('daily alert run (#575)', () => {
     expect(DAILY_ALERTS_HOUR).toBeLessThan(22);
   });
 
-  it('a startup before the run hour leaves the alerts to that run', () => {
+  it('a startup at night leaves the alerts to the next run', () => {
     // 04:00 in Paris: a container restarted at night by an image update.
-    expect(isDailyAlertsSlotPassed(new Date('2027-01-01T03:00:00Z'), 'Europe/Paris')).toBe(false);
+    expect(isAlertsCatchUpWindow(new Date('2027-01-01T03:00:00Z'), 'Europe/Paris')).toBe(false);
+    // 22:30 in Paris: inside a 22 → 7 quiet range.
+    expect(isAlertsCatchUpWindow(new Date('2027-01-01T21:30:00Z'), 'Europe/Paris')).toBe(false);
+  });
+
+  it('a startup in the daytime catches up a missed run', () => {
     // 14:00 in Paris: today's run was missed (container down), catch up now.
-    expect(isDailyAlertsSlotPassed(new Date('2027-01-01T13:00:00Z'), 'Europe/Paris')).toBe(true);
+    expect(isAlertsCatchUpWindow(new Date('2027-01-01T13:00:00Z'), 'Europe/Paris')).toBe(true);
+    // The window ends before evening quiet hours start.
+    expect(ALERTS_CATCH_UP_END_HOUR).toBeLessThanOrEqual(22);
   });
 });

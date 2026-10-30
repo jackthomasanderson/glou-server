@@ -1502,7 +1502,7 @@
     },
     "categories": {
       "title": "Catégories d'alertes",
-      "hint": "Touchez une catégorie pour ne plus la recevoir.",
+      "hint": "Touchez une catégorie pour l'activer ou la désactiver.",
       "lastOne": "Au moins une catégorie reste active. Pour ne plus rien recevoir, désactivez les canaux ci-dessus.",
       "peak": "Apogée atteinte",
       "temperature": "Variations température/hygrométrie",

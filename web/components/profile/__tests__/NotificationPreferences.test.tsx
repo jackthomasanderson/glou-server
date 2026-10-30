@@ -104,10 +104,10 @@ describe('NotificationPreferences categories (#583)', () => {
     await renderWith(['peak']);
 
     expect(chip('peak')).toBeDisabled();
+    expect(chip('peak')).toHaveAccessibleDescription('notifications.categories.lastOne');
     fireEvent.click(chip('peak'));
 
     expect(updateNotifPrefs).not.toHaveBeenCalled();
-    expect(screen.getByText('notifications.categories.lastOne')).toBeInTheDocument();
   });
 });
 

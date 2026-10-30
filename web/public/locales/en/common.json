@@ -1500,7 +1500,7 @@
     },
     "categories": {
       "title": "Alert categories",
-      "hint": "Tap a category to stop receiving it.",
+      "hint": "Tap a category to turn it on or off.",
       "lastOne": "At least one category stays on. To receive nothing at all, turn off the channels above.",
       "peak": "Peak maturity reached",
       "temperature": "Temperature/humidity variations",

@@ -23,7 +23,7 @@
 | `APP_URL` | `http://localhost:3000` | Adresse publique de l'app web. `https://` marque les cookies de session `Secure` et active HSTS ; `http://` ne fait ni l'un ni l'autre. C'est aussi la valeur de repli des liens générés par l'app (voir [Réseau & URL publique](./16-Configuration-Reseau-URL-Publique.md)). |
 | `CORS_ORIGIN` | `http://localhost:3000` | Origine(s) acceptée(s) par l'API. Généralement identique à `APP_URL`. |
 | `CSRF_TRUSTED_ORIGINS` | vide | Adresses supplémentaires du navigateur autorisées à envoyer des requêtes, séparées par des virgules (par exemple un second nom d'hôte). |
-| `TZ` | `Europe/Paris` | Fuseau horaire de l'instance (nom IANA, ex. `America/Montreal`). La plage silencieuse des membres s'y lit, ainsi que les tâches planifiées : alertes (apogée, cave à cigares) à 10 h, maintenance à 3 h. |
+| `TZ` | `Europe/Paris` | Fuseau horaire de l'instance (nom IANA, ex. `America/Montreal`). La plage silencieuse des membres s'y lit, ainsi que les tâches planifiées : alertes (apogée, cave à cigares) à 10 h, maintenance à 3 h. Également défini dans l'image de l'API, donc une installation dont le `docker-compose.yml` est antérieur à cette variable l'a aussi. Les sauvegardes planifiées gardent leur propre heure, en UTC (*Heure d'exécution (UTC)* dans les réglages d'administration). |
 | `COOKIE_SECURE` | vide | `true`/`false` force le drapeau `Secure` des cookies, par exemple quand le TLS est terminé par un proxy alors que `APP_URL` est en `http://`. |
 | `FORCE_HSTS` | vide | `true`/`false` force l'en-tête `Strict-Transport-Security` indépendamment de `APP_URL`. |
 | `NEXT_PUBLIC_API_URL` | `http://api:3001` | Adresse de l'API vue depuis le conteneur web, dans le réseau compose. À laisser telle quelle sous Docker. |

@@ -11,11 +11,20 @@ export { DAILY_ALERTS_HOUR };
 export const DAILY_ALERTS_CRON = `0 ${DAILY_ALERTS_HOUR} * * *`;
 
 /**
- * Whether today's alert run has already been due. Before that hour, a
- * startup leaves the peak recompute to the scheduled run: a container
- * restarted at night (an image update) would otherwise send the 1 January
- * peak alerts in everyone's quiet hours, where they are lost.
+ * End (exclusive, local hour) of the daytime window in which a startup may
+ * catch up a missed alert run. Evening quiet hours often start at 22:00 or
+ * earlier.
  */
-export function isDailyAlertsSlotPassed(now: Date, timeZone?: string): boolean {
-  return hourInTimeZone(now, timeZone) >= DAILY_ALERTS_HOUR;
+export const ALERTS_CATCH_UP_END_HOUR = 20;
+
+/**
+ * Whether a startup may run the peak recompute now: only in the daytime,
+ * between today's alert run and the evening. Otherwise the next scheduled run
+ * does it — a container restarted at night (an image update) would send the
+ * 1 January peak alerts in everyone's quiet hours, where they are lost for
+ * good (the new status is saved before sending).
+ */
+export function isAlertsCatchUpWindow(now: Date, timeZone?: string): boolean {
+  const hour = hourInTimeZone(now, timeZone);
+  return hour >= DAILY_ALERTS_HOUR && hour < ALERTS_CATCH_UP_END_HOUR;
 }
