@@ -38,7 +38,7 @@ Schedule database backups from Admin, restore one when needed, export your own d
 2. Confirm. A backup of the current data is taken first and added to the history: to undo the restore, restore that backup. If this safety backup fails (full disk…), nothing is restored and your data is untouched. The restore is logged in the audit trail regardless of whether it succeeds or fails.
 3. The restore is all-or-nothing: if the backup file is damaged or incomplete, it fails and your current data is untouched. After restoring a backup made by an **older version** of Glou, restart the API (`docker compose restart api`) so it applies any database update the backup predates.
 4. You can also **Download** a backup file directly from the history list instead of restoring it in place.
-5. After a restore, the history still lists every backup file of `./backups`, including those newer than the restored one. A backup file copied by hand into `./backups` (for example to recover on a new machine) appears in the history after an API restart (`docker compose restart api`); it can then be restored or downloaded like any other.
+5. After a restore, the history still lists every backup file of `./backups`, including those newer than the restored one. A backup file copied by hand into `./backups` (for example to recover on a new machine) appears in the history after an API restart (`docker compose restart api`); it can then be restored or downloaded like any other. Keep its original name (`glou-backup-<date>.sql.gz`): the date shown comes from it, while a renamed file is dated by its last modification. A damaged or incomplete file is not listed (the API logs say why).
 
 ### Export your data (full or filtered by category)
 1. Go to **Profile → Data & Privacy (GDPR section)**.

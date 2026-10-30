@@ -346,9 +346,12 @@ export function SystemConfigSection() {
       showFeedback('success', t('adminConfig.backup.restore.success'));
       closeRestore();
     } catch (err) {
-      showFeedback('error', err instanceof Error && err.message === 'BACKUP_BEFORE_RESTORE_FAILED'
-        ? t('adminConfig.backup.restore.errors.BACKUP_BEFORE_RESTORE_FAILED')
-        : passwordErrorMessage(err, 'adminConfig.backup.restore.error'));
+      const errName = (err as { name?: string } | null)?.name;
+      showFeedback('error', errName === 'TimeoutError' || errName === 'AbortError'
+        ? t('adminConfig.backup.restore.errors.TIMEOUT')
+        : err instanceof Error && err.message === 'BACKUP_BEFORE_RESTORE_FAILED'
+          ? t('adminConfig.backup.restore.errors.BACKUP_BEFORE_RESTORE_FAILED')
+          : passwordErrorMessage(err, 'adminConfig.backup.restore.error'));
     } finally {
       setRestoring(false);
       // The safety backup taken first (or its failure) is now in the history (#666).

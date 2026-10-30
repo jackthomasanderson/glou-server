@@ -1,5 +1,13 @@
 import { client, handleResponse } from '@/lib/api';
 
+/**
+ * A restore takes a safety backup, then replays a whole dump (#666): far more
+ * than the usual 15 s. The browser still gives up just before the /api proxy
+ * (proxyTimeout in next.config.mjs), so the dialog can say the restore goes on
+ * on the server instead of showing the proxy's error.
+ */
+export const RESTORE_TIMEOUT_MS = 75_000;
+
 export interface SystemConfigPublic {
   smtpEnabled: boolean;
   smtpHost: string | null;
@@ -212,7 +220,7 @@ export const configClient = {
 
   // #489: restore and download re-ask the admin's password.
   async restoreBackup(id: string, password: string): Promise<void> {
-    await client.post(`/admin/backups/${id}/restore`, { confirm: true, password });
+    await client.post(`/admin/backups/${id}/restore`, { confirm: true, password }, { timeoutMs: RESTORE_TIMEOUT_MS });
   },
 
   /** POST (password in the body), returned as a file to save. */

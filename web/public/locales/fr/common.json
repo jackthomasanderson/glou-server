@@ -1698,7 +1698,8 @@
         "success": "Restauration effectuée avec succès.",
         "error": "La restauration a échoué.",
         "errors": {
-          "BACKUP_BEFORE_RESTORE_FAILED": "La sauvegarde des données actuelles prise avant la restauration a échoué : rien n'a été restauré. Consultez l'historique des sauvegardes."
+          "BACKUP_BEFORE_RESTORE_FAILED": "La sauvegarde des données actuelles prise avant la restauration a échoué : rien n'a été restauré. Consultez l'historique des sauvegardes.",
+          "TIMEOUT": "La restauration prend plus de temps que prévu et se poursuit sur le serveur. Patientez quelques minutes, puis rechargez la page et consultez l'historique des sauvegardes."
         }
       }
     },

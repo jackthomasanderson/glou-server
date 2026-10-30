@@ -55,7 +55,7 @@ beforeEach(() => {
   findMany.mockReset().mockResolvedValue([]);
   createMany.mockReset().mockResolvedValue({ count: 0 });
   auditLog.mockClear();
-  safetyBackup = vi.spyOn(backupService, 'runBackup').mockResolvedValue({ id: 'safety-1', success: true } as never);
+  safetyBackup = vi.spyOn(backupService, 'runBackupUnlocked').mockResolvedValue({ id: 'safety-1', success: true } as never);
   sync = vi.spyOn(backupService, 'syncHistoryWithFiles').mockResolvedValue(0);
 });
 
@@ -131,7 +131,7 @@ describe('backupService.restoreBackup — safety copy and history (#666)', () =>
     psql.emit('close', 0);
 
     await expect(done).resolves.toEqual({ safetyBackupRunId: 'safety-1' });
-    expect(safetyBackup).toHaveBeenCalledWith('manual', 'u1', { applyRetention: false });
+    expect(safetyBackup).toHaveBeenCalledWith('manual', 'u1', { beforeRestore: true });
     expect(safetyBackup.mock.invocationCallOrder[0]).toBeLessThan(spawnMock.mock.invocationCallOrder[0]);
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
       action: 'BACKUP_RESTORE',
@@ -196,6 +196,22 @@ describe('backupService.restoreBackup — safety copy and history (#666)', () =>
 
     await expect(done).rejects.toThrow(/PSQL_RESTORE_FAILED/);
     expect(createMany).not.toHaveBeenCalled();
+  });
+
+  it('makes another backup wait until the restore is over', async () => {
+    writeDump('CREATE TABLE t (id int);\n');
+    const restoring = backupService.restoreBackup(file, 'u1', '127.0.0.1');
+    await new Promise((r) => setTimeout(r, 50));
+    const nightly = backupService.runBackup('scheduled');
+    await new Promise((r) => setTimeout(r, 50));
+    // Only the safety copy so far: psql is still running.
+    expect(safetyBackup).toHaveBeenCalledTimes(1);
+
+    psql.emit('close', 0);
+    await restoring;
+    await nightly;
+    expect(safetyBackup).toHaveBeenCalledTimes(2);
+    expect(safetyBackup).toHaveBeenLastCalledWith('scheduled', undefined, {});
   });
 
   it('checks the file exists before taking any safety copy', async () => {

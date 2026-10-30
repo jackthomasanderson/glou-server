@@ -53,14 +53,16 @@ const OLD = run('old', '2026-10-27T03:00:00.000Z');
 const SAFETY = { ...run('safety', '2026-10-30T10:00:00.000Z'), trigger: 'manual' };
 
 /** Answers the history route, then the restore route with `restore`; every other admin call with a 500 (ignored by the page). */
-function stubApi(restore: { status: number; body: unknown }) {
+function stubApi(restore: { status: number; body: unknown } | 'timeout') {
   let restored = false;
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     let answer: { status: number; body: unknown } = { status: 500, body: { error: 'INTERNAL_SERVER_ERROR' } };
     if (url.endsWith('/api/admin/backups/runs')) {
-      answer = { status: 200, body: { data: restored && restore.status === 200 ? [SAFETY, OLD] : [OLD] } };
+      answer = { status: 200, body: { data: restored && restore !== 'timeout' && restore.status === 200 ? [SAFETY, OLD] : [OLD] } };
     } else if (url.endsWith('/api/admin/backups/old/restore') && init?.method === 'POST') {
+      // What fetch rejects with once the request's timeout signal fires.
+      if (restore === 'timeout') throw new DOMException('The operation timed out.', 'TimeoutError');
       restored = true;
       answer = restore;
     }
@@ -100,6 +102,16 @@ describe('SystemConfigSection — restore takes a safety backup first (#666)', (
 
     const message = await screen.findByText('adminConfig.backup.restore.errors.BACKUP_BEFORE_RESTORE_FAILED');
     expect(message.closest('[role="alert"]')).not.toBeNull();
+  });
+
+  it('says the restore is still running on the server when the browser stops waiting', async () => {
+    stubApi('timeout');
+    await openRestoreDialog();
+    confirmRestore();
+
+    const message = await screen.findByText('adminConfig.backup.restore.errors.TIMEOUT');
+    expect(message.closest('[role="alert"]')).not.toBeNull();
+    expect(screen.queryByText(/timed out/)).toBeNull();
   });
 
   it('shows the safety backup in the history once the restore is done', async () => {

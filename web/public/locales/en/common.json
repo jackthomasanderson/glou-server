@@ -1696,7 +1696,8 @@
         "success": "Restore completed successfully.",
         "error": "Restore failed.",
         "errors": {
-          "BACKUP_BEFORE_RESTORE_FAILED": "The backup of the current data taken before the restore failed, so nothing was restored. Check the backup history."
+          "BACKUP_BEFORE_RESTORE_FAILED": "The backup of the current data taken before the restore failed, so nothing was restored. Check the backup history.",
+          "TIMEOUT": "The restore is taking longer than expected and is still running on the server. Wait a few minutes, then reload the page and check the backup history."
         }
       }
     },
