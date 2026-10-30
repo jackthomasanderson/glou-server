@@ -23,23 +23,20 @@ async function getBottle(api: APIRequestContext, id: string) {
   return (await (await api.get(`/api/inventory/${id}`)).json()).data as Record<string, unknown>;
 }
 
-/** Opens the bottle's detail window from the global search. */
-async function openDetail(page: Page, name: string) {
-  await page.goto('/cellars');
-  const search = page.getByRole('combobox').filter({ visible: true }).first();
-  await search.fill(name);
-  await expect(page.getByRole('option', { name: new RegExp(name) }).first()).toBeVisible();
-  await search.press('ArrowDown');
-  await search.press('Enter');
+/**
+ * Opens the bottle's detail window, as a QR code or the global search does.
+ * Straight to the page: the whole e2e run shares the API's request budget.
+ */
+async function openDetail(page: Page, id: string, name: string) {
+  await page.goto(`/bottles?scan=${encodeURIComponent(id)}`);
   await expect(page.locator('#inventory-detail-title')).toHaveText(name);
   return page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });
 }
 
-/** Opens the bottle's edit form, from its detail window unless one is given. */
-async function openEditForm(page: Page, name: string, detail?: Locator) {
-  const from = detail ?? await openDetail(page, name);
+/** Opens the bottle's edit form, from its detail window. */
+async function openEditForm(page: Page, detail: Locator, name: string) {
   // The detail window's own button: the cards behind have "Modifier" ones too.
-  await from.getByRole('button', { name: 'Modifier', exact: true }).click();
+  await detail.getByRole('button', { name: 'Modifier', exact: true }).click();
   // The form window: the detail one may still be closing.
   const dialog = page.getByRole('dialog').filter({ has: page.getByTestId('inventory-form-submit') });
   await expect(dialog.getByTestId('inventory-name-input')).toHaveValue(name);
@@ -59,7 +56,7 @@ test('a bottle name can be corrected when editing, without suggestions (#643)', 
   const { id } = await createBottle(api, name);
 
   try {
-    const dialog = await openEditForm(page, name);
+    const dialog = await openEditForm(page, await openDetail(page, id, name), name);
     const nameInput = dialog.getByTestId('inventory-name-input');
     await expect(nameInput).toBeEnabled();
 
@@ -82,45 +79,13 @@ test('a bottle name can be corrected when editing, without suggestions (#643)', 
   }
 });
 
-test('changing only the price sends only the price and locks nothing else (#572)', async ({ page }) => {
-  const api = page.request;
-  const name = `E2E #572 price ${Date.now()}`;
-  const created = await createBottle(api, name);
-
-  try {
-    const dialog = await openEditForm(page, name);
-    await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
-    const price = dialog.getByLabel("Prix d'achat (€)");
-    await price.fill('');
-    await price.pressSequentially('25');
-
-    const saved = patchOf(page, created.id);
-    await dialog.getByTestId('inventory-form-submit').click();
-    const res = await saved;
-    expect(res.status(), await res.text()).toBe(200);
-    // The changed field, and the version the form started from.
-    expect(res.request().postDataJSON()).toEqual({ purchasePrice: 25, expectedUpdatedAt: created.updatedAt });
-    await expect(dialog).toBeHidden();
-
-    const item = await getBottle(api, created.id);
-    expect(Number(item.purchasePrice)).toBe(25);
-    // Only the price counts as set by hand: the other fields keep their
-    // origin (scan/import badges are cleared field by field the same way).
-    expect(item.lockedFields).toEqual(['purchasePrice']);
-    expect(item.name).toBe(name);
-    expect(item.vintage).toBe(2015);
-  } finally {
-    await api.delete(`/api/inventory/${created.id}`).catch(() => {});
-  }
-});
-
 test('saving a form opened before someone else changed the bottle does not overwrite it (#572)', async ({ page }) => {
   const api = page.request;
   const name = `E2E #572 conflict ${Date.now()}`;
   const { id } = await createBottle(api, name);
 
   try {
-    const dialog = await openEditForm(page, name);
+    const dialog = await openEditForm(page, await openDetail(page, id, name), name);
     await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
     const price = dialog.getByLabel("Prix d'achat (€)");
     await price.fill('');
@@ -149,20 +114,22 @@ test('saving a form opened before someone else changed the bottle does not overw
   }
 });
 
-test('a fill level set in the detail window is kept when the bottle is then edited (#572)', async ({ page }) => {
+test('after a fill level set in the detail window, editing the price sends only the price and keeps the fill (#572)', async ({ page }) => {
   const api = page.request;
-  const name = `E2E #572 detail ${Date.now()}`;
+  const name = `E2E #572 price ${Date.now()}`;
   const { id } = await createBottle(api, name);
 
   try {
-    // Half full from the detail window: a save the edit form opened next
-    // must start from, not conflict with.
-    const detail = await openDetail(page, name);
+    // Half full from the detail window: the edit form opened next must start
+    // from that version, not conflict with it.
+    const detail = await openDetail(page, id, name);
     const filled = patchOf(page, id);
     await detail.getByRole('button', { name: 'Moitié', exact: true }).click();
-    expect((await filled).status()).toBe(200);
+    const fillRes = await filled;
+    expect(fillRes.status()).toBe(200);
+    const filledVersion = (await fillRes.json()).data.updatedAt as string;
 
-    const dialog = await openEditForm(page, name, detail);
+    const dialog = await openEditForm(page, detail, name);
     await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
     const price = dialog.getByLabel("Prix d'achat (€)");
     await price.fill('');
@@ -172,13 +139,19 @@ test('a fill level set in the detail window is kept when the bottle is then edit
     await dialog.getByTestId('inventory-form-submit').click();
     const res = await saved;
     expect(res.status(), await res.text()).toBe(200);
-    expect(Object.keys(res.request().postDataJSON() as object).sort()).toEqual(['expectedUpdatedAt', 'purchasePrice']);
+    // The changed field only, and the version the form started from.
+    expect(res.request().postDataJSON()).toEqual({ purchasePrice: 25, expectedUpdatedAt: filledVersion });
     await expect(dialog).toBeHidden();
 
     const item = await getBottle(api, id);
+    expect(Number(item.purchasePrice)).toBe(25);
     expect(item.isOpened).toBe(true);
     expect(item.fillLevel).toBe(50);
-    expect(Number(item.purchasePrice)).toBe(25);
+    // Set by hand: the fill level and the price, nothing else. The untouched
+    // fields keep their origin (scan/import badges are cleared the same way).
+    expect([...(item.lockedFields as string[])].sort()).toEqual(['fillLevel', 'isOpened', 'openedAt', 'purchasePrice']);
+    expect(item.name).toBe(name);
+    expect(item.vintage).toBe(2015);
   } finally {
     await api.delete(`/api/inventory/${id}`).catch(() => {});
   }
