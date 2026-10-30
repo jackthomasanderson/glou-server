@@ -5,7 +5,9 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
+import { useCellars } from '@/hooks/useCellars';
 import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
+import { conflictingFields } from '@/lib/offline/conflictFields';
 
 // ─── FEAT-16/23 — offline sync conflict resolution ─────────────────────────
 // Surfaces whenever a queued offline mutation comes back from the server
@@ -17,20 +19,28 @@ import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-f
 
 export function ConflictResolutionModal() {
   const { t, i18n } = useTranslation();
-  const { conflictMutations, resolveKeepLocal, resolveKeepServer } = useOfflineSync();
+  const {
+    conflictMutations, deferredConflictIds, deferConflict, resolveKeepLocal, resolveKeepServer,
+  } = useOfflineSync();
+  const { data: cellars } = useCellars();
   const [isResolving, setIsResolving] = React.useState(false);
-  // "Decide later" hides a conflict for this session only; it stays queued and
-  // flagged by the connectivity indicator.
-  const [deferredIds, setDeferredIds] = React.useState<string[]>([]);
 
-  const pending = conflictMutations.filter((m) => !deferredIds.includes(m.id));
+  // "Decide later" hides a conflict for the browser session (kept by the sync
+  // engine, not here: this dialog is mounted again by every page, #585); it
+  // stays queued and flagged by the connectivity indicator.
+  const pending = conflictMutations.filter((m) => !deferredConflictIds.includes(m.id));
   const current = pending[0];
   const isOpen = Boolean(current);
 
   if (!current) return null;
 
   const serverItem = current.conflictServerItem as Record<string, unknown> | undefined;
-  const fields = Object.keys(current.patch);
+  // #585: only the fields that really differ, technical ones left out.
+  const rows = conflictingFields(current.patch, serverItem);
+  const valueContext = {
+    lang: i18n.language,
+    cellarName: (id: string) => cellars?.find((c) => c.id === id)?.name,
+  };
 
   const handleKeepLocal = async () => {
     setIsResolving(true);
@@ -84,20 +94,25 @@ export function ConflictResolutionModal() {
               <span>{t('offline.conflict.yourVersion')}</span>
               <span>{t('offline.conflict.serverVersion')}</span>
             </div>
-            {fields.map((field) => (
-              <div key={field} className="grid grid-cols-3 gap-2 px-3 py-2 text-sm border-t border-divider">
+            {rows.map(({ path, field, local, server }) => (
+              <div key={path} className="grid grid-cols-3 gap-2 px-3 py-2 text-sm border-t border-divider">
                 <span className="text-foreground-500">{historyFieldLabel(field, t)}</span>
-                <span className="font-medium text-primary">{formatHistoryValue(field, (current.patch as Record<string, unknown>)[field], t, { lang: i18n.language })}</span>
-                <span className="font-medium text-warning-600">{formatHistoryValue(field, serverItem?.[field], t, { lang: i18n.language })}</span>
+                <span className="font-medium text-primary">{formatHistoryValue(field, local, t, valueContext)}</span>
+                <span className="font-medium text-warning-600">{formatHistoryValue(field, server, t, valueContext)}</span>
               </div>
             ))}
+            {rows.length === 0 && (
+              <p className="px-3 py-2 text-sm text-foreground-500 border-t border-divider">
+                {t('offline.conflict.noDifference')}
+              </p>
+            )}
           </div>
         </ModalBody>
         <ModalFooter>
           <Button
             variant="light"
             color="default"
-            onPress={() => setDeferredIds((ids) => [...ids, current.id])}
+            onPress={() => deferConflict(current.id)}
             isDisabled={isResolving}
           >
             {t('offline.conflict.decideLater')}
