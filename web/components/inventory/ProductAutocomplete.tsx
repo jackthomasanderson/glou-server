@@ -172,7 +172,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, sugge
         </div>
       )}
 
-      {shouldWarn && (
+      {suggestions && shouldWarn && (
         <div className="flex items-center justify-between bg-primary-50 border border-primary-200 text-primary-700 text-xs rounded-lg px-3 py-1.5 mt-1">
           <span>{t('connectivity.degraded')}</span>
           <button type="button" aria-label={t('actions.dismiss')} onClick={dismiss} className="ml-2 p-1.5 hover:opacity-70 text-primary-500">
