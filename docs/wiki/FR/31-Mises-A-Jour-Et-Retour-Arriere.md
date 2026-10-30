@@ -4,7 +4,7 @@
 Glou applique ses migrations de base automatiquement au démarrage de l'API, et **les migrations ne vont que vers l'avant** : il n'existe pas de migration « inverse ». Revenir en arrière signifie restaurer la sauvegarde faite avant la mise à jour, avec l'image précédente. Faites cette sauvegarde d'abord, et notez l'image que vous utilisez.
 
 ## Prérequis
-* Accès shell à la machine, et une **sauvegarde fraîche** (Admin → Configuration système → Sauvegardes → **Lancer maintenant**).
+* Accès shell à la machine, et une **sauvegarde fraîche** (Admin → Configuration système → Sauvegardes → **Sauvegarder maintenant**).
 * La sauvegarde de la base suffit à annuler les changements de schéma ; les photos ne sont pas touchées par les migrations.
 
 > [!WARNING]

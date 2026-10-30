@@ -26,7 +26,7 @@ Planifiez des sauvegardes de la base depuis l'Admin, restaurez-en une si nécess
 > Les échecs sont signalés. Si une sauvegarde planifiée échoue (disque plein, base injoignable…), chaque administrateur est prévenu par ses canaux activés (email, Gotify/webhook), une seule fois par série d'échecs, puis de nouveau après 24 heures si l'échec persiste, pas toutes les heures. La catégorie s'appelle **Échec des sauvegardes (admin)** dans Profil → Notifications. Les anciens fichiers ne sont supprimés qu'après une sauvegarde *réussie* : un échec n'efface jamais le dernier bon dump.
 
 ### Lancer une sauvegarde immédiate
-1. Dans le même onglet, cliquez sur **Exécuter maintenant**.
+1. Dans le même onglet, cliquez sur **Sauvegarder maintenant**.
 2. Une fois terminée, la nouvelle exécution apparaît en tête de l'historique avec sa taille de fichier.
 
 ### Restaurer une sauvegarde
@@ -59,7 +59,7 @@ Le bon fonctionnement d'une restauration n'est pas qu'affirmé ici : `e2e/tests/
 
 | Erreur / Comportement | Solution |
 | :--- | :--- |
-| **Les sauvegardes sont activées mais aucun fichier n'apparaît jamais** | Vérifiez la valeur **Heure (UTC)** par rapport à l'heure UTC actuelle : la tâche ne se déclenche que pendant cette heure précise, une fois activée. Ou cliquez sur **Exécuter maintenant** pour tester immédiatement. |
+| **Les sauvegardes sont activées mais aucun fichier n'apparaît jamais** | Vérifiez la valeur **Heure (UTC)** par rapport à l'heure UTC actuelle : la tâche ne se déclenche que pendant cette heure précise, une fois activée. Ou cliquez sur **Sauvegarder maintenant** pour tester immédiatement. |
 | **J'ai cliqué sur Restaurer et mes données sont différentes d'avant** | Normal : la restauration écrase toutes les données actuelles avec le contenu de la sauvegarde. Si c'était une erreur, restaurez la sauvegarde prise automatiquement juste avant la restauration : c'est l'entrée **Manuelle** la plus récente de l'historique. |
 | **La restauration a été refusée : la sauvegarde prise avant la restauration a échoué** | Rien n'a été restauré. La sauvegarde en échec figure dans l'historique avec son erreur : corrigez la cause (le plus souvent l'espace disque ou les droits sur `./backups`), puis relancez la restauration. |
 | **Mon fichier d'export ne contient qu'une partie de mes données** | Vous avez utilisé **Filtrer** et sélectionné seulement certaines catégories. Utilisez le bouton **Exporter** simple pour un export complet. |
