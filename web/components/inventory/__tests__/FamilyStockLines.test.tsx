@@ -109,6 +109,39 @@ describe('FamilyStockLines', () => {
     expect(onLevelCommit).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'sub' }), 5);
   });
 
+  // Final review of W2 (#471, L1): back to the starting level while saving.
+  it('back to the saved level while another one is saving: that level is sent next', async () => {
+    let finish: () => void = () => {};
+    const onLevelCommit = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }))
+      .mockResolvedValue(undefined);
+    draw([openedBottle(60, { id: 'sub' })], { onLevelCommit });
+    const slider = screen.getByRole('slider');
+    fireEvent.click(screen.getByRole('button', { name: 'Moitié' }));
+    // Back to 60 % while 50 % is saving: the bottle must end at 60 %, not 50 %.
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    fireEvent.keyUp(slider, { key: 'ArrowRight' });
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    fireEvent.keyUp(slider, { key: 'ArrowRight' });
+    expect(screen.getByText('60 %')).toBeInTheDocument();
+    await act(async () => { finish(); });
+    expect(onLevelCommit).toHaveBeenCalledTimes(2);
+    expect(onLevelCommit).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'sub' }), 60);
+  });
+
+  it('put back full while a level waits: the waiting level is dropped (the bottle is back with the others)', async () => {
+    let finish: () => void = () => {};
+    const onLevelCommit = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }))
+      .mockResolvedValue(undefined);
+    draw([openedBottle(60, { id: 'sub' })], { onLevelCommit });
+    fireEvent.click(screen.getByRole('button', { name: 'Pleine' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Moitié' }));
+    await act(async () => { finish(); });
+    expect(onLevelCommit).toHaveBeenCalledTimes(1);
+    expect(onLevelCommit).toHaveBeenCalledWith(expect.objectContaining({ id: 'sub' }), 100);
+  });
+
   it('the shortcuts Pleine / Moitié / Vide set the level of the opened bottle', () => {
     const onLevelCommit = vi.fn(async () => {});
     draw([openedBottle(60)], { onLevelCommit });

@@ -22,8 +22,11 @@ interface FamilyStockLinesProps {
 
 const join = (parts: string[]) => parts.join(' · ');
 
+/** A level of 100 % puts an opened bottle back full (§10.4.6). */
+const FULL = 100;
+
 const PRESETS = [
-  { value: 100, key: 'familyDrawer.lines.levelFull' },
+  { value: FULL, key: 'familyDrawer.lines.levelFull' },
   { value: 50, key: 'familyDrawer.lines.levelHalf' },
   { value: 0, key: 'familyDrawer.lines.levelEmpty' },
 ] as const;
@@ -56,6 +59,13 @@ function OpenedLevel({ item, t, onCommit }: {
     saving.current = true;
     try {
       await onCommit(value);
+      // Saved now, not when the answer reaches the props: a level chosen
+      // meanwhile that goes back to the previous one is still sent.
+      saved.current = value;
+      // Put back full, the bottle rejoined its line (or is full again): no
+      // opened bottle is left to set a level on — a level waiting would be
+      // sent to a bottle that no longer exists.
+      if (value >= FULL) waiting.current = null;
     } catch {
       // Refused (a tasting on it, a conflict, a server error): back to what is saved.
       waiting.current = null;
