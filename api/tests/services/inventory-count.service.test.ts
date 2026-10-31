@@ -143,6 +143,7 @@ describe('getSessionReport — the theoretical list is what the cellar holds (FE
     expect(call.where).toEqual({
       cellarId: 'c1',
       deletedAt: null,
+      writtenOffAt: null,
       isOwned: true,
       // `not: null` keeps an opened bottle with no recorded level on the list.
       NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },

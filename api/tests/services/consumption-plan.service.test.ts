@@ -208,6 +208,7 @@ describe('getSuggestions', () => {
     expect(openedCall?.[0]).toEqual({
       where: {
         deletedAt: null,
+        writtenOffAt: null,
         isOwned: true,
         isOpened: true,
         NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
