@@ -22,7 +22,6 @@ function view(overrides: Partial<InventoryListViewProps> = {}) {
     items,
     stockOf: (p) => describeStock(p, (key, o) => `${key}:${String(o?.count ?? '')}`),
     cellarNameOf: () => 'Cave du bas',
-    isOpenable: () => true,
     categoryLabel: (c) => `fr:${c}`,
     onEdit: () => {},
     onDelete: () => {},
@@ -87,11 +86,11 @@ describe('InventoryListView rows are wines', () => {
     expect(within(row()).getByTestId('family-stock-line').textContent).toContain('familyList.stock.bottles:2');
   });
 
-  it('a wine without a bottle record offers no edit, but its row still opens its drawer', () => {
+  it('a wine without any bottle record can be edited and opens its drawer', () => {
     const opened: string[] = [];
-    render(view({ isOpenable: () => false, onView: (p) => opened.push(p.id) }));
-    expect(within(row()).queryByLabelText('actions.edit')).toBeNull();
-    expect(within(row()).getByLabelText('familyList.trash.action')).toBeInTheDocument();
+    const known = product({ id: 'b1', name: 'Château Test', items: [] });
+    render(view({ items: [known], onView: (p) => opened.push(p.id) }));
+    expect(within(row()).getByLabelText('actions.edit')).toBeInTheDocument();
     fireEvent.click(within(row()).getByText('Château Test'));
     expect(opened).toEqual(['b1']);
   });

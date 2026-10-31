@@ -12,8 +12,6 @@ export interface InventoryGridViewProps {
   stockOf: (product: Product) => StockLine;
   /** The cellar a wine's bottles are all in; undefined when spread over several, or none. */
   cellarNameOf: (product: Product) => string | undefined;
-  /** Whether the wine has a bottle record to edit; every wine opens its drawer. */
-  isOpenable: (product: Product) => boolean;
   categoryLabel: (category: string) => string;
   onEdit: (product: Product) => void;
   onDelete: (product: Product) => void;
@@ -37,7 +35,6 @@ export function InventoryGridView({
   items,
   stockOf,
   cellarNameOf,
-  isOpenable,
   categoryLabel,
   onEdit,
   onDelete,
@@ -57,7 +54,6 @@ export function InventoryGridView({
     <>
       <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 sm:gap-4">
         {items.map((product) => {
-          const openable = isOpenable(product);
           return (
             <InventoryCard
               key={product.id}
@@ -65,7 +61,7 @@ export function InventoryGridView({
               stock={stockOf(product)}
               categoryLabel={categoryLabel(product.category)}
               cellarName={cellarNameOf(product)}
-              onEdit={openable ? onEdit : undefined}
+              onEdit={onEdit}
               onDelete={onDelete}
               onView={bulkMode ? undefined : onView}
               t={t}

@@ -1,4 +1,5 @@
-import { client, handleResponse, timeoutSignal } from '../api';
+import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal } from '../api';
+import type { ProductDescription } from '@shared/product';
 import type { Product, ProductDetailView, ProductListResponse, TrashedProduct } from './types';
 
 // ─── Families API client (#471, D9/D10) ─────────────────────────────────────
@@ -20,6 +21,23 @@ export const productsClient = {
   async get(id: string): Promise<ProductDetailView> {
     const { data } = await client.get<ProductDetailView>(`/products/${encodeURIComponent(id)}`);
     return data;
+  },
+
+  /**
+   * FEAT-92 c4: the wine's description, once for all its bottles.
+   * `expectedUpdatedAt` is the wine's own version as the form read it: a
+   * change made meanwhile is refused (409 `CONFLICT`) instead of overwritten.
+   */
+  async update(id: string, patch: Partial<ProductDescription>, expectedUpdatedAt?: string): Promise<Product> {
+    const res = await fetch(`/api/products/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(expectedUpdatedAt ? { ...patch, expectedUpdatedAt } : patch),
+      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
+    });
+    if (!res.ok) throw await apiErrorFrom(res);
+    return ((await res.json()) as { data: Product }).data;
   },
 
   /** Wines in the trash, with the bottles trashed together with them. */

@@ -3,9 +3,9 @@ import React from 'react';
 import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useUpdateInventoryItem, INVENTORY_KEY } from './useInventory';
-import { PRODUCTS_KEY } from './useProducts';
+import { PRODUCTS_KEY, productDetailKey } from './useProducts';
 import type { InventoryItem } from '@/lib/inventory/types';
-import type { Product } from '@/lib/products/types';
+import type { Product, ProductDetailView } from '@/lib/products/types';
 import { describeStock } from '@/lib/products/stock';
 import { product, unit } from '@/lib/products/__tests__/factories';
 import { frenchT } from '@/lib/products/__tests__/i18n';
@@ -102,5 +102,40 @@ describe('useUpdateInventoryItem — detach and reattach (#471)', () => {
     await result.current.mutateAsync({ id: 's', patch: { isOpened: false, fillLevel: 100 } });
     expect(await line(qc)).toBe('6 bouteilles');
     expect(qc.getQueryData<InventoryItem[]>(INVENTORY_KEY)!.map((i) => [i.id, i.quantity])).toEqual([['g', 6]]);
+  });
+});
+
+// #471 (W2): the open drawer of the wine follows the same answer, and a
+// refused put-back says why instead of a generic error.
+describe('useUpdateInventoryItem — the wine\'s drawer (#471, W2)', () => {
+  const group = unit({ id: 'g', productId: 'p1', quantity: 5 });
+  const sub = unit({ id: 's', productId: 'p1', isOpened: true, fillLevel: 60, parentItemId: 'g' });
+  const drunk = unit({ id: 'd', productId: 'p1', isOpened: true, fillLevel: 0 });
+  const flatRow = (u: typeof group) => ({ ...u, name: 'Cuvée X', category: 'wine', producer: 'Domaine' });
+
+  it('the level of the opened bottle, then its put-back, update the open drawer', async () => {
+    const { qc, result } = setup();
+    qc.setQueryData(productDetailKey('p1'), { ...product({ id: 'p1' }), items: [group, sub, drunk], tastings: [], history: [] });
+    const items = () => qc.getQueryData<ProductDetailView>(productDetailKey('p1'))!.items.map((i) => [i.id, i.quantity, i.fillLevel]);
+
+    update.mockResolvedValue({ data: flatRow({ ...sub, fillLevel: 30 }), changed: [], removedIds: [] });
+    await result.current.mutateAsync({ id: 's', patch: { fillLevel: 30 } });
+    expect(items()).toEqual([['g', 5, null], ['s', 1, 30], ['d', 1, 0]]);
+
+    update.mockResolvedValue({ data: flatRow({ ...group, quantity: 6 }), changed: [], removedIds: ['s'] });
+    await result.current.mutateAsync({ id: 's', patch: { fillLevel: 100, isOpened: false } });
+    // The bottle drunk stays: the drawer lists it under "Déjà bues ou parties".
+    expect(items()).toEqual([['g', 6, null], ['d', 1, 0]]);
+  });
+
+  it.each([
+    ['TASTINGS_ON_ITEM', 'toast.tastingsOnBottle'],
+    ['FIELDS_WITH_REATTACH', 'toast.fieldsWithReattach'],
+  ])('a put-back refused with %s says why', async (code, message) => {
+    update.mockRejectedValue(new Error(code));
+    const { result } = setup();
+    await expect(result.current.mutateAsync({ id: 's', patch: { fillLevel: 100, isOpened: false } })).rejects.toThrow(code);
+    expect(notifyError).toHaveBeenCalledWith(message);
+    expect(notifyError).not.toHaveBeenCalledWith('toast.updateError');
   });
 });

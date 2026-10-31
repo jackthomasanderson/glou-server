@@ -201,7 +201,7 @@
       "bottleSize": "Taille de bouteille",
       "peakMaturity": "Période idéale de dégustation",
       "curveShape": "Courbe de consommation",
-      "curveShapeHint": "Comment la maturité évolue dans la fenêtre. Remplace la référence de cave pour cette bouteille uniquement.",
+      "curveShapeHint": "Comment la maturité évolue dans la fenêtre. Remplace la référence de cave pour ce vin seulement (toutes ses bouteilles).",
       "needsAeration": "Nécessite aération",
       "serviceTemp": "Température de service",
       "serviceTempPlaceholder": "ex : 16–18 °C",
@@ -2141,6 +2141,23 @@
       "add_units": "Bouteilles ajoutées",
       "correct_quantity": "Nombre corrigé"
     },
-    "loadError": "Impossible de charger ce vin."
+    "loadError": "Impossible de charger ce vin.",
+    "form": {
+      "title": "Modifier ce vin",
+      "titleSpirit": "Modifier ce spiritueux",
+      "titleCigar": "Modifier ce cigare",
+      "scope_zero": "Modifie {{what}}, qui n'a plus de bouteille en cave.",
+      "scope_one": "Modifie {{what}} pour sa bouteille.",
+      "scope_other": "Modifie {{what}} pour ses {{count}} bouteilles.",
+      "scopeCigar_zero": "Modifie ce cigare, qui n'est plus en cave.",
+      "scopeCigar_one": "Modifie ce cigare pour son seul cigare en cave.",
+      "scopeCigar_other": "Modifie ce cigare pour ses {{count}} cigares.",
+      "saved": "Vin mis à jour",
+      "conflict": "Non enregistré : ce vin a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
+      "rejected": "Non enregistré : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire.",
+      "error": "Impossible d'enregistrer ce vin.",
+      "thisWine": "ce vin",
+      "thisSpirit": "ce spiritueux"
+    }
   }
 }
