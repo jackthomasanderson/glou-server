@@ -23,8 +23,9 @@ export interface TrashWineDialogProps {
  * trash is emptied (QP7, decision 67), so it says so when there are some.
  */
 export function TrashWineDialog({ product, onConfirm, onClose, isPending, t }: TrashWineDialogProps) {
-  const { data: detail } = useProductDetail(product?.id ?? null);
-  const tastings = detail?.id === product?.id ? detail?.tastings.length ?? 0 : 0;
+  const { data: detail, isError: detailFailed } = useProductDetail(product?.id ?? null);
+  const detailReady = !!product && detail?.id === product.id;
+  const tastings = detailReady ? detail.tastings.length : 0;
   const stock = product ? describeStock(product, t) : null;
   const name = product ? wineName(product) : '';
   const question = !stock || stock.units === 0
@@ -53,7 +54,9 @@ export function TrashWineDialog({ product, onConfirm, onClose, isPending, t }: T
                 color="danger"
                 onPress={() => product && onConfirm(product)}
                 isLoading={isPending}
-                isDisabled={isPending}
+                // Not before knowing whether its tastings would go with it
+                // (a failed read lets the user go on, without the warning).
+                isDisabled={isPending || (!detailReady && !detailFailed)}
               >
                 {t('familyList.trash.action')}
               </Button>

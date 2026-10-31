@@ -147,7 +147,7 @@
     },
     "add": "Ajouter",
     "edit": "Modifier l'actif",
-    "restore": "Restaurer l'actif",
+    "restore": "Restaurer la bouteille",
     "trashDaysLeft_one": "{{count}} jour restant avant suppression définitive",
     "trashDaysLeft_other": "{{count}} jours restants avant suppression définitive",
     "trashEmpty": "La corbeille est vide.",

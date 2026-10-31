@@ -7,8 +7,10 @@ import { frenchT } from '@/lib/products/__tests__/i18n';
 // #471 §10.4.7: a wine goes to the trash with all its bottles only once
 // confirmed with the total; its tastings go when the trash is emptied (QP7).
 
-const detail = vi.hoisted(() => ({ tastings: [] as unknown[], id: 'p1' }));
-vi.mock('@/hooks/useProducts', () => ({ useProductDetail: () => ({ data: detail }) }));
+const detail = vi.hoisted(() => ({ tastings: [] as unknown[], id: 'p1', loaded: true }));
+vi.mock('@/hooks/useProducts', () => ({
+  useProductDetail: () => ({ data: detail.loaded ? detail : undefined, isError: false }),
+}));
 vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,
@@ -59,5 +61,12 @@ describe('TrashWineDialog', () => {
       />,
     );
     expect(screen.getByTestId('trash-wine-question').textContent).toBe('Mettre Robusto et ses 50 cigares à la corbeille ?');
+  });
+
+  it('cannot confirm before knowing whether tastings would go with it', () => {
+    detail.loaded = false;
+    render(<TrashWineDialog product={product({ items: [unit()] })} onConfirm={vi.fn()} onClose={vi.fn()} isPending={false} t={t} />);
+    expect(screen.getByRole('button', { name: 'Mettre à la corbeille' })).toBeDisabled();
+    detail.loaded = true;
   });
 });

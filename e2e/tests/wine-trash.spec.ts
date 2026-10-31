@@ -45,6 +45,9 @@ test('trash a wine: confirm, undo, then restore it from the trash', async ({ pag
     await page.getByRole('tab', { name: 'Inventaire' }).click();
     await expect(card).toBeVisible();
   } finally {
+    // The wine itself too, not only its bottle (D10).
+    const productId = (await (await api.get(`/api/inventory/${id}`)).json().catch(() => null))?.data?.productId as string | undefined;
+    if (productId) await api.delete(`/api/products/${productId}`).catch(() => {});
     await api.delete(`/api/inventory/${id}`).catch(() => {});
   }
 });

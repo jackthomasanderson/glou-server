@@ -147,7 +147,7 @@
     },
     "add": "Add",
     "edit": "Edit item",
-    "restore": "Restore asset",
+    "restore": "Restore the bottle",
     "trashDaysLeft_one": "{{count}} day left before permanent deletion",
     "trashDaysLeft_other": "{{count}} days left before permanent deletion",
     "trashEmpty": "The trash is empty.",
