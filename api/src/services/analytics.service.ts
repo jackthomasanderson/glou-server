@@ -1,7 +1,8 @@
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessIndex } from '../lib/maturity-curve';
-import { FINISHED_ITEM_STATE, isFinishedItem } from '../lib/finished-item';
+import { FINISHED_ITEM_STATE, itemSpend, itemUnits, itemValue } from '../lib/finished-item';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
+import { UNIT_COUNT_SELECT } from '../lib/stock-units';
 import { ANALYTICS_PERIOD_SCOPE, type AnalyticsStats, type CavePoint, type MovementStats } from '../../../shared/analytics';
 
 function computeBottleVolume(category: string, bottleSize: string | null, fillLevel: number | null): number {
@@ -51,20 +52,23 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       // FEAT-87: analytics describe what the instance holds, so non-owned
       // references are out of every figure here — valuation and counts alike.
       where: { deletedAt: null, ...OWNED_ITEM_FILTER },
+      // #471: what is true of every bottle of the wine (category, region,
+      // drinking window) is read on its family.
       select: {
-        category: true,
-        estimatedValue: true,
-        purchasePrice: true,
+        ...UNIT_COUNT_SELECT,
         bottleSize: true,
-        fillLevel: true,
-        isOpened: true,
-        region: true,
-        leafOrigin: true,
-        alertStatus: true,
-        peakMaturityFrom: true,
-        peakMaturityTo: true,
-        curveShape: true,
         cellarId: true,
+        product: {
+          select: {
+            category: true,
+            region: true,
+            leafOrigin: true,
+            alertStatus: true,
+            peakMaturityFrom: true,
+            peakMaturityTo: true,
+            curveShape: true,
+          },
+        },
       },
     }),
     prisma.cellar.findMany({
@@ -81,7 +85,8 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     }),
     // Bottles finished during the period — the app-wide "consumed" criterion,
     // shared with consumption-plan.service and inventory-count.service (see
-    // lib/finished-item.ts).
+    // lib/finished-item.ts). #471: a finished unit is one copy (a sub-record
+    // detached from its group, or a group of one), so its rows count copies.
     prisma.inventoryItem.count({
       where: {
         deletedAt: null,
@@ -101,7 +106,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   let preserve = 0;
   let atPeak = 0;
   let pastPeak = 0;
-  let inStockCount = 0;
+  let inStockUnits = 0;
 
   const categoryMap: Record<string, { count: number; valuation: number }> = {};
   const regionMap: Record<string, { count: number; valuation: number }> = {};
@@ -115,61 +120,62 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   const GARDE_HORIZON_FUTURE = 20;
 
   for (const item of items) {
-    // ISSUE_239: a finished bottle (opened, nothing left) is no longer an
-    // asset — it holds no remaining value, so it contributes 0 to every
-    // valuation below (global, per category, per region, per cellar). It
-    // still counts as an inventory row, and `totalPurchasePrice` still
-    // includes it: what was spent was spent, consistent with
-    // budget.service.ts.
-    const value = isFinishedItem(item) ? 0 : (item.estimatedValue ?? item.purchasePrice ?? 0);
+    const { product } = item;
+    // #471 (FEAT-96): one rule for every figure (shared/units.ts). A row is a
+    // group of N copies: it counts its units in stock (bottles, or cigars) and
+    // is worth `itemValue` (#594: estimated value, else purchase price, per
+    // copy). A finished or written-off unit counts 0 and is worth 0, but what
+    // was spent was spent (`itemSpend`, consistent with budget.service.ts).
+    totalPurchasePrice += itemSpend(item);
+    const units = itemUnits(item);
+    if (units === 0) continue;
+    const value = itemValue(item);
+    inStockUnits += units;
     totalValuation += value;
-    totalPurchasePrice += item.purchasePrice ?? 0;
-    totalLiquidLiters += computeBottleVolume(item.category, item.bottleSize, item.fillLevel);
+    totalLiquidLiters += computeBottleVolume(product.category, item.bottleSize, item.fillLevel) * units;
 
-    if (item.category === 'cigar') cigarModulesCount += 1;
+    if (product.category === 'cigar') cigarModulesCount += units;
 
-    if (!categoryMap[item.category]) categoryMap[item.category] = { count: 0, valuation: 0 };
-    categoryMap[item.category].count += 1;
-    categoryMap[item.category].valuation += value;
+    if (!categoryMap[product.category]) categoryMap[product.category] = { count: 0, valuation: 0 };
+    categoryMap[product.category].count += units;
+    categoryMap[product.category].valuation += value;
 
-    const region = item.category === 'cigar'
-      ? (item.leafOrigin ?? item.region)
-      : item.region;
+    const region = product.category === 'cigar'
+      ? (product.leafOrigin ?? product.region)
+      : product.region;
     if (region?.trim()) {
       const key = region.trim();
       if (!regionMap[key]) regionMap[key] = { count: 0, valuation: 0 };
-      regionMap[key].count += 1;
+      regionMap[key].count += units;
       regionMap[key].valuation += value;
 
       if (!regionCategoryMap[key]) regionCategoryMap[key] = {};
-      if (!regionCategoryMap[key][item.category]) regionCategoryMap[key][item.category] = { count: 0, valuation: 0 };
-      regionCategoryMap[key][item.category].count += 1;
-      regionCategoryMap[key][item.category].valuation += value;
+      if (!regionCategoryMap[key][product.category]) regionCategoryMap[key][product.category] = { count: 0, valuation: 0 };
+      regionCategoryMap[key][product.category].count += units;
+      regionCategoryMap[key][product.category].valuation += value;
     }
 
     // Cave distribution
     if (item.cellarId) {
       if (!caveMap[item.cellarId]) caveMap[item.cellarId] = { count: 0, valuation: 0 };
-      caveMap[item.cellarId].count += 1;
+      caveMap[item.cellarId].count += units;
       caveMap[item.cellarId].valuation += value;
     }
 
     // #573: a finished bottle has been drunk — it no longer calls for a
-    // tasting, has no place in the maturity planning and no ageing ahead.
-    // Everything below only describes the bottles in stock.
-    if (isFinishedItem(item)) continue;
-    inStockCount += 1;
+    // tasting, has no place in the maturity planning and no ageing ahead
+    // (skipped above, with 0 units). Everything below describes the bottles
+    // in stock, each counted once.
+    if (product.alertStatus === 'past' || product.alertStatus === 'peak') urgentDegustationCount += units;
 
-    if (item.alertStatus === 'past' || item.alertStatus === 'peak') urgentDegustationCount += 1;
-
-    if (item.alertStatus === 'past') {
-      pastPeak += 1;
-    } else if (item.alertStatus === 'peak') {
-      atPeak += 1;
-    } else if (item.alertStatus === 'approaching') {
-      preserve += 1;
+    if (product.alertStatus === 'past') {
+      pastPeak += units;
+    } else if (product.alertStatus === 'peak') {
+      atPeak += units;
+    } else if (product.alertStatus === 'approaching') {
+      preserve += units;
     } else {
-      noWindow += 1;
+      noWindow += units;
     }
 
     // Garde histogram: distribute the bottle across the years of its peak
@@ -179,13 +185,13 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     // shows two humps. PLATEAU/LINEAR keep spanning (nearly) the whole
     // window, matching the pre-FEAT-86 behaviour. The bottle never vanishes:
     // the argmax year always clears the half-of-best bar.
-    if (item.peakMaturityFrom != null || item.peakMaturityTo != null) {
-      const from = item.peakMaturityFrom ?? item.peakMaturityTo!;
-      const to = item.peakMaturityTo ?? item.peakMaturityFrom!;
+    if (product.peakMaturityFrom != null || product.peakMaturityTo != null) {
+      const from = product.peakMaturityFrom ?? product.peakMaturityTo!;
+      const to = product.peakMaturityTo ?? product.peakMaturityFrom!;
       const startYear = Math.max(from, currentYear - GARDE_HORIZON_PAST);
       const endYear = Math.min(to, currentYear + GARDE_HORIZON_FUTURE);
 
-      const shape = (item.curveShape as CurveShape | null) ?? undefined;
+      const shape = (product.curveShape as CurveShape | null) ?? undefined;
       const weights: { year: number; w: number }[] = [];
       let maxW = 0;
       for (let y = startYear; y <= endYear; y++) {
@@ -195,14 +201,13 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       }
       const cutoff = maxW * 0.5;
       for (const { year, w } of weights) {
-        if (w >= cutoff) gardeMap[year] = (gardeMap[year] ?? 0) + 1;
+        if (w >= cutoff) gardeMap[year] = (gardeMap[year] ?? 0) + units;
       }
     }
   }
 
-  const total = items.length;
-  // The maturity buckets split the bottles in stock, so they add up to 100 %.
-  const pct = (n: number) => (inStockCount > 0 ? Math.round((n / inStockCount) * 100) : 0);
+  // The maturity buckets split the units in stock, so they add up to 100 %.
+  const pct = (n: number) => (inStockUnits > 0 ? Math.round((n / inStockUnits) * 100) : 0);
 
   const movements: MovementStats = {
     added: auditMovements.find(r => r.action === 'CREATE')?._count.action ?? 0,
@@ -239,7 +244,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     totalLiquidLiters: Math.round(totalLiquidLiters * 100) / 100,
     cigarModulesCount,
     urgentDegustationCount,
-    totalActiveItems: total,
+    totalActiveItems: inStockUnits,
     categoryBreakdown: Object.entries(categoryMap)
       .map(([category, { count, valuation }]) => ({ category, count, valuation: Math.round(valuation) }))
       .sort((a, b) => b.count - a.count),

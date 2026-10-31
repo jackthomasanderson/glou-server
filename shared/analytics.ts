@@ -69,13 +69,22 @@ export interface AnalyticsPeriod {
   scope: typeof ANALYTICS_PERIOD_SCOPE;
 }
 
+/**
+ * #471 (FEAT-96): every count is in units in stock (bottles, or cigars —
+ * shared/units.ts `itemUnits`), every valuation follows `itemValue` (#594),
+ * and `totalPurchasePrice` is spending (`itemSpend`: drunk and written-off
+ * copies included).
+ */
 export interface AnalyticsStats {
   period: AnalyticsPeriod;
   totalValuation: number;
   totalPurchasePrice: number;
   totalLiquidLiters: number;
+  /** Cigars in stock. */
   cigarModulesCount: number;
+  /** Units in stock at or past their peak. */
   urgentDegustationCount: number;
+  /** Units in stock, bottles and cigars together (the sum of `categoryBreakdown`). */
   totalActiveItems: number;
   categoryBreakdown: CategoryStat[];
   regionBreakdown: RegionStat[];

@@ -3,6 +3,7 @@ import { GuestShare } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ShareCreateInput } from '../schemas/shares.schema';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
+import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 
 function isShareValid(share: { expiresAt: Date | null; revokedAt: Date | null }): boolean {
   if (share.revokedAt) return false;
@@ -32,7 +33,10 @@ function toPublicShare(share: GuestShare): Omit<GuestShare, 'tokenHash'> {
  * (design.md), so the guest sees every item within the share's declared
  * scope (cellarIds/collectionIds), regardless of who created/edited it.
  */
-function buildShareWhere(share: { cellarIds: string[]; collectionIds: string[] }): Record<string, unknown> {
+function buildShareWhere(
+  share: { cellarIds: string[]; collectionIds: string[] },
+  base: Record<string, unknown>,
+): Record<string, unknown> {
   const scopeConditions: Record<string, unknown>[] = [];
 
   if (share.cellarIds.length > 0) {
@@ -46,11 +50,22 @@ function buildShareWhere(share: { cellarIds: string[]; collectionIds: string[] }
     });
   }
 
-  // FEAT-87: the showcase shows the collection, not the reference catalogue.
-  return scopeConditions.length > 0
-    ? { deletedAt: null, ...OWNED_ITEM_FILTER, OR: scopeConditions }
-    : { deletedAt: null, ...OWNED_ITEM_FILTER };
+  return scopeConditions.length > 0 ? { ...base, OR: scopeConditions } : base;
 }
+
+/**
+ * #471 (FEAT-96): the showcase lists what the cellar holds — the units in
+ * stock (#573: not a finished bottle; not a written-off one; FEAT-87: not a
+ * reference), counted with `itemUnits` by the client.
+ */
+const SHOWCASE_SCOPE = IN_STOCK_ITEM_FILTER;
+
+/**
+ * A single unit stays reachable once finished, so the guest who just marked a
+ * bottle as drunk gets it back from the write route (guest.router.ts), but a
+ * written-off one is out of the cellar for good (FEAT-87: references never).
+ */
+const SHARED_ITEM_SCOPE = { deletedAt: null, writtenOffAt: null, ...OWNED_ITEM_FILTER } as const;
 
 function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
   return {
@@ -81,6 +96,10 @@ function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
     declaredAge: true,
     format: true,
     quantity: true,
+    // #471: a group of cigar boxes, or an opened box (shared/units.ts `itemUnits`).
+    cigarsPerBox: true,
+    cigarsLeft: true,
+    productId: true,
     manufactureYear: true,
     leafOrigin: true,
     isOpened: true,
@@ -196,7 +215,7 @@ export const sharesService = {
     hideNotes: boolean;
   }) {
     const items = await prisma.inventoryItem.findMany({
-      where: buildShareWhere(share),
+      where: buildShareWhere(share, SHOWCASE_SCOPE),
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
     return redactPrices(items, share.hidePrices);
@@ -217,7 +236,7 @@ export const sharesService = {
     },
     itemId: string,
   ) {
-    const where = buildShareWhere(share);
+    const where = buildShareWhere(share, SHARED_ITEM_SCOPE);
     const item = await prisma.inventoryItem.findFirst({
       where: { ...where, id: itemId },
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),

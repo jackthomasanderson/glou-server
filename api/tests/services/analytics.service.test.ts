@@ -13,36 +13,53 @@ import { getAnalytics } from '../../src/services/analytics.service';
 import { ANALYTICS_PERIOD_SCOPE } from '../../../shared/analytics';
 
 type ItemRow = {
-  category: string;
+  quantity: number | null;
+  isOpened: boolean;
+  fillLevel: number | null;
+  cigarsPerBox: number | null;
+  cigarsLeft: number | null;
+  writtenOffAt: Date | null;
   estimatedValue: number | null;
   purchasePrice: number | null;
   bottleSize: string | null;
-  fillLevel: number | null;
-  isOpened: boolean;
-  region: string | null;
-  leafOrigin: string | null;
-  alertStatus: string | null;
-  peakMaturityFrom: number | null;
-  peakMaturityTo: number | null;
   cellarId: string | null;
+  product: {
+    category: string;
+    region: string | null;
+    leafOrigin: string | null;
+    alertStatus: string | null;
+    peakMaturityFrom: number | null;
+    peakMaturityTo: number | null;
+    curveShape: string | null;
+  };
 };
 
-function item(overrides: Partial<ItemRow> = {}): ItemRow {
-  return {
-    category: 'wine',
+type Flat = Omit<ItemRow, 'product'> & ItemRow['product'];
+
+/** A unit row with its family nested (#471), built from flat overrides. */
+function item(overrides: Partial<Flat> = {}): ItemRow {
+  const flat: Flat = {
+    quantity: 1,
+    isOpened: false,
+    fillLevel: null,
+    cigarsPerBox: null,
+    cigarsLeft: null,
+    writtenOffAt: null,
     estimatedValue: null,
     purchasePrice: null,
     bottleSize: '75cl',
-    fillLevel: null,
-    isOpened: false,
+    cellarId: null,
+    category: 'wine',
     region: 'Bordeaux',
     leafOrigin: null,
     alertStatus: 'none',
     peakMaturityFrom: null,
     peakMaturityTo: null,
-    cellarId: null,
+    curveShape: null,
     ...overrides,
   };
+  const { category, region, leafOrigin, alertStatus, peakMaturityFrom, peakMaturityTo, curveShape, ...unit } = flat;
+  return { ...unit, product: { category, region, leafOrigin, alertStatus, peakMaturityFrom, peakMaturityTo, curveShape } };
 }
 
 const thisYear = new Date().getFullYear();
@@ -207,17 +224,16 @@ describe('getAnalytics — finished bottles are not valued', () => {
     expect(stats.totalValuation).toBe(40);
   });
 
-  it('keeps the finished bottle in the counts, and in the money actually spent', async () => {
+  it('keeps the finished bottle in the money actually spent, not in the counts (#471)', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
       item({ purchasePrice: 25, isOpened: true, fillLevel: 0 }),
     ] as never);
 
     const stats = await getAnalytics();
 
-    // The bottle is still a row of the inventory: it is counted and its
-    // purchase is still part of the spending history (budget.service.ts
-    // semantics), only its *remaining* value is zero.
-    expect(stats.totalActiveItems).toBe(1);
+    // Its purchase is still part of the spending history (budget.service.ts
+    // semantics), but it is no longer a bottle in the cellar (FEAT-96).
+    expect(stats.totalActiveItems).toBe(0);
     expect(stats.totalPurchasePrice).toBe(25);
     expect(stats.totalValuation).toBe(0);
   });
@@ -231,15 +247,15 @@ describe('getAnalytics — finished bottles are not valued', () => {
     const stats = await getAnalytics();
 
     const wine = stats.categoryBreakdown.find((c) => c.category === 'wine');
-    expect(wine).toMatchObject({ count: 2, valuation: 100 });
-    expect(stats.regionBreakdown.find((r) => r.region === 'Bordeaux')).toMatchObject({ count: 2, valuation: 100 });
-    expect(stats.caveDistribution.find((c) => c.cellarId === 'c1')).toMatchObject({ count: 2, valuation: 100 });
+    expect(wine).toMatchObject({ count: 1, valuation: 100 });
+    expect(stats.regionBreakdown.find((r) => r.region === 'Bordeaux')).toMatchObject({ count: 1, valuation: 100 });
+    expect(stats.caveDistribution.find((c) => c.cellarId === 'c1')).toMatchObject({ count: 1, valuation: 100 });
   });
 });
 
-// #573: a finished bottle has been drunk. It stays an inventory row (counted,
-// valued at 0 — see above), but it no longer calls for a tasting, has no place
-// in the maturity planning and no ageing ahead.
+// #573: a finished bottle has been drunk. It stays an inventory row (in the
+// spending — see above), but it no longer calls for a tasting, has no place in
+// the maturity planning and no ageing ahead.
 describe('getAnalytics — finished bottles are out of the maturity planning (#573)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -250,7 +266,7 @@ describe('getAnalytics — finished bottles are out of the maturity planning (#5
     vi.mocked(prisma.inventoryItem.count).mockResolvedValue(0 as never);
   });
 
-  it('counts a finished bottle at its peak as a row, but not as urgent, in a maturity bucket or in the garde histogram', async () => {
+  it('counts a finished bottle at its peak nowhere: not as a bottle, urgent, in a maturity bucket or in the garde histogram', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
       // Finished, and its window is open right now.
       item({
@@ -277,10 +293,10 @@ describe('getAnalytics — finished bottles are out of the maturity planning (#5
 
     const stats = await getAnalytics();
 
-    // Still an inventory row: counted everywhere, valued at nothing.
-    expect(stats.totalActiveItems).toBe(3);
-    expect(stats.categoryBreakdown.find((c) => c.category === 'wine')).toMatchObject({ count: 2, valuation: 50 });
-    expect(stats.caveDistribution.find((c) => c.cellarId === 'c1')).toMatchObject({ count: 2, valuation: 50 });
+    // #471 (FEAT-96): no longer a bottle in the cellar, and valued at nothing.
+    expect(stats.totalActiveItems).toBe(2);
+    expect(stats.categoryBreakdown.find((c) => c.category === 'wine')).toMatchObject({ count: 1, valuation: 50 });
+    expect(stats.caveDistribution.find((c) => c.cellarId === 'c1')).toMatchObject({ count: 1, valuation: 50 });
 
     // But nothing left to drink or to age.
     expect(stats.urgentDegustationCount).toBe(0);
@@ -330,5 +346,90 @@ describe('getAnalytics excludes non-owned references (FEAT-87)', () => {
       where: Record<string, unknown>;
     };
     expect(consumedCall.where).toMatchObject({ deletedAt: null, isOwned: true });
+  });
+});
+
+// #471 (FEAT-96): a row is a group of N copies. Every figure counts units in
+// stock — bottles, or cigars — and values them with `itemValue` (#594).
+describe('getAnalytics — units, value and spending of groups (#471, FEAT-96)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([{ id: 'c1', name: 'Garage', type: 'VINTAGE' }] as never);
+    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(0 as never);
+  });
+
+  it('reads the units\' state and their family\'s description', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await getAnalytics();
+
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> };
+    expect(call.select).toMatchObject({
+      quantity: true, cigarsPerBox: true, cigarsLeft: true, writtenOffAt: true,
+      product: { select: expect.objectContaining({ category: true, region: true, alertStatus: true }) },
+    });
+  });
+
+  it('shows 9 bottles worth 215 € in the cellar, like its card (FEAT-96 c1)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ cellarId: 'c1', quantity: 6, purchasePrice: 20 }),
+      item({ cellarId: 'c1', quantity: 2, purchasePrice: 30, estimatedValue: 40 }),
+      item({ cellarId: 'c1', isOpened: true, fillLevel: 60, purchasePrice: 15 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.totalActiveItems).toBe(9);
+    expect(stats.totalValuation).toBe(215);
+    expect(stats.caveDistribution).toEqual([
+      { cellarId: 'c1', cellarName: 'Garage', cellarType: 'VINTAGE', count: 9, valuation: 215 },
+    ]);
+    expect(stats.categoryBreakdown).toEqual([{ category: 'wine', count: 9, valuation: 215 }]);
+    expect(stats.regionBreakdown).toEqual([{ region: 'Bordeaux', count: 9, valuation: 215 }]);
+    // 8 full bottles of 0.75 l, plus one at 60 %.
+    expect(stats.totalLiquidLiters).toBe(6.45);
+  });
+
+  it('counts cigars in cigars: 3 boxes of 25, an opened box of 10, 4 single ones (89)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ category: 'cigar', quantity: 3, cigarsPerBox: 25, purchasePrice: 200 }),
+      item({ category: 'cigar', isOpened: true, cigarsPerBox: 25, cigarsLeft: 10, purchasePrice: 200 }),
+      item({ category: 'cigar', quantity: 4, purchasePrice: 9 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.cigarModulesCount).toBe(89);
+    expect(stats.categoryBreakdown).toEqual([{ category: 'cigar', count: 89, valuation: 836 }]);
+    expect(stats.totalLiquidLiters).toBe(0);
+  });
+
+  it('keeps drunk and written-off copies in the spending, out of the counts and the value', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ quantity: 4, purchasePrice: 20 }),
+      item({ purchasePrice: 20, isOpened: true, fillLevel: 0 }),
+      item({ purchasePrice: 20, writtenOffAt: new Date('2026-02-01') }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.totalActiveItems).toBe(4);
+    expect(stats.totalValuation).toBe(80);
+    expect(stats.totalPurchasePrice).toBe(120);
+  });
+
+  it('splits the maturity planning and the garde histogram by bottles, not by rows', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ quantity: 3, alertStatus: 'peak', peakMaturityFrom: thisYear, peakMaturityTo: thisYear }),
+      item({ alertStatus: 'none' }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.urgentDegustationCount).toBe(3);
+    expect(stats.maturityPlanning.atPeak).toEqual({ count: 3, percent: 75 });
+    expect(stats.maturityPlanning.noWindow).toEqual({ count: 1, percent: 25 });
+    expect(stats.gardeHistogram).toEqual([{ year: thisYear, count: 3 }]);
   });
 });

@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { UNIT_TOTALS_SELECT, sumTotals } from '../lib/stock-units';
 import type { OnboardingState } from '../../../shared/onboarding';
 
 /**
@@ -9,7 +10,7 @@ import type { OnboardingState } from '../../../shared/onboarding';
  */
 export const onboardingService = {
   async getState(userId: string, sessionId: string): Promise<OnboardingState> {
-    const [session, cellarCount, ownCellar, inStockCount] = await Promise.all([
+    const [session, cellarCount, ownCellar, inStock] = await Promise.all([
       sessionId
         ? prisma.session.findUnique({ where: { id: sessionId }, select: { onboardingPostponedAt: true } })
         : Promise.resolve(null),
@@ -21,15 +22,17 @@ export const onboardingService = {
         orderBy: { createdAt: 'asc' },
         select: { id: true, name: true },
       }),
-      prisma.inventoryItem.count({ where: IN_STOCK_ITEM_FILTER }),
+      // #471 (FEAT-96): bottles and cigars, not rows (shared/units.ts `itemUnits`).
+      prisma.inventoryItem.findMany({ where: IN_STOCK_ITEM_FILTER, select: UNIT_TOTALS_SELECT }),
     ]);
+    const { bottles, cigars } = sumTotals(inStock);
 
     return {
       postponed: session?.onboardingPostponedAt != null,
       joining: cellarCount > 0 && ownCellar === null,
       wizardCellar: ownCellar,
       cellarCount,
-      inStockCount,
+      inStockCount: bottles + cigars,
     };
   },
 

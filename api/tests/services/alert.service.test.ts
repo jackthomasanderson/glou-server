@@ -3,10 +3,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     inventoryItem: {
-      findMany: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
     },
+    product: { findMany: vi.fn() },
     user: {
       findMany: vi.fn().mockResolvedValue([]),
     },
@@ -42,7 +42,7 @@ async function flush(): Promise<void> {
 
 /** First `findMany` call arguments, narrowed for assertions. */
 function firstFindManyArgs(): { where?: Record<string, unknown>; select?: Record<string, unknown> } {
-  const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0];
+  const call = vi.mocked(prisma.product.findMany).mock.calls[0];
   expect(call).toBeDefined();
   return (call?.[0] ?? {}) as unknown as { where?: Record<string, unknown>; select?: Record<string, unknown> };
 }
@@ -59,9 +59,19 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function item(overrides: Record<string, unknown> = {}) {
+/** The in-stock scope, spelled out to pin the SQL shape (lib/finished-item.ts). */
+const IN_STOCK = {
+  deletedAt: null,
+  writtenOffAt: null,
+  isOwned: true,
+  // `not: null` keeps an opened bottle with no recorded level in stock.
+  NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
+};
+
+/** A family as getAlerts reads it, with its oldest unit in stock (#471). */
+function family(overrides: Record<string, unknown> = {}) {
   return {
-    id: 'b1',
+    id: 'p1',
     name: 'Chambertin',
     producer: 'Domaine X',
     category: 'wine',
@@ -70,9 +80,26 @@ function item(overrides: Record<string, unknown> = {}) {
     peakMaturityTo: 2035,
     curveShape: null,
     alertsPaused: false,
-    cellarId: null,
     collection: null,
     photoUrl: null,
+    items: [{ id: 'b1', cellarId: 'c1' }],
+    ...overrides,
+  };
+}
+
+/** A family as recomputeAlertStatuses reads it; `items` = a unit in stock, if any. */
+function scanned(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'p-b1',
+    name: 'Chambertin',
+    producer: 'Domaine X',
+    vintage: 2020,
+    alertStatus: 'approaching',
+    alertsPaused: false,
+    peakMaturityFrom: 2028,
+    peakMaturityTo: 2035,
+    updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+    items: [{ id: 'b1' }],
     ...overrides,
   };
 }
@@ -90,27 +117,28 @@ describe('getAlerts', () => {
   // ISSUE_033: the stored `alertStatus` column is only refreshed on edit, so
   // it must never drive the alerts list — selecting on it made a bottle whose
   // window had since opened disappear from the screen forever.
-  it('queries by drinking window, not by the stored alertStatus column', async () => {
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+  it('queries families by drinking window, not by the stored alertStatus column', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
 
     await getAlerts();
 
     const { where, select } = firstFindManyArgs();
     expect(where).toEqual({
       deletedAt: null,
-      isOwned: true,
       alertsPaused: false,
       OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
-      // #573: a finished bottle has been drunk — no alert left to raise.
-      // `not: null` keeps an opened bottle with no recorded level in the list.
-      NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
+      // #573 + FEAT-87 + #471: something left to drink — a unit in stock (not
+      // finished, not written off, not a reference, not in the trash).
+      items: { some: IN_STOCK },
     });
     expect(select).not.toHaveProperty('alertStatus');
+    // The unit opened from the alert: in stock, oldest purchase first.
+    expect(select?.items).toMatchObject({ where: IN_STOCK, take: 1 });
   });
 
   it('computes the status on read, so a window that opened since the last edit is reported', async () => {
     // Saved in 2026 as 'approaching'; in 2030 the bottle is at its peak.
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([item()] as never);
+    vi.mocked(prisma.product.findMany).mockResolvedValue([family()] as never);
 
     const alerts = await getAlerts();
 
@@ -118,39 +146,36 @@ describe('getAlerts', () => {
     expect(alerts[0]?.alertStatus).toBe('peak');
   });
 
-  it('drops items whose window yields no alert and sorts by urgency', async () => {
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-      item({ id: 'approaching', peakMaturityFrom: 2040, peakMaturityTo: 2050 }),
-      item({ id: 'past', peakMaturityFrom: 2010, peakMaturityTo: 2015 }),
-      item({ id: 'none', peakMaturityFrom: null, peakMaturityTo: null }),
-      item({ id: 'peak' }),
+  it('drops families whose window yields no alert and sorts by urgency', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
+      family({ id: 'p-approaching', items: [{ id: 'approaching', cellarId: null }], peakMaturityFrom: 2040, peakMaturityTo: 2050 }),
+      family({ id: 'p-past', items: [{ id: 'past', cellarId: null }], peakMaturityFrom: 2010, peakMaturityTo: 2015 }),
+      family({ id: 'p-none', items: [{ id: 'none', cellarId: null }], peakMaturityFrom: null, peakMaturityTo: null }),
+      family({ id: 'p-peak', items: [{ id: 'peak', cellarId: null }] }),
     ] as never);
 
     const alerts = await getAlerts();
 
     expect(alerts.map((a) => a.id)).toEqual(['past', 'peak', 'approaching']);
   });
+
+  // #471 (FEAT-96 c4): a wine of 9 bottles in 3 groups is one alert.
+  it('returns one alert per family, carrying the unit to open and the family id', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([family()] as never);
+
+    const [alert, ...others] = await getAlerts();
+
+    expect(others).toEqual([]);
+    expect(alert).toMatchObject({ id: 'b1', productId: 'p1', cellarId: 'c1', name: 'Chambertin', alertStatus: 'peak' });
+    expect(alert).not.toHaveProperty('items');
+  });
 });
 
 describe('recomputeAlertStatuses', () => {
-  it('rewrites only the rows whose stored status no longer matches the current year', async () => {
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-      {
-        id: 'stale',
-        productId: 'p-stale',
-        alertStatus: 'approaching',
-        peakMaturityFrom: 2028,
-        peakMaturityTo: 2035,
-        product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-      },
-      {
-        id: 'fresh',
-        productId: 'p-fresh',
-        alertStatus: 'past',
-        peakMaturityFrom: 2010,
-        peakMaturityTo: 2015,
-        product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-      },
+  it('rewrites only the families whose stored status no longer matches the current year', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
+      scanned({ id: 'p-stale', alertStatus: 'approaching', peakMaturityFrom: 2028, peakMaturityTo: 2035 }),
+      scanned({ id: 'p-fresh', alertStatus: 'past', peakMaturityFrom: 2010, peakMaturityTo: 2015 }),
     ] as never);
 
     const result = await recomputeAlertStatuses();
@@ -163,40 +188,41 @@ describe('recomputeAlertStatuses', () => {
     expect(writeProductFields).not.toHaveBeenCalled();
   });
 
-  it('only scans items that carry a drinking window', async () => {
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+  it('scans every family that carries a drinking window, with or without stock', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
 
     await recomputeAlertStatuses();
 
-    // #573: finished bottles are still scanned (no `NOT` clause) so the
-    // status stored on their card stays current; they are only skipped when
-    // notifying, which needs the fill state in the selection.
+    // #573: a wine with nothing left in stock is still scanned (no stock
+    // clause) so the status stored on its card stays current; it is only
+    // skipped when notifying, which needs to know whether a unit is in stock.
     const { where, select } = firstFindManyArgs();
     expect(where).toEqual({
       deletedAt: null,
-      isOwned: true,
       OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
     });
-    expect(select).toMatchObject({ isOpened: true, fillLevel: true });
+    expect(select).toMatchObject({ items: { where: IN_STOCK, select: { id: true }, take: 1 } });
+  });
+
+  // #471 (FEAT-96 c4, plan report C): a wine of 9 bottles in 3 groups used to
+  // be scanned as 3 units — written 3 times, notified 3 times.
+  it('writes and notifies a family of several groups once', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([scanned()] as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
+
+    const result = await recomputeAlertStatuses();
+    await flush();
+
+    expect(result).toEqual({ scanned: 1, updated: 1 });
+    expect(writeAlertStatus).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0]?.[0].subject).toBe('At peak maturity: Chambertin — Domaine X (2020)');
   });
 
   // #338: the 'peak' notification category previously had no emitter at all.
   describe('peak-maturity notification (#338)', () => {
-    it('notifies every member once an item transitions into peak', async () => {
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        {
-          id: 'b1',
-          productId: 'p-b1',
-          name: 'Chambertin',
-          producer: 'Domaine X',
-          vintage: 2020,
-          alertStatus: 'approaching',
-          alertsPaused: false,
-          peakMaturityFrom: 2028,
-          peakMaturityTo: 2035,
-          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-        },
-      ] as never);
+    it('notifies every member once a wine transitions into peak', async () => {
+      vi.mocked(prisma.product.findMany).mockResolvedValue([scanned()] as never);
       vi.mocked(prisma.user.findMany).mockResolvedValue([
         { id: 'u1', language: 'FR', notifLanguage: null },
         { id: 'u2', language: 'FR', notifLanguage: 'EN' },
@@ -212,19 +238,8 @@ describe('recomputeAlertStatuses', () => {
     });
 
     it('escapes member-entered names in the email body (#488)', async () => {
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        {
-          id: 'b1',
-          productId: 'p-b1',
-          name: '<a href="https://evil.example">Sign in again</a>',
-          producer: 'Domaine X',
-          vintage: 2020,
-          alertStatus: 'approaching',
-          alertsPaused: false,
-          peakMaturityFrom: 2028,
-          peakMaturityTo: 2035,
-          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-        },
+      vi.mocked(prisma.product.findMany).mockResolvedValue([
+        scanned({ name: '<a href="https://evil.example">Sign in again</a>' }),
       ] as never);
       vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
 
@@ -236,21 +251,9 @@ describe('recomputeAlertStatuses', () => {
       expect(body).toContain('&lt;a href=&quot;https://evil.example&quot;&gt;');
     });
 
-    it('sends each member one digest when several bottles reach peak together (#478)', async () => {
-      const peaking = (id: string) => ({
-        id,
-        productId: `p-${id}`,
-        name: `Wine ${id}`,
-        producer: 'Domaine X',
-        vintage: 2020,
-        alertStatus: 'approaching',
-        alertsPaused: false,
-        peakMaturityFrom: 2028,
-        peakMaturityTo: 2035,
-        product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-      });
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(
-        Array.from({ length: 12 }, (_, i) => peaking(`b${i}`)) as never,
+    it('sends each member one digest when several wines reach peak together (#478)', async () => {
+      vi.mocked(prisma.product.findMany).mockResolvedValue(
+        Array.from({ length: 12 }, (_, i) => scanned({ id: `p${i}`, name: `Wine b${i}` })) as never,
       );
       vi.mocked(prisma.user.findMany).mockResolvedValue([
         { id: 'u1', language: 'EN', notifLanguage: null },
@@ -262,28 +265,17 @@ describe('recomputeAlertStatuses', () => {
 
       expect(send).toHaveBeenCalledTimes(2);
       const en = send.mock.calls.find((c) => c[0].userId === 'u1')?.[0];
-      expect(en.subject).toBe('12 bottles reach their drinking window');
+      expect(en.subject).toBe('12 wines reach their drinking window');
+      const fr = send.mock.calls.find((c) => c[0].userId === 'u2')?.[0];
+      expect(fr.subject).toBe('12 vins entrent dans leur fenêtre de dégustation');
       expect(en.htmlBody).toContain('Wine b0');
       expect(en.htmlBody).not.toContain('Wine b11');
       expect(en.htmlBody).toContain('+ 2 more.');
       expect(en.htmlBody).toContain('https://glou.test/bottles?filter=alerts');
     });
 
-    it('does not notify when the item has alerts paused', async () => {
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        {
-          id: 'b1',
-          productId: 'p-b1',
-          name: 'Chambertin',
-          producer: 'Domaine X',
-          vintage: 2020,
-          alertStatus: 'approaching',
-          alertsPaused: true,
-          peakMaturityFrom: 2028,
-          peakMaturityTo: 2035,
-          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-        },
-      ] as never);
+    it('does not notify when the wine has alerts paused', async () => {
+      vi.mocked(prisma.product.findMany).mockResolvedValue([scanned({ alertsPaused: true })] as never);
 
       await recomputeAlertStatuses();
       await flush();
@@ -292,20 +284,7 @@ describe('recomputeAlertStatuses', () => {
     });
 
     it('does not re-notify on a tick where the stored status is already peak', async () => {
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        {
-          id: 'b1',
-          productId: 'p-b1',
-          name: 'Chambertin',
-          producer: 'Domaine X',
-          vintage: 2020,
-          alertStatus: 'peak',
-          alertsPaused: false,
-          peakMaturityFrom: 2028,
-          peakMaturityTo: 2035,
-          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-        },
-      ] as never);
+      vi.mocked(prisma.product.findMany).mockResolvedValue([scanned({ alertStatus: 'peak' })] as never);
 
       await recomputeAlertStatuses();
       await flush();
@@ -314,24 +293,10 @@ describe('recomputeAlertStatuses', () => {
       expect(send).not.toHaveBeenCalled();
     });
 
-    // #573: a finished bottle (opened, nothing left) has been drunk.
-    it('updates the status of a finished bottle reaching peak but does not notify about it', async () => {
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        {
-          id: 'drunk',
-          productId: 'p-drunk',
-          name: 'Chambertin',
-          producer: 'Domaine X',
-          vintage: 2020,
-          alertStatus: 'approaching',
-          alertsPaused: false,
-          peakMaturityFrom: 2028,
-          peakMaturityTo: 2035,
-          isOpened: true,
-          fillLevel: 0,
-          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-        },
-      ] as never);
+    // #573: every bottle of the wine has been drunk (or written off, or it is
+    // a FEAT-87 reference): no unit in stock.
+    it('updates the status of a wine with nothing in stock reaching peak but does not notify about it', async () => {
+      vi.mocked(prisma.product.findMany).mockResolvedValue([scanned({ id: 'p-drunk', items: [] })] as never);
       vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
 
       const result = await recomputeAlertStatuses();
@@ -344,23 +309,10 @@ describe('recomputeAlertStatuses', () => {
       expect(send).not.toHaveBeenCalled();
     });
 
-    it('leaves the finished bottle out of a run that also has a bottle in stock reaching peak', async () => {
-      const peaking = (id: string, fill: { isOpened: boolean; fillLevel: number | null }) => ({
-        id,
-        productId: `p-${id}`,
-        name: `Wine ${id}`,
-        producer: 'Domaine X',
-        vintage: 2020,
-        alertStatus: 'approaching',
-        alertsPaused: false,
-        peakMaturityFrom: 2028,
-        peakMaturityTo: 2035,
-        ...fill,
-        product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-      });
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        peaking('drunk', { isOpened: true, fillLevel: 0 }),
-        peaking('half', { isOpened: true, fillLevel: 50 }),
+    it('leaves the drunk wine out of a run that also has a wine in stock reaching peak', async () => {
+      vi.mocked(prisma.product.findMany).mockResolvedValue([
+        scanned({ id: 'p-drunk', name: 'Wine drunk', items: [] }),
+        scanned({ id: 'p-half', name: 'Wine half' }),
       ] as never);
       vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
 
@@ -368,62 +320,10 @@ describe('recomputeAlertStatuses', () => {
       await flush();
 
       expect(writeAlertStatus).toHaveBeenCalledTimes(2);
-      // A single-bottle message about the one in stock, not a two-bottle digest.
+      // A single-wine message about the one in stock, not a two-wine digest.
       expect(send).toHaveBeenCalledTimes(1);
       expect(send.mock.calls[0]?.[0].subject).toBe('At peak maturity: Wine half — Domaine X (2020)');
     });
-
-    it('still notifies for an opened bottle whose fill level was never entered', async () => {
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        {
-          id: 'b1',
-          productId: 'p-b1',
-          name: 'Chambertin',
-          producer: 'Domaine X',
-          vintage: 2020,
-          alertStatus: 'approaching',
-          alertsPaused: false,
-          peakMaturityFrom: 2028,
-          peakMaturityTo: 2035,
-          isOpened: true,
-          fillLevel: null,
-          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-        },
-      ] as never);
-      vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
-
-      await recomputeAlertStatuses();
-      await flush();
-
-      expect(send).toHaveBeenCalledTimes(1);
-      expect(send).toHaveBeenCalledWith(expect.objectContaining({ userId: 'u1', category: 'peak' }));
-    });
-  });
-});
-
-// FEAT-87: a non-owned reference has no bottle to drink, so it must never
-// reach the alert pipeline — neither the live query nor the maintenance pass.
-describe('alerts exclude non-owned references (FEAT-87)', () => {
-  it('getAlerts only queries owned items', async () => {
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
-
-    await getAlerts();
-
-    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
-      where: Record<string, unknown>;
-    };
-    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
-  });
-
-  it('recomputeAlertStatuses only queries owned items', async () => {
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
-
-    await recomputeAlertStatuses();
-
-    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
-      where: Record<string, unknown>;
-    };
-    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
   });
 });
 
