@@ -75,6 +75,8 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
 
   // #508: translated labels and readable values, not raw ids.
   const describe = (entry: HistoryEntry): string => {
+    const joined = describeJoin(entry);
+    if (joined) return joined;
     const split = describeSplit(entry);
     if (split) return split;
     if (!entry.changes || entry.changes.length === 0) return actionLabel(entry.action);
@@ -117,6 +119,17 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
     const price = (value: unknown) =>
       value == null ? t('stockLine.reprice.noPrice') : formatHistoryValue('purchasePrice', value, t, context);
     return t('stockLine.history.repriced', { ...options, from: price(moved.from), to: price(moved.to) });
+  }
+
+  /** An edited line that joined this one: "2 bouteilles rejointes (date d'achat 15/01/2026 → 31/10/2026)". */
+  function describeJoin(entry: HistoryEntry): string | null {
+    const number = entry.changes?.find((change) => change.field === 'quantity');
+    if (!entry.joinedChanges || typeof number?.from !== 'number' || typeof number.to !== 'number') return null;
+    const what = entry.joinedChanges
+      .filter((change) => change.field !== 'quantity')
+      .map((change) => `${fieldLabel(change.field).toLocaleLowerCase(i18n.language)} ${formatHistoryValue(change.field, change.from, t, context)} → ${formatHistoryValue(change.field, change.to, t, context)}`)
+      .join(', ');
+    return t('stockLine.history.joined', { context: nounOf(entry.itemId), count: number.to - number.from, what });
   }
 
   const close = () => { setTarget(null); itemRollback.reset(); productRollback.reset(); };

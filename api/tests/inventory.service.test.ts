@@ -517,6 +517,18 @@ describe('InventoryService', () => {
         expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
       });
 
+      it.each([
+        ['places of purchase', { purchasePlace: 'Caviste A' }, { purchasePlace: 'Caviste B' }],
+        ['locations', { location: 'Bas' }, { location: 'Haut' }],
+      ])('never when their %s contradict each other: neither is lost (rule 4)', async (_label, target, edited) => {
+        vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string } }) =>
+          Promise.resolve({ ...line(args.where.id, { quantity: 2, purchasedAt: OCT, ...edited }), product: family() })) as never);
+        vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([line('b6', { quantity: 6, purchasedAt: OCT, ...target })] as never);
+
+        expect(await service.updateItem('u1', 'b2', { purchasedAt: OCT })).not.toHaveProperty('joined');
+        expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+      });
+
       it('nothing to join when no field of the group changed', async () => {
         const result = await service.updateItem('u1', 'b2', { location: 'Étagère' });
         expect(result).not.toHaveProperty('joined');

@@ -2189,6 +2189,12 @@
       "repriced_box_other": "Prix de {{count}} boîtes : {{from}} → {{to}}",
       "repriced_cigar_one": "Prix de {{count}} cigare : {{from}} → {{to}}",
       "repriced_cigar_other": "Prix de {{count}} cigares : {{from}} → {{to}}",
+      "joined_bottle_one": "{{count}} bouteille rejointe ({{what}})",
+      "joined_bottle_other": "{{count}} bouteilles rejointes ({{what}})",
+      "joined_box_one": "{{count}} boîte rejointe ({{what}})",
+      "joined_box_other": "{{count}} boîtes rejointes ({{what}})",
+      "joined_cigar_one": "{{count}} cigare rejoint ({{what}})",
+      "joined_cigar_other": "{{count}} cigares rejoints ({{what}})",
       "reasons": {
         "input_error": "erreur de saisie",
         "written_off": "cassée, offerte ou perdue"

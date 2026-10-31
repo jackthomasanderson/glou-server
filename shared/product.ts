@@ -199,6 +199,8 @@ export interface ProductHistoryEntry {
   count?: number;
   /** FEAT-92 c3: why a number was corrected (`CORRECT_QUANTITY`). */
   reason?: CorrectionReason;
+  /** #471 (W3): an edited line that joined this group — what its edit changed. */
+  joinedChanges?: FieldChange[];
   createdAt: Date;
 }
 

@@ -242,4 +242,18 @@ describe('FamilyDrawer — actions of a line (#471, W3)', () => {
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
     expect(screen.getByTestId('family-history')).toHaveTextContent('1 boîte déplacée vers Garage');
   });
+
+  it('the history tells a line that joined this one: "2 bouteilles rejointes (date d\'achat … → …)", nothing to restore', () => {
+    detail = detailOf({
+      items: [unit({ id: 'g', quantity: 8 })],
+      history: [entry({
+        action: 'UPDATE', changes: [{ field: 'quantity', from: 6, to: 8 }],
+        joinedChanges: [{ field: 'purchasedAt', from: '2026-01-15T00:00:00.000Z', to: '2026-10-31T00:00:00.000Z' }],
+      })],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const history = screen.getByTestId('family-history');
+    expect(history).toHaveTextContent("2 bouteilles rejointes (date d'achat 15/01/2026 → 31/10/2026)");
+    expect(within(history).queryByRole('button', { name: 'Restaurer cette valeur' })).toBeNull();
+  });
 });
