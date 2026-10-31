@@ -5,11 +5,12 @@ import { Prisma } from '@prisma/client';
 import { PRODUCT_FIELDS, pickProductFields, todayAsPurchaseDate } from '../../src/lib/product-fields';
 
 const migrationsDir = path.join(__dirname, '../../prisma/migrations');
-const expandMigration = () => {
-  const dir = fs.readdirSync(migrationsDir).find((name) => name.endsWith('_families_expand'));
-  if (!dir) throw new Error('families_expand migration not found');
+const migration = (suffix: string) => {
+  const dir = fs.readdirSync(migrationsDir).find((name) => name.endsWith(suffix));
+  if (!dir) throw new Error(`${suffix} migration not found`);
   return fs.readFileSync(path.join(migrationsDir, dir, 'migration.sql'), 'utf8');
 };
+const expandMigration = () => migration('_families_expand');
 
 describe('PRODUCT_FIELDS (#471, design.md "Où vit une donnée")', () => {
   it('lists only real columns of Product', () => {
@@ -49,6 +50,23 @@ describe('PRODUCT_FIELDS (#471, design.md "Où vit une donnée")', () => {
     for (const field of PRODUCT_FIELDS) {
       expect(insert).toContain(`"${field}"`);
       expect(lockList).toContain(`'${field}'`);
+    }
+  });
+
+  it('is merged and mirrored again in full by the transform migration (FEAT-94)', () => {
+    const sql = migration('_families_transform');
+    const merge = sql.slice(sql.indexOf('UPDATE "products" p SET'), sql.indexOf('FROM fam_merged f'));
+    const mirror = sql.slice(sql.indexOf('UPDATE "bottles" b SET\n  "category"'), sql.indexOf('FROM "products" p\nWHERE b."productId"'));
+    expect(merge.length).toBeGreaterThan(0);
+    expect(mirror.length).toBeGreaterThan(0);
+    // The key fields stay the surviving family's own (equal once normalised);
+    // the alert status is recomputed from the merged drinking window.
+    expect(merge).toContain('"alertStatus" = CASE');
+    for (const field of PRODUCT_FIELDS) {
+      if (!['category', 'name', 'producer', 'alertStatus'].includes(field)) {
+        expect(merge).toContain(`"${field}" = f."${field}"`);
+      }
+      expect(mirror).toContain(`"${field}" = p."${field}"`);
     }
   });
 });
