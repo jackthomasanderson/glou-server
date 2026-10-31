@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    tastingNote: { findMany: vi.fn() },
+    tastingNote: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    inventoryItem: { findFirst: vi.fn() },
   },
 }));
 
@@ -71,5 +72,45 @@ describe('tastingsService.analytics — top/flop items (ISSUE_038)', () => {
     expect(stats.topItems.map((i) => i.id)).toEqual(['i1', 'i2']);
     expect(stats.producerRankings).toHaveLength(2);
     expect(stats.readinessDistribution).toEqual({ TOO_YOUNG: 0, PERFECT: 0, PEAK: 1, PAST: 1 });
+  });
+});
+
+// #471 (F1 review): a tasting belongs to the family of the bottle tasted, so
+// the family's sheet finds it by `productId`.
+describe('tastingsService — the family of the tasted bottle', () => {
+  it('records the family on a new tasting of a bottle', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ id: 'b1', productId: 'p1' } as never);
+
+    await tastingsService.create('u1', { itemId: 'b1', rating: 4 });
+
+    expect(vi.mocked(prisma.tastingNote.create).mock.calls[0]?.[0]).toMatchObject({
+      data: { userId: 'u1', itemId: 'b1', productId: 'p1', rating: 4 },
+    });
+  });
+
+  it('records no family on a tasting without a bottle', async () => {
+    await tastingsService.create('u1', { rating: 4 });
+
+    const data = vi.mocked(prisma.tastingNote.create).mock.calls[0]?.[0]?.data as Record<string, unknown>;
+    expect(data.productId).toBeUndefined();
+    expect(prisma.inventoryItem.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('follows the bottle when a tasting is moved to another one', async () => {
+    vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1' } as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ id: 'b2', productId: 'p2' } as never);
+
+    await tastingsService.update('t1', 'u1', { itemId: 'b2' });
+
+    expect(vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]).toMatchObject({ data: { itemId: 'b2', productId: 'p2' } });
+  });
+
+  it('leaves the family alone when the bottle does not change', async () => {
+    vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1' } as never);
+
+    await tastingsService.update('t1', 'u1', { rating: 3 });
+
+    const data = vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]?.data as Record<string, unknown>;
+    expect(data).not.toHaveProperty('productId');
   });
 });

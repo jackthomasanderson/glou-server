@@ -102,7 +102,10 @@ describe('ImportService.previewCsv', () => {
 
 describe('ImportService.confirmImport', () => {
   beforeEach(() => {
-    tx.inventoryItem.create.mockReset().mockResolvedValue({});
+    // #471: createItem answers with the flat record, read through the new family.
+    tx.inventoryItem.create.mockReset().mockResolvedValue({
+      lockedFields: [], fieldSources: null, product: { lockedFields: [], fieldSources: null },
+    });
     tx.inventoryItem.findMany.mockReset().mockResolvedValue([]);
   });
 
@@ -157,7 +160,7 @@ describe('ImportService.confirmImport', () => {
     // A row created earlier in this import must not count as "already there".
     tx.inventoryItem.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
       tx.inventoryItem.findMany.mockResolvedValue([data]);
-      return data;
+      return { ...data, product: (data.product as { create: unknown }).create };
     });
     const result = await importService.confirmImport('u1', Array.from({ length: 6 }, () => row()), null);
     expect(result).toEqual({ created: 6, skippedDuplicates: 0 });

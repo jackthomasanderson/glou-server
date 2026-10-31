@@ -25,7 +25,8 @@ async function createItem(api: APIRequestContext, data: Record<string, unknown>)
 
 // #472 + #483: a guest with write access on a share that hides notes and
 // prices must neither erase the owner's notes nor read them (or the price)
-// back in the response to their own edit.
+// back in the response to their own edit. #471 (FEAT-109): the notes are the
+// wine's, so a guest can no longer send them at all.
 test('a write-enabled guest cannot erase or read hidden notes and prices', async ({ page, browser }) => {
   const api = page.request;
   const cellarId = await firstCellarId(api);
@@ -44,8 +45,13 @@ test('a write-enabled guest cannot erase or read hidden notes and prices', async
 
   const guestCtx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   try {
-    const patch = await guestCtx.request.patch(`/api/guest/${share.token}/inventory/${itemId}`, {
+    const withNotes = await guestCtx.request.patch(`/api/guest/${share.token}/inventory/${itemId}`, {
       data: { isOpened: true, fillLevel: 50, notes: null },
+    });
+    expect(withNotes.status(), await withNotes.text()).toBe(400);
+
+    const patch = await guestCtx.request.patch(`/api/guest/${share.token}/inventory/${itemId}`, {
+      data: { isOpened: true, fillLevel: 50 },
     });
     expect(patch.ok(), await patch.text()).toBe(true);
     const visible = (await patch.json()).data as Record<string, unknown>;

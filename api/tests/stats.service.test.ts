@@ -105,6 +105,7 @@ describe('statsService.getSidebarCounts counts only bottles in stock (#573)', ()
 
     const inStock = {
       deletedAt: null,
+      writtenOffAt: null,
       isOwned: true,
       // `not: null` keeps an opened bottle with no recorded level counted.
       NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },

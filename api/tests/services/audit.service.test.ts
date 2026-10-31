@@ -6,6 +6,9 @@ vi.mock('../../src/lib/prisma', () => ({
       create: vi.fn(),
       deleteMany: vi.fn(),
     },
+    inventoryItem: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 
@@ -27,13 +30,15 @@ describe('auditLog', () => {
         status: 'success',
         ip: '1.2.3.4',
         bottleId: null,
+        productId: null,
         details: {},
       },
     });
   });
 
-  it('passes through bottleId and details when given', async () => {
+  it('passes through bottleId and details when given, with the family of the unit (#471)', async () => {
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue({ productId: 'p1' } as never);
 
     await auditLog({
       userId: 'u1',
@@ -51,9 +56,28 @@ describe('auditLog', () => {
         status: 'success',
         ip: '1.2.3.4',
         bottleId: 'b1',
+        productId: 'p1',
         details: { reason: 'manual' },
       },
     });
+  });
+
+  it('takes the family given by the caller without looking it up (#471)', async () => {
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+
+    await auditLog({ userId: 'u1', action: 'UPDATE', status: 'success', ip: '1.2.3.4', bottleId: 'b1', productId: 'p9' });
+
+    expect(prisma.inventoryItem.findUnique).not.toHaveBeenCalled();
+    expect(vi.mocked(prisma.auditLog.create).mock.calls[0]?.[0]).toMatchObject({ data: { bottleId: 'b1', productId: 'p9' } });
+  });
+
+  it('leaves the family empty for a unit that no longer exists', async () => {
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue(null);
+
+    await auditLog({ userId: 'u1', action: 'UPDATE', status: 'not_found', ip: '1.2.3.4', bottleId: 'gone' });
+
+    expect(vi.mocked(prisma.auditLog.create).mock.calls[0]?.[0]).toMatchObject({ data: { bottleId: 'gone', productId: null } });
   });
 
   it('never throws when the write fails — must not block the request lifecycle', async () => {

@@ -11,6 +11,12 @@ export interface AuditEntry {
   status: AuditStatus;
   ip: string;
   bottleId?: string;
+  /**
+   * #471: the family the change belongs to (design.md "Historique des
+   * champs"). Looked up from `bottleId` when not given, so every unit change
+   * is also found from its family.
+   */
+  productId?: string;
   details?: Record<string, unknown>;
 }
 
@@ -20,6 +26,9 @@ export interface AuditEntry {
  */
 export async function auditLog(entry: AuditEntry): Promise<void> {
   try {
+    const productId = entry.productId ?? (entry.bottleId
+      ? (await prisma.inventoryItem.findUnique({ where: { id: entry.bottleId }, select: { productId: true } }))?.productId
+      : undefined);
     await prisma.auditLog.create({
       data: {
         userId: entry.userId,
@@ -27,6 +36,7 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
         status: entry.status,
         ip: entry.ip,
         bottleId: entry.bottleId ?? null,
+        productId: productId ?? null,
         details: (entry.details ?? {}) as Prisma.InputJsonValue,
       },
     });

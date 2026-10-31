@@ -6,6 +6,7 @@ import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { NOT_FINISHED_ITEM_FILTER, isFinishedItem } from '../lib/finished-item';
 import { escapeHtml } from '../lib/html';
 import { systemConfigService } from './system-config.service';
+import { writeProductFields } from '../lib/product-fields';
 
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
@@ -129,6 +130,8 @@ export interface AlertStatusRecomputeResult {
  * `updatedAt` is carried over explicitly so this maintenance pass never looks
  * like a user edit: bumping it would reorder user-facing lists and trigger
  * spurious conflicts in the FEAT-16/23 offline-sync concurrency check.
+ * #471: the status lives on the family, written with its mirror on the units
+ * (whose `updatedAt` the mirror never touches); the family keeps its own.
  */
 export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResult> {
   const items = await prisma.inventoryItem.findMany({
@@ -144,7 +147,8 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
       peakMaturityTo: true,
       isOpened: true,
       fillLevel: true,
-      updatedAt: true,
+      productId: true,
+      product: { select: { updatedAt: true } },
     },
   });
 
@@ -153,10 +157,8 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
   for (const item of items) {
     const nextStatus = computeAlertStatus(item.peakMaturityFrom, item.peakMaturityTo);
     if (item.alertStatus === nextStatus) continue;
-    await prisma.inventoryItem.update({
-      where: { id: item.id },
-      data: { alertStatus: nextStatus, updatedAt: item.updatedAt },
-    });
+    await prisma.$transaction((tx) =>
+      writeProductFields(tx, item.productId, { alertStatus: nextStatus, updatedAt: item.product.updatedAt }));
     updated += 1;
 
     // #338: the `item.alertStatus === nextStatus` guard above is the
@@ -239,15 +241,14 @@ async function notifyPeakReached(items: PeakItem[]): Promise<void> {
 }
 
 /**
- * Toggles alert pause for a single inventory item.
+ * Toggles alert pause for a single inventory item — #471: on its family, so
+ * for every bottle of the wine.
  */
 export async function toggleAlertPause(id: string): Promise<boolean> {
-  const item = await prisma.inventoryItem.findFirst({ where: { id, deletedAt: null } });
+  const item = await prisma.inventoryItem.findFirst({ where: { id, deletedAt: null }, include: { product: true } });
   if (!item) return false;
 
-  await prisma.inventoryItem.update({
-    where: { id },
-    data: { alertsPaused: !item.alertsPaused, updatedAt: new Date() },
-  });
+  await prisma.$transaction((tx) =>
+    writeProductFields(tx, item.productId, { alertsPaused: !item.product.alertsPaused }));
   return true;
 }

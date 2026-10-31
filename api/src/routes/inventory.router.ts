@@ -165,7 +165,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     const item = await inventoryService.createItem(req.userId, data, undefined, fieldSources);
-    void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, details: { category: data.category } });
+    void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, productId: item.productId, details: { category: data.category } });
     res.status(201).json({ data: item });
   } catch (error) {
     console.error('[inventory] POST / error:', error);
@@ -198,16 +198,16 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       // `expectedUpdatedAt` and it no longer matches — someone else modified this item in the meantime.
       // Return the current server state so the client can offer conflict
       // resolution instead of silently overwriting it.
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: 'CONFLICT' } });
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, productId: result.serverItem.productId, details: { reason: 'CONFLICT' } });
       res.status(409).json({ error: 'CONFLICT', data: result.serverItem });
       return;
     }
     if (result.slotConflict) {
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: 'SLOT_OCCUPIED' } });
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, productId: result.item.productId, details: { reason: 'SLOT_OCCUPIED' } });
       res.status(409).json({ error: 'SLOT_OCCUPIED' });
       return;
     }
-    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: id, details: { changes: result.changes } });
+    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: id, productId: result.item.productId, details: { changes: result.changes } });
     res.json({ data: result.item });
   } catch (error) {
     console.error('[inventory] PATCH /:id error:', error);
@@ -235,7 +235,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const daysLeft = inventoryService.daysUntilPermanentDelete(item.deletedAt!);
-    void auditLog({ userId: req.userId, action: 'DELETE', status: 'success', ip, bottleId: id, details: { daysLeft } });
+    void auditLog({ userId: req.userId, action: 'DELETE', status: 'success', ip, bottleId: id, productId: item.productId, details: { daysLeft } });
     res.json({ data: item, meta: { daysUntilPermanentDelete: daysLeft } });
   } catch (error) {
     console.error('[inventory] DELETE /:id error:', error);
@@ -256,7 +256,7 @@ router.post('/:id/restore', async (req: Request, res: Response): Promise<void> =
       res.status(404).json({ error: 'ITEM_NOT_FOUND_OR_EXPIRED' });
       return;
     }
-    void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip, bottleId: id });
+    void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip, bottleId: id, productId: item.productId });
     res.json({ data: item });
   } catch (error) {
     console.error('[inventory] POST /:id/restore error:', error);
@@ -293,7 +293,7 @@ router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, bottleId: id, details: { changes: result.changes } });
+    void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, bottleId: id, productId: result.item.productId, details: { changes: result.changes } });
     res.json({ data: result.item });
   } catch (error) {
     console.error('[inventory] POST /:id/rollback error:', error);

@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import { Prisma } from '@prisma/client';
-import { PRODUCT_FIELDS, pickProductFields, todayAsPurchaseDate } from '../../src/lib/product-fields';
+import {
+  PRODUCT_FIELDS, pickProductFields, todayAsPurchaseDate, toItemView, writeProductFields,
+} from '../../src/lib/product-fields';
 
 const migrationsDir = path.join(__dirname, '../../prisma/migrations');
 const migration = (suffix: string) => {
@@ -86,5 +88,53 @@ describe('todayAsPurchaseDate (D6)', () => {
   it('is today in the API time zone, at midnight UTC so a @db.Date column stores that day', () => {
     const now = new Date(2026, 0, 15, 0, 30); // 00:30 local time
     expect(todayAsPurchaseDate(now).toISOString()).toBe('2026-01-15T00:00:00.000Z');
+  });
+});
+
+describe('writeProductFields (#471, D22)', () => {
+  it('writes the family, then copies every family column onto its units in SQL, leaving their updatedAt alone', async () => {
+    const calls: string[] = [];
+    const client = {
+      product: { update: vi.fn(async () => { calls.push('product'); return { id: 'p1' }; }) },
+      $executeRaw: vi.fn(async () => { calls.push('mirror'); return 2; }),
+    };
+
+    await writeProductFields(client as never, 'p1', { region: 'Médoc', updatedBy: 'u1' });
+
+    expect(client.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { region: 'Médoc', updatedBy: 'u1' } });
+    expect(calls).toEqual(['product', 'mirror']);
+    const [strings, assignments, productId] = client.$executeRaw.mock.calls[0] as unknown as [string[], { text?: string; sql?: string }, string];
+    const sql = `${strings.join('?')} ${JSON.stringify(assignments)}`;
+    expect(sql).toContain('UPDATE "bottles"');
+    expect(sql).not.toContain('updatedAt');
+    for (const field of PRODUCT_FIELDS) expect(sql).toContain(`\\"${field}\\" = p.\\"${field}\\"`);
+    expect(productId).toBe('p1');
+  });
+});
+
+describe('toItemView (#471: the flat record of /api/inventory)', () => {
+  const product = {
+    ...Object.fromEntries(PRODUCT_FIELDS.map((field) => [field, null])),
+    name: 'Talbot', region: 'Médoc', lockedFields: ['region'], fieldSources: { name: 'ocr' }, collections: [{ id: 'col1' }],
+  };
+
+  it('reads the description, its locks, sources and collections on the family, the rest on the unit', () => {
+    const view = toItemView({
+      id: 'b1', purchasePrice: 20, name: 'stale', region: 'stale',
+      lockedFields: ['region', 'purchasePrice'], fieldSources: { region: 'ocr', purchasePrice: 'import_csv' },
+      product: product as never,
+    });
+
+    expect(view).toMatchObject({
+      id: 'b1', purchasePrice: 20, name: 'Talbot', region: 'Médoc', collections: [{ id: 'col1' }],
+      fieldSources: { purchasePrice: 'import_csv', name: 'ocr' },
+    });
+    expect(view.lockedFields).toEqual(['region', 'purchasePrice']);
+    expect(view).not.toHaveProperty('product');
+  });
+
+  it('has no field sources when neither side has any', () => {
+    const view = toItemView({ lockedFields: [], fieldSources: null, product: { ...product, fieldSources: null } as never });
+    expect(view.fieldSources).toBeNull();
   });
 });
