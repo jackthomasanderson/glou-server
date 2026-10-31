@@ -72,4 +72,8 @@ USER glou
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/api/src/index.js"]
+# design.md "Sauvegarde & Migration": pre-migrate.js backs the database up
+# (glou-backup-before-migration-*.sql.gz in /app/backups) when migrations are
+# pending on an instance in use, and exits non-zero if it cannot: then nothing
+# is migrated and the API does not start.
+CMD ["sh", "-c", "node dist/api/src/scripts/pre-migrate.js && npx prisma migrate deploy && node dist/api/src/index.js"]
