@@ -8,12 +8,16 @@
 #   3. the image's own `prisma migrate deploy` applies the rest, as on an
 #      update;
 #   4. checks/*.sql verify the result (each lists its failures, then fails);
-#   5. parity/: the SQL copy of the shared rules (units, productKey) answers
-#      the case table the TypeScript tests read (cases/families-rules.json);
+#   5. parity/: the SQL copy of the shared rules (units, value, spending,
+#      productKey, groupKey) answers the case table the TypeScript tests read
+#      (fixtures/units-cases.json);
 #   6. a second `migrate deploy` must find nothing to apply and change nothing;
 #   7. the failure path: on another database, an inconsistency the transform
 #      cannot reconcile makes it raise, roll everything back, say why, and
-#      leave the migration marked failed (P3009) instead of half applied.
+#      leave the migration marked failed (P3009) instead of half applied;
+#   8. duration: the migrations on a synthetic instance of 5,000 records must
+#      stay well within the API's start-up time (a quadratic step once took
+#      minutes and made the healthcheck fail).
 #
 # Usage, with the E2E stack up (docker-compose.e2e.yml):
 #   bash e2e/migration/check-families-migration.sh
@@ -24,6 +28,9 @@ root=$(cd "$here/../.." && pwd)
 export COMPOSE_FILE="$root/docker-compose.e2e.yml"
 database=glou_migration_bench
 failing=glou_migration_bench_failure
+timed=glou_migration_bench_duration
+records=5000
+max_seconds=30
 
 # Same server and credentials as the stack, other databases.
 stack_url=$(docker compose exec -T api printenv DATABASE_URL </dev/null)
@@ -90,7 +97,7 @@ echo "::group::Shared rules: SQL against the TypeScript case table"
 {
   sed -n '/^-- >>> families rules/,/^-- <<< families rules/p' "$rules_file"
   echo "SELECT set_config('bench.cases', \$cases\$"
-  cat "$here/cases/families-rules.json"
+  cat "$here/fixtures/units-cases.json"
   echo "\$cases\$, false);"
   cat "$here/parity/families-rules.sql"
 } | psql_bench -o /dev/null
@@ -163,6 +170,22 @@ if ! grep -q 'P3009' <<<"$again"; then
   exit 1
 fi
 docker compose exec -T db psql -U glou -d postgres -q -c "DROP DATABASE $failing" </dev/null
+echo "::endgroup::"
+
+echo "::group::Duration: $records records"
+fresh_database "$timed"
+migrate_on "$timed" -v "$work/before-families:/app/prisma/migrations:ro" >/dev/null
+sed "s/:N/$records/g" "$here/fixtures/perf-families.sql" | psql_on "$timed"
+start=$(date +%s%N)
+migrate_on "$timed" >/dev/null
+seconds=$(( ($(date +%s%N) - start) / 1000000000 ))
+psql_on "$timed" -tA </dev/null -c 'SELECT count(*) || $$ families, $$ || (SELECT count(*) FROM bottles) || $$ units$$ FROM products'
+echo "The families migrations took ${seconds} s for $records records (limit ${max_seconds} s)."
+docker compose exec -T db psql -U glou -d postgres -q -c "DROP DATABASE $timed" </dev/null
+if [ "$seconds" -gt "$max_seconds" ]; then
+  echo "Too slow: an update must not keep the API from starting."
+  exit 1
+fi
 echo "::endgroup::"
 
 echo "The families migrations pass the bench."

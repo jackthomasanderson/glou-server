@@ -33,15 +33,17 @@
 -- the failure path: full rollback, the reason shown, P3009 on restart).
 
 -- >>> families rules
--- The rules shared with TypeScript (shared/units.ts is the reference). The
--- migration bench runs this block on its own against the shared case table
--- (e2e/migration/cases/), so keep it self-contained.
+-- The rules shared with TypeScript (shared/units.ts is the reference, line for
+-- line). The migration bench runs this block on its own against the case
+-- table the TypeScript tests read (e2e/migration/fixtures/units-cases.json),
+-- so keep it self-contained.
 
 -- Text as TypeScript's `trim().toLowerCase()` compares it; empty = NULL.
--- Only ASCII white space is trimmed (a subset of what `trim()` removes) and
--- `lower()` depends on the server locale: when the two differ, SQL sees two
--- keys where TypeScript sees one, never the reverse, so families can only be
--- left apart ("À regrouper ?", computed in TypeScript, proposes them).
+-- Only ASCII white space is trimmed (a subset of what `trim()` removes: not
+-- the no-break space) and `lower()` depends on the server locale: when the
+-- two differ, SQL sees two keys where TypeScript sees one, never the
+-- reverse, so families can only be left apart ("À regrouper ?", computed in
+-- TypeScript, proposes them).
 CREATE FUNCTION pg_temp.fam_norm(v TEXT) RETURNS TEXT
 LANGUAGE sql IMMUTABLE AS $$
   SELECT NULLIF(lower(btrim(v, E' \t\n\r\f\v')), '')
@@ -68,48 +70,58 @@ RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
   )::TEXT
 $$;
 
+-- groupKey (D5): family, cellar, purchase price, purchase day and size (the
+-- normalised bottle size, or the box size for a cigar, empty = single
+-- cigars). Empty equals empty; an empty price differs from 0.
+CREATE FUNCTION pg_temp.fam_group_key(product_id TEXT, cellar_id TEXT, purchase_price NUMERIC, purchased_at DATE,
+  bottle_size TEXT, cigars_per_box INT, is_cigar BOOLEAN)
+RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
+  SELECT jsonb_build_array(product_id, cellar_id, purchase_price, purchased_at,
+    CASE WHEN is_cigar THEN to_jsonb(cigars_per_box) ELSE to_jsonb(coalesce(pg_temp.fam_norm(bottle_size), '')) END
+  )::TEXT
+$$;
+
 -- isIntactItem: a closed, full bottle or a closed, complete box of cigars.
 CREATE FUNCTION pg_temp.fam_is_intact(is_opened BOOLEAN, fill_level INT, cigars_left INT)
 RETURNS BOOLEAN LANGUAGE sql IMMUTABLE AS $$
   SELECT NOT is_opened AND (fill_level IS NULL OR fill_level = 100) AND cigars_left IS NULL
 $$;
 
--- Exemplars still held: bottles, boxes or single cigars (a group: its count;
--- an opened bottle or box: 1; finished or written off: 0).
-CREATE FUNCTION pg_temp.fam_exemplars(quantity INT, cigars_left INT, is_opened BOOLEAN, fill_level INT, written_off_at TIMESTAMP)
+-- Copies held (bottles, boxes or single cigars): a group's count (1 when
+-- empty), 1 for an opened sub-record, 0 once finished or written off.
+CREATE FUNCTION pg_temp.fam_copies(quantity INT, is_opened BOOLEAN, fill_level INT, written_off_at TIMESTAMP)
 RETURNS INT LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE
-    WHEN written_off_at IS NOT NULL OR (is_opened AND fill_level = 0) THEN 0
-    WHEN pg_temp.fam_is_intact(is_opened, fill_level, cigars_left) THEN quantity
-    ELSE 1
+    WHEN written_off_at IS NOT NULL OR (is_opened AND fill_level IS NOT DISTINCT FROM 0) THEN 0
+    WHEN is_opened THEN 1
+    ELSE greatest(coalesce(quantity, 1), 0)
   END
 $$;
 
--- itemUnits: bottles, or cigars for a cigar (a box counts its cigars, an
--- opened box the cigars left, a single cigar 1).
-CREATE FUNCTION pg_temp.fam_units(category TEXT, quantity INT, cigars_per_box INT, cigars_left INT, is_opened BOOLEAN, fill_level INT, written_off_at TIMESTAMP)
+-- itemUnits: bottles, or cigars (a group of boxes counts its cigars, an
+-- opened box the cigars left, single cigars their count).
+CREATE FUNCTION pg_temp.fam_units(quantity INT, cigars_per_box INT, cigars_left INT, is_opened BOOLEAN, fill_level INT, written_off_at TIMESTAMP)
 RETURNS INT LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE
-    WHEN written_off_at IS NOT NULL OR (is_opened AND fill_level = 0) THEN 0
-    WHEN category <> 'cigar' THEN pg_temp.fam_exemplars(quantity, cigars_left, is_opened, fill_level, written_off_at)
-    WHEN pg_temp.fam_is_intact(is_opened, fill_level, cigars_left) THEN quantity * coalesce(cigars_per_box, 1)
-    ELSE coalesce(cigars_left, 0)
+    WHEN pg_temp.fam_copies(quantity, is_opened, fill_level, written_off_at) = 0 THEN 0
+    WHEN is_opened THEN coalesce(cigars_left, 1)
+    WHEN cigars_per_box IS NOT NULL THEN pg_temp.fam_copies(quantity, is_opened, fill_level, written_off_at) * cigars_per_box
+    ELSE pg_temp.fam_copies(quantity, is_opened, fill_level, written_off_at)
   END
 $$;
 
--- itemValue (#594): value of one exemplar (estimated, else purchase price,
--- else 0) times the exemplars held.
-CREATE FUNCTION pg_temp.fam_value(estimated_value NUMERIC, purchase_price NUMERIC, quantity INT, cigars_left INT, is_opened BOOLEAN, fill_level INT, written_off_at TIMESTAMP)
+-- itemValue (#594): value of one copy (estimated, else purchase price, else
+-- 0) times the copies held.
+CREATE FUNCTION pg_temp.fam_value(estimated_value NUMERIC, purchase_price NUMERIC, quantity INT, is_opened BOOLEAN, fill_level INT, written_off_at TIMESTAMP)
 RETURNS NUMERIC LANGUAGE sql IMMUTABLE AS $$
-  SELECT coalesce(estimated_value, purchase_price, 0)
-    * pg_temp.fam_exemplars(quantity, cigars_left, is_opened, fill_level, written_off_at)
+  SELECT coalesce(estimated_value, purchase_price, 0) * pg_temp.fam_copies(quantity, is_opened, fill_level, written_off_at)
 $$;
 
--- itemSpend: purchase price of one exemplar times the exemplars bought,
--- finished and written-off ones included.
+-- itemSpend: purchase price of one copy times the copies bought, finished
+-- and written-off ones included.
 CREATE FUNCTION pg_temp.fam_spend(purchase_price NUMERIC, quantity INT)
 RETURNS NUMERIC LANGUAGE sql IMMUTABLE AS $$
-  SELECT coalesce(purchase_price, 0) * quantity
+  SELECT coalesce(purchase_price, 0) * greatest(coalesce(quantity, 1), 0)
 $$;
 -- <<< families rules
 
@@ -196,6 +208,7 @@ SELECT
   b."id" AS item_id,
   pg_temp.fam_product_key(p."category"::TEXT, p."producer", p."name", p."vintage", p."format") AS k,
   b."deletedAt" IS NOT NULL AS trashed,
+  b."isOwned" AS owned,
   b."createdAt",
   -- Compared values, normalised; an empty value is left out (never a disagreement).
   jsonb_strip_nulls(jsonb_build_object(
@@ -235,7 +248,9 @@ SELECT
 FROM "products" p JOIN "bottles" b ON b."productId" = p."id";
 
 -- fam: the family, named by its first record's family (which survives).
-CREATE TEMP TABLE fam_cum (fam TEXT PRIMARY KEY, k TEXT NOT NULL, seq INT NOT NULL, d JSONB NOT NULL) ON COMMIT DROP;
+-- live: the family has a record out of the trash; held: one of them is owned.
+CREATE TEMP TABLE fam_cum (fam TEXT PRIMARY KEY, k TEXT NOT NULL, seq INT NOT NULL, d JSONB NOT NULL,
+  live BOOLEAN NOT NULL, held BOOLEAN NOT NULL) ON COMMIT DROP;
 CREATE INDEX ON fam_cum (k, seq);
 -- rank: position in the walk, the order "first non-empty value" follows.
 CREATE TEMP TABLE fam_of (product_id TEXT PRIMARY KEY, fam TEXT NOT NULL, rank INT NOT NULL) ON COMMIT DROP;
@@ -250,19 +265,32 @@ BEGIN
     n := n + 1;
     SELECT c.fam INTO target FROM fam_cum c
     WHERE c.k = r.k
+      -- A record in the trash never joins a family that is only known
+      -- without a bottle (live references alone): its trashed units would
+      -- make the whole family look trashed and hide the reference's tastings.
+      AND (NOT r.trashed OR c.held OR NOT c.live)
       AND NOT EXISTS (
         SELECT 1 FROM jsonb_each(c.d) AS x JOIN jsonb_each(r.d) AS y ON y.key = x.key
         WHERE x.value <> y.value)
     ORDER BY c.seq LIMIT 1;
     IF target IS NULL THEN
-      INSERT INTO fam_cum VALUES (r.product_id, r.k, n, r.d);
+      INSERT INTO fam_cum VALUES (r.product_id, r.k, n, r.d, NOT r.trashed, NOT r.trashed AND r.owned);
       target := r.product_id;
     ELSE
-      UPDATE fam_cum SET d = r.d || d WHERE fam = target;
+      UPDATE fam_cum SET d = r.d || d, live = live OR NOT r.trashed, held = held OR (NOT r.trashed AND r.owned)
+      WHERE fam = target;
     END IF;
     INSERT INTO fam_of VALUES (r.product_id, target, n);
   END LOOP;
 END $$;
+
+-- Lookups by family and by record below are joins on these temporary
+-- tables: without indexes and statistics the planner loops over them, and
+-- the migration grows with the square of the records (minutes for 20,000).
+CREATE INDEX ON fam_of (fam);
+CREATE UNIQUE INDEX ON fam_products ("id");
+ANALYZE fam_of;
+ANALYZE fam_products;
 
 CREATE TEMP TABLE fam_multi ON COMMIT DROP AS
 SELECT fam FROM fam_of GROUP BY fam HAVING count(*) > 1;
@@ -276,7 +304,6 @@ SELECT fam FROM fam_of GROUP BY fam HAVING count(*) > 1;
 CREATE TEMP TABLE fam_merged ON COMMIT DROP AS
 SELECT
   o.fam,
-  (array_agg(m."collection" ORDER BY o.rank) FILTER (WHERE pg_temp.fam_norm(m."collection") IS NOT NULL))[1] AS "collection",
   (array_agg(m."vintage" ORDER BY o.rank) FILTER (WHERE m."vintage" IS NOT NULL))[1] AS "vintage",
   (array_agg(m."color" ORDER BY o.rank) FILTER (WHERE pg_temp.fam_norm(m."color") IS NOT NULL))[1] AS "color",
   (array_agg(m."region" ORDER BY o.rank) FILTER (WHERE pg_temp.fam_norm(m."region") IS NOT NULL))[1] AS "region",
@@ -324,7 +351,25 @@ GROUP BY o.fam;
 
 ALTER TABLE fam_merged
   ADD COLUMN "grapeVarieties" TEXT[], ADD COLUMN "tags" TEXT[], ADD COLUMN "lockedFields" TEXT[],
-  ADD COLUMN "otherPhotoUrls" TEXT[], ADD COLUMN "notes" TEXT;
+  ADD COLUMN "otherPhotoUrls" TEXT[], ADD COLUMN "notes" TEXT, ADD COLUMN "collection" TEXT,
+  ADD COLUMN labels TEXT[], ADD COLUMN kept INT;
+
+-- The legacy free-text label (`collection`, at most 200 characters in the
+-- form): its distinct values, normalised, in walk order, joined by " / ".
+-- When they do not fit, the label keeps those that do and the notes get every
+-- one of them, so none is lost.
+UPDATE fam_merged f SET labels = ARRAY(
+  SELECT label FROM (
+    SELECT DISTINCT ON (pg_temp.fam_norm(m."collection")) btrim(m."collection") AS label, o.rank
+    FROM fam_of o JOIN fam_products m ON m."id" = o.product_id
+    WHERE o.fam = f.fam AND pg_temp.fam_norm(m."collection") IS NOT NULL
+    ORDER BY pg_temp.fam_norm(m."collection"), o.rank) s
+  ORDER BY rank);
+-- kept: how many labels fit; the first always stays, even alone longer.
+UPDATE fam_merged f SET kept = (
+  SELECT coalesce(max(i), 0) FROM generate_series(1, coalesce(cardinality(f.labels), 0)) AS i
+  WHERE i = 1 OR length(array_to_string(f.labels[1:i], ' / ')) <= 200);
+UPDATE fam_merged f SET "collection" = nullif(array_to_string(f.labels[1:f.kept], ' / '), '');
 
 UPDATE fam_merged f SET
   "grapeVarieties" = coalesce((
@@ -371,6 +416,11 @@ UPDATE fam_merged f SET
       FROM fam_of o JOIN fam_products m ON m."id" = o.product_id
       WHERE o.fam = f.fam AND nullif(btrim(m."notes"), '') IS NOT NULL
       ORDER BY btrim(m."notes"), m."createdAt", o.rank) s);
+
+UPDATE fam_merged f SET "notes" = concat_ws(E'\n\n', f."notes",
+  to_char((now() AT TIME ZONE 'Europe/Paris')::DATE, 'YYYY-MM-DD') || E'\n'
+    || 'Libellés d''origine : ' || array_to_string(f.labels, ' / '))
+WHERE cardinality(f.labels) > f.kept;
 
 UPDATE "products" p SET
   "collection" = f."collection", "tags" = f."tags", "photoUrl" = f."photoUrl",
@@ -443,6 +493,12 @@ SELECT 'families', count(*) FROM "products"
 UNION ALL
 SELECT 'records merged into another family', count(*) FROM fam_of WHERE fam <> product_id
 UNION ALL
+-- Longer than the form accepts (notes 2,000 characters, 20 tags): shown and
+-- kept, but the member must shorten them before saving the description.
+SELECT 'merged families with notes over 2000 characters', count(*) FROM fam_merged WHERE length("notes") > 2000
+UNION ALL
+SELECT 'merged families with more than 20 tags', count(*) FROM fam_merged WHERE cardinality("tags") > 20
+UNION ALL
 -- "À regrouper ?": families of the same key left apart by a disagreement.
 SELECT 'families left apart by a disagreement ("À regrouper ?")', coalesce(sum(n), 0)
 FROM (SELECT count(*) AS n FROM fam_cum GROUP BY k HAVING count(*) > 1) s;
@@ -451,6 +507,11 @@ FROM (SELECT count(*) AS n FROM fam_cum GROUP BY k HAVING count(*) > 1) s;
 -- 3. FEAT-87 references (rule 5): the family stays, without units. Its
 -- tastings and history are already on it; the record goes.
 -- ---------------------------------------------------------------------------
+-- Deleting records checks every table pointing at them; two of these
+-- columns have no index (dropped at the end).
+CREATE INDEX "fam_tmp_audit_logs_bottleId" ON "audit_logs" ("bottleId");
+CREATE INDEX "fam_tmp_inventory_count_entries_itemId" ON "inventory_count_entries" ("itemId");
+
 CREATE TEMP TABLE fam_refs ON COMMIT DROP AS SELECT "id", "productId" FROM "bottles" WHERE NOT "isOwned";
 
 UPDATE "tasting_notes" SET "itemId" = NULL WHERE "itemId" IN (SELECT "id" FROM fam_refs);
@@ -558,10 +619,11 @@ INSERT INTO fam_counts SELECT 'groups split by guess, to review (needsReview)', 
 CREATE TEMP TABLE fuse_rec ON COMMIT DROP AS
 SELECT
   b."id",
+  -- groupKey, plus the estimated value: a value empty on one side only would
+  -- change the worth of the absorbed bottles (#594 falls back on the price).
   jsonb_build_array(
-    b."productId", b."cellarId", b."purchasePrice", b."purchasedAt",
-    CASE WHEN b."category" = 'cigar' THEN coalesce(b."cigarsPerBox"::TEXT, '')
-         ELSE coalesce(pg_temp.fam_norm(b."bottleSize"), '') END,
+    pg_temp.fam_group_key(b."productId", b."cellarId", b."purchasePrice", b."purchasedAt", b."bottleSize",
+      b."cigarsPerBox", b."category" = 'cigar'),
     b."estimatedValue"
   )::TEXT AS gk,
   b."createdAt",
@@ -615,6 +677,14 @@ BEGIN
 END $$;
 
 DELETE FROM fuse_of WHERE grp IN (SELECT grp FROM fuse_of GROUP BY grp HAVING count(*) = 1);
+
+-- Inventory counts (D15): an entry counted one record, which becomes part of a
+-- group of N. It keeps the number it found (that record's count), so the
+-- other N - found bottles still show as missing in the session, active or
+-- completed, instead of the whole group being counted found (empty = all).
+UPDATE "inventory_count_entries" e SET "foundQuantity" = coalesce(e."foundQuantity", m."quantity")
+FROM fuse_of f JOIN "bottles" m ON m."id" = f.item_id
+WHERE e."itemId" = f.item_id;
 
 -- The surviving group: the sum of the counts, the first non-empty place and
 -- location, the locks of all, and per field the oldest group's source.
@@ -709,6 +779,9 @@ SELECT r."id" AS old_id,
 FROM fam_records r
 JOIN fam_of o ON o.product_id = r."productId"
 LEFT JOIN fuse_of f ON f.item_id = r."id";
+CREATE INDEX ON fam_fate (old_id);
+CREATE INDEX ON fam_fate (fam);
+ANALYZE fam_fate;
 
 SELECT pg_temp.fam_fail_if(
   EXISTS (SELECT 1 FROM "bottles" WHERE "quantity" IS NULL OR "quantity" < 1),
@@ -746,8 +819,8 @@ SELECT pg_temp.fam_fail_if(
     FROM fam_before bf
     FULL JOIN (
       SELECT b."category"::TEXT AS category,
-        sum(pg_temp.fam_units(b."category"::TEXT, b."quantity", b."cigarsPerBox", b."cigarsLeft", b."isOpened", b."fillLevel", b."writtenOffAt")) AS units,
-        sum(pg_temp.fam_value(b."estimatedValue", b."purchasePrice", b."quantity", b."cigarsLeft", b."isOpened", b."fillLevel", b."writtenOffAt")) AS value,
+        sum(pg_temp.fam_units(b."quantity", b."cigarsPerBox", b."cigarsLeft", b."isOpened", b."fillLevel", b."writtenOffAt")) AS units,
+        sum(pg_temp.fam_value(b."estimatedValue", b."purchasePrice", b."quantity", b."isOpened", b."fillLevel", b."writtenOffAt")) AS value,
         sum(pg_temp.fam_spend(b."purchasePrice", b."quantity")) AS spend
       FROM "bottles" b WHERE b."deletedAt" IS NULL GROUP BY b."category"
     ) af ON af.category = bf.category
@@ -808,6 +881,14 @@ SELECT pg_temp.fam_fail_if(
     WHERE NOT EXISTS (SELECT 1 FROM "_CollectionItems" ci WHERE ci."A" = cp."A" AND ci."B" = b."id")),
   'a collection lost a wine');
 
+-- An entry on a fused group says how many of it were found.
+SELECT pg_temp.fam_fail_if(
+  EXISTS (
+    SELECT 1 FROM "inventory_count_entries" e JOIN fuse_of f ON f.grp = e."itemId" AND f.item_id = f.grp
+    JOIN "bottles" b ON b."id" = e."itemId"
+    WHERE e."foundQuantity" IS NULL OR e."foundQuantity" > b."quantity"),
+  'an inventory count entry of a fused group does not say how many it found');
+
 -- Inventory entries and wishlist links follow their unit.
 SELECT pg_temp.fam_fail_if(
   EXISTS (
@@ -842,12 +923,15 @@ BEGIN
   END LOOP;
 END $$;
 
+DROP INDEX "fam_tmp_audit_logs_bottleId";
+DROP INDEX "fam_tmp_inventory_count_entries_itemId";
 DROP FUNCTION pg_temp.fam_fail_if(BOOLEAN, TEXT);
 DROP FUNCTION pg_temp.fam_spend(NUMERIC, INT);
-DROP FUNCTION pg_temp.fam_value(NUMERIC, NUMERIC, INT, INT, BOOLEAN, INT, TIMESTAMP);
-DROP FUNCTION pg_temp.fam_units(TEXT, INT, INT, INT, BOOLEAN, INT, TIMESTAMP);
-DROP FUNCTION pg_temp.fam_exemplars(INT, INT, BOOLEAN, INT, TIMESTAMP);
+DROP FUNCTION pg_temp.fam_value(NUMERIC, NUMERIC, INT, BOOLEAN, INT, TIMESTAMP);
+DROP FUNCTION pg_temp.fam_units(INT, INT, INT, BOOLEAN, INT, TIMESTAMP);
+DROP FUNCTION pg_temp.fam_copies(INT, BOOLEAN, INT, TIMESTAMP);
 DROP FUNCTION pg_temp.fam_is_intact(BOOLEAN, INT, INT);
+DROP FUNCTION pg_temp.fam_group_key(TEXT, TEXT, NUMERIC, DATE, TEXT, INT, BOOLEAN);
 DROP FUNCTION pg_temp.fam_product_key(TEXT, TEXT, TEXT, INT, TEXT);
 DROP FUNCTION pg_temp.fam_norm_set(TEXT[]);
 DROP FUNCTION pg_temp.fam_norm(TEXT);

@@ -310,6 +310,49 @@ INSERT INTO "bottles" (
   ('00000000-0000-4000-8000-000000000703', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c1',
    'wine', 'Saumur-Champigny', 'Clos Rougeard', 2019, 4, 40.00, '2026-03-22 10:00:00', '2026-03-22 10:00:00');
 
+-- Guards of the fusion and of the walk, one case each:
+-- 20c is identical to the group guessed from b2 (same cellar, price and Paris
+-- day) but a guessed group is never fused; 211 and 210, identical and both in
+-- the trash, are not fused either; 60a and 60b carry two locations, which must
+-- not end in one group (60a joins 601's group, 60b then joins 602's).
+-- 403 is a live reference and 404 an owned record in the trash, of the same
+-- wine: 404 does not join 403's family (it would make it look trashed and
+-- hide its tasting); 405, also in the trash, joins 404.
+INSERT INTO "bottles" (
+  "id", "userId", "cellarId", "category", "name", "producer", "vintage", "purchasePrice", "location",
+  "isOwned", "deletedAt", "createdAt", "updatedAt"
+) VALUES
+  ('00000000-0000-4000-8000-00000000020c', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c1',
+   'wine', 'Talbot', 'Château Talbot', 2015, 20.00, NULL, true, NULL, '2026-07-01 22:45:00', '2026-07-01 22:45:00'),
+  ('00000000-0000-4000-8000-000000000211', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c1',
+   'wine', 'Gruaud Larose', 'Château Gruaud Larose', 2015, NULL, NULL, true, '2026-09-02 10:00:00', '2026-01-01 11:00:00', '2026-09-02 10:00:00'),
+  ('00000000-0000-4000-8000-00000000060a', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c1',
+   'wine', 'Chablis', 'William Fèvre', 2020, 25.00, 'Rack A', true, NULL, '2026-06-15 10:30:00', '2026-06-15 10:30:00'),
+  ('00000000-0000-4000-8000-00000000060b', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000c1',
+   'wine', 'Chablis', 'William Fèvre', 2020, 25.00, 'rack b', true, NULL, '2026-06-15 10:45:00', '2026-06-15 10:45:00'),
+  ('00000000-0000-4000-8000-000000000403', '00000000-0000-4000-8000-0000000000a2', NULL,
+   'wine', 'Chambertin', 'Armand Rousseau', 2015, NULL, NULL, false, NULL, '2026-02-10 10:00:00', '2026-02-10 10:00:00'),
+  ('00000000-0000-4000-8000-000000000404', '00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-0000000000c1',
+   'wine', 'Chambertin', 'Armand Rousseau', 2015, 300.00, NULL, true, '2026-09-05 10:00:00', '2026-02-11 10:00:00', '2026-09-05 10:00:00'),
+  ('00000000-0000-4000-8000-000000000405', '00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-0000000000c1',
+   'wine', 'Chambertin', 'Armand Rousseau', 2015, 300.00, NULL, true, '2026-09-06 10:00:00', '2026-02-12 10:00:00', '2026-09-06 10:00:00');
+
+-- D3 and the legacy label: the nearest postponement when all have one (201,
+-- 202); the distinct labels of the Margaux records joined; the Sociando
+-- labels too long for the form's 200 characters go to the notes; 24 tags in
+-- all, more than the form's 20, are kept (and counted for the release notes).
+UPDATE "bottles" SET "consumptionPostponedUntil" = '2027-03-01', "collection" = repeat('A', 150),
+  "tags" = ARRAY(SELECT 'a' || i FROM generate_series(1, 12) i)
+WHERE "id" = '00000000-0000-4000-8000-000000000201';
+UPDATE "bottles" SET "consumptionPostponedUntil" = '2027-02-01', "collection" = repeat('B', 80),
+  "tags" = ARRAY(SELECT 'b' || i FROM generate_series(1, 12) i)
+WHERE "id" = '00000000-0000-4000-8000-000000000202';
+UPDATE "bottles" SET "collection" = 'Cave de Paul' WHERE "id" = '00000000-0000-4000-8000-000000000101';
+UPDATE "bottles" SET "collection" = ' cave de paul' WHERE "id" = '00000000-0000-4000-8000-000000000103';
+UPDATE "bottles" SET "collection" = 'Mariage' WHERE "id" = '00000000-0000-4000-8000-000000000104';
+INSERT INTO "tasting_notes" ("id", "userId", "itemId", "rating", "updatedAt") VALUES
+  ('00000000-0000-4000-8000-0000000000d7', '00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-000000000403', 3, now());
+
 INSERT INTO "tasting_notes" ("id", "userId", "itemId", "rating", "updatedAt") VALUES
   ('00000000-0000-4000-8000-0000000000d4', '00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-000000000401', 4, now()),
   ('00000000-0000-4000-8000-0000000000d5', '00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-000000000301', 4, now()),

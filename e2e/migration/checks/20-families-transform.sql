@@ -71,8 +71,8 @@ SELECT pg_temp.expect(
   AND (SELECT "quantity" = 1 FROM "bottles" WHERE "id" = pg_temp.id('b1')),
   'c1: a count of 0, below 0 or empty is one bottle');
 SELECT pg_temp.expect(
-  (SELECT sum(pg_temp.units(id)) FROM "products" p WHERE "category" = 'wine') = 46,
-  'c1: 46 wine bottles in stock, as counted before by rule 3');
+  (SELECT sum(pg_temp.units(id)) FROM "products" p WHERE "category" = 'wine') = 49,
+  'c1: 49 wine bottles in stock, as counted before by rule 3');
 
 -- Family fields of the merged Margaux records (D3).
 SELECT pg_temp.expect(
@@ -163,8 +163,8 @@ SELECT pg_temp.expect(
      SELECT 1 FROM "products"
      GROUP BY "category", lower(btrim("producer")), lower(btrim("name")),
        CASE WHEN "category" = 'cigar' THEN coalesce(lower(btrim("format")), '') ELSE coalesce("vintage"::TEXT, '') END
-     HAVING count(*) > 1) s) = 5,
-  'c2: five keys have families to regroup (Talbot, Gruaud Larose, Clos de Vougeot, Hermitage, Cos d''Estournel)');
+     HAVING count(*) > 1) s) = 6,
+  'c2: six keys have families to regroup (Talbot, Gruaud Larose, Clos de Vougeot, Hermitage, Cos d''Estournel, Chambertin)');
 
 -- ---------------------------------------------------------------------------
 -- Criterion 3 and D4: a finished record that counted 6 is that finished
@@ -223,7 +223,7 @@ SELECT pg_temp.expect(
   (SELECT "deletedAt" = '2026-09-20 10:00:00' FROM "products" WHERE "id" = pg_temp.id('402')),
   'c4: a reference in the trash is a family in the trash, restorable');
 SELECT pg_temp.expect(
-  (SELECT count(*) FROM "tasting_notes") = 6 AND (SELECT count(*) FROM "audit_logs") = 5,
+  (SELECT count(*) FROM "tasting_notes") = 7 AND (SELECT count(*) FROM "audit_logs") = 5,
   'c4: no tasting and no history line is lost');
 SELECT pg_temp.expect(
   (SELECT array_agg(right("id", 3) || ':' || "slotColumn" || ',' || "slotRow" ORDER BY "slotColumn")
@@ -263,15 +263,22 @@ SELECT pg_temp.expect(
 -- Rule 4 exceptions and the D5 guard.
 -- ---------------------------------------------------------------------------
 SELECT pg_temp.expect(
-  (SELECT "quantity" = 3 AND "purchasePlace" = 'Fair' FROM "bottles" WHERE "id" = pg_temp.id('601'))
-  AND (SELECT "quantity" = 2 AND "purchasePlace" = 'Shop' FROM "bottles" WHERE "id" = pg_temp.id('602'))
-  AND NOT EXISTS (SELECT 1 FROM "bottles" WHERE "id" IN (pg_temp.id('603'), pg_temp.id('606'), pg_temp.id('607'))),
-  'D5: two groups counted in one inventory session stay apart; a place joins an empty place, never another place');
+  (SELECT "quantity" = 4 AND "purchasePlace" = 'Fair' AND "location" = 'Rack A' FROM "bottles" WHERE "id" = pg_temp.id('601'))
+  AND (SELECT "quantity" = 3 AND "purchasePlace" = 'Shop' AND "location" = 'rack b' FROM "bottles" WHERE "id" = pg_temp.id('602'))
+  AND NOT EXISTS (SELECT 1 FROM "bottles" WHERE "id" IN (pg_temp.id('603'), pg_temp.id('606'), pg_temp.id('607'),
+                                                       pg_temp.id('60a'), pg_temp.id('60b'))),
+  'D5: two groups counted in one inventory session stay apart; a place or a location joins an empty one, never another');
 SELECT pg_temp.expect(
   (SELECT count(*) FROM "inventory_count_entries" WHERE "sessionId" = pg_temp.id('f1')) = 3
   AND (SELECT "itemId" = pg_temp.id('601') FROM "inventory_count_entries" WHERE "id" = pg_temp.id('f4'))
   AND (SELECT "itemId" = pg_temp.id('602') FROM "inventory_count_entries" WHERE "id" = pg_temp.id('f5')),
   'D5: the inventory session keeps one entry per group');
+SELECT pg_temp.expect(
+  (SELECT "foundQuantity" = 1 FROM "inventory_count_entries" WHERE "id" = pg_temp.id('f4'))
+  AND (SELECT "foundQuantity" = 1 FROM "inventory_count_entries" WHERE "id" = pg_temp.id('f5'))
+  AND (SELECT "foundQuantity" = 1 FROM "inventory_count_entries" WHERE "id" = pg_temp.id('f6'))
+  AND (SELECT "foundQuantity" IS NULL FROM "inventory_count_entries" WHERE "id" = pg_temp.id('f2')),
+  'D15: an entry that counted one record of a fused group found 1 of it (the others stay missing); an entry on an unfused unit is unchanged');
 SELECT pg_temp.expect(
   (SELECT "quantity" = 1 FROM "bottles" WHERE "id" = pg_temp.id('604'))
   AND (SELECT "quantity" = 1 FROM "bottles" WHERE "id" = pg_temp.id('605')),
@@ -286,6 +293,36 @@ SELECT pg_temp.expect(
   AND (SELECT count(*) FROM "_CollectionItems" WHERE "A" = pg_temp.id('e2') AND "B" IN (
          SELECT "id" FROM "bottles" WHERE "productId" = pg_temp.id('601'))) = 6,
   'rule 4: a collection holding an absorbed record holds the family, and the mirror every group of it');
+
+-- Guards of the fusion and of the walk.
+SELECT pg_temp.expect(
+  (SELECT "quantity" = 1 AND NOT "needsReview" AND "purchasedAt" = '2026-07-02' FROM "bottles" WHERE "id" = pg_temp.id('20c'))
+  AND (SELECT g."quantity" = 5 FROM "bottles" b JOIN "bottles" g ON g."id" = b."parentItemId" WHERE b."id" = pg_temp.id('b2')),
+  'rule 4: a guessed group is never fused, even with an identical group');
+SELECT pg_temp.expect(
+  (SELECT count(*) FROM "bottles" WHERE "id" IN (pg_temp.id('210'), pg_temp.id('211')) AND "quantity" = 1) = 2,
+  'rule 4: identical groups in the trash are not fused');
+SELECT pg_temp.expect(
+  pg_temp.fam('404') = pg_temp.id('404') AND pg_temp.fam('405') = pg_temp.id('404')
+  AND NOT EXISTS (SELECT 1 FROM "bottles" WHERE "productId" = pg_temp.id('403'))
+  AND (SELECT "deletedAt" IS NULL FROM "products" WHERE "id" = pg_temp.id('403'))
+  AND (SELECT "productId" = pg_temp.id('403') FROM "tasting_notes" WHERE "id" = pg_temp.id('d7')),
+  'D2: a record in the trash does not join a family known only without a bottle; it may join one only in the trash');
+SELECT pg_temp.expect(
+  (SELECT "consumptionPostponedUntil" = '2027-02-01' FROM "products" WHERE "id" = pg_temp.id('201')),
+  'D3: when every record was postponed, the family is postponed until the nearest date');
+SELECT pg_temp.expect(
+  (SELECT "collection" = 'Cave de Paul / Mariage' FROM "products" WHERE "id" = pg_temp.id('101'))
+  AND (SELECT "collection" = 'Cave de Paul / Mariage' FROM "bottles" WHERE "id" = pg_temp.id('101')),
+  'legacy label: the distinct labels of the records are joined, in order, once each');
+SELECT pg_temp.expect(
+  (SELECT "collection" = repeat('A', 150)
+     AND "notes" LIKE '%Libellés d''origine : ' || repeat('A', 150) || ' / ' || repeat('B', 80)
+   FROM "products" WHERE "id" = pg_temp.id('201')),
+  'legacy label: labels beyond 200 characters are kept in the notes, none is lost');
+SELECT pg_temp.expect(
+  (SELECT cardinality("tags") = 24 FROM "products" WHERE "id" = pg_temp.id('201')),
+  'D3: tags are united even beyond the form''s 20 (counted for the release notes, not cut)');
 
 -- ---------------------------------------------------------------------------
 -- QP6: presets that wrote a state are deleted, the others kept.
