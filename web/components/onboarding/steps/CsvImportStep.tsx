@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { Button, Chip, Radio, RadioGroup } from '@heroui/react';
 import { CheckCircle2, Cigarette, Package, Upload, Warehouse, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { CSV_IMPORT_MAX_ROWS } from '@shared/import';
+import { CSV_IMPORT_MAX_COPIES, CSV_IMPORT_MAX_ROWS } from '@shared/import';
 import { useCsvConfirm, useCsvPreview } from '@/hooks/useImport';
 import { CsvImportError, CsvImportLine, CsvImportResult, CsvImportRow } from '@/lib/import/types';
 
@@ -38,7 +38,6 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<CsvImportRow[]>([]);
   const [lines, setLines] = useState<CsvImportLine[]>([]);
-  const [newCellars, setNewCellars] = useState<string[]>([]);
   const [errors, setErrors] = useState<CsvImportError[]>([]);
   /** Keys of the lines of a wine already in the cellar that the member chose to add. */
   const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
@@ -47,12 +46,18 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
   const overLimit = rows.length > CSV_IMPORT_MAX_ROWS;
   const bottles = lines.reduce((n, line) => n + (line.kind === 'bottle' ? line.units : 0), 0);
   const cigars = lines.reduce((n, line) => n + (line.kind === 'cigar' ? line.units : 0), 0);
+  const tooLarge = lines.some((line) => line.tooLarge);
+  // The cellars created are those of the lines written: a wine already in
+  // the cellar creates its cellar only once the member adds it (QP3).
+  const newCellars = [...new Map(
+    lines.flatMap(({ newCellar, inStock, key, row: { cellar } }) =>
+      newCellar && cellar && (inStock === 0 || added.has(key)) ? [[cellar.trim().toLowerCase(), cellar.trim()] as const] : []),
+  ).values()];
 
   const reset = () => {
     setFileName(null);
     setRows([]);
     setLines([]);
-    setNewCellars([]);
     setErrors([]);
     setAdded(new Set());
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -65,10 +70,9 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
       onSuccess: (data) => {
         setRows(data.valid);
         setLines(data.lines);
-        setNewCellars(data.newCellars);
         setErrors(data.errors);
       },
-      onError: () => { setRows([]); setLines([]); setNewCellars([]); setErrors([]); },
+      onError: () => { setRows([]); setLines([]); setErrors([]); },
     });
   };
 
@@ -194,6 +198,11 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
                         </span>
                       </span>
                     </div>
+                    {line.tooLarge && (
+                      <span role="alert" className="text-xs text-danger">
+                        {t(line.kind === 'cigar' ? 'onboarding.csv.lineTooLargeCigars' : 'onboarding.csv.lineTooLarge', { total: line.count, max: CSV_IMPORT_MAX_COPIES })}
+                      </span>
+                    )}
                     {line.inStock > 0 && (
                       <div className="flex flex-col gap-1 bg-warning-50 rounded-md px-2 py-1">
                         <span className="text-xs font-medium text-warning-700">
@@ -246,7 +255,7 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
         <Button
           color="primary"
           variant="solid"
-          isDisabled={rows.length === 0 || overLimit || preview.isPending}
+          isDisabled={rows.length === 0 || overLimit || tooLarge || preview.isPending}
           isLoading={confirm.isPending}
           onPress={handleConfirm}
         >

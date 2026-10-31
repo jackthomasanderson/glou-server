@@ -233,6 +233,20 @@ describe('ImportService.preview', () => {
     expect(preview.lines.map((line) => line.newCellar)).toEqual([false, true, true]);
   });
 
+  it('marks identical rows that add up past one group\'s bound', async () => {
+    const preview = await importService.preview(csv('name,producer,category,quantity\nA,B,wine,600\nA,B,wine,600\nC,D,wine,1000\n'));
+    expect(preview.lines.map((line) => [line.count, line.tooLarge])).toEqual([[1200, true], [1000, false]]);
+  });
+
+  it('announces only the cellars of lines written as they stand', async () => {
+    existingWine('Pétrus', 4);
+    const preview = await importService.preview(csv(
+      'name,producer,category,vintage,cellar\nPétrus,Château Pétrus,wine,2015,Cuisine\nLe Pin,Le Pin,wine,2016,Garage\n',
+    ));
+    expect(preview.newCellars).toEqual(['Garage']);
+    expect(preview.lines.map((line) => line.newCellar)).toEqual([true, true]);
+  });
+
   it('never writes', async () => {
     await importService.preview(csv('name,producer,category\nA,B,wine\n'));
     expect(tx.product.create).not.toHaveBeenCalled();
@@ -248,7 +262,7 @@ describe('ImportService.confirmImport', () => {
   // FEAT-99 c1.
   it('imports a wine row of quantity 6 as one family with a group ×6: 6 bottles, 1 wine', async () => {
     const result = await importService.confirmImport('u1', [row({ quantity: 6 })], 'cellar-1');
-    expect(result).toEqual({ bottles: 6, wines: 1, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, createdCellars: [] });
+    expect(result).toEqual({ bottles: 6, wines: 1, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, staleLines: 0, createdCellars: [] });
     expect(db.products).toHaveLength(1);
     expect(units()).toEqual([{ productId: 'p1', quantity: 6, cigarsPerBox: null, cellarId: 'cellar-1', purchasePrice: null, bottleSize: null }]);
   });
@@ -320,8 +334,48 @@ describe('ImportService.confirmImport', () => {
     const second = await importService.confirmImport('u1', rows, null, choices);
 
     expect(first).toMatchObject({ bottles: 9, wines: 2 });
-    expect(second).toMatchObject({ bottles: 0, wines: 0, skippedLines: 2, skippedUnits: 9 });
+    // Le Pin is now in the cellar (ignored); Pétrus' stock is no longer the one shown (stale).
+    expect(second).toMatchObject({ bottles: 0, wines: 0, skippedLines: 1, skippedUnits: 6, staleLines: 1 });
     expect(db.units.reduce((n, u) => n + u.quantity, 0)).toBe(13);
+  });
+
+  // Review of #794: several families of one key are a normal state.
+  it('reads the stock of every family of the wine, and joins the oldest', async () => {
+    const oldest = existingWine('Pétrus', 0, { id: 'z-old', createdAt: new Date('2024-01-01') });
+    existingWine('Pétrus-recent', 6, { id: 'a-recent', name: 'Pétrus', createdAt: new Date('2025-06-01') });
+    const file = csv('name,producer,category,vintage,quantity\nPétrus,Château Pétrus,wine,2015,6\n');
+
+    const [line] = (await importService.preview(file)).lines;
+    expect(line.inStock).toBe(6);
+
+    const ignored = await importService.confirmImport('u1', [row({ quantity: 6 })], null);
+    expect(ignored).toMatchObject({ bottles: 0, skippedLines: 1 });
+
+    db.log = [];
+    const added = await importService.confirmImport('u1', [row({ quantity: 6 })], null, [{ key: line.key, inStock: 6, add: true }]);
+    expect(added).toMatchObject({ bottles: 6, wines: 1 });
+    expect(db.log.slice(0, 3)).toEqual(['advisory lock', 'lock a-recent', 'lock z-old']);
+    expect(db.units.filter((u) => u.productId === oldest.id).map((u) => u.quantity)).toEqual([6]);
+  });
+
+  it('leaves out a line chosen for adding whose stock changed since the preview, and says so', async () => {
+    existingWine('Pétrus', 4);
+    const [line] = (await importService.preview(csv('name,producer,category,vintage\nPétrus,Château Pétrus,wine,2015\n'))).lines;
+    db.units[0].quantity = 5;
+
+    const result = await importService.confirmImport('u1', [row()], null, [{ key: line.key, inStock: 4, add: true }]);
+
+    expect(result).toMatchObject({ bottles: 0, staleLines: 1, skippedLines: 0 });
+  });
+
+  it('keeps "ignore" when the stock went away since the preview', async () => {
+    existingWine('Pétrus', 4);
+    const [line] = (await importService.preview(csv('name,producer,category,vintage\nPétrus,Château Pétrus,wine,2015\n'))).lines;
+    db.units = [];
+
+    const result = await importService.confirmImport('u1', [row()], null, [{ key: line.key, inStock: 4, add: false }]);
+
+    expect(result).toMatchObject({ bottles: 0, skippedLines: 1, staleLines: 0 });
   });
 
   // QP3.

@@ -21,7 +21,7 @@ type Line = { key: string; count: number; rowCount: number; units: number; inSto
 type Preview = { valid: ImportRow[]; errors: unknown[]; lines: Line[]; newCellars: string[] };
 type Result = {
   bottles: number; wines: number; cigars: number; cigarReferences: number;
-  skippedLines: number; skippedUnits: number; createdCellars: string[];
+  skippedLines: number; skippedUnits: number; staleLines: number; createdCellars: string[];
 };
 type Unit = { id: string; quantity: number; cellarId: string | null; purchasePrice: number | null; purchasedAt: string | null; cigarsPerBox: number | null };
 type Family = { id: string; name: string; items: Unit[] };
@@ -77,7 +77,7 @@ test.describe('CSV import by groups (#471, FEAT-99)', () => {
 
       const result = await okData<Result>(await confirm(api, valid, cellarId));
 
-      expect(result).toEqual({ bottles: 6, wines: 1, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, createdCellars: [] });
+      expect(result).toEqual({ bottles: 6, wines: 1, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, staleLines: 0, createdCellars: [] });
       const [family, ...others] = await familiesNamed(api, id);
       expect(others).toEqual([]);
       expect(family.items.map((unit) => [unit.quantity, unit.cellarId])).toEqual([[6, cellarId]]);
@@ -142,10 +142,43 @@ test.describe('CSV import by groups (#471, FEAT-99)', () => {
       const [first, second] = await Promise.all([confirm(api, valid, cellarId, choices), confirm(api, valid, cellarId, choices)]);
       const results = [await okData<Result>(first), await okData<Result>(second)];
       expect(results.map((result) => result.bottles).sort()).toEqual([0, 6]);
+      // The second one is told the stock changed since its preview.
+      expect(results.map((result) => result.staleLines).sort()).toEqual([0, 1]);
 
       const families = await familiesNamed(api, id);
       expect(families.map((family) => family.id)).toEqual([known.productId]);
       expect(unitsOf(families[0])).toBe(10);
+    } finally {
+      await cleanUp(api, id, cellars);
+    }
+  });
+
+  // Review of #794: several families of one wine are a normal state ("À regrouper ?").
+  test('a wine in stock in its newer family is "already in the cellar"; an added line joins the older family', async ({ page }) => {
+    const api = page.request;
+    const id = stamp();
+    const cellars: string[] = [];
+    try {
+      const cellarId = await createCellar(api, 'two-families');
+      cellars.push(cellarId);
+      const wine = { category: 'wine', name: `Pétrus ${id}`, producer: 'Château Pétrus', vintage: 2015, cellarId };
+      // The older family: its only bottle was drunk.
+      const older = await okData<{ id: string; productId: string }>(await api.post('/api/inventory', { data: wine }));
+      await okData(await api.patch(`/api/inventory/${older.id}`, { data: { isOpened: true, fillLevel: 0 } }));
+      // The newer one, kept apart ("Create anyway"), with 6 bottles.
+      const newer = await okData<{ productId: string }>(await api.post('/api/inventory', { data: { ...wine, confirmDuplicate: true } }));
+      await okData(await api.post(`/api/products/${newer.productId}/items`, { data: { quantity: 5, cellarId } }));
+      expect(newer.productId).not.toBe(older.productId);
+
+      const { valid, lines: [line] } = await preview(api, ['name,producer,category,vintage,quantity', `Pétrus ${id},Château Pétrus,wine,2015,6`].join('\n'));
+      expect(line.inStock).toBe(6);
+      expect(await okData<Result>(await confirm(api, valid, cellarId))).toMatchObject({ bottles: 0, skippedLines: 1 });
+
+      const added = await okData<Result>(await confirm(api, valid, cellarId, [{ key: line.key, inStock: 6, add: true }]));
+      expect(added).toMatchObject({ bottles: 6, wines: 1 });
+      const families = await familiesNamed(api, id);
+      expect(unitsOf(families.find((family) => family.id === older.productId))).toBe(6);
+      expect(unitsOf(families.find((family) => family.id === newer.productId))).toBe(6);
     } finally {
       await cleanUp(api, id, cellars);
     }

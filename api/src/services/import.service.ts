@@ -4,6 +4,7 @@ import { IN_STOCK_ITEM_FILTER, itemUnits, productKey } from '../lib/finished-ite
 import { parseCsv } from '../lib/csv';
 import { lockFamilies, todayAsPurchaseDate } from '../lib/product-fields';
 import { csvRawRowSchema, normalizeCsvToken } from '../schemas/import.schema';
+import { MAX_COPIES } from '../schemas/stock.schema';
 import { computeAlertStatus } from './alert.service';
 import { LISTED_PRODUCT_FILTER } from './product.service';
 import { addCopies } from './stock.service';
@@ -69,22 +70,31 @@ const normalizeName = (value: string) => value.trim().toLowerCase();
 const toDay = (day: string): Date => new Date(`${day}T00:00:00.000Z`);
 
 /**
- * #471 (FEAT-99): the listed family each line joins — the oldest of its
- * `productKey`, a family in the trash excepted (adding to it is refused).
+ * #471 (FEAT-99): the listed families of each line's `productKey`, oldest
+ * first — a family in the trash excepted (adding to it is refused). Several
+ * families of one key are a normal state ("À regrouper ?", "C'est un autre
+ * vin"): the wine is in the cellar if any of them has stock, and a line
+ * joins the oldest.
  */
-async function familiesOf(client: PrismaClientOrTx, lines: readonly CsvLineDraft[]): Promise<Map<string, Product>> {
+async function familiesOf(client: PrismaClientOrTx, lines: readonly CsvLineDraft[]): Promise<Map<string, Product[]>> {
   const keys = new Set(lines.map((line) => csvRowProductKey(line.row)));
   const products = await client.product.findMany({
     where: { ...LISTED_PRODUCT_FILTER, category: { in: [...new Set(lines.map((line) => line.row.category))] } },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
-  const families = new Map<string, Product>();
+  const families = new Map<string, Product[]>();
   for (const product of products) {
     const key = productKey(product);
-    if (keys.has(key) && !families.has(key)) families.set(key, product);
+    if (keys.has(key)) families.set(key, [...(families.get(key) ?? []), product]);
   }
   return families;
 }
+
+const idsOf = (families: Map<string, Product[]>) => [...families.values()].flat().map((family) => family.id);
+
+/** Units in stock of the wine of a key: every family of it. */
+const keyStock = (families: Product[] | undefined, stock: Map<string, number>) =>
+  (families ?? []).reduce((n, family) => n + (stock.get(family.id) ?? 0), 0);
 
 /** Units in stock of each family (FEAT-96 counting rule). */
 async function stockOf(client: PrismaClientOrTx, productIds: string[]): Promise<Map<string, number>> {
@@ -163,16 +173,18 @@ export class ImportService {
     if (valid.length === 0) return { valid, errors, lines: [], newCellars: [] };
     const drafts = groupCsvRows(valid);
     const families = await familiesOf(prisma, drafts);
-    const stock = await stockOf(prisma, [...families.values()].map((family) => family.id));
+    const stock = await stockOf(prisma, idsOf(families));
     const cellars = await cellarsByName(prisma);
 
     const newCellars = new Map<string, string>();
     const lines: CsvImportLine[] = drafts.map((draft) => {
-      const family = families.get(csvRowProductKey(draft.row));
+      const inStock = keyStock(families.get(csvRowProductKey(draft.row)), stock);
       const cellar = draft.row.cellar;
       const newCellar = cellar !== undefined && !cellars.has(normalizeName(cellar));
-      if (newCellar && !newCellars.has(normalizeName(cellar))) newCellars.set(normalizeName(cellar), cellar.trim());
-      return { ...draft, inStock: family ? stock.get(family.id) ?? 0 : 0, newCellar };
+      // Only a line written as it stands creates its cellar; one of a wine
+      // already in the cellar does so if the member adds it (the screen says so).
+      if (newCellar && inStock === 0 && !newCellars.has(normalizeName(cellar))) newCellars.set(normalizeName(cellar), cellar.trim());
+      return { ...draft, inStock, newCellar, tooLarge: draft.count > MAX_COPIES };
     });
     return { valid, errors, lines, newCellars: [...newCellars.values()] };
   }
@@ -209,40 +221,51 @@ export class ImportService {
         // locked, sorted, before the first write. Read again once locked: a
         // family trashed meanwhile is no longer joined.
         const matched = await familiesOf(tx, lines);
-        await lockFamilies(tx, [...matched.values()].map((family) => family.id));
+        await lockFamilies(tx, idsOf(matched));
         const listed = new Set(
           (await tx.product.findMany({
-            where: { id: { in: [...matched.values()].map((family) => family.id) }, ...LISTED_PRODUCT_FILTER },
+            where: { id: { in: idsOf(matched) }, ...LISTED_PRODUCT_FILTER },
             select: { id: true },
           })).map((family) => family.id),
         );
-        const families = new Map([...matched].filter(([, family]) => listed.has(family.id)));
+        const families = new Map(
+          [...matched].map(([key, list]) => [key, list.filter((family) => listed.has(family.id))] as const)
+            .filter(([, list]) => list.length > 0),
+        );
         // The stock before this import, read once (#633): never against what
         // it has just written (FEAT-91, #577).
-        const stock = await stockOf(tx, [...families.values()].map((family) => family.id));
+        const stock = await stockOf(tx, idsOf(families));
+        const joined = new Map([...families].map(([key, list]) => [key, list[0]]));
         const cellars = await cellarsByName(tx);
         const chosen = new Map(choices.map((choice) => [choice.key, choice]));
         const today = todayAsPurchaseDate();
 
         const result: CsvImportResult = {
-          bottles: 0, wines: 0, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, createdCellars: [],
+          bottles: 0, wines: 0, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, staleLines: 0, createdCellars: [],
         };
         const wines = new Set<string>();
         const cigarReferences = new Set<string>();
         for (const line of lines) {
           const key = csvRowProductKey(line.row);
-          const known = families.get(key);
-          const now = known ? stock.get(known.id) ?? 0 : 0;
+          const known = joined.get(key);
+          const now = keyStock(families.get(key), stock);
           const choice = chosen.get(line.key);
           const seen = choice?.inStock ?? 0;
-          if ((now > 0 || seen > 0) && !(choice?.add && now === seen)) {
+          // Chosen for adding, but the stock is no longer the one the preview
+          // showed: left out, and said so (not "already counted").
+          if (choice?.add && now !== seen) {
+            result.staleLines += 1;
+            continue;
+          }
+          // "Ignorer (déjà comptées)": chosen, or the default once in stock.
+          if ((now > 0 || seen > 0) && !choice?.add) {
             result.skippedLines += 1;
             result.skippedUnits += line.units;
             continue;
           }
 
           const family = known ?? (await this.createFamily(tx, userId, line.row));
-          families.set(key, family);
+          joined.set(key, family);
           const lineCellarId = await this.cellarOf(tx, userId, line, lines, cellars, cellarId, result.createdCellars);
           await addCopies(
             tx,

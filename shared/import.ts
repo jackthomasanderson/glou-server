@@ -60,8 +60,10 @@ export interface CsvImportLine {
   units: number;
   /** Units of this wine already in stock when the preview was read: 0 = not in the cellar ("vin déjà en cave" otherwise). */
   inStock: number;
-  /** Its cellar does not exist yet: the import creates it (QP3). */
+  /** Its cellar does not exist yet: the import creates it (QP3) if the line is written. */
   newCellar: boolean;
+  /** Its rows add up past what one group may count ({@link CSV_IMPORT_MAX_COPIES}): the file cannot be imported as is. */
+  tooLarge: boolean;
 }
 
 export interface CsvImportPreview {
@@ -96,6 +98,11 @@ export interface CsvImportResult {
   /** Lines left out because the wine was already in the cellar ("Ignorer (déjà comptées)"). */
   skippedLines: number;
   skippedUnits: number;
+  /**
+   * Lines the member chose to add whose wine's stock changed since the
+   * preview (another import, another member): left out, to be imported again.
+   */
+  staleLines: number;
   /** Cellars the import created, by name (QP3). */
   createdCellars: string[];
 }
@@ -106,6 +113,9 @@ export interface CsvImportResult {
  * larger file is refused at preview, never cut short without a word (#641).
  */
 export const CSV_IMPORT_MAX_ROWS = 500;
+
+/** Copies one group may count (the API's `MAX_COPIES`): identical rows add up to at most this. */
+export const CSV_IMPORT_MAX_COPIES = 1000;
 
 /**
  * Budget of the confirm transaction on the server: it may wait this long for
@@ -154,7 +164,7 @@ export function csvLineKey(row: CsvImportRow): string {
   return JSON.stringify([csvRowProductKey(row), normalize(row.cellar), row.purchasePrice ?? null, row.purchasedAt ?? null, size]);
 }
 
-export type CsvLineDraft = Omit<CsvImportLine, 'inStock' | 'newCellar'>;
+export type CsvLineDraft = Omit<CsvImportLine, 'inStock' | 'newCellar' | 'tooLarge'>;
 
 /**
  * #471 (FEAT-99, decision 38): the rows of one file grouped into lines, in

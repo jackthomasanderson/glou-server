@@ -38,7 +38,12 @@ const wine = (name: string, extra: Partial<CsvImportRow> = {}): CsvImportRow => 
 
 /** A preview as the server answers it: the rows grouped, `inStock` per wine name, cellars to create. */
 function pickFile(rows: CsvImportRow[], options: { inStock?: Record<string, number>; newCellars?: string[] } = {}) {
-  const lines = groupCsvRows(rows).map((line) => ({ ...line, inStock: options.inStock?.[line.row.name] ?? 0, newCellar: false }));
+  const lines = groupCsvRows(rows).map((line) => ({
+    ...line,
+    inStock: options.inStock?.[line.row.name] ?? 0,
+    newCellar: line.row.cellar !== undefined && (options.newCellars ?? []).includes(line.row.cellar),
+    tooLarge: line.count > 1000,
+  }));
   previewResult = { valid: rows, errors: [], lines, newCellars: options.newCellars ?? [] };
   const onImported = vi.fn();
   const { container } = render(<CsvImportStep cellarId="c1" onImported={onImported} onBack={() => {}} />);
@@ -96,6 +101,22 @@ describe('CsvImportStep preview (FEAT-99)', () => {
 
     expect(screen.getByText('onboarding.csv.newCellars|1|Cuisine')).toBeInTheDocument();
   });
+
+  it('announces the cellar of a wine already in the cellar only once the member adds it', () => {
+    pickFile([wine('Talbot', { cellar: 'Cuisine' })], { newCellars: ['Cuisine'], inStock: { Talbot: 2 } });
+
+    expect(screen.queryByText(/onboarding\.csv\.newCellars/)).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: 'onboarding.csv.addBottles|1' }));
+    expect(screen.getByText('onboarding.csv.newCellars|1|Cuisine')).toBeInTheDocument();
+  });
+
+  // Review of #794: identical rows past one group's bound are said before confirming.
+  it('marks identical rows that add up past 1,000 and keeps "Confirm" disabled', () => {
+    pickFile([wine('Talbot', { quantity: 600 }), wine('Talbot', { quantity: 600 })]);
+
+    expect(screen.getByText('onboarding.csv.lineTooLarge|1200|1000')).toBeInTheDocument();
+    expect(confirmButton()).toBeDisabled();
+  });
 });
 
 // Point 37: "Vin déjà en cave", Ignore chosen by default.
@@ -132,7 +153,7 @@ describe('CsvImportStep confirmation', () => {
     fireEvent.click(confirmButton());
 
     expect(confirmMutate).toHaveBeenCalledTimes(1);
-    const result = { bottles: 6, wines: 1, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, createdCellars: [] };
+    const result = { bottles: 6, wines: 1, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, staleLines: 0, createdCellars: [] };
     const { onSuccess, onSettled } = confirmMutate.mock.calls[0]?.[1] as { onSuccess: (r: typeof result) => void; onSettled: () => void };
     onSuccess(result);
     onSettled();

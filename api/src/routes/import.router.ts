@@ -63,6 +63,12 @@ router.post('/csv/confirm', async (req: Request, res: Response): Promise<void> =
   } catch (error) {
     console.error('[import] POST /csv/confirm error:', error);
     if (error instanceof ZodError) {
+      // Identical rows adding up past one group's bound: a code the screen explains.
+      if (error.issues.some((issue) => issue.message === 'LINE_TOO_LARGE')) {
+        void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'validation_error', details: { stage: 'confirm', issues: 'LINE_TOO_LARGE' } });
+        res.status(400).json({ error: 'LINE_TOO_LARGE' });
+        return;
+      }
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'validation_error', details: { stage: 'confirm', issues } });
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });

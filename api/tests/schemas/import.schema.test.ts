@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { MAX_COPIES } from '../../src/schemas/stock.schema';
+import { CSV_IMPORT_MAX_COPIES } from '../../../shared/import';
 import {
   csvRawRowSchema,
   csvImportRowSchema,
@@ -50,8 +52,16 @@ describe('toPurchaseDay (spreadsheet days)', () => {
     expect(toPurchaseDay('29-02-2024')).toBe('2024-02-29');
     expect(toPurchaseDay('29/02/2023')).toBe('29/02/2023');
     expect(toPurchaseDay('0001-01-01')).toBe('0001-01-01');
+    expect(toPurchaseDay('2200-01-01')).toBe('2200-01-01');
+    expect(toPurchaseDay('31/12/1899')).toBe('31/12/1899');
     expect(toPurchaseDay('mars 2024')).toBe('mars 2024');
     expect(toPurchaseDay('  ')).toBeUndefined();
+  });
+});
+
+describe('group bound', () => {
+  it('is the same on both sides', () => {
+    expect(CSV_IMPORT_MAX_COPIES).toBe(MAX_COPIES);
   });
 });
 

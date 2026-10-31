@@ -38,9 +38,19 @@ describe('useCsvConfirm', () => {
     expect(notifyError).toHaveBeenCalledWith('onboarding.csv.confirmError');
   });
 
+  it.each(['LINE_TOO_LARGE', 'QUANTITY_TOO_LARGE'])('explains a refusal %s', async (code) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: code }) }));
+    const { result } = renderHook(() => useCsvConfirm(), { wrapper });
+
+    result.current.mutate({ rows, cellarId: null });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(notifyError).toHaveBeenCalledWith(`onboarding.csv.confirmErrors.${code}`);
+  });
+
   it('waits for the server to finish the import, not just the usual 15 s', async () => {
     const timeout = vi.spyOn(AbortSignal, 'timeout');
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ data: { bottles: 1, wines: 1, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, createdCellars: [] } }) }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ data: { bottles: 1, wines: 1, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, staleLines: 0, createdCellars: [] } }) }));
     const { result } = renderHook(() => useCsvConfirm(), { wrapper });
 
     result.current.mutate({ rows, cellarId: null });

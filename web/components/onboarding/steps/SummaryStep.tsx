@@ -85,6 +85,14 @@ export function SummaryStep({ cellarName, itemsAdded, importResult = null, isAdm
             </span>
           </div>
         )}
+        {importResult && importResult.staleLines > 0 && (
+          <div className="flex items-center gap-3 bg-warning-50 rounded-lg px-4 py-3">
+            <Copy size={18} className="text-warning-600 shrink-0" />
+            <span className="text-sm text-left">
+              {t('onboarding.summary.staleLines', { count: importResult.staleLines })}
+            </span>
+          </div>
+        )}
         {importResult && importResult.skippedLines > 0 && (
           <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
             <Copy size={18} className="text-foreground-500 shrink-0" />

@@ -15,7 +15,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 import { SummaryStep } from '../steps/SummaryStep';
 
 const result = (overrides: Partial<CsvImportResult> = {}): CsvImportResult => ({
-  bottles: 0, wines: 0, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, createdCellars: [], ...overrides,
+  bottles: 0, wines: 0, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, staleLines: 0, createdCellars: [], ...overrides,
 });
 
 const renderSummary = (importResult: CsvImportResult | null) =>
@@ -40,6 +40,13 @@ describe('SummaryStep after a CSV import (FEAT-99)', () => {
 
     expect(screen.getByText('onboarding.summary.cellarsCreated|1|Cuisine')).toBeInTheDocument();
     expect(screen.getByText('onboarding.summary.skippedLines|2')).toBeInTheDocument();
+  });
+
+  it('says apart the lines whose stock changed since the preview', () => {
+    renderSummary(result({ bottles: 1, wines: 1, staleLines: 1 }));
+
+    expect(screen.getByText('onboarding.summary.staleLines|1')).toBeInTheDocument();
+    expect(screen.queryByText(/onboarding\.summary\.skippedLines/)).toBeNull();
   });
 
   it('says so when every line was left out', () => {
