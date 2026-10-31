@@ -182,6 +182,20 @@ test.describe('move or reprice part of a group (#471, FEAT-98)', () => {
     expect(await lines(api, group.productId)).toEqual([[garage, 4, 20], [kitchen, 3, 20]].sort());
     expect(await cardBottles(api, group.productId)).toBe(7);
     expect(await cellarStats(api, kitchen)).toMatchObject({ bottles: 3, estimatedValue: 60 });
+
+    // Without purchase day, each line dates its spending by its creation: never completed, a line of its own.
+    const undated = (await okBody<Written>(await api.post(`/api/products/${group.productId}/items`, {
+      data: { quantity: 3, cellarId: garage, purchasePrice: 30, purchasedAt: null },
+    }))).data;
+    const undatedKitchen = (await okBody<Written>(await api.post(`/api/products/${group.productId}/items`, {
+      data: { quantity: 1, cellarId: kitchen, purchasePrice: 30, purchasedAt: null },
+    }))).data;
+    expect(undatedKitchen.id).not.toBe(undated.id);
+    const apart = await okBody<Written>(await move(api, undated.id, { count: 2, cellarId: kitchen }));
+    expect(apart.data.id).not.toBe(undatedKitchen.id);
+    expect(apart.data).toMatchObject({ quantity: 2, purchasedAt: null, cellarId: kitchen });
+    expect((await lines(api, group.productId)).filter(([, , price]) => price === 30))
+      .toEqual([[garage, 1, 30], [kitchen, 1, 30], [kitchen, 2, 30]].sort());
   });
 
   // An opened bottle is not a group; it stays with its group of origin.
@@ -194,7 +208,7 @@ test.describe('move or reprice part of a group (#471, FEAT-98)', () => {
     const opened = await okBody<Written>(await api.patch(`/api/inventory/${group.id}`, { data: { isOpened: true, fillLevel: 60 } }));
     expect(opened.data.id).not.toBe(group.id);
 
-    await refused(await move(api, opened.data.id, { count: 1, cellarId: kitchen }), 400, 'NOT_A_GROUP');
+    await refused(await move(api, opened.data.id, { count: 1, cellarId: kitchen }), 409, 'NOT_A_GROUP');
 
     await okBody(await move(api, group.id, { count: 1, cellarId: kitchen }));
     const items = (await detail(api, group.productId)).items;

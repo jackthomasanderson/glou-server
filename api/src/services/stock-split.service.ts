@@ -1,12 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
-import { badRequest } from '../lib/errors';
-import { groupKey, isGroupableItem, NO_SLOT, unitKind, type UnitKind } from '../lib/finished-item';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
-import { toUnitView } from '../lib/product-fields';
+import { badRequest, conflict } from '../lib/errors';
+import { isGroupableItem, NO_SLOT, unitKind } from '../lib/finished-item';
+import { fieldSourcesOf, toUnitView } from '../lib/product-fields';
 import { MAX_COPIES, type MoveUnitsInput, type RepriceUnitsInput } from '../schemas/stock.schema';
-import { lockedListedFamily } from './stock.service';
+import { findGroupFor, keepFoundQuantities, lockedListedFamily } from './stock.service';
 import { absorbGroups } from './review.service';
 import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/product';
 
@@ -23,8 +22,9 @@ import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/pro
 // - Part of them: the group keeps the rest, its slot (the slots of each copy
 //   come with step 3, FEAT-93) and its sub-records.
 // - Either way the copies taken complete the identical group of the family
-//   (D5 `groupKey`, and the same estimated value, else the value would
-//   change), if there is one, instead of making a line of their own.
+//   (`findGroupFor`: D5 `groupKey`, the same estimated value, else the value
+//   would change, never a group still to review, never without a purchase
+//   day), if there is one, instead of making a line of their own.
 
 /** A unit row as the extended client reads it (money columns as numbers). */
 type UnitRecord = NonNullable<Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>>>;
@@ -54,29 +54,32 @@ export type SplitOutcome =
       entries: SplitEntry[];
     };
 
-/** Two cellars, prices or estimated values (numbers, ids or empty) are the same. */
+/** Two cellars or prices (ids, numbers or empty) are the same. */
 const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/** A text field's value, null when empty. */
+const given = (value: string | null) => (value != null && value.trim() !== '' ? value : null);
+
+/**
+ * The group `target` once completed to `quantity` copies by copies of
+ * `group`: nothing of them is lost — what the target leaves empty (place
+ * of purchase, location), the group fills; locks and field sources are
+ * united, the target's first (as the review merge, J1).
+ */
+function completion(target: UnitRecord, group: UnitRecord, quantity: number) {
+  const sources = { ...fieldSourcesOf(group.fieldSources), ...fieldSourcesOf(target.fieldSources) };
+  return {
+    quantity,
+    purchasePlace: given(target.purchasePlace) ?? given(group.purchasePlace),
+    location: given(target.location) ?? given(group.location),
+    lockedFields: [...new Set([...target.lockedFields, ...group.lockedFields])].sort(),
+    fieldSources: Object.keys(sources).length > 0 ? (sources as Prisma.InputJsonValue) : Prisma.DbNull,
+  };
+}
 
 /** The columns `change` writes. */
 const changeData = (change: SplitChange) =>
   change.field === 'cellarId' ? { cellarId: change.to } : { purchasePrice: change.to };
-
-/**
- * The group of the family that the copies taken from `origin` join once
- * `change` is applied: intact, in stock, same `groupKey` (D5) and the same
- * estimated value; the oldest one should two of them coexist. Null when
- * there is none — the copies then make a line of their own.
- */
-async function identicalGroup(tx: PrismaClientOrTx, origin: UnitRecord, change: SplitChange, kind: UnitKind): Promise<UnitRecord | null> {
-  const target = { ...origin, ...changeData(change) };
-  const key = groupKey(target, kind);
-  const candidates = await tx.inventoryItem.findMany({
-    where: { productId: origin.productId, id: { not: origin.id }, deletedAt: null, writtenOffAt: null, ...OWNED_ITEM_FILTER },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-  });
-  return candidates.find((unit) => isGroupableItem(unit) && groupKey(unit, kind) === key
-    && sameValue(unit.estimatedValue, origin.estimatedValue)) ?? null;
-}
 
 /**
  * The new line of `count` copies taken from `origin`, `change` applied:
@@ -115,8 +118,9 @@ async function sharesAnInventorySession(tx: PrismaClientOrTx, a: string, b: stri
  * in one transaction: the family is locked first (the locking rule), then
  * the group is read and `expectedUpdatedAt` checked under that lock. Null
  * when the unit is unknown or in the trash; 409 PRODUCT_IN_TRASH when its
- * family is; 400 for a unit that is not an intact group in stock, a count
- * beyond the group, or a change that changes nothing.
+ * family is, and NOT_A_GROUP (as A2) for a unit that is not an intact
+ * group in stock; 400 for a count beyond the group, or a change that
+ * changes nothing.
  */
 async function splitUnits(
   userId: string,
@@ -135,7 +139,7 @@ async function splitUnits(
     const stale = expectedUpdatedAt !== undefined && new Date(expectedUpdatedAt).getTime() !== group.updatedAt.getTime();
     // Moved to another family meanwhile (a merge): its lock was not the one taken.
     if (stale || group.productId !== head.productId) return { conflict: true, item: toUnitView(group) };
-    if (!isGroupableItem(group) || !group.isOwned) throw badRequest('NOT_A_GROUP');
+    if (!isGroupableItem(group) || !group.isOwned) throw conflict('NOT_A_GROUP');
 
     const from = group.quantity ?? 1;
     if (count > from) throw badRequest('COUNT_ABOVE_GROUP');
@@ -151,10 +155,17 @@ async function splitUnits(
     const done = (result: UnitWriteResult, entries: SplitEntry[]): SplitOutcome =>
       ({ result, productId: group.productId, count, change: moved, entries });
     const stamp = { updatedBy: userId };
-    let target = await identicalGroup(tx, group, change, kind);
-    // Two groups counted in the same inventory session keep their entries
-    // apart (one per unit): a whole group then simply changes, next to the other.
-    if (target && count === from && await sharesAnInventorySession(tx, group.id, target.id)) target = null;
+    let target = await findGroupFor(tx, { ...group, ...changeData(change) }, kind, {
+      excludeId: group.id, estimatedValue: group.estimatedValue, settledOnly: true,
+    });
+    if (target && count === from) {
+      // Two groups counted in the same inventory session keep their entries
+      // apart (one per unit); a new price for a group and the identical
+      // group both in a slot would lose one slot. The whole group then
+      // simply changes, next to the other.
+      const twoSlots = change.field === 'purchasePrice' && group.slotColumn !== null && target.slotColumn !== null;
+      if (twoSlots || await sharesAnInventorySession(tx, group.id, target.id)) target = null;
+    }
     if (target && (target.quantity ?? 1) + count > MAX_COPIES) throw badRequest('QUANTITY_TOO_LARGE');
 
     if (count === from) {
@@ -168,17 +179,20 @@ async function splitUnits(
       // The whole group completes the identical one: it takes its copies and
       // everything hanging on it, the group is gone.
       const to = (target.quantity ?? 1) + count;
-      // D15: an entry keeps the number it found in the group it counted.
-      await tx.$executeRaw`UPDATE "inventory_count_entries" AS e SET "foundQuantity" = coalesce(e."foundQuantity", b."quantity")
-        FROM "bottles" AS b WHERE b."id" = e."itemId" AND e."itemId" IN (${Prisma.join([group.id, target.id])})`;
+      await keepFoundQuantities(tx, [group.id, target.id]);
       await absorbGroups(tx, target.id, [group.id]);
       // A new price in the same cellar: the copies stay where they were, so
       // the group's slot goes to the line that has none (deleted first: one slot, one unit).
-      const keepsSlot = change.field === 'purchasePrice' && group.slotColumn !== null && target.slotColumn === null
+      const keepsSlot = change.field === 'purchasePrice' && group.slotColumn !== null
         ? { slotColumn: group.slotColumn, slotRow: group.slotRow } : {};
       const completed = await tx.inventoryItem.update({
         where: { id: target.id },
-        data: { quantity: to, needsReview: target.needsReview || group.needsReview, ...keepsSlot, ...stamp },
+        data: {
+          ...completion(target, group, to),
+          needsReview: target.needsReview || group.needsReview,
+          ...keepsSlot,
+          ...stamp,
+        },
       });
       return done(
         { data: toUnitView(completed), changed: [], removedIds: [group.id] },
@@ -189,8 +203,9 @@ async function splitUnits(
     // Part of the group: it keeps the rest; the copies taken complete the
     // identical group, or make a new line.
     const rest = await tx.inventoryItem.update({ where: { id: group.id }, data: { quantity: from - count, ...stamp } });
+    if (target) await keepFoundQuantities(tx, [target.id]);
     const line = target
-      ? await tx.inventoryItem.update({ where: { id: target.id }, data: { quantity: (target.quantity ?? 1) + count, ...stamp } })
+      ? await tx.inventoryItem.update({ where: { id: target.id }, data: { ...completion(target, group, (target.quantity ?? 1) + count), ...stamp } })
       : await tx.inventoryItem.create({ data: splitLineOf(group, userId, count, change) });
     const lineFrom = target ? target.quantity ?? 1 : null;
     return done({ data: toUnitView(line), changed: [toUnitView(rest)], removedIds: [] }, [

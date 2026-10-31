@@ -12,6 +12,7 @@ vi.mock('../../src/lib/prisma', () => ({
   },
 }));
 
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../src/lib/prisma';
 import { stockSplitService, type SplitOutcome } from '../../src/services/stock-split.service';
 import { PRODUCT_FIELDS } from '../../src/lib/product-fields';
@@ -51,6 +52,10 @@ let rows: Row[];
 
 const updates = () => vi.mocked(prisma.inventoryItem.update).mock.calls.map((call) => call[0] as { where: { id: string }; data: Record<string, unknown> });
 const created = () => vi.mocked(prisma.inventoryItem.create).mock.calls.map((call) => (call[0] as { data: Record<string, unknown> }).data);
+/** The ids whose inventory entries were frozen (`keepFoundQuantities`), per call. */
+const foundKeptFor = () => vi.mocked(prisma.$executeRaw).mock.calls
+  .filter((call) => (call[0] as unknown as string[]).join('?').includes('coalesce(e."foundQuantity"'))
+  .map((call) => (call[1] as { values: string[] }).values);
 const sqlTexts = () => vi.mocked(prisma.$executeRaw).mock.calls.map((call) => (call[0] as unknown as string[]).join('?'));
 
 function applied(outcome: SplitOutcome | null) {
@@ -89,8 +94,9 @@ beforeEach(() => {
   vi.mocked(prisma.inventoryCountEntry.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.inventoryItem.findFirst).mockImplementation(((args: { where: { id: string } }) =>
     Promise.resolve(copy(rows.find((row) => row.id === args.where.id && row.deletedAt === null)))) as never);
-  vi.mocked(prisma.inventoryItem.findMany).mockImplementation(((args: { where: { id: { not: string } } }) =>
-    Promise.resolve(rows.filter((row) => row.id !== args.where.id.not && row.deletedAt === null && row.writtenOffAt === null && row.isOwned)
+  vi.mocked(prisma.inventoryItem.findMany).mockImplementation(((args: { where: { id: { not: string }; needsReview?: boolean } }) =>
+    Promise.resolve(rows.filter((row) => row.id !== args.where.id.not && row.deletedAt === null && row.writtenOffAt === null && row.isOwned
+      && (args.where.needsReview === undefined || row.needsReview === args.where.needsReview))
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).map(copy))) as never);
   vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string }; data: Record<string, unknown> }) => {
     const row = rows.find((candidate) => candidate.id === args.where.id)!;
@@ -176,8 +182,14 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
     expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
     expect(updates()).toEqual([
       { where: { id: 'g1' }, data: { quantity: 4, updatedBy: 'u2' } },
-      { where: { id: 'k1' }, data: { quantity: 3, updatedBy: 'u2' } },
+      {
+        where: { id: 'k1' },
+        // What the kitchen line left empty, the copies bring (nothing lost).
+        data: { quantity: 3, purchasePlace: 'Caviste', location: null, lockedFields: [], fieldSources: Prisma.DbNull, updatedBy: 'u2' },
+      },
     ]);
+    // D15: an inventory entry that counted the kitchen line keeps the number it found.
+    expect(foundKeptFor()).toEqual([['k1']]);
     expect(outcome.result).toMatchObject({ data: { id: 'k1', quantity: 3 }, changed: [{ id: 'g1', quantity: 4 }], removedIds: [] });
     expect(outcome.entries[1]).toEqual({
       itemId: 'k1', fromItemId: 'g1', changes: [{ field: 'quantity', from: 1, to: 3 }, { field: 'cellarId', from: 'garage', to: 'kitchen' }],
@@ -194,6 +206,7 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
     ['an opened bottle', { quantity: 1, isOpened: true, fillLevel: 50 }],
     ['a write-off', { writtenOffAt: new Date('2026-05-01T00:00:00Z') }],
     ['a group in the trash', { deletedAt: new Date('2026-05-01T00:00:00Z') }],
+    ['a number still to review (as the review merge)', { needsReview: true }],
   ])('never completes a kitchen line with %s', async (_label, fields) => {
     rows.push(unit({ id: 'k1', cellarId: 'kitchen', quantity: 1, ...fields }));
 
@@ -236,6 +249,26 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
     expect(prisma.cellar.findUnique).not.toHaveBeenCalled();
   });
 
+  it('a whole group joining an identical one loses nothing of its own: place, location, locks, sources, number to review', async () => {
+    rows = [
+      unit({ needsReview: true, location: 'Rack B', lockedFields: ['purchasePrice'], fieldSources: { purchasePrice: 'manual', location: 'import_csv' } }),
+      unit({ id: 'k1', cellarId: 'kitchen', quantity: 1, purchasePlace: ' ', lockedFields: ['location'], fieldSources: { location: 'manual' } }),
+    ];
+
+    await stockSplitService.moveUnits('u2', 'g1', { count: 6, cellarId: 'kitchen' });
+
+    expect(updates()).toEqual([{
+      where: { id: 'k1' },
+      data: {
+        quantity: 7, purchasePlace: 'Caviste', location: 'Rack B', lockedFields: ['location', 'purchasePrice'],
+        fieldSources: { purchasePrice: 'manual', location: 'manual' }, needsReview: true, updatedBy: 'u2',
+      },
+    }]);
+    // D15: the entries of both groups keep the number they found, before either changes.
+    expect(foundKeptFor()).toEqual([['g1', 'k1']]);
+    expect(vi.mocked(prisma.$executeRaw).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
+  });
+
   it('a whole group joining an identical one gives it its copies, links and history, then is gone', async () => {
     rows.push(unit({ id: 'k1', cellarId: 'kitchen', quantity: 1 }));
     const before = totals();
@@ -266,12 +299,25 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
     expect(outcome.result).toMatchObject({ data: { id: 'g1', cellarId: 'kitchen', quantity: 6 }, removedIds: [] });
   });
 
-  it('keeps the creation date on a line without purchase day (its spending stays in its period)', async () => {
-    rows = [unit({ purchasedAt: null })];
+  it('without purchase day, never completes a line created another day, and keeps its creation date (its spending stays in its period)', async () => {
+    rows = [
+      unit({ purchasedAt: null, createdAt: new Date('2026-03-10T09:00:00Z') }),
+      unit({ id: 'k1', cellarId: 'kitchen', quantity: 1, purchasedAt: null, createdAt: new Date('2026-01-05T09:00:00Z') }),
+    ];
 
     await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' });
 
-    expect(created()[0]).toMatchObject({ purchasedAt: null, createdAt: new Date('2026-01-15T09:00:00Z') });
+    expect(created()[0]).toMatchObject({ purchasedAt: null, createdAt: new Date('2026-03-10T09:00:00Z'), quantity: 2 });
+    expect(updates().map((update) => update.where.id)).toEqual(['g1']);
+  });
+
+  it('without purchase day, a whole group simply changes, next to the dateless line', async () => {
+    rows = [unit({ purchasedAt: null }), unit({ id: 'k1', cellarId: 'kitchen', quantity: 1, purchasedAt: null })];
+
+    const outcome = applied(await stockSplitService.repriceUnits('u1', 'g1', { count: 6, purchasePrice: 25 }));
+
+    expect(rows.map((row) => row.id)).toEqual(['g1', 'k1']);
+    expect(outcome.result).toMatchObject({ data: { id: 'g1', purchasePrice: 25 }, removedIds: [] });
   });
 
   it('works on cigars the same way: boxes of the group, cigars counted', async () => {
@@ -301,12 +347,12 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
       ['an opened box', { quantity: 1, cigarsPerBox: 25, cigarsLeft: 10, isOpened: true }],
       ['a write-off', { writtenOffAt: new Date('2026-05-01T00:00:00Z') }],
       ['a reference (FEAT-87)', { isOwned: false }],
-    ])('%s is not a group → 400 NOT_A_GROUP', async (_label, fields) => {
+    ])('%s is not a group → 409 NOT_A_GROUP', async (_label, fields) => {
       rows = [unit(fields)];
 
       const error = await rejection(stockSplitService.moveUnits('u1', 'g1', { count: 1, cellarId: 'kitchen' }));
 
-      expect([error.status, error.code]).toEqual([400, 'NOT_A_GROUP']);
+      expect([error.status, error.code]).toEqual([409, 'NOT_A_GROUP']);
       expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
     });
 
@@ -425,6 +471,16 @@ describe('stockSplitService.repriceUnits (FEAT-98 c5)', () => {
     // Deleted before the slot is handed over: one slot, one unit.
     expect(vi.mocked(prisma.inventoryItem.deleteMany).mock.invocationCallOrder[0])
       .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
+  });
+
+  it('the whole group and the one at the new price both in a slot: the group simply changes price, no slot lost', async () => {
+    rows = [unit({ slotColumn: 4, slotRow: 1 }), unit({ id: 'g25', purchasePrice: 25, quantity: 1, slotColumn: 5, slotRow: 1 })];
+
+    const outcome = applied(await stockSplitService.repriceUnits('u1', 'g1', { count: 6, purchasePrice: 25 }));
+
+    expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+    expect(outcome.result).toMatchObject({ data: { id: 'g1', purchasePrice: 25, slotColumn: 4, slotRow: 1 }, removedIds: [] });
+    expect(rows.find((row) => row.id === 'g25')).toMatchObject({ quantity: 1, slotColumn: 5 });
   });
 
   it('an empty price is a price of its own (≠ 0), and so is 0', async () => {

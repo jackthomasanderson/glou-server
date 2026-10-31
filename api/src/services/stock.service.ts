@@ -16,24 +16,55 @@ type UnitRecord = NonNullable<Awaited<ReturnType<typeof prisma.inventoryItem.fin
 /** `YYYY-MM-DD` → the midnight-UTC Date Prisma stores in a `@db.Date` column (D6). */
 const toDay = (day: string): Date => new Date(`${day}T00:00:00.000Z`);
 
+/** What narrows {@link findGroupFor} beyond the group identity. */
+export interface GroupSearch {
+  /** The unit the copies come from, never its own target. */
+  excludeId?: string;
+  /** Only a group of this estimated value, strictly (empty = empty only): a move must not change the value. */
+  estimatedValue?: number | null;
+  /** Never a group whose number is still to review (needsReview), as the review merge (planGroupFusion). */
+  settledOnly?: boolean;
+}
+
 /**
  * #471 (D5): the group of the family that `target` would join — intact, out
  * of the trash, not written off, same `groupKey` — or null. The single
  * reading of "the same group" for every path that adds copies; the oldest
- * wins should two identical groups ever coexist. Run it inside the
- * transaction that holds the family lock.
+ * wins should two identical groups ever coexist. Copies without a purchase
+ * day never complete a group: the budget then dates each line by its
+ * creation, and joining a line created another day would move their
+ * spending to another period (same rule as planGroupFusion). Run it inside
+ * the transaction that holds the family lock.
  */
 export async function findGroupFor(
   tx: PrismaClientOrTx,
   target: GroupKeyFields,
   kind: UnitKind,
+  search: GroupSearch = {},
 ): Promise<UnitRecord | null> {
+  if (target.purchasedAt == null) return null;
   const key = groupKey(target, kind);
   const candidates = await tx.inventoryItem.findMany({
-    where: { productId: target.productId, deletedAt: null, writtenOffAt: null, ...OWNED_ITEM_FILTER },
+    where: {
+      productId: target.productId, deletedAt: null, writtenOffAt: null, ...OWNED_ITEM_FILTER,
+      ...(search.excludeId !== undefined ? { id: { not: search.excludeId } } : {}),
+      ...(search.settledOnly ? { needsReview: false } : {}),
+    },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
-  return candidates.find((unit) => isGroupableItem(unit) && groupKey(unit, kind) === key) ?? null;
+  return candidates.find((unit) => isGroupableItem(unit) && groupKey(unit, kind) === key
+    && (search.estimatedValue === undefined || (unit.estimatedValue ?? null) === search.estimatedValue)) ?? null;
+}
+
+/**
+ * D15: the inventory entries that counted `itemIds` keep the number they
+ * found (an empty `foundQuantity` reads "the whole unit") before those
+ * groups grow — the copies added were not there when they were counted.
+ * In SQL, as the transformation and the review merge do.
+ */
+export async function keepFoundQuantities(tx: PrismaClientOrTx, itemIds: string[]): Promise<void> {
+  await tx.$executeRaw`UPDATE "inventory_count_entries" AS e SET "foundQuantity" = coalesce(e."foundQuantity", b."quantity")
+    FROM "bottles" AS b WHERE b."id" = e."itemId" AND e."itemId" IN (${Prisma.join(itemIds)})`;
 }
 
 /**
@@ -74,6 +105,7 @@ export async function addCopies(
     const from = group.quantity ?? 1;
     // One group counts at most what one write may (`quantity`'s own bound).
     if (from + count > MAX_COPIES) throw badRequest('QUANTITY_TOO_LARGE');
+    await keepFoundQuantities(tx, [group.id]);
     const unit = await tx.inventoryItem.update({ where: { id: group.id }, data: { quantity: from + count, updatedBy: userId } });
     return { unit, from, to: from + count };
   }
