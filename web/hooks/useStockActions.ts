@@ -19,6 +19,8 @@ interface StockVariables<TBody> {
 /** Refusals of a stock action said in words; anything else is a plain failure. */
 const REFUSALS: Record<string, string> = {
   CONFLICT: 'stockLine.errors.conflict',
+  QUANTITY_TOO_LARGE: 'stockLine.errors.tooLarge',
+  CELLAR_NOT_FOUND: 'stockLine.errors.cellarGone',
 };
 
 /**
@@ -60,3 +62,7 @@ function useStockAction<TBody extends CorrectBody | MoveBody | RepriceBody>(acti
 
 /** "Corriger le nombre" (FEAT-92 c3, FEAT-95 c4): lower a group's number, with why. */
 export const useCorrectQuantity = () => useStockAction<CorrectBody>('correct');
+/** "Déplacer" (FEAT-98 c1-c4): some or all of a group to another cellar. */
+export const useMoveUnits = () => useStockAction<MoveBody>('move');
+/** "Changer le prix" (FEAT-98 c5): of some or all of a group. */
+export const useRepriceUnits = () => useStockAction<RepriceBody>('reprice');

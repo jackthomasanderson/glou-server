@@ -31,6 +31,7 @@ import { FieldSourceBadge } from './FieldSourceBadge';
 import { FamilyStockLines } from './FamilyStockLines';
 import { FamilyHistory } from './FamilyHistory';
 import { StockLineMenu } from './StockLineMenu';
+import { unitNoun } from '@/lib/products/stockActions';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
@@ -351,6 +352,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           history={p.history}
           itemIds={new Set(p.items.map((item) => item.id))}
           cellarName={cellarName}
+          nounOf={(itemId) => unitNoun(p.items.find((item) => item.id === itemId) ?? { cigarsPerBox: null }, kind)}
         />
       </div>
     );

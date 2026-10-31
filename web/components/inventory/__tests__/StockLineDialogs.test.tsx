@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { openedBottle, unit } from '@/lib/products/__tests__/factories';
@@ -37,6 +37,8 @@ vi.mock('@heroui/react', async (importOriginal) => ({
 }));
 
 import { CorrectQuantityDialog } from '../CorrectQuantityDialog';
+import { MoveUnitsDialog } from '../MoveUnitsDialog';
+import { RepriceDialog } from '../RepriceDialog';
 import { EditLineDialog } from '../EditLineDialog';
 import { TrashLineDialog } from '../TrashLineDialog';
 
@@ -176,6 +178,91 @@ describe('CorrectQuantityDialog (FEAT-92 c3, §10.4.5)', () => {
     fireEvent.click(confirmButton('Corriger'));
     await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('stockLine.errors.conflict'));
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('MoveUnitsDialog (FEAT-98 c1-c4, §10.4.4)', () => {
+  it('"Combien déplacer ?" is preset to the whole line; 2 of 6 go to the kitchen', async () => {
+    const onClose = vi.fn();
+    renderIn(<MoveUnitsDialog item={group()} ctx={ctx()} isOpen onClose={onClose} />);
+    expect(numberField('move-count-input')).toHaveValue(6);
+    // Anywhere but the line's own cellar.
+    const choices = within(screen.getByRole('radiogroup')).getAllByRole('radio');
+    expect(choices.map((radio) => radio.closest('label')?.textContent)).toEqual(['Cuisine', 'Sans cave']);
+    expect(confirmButton('Déplacer')).toBeDisabled();
+
+    typeNumber(numberField('move-count-input'), '2');
+    fireEvent.click(screen.getByRole('radio', { name: 'Cuisine' }));
+    fireEvent.click(confirmButton('Déplacer'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(requests).toEqual([{ url: '/api/inventory/g/move', method: 'POST', body: { count: 2, cellarId: 'kitchen', expectedUpdatedAt: VERSION } }]);
+    expect(toast.notifySuccess).toHaveBeenCalledWith('stockLine.move.done', { context: 'bottle', count: 2, cellar: 'Cuisine' });
+  });
+
+  it('cannot move more bottles than the line holds (c4)', () => {
+    renderIn(<MoveUnitsDialog item={group()} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Cuisine' }));
+    typeNumber(numberField('move-count-input'), '7');
+    expect(confirmButton('Déplacer')).toBeDisabled();
+    expect(screen.getByText('Un nombre entre 1 et 6')).toBeInTheDocument();
+    // − / + stay within the line.
+    fireEvent.click(screen.getByRole('button', { name: 'Un de moins' }));
+    expect(numberField('move-count-input')).toHaveValue(5);
+    typeNumber(numberField('move-count-input'), '6');
+    expect(screen.getByRole('button', { name: 'Un de plus' })).toBeDisabled();
+  });
+
+  it('a line of one bottle does not ask how many', async () => {
+    renderIn(<MoveUnitsDialog item={group({ quantity: 1 })} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    expect(screen.queryByTestId('move-count-input')).toBeNull();
+    fireEvent.click(screen.getByRole('radio', { name: 'Sans cave' }));
+    fireEvent.click(confirmButton('Déplacer'));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].body).toEqual({ count: 1, cellarId: null, expectedUpdatedAt: VERSION });
+  });
+
+  it('without network: said, never pretended', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    renderIn(<MoveUnitsDialog item={group()} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Cuisine' }));
+    fireEvent.click(confirmButton('Déplacer'));
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('stockLine.errors.offline'));
+    expect(toast.notifySuccess).not.toHaveBeenCalled();
+  });
+});
+
+describe('RepriceDialog (FEAT-98 c5, §10.4.4)', () => {
+  it('"Pour combien de bouteilles ?": the price of 2 of 6 goes from 20 € to 25 €', async () => {
+    const onClose = vi.fn();
+    renderIn(<RepriceDialog item={group()} ctx={ctx()} isOpen onClose={onClose} />);
+    expect(screen.getByLabelText(/Pour combien de bouteilles/)).toHaveValue(6);
+    const price = screen.getByLabelText(/Prix d'une bouteille/);
+    expect(price).toHaveValue('20');
+    expect(confirmButton('Changer le prix')).toBeDisabled();
+
+    typeNumber(numberField('reprice-count-input'), '2');
+    fireEvent.change(price, { target: { value: '25' } });
+    fireEvent.click(confirmButton('Changer le prix'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(requests).toEqual([{ url: '/api/inventory/g/reprice', method: 'POST', body: { count: 2, purchasePrice: 25, expectedUpdatedAt: VERSION } }]);
+    expect(toast.notifySuccess).toHaveBeenCalledWith('stockLine.reprice.done', { context: 'bottle', count: 2, from: '20 €', to: '25 €' });
+  });
+
+  it('takes a decimal comma, refuses more than cents', () => {
+    renderIn(<RepriceDialog item={group()} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    const price = screen.getByLabelText(/Prix d'une bouteille/);
+    fireEvent.change(price, { target: { value: '24,555' } });
+    expect(confirmButton('Changer le prix')).toBeDisabled();
+    fireEvent.change(price, { target: { value: '24,55' } });
+    expect(confirmButton('Changer le prix')).toBeEnabled();
+  });
+
+  it('asks for boxes on a line of closed boxes of cigars', () => {
+    renderIn(<RepriceDialog item={group({ cigarsPerBox: 25, quantity: 3 })} ctx={ctx('cigar')} isOpen onClose={vi.fn()} />);
+    expect(screen.getByLabelText(/Pour combien de boîtes/)).toHaveValue(3);
+    expect(screen.getByLabelText(/Prix d'une boîte/)).toBeInTheDocument();
   });
 });
 

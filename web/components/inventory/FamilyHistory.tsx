@@ -8,6 +8,7 @@ import { useRollbackField } from '@/hooks/useInventory';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { formatDate } from '@/lib/format';
 import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
+import type { UnitNoun } from '@/lib/products/stockActions';
 import type { ProductDetailView } from '@/lib/products/types';
 
 type HistoryEntry = ProductDetailView['history'][number];
@@ -28,14 +29,27 @@ interface FamilyHistoryProps {
   /** Copies of the wine still out of the trash: a change of one of them can be restored (FEAT-05). */
   itemIds: ReadonlySet<string>;
   cellarName: (id: string) => string | undefined;
+  /** What one copy of a line is called (bottle, box, cigar), for "2 bouteilles déplacées vers Cuisine". */
+  nounOf?: (itemId: string | null) => UnitNoun;
 }
+
+/** FEAT-98 (point 57): the field a move or a new price changes on the copies taken. */
+const SPLIT_FIELD: Record<string, string> = { MOVE_UNITS: 'cellarId', REPRICE_UNITS: 'purchasePrice' };
+
+/**
+ * A move or a new price is recorded on each line it touched: the group the
+ * copies were taken from only says its number went down. Only the line they
+ * went to is told — it says how many, and where to or at what price.
+ */
+const isShown = (entry: HistoryEntry) =>
+  !(entry.action in SPLIT_FIELD) || (entry.changes ?? []).some((change) => change.field === SPLIT_FIELD[entry.action]);
 
 /**
  * Block 6 of a wine's drawer (ux-ui.md §10.3): the field history of the wine
  * and of its copies together (A1), with "Restaurer cette valeur" (FEAT-05) on
  * a change made to a copy still there.
  */
-export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryProps) {
+export function FamilyHistory({ history, itemIds, cellarName, nounOf = () => 'bottle' }: FamilyHistoryProps) {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
   const rollbackMutation = useRollbackField();
@@ -52,6 +66,8 @@ export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryPro
 
   // #508: translated labels and readable values, not raw ids.
   const describe = (entry: HistoryEntry): string => {
+    const split = describeSplit(entry);
+    if (split) return split;
     if (!entry.changes || entry.changes.length === 0) return actionLabel(entry.action);
     if (entry.action === 'RESTORE_FIELD' && entry.changes.length === 1) {
       return t('traceability.restoredField', { field: fieldLabel(entry.changes[0].field) });
@@ -77,6 +93,23 @@ export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryPro
       .join(' · ');
   };
 
+  /** "2 bouteilles déplacées vers Cuisine", "Prix de 2 bouteilles : 20 € → 25 €". */
+  function describeSplit(entry: HistoryEntry): string | null {
+    const moved = entry.changes?.find((change) => change.field === SPLIT_FIELD[entry.action]);
+    if (!moved) return null;
+    const added = entry.changes?.find((change) => change.field === 'quantity');
+    const count = entry.count
+      ?? (typeof added?.to === 'number' ? added.to - (typeof added.from === 'number' ? added.from : 0) : 1);
+    const options = { context: nounOf(entry.itemId), count };
+    if (moved.field === 'cellarId') {
+      const cellar = typeof moved.to === 'string' ? cellarName(moved.to) ?? '—' : t('familyDrawer.lines.noCellar');
+      return t('stockLine.history.moved', { ...options, cellar });
+    }
+    const price = (value: unknown) =>
+      value == null ? t('stockLine.reprice.noPrice') : formatHistoryValue('purchasePrice', value, t, context);
+    return t('stockLine.history.repriced', { ...options, from: price(moved.from), to: price(moved.to) });
+  }
+
   const close = () => { setTarget(null); rollbackMutation.reset(); };
   const confirm = () => {
     if (!target) return;
@@ -97,8 +130,9 @@ export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryPro
         </h3>
       </div>
       <ul data-testid="family-history">
-        {history.slice(0, SHOWN_ENTRIES).map((entry) => {
-          const restorable = entry.itemId && itemIds.has(entry.itemId)
+        {history.filter(isShown).slice(0, SHOWN_ENTRIES).map((entry) => {
+          // A move or a new price is undone by moving back or repricing, never field by field.
+          const restorable = entry.itemId && itemIds.has(entry.itemId) && !(entry.action in SPLIT_FIELD)
             ? (entry.changes ?? []).filter((change) => !NOT_RESTORABLE.has(change.field))
             : [];
           return (

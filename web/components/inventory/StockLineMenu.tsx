@@ -2,21 +2,25 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from '@heroui/react';
-import { Hash, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Euro, Hash, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { isIntactItem } from '@shared/units';
 import type { LineContext } from '@/lib/products/lines';
 import type { ProductItem } from '@/lib/products/types';
 import { CorrectQuantityDialog } from './CorrectQuantityDialog';
+import { MoveUnitsDialog } from './MoveUnitsDialog';
+import { RepriceDialog } from './RepriceDialog';
 import { EditLineDialog } from './EditLineDialog';
 import { TrashLineDialog } from './TrashLineDialog';
 
-type LineAction = 'correct' | 'edit' | 'trash';
+type LineAction = 'move' | 'reprice' | 'correct' | 'edit' | 'trash';
 
 /** The actions of a line of full bottles (§10.3); an opened one is only edited or trashed here. */
-const GROUP_ACTIONS: readonly LineAction[] = ['correct', 'edit', 'trash'];
+const GROUP_ACTIONS: readonly LineAction[] = ['move', 'reprice', 'correct', 'edit', 'trash'];
 const OPENED_ACTIONS: readonly LineAction[] = ['edit', 'trash'];
 
 const ICONS: Record<LineAction, React.ReactElement> = {
+  move: <ArrowRightLeft size={15} />,
+  reprice: <Euro size={15} />,
   correct: <Hash size={15} />,
   edit: <Pencil size={15} />,
   trash: <Trash2 size={15} />,
@@ -24,8 +28,8 @@ const ICONS: Record<LineAction, React.ReactElement> = {
 
 /**
  * The menu of one line of a wine's drawer (ux-ui.md §10.3, #471 W3):
- * "Corriger le nombre", "Modifier", "Mettre à la corbeille" ("Déplacer" and
- * "Changer le prix" follow, lot G). Each action opens its own dialog, mounted only while open
+ * "Déplacer", "Changer le prix", "Corriger le nombre", "Modifier", "Mettre à
+ * la corbeille". Each action opens its own dialog, mounted only while open
  * so it always starts from the line as shown.
  */
 export function StockLineMenu({ item, ctx }: { item: ProductItem; ctx: LineContext }) {
@@ -61,6 +65,8 @@ export function StockLineMenu({ item, ctx }: { item: ProductItem; ctx: LineConte
       </Dropdown>
 
       {open === 'correct' && <CorrectQuantityDialog {...dialog} onTrashInstead={() => setOpen('trash')} />}
+      {open === 'move' && <MoveUnitsDialog {...dialog} />}
+      {open === 'reprice' && <RepriceDialog {...dialog} />}
       {open === 'edit' && <EditLineDialog {...dialog} />}
       {open === 'trash' && <TrashLineDialog {...dialog} />}
     </>

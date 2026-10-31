@@ -2078,6 +2078,8 @@
   "stockLine": {
     "menu": "Actions of this line",
     "actions": {
+      "move": "Move",
+      "reprice": "Change the price",
       "correct": "Correct the number",
       "edit": "Edit",
       "trash": "Move to trash"
@@ -2119,6 +2121,33 @@
       "trashInstead_cigar": "Move these cigars to the trash",
       "done": "Number corrected: {{from}} → {{to}}"
     },
+    "move": {
+      "title": "Move",
+      "howMany": "How many to move?",
+      "where": "To which cellar?",
+      "noOtherCellar": "No other cellar to move them to.",
+      "confirm": "Move",
+      "done_bottle_one": "{{count}} bottle moved to {{cellar}}",
+      "done_bottle_other": "{{count}} bottles moved to {{cellar}}",
+      "done_box_one": "{{count}} box moved to {{cellar}}",
+      "done_box_other": "{{count}} boxes moved to {{cellar}}",
+      "done_cigar_one": "{{count}} cigar moved to {{cellar}}",
+      "done_cigar_other": "{{count}} cigars moved to {{cellar}}"
+    },
+    "reprice": {
+      "title": "Change the price",
+      "howMany_bottle": "For how many bottles?",
+      "howMany_box": "For how many boxes?",
+      "howMany_cigar": "For how many cigars?",
+      "noPrice": "no price",
+      "confirm": "Change the price",
+      "done_bottle_one": "Price of {{count}} bottle: {{from}} → {{to}}",
+      "done_bottle_other": "Price of {{count}} bottles: {{from}} → {{to}}",
+      "done_box_one": "Price of {{count}} box: {{from}} → {{to}}",
+      "done_box_other": "Price of {{count}} boxes: {{from}} → {{to}}",
+      "done_cigar_one": "Price of {{count}} cigar: {{from}} → {{to}}",
+      "done_cigar_other": "Price of {{count}} cigars: {{from}} → {{to}}"
+    },
     "edit": {
       "title": "Edit this line",
       "scope_bottle_other": "Applies to the {{count}} bottles of this line.",
@@ -2145,6 +2174,18 @@
       "done_cigar_other": "{{count}} cigars moved to the trash"
     },
     "history": {
+      "moved_bottle_one": "{{count}} bottle moved to {{cellar}}",
+      "moved_bottle_other": "{{count}} bottles moved to {{cellar}}",
+      "moved_box_one": "{{count}} box moved to {{cellar}}",
+      "moved_box_other": "{{count}} boxes moved to {{cellar}}",
+      "moved_cigar_one": "{{count}} cigar moved to {{cellar}}",
+      "moved_cigar_other": "{{count}} cigars moved to {{cellar}}",
+      "repriced_bottle_one": "Price of {{count}} bottle: {{from}} → {{to}}",
+      "repriced_bottle_other": "Price of {{count}} bottles: {{from}} → {{to}}",
+      "repriced_box_one": "Price of {{count}} box: {{from}} → {{to}}",
+      "repriced_box_other": "Price of {{count}} boxes: {{from}} → {{to}}",
+      "repriced_cigar_one": "Price of {{count}} cigar: {{from}} → {{to}}",
+      "repriced_cigar_other": "Price of {{count}} cigars: {{from}} → {{to}}",
       "reasons": {
         "input_error": "input error",
         "written_off": "broken, given away or lost"
@@ -2152,6 +2193,8 @@
     },
     "errors": {
       "conflict": "Not saved: this line changed meanwhile, on another device or by another member. It has just been refreshed: check it, then try again.",
+      "tooLarge": "Not saved: the line they go to would hold more than 1,000.",
+      "cellarGone": "Not saved: this cellar no longer exists.",
       "offline": "Without a network, this action is not possible. Try again once the connection is back.",
       "failed": "Could not save this action."
     }
