@@ -12,7 +12,13 @@ vi.mock('../../src/lib/prisma', () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
     },
+    $transaction: vi.fn((callback: (tx: unknown) => unknown) => callback({})),
   },
+}));
+
+vi.mock('../../src/lib/product-fields', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/lib/product-fields')>()),
+  writeProductFields: vi.fn(),
 }));
 
 // Only `getAlerts` is stubbed — it owns its own prisma query, already
@@ -25,6 +31,7 @@ vi.mock('../../src/services/alert.service', async (importOriginal) => {
 });
 
 import { prisma } from '../../src/lib/prisma';
+import { writeProductFields } from '../../src/lib/product-fields';
 import { getAlerts } from '../../src/services/alert.service';
 import {
   getSuggestions,
@@ -275,17 +282,14 @@ describe('getSuggestions', () => {
 
 describe('postponeItem', () => {
   it('sets consumptionPostponedUntil `days` from now and returns true (nominal)', async () => {
-    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ id: 'b1' } as never);
-    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ id: 'b1', productId: 'p1' } as never);
 
     const ok = await postponeItem('b1', 7);
 
     expect(ok).toBe(true);
-    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
-      where: { id: 'b1' },
-      data: expect.objectContaining({
-        consumptionPostponedUntil: new Date('2030-06-22T12:00:00.000Z'),
-      }),
+    // #471: the family is postponed (and mirrored onto its units).
+    expect(writeProductFields).toHaveBeenCalledWith({}, 'p1', {
+      consumptionPostponedUntil: new Date('2030-06-22T12:00:00.000Z'),
     });
   });
 
@@ -295,7 +299,7 @@ describe('postponeItem', () => {
     const ok = await postponeItem('missing');
 
     expect(ok).toBe(false);
-    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    expect(writeProductFields).not.toHaveBeenCalled();
   });
 });
 

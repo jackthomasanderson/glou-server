@@ -4,12 +4,20 @@ vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     inventoryItem: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     user: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    $transaction: vi.fn((callback: (tx: unknown) => unknown) => callback({})),
   },
+}));
+
+// #471: the alert status is written on the family (writeProductFields mirrors it).
+vi.mock('../../src/lib/product-fields', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/lib/product-fields')>()),
+  writeProductFields: vi.fn(),
 }));
 
 const { send } = vi.hoisted(() => ({ send: vi.fn().mockResolvedValue(undefined) }));
@@ -21,7 +29,8 @@ vi.mock('../../src/services/system-config.service', () => ({
 }));
 
 import { prisma } from '../../src/lib/prisma';
-import { computeAlertStatus, getAlerts, recomputeAlertStatuses } from '../../src/services/alert.service';
+import { writeProductFields } from '../../src/lib/product-fields';
+import { computeAlertStatus, getAlerts, recomputeAlertStatuses, toggleAlertPause } from '../../src/services/alert.service';
 
 /** Lets the fire-and-forget `void notifyPeakReached(...).catch(...)` settle before assertions run. */
 async function flush(): Promise<void> {
@@ -125,31 +134,32 @@ describe('recomputeAlertStatuses', () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
       {
         id: 'stale',
+        productId: 'p-stale',
         alertStatus: 'approaching',
         peakMaturityFrom: 2028,
         peakMaturityTo: 2035,
-        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
       },
       {
         id: 'fresh',
+        productId: 'p-fresh',
         alertStatus: 'past',
         peakMaturityFrom: 2010,
         peakMaturityTo: 2015,
-        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
       },
     ] as never);
-    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
 
     const result = await recomputeAlertStatuses();
 
     expect(result).toEqual({ scanned: 2, updated: 1 });
-    expect(prisma.inventoryItem.update).toHaveBeenCalledTimes(1);
-    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
-      where: { id: 'stale' },
+    expect(writeProductFields).toHaveBeenCalledTimes(1);
+    expect(writeProductFields).toHaveBeenCalledWith(
+      {}, 'p-stale',
       // `updatedAt` is carried over untouched: this maintenance pass must not
       // look like a user edit (sort order + offline-sync conflict detection).
-      data: { alertStatus: 'peak', updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-    });
+      { alertStatus: 'peak', updatedAt: new Date('2026-01-02T00:00:00.000Z') },
+    );
   });
 
   it('only scans items that carry a drinking window', async () => {
@@ -175,6 +185,7 @@ describe('recomputeAlertStatuses', () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
         {
           id: 'b1',
+          productId: 'p-b1',
           name: 'Chambertin',
           producer: 'Domaine X',
           vintage: 2020,
@@ -182,10 +193,9 @@ describe('recomputeAlertStatuses', () => {
           alertsPaused: false,
           peakMaturityFrom: 2028,
           peakMaturityTo: 2035,
-          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
         },
       ] as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
       vi.mocked(prisma.user.findMany).mockResolvedValue([
         { id: 'u1', language: 'FR', notifLanguage: null },
         { id: 'u2', language: 'FR', notifLanguage: 'EN' },
@@ -204,6 +214,7 @@ describe('recomputeAlertStatuses', () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
         {
           id: 'b1',
+          productId: 'p-b1',
           name: '<a href="https://evil.example">Sign in again</a>',
           producer: 'Domaine X',
           vintage: 2020,
@@ -211,10 +222,9 @@ describe('recomputeAlertStatuses', () => {
           alertsPaused: false,
           peakMaturityFrom: 2028,
           peakMaturityTo: 2035,
-          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
         },
       ] as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
       vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
 
       await recomputeAlertStatuses();
@@ -228,6 +238,7 @@ describe('recomputeAlertStatuses', () => {
     it('sends each member one digest when several bottles reach peak together (#478)', async () => {
       const peaking = (id: string) => ({
         id,
+        productId: `p-${id}`,
         name: `Wine ${id}`,
         producer: 'Domaine X',
         vintage: 2020,
@@ -235,12 +246,11 @@ describe('recomputeAlertStatuses', () => {
         alertsPaused: false,
         peakMaturityFrom: 2028,
         peakMaturityTo: 2035,
-        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
       });
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(
         Array.from({ length: 12 }, (_, i) => peaking(`b${i}`)) as never,
       );
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
       vi.mocked(prisma.user.findMany).mockResolvedValue([
         { id: 'u1', language: 'EN', notifLanguage: null },
         { id: 'u2', language: 'FR', notifLanguage: null },
@@ -262,6 +272,7 @@ describe('recomputeAlertStatuses', () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
         {
           id: 'b1',
+          productId: 'p-b1',
           name: 'Chambertin',
           producer: 'Domaine X',
           vintage: 2020,
@@ -269,10 +280,9 @@ describe('recomputeAlertStatuses', () => {
           alertsPaused: true,
           peakMaturityFrom: 2028,
           peakMaturityTo: 2035,
-          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
         },
       ] as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
 
       await recomputeAlertStatuses();
       await flush();
@@ -284,6 +294,7 @@ describe('recomputeAlertStatuses', () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
         {
           id: 'b1',
+          productId: 'p-b1',
           name: 'Chambertin',
           producer: 'Domaine X',
           vintage: 2020,
@@ -291,14 +302,14 @@ describe('recomputeAlertStatuses', () => {
           alertsPaused: false,
           peakMaturityFrom: 2028,
           peakMaturityTo: 2035,
-          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
         },
       ] as never);
 
       await recomputeAlertStatuses();
       await flush();
 
-      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+      expect(writeProductFields).not.toHaveBeenCalled();
       expect(send).not.toHaveBeenCalled();
     });
 
@@ -307,6 +318,7 @@ describe('recomputeAlertStatuses', () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
         {
           id: 'drunk',
+          productId: 'p-drunk',
           name: 'Chambertin',
           producer: 'Domaine X',
           vintage: 2020,
@@ -316,10 +328,9 @@ describe('recomputeAlertStatuses', () => {
           peakMaturityTo: 2035,
           isOpened: true,
           fillLevel: 0,
-          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
         },
       ] as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
       vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
 
       const result = await recomputeAlertStatuses();
@@ -327,10 +338,10 @@ describe('recomputeAlertStatuses', () => {
 
       // The stored column still follows the calendar...
       expect(result).toEqual({ scanned: 1, updated: 1 });
-      expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
-        where: { id: 'drunk' },
-        data: { alertStatus: 'peak', updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-      });
+      expect(writeProductFields).toHaveBeenCalledWith(
+        {}, 'p-drunk',
+        { alertStatus: 'peak', updatedAt: new Date('2026-01-02T00:00:00.000Z') },
+      );
       // ...but nobody is told to open a bottle already drunk.
       expect(send).not.toHaveBeenCalled();
     });
@@ -338,6 +349,7 @@ describe('recomputeAlertStatuses', () => {
     it('leaves the finished bottle out of a run that also has a bottle in stock reaching peak', async () => {
       const peaking = (id: string, fill: { isOpened: boolean; fillLevel: number | null }) => ({
         id,
+        productId: `p-${id}`,
         name: `Wine ${id}`,
         producer: 'Domaine X',
         vintage: 2020,
@@ -346,19 +358,18 @@ describe('recomputeAlertStatuses', () => {
         peakMaturityFrom: 2028,
         peakMaturityTo: 2035,
         ...fill,
-        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+        product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
       });
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
         peaking('drunk', { isOpened: true, fillLevel: 0 }),
         peaking('half', { isOpened: true, fillLevel: 50 }),
       ] as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
       vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
 
       await recomputeAlertStatuses();
       await flush();
 
-      expect(prisma.inventoryItem.update).toHaveBeenCalledTimes(2);
+      expect(writeProductFields).toHaveBeenCalledTimes(2);
       // A single-bottle message about the one in stock, not a two-bottle digest.
       expect(send).toHaveBeenCalledTimes(1);
       expect(send.mock.calls[0]?.[0].subject).toBe('At peak maturity: Wine half — Domaine X (2020)');
@@ -368,6 +379,7 @@ describe('recomputeAlertStatuses', () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
         {
           id: 'b1',
+          productId: 'p-b1',
           name: 'Chambertin',
           producer: 'Domaine X',
           vintage: 2020,
@@ -377,10 +389,9 @@ describe('recomputeAlertStatuses', () => {
           peakMaturityTo: 2035,
           isOpened: true,
           fillLevel: null,
-          updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+          product: { updatedAt: new Date('2026-01-02T00:00:00.000Z') },
         },
       ] as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
       vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
 
       await recomputeAlertStatuses();
@@ -415,5 +426,26 @@ describe('alerts exclude non-owned references (FEAT-87)', () => {
       where: Record<string, unknown>;
     };
     expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
+  });
+});
+
+// #471: pausing the alerts is about the wine, so it is written on the family.
+describe('toggleAlertPause', () => {
+  it('flips the family\'s pause, mirrored onto its units', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(
+      { id: 'b1', productId: 'p1', alertsPaused: true, product: { alertsPaused: false } } as never,
+    );
+
+    expect(await toggleAlertPause('b1')).toBe(true);
+
+    expect(writeProductFields).toHaveBeenCalledWith({}, 'p1', { alertsPaused: true });
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+
+  it('writes nothing for an unknown item', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null);
+
+    expect(await toggleAlertPause('missing')).toBe(false);
+    expect(writeProductFields).not.toHaveBeenCalled();
   });
 });

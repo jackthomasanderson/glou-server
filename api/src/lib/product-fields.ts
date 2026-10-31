@@ -50,8 +50,14 @@ export function todayAsPurchaseDate(now: Date = new Date()): Date {
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 }
 
-/** What {@link writeProductFields} may write: family fields and the family's own bookkeeping. */
-export type ProductWrite = Pick<Prisma.ProductUncheckedUpdateInput, ProductField | 'lockedFields' | 'fieldSources' | 'updatedBy'>;
+/**
+ * What {@link writeProductFields} may write: family fields and the family's
+ * own bookkeeping. `updatedAt` only to carry it over in a maintenance pass.
+ */
+export type ProductWrite = Pick<
+  Prisma.ProductUncheckedUpdateInput,
+  ProductField | 'lockedFields' | 'fieldSources' | 'updatedBy' | 'updatedAt'
+>;
 
 // Built from the static PRODUCT_FIELDS list only — no input ever reaches it.
 const MIRROR_ASSIGNMENTS = Prisma.raw(PRODUCT_FIELDS.map((field) => `"${field}" = p."${field}"`).join(', '));
