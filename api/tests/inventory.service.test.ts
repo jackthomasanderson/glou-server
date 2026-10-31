@@ -387,6 +387,20 @@ describe('InventoryService', () => {
       expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
     });
 
+    // A2 review (#788): a count sent with expectedUpdatedAt while a write-off
+    // of 2 committed in between must not land on top of it (7 + 2 = 9).
+    it('a count checked against expectedUpdatedAt as stored once locked, not as first read', async () => {
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue({ ...group(), quantity: 4, updatedAt: new Date('2026-10-31T10:00:00.000Z') } as never);
+
+      const result = await service.updateItem('u1', 'b1', { quantity: 7, expectedUpdatedAt: DAY.toISOString() });
+
+      expect(result).toMatchObject({ conflict: true });
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.findUnique).mock.invocationCallOrder[0]);
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+      expect(prisma.product.update).not.toHaveBeenCalled();
+    });
+
     it('smokeOne and keepTastings never reach a column', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ ...group(), quantity: 1 } as never);
 

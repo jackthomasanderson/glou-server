@@ -369,8 +369,11 @@ export class InventoryService {
     // was made (possibly while offline). Every other caller omits it and
     // keeps the unconditional last-write-wins behavior. Compared in milliseconds since
     // the wire format is an ISO string round-tripped through JSON. #471: the
-    // unit's own `updatedAt` — every write through this route bumps it
-    // (checked again once the family is locked, below).
+    // unit's own `updatedAt` — every write through this route bumps it.
+    // This first check only answers early: the one that decides is made
+    // again once the family is locked and the unit read under that lock
+    // (below), so a write committed in between (a write-off, a detach) is
+    // never overwritten by a count or a state computed before it.
     const isStale = (updatedAt: Date) =>
       expectedUpdatedAt !== undefined && new Date(expectedUpdatedAt).getTime() !== updatedAt.getTime();
     if (isStale(existing.updatedAt)) {
