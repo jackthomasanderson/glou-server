@@ -17,7 +17,7 @@ type Family = { id: string; region: string | null; items: Unit[] };
 type Detail = Family & { tastings: { id: string }[]; history: { action: string }[] };
 type Disagreement = { field: string; values: { productId: string; value: unknown }[]; preselectedProductId: string };
 type Review = {
-  merges: { products: Family[]; disagreements: Disagreement[] }[];
+  merges: { products: Family[]; disagreements: Disagreement[]; units: number }[];
   counts: { product: Family; group: Unit; subRecords: Unit[] }[];
 };
 type Counts = { bottles: number; cigars: number };
@@ -102,6 +102,8 @@ test.describe('review after the update (#471, FEAT-102)', () => {
     // c1: the case shows the region only, side by side, pre-selected on the most recent family.
     const proposed = caseOf(await review(api), [bordeaux.productId]);
     expect(proposed?.products.map((product) => product.id)).toEqual([bordeaux.productId, graves.productId]);
+    // What the confirmation tells before merging: "2 vins → 1 vin, 5 bouteilles".
+    expect(proposed?.units).toBe(5);
     expect(proposed?.disagreements).toEqual([{
       field: 'region',
       values: [{ productId: bordeaux.productId, value: 'Bordeaux' }, { productId: graves.productId, value: 'Graves' }],
@@ -113,9 +115,10 @@ test.describe('review after the update (#471, FEAT-102)', () => {
       data: { productIds: [bordeaux.productId, graves.productId], choices: { region: graves.productId } },
     });
     expect(merged.ok(), await merged.text()).toBe(true);
-    const body = (await merged.json()) as { data: Family; removedProductIds: string[]; removedItemIds: string[] };
+    const body = (await merged.json()) as { data: Family; overLimits: { notes: boolean; tags: boolean }; removedProductIds: string[]; removedItemIds: string[] };
     expect(body.data).toMatchObject({ id: bordeaux.productId, region: 'Graves' });
     expect(body.removedProductIds).toEqual([graves.productId]);
+    expect(body.overLimits).toEqual({ notes: false, tags: false });
     // The two groups (same cellar, price, day and size) were identical: one ×5 remains.
     expect(body.removedItemIds).toEqual([graves.id]);
 

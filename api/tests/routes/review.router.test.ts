@@ -47,14 +47,14 @@ describe('GET /api/products/review (FEAT-102 c1, c4, c5)', () => {
 describe('POST /api/products/merge (FEAT-102 c2)', () => {
   it('answers the surviving family and what was removed, and records the merge on it', async () => {
     vi.mocked(reviewService.merge).mockResolvedValue({
-      productId: 'p1', removedProductIds: ['p2'], removedItemIds: ['b2'], changes: [{ field: 'region', from: 'Bordeaux', to: 'Graves' }],
+      productId: 'p1', removedProductIds: ['p2'], removedItemIds: ['b2'], overLimits: { notes: false, tags: true }, changes: [{ field: 'region', from: 'Bordeaux', to: 'Graves' }],
     });
     vi.mocked(productService.view).mockResolvedValue({ id: 'p1', region: 'Graves' } as never);
 
     const res = await request(app).post('/api/products/merge').send({ productIds: ['p1', 'p2'], choices: { region: 'p2' } });
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ data: { id: 'p1', region: 'Graves' }, removedProductIds: ['p2'], removedItemIds: ['b2'] });
+    expect(res.body).toEqual({ data: { id: 'p1', region: 'Graves' }, overLimits: { notes: false, tags: true }, removedProductIds: ['p2'], removedItemIds: ['b2'] });
     expect(reviewService.merge).toHaveBeenCalledWith('u1', { productIds: ['p1', 'p2'], choices: { region: 'p2' } });
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
       action: 'MERGE_PRODUCTS', status: 'success', productId: 'p1',

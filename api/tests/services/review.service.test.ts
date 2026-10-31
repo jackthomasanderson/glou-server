@@ -50,7 +50,7 @@ function unit(fields: Record<string, unknown> = {}) {
 }
 
 /** A stand-in for a family's card (productService.views is tested with the product service). */
-const view = (id: string) => ({ id, card: true });
+const view = (id: string, items: unknown[] = []) => ({ id, items });
 
 /** Every lock and raw write, in order: `lock p1`, then `UPDATE "bottles" …`. */
 let events: string[] = [];
@@ -87,7 +87,7 @@ beforeEach(() => {
   vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.inventoryCountEntry.findMany).mockResolvedValue([] as never);
   vi.mocked(productService.views).mockImplementation(((ids: string[]) =>
-    Promise.resolve([...new Set(ids)].map(view))) as never);
+    Promise.resolve([...new Set(ids)].map((id) => view(id)))) as never);
 });
 
 describe('reviewService.list (FEAT-102 c1, c4, c5)', () => {
@@ -110,6 +110,7 @@ describe('reviewService.list (FEAT-102 c1, c4, c5)', () => {
     expect(list.counts).toEqual([]);
     expect(list.merges).toEqual([{
       products: [view('p1'), view('p2')],
+      units: 0,
       disagreements: [{
         field: 'region',
         values: [{ productId: 'p1', value: 'Bordeaux' }, { productId: 'p2', value: 'Graves' }],
@@ -123,7 +124,17 @@ describe('reviewService.list (FEAT-102 c1, c4, c5)', () => {
       family({ id: 'p1' }), family({ id: 'p2', name: ' cuvée x', producer: 'DOMAINE Y ' }),
     ] as never);
 
-    expect((await reviewService.list()).merges).toEqual([{ products: [view('p1'), view('p2')], disagreements: [] }]);
+    expect((await reviewService.list()).merges).toEqual([{ products: [view('p1'), view('p2')], units: 0, disagreements: [] }]);
+  });
+
+  it('tells how many bottles the merged card will hold (the confirmation before merging)', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([family({ id: 'p1' }), family({ id: 'p2' })] as never);
+    vi.mocked(productService.views).mockResolvedValue([
+      view('p1', [unit({ quantity: 6 }), unit({ id: 'b2', isOpened: true, fillLevel: 40 })]),
+      view('p2', [unit({ id: 'b3', productId: 'p2', quantity: 2 })]),
+    ] as never);
+
+    expect((await reviewService.list()).merges[0].units).toBe(9);
   });
 
   it('c3: never proposes two families declared different wines', async () => {
@@ -173,7 +184,7 @@ describe('reviewService.merge (FEAT-102 c2)', () => {
 
     // Lock rule: both families, sorted, before any write.
     expect(events.slice(0, 2)).toEqual(['lock p1', 'lock p2']);
-    expect(outcome).toMatchObject({ productId: 'p1', removedProductIds: ['p2'], removedItemIds: [] });
+    expect(outcome).toMatchObject({ productId: 'p1', removedProductIds: ['p2'], removedItemIds: [], overLimits: { notes: false, tags: false } });
     expect(rawLike('UPDATE "bottles" SET "productId"')[0].values).toEqual(['p1', ['p2']]);
     expect(rawLike('UPDATE "tasting_notes" SET "productId"')[0].values).toEqual(['p1', ['p2']]);
     expect(rawLike('UPDATE "audit_logs" SET "productId"')[0].values).toEqual(['p1', ['p2']]);
@@ -201,6 +212,46 @@ describe('reviewService.merge (FEAT-102 c2)', () => {
       { field: 'tags', from: ['garde'], to: ['garde', 'fête'] },
     ]));
     expect(outcome.changes.map((change) => change.field)).not.toContain('region');
+  });
+
+  it('keeps identical notes once, dated by the oldest family holding them, in chronological order', async () => {
+    families(
+      family({ id: 'pa', notes: 'Cadeau', createdAt: new Date('2026-01-01T10:00:00Z') }),
+      family({ id: 'pb', notes: ' Cadeau ', createdAt: new Date('2026-03-01T10:00:00Z') }),
+      family({ id: 'pc', notes: 'Foire', createdAt: new Date('2026-02-01T10:00:00Z') }),
+    );
+
+    await reviewService.merge('u2', { productIds: ['pa', 'pb', 'pc'] });
+
+    expect(productUpdate().data.notes).toBe('2026-01-01\nCadeau\n\n2026-02-01\nFoire');
+  });
+
+  it('keeps the legacy label within 200 characters, first spelling first, the rest in the notes', async () => {
+    const long = 'L'.repeat(190);
+    families(
+      family({ id: 'pa', collection: 'Fête', createdAt: new Date('2026-01-01T10:00:00Z') }),
+      family({ id: 'pb', collection: ' fête ', createdAt: new Date('2026-02-01T10:00:00Z') }),
+      family({ id: 'pc', collection: long, createdAt: new Date('2026-03-01T10:00:00Z') }),
+      family({ id: 'pd', collection: 'Mariage', notes: 'Note', createdAt: new Date('2026-04-01T10:00:00Z') }),
+    );
+
+    await reviewService.merge('u2', { productIds: ['pa', 'pb', 'pc', 'pd'] });
+
+    const { collection, notes } = productUpdate().data as { collection: string; notes: string };
+    expect(collection).toBe(`Fête / ${long}`);
+    expect(notes).toMatch(new RegExp(`^Note\\n\\n\\d{4}-\\d{2}-\\d{2}\\nLibellés d'origine : Fête / ${long} / Mariage$`));
+  });
+
+  it('keeps every label when they fit, and says when notes or tags exceed the form', async () => {
+    families(
+      family({ id: 'p1', collection: 'Fête', notes: 'N'.repeat(1500), tags: Array.from({ length: 12 }, (_v, i) => `a${i}`) }),
+      family({ id: 'p2', collection: 'Mariage', notes: 'M'.repeat(600), tags: Array.from({ length: 12 }, (_v, i) => `b${i}`), createdAt: new Date('2026-02-01T00:00:00Z') }),
+    );
+
+    const outcome = await reviewService.merge('u2', { productIds: ['p1', 'p2'] });
+
+    expect(productUpdate().data.collection).toBe('Fête / Mariage');
+    expect(outcome.overLimits).toEqual({ notes: true, tags: true });
   });
 
   it('keeps, for a field left out, the value pre-selected on the most recent family (point 40)', async () => {

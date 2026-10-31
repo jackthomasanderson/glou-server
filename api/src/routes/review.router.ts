@@ -32,7 +32,7 @@ router.post('/products/merge', authMiddleware, async (req: Request, res: Respons
   });
   const product = await productService.view(outcome.productId);
   if (!product) throw notFound('PRODUCT_NOT_FOUND');
-  const body: MergeResult = { data: product, removedProductIds: outcome.removedProductIds, removedItemIds: outcome.removedItemIds };
+  const body: MergeResult = { data: product, overLimits: outcome.overLimits, removedProductIds: outcome.removedProductIds, removedItemIds: outcome.removedItemIds };
   res.json(body);
 });
 

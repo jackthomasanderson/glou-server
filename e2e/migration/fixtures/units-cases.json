@@ -121,7 +121,7 @@
       "a": { "productId": "p2", "cellarId": "c1", "purchasePrice": 250, "purchasedAt": "2026-01-15", "bottleSize": null, "cigarsPerBox": 25 },
       "b": { "productId": "p2", "cellarId": "c1", "purchasePrice": 250, "purchasedAt": "2026-01-15", "bottleSize": null, "cigarsPerBox": null } }
   ],
-  "_fuseComment": "#471 (FEAT-102, lot J1): the fusion of identical groups (design.md rule 4, D5), as the families_transform migration does it in SQL and as a manual merge (POST /api/products/merge) does it again in TypeScript (planGroupFusion, shared/review.ts) — read by api/tests/lib/review.test.ts. Units are listed in creation order; fields left out are: productId p1, cellarId c1, purchasePrice 20, purchasedAt 2026-01-15, bottleSize, cigarsPerBox, estimatedValue, purchasePlace and location null, quantity 1, intact (closed, no level), not in the trash, not written off, needsReview false, no slot, counted in no inventory session. `fused` lists the groups that fuse, survivor (the oldest) first, with what the survivor then holds.",
+  "_fuseComment": "#471 (FEAT-102, lot J1): the fusion of identical groups (design.md rule 4, D5), as the families_transform migration does it in SQL and as a manual merge (POST /api/products/merge) does it again in TypeScript (planGroupFusion, shared/review.ts) — read by api/tests/lib/review.test.ts. Units are listed in creation order; fields left out are: productId p1, cellarId c1, purchasePrice 20, purchasedAt 2026-01-15, bottleSize, cigarsPerBox, estimatedValue, purchasePlace and location null, quantity 1, intact (closed, no level), not in the trash, not written off, needsReview false, no slot, counted in no inventory session. `fused` lists the groups that fuse, survivor (the oldest) first, with what the survivor then holds. Groups without a purchase day are a runtime case only (the transformation always sets the day): a merge never fuses them.",
   "fuse": [
     { "case": "FEAT-94 c1: identical groups fuse into the oldest, their counts summed", "kind": "bottle",
       "units": [{ "id": "a" }, { "id": "b", "quantity": 4 }, { "id": "c" }],
@@ -165,6 +165,9 @@
     { "case": "cigars: closed boxes of the same size fuse, single cigars and other sizes stay apart", "kind": "cigar",
       "units": [{ "id": "a", "cigarsPerBox": 25 }, { "id": "b", "cigarsPerBox": 25, "quantity": 2 }, { "id": "c" }, { "id": "d", "cigarsPerBox": 10 }, { "id": "e", "quantity": 3 }],
       "fused": [{ "ids": ["a", "b"], "quantity": 3, "purchasePlace": null, "location": null }, { "ids": ["c", "e"], "quantity": 4, "purchasePlace": null, "location": null }] },
+    { "case": "groups without a purchase day never fuse (the budget dates each by its creation)", "kind": "bottle",
+      "units": [{ "id": "a", "purchasedAt": null }, { "id": "b", "purchasedAt": null }, { "id": "c" }, { "id": "d" }],
+      "fused": [{ "ids": ["c", "d"], "quantity": 2, "purchasePlace": null, "location": null }] },
     { "case": "an opened box of cigars is not a group", "kind": "cigar",
       "units": [{ "id": "a", "cigarsPerBox": 25 }, { "id": "b", "cigarsPerBox": 25, "isOpened": true, "cigarsLeft": 10 }],
       "fused": [] }

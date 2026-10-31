@@ -148,13 +148,18 @@ const blank = (value: string | null) => (value === null ? null : normalizeText(v
  * would change) — fuse into the oldest, unless their place of purchase or
  * location disagree with what the group has gathered (empty agrees). Never
  * fused: a guessed group (`needsReview`, to review as it is), a group holding
- * a slot of the cellar plan (one slot per group until FEAT-93), and two
- * groups counted in the same inventory session (one entry per unit).
+ * a slot of the cellar plan (one slot per group until FEAT-93), two groups
+ * counted in the same inventory session (one entry per unit), and a group
+ * without a purchase day (its spending is dated by its creation, which the
+ * survivor would not keep; the transformation always sets the day).
  * Walked by creation date then id, as the migration does.
  */
 export function planGroupFusion(units: ReadonlyArray<FusionUnit>, kind: UnitKind): FusedGroup[] {
   const candidates = units
-    .filter((unit) => isGroupableItem(unit) && !unit.needsReview && unit.slotColumn === null && unit.slotRow === null)
+    // Without a purchase day, the budget falls back on each group's creation
+    // day: fusing two of them could move a spending to another period.
+    .filter((unit) => isGroupableItem(unit) && !unit.needsReview && unit.slotColumn === null && unit.slotRow === null
+      && unit.purchasedAt !== null)
     .sort((a, b) => time(a.createdAt) - time(b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
   const groups: Array<{ key: string; members: FusionUnit[]; place: string | null; location: string | null; sessions: Set<string> }> = [];
@@ -193,6 +198,8 @@ export interface ReviewMergeCase {
   products: ProductView[];
   /** Only the fields in disagreement (none when the families merely share the key). */
   disagreements: ReviewDisagreement[];
+  /** Units in stock of all of them — what the merged card holds ("2 vins → 1 vin, 8 bouteilles"). */
+  units: number;
 }
 
 /**
@@ -225,9 +232,22 @@ export interface MergeRequest {
   choices?: Partial<Record<ReviewField, string>>;
 }
 
+/**
+ * The description form's limits (api/src/schemas/inventory.schema.ts): a merge
+ * may exceed them; the legacy label is cut to fit, notes and tags are kept whole.
+ */
+export const DESCRIPTION_LIMITS = { collection: 200, notes: 2000, tags: 20 } as const;
+
+/** The merged family's notes or tags exceed the form's limits: the member must shorten them before saving the description. */
+export interface MergeOverLimits {
+  notes: boolean;
+  tags: boolean;
+}
+
 /** Answer of a merge: the surviving family, and what the merge removed. */
 export interface MergeResult {
   data: ProductView;
+  overLimits: MergeOverLimits;
   removedProductIds: string[];
   /** Groups fused into an identical one of the merged family. */
   removedItemIds: string[];

@@ -1,7 +1,7 @@
 import { Prisma, type Product } from '@prisma/client';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest, conflict, notFound } from '../lib/errors';
-import { isIntactItem, productKey, unitKind } from '../lib/finished-item';
+import { isIntactItem, productKey, summarizeStock, unitKind } from '../lib/finished-item';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { compareFamilyIds, fieldSourcesOf, lockFamilies, lockFamily, toUnitView, writeProductFields, type ProductWrite } from '../lib/product-fields';
 import { peakWindowSchema } from '../schemas/inventory.schema';
@@ -10,7 +10,7 @@ import { LISTED_PRODUCT_FILTER, productService } from './product.service';
 import type { FieldChange, ItemView } from '../../../shared/product';
 import {
   comparableValue, findDisagreements, formMergeCases, planGroupFusion, preselectedFamily, REVIEW_FIELDS,
-  type MergeRequest, type ReviewFamily, type ReviewList,
+  DESCRIPTION_LIMITS, type MergeOverLimits, type MergeRequest, type ReviewFamily, type ReviewList,
 } from '../../../shared/review';
 
 /** Oldest first (creation date, then id): the walk order of D2, whose first family survives. */
@@ -23,6 +23,13 @@ const orderedPair = (a: string, b: string): [string, string] => (compareFamilyId
 function dayOf(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** The first entry of each key, in the order given (a later duplicate never replaces it). */
+function firstOf<K, V>(entries: ReadonlyArray<readonly [K, V]>): Array<[K, V]> {
+  const first = new Map<K, V>();
+  for (const [key, value] of entries) if (!first.has(key)) first.set(key, value);
+  return [...first.entries()];
 }
 
 const hasText = (value: string | null): value is string => value !== null && value.trim() !== '';
@@ -81,8 +88,18 @@ function mergedFamily(walk: Product[], choices: MergeRequest['choices'] = {}): P
   const newest = [...walk].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || byAge(a, b));
   const photo = newest.find((family) => hasText(family.photoUrl))?.photoUrl ?? null;
   const photos = newest.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]).filter(hasText);
-  const notes = [...new Map(walk.filter((f) => hasText(f.notes)).map((f) => [f.notes!.trim(), f])).entries()];
-  const labels = [...new Map(walk.filter((f) => hasText(f.collection)).map((f) => [f.collection!.trim().toLowerCase(), f.collection!.trim()])).values()];
+  // Identical notes are kept once, dated by the oldest family holding them;
+  // identical labels (case and spaces aside) keep their first spelling.
+  const notes = firstOf(walk.filter((f) => hasText(f.notes)).map((f) => [f.notes!.trim(), f] as const));
+  const labels = firstOf(walk.filter((f) => hasText(f.collection)).map((f) => [f.collection!.trim().toLowerCase(), f.collection!.trim()] as const))
+    .map(([, label]) => label);
+  // The legacy label holds what fits in the form's limit (the first always
+  // stays); when some do not fit, every label goes to the notes, dated today,
+  // so none is lost — as the transformation does.
+  const kept = labels.reduce((n, _label, i) => (i === 0 || labels.slice(0, i + 1).join(' / ').length <= DESCRIPTION_LIMITS.collection ? i + 1 : n), 0);
+  const noteParts = notes.length === 1 ? [notes[0][0]]
+    : notes.map(([text, family]) => `${dayOf(family.createdAt)}\n${text}`);
+  if (labels.length > kept) noteParts.push(`${dayOf(new Date())}\nLibellés d'origine : ${labels.join(' / ')}`);
   const dates = (pick: (family: Product) => Date | null) => walk.map(pick).filter((d): d is Date => d !== null);
   const earliest = (values: Date[]) => (values.length > 0 ? new Date(Math.min(...values.map((d) => d.getTime()))) : null);
 
@@ -97,14 +114,13 @@ function mergedFamily(walk: Product[], choices: MergeRequest['choices'] = {}): P
 
   return {
     ...data,
-    collection: labels.length > 0 ? labels.join(' / ') : null,
+    collection: kept > 0 ? labels.slice(0, kept).join(' / ') : null,
     tags: [...new Set(walk.flatMap((family) => family.tags))],
     photoUrl: photo,
     otherPhotoUrls: [...new Set(photos)].filter((url) => url !== photo),
-    // Identical notes are kept once; several are each preceded by the day
+    // A single note is kept as it was; several are each preceded by the day
     // their family was created, oldest first (D3).
-    notes: notes.length === 0 ? null : notes.length === 1 ? notes[0][0]
-      : notes.map(([text, family]) => `${dayOf(family.createdAt)}\n${text}`).join('\n\n'),
+    notes: noteParts.length > 0 ? noteParts.join('\n\n') : null,
     alertsPaused: walk.every((family) => family.alertsPaused),
     consumptionPostponedUntil: walk.some((family) => family.consumptionPostponedUntil === null)
       ? null : earliest(dates((family) => family.consumptionPostponedUntil)),
@@ -197,6 +213,7 @@ export interface MergeOutcome {
   removedProductIds: string[];
   removedItemIds: string[];
   changes: FieldChange[];
+  overLimits: MergeOverLimits;
 }
 
 export const reviewService = {
@@ -239,6 +256,8 @@ export const reviewService = {
     return {
       merges: cases.map((ids) => ({
         products: ids.map((id) => views.get(id)!),
+        // What the merged card will hold: a merge never changes a count.
+        units: ids.reduce((sum, id) => sum + summarizeStock(views.get(id)!.items, { kind: unitKind(byId.get(id)!.category) }).units, 0),
         disagreements: findDisagreements(ids.map((id) => byId.get(id)! as unknown as ReviewFamily)),
       })),
       counts: groups.map((group) => ({
@@ -293,7 +312,14 @@ export const reviewService = {
       await writeProductFields(tx, survivor.id, { ...data, updatedBy: userId });
       await tx.product.deleteMany({ where: { id: { in: otherIds } } });
       const removedItemIds = await fuseIdenticalGroups(tx, survivor.id, unitKind(survivor.category), userId);
-      return { productId: survivor.id, removedProductIds: otherIds, removedItemIds, changes: changesOn(survivor, data) };
+      return {
+        productId: survivor.id, removedProductIds: otherIds, removedItemIds, changes: changesOn(survivor, data),
+        // Kept whole, but the member must shorten them before saving the description again.
+        overLimits: {
+          notes: ((data.notes as string | null) ?? '').length > DESCRIPTION_LIMITS.notes,
+          tags: (data.tags as string[]).length > DESCRIPTION_LIMITS.tags,
+        },
+      };
     });
   },
 
