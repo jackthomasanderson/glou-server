@@ -118,9 +118,6 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     }
 
     const patch = guestInventoryUpdateSchema.parse(req.body);
-    // Notes are hidden from this guest: they cannot have seen the owner's
-    // text, so any value they send would overwrite it blindly.
-    if (share.hideNotes) delete patch.notes;
     const result = await inventoryService.updateItem(share.userId, itemId, patch);
 
     if (!result) {
@@ -142,6 +139,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       status: 'success',
       ip,
       bottleId: itemId,
+      productId: result.item.productId,
       details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: result.changes },
     });
 

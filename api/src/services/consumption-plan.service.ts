@@ -4,6 +4,7 @@ import { getAlerts, computeAlertStatus, computeReadiness } from './alert.service
 import { CurveShape } from '../lib/maturity-curve';
 import { SetGoalInput } from '../schemas/consumption-plan.schema';
 import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { writeProductFields } from '../lib/product-fields';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 
 /**
@@ -208,11 +209,9 @@ export async function postponeItem(id: string, days = DEFAULT_POSTPONE_DAYS): Pr
   const item = await prisma.inventoryItem.findFirst({ where: { id, deletedAt: null } });
   if (!item) return false;
 
+  // #471: the suggestion is about the wine, so the family is postponed.
   const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-  await prisma.inventoryItem.update({
-    where: { id },
-    data: { consumptionPostponedUntil: until, updatedAt: new Date() },
-  });
+  await prisma.$transaction((tx) => writeProductFields(tx, item.productId, { consumptionPostponedUntil: until }));
   return true;
 }
 

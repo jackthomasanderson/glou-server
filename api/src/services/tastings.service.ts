@@ -61,6 +61,7 @@ export const tastingsService = {
   },
 
   async create(userId: string, data: TastingCreateInput) {
+    let productId: string | undefined;
     if (data.itemId) {
       // Shared inventory: any item in the instance can be tasted/logged
       // against, not just the ones the current user created.
@@ -68,11 +69,14 @@ export const tastingsService = {
         where: { id: data.itemId, deletedAt: null },
       });
       if (!item) return null;
+      // #471: the tasting belongs to the wine (the family) of the bottle.
+      productId = item.productId;
     }
     return prisma.tastingNote.create({
       data: {
         userId, // audit: who logged this tasting note
         ...data,
+        productId,
         tastedAt: data.tastedAt ? new Date(data.tastedAt) : new Date(),
       },
       include: { item: { select: ITEM_SELECT } },
@@ -84,10 +88,15 @@ export const tastingsService = {
   async update(id: string, _userId: string, data: TastingPatchInput) {
     const existing = await prisma.tastingNote.findFirst({ where: { id } });
     if (!existing) return null;
+    // #471: moved to another bottle, the tasting follows that bottle's family.
+    const item = data.itemId
+      ? await prisma.inventoryItem.findFirst({ where: { id: data.itemId }, select: { productId: true } })
+      : null;
     return prisma.tastingNote.update({
       where: { id },
       data: {
         ...data,
+        ...(item ? { productId: item.productId } : {}),
         tastedAt: data.tastedAt ? new Date(data.tastedAt) : undefined,
       },
       include: { item: { select: ITEM_SELECT } },

@@ -9,7 +9,7 @@ vi.mock('../../src/lib/prisma', () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    inventoryItem: { findMany: vi.fn() },
+    inventoryItem: { findMany: vi.fn(), findUnique: vi.fn() },
   },
 }));
 
@@ -36,19 +36,37 @@ describe('collectionsService.addItems', () => {
   it('only connects items that actually exist and are not soft-deleted', async () => {
     vi.mocked(prisma.collection.findFirst).mockResolvedValue({ id: 'c1', userId: 'u1' } as never);
     // Client asked for 3 ids; DB only returns the 2 live ones.
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ id: 'i1' }, { id: 'i3' }] as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'i1', productId: 'p1' }, { id: 'i3', productId: 'p1' },
+    ] as never);
     vi.mocked(prisma.collection.update).mockResolvedValue({ id: 'c1', items: [] } as never);
 
     await collectionsService.addItems('c1', 'u1', ['i1', 'i2', 'i3']);
 
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: { id: { in: ['i1', 'i2', 'i3'] }, deletedAt: null },
-      select: { id: true },
+      select: { id: true, productId: true },
     });
     const updateArg = vi.mocked(prisma.collection.update).mock.calls[0][0] as unknown as {
-      data: { items: { connect: { id: string }[] } };
+      data: { items: { connect: { id: string }[] }; products: { connect: { id: string }[] } };
     };
     expect(updateArg.data.items.connect).toEqual([{ id: 'i1' }, { id: 'i3' }]);
+    // #471: collections hold families; their units stay linked as the transitional mirror.
+    expect(updateArg.data.products.connect).toEqual([{ id: 'p1' }]);
+  });
+});
+
+describe('collectionsService.removeItem', () => {
+  it('takes the family out along with the unit (#471)', async () => {
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue({ id: 'c1', userId: 'u1' } as never);
+    vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue({ productId: 'p1' } as never);
+    vi.mocked(prisma.collection.update).mockResolvedValue({ id: 'c1', items: [] } as never);
+
+    await collectionsService.removeItem('c1', 'u1', 'i1');
+
+    expect(vi.mocked(prisma.collection.update).mock.calls[0][0]).toMatchObject({
+      data: { items: { disconnect: { id: 'i1' } }, products: { disconnect: { id: 'p1' } } },
+    });
   });
 });
 

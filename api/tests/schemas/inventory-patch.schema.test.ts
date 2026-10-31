@@ -65,7 +65,7 @@ describe('inventoryPatchSchema', () => {
 describe('guestInventoryUpdateSchema (FEAT-37, strict allow-list)', () => {
   it('accepts only consumption/service state fields', () => {
     expect(
-      guestInventoryUpdateSchema.safeParse({ isOpened: true, fillLevel: 40, notes: 'ouverte au resto' }).success,
+      guestInventoryUpdateSchema.safeParse({ isOpened: true, fillLevel: 40 }).success,
     ).toBe(true);
   });
 
@@ -73,6 +73,9 @@ describe('guestInventoryUpdateSchema (FEAT-37, strict allow-list)', () => {
     expect(guestInventoryUpdateSchema.safeParse({ purchasePrice: 0 }).success).toBe(false);
     expect(guestInventoryUpdateSchema.safeParse({ isOpened: true, category: 'wine' }).success).toBe(false);
     expect(guestInventoryUpdateSchema.safeParse({ lockedFields: [] }).success).toBe(false);
+    // #471 (FEAT-109): the notes are the family's, common to every bottle — a guest never edits them.
+    expect(guestInventoryUpdateSchema.safeParse({ notes: 'ouverte au resto' }).success).toBe(false);
+    expect(guestInventoryUpdateSchema.safeParse({ fillLevel: 40, notes: null }).success).toBe(false);
   });
 });
 

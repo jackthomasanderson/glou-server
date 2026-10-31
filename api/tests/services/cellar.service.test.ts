@@ -106,6 +106,7 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
   /** The in-stock scope, spelled out to pin the SQL shape (lib/finished-item.ts). */
   const IN_STOCK_SCOPE = {
     deletedAt: null,
+    writtenOffAt: null,
     isOwned: true,
     // `not: null` keeps an opened bottle with no recorded level in stock.
     NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
