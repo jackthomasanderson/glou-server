@@ -7,10 +7,11 @@
 -- every existing reader keeps working unchanged.
 --
 -- Forward only (design.md "Sauvegarde & Migration"): going back means
--- restoring the backup taken before the update. One transaction, explicit:
--- applied entirely or not at all.
-
-BEGIN;
+-- restoring the backup taken before the update. Applied entirely or not at
+-- all, in one transaction, without an explicit BEGIN / COMMIT: `prisma
+-- migrate deploy` sends the file as one simple query, which PostgreSQL runs
+-- as a single transaction, and an explicit block would hide the reason of a
+-- failed check behind "current transaction is aborted".
 
 -- AlterTable
 ALTER TABLE "bottles" ADD COLUMN     "cigarsLeft" INTEGER,
@@ -268,5 +269,3 @@ BEGIN
     RAISE EXCEPTION 'families_expand: collection links were not all copied';
   END IF;
 END $$;
-
-COMMIT;
