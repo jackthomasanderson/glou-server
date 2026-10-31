@@ -55,3 +55,17 @@ export function addToTotals(totals: UnitTotals, row: UnitTotalsRow): UnitTotals 
 export function sumTotals(rows: readonly UnitTotalsRow[]): UnitTotals {
   return rows.reduce(addToTotals, emptyTotals());
 }
+
+/**
+ * The columns `itemUnits` reads, for a `groupBy` that counts units without
+ * reading every row (the sidebar, on every page): rows in the same state count
+ * the same, so units = `itemUnits(state) × _count`. Used under
+ * IN_STOCK_ITEM_FILTER only, hence `writtenOffAt: null` below.
+ */
+export const UNIT_STATE_COLUMNS = ['quantity', 'isOpened', 'fillLevel', 'cigarsPerBox', 'cigarsLeft'] as const;
+
+type UnitStateGroup = Pick<UnitState, (typeof UNIT_STATE_COLUMNS)[number]> & { _count: { _all: number } };
+
+export function unitsOfGroups(groups: readonly UnitStateGroup[]): number {
+  return groups.reduce((total, { _count, ...state }) => total + itemUnits({ ...state, writtenOffAt: null }) * _count._all, 0);
+}

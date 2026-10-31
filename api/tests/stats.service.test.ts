@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('../src/lib/prisma', () => ({
   prisma: {
-    inventoryItem: { findMany: vi.fn() },
+    inventoryItem: { groupBy: vi.fn() },
     product: { count: vi.fn() },
     cellar: { count: vi.fn() },
     collection: { count: vi.fn() },
@@ -15,7 +15,7 @@ import { prisma } from '../src/lib/prisma';
 import { statsService } from '../src/services/stats.service';
 
 const db = prisma as unknown as {
-  inventoryItem: { findMany: ReturnType<typeof vi.fn> };
+  inventoryItem: { groupBy: ReturnType<typeof vi.fn> };
   product: { count: ReturnType<typeof vi.fn> };
   cellar: { count: ReturnType<typeof vi.fn> };
   collection: { count: ReturnType<typeof vi.fn> };
@@ -32,17 +32,20 @@ const IN_STOCK = {
   NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
 };
 
-/** A unit row as the query returns it, with its family nested (#471). */
-function unit(category: string, overrides: Record<string, unknown> = {}) {
-  return {
-    quantity: 1, isOpened: false, fillLevel: null, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null,
-    purchasePrice: null, estimatedValue: null, product: { category }, ...overrides,
-  };
+/** A group of units in the same state, as the `groupBy` returns it (#471). */
+function state(count: number, overrides: Record<string, unknown> = {}) {
+  return { quantity: 1, isOpened: false, fillLevel: null, cigarsPerBox: null, cigarsLeft: null, _count: { _all: count }, ...overrides };
+}
+
+/** Answers the bottle query and the cigar query with their own groups. */
+function stock(bottles: unknown[], cigars: unknown[]) {
+  db.inventoryItem.groupBy.mockImplementation(({ where }: { where: { product: { category: unknown } } }) =>
+    Promise.resolve(where.product.category === 'cigar' ? cigars : bottles));
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.inventoryItem.findMany.mockResolvedValue([]);
+  stock([], []);
   db.product.count.mockResolvedValue(0);
   db.cellar.count.mockResolvedValue(2);
   db.collection.count.mockResolvedValue(3);
@@ -52,7 +55,7 @@ beforeEach(() => {
 
 describe('statsService.getSidebarCounts (#212)', () => {
   it('returns every badge in one call', async () => {
-    db.inventoryItem.findMany.mockResolvedValue([unit('wine'), unit('cigar')]);
+    stock([state(1)], [state(1)]);
     db.product.count.mockResolvedValue(1);
     const counts = await statsService.getSidebarCounts('u1');
     expect(counts).toEqual({
@@ -79,31 +82,39 @@ describe('statsService.getSidebarCounts (#212)', () => {
 // #471 (FEAT-96): the badges count bottles and cigars, not rows. A group of 6
 // is 6 bottles, a box of 25 is 25 cigars; a finished or written-off unit is 0.
 describe('statsService.getSidebarCounts counts units in stock (#471, FEAT-96)', () => {
-  it('reads the units in stock, with their family for bottles vs cigars', async () => {
+  it('groups the units in stock by state, bottles and cigars apart, without reading every row', async () => {
     await statsService.getSidebarCounts('u1');
 
-    expect(db.inventoryItem.findMany).toHaveBeenCalledTimes(1);
-    const [{ where, select }] = db.inventoryItem.findMany.mock.calls[0];
+    expect(db.inventoryItem.groupBy).toHaveBeenCalledTimes(2);
     // #573: finished, trashed and written-off units are out of the scope;
     // FEAT-87 references too.
-    expect(where).toEqual(IN_STOCK);
-    expect(select).toMatchObject({
-      quantity: true, isOpened: true, fillLevel: true, cigarsPerBox: true, cigarsLeft: true, writtenOffAt: true,
-      product: { select: { category: true } },
+    expect(db.inventoryItem.groupBy).toHaveBeenCalledWith({
+      by: ['quantity', 'isOpened', 'fillLevel', 'cigarsPerBox', 'cigarsLeft'],
+      where: { ...IN_STOCK, product: { category: { in: ['wine', 'sparkling', 'spirit'] } } },
+      _count: { _all: true },
+    });
+    expect(db.inventoryItem.groupBy).toHaveBeenCalledWith({
+      by: ['quantity', 'isOpened', 'fillLevel', 'cigarsPerBox', 'cigarsLeft'],
+      where: { ...IN_STOCK, product: { category: 'cigar' } },
+      _count: { _all: true },
     });
   });
 
-  it('adds up bottles of every bottle category and cigars apart (165 bottles · 89 cigars)', async () => {
-    db.inventoryItem.findMany.mockResolvedValue([
-      unit('wine', { quantity: 142 }),
-      unit('sparkling', { quantity: 0 }), // an emptied group counts nothing
-      unit('spirit', { quantity: 22 }),
-      unit('spirit', { isOpened: true, fillLevel: 30 }),
-      // 3 closed boxes of 25, an opened box of 10 left, 4 single cigars.
-      unit('cigar', { quantity: 3, cigarsPerBox: 25 }),
-      unit('cigar', { isOpened: true, cigarsPerBox: 25, cigarsLeft: 10 }),
-      unit('cigar', { quantity: 4 }),
-    ]);
+  it('adds up 165 bottles and 89 cigars', async () => {
+    stock(
+      [
+        state(2, { quantity: 71 }), // two groups of 71
+        state(1, { quantity: 0 }), // an emptied group counts nothing
+        state(22), // 22 single bottles
+        state(1, { isOpened: true, fillLevel: 30 }),
+      ],
+      [
+        // 3 closed boxes of 25, an opened box of 10 left, 4 single cigars.
+        state(1, { quantity: 3, cigarsPerBox: 25 }),
+        state(1, { isOpened: true, cigarsPerBox: 25, cigarsLeft: 10 }),
+        state(4),
+      ],
+    );
 
     const counts = await statsService.getSidebarCounts('u1');
 

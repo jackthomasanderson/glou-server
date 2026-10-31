@@ -264,7 +264,9 @@ describe('recomputeAlertStatuses', () => {
 
       expect(send).toHaveBeenCalledTimes(2);
       const en = send.mock.calls.find((c) => c[0].userId === 'u1')?.[0];
-      expect(en.subject).toBe('12 bottles reach their drinking window');
+      expect(en.subject).toBe('12 wines reach their drinking window');
+      const fr = send.mock.calls.find((c) => c[0].userId === 'u2')?.[0];
+      expect(fr.subject).toBe('12 vins entrent dans leur fenêtre de dégustation');
       expect(en.htmlBody).toContain('Wine b0');
       expect(en.htmlBody).not.toContain('Wine b11');
       expect(en.htmlBody).toContain('+ 2 more.');

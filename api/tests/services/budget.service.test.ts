@@ -47,8 +47,9 @@ describe('getBudgetProgress', () => {
     id: 'e1',
     userId: 'u1',
     amount: 200,
-    periodStart: new Date(2026, 0, 1),
-    periodEnd: new Date(2026, 2, 31, 23, 59, 59),
+    // As the web sends them (BudgetPanel): `new Date('YYYY-MM-DD')`, midnight UTC.
+    periodStart: new Date('2026-01-01'),
+    periodEnd: new Date('2026-03-31'),
   };
 
   /** Arguments of the spending query, narrowed for assertions. */
@@ -117,11 +118,33 @@ describe('getBudgetProgress', () => {
     await getBudgetProgress('e1');
 
     expect(spendQuery().where.OR).toEqual([
-      // Days, as `@db.Date` stores them (midnight UTC), of the envelope's bounds in local time.
+      // The envelope's days, as `@db.Date` stores them (midnight UTC).
       { purchasedAt: { gte: new Date(Date.UTC(2026, 0, 1)), lte: new Date(Date.UTC(2026, 2, 31)) } },
       { purchasedAt: null, createdAt: { gte: envelope.periodStart, lte: envelope.periodEnd } },
     ]);
     expect(spendQuery().where).not.toHaveProperty('createdAt');
+  });
+
+  // West of UTC, midnight UTC on 1 October is still 30 September locally:
+  // reading the bounds' local day shifted every envelope a day back.
+  it('keeps the envelope\'s own days west of UTC', async () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    try {
+      vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue({
+        ...envelope, periodStart: new Date('2026-10-01'), periodEnd: new Date('2026-10-31'),
+      } as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+      await getBudgetProgress('e1');
+
+      expect(spendQuery().where.OR).toContainEqual({
+        purchasedAt: { gte: new Date('2026-10-01T00:00:00.000Z'), lte: new Date('2026-10-31T00:00:00.000Z') },
+      });
+    } finally {
+      if (previousTz === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTz;
+    }
   });
 });
 

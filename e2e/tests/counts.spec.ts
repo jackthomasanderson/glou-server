@@ -115,10 +115,10 @@ test('a finished bottle leaves the stock and the value, not the spending (FEAT-9
   const envelopeIds: string[] = [];
   let cellarId = '';
   try {
-    const now = new Date();
-    const createEnvelope = async (periodStart: Date, periodEnd: Date) => {
+    // Bounds sent the way the web's budget panel sends them: `new Date('YYYY-MM-DD')`.
+    const createEnvelope = async (periodStart: string, periodEnd: string) => {
       const envelope = await okData<Row>(await api.post('/api/wishlist/budget-envelopes', {
-        data: { periodStart: periodStart.toISOString(), periodEnd: periodEnd.toISOString(), amount: 1000 },
+        data: { periodStart: new Date(periodStart).toISOString(), periodEnd: new Date(periodEnd).toISOString(), amount: 1000 },
       }));
       envelopeIds.push(envelope.id);
       return envelope.id;
@@ -127,10 +127,11 @@ test('a finished bottle leaves the stock and the value, not the spending (FEAT-9
       (await okData<{ spent: number }>(await api.get(`/api/wishlist/budget-envelopes/${envelopeId}/progress`))).spent;
 
     // This month, and last year (nothing bought by this test).
-    const thisMonth = await createEnvelope(
-      new Date(now.getFullYear(), now.getMonth(), 1), new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59),
-    );
-    const lastYear = await createEnvelope(new Date(year - 1, 0, 1), new Date(year - 1, 11, 31, 23, 59, 59));
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const lastDay = String(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()).padStart(2, '0');
+    const thisMonth = await createEnvelope(`${now.getFullYear()}-${month}-01`, `${now.getFullYear()}-${month}-${lastDay}`);
+    const lastYear = await createEnvelope(`${year - 1}-01-01`, `${year - 1}-12-31`);
     const spentBefore = await spent(thisMonth);
     const spentLastYear = await spent(lastYear);
 

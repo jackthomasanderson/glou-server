@@ -2,7 +2,6 @@ import { prisma } from '../lib/prisma';
 import { BudgetEnvelopeCreateInput, BudgetEnvelopePatchInput } from '../schemas/budget.schema';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { itemSpend } from '../lib/finished-item';
-import { todayAsPurchaseDate } from '../lib/product-fields';
 
 /**
  * ISSUE_142: budget envelopes are household-wide, not personal. `userId` on
@@ -49,11 +48,13 @@ export async function deleteBudgetEnvelope(id: string): Promise<boolean> {
 }
 
 /**
- * `purchasedAt` is a day (`@db.Date`, stored as midnight UTC): an envelope's
- * bound is compared as its day in the instance's time zone, the way the
- * purchase day itself is written (D6).
+ * `purchasedAt` is a day (`@db.Date`, stored as midnight UTC). An envelope's
+ * bounds are days too: the web sends `YYYY-MM-DD` read as midnight UTC
+ * (BudgetPanel). Their UTC calendar day is compared — never their local one,
+ * which west of UTC is the day before (30 Sept. for 1 Oct.).
  */
-const dayOf = (moment: Date): Date => todayAsPurchaseDate(moment);
+const dayOf = (moment: Date): Date =>
+  new Date(Date.UTC(moment.getUTCFullYear(), moment.getUTCMonth(), moment.getUTCDate()));
 
 export interface BudgetProgress {
   envelope: Awaited<ReturnType<typeof prisma.budgetEnvelope.findFirst>>;

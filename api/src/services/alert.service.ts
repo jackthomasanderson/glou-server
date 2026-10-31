@@ -246,10 +246,10 @@ async function notifyPeakReached(items: PeakItem[]): Promise<void> {
       userId: user.id,
       category: 'peak',
       subject: isEn
-        ? `${items.length} bottles reach their drinking window`
-        : `${items.length} bouteilles entrent dans leur fenêtre de dégustation`,
+        ? `${items.length} wines reach their drinking window`
+        : `${items.length} vins entrent dans leur fenêtre de dégustation`,
       htmlBody: [
-        `<p>${isEn ? 'These bottles have reached their optimal drinking window:' : 'Ces bouteilles sont entrées dans leur fenêtre optimale de consommation :'}</p>`,
+        `<p>${isEn ? 'These wines have reached their optimal drinking window:' : 'Ces vins sont entrés dans leur fenêtre optimale de consommation :'}</p>`,
         `<ul>${listed}</ul>`,
         more,
         `<p><a href="${link}">${isEn ? 'See them in Glou' : 'Les voir dans Glou'}</a></p>`,

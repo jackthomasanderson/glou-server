@@ -146,6 +146,8 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
       // is a finished bottle — "opened" means there is still some left.
       where: { ...IN_STOCK_ITEM_FILTER, isOpened: true },
       select: SUGGESTION_SELECT,
+      // The opened bottle kept for a wine is the first opened, the same on every call.
+      orderBy: [{ openedAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }, { id: 'asc' }],
     }),
   ]);
   // One opened bottle per wine, and none of a wine already listed.

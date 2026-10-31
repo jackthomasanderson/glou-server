@@ -235,6 +235,8 @@ describe('getSuggestions', () => {
         NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
       },
       select: expect.anything(),
+      // The opened bottle kept for a wine is always the same: the first opened.
+      orderBy: [{ openedAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }, { id: 'asc' }],
     });
     expect(result.map((r) => ({ id: r.id, reason: r.reason }))).toEqual([
       { id: 'peak1', reason: 'peak_window' },
