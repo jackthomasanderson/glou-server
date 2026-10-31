@@ -744,8 +744,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         productId={viewingProductId}
         onClose={() => setViewingProductId(null)}
         onEdit={handleEditFromDrawer}
-        // #471 (FEAT-92 c2, FEAT-101 c3): bottles only, cigars are counted their own way (FEAT-95).
-        primaryAction={(product) => (product.category === 'cigar' ? null : <AddUnitsAction product={product} />)}
+        // #471 (FEAT-92 c2, FEAT-101 c3, FEAT-95): "Ajouter des bouteilles" / "Ajouter des cigares".
+        primaryAction={(product) => <AddUnitsAction product={product} />}
       />
 
       {duplicateFound && duplicateCandidate && (

@@ -82,6 +82,12 @@ export interface InventoryItem {
   // Cigar
   format?: string | null;
   quantity?: number | null;
+  /** #471 (FEAT-95): cigars per closed box of the group; null = single cigars (and bottles). */
+  cigarsPerBox?: number | null;
+  /** #471: cigars left in an opened box (null = a closed, complete box). */
+  cigarsLeft?: number | null;
+  /** #471: broken, given away or lost (out of stock, still in the spending). */
+  writtenOffAt?: string | null;
   manufactureYear?: number | null;
   leafOrigin?: string | null;
   factoryCode?: string | null;
@@ -122,6 +128,13 @@ export interface InventoryItem {
   _creator?: { id: string; name: string } | null;
   _lastEditor?: { id: string; name: string } | null;
 }
+
+/**
+ * A write to one bottle or cigar line (PATCH /api/inventory/:id): its own
+ * fields, or an instruction to the detach rule (#471, K): `smokeOne` smokes
+ * one cigar — the first of a closed box opens it, a single cigar is finished.
+ */
+export type InventoryItemPatch = Partial<InventoryItem> & { smokeOne?: true };
 
 export interface InventoryFieldChange {
   field: string;

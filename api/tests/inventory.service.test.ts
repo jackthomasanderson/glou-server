@@ -1144,6 +1144,25 @@ describe('InventoryService', () => {
       expect(created().product.create).not.toHaveProperty('quantity');
     });
 
+    // #471 (FEAT-95 c1-c2): a cigar group is N boxes of M cigars, or N single cigars.
+    it('creates a group of closed boxes, the box size on the unit only', async () => {
+      const cigar = { category: 'cigar', name: 'Robusto', producer: 'Partagás', format: 'Robusto', tags: [], isOwned: true, isOpened: false, alertStatus: 'none', lockedFields: [] };
+      await service.createItem('u1', { ...cigar, quantity: 3, cigarsPerBox: 25, purchasePrice: 200 } as never);
+
+      expect(created()).toMatchObject({ quantity: 3, cigarsPerBox: 25, purchasePrice: 200 });
+      expect(created().product.create).toMatchObject({ category: 'cigar', format: 'Robusto' });
+      expect(created().product.create).not.toHaveProperty('cigarsPerBox');
+      expect(created().product.create).not.toHaveProperty('quantity');
+    });
+
+    it('creates one opened box with the cigars left in it', async () => {
+      const cigar = { category: 'cigar', name: 'Robusto', producer: 'Partagás', tags: [], isOwned: true, alertStatus: 'none', lockedFields: [] };
+      await service.createItem('u1', { ...cigar, quantity: 1, cigarsPerBox: 25, isOpened: true, cigarsLeft: 10 } as never);
+
+      expect(created()).toMatchObject({ quantity: 1, cigarsPerBox: 25, isOpened: true, cigarsLeft: 10 });
+      expect(created().product.create).not.toHaveProperty('cigarsLeft');
+    });
+
     it('dates the purchase on the day given, as midnight UTC (D6)', async () => {
       await service.createItem('u1', { ...wine, purchasedAt: '2026-01-15' } as never);
 

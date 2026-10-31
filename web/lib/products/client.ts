@@ -15,6 +15,8 @@ export interface AddUnitsInput {
   cellarId?: string | null;
   purchasePrice?: number | null;
   bottleSize?: string | null;
+  /** FEAT-95: cigars per closed box; null or absent, single cigars (never on bottles). */
+  cigarsPerBox?: number | null;
   purchasedAt?: string | null;
 }
 
