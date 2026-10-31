@@ -4,6 +4,11 @@ type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 const MONEY_FIELDS = new Set(['purchasePrice', 'estimatedValue']);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|$)/;
+/**
+ * #471 (D6): days without a time, stored at midnight UTC — read in UTC, or
+ * west of UTC they would show the day before.
+ */
+const DAY_FIELDS = new Set(['purchasedAt']);
 
 /**
  * #508: the item history showed raw technical names and values
@@ -42,7 +47,9 @@ export function formatHistoryValue(field: string, value: unknown, t: Translate, 
   if (field === 'category' && typeof value === 'string') return t(`categories.${value}`, { defaultValue: value });
   if (field === 'fillLevel' && typeof value === 'number') return `${value}%`;
   if (MONEY_FIELDS.has(field) && typeof value === 'number') return formatCurrency(value, ctx.lang);
-  if (typeof value === 'string' && ISO_DATE.test(value)) return formatDate(value, ctx.lang) || value;
+  if (typeof value === 'string' && ISO_DATE.test(value)) {
+    return formatDate(value, ctx.lang, DAY_FIELDS.has(field) ? { timeZone: 'UTC' } : undefined) || value;
+  }
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }

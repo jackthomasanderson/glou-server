@@ -18,6 +18,7 @@ import {
   applyState, isStateField, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
 } from './stock-state.service';
 import { writeFamilyDescription } from './product.service';
+import { GROUP_KEY_FIELDS, joinIdenticalGroup } from './stock-split.service';
 import { isSlotTaken } from '../lib/slots';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
@@ -44,7 +45,7 @@ export type RollbackFieldResult =
   | { status: 'not_found' }
   | { status: 'invalid_value' }
   | { status: 'slot_conflict' }
-  | { status: 'success'; item: InventoryItemView; changes: FieldChange[] };
+  | { status: 'success'; item: InventoryItemView; changes: FieldChange[]; joined?: { from: number; to: number } };
 
 /**
  * Result of `InventoryService.updateItem` (FEAT-16/23 offline sync).
@@ -71,6 +72,11 @@ export type UpdateItemResult =
       groupChange?: { itemId: string; from: number; to: number };
       /** Tastings deleted by a reattach answered `keepTastings: false`. */
       deletedTastings?: number;
+      /**
+       * #471 (W3): the edited group became identical to another one and joined
+       * it — `item` is that group, at `to` copies; the edited one is in `removedIds`.
+       */
+      joined?: { from: number; to: number };
       slotConflict?: boolean;
     }
   | { conflict: true; serverItem: InventoryItemView };
@@ -458,6 +464,7 @@ export class InventoryService {
     let outcome: ApplyStateResult<InventoryItemRow>;
     let current: StateItem;
     let familyChanges = new Map<string, FieldChange>();
+    let joined: { from: number; to: number } | null = null;
     try {
       const written = await prisma.$transaction(async (tx) => {
         // #471: the family first (the locking rule), then the unit as it is
@@ -475,11 +482,23 @@ export class InventoryService {
         });
         familyChanges = new Map(family.changes.map((change) => [change.field, change]));
         // The unit is always stamped: the flat record it stands for changed.
+        const kind = unitKind(safePatch.category ?? row.product.category);
         const result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
           tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
-          { userId, kind: unitKind(safePatch.category ?? row.product.category), include: INVENTORY_ITEM_INCLUDE },
+          { userId, kind, include: INVENTORY_ITEM_INCLUDE },
         );
-        return { result, fresh: fresh as StateItem };
+        // A whole group made identical to another one by this edit joins it
+        // (design.md rule 4): the answer is then that group (D8).
+        const regroups = result.outcome === 'updated'
+          && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field]));
+        const joined = regroups ? await joinIdenticalGroup(tx, result.data, kind, userId) : null;
+        if (!joined) return { result, fresh: fresh as StateItem, joined: null };
+        const survivor = await tx.inventoryItem.findUniqueOrThrow({ where: { id: joined.survivorId }, include: INVENTORY_ITEM_INCLUDE });
+        return {
+          result: { ...result, data: survivor as InventoryItemRow, removedIds: [...result.removedIds, id] },
+          fresh: fresh as StateItem,
+          joined: { from: joined.from, to: joined.to },
+        };
       });
       if (!written) return null;
       if ('conflict' in written) {
@@ -488,6 +507,7 @@ export class InventoryService {
       }
       outcome = written.result;
       current = written.fresh;
+      joined = written.joined;
     } catch (err) {
       // #173: the application-level check above closes almost every window,
       // but the database's partial unique index is the actual guarantee — a
@@ -519,6 +539,7 @@ export class InventoryService {
       ...(outcome.outcome !== 'updated' ? { outcome: outcome.outcome } : {}),
       ...(outcome.groupChange ? { groupChange: outcome.groupChange } : {}),
       ...(outcome.deletedTastings ? { deletedTastings: outcome.deletedTastings } : {}),
+      ...(joined ? { joined } : {}),
     };
   }
 
@@ -572,7 +593,7 @@ export class InventoryService {
     }
     if (result.slotConflict) return { status: 'slot_conflict' };
 
-    return { status: 'success', item: result.item, changes: result.changes };
+    return { status: 'success', item: result.item, changes: result.changes, ...(result.joined ? { joined: result.joined } : {}) };
   }
 
   async bulkUpdate(

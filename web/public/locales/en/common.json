@@ -183,7 +183,6 @@
       "quantityBottles": "Number of bottles",
       "purchasedAt": "Purchase date",
       "purchasePlace": "Purchase place",
-      "purchasedAt": "Purchase date",
       "estimatedValue": "Estimated value (€)",
       "isOpened": "Bottle opened",
       "isReference": "Reference",
@@ -2100,9 +2099,7 @@
       "number_bottle": "Number of bottles",
       "number_box": "Number of boxes",
       "number_cigar": "Number of cigars",
-      "toAdd_bottle": "To add some, use “Add bottles”.",
-      "toAdd_box": "To add some, use “Add cigars”.",
-      "toAdd_cigar": "To add some, use “Add cigars”.",
+      "toAdd": "To add some, use “{{action}}” with the same purchase date to join this line.",
       "why": "Why does this number go down?",
       "reasons": {
         "input_error": {

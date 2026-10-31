@@ -183,7 +183,6 @@
       "quantityBottles": "Nombre de bouteilles",
       "purchasedAt": "Date d'achat",
       "purchasePlace": "Lieu d'achat",
-      "purchasedAt": "Date d'achat",
       "estimatedValue": "Valeur estimée (€)",
       "isOpened": "Bouteille entamée / ouverte",
       "isReference": "Référence",
@@ -2102,9 +2101,7 @@
       "number_bottle": "Nombre de bouteilles",
       "number_box": "Nombre de boîtes",
       "number_cigar": "Nombre de cigares",
-      "toAdd_bottle": "Pour en ajouter, utilisez « Ajouter des bouteilles ».",
-      "toAdd_box": "Pour en ajouter, utilisez « Ajouter des cigares ».",
-      "toAdd_cigar": "Pour en ajouter, utilisez « Ajouter des cigares ».",
+      "toAdd": "Pour en ajouter, utilisez « {{action}} » avec la même date d'achat pour rejoindre cette ligne.",
       "why": "Pourquoi ce nombre baisse ?",
       "reasons": {
         "input_error": {

@@ -113,6 +113,45 @@ async function sharesAnInventorySession(tx: PrismaClientOrTx, a: string, b: stri
   return [...sessionsOf(a)].some((session) => ofB.has(session));
 }
 
+/** The fields of a unit that tell its group apart (D5 `groupKey`, the family aside). */
+export const GROUP_KEY_FIELDS = ['cellarId', 'purchasePrice', 'purchasedAt', 'bottleSize', 'cigarsPerBox'] as const;
+
+/**
+ * #471 (W3 review, design.md rule 4): a whole group whose own values were
+ * just edited ("Modifier", a restored value) so that it is now identical to
+ * another group of its family joins it — the older one stays, takes its
+ * copies and everything hanging on it, the edited one is gone. Not for a
+ * group still to review (`needsReview`), for two groups each in a slot (one
+ * slot, one unit), for two groups counted in one inventory session, nor
+ * beyond {@link MAX_COPIES}. Run in the transaction holding the family's
+ * lock, after the write. Null when nothing joined.
+ */
+export async function joinIdenticalGroup(
+  tx: PrismaClientOrTx,
+  group: UnitRecord,
+  kind: ReturnType<typeof unitKind>,
+  userId: string,
+): Promise<{ survivorId: string; from: number; to: number } | null> {
+  if (!isGroupableItem(group) || !group.isOwned || group.needsReview) return null;
+  const target = await findGroupFor(tx, group, kind, { excludeId: group.id, estimatedValue: group.estimatedValue, settledOnly: true });
+  if (!target) return null;
+  const from = target.quantity ?? 1;
+  const to = from + (group.quantity ?? 1);
+  if (to > MAX_COPIES) return null;
+  if (group.slotColumn !== null && target.slotColumn !== null) return null;
+  if (await sharesAnInventorySession(tx, group.id, target.id)) return null;
+  await keepFoundQuantities(tx, [target.id, group.id]);
+  // The edited group's slot goes to the survivor that has none (deleted first: one slot, one unit).
+  const keepsSlot = target.slotColumn === null && group.slotColumn !== null
+    ? { slotColumn: group.slotColumn, slotRow: group.slotRow } : {};
+  await absorbGroups(tx, target.id, [group.id]);
+  await tx.inventoryItem.update({
+    where: { id: target.id },
+    data: { ...completion(target, group, to), ...keepsSlot, updatedBy: userId },
+  });
+  return { survivorId: target.id, from, to };
+}
+
 /**
  * Takes `count` copies of the group `groupId` and applies `change` to them,
  * in one transaction: the family is locked first (the locking rule), then

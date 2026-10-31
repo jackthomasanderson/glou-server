@@ -40,3 +40,16 @@ describe('item history formatting (#508)', () => {
     expect(formatHistoryValue('tags', ['rouge', 'garde'], t)).toBe('rouge, garde');
   });
 });
+
+describe('a purchase day in the history (#471, D6)', () => {
+  it('is the day itself west of UTC, never the day before', () => {
+    const tz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    try {
+      expect(formatHistoryValue('purchasedAt', '2026-03-01T00:00:00.000Z', t, { lang: 'fr' })).toBe('01/03/2026');
+      expect(formatHistoryValue('purchasedAt', '2026-03-01', t, { lang: 'fr' })).toBe('01/03/2026');
+    } finally {
+      process.env.TZ = tz;
+    }
+  });
+});

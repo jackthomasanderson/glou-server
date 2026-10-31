@@ -12,7 +12,7 @@ import { lineParts, type LineContext } from '@/lib/products/lines';
 import { lineCopies, unitNoun } from '@/lib/products/stockActions';
 import type { InventoryItem } from '@/lib/inventory/types';
 import type { ProductItem } from '@/lib/products/types';
-import { LineDialogFrame } from './StockLineDialogParts';
+import { isPrice, LineDialogFrame } from './StockLineDialogParts';
 
 interface EditLineDialogProps {
   item: ProductItem;
@@ -31,7 +31,20 @@ interface LineValues {
   openedAt: string | null;
 }
 
+/** A purchase day, `YYYY-MM-DD` (D6): the day itself, never through a time zone. */
 const dayOf = (value: string | Date | null) => (value == null ? null : String(value).slice(0, 10));
+const pad = (n: number) => String(n).padStart(2, '0');
+/**
+ * The opening of a bottle is a moment: its day is the member's own (as the
+ * drawer shows it), and a day typed is sent as that day's local midnight —
+ * the same day read back, east or west of UTC.
+ */
+const localDayOf = (value: string | Date | null) => {
+  if (value == null) return null;
+  const date = new Date(value);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+const localMidnight = (day: string | null) => (day == null ? null : new Date(`${day}T00:00:00`).toISOString());
 const textOf = (value: string) => (value.trim() === '' ? null : value);
 
 const valuesOf = (item: ProductItem): LineValues => ({
@@ -39,13 +52,15 @@ const valuesOf = (item: ProductItem): LineValues => ({
   purchasedAt: dayOf(item.purchasedAt),
   purchasePlace: item.purchasePlace ?? null,
   location: item.location ?? null,
-  openedAt: dayOf(item.openedAt),
+  openedAt: localDayOf(item.openedAt),
 });
 
 /**
- * "Modifier" on a line (ux-ui.md §10.3): the price of one copy, the purchase
- * day and place, the place in the cellar, and the opening day of an opened
- * bottle. An emptied field is sent empty (#726). Only what changed is sent,
+ * "Modifier" on a line (ux-ui.md §10.3): the purchase day and place, the
+ * place in the cellar; for an opened bottle, also its price and opening day.
+ * The price of a line of full bottles is "Changer le prix" (it may split the
+ * line, and is told in the history). A line made identical to another one
+ * joins it (the API, design.md rule 4). An emptied field is sent empty (#726). Only what changed is sent,
  * from the line's version as shown (#572: changed meanwhile → refused). Its
  * state (opened, level) is never sent from here: putting a bottle back full
  * is its own action, never mixed with another field (K, 400 `FIELDS_WITH_REATTACH`).
@@ -64,9 +79,10 @@ export function EditLineDialog({ item, ctx, isOpen, onClose }: EditLineDialogPro
   const patch = Object.fromEntries(
     (Object.keys(values) as (keyof LineValues)[])
       .filter((field) => values[field] !== initial[field])
-      .map((field) => [field, values[field]]),
+      .map((field) => [field, field === 'openedAt' ? localMidnight(values.openedAt) : values[field]]),
   ) as Partial<InventoryItem>;
   const changed = Object.keys(patch).length > 0;
+  const priceOk = isPrice(values.purchasePrice ?? undefined);
 
   const confirm = () => {
     update.mutate(
@@ -90,19 +106,23 @@ export function EditLineDialog({ item, ctx, isOpen, onClose }: EditLineDialogPro
       line={lineParts(item, ctx, false).join(' · ')}
       confirmLabel={t('actions.save')}
       onConfirm={confirm}
-      canConfirm={changed}
+      canConfirm={changed && priceOk}
       isPending={update.isPending}
       testId="edit-line-dialog"
     >
       {copies > 1 && <p className="text-xs text-foreground-500">{t('stockLine.edit.scope', { context: noun, count: copies })}</p>}
-      <ParsedNumberInput
-        decimal
-        label={t('stockLine.price', { context: noun })}
-        value={values.purchasePrice ?? undefined}
-        onValueChange={(value) => set('purchasePrice', value ?? null)}
-        variant="bordered"
-        endContent={<span className="text-sm text-foreground-500">€</span>}
-      />
+      {opened && (
+        <ParsedNumberInput
+          decimal
+          label={t('stockLine.price', { context: noun })}
+          value={values.purchasePrice ?? undefined}
+          onValueChange={(value) => set('purchasePrice', value ?? null)}
+          variant="bordered"
+          endContent={<span className="text-sm text-foreground-500">€</span>}
+          isInvalid={!priceOk}
+          errorMessage={t('stockLine.priceInvalid')}
+        />
+      )}
       <Input
         type="date"
         label={t('stockLine.edit.purchasedAt')}
