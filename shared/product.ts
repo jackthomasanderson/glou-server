@@ -104,21 +104,6 @@ export interface ItemView {
   updatedAt: Date;
 }
 
-/**
- * D8: the answer of a write that may detach or reattach a unit (PATCH
- * /api/inventory/:id, the guest PATCH). `data` is the unit that now carries
- * the requested state: the sub-record created, the unit itself, or the group
- * that absorbed it — still a unit, so the callers that only read `data` keep
- * working (the flat routes answer it as their flat record). `changed` holds
- * the other units written in the same transaction (the group a copy was
- * taken from), `removedIds` the units deleted (a sub-record absorbed).
- */
-export interface UnitWriteResponse<TData = ItemView> {
-  data: TData;
-  changed: ItemView[];
-  removedIds: string[];
-}
-
 /** 409 of a reattach that would delete a sub-record holding tastings: send `keepTastings`. */
 export const TASTINGS_ON_ITEM = 'TASTINGS_ON_ITEM';
 
@@ -236,3 +221,29 @@ export interface TrashedProductView extends Omit<ProductView, 'items' | 'deleted
   deletedAt: Date;
   items: ItemView[];
 }
+
+/**
+ * D8: the answer of every write that may touch several units — adding,
+ * correcting, detaching or reattaching. `data` is the unit that now carries
+ * what was asked (the group completed or created, the group corrected, the
+ * write-off or the sub-record detached, the unit itself, or the group that
+ * absorbed a sub-record). `changed` holds the other units the same
+ * transaction modified, `removedIds` the units it deleted (a sub-record
+ * absorbed). The flat routes (PATCH /api/inventory/:id, the guest PATCH)
+ * answer `data` as their own record (`TData`), so the callers that only
+ * read `data` keep working; the guest PATCH answers every unit as the
+ * share shows it (`TData`, `TUnit`: prices and notes hidden as asked).
+ */
+export interface UnitWriteResult<TData = ItemView, TUnit = ItemView> {
+  data: TData;
+  changed: TUnit[];
+  removedIds: string[];
+}
+
+/**
+ * "Corriger le nombre" (decision #471, point 34): an input error erases the
+ * copies (out of the spending too, never below 1); broken / given away /
+ * lost detaches them as a write-off (out of stock, still in the spending).
+ */
+export const CORRECTION_REASONS = ['input_error', 'written_off'] as const;
+export type CorrectionReason = (typeof CORRECTION_REASONS)[number];

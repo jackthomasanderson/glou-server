@@ -25,7 +25,7 @@ const COLLECTIONS_INCLUDE = { select: { id: true, name: true, color: true, icon:
  * such when it has units and every one of them is in the trash. A family
  * without any unit (a wine known without bottle, FEAT-101) is listed.
  */
-const LISTED_PRODUCT_FILTER = {
+export const LISTED_PRODUCT_FILTER = {
   deletedAt: null,
   OR: [{ items: { none: {} } }, { items: { some: { deletedAt: null } } }],
 } satisfies Prisma.ProductWhereInput;

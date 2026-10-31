@@ -11,6 +11,7 @@ vi.mock('../../src/lib/prisma', () => ({
       count: vi.fn(),
     },
     cellar: { findMany: vi.fn(), findFirst: vi.fn() },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(),
   },
 }));
@@ -20,10 +21,8 @@ import { CellarService } from '../../src/services/cellar.service';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Batch-array form of $transaction: real Prisma runs every operation and
-  // resolves with their results in order — a plain Promise.all over the
-  // already-built update promises reproduces that for these tests.
-  vi.mocked(prisma.$transaction).mockImplementation(((ops: Promise<unknown>[]) => Promise.all(ops)) as never);
+  // Interactive form of $transaction: the callback runs against the client.
+  vi.mocked(prisma.$transaction).mockImplementation(((callback: (tx: unknown) => unknown) => callback(prisma)) as never);
 });
 
 describe('CellarService.swapSlots (ISSUE_037)', () => {
@@ -82,6 +81,32 @@ describe('CellarService.swapSlots (ISSUE_037)', () => {
         { id: 'b', slotColumn: 1, slotRow: 1 },
       ],
     });
+  });
+
+  // A2 (lock order, #787 review): both families locked first, in sorted
+  // order, before either unit is written.
+  it('locks the families of both items in sorted order before moving them', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst)
+      .mockResolvedValueOnce({ id: 'a', productId: 'p2', slotColumn: 1, slotRow: 1 } as never)
+      .mockResolvedValueOnce({ id: 'b', productId: 'p1', slotColumn: 2, slotRow: 1 } as never);
+    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ id: 'x', slotColumn: 1, slotRow: 1 } as never);
+
+    await CellarService.swapSlots('u1', 'c1', { itemAId: 'a', itemBId: 'b' });
+
+    expect(vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1])).toEqual(['p1', 'p2']);
+    const lastLock = Math.max(...vi.mocked(prisma.$queryRaw).mock.invocationCallOrder);
+    expect(Math.min(...vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder)).toBeGreaterThan(lastLock);
+  });
+
+  it('locks a family shared by both items once', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst)
+      .mockResolvedValueOnce({ id: 'a', productId: 'p1', slotColumn: 1, slotRow: 1 } as never)
+      .mockResolvedValueOnce({ id: 'b', productId: 'p1', slotColumn: 2, slotRow: 1 } as never);
+    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ id: 'x', slotColumn: 1, slotRow: 1 } as never);
+
+    await CellarService.swapSlots('u1', 'c1', { itemAId: 'a', itemBId: 'b' });
+
+    expect(vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1])).toEqual(['p1']);
   });
 
   it('scopes both lookups to the given cellar and excludes soft-deleted items', async () => {

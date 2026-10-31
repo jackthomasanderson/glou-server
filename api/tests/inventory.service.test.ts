@@ -260,8 +260,9 @@ describe('InventoryService', () => {
 
     // The ZodError rolls the whole transaction back, b1's family included.
     await expect(service.bulkUpdate('u1', ['b1', 'b2'], { peakMaturityTo: 2030 })).rejects.toThrow(ZodError);
-    // Families locked in a stable order (by id): no deadlock between two bulk actions.
-    expect(vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1])).toEqual(['p1', 'p2']);
+    // Families locked in a stable order (by id), all of them before any
+    // write: no deadlock between two bulk actions.
+    expect(vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1])).toEqual(['p1', 'p2', 'p1', 'p2']);
     // p2's reversed window is never written.
     expect(vi.mocked(prisma.product.update).mock.calls.map((call) => call[0].where.id)).toEqual(['p1']);
   });
@@ -562,10 +563,32 @@ describe('InventoryService', () => {
       return rows.find((row) => row.id === args.where.id) ?? null;
     });
     vi.mocked(prisma.$transaction).mockImplementation(
-      ((callback: (tx: unknown) => unknown) => callback({ inventoryItem: { update, findUnique }, $queryRaw: vi.fn() })) as never,
+      ((callback: (tx: unknown) => unknown) => callback({ inventoryItem: { update, findUnique }, $queryRaw: prisma.$queryRaw })) as never,
     );
     return update;
   }
+
+  // A2 (lock order, #787 review): a patch of unit fields only writes no
+  // description, yet its families are locked first, in sorted order —
+  // otherwise it deadlocks (40P01) with a description write, which locks the
+  // family and then copies onto its units.
+  it('bulkUpdate - locks the families in sorted order before writing unit fields only', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unitRow({ id: 'b3', productId: 'p2', cellarId: 'c1' }),
+      unitRow({ id: 'b2', productId: 'p2', cellarId: 'c1' }),
+      unitRow({ id: 'b1', productId: 'p1', cellarId: 'c1' }),
+      unitRow({ id: 'b4', productId: 'P0', cellarId: 'c1' }),
+    ] as never);
+    const txUpdate = mockTransactionClient();
+
+    expect(await service.bulkUpdate('u1', ['b1', 'b2', 'b3', 'b4'], { cellarId: 'c2' })).toBe(4);
+
+    // By code unit, as the slot swap does (lockFamilies): 'P0' < 'p1'.
+    expect(vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1])).toEqual(['P0', 'p1', 'p2']);
+    const lastLock = Math.max(...vi.mocked(prisma.$queryRaw).mock.invocationCallOrder);
+    expect(Math.min(...txUpdate.mock.invocationCallOrder)).toBeGreaterThan(lastLock);
+    expect(prisma.product.update).not.toHaveBeenCalled();
+  });
 
   it('bulkUpdate - applies the patch to locked fields (a bulk action is a user action)', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([

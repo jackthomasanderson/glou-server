@@ -99,6 +99,23 @@ export async function lockFamily(client: PrismaClientOrTx, productId: string): P
 }
 
 /**
+ * #471 (lock order, #787 review): the one order in which families are
+ * locked — by code unit, the same everywhere, whatever the runtime's locale.
+ */
+export const compareFamilyIds = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * #471 (lock order, #787 review): locks every family of `productIds` once, in
+ * {@link compareFamilyIds} order. A transaction that writes units of several
+ * families calls it before its first write, so that two of them, or one and
+ * a description write (family lock, then copy onto its units), never wait on
+ * each other in a cycle (40P01).
+ */
+export async function lockFamilies(client: PrismaClientOrTx, productIds: Iterable<string>): Promise<void> {
+  for (const productId of [...new Set(productIds)].sort(compareFamilyIds)) await lockFamily(client, productId);
+}
+
+/**
  * #471: the derived `alertStatus` of a family (and its mirror), written in
  * SQL so that no `updatedAt` moves — it changes with the calendar, not with
  * an edit, and must neither put a client's `expectedUpdatedAt` in conflict

@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 import { guestMiddleware } from '../middleware/guest.middleware';
 import { routeParam } from '../lib/http';
 import { AppError } from '../lib/errors';
+import type { UnitWriteResult } from '../../../shared/product';
 import { sharesService } from '../services/shares.service';
 import { guestInventoryUpdateSchema } from '../schemas/inventory.schema';
 import { inventoryService } from '../services/inventory.service';
@@ -154,7 +155,11 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     // #471 (D8): the unit carrying the state, and the other units written.
     const visible = await sharesService.getItemForShare(share, result.item.id);
     const changed = await Promise.all(result.changed.map((unit) => sharesService.getItemForShare(share, unit.id)));
-    res.json({ data: visible, changed: changed.filter((unit) => unit != null), removedIds: result.removedIds });
+    type SharedUnit = NonNullable<typeof visible>;
+    const response: UnitWriteResult<typeof visible, SharedUnit> = {
+      data: visible, changed: changed.filter((unit): unit is SharedUnit => unit != null), removedIds: result.removedIds,
+    };
+    res.json(response);
   } catch (error) {
     if (error instanceof AppError) {
       // #471: a write the detach / reattach rule refuses (TASTINGS_ON_ITEM…).

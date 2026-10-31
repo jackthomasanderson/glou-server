@@ -10,7 +10,8 @@ import { isFinishedItem, NO_SLOT, unitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
-  isProductField, lockFamily, nextLocksAndSources, pickProductFields, todayAsPurchaseDate, toItemView, toUnitView,
+  compareFamilyIds, isProductField, lockFamilies, lockFamily, nextLocksAndSources, pickProductFields, todayAsPurchaseDate,
+  toItemView, toUnitView,
   type FlatItemView,
 } from '../lib/product-fields';
 import {
@@ -573,7 +574,7 @@ export class InventoryService {
     // over overlapping selections cannot deadlock.
     const existing = rows
       .map((row) => ({ row, view: toItemView(row) }))
-      .sort((a, b) => a.row.productId.localeCompare(b.row.productId) || a.row.id.localeCompare(b.row.id));
+      .sort((a, b) => compareFamilyIds(a.row.productId, b.row.productId) || compareFamilyIds(a.row.id, b.row.id));
     // #471: `smokeOne`/`keepTastings` are instructions to the detach rule, not columns.
     const { smokeOne, keepTastings, expectedUpdatedAt: _sync, ...columns } = patch;
     const familyPatch = pickProductFields(this.mapInputToDb(columns));
@@ -581,6 +582,11 @@ export class InventoryService {
 
     let updatedCount = 0;
     await prisma.$transaction(async (tx) => {
+      // #471 (lock order, #787 review): every family of the selection locked
+      // first, in sorted order, before any unit is written — even for a patch
+      // of unit fields only, which would otherwise deadlock (40P01) with a
+      // description write (family lock, then copy onto its units).
+      await lockFamilies(tx, rows.map((row) => row.productId));
       // #471: each family written once, under its lock — the window checked
       // against its stored other end (#706, a ZodError rolls everything
       // back) and its alert recomputed (writeFamilyDescription).
@@ -596,8 +602,6 @@ export class InventoryService {
               // field once adjusted by hand — and still counted it (ISSUE_034).
               userId, isManualEdit: false, autoLock: false, respectLocks: false, onlyChanged: true,
             })).changes.length > 0;
-          // The locking rule: a unit-only action locks the family all the same.
-          if (Object.keys(familyPatch).length === 0) await lockFamily(tx, row.productId);
           familyChanged.set(row.productId, changed);
         }
         const changedEntries = Object.entries(unitPatch).filter(

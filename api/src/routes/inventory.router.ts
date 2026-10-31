@@ -10,7 +10,7 @@ import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { systemConfigService } from '../services/system-config.service';
 import { routeParam } from '../lib/http';
 import { AppError } from '../lib/errors';
-import type { UnitWriteResponse } from '../../../shared/product';
+import type { UnitWriteResult } from '../../../shared/product';
 
 const router = Router();
 
@@ -219,7 +219,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     // the sub-record (which no longer exists).
     const outcome = result.outcome ? { outcome: result.outcome, targetItemId: id } : {};
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId, details: { changes: result.changes, ...outcome } });
-    const response: UnitWriteResponse<typeof result.item> = { data: result.item, changed: result.changed, removedIds: result.removedIds };
+    const response: UnitWriteResult<typeof result.item> = { data: result.item, changed: result.changed, removedIds: result.removedIds };
     res.json(response);
   } catch (error) {
     if (error instanceof AppError) {
