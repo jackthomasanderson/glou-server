@@ -31,6 +31,8 @@ const cigarsIn = (item: TastedItemStock) => itemUnits({
 export function smokeOutcome(item?: TastedItemStock): { kind: 'opensBox' | 'fromBox' | 'single'; left: number } | null {
   if (!item || item.category !== 'cigar' || cigarsIn(item) <= 0) return null;
   if (item.isOpened) return { kind: 'fromBox', left: (item.cigarsLeft ?? 1) - 1 };
+  // A closed box of a single cigar is finished at once (the API), never "opened, 0 left".
+  if (item.cigarsPerBox === 1) return { kind: 'fromBox', left: 0 };
   if (item.cigarsPerBox != null) return { kind: 'opensBox', left: item.cigarsPerBox - 1 };
   return { kind: 'single', left: Math.max(item.quantity ?? 1, 1) - 1 };
 }
@@ -75,15 +77,15 @@ export async function applyStockChoice(
   choice: StockChoice,
   item: TastedItemStock | undefined,
   update: (patch: StockPatch) => Promise<unknown>,
-  onError: () => void,
+  onError: (error: unknown) => void,
 ): Promise<boolean> {
   const patch = stockPatchFor(choice, item);
   if (!patch) return true;
   try {
     await update(patch);
     return true;
-  } catch {
-    onError();
+  } catch (error) {
+    onError(error);
     return false;
   }
 }

@@ -266,7 +266,9 @@ export const inventoryPatchObject = z.object({
   caskProof: z.number().min(0).max(100).optional().nullable(),
   // Cigar
   format: z.string().max(100).optional().nullable(),
-  // ISSUE_101/ISSUE_029: min(0) — see cigarInventorySchema's quantity field above.
+  // ISSUE_101/ISSUE_029: min(0) kept on the patch only; a cigar group is
+  // created with min(1) (FEAT-95, cigarInventorySchema above), and the
+  // detach rule refuses a count of 0 on an opened box (stock-state.service.ts).
   quantity: z.number().int().min(0).max(1000).optional().nullable(),
   // #471 (FEAT-95): cigars per box of a group of closed boxes (null = single cigars).
   cigarsPerBox: z.number().int().min(1).max(1000).optional().nullable(),

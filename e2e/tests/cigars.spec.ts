@@ -82,7 +82,8 @@ test.describe('FEAT-95 — cigars in closed boxes and single cigars', () => {
     const add = page.getByRole('dialog').filter({ has: page.getByTestId('add-units-submit') });
     await add.getByRole('radio', { name: "À l'unité" }).check();
     await add.getByTestId('cigar-quantity-input').fill('4');
-    await add.getByTestId('add-units-price').fill('');
+    // The box price of the latest line is not the price of one cigar: emptied.
+    await expect(add.getByTestId('add-units-price')).toHaveValue('');
     await add.getByTestId('add-units-price').pressSequentially('9');
     const added = page.waitForResponse((r) => r.url().endsWith(`/api/products/${boxes.productId}/items`) && r.request().method() === 'POST');
     await add.getByTestId('add-units-submit').click();

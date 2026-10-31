@@ -175,7 +175,8 @@ export interface UpdateInventoryItemVariables {
   expectedUpdatedAt?: string;
 }
 
-const REATTACH_REFUSALS: Record<string, string> = {
+/** Refusals of a state write that already have their own message (no generic toast on top). */
+export const REATTACH_REFUSALS: Record<string, string> = {
   [TASTINGS_ON_ITEM]: 'toast.tastingsOnBottle',
   FIELDS_WITH_REATTACH: 'toast.fieldsWithReattach',
   // #471 (FEAT-95): a box with cigars smoked out of it cannot be closed

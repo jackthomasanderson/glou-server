@@ -146,6 +146,27 @@ describe('AddUnitsAction on a cigar', () => {
     expect(sent().input).toMatchObject({ quantity: 4, cigarsPerBox: null, purchasePrice: 9 });
   });
 
+  // Review #807: a box price is never offered as the price of one cigar
+  // (3 boxes at 200 €, then 4 single cigars: 36 €, not 800 €).
+  it('empties the price prefilled from boxes when switching to single cigars, or to another box size', () => {
+    const dialog = openCigar(cigar([unit({ quantity: 3, cigarsPerBox: 25, purchasePrice: 200 })]));
+    fireEvent.click(within(dialog).getByRole('radio', { name: "À l'unité" }));
+    expect(within(dialog).getByLabelText("Prix d'un cigare")).toHaveValue('');
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Boîtes fermées' }));
+    expect(within(dialog).getByLabelText("Prix d'une boîte")).toHaveValue('200');
+    fireEvent.change(within(dialog).getByLabelText('Cigares par boîte'), { target: { value: '10' } });
+    expect(within(dialog).getByLabelText("Prix d'une boîte")).toHaveValue('');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
+    expect(sent().input).toMatchObject({ quantity: 1, cigarsPerBox: 10, purchasePrice: null });
+  });
+
+  it('keeps a price the member typed whatever the storage', () => {
+    const dialog = openCigar(cigar([unit({ quantity: 3, cigarsPerBox: 25, purchasePrice: 200 })]));
+    fireEvent.change(within(dialog).getByLabelText("Prix d'une boîte"), { target: { value: '180' } });
+    fireEvent.click(within(dialog).getByRole('radio', { name: "À l'unité" }));
+    expect(within(dialog).getByLabelText("Prix d'un cigare")).toHaveValue('180');
+  });
+
   it('starts from single cigars when the latest ones were', () => {
     const dialog = openCigar(cigar([unit({ quantity: 4, purchasePrice: 9 })]));
     expect(within(dialog).getByRole('radio', { name: "À l'unité" })).toBeChecked();

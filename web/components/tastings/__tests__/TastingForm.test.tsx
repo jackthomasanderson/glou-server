@@ -31,6 +31,7 @@ vi.mock('@/hooks/useInventory', () => ({
   useInventory: () => ({ data: inventory }),
   useUpdateInventoryItem: () => ({ mutateAsync: inventoryUpdate, isPending: false }),
   useInventoryItemLookup: () => lookUpItem,
+  REATTACH_REFUSALS: { NOTHING_LEFT_TO_SMOKE: 'toast.nothingLeftToSmoke' },
 }));
 vi.mock('@/hooks/useExpertMode', () => ({ useExpertMode: () => true }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn() }));
@@ -273,6 +274,25 @@ describe('stock question after a new tasting (#595, #586)', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(inventoryUpdate).toHaveBeenCalledWith({ id: 'cigar-1', patch: { smokeOne: true } });
+  });
+
+  // Review #807: a refusal the update already explained gets no generic toast on top.
+  it.each([
+    ['NOTHING_LEFT_TO_SMOKE', false],
+    ['UNEXPECTED_ERROR', true],
+  ])('a smoke refused with %s keeps the dialog open, generic toast: %s', async (code, generic) => {
+    const { notifyError } = await import('@/lib/toast');
+    vi.mocked(notifyError).mockClear();
+    inventoryUpdate.mockRejectedValueOnce(new Error(code));
+    inventory = [item({ id: 'cigar-1', category: 'cigar', quantity: 3, cigarsPerBox: 25, cigarsLeft: null })];
+    lookedUp = inventory;
+    await saveNewTastingOf('cigar-1');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'tastings.stockUpdate.smokeOne.opensBox|24' }));
+    await waitFor(() => expect(inventoryUpdate).toHaveBeenCalled());
+    await act(async () => {});
+    expect(vi.mocked(notifyError).mock.calls.some(([key]) => key === 'tastings.stockUpdate.error')).toBe(generic);
+    expect(screen.getByRole('button', { name: 'tastings.stockUpdate.smokeOne.opensBox|24' })).toBeInTheDocument();
   });
 
   // The list misses it (2,000-row cap, not loaded, failed), but the item's

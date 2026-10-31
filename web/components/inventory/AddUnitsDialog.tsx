@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Input, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
 import { Plus } from 'lucide-react';
@@ -53,6 +53,19 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
   // FEAT-95 (decision point 52): a cigar asks "boîtes de combien" or "à l'unité" instead of a size.
   const isCigar = product.category === 'cigar';
   const [cigars, setCigars] = useState<CigarGroupDraft>(() => draftFrom(start?.cigarsPerBox));
+  // A ref: read by the storage choice, whose handler may be an earlier render's.
+  const priceTyped = useRef(false);
+  // The price shown is that of ONE box or cigar of the latest line: kept only
+  // while the cigars are kept the same way (single, or boxes of the same
+  // size) — a box price is never offered as the price of one cigar.
+  const changeCigars = (next: CigarGroupDraft) => {
+    setCigars(next);
+    if (priceTyped.current) return;
+    const startDraft = draftFrom(start?.cigarsPerBox);
+    const sameAsStart = next.storage === startDraft.storage
+      && (next.storage === 'singles' || next.cigarsPerBox === startDraft.cigarsPerBox);
+    setPrice(sameAsStart ? start?.purchasePrice ?? undefined : undefined);
+  };
   const invalidCount = isCigar
     ? !isCigarGroupValid(cigars)
     : quantity == null || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_COPIES;
@@ -86,7 +99,7 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
       <ModalBody>
         <div className="grid grid-cols-2 gap-3">
           {isCigar ? (
-            <CigarGroupFields draft={cigars} onChange={setCigars} submitted={submitted} t={t} autoFocus />
+            <CigarGroupFields draft={cigars} onChange={changeCigars} submitted={submitted} t={t} autoFocus />
           ) : (
           <ParsedNumberInput
             data-testid="add-units-quantity"
@@ -121,7 +134,7 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
             variant="bordered"
             size="sm"
             value={price}
-            onValueChange={setPrice}
+            onValueChange={(value) => { setPrice(value); priceTyped.current = true; }}
             endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
           />
           {!isCigar && (

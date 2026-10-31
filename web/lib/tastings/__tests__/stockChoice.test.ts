@@ -75,6 +75,11 @@ describe('smokeOutcome', () => {
     expect(smokeOutcome(closedBoxes(3, 25))).toEqual({ kind: 'opensBox', left: 24 });
   });
 
+  // Review #807: the API finishes a closed box of one cigar at once.
+  it('a closed box of a single cigar is smoked through, never "opened, 0 left"', () => {
+    expect(smokeOutcome(closedBoxes(2, 1))).toEqual({ kind: 'fromBox', left: 0 });
+  });
+
   it('takes one out of an opened box', () => {
     expect(smokeOutcome(openedBox(10))).toEqual({ kind: 'fromBox', left: 9 });
     expect(smokeOutcome(openedBox(1))).toEqual({ kind: 'fromBox', left: 0 });
@@ -149,9 +154,10 @@ describe('applyStockChoice (#196)', () => {
   });
 
   it('reports the failure and keeps the dialog open when the update rejects', async () => {
-    const update = vi.fn().mockRejectedValue(new Error('boom'));
+    const boom = new Error('boom');
+    const update = vi.fn().mockRejectedValue(boom);
     const onError = vi.fn();
     await expect(applyStockChoice('opened', closedBottle, update, onError)).resolves.toBe(false);
-    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(boom);
   });
 });

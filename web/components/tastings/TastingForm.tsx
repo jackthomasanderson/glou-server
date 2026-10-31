@@ -8,7 +8,7 @@ import { Star, FlaskConical } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { TastingFormValues, TastingReadiness } from '@/lib/tastings/types';
 import { useCreateTasting, useUpdateTasting } from '@/hooks/useTastings';
-import { useInventory, useInventoryItemLookup, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { REATTACH_REFUSALS, useInventory, useInventoryItemLookup, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { ServiceRecommendations } from './ServiceRecommendations';
 import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
@@ -127,7 +127,8 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
           choice,
           stockQuestion.item,
           (patch) => updateInventory.mutateAsync({ id: stockQuestion.itemId, patch }),
-          () => notifyError('tastings.stockUpdate.error'),
+          // A refusal with its own message (a cigar already smoked…) was told by the mutation.
+          (error) => { if (!(error instanceof Error && error.message in REATTACH_REFUSALS)) notifyError('tastings.stockUpdate.error'); },
         )
       : true;
     if (!canClose) return;
