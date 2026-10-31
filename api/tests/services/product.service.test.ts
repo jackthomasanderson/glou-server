@@ -356,3 +356,98 @@ describe('productService.trash / restore (D10)', () => {
     expect(trashed.items.map((item) => item.id)).toEqual(['b1']);
   });
 });
+
+describe('productService.rollbackField (FEAT-05 on a wine)', () => {
+  /** An audit row of the family's history, as `readFieldHistory` reads it. */
+  const logged = (changes: { field: string; from: unknown; to: unknown }[], bottleId: string | null = null) => ({
+    id: 1, action: 'UPDATE', status: 'success', userId: 'u1', bottleId, productId: 'p1',
+    details: { changes }, createdAt: new Date('2026-10-30T10:00:00Z'),
+  });
+  /** What the route hands over: the value as read in the history, and as parsed. */
+  const restore = (field: string, toValue: unknown, value: unknown = toValue) => ({ field, toValue, patch: { [field]: value } });
+
+  beforeEach(() => {
+    vi.mocked(prisma.product.findFirst).mockResolvedValue(family({ region: 'Médoc' }) as never);
+    vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({ region: 'Médoc' }) as never);
+    vi.mocked(prisma.auditLog.findMany).mockResolvedValue([logged([{ field: 'region', from: 'Bordeaux', to: 'Médoc' }])] as never);
+  });
+
+  it('writes a value of the wine\'s history back on the family and its bottles, locked as a manual entry', async () => {
+    const result = await productService.rollbackField('u2', 'p1', restore('region', 'Bordeaux'));
+
+    expect(vi.mocked(prisma.auditLog.findMany).mock.calls[0][0]!.where).toMatchObject({ productId: 'p1' });
+    expect(prisma.product.update).toHaveBeenCalledWith({
+      where: { id: 'p1' },
+      data: { region: 'Bordeaux', lockedFields: ['region'], updatedBy: 'u2' },
+    });
+    // D22: the copy onto the bottles, their updatedAt untouched.
+    const [sql] = vi.mocked(prisma.$executeRaw).mock.calls[0] as unknown as [string[]];
+    expect(sql.join('?')).toContain('UPDATE "bottles"');
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ status: 'success', changes: [{ field: 'region', from: 'Médoc', to: 'Bordeaux' }] });
+  });
+
+  it('drops an automated source: the restored field is a manual entry again', async () => {
+    vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({ region: 'Médoc', fieldSources: { region: 'ocr' } }) as never);
+
+    await productService.rollbackField('u2', 'p1', restore('region', 'Bordeaux'));
+
+    expect(vi.mocked(prisma.product.update).mock.calls[0][0].data).toMatchObject({ lockedFields: ['region'], fieldSources: {} });
+  });
+
+  it('accepts a value changed through one of its bottles before the families', async () => {
+    vi.mocked(prisma.auditLog.findMany).mockResolvedValue([logged([{ field: 'region', from: 'Graves', to: 'Médoc' }], 'b1')] as never);
+
+    expect(await productService.rollbackField('u2', 'p1', restore('region', 'Graves'))).toMatchObject({ status: 'success' });
+  });
+
+  it('refuses a value that is not in the wine\'s history, writing nothing', async () => {
+    expect(await productService.rollbackField('u2', 'p1', restore('region', 'Bourgogne'))).toEqual({ status: 'invalid_value' });
+    expect(await productService.rollbackField('u2', 'p1', restore('region', undefined))).toEqual({ status: 'invalid_value' });
+    // A value of another field does not count.
+    expect(await productService.rollbackField('u2', 'p1', restore('appellation', 'Bordeaux'))).toEqual({ status: 'invalid_value' });
+    expect(prisma.product.update).not.toHaveBeenCalled();
+  });
+
+  it('answers a conflict, writing nothing, when the family changed since the history was read', async () => {
+    const result = await productService.rollbackField('u2', 'p1', restore('region', 'Bordeaux'), '2026-09-30T10:00:00.000Z');
+
+    expect(result).toMatchObject({ conflict: true, product: { id: 'p1' } });
+    expect(prisma.product.update).not.toHaveBeenCalled();
+  });
+
+  it('checks expectedUpdatedAt on the family once locked', async () => {
+    const result = await productService.rollbackField('u2', 'p1', restore('region', 'Bordeaux'), '2026-10-01T10:00:00.000Z');
+
+    expect(result).toMatchObject({ status: 'success' });
+    // The second read is the one under the lock (the first only answers an unknown wine early).
+    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(prisma.product.findFirst).mock.invocationCallOrder[1]);
+  });
+
+  it('compares the value as read in the history and writes it as parsed (a date)', async () => {
+    vi.mocked(prisma.auditLog.findMany).mockResolvedValue([
+      logged([{ field: 'reminderDate', from: '2027-01-01T00:00:00.000Z', to: null }]),
+    ] as never);
+    const day = new Date('2027-01-01T00:00:00.000Z');
+
+    await productService.rollbackField('u2', 'p1', restore('reminderDate', '2027-01-01T00:00:00.000Z', day));
+
+    expect(vi.mocked(prisma.product.update).mock.calls[0][0].data).toMatchObject({ reminderDate: day });
+  });
+
+  it('refuses a drinking window ending before its stored start', async () => {
+    vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({ peakMaturityFrom: 2030 }) as never);
+    vi.mocked(prisma.auditLog.findMany).mockResolvedValue([logged([{ field: 'peakMaturityTo', from: 2025, to: 2035 }])] as never);
+
+    await expect(productService.rollbackField('u2', 'p1', restore('peakMaturityTo', 2025))).rejects.toBeInstanceOf(ZodError);
+    expect(prisma.product.update).not.toHaveBeenCalled();
+  });
+
+  it('is null for an unknown or trashed family', async () => {
+    vi.mocked(prisma.product.findFirst).mockResolvedValue(null);
+
+    expect(await productService.rollbackField('u2', 'p1', restore('region', 'Bordeaux'))).toBeNull();
+    expect(prisma.product.update).not.toHaveBeenCalled();
+  });
+});

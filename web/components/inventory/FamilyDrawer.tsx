@@ -349,6 +349,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
         {/* 6. History of the wine and of its bottles */}
         <FamilyHistory
+          productId={p.id}
+          productUpdatedAt={p.updatedAt}
           history={p.history}
           itemIds={new Set(p.items.map((item) => item.id))}
           cellarName={cellarName}

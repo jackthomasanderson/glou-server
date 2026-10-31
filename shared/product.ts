@@ -61,6 +61,29 @@ export interface ProductDescription {
   alertStatus: AlertStatus | null;
 }
 
+/**
+ * FEAT-05 (#471): the description fields a member writes on a wine
+ * (PATCH /api/products/:id) and may restore from its history
+ * (POST /api/products/:id/rollback). Not `alertStatus` (derived from the
+ * drinking window), `otherPhotoUrls` (photos of merged records) nor
+ * `consumptionPostponedUntil` (set by its own action). One list for the API
+ * and the web; an API test checks it against the description patch schema.
+ */
+export const RESTORABLE_DESCRIPTION_FIELDS = [
+  'category', 'name', 'producer', 'collection', 'tags', 'photoUrl', 'notes',
+  'vintage', 'color', 'region', 'grapeVarieties', 'alcoholDegree', 'needsAeration', 'serviceTemp',
+  'lotNumber', 'batchDate', 'appellation', 'classification',
+  'sparklingType', 'sugarLevel', 'disgorgingDate', 'baseYear',
+  'spiritType', 'edition', 'declaredAge', 'caskType', 'additions', 'aromaticProfile',
+  'isSingleCask', 'caskNumber', 'caskProof',
+  'format', 'manufactureYear', 'leafOrigin', 'factoryCode', 'recommendedHumidity', 'humidificationSystem',
+  'peakMaturityFrom', 'peakMaturityTo', 'curveShape', 'alertsPaused', 'reminderDate',
+] as const satisfies readonly (keyof ProductDescription)[];
+
+const RESTORABLE_DESCRIPTION_FIELD_SET: ReadonlySet<string> = new Set(RESTORABLE_DESCRIPTION_FIELDS);
+
+export const isRestorableDescriptionField = (field: string): boolean => RESTORABLE_DESCRIPTION_FIELD_SET.has(field);
+
 /** Per-field source tag of a table's own columns (FEAT-05); a field absent is 'manual'. */
 export type FieldSources = Record<string, string>;
 
