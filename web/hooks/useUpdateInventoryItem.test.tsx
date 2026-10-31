@@ -131,6 +131,8 @@ describe('useUpdateInventoryItem — the wine\'s drawer (#471, W2)', () => {
   it.each([
     ['TASTINGS_ON_ITEM', 'toast.tastingsOnBottle'],
     ['FIELDS_WITH_REATTACH', 'toast.fieldsWithReattach'],
+    ['BOX_NOT_COMPLETE', 'toast.boxNotComplete'],
+    ['NOTHING_LEFT_TO_SMOKE', 'toast.nothingLeftToSmoke'],
   ])('a put-back refused with %s says why', async (code, message) => {
     update.mockRejectedValue(new Error(code));
     const { result } = setup();

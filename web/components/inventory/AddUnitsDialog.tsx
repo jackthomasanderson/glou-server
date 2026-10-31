@@ -1,9 +1,11 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Input, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
 import { Plus } from 'lucide-react';
 import { isIntactItem, itemUnits } from '@shared/units';
+import { CigarGroupFields } from './CigarGroupFields';
+import { cigarGroupInput, cigarPriceKey, draftFrom, isCigarGroupValid, type CigarGroupDraft } from '@/lib/products/cigarGroup';
 import { MAX_COPIES } from '@shared/product';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ParsedNumberInput } from '@/components/ui/ParsedInput';
@@ -48,20 +50,38 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
   // D6: a day, the YYYY-MM-DD text of the field — never a local Date.
   const [purchasedAt, setPurchasedAt] = useState(todayLocalIso());
   const [submitted, setSubmitted] = useState(false);
-  const invalidCount = quantity == null || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_COPIES;
+  // FEAT-95 (decision point 52): a cigar asks "boîtes de combien" or "à l'unité" instead of a size.
+  const isCigar = product.category === 'cigar';
+  const [cigars, setCigars] = useState<CigarGroupDraft>(() => draftFrom(start?.cigarsPerBox));
+  // A ref: read by the storage choice, whose handler may be an earlier render's.
+  const priceTyped = useRef(false);
+  // The price shown is that of ONE box or cigar of the latest line: kept only
+  // while the cigars are kept the same way (single, or boxes of the same
+  // size) — a box price is never offered as the price of one cigar.
+  const changeCigars = (next: CigarGroupDraft) => {
+    setCigars(next);
+    if (priceTyped.current) return;
+    const startDraft = draftFrom(start?.cigarsPerBox);
+    const sameAsStart = next.storage === startDraft.storage
+      && (next.storage === 'singles' || next.cigarsPerBox === startDraft.cigarsPerBox);
+    setPrice(sameAsStart ? start?.purchasePrice ?? undefined : undefined);
+  };
+  const invalidCount = isCigar
+    ? !isCigarGroupValid(cigars)
+    : quantity == null || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_COPIES;
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     setSubmitted(true);
     if (invalidCount) return;
+    const what = isCigar ? cigarGroupInput(cigars) : { quantity: quantity as number, bottleSize: bottleSize.trim() || null };
     addUnits.mutate(
       {
         product,
         input: {
-          quantity,
+          ...what,
           cellarId,
           purchasePrice: price ?? null,
-          bottleSize: bottleSize.trim() || null,
           purchasedAt: purchasedAt || null,
         },
       },
@@ -73,11 +93,14 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
     // The number is checked here, with its message (not the browser's own bubble).
     <form onSubmit={submit} noValidate className="contents">
       <ModalHeader className="flex flex-col gap-0.5">
-        {t('addUnits.title')}
+        {t(isCigar ? 'addUnits.titleCigar' : 'addUnits.title')}
         <span className="text-sm font-normal text-foreground-500">{wineName(product)}</span>
       </ModalHeader>
       <ModalBody>
         <div className="grid grid-cols-2 gap-3">
+          {isCigar ? (
+            <CigarGroupFields draft={cigars} onChange={changeCigars} submitted={submitted} t={t} autoFocus />
+          ) : (
           <ParsedNumberInput
             data-testid="add-units-quantity"
             label={t('inventory.fields.quantityBottles')}
@@ -91,6 +114,7 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
             onValueChange={setQuantity}
             min={1} max={MAX_COPIES}
           />
+          )}
           <Select
             label={t('nav.caves')}
             variant="bordered"
@@ -106,13 +130,14 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
           </Select>
           <ParsedNumberInput decimal
             data-testid="add-units-price"
-            label={t('inventory.fields.unitPrice')}
+            label={t(isCigar ? cigarPriceKey(cigars.storage) : 'inventory.fields.unitPrice')}
             variant="bordered"
             size="sm"
             value={price}
-            onValueChange={setPrice}
+            onValueChange={(value) => { setPrice(value); priceTyped.current = true; }}
             endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
           />
+          {!isCigar && (
           <Input
             label={t('inventory.fields.bottleSize')}
             variant="bordered"
@@ -120,6 +145,7 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
             value={bottleSize}
             onValueChange={setBottleSize}
           />
+          )}
           <Input
             data-testid="add-units-purchased-at"
             label={t('inventory.fields.purchasedAt')}
@@ -150,7 +176,8 @@ export interface AddUnitsActionProps {
  * bouteilles" in a wine's drawer — the main action of a wine without any
  * bottle left (§10.5), a secondary one otherwise. Opens the reduced form:
  * number, cellar, price of one bottle, size, purchase day; never the
- * description. Bottles only: cigars are counted their own way (FEAT-95).
+ * description. A cigar ("Ajouter des cigares", FEAT-95): closed boxes of M
+ * cigars or single cigars instead of the size, the price of one box or cigar.
  */
 export function AddUnitsAction({ product }: AddUnitsActionProps) {
   const { t } = useTranslation();
@@ -168,7 +195,7 @@ export function AddUnitsAction({ product }: AddUnitsActionProps) {
         startContent={<Plus size={15} />}
         onPress={() => setIsOpen(true)}
       >
-        {t('addUnits.action')}
+        {t(product.category === 'cigar' ? 'addUnits.actionCigar' : 'addUnits.action')}
       </Button>
       <ResponsiveModal isOpen={isOpen} onClose={() => setIsOpen(false)} size="md" radius="lg" backdrop="opaque" placement="center">
         <ModalContent>

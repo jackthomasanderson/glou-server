@@ -114,13 +114,16 @@ test('editing a tasting keeps its perceived maturity and expert grid', async ({ 
   }
 });
 
-test('a cigar tasting removes one cigar from its box', async ({ page }) => {
+// #586, #471 (FEAT-95, K): a cigar tasting smokes ONE cigar through the
+// API (`smokeOne`), never `quantity − 1` (now a correction of the number of
+// boxes): the first cigar of a closed box opens it, 24 left in it.
+test('a cigar tasting smokes one cigar: the closed box is opened, 24 left', async ({ page }) => {
   const api = page.request;
   const name = `E2E #586 ${stamp()}`;
   let itemId = '';
   const tastingIds: string[] = [];
   try {
-    itemId = await createItem(api, { category: 'cigar', name, producer: 'E2E Habanos', quantity: 25 });
+    itemId = await createItem(api, { category: 'cigar', name, producer: 'E2E Habanos', quantity: 1, cigarsPerBox: 25 });
 
     const form = await openTastingFormOf(page, name);
     const stock = await saveAndAskStock(page, form, tastingIds);
@@ -130,15 +133,16 @@ test('a cigar tasting removes one cigar from its box', async ({ page }) => {
     const patched = page.waitForResponse(
       (r) => r.url().endsWith(`/api/inventory/${itemId}`) && r.request().method() === 'PATCH',
     );
-    await stock.getByRole('button', { name: 'Retirer un cigare de la boîte (24 restants)' }).click();
-    expect((await patched).status()).toBe(200);
+    await stock.getByRole('button', { name: "J'en ai fumé un : la boîte est entamée (24 restants)" }).click();
+    const res = await patched;
+    expect(res.status()).toBe(200);
+    expect(res.request().postDataJSON()).toEqual({ smokeOne: true });
     await expect(stock).toBeHidden();
 
-    const box = await okData<{ quantity: number; isOpened: boolean; fillLevel: number | null }>(
+    const box = await okData<{ quantity: number; isOpened: boolean; cigarsLeft: number | null; cigarsPerBox: number | null }>(
       await api.get(`/api/inventory/${itemId}`),
     );
-    expect(box.quantity).toBe(24);
-    expect(box.isOpened).toBe(false);
+    expect(box).toMatchObject({ quantity: 1, isOpened: true, cigarsLeft: 24, cigarsPerBox: 25 });
   } finally {
     for (const id of tastingIds) await api.delete(`/api/tastings/${id}`).catch(() => {});
     if (itemId) await api.delete(`/api/inventory/${itemId}`).catch(() => {});
