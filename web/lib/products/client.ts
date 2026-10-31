@@ -73,6 +73,23 @@ export const productsClient = {
     return { data: result.data, changed: result.changed ?? [], removedIds: result.removedIds ?? [] };
   },
 
+  /**
+   * FEAT-05: one description field of the wine back to a value of its
+   * history, for all its bottles. A change made meanwhile is refused (409
+   * `CONFLICT`) instead of overwritten.
+   */
+  async rollback(id: string, field: string, toValue: unknown, expectedUpdatedAt?: string): Promise<Product> {
+    const res = await fetch(`/api/products/${encodeURIComponent(id)}/rollback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ field, toValue, ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}) }),
+      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
+    });
+    if (!res.ok) throw await apiErrorFrom(res);
+    return ((await res.json()) as { data: Product }).data;
+  },
+
   /** Wines in the trash, with the bottles trashed together with them. */
   async listTrash(): Promise<TrashedProduct[]> {
     const { data } = await client.get<TrashedProduct[]>('/products/trash');
