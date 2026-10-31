@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ZodError } from 'zod';
 import { InventoryService } from '../src/services/inventory.service';
+import { PRODUCT_FIELDS } from '../src/lib/product-fields';
 
 // Mock Prisma pour tests unitaires sans DB
 vi.mock('../src/lib/prisma', () => ({
@@ -12,6 +13,12 @@ vi.mock('../src/lib/prisma', () => ({
       update: vi.fn(),
       deleteMany: vi.fn(),
     },
+    product: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    $executeRaw: vi.fn(),
     $transaction: vi.fn(),
   },
 }));
@@ -26,12 +33,38 @@ vi.mock('fs/promises', () => ({
 
 import { prisma } from '../src/lib/prisma';
 
+/** #471: a family as Prisma returns it, every description field empty unless given. */
+function family(fields: Record<string, unknown> = {}) {
+  return {
+    ...Object.fromEntries(PRODUCT_FIELDS.map((field) => [field, null])),
+    tags: [], grapeVarieties: [], alertsPaused: false, alertStatus: 'none',
+    lockedFields: [], fieldSources: null, collections: [],
+    ...fields,
+  };
+}
+
+/** A unit row read with its family (`include: { product }`). */
+function unitRow(fields: Record<string, unknown> = {}, product: Record<string, unknown> = {}) {
+  return {
+    id: 'b1', userId: 'u1', productId: 'p1', lockedFields: [], fieldSources: null, deletedAt: null,
+    isOpened: false, fillLevel: null, ...fields, product: family(product),
+  };
+}
+
+const productUpdateData = () =>
+  (vi.mocked(prisma.product.update).mock.calls[0]?.[0] as { data: Record<string, unknown> } | undefined)?.data;
+
 describe('InventoryService', () => {
   let service: InventoryService;
 
   beforeEach(() => {
     service = new InventoryService();
     vi.clearAllMocks();
+    // Interactive transactions run against the mocked client itself.
+    vi.mocked(prisma.$transaction).mockImplementation(((callback: (tx: unknown) => unknown) => callback(prisma)) as never);
+    vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string } }) =>
+      Promise.resolve(unitRow({ id: args.where.id }))) as never);
+    vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
   });
 
   it('daysUntilPermanentDelete - returns 7 for a just-deleted item', () => {
@@ -53,7 +86,7 @@ describe('InventoryService', () => {
   });
 
   it('listInventory - calls prisma with deletedAt null filter', async () => {
-    const mockItems = [{ id: 'b1', userId: 'u1', name: 'Pétrus', deletedAt: null }];
+    const mockItems = [unitRow({ name: 'stale mirror' }, { name: 'Pétrus', collections: [{ id: 'col1' }] })];
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(mockItems as never);
 
     const result = await service.listInventory('u1');
@@ -62,19 +95,21 @@ describe('InventoryService', () => {
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
       include: {
-        collections: { select: { id: true, name: true, color: true, icon: true } },
+        product: { include: { collections: { select: { id: true, name: true, color: true, icon: true } } } },
       },
       take: 2001,
     });
+    // #471: the flat record — the description and collections of the family.
     // FEAT-86: every row is decorated with a computed `readiness` (null here —
     // the mock items carry no peak-maturity window).
-    expect(result.items).toEqual(mockItems.map((i) => ({ ...i, readiness: null })));
+    expect(result.items[0]).toMatchObject({ id: 'b1', name: 'Pétrus', collections: [{ id: 'col1' }], readiness: null });
+    expect(result.items[0]).not.toHaveProperty('product');
     expect(result.truncated).toBe(false);
   });
 
   // ISSUE_083: a ceiling with a `truncated` flag, not a silent cutoff.
   it('listInventory - flags truncated when more than 2000 items exist', async () => {
-    const mockItems = Array.from({ length: 2001 }, (_, i) => ({ id: `b${i}`, userId: 'u1', name: 'X', deletedAt: null }));
+    const mockItems = Array.from({ length: 2001 }, (_, i) => unitRow({ id: `b${i}` }));
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(mockItems as never);
 
     const result = await service.listInventory('u1');
@@ -98,43 +133,33 @@ describe('InventoryService', () => {
   });
 
   describe('restore - grid slot (#174)', () => {
-    const trashed = { id: 'b1', cellarId: 'c1', slotColumn: 2, slotRow: 3, deletedAt: new Date() };
+    const trashed = unitRow({ cellarId: 'c1', slotColumn: 2, slotRow: 3, deletedAt: new Date() });
 
     it('restores unplaced when another bottle took the slot meanwhile', async () => {
       vi.mocked(prisma.inventoryItem.findFirst)
         .mockResolvedValueOnce(trashed as never)
         .mockResolvedValueOnce({ id: 'other' } as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
-
       await service.restore('u1', 'b1');
 
-      expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
+      expect(prisma.inventoryItem.update).toHaveBeenCalledWith(expect.objectContaining({
         where: { id: 'b1' },
         data: { deletedAt: null, slotColumn: null, slotRow: null },
-      });
+      }));
     });
 
     it('keeps the slot when it is still free', async () => {
       vi.mocked(prisma.inventoryItem.findFirst)
         .mockResolvedValueOnce(trashed as never)
         .mockResolvedValueOnce(null);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
-
       await service.restore('u1', 'b1');
 
-      expect(prisma.inventoryItem.update).toHaveBeenCalledWith({ where: { id: 'b1' }, data: { deletedAt: null } });
+      expect(prisma.inventoryItem.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'b1' }, data: { deletedAt: null } }));
     });
   });
 
   it('updateItem - a manual edit overrides lockedFields (manual entry has priority)', async () => {
-    const existingItem = {
-      id: 'b1',
-      userId: 'u1',
-      lockedFields: ['name', 'vintage'],
-      deletedAt: null,
-    };
+    const existingItem = unitRow({}, { lockedFields: ['name', 'vintage'] });
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
-    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, name: 'New Name', producer: 'New Producer' } as never);
 
     // Default options → isManualEdit: true, matching the regular PATCH /:id
     // and guest write routes: a locked field must still accept a fresh
@@ -146,22 +171,13 @@ describe('InventoryService', () => {
       producer: 'New Producer',
     });
 
-    const updateCall = vi.mocked(prisma.inventoryItem.update).mock.calls[0];
-    expect(updateCall).toBeDefined();
-    const updateData = updateCall?.[0] as { data: Record<string, unknown> };
-    expect(updateData.data.name).toBe('New Name');
-    expect(updateData.data.producer).toBe('New Producer');
+    // #471: the description is written on the family.
+    expect(productUpdateData()).toMatchObject({ name: 'New Name', producer: 'New Producer' });
   });
 
   it('updateItem - a non-manual (automated) update still respects lockedFields', async () => {
-    const existingItem = {
-      id: 'b1',
-      userId: 'u1',
-      lockedFields: ['name', 'vintage'],
-      deletedAt: null,
-    };
+    const existingItem = unitRow({}, { lockedFields: ['name', 'vintage'] });
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
-    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, producer: 'New Producer' } as never);
 
     await service.updateItem(
       'u1',
@@ -174,35 +190,32 @@ describe('InventoryService', () => {
       { isManualEdit: false }
     );
 
-    const updateCall = vi.mocked(prisma.inventoryItem.update).mock.calls[0];
-    expect(updateCall).toBeDefined();
-    const updateData = updateCall?.[0] as { data: Record<string, unknown> };
-    expect(updateData.data.name).toBeUndefined();
-    expect(updateData.data.producer).toBe('New Producer');
+    expect(productUpdateData()?.name).toBeUndefined();
+    expect(productUpdateData()?.producer).toBe('New Producer');
   });
 
   // #706: a patch moving one end of the window is checked against the other.
   it('updateItem - refuses a patch whose window would end before the stored start', async () => {
-    const existingItem = { id: 'b1', userId: 'u1', lockedFields: [], deletedAt: null, peakMaturityFrom: 2035, peakMaturityTo: 2040 };
+    const existingItem = unitRow({}, { peakMaturityFrom: 2035, peakMaturityTo: 2040 });
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
 
     await expect(service.updateItem('u1', 'b1', { peakMaturityTo: 2028 })).rejects.toThrow(ZodError);
     expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    expect(prisma.product.update).not.toHaveBeenCalled();
   });
 
   it('updateItem - accepts moving one end while the window stays in order', async () => {
-    const existingItem = { id: 'b1', userId: 'u1', lockedFields: [], deletedAt: null, peakMaturityFrom: 2035, peakMaturityTo: 2040 };
+    const existingItem = unitRow({}, { peakMaturityFrom: 2035, peakMaturityTo: 2040 });
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
-    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, peakMaturityTo: 2036 } as never);
 
     await service.updateItem('u1', 'b1', { peakMaturityTo: 2036 });
-    expect(prisma.inventoryItem.update).toHaveBeenCalled();
+    expect(productUpdateData()).toMatchObject({ peakMaturityTo: 2036 });
   });
 
   it('bulkUpdate - refuses moving one end of the window before an item\'s stored start', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-      { id: 'b1', lockedFields: [], deletedAt: null, peakMaturityFrom: 2025, peakMaturityTo: 2040 },
-      { id: 'b2', lockedFields: [], deletedAt: null, peakMaturityFrom: 2035, peakMaturityTo: 2040 },
+      unitRow({ id: 'b1' }, { peakMaturityFrom: 2025, peakMaturityTo: 2040 }),
+      unitRow({ id: 'b2' }, { peakMaturityFrom: 2035, peakMaturityTo: 2040 }),
     ] as never);
 
     await expect(service.bulkUpdate('u1', ['b1', 'b2'], { peakMaturityTo: 2030 })).rejects.toThrow(ZodError);
@@ -214,13 +227,7 @@ describe('InventoryService', () => {
 
   it('updateItem - returns a conflict when expectedUpdatedAt no longer matches the server value', async () => {
     const serverUpdatedAt = new Date('2026-08-01T10:00:00.000Z');
-    const existingItem = {
-      id: 'b1',
-      userId: 'u1',
-      lockedFields: [],
-      deletedAt: null,
-      updatedAt: serverUpdatedAt,
-    };
+    const existingItem = unitRow({ updatedAt: serverUpdatedAt }, { name: 'Talbot' });
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
 
     const result = await service.updateItem('u1', 'b1', {
@@ -230,21 +237,15 @@ describe('InventoryService', () => {
       expectedUpdatedAt: '2026-08-01T09:00:00.000Z',
     } as never);
 
-    expect(result).toEqual({ conflict: true, serverItem: existingItem });
+    // The server's flat record: the unit with its family's description.
+    expect(result).toMatchObject({ conflict: true, serverItem: { id: 'b1', name: 'Talbot', updatedAt: serverUpdatedAt } });
     expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
   });
 
   it('updateItem - applies the patch when expectedUpdatedAt matches the server value', async () => {
     const serverUpdatedAt = new Date('2026-08-01T10:00:00.000Z');
-    const existingItem = {
-      id: 'b1',
-      userId: 'u1',
-      lockedFields: [],
-      deletedAt: null,
-      updatedAt: serverUpdatedAt,
-    };
+    const existingItem = unitRow({ updatedAt: serverUpdatedAt });
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
-    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, isOpened: true } as never);
 
     const result = await service.updateItem('u1', 'b1', {
       isOpened: true,
@@ -262,24 +263,91 @@ describe('InventoryService', () => {
   // #572: the edit form now sends only the changed fields. The other fields
   // must keep their scan/import source and stay unlocked.
   it('updateItem - a one-field manual edit locks that field only and keeps the other sources', async () => {
-    const existingItem = {
-      id: 'b1',
-      userId: 'u1',
-      lockedFields: ['notes'],
-      fieldSources: { name: 'ocr', vintage: 'ocr', region: 'import_csv' },
-      deletedAt: null,
-      purchasePrice: 20,
-    };
+    const existingItem = unitRow(
+      { lockedFields: ['fillLevel'], fieldSources: { purchasePlace: 'import_csv' }, purchasePrice: 20 },
+      { lockedFields: ['notes'], fieldSources: { name: 'ocr', vintage: 'ocr', region: 'import_csv' } },
+    );
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(existingItem as never);
-    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...existingItem, purchasePrice: 25 } as never);
 
     await service.updateItem('u1', 'b1', { purchasePrice: 25 });
 
     const updateData = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
     expect(updateData.data.purchasePrice).toBe(25);
-    expect(updateData.data.lockedFields).toEqual(['notes', 'purchasePrice']);
+    expect(updateData.data.lockedFields).toEqual(['fillLevel', 'purchasePrice']);
     // Provenance untouched: the column is not even rewritten.
     expect(updateData.data.fieldSources).toBeUndefined();
+    // #471: a unit-only edit leaves the family alone (no write, no updatedAt bump).
+    expect(prisma.product.update).not.toHaveBeenCalled();
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  // ─── #471: the flat record is split between the family and the unit ────────
+
+  describe('updateItem - family / unit split (#471)', () => {
+    it('writes the description on the family, then mirrors it onto its units without touching their updatedAt', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({}, { region: 'Bordeaux' }) as never);
+
+      await service.updateItem('u1', 'b1', { region: 'Médoc', purchasePrice: 25 });
+
+      expect(prisma.product.update).toHaveBeenCalledWith({
+        where: { id: 'p1' },
+        data: { region: 'Médoc', lockedFields: ['region'], updatedBy: 'u1' },
+      });
+      // The mirror: one SQL statement copying the family columns onto every unit of the family.
+      const [sql, ...values] = vi.mocked(prisma.$executeRaw).mock.calls[0] as unknown as [string[], ...unknown[]];
+      expect(sql.join('?')).toContain('UPDATE "bottles"');
+      expect(values).toContain('p1');
+      const unitData = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+      expect(unitData.data).toMatchObject({ purchasePrice: 25, lockedFields: ['purchasePrice'], updatedBy: 'u1' });
+      expect(unitData.data).not.toHaveProperty('region');
+      // Family first, then the unit, which comes back with the new mirror.
+      expect(vi.mocked(prisma.product.update).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
+    });
+
+    it('recomputes the alert status on the family when the drinking window moves', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow() as never);
+      const year = new Date().getFullYear();
+
+      await service.updateItem('u1', 'b1', { peakMaturityFrom: year - 1, peakMaturityTo: year + 2 });
+
+      expect(productUpdateData()).toMatchObject({ alertStatus: 'peak' });
+    });
+
+    it('never takes an alert status from the patch', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow() as never);
+
+      await service.updateItem('u1', 'b1', { alertStatus: 'peak', fillLevel: 50 });
+
+      expect(prisma.product.update).not.toHaveBeenCalled();
+    });
+
+    it('a non-manual update keeps the field sources on the side of each field', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow() as never);
+
+      await service.updateItem('u1', 'b1', { name: 'Talbot', bottleSize: '75cl' }, {
+        isManualEdit: false, fieldSources: { name: 'ocr', bottleSize: 'ocr' },
+      });
+
+      expect(productUpdateData()).toMatchObject({ name: 'Talbot', fieldSources: { name: 'ocr' } });
+      expect(productUpdateData()).not.toHaveProperty('lockedFields');
+      const unitData = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+      expect(unitData.data).toMatchObject({ bottleSize: '75cl', fieldSources: { bottleSize: 'ocr' } });
+    });
+
+    it('answers with the flat record, its locks and sources merged from both sides', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow() as never);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue(unitRow(
+        { region: 'stale', lockedFields: ['fillLevel', 'region'], fieldSources: { purchasePlace: 'import_csv', region: 'ocr' } },
+        { region: 'Médoc', lockedFields: ['region'], fieldSources: { name: 'ocr' } },
+      ) as never);
+
+      const result = await service.updateItem('u1', 'b1', { region: 'Médoc' });
+
+      const item = result && 'item' in result ? result.item : null;
+      expect(item).toMatchObject({ region: 'Médoc', fieldSources: { purchasePlace: 'import_csv', name: 'ocr' } });
+      expect([...(item?.lockedFields ?? [])].sort()).toEqual(['fillLevel', 'region']);
+    });
   });
 
   // ─── ISSUE_034: bulk actions must not be neutralised by lockedFields ──────
@@ -298,13 +366,7 @@ describe('InventoryService', () => {
 
   it('bulkUpdate - applies the patch to locked fields (a bulk action is a user action)', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-      {
-        id: 'b1',
-        lockedFields: ['fillLevel', 'isOpened'],
-        isOpened: false,
-        fillLevel: 100,
-        deletedAt: null,
-      },
+      unitRow({ lockedFields: ['fillLevel', 'isOpened'], isOpened: false, fillLevel: 100 }),
     ] as never);
     const txUpdate = mockTransactionClient();
 
@@ -320,8 +382,8 @@ describe('InventoryService', () => {
   it('bulkUpdate - only counts the items it really changed', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
       // Already opened and empty → the patch is a no-op for this one.
-      { id: 'noop', lockedFields: [], isOpened: true, fillLevel: 0, deletedAt: null },
-      { id: 'changed', lockedFields: [], isOpened: false, fillLevel: 80, deletedAt: null },
+      unitRow({ id: 'noop', isOpened: true, fillLevel: 0 }),
+      unitRow({ id: 'changed', isOpened: false, fillLevel: 80 }),
     ] as never);
     const txUpdate = mockTransactionClient();
 
@@ -333,6 +395,26 @@ describe('InventoryService', () => {
     expect(count).toBe(1);
     expect(txUpdate).toHaveBeenCalledTimes(1);
     expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({ where: { id: 'changed' } });
+  });
+
+  // #471: description fields go to the family, once per family.
+  it('bulkUpdate - writes a shared family once and the unit fields on each unit', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unitRow({ id: 'b1', cellarId: 'c1' }, { region: 'Bordeaux' }),
+      unitRow({ id: 'b2', cellarId: 'c1' }, { region: 'Bordeaux' }),
+    ] as never);
+
+    const count = await service.bulkUpdate('u1', ['b1', 'b2'], { region: 'Médoc', cellarId: 'c2' });
+
+    expect(count).toBe(2);
+    expect(prisma.product.update).toHaveBeenCalledTimes(1);
+    expect(productUpdateData()).toEqual({ region: 'Médoc', updatedBy: 'u1' });
+    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    for (const call of vi.mocked(prisma.inventoryItem.update).mock.calls) {
+      const data = (call[0] as { data: Record<string, unknown> }).data;
+      expect(data.cellarId).toBe('c2');
+      expect(data).not.toHaveProperty('region');
+    }
   });
 
   it('bulkUpdate - returns 0 and writes nothing when no item matches', async () => {
@@ -347,17 +429,7 @@ describe('InventoryService', () => {
   // ─── #573: a finished bottle gives its grid slot back ──────────────────────
 
   describe('finished bottle - grid slot (#573)', () => {
-    const slotted = {
-      id: 'b1',
-      userId: 'u1',
-      lockedFields: [],
-      deletedAt: null,
-      cellarId: 'c1',
-      slotColumn: 2,
-      slotRow: 3,
-      isOpened: true,
-      fillLevel: 25,
-    };
+    const slotted = unitRow({ cellarId: 'c1', slotColumn: 2, slotRow: 3, isOpened: true, fillLevel: 25 });
 
     function updateData() {
       return (vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> }).data;
@@ -367,7 +439,6 @@ describe('InventoryService', () => {
       // Every lookup returns a row: had the slot-occupancy query run, it
       // would have reported the slot as taken and refused the write.
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(slotted as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...slotted, fillLevel: 0, slotColumn: null, slotRow: null } as never);
 
       const result = await service.updateItem('u1', 'b1', { fillLevel: 0 });
 
@@ -384,7 +455,6 @@ describe('InventoryService', () => {
 
     it('updateItem - the released slot wins over a slot sent alongside', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(slotted as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({} as never);
 
       await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0, slotColumn: 2, slotRow: 3 });
 
@@ -396,7 +466,6 @@ describe('InventoryService', () => {
       vi.mocked(prisma.inventoryItem.findFirst)
         .mockResolvedValueOnce(slotted as never)
         .mockResolvedValueOnce(null); // the slot-occupancy check still runs, and passes
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ ...slotted, fillLevel: 50 } as never);
 
       const result = await service.updateItem('u1', 'b1', { fillLevel: 50 });
 
@@ -505,17 +574,61 @@ describe('InventoryService', () => {
   // only when it's actually local (uploads/products/*), never an external URL.
   describe('purgeTrashed', () => {
     it('only returns the local photo paths among the purged items', async () => {
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        { id: 'a', photoUrl: '/uploads/products/a.jpg' },
-        { id: 'b', photoUrl: 'https://example.com/b.jpg' },
-        { id: 'c', photoUrl: null },
-      ] as never);
+      vi.mocked(prisma.inventoryItem.findMany)
+        .mockResolvedValueOnce([
+          { id: 'a', photoUrl: '/uploads/products/a.jpg', productId: 'pa' },
+          { id: 'b', photoUrl: 'https://example.com/b.jpg', productId: 'pb' },
+          { id: 'c', photoUrl: null, productId: 'pc' },
+        ] as never)
+        .mockResolvedValueOnce([] as never); // no remaining unit references a.jpg
       vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 3 } as never);
 
       const result = await service.purgeTrashed();
 
       expect(result).toEqual({ count: 3, photoPaths: ['/uploads/products/a.jpg'] });
       expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['a', 'b', 'c'] } } });
+    });
+
+    // #471 (F1 review): the family keeps the photo; purging one unit must not delete it.
+    it('keeps a photo still referenced by a family or by another unit', async () => {
+      vi.mocked(prisma.inventoryItem.findMany)
+        .mockResolvedValueOnce([
+          { id: 'a', photoUrl: '/uploads/products/family.jpg', productId: 'p1' },
+          { id: 'b', photoUrl: '/uploads/products/sibling.jpg', productId: 'p2' },
+          { id: 'c', photoUrl: '/uploads/products/gone.jpg', productId: 'p3' },
+        ] as never)
+        .mockResolvedValueOnce([{ photoUrl: '/uploads/products/sibling.jpg' }] as never);
+      vi.mocked(prisma.product.findMany)
+        .mockResolvedValueOnce([] as never) // no family emptied
+        .mockResolvedValueOnce([{ photoUrl: null, otherPhotoUrls: ['/uploads/products/family.jpg'] }] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 3 } as never);
+
+      const result = await service.purgeTrashed();
+
+      expect(result.photoPaths).toEqual(['/uploads/products/gone.jpg']);
+      expect(prisma.product.deleteMany).not.toHaveBeenCalled();
+    });
+
+    // QP1: a family left without units goes with them, unless a tasting keeps it.
+    it('purges the families left without any unit and without tastings, with their photos', async () => {
+      vi.mocked(prisma.inventoryItem.findMany)
+        .mockResolvedValueOnce([
+          { id: 'a', photoUrl: null, productId: 'p1' },
+          { id: 'b', photoUrl: null, productId: 'p1' },
+          { id: 'c', photoUrl: null, productId: 'p2' },
+        ] as never)
+        .mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.product.findMany)
+        .mockResolvedValueOnce([{ photoUrl: '/uploads/products/p1.jpg', otherPhotoUrls: ['/uploads/products/p1-old.jpg'] }] as never)
+        .mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 3 } as never);
+
+      const result = await service.purgeTrashed();
+
+      const emptied = { id: { in: ['p1', 'p2'] }, items: { none: {} }, tastingNotes: { none: {} } };
+      expect(prisma.product.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: emptied }));
+      expect(prisma.product.deleteMany).toHaveBeenCalledWith({ where: emptied });
+      expect(result.photoPaths).toEqual(['/uploads/products/p1.jpg', '/uploads/products/p1-old.jpg']);
     });
 
     it('does nothing when nothing is past the retention window', async () => {
@@ -549,9 +662,13 @@ describe('InventoryService', () => {
     });
 
     it('deletes a file on disk that no item references any more', async () => {
-      fsReaddir.mockResolvedValue(['referenced.jpg', 'orphan.jpg']);
+      fsReaddir.mockResolvedValue(['referenced.jpg', 'orphan.jpg', 'family.jpg', 'merged.jpg']);
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
         { photoUrl: '/uploads/products/referenced.jpg' },
+      ] as never);
+      // #471: a family's photo and other photos are references too.
+      vi.mocked(prisma.product.findMany).mockResolvedValue([
+        { photoUrl: '/uploads/products/family.jpg', otherPhotoUrls: ['/uploads/products/merged.jpg'] },
       ] as never);
 
       const count = await service.sweepOrphanProductPhotos();
@@ -581,7 +698,7 @@ describe('InventoryService', () => {
     const created = () => vi.mocked(prisma.inventoryItem.create).mock.calls[0]?.[0]?.data as Record<string, any>;
 
     beforeEach(() => {
-      vi.mocked(prisma.inventoryItem.create).mockResolvedValue({ id: 'i1' } as never);
+      vi.mocked(prisma.inventoryItem.create).mockResolvedValue(unitRow({ id: 'i1' }) as never);
     });
 
     it('creates the family in the same write, with the description and the creator', async () => {
