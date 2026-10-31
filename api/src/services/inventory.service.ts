@@ -10,7 +10,7 @@ import { isFinishedItem, NO_SLOT } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
-  isProductField, nextLocksAndSources, pickProductFields, todayAsPurchaseDate, toItemView,
+  compareFamilyIds, isProductField, lockFamilies, nextLocksAndSources, pickProductFields, todayAsPurchaseDate, toItemView,
   type FlatItemView,
 } from '../lib/product-fields';
 import { writeFamilyDescription } from './product.service';
@@ -529,12 +529,17 @@ export class InventoryService {
     // over overlapping selections cannot deadlock.
     const existing = rows
       .map((row) => ({ row, view: toItemView(row) }))
-      .sort((a, b) => a.row.productId.localeCompare(b.row.productId) || a.row.id.localeCompare(b.row.id));
+      .sort((a, b) => compareFamilyIds(a.row.productId, b.row.productId) || compareFamilyIds(a.row.id, b.row.id));
     const familyPatch = pickProductFields(this.mapInputToDb(patch));
     const unitPatch = Object.fromEntries(Object.entries(this.mapInputToDb(patch)).filter(([key]) => !isProductField(key)));
 
     let updatedCount = 0;
     await prisma.$transaction(async (tx) => {
+      // #471 (lock order, #787 review): every family of the selection locked
+      // first, in sorted order, before any unit is written — even for a patch
+      // of unit fields only, which would otherwise deadlock (40P01) with a
+      // description write (family lock, then copy onto its units).
+      await lockFamilies(tx, rows.map((row) => row.productId));
       // #471: each family written once, under its lock — the window checked
       // against its stored other end (#706, a ZodError rolls everything
       // back) and its alert recomputed (writeFamilyDescription).
