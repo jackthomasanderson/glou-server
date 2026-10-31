@@ -147,7 +147,7 @@
     },
     "add": "Add",
     "edit": "Edit item",
-    "restore": "Restore asset",
+    "restore": "Restore the bottle",
     "trashDaysLeft_one": "{{count}} day left before permanent deletion",
     "trashDaysLeft_other": "{{count}} days left before permanent deletion",
     "trashEmpty": "The trash is empty.",
@@ -169,7 +169,6 @@
       "load": "Could not load the inventory."
     },
     "filterByCategory": "By category",
-    "filterByOwnership": "Ownership",
     "filterByCellar": "By cellar",
     "step1": "Basic information",
     "step2": "Category details",
@@ -330,8 +329,7 @@
       "tagSearchPlaceholder": "Search a tag…",
       "tagsShowMore": "Show more",
       "tagsShowLess": "Show less",
-      "noTagsFound": "No tags found",
-      "showReferences": "Show references"
+      "noTagsFound": "No tags found"
     },
     "filterByTags": "By tags",
     "filterByWineColor": "By color (wine)",
@@ -340,8 +338,6 @@
       "total": "Total stock",
       "full": "Full stock",
       "opened": "Opened assets",
-      "finished_one": "{{count}} finished bottle not counted",
-      "finished_other": "{{count}} finished bottles not counted",
       "openedCigar": "Opened cigars"
     },
     "truncated": "Only the {{limit}} most recent items are loaded: older ones do not appear in this list, the search or duplicate detection.",
@@ -2028,5 +2024,79 @@
     "switchToLight": "Switch to light mode",
     "activeDark": "Dark mode enabled",
     "activeLight": "Light mode enabled"
+  },
+  "familyList": {
+    "stockColumn": "Stock",
+    "openedChip": "Opened",
+    "openedChipCigar": "Opened box",
+    "filters": {
+      "gone": "No longer in the cellar"
+    },
+    "stock": {
+      "bottles_one": "{{count}} bottle",
+      "bottles_other": "{{count}} bottles",
+      "full_one": "{{count}} full",
+      "full_other": "{{count}} full",
+      "openedLevel": "1 opened ({{level}}%)",
+      "opened_one": "{{count}} opened",
+      "opened_other": "{{count}} opened",
+      "magnum_one": "incl. {{count}} magnum",
+      "magnum_other": "incl. {{count}} magnums",
+      "otherSize_one": "incl. {{count}} in {{size}}",
+      "otherSize_other": "incl. {{count}} in {{size}}",
+      "closedBoxes_one": "{{count}} closed box",
+      "closedBoxes_other": "{{count}} closed boxes",
+      "singleCigars_one": "{{count}} single",
+      "singleCigars_other": "{{count}} single",
+      "here_one": "{{count}} here",
+      "here_other": "{{count}} here",
+      "total_one": "{{count}} in all",
+      "total_other": "{{count}} in all",
+      "goneBottle": "No bottle left",
+      "goneCigar": "No cigar left",
+      "lastActivity": "Last on {{date}}",
+      "spoken": {
+        "bottles_one": "{{count}} bottle",
+        "bottles_other": "{{count}} bottles",
+        "cigars_one": "{{count}} cigar",
+        "cigars_other": "{{count}} cigars",
+        "full_one": "{{count}} full bottle",
+        "full_other": "{{count}} full bottles",
+        "openedLevel": "1 opened at {{level}}%",
+        "here": "{{here}} in this cellar, {{total}} in all"
+      },
+      "level": "{{level}}%"
+    },
+    "trash": {
+      "action": "Move to trash",
+      "title": "Move to trash?",
+      "confirm": "Move {{name}} to the trash?",
+      "confirmBottles_one": "Move {{name}} and its bottle to the trash?",
+      "confirmBottles_other": "Move {{name}} and its {{count}} bottles to the trash?",
+      "confirmCigars_one": "Move {{name}} and its cigar to the trash?",
+      "confirmCigars_other": "Move {{name}} and its {{count}} cigars to the trash?",
+      "restoreHint_one": "You can restore it from the trash for {{count}} day.",
+      "restoreHint_other": "You can restore it from the trash for {{count}} days.",
+      "tastingsWarning_one": "Its tasting will be erased when the trash is emptied.",
+      "tastingsWarning_other": "Its {{count}} tastings will be erased when the trash is emptied.",
+      "done": "{{name}} moved to the trash",
+      "wines": "Wines",
+      "bottles": "Bottles and cigars",
+      "withBottles_one": "with {{count}} bottle",
+      "withBottles_other": "with {{count}} bottles",
+      "withCigars_one": "with {{count}} cigar",
+      "withCigars_other": "with {{count}} cigars",
+      "restore": "Restore"
+    },
+    "selectWine": "Select {{name}}",
+    "bulkSummary": "{{wines}}, {{bottles}}",
+    "wines_one": "{{count}} wine",
+    "wines_other": "{{count}} wines",
+    "stats": {
+      "gone_one": "{{count}} drunk or gone, not counted",
+      "gone_other": "{{count}} drunk or gone, not counted",
+      "goneCigar_one": "{{count}} smoked or gone, not counted",
+      "goneCigar_other": "{{count}} smoked or gone, not counted"
+    }
   }
 }

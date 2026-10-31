@@ -23,6 +23,8 @@ export interface CollectionSummary {
 
 export interface InventoryItem {
   id: string;
+  /** #471: the wine (family) this bottle belongs to; absent on a locally drafted item. */
+  productId?: string;
   userId: string;
   category: InventoryCategory;
   name: string;

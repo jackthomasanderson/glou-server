@@ -18,6 +18,14 @@ interface BulkActionDialogProps {
   onApply: (patch: Partial<InventoryItem>) => void;
   isSubmitting?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
+  /**
+   * #471: the selection is wines, not bottles (until lot P). Opening or the
+   * level of a whole group would turn its N bottles into one: only the
+   * cellar and the tags are offered, presets included.
+   */
+  wineSelection?: boolean;
+  /** Replaces the default "N items" subtitle ("3 vins, 14 bouteilles"). */
+  subtitle?: string;
 }
 
 const NO_FIELDS_ENABLED = {
@@ -46,6 +54,8 @@ export function BulkActionDialog({
   onApply,
   isSubmitting,
   t,
+  wineSelection = false,
+  subtitle,
 }: BulkActionDialogProps) {
   const { data: cellars } = useCellars();
   const { data: presets } = useBulkPresets();
@@ -85,8 +95,8 @@ export function BulkActionDialog({
     const patch: Partial<InventoryItem> = {};
     if (enabledFields.cellarId) patch.cellarId = values.cellarId;
     if (enabledFields.tags) patch.tags = values.tags;
-    if (enabledFields.isOpened) patch.isOpened = values.isOpened;
-    if (enabledFields.fillLevel) patch.fillLevel = values.fillLevel;
+    if (enabledFields.isOpened && !wineSelection) patch.isOpened = values.isOpened;
+    if (enabledFields.fillLevel && !wineSelection) patch.fillLevel = values.fillLevel;
     return patch;
   };
 
@@ -105,8 +115,8 @@ export function BulkActionDialog({
     const newValues = { ...values };
     if (p.cellarId !== undefined) { newEnabled.cellarId = true; newValues.cellarId = p.cellarId; }
     if (p.tags !== undefined) { newEnabled.tags = true; newValues.tags = p.tags; }
-    if (p.isOpened !== undefined) { newEnabled.isOpened = true; newValues.isOpened = p.isOpened; }
-    if (p.fillLevel !== undefined) { newEnabled.fillLevel = true; newValues.fillLevel = p.fillLevel; }
+    if (p.isOpened !== undefined && !wineSelection) { newEnabled.isOpened = true; newValues.isOpened = p.isOpened; }
+    if (p.fillLevel !== undefined && !wineSelection) { newEnabled.fillLevel = true; newValues.fillLevel = p.fillLevel; }
     setEnabledFields(newEnabled);
     setValues(newValues);
   };
@@ -156,7 +166,7 @@ export function BulkActionDialog({
           <>
             <ModalHeader className="flex flex-col gap-0.5 pb-2">
               <span className="font-bold text-base">{t('bulk.title')}</span>
-              <span className="text-xs text-foreground-500 font-normal">{t('bulk.subtitle', { count: selectedItems.length })}</span>
+              <span className="text-xs text-foreground-500 font-normal">{subtitle ?? t('bulk.subtitle', { count: selectedItems.length })}</span>
             </ModalHeader>
 
             <ModalBody className="gap-4 py-2">
@@ -265,6 +275,7 @@ export function BulkActionDialog({
                   )}
                 </div>
 
+                {!wineSelection && (<>
                 {/* isOpened */}
                 <div>
                   <Checkbox isSelected={enabledFields.isOpened} onValueChange={() => toggleField('isOpened')} size="sm">
@@ -305,6 +316,7 @@ export function BulkActionDialog({
                     </div>
                   )}
                 </div>
+                </>)}
               </div>
 
               {/* Preview */}

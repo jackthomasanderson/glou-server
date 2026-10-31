@@ -1,5 +1,5 @@
 import type { InventoryItem } from '@/lib/inventory/types';
-import { isFinishedItem } from '@/lib/inventory/ownership';
+import { isFinishedState } from '@shared/units';
 
 export type StockChoice = 'opened' | 'consumed' | 'removeOneCigar' | 'ignore';
 
@@ -22,7 +22,7 @@ export function stockChoicesFor(item?: TastedItemStock): StockChoice[] {
   // cigar less, never the whole box emptied or "opened".
   if (item.category === 'cigar') return (item.quantity ?? 0) > 0 ? ['removeOneCigar'] : [];
   // A finished bottle has nothing left to update.
-  if (isFinishedItem(item)) return [];
+  if (isFinishedState({ isOpened: item.isOpened, fillLevel: item.fillLevel ?? null })) return [];
   // #595: an opened bottle is already opened; "opened" would put its level
   // back to 50 % and replace its opening date.
   return item.isOpened ? ['consumed'] : ['opened', 'consumed'];
