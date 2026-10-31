@@ -219,8 +219,11 @@ test.describe('rotating inventory by group (#471, FEAT-100)', () => {
     expect((await okData<{ id: string; name: string }[]>(await api.get('/api/products'))).filter((card) => card.name === name)).toHaveLength(1);
   });
 
-  // Review of #792: two finds of the same known wine, closed together.
-  test('two finds of the same known wine both join it, in one group', async ({ page }) => {
+  // Review of #792: two finds of the same known wine, closed together, both
+  // join it. A find has no purchase day, so each one is a line of its own
+  // (copies without a purchase day never complete a group, D5) — and the
+  // closure never fails on the session's one-entry-per-line rule.
+  test('two finds of the same known wine both join it', async ({ page }) => {
     const api = page.request;
     const { cellarId, sessionId, productId } = await groupInCount(api, 'TwoFinds', 1);
     const name = (await detail(api, productId)).name;
@@ -237,7 +240,8 @@ test.describe('rotating inventory by group (#471, FEAT-100)', () => {
 
     expect(closed).toMatchObject({ appliedCount: 2, skipped: [] });
     expect(await cellarStats(api, cellarId)).toMatchObject({ bottles: 6 });
-    expect((await detail(api, productId)).items.filter((unit) => !unit.writtenOffAt).map((unit) => unit.quantity ?? 1).sort()).toEqual([1, 5]);
+    expect((await detail(api, productId)).items.filter((unit) => !unit.writtenOffAt).map((unit) => unit.quantity ?? 1).sort((x, y) => x - y)).toEqual([1, 2, 3]);
+    expect((await okData<{ id: string; name: string }[]>(await api.get('/api/products'))).filter((card) => card.name === name)).toHaveLength(1);
   });
 
   // Review of #792: a closure sent twice at once applies once.
