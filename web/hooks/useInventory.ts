@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryClient } from '@/lib/inventory/client';
 import { InventoryItem, InventoryHistoryEntry } from '@/lib/inventory/types';
 import { mirrorInventoryToCache, getCachedInventory } from '@/lib/offline/db';
-import { enqueueMutation } from '@/lib/offline/syncEngine';
+import { enqueueMutation, overlayQueuedChanges } from '@/lib/offline/syncEngine';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
 
@@ -59,7 +59,8 @@ export function useInventory(options?: { enabled?: boolean }) {
       try {
         const { items, truncated } = await inventoryClient.listWithMeta();
         queryClient.setQueryData(INVENTORY_TRUNCATED_KEY, truncated);
-        return items;
+        // #585: changes still waiting in the offline queue stay on screen.
+        return await overlayQueuedChanges(items);
       } catch (error) {
         // Offline fallback: serve the last mirrored snapshot instead of an
         // error/blank state. Only re-throw (surfacing the real error) if we

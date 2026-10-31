@@ -88,7 +88,7 @@ export function ConnectivityIndicator() {
           <>
             <ModalHeader>{t('connectivity.panel.title')}</ModalHeader>
             <ModalBody>
-              <PendingChangesList />
+              <PendingChangesList onResolveConflict={onClose} />
             </ModalBody>
             <ModalFooter>
               <Button variant="light" onPress={onClose}>{t('connectivity.panel.close')}</Button>

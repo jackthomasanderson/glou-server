@@ -700,6 +700,12 @@ export function SystemConfigSection() {
                       <Chip size="sm" variant="flat" radius="sm" color={run.success ? 'success' : 'danger'}>
                         {t(`adminConfig.backup.history.status.${run.success ? 'success' : 'error'}`)}
                       </Chip>
+                      {/* FEAT-94: taken before a migration, never purged by retention (its file name says so). */}
+                      {run.filePath?.split(/[\\/]/).pop()?.startsWith('glou-backup-before-migration-') && (
+                        <Chip size="sm" variant="flat" radius="sm" color="warning">
+                          {t('adminConfig.backup.history.beforeMigration')}
+                        </Chip>
+                      )}
                       <div className="flex-1 min-w-0">
                         {run.success ? (
                           <p className="text-xs text-foreground-500 truncate">{formatBytes(run.fileSizeBytes)}</p>
