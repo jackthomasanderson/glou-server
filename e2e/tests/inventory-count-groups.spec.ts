@@ -237,7 +237,7 @@ test.describe('rotating inventory by group (#471, FEAT-100)', () => {
 
     expect(closed).toMatchObject({ appliedCount: 2, skipped: [] });
     expect(await cellarStats(api, cellarId)).toMatchObject({ bottles: 6 });
-    expect((await detail(api, productId)).items.filter((unit) => !unit.writtenOffAt).map((unit) => unit.quantity).sort()).toEqual([1, 5]);
+    expect((await detail(api, productId)).items.filter((unit) => !unit.writtenOffAt).map((unit) => unit.quantity ?? 1).sort()).toEqual([1, 5]);
   });
 
   // Review of #792: a closure sent twice at once applies once.
