@@ -14,10 +14,13 @@ vi.mock('../../src/lib/prisma', () => ({
   },
 }));
 
-// #471: the alert status is written on the family (writeProductFields mirrors it).
+// #471: the alert status is written on the family with its mirror, in SQL
+// (writeAlertStatus); the pause through writeProductFields, under the lock.
 vi.mock('../../src/lib/product-fields', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../src/lib/product-fields')>()),
   writeProductFields: vi.fn(),
+  writeAlertStatus: vi.fn(),
+  lockFamily: vi.fn(),
 }));
 
 const { send } = vi.hoisted(() => ({ send: vi.fn().mockResolvedValue(undefined) }));
@@ -29,7 +32,7 @@ vi.mock('../../src/services/system-config.service', () => ({
 }));
 
 import { prisma } from '../../src/lib/prisma';
-import { writeProductFields } from '../../src/lib/product-fields';
+import { lockFamily, writeAlertStatus, writeProductFields } from '../../src/lib/product-fields';
 import { computeAlertStatus, getAlerts, recomputeAlertStatuses, toggleAlertPause } from '../../src/services/alert.service';
 
 /** Lets the fire-and-forget `void notifyPeakReached(...).catch(...)` settle before assertions run. */
@@ -153,13 +156,11 @@ describe('recomputeAlertStatuses', () => {
     const result = await recomputeAlertStatuses();
 
     expect(result).toEqual({ scanned: 2, updated: 1 });
-    expect(writeProductFields).toHaveBeenCalledTimes(1);
-    expect(writeProductFields).toHaveBeenCalledWith(
-      {}, 'p-stale',
-      // `updatedAt` is carried over untouched: this maintenance pass must not
-      // look like a user edit (sort order + offline-sync conflict detection).
-      { alertStatus: 'peak', updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-    );
+    expect(writeAlertStatus).toHaveBeenCalledTimes(1);
+    // In SQL, no `updatedAt` moves: this maintenance pass must not look like a
+    // user edit, nor carry back an `updatedAt` read before a concurrent edit.
+    expect(writeAlertStatus).toHaveBeenCalledWith(prisma, 'p-stale', 'peak');
+    expect(writeProductFields).not.toHaveBeenCalled();
   });
 
   it('only scans items that carry a drinking window', async () => {
@@ -309,7 +310,7 @@ describe('recomputeAlertStatuses', () => {
       await recomputeAlertStatuses();
       await flush();
 
-      expect(writeProductFields).not.toHaveBeenCalled();
+      expect(writeAlertStatus).not.toHaveBeenCalled();
       expect(send).not.toHaveBeenCalled();
     });
 
@@ -338,10 +339,7 @@ describe('recomputeAlertStatuses', () => {
 
       // The stored column still follows the calendar...
       expect(result).toEqual({ scanned: 1, updated: 1 });
-      expect(writeProductFields).toHaveBeenCalledWith(
-        {}, 'p-drunk',
-        { alertStatus: 'peak', updatedAt: new Date('2026-01-02T00:00:00.000Z') },
-      );
+      expect(writeAlertStatus).toHaveBeenCalledWith(prisma, 'p-drunk', 'peak');
       // ...but nobody is told to open a bottle already drunk.
       expect(send).not.toHaveBeenCalled();
     });
@@ -369,7 +367,7 @@ describe('recomputeAlertStatuses', () => {
       await recomputeAlertStatuses();
       await flush();
 
-      expect(writeProductFields).toHaveBeenCalledTimes(2);
+      expect(writeAlertStatus).toHaveBeenCalledTimes(2);
       // A single-bottle message about the one in stock, not a two-bottle digest.
       expect(send).toHaveBeenCalledTimes(1);
       expect(send.mock.calls[0]?.[0].subject).toBe('At peak maturity: Wine half — Domaine X (2020)');
@@ -431,14 +429,17 @@ describe('alerts exclude non-owned references (FEAT-87)', () => {
 
 // #471: pausing the alerts is about the wine, so it is written on the family.
 describe('toggleAlertPause', () => {
-  it('flips the family\'s pause, mirrored onto its units', async () => {
-    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(
-      { id: 'b1', productId: 'p1', alertsPaused: true, product: { alertsPaused: false } } as never,
-    );
+  it('flips the family\'s pause as stored once locked, mirrored onto its units', async () => {
+    const tx = { product: { findUniqueOrThrow: vi.fn().mockResolvedValue({ alertsPaused: false }) } };
+    vi.mocked(prisma.$transaction).mockImplementationOnce(((callback: (t: unknown) => unknown) => callback(tx)) as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ productId: 'p1' } as never);
 
     expect(await toggleAlertPause('b1')).toBe(true);
 
-    expect(writeProductFields).toHaveBeenCalledWith({}, 'p1', { alertsPaused: true });
+    expect(lockFamily).toHaveBeenCalledWith(tx, 'p1');
+    expect(vi.mocked(lockFamily).mock.invocationCallOrder[0])
+      .toBeLessThan(tx.product.findUniqueOrThrow.mock.invocationCallOrder[0]);
+    expect(writeProductFields).toHaveBeenCalledWith(tx, 'p1', { alertsPaused: true });
     expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
   });
 

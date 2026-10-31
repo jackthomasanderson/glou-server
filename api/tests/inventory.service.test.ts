@@ -20,6 +20,7 @@ vi.mock('../src/lib/prisma', () => ({
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
+    tastingNote: { deleteMany: vi.fn() },
     $executeRaw: vi.fn(),
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -241,13 +242,23 @@ describe('InventoryService', () => {
 
   it('bulkUpdate - refuses moving one end of the window before an item\'s stored start', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-      unitRow({ id: 'b1' }, { peakMaturityFrom: 2025, peakMaturityTo: 2040 }),
-      unitRow({ id: 'b2' }, { peakMaturityFrom: 2035, peakMaturityTo: 2040 }),
+      unitRow({ id: 'b2', productId: 'p2' }),
+      unitRow({ id: 'b1', productId: 'p1' }),
     ] as never);
+    // #471: checked on each family as stored once locked, in the transaction.
+    const windows: Record<string, Record<string, unknown>> = {
+      p1: { peakMaturityFrom: 2025, peakMaturityTo: 2040 },
+      p2: { peakMaturityFrom: 2035, peakMaturityTo: 2040 },
+    };
+    vi.mocked(prisma.product.findUniqueOrThrow).mockImplementation((async (args: { where: { id: string } }) =>
+      family({ id: args.where.id, ...windows[args.where.id] })) as never);
 
+    // The ZodError rolls the whole transaction back, b1's family included.
     await expect(service.bulkUpdate('u1', ['b1', 'b2'], { peakMaturityTo: 2030 })).rejects.toThrow(ZodError);
-    // Nothing is written, not even for b1, whose window would have stayed in order.
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    // Families locked in a stable order (by id): no deadlock between two bulk actions.
+    expect(vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1])).toEqual(['p1', 'p2']);
+    // p2's reversed window is never written.
+    expect(vi.mocked(prisma.product.update).mock.calls.map((call) => call[0].where.id)).toEqual(['p1']);
   });
 
   // ─── FEAT-16/23: offline sync optimistic concurrency ──────────────────────
@@ -701,27 +712,29 @@ describe('InventoryService', () => {
       const result = await service.purgeTrashed();
 
       const where = vi.mocked(prisma.product.findMany).mock.calls[0][0]!.where as Record<string, unknown>;
-      expect(where).toMatchObject({ items: { none: {} }, tastingNotes: { none: {} } });
-      // Emptied by this purge (and not in the trash themselves), or trashed past the retention.
+      expect(where).toMatchObject({ items: { none: {} } });
       expect(where.OR).toEqual([
-        { id: { in: ['p1', 'p2'] }, deletedAt: null },
+        // QP1: emptied by this purge (and not in the trash themselves), without tastings…
+        { id: { in: ['p1', 'p2'] }, deletedAt: null, tastingNotes: { none: {} } },
+        // …QP7: or trashed themselves past the retention, tastings or not.
         { deletedAt: { lt: expect.any(Date) } },
       ]);
       expect(prisma.product.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['p1'] } } });
       expect(result.photoPaths).toEqual(['/uploads/products/p1.jpg', '/uploads/products/p1-old.jpg']);
     });
 
-    // #471 (F2 review): QP1 vs D10 — a family trashed on its own that holds a
-    // tasting outlives the purge, and must then leave the trash ("Plus en cave").
-    it('takes out of the trash a family past the retention that a tasting keeps', async () => {
+    // QP7: a wine the member put in the trash himself is erased with its
+    // tastings — they would otherwise outlive it (`productId` is SET NULL).
+    it('deletes the tastings of the families it purges, before them', async () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.product.findMany).mockResolvedValueOnce([{ id: 'p9', photoUrl: null, otherPhotoUrls: [] }] as never);
 
       await service.purgeTrashed();
 
-      expect(prisma.product.updateMany).toHaveBeenCalledWith({
-        where: expect.objectContaining({ items: { none: {} }, deletedAt: { lt: expect.any(Date) }, tastingNotes: { some: {} } }),
-        data: { deletedAt: null },
-      });
+      expect(prisma.tastingNote.deleteMany).toHaveBeenCalledWith({ where: { productId: { in: ['p9'] } } });
+      expect(vi.mocked(prisma.tastingNote.deleteMany).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.product.deleteMany).mock.invocationCallOrder[0]);
+      expect(prisma.product.updateMany).not.toHaveBeenCalled();
     });
 
     // #471 (F2 review): the startup purge passes no client — it must still be

@@ -1,8 +1,9 @@
 import { Prisma, type Product } from '@prisma/client';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
-import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import {
-  fieldSourcesOf, isProductField, nextLocksAndSources, toUnitView, writeProductFields,
+  fieldSourcesOf, isProductField, lockFamily, nextLocksAndSources, toUnitView, writeProductFields,
   type ProductField, type ProductWrite, type UnitRow,
 } from '../lib/product-fields';
 import { isSlotTaken } from '../lib/slots';
@@ -33,30 +34,57 @@ const retentionCutoff = () => new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 
 
 type ProductRow = Product & { collections: ProductCollection[] };
 
-function toProductView(row: ProductRow, items: ItemView[]): ProductView {
+const unitViews = (rows: UnitRow[]) => rows.map(toUnitView);
+
+function toProductView(row: ProductRow, items: ItemView[], lastActivityAt: Date | null): ProductView {
   const { fieldSources, collections, ...family } = row;
   const sources = fieldSourcesOf(fieldSources);
   return {
     ...family,
     fieldSources: Object.keys(sources).length > 0 ? sources : null,
     readiness: computeReadiness(row.curveShape, row.peakMaturityFrom, row.peakMaturityTo),
+    lastActivityAt,
     collections,
     items,
   };
 }
 
-const unitViews = (rows: UnitRow[]) => rows.map(toUnitView);
+const latest = (a: Date | null | undefined, b: Date | null | undefined): Date | null =>
+  !a ? b ?? null : !b ? a : a > b ? a : b;
 
 /**
- * #471 (F2 review): serialises every write of a family's fields. Two members
- * changing the region and the colour through two sibling bottles, or each one
- * end of the drinking window, used to read the family outside the
- * transaction and recompute its locks, sources, window and alert from that
- * stale copy: one lock was lost, or the window ended up reversed.
+ * §10.5: when each family was last tasted or had a bottle finished — what a
+ * "Plus en cave" card shows. Two grouped queries for the whole page, never
+ * one per family. A finished bottle's date is its last write (finishing it).
  */
-async function lockFamily(tx: PrismaClientOrTx, productId: string): Promise<void> {
-  await tx.$queryRaw`SELECT 1 FROM "products" WHERE "id" = ${productId} FOR UPDATE`;
+async function lastActivities(productIds: string[]): Promise<Map<string, Date | null>> {
+  if (productIds.length === 0) return new Map();
+  const [tastings, finished] = await Promise.all([
+    prisma.tastingNote.groupBy({ by: ['productId'], where: { productId: { in: productIds } }, _max: { tastedAt: true } }),
+    prisma.inventoryItem.groupBy({
+      by: ['productId'],
+      where: { productId: { in: productIds }, deletedAt: null, ...OWNED_ITEM_FILTER, ...FINISHED_ITEM_STATE },
+      _max: { updatedAt: true },
+    }),
+  ]);
+  const activity = new Map<string, Date | null>();
+  for (const row of tastings) if (row.productId) activity.set(row.productId, row._max.tastedAt);
+  for (const row of finished) activity.set(row.productId, latest(activity.get(row.productId), row._max.updatedAt));
+  return activity;
 }
+
+/** Families and their units as served, the last activity read for all of them at once. */
+async function toProductViews<R extends ProductRow & { items: UnitRow[] }>(
+  rows: R[],
+  pickItems: (row: R) => UnitRow[] = (row) => row.items,
+): Promise<ProductView[]> {
+  const activity = await lastActivities(rows.map((row) => row.id));
+  return rows.map((row) => {
+    const { items: _items, ...family } = row;
+    return toProductView(family, unitViews(pickItems(row)), activity.get(row.id) ?? null);
+  });
+}
+
 
 export interface FamilyWriteOptions {
   userId: string;
@@ -67,6 +95,8 @@ export interface FamilyWriteOptions {
   autoLock: boolean;
   /** An automated update (OCR) leaves the family's locked fields alone. */
   respectLocks: boolean;
+  /** Write only the fields whose value moves (a bulk action), not every field sent. */
+  onlyChanged?: boolean;
 }
 
 /**
@@ -96,7 +126,9 @@ export async function writeFamilyDescription(
     .filter(([field, value]) => JSON.stringify(stored[field]) !== JSON.stringify(value))
     .map(([field, value]) => ({ field, from: stored[field], to: value }));
 
-  const data = { ...fields } as ProductWrite;
+  const data = (options.onlyChanged
+    ? Object.fromEntries(changes.map(({ field, to }) => [field, to]))
+    : { ...fields }) as ProductWrite;
   Object.assign(data, nextLocksAndSources(current, isProductField, {
     touched: options.touched ?? Object.keys(patch),
     fieldSources: options.fieldSources,
@@ -134,7 +166,7 @@ export const productService = {
       take: PRODUCT_LIST_LIMIT + 1,
     });
     return {
-      data: rows.slice(0, PRODUCT_LIST_LIMIT).map(({ items, ...row }) => toProductView(row, unitViews(items))),
+      data: await toProductViews(rows.slice(0, PRODUCT_LIST_LIMIT)),
       truncated: rows.length > PRODUCT_LIST_LIMIT,
     };
   },
@@ -145,16 +177,16 @@ export const productService = {
       where: { id, deletedAt: null },
       include: {
         collections: COLLECTIONS_INCLUDE,
-        items: { where: { deletedAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        items: { where: { deletedAt: null, ...OWNED_ITEM_FILTER }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
       },
     });
     if (!row) return null;
-    const { items, ...family } = row;
-    const [tastings, history] = await Promise.all([
+    const [[view], tastings, history] = await Promise.all([
+      toProductViews([row]),
       prisma.tastingNote.findMany({ where: { productId: id }, orderBy: { tastedAt: 'desc' } }),
       readFieldHistory({ productId: id }),
     ]);
-    return { ...toProductView(family, unitViews(items)), tastings, history };
+    return { ...view, tastings, history };
   },
 
   /**
@@ -191,8 +223,8 @@ export const productService = {
       include: { collections: COLLECTIONS_INCLUDE, items: { where: IN_STOCK_ITEM_FILTER, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } },
     });
     if (!row) return null;
-    const { items, ...family } = row;
-    return toProductView(family, unitViews(items));
+    const [view] = await toProductViews([row]);
+    return view;
   },
 
   /**
@@ -203,7 +235,8 @@ export const productService = {
   async trash(id: string): Promise<{ deletedAt: Date; itemIds: string[] } | null> {
     return prisma.$transaction(async (tx) => {
       await lockFamily(tx, id);
-      const current = await tx.product.findFirst({ where: { id, deletedAt: null }, select: { id: true } });
+      // D10: a family computed as trashed (every unit in the trash) is not listed — 404 too.
+      const current = await tx.product.findFirst({ where: { id, ...LISTED_PRODUCT_FILTER }, select: { id: true } });
       if (!current) return null;
       const deletedAt = new Date();
       const units = await tx.inventoryItem.findMany({ where: { productId: id, deletedAt: null }, select: { id: true } });
@@ -260,14 +293,12 @@ export const productService = {
       orderBy: { deletedAt: 'desc' },
       include: {
         collections: COLLECTIONS_INCLUDE,
-        items: { where: { deletedAt: { not: null } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        items: { where: { deletedAt: { not: null }, ...OWNED_ITEM_FILTER }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
       },
     });
-    return rows.flatMap(({ items, ...family }) => {
-      const { deletedAt } = family;
-      if (!deletedAt) return [];
-      const trashedTogether = items.filter((unit) => unit.deletedAt?.getTime() === deletedAt.getTime());
-      return [{ ...toProductView(family, unitViews(trashedTogether)), deletedAt }];
-    });
+    const trashedTogether = (row: (typeof rows)[number]) =>
+      row.items.filter((unit) => unit.deletedAt?.getTime() === row.deletedAt?.getTime());
+    const views = await toProductViews(rows, trashedTogether);
+    return views.flatMap((view) => (view.deletedAt ? [{ ...view, deletedAt: view.deletedAt }] : []));
   },
 };

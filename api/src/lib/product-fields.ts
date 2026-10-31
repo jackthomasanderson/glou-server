@@ -1,6 +1,6 @@
 import { Prisma, type Product } from '@prisma/client';
 import type { PrismaClientOrTx } from './prisma';
-import type { FieldSource } from '../../../shared/inventory';
+import type { AlertStatus, FieldSource } from '../../../shared/inventory';
 import type { ItemView } from '../../../shared/product';
 
 /**
@@ -76,6 +76,29 @@ export async function writeProductFields(client: PrismaClientOrTx, productId: st
   const product = await client.product.update({ where: { id: productId }, data });
   await client.$executeRaw`UPDATE "bottles" AS b SET ${MIRROR_ASSIGNMENTS} FROM "products" AS p WHERE p."id" = b."productId" AND b."productId" = ${productId}`;
   return product;
+}
+
+/**
+ * #471 (F2 review): serialises every write of a family's fields. Two members
+ * changing the region and the colour through two sibling bottles, or each one
+ * end of the drinking window, used to read the family outside the
+ * transaction and recompute its locks, sources, window and alert from that
+ * stale copy: one lock was lost, or the window ended up reversed. Call it in
+ * the transaction, before reading the family.
+ */
+export async function lockFamily(client: PrismaClientOrTx, productId: string): Promise<void> {
+  await client.$queryRaw`SELECT 1 FROM "products" WHERE "id" = ${productId} FOR UPDATE`;
+}
+
+/**
+ * #471: the derived `alertStatus` of a family (and its mirror), written in
+ * SQL so that no `updatedAt` moves — it changes with the calendar, not with
+ * an edit, and must neither put a client's `expectedUpdatedAt` in conflict
+ * nor carry back an `updatedAt` read earlier.
+ */
+export async function writeAlertStatus(client: PrismaClientOrTx, productId: string, status: AlertStatus): Promise<void> {
+  await client.$executeRaw`UPDATE "products" SET "alertStatus" = ${status}::"AlertStatus" WHERE "id" = ${productId}`;
+  await client.$executeRaw`UPDATE "bottles" SET "alertStatus" = ${status}::"AlertStatus" WHERE "productId" = ${productId}`;
 }
 
 /** A unit row read with its family (and the family's collections, when included). */

@@ -13,7 +13,8 @@ const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
 type Unit = { id: string; productId: string; updatedAt: string; deletedAt: string | null; purchasedAt: string | null };
 type Family = {
   id: string; name: string; region: string | null; color: string | null; updatedAt: string; lockedFields: string[];
-  peakMaturityFrom: number | null; peakMaturityTo: number | null; deletedAt: string | null;
+  peakMaturityFrom: number | null; peakMaturityTo: number | null; deletedAt: string | null; lastActivityAt: string | null;
+  alertsPaused: boolean;
   collections: { id: string }[]; items: Unit[];
 };
 type Detail = Family & {
@@ -105,8 +106,11 @@ test.describe('families API (#471)', () => {
     families.push(unit.productId);
     await okData(await api.patch(`/api/inventory/${unit.id}`, { data: { isOpened: true, fillLevel: 0 } }));
 
-    // Listed, with no bottle in stock; the detail still holds the drunk one.
-    expect(await listedFamily(api, unit.productId)).toMatchObject({ items: [] });
+    // Listed, with no bottle in stock, dated by the bottle drunk (§10.5);
+    // the detail still holds it.
+    const known = await listedFamily(api, unit.productId);
+    expect(known).toMatchObject({ items: [] });
+    expect(known?.lastActivityAt).toEqual(expect.any(String));
     const detail = await okData<Detail>(await api.get(`/api/products/${unit.productId}`));
     expect(detail.items.map((item) => item.id)).toEqual([unit.id]);
 
@@ -132,6 +136,8 @@ test.describe('families API (#471)', () => {
 
     await okData(await api.delete(`/api/inventory/${unit.id}`));
     expect(await listedFamily(api, unit.productId)).toBeUndefined();
+    // Computed as in the trash: not a family one can trash again (D10).
+    expect((await api.delete(`/api/products/${unit.productId}`)).status()).toBe(404);
 
     await okData(await api.post(`/api/inventory/${unit.id}/restore`));
     expect((await listedFamily(api, unit.productId))?.items.map((item) => item.id)).toEqual([unit.id]);
@@ -166,6 +172,18 @@ test.describe('families API (#471)', () => {
       const family = await okData<Detail>(await api.get(`/api/products/${unit.productId}`));
       expect(family.peakMaturityFrom === null || family.peakMaturityTo === null).toBe(true);
     }
+  });
+
+  // A1 review: the pause is flipped on the family as stored once locked —
+  // an even number of toggles, however concurrent, leaves it as it was.
+  test('concurrent alert pause toggles never cancel each other out', async ({ page }) => {
+    const api = page.request;
+    const unit = await addWine(api, `Pause ${stamp()}`);
+    families.push(unit.productId);
+
+    const answers = await Promise.all(Array.from({ length: 6 }, () => api.patch(`/api/alerts/${unit.id}/pause`)));
+    for (const answer of answers) expect(answer.ok(), await answer.text()).toBe(true);
+    expect((await okData<Detail>(await api.get(`/api/products/${unit.productId}`))).alertsPaused).toBe(false);
   });
 
   // F2 review: a collection holds the family, whichever bottle named it.

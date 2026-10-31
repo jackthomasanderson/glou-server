@@ -11,8 +11,8 @@ vi.mock('../../src/lib/prisma', () => ({
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
-    inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
-    tastingNote: { findMany: vi.fn() },
+    inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), groupBy: vi.fn() },
+    tastingNote: { findMany: vi.fn(), groupBy: vi.fn() },
     auditLog: { findMany: vi.fn() },
     user: { findMany: vi.fn() },
     $queryRaw: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock('../../src/lib/prisma', () => ({
 import { prisma } from '../../src/lib/prisma';
 import { productService } from '../../src/services/product.service';
 import { PRODUCT_FIELDS } from '../../src/lib/product-fields';
-import { IN_STOCK_ITEM_FILTER } from '../../src/lib/finished-item';
+import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../../src/lib/finished-item';
 
 /** A family as Prisma returns it, every description field empty unless given. */
 function family(fields: Record<string, unknown> = {}) {
@@ -64,6 +64,8 @@ beforeEach(() => {
   vi.mocked(prisma.auditLog.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.tastingNote.groupBy).mockResolvedValue([] as never);
+  vi.mocked(prisma.inventoryItem.groupBy).mockResolvedValue([] as never);
 });
 
 describe('productService.list (D9)', () => {
@@ -112,6 +114,30 @@ describe('productService.list (D9)', () => {
     expect(data[1]).toMatchObject({ id: 'p2', items: [], readiness: null, fieldSources: null });
   });
 
+  // §10.5: a "Plus en cave" card shows when the wine was last tasted or drunk.
+  it('dates the last activity of each family from its tastings and finished bottles, in two queries', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
+      { ...family({ id: 'p1' }), items: [] }, { ...family({ id: 'p2' }), items: [] }, { ...family({ id: 'p3' }), items: [] },
+    ] as never);
+    vi.mocked(prisma.tastingNote.groupBy).mockResolvedValue([
+      { productId: 'p1', _max: { tastedAt: new Date('2026-05-01') } },
+      { productId: 'p2', _max: { tastedAt: new Date('2026-03-01') } },
+    ] as never);
+    vi.mocked(prisma.inventoryItem.groupBy).mockResolvedValue([
+      { productId: 'p1', _max: { updatedAt: new Date('2026-04-01') } },
+      { productId: 'p2', _max: { updatedAt: new Date('2026-06-01') } },
+    ] as never);
+
+    const { data } = await productService.list();
+
+    expect(data.map((view) => view.lastActivityAt)).toEqual([new Date('2026-05-01'), new Date('2026-06-01'), null]);
+    expect(prisma.tastingNote.groupBy).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(prisma.inventoryItem.groupBy).mock.calls).toHaveLength(1);
+    expect(vi.mocked(prisma.inventoryItem.groupBy).mock.calls[0][0]).toMatchObject({
+      where: { productId: { in: ['p1', 'p2', 'p3'] }, deletedAt: null, ...FINISHED_ITEM_STATE },
+    });
+  });
+
   // ISSUE_083: a ceiling with a `truncated` flag, not a silent cutoff.
   it('caps the list at 2000 families and says so', async () => {
     vi.mocked(prisma.product.findMany).mockResolvedValue(
@@ -146,7 +172,8 @@ describe('productService.get (D9)', () => {
 
     const detail = await productService.get('p1');
 
-    expect(vi.mocked(prisma.product.findFirst).mock.calls[0][0]!.include).toMatchObject({ items: { where: { deletedAt: null } } });
+    // FEAT-87 references (until the transformation removes them) are not bottles of the wine.
+    expect(vi.mocked(prisma.product.findFirst).mock.calls[0][0]!.include).toMatchObject({ items: { where: { deletedAt: null, isOwned: true } } });
     expect(detail?.items.map((item) => item.id)).toEqual(['b1', 'b2']);
     // Tastings are read on the family, whichever bottle (or none) they were noted on.
     expect(prisma.tastingNote.findMany).toHaveBeenCalledWith({ where: { productId: 'p1' }, orderBy: { tastedAt: 'desc' } });
@@ -246,10 +273,13 @@ describe('productService.trash / restore (D10)', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
-  it('is null for a family already in the trash', async () => {
+  it('is null for a family in the trash, itself or through all its units (D10)', async () => {
     vi.mocked(prisma.product.findFirst).mockResolvedValue(null);
 
     expect(await productService.trash('p1')).toBeNull();
+    expect(vi.mocked(prisma.product.findFirst).mock.calls[0][0]!.where).toEqual({
+      id: 'p1', deletedAt: null, OR: [{ items: { none: {} } }, { items: { some: { deletedAt: null } } }],
+    });
     expect(prisma.inventoryItem.updateMany).not.toHaveBeenCalled();
   });
 
@@ -296,6 +326,7 @@ describe('productService.trash / restore (D10)', () => {
 
     const [trashed] = await productService.listTrash();
 
+    expect(vi.mocked(prisma.product.findMany).mock.calls[0][0]!.include).toMatchObject({ items: { where: { deletedAt: { not: null }, isOwned: true } } });
     expect(trashed).toMatchObject({ id: 'p1', deletedAt });
     expect(trashed.items.map((item) => item.id)).toEqual(['b1']);
   });

@@ -131,6 +131,11 @@ export interface ProductView extends ProductDescription {
   updatedAt: Date;
   /** FEAT-86: percentage along the drinking curve, null without a window. */
   readiness: number | null;
+  /**
+   * §10.5: last tasting or last bottle finished, whichever is later — shown
+   * on a "Plus en cave" card; null when neither happened.
+   */
+  lastActivityAt: Date | null;
   collections: ProductCollection[];
   items: ItemView[];
 }

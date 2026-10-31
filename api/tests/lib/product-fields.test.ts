@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Prisma } from '@prisma/client';
 import {
-  PRODUCT_FIELDS, pickProductFields, todayAsPurchaseDate, toItemView, writeProductFields,
+  PRODUCT_FIELDS, pickProductFields, todayAsPurchaseDate, toItemView, writeAlertStatus, writeProductFields,
 } from '../../src/lib/product-fields';
 
 const migrationsDir = path.join(__dirname, '../../prisma/migrations');
@@ -109,6 +109,23 @@ describe('writeProductFields (#471, D22)', () => {
     expect(sql).not.toContain('updatedAt');
     for (const field of PRODUCT_FIELDS) expect(sql).toContain(`\\"${field}\\" = p.\\"${field}\\"`);
     expect(productId).toBe('p1');
+  });
+});
+
+// #471 (A1 review): the calendar moves the alert, not an edit — no `updatedAt`
+// moves, and none read earlier is carried back.
+describe('writeAlertStatus', () => {
+  it('writes the family and its mirror in SQL, without any updatedAt', async () => {
+    const client = { $executeRaw: vi.fn() };
+
+    await writeAlertStatus(client as never, 'p1', 'peak');
+
+    const statements = client.$executeRaw.mock.calls.map(([sql, ...values]) => ({ sql: (sql as string[]).join('?'), values }));
+    expect(statements).toEqual([
+      { sql: expect.stringContaining('UPDATE "products" SET "alertStatus"'), values: ['peak', 'p1'] },
+      { sql: expect.stringContaining('UPDATE "bottles" SET "alertStatus"'), values: ['peak', 'p1'] },
+    ]);
+    for (const { sql } of statements) expect(sql).not.toContain('updatedAt');
   });
 });
 

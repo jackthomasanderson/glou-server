@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
-import { InventoryPatch, InventoryInput, peakWindowSchema } from '../schemas/inventory.schema';
+import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ProductHistoryEntry } from '../../../shared/product';
@@ -10,8 +10,8 @@ import { isFinishedItem, NO_SLOT } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
-  isProductField, nextLocksAndSources, pickProductFields, todayAsPurchaseDate, toItemView, writeProductFields,
-  type FlatItemView, type ProductWrite,
+  isProductField, nextLocksAndSources, pickProductFields, todayAsPurchaseDate, toItemView,
+  type FlatItemView,
 } from '../lib/product-fields';
 import { writeFamilyDescription } from './product.service';
 import { isSlotTaken } from '../lib/slots';
@@ -525,48 +525,45 @@ export class InventoryService {
     });
 
     if (rows.length === 0) return 0;
-    const existing = rows.map((row) => ({ row, view: toItemView(row) }));
-
-    // #706: as in updateItem, a patch moving one end of the peak window is
-    // checked against each item's stored other end, before anything is written.
-    if ('peakMaturityFrom' in patch || 'peakMaturityTo' in patch) {
-      for (const { view: item } of existing) {
-        peakWindowSchema.parse({
-          peakMaturityFrom: 'peakMaturityFrom' in patch ? patch.peakMaturityFrom : item.peakMaturityFrom,
-          peakMaturityTo: 'peakMaturityTo' in patch ? patch.peakMaturityTo : item.peakMaturityTo,
-        });
-      }
-    }
+    // #471: families locked in a stable order (by id), so two bulk actions
+    // over overlapping selections cannot deadlock.
+    const existing = rows
+      .map((row) => ({ row, view: toItemView(row) }))
+      .sort((a, b) => a.row.productId.localeCompare(b.row.productId) || a.row.id.localeCompare(b.row.id));
+    const familyPatch = pickProductFields(this.mapInputToDb(patch));
+    const unitPatch = Object.fromEntries(Object.entries(this.mapInputToDb(patch)).filter(([key]) => !isProductField(key)));
 
     let updatedCount = 0;
-    // #471: a family shared by several selected units is written once.
-    const writtenProducts = new Set<string>();
     await prisma.$transaction(async (tx) => {
+      // #471: each family written once, under its lock — the window checked
+      // against its stored other end (#706, a ZodError rolls everything
+      // back) and its alert recomputed (writeFamilyDescription).
+      const familyChanged = new Map<string, boolean>();
       for (const { row, view: item } of existing) {
-        // A bulk action is an explicit user action, exactly like the regular
-        // single-item PATCH: `lockedFields` only shields a field from a later
-        // *automated* pass (see `updateItem`), never from the user. Filtering
-        // the patch here silently turned "mark as opened" / "set fill level"
-        // into a no-op on every bottle whose level had once been adjusted by
-        // hand — and still counted it as updated (ISSUE_034).
-        const changedEntries = Object.entries(patch).filter(
+        if (!familyChanged.has(row.productId)) {
+          const changed = Object.keys(familyPatch).length > 0
+            && (await writeFamilyDescription(tx, row.productId, familyPatch, {
+              // A bulk action is an explicit user action, exactly like the regular
+              // single-item PATCH: `lockedFields` only shields a field from a later
+              // *automated* pass (see `updateItem`), never from the user. Filtering
+              // the patch here silently turned a bulk edit into a no-op on every
+              // field once adjusted by hand — and still counted it (ISSUE_034).
+              userId, isManualEdit: false, autoLock: false, respectLocks: false, onlyChanged: true,
+            })).changes.length > 0;
+          familyChanged.set(row.productId, changed);
+        }
+        const changedEntries = Object.entries(unitPatch).filter(
           ([key, value]) => JSON.stringify(this.getField(item, key)) !== JSON.stringify(value)
         );
         // Only items this call really changes are applied and counted, so the
         // "N items updated" confirmation tells the truth.
-        if (changedEntries.length === 0) continue;
+        if (changedEntries.length === 0 && !familyChanged.get(row.productId)) continue;
 
         const changed = Object.fromEntries(changedEntries) as InventoryPatch;
-        const dbData = this.mapInputToDb(changed);
-        const productData: ProductWrite = pickProductFields(dbData);
-        if (Object.keys(productData).length > 0 && !writtenProducts.has(row.productId)) {
-          writtenProducts.add(row.productId);
-          await writeProductFields(tx, row.productId, { ...productData, updatedBy: userId });
-        }
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
-            ...Object.fromEntries(Object.entries(dbData).filter(([key]) => !isProductField(key))),
+            ...changed,
             // #573: an item this call leaves finished gives its grid slot back (see updateItem).
             ...(this.isFinishedAfter(item, changed) ? NO_SLOT : {}),
             updatedAt: new Date(),
@@ -640,12 +637,12 @@ export class InventoryService {
    * rolled-back transaction doesn't leave rows pointing at photos already
    * gone from disk.
    *
-   * #471 (QP1, D10): a family left without any unit — its last ones purged,
-   * or the family itself in the trash past the retention period — is purged
-   * too, unless it holds a tasting: it then stays as a wine known without
-   * bottle ("Plus en cave"), out of the trash. A photo is only returned once
-   * nothing — no family (photo or other photos), no remaining unit —
-   * references it any more.
+   * #471: a family left without any unit by this purge goes with its units,
+   * unless it holds a tasting (QP1: it then stays, "Plus en cave"). A family
+   * put in the trash itself (D10) is deleted past the retention period, its
+   * tastings with it (QP7: erasing the wine was asked for explicitly). A
+   * photo is only returned once nothing — no family (photo or other photos),
+   * no remaining unit — references it any more.
    *
    * Without a client, runs in its own transaction (startup purge): a
    * half-done purge would leave emptied families nobody ever looks at again.
@@ -663,26 +660,24 @@ export class InventoryService {
       ? await client.inventoryItem.deleteMany({ where: { id: { in: toPurge.map((item) => item.id) } } })
       : { count: 0 };
 
-    // Families emptied by this purge, and families trashed past the retention.
-    const emptied = {
-      items: { none: {} },
-      OR: [
-        { id: { in: [...new Set(toPurge.map((item) => item.productId))] }, deletedAt: null },
-        { deletedAt: { lt: cutoff } },
-      ],
-    } satisfies Prisma.ProductWhereInput;
     const purgedFamilies = await client.product.findMany({
-      where: { ...emptied, tastingNotes: { none: {} } },
+      where: {
+        items: { none: {} },
+        OR: [
+          // QP1: emptied by this purge, not in the trash themselves, no tasting.
+          { id: { in: [...new Set(toPurge.map((item) => item.productId))] }, deletedAt: null, tastingNotes: { none: {} } },
+          // QP7: trashed themselves, past the retention.
+          { deletedAt: { lt: cutoff } },
+        ],
+      },
       select: { id: true, photoUrl: true, otherPhotoUrls: true },
     });
     if (purgedFamilies.length > 0) {
-      await client.product.deleteMany({ where: { id: { in: purgedFamilies.map((family) => family.id) } } });
+      const ids = { in: purgedFamilies.map((family) => family.id) };
+      // `TastingNote.productId` is SET NULL: delete them first, or they would outlive their wine.
+      await client.tastingNote.deleteMany({ where: { productId: ids } });
+      await client.product.deleteMany({ where: { id: ids } });
     }
-    // QP1: kept for its tastings, the family leaves the trash for good.
-    await client.product.updateMany({
-      where: { ...emptied, deletedAt: { lt: cutoff }, tastingNotes: { some: {} } },
-      data: { deletedAt: null },
-    });
 
     const candidates = [
       ...toPurge.map((item) => item.photoUrl),

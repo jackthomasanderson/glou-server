@@ -58,7 +58,7 @@ describe('shared/product.ts matches the Prisma schema (#471)', () => {
   type Converted = 'purchasedAt' | 'fieldSources' | 'purchasePrice' | 'estimatedValue';
 
   it('serves a family with exactly its columns', () => {
-    expectTypeOf<Omit<ProductView, 'readiness' | 'collections' | 'items' | 'fieldSources'>>()
+    expectTypeOf<Omit<ProductView, 'readiness' | 'lastActivityAt' | 'collections' | 'items' | 'fieldSources'>>()
       .toEqualTypeOf<Omit<Product, 'fieldSources'>>();
     expectTypeOf<ProductCollection>().toEqualTypeOf<Pick<Collection, 'id' | 'name' | 'color' | 'icon'>>();
   });
