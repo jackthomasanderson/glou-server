@@ -61,7 +61,9 @@ export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryPro
         // §10.3: "Nombre corrigé : 2 → 1", "Bouteilles ajoutées : 1 → 3".
         if (change.field === 'quantity' && typeof change.from === 'number' && typeof change.to === 'number') {
           const what = entry.action === 'ADD_UNITS' || entry.action === 'CORRECT_QUANTITY' ? actionLabel(entry.action) : fieldLabel('quantity');
-          return t('familyDrawer.history.numberChange', { what, from: change.from, to: change.to });
+          const line = t('familyDrawer.history.numberChange', { what, from: change.from, to: change.to });
+          // §10.3: "Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)".
+          return entry.reason ? `${line} (${t(`stockLine.history.reasons.${entry.reason}`)})` : line;
         }
         if (change.field === 'fillLevel' && typeof change.to === 'number') {
           const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : `${change.to}%`;

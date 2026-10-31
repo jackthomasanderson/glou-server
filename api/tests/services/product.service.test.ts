@@ -187,6 +187,31 @@ describe('productService.get (D9)', () => {
   });
 });
 
+describe('productService.get — history of moves, new prices and corrections (#471, W3)', () => {
+  it('tells how many copies were moved or repriced, and why a number was corrected', async () => {
+    vi.mocked(prisma.product.findFirst).mockResolvedValue({ ...family(), items: [unit()] } as never);
+    vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.auditLog.findMany).mockResolvedValue([
+      { id: 3, userId: 'u1', bottleId: 'b2', action: 'MOVE_UNITS', status: 'success', createdAt: new Date(),
+        details: { count: 2, cellarId: { from: 'garage', to: 'kitchen' }, fromItemId: 'b1', changes: [{ field: 'quantity', from: null, to: 2 }, { field: 'cellarId', from: 'garage', to: 'kitchen' }] } },
+      { id: 2, userId: 'u1', bottleId: 'b1', action: 'CORRECT_QUANTITY', status: 'success', createdAt: new Date(),
+        details: { reason: 'written_off', changes: [{ field: 'quantity', from: 6, to: 4 }] } },
+      { id: 1, userId: 'u1', bottleId: 'b1', action: 'UPDATE', status: 'success', createdAt: new Date(),
+        details: { reason: 'not a reason', count: '2', changes: [] } },
+    ] as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', displayName: 'Romain', username: 'r' }] as never);
+
+    const detail = await productService.get('p1');
+
+    expect(detail?.history[0]).toMatchObject({ action: 'MOVE_UNITS', count: 2 });
+    expect(detail?.history[1]).toMatchObject({ action: 'CORRECT_QUANTITY', reason: 'written_off' });
+    expect(detail?.history[1]).not.toHaveProperty('count');
+    // Anything else in the details stays out of the history.
+    expect(detail?.history[2]).not.toHaveProperty('count');
+    expect(detail?.history[2]).not.toHaveProperty('reason');
+  });
+});
+
 describe('productService.updateDescription (FEAT-92 c4)', () => {
   beforeEach(() => {
     vi.mocked(prisma.product.findFirst).mockResolvedValue(family() as never);

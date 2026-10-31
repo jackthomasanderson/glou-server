@@ -178,6 +178,7 @@
       "notes": "Personal notes",
       "purchasePrice": "Purchase price (€)",
       "purchasePlace": "Purchase place",
+      "purchasedAt": "Purchase date",
       "estimatedValue": "Estimated value (€)",
       "isOpened": "Bottle opened",
       "isOwned": "In the cellar",
@@ -2073,6 +2074,87 @@
     "switchToLight": "Switch to light mode",
     "activeDark": "Dark mode enabled",
     "activeLight": "Light mode enabled"
+  },
+  "stockLine": {
+    "menu": "Actions of this line",
+    "actions": {
+      "correct": "Correct the number",
+      "edit": "Edit",
+      "trash": "Move to trash"
+    },
+    "count": {
+      "less": "One less",
+      "more": "One more",
+      "range": "A number from {{min}} to {{max}}"
+    },
+    "price_bottle": "Price of one bottle",
+    "price_box": "Price of one box",
+    "price_cigar": "Price of one cigar",
+    "priceInvalid": "A price to the cent, for example 24.50.",
+    "correct": {
+      "title": "Correct the number",
+      "number_bottle": "Number of bottles",
+      "number_box": "Number of boxes",
+      "number_cigar": "Number of cigars",
+      "toAdd_bottle": "To add some, use “Add bottles”.",
+      "toAdd_box": "To add some, use “Add cigars”.",
+      "toAdd_cigar": "To add some, use “Add cigars”.",
+      "why": "Why does this number go down?",
+      "reasons": {
+        "input_error": {
+          "label": "Input error",
+          "hint": "They never existed: they disappear, spending included."
+        },
+        "written_off": {
+          "label": "Broken, given away or lost",
+          "hint": "They leave the cellar and the value, but stay in the spending."
+        }
+      },
+      "drinkHint_bottle": "For a bottle you drank, use “I'm drinking one” instead.",
+      "drinkHint_cigar": "For a cigar you smoked, use “I'm smoking one” instead.",
+      "trashHint": "Nothing is left on this line: move it to the trash, you can restore it.",
+      "confirm": "Correct",
+      "trashInstead_bottle": "Move these bottles to the trash",
+      "trashInstead_box": "Move these boxes to the trash",
+      "trashInstead_cigar": "Move these cigars to the trash",
+      "done": "Number corrected: {{from}} → {{to}}"
+    },
+    "edit": {
+      "title": "Edit this line",
+      "scope_bottle_other": "Applies to the {{count}} bottles of this line.",
+      "scope_box_other": "Applies to the {{count}} boxes of this line.",
+      "scope_cigar_other": "Applies to the {{count}} cigars of this line.",
+      "purchasedAt": "Purchase date",
+      "done": "Line updated"
+    },
+    "trash": {
+      "title": "Move to trash?",
+      "question_bottle_one": "Move this bottle ({{line}}) to the trash?",
+      "question_bottle_other": "Move these {{count}} bottles ({{line}}) to the trash?",
+      "question_box_one": "Move this box ({{line}}) to the trash?",
+      "question_box_other": "Move these {{count}} boxes ({{line}}) to the trash?",
+      "question_cigar_one": "Move this cigar ({{line}}) to the trash?",
+      "question_cigar_other": "Move these {{count}} cigars ({{line}}) to the trash?",
+      "restorable": "You can restore this line from the trash.",
+      "confirm": "Move to trash",
+      "done_bottle_one": "{{count}} bottle moved to the trash",
+      "done_bottle_other": "{{count}} bottles moved to the trash",
+      "done_box_one": "{{count}} box moved to the trash",
+      "done_box_other": "{{count}} boxes moved to the trash",
+      "done_cigar_one": "{{count}} cigar moved to the trash",
+      "done_cigar_other": "{{count}} cigars moved to the trash"
+    },
+    "history": {
+      "reasons": {
+        "input_error": "input error",
+        "written_off": "broken, given away or lost"
+      }
+    },
+    "errors": {
+      "conflict": "Not saved: this line changed meanwhile, on another device or by another member. It has just been refreshed: check it, then try again.",
+      "offline": "Without a network, this action is not possible. Try again once the connection is back.",
+      "failed": "Could not save this action."
+    }
   },
   "familyList": {
     "stockColumn": "Stock",

@@ -21,6 +21,17 @@ describe('inventoryPatchSchema', () => {
     expect(inventoryPatchSchema.safeParse({ keepTastings: 'yes' }).success).toBe(false);
   });
 
+  // #471 (W3, D6): "Modifier" a line sets or empties its purchase day.
+  it('takes a purchase day as YYYY-MM-DD at midnight UTC, or null to empty it', () => {
+    const day = inventoryPatchSchema.safeParse({ purchasedAt: '2026-03-14' });
+    expect(day.success && day.data.purchasedAt).toEqual(new Date('2026-03-14T00:00:00.000Z'));
+    const emptied = inventoryPatchSchema.safeParse({ purchasedAt: null });
+    expect(emptied.success && emptied.data.purchasedAt).toBeNull();
+    expect(inventoryPatchSchema.safeParse({}).data).not.toHaveProperty('purchasedAt');
+    expect(inventoryPatchSchema.safeParse({ purchasedAt: '14/03/2026' }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ purchasedAt: '2026-03-14T10:00:00Z' }).success).toBe(false);
+  });
+
   it('allows nulling out nullable fields', () => {
     const res = inventoryPatchSchema.safeParse({ vintage: null, region: null, cellarId: null });
     expect(res.success).toBe(true);

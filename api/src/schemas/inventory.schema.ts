@@ -161,6 +161,11 @@ export const inventoryPatchObject = z.object({
   notes: z.string().max(2000).optional().nullable(),
   purchasePrice: z.number().min(0).optional().nullable(),
   purchasePlace: z.string().max(200).optional().nullable(),
+  // #471 (D6): the purchase day of a line ("Modifier" in the drawer), a day
+  // `YYYY-MM-DD` stored at midnight UTC — never read through a local time zone.
+  purchasedAt: z.iso.date().nullable()
+    .transform((day) => (day === null ? null : new Date(`${day}T00:00:00.000Z`)))
+    .optional(),
   estimatedValue: z.number().min(0).optional().nullable(),
   // FEAT-87: flipping this is how a reference gets stocked (and how a
   // mistakenly-stocked item goes back to being a reference).

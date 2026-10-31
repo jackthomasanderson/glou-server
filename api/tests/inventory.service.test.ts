@@ -474,6 +474,19 @@ describe('InventoryService', () => {
         .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
     });
 
+    // #471 (W3): "Modifier" a line — its purchase day is the line's own, never the family's.
+    it('writes a purchase day on the unit, recorded in its history', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow() as never);
+      const day = new Date('2026-03-14T00:00:00.000Z');
+
+      const result = await service.updateItem('u1', 'b1', { purchasedAt: day });
+
+      const unitData = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+      expect(unitData.data).toMatchObject({ purchasedAt: day });
+      expect(prisma.product.update).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ changes: [{ field: 'purchasedAt', to: day }] });
+    });
+
     // #471 (F2 review): two members editing the family through two sibling
     // bottles — the family is locked and re-read in the transaction, so the
     // first one's lock and window are not computed away by the second.
