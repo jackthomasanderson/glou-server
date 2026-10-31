@@ -67,6 +67,10 @@ export type UpdateItemResult =
       removedIds: string[];
       /** How the detach / reattach rule applied the state, when it did more than update the unit. */
       outcome?: Exclude<StateOutcome, 'updated'>;
+      /** The group whose count moved (−1 detached, +1 reattached): logged in its own history. */
+      groupChange?: { itemId: string; from: number; to: number };
+      /** Tastings deleted by a reattach answered `keepTastings: false`. */
+      deletedTastings?: number;
       slotConflict?: boolean;
     }
   | { conflict: true; serverItem: InventoryItemView };
@@ -503,6 +507,8 @@ export class InventoryService {
       changed: outcome.changed.map(toUnitView),
       removedIds: outcome.removedIds,
       ...(outcome.outcome !== 'updated' ? { outcome: outcome.outcome } : {}),
+      ...(outcome.groupChange ? { groupChange: outcome.groupChange } : {}),
+      ...(outcome.deletedTastings ? { deletedTastings: outcome.deletedTastings } : {}),
     };
   }
 
@@ -675,6 +681,8 @@ export class InventoryService {
     // #471 (D10): a unit back in stock brings its family out of the trash with
     // it — otherwise it would come back inside a family nobody sees.
     const restoreUnit = (data: Prisma.InventoryItemUpdateInput) => prisma.$transaction(async (tx) => {
+      // The locking rule: the family first, then its unit.
+      await lockFamily(tx, existing.productId);
       if (existing.product.deletedAt) {
         await tx.product.update({ where: { id: existing.productId }, data: { deletedAt: null } });
       }

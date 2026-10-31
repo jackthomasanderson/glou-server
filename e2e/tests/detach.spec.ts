@@ -155,6 +155,14 @@ test.describe('detach and reattach (#471)', () => {
     const next = await write(api, smoked.data.id, { smokeOne: true });
     expect(next.data).toMatchObject({ id: smoked.data.id, cigarsLeft: 23 });
     expect((await stats(api, cellarId)).cigars).toBe(73);
+
+    // Closing it again would bring the smoked cigars back: refused (the
+    // guest's "opened" switch sends exactly this), and so is a count of 0.
+    for (const data of [{ isOpened: false, fillLevel: null }, { quantity: 0 }]) {
+      const refused = await api.patch(`/api/inventory/${smoked.data.id}`, { data });
+      expect(refused.status()).toBe(400);
+    }
+    expect((await stats(api, cellarId)).cigars).toBe(73);
   });
 
   test('FEAT-103 c5: smoking one of 4 single cigars leaves 3 and one finished cigar', async ({ page }) => {

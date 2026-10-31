@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AppError } from '../../src/lib/errors';
-import { itemSpend, itemUnits } from '../../src/lib/finished-item';
+import { itemSpend, itemUnits, itemValue } from '../../src/lib/finished-item';
 import {
   applyState, finishUnits, planState, type StateItem, type StateWrite,
 } from '../../src/services/stock-state.service';
@@ -190,6 +190,18 @@ describe('applyState — detach (FEAT-103)', () => {
     expect(db.get('g')).toMatchObject({ slotColumn: null, slotRow: null });
   });
 
+  it('the value stays whole: the detached copy keeps its estimated value', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6, estimatedValue: 35 })]);
+    const value = () => [...db.items.values()].reduce((total, row) => total + itemValue(row as never), 0);
+    expect(value()).toBe(210);
+
+    const result = await apply(db, 'g', { state: { isOpened: true, fillLevel: 60 } });
+
+    expect(db.get(result.data.id).estimatedValue).toBe(35);
+    expect(value()).toBe(210);
+    expect(result.groupChange).toEqual({ itemId: 'g', from: 6, to: 5 });
+  });
+
   it('a level lowered without "opened" is an individual state too', async () => {
     const db = fakeDb([unit({ id: 'g', quantity: 3 })]);
 
@@ -319,14 +331,59 @@ describe('applyState — cigars (FEAT-103 c4-c5, decision 28)', () => {
     await expectAppError(apply(db, 'f', { smokeOne: true }, 'cigar'), 409, 'NOTHING_LEFT_TO_SMOKE');
   });
 
-  it('a box closed again with every cigar goes back into its group', async () => {
-    const db = fakeDb([box({ id: 'g', quantity: 2 }), box({ id: 's', isOpened: true, cigarsLeft: 24, parentItemId: 'g' })]);
+  it('a box opened by mistake, nothing smoked, closed again goes back into its group', async () => {
+    const db = fakeDb([box({ id: 'g', quantity: 2 }), box({ id: 's', isOpened: true, cigarsLeft: 25, parentItemId: 'g' })]);
 
     const result = await apply(db, 's', { state: { isOpened: false } }, 'cigar');
 
     expect(result.outcome).toBe('reattached');
+    expect(result.groupChange).toEqual({ itemId: 'g', from: 2, to: 3 });
     expect(db.get('g').quantity).toBe(3);
     expect(db.items.has('s')).toBe(false);
+  });
+
+  // Review #789: the guest's "opened" switch sends {isOpened: false, fillLevel: null}.
+  it('refuses to close a box with cigars smoked out of it: they never come back (70 stays 70)', async () => {
+    const db = fakeDb([box({ id: 'g', quantity: 2 }), box({ id: 's', isOpened: true, cigarsLeft: 20, parentItemId: 'g' })]);
+    expect(db.unitsInStock()).toBe(70);
+
+    await expectAppError(apply(db, 's', { state: { isOpened: false, fillLevel: null } }, 'cigar'), 400, 'BOX_NOT_COMPLETE');
+    await expectAppError(apply(db, 's', { state: { isOpened: false, cigarsLeft: null } }, 'cigar'), 400, 'BOX_NOT_COMPLETE');
+
+    expect(db.unitsInStock()).toBe(70);
+    expect(db.get('s')).toMatchObject({ isOpened: true, cigarsLeft: 20 });
+  });
+
+  it('a box finished by mistake is put back by giving its full count', async () => {
+    const db = fakeDb([box({ id: 'g', quantity: 2 }), box({ id: 's', isOpened: true, fillLevel: 0, cigarsLeft: 0, parentItemId: 'g' })]);
+
+    const result = await apply(db, 's', { state: { isOpened: false, cigarsLeft: 25 } }, 'cigar');
+
+    expect(result.outcome).toBe('reattached');
+    expect(db.get('g').quantity).toBe(3);
+  });
+
+  it('a count of cigars left on a closed box opens it', async () => {
+    const db = fakeDb([box({ id: 'g', quantity: 2 })]);
+
+    const result = await apply(db, 'g', { state: { cigarsLeft: 10 } }, 'cigar');
+
+    expect(result.outcome).toBe('detached');
+    expect(db.get(result.data.id)).toMatchObject({ isOpened: true, cigarsLeft: 10, openedAt: NOW });
+    expect(db.unitsInStock()).toBe(35);
+  });
+
+  it('refuses more cigars left than the box holds, and an opened box without its size', async () => {
+    const db = fakeDb([box({ id: 's', isOpened: true, cigarsLeft: 20 })]);
+    await expectAppError(apply(db, 's', { state: { cigarsLeft: 26 } }, 'cigar'), 400, 'CIGARS_LEFT_ABOVE_BOX');
+    await expectAppError(apply(db, 's', { unit: { cigarsPerBox: null } }, 'cigar'), 400, 'BOX_SIZE_REQUIRED');
+  });
+
+  // Review #789: the web's "− 1" on a cigar sends quantity − 1.
+  it('refuses a count of 0 on an opened box: the spending would lose it', async () => {
+    const db = fakeDb([box({ id: 's', isOpened: true, cigarsLeft: 20, purchasePrice: 10 })]);
+    await expectAppError(apply(db, 's', { unit: { quantity: 0 } }, 'cigar'), 400, 'INDIVIDUAL_STATE_ON_GROUP');
+    expect(db.spend()).toBe(10);
   });
 });
 
@@ -468,11 +525,12 @@ describe('applyState — reattach (FEAT-106)', () => {
       expect(db.get('g').quantity).toBe(6);
     });
 
-    it('not kept: the tasting is deleted', async () => {
+    it('not kept: the tasting is deleted, and counted for the history', async () => {
       const { db, subId } = await withTasting();
 
-      await apply(db, subId, { state: { isOpened: false, fillLevel: 100 }, keepTastings: false });
+      const result = await apply(db, subId, { state: { isOpened: false, fillLevel: 100 }, keepTastings: false });
 
+      expect(result.deletedTastings).toBe(1);
       expect(db.tastings).toEqual([]);
       expect(db.get('g').quantity).toBe(6);
     });
@@ -486,6 +544,28 @@ describe('applyState — reattach (FEAT-106)', () => {
       expect(result.outcome).toBe('regrouped');
       expect(db.tastings[0]).toMatchObject({ itemId: subId });
     });
+  });
+
+  it('a written-off copy is never put back into stock', async () => {
+    const { db, subId } = await openedFromSix();
+    db.get(subId).writtenOffAt = NOW;
+
+    const result = await apply(db, subId, { state: { isOpened: false, fillLevel: 100 } });
+
+    expect(result.outcome).toBe('updated');
+    expect(db.items.has(subId)).toBe(true);
+    expect(db.get('g').quantity).toBe(5);
+    expect(db.unitsInStock()).toBe(5);
+  });
+
+  it('refuses another field written with a reattach rather than dropping it', async () => {
+    const { db, subId } = await openedFromSix();
+
+    await expectAppError(
+      apply(db, subId, { unit: { location: 'Rack B', lockedFields: ['location'] }, state: { isOpened: false, fillLevel: 100 } }),
+      400, 'FIELDS_WITH_REATTACH',
+    );
+    expect(db.items.has(subId)).toBe(true);
   });
 
   it('what pointed at the sub-record follows the group: history, inventory entries, wishlist link', async () => {

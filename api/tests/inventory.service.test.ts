@@ -162,6 +162,19 @@ describe('InventoryService', () => {
       }));
     });
 
+    // Review #789: the locking rule — the family before its unit.
+    it('locks the family before writing the unit back', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(unitRow({ deletedAt: new Date() }, { deletedAt: new Date() }) as never);
+      await service.restore('u1', 'b1');
+
+      const [, productId] = vi.mocked(prisma.$queryRaw).mock.calls[0] as unknown as [string[], string];
+      expect(productId).toBe('p1');
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.product.update).mock.invocationCallOrder[0]);
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
+    });
+
     // #471 (D10): a unit back from the trash brings its family back with it.
     it('takes the family out of the trash with it', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(
@@ -354,6 +367,8 @@ describe('InventoryService', () => {
       expect(result.changed[0]).not.toHaveProperty('name');
       expect(result.removedIds).toEqual([]);
       expect(result.outcome).toBe('detached');
+      // The group's history gets its own line: one copy fewer.
+      expect(result.groupChange).toEqual({ itemId: 'b1', from: 6, to: 5 });
       const created = vi.mocked(prisma.inventoryItem.create).mock.calls[0]?.[0] as { data: Record<string, unknown> };
       expect(created.data).toMatchObject({ productId: 'p1', quantity: 1, isOpened: true, fillLevel: 60, parentItemId: 'b1', slotColumn: null });
     });

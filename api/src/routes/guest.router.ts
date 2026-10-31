@@ -148,6 +148,19 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
         ...(result.outcome ? { outcome: result.outcome, targetItemId: itemId } : {}),
       },
     });
+    // The group's own history: one copy fewer (detached) or one more (reattached).
+    if (result.groupChange) {
+      const { itemId: groupId, from, to } = result.groupChange;
+      void auditLog({
+        userId: share.userId,
+        action: 'GUEST_UPDATE',
+        status: 'success',
+        ip,
+        bottleId: groupId,
+        productId: result.item.productId,
+        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: [{ field: 'quantity', from, to }], outcome: result.outcome },
+      });
+    }
 
     // ISSUE_483: `result.item` is the full row (purchase price, estimated
     // value, notes…). Re-read it through the share's own select so the

@@ -82,6 +82,10 @@ export interface ApplyStateResult<R> {
   changed: R[];
   /** The units deleted (a sub-record absorbed by its group). */
   removedIds: string[];
+  /** The group whose count this write moved (−1 on a detach, +1 on a reattach), for its history. */
+  groupChange?: { itemId: string; from: number; to: number };
+  /** Tastings deleted by a reattach answered `keepTastings: false`, for the history. */
+  deletedTastings?: number;
 }
 
 const stateError = (status: number, code: string, details?: unknown) => new AppError(status, code, { details });
@@ -125,8 +129,10 @@ export function planState(item: StateItem, write: StateWrite, kind: UnitKind, no
     outcome = 'detached';
   } else if (!isIntactItem(item) && item.writtenOffAt == null && intact) {
     outcome = item.parentItemId ? 'reattached' : 'regrouped';
-  } else if (!intact && quantity > 1) {
-    // Only an intact group (or a write-off) counts more than one copy.
+  } else if (!intact && quantity !== 1) {
+    // A sub-record is always one copy: only an intact group (or a write-off)
+    // counts more, and a count of 0 would erase it from the spending (a
+    // correction goes through "Corriger le nombre", A2).
     throw stateError(400, 'INDIVIDUAL_STATE_ON_GROUP');
   }
 
@@ -142,13 +148,29 @@ export function planState(item: StateItem, write: StateWrite, kind: UnitKind, no
  */
 function normalizeCigarState(item: StateItem, next: StateItem, given: StatePatch): void {
   if (next.cigarsPerBox == null) {
+    // An opened box keeps its size: without it, its count means nothing.
+    if (item.cigarsPerBox != null && !isIntactItem(item)) throw stateError(400, 'BOX_SIZE_REQUIRED');
     // Single cigars: no box to count in.
     next.cigarsLeft = null;
     return;
   }
+  if (next.cigarsLeft != null && next.cigarsLeft > next.cigarsPerBox) throw stateError(400, 'CIGARS_LEFT_ABOVE_BOX');
   if (next.isOpened && !item.isOpened && next.cigarsLeft == null) next.cigarsLeft = next.cigarsPerBox;
-  // Closing an opened box again (a mistaken opening) puts it back complete.
-  if (item.isOpened && !next.isOpened && given.cigarsLeft === undefined) next.cigarsLeft = null;
+  if (item.isOpened && !next.isOpened) {
+    // Closing an opened box again (a mistaken opening) puts it back complete
+    // — only if it is: a box with cigars smoked out of it cannot be closed,
+    // and is refused rather than silently refilled (the guest's "opened"
+    // switch sends exactly that; the smoked cigars would vanish from the
+    // stock history). Putting back a box finished by mistake says so:
+    // `cigarsLeft` = the size of the box.
+    const left = given.cigarsLeft === undefined ? item.cigarsLeft : given.cigarsLeft;
+    const complete = left === next.cigarsPerBox || (left == null && item.cigarsLeft == null);
+    if (!complete) throw stateError(400, 'BOX_NOT_COMPLETE');
+    next.cigarsLeft = null;
+    if (given.fillLevel === undefined) next.fillLevel = null;
+  }
+  // A count of cigars left that is not a full box is an opened box.
+  if (!next.isOpened && next.cigarsLeft != null && next.cigarsLeft !== next.cigarsPerBox) next.isOpened = true;
   if (next.isOpened && next.cigarsLeft === 0) Object.assign(next, FINISHED_ITEM_STATE);
   if (isFinishedState(next)) next.cigarsLeft = 0;
   if (!next.isOpened && next.cigarsLeft === next.cigarsPerBox) next.cigarsLeft = null;
@@ -211,7 +233,11 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     // The description columns of the new row come from its family (the transitional mirror).
     await mirrorFamilyOnto(tx, subId);
     const created = await tx.inventoryItem.findUniqueOrThrow({ where: { id: subId }, include });
-    return { outcome, ...done, data: created as R, changed: [group as R], removedIds: [] };
+    const from = next.quantity ?? 1;
+    return {
+      outcome, ...done, data: created as R, changed: [group as R], removedIds: [],
+      groupChange: { itemId: item.id, from, to: from - 1 },
+    };
   }
 
   if (outcome === 'reattached') {
@@ -238,6 +264,9 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   return { outcome, ...done, data: updated as R, changed: [], removedIds: [] };
 }
 
+/** Written by the service itself (locks, sources), not fields a member asked to change. */
+const REATTACH_BOOKKEEPING = new Set(['lockedFields', 'fieldSources', 'updatedBy']);
+
 /** The columns of `next` that differ from `item`: only what really changes is written. */
 function changedColumns(item: StateItem, next: StateItem): Record<string, unknown> {
   return Object.fromEntries(
@@ -260,6 +289,11 @@ async function absorb<I extends Prisma.InventoryItemInclude, R>(
   keepTastings: boolean | undefined,
   { include, stamp }: { include: I; stamp: { updatedAt: Date; updatedBy: string } },
 ): Promise<Omit<ApplyStateResult<R>, 'state' | 'releasedSlot'>> {
+  // The sub-record disappears: another field written with it would be lost.
+  // Refused rather than applied to the whole group (one bottle's location or
+  // value is not every bottle's).
+  const others = Object.keys(changedColumns(item, next)).filter((field) => !isStateField(field) && !REATTACH_BOOKKEEPING.has(field));
+  if (others.length > 0) throw stateError(400, 'FIELDS_WITH_REATTACH', { fields: others });
   const tastings = await tx.tastingNote.count({ where: { itemId: item.id } });
   if (tastings > 0 && keepTastings === undefined) throw stateError(409, TASTINGS_ON_ITEM, { count: tastings });
   if (tastings > 0 && keepTastings) {
@@ -291,7 +325,12 @@ async function absorb<I extends Prisma.InventoryItemInclude, R>(
     } as never,
     include,
   });
-  return { outcome: 'reattached', data: group as R, changed: [], removedIds: [item.id] };
+  const from = parent.quantity ?? 1;
+  return {
+    outcome: 'reattached', data: group as R, changed: [], removedIds: [item.id],
+    groupChange: { itemId: parent.id, from, to: from + (next.quantity ?? 1) },
+    ...(tastings > 0 && !keepTastings ? { deletedTastings: tastings } : {}),
+  };
 }
 
 /**

@@ -218,7 +218,13 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     // carries the state — the sub-record created, or the group that absorbed
     // the sub-record (which no longer exists).
     const outcome = result.outcome ? { outcome: result.outcome, targetItemId: id } : {};
-    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId, details: { changes: result.changes, ...outcome } });
+    const deleted = result.deletedTastings ? { deletedTastings: result.deletedTastings } : {};
+    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId, details: { changes: result.changes, ...outcome, ...deleted } });
+    // The group's own history: one copy fewer (detached) or one more (reattached).
+    if (result.groupChange) {
+      const { itemId, from, to } = result.groupChange;
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: itemId, productId: result.item.productId, details: { changes: [{ field: 'quantity', from, to }], outcome: result.outcome, subItemId: result.outcome === 'detached' ? result.item.id : id } });
+    }
     const response: UnitWriteResult<typeof result.item> = { data: result.item, changed: result.changed, removedIds: result.removedIds };
     res.json(response);
   } catch (error) {
@@ -314,6 +320,12 @@ router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> 
     void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, bottleId: id, productId: result.item.productId, details: { changes: result.changes } });
     res.json({ data: result.item });
   } catch (error) {
+    if (error instanceof AppError) {
+      // #471: a restored state the detach / reattach rule refuses (409 TASTINGS_ON_ITEM, 400…).
+      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'error', ip, bottleId: id, details: { reason: error.code } });
+      res.status(error.status).json({ error: error.code, details: error.details });
+      return;
+    }
     console.error('[inventory] POST /:id/rollback error:', error);
     if (error instanceof ZodError) {
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
