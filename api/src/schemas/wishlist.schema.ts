@@ -45,7 +45,8 @@ export const convertToInventorySchema = z.object({
   purchasePlace: z.string().max(200).optional().nullable(),
   cellarId: z.string().optional().nullable(),
   bottleSize: z.string().max(50).optional().nullable(),
-  quantity: z.number().int().min(1).max(1000).optional().nullable(), // cigars only
+  // #471 (FEAT-92): the number bought, one group; the wish's `targetQuantity` when absent.
+  quantity: z.number().int().min(1).max(1000).optional().nullable(),
 });
 
 export type ConvertToInventoryInput = z.infer<typeof convertToInventorySchema>;

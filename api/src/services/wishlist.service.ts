@@ -113,14 +113,21 @@ async function notifyOpportunity(userId: string, item: NonNullable<WishlistItemD
  * creates a real, shared InventoryItem via inventoryService.createItem
  * (reused as-is — see collaboration note in inventory.service.ts) and marks
  * the wish 'acquired' with a link back to the created item, atomically.
+ * #471 (FEAT-92, decision point 15): the bottles bought form one group of
+ * the number wished for (`targetQuantity`), or of the number given at the
+ * conversion, dated today (D6).
+ *
+ * Concurrency: the wish is claimed (`active` → `acquired`) first in the
+ * transaction — a second conversion of the same wish (double tap, two
+ * devices) waits on that row, then finds it taken and creates nothing.
+ * Lock order (#787): the bottles go to a family created in this very
+ * transaction, which no other one can hold — no family lock to take.
  *
  * KNOWN LIMITATION (documented, not silently papered over): InventoryInput
- * requires `alcoholDegree` for 'spirit' and `quantity` for 'cigar' — fields a
- * wishlist entry never tracks. `additionalFields` lets the conversion form
- * supply them; if omitted, they default to 0 / targetQuantity respectively
- * so the transaction never fails, but the resulting item may need a manual
- * follow-up edit. TODO(FEAT-20): surface these as required fields in the
- * conversion form when category is 'spirit'/'cigar' instead of defaulting.
+ * requires `alcoholDegree` for 'spirit' — a field a wishlist entry never
+ * tracks — so it defaults to 0 and the resulting item may need a manual
+ * follow-up edit. TODO(FEAT-20): surface it as a required field in the
+ * conversion form when category is 'spirit' instead of defaulting.
  */
 export async function convertToInventory(userId: string, id: string, additionalFields: ConvertToInventoryInput) {
   const wish = await prisma.wishlistItem.findFirst({ where: { id, userId } });
@@ -143,28 +150,34 @@ export async function convertToInventory(userId: string, id: string, additionalF
     lockedFields: [],
   };
   const bottleSize = additionalFields.bottleSize ?? undefined;
+  const quantity = additionalFields.quantity ?? wish.targetQuantity;
 
   let inventoryInput: InventoryInput;
   switch (wish.category) {
     case 'wine':
-      inventoryInput = { ...base, category: 'wine', vintage: wish.vintage ?? undefined, grapeVarieties: [], bottleSize };
+      inventoryInput = { ...base, category: 'wine', vintage: wish.vintage ?? undefined, grapeVarieties: [], bottleSize, quantity };
       break;
     case 'sparkling':
-      inventoryInput = { ...base, category: 'sparkling', vintage: wish.vintage ?? undefined, bottleSize };
+      inventoryInput = { ...base, category: 'sparkling', vintage: wish.vintage ?? undefined, bottleSize, quantity };
       break;
     case 'spirit':
-      inventoryInput = { ...base, category: 'spirit', alcoholDegree: 0, bottleSize };
+      inventoryInput = { ...base, category: 'spirit', alcoholDegree: 0, bottleSize, quantity };
       break;
     case 'cigar':
-      inventoryInput = { ...base, category: 'cigar', quantity: additionalFields.quantity ?? wish.targetQuantity };
+      inventoryInput = { ...base, category: 'cigar', quantity };
       break;
   }
 
   return prisma.$transaction(async (tx) => {
+    const claimed = await tx.wishlistItem.updateMany({
+      where: { id: wish.id, userId, status: 'active' },
+      data: { status: 'acquired' },
+    });
+    if (claimed.count === 0) return null;
     const created = await inventoryService.createItem(userId, inventoryInput, tx);
     const updatedWish = await tx.wishlistItem.update({
       where: { id: wish.id },
-      data: { status: 'acquired', acquiredItemId: created.id },
+      data: { acquiredItemId: created.id },
     });
     return { wishlistItem: updatedWish, inventoryItem: created };
   });
