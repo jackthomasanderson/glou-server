@@ -40,7 +40,7 @@ export async function findGroupFor(
  * The family as it stands once locked: 404 when unknown, 409 when in the
  * trash — itself, or computed as such because every unit of it is (D10).
  */
-async function lockedListedFamily(tx: PrismaClientOrTx, productId: string): Promise<Product> {
+export async function lockedListedFamily(tx: PrismaClientOrTx, productId: string): Promise<Product> {
   await lockFamily(tx, productId);
   const listed = await tx.product.findFirst({ where: { id: productId, ...LISTED_PRODUCT_FILTER } });
   if (listed) return listed;

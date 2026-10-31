@@ -175,7 +175,6 @@ export async function fuseIdenticalGroups(tx: PrismaClientOrTx, productId: strin
   for (const group of plan) {
     const members = [group.survivorId, ...group.absorbedIds].map((id) => units.find((unit) => unit.id === id)!);
     const all = Prisma.join(members.map((member) => member.id));
-    const absorbed = Prisma.join(group.absorbedIds);
     // D15: an entry counted one group, now part of a larger one; it keeps
     // the number it found, so the others still show as missing.
     await tx.$executeRaw`UPDATE "inventory_count_entries" AS e SET "foundQuantity" = coalesce(e."foundQuantity", b."quantity")
@@ -195,17 +194,29 @@ export async function fuseIdenticalGroups(tx: PrismaClientOrTx, productId: strin
         updatedBy: userId,
       },
     });
-    // Re-pointed in SQL, as the migration does: no `updatedAt` moves on what
-    // only follows its group (a pending offline edit stays valid).
-    await tx.$executeRaw`UPDATE "tasting_notes" SET "itemId" = ${group.survivorId} WHERE "itemId" IN (${absorbed})`;
-    await tx.$executeRaw`UPDATE "audit_logs" SET "bottleId" = ${group.survivorId} WHERE "bottleId" IN (${absorbed})`;
-    await tx.$executeRaw`UPDATE "inventory_count_entries" SET "itemId" = ${group.survivorId} WHERE "itemId" IN (${absorbed})`;
-    await tx.$executeRaw`UPDATE "wishlist_items" SET "acquiredItemId" = ${group.survivorId} WHERE "acquiredItemId" IN (${absorbed})`;
-    await tx.$executeRaw`UPDATE "bottles" SET "parentItemId" = ${group.survivorId} WHERE "parentItemId" IN (${absorbed})`;
-    await tx.inventoryItem.deleteMany({ where: { id: { in: group.absorbedIds } } });
+    await absorbGroups(tx, group.survivorId, group.absorbedIds);
     removed.push(...group.absorbedIds);
   }
   return removed;
+}
+
+/**
+ * #471: `survivorId` takes everything that hangs on the groups `absorbedIds`
+ * — tastings, history, inventory entries, wishlist link, sub-records — then
+ * those groups are deleted. Their copies are the caller's to add to the
+ * survivor's number. Re-pointed in SQL, as the migration does: no
+ * `updatedAt` moves on what only follows its group (a pending offline edit
+ * stays valid). Never for two groups counted in one inventory session (one
+ * entry per unit). Run it in the transaction holding the family's lock.
+ */
+export async function absorbGroups(tx: PrismaClientOrTx, survivorId: string, absorbedIds: string[]): Promise<void> {
+  const absorbed = Prisma.join(absorbedIds);
+  await tx.$executeRaw`UPDATE "tasting_notes" SET "itemId" = ${survivorId} WHERE "itemId" IN (${absorbed})`;
+  await tx.$executeRaw`UPDATE "audit_logs" SET "bottleId" = ${survivorId} WHERE "bottleId" IN (${absorbed})`;
+  await tx.$executeRaw`UPDATE "inventory_count_entries" SET "itemId" = ${survivorId} WHERE "itemId" IN (${absorbed})`;
+  await tx.$executeRaw`UPDATE "wishlist_items" SET "acquiredItemId" = ${survivorId} WHERE "acquiredItemId" IN (${absorbed})`;
+  await tx.$executeRaw`UPDATE "bottles" SET "parentItemId" = ${survivorId} WHERE "parentItemId" IN (${absorbed})`;
+  await tx.inventoryItem.deleteMany({ where: { id: { in: absorbedIds } } });
 }
 
 export interface MergeOutcome {
