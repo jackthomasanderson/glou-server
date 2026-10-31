@@ -1453,7 +1453,6 @@
         "opened": "Actif entamé",
         "openedBadge": "Entamée",
         "fillLevel": "Niveau restant (%)",
-        "notes": "Notes",
         "error": "Impossible d'enregistrer la modification."
       }
     }

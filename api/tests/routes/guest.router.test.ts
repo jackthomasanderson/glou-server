@@ -34,15 +34,22 @@ beforeEach(() => {
   vi.mocked(inventoryService.updateItem).mockResolvedValue({ item: { id: 'i1' }, changes: [] } as never);
 });
 
-// A4-009: a guest who cannot see the notes must never overwrite them.
+// #471 (FEAT-109): the notes belong to the family — a guest can never write them.
 describe('PATCH /api/guest/:token/inventory/:itemId', () => {
-  it('drops notes when the share hides them', async () => {
-    (global as { __hideNotes?: boolean }).__hideNotes = true;
+  it.each([true, false])('refuses notes, whether the share hides them (%s) or not', async (hideNotes) => {
+    (global as { __hideNotes?: boolean }).__hideNotes = hideNotes;
     const res = await request(app)
       .patch('/api/guest/tok/inventory/i1')
       .send({ fillLevel: 50, notes: null });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(inventoryService.updateItem).not.toHaveBeenCalled();
+  });
+
+  it('writes the state of the bottle', async () => {
+    const res = await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 50 });
     expect(res.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { fillLevel: 50 });
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { isOpened: true, fillLevel: 50 });
   });
 
   it('answers with the share-redacted item, not the full updated row (#483)', async () => {
@@ -57,9 +64,4 @@ describe('PATCH /api/guest/:token/inventory/:itemId', () => {
     expect(sharesService.getItemForShare).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps notes when the share shows them', async () => {
-    (global as { __hideNotes?: boolean }).__hideNotes = false;
-    await request(app).patch('/api/guest/tok/inventory/i1').send({ notes: 'hi' });
-    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { notes: 'hi' });
-  });
 });

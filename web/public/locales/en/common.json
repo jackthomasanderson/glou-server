@@ -1451,7 +1451,6 @@
         "opened": "Asset opened",
         "openedBadge": "Opened",
         "fillLevel": "Remaining level (%)",
-        "notes": "Notes",
         "error": "Unable to save the change."
       }
     }

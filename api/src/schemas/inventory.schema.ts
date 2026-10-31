@@ -246,14 +246,14 @@ export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
 // ─── Guest-restricted update schema (FEAT-37) ────────────────────────────────
 // Guests with write access on a cellar (via GuestShare.writeCellarIds) may only
 // touch consumption/service state — never pricing, structural, or category fields.
-// `.strict()` rejects any unexpected key outright (defense in depth).
+// #471 (FEAT-109): nor the notes, which belong to the family and so to every
+// bottle of the wine. `.strict()` rejects any unexpected key outright (defense in depth).
 
 export const guestInventoryUpdateSchema = z
   .object({
     isOpened: z.boolean().optional(),
     openedAt: z.coerce.date().optional().nullable(),
     fillLevel: z.number().int().min(0).max(100).optional().nullable(),
-    notes: z.string().max(2000).optional().nullable(),
   })
   .strict();
 

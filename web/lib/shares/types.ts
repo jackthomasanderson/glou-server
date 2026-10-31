@@ -52,7 +52,6 @@ export interface GuestInventoryUpdatePayload {
   isOpened?: boolean;
   openedAt?: string | null;
   fillLevel?: number | null;
-  notes?: string | null;
 }
 
 export function getShareStatus(share: GuestShare): ShareStatus {

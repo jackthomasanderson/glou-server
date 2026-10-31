@@ -2,7 +2,7 @@
 
 import React, { use, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Chip, Input, Select, SelectItem, Spinner, Switch, Textarea } from '@heroui/react';
+import { Button, Chip, Input, Select, SelectItem, Spinner, Switch } from '@heroui/react';
 import { Eye, EyeOff, Lock, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
@@ -33,20 +33,20 @@ interface GuestItem {
 
 // ─── Item card ───────────────────────────────────────────────────────────────
 
-function GuestItemCard({ item, token, editable, hideNotes }: { item: GuestItem; token: string; editable: boolean; hideNotes: boolean }) {
+// #471 (FEAT-109): a guest changes the state of a bottle only; the notes are
+// the wine's (its family's), so they are shown but never edited here.
+function GuestItemCard({ item, token, editable }: { item: GuestItem; token: string; editable: boolean }) {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isOpened, setIsOpened] = useState(item.isOpened);
   const [fillLevel, setFillLevel] = useState(item.fillLevel != null ? String(item.fillLevel) : '');
-  const [notes, setNotes] = useState(item.notes ?? '');
 
   const updateMutation = useMutation({
     mutationFn: () =>
       guestClient.updateItem(token, item.id, {
         isOpened,
         fillLevel: fillLevel.trim() === '' ? null : Number(fillLevel),
-        ...(hideNotes ? {} : { notes: notes.trim() === '' ? null : notes }),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['guest', token, 'inventory'] });
@@ -118,16 +118,6 @@ function GuestItemCard({ item, token, editable, hideNotes }: { item: GuestItem; 
                 radius="md"
                 labelPlacement="outside"
               />
-              {!hideNotes && <Textarea
-                label={t('shares.guest.edit.notes')}
-                value={notes}
-                onValueChange={setNotes}
-                size="sm"
-                variant="bordered"
-                radius="md"
-                labelPlacement="outside"
-                maxLength={2000}
-              />}
               {updateMutation.isError && (
                 <p className="text-xs text-danger">{t('shares.guest.edit.error')}</p>
               )}
@@ -313,7 +303,6 @@ function GuestPageContent({ token }: { token: string }) {
                 item={item}
                 token={token}
                 editable={!!meta?.writeCellarIds.includes(item.cellarId ?? '')}
-                hideNotes={!!meta?.hideNotes}
               />
             ))}
           </div>
