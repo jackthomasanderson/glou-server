@@ -120,7 +120,8 @@
     "validation": {
       "required": "Ce champ est obligatoire",
       "missingFields": "Complétez les champs obligatoires avant d'enregistrer",
-      "peakWindowOrder": "La fin de l'apogée ne peut pas précéder son début"
+      "peakWindowOrder": "La fin de l'apogée ne peut pas précéder son début",
+      "bottleCount": "Entre 1 et {{max}} bouteilles"
     },
     "noNotifications": "Aucune notification",
     "perPage": "{{count}} par page",
@@ -177,12 +178,13 @@
       "photoUrl": "URL de la photo",
       "notes": "Notes personnelles",
       "purchasePrice": "Prix d'achat (€)",
+      "unitPrice": "Prix d'une bouteille",
+      "quantityBottles": "Nombre de bouteilles",
+      "purchasedAt": "Date d'achat",
       "purchasePlace": "Lieu d'achat",
       "estimatedValue": "Valeur estimée (€)",
       "isOpened": "Bouteille entamée / ouverte",
-      "isOwned": "En cave",
       "isReference": "Référence",
-      "isReferenceHint": "Bouteille décrite mais non possédée : exclue de la valeur de la collection, des compteurs et des alertes. Vous pouvez y rattacher une dégustation, puis la mettre en stock si vous l'achetez.",
       "isOpenedCigar": "Cigare entamé",
       "fillLevel": "Niveau restant",
       "openedAt": "Ouverte le",

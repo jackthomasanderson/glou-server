@@ -120,7 +120,8 @@
     "validation": {
       "required": "This field is required",
       "missingFields": "Fill in the required fields before saving",
-      "peakWindowOrder": "The end of the peak cannot come before its start"
+      "peakWindowOrder": "The end of the peak cannot come before its start",
+      "bottleCount": "Between 1 and {{max}} bottles"
     },
     "noNotifications": "No notifications",
     "perPage": "{{count}} per page",
@@ -177,12 +178,13 @@
       "photoUrl": "Photo URL",
       "notes": "Personal notes",
       "purchasePrice": "Purchase price (€)",
+      "unitPrice": "Price of one bottle",
+      "quantityBottles": "Number of bottles",
+      "purchasedAt": "Purchase date",
       "purchasePlace": "Purchase place",
       "estimatedValue": "Estimated value (€)",
       "isOpened": "Bottle opened",
-      "isOwned": "In the cellar",
       "isReference": "Reference",
-      "isReferenceHint": "A bottle described but not owned: left out of the collection value, the counters and the alerts. You can log a tasting on it, then stock it if you buy it.",
       "isOpenedCigar": "Opened cigar",
       "fillLevel": "Fill level",
       "openedAt": "Opened on",
