@@ -24,7 +24,7 @@ function mockTransactionClient(itemRow: Record<string, unknown> | null) {
   const $queryRaw = vi.fn();
   vi.mocked(prisma.$transaction).mockImplementation(
     ((callback: (tx: unknown) => unknown) =>
-      callback({ inventoryItem: { findFirst, update, findMany }, $queryRaw })) as never,
+      callback({ inventoryItem: { findFirst, update, findMany }, inventoryCountEntry: { findMany: vi.fn().mockResolvedValue([]) }, $queryRaw })) as never,
   );
   return { findFirst, update, $queryRaw };
 }
@@ -67,7 +67,7 @@ describe('applyCorrections', () => {
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'mark_consumed' }], 'u1');
 
-    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [] });
+    expect(result).toMatchObject({ status: 'success', appliedCount: 1, skipped: [] });
     expect(tx.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
       data: {
@@ -94,7 +94,7 @@ describe('applyCorrections', () => {
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'move_to_scope' }], 'u1');
 
-    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [] });
+    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [], history: [] });
     expect(tx.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
       data: expect.objectContaining({ cellarId: 'c1', updatedBy: 'u1' }),
@@ -114,6 +114,7 @@ describe('applyCorrections', () => {
       status: 'success',
       appliedCount: 0,
       skipped: [{ targetId: 'gone', action: 'mark_consumed', reason: 'item_not_found' }],
+      history: [],
     });
     expect(tx.update).not.toHaveBeenCalled();
   });
@@ -131,6 +132,7 @@ describe('applyCorrections', () => {
       status: 'success',
       appliedCount: 0,
       skipped: [{ targetId: 'b1', action: 'move_to_scope', reason: 'session_has_no_cellar' }],
+      history: [],
     });
     expect(tx.update).not.toHaveBeenCalled();
   });
