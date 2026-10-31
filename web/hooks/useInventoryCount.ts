@@ -76,10 +76,16 @@ export function useSessionReport(sessionId: string | null) {
   });
 }
 
+/** A scan: the line, and for a group the number found (#471, FEAT-100). */
+export interface ScanInput {
+  itemId: string;
+  foundQuantity?: number;
+}
+
 export function useScanItem(sessionId: string) {
   const queryClient = useQueryClient();
-  return useMutation<ScanEntry, Error, string>({
-    mutationFn: (itemId: string) => inventoryCountClient.scan(sessionId, itemId),
+  return useMutation<ScanEntry, Error, ScanInput>({
+    mutationFn: ({ itemId, foundQuantity }: ScanInput) => inventoryCountClient.scan(sessionId, itemId, foundQuantity),
     onError: () => notifyError('toast.count.scanError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: reportKey(sessionId) });

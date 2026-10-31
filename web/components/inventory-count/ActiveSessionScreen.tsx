@@ -6,7 +6,7 @@ import {
 } from '@heroui/react';
 import { Pause, Search, CheckCircle2, Circle, AlertTriangle, PackagePlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { CountSession, CountReportItem } from '@/lib/inventory-count/types';
+import { CountSession, CountLine } from '@/lib/inventory-count/types';
 import { useSessionReport, useScanItem, usePauseCountSession } from '@/hooks/useInventoryCount';
 import { useInventory } from '@/hooks/useInventory';
 import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
@@ -14,6 +14,8 @@ import { RecordFoundItemModal } from './RecordFoundItemModal';
 
 const MIN_SEARCH_LENGTH = 2;
 const MAX_SEARCH_RESULTS = 8;
+/** Copies one answer may count (the API's bound on a group). */
+const MAX_COPIES = 1000;
 
 interface ActiveSessionScreenProps {
   session: CountSession;
@@ -48,7 +50,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
       // to render-time would desync it from the URL cleanup.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAutoScannedFor(scanParam);
-      scanMutation.mutate(scanParam);
+      scanMutation.mutate({ itemId: scanParam });
       const next = new URLSearchParams(searchParams.toString());
       next.delete('scan');
       router.replace(`${pathname}${next.toString() ? `?${next.toString()}` : ''}`);
@@ -82,7 +84,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   }, [query, allItems, alreadyRecordedIds]);
 
   const handleSelectResult = (itemId: string) => {
-    scanMutation.mutate(itemId);
+    scanMutation.mutate({ itemId });
     setQuery('');
     setIsSearchOpen(false);
   };
@@ -101,10 +103,13 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
       ? Math.round((report.counts.confirmed / report.counts.expected) * 100)
       : 0;
 
+  // #471 (FEAT-100): one line per group of the theoretical list, plus what
+  // was confirmed outside it (a free-label scope has no theoretical list).
   const checklist = useMemo(() => {
-    const confirmed = (report?.confirmed ?? []).map((item) => ({ item, confirmed: true }));
-    const pending = (report?.missing ?? []).map((item) => ({ item, confirmed: false }));
-    return [...confirmed, ...pending].sort((a, b) => a.item.name.localeCompare(b.item.name));
+    const expected = report?.expected ?? [];
+    const listed = new Set(expected.map((line) => line.id));
+    const extra = (report?.confirmed ?? []).filter((line) => !listed.has(line.id));
+    return [...expected, ...extra].sort((a, b) => a.name.localeCompare(b.name));
   }, [report]);
 
   const isActive = session.status === 'active';
@@ -263,38 +268,101 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
             </p>
           ) : (
             <ul className="divide-y divide-divider">
-              {checklist.map(({ item, confirmed }: { item: CountReportItem; confirmed: boolean }) => (
-                <li key={item.id} className="flex items-center gap-3 px-4 py-3">
-                  {confirmed ? (
-                    <CheckCircle2 size={18} className="text-success shrink-0" />
-                  ) : (
-                    <Circle size={18} className="text-foreground-400 shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.name}</p>
-                    <p className="text-xs text-foreground-400 truncate">{item.producer}</p>
-                  </div>
-                  <Chip size="sm" variant="flat" color={confirmed ? 'success' : 'default'}>
-                    {confirmed ? t('inventoryCount.status.confirmed') : t('inventoryCount.status.pending')}
-                  </Chip>
-                  {!confirmed && (
-                    <Button
-                      size="sm"
-                      variant="light"
-                      color="primary"
-                      isDisabled={!isActive}
-                      isLoading={scanMutation.isPending && scanMutation.variables === item.id}
-                      onPress={() => scanMutation.mutate(item.id)}
-                    >
-                      {t('inventoryCount.session.confirmTap')}
-                    </Button>
-                  )}
-                </li>
+              {checklist.map((line) => (
+                <CountRow
+                  key={line.id}
+                  line={line}
+                  isActive={isActive}
+                  isPending={scanMutation.isPending && scanMutation.variables?.itemId === line.id}
+                  onConfirm={(foundQuantity) => scanMutation.mutate({ itemId: line.id, foundQuantity })}
+                />
               ))}
             </ul>
           )}
         </CardBody>
       </Card>
     </div>
+  );
+}
+
+interface CountRowProps {
+  line: CountLine;
+  isActive: boolean;
+  isPending: boolean;
+  onConfirm: (foundQuantity?: number) => void;
+}
+
+/**
+ * #471 (FEAT-100, ux-ui §10.11): a group is counted in one answer — "Combien
+ * en avez-vous trouvé ?", prefilled with the number expected — and a single
+ * bottle (or an opened one) is confirmed in one tap, as before.
+ */
+function CountRow({ line, isActive, isPending, onConfirm }: CountRowProps) {
+  const { t } = useTranslation();
+  const isGroup = line.isGroup && line.expectedQuantity > 1;
+  const [answer, setAnswer] = useState(String(line.foundQuantity ?? line.expectedQuantity));
+  const found = line.foundQuantity;
+  const parsed = Number(answer);
+  const isValid = answer.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_COPIES;
+
+  const status = found == null
+    ? <Chip size="sm" variant="flat" color="default">{t('inventoryCount.status.pending')}</Chip>
+    : found >= line.expectedQuantity
+      ? <Chip size="sm" variant="flat" color="success">{isGroup ? t('inventoryCount.status.foundOf', { found, expected: line.expectedQuantity }) : t('inventoryCount.status.confirmed')}</Chip>
+      : <Chip size="sm" variant="flat" color="warning">{t('inventoryCount.status.foundOf', { found, expected: line.expectedQuantity })}</Chip>;
+
+  return (
+    <li className="flex flex-wrap items-center gap-3 px-4 py-3">
+      {found != null && found >= line.expectedQuantity ? (
+        <CheckCircle2 size={18} className="text-success shrink-0" />
+      ) : (
+        <Circle size={18} className="text-foreground-400 shrink-0" />
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">
+          {line.name}
+          {isGroup && <span className="ml-2 text-foreground-500 font-semibold">{t('inventoryCount.session.times', { number: line.expectedQuantity })}</span>}
+        </p>
+        <p className="text-xs text-foreground-400 truncate">{line.producer}</p>
+      </div>
+      {status}
+      {isGroup ? (
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (isValid) onConfirm(parsed);
+          }}
+        >
+          <span className="text-xs text-foreground-500 self-center" aria-hidden="true">
+            {t('inventoryCount.session.howMany')}
+          </span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={MAX_COPIES}
+            size="sm"
+            variant="bordered"
+            className="w-20"
+            // The visible question is the same on every line: the name tells them apart.
+            aria-label={t('inventoryCount.session.howManyAria', { name: line.name })}
+            value={answer}
+            onValueChange={setAnswer}
+            isInvalid={!isValid}
+            isDisabled={!isActive}
+          />
+          <Button type="submit" size="sm" variant="flat" color="primary" isDisabled={!isActive || !isValid} isLoading={isPending}>
+            {t('inventoryCount.session.saveCount')}
+          </Button>
+        </form>
+      ) : (
+        found == null && (
+          <Button size="sm" variant="light" color="primary" isDisabled={!isActive} isLoading={isPending} onPress={() => onConfirm()}>
+            {t('inventoryCount.session.confirmTap')}
+          </Button>
+        )
+      )}
+    </li>
   );
 }

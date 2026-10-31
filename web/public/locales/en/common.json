@@ -1151,48 +1151,72 @@
       "pause": "Pause",
       "viewSummary": "View summary",
       "progressAria": "Counting progress",
-      "progressCount": "{{confirmed}} / {{expected}} confirmed",
-      "noTheoreticalList": "This free-form scope isn't linked to any cellar: no theoretical list is available. Anything confirmed here will be recorded as found.",
-      "unexpectedFound_one": "{{count}} item found outside its expected scope",
-      "unexpectedFound_other": "{{count}} items found outside their expected scope",
-      "searchLabel": "Search for an item",
+      "progressCount": "Found: {{confirmed}} / {{expected}}",
+      "noTheoreticalList": "This free-form scope isn't linked to any cellar: no theoretical list is available. Any bottle confirmed here will be recorded as found.",
+      "unexpectedFound_one": "{{count}} bottle found outside its expected scope",
+      "unexpectedFound_other": "{{count}} bottles found outside their expected scope",
+      "searchLabel": "Search for a bottle",
       "searchPlaceholder": "Name or producer...",
-      "emptyList": "No item to check for this scope.",
+      "emptyList": "No bottle to check for this scope.",
       "confirmTap": "Confirm",
       "pausedNotice": "This session is paused. Resume it to continue counting.",
       "foundNew": {
         "trigger": "Not in the list? Log a new find",
-        "title": "New item found",
-        "description": "Record an item that is physically present but not yet in the system. It's added to the shared inventory once you confirm it when closing the session.",
+        "title": "New find",
+        "description": "Record bottles that are physically present but not in Glou yet. A find of several bottles makes a single group; it's added to the cellar once you confirm it when closing the session.",
         "nameLabel": "Name",
         "categoryLabel": "Category",
-        "quantityLabel": "Quantity"
-      }
+        "quantityLabel": "Number found"
+      },
+      "times": "×{{number}}",
+      "howMany": "How many did you find?",
+      "howManyAria": "{{name}}: how many did you find?",
+      "saveCount": "Save"
     },
     "status": {
       "confirmed": "Confirmed",
-      "pending": "Pending"
+      "pending": "Pending",
+      "foundOf": "{{found}} / {{expected}}"
     },
     "report": {
       "confirmed": "Confirmed",
       "missing": "Missing",
       "unexpected": "Unexpected",
       "none": "None",
-      "markConsumed": "Mark as consumed",
       "moveToScope": "Move to this scope",
       "moveDisabledNoCellar": "Not available: this scope isn't linked to any cellar",
-      "addToStock": "Add to stock",
       "newItemBadge": "Not in system",
       "close": "Close session",
       "closeWithCorrections": "Close and apply ({{count}})",
-      "completedNotice": "This session is closed."
+      "completedNotice": "This session is closed.",
+      "surplus": "Extra",
+      "foundOf": "{{found}} / {{expected}}",
+      "missingOf_one": "{{count}} missing out of {{expected}}",
+      "missingOf_other": "{{count}} missing out of {{expected}}",
+      "missingChoiceAria": "What to do with the missing bottles of {{name}}?",
+      "choice": {
+        "none": "Do nothing",
+        "drunk_one": "Drunk",
+        "drunk_other": "Drunk",
+        "input_error": "Input error",
+        "written_off_one": "Broken / given away / lost",
+        "written_off_other": "Broken / given away / lost"
+      },
+      "addSurplus_one": "Add {{count}} bottle to the group",
+      "addSurplus_other": "Add {{count}} bottles to the group",
+      "addToStock_one": "Add {{count}} bottle to the cellar",
+      "addToStock_other": "Add {{count}} bottles to the cellar",
+      "joinLabel": "Add to",
+      "newWine": "A new wine"
     },
     "errors": {
       "SESSION_NOT_FOUND": "This count session could not be found.",
       "SESSION_NOT_ACTIVE": "This count session is no longer active.",
       "SESSION_ALREADY_COMPLETED": "This count session has already been closed.",
       "VALIDATION_ERROR": "Please check the information you entered.",
-      "UNEXPECTED_ERROR": "An unexpected error occurred."
+      "UNEXPECTED_ERROR": "An unexpected error occurred.",
+      "QUANTITY_TOO_LARGE": "A group cannot hold more than 1,000 bottles.",
+      "PRODUCT_IN_TRASH": "This wine is in the trash: restore it before adding bottles to it."
     }
   },
   "analytics": {
