@@ -151,26 +151,7 @@ export const stockService = {
    * that way. A family in the trash is refused: restore it first.
    */
   async addUnits(userId: string, productId: string, input: AddUnitsInput): Promise<AddUnitsOutcome> {
-    return prisma.$transaction(async (tx) => {
-      const product = await lockedListedFamily(tx, productId);
-      const kind = unitKind(product.category);
-      if (kind !== 'cigar' && input.cigarsPerBox != null) throw badRequest('CIGARS_PER_BOX_FOR_CIGARS_ONLY');
-      const cellarId = input.cellarId ?? null;
-      if (cellarId && !(await tx.cellar.findUnique({ where: { id: cellarId }, select: { id: true } }))) {
-        throw badRequest('CELLAR_NOT_FOUND');
-      }
-
-      const target = {
-        productId,
-        cellarId,
-        purchasePrice: input.purchasePrice ?? null,
-        purchasedAt: input.purchasedAt === undefined ? todayAsPurchaseDate() : input.purchasedAt ? toDay(input.purchasedAt) : null,
-        bottleSize: input.bottleSize ?? null,
-        cigarsPerBox: input.cigarsPerBox ?? null,
-      };
-      const added = await addCopies(tx, userId, product, target, input.quantity);
-      return { result: { data: toUnitView(added.unit), changed: [], removedIds: [] }, merged: added.from !== null, from: added.from, to: added.to };
-    });
+    return prisma.$transaction((tx) => addUnitsIn(tx, userId, productId, input));
   },
 
   /**
@@ -190,60 +171,104 @@ export const stockService = {
     const head = await prisma.inventoryItem.findFirst({ where: { id: itemId, deletedAt: null }, select: { productId: true } });
     if (!head) return null;
 
-    return prisma.$transaction(async (tx): Promise<CorrectQuantityOutcome | null> => {
-      await lockFamily(tx, head.productId);
-      const group = await tx.inventoryItem.findFirst({ where: { id: itemId, deletedAt: null } });
-      if (!group) return null;
-      const stale = input.expectedUpdatedAt !== undefined
-        && new Date(input.expectedUpdatedAt).getTime() !== group.updatedAt.getTime();
-      // Moved to another family meanwhile (a merge): its lock was not the one taken.
-      if (stale || group.productId !== head.productId) return { conflict: true, item: toUnitView(group) };
-      if (!isGroupableItem(group) || !group.isOwned) throw conflict('NOT_A_GROUP');
-
-      const from = group.quantity ?? 1;
-      if (input.quantity >= from) throw badRequest('QUANTITY_NOT_LOWER');
-      const settled = { needsReview: false, updatedBy: userId };
-
-      if (input.reason === 'input_error') {
-        if (input.quantity < 1) throw badRequest('QUANTITY_BELOW_ONE');
-        const corrected = await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: input.quantity, ...settled } });
-        return {
-          result: { data: toUnitView(corrected), changed: [], removedIds: [] },
-          productId: group.productId,
-          changes: [{ field: 'quantity', from, to: input.quantity }],
-          writtenOffItemId: null,
-        };
-      }
-
-      const writtenOffAt = new Date();
-      if (input.quantity === 0) {
-        const marked = await tx.inventoryItem.update({
-          where: { id: itemId },
-          data: { writtenOffAt, needsReview: false, ...NO_SLOT, updatedBy: userId },
-        });
-        // A write-off is never put back: its sub-records lose their way back
-        // to it, so that putting one back cannot bring it into stock again.
-        // In SQL, so that their `updatedAt` (a pending offline edit) stays.
-        await tx.$executeRaw`UPDATE "bottles" SET "parentItemId" = NULL WHERE "parentItemId" = ${itemId}`;
-        return {
-          result: { data: toUnitView(marked), changed: [], removedIds: [] },
-          productId: group.productId,
-          changes: [{ field: 'writtenOffAt', from: null, to: writtenOffAt }],
-          writtenOffItemId: itemId,
-        };
-      }
-
-      const corrected = await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: input.quantity, ...settled } });
-      const writeOff = await tx.inventoryItem.create({ data: writeOffOf(group, userId, from - input.quantity, writtenOffAt) });
-      return {
-        result: { data: toUnitView(writeOff), changed: [toUnitView(corrected)], removedIds: [] },
-        productId: group.productId,
-        changes: [{ field: 'quantity', from, to: input.quantity }],
-        writtenOffItemId: writeOff.id,
-      };
-    });
+    return prisma.$transaction((tx) => correctQuantityIn(tx, userId, itemId, head.productId, input));
   },
 };
+
+/**
+ * The body of `addUnits`, inside a transaction of the caller's: the family is
+ * locked here (a no-op when the caller already holds its lock, as the
+ * rotating inventory does for every family it writes, in sorted order).
+ */
+export async function addUnitsIn(
+  tx: PrismaClientOrTx,
+  userId: string,
+  productId: string,
+  input: AddUnitsInput,
+): Promise<AddUnitsOutcome> {
+  const product = await lockedListedFamily(tx, productId);
+  const kind = unitKind(product.category);
+  if (kind !== 'cigar' && input.cigarsPerBox != null) throw badRequest('CIGARS_PER_BOX_FOR_CIGARS_ONLY');
+  const cellarId = input.cellarId ?? null;
+  if (cellarId && !(await tx.cellar.findUnique({ where: { id: cellarId }, select: { id: true } }))) {
+    throw badRequest('CELLAR_NOT_FOUND');
+  }
+
+  const target = {
+    productId,
+    cellarId,
+    purchasePrice: input.purchasePrice ?? null,
+    purchasedAt: input.purchasedAt === undefined ? todayAsPurchaseDate() : input.purchasedAt ? toDay(input.purchasedAt) : null,
+    bottleSize: input.bottleSize ?? null,
+    cigarsPerBox: input.cigarsPerBox ?? null,
+  };
+  const added = await addCopies(tx, userId, product, target, input.quantity);
+  return { result: { data: toUnitView(added.unit), changed: [], removedIds: [] }, merged: added.from !== null, from: added.from, to: added.to };
+}
+
+/**
+ * The body of `correctQuantity`, inside a transaction of the caller's.
+ * `productId` is the family read before the transaction: it is the one
+ * locked, and a group that moved to another family meanwhile is a conflict.
+ */
+export async function correctQuantityIn(
+  tx: PrismaClientOrTx,
+  userId: string,
+  itemId: string,
+  productId: string,
+  input: CorrectQuantityInput,
+): Promise<CorrectQuantityOutcome | null> {
+  await lockFamily(tx, productId);
+  const group = await tx.inventoryItem.findFirst({ where: { id: itemId, deletedAt: null } });
+  if (!group) return null;
+  const stale = input.expectedUpdatedAt !== undefined
+    && new Date(input.expectedUpdatedAt).getTime() !== group.updatedAt.getTime();
+  // Moved to another family meanwhile (a merge): its lock was not the one taken.
+  if (stale || group.productId !== productId) return { conflict: true, item: toUnitView(group) };
+  if (!isGroupableItem(group) || !group.isOwned) throw conflict('NOT_A_GROUP');
+
+  const from = group.quantity ?? 1;
+  if (input.quantity >= from) throw badRequest('QUANTITY_NOT_LOWER');
+  const settled = { needsReview: false, updatedBy: userId };
+
+  if (input.reason === 'input_error') {
+    if (input.quantity < 1) throw badRequest('QUANTITY_BELOW_ONE');
+    const corrected = await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: input.quantity, ...settled } });
+    return {
+      result: { data: toUnitView(corrected), changed: [], removedIds: [] },
+      productId: group.productId,
+      changes: [{ field: 'quantity', from, to: input.quantity }],
+      writtenOffItemId: null,
+    };
+  }
+
+  const writtenOffAt = new Date();
+  if (input.quantity === 0) {
+    const marked = await tx.inventoryItem.update({
+      where: { id: itemId },
+      data: { writtenOffAt, needsReview: false, ...NO_SLOT, updatedBy: userId },
+    });
+    // A write-off is never put back: its sub-records lose their way back
+    // to it, so that putting one back cannot bring it into stock again.
+    // In SQL, so that their `updatedAt` (a pending offline edit) stays.
+    await tx.$executeRaw`UPDATE "bottles" SET "parentItemId" = NULL WHERE "parentItemId" = ${itemId}`;
+    return {
+      result: { data: toUnitView(marked), changed: [], removedIds: [] },
+      productId: group.productId,
+      changes: [{ field: 'writtenOffAt', from: null, to: writtenOffAt }],
+      writtenOffItemId: itemId,
+    };
+  }
+
+  const corrected = await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: input.quantity, ...settled } });
+  const writeOff = await tx.inventoryItem.create({ data: writeOffOf(group, userId, from - input.quantity, writtenOffAt) });
+  return {
+    result: { data: toUnitView(writeOff), changed: [toUnitView(corrected)], removedIds: [] },
+    productId: group.productId,
+    changes: [{ field: 'quantity', from, to: input.quantity }],
+    writtenOffItemId: writeOff.id,
+  };
+}
 
 /**
  * The write-off line of `count` copies detached from `group`: everything of

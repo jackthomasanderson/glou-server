@@ -3,9 +3,13 @@ import { prisma, PrismaTransactionClient } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
 import { InventoryInput } from '../schemas/inventory.schema';
-import { IN_STOCK_ITEM_FILTER, NO_SLOT } from '../lib/finished-item';
-import { lockFamily } from '../lib/product-fields';
+import { IN_STOCK_ITEM_FILTER, NO_SLOT, isFinishedState, isIntactItem } from '../lib/finished-item';
+import { lockFamilies } from '../lib/product-fields';
+import { moveCountEntry } from '../lib/count-entries';
 import { finishUnits } from './stock-state.service';
+import { addUnitsIn, correctQuantityIn } from './stock.service';
+import { LISTED_PRODUCT_FILTER } from './product.service';
+import type { FieldChange } from '../../../shared/product';
 
 /**
  * FEAT-12: Inventaire Physique Assisté & Réconciliation.
@@ -43,15 +47,71 @@ export interface CountSessionDTO {
 
 const REPORT_ITEM_SELECT = {
   id: true,
+  productId: true,
   name: true,
   producer: true,
   category: true,
   vintage: true,
   photoUrl: true,
   cellarId: true,
+  quantity: true,
+  isOpened: true,
+  fillLevel: true,
+  cigarsLeft: true,
 } satisfies Prisma.InventoryItemSelect;
 
 type ReportItemRow = Prisma.InventoryItemGetPayload<{ select: typeof REPORT_ITEM_SELECT }>;
+
+/** What a count entry says of its line: for a group, the number found. */
+type CountedEntry = { foundQuantity: number | null };
+
+/**
+ * #471 (FEAT-100, D15): a line of the count — a group of N intact copies,
+ * answered with a number, or a single unit (an opened bottle, a box in
+ * progress) pointed on its own.
+ */
+export interface CountLine extends ReportItemRow {
+  /** An intact group, counted with "Combien en avez-vous trouvé ?". */
+  isGroup: boolean;
+  /** Copies the line holds (×6). */
+  expectedQuantity: number;
+  /** Copies found; null while the line is not pointed. */
+  foundQuantity: number | null;
+  missingQuantity: number;
+  surplusQuantity: number;
+}
+
+/**
+ * The numbers of a line: expected = its copies; found = the entry's
+ * `foundQuantity`, the whole line when the entry has none (a one-tap
+ * confirmation, or a count recorded before #471). `foundQuantity` may also
+ * have been set by the families transformation on a merged group (F3).
+ */
+export function countLine(row: ReportItemRow, entry: CountedEntry | undefined): CountLine {
+  const expectedQuantity = Math.max(row.quantity ?? 1, 1);
+  // Any entry was found somewhere: one recorded elsewhere ('unexpected', the
+  // line then moved) is not missing either.
+  const foundQuantity = entry ? entry.foundQuantity ?? expectedQuantity : null;
+  return {
+    ...row,
+    isGroup: isIntactItem(row),
+    expectedQuantity,
+    foundQuantity,
+    missingQuantity: Math.max(expectedQuantity - (foundQuantity ?? 0), 0),
+    surplusQuantity: Math.max((foundQuantity ?? 0) - expectedQuantity, 0),
+  };
+}
+
+/** A wine already known that a find of the same name may join (#471, FEAT-100). */
+export interface MatchingProduct {
+  id: string;
+  name: string;
+  producer: string;
+  vintage: number | null;
+}
+
+/** Same normalisation as `productKey` (shared/units.ts). */
+const normalizeName = (value: string) => value.trim().toLowerCase();
 
 /**
  * `itemId` is null for a physical find with no match anywhere in the system
@@ -73,17 +133,28 @@ export interface CountUnexpectedItem {
   cellarId: string | null;
   quantity: number | null;
   scannedAt: Date;
+  /** For a new find: the known wines of the same category and name (empty otherwise). */
+  matchingProducts: MatchingProduct[];
 }
 
+/**
+ * #471 (FEAT-100): `expected` is the theoretical list, one line per group;
+ * `missing` and `surplus` the lines whose number found is below / above it.
+ * The counts are in copies (bottles, boxes, cigars), not lines; `unexpected`
+ * counts the finds.
+ */
 export interface SessionReport {
   session: CountSessionDTO;
-  confirmed: ReportItemRow[];
-  missing: ReportItemRow[];
+  expected: CountLine[];
+  confirmed: CountLine[];
+  missing: CountLine[];
+  surplus: CountLine[];
   unexpected: CountUnexpectedItem[];
   counts: {
     expected: number;
     confirmed: number;
     missing: number;
+    surplus: number;
     unexpected: number;
   };
 }
@@ -91,7 +162,21 @@ export interface SessionReport {
 export interface SkippedCorrection {
   targetId: string;
   action: string;
-  reason: 'item_not_found' | 'session_has_no_cellar' | 'entry_not_found';
+  reason:
+    | 'item_not_found' | 'session_has_no_cellar' | 'entry_not_found' | 'not_a_group' | 'nothing_to_correct'
+    | 'product_not_found' | 'category_mismatch';
+}
+
+/**
+ * A line of history to write once the corrections are committed (#471): the
+ * group's number before and after (−k drunk or corrected, +k added), on the
+ * group itself, and each finished copy on its own.
+ */
+export interface CountHistoryEntry {
+  action: 'UPDATE' | 'CREATE' | 'ADD_UNITS' | 'CORRECT_QUANTITY';
+  itemId: string;
+  productId: string;
+  details: Record<string, unknown> & { changes?: FieldChange[] };
 }
 
 // Row type inferred from the Prisma client (same pattern as inventory.service.ts).
@@ -222,7 +307,7 @@ export type RecordScanResult =
  * every scan in that mode is treated as 'confirmed' (see file header +
  * getSessionReport: the theoretical list is empty in that case too).
  */
-export async function recordScan(sessionId: string, itemId: string): Promise<RecordScanResult> {
+export async function recordScan(sessionId: string, itemId: string, foundQuantity?: number): Promise<RecordScanResult> {
   const session = await prisma.inventoryCountSession.findUnique({ where: { id: sessionId } });
   if (!session) return { status: 'session_not_found' };
   if (session.status !== 'active') return { status: 'session_not_active' };
@@ -235,8 +320,8 @@ export async function recordScan(sessionId: string, itemId: string): Promise<Rec
 
   const entry = await prisma.inventoryCountEntry.upsert({
     where: { sessionId_itemId: { sessionId, itemId } },
-    create: { sessionId, itemId, status: entryStatus },
-    update: { status: entryStatus, scannedAt: new Date() },
+    create: { sessionId, itemId, status: entryStatus, foundQuantity: foundQuantity ?? null },
+    update: { status: entryStatus, foundQuantity: foundQuantity ?? null, scannedAt: new Date() },
   });
 
   return {
@@ -326,10 +411,18 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
   // 'confirmed' entries always carry an item (only recordScan, never
   // recordUnlistedFind, ever sets status: 'confirmed') — the extra null
   // filter is just to satisfy the nullable-relation type from Prisma.
+  const entryByItem = new Map(entries.flatMap((e) => (e.itemId ? [[e.itemId, e] as const] : [])));
+  const expected = theoretical.map((row) => countLine(row, entryByItem.get(row.id)));
   const confirmed = entries
-    .filter((e) => e.status === 'confirmed')
-    .map((e) => e.item)
-    .filter((item): item is ReportItemRow => item !== null);
+    .filter((e) => e.status === 'confirmed' && e.item !== null)
+    .map((e) => countLine(e.item as ReportItemRow, e))
+    // "None found" is an answer, not a confirmation.
+    .filter((line) => line.foundQuantity !== 0);
+
+  const newFinds = entries.filter((e) => e.status === 'unexpected' && !e.item && e.newItemName && e.newItemCategory);
+  const matching = await matchingProductsFor(
+    newFinds.map((e) => ({ name: e.newItemName!, category: e.newItemCategory! })),
+  );
 
   const unexpected: CountUnexpectedItem[] = entries
     .filter((e) => e.status === 'unexpected')
@@ -344,8 +437,9 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
             vintage: e.item.vintage,
             photoUrl: e.item.photoUrl,
             cellarId: e.item.cellarId,
-            quantity: null,
+            quantity: e.foundQuantity,
             scannedAt: e.scannedAt,
+            matchingProducts: [],
           }
         : {
             entryId: e.id,
@@ -360,24 +454,59 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
             cellarId: null,
             quantity: e.newItemQuantity,
             scannedAt: e.scannedAt,
+            matchingProducts: matching.get(`${e.newItemCategory}:${normalizeName(e.newItemName!)}`) ?? [],
           },
     );
 
-  const confirmedIds = new Set(confirmed.map((i) => i.id));
-  const missing = theoretical.filter((i) => !confirmedIds.has(i.id));
+  const missing = expected.filter((line) => line.missingQuantity > 0);
+  const surplus = expected.filter((line) => line.surplusQuantity > 0);
+  const sum = (lines: CountLine[], pick: (line: CountLine) => number) => lines.reduce((total, line) => total + pick(line), 0);
 
   return {
     session: toSessionDTO(session),
+    expected,
     confirmed,
     missing,
+    surplus,
     unexpected,
     counts: {
-      expected: theoretical.length,
-      confirmed: confirmed.length,
-      missing: missing.length,
+      expected: sum(expected, (line) => line.expectedQuantity),
+      confirmed: sum(confirmed, (line) => Math.min(line.foundQuantity ?? 0, line.expectedQuantity)),
+      missing: sum(missing, (line) => line.missingQuantity),
+      surplus: sum(surplus, (line) => line.surplusQuantity),
       unexpected: unexpected.length,
     },
   };
+}
+
+/** Known wines proposed per find, at most. */
+const MAX_MATCHES_PER_FIND = 5;
+
+/**
+ * #471 (FEAT-100): the wines already known that a find may join — same
+ * category, same name once normalized (the producer and the year of a find
+ * are not captured, so the member picks). Listed families only: a family in
+ * the trash cannot take new copies.
+ */
+async function matchingProductsFor(
+  finds: { name: string; category: BottleCategory }[],
+): Promise<Map<string, MatchingProduct[]>> {
+  const matches = new Map<string, MatchingProduct[]>();
+  if (finds.length === 0) return matches;
+  const products = await prisma.product.findMany({
+    where: {
+      ...LISTED_PRODUCT_FILTER,
+      AND: [{ OR: finds.map((find) => ({ category: find.category, name: { equals: find.name.trim(), mode: 'insensitive' as const } })) }],
+    },
+    select: { id: true, name: true, producer: true, vintage: true, category: true },
+    orderBy: [{ name: 'asc' }, { producer: 'asc' }, { id: 'asc' }],
+  });
+  for (const { category, ...product } of products) {
+    const key = `${category}:${normalizeName(product.name)}`;
+    const list = matches.get(key) ?? [];
+    if (list.length < MAX_MATCHES_PER_FIND) matches.set(key, [...list, product]);
+  }
+  return matches;
 }
 
 // ─── Corrective actions (applied at closure) ─────────────────────────────────
@@ -389,6 +518,8 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
  * collect) for consistency — only name/category/quantity come from the
  * count session (feature.md); everything else is left as an editable
  * placeholder, same spirit as the CSV import's `alcoholDegree: 0`.
+ * #471 (FEAT-100): the copies found form one group (a find of six bottles is
+ * a group ×6), whatever the category.
  */
 function toInventoryInputForFound(
   entry: { newItemName: string; newItemCategory: BottleCategory; newItemQuantity: number | null },
@@ -403,6 +534,9 @@ function toInventoryInputForFound(
     alertStatus: 'none' as const,
     cellarId,
     lockedFields: [] as string[],
+    // Every category's unit carries a number of copies; only the cigar's
+    // input declares it so far (lot E1 adds it to the others).
+    quantity: entry.newItemQuantity ?? 1,
   };
 
   switch (entry.newItemCategory) {
@@ -413,10 +547,8 @@ function toInventoryInputForFound(
     case 'spirit':
       return { ...common, category: 'spirit' as const, alcoholDegree: 0 };
     case 'cigar':
-      // The only category InventoryItem models a quantity (box count) on
-      // directly — other categories represent each physical unit as its own
-      // row, so a captured quantity > 1 there stays informational only.
-      return { ...common, category: 'cigar' as const, quantity: entry.newItemQuantity ?? 1 };
+      // Single cigars (no `cigarsPerBox`): a find is counted cigar by cigar.
+      return { ...common, category: 'cigar' as const };
   }
 }
 
@@ -443,19 +575,30 @@ async function applyCorrectionsInternal(
   session: { id: string; cellarId: string | null },
   corrections: CorrectionInput[],
   actingUserId: string,
-): Promise<{ appliedCount: number; skipped: SkippedCorrection[] }> {
+): Promise<CorrectionsOutcome> {
   let appliedCount = 0;
   const skipped: SkippedCorrection[] = [];
+  const history: CountHistoryEntry[] = [];
+  const skip = (targetId: string, action: string, reason: SkippedCorrection['reason']) => {
+    skipped.push({ targetId, action, reason });
+  };
 
-  // #471: the locking rule — the families of the units corrected, in sorted
-  // order, before any unit is written.
+  // #471: the locking rule — every family written (those of the units
+  // corrected, those a find joins), in sorted order, before any unit is
+  // written.
   const itemIds = corrections.flatMap((correction) => (correction.action === 'add_to_stock' ? [] : [correction.itemId]));
-  if (itemIds.length > 0) {
-    const families = await tx.inventoryItem.findMany({ where: { id: { in: itemIds } }, select: { productId: true } });
-    for (const productId of [...new Set(families.map((family) => family.productId))].sort()) {
-      await lockFamily(tx, productId);
-    }
-  }
+  const units = itemIds.length > 0
+    ? await tx.inventoryItem.findMany({ where: { id: { in: itemIds } }, select: { productId: true } })
+    : [];
+  const joined = corrections.flatMap((correction) => (correction.action === 'add_to_stock' && correction.productId ? [correction.productId] : []));
+  await lockFamilies(tx, [...units.map((unit) => unit.productId), ...joined]);
+
+  // The answers of the count: the default number of copies a group's
+  // correction applies to (#471, FEAT-100, D15).
+  const entries = itemIds.length > 0
+    ? await tx.inventoryCountEntry.findMany({ where: { sessionId: session.id, itemId: { in: itemIds } } })
+    : [];
+  const entryByItem = new Map(entries.map((entry) => [entry.itemId, entry]));
 
   for (const correction of corrections) {
     if (correction.action === 'add_to_stock') {
@@ -471,7 +614,40 @@ async function applyCorrectionsInternal(
         !entry.newItemName ||
         !entry.newItemCategory
       ) {
-        skipped.push({ targetId: correction.entryId, action: correction.action, reason: 'entry_not_found' });
+        skip(correction.entryId, correction.action, 'entry_not_found');
+        continue;
+      }
+
+      const count = entry.newItemQuantity ?? 1;
+      if (correction.productId) {
+        // #471 (FEAT-100): a find of a wine already known completes its
+        // group in this cellar, or forms a new line of it — never a second
+        // card. Purchase day and price are not known for a find.
+        const listed = await tx.product.findFirst({ where: { id: correction.productId, ...LISTED_PRODUCT_FILTER }, select: { id: true, category: true } });
+        if (!listed) {
+          skip(correction.entryId, correction.action, 'product_not_found');
+          continue;
+        }
+        if (listed.category !== entry.newItemCategory) {
+          skip(correction.entryId, correction.action, 'category_mismatch');
+          continue;
+        }
+        const added = await addUnitsIn(tx, actingUserId, correction.productId, {
+          quantity: count,
+          cellarId: session.cellarId,
+          purchasedAt: null,
+        });
+        // The find's copies were found: when they complete a group, the
+        // group's entry in this session (if any) counts them too — one entry
+        // per line and session — else the entry counts just them.
+        await moveCountEntry(tx, entry, count, { id: added.result.data.id, quantityBefore: added.from ?? 0 }, 'confirmed');
+        history.push({
+          action: 'ADD_UNITS',
+          itemId: added.result.data.id,
+          productId: correction.productId,
+          details: { scope: 'inventory-count', sessionId: session.id, merged: added.merged, changes: [{ field: 'quantity', from: added.from, to: added.to }] },
+        });
+        appliedCount++;
         continue;
       }
 
@@ -484,15 +660,23 @@ async function applyCorrectionsInternal(
         tx,
       );
       await tx.inventoryCountEntry.update({ where: { id: entry.id }, data: { itemId: created.id } });
+      history.push({
+        action: 'CREATE',
+        itemId: created.id,
+        productId: created.productId,
+        details: { scope: 'inventory-count', sessionId: session.id, changes: [{ field: 'quantity', from: null, to: count }] },
+      });
       appliedCount++;
       continue;
     }
 
     const item = await tx.inventoryItem.findFirst({ where: { id: correction.itemId, deletedAt: null } });
     if (!item) {
-      skipped.push({ targetId: correction.itemId, action: correction.action, reason: 'item_not_found' });
+      skip(correction.itemId, correction.action, 'item_not_found');
       continue;
     }
+    const line = countLine(item, entryByItem.get(item.id));
+    const base = { scope: 'inventory-count', sessionId: session.id };
 
     if (correction.action === 'mark_consumed') {
       // Same semantics as the existing FEAT-77 stock-update flow (see
@@ -507,18 +691,94 @@ async function applyCorrectionsInternal(
       // adjusted by hand, so those items came back as "missing" at every
       // subsequent count (ISSUE_034).
       //
-      // #471 (FEAT-103): through the detach rule — every copy of a missing
-      // group is finished (each one a finished sub-record, the last one the
-      // group itself), so the spending keeps them and a group never carries
-      // a state. The slot goes with the last one.
-      await finishUnits(tx, item.id, Math.max(item.quantity ?? 1, 1), { userId: actingUserId });
+      // #471 (FEAT-100, FEAT-103): only the missing copies of a group are
+      // finished, each one through the detach rule (a finished sub-record,
+      // the last one the group itself), so the spending keeps them and a
+      // group never carries a state. The slot goes with the last one.
+      const count = Math.min(correction.count ?? line.missingQuantity, line.expectedQuantity);
+      if (count < 1 || item.writtenOffAt != null || isFinishedState(item)) {
+        skip(item.id, correction.action, 'nothing_to_correct');
+        continue;
+      }
+      const finished = await finishUnits(tx, item.id, count, { userId: actingUserId });
+      const from = line.expectedQuantity;
+      const to = from - finished.length;
+      // The group's own history: k copies fewer — unless the last one was
+      // the group itself, which then records its own finish below.
+      if (to > 0) {
+        history.push({ action: 'UPDATE', itemId: item.id, productId: item.productId, details: { ...base, changes: [{ field: 'quantity', from, to }], finishedItemIds: finished } });
+      }
+      for (const finishedId of finished) {
+        history.push({
+          action: 'UPDATE',
+          itemId: finishedId,
+          productId: item.productId,
+          details: { ...base, changes: [{ field: 'fillLevel', from: item.fillLevel, to: 0 }], ...(finishedId === item.id ? {} : { outcome: 'detached', groupItemId: item.id }) },
+        });
+      }
+      appliedCount++;
+      continue;
+    }
+
+    if (correction.action === 'correct_quantity') {
+      // #471 (FEAT-100, FEAT-92): "Corriger le nombre" of a group, by its
+      // missing copies, with its reason. An opened bottle has no number.
+      if (!line.isGroup || !item.isOwned) {
+        skip(item.id, correction.action, 'not_a_group');
+        continue;
+      }
+      const count = Math.min(correction.count ?? line.missingQuantity, line.expectedQuantity);
+      const quantity = line.expectedQuantity - count;
+      // An input error never takes a group below one: the trash is for the whole line.
+      if (count < 1 || (correction.reason === 'input_error' && quantity < 1)) {
+        skip(item.id, correction.action, 'nothing_to_correct');
+        continue;
+      }
+      const corrected = await correctQuantityIn(tx, actingUserId, item.id, item.productId, { quantity, reason: correction.reason });
+      if (!corrected || 'conflict' in corrected) {
+        skip(item.id, correction.action, 'item_not_found');
+        continue;
+      }
+      history.push({
+        action: 'CORRECT_QUANTITY',
+        itemId: item.id,
+        productId: item.productId,
+        details: { ...base, reason: correction.reason, changes: corrected.changes, writtenOffItemId: corrected.writtenOffItemId },
+      });
+      appliedCount++;
+      continue;
+    }
+
+    if (correction.action === 'add_units') {
+      // #471 (FEAT-100): copies found in excess complete the line's group —
+      // the line itself when it is a group (same cellar, price, size and
+      // purchase day, D5), else the group it would join, or a new line.
+      const count = correction.count ?? line.surplusQuantity;
+      if (count < 1) {
+        skip(item.id, correction.action, 'nothing_to_correct');
+        continue;
+      }
+      const added = await addUnitsIn(tx, actingUserId, item.productId, {
+        quantity: count,
+        cellarId: item.cellarId,
+        purchasePrice: item.purchasePrice,
+        purchasedAt: item.purchasedAt ? item.purchasedAt.toISOString().slice(0, 10) : null,
+        bottleSize: item.bottleSize,
+        cigarsPerBox: item.cigarsPerBox,
+      });
+      history.push({
+        action: 'ADD_UNITS',
+        itemId: added.result.data.id,
+        productId: item.productId,
+        details: { ...base, merged: added.merged, changes: [{ field: 'quantity', from: added.from, to: added.to }] },
+      });
       appliedCount++;
       continue;
     }
 
     // move_to_scope
     if (!session.cellarId) {
-      skipped.push({ targetId: correction.itemId, action: correction.action, reason: 'session_has_no_cellar' });
+      skip(correction.itemId, correction.action, 'session_has_no_cellar');
       continue;
     }
     await tx.inventoryItem.update({
@@ -535,11 +795,18 @@ async function applyCorrectionsInternal(
     appliedCount++;
   }
 
-  return { appliedCount, skipped };
+  return { appliedCount, skipped, history };
+}
+
+interface CorrectionsOutcome {
+  appliedCount: number;
+  skipped: SkippedCorrection[];
+  /** Written by the caller once the transaction is committed. */
+  history: CountHistoryEntry[];
 }
 
 export type ApplyCorrectionsResult =
-  | { status: 'success'; appliedCount: number; skipped: SkippedCorrection[] }
+  | ({ status: 'success' } & CorrectionsOutcome)
   | { status: 'not_found' };
 
 export async function applyCorrections(
@@ -560,7 +827,7 @@ export async function applyCorrections(
 // ─── Complete ─────────────────────────────────────────────────────────────────
 
 export type CompleteSessionResult =
-  | { status: 'success'; session: CountSessionDTO; appliedCount: number; skipped: SkippedCorrection[] }
+  | ({ status: 'success'; session: CountSessionDTO } & CorrectionsOutcome)
   | { status: 'not_found' }
   | { status: 'already_completed' };
 
@@ -580,18 +847,25 @@ export async function completeSession(
   if (session.status === 'completed') return { status: 'already_completed' };
 
   const result = await prisma.$transaction(async (tx) => {
-    const corrResult = await applyCorrectionsInternal(tx, session, corrections, actingUserId);
-    const updated = await tx.inventoryCountSession.update({
-      where: { id: sessionId },
+    // Taken first, in the same transaction: a second closure sent meanwhile
+    // (double tap, two members) finds the session completed and applies
+    // nothing twice.
+    const taken = await tx.inventoryCountSession.updateMany({
+      where: { id: sessionId, status: { not: 'completed' } },
       data: { status: 'completed', completedAt: new Date() },
     });
+    if (taken.count === 0) return null;
+    const corrResult = await applyCorrectionsInternal(tx, session, corrections, actingUserId);
+    const updated = await tx.inventoryCountSession.findUniqueOrThrow({ where: { id: sessionId } });
     return { session: updated, ...corrResult };
   }, { timeout: 60000, maxWait: 10000 });
+  if (!result) return { status: 'already_completed' };
 
   return {
     status: 'success',
     session: toSessionDTO(result.session),
     appliedCount: result.appliedCount,
     skipped: result.skipped,
+    history: result.history,
   };
 }
