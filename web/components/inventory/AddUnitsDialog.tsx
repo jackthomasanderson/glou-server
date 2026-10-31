@@ -1,0 +1,175 @@
+'use client';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button, Input, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
+import { Plus } from 'lucide-react';
+import { isIntactItem, itemUnits } from '@shared/units';
+import { MAX_COPIES } from '@shared/product';
+import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ParsedNumberInput } from '@/components/ui/ParsedInput';
+import { useAddUnits } from '@/hooks/useProducts';
+import { useCellars } from '@/hooks/useCellars';
+import { currencySymbol, todayLocalIso } from '@/lib/format';
+import { wineName } from '@/lib/products/stock';
+import type { ProductDetailView, ProductItem } from '@/lib/products/types';
+
+const NO_CELLAR = 'none';
+
+/**
+ * The line new bottles most likely join: the latest bought of those in the
+ * cellar (full ones), so that the same purchase completes it (×6 → ×8).
+ */
+function latestLine(items: readonly ProductItem[]): ProductItem | undefined {
+  return items
+    .filter((item) => isIntactItem(item) && !item.writtenOffAt && !item.deletedAt && itemUnits(item) > 0)
+    .sort((a, b) => (b.purchasedAt ?? '').localeCompare(a.purchasedAt ?? '') || b.createdAt.localeCompare(a.createdAt))[0];
+}
+
+interface AddUnitsFormProps {
+  product: ProductDetailView;
+  onDone: () => void;
+}
+
+/** The reduced form, mounted on each opening: it starts again from the wine as it is. */
+function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
+  const { t, i18n } = useTranslation();
+  const { data: cellars } = useCellars();
+  const addUnits = useAddUnits();
+  const [start] = useState(() => latestLine(product.items));
+  const [quantity, setQuantity] = useState<number | undefined>(1);
+  const [cellarId, setCellarId] = useState<string | null>(start?.cellarId ?? null);
+  const [price, setPrice] = useState<number | undefined>(start?.purchasePrice ?? undefined);
+  const [bottleSize, setBottleSize] = useState(start?.bottleSize ?? '');
+  // D6: a day, the YYYY-MM-DD text of the field — never a local Date.
+  const [purchasedAt, setPurchasedAt] = useState(todayLocalIso());
+  const [submitted, setSubmitted] = useState(false);
+  const invalidCount = quantity == null || !Number.isInteger(quantity) || quantity < 1 || quantity > MAX_COPIES;
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setSubmitted(true);
+    if (invalidCount) return;
+    addUnits.mutate(
+      {
+        product,
+        input: {
+          quantity,
+          cellarId,
+          purchasePrice: price ?? null,
+          bottleSize: bottleSize.trim() || null,
+          purchasedAt: purchasedAt || null,
+        },
+      },
+      { onSuccess: onDone },
+    );
+  };
+
+  return (
+    // The number is checked here, with its message (not the browser's own bubble).
+    <form onSubmit={submit} noValidate className="contents">
+      <ModalHeader className="flex flex-col gap-0.5">
+        {t('addUnits.title')}
+        <span className="text-sm font-normal text-foreground-500">{wineName(product)}</span>
+      </ModalHeader>
+      <ModalBody>
+        <div className="grid grid-cols-2 gap-3">
+          <ParsedNumberInput
+            data-testid="add-units-quantity"
+            label={t('inventory.fields.quantityBottles')}
+            variant="bordered"
+            size="sm"
+            isRequired
+            autoFocus
+            isInvalid={submitted && invalidCount}
+            errorMessage={t('inventory.validation.bottleCount', { max: MAX_COPIES })}
+            value={quantity}
+            onValueChange={setQuantity}
+            min={1} max={MAX_COPIES}
+          />
+          <Select
+            label={t('nav.caves')}
+            variant="bordered"
+            size="sm"
+            items={[{ id: NO_CELLAR, name: t('inventory.noCellar') }, ...(cellars ?? [])]}
+            selectedKeys={[cellarId ?? NO_CELLAR]}
+            onSelectionChange={(keys) => {
+              const [key] = Array.from(keys);
+              setCellarId(!key || key === NO_CELLAR ? null : String(key));
+            }}
+          >
+            {(cellar) => <SelectItem key={cellar.id} textValue={cellar.name}>{cellar.name}</SelectItem>}
+          </Select>
+          <ParsedNumberInput decimal
+            data-testid="add-units-price"
+            label={t('inventory.fields.unitPrice')}
+            variant="bordered"
+            size="sm"
+            value={price}
+            onValueChange={setPrice}
+            endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
+          />
+          <Input
+            label={t('inventory.fields.bottleSize')}
+            variant="bordered"
+            size="sm"
+            value={bottleSize}
+            onValueChange={setBottleSize}
+          />
+          <Input
+            data-testid="add-units-purchased-at"
+            label={t('inventory.fields.purchasedAt')}
+            type="date"
+            variant="bordered"
+            size="sm"
+            value={purchasedAt}
+            onValueChange={setPurchasedAt}
+          />
+        </div>
+      </ModalBody>
+      <ModalFooter>
+        <Button variant="light" onPress={onDone} isDisabled={addUnits.isPending}>{t('actions.cancel')}</Button>
+        <Button data-testid="add-units-submit" type="submit" color="primary" isLoading={addUnits.isPending}>
+          {t('addUnits.submit')}
+        </Button>
+      </ModalFooter>
+    </form>
+  );
+}
+
+export interface AddUnitsActionProps {
+  product: ProductDetailView;
+}
+
+/**
+ * #471 (FEAT-92 c2, FEAT-101 c3, ux-ui.md §10.3 / §10.4.1): "Ajouter des
+ * bouteilles" in a wine's drawer — the main action of a wine without any
+ * bottle left (§10.5), a secondary one otherwise. Opens the reduced form:
+ * number, cellar, price of one bottle, size, purchase day; never the
+ * description. Bottles only: cigars are counted their own way (FEAT-95).
+ */
+export function AddUnitsAction({ product }: AddUnitsActionProps) {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const isMain = !product.items.some((item) => !item.writtenOffAt && !item.deletedAt && itemUnits(item) > 0);
+
+  return (
+    <>
+      <Button
+        data-testid="add-units-button"
+        data-primary={isMain}
+        size="sm"
+        color="primary"
+        variant={isMain ? 'solid' : 'bordered'}
+        startContent={<Plus size={15} />}
+        onPress={() => setIsOpen(true)}
+      >
+        {t('addUnits.action')}
+      </Button>
+      <ResponsiveModal isOpen={isOpen} onClose={() => setIsOpen(false)} size="md" radius="lg" backdrop="opaque" placement="center">
+        <ModalContent>
+          {() => <AddUnitsForm product={product} onDone={() => setIsOpen(false)} />}
+        </ModalContent>
+      </ResponsiveModal>
+    </>
+  );
+}

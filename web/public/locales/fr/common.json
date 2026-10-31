@@ -2231,5 +2231,19 @@
       "thisWine": "ce vin",
       "thisSpirit": "ce spiritueux"
     }
+  },
+  "addUnits": {
+    "action": "Ajouter des bouteilles",
+    "title": "Ajouter des bouteilles",
+    "submit": "Ajouter",
+    "success_one": "{{count}} bouteille ajoutée à {{name}}",
+    "success_other": "{{count}} bouteilles ajoutées à {{name}}",
+    "errors": {
+      "inTrash": "Ce vin est à la corbeille : restaurez-le d'abord.",
+      "tooMany": "Une ligne compte au plus 1 000 bouteilles.",
+      "rejected": "Ces bouteilles n'ont pas pu être ajoutées : vérifiez le nombre, le prix et la date.",
+      "failed": "Impossible d'ajouter ces bouteilles. Réessayez.",
+      "offline": "Ajouter des bouteilles demande une connexion."
+    }
   }
 }

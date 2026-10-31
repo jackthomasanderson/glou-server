@@ -2229,5 +2229,19 @@
       "thisWine": "this wine",
       "thisSpirit": "this spirit"
     }
+  },
+  "addUnits": {
+    "action": "Add bottles",
+    "title": "Add bottles",
+    "submit": "Add",
+    "success_one": "{{count}} bottle added to {{name}}",
+    "success_other": "{{count}} bottles added to {{name}}",
+    "errors": {
+      "inTrash": "This wine is in the trash: restore it first.",
+      "tooMany": "A line holds at most 1,000 bottles.",
+      "rejected": "These bottles could not be added: check the number, the price and the date.",
+      "failed": "These bottles could not be added. Please try again.",
+      "offline": "Adding bottles needs a connection."
+    }
   }
 }
