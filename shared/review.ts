@@ -141,6 +141,19 @@ export interface FusedGroup {
 const blank = (value: string | null) => (value === null ? null : normalizeText(value));
 
 /**
+ * Design.md rule 4: two groups may join only if their places of purchase,
+ * and their locations, agree — normalised as {@link planGroupFusion}
+ * compares them, an empty one agreeing with anything.
+ */
+export function placesAgree(
+  a: { purchasePlace: string | null; location: string | null },
+  b: { purchasePlace: string | null; location: string | null },
+): boolean {
+  const agree = (x: string | null, y: string | null) => x === null || y === null || x === y;
+  return agree(blank(a.purchasePlace), blank(b.purchasePlace)) && agree(blank(a.location), blank(b.location));
+}
+
+/**
  * Design.md rule 4 (D5), as the families_transform migration applies it:
  * groups of a family that are identical — intact, out of the trash, not
  * written off, same `groupKey` and the same estimated value (empty equals

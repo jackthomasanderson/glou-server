@@ -112,6 +112,7 @@ export async function readFieldHistory(where: Prisma.AuditLogWhereInput): Promis
       // #471: what the drawer tells of a move, a new price or a correction.
       ...(typeof details?.['count'] === 'number' ? { count: details['count'] } : {}),
       ...(isCorrectionReason(details?.['reason']) ? { reason: details['reason'] } : {}),
+      ...(Array.isArray(details?.['joinedChanges']) ? { joinedChanges: details['joinedChanges'] as FieldChange[] } : {}),
       createdAt: log.createdAt,
     };
   });

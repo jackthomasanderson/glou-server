@@ -62,9 +62,11 @@ const dialogTitled = (page: Page, title: string) =>
 test.describe('the actions of a line in the drawer of a wine (#471, W3)', () => {
   const families: string[] = [];
   const envelopes: string[] = [];
+  const cellarIds: string[] = [];
   test.afterEach(async ({ page }) => {
     const api = page.request;
     for (const productId of families.splice(0)) await api.delete(`/api/products/${productId}`).catch(() => {});
+    for (const cellarId of cellarIds.splice(0)) await api.delete(`/api/cellars/${cellarId}`).catch(() => {});
     for (const id of envelopes.splice(0)) await api.delete(`/api/wishlist/budget-envelopes/${id}`).catch(() => {});
   });
 
@@ -249,5 +251,39 @@ test.describe('the actions of a line in the drawer of a wine (#471, W3)', () => 
     const restored = await api.post(`/api/inventory/${third.id}/rollback`, { data: { field: 'purchasedAt', toValue: '2025-08-01T00:00:00.000Z' } });
     expect(restored.status(), await restored.text()).toBe(200);
     expect(await linesOf()).toEqual([[10, '2025-08-01']]);
+  });
+  // design.md rule 4 (W3 re-review): two lines whose places of purchase
+  // contradict never join — one place would be lost.
+  test('a line edited into another one\'s day stays apart when their places of purchase differ', async ({ page }) => {
+    const api = page.request;
+    const group = await wineOfSix(api, `E2E W3 places ${stamp()}`);
+    await okData(await api.patch(`/api/inventory/${group.id}`, { data: { purchasePlace: 'Caviste A' } }));
+    const detail = await okData<{ items: Array<Unit & { purchasedAt: string }> }>(await api.get(`/api/products/${group.productId}`));
+    const today = detail.items[0].purchasedAt;
+    const other = await okData<Unit>(await api.post(`/api/products/${group.productId}/items`, { data: { quantity: 2, purchasePrice: 20, purchasedAt: '2025-09-01' } }));
+    await okData(await api.patch(`/api/inventory/${other.id}`, { data: { purchasePlace: 'Caviste B' } }));
+
+    const edited = (await (await api.patch(`/api/inventory/${other.id}`, { data: { purchasedAt: today } })).json()) as Written;
+    expect(edited.data.id).toBe(other.id);
+    expect(edited.removedIds).toEqual([]);
+    const lines = (await okData<{ items: Array<Unit & { purchasePlace: string | null }> }>(await api.get(`/api/products/${group.productId}`))).items
+      .map((unit) => [unit.quantity, unit.purchasePlace]).sort();
+    expect(lines).toEqual([[2, 'Caviste B'], [6, 'Caviste A']]);
+  });
+
+  test('bottles moved to a cellar whose identical line was bought elsewhere make a line of their own', async ({ page }) => {
+    const api = page.request;
+    const kitchen = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E W3 Cuisine ${stamp()}` } }))).id;
+    cellarIds.push(kitchen);
+    const group = await wineOfSix(api, `E2E W3 move places ${stamp()}`);
+    await okData(await api.patch(`/api/inventory/${group.id}`, { data: { purchasePlace: 'Caviste A' } }));
+    const there = await okData<Unit>(await api.post(`/api/products/${group.productId}/items`, { data: { quantity: 1, purchasePrice: 20, cellarId: kitchen } }));
+    await okData(await api.patch(`/api/inventory/${there.id}`, { data: { purchasePlace: 'Caviste B' } }));
+
+    const moved = await api.post(`/api/inventory/${group.id}/move`, { data: { count: 2, cellarId: kitchen } });
+    expect(moved.status(), await moved.text()).toBe(200);
+    const lines = (await okData<{ items: Array<Unit & { purchasePlace: string | null }> }>(await api.get(`/api/products/${group.productId}`))).items
+      .map((unit) => [unit.cellarId === kitchen ? 'kitchen' : 'none', unit.quantity, unit.purchasePlace]).sort();
+    expect(lines).toEqual([['kitchen', 1, 'Caviste B'], ['kitchen', 2, 'Caviste A'], ['none', 4, 'Caviste A']]);
   });
 });

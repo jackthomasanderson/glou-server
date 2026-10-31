@@ -2146,6 +2146,12 @@
       "done_cigar_other": "{{count}} cigars moved to the trash"
     },
     "history": {
+      "joined_bottle_one": "{{count}} bottle joined ({{what}})",
+      "joined_bottle_other": "{{count}} bottles joined ({{what}})",
+      "joined_box_one": "{{count}} box joined ({{what}})",
+      "joined_box_other": "{{count}} boxes joined ({{what}})",
+      "joined_cigar_one": "{{count}} cigar joined ({{what}})",
+      "joined_cigar_other": "{{count}} cigars joined ({{what}})",
       "reasons": {
         "input_error": "input error",
         "written_off": "broken, given away or lost"

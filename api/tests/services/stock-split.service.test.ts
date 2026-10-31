@@ -207,6 +207,8 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
     ['a write-off', { writtenOffAt: new Date('2026-05-01T00:00:00Z') }],
     ['a group in the trash', { deletedAt: new Date('2026-05-01T00:00:00Z') }],
     ['a number still to review (as the review merge)', { needsReview: true }],
+    // design.md rule 4 (W3 review): joining would lose one of the two.
+    ['another place of purchase', { purchasePlace: 'Autre caviste' }],
   ])('never completes a kitchen line with %s', async (_label, fields) => {
     rows.push(unit({ id: 'k1', cellarId: 'kitchen', quantity: 1, ...fields }));
 
@@ -214,6 +216,25 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
 
     expect(created()).toHaveLength(1);
     expect(updates().map((update) => update.where.id)).toEqual(['g1']);
+  });
+
+  it('never completes a line whose location contradicts the copies taken (rule 4): a new line', async () => {
+    rows[0] = unit({ location: 'Bas' });
+    rows.push(unit({ id: 'k1', cellarId: 'kitchen', quantity: 1, location: 'Haut' }));
+
+    await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' });
+
+    expect(created()).toHaveLength(1);
+    expect(updates().map((update) => update.where.id)).toEqual(['g1']);
+  });
+
+  it('places agree when one is empty or they differ only by case and spaces: the line is completed', async () => {
+    rows.push(unit({ id: 'k1', cellarId: 'kitchen', quantity: 1, purchasePlace: '  caviste ', location: 'Haut' }));
+
+    await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' });
+
+    expect(created()).toHaveLength(0);
+    expect(updates().map((update) => update.where.id)).toEqual(['g1', 'k1']);
   });
 
   it('matches the size as the group identity does (trimmed, case-insensitive)', async () => {

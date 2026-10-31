@@ -119,7 +119,8 @@ export const GROUP_KEY_FIELDS = ['cellarId', 'purchasePrice', 'purchasedAt', 'bo
 /**
  * #471 (W3 review, design.md rule 4): a whole group whose own values were
  * just edited ("Modifier", a restored value) so that it is now identical to
- * another group of its family joins it — the older one stays, takes its
+ * another group of its family joins it, their places of purchase and
+ * locations agreeing (empty agrees) — the older one stays, takes its
  * copies and everything hanging on it, the edited one is gone. Not for a
  * group still to review (`needsReview`), for two groups each in a slot (one
  * slot, one unit), for two groups counted in one inventory session, nor
@@ -133,7 +134,9 @@ export async function joinIdenticalGroup(
   userId: string,
 ): Promise<{ survivorId: string; from: number; to: number } | null> {
   if (!isGroupableItem(group) || !group.isOwned || group.needsReview) return null;
-  const target = await findGroupFor(tx, group, kind, { excludeId: group.id, estimatedValue: group.estimatedValue, settledOnly: true });
+  const target = await findGroupFor(tx, group, kind, {
+    excludeId: group.id, estimatedValue: group.estimatedValue, settledOnly: true, placesOf: group,
+  });
   if (!target) return null;
   const from = target.quantity ?? 1;
   const to = from + (group.quantity ?? 1);
@@ -194,8 +197,10 @@ async function splitUnits(
     const done = (result: UnitWriteResult, entries: SplitEntry[]): SplitOutcome =>
       ({ result, productId: group.productId, count, change: moved, entries });
     const stamp = { updatedBy: userId };
+    // Never a line whose place of purchase or location contradicts the
+    // copies taken (design.md rule 4): one of them would be lost.
     let target = await findGroupFor(tx, { ...group, ...changeData(change) }, kind, {
-      excludeId: group.id, estimatedValue: group.estimatedValue, settledOnly: true,
+      excludeId: group.id, estimatedValue: group.estimatedValue, settledOnly: true, placesOf: group,
     });
     if (target && count === from) {
       // Two groups counted in the same inventory session keep their entries
