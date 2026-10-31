@@ -28,11 +28,27 @@ function unit(fields: Partial<StateItem> & { id: string }): Row {
   };
 }
 
-/** Rows matching a Prisma `where` of plain equalities (what the rule uses). */
-const matches = (row: Record<string, unknown>, where: Record<string, unknown> = {}) =>
-  Object.entries(where).every(([field, value]) => row[field] === value);
+/** Count sessions, for the entries' `session` relation filter. */
+let sessionRows: Row[] = [];
 
-function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entries?: Row[]; wishlist?: Row[]; categories?: Record<string, string> } = {}) {
+/** Rows matching a Prisma `where` of equalities and the few operators the rule uses (not, gt, in, session). */
+const matches = (row: Record<string, unknown>, where: Record<string, unknown> = {}): boolean =>
+  Object.entries(where).every(([field, value]) => {
+    if (field === 'session') {
+      const session = sessionRows.find((candidate) => candidate.id === row.sessionId);
+      return session != null && matches(session, value as Record<string, unknown>);
+    }
+    if (value !== null && typeof value === 'object' && !(value instanceof Date)) {
+      const op = value as { not?: unknown; gt?: number; in?: unknown[] };
+      if ('not' in op) return row[field] !== op.not;
+      if ('gt' in op) return typeof row[field] === 'number' && (row[field] as number) > op.gt!;
+      if ('in' in op) return op.in!.includes(row[field]);
+    }
+    return row[field] === value;
+  });
+
+function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entries?: Row[]; wishlist?: Row[]; categories?: Record<string, string>; sessions?: Row[] } = {}) {
+  sessionRows = (options.sessions ?? []).map((row) => ({ ...row }));
   const items = new Map(rows.map((row) => [row.id, { ...row }]));
   const tastings = (options.tastings ?? []).map((row) => ({ ...row }));
   const audits = (options.audits ?? []).map((row) => ({ ...row }));
@@ -94,6 +110,16 @@ function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entrie
       findFirst: async ({ where }: { where: Record<string, unknown> }) => entries.find((row) => matches(row, where)) ?? null,
       update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) =>
         Object.assign(entries.find((row) => row.id === where.id)!, data),
+      updateMany: updateMany(entries),
+      delete: async ({ where }: { where: { id: string } }) => entries.splice(entries.findIndex((row) => row.id === where.id), 1)[0],
+      create: async ({ data }: { data: Row }) => {
+        const row = { foundQuantity: null, ...data, id: data.id ?? `entry-${entries.length + 1}` };
+        entries.push(row);
+        return row;
+      },
+    },
+    inventoryCountSession: {
+      findFirst: async ({ where }: { where: Record<string, unknown> }) => sessionRows.find((row) => matches(row, where)) ?? null,
     },
     $executeRaw: vi.fn(async () => 1),
     $queryRaw: vi.fn(async () => { order.push('lock'); return []; }),
@@ -578,9 +604,67 @@ describe('applyState — reattach (FEAT-106)', () => {
 
     expect(db.audits[0].bottleId).toBe('g');
     expect(db.wishlist[0].acquiredItemId).toBe('g');
-    expect(db.entries.find((entry) => entry.id === 'e1')?.itemId).toBe('g');
-    // The group is already counted in s2: the sub-record's entry is left to the cascade.
-    expect(db.entries.find((entry) => entry.id === 'e2')?.itemId).toBe(subId);
+    // FEAT-100 (D15): the entry keeps the number it found — one bottle,
+    // never "the whole group" — and where the group is counted already the
+    // numbers add up on the group's entry (5 + 1), one entry per session.
+    expect(db.entries.find((entry) => entry.id === 'e1')).toMatchObject({ itemId: 'g', foundQuantity: 1 });
+    expect(db.entries.find((entry) => entry.id === 'e2')).toBeUndefined();
+    expect(db.entries.find((entry) => entry.id === 'e3')).toMatchObject({ itemId: 'g', foundQuantity: 6 });
+  });
+
+  it('a group counted 4 of 5 that takes back its opened bottle counts 5 of 6 found, not 6', async () => {
+    const { db, subId } = await openedFromSix();
+    db.entries.push({ id: 'e1', sessionId: 's1', itemId: 'g', foundQuantity: 4 }, { id: 'e2', sessionId: 's1', itemId: subId, foundQuantity: null });
+
+    await apply(db, subId, { state: { isOpened: false, fillLevel: 100 } });
+
+    expect(db.entries).toEqual([expect.objectContaining({ id: 'e1', itemId: 'g', foundQuantity: 5 })]);
+  });
+});
+
+describe('a count in progress follows a detach (FEAT-100)', () => {
+  const session = { id: 's1', status: 'active', cellarId: 'c1' };
+
+  it('opening one of a group counted 6 of 6 leaves 5 found, and the opened bottle confirmed, not missing', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })], { sessions: [session], entries: [{ id: 'e1', sessionId: 's1', itemId: 'g', foundQuantity: 6, status: 'confirmed' }] });
+
+    const result = await apply(db, 'g', { state: { isOpened: true, fillLevel: 80 } });
+
+    expect(db.entries).toEqual([
+      expect.objectContaining({ id: 'e1', itemId: 'g', foundQuantity: 5 }),
+      expect.objectContaining({ sessionId: 's1', itemId: result.data.id, status: 'confirmed' }),
+    ]);
+  });
+
+  it('drinking one leaves no false surplus, and the finished bottle is not counted', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })], { sessions: [session], entries: [{ id: 'e1', sessionId: 's1', itemId: 'g', foundQuantity: 6 }] });
+
+    await finishUnits(db.tx, 'g', 1, { userId: 'member', now: NOW });
+
+    expect(db.entries).toEqual([expect.objectContaining({ id: 'e1', foundQuantity: 5 })]);
+  });
+
+  it('keeps a lower number found, and a whole-line answer (null), as they are', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 }), unit({ id: 'h', quantity: 3 })], {
+      sessions: [session],
+      entries: [{ id: 'e1', sessionId: 's1', itemId: 'g', foundQuantity: 4 }, { id: 'e2', sessionId: 's1', itemId: 'h', foundQuantity: null }],
+    });
+
+    await finishUnits(db.tx, 'g', 1, { userId: 'member', now: NOW });
+    await finishUnits(db.tx, 'h', 1, { userId: 'member', now: NOW });
+
+    expect(db.entries.map((entry) => [entry.id, entry.foundQuantity])).toEqual([['e1', 4], ['e2', null]]);
+  });
+
+  it('leaves the entries of a completed count alone', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })], {
+      sessions: [{ id: 's0', status: 'completed', cellarId: 'c1' }],
+      entries: [{ id: 'e0', sessionId: 's0', itemId: 'g', foundQuantity: 6 }],
+    });
+
+    await apply(db, 'g', { state: { isOpened: true, fillLevel: 80 } });
+
+    expect(db.entries).toEqual([expect.objectContaining({ id: 'e0', foundQuantity: 6 })]);
   });
 });
 

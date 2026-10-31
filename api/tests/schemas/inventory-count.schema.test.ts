@@ -26,6 +26,34 @@ describe('scanSchema', () => {
   });
 });
 
+describe('scanSchema — the number found of a group (#471, FEAT-100)', () => {
+  it('accepts 0..1000 copies found, or none (the whole line)', () => {
+    expect(scanSchema.parse({ itemId: 'g1', foundQuantity: 4 }).foundQuantity).toBe(4);
+    expect(scanSchema.parse({ itemId: 'g1', foundQuantity: 0 }).foundQuantity).toBe(0);
+    expect(scanSchema.parse({ itemId: 'g1' }).foundQuantity).toBeUndefined();
+    expect(scanSchema.safeParse({ itemId: 'g1', foundQuantity: 1001 }).success).toBe(false);
+    expect(scanSchema.safeParse({ itemId: 'g1', foundQuantity: 2.5 }).success).toBe(false);
+    expect(scanSchema.safeParse({ itemId: 'g1', foundQuantity: -1 }).success).toBe(false);
+  });
+});
+
+describe('correctionSchema — corrections of a group (#471, FEAT-100)', () => {
+  it('accepts a number of copies on mark_consumed, correct_quantity and add_units', () => {
+    expect(correctionSchema.safeParse({ action: 'mark_consumed', itemId: 'g1', count: 2 }).success).toBe(true);
+    expect(correctionSchema.safeParse({ action: 'correct_quantity', itemId: 'g1', reason: 'written_off' }).success).toBe(true);
+    expect(correctionSchema.safeParse({ action: 'correct_quantity', itemId: 'g1', reason: 'input_error', count: 2 }).success).toBe(true);
+    expect(correctionSchema.safeParse({ action: 'add_units', itemId: 'g1' }).success).toBe(true);
+    expect(correctionSchema.safeParse({ action: 'add_to_stock', entryId: 'f1', productId: 'p1' }).success).toBe(true);
+  });
+
+  it('requires a known reason to correct a number, and at least one copy', () => {
+    expect(correctionSchema.safeParse({ action: 'correct_quantity', itemId: 'g1' }).success).toBe(false);
+    expect(correctionSchema.safeParse({ action: 'correct_quantity', itemId: 'g1', reason: 'stolen' }).success).toBe(false);
+    expect(correctionSchema.safeParse({ action: 'mark_consumed', itemId: 'g1', count: 0 }).success).toBe(false);
+    expect(correctionSchema.safeParse({ action: 'add_units', itemId: 'g1', count: 1001 }).success).toBe(false);
+  });
+});
+
 describe('correctionSchema (discriminated union on action)', () => {
   it('accepts each known action with its matching id field', () => {
     expect(correctionSchema.safeParse({ action: 'mark_consumed', itemId: 'i1' }).success).toBe(true);
