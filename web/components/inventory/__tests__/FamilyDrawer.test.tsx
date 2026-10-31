@@ -135,10 +135,16 @@ describe('FamilyDrawer — review of W2a', () => {
     expect(tastingPreset.id).toBe('sub');
   });
 
-  it('without an opened bottle, nothing is preset: the member picks the bottle', () => {
-    detail = detailOf({ items: [unit({ id: 'group', quantity: 5 })] });
+  it('several lines and none opened: nothing is preset, the member picks the bottle', () => {
+    detail = detailOf({ items: [unit({ id: 'garage', quantity: 5 }), unit({ id: 'kitchen', quantity: 2, purchasePrice: 30 })] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
     expect(tastingPreset.id).toBeUndefined();
+  });
+
+  it('a single line and none opened: that line, no question to ask', () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6 })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(tastingPreset.id).toBe('group');
   });
 
   it('shows the region, appellation and technical sheet, with where a value came from (FEAT-05)', () => {

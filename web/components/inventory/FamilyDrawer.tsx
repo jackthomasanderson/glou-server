@@ -152,10 +152,12 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const isOpen = productId !== null;
   // A copy in stock, for the alert pause (it acts on the wine, through any of its bottles).
   const unitInStock = lines.inCellar[0];
-  // A tasting is preset on the opened bottle, the one being drunk; with none,
-  // the member picks the bottle (never a full one chosen for them, which a
-  // "Bue" answer would then detach).
-  const openedInStock = lines.inCellar.find((item) => !isIntactItem(item));
+  // A tasting is preset on the opened bottle, the one being drunk; else on the
+  // only line in the cellar (no question when the answer is obvious, §10.4).
+  // Several lines and none opened: the member picks the bottle — never a full
+  // one chosen for them, which a "Bue" answer would then detach.
+  const tastingPreset = lines.inCellar.find((item) => !isIntactItem(item))
+    ?? (lines.inCellar.length === 1 ? lines.inCellar[0] : undefined);
 
   const renderBody = (p: ProductDetailView) => {
     const stock = describeStock(p, t);
@@ -431,7 +433,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
         </DrawerContent>
       </Drawer>
 
-      <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialItemId={openedInStock?.id} />
+      <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialItemId={tastingPreset?.id} />
 
       {product && (
         <QrCodeModal isOpen={qrOpen} onClose={() => setQrOpen(false)} itemId={product.id} itemName={wineName(product)} />
