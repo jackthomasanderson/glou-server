@@ -149,7 +149,7 @@ describe('FamilyDrawer — review of W2a', () => {
 
   it('shows the region, appellation and technical sheet, with where a value came from (FEAT-05)', () => {
     detail = detailOf({
-      region: 'Bourgogne', appellation: 'Chablis', color: 'white', lotNumber: 'L42',
+      region: 'Bourgogne', appellation: 'Chablis', color: 'white', lotNumber: 'L42', alcoholDegree: 12.5,
       fieldSources: { appellation: 'ocr', producer: 'import_csv' }, items: [unit({ quantity: 2 })],
     });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
@@ -158,6 +158,7 @@ describe('FamilyDrawer — review of W2a', () => {
     expect(sheet).toHaveTextContent('Chablis');
     expect(sheet).toHaveTextContent('Blanc');
     expect(sheet).toHaveTextContent('L42');
+    expect(sheet).toHaveTextContent('12,5');
     expect(within(sheet).getByTestId('field-source-ocr')).toBeInTheDocument();
     expect(screen.getAllByTestId('field-source-import_csv').length).toBeGreaterThan(0);
   });

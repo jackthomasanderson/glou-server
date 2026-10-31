@@ -259,7 +259,9 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                     <dd className="flex items-center gap-1.5 flex-wrap font-medium">
                       {LISTED_VALUES[field]
                         ? t(`${LISTED_VALUES[field]}.${String(p[field])}`)
-                        : formatHistoryValue(field, p[field], t, { lang })}
+                        : typeof p[field] === 'number'
+                          ? formatNumber(p[field] as number, lang)
+                          : formatHistoryValue(field, p[field], t, { lang })}
                       <FieldSourceBadge source={p.fieldSources?.[field]} t={t} />
                     </dd>
                   </React.Fragment>
