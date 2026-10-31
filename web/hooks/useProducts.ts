@@ -76,10 +76,13 @@ export function useProducts(options?: { enabled?: boolean }) {
   });
 }
 
-/** A wine's detail (its tastings: what the trash confirmation warns about). */
+/** Cache key of a wine's detail; under `inventory`, so a bottle change refreshes it too. */
+export const productDetailKey = (id: string | null) => ['inventory', 'product', id];
+
+/** A wine's detail: its drawer, and the tastings the trash confirmation warns about. */
 export function useProductDetail(id: string | null) {
   return useQuery<ProductDetailView>({
-    queryKey: ['inventory', 'product', id],
+    queryKey: productDetailKey(id),
     queryFn: () => productsClient.get(id as string),
     enabled: !!id,
   });

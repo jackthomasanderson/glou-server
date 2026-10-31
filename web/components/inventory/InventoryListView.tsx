@@ -75,7 +75,7 @@ export function InventoryListView({
         }
         onRowAction={bulkMode ? undefined : (key) => {
           const found = items.find((i) => i.id === String(key));
-          if (!found || !isOpenable(found)) return;
+          if (!found) return;
           onView(found);
         }}
       >

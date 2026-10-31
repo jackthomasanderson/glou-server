@@ -24,7 +24,7 @@ async function getBottle(api: APIRequestContext, id: string) {
 }
 
 /**
- * Opens the bottle's detail window, as a QR code or the global search does.
+ * Opens the drawer of the bottle's wine (#471), as a QR code or the global search does.
  * Straight to the page: the whole e2e run shares the API's request budget.
  */
 async function openDetail(page: Page, id: string, name: string) {
@@ -114,19 +114,28 @@ test('saving a form opened before someone else changed the bottle does not overw
   }
 });
 
-test('after a fill level set in the detail window, editing the price sends only the price and keeps the fill (#572)', async ({ page }) => {
+test('after the level of an opened bottle set in its drawer, editing the price sends only the price and keeps the level (#572)', async ({ page }) => {
   const api = page.request;
   const name = `E2E #572 price ${Date.now()}`;
-  const { id } = await createBottle(api, name);
+  const created = await api.post('/api/inventory', {
+    data: { category: 'wine', name, producer: 'E2E Domaine', vintage: 2015, region: 'Bourgogne', purchasePrice: 20, isOpened: true, fillLevel: 80 },
+  });
+  expect(created.status(), await created.text()).toBe(201);
+  const { id } = (await created.json()).data as { id: string };
 
   try {
-    // Half full from the detail window: the edit form opened next must start
-    // from that version, not conflict with it.
+    // #471: only an opened bottle has a level in the wine's drawer (one
+    // bottle, nothing detached). The edit form opened next must start from
+    // the version that level change made, not conflict with it.
     const detail = await openDetail(page, id, name);
+    const slider = detail.getByRole('slider', { name: 'Niveau de cette bouteille' });
+    await expect(slider).toHaveValue('80');
     const filled = patchOf(page, id);
-    await detail.getByRole('button', { name: 'Moitié', exact: true }).click();
+    await slider.focus();
+    await page.keyboard.press('ArrowLeft');
     const fillRes = await filled;
     expect(fillRes.status()).toBe(200);
+    expect(fillRes.request().postDataJSON()).toMatchObject({ fillLevel: 75 });
     const filledVersion = (await fillRes.json()).data.updatedAt as string;
 
     const dialog = await openEditForm(page, detail, name);
@@ -146,10 +155,12 @@ test('after a fill level set in the detail window, editing the price sends only 
     const item = await getBottle(api, id);
     expect(Number(item.purchasePrice)).toBe(25);
     expect(item.isOpened).toBe(true);
-    expect(item.fillLevel).toBe(50);
-    // Set by hand: the fill level and the price, nothing else. The untouched
-    // fields keep their origin (scan/import badges are cleared the same way).
-    expect([...(item.lockedFields as string[])].sort()).toEqual(['fillLevel', 'isOpened', 'openedAt', 'purchasePrice']);
+    expect(item.fillLevel).toBe(75);
+    // Set by hand: the level and the price; the untouched fields keep their
+    // origin (scan/import badges are cleared the same way).
+    expect(item.lockedFields).toEqual(expect.arrayContaining(['fillLevel', 'purchasePrice']));
+    expect(item.lockedFields).not.toContain('name');
+    expect(item.lockedFields).not.toContain('region');
     expect(item.name).toBe(name);
     expect(item.vintage).toBe(2015);
   } finally {

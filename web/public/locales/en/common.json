@@ -125,22 +125,10 @@
     "noNotifications": "No notifications",
     "perPage": "{{count}} per page",
     "detail": {
-      "titleWine": "Asset details",
-      "titleCigar": "Asset details",
-      "wineLevel": "Tactile level adjustment",
-      "cigarLevel": "Box capacity / Humidity",
-      "spiritLevel": "Tactile level adjustment",
-      "levelWine": "Level:",
       "full": "Full",
-      "half": "Half",
       "empty": "Empty",
-      "opened": "Open / Started",
-      "decreaseQuantity": "Decrease quantity",
-      "increaseQuantity": "Increase quantity",
-      "location": "Location",
       "sommelierNotes": "Sommelier notes",
       "tastingNotes": "Tasting notes & aromas",
-      "vitole": "Vitole tech sheet",
       "agingEstimate": "Estimated peak",
       "levelAdjusted": "Level adjusted to",
       "humidityValue": "{{value}}% RH"
@@ -349,9 +337,6 @@
     "maturitySuggestion": {
       "apply": "Apply",
       "window": "Peak: {{from}} – {{to}}"
-    },
-    "actions": {
-      "stockReference": "Stock it"
     }
   },
   "alerts": {
@@ -371,6 +356,8 @@
     "createRejected": "The asset was not added: the server refused one of the values entered. Check the form, or report the problem if it looks right.",
     "updateError": "Could not update the asset",
     "updateConflict": "Not saved: this asset was changed in the meantime, by another member or on another device. Close the form and open it again to start from the latest version.",
+    "tastingsOnBottle": "Not saved: a tasting was noted on this bottle, it stays opened.",
+    "fieldsWithReattach": "Not saved: a bottle put back full joins the others and cannot change another field at the same time. Save your other changes first, then put it back full.",
     "deleteError": "Could not delete the asset",
     "restoreError": "Could not restore the asset",
     "collection": {
@@ -1041,11 +1028,7 @@
       "error": "Stock update failed. Please try again."
     },
     "stats": {
-      "count": "Tastings",
-      "avgRating": "Avg rating",
-      "lastTasted": "Last tasted",
-      "viewAll": "View all",
-      "empty": "Not tasted yet"
+      "avgRating": "Avg rating"
     },
     "recommendations": {
       "title": "Serving recommendations",
@@ -2098,5 +2081,64 @@
       "goneCigar_one": "{{count}} smoked or gone, not counted",
       "goneCigar_other": "{{count}} smoked or gone, not counted"
     }
+  },
+  "familyDrawer": {
+    "value": "estimated value {{value}}",
+    "lines": {
+      "title": "Bottles in the cellar",
+      "titleCigar": "Cigars in the cellar",
+      "empty": "No bottle left in the cellar.",
+      "emptyCigar": "No cigar left in the cellar.",
+      "count": "×{{number}}",
+      "noCellar": "No cellar",
+      "perBottle": "{{price}} / bottle",
+      "perBox": "{{price}} / box",
+      "perCigar": "{{price}} / cigar",
+      "opened": "Opened",
+      "openedOn": "opened on {{date}}",
+      "openedBox": "Opened box",
+      "cigarsLeft_one": "{{count}} left",
+      "cigarsLeft_other": "{{count}} left",
+      "closedBoxes_one": "{{count}} closed box of {{size}}",
+      "closedBoxes_other": "{{count}} closed boxes of {{size}}",
+      "singleCigars_one": "{{count}} single cigar",
+      "singleCigars_other": "{{count}} single cigars",
+      "showMore_one": "See the other line",
+      "showMore_other": "See the {{count}} others",
+      "showLess": "See less",
+      "needsReview": "To check after the update",
+      "level": "Level of this bottle",
+      "reattached": "Bottle put back with the others"
+    },
+    "gone": {
+      "title": "Already drunk or gone",
+      "titleCigar": "Already smoked or gone",
+      "drunk_one": "{{count}} drunk",
+      "drunk_other": "{{count}} drunk",
+      "smoked_one": "{{count}} smoked",
+      "smoked_other": "{{count}} smoked",
+      "writtenOff_one": "{{count}} broken, given away or lost",
+      "writtenOff_other": "{{count}} broken, given away or lost",
+      "drunkOn": "Drunk on {{date}}",
+      "smokedOn": "Smoked on {{date}}",
+      "boxFinishedOn": "Box finished on {{date}}",
+      "writtenOffOn_one": "Broken, given away or lost on {{date}}",
+      "writtenOffOn_other": "{{count}} broken, given away or lost on {{date}}"
+    },
+    "description": {
+      "title": "About this wine",
+      "titleCigar": "About this cigar"
+    },
+    "tastings": {
+      "title": "Tastings",
+      "empty": "No tasting of this wine yet.",
+      "elsewhere": "Tasted elsewhere"
+    },
+    "history": {
+      "title": "History",
+      "add_units": "Bottles added",
+      "correct_quantity": "Number corrected"
+    },
+    "loadError": "This wine could not be loaded."
   }
 }

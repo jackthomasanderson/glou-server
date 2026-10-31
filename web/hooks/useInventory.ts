@@ -2,14 +2,15 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryClient } from '@/lib/inventory/client';
-import { InventoryItem, InventoryHistoryEntry } from '@/lib/inventory/types';
+import { InventoryItem } from '@/lib/inventory/types';
 import { mirrorInventoryToCache, getCachedInventory } from '@/lib/offline/db';
 import { enqueueMutation, overlayQueuedChanges } from '@/lib/offline/syncEngine';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
-import { PRODUCTS_KEY } from '@/hooks/useProducts';
-import { flatWithUnitChanges, withFlatItem, withoutUnit, withUnitChanges } from '@/lib/products/fromFlat';
-import type { Product } from '@/lib/products/types';
+import { PRODUCTS_KEY, productDetailKey } from '@/hooks/useProducts';
+import { detailWithUnitWrite, flatWithUnitChanges, withFlatItem, withoutUnit, withUnitChanges } from '@/lib/products/fromFlat';
+import type { Product, ProductDetailView } from '@/lib/products/types';
+import { TASTINGS_ON_ITEM } from '@shared/product';
 
 export const INVENTORY_KEY = ['inventory'];
 // #475: whether the last loaded list hit the server's 2,000-item cap.
@@ -134,15 +135,6 @@ export function useInventoryItemLookup() {
   );
 }
 
-export function useInventoryItemHistory(id: string, enabled: boolean) {
-  return useQuery<InventoryHistoryEntry[]>({
-    queryKey: ['inventory', id, 'history'],
-    queryFn: () => inventoryClient.getHistory(id),
-    enabled: !!id && enabled,
-    staleTime: 1000 * 60,
-  });
-}
-
 // ─── Mutation: Create ────────────────────────────────────────────────────────
 
 export function useCreateInventoryItem() {
@@ -183,6 +175,11 @@ export interface UpdateInventoryItemVariables {
   expectedUpdatedAt?: string;
 }
 
+const REATTACH_REFUSALS: Record<string, string> = {
+  [TASTINGS_ON_ITEM]: 'toast.tastingsOnBottle',
+  FIELDS_WITH_REATTACH: 'toast.fieldsWithReattach',
+};
+
 export function useUpdateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, UpdateInventoryItemVariables>({
@@ -197,6 +194,11 @@ export function useUpdateInventoryItem() {
         queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) =>
           withUnitChanges(old, write.changed, write.removedIds));
         for (const removedId of write.removedIds) queryClient.removeQueries({ queryKey: ['inventory', removedId], exact: true });
+        // The wine's drawer, if open: the bottle written itself follows in onSuccess.
+        if (write.data.productId) {
+          queryClient.setQueryData<ProductDetailView>(productDetailKey(write.data.productId), (old) =>
+            detailWithUnitWrite(old, null, write.changed, write.removedIds));
+        }
         return write.data;
       } catch (error) {
         // FEAT-16/23 offline resilience: `fetch` throws a `TypeError` only
@@ -237,8 +239,18 @@ export function useUpdateInventoryItem() {
       queryClient.setQueryData<InventoryItem>(['inventory', updatedItem.id], updatedItem);
       // #471: the wine's card sums its bottles: update it in place too.
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withFlatItem(old, updatedItem));
+      if (updatedItem.productId) {
+        queryClient.setQueryData<ProductDetailView>(productDetailKey(updatedItem.productId), (old) =>
+          detailWithUnitWrite(old, updatedItem));
+      }
     },
     onError: (error) => {
+      // #471 (K): putting a bottle back full refuses to lose its tastings
+      // unasked (409), or another field written with it (400).
+      if (error.message in REATTACH_REFUSALS) {
+        notifyError(REATTACH_REFUSALS[error.message]);
+        return;
+      }
       if (error.message !== 'CONFLICT') {
         notifyError('toast.updateError');
         return;

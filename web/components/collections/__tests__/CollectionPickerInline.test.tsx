@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
 // #580: adding a bottle to a collection, or removing it, from the detail
-// window said nothing when the server refused.
+// window said nothing when the server refused. #471: a collection holds wines.
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn() }));
@@ -24,8 +24,8 @@ const fetes = { id: 'c2', name: 'Fêtes', color: '#c9a227' };
 
 vi.mock('@/hooks/useCollections', () => ({
   useCollections: () => ({ data: [garde, fetes] }),
-  useAddItemsToCollection: () => ({ mutate: failingMutate, isPending: false }),
-  useRemoveItemFromCollection: () => ({ mutate: failingMutate, isPending: false }),
+  useAddProductsToCollection: () => ({ mutate: failingMutate, isPending: false }),
+  useRemoveProductFromCollection: () => ({ mutate: failingMutate, isPending: false }),
 }));
 
 import { notifyError } from '@/lib/toast';
@@ -35,21 +35,21 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('CollectionPickerInline failures', () => {
   it('says so when removing the bottle from a collection fails', () => {
-    render(<CollectionPickerInline itemId="i1" currentCollections={[garde]} />);
+    render(<CollectionPickerInline productId="p1" currentCollections={[garde]} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'remove chip' }));
 
-    expect(failingMutate).toHaveBeenCalledWith({ id: 'c1', itemId: 'i1' }, expect.anything());
+    expect(failingMutate).toHaveBeenCalledWith({ id: 'c1', productId: 'p1' }, expect.anything());
     expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError');
   });
 
   it('says so when adding the bottle to a collection fails', () => {
-    render(<CollectionPickerInline itemId="i1" currentCollections={[garde]} />);
+    render(<CollectionPickerInline productId="p1" currentCollections={[garde]} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'collections.addToItem' }));
     fireEvent.click(screen.getByRole('button', { name: 'Fêtes' }));
 
-    expect(failingMutate).toHaveBeenCalledWith({ id: 'c2', itemIds: ['i1'] }, expect.anything());
+    expect(failingMutate).toHaveBeenCalledWith({ id: 'c2', productIds: ['p1'] }, expect.anything());
     expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError');
   });
 });

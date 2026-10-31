@@ -12,7 +12,7 @@ export interface InventoryGridViewProps {
   stockOf: (product: Product) => StockLine;
   /** The cellar a wine's bottles are all in; undefined when spread over several, or none. */
   cellarNameOf: (product: Product) => string | undefined;
-  /** Whether the wine has a bottle record to open or edit (the drawer still opens a bottle until W2). */
+  /** Whether the wine has a bottle record to edit; every wine opens its drawer. */
   isOpenable: (product: Product) => boolean;
   categoryLabel: (category: string) => string;
   onEdit: (product: Product) => void;
@@ -67,7 +67,7 @@ export function InventoryGridView({
               cellarName={cellarNameOf(product)}
               onEdit={openable ? onEdit : undefined}
               onDelete={onDelete}
-              onView={bulkMode || !openable ? undefined : onView}
+              onView={bulkMode ? undefined : onView}
               t={t}
               isSelected={selectedIds.has(product.id)}
               isAnchor={product.id === anchorId}

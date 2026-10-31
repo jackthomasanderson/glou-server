@@ -2,7 +2,7 @@ import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal
 import { fetchOrNetworkError } from '../network-error';
 import type { UnitWriteResult } from '@shared/product';
 import type { Wire } from '@shared/wire';
-import { InventoryItem, InventoryHistoryEntry } from './types';
+import { InventoryItem } from './types';
 
 /** D8: what a PATCH of one bottle changed — the bottle carrying the state asked, the others, those removed. */
 export type InventoryUnitWrite = Wire<UnitWriteResult<InventoryItem>>;
@@ -83,11 +83,6 @@ export const inventoryClient = {
 
   async restore(id: string): Promise<InventoryItem> {
     const { data } = await client.post<InventoryItem>(`/inventory/${id}/restore`);
-    return data;
-  },
-
-  async getHistory(id: string): Promise<InventoryHistoryEntry[]> {
-    const { data } = await client.get<InventoryHistoryEntry[]>(`/inventory/${id}/history`);
     return data;
   },
 
