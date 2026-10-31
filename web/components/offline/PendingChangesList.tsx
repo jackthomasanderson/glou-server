@@ -11,11 +11,15 @@ import type { InventoryItem } from '@/lib/inventory/types';
  * (`failed`, which blocks every later edit of the same bottle) can be retried
  * or discarded. `retryMutation` / `removeMutation` already existed in
  * `useOfflineSync`; this is the screen that exposes them.
+ *
+ * #585: a conflict postponed with "Decide later" is reopened from here
+ * ("Resolve"); `onResolveConflict` lets the surrounding panel close so the
+ * conflict dialog is not stacked under it.
  */
-export function PendingChangesList() {
+export function PendingChangesList({ onResolveConflict }: { onResolveConflict?: () => void } = {}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { queue, retryMutation, removeMutation } = useOfflineSync();
+  const { queue, retryMutation, removeMutation, undeferConflict } = useOfflineSync();
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
   const items = queryClient.getQueryData<InventoryItem[]>(['inventory']);
@@ -44,6 +48,20 @@ export function PendingChangesList() {
           {m.status === 'failed' && m.errorReason && (
             <div className="text-sm text-danger">
               {t('connectivity.panel.reason')} : {m.errorReason}
+            </div>
+          )}
+          {m.status === 'conflict' && (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                color="primary"
+                onPress={() => {
+                  undeferConflict(m.id);
+                  onResolveConflict?.();
+                }}
+              >
+                {t('connectivity.panel.resolve')}
+              </Button>
             </div>
           )}
           {(m.status === 'failed' || m.status === 'pending') && (

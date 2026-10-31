@@ -12,7 +12,7 @@ import type { InventoryItem } from '@/lib/inventory/types';
 const getItem = vi.fn();
 vi.mock('@/lib/inventory/client', () => ({ inventoryClient: { get: (id: string) => getItem(id) } }));
 vi.mock('@/lib/offline/db', () => ({ mirrorInventoryToCache: vi.fn(), getCachedInventory: vi.fn() }));
-vi.mock('@/lib/offline/syncEngine', () => ({ enqueueMutation: vi.fn() }));
+vi.mock('@/lib/offline/syncEngine', () => ({ overlayQueuedChanges: async <T,>(items: T) => items, enqueueMutation: vi.fn() }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
 
 import { INVENTORY_KEY, useInventoryItemLookup } from './useInventory';

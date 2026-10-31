@@ -644,6 +644,7 @@
       "empty": "No pending changes.",
       "retry": "Retry",
       "discard": "Discard",
+      "resolve": "Resolve",
       "failed": "Refused by the server",
       "reason": "Reason",
       "unknownItem": "Unknown bottle",
@@ -1977,7 +1978,8 @@
       "serverVersion": "Server version",
       "keepLocal": "Keep my version",
       "keepServer": "Keep server version",
-      "decideLater": "Decide later"
+      "decideLater": "Decide later",
+      "noDifference": "Your change and the server version hold the same values."
     }
   },
   "scan": {

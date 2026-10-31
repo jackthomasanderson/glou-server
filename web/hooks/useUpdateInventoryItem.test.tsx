@@ -7,7 +7,7 @@ import { useUpdateInventoryItem, INVENTORY_KEY } from './useInventory';
 const update = vi.fn();
 vi.mock('@/lib/inventory/client', () => ({ inventoryClient: { update: (...a: unknown[]) => update(...a) } }));
 const enqueueMutation = vi.fn();
-vi.mock('@/lib/offline/syncEngine', () => ({ enqueueMutation: (...a: unknown[]) => enqueueMutation(...a) }));
+vi.mock('@/lib/offline/syncEngine', () => ({ overlayQueuedChanges: async <T,>(items: T) => items, enqueueMutation: (...a: unknown[]) => enqueueMutation(...a) }));
 vi.mock('@/lib/offline/db', () => ({ mirrorInventoryToCache: vi.fn(), getCachedInventory: vi.fn() }));
 const notifyError = vi.fn();
 vi.mock('@/lib/toast', () => ({ notifyError: (...a: unknown[]) => notifyError(...a), notifySuccess: vi.fn() }));

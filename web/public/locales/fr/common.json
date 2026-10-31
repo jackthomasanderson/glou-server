@@ -646,6 +646,7 @@
       "empty": "Aucune modification en attente.",
       "retry": "Réessayer",
       "discard": "Abandonner",
+      "resolve": "Résoudre",
       "failed": "Refusée par le serveur",
       "reason": "Motif",
       "unknownItem": "Bouteille inconnue",
@@ -1979,7 +1980,8 @@
       "serverVersion": "Version du serveur",
       "keepLocal": "Garder ma version",
       "keepServer": "Garder la version serveur",
-      "decideLater": "Décider plus tard"
+      "decideLater": "Décider plus tard",
+      "noDifference": "Votre modification et la version du serveur ont les mêmes valeurs."
     }
   },
   "scan": {
