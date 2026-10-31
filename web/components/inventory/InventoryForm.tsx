@@ -111,7 +111,11 @@ export function InventoryForm({
   const startValues = (): Partial<InventoryItem> =>
     !initialValues ? emptyForm
       : initialValues.id || descriptionOf ? initialValues
-        : { ...creationDefaults(initialValues.category ?? EMPTY_FORM.category), ...initialValues };
+        : {
+          ...creationDefaults(initialValues.category ?? EMPTY_FORM.category),
+          // A value the scan left undefined (a wine's number) keeps the default.
+          ...Object.fromEntries(Object.entries(initialValues).filter(([, value]) => value !== undefined)),
+        };
   const [values, setValues] = useState<Partial<InventoryItem>>(startValues);
   // ISSUE_119: snapshot of the values the form opened with, used to tell
   // whether closing now would throw away something the user typed.

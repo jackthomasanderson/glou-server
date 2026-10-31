@@ -75,3 +75,12 @@ describe('convertToInventory', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });
+
+describe('convertToInventorySchema (review #803)', () => {
+  it('keeps the price of one bottle in cents, as "Ajouter des bouteilles"', async () => {
+    const { convertToInventorySchema } = await import('../../src/schemas/wishlist.schema');
+    expect(convertToInventorySchema.safeParse({ purchasePrice: 12.35 }).success).toBe(true);
+    expect(convertToInventorySchema.safeParse({ purchasePrice: 12.345 }).success).toBe(false);
+    expect(convertToInventorySchema.safeParse({ purchasePrice: 10_000_000_000 }).success).toBe(false);
+  });
+});

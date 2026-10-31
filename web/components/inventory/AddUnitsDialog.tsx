@@ -15,14 +15,19 @@ import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 
 const NO_CELLAR = 'none';
 
+const latestFirst = (a: ProductItem, b: ProductItem) =>
+  (b.purchasedAt ?? '').localeCompare(a.purchasedAt ?? '') || b.createdAt.localeCompare(a.createdAt);
+
 /**
  * The line new bottles most likely join: the latest bought of those in the
- * cellar (full ones), so that the same purchase completes it (×6 → ×8).
+ * cellar (full ones), so that the same purchase completes it (×6 → ×8). A
+ * wine with none left starts from its latest bottle, drunk or gone (its
+ * cellar, price and size), to buy it again.
  */
 function latestLine(items: readonly ProductItem[]): ProductItem | undefined {
-  return items
-    .filter((item) => isIntactItem(item) && !item.writtenOffAt && !item.deletedAt && itemUnits(item) > 0)
-    .sort((a, b) => (b.purchasedAt ?? '').localeCompare(a.purchasedAt ?? '') || b.createdAt.localeCompare(a.createdAt))[0];
+  const kept = items.filter((item) => !item.deletedAt);
+  const inCellar = kept.filter((item) => isIntactItem(item) && !item.writtenOffAt && itemUnits(item) > 0);
+  return [...inCellar].sort(latestFirst)[0] ?? [...kept].sort(latestFirst)[0];
 }
 
 interface AddUnitsFormProps {

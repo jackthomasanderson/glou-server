@@ -20,6 +20,7 @@ import { ParsedNumberInput } from '@/components/ui/ParsedInput';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { MAX_COPIES } from '@shared/product';
 
 const CATEGORIES: WishlistCategory[] = [...CATEGORY_VALUES];
 
@@ -55,7 +56,13 @@ export function WishlistDashboard() {
   const [priceTarget, setPriceTarget] = useState<WishlistItem | null>(null);
   const [priceValue, setPriceValue] = useState('');
   const [convertTarget, setConvertTarget] = useState<WishlistItem | null>(null);
-  const [convertForm, setConvertForm] = useState({ purchasePrice: '', purchasePlace: '', cellarId: '', bottleSize: '', quantity: '' });
+  // #471: price of ONE bottle and number bought (one group), parsed like every price field (#725).
+  const [convertForm, setConvertForm] = useState<{
+    purchasePrice?: number; purchasePlace: string; cellarId: string; bottleSize: string; quantity?: number;
+  }>({ purchasePlace: '', cellarId: '', bottleSize: '' });
+  const [convertTried, setConvertTried] = useState(false);
+  const convertCountInvalid = convertForm.quantity == null || !Number.isInteger(convertForm.quantity)
+    || convertForm.quantity < 1 || convertForm.quantity > MAX_COPIES;
 
   const openCreate = () => {
     setEditing(null);
@@ -124,21 +131,25 @@ export function WishlistDashboard() {
   const openConvert = (item: WishlistItem) => {
     setConvertTarget(item);
     setConvertForm({
-      purchasePrice: item.lastSeenPrice != null ? String(item.lastSeenPrice) : '',
-      purchasePlace: '', cellarId: '', bottleSize: '', quantity: String(item.targetQuantity),
+      purchasePrice: item.lastSeenPrice ?? undefined,
+      purchasePlace: '', cellarId: '', bottleSize: '', quantity: item.targetQuantity,
     });
+    setConvertTried(false);
   };
   const handleConvertSubmit = async () => {
     if (!convertTarget) return;
+    setConvertTried(true);
+    // An emptied number is not the number wished for: it is asked again.
+    if (convertCountInvalid) return;
     try {
       await convertMutation.mutateAsync({
         id: convertTarget.id,
         data: {
-          purchasePrice: convertForm.purchasePrice ? Number(convertForm.purchasePrice) : null,
+          purchasePrice: convertForm.purchasePrice ?? null,
           purchasePlace: convertForm.purchasePlace || null,
           cellarId: convertForm.cellarId || null,
           bottleSize: convertForm.bottleSize || null,
-          quantity: convertForm.quantity ? Number(convertForm.quantity) : null,
+          quantity: convertForm.quantity,
         },
       });
       setConvertTarget(null);
@@ -376,8 +387,9 @@ export function WishlistDashboard() {
                   {t('wishlist.convert.description', { name: convertTarget?.name ?? '' })}
                 </p>
                 <div className="grid grid-cols-2 gap-4">
-                  <Input
-                    type="number" min={0}
+                  <ParsedNumberInput
+                    decimal
+                    data-testid="wishlist-convert-price"
                     // #471: the price of ONE bottle (or cigar), for the whole group bought.
                     label={t(convertTarget?.category === 'cigar' ? 'wishlist.convert.purchasePrice' : 'inventory.fields.unitPrice')}
                     value={convertForm.purchasePrice}
@@ -408,10 +420,13 @@ export function WishlistDashboard() {
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
                   {/* #471 (FEAT-92, point 15): the number bought, one group — the number wished for by default. */}
-                  <Input
-                    type="number" min={1}
+                  <ParsedNumberInput
+                    min={1} max={MAX_COPIES}
+                    isRequired
                     data-testid="wishlist-convert-quantity"
                     label={t(convertTarget?.category === 'cigar' ? 'wishlist.convert.quantity' : 'inventory.fields.quantityBottles')}
+                    isInvalid={convertTried && convertCountInvalid}
+                    errorMessage={t('wishlist.convert.quantityInvalid', { max: MAX_COPIES })}
                     value={convertForm.quantity}
                     onValueChange={(v) => setConvertForm((f) => ({ ...f, quantity: v }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"

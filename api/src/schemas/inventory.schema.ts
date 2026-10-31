@@ -3,6 +3,7 @@ import { CURVE_SHAPES } from '../lib/maturity-curve';
 import { categorySchema } from '../lib/category';
 import { ALERT_STATUSES, SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '../../../shared/inventory';
 import { MAX_COPIES } from '../../../shared/product';
+import { unitPrice } from './stock.schema';
 
 // ─── Common fields (all categories) ─────────────────────────────────────────
 
@@ -15,9 +16,11 @@ export const commonInventorySchema = z.object({
   tags: z.array(z.string().max(50)).max(20).default([]),
   photoUrl: z.string().max(500).optional(),
   notes: z.string().max(2000).optional(),
-  purchasePrice: z.number().min(0).optional(),
+  // #471: the price and value of ONE bottle, in cents as the column stores
+  // them (12.345 would be stored 12.35 and never find its line again).
+  purchasePrice: unitPrice.optional(),
   purchasePlace: z.string().max(200).optional(),
-  estimatedValue: z.number().min(0).optional(),
+  estimatedValue: unitPrice.optional(),
   // FEAT-87: false = non-owned reference. Defaults to owned, so the ordinary
   // "add a bottle" path and every existing client keep their behaviour.
   isOwned: z.boolean().default(true),
@@ -148,8 +151,8 @@ export const cigarInventorySchema = commonInventorySchema.extend({
  * opened bottle is created on its own. Cigars are counted by their own
  * input (FEAT-95).
  */
-const intactGroup = (d: { category: string; quantity?: number; isOpened?: boolean }) =>
-  d.category === 'cigar' || (d.quantity ?? 1) <= 1 || !d.isOpened;
+const intactGroup = (d: { category: string; quantity?: number; isOpened?: boolean; fillLevel?: number | null }) =>
+  d.category === 'cigar' || (d.quantity ?? 1) <= 1 || (!d.isOpened && (d.fillLevel == null || d.fillLevel === 100));
 
 export const inventoryInputSchema = z.discriminatedUnion('category', [
   wineInventorySchema,

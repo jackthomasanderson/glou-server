@@ -1989,6 +1989,7 @@
       "cellarPlaceholder": "Select a cellar",
       "bottleSize": "Bottle size",
       "quantity": "Quantity (cigars)",
+      "quantityInvalid": "Between 1 and {{max}}",
       "submit": "Add to inventory"
     }
   },

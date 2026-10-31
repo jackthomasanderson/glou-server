@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { unitPrice } from './stock.schema';
 import { categorySchema } from '../lib/category';
 
 // ─── POST /wishlist/items ─────────────────────────────────────────────────────
@@ -41,7 +42,8 @@ export type PriceSeenInput = z.infer<typeof priceSeenSchema>;
 // asks for what the wish itself cannot know in advance.
 
 export const convertToInventorySchema = z.object({
-  purchasePrice: z.number().min(0).optional().nullable(),
+  // The price of ONE bottle (or cigar), in cents (#471, as stock.schema.ts).
+  purchasePrice: unitPrice.optional().nullable(),
   purchasePlace: z.string().max(200).optional().nullable(),
   cellarId: z.string().optional().nullable(),
   bottleSize: z.string().max(50).optional().nullable(),

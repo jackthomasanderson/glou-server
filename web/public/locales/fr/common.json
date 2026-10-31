@@ -1991,6 +1991,7 @@
       "cellarPlaceholder": "Sélectionner une cave",
       "bottleSize": "Format",
       "quantity": "Quantité (cigares)",
+      "quantityInvalid": "Entre 1 et {{max}}",
       "submit": "Ajouter à l'inventaire"
     }
   },

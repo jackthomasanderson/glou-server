@@ -46,12 +46,21 @@ test('a wish for 6 bottles turned into stock is one wine ×6', async ({ page }) 
     const row = page.getByTestId('wishlist-item').filter({ hasText: name });
     await row.getByTestId('wishlist-convert-button').click();
     const dialog = page.getByRole('dialog');
-    await expect(dialog.getByTestId('wishlist-convert-quantity')).toHaveValue('6');
+    const count = dialog.getByTestId('wishlist-convert-quantity');
+    await expect(count).toHaveValue('6');
+    // Emptied, the number is asked again — never the number wished for in silence.
+    await count.fill('');
+    await dialog.getByTestId('wishlist-convert-submit').click();
+    await expect(dialog.getByText('Entre 1 et 1000')).toBeVisible();
+    await count.fill('6');
+    // The price of one bottle reads "24,05" as 24.05 (#725), not 2405.
+    await dialog.getByTestId('wishlist-convert-price').pressSequentially('24,05');
 
     const converted = page.waitForResponse((r) => r.url().endsWith(`/api/wishlist/items/${wishId}/convert`) && r.request().method() === 'POST');
     await dialog.getByTestId('wishlist-convert-submit').click();
     const res = await converted;
     expect(res.ok(), await res.text()).toBe(true);
+    expect(res.request().postDataJSON()).toMatchObject({ quantity: 6, purchasePrice: 24.05 });
     productId = (await res.json()).data.inventoryItem.productId as string;
     await expect(dialog).toBeHidden();
 

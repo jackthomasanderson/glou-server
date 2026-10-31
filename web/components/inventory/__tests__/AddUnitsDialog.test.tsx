@@ -73,6 +73,16 @@ describe('AddUnitsAction', () => {
     expect(sent().input).toEqual({ quantity: 3, cellarId: null, purchasePrice: 12.5, bottleSize: null, purchasedAt: '2026-03-02' });
   });
 
+  it('starts a wine without bottle from its latest bottle, drunk or gone (cellar, price, size)', () => {
+    const wine = detail([
+      unit({ cellarId: 'kitchen', purchasePrice: 10, purchasedAt: '2024-01-01', writtenOffAt: '2025-01-01T00:00:00.000Z' }),
+      openedBottle(0, { cellarId: 'garage', purchasePrice: 18, bottleSize: '150cl', purchasedAt: '2025-03-01' }),
+    ]);
+    const dialog = open(wine);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
+    expect(sent().input).toMatchObject({ cellarId: 'garage', purchasePrice: 18, bottleSize: '150cl' });
+  });
+
   it('is a secondary action while the wine has bottles in the cellar', () => {
     render(<AddUnitsAction product={detail([unit()])} />);
     expect(screen.getByRole('button', { name: 'Ajouter des bouteilles' })).toHaveAttribute('data-primary', 'false');

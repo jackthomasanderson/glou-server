@@ -225,3 +225,24 @@ describe('number of bottles and purchase day on creation (FEAT-92)', () => {
     expect(inventoryInputSchema.safeParse({ ...wine, quantity: 1, isOpened: true, fillLevel: 50 }).success).toBe(true);
   });
 });
+
+// #471 (review #803): the price and value of one bottle are kept in cents,
+// as "Ajouter des bouteilles" does — never rounded in silence, never past the column.
+describe('price of one bottle on creation (cents)', () => {
+  const wine = { category: 'wine', name: 'Talbot', producer: 'Château Talbot' };
+
+  it('accepts a price and a value in cents', () => {
+    expect(inventoryInputSchema.safeParse({ ...wine, purchasePrice: 12.35, estimatedValue: 0.1 }).success).toBe(true);
+  });
+
+  it('refuses a third decimal, or more than the column holds', () => {
+    expect(inventoryInputSchema.safeParse({ ...wine, purchasePrice: 12.345 }).success).toBe(false);
+    expect(inventoryInputSchema.safeParse({ ...wine, estimatedValue: 12.345 }).success).toBe(false);
+    expect(inventoryInputSchema.safeParse({ ...wine, purchasePrice: 10_000_000_000 }).success).toBe(false);
+  });
+
+  it('refuses several bottles created at a level other than full', () => {
+    expect(inventoryInputSchema.safeParse({ ...wine, quantity: 6, fillLevel: 50 }).success).toBe(false);
+    expect(inventoryInputSchema.safeParse({ ...wine, quantity: 6, fillLevel: 100 }).success).toBe(true);
+  });
+});

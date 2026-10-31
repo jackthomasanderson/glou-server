@@ -109,7 +109,8 @@ describe('InventoryForm — adding bottles', () => {
   });
 
   it('prefills the number and the day on a form opened with values (scan), keeping theirs', () => {
-    const { dialog } = draw({ initialValues: { category: 'wine', name: 'Cuvée X', producer: 'Domaine Y', bottleSize: '150cl' } });
+    // The scan leaves a wine's number undefined (ScanFlow): the default stays.
+    const { dialog } = draw({ initialValues: { category: 'wine', name: 'Cuvée X', producer: 'Domaine Y', bottleSize: '150cl', quantity: undefined } });
     expect(within(dialog).getByLabelText('Nombre de bouteilles')).toHaveValue(1);
     expect(within(dialog).getByLabelText("Date d'achat")).toHaveValue(todayLocalIso());
     expect(within(dialog).getByLabelText('Taille de bouteille')).toHaveValue('150cl');
