@@ -123,6 +123,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const scanAvailable = useScanAvailability();
   // #471 (FEAT-92 c4): "Modifier" edits the wine's description, for all its bottles.
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingFromDrawer, setEditingFromDrawer] = useState(false);
   // #572: the wine's version the open form's save must still find on the
   // server, so a change made meanwhile by someone else is not overwritten.
   // Moves on with each save that went through: one whose collections then
@@ -357,10 +358,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       notifySuccess('familyDrawer.form.saved');
       setMode('idle');
       setEditingProduct(null);
-      // Back to the wine's drawer, which shows the new description.
-      setViewingProductId(editingProduct.id);
+      // Opened from the drawer: back to it, which shows the new description.
+      if (editingFromDrawer) setViewingProductId(editingProduct.id);
     },
-    [editingProduct, editingVersion, updateProductMutation, addProductsToCollectionMutation, removeProductFromCollectionMutation]
+    [editingProduct, editingFromDrawer, editingVersion, updateProductMutation, addProductsToCollectionMutation, removeProductFromCollectionMutation]
   );
 
   // "Mettre ce vin à la corbeille": the wine and all its bottles (D10), once
@@ -388,15 +389,23 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   // From a card or from the drawer: the wine as last known (the drawer's
   // detail is newer than the list right after a change).
-  const handleEdit = useCallback((product: Product) => {
+  const startEdit = useCallback((product: Product, fromDrawer: boolean) => {
     setViewingProductId(null);
     setEditingProduct(product);
+    setEditingFromDrawer(fromDrawer);
     setEditingVersion(product.updatedAt);
     setMode('editing');
   }, []);
+  const handleEdit = useCallback((product: Product) => startEdit(product, false), [startEdit]);
+  const handleEditFromDrawer = useCallback((product: Product) => startEdit(product, true), [startEdit]);
 
   const handleView = useCallback((product: Product) => setViewingProductId(product.id), []);
-  const handleCancel = useCallback(() => { setMode('idle'); setEditingProduct(null); }, []);
+  const handleCancel = useCallback(() => {
+    // Opened from the drawer: closing the form goes back to it.
+    if (mode === 'editing' && editingFromDrawer && editingProduct) setViewingProductId(editingProduct.id);
+    setMode('idle');
+    setEditingProduct(null);
+  }, [mode, editingFromDrawer, editingProduct]);
 
   const cellarNames = useMemo(() => new Map((cellars ?? []).map((c) => [c.id, c.name])), [cellars]);
   const cellarNameOf = useCallback((product: Product) => {
@@ -733,7 +742,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       <FamilyDrawer
         productId={viewingProductId}
         onClose={() => setViewingProductId(null)}
-        onEdit={handleEdit}
+        onEdit={handleEditFromDrawer}
       />
 
       {duplicateFound && duplicateCandidate && (

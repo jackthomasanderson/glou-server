@@ -60,3 +60,26 @@ test('the region corrected once in the drawer of a wine is every bottle\'s (FEAT
     await api.delete(`/api/products/${productId}`).catch(() => {});
   }
 });
+
+test('edited from its card, a wine is saved without opening its drawer', async ({ page }) => {
+  const api = page.request;
+  const name = `E2E card edit ${Date.now()}-${Math.round(Math.random() * 1e4)}`;
+  const { productId } = await okData<Unit>(await api.post('/api/inventory', {
+    data: { category: 'wine', name, producer: 'E2E Domaine', region: 'Bordeaux' },
+  }));
+  try {
+    await page.goto(`/bottles?q=${encodeURIComponent(name)}`);
+    const card = page.getByTestId('family-card').filter({ hasText: name });
+    await card.getByRole('button', { name: 'Modifier', exact: true }).click();
+    const form = page.getByRole('dialog').filter({ has: page.getByTestId('inventory-form-submit') });
+    await expect(form.getByTestId('description-scope')).toHaveText('Modifie ce vin pour sa bouteille.');
+    await form.getByLabel('Région').fill('Graves');
+    const saved = page.waitForResponse((r) => r.url().endsWith(`/api/products/${productId}`) && r.request().method() === 'PATCH');
+    await form.getByTestId('inventory-form-submit').click();
+    expect((await saved).status()).toBe(200);
+    await expect(form).toBeHidden();
+    await expect(page.locator('#inventory-detail-title')).toHaveCount(0);
+  } finally {
+    await api.delete(`/api/products/${productId}`).catch(() => {});
+  }
+});
