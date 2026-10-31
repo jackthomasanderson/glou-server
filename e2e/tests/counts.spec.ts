@@ -78,22 +78,23 @@ test('a cellar of 9 bottles worth 215 € shows the same figures everywhere (FEA
   }
 });
 
-// The API cannot yet put several groups in one family (A2), so the family here
-// is a single group of 9; the 3-group case is covered by api/tests (alert and
-// consumption-plan services).
-test('a wine of 9 bottles at its peak is one alert and one suggestion (FEAT-96 c4)', async ({ page }) => {
+// Two groups of one wine (bought at two prices) are still one alert and one
+// suggestion: both are computed per family in stock.
+test('a wine of 9 bottles in 2 groups at its peak is one alert and one suggestion (FEAT-96 c4)', async ({ page }) => {
   const api = page.request;
   const id = stamp();
   const itemIds: string[] = [];
   try {
-    const wineId = await createGroup(api, 9, { name: `E2E c4 Peak ${id}`, ...AT_PEAK });
+    const wineId = await createGroup(api, 6, { name: `E2E c4 Peak ${id}`, purchasePrice: 20, ...AT_PEAK });
     itemIds.push(wineId);
     const { productId } = await okData<{ productId: string }>(await api.get(`/api/inventory/${wineId}`));
+    const second = await okData<Row>(await api.post(`/api/products/${productId}/items`, { data: { quantity: 3, purchasePrice: 25 } }));
+    itemIds.push(second.id);
+    const family = await okData<{ items: Array<Row & { quantity: number }> }>(await api.get(`/api/products/${productId}`));
+    expect(family.items.map((item) => item.quantity).sort()).toEqual([3, 6]);
 
     const alerts = await okData<Array<Row & { productId: string }>>(await api.get('/api/alerts'));
-    expect(alerts.filter((a) => a.productId === productId)).toEqual([
-      expect.objectContaining({ id: wineId, productId }),
-    ]);
+    expect(alerts.filter((a) => a.productId === productId)).toEqual([expect.objectContaining({ productId })]);
 
     const suggestions = await okData<Array<Row & { productId: string }>>(
       await api.get('/api/consumption-plan/suggestions?limit=50'),
