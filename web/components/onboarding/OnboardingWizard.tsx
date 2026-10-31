@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useRestoreFocus } from '@/hooks/useRestoreFocus';
 import { useCompleteOnboarding, useMe, useOnboardingState, usePostponeOnboarding } from '@/hooks/useAuth';
 import { Cellar } from '@/lib/cellars/types';
+import type { CsvImportResult } from '@/lib/import/types';
 import { WelcomeStep } from './steps/WelcomeStep';
 import { CellarStep } from './steps/CellarStep';
 import { JoiningStep } from './steps/JoiningStep';
@@ -61,7 +62,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
   const [cellarName, setCellarName] = useState<string | null>(null);
   const [ingestionMode, setIngestionMode] = useState<IngestionMode>(null);
   const [itemsAdded, setItemsAdded] = useState(0);
-  const [duplicatesSkipped, setDuplicatesSkipped] = useState(0);
+  const [importResult, setImportResult] = useState<CsvImportResult | null>(null);
 
   // The layer is the scroll container (#686): a new step starts at its top,
   // not where the previous, taller one was left.
@@ -228,9 +229,8 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
         {step === 'ingestion-execute' && ingestionMode === 'csv' && (
           <CsvImportStep
             cellarId={cellarId}
-            onImported={(count, skippedDuplicates) => {
-              setItemsAdded((n) => n + count);
-              setDuplicatesSkipped((n) => n + skippedDuplicates);
+            onImported={(result) => {
+              setImportResult(result);
               setStep('summary');
             }}
             onBack={() => setStep('ingestion-choice')}
@@ -251,7 +251,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
           <SummaryStep
             cellarName={cellarName}
             itemsAdded={itemsAdded}
-            duplicatesSkipped={duplicatesSkipped}
+            importResult={importResult}
             isAdmin={user?.isAdmin ?? false}
             joining={joining}
             isFinishing={completeOnboarding.isPending}

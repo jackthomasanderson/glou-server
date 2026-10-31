@@ -3,13 +3,13 @@ import { Button } from '@heroui/react';
 import { CheckCircle2, Copy, Package, Settings, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
+import type { CsvImportResult } from '@/lib/import/types';
 
 interface SummaryStepProps {
   cellarName: string | null;
   itemsAdded: number;
-  /** ISSUE_141: rows the CSV import skipped because they matched a bottle
-   * already in the inventory (FEAT-65 rule, now enforced server-side too). */
-  duplicatesSkipped: number;
+  /** #471 (FEAT-99): what the CSV import wrote — "6 bouteilles · 1 vin" — and left out. */
+  importResult?: CsvImportResult | null;
   /** Only admins see the (optional) System Configuration pointer below — the panel itself is admin-only (see AdminPage). */
   isAdmin: boolean;
   /** FEAT-89: a joining member creates no cellar; the cellar line would only say "none". */
@@ -19,8 +19,16 @@ interface SummaryStepProps {
 }
 
 /** Step 5/5 — recap of what the wizard set up, then hand off to the dashboard. */
-export function SummaryStep({ cellarName, itemsAdded, duplicatesSkipped, isAdmin, joining = false, isFinishing, onFinish }: SummaryStepProps) {
+export function SummaryStep({ cellarName, itemsAdded, importResult = null, isAdmin, joining = false, isFinishing, onFinish }: SummaryStepProps) {
   const { t } = useTranslation();
+  const imported = importResult
+    ? [
+        importResult.bottles > 0 && t('onboarding.summary.bottles', { count: importResult.bottles }),
+        importResult.wines > 0 && t('onboarding.summary.wines', { count: importResult.wines }),
+        importResult.cigars > 0 && t('onboarding.summary.cigars', { count: importResult.cigars }),
+        importResult.cigarReferences > 0 && t('onboarding.summary.cigarReferences', { count: importResult.cigarReferences }),
+      ].filter(Boolean).join(' · ')
+    : '';
   const router = useRouter();
 
   const goToSystemConfig = () => {
@@ -51,19 +59,37 @@ export function SummaryStep({ cellarName, itemsAdded, duplicatesSkipped, isAdmin
             </span>
           </div>
         )}
-        <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
-          <Package size={18} className="text-primary shrink-0" />
-          <span className="text-sm text-left">
-            {itemsAdded > 0
-              ? t('onboarding.summary.itemsAdded', { count: itemsAdded })
-              : t('onboarding.summary.noItems')}
-          </span>
-        </div>
-        {duplicatesSkipped > 0 && (
+        {(itemsAdded > 0 || !importResult) && (
+          <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
+            <Package size={18} className="text-primary shrink-0" />
+            <span className="text-sm text-left">
+              {itemsAdded > 0
+                ? t('onboarding.summary.itemsAdded', { count: itemsAdded })
+                : t('onboarding.summary.noItems')}
+            </span>
+          </div>
+        )}
+        {importResult && (
+          <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
+            <Package size={18} className="text-primary shrink-0" />
+            <span className="text-sm text-left">
+              {imported ? t('onboarding.summary.imported', { what: imported }) : t('onboarding.summary.nothingImported')}
+            </span>
+          </div>
+        )}
+        {importResult && importResult.createdCellars.length > 0 && (
+          <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
+            <Warehouse size={18} className="text-primary shrink-0" />
+            <span className="text-sm text-left">
+              {t('onboarding.summary.cellarsCreated', { count: importResult.createdCellars.length, names: importResult.createdCellars.join(', ') })}
+            </span>
+          </div>
+        )}
+        {importResult && importResult.skippedLines > 0 && (
           <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
             <Copy size={18} className="text-foreground-500 shrink-0" />
             <span className="text-sm text-left text-foreground-500">
-              {t('onboarding.summary.duplicatesSkipped', { count: duplicatesSkipped })}
+              {t('onboarding.summary.skippedLines', { count: importResult.skippedLines })}
             </span>
           </div>
         )}

@@ -1,25 +1,34 @@
 'use client';
 import { useRef, useState } from 'react';
-import { Button, Chip } from '@heroui/react';
-import { CheckCircle2, Package, Upload, XCircle } from 'lucide-react';
+import { Button, Chip, Radio, RadioGroup } from '@heroui/react';
+import { CheckCircle2, Cigarette, Package, Upload, Warehouse, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { CSV_IMPORT_MAX_ITEMS, csvRowItemCount } from '@shared/import';
+import { CSV_IMPORT_MAX_ROWS } from '@shared/import';
 import { useCsvConfirm, useCsvPreview } from '@/hooks/useImport';
-import { CsvImportError, CsvImportRow } from '@/lib/import/types';
+import { CsvImportError, CsvImportLine, CsvImportResult, CsvImportRow } from '@/lib/import/types';
 
 /** Refusals of the uploaded file that get their own explanation (FEAT-91, #641). */
 const EXPLAINED_UPLOAD_ERRORS = new Set(['FILE_TOO_LARGE', 'INVALID_FILE_TYPE']);
 
 interface CsvImportStepProps {
   cellarId: string | null;
-  onImported: (count: number, skippedDuplicates: number) => void;
+  onImported: (result: CsvImportResult) => void;
   onBack: () => void;
 }
 
+/** "6 bouteilles" or "25 cigares": what a line, or a total, stands for. */
+const unitsKey = (kind: CsvImportLine['kind']) => (kind === 'cigar' ? 'onboarding.csv.rowCigars' : 'onboarding.csv.rowQuantity');
+
 /**
- * Step 4/5 (CSV path) — file picker, server-side preview (valid/error rows),
- * then confirm-to-create. CSV only in this feature: Excel/.xlsx is an
- * explicitly assumed limitation, communicated via `csvOnlyHint` below.
+ * Step 4/5 (CSV path) — file picker, server-side preview, then
+ * confirm-to-create. CSV only in this feature: Excel/.xlsx is an explicitly
+ * assumed limitation, communicated via `csvOnlyHint` below.
+ *
+ * #471 (FEAT-99): the preview lists the groups the import writes — identical
+ * rows added up — and counts rows against the cap (500 rows, whatever the
+ * bottles). A wine already in the cellar is marked, with "Add these N
+ * bottles" / "Ignore (already counted)", Ignore chosen; a cellar the file
+ * names that does not exist is announced, and created on confirmation.
  */
 export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepProps) {
   const { t } = useTranslation();
@@ -28,29 +37,63 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
   const confirm = useCsvConfirm();
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<CsvImportRow[]>([]);
+  const [lines, setLines] = useState<CsvImportLine[]>([]);
+  const [newCellars, setNewCellars] = useState<string[]>([]);
   const [errors, setErrors] = useState<CsvImportError[]>([]);
-  // FEAT-91: a wine row with quantity 6 is 6 items; the import takes at most
-  // CSV_IMPORT_MAX_ITEMS, and a larger file is refused here, not cut short.
-  const itemCount = rows.reduce((n, row) => n + csvRowItemCount(row), 0);
-  const overLimit = itemCount > CSV_IMPORT_MAX_ITEMS;
+  /** Keys of the lines of a wine already in the cellar that the member chose to add. */
+  const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
+  // A second click before the first one's answer must not send the import twice.
+  const sending = useRef(false);
+  const overLimit = rows.length > CSV_IMPORT_MAX_ROWS;
+  const bottles = lines.reduce((n, line) => n + (line.kind === 'bottle' ? line.units : 0), 0);
+  const cigars = lines.reduce((n, line) => n + (line.kind === 'cigar' ? line.units : 0), 0);
 
   const reset = () => {
     setFileName(null);
     setRows([]);
+    setLines([]);
+    setNewCellars([]);
     setErrors([]);
+    setAdded(new Set());
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleFile = (file: File) => {
     setFileName(file.name);
+    setAdded(new Set());
     preview.mutate(file, {
-      onSuccess: (data) => { setRows(data.valid); setErrors(data.errors); },
-      onError: () => { setRows([]); setErrors([]); },
+      onSuccess: (data) => {
+        setRows(data.valid);
+        setLines(data.lines);
+        setNewCellars(data.newCellars);
+        setErrors(data.errors);
+      },
+      onError: () => { setRows([]); setLines([]); setNewCellars([]); setErrors([]); },
+    });
+  };
+
+  const choose = (key: string, add: boolean) => {
+    setAdded((current) => {
+      const next = new Set(current);
+      if (add) next.add(key);
+      else next.delete(key);
+      return next;
     });
   };
 
   const handleConfirm = () => {
-    confirm.mutate({ rows, cellarId }, { onSuccess: (res) => onImported(res.created, res.skippedDuplicates) });
+    if (sending.current) return;
+    sending.current = true;
+    const choices = lines
+      .filter((line) => line.inStock > 0)
+      .map((line) => ({ key: line.key, inStock: line.inStock, add: added.has(line.key) }));
+    confirm.mutate(
+      { rows, cellarId, choices },
+      {
+        onSuccess: (result) => onImported(result),
+        onSettled: () => { sending.current = false; },
+      },
+    );
   };
 
   return (
@@ -107,12 +150,17 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
           {!preview.isPending && (rows.length > 0 || errors.length > 0) && (
             <div className="flex flex-col gap-3">
               <div className="flex gap-2 justify-center flex-wrap">
-                <Chip color="success" variant="flat" size="sm" startContent={<CheckCircle2 size={14} />}>
+                <Chip color={overLimit ? 'danger' : 'success'} variant="flat" size="sm" startContent={<CheckCircle2 size={14} />}>
                   {t('onboarding.csv.validRows', { count: rows.length })}
                 </Chip>
-                {rows.length > 0 && (
-                  <Chip color={overLimit ? 'danger' : 'primary'} variant="flat" size="sm" startContent={<Package size={14} />}>
-                    {t('onboarding.csv.itemsInFile', { count: itemCount })}
+                {bottles > 0 && (
+                  <Chip color="primary" variant="flat" size="sm" startContent={<Package size={14} />}>
+                    {t('onboarding.csv.rowQuantity', { count: bottles })}
+                  </Chip>
+                )}
+                {cigars > 0 && (
+                  <Chip color="primary" variant="flat" size="sm" startContent={<Cigarette size={14} />}>
+                    {t('onboarding.csv.rowCigars', { count: cigars })}
                   </Chip>
                 )}
                 {errors.length > 0 && (
@@ -122,30 +170,62 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
                 )}
               </div>
 
-              <div className="max-h-56 overflow-y-auto border border-divider rounded-lg divide-y divide-divider">
-                {rows.map((row, i) => {
-                  const bottles = csvRowItemCount(row);
-                  return (
-                    <div key={`row-${i}`} className="px-3 py-2 text-sm flex items-center justify-between gap-2">
-                      <span className="truncate">{row.name} — {row.producer}</span>
+              {newCellars.length > 0 && (
+                <p className="text-sm text-foreground-600 flex items-center gap-2 justify-center">
+                  <Warehouse size={16} className="text-primary shrink-0" />
+                  {t('onboarding.csv.newCellars', { count: newCellars.length, names: newCellars.join(', ') })}
+                </p>
+              )}
+
+              <ul className="max-h-72 overflow-y-auto border border-divider rounded-lg divide-y divide-divider">
+                {lines.map((line) => (
+                  <li key={line.key} className="px-3 py-2 text-sm flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate">{line.row.name} — {line.row.producer}</span>
                       <span className="text-foreground-400 text-xs shrink-0 flex items-center gap-2">
-                        {bottles > 1 && (
-                          <span className="font-medium text-foreground-600">{t('onboarding.csv.rowQuantity', { count: bottles })}</span>
+                        {line.units > 1 && (
+                          <span className="font-medium text-foreground-600">{t(unitsKey(line.kind), { count: line.units })}</span>
                         )}
-                        <span>{t(`categories.${row.category}`)}{row.vintage ? ` · ${row.vintage}` : ''}</span>
+                        {line.rowCount > 1 && <span>{t('onboarding.csv.mergedRows', { count: line.rowCount })}</span>}
+                        <span>
+                          {t(`categories.${line.row.category}`)}
+                          {line.row.vintage ? ` · ${line.row.vintage}` : ''}
+                          {line.row.cellar ? ` · ${line.row.cellar}` : ''}
+                        </span>
                       </span>
                     </div>
-                  );
-                })}
+                    {line.inStock > 0 && (
+                      <div className="flex flex-col gap-1 bg-warning-50 rounded-md px-2 py-1">
+                        <span className="text-xs font-medium text-warning-700">
+                          {t(line.kind === 'cigar' ? 'onboarding.csv.alreadyInCellarCigars' : 'onboarding.csv.alreadyInCellar', { count: line.inStock })}
+                        </span>
+                        <RadioGroup
+                          size="sm"
+                          orientation="horizontal"
+                          aria-label={t('onboarding.csv.alreadyInCellarChoice', { name: line.row.name })}
+                          value={added.has(line.key) ? 'add' : 'ignore'}
+                          onValueChange={(value) => choose(line.key, value === 'add')}
+                        >
+                          <Radio value="add">
+                            {t(line.kind === 'cigar' ? 'onboarding.csv.addCigars' : 'onboarding.csv.addBottles', { count: line.units })}
+                          </Radio>
+                          <Radio value="ignore">
+                            {t(line.kind === 'cigar' ? 'onboarding.csv.ignoreCigars' : 'onboarding.csv.ignoreBottles')}
+                          </Radio>
+                        </RadioGroup>
+                      </div>
+                    )}
+                  </li>
+                ))}
                 {errors.map((e) => (
-                  <div key={`err-${e.row}`} className="px-3 py-2 text-sm text-danger bg-danger-50">
+                  <li key={`err-${e.row}`} className="px-3 py-2 text-sm text-danger bg-danger-50">
                     {t('onboarding.csv.errorReason', {
                       row: e.row,
                       reason: t(`onboarding.csv.errorCodes.${e.reason}`, e.reason),
                     })}
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
 
               {rows.length === 0 && (
                 <p className="text-sm text-warning-600 text-center">{t('onboarding.csv.noValidRows')}</p>
@@ -153,7 +233,7 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
 
               {overLimit && (
                 <p role="alert" className="text-sm text-danger text-center">
-                  {t('onboarding.csv.tooManyItems', { count: itemCount, max: CSV_IMPORT_MAX_ITEMS })}
+                  {t('onboarding.csv.tooManyRows', { count: rows.length, max: CSV_IMPORT_MAX_ROWS })}
                 </p>
               )}
             </div>

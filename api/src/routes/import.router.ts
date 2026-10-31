@@ -6,6 +6,7 @@ import { confirmCsvImportSchema } from '../schemas/import.schema';
 import { importService } from '../services/import.service';
 import { auditLog } from '../services/audit.service';
 import { prisma } from '../lib/prisma';
+import { AppError } from '../lib/errors';
 
 const router = Router();
 
@@ -13,8 +14,8 @@ const router = Router();
 router.use(authMiddleware);
 
 // ─── POST /api/import/csv/preview ────────────────────────────────────────────
-// Parses + validates the uploaded CSV, returns valid/invalid rows. Never
-// writes to the database.
+// Parses + validates the uploaded CSV, returns valid/invalid rows and the
+// lines they make, read against the cellar (#471, FEAT-99). Never writes.
 
 router.post('/csv/preview', csvUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
@@ -23,13 +24,13 @@ router.post('/csv/preview', csvUpload.single('file'), async (req: Request, res: 
       res.status(400).json({ error: 'NO_FILE_UPLOADED' });
       return;
     }
-    const result = importService.previewCsv(req.file.buffer);
+    const result = await importService.preview(req.file.buffer);
     void auditLog({
       userId: req.userId,
       ip,
       action: 'IMPORT_CSV',
       status: 'success',
-      details: { stage: 'preview', validCount: result.valid.length, errorCount: result.errors.length },
+      details: { stage: 'preview', validCount: result.valid.length, errorCount: result.errors.length, lineCount: result.lines.length },
     });
     res.json({ data: result });
   } catch (error) {
@@ -46,7 +47,7 @@ router.post('/csv/preview', csvUpload.single('file'), async (req: Request, res: 
 router.post('/csv/confirm', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
-    const { rows, cellarId } = confirmCsvImportSchema.parse(req.body);
+    const { rows, cellarId, choices } = confirmCsvImportSchema.parse(req.body);
 
     if (cellarId) {
       const cellar = await prisma.cellar.findUnique({ where: { id: cellarId }, select: { id: true } });
@@ -56,15 +57,21 @@ router.post('/csv/confirm', async (req: Request, res: Response): Promise<void> =
       }
     }
 
-    const { created, skippedDuplicates } = await importService.confirmImport(req.userId, rows, cellarId ?? null);
-    void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'success', details: { stage: 'confirm', created, skippedDuplicates } });
-    res.status(201).json({ data: { created, skippedDuplicates } });
+    const result = await importService.confirmImport(req.userId, rows, cellarId ?? null, choices);
+    void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'success', details: { stage: 'confirm', ...result } });
+    res.status(201).json({ data: result });
   } catch (error) {
     console.error('[import] POST /csv/confirm error:', error);
     if (error instanceof ZodError) {
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'validation_error', details: { stage: 'confirm', issues } });
       res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
+      return;
+    }
+    // A group the import would push past its bound (QUANTITY_TOO_LARGE).
+    if (error instanceof AppError) {
+      void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'validation_error', details: { stage: 'confirm', issues: error.code } });
+      res.status(error.status).json({ error: error.code });
       return;
     }
     void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'error', details: { stage: 'confirm', message: String(error) } });

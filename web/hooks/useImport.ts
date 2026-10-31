@@ -1,7 +1,7 @@
 'use client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { importClient } from '@/lib/import/client';
-import { CsvImportPreview, CsvImportRow } from '@/lib/import/types';
+import { CsvImportChoice, CsvImportPreview, CsvImportResult, CsvImportRow } from '@/lib/import/types';
 import { notifyError } from '@/lib/toast';
 
 // ─── CSV Import hooks (FEAT-56 Onboarding Setup Wizard) ─────────────────────
@@ -14,8 +14,8 @@ export function useCsvPreview() {
 
 export function useCsvConfirm() {
   const queryClient = useQueryClient();
-  return useMutation<{ created: number; skippedDuplicates: number }, Error, { rows: CsvImportRow[]; cellarId: string | null }>({
-    mutationFn: ({ rows, cellarId }) => importClient.confirmCsv(rows, cellarId),
+  return useMutation<CsvImportResult, Error, { rows: CsvImportRow[]; cellarId: string | null; choices?: CsvImportChoice[] }>({
+    mutationFn: ({ rows, cellarId, choices }) => importClient.confirmCsv(rows, cellarId, choices),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });

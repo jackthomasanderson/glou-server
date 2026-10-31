@@ -1,16 +1,25 @@
-import { prisma } from '../lib/prisma';
-import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import type { CellarType, Product } from '@prisma/client';
+import { prisma, type PrismaClientOrTx } from '../lib/prisma';
+import { IN_STOCK_ITEM_FILTER, itemUnits, productKey } from '../lib/finished-item';
 import { parseCsv } from '../lib/csv';
+import { lockFamilies, todayAsPurchaseDate } from '../lib/product-fields';
 import { csvRawRowSchema, normalizeCsvToken } from '../schemas/import.schema';
-import { InventoryInput } from '../schemas/inventory.schema';
-import { inventoryService, isDuplicateOf, FieldSource } from './inventory.service';
+import { computeAlertStatus } from './alert.service';
+import { LISTED_PRODUCT_FILTER } from './product.service';
+import { addCopies } from './stock.service';
 import {
   CSV_IMPORT_TRANSACTION_MAX_WAIT_MS,
   CSV_IMPORT_TRANSACTION_TIMEOUT_MS,
-  csvRowItemCount,
+  csvRowFamily,
+  csvRowProductKey,
+  groupCsvRows,
+  type CsvImportChoice,
   type CsvImportError,
+  type CsvImportLine,
   type CsvImportPreview,
+  type CsvImportResult,
   type CsvImportRow,
+  type CsvLineDraft,
 } from '../../../shared/import';
 
 // #510: header names accepted for each column, compared after
@@ -25,6 +34,13 @@ const HEADER_ALIASES: Record<string, string> = {
   price: 'purchasePrice', purchaseprice: 'purchasePrice', prix: 'purchasePrice', prixdachat: 'purchasePrice', prixachat: 'purchasePrice',
   region: 'region',
   quantity: 'quantity', quantite: 'quantity', qte: 'quantity', qty: 'quantity',
+  // #471 (FEAT-99): what tells a group apart, and a cigar's vitola and box.
+  cellar: 'cellar', cave: 'cellar', cellier: 'cellar',
+  purchasedat: 'purchasedAt', purchasedate: 'purchasedAt', dateofpurchase: 'purchasedAt', datedachat: 'purchasedAt', dateachat: 'purchasedAt',
+  bottlesize: 'bottleSize', size: 'bottleSize', contenance: 'bottleSize', volume: 'bottleSize', taille: 'bottleSize',
+  vitola: 'format', vitole: 'format',
+  cigarsperbox: 'cigarsPerBox', boxsize: 'cigarsPerBox', box: 'cigarsPerBox', boite: 'cigarsPerBox', formatdeboite: 'cigarsPerBox',
+  cigaresparboite: 'cigarsPerBox', parboite: 'cigarsPerBox',
   abv: 'alcoholDegree', alcohol: 'alcoholDegree', alcool: 'alcoholDegree', degre: 'alcoholDegree', alcoholdegree: 'alcoholDegree', '%vol': 'alcoholDegree', vol: 'alcoholDegree',
 };
 
@@ -41,9 +57,55 @@ function canonicalRecord(record: Record<string, string>): Record<string, string>
 /** Arbitrary, instance-wide key of the CSV import's advisory lock (FEAT-91). */
 const CSV_IMPORT_LOCK_KEY = 5_770_641;
 
+/** Rows of a file once read: before anything is matched against the database. */
+export interface CsvParseResult {
+  valid: CsvImportRow[];
+  errors: CsvImportError[];
+}
+
+const normalizeName = (value: string) => value.trim().toLowerCase();
+
+/** `YYYY-MM-DD` → the midnight-UTC Date Prisma stores in a `@db.Date` column (D6). */
+const toDay = (day: string): Date => new Date(`${day}T00:00:00.000Z`);
+
+/**
+ * #471 (FEAT-99): the listed family each line joins — the oldest of its
+ * `productKey`, a family in the trash excepted (adding to it is refused).
+ */
+async function familiesOf(client: PrismaClientOrTx, lines: readonly CsvLineDraft[]): Promise<Map<string, Product>> {
+  const keys = new Set(lines.map((line) => csvRowProductKey(line.row)));
+  const products = await client.product.findMany({
+    where: { ...LISTED_PRODUCT_FILTER, category: { in: [...new Set(lines.map((line) => line.row.category))] } },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  });
+  const families = new Map<string, Product>();
+  for (const product of products) {
+    const key = productKey(product);
+    if (keys.has(key) && !families.has(key)) families.set(key, product);
+  }
+  return families;
+}
+
+/** Units in stock of each family (FEAT-96 counting rule). */
+async function stockOf(client: PrismaClientOrTx, productIds: string[]): Promise<Map<string, number>> {
+  const stock = new Map<string, number>();
+  if (productIds.length === 0) return stock;
+  const units = await client.inventoryItem.findMany({ where: { ...IN_STOCK_ITEM_FILTER, productId: { in: productIds } } });
+  for (const unit of units) stock.set(unit.productId, (stock.get(unit.productId) ?? 0) + itemUnits(unit));
+  return stock;
+}
+
+/** Existing cellars by normalised name (the oldest of a name wins). */
+async function cellarsByName(client: PrismaClientOrTx): Promise<Map<string, string>> {
+  const cellars = await client.cellar.findMany({ select: { id: true, name: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+  const byName = new Map<string, string>();
+  for (const cellar of cellars) if (!byName.has(normalizeName(cellar.name))) byName.set(normalizeName(cellar.name), cellar.id);
+  return byName;
+}
+
 export class ImportService {
-  /** Parse + validate a CSV buffer. Never writes to the database. */
-  previewCsv(buffer: Buffer): CsvImportPreview {
+  /** Parse + validate a CSV buffer. Never reads nor writes the database. */
+  previewCsv(buffer: Buffer): CsvParseResult {
     const text = buffer.toString('utf-8');
 
     // Excel's "CSV (semicolon delimited)" export on Windows writes
@@ -55,7 +117,7 @@ export class ImportService {
     }
 
     // FEAT-91 (#641): every row is read, so the screen can say when the file
-    // goes over CSV_IMPORT_MAX_ITEMS instead of dropping the rest unseen.
+    // goes over CSV_IMPORT_MAX_ROWS instead of dropping the rest unseen.
     // The upload itself is capped at 2 MB (upload.middleware.ts).
     const records = parseCsv(text).map(canonicalRecord);
 
@@ -91,56 +153,125 @@ export class ImportService {
   }
 
   /**
-   * Persist previously-validated rows inside a single transaction — either
-   * every row is created, or none are (an error midway rolls the whole
-   * import back). Reuses `inventoryService.createItem` given the
-   * transaction's client so category side effects (alert status, id
-   * generation) stay defined in one place.
+   * #471 (FEAT-99): the preview reads the database — the rows grouped into
+   * the lines the import writes, each with the stock its wine already has
+   * ("vin déjà en cave", point 37) and whether its cellar is to be created
+   * (QP3). Never writes.
+   */
+  async preview(buffer: Buffer): Promise<CsvImportPreview> {
+    const { valid, errors } = this.previewCsv(buffer);
+    if (valid.length === 0) return { valid, errors, lines: [], newCellars: [] };
+    const drafts = groupCsvRows(valid);
+    const families = await familiesOf(prisma, drafts);
+    const stock = await stockOf(prisma, [...families.values()].map((family) => family.id));
+    const cellars = await cellarsByName(prisma);
+
+    const newCellars = new Map<string, string>();
+    const lines: CsvImportLine[] = drafts.map((draft) => {
+      const family = families.get(csvRowProductKey(draft.row));
+      const cellar = draft.row.cellar;
+      const newCellar = cellar !== undefined && !cellars.has(normalizeName(cellar));
+      if (newCellar && !newCellars.has(normalizeName(cellar))) newCellars.set(normalizeName(cellar), cellar.trim());
+      return { ...draft, inStock: family ? stock.get(family.id) ?? 0 : 0, newCellar };
+    });
+    return { valid, errors, lines, newCellars: [...newCellars.values()] };
+  }
+
+  /**
+   * Writes previously-validated rows inside a single transaction — either
+   * every line is written, or none (an error midway rolls the whole import
+   * back).
    *
-   * ISSUE_141/ISSUE_068: the one real duplicate-detection backstop in the
-   * app only ever ran in the browser — a bulk CSV import had no equivalent
-   * at all, the highest-volume way to double an entire shelf of bottles.
-   * A matched row is skipped (not an error: there's no interactive dialog to
-   * resolve it mid-import, and the bottle IS already in stock) and counted
-   * separately so the UI can report it instead of silently losing it.
+   * #471 (FEAT-99): identical rows add up into one group (decision 38); a
+   * line joins the family of its `productKey`, existing or created by this
+   * import, and completes its group of the same identity (D5) — never N
+   * lines. A line whose wine was already in the cellar is left out
+   * ("Ignorer (déjà comptées)", the default) unless the member chose to add
+   * it AND the stock is still the one the preview showed. A cellar the file
+   * names that does not exist is created (QP3).
    */
   async confirmImport(
     userId: string,
     rows: CsvImportRow[],
     cellarId: string | null,
-  ): Promise<{ created: number; skippedDuplicates: number }> {
+    choices: CsvImportChoice[] = [],
+  ): Promise<CsvImportResult> {
     return prisma.$transaction(
       async (tx) => {
-        // FEAT-91: one import at a time on the instance. A retry sent while a
-        // slow import is still being written (the screen or a proxy gave up)
-        // waits here, then finds those bottles in stock instead of importing
-        // them a second time. Released when the transaction ends.
+        // FEAT-91: one import at a time on the instance. A retry or a double
+        // click on "Confirm" waits here, then finds the bottles of the first
+        // one in stock: their lines are now "already in the cellar" with a
+        // stock the preview did not show, so nothing is added twice.
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(${CSV_IMPORT_LOCK_KEY}::bigint)`;
-        // FEAT-91 (#577): rows are matched against what was in stock before
-        // the import, read once (#633) — never against items this import has
-        // just created, which turned six identical rows into one bottle and
-        // "5 already in your inventory". A finished bottle or a non-owned
-        // reference is not in stock, so a new purchase of it is imported.
-        const inStock = await tx.inventoryItem.findMany({
-          where: { ...IN_STOCK_ITEM_FILTER, category: { in: [...new Set(rows.map((row) => row.category))] } },
-        });
-        let created = 0;
-        let skippedDuplicates = 0;
-        for (const row of rows) {
-          const input = this.toInventoryInput(row, cellarId);
-          if (inStock.some((item) => isDuplicateOf(item, input))) {
-            skippedDuplicates++;
+        const lines = groupCsvRows(rows);
+
+        // Lock order (#787 review): every family this import may write to is
+        // locked, sorted, before the first write. Read again once locked: a
+        // family trashed meanwhile is no longer joined.
+        const matched = await familiesOf(tx, lines);
+        await lockFamilies(tx, [...matched.values()].map((family) => family.id));
+        const listed = new Set(
+          (await tx.product.findMany({
+            where: { id: { in: [...matched.values()].map((family) => family.id) }, ...LISTED_PRODUCT_FILTER },
+            select: { id: true },
+          })).map((family) => family.id),
+        );
+        const families = new Map([...matched].filter(([, family]) => listed.has(family.id)));
+        // The stock before this import, read once (#633): never against what
+        // it has just written (FEAT-91, #577).
+        const stock = await stockOf(tx, [...families.values()].map((family) => family.id));
+        const cellars = await cellarsByName(tx);
+        const chosen = new Map(choices.map((choice) => [choice.key, choice]));
+        const today = todayAsPurchaseDate();
+
+        const result: CsvImportResult = {
+          bottles: 0, wines: 0, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, createdCellars: [],
+        };
+        const wines = new Set<string>();
+        const cigarReferences = new Set<string>();
+        for (const line of lines) {
+          const key = csvRowProductKey(line.row);
+          const known = families.get(key);
+          const now = known ? stock.get(known.id) ?? 0 : 0;
+          const choice = chosen.get(line.key);
+          const seen = choice?.inStock ?? 0;
+          if ((now > 0 || seen > 0) && !(choice?.add && now === seen)) {
+            result.skippedLines += 1;
+            result.skippedUnits += line.units;
             continue;
           }
-          const fieldSources = this.toFieldSources(row, input);
-          for (let i = 0; i < csvRowItemCount(row); i++) {
-            await inventoryService.createItem(userId, input, tx, fieldSources);
-            created++;
+
+          const family = known ?? (await this.createFamily(tx, userId, line.row));
+          families.set(key, family);
+          const lineCellarId = await this.cellarOf(tx, userId, line, lines, cellars, cellarId, result.createdCellars);
+          await addCopies(
+            tx,
+            userId,
+            family,
+            {
+              productId: family.id,
+              cellarId: lineCellarId,
+              purchasePrice: line.row.purchasePrice ?? null,
+              purchasedAt: line.row.purchasedAt ? toDay(line.row.purchasedAt) : today,
+              bottleSize: line.kind === 'bottle' ? line.row.bottleSize ?? null : null,
+              cigarsPerBox: line.cigarsPerBox,
+            },
+            line.count,
+            this.unitSources(line),
+          );
+          if (line.kind === 'cigar') {
+            result.cigars += line.units;
+            cigarReferences.add(family.id);
+          } else {
+            result.bottles += line.units;
+            wines.add(family.id);
           }
         }
-        return { created, skippedDuplicates };
+        result.wines = wines.size;
+        result.cigarReferences = cigarReferences.size;
+        return result;
       },
-      // Up to CSV_IMPORT_MAX_ITEMS (500) chained creates comfortably exceed Prisma's 5s
+      // Up to CSV_IMPORT_MAX_ROWS (500) lines comfortably exceed Prisma's 5s
       // interactive-transaction default, which rolled the whole import back
       // with no explanation (#161) — give it real headroom instead.
       { timeout: CSV_IMPORT_TRANSACTION_TIMEOUT_MS, maxWait: CSV_IMPORT_TRANSACTION_MAX_WAIT_MS },
@@ -148,59 +279,73 @@ export class ImportService {
   }
 
   /**
-   * Tags only the fields whose value actually came from the CSV row itself
-   * AND is saved on the item (FEAT-05 transparency: a source tag must be
-   * honest). Not the per-category fallback default `toInventoryInput` fills
-   * in below (`cigar.quantity: 1`), and not a column the category does not
-   * keep: a wine's quantity becomes that many items (FEAT-91), a wine's ABV
-   * or a spirit's vintage is not stored.
+   * The family of a new wine, from its first row. Only what the category
+   * keeps is written (a spirit has no vintage, a wine's ABV is not stored —
+   * #510: a spirit without an ABV column gets none rather than a made-up
+   * 0 %), each tagged as coming from the file (FEAT-05).
    */
-  private toFieldSources(row: CsvImportRow, input: InventoryInput): Partial<Record<string, FieldSource>> {
-    const sources: Partial<Record<string, FieldSource>> = {
-      name: 'import_csv',
-      producer: 'import_csv',
+  private async createFamily(tx: PrismaClientOrTx, userId: string, row: CsvImportRow): Promise<Product> {
+    const { vintage, format } = csvRowFamily(row);
+    const description = {
+      name: row.name,
+      producer: row.producer,
+      ...(vintage !== null ? { vintage } : {}),
+      ...(format !== null ? { format } : {}),
+      ...(row.region !== undefined ? { region: row.region } : {}),
+      ...(row.category === 'spirit' && row.alcoholDegree !== undefined ? { alcoholDegree: row.alcoholDegree } : {}),
     };
-    for (const field of ['vintage', 'purchasePrice', 'region', 'quantity', 'alcoholDegree'] as const) {
-      if (row[field] !== undefined && field in input) sources[field] = 'import_csv';
-    }
-    return sources;
+    return tx.product.create({
+      data: {
+        userId,
+        category: row.category,
+        ...description,
+        alertStatus: computeAlertStatus(null, null),
+        fieldSources: Object.fromEntries(Object.keys(description).map((field) => [field, 'import_csv'])),
+      },
+    });
   }
 
   /**
-   * A cigar without a quantity column defaults to one box of 1, editable
-   * afterwards. #510: a spirit without an ABV column is imported WITHOUT
-   * one — it used to get a made-up 0 % shown as real data; the column is
-   * nullable and the edit form asks for it.
+   * The cellar of a line: the one chosen on the screen when the file names
+   * none; else the cellar of that name, created when unknown (QP3) — as a
+   * humidor when only cigars go in it.
    */
-  private toInventoryInput(row: CsvImportRow, cellarId: string | null): InventoryInput {
-    const common = {
-      name: row.name,
-      producer: row.producer,
-      ...(row.purchasePrice !== undefined ? { purchasePrice: row.purchasePrice } : {}),
-      ...(row.region !== undefined ? { region: row.region } : {}),
-      tags: [] as string[],
-      isOwned: true,
-      isOpened: false,
-      alertStatus: 'none' as const,
-      cellarId,
-      lockedFields: [] as string[],
-    };
+  private async cellarOf(
+    tx: PrismaClientOrTx,
+    userId: string,
+    line: CsvLineDraft,
+    lines: readonly CsvLineDraft[],
+    cellars: Map<string, string>,
+    fallback: string | null,
+    created: string[],
+  ): Promise<string | null> {
+    if (line.row.cellar === undefined) return fallback;
+    const name = normalizeName(line.row.cellar);
+    const existing = cellars.get(name);
+    if (existing) return existing;
+    const cigarsOnly = lines.every((other) => other.row.cellar === undefined || normalizeName(other.row.cellar) !== name || other.kind === 'cigar');
+    const type: CellarType | undefined = cigarsOnly ? 'HUMIDOR' : undefined;
+    const cellar = await tx.cellar.create({ data: { name: line.row.cellar.trim(), userId, ...(type ? { type } : {}) } });
+    cellars.set(name, cellar.id);
+    created.push(cellar.name);
+    return cellar.id;
+  }
 
-    switch (row.category) {
-      case 'wine':
-        return { ...common, category: 'wine' as const, vintage: row.vintage, grapeVarieties: [] as string[] };
-      case 'sparkling':
-        return { ...common, category: 'sparkling' as const, vintage: row.vintage };
-      case 'spirit':
-        // Required by the interactive form's schema, optional for an import.
-        return {
-          ...common,
-          category: 'spirit' as const,
-          ...(row.alcoholDegree !== undefined ? { alcoholDegree: row.alcoholDegree } : {}),
-        } as InventoryInput;
-      case 'cigar':
-        return { ...common, category: 'cigar' as const, quantity: row.quantity ?? 1 };
-    }
+  /**
+   * FEAT-05 honesty: the unit fields tagged "from the file" are those whose
+   * value the file gave — a cigar row without a box column gave the box size
+   * (its quantity), not a number of boxes.
+   */
+  private unitSources(line: CsvLineDraft): Record<string, string> {
+    const { row } = line;
+    const legacyBox = row.category === 'cigar' && row.cigarsPerBox === undefined;
+    const sources: Record<string, string> = {};
+    if (row.purchasePrice !== undefined) sources.purchasePrice = 'import_csv';
+    if (row.purchasedAt !== undefined) sources.purchasedAt = 'import_csv';
+    if (row.bottleSize !== undefined && line.kind === 'bottle') sources.bottleSize = 'import_csv';
+    if (row.quantity !== undefined) sources[legacyBox ? 'cigarsPerBox' : 'quantity'] = 'import_csv';
+    if (typeof row.cigarsPerBox === 'number') sources.cigarsPerBox = 'import_csv';
+    return sources;
   }
 }
 

@@ -40,7 +40,7 @@ describe('useCsvConfirm', () => {
 
   it('waits for the server to finish the import, not just the usual 15 s', async () => {
     const timeout = vi.spyOn(AbortSignal, 'timeout');
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ data: { created: 1, skippedDuplicates: 0 } }) }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 201, json: async () => ({ data: { bottles: 1, wines: 1, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, createdCellars: [] } }) }));
     const { result } = renderHook(() => useCsvConfirm(), { wrapper });
 
     result.current.mutate({ rows, cellarId: null });
