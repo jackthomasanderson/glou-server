@@ -189,7 +189,7 @@ export function WishlistDashboard() {
       ) : (
         <div className="flex flex-col gap-3">
           {activeItems.map((item) => (
-            <Card key={item.id} radius="lg" shadow="sm">
+            <Card key={item.id} radius="lg" shadow="sm" data-testid="wishlist-item">
               <CardBody className="flex-row items-center gap-3 flex-wrap">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold truncate">
