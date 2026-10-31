@@ -16,12 +16,35 @@ export interface CountSession {
 
 export interface CountReportItem {
   id: string;
+  productId: string;
   name: string;
   producer: string;
   category: InventoryCategory;
   vintage: number | null;
   photoUrl: string | null;
   cellarId: string | null;
+}
+
+/**
+ * #471 (FEAT-100): a line of the count — a group of N intact copies,
+ * answered with "Combien en avez-vous trouvé ?", or a single unit (an opened
+ * bottle, a box in progress) pointed on its own. `foundQuantity` is null
+ * while the line is not pointed.
+ */
+export interface CountLine extends CountReportItem {
+  isGroup: boolean;
+  expectedQuantity: number;
+  foundQuantity: number | null;
+  missingQuantity: number;
+  surplusQuantity: number;
+}
+
+/** A wine already known that a find of the same name may join. */
+export interface MatchingProduct {
+  id: string;
+  name: string;
+  producer: string;
+  vintage: number | null;
 }
 
 /**
@@ -41,28 +64,39 @@ export interface CountUnexpectedItem {
   cellarId: string | null;
   quantity: number | null;
   scannedAt: string;
+  /** For a new find: the known wines of the same category and name. */
+  matchingProducts: MatchingProduct[];
 }
 
+/** In copies (bottles, boxes, cigars), not lines; `unexpected` counts the finds. */
 export interface SessionReportCounts {
   expected: number;
   confirmed: number;
   missing: number;
+  surplus: number;
   unexpected: number;
 }
 
 export interface SessionReport {
   session: CountSession;
-  confirmed: CountReportItem[];
-  missing: CountReportItem[];
+  /** The theoretical list, one line per group. */
+  expected: CountLine[];
+  confirmed: CountLine[];
+  missing: CountLine[];
+  surplus: CountLine[];
   unexpected: CountUnexpectedItem[];
   counts: SessionReportCounts;
 }
 
-export type CorrectionAction = 'mark_consumed' | 'move_to_scope' | 'add_to_stock';
+export type CorrectionReason = 'input_error' | 'written_off';
 
+/** `count`: copies of a group the correction applies to; absent, the server's difference. */
 export type Correction =
-  | { itemId: string; action: 'mark_consumed' | 'move_to_scope' }
-  | { entryId: string; action: 'add_to_stock' };
+  | { itemId: string; action: 'mark_consumed'; count?: number }
+  | { itemId: string; action: 'correct_quantity'; reason: CorrectionReason; count?: number }
+  | { itemId: string; action: 'add_units'; count?: number }
+  | { itemId: string; action: 'move_to_scope' }
+  | { entryId: string; action: 'add_to_stock'; productId?: string };
 
 export interface SkippedCorrection {
   targetId: string;

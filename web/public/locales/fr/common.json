@@ -405,8 +405,10 @@
       "revokeError": "Impossible de révoquer le lien de partage"
     },
     "count": {
-      "scanError": "Impossible de confirmer l'actif",
-      "recordError": "Impossible d'enregistrer l'actif"
+      "scanError": "Impossible de confirmer la bouteille",
+      "recordError": "Impossible d'enregistrer la trouvaille",
+      "skipped_one": "Session clôturée : {{count}} correction n'a pas pu être appliquée (la bouteille a changé entre-temps).",
+      "skipped_other": "Session clôturée : {{count}} corrections n'ont pas pu être appliquées (les bouteilles ont changé entre-temps)."
     },
     "admin": {
       "roleSuccess": "Membre mis à jour",
@@ -1136,48 +1138,72 @@
       "pause": "Mettre en pause",
       "viewSummary": "Voir le bilan",
       "progressAria": "Progression du comptage",
-      "progressCount": "{{confirmed}} / {{expected}} confirmés",
-      "noTheoreticalList": "Ce périmètre libre n'est lié à aucune cave : aucune liste théorique n'est disponible. Tout actif confirmé ici sera enregistré comme trouvé.",
-      "unexpectedFound_one": "{{count}} actif trouvé hors périmètre",
-      "unexpectedFound_other": "{{count}} actifs trouvés hors périmètre",
-      "searchLabel": "Rechercher un actif",
+      "progressCount": "Trouvé : {{confirmed}} / {{expected}}",
+      "noTheoreticalList": "Ce périmètre libre n'est lié à aucune cave : aucune liste théorique n'est disponible. Toute bouteille confirmée ici sera enregistrée comme trouvée.",
+      "unexpectedFound_one": "{{count}} bouteille trouvée hors périmètre",
+      "unexpectedFound_other": "{{count}} bouteilles trouvées hors périmètre",
+      "searchLabel": "Rechercher une bouteille",
       "searchPlaceholder": "Nom ou producteur...",
-      "emptyList": "Aucun actif à vérifier pour ce périmètre.",
+      "emptyList": "Aucune bouteille à vérifier pour ce périmètre.",
       "confirmTap": "Confirmer",
       "pausedNotice": "Cette session est en pause. Reprenez-la pour continuer le comptage.",
       "foundNew": {
         "trigger": "Introuvable dans la liste ? Enregistrer une trouvaille",
-        "title": "Nouvel article trouvé",
-        "description": "Enregistrez un article physiquement présent mais absent du système. Il est ajouté à l'inventaire partagé une fois confirmé à la clôture de la session.",
+        "title": "Nouvelle trouvaille",
+        "description": "Enregistrez des bouteilles présentes mais absentes de Glou. Une trouvaille de plusieurs bouteilles forme un seul groupe ; elle est ajoutée à la cave quand vous la confirmez à la clôture de la session.",
         "nameLabel": "Nom",
         "categoryLabel": "Catégorie",
-        "quantityLabel": "Quantité"
-      }
+        "quantityLabel": "Nombre trouvé"
+      },
+      "times": "×{{number}}",
+      "howMany": "Combien en avez-vous trouvé ?",
+      "howManyAria": "{{name}} : combien en avez-vous trouvé ?",
+      "saveCount": "Valider"
     },
     "status": {
       "confirmed": "Confirmé",
-      "pending": "En attente"
+      "pending": "En attente",
+      "foundOf": "{{found}} / {{expected}}"
     },
     "report": {
       "confirmed": "Confirmés",
       "missing": "Manquants",
       "unexpected": "Inattendus",
       "none": "Aucun",
-      "markConsumed": "Déclarer consommé",
       "moveToScope": "Déplacer vers ce périmètre",
       "moveDisabledNoCellar": "Non disponible : ce périmètre n'est lié à aucune cave",
-      "addToStock": "Ajouter au stock",
       "newItemBadge": "Absent du système",
       "close": "Clôturer la session",
       "closeWithCorrections": "Clôturer et appliquer ({{count}})",
-      "completedNotice": "Cette session est clôturée."
+      "completedNotice": "Cette session est clôturée.",
+      "surplus": "En plus",
+      "foundOf": "{{found}} / {{expected}}",
+      "missingOf_one": "{{count}} manquante sur {{expected}}",
+      "missingOf_other": "{{count}} manquantes sur {{expected}}",
+      "missingChoiceAria": "Que faire des bouteilles manquantes de {{name}} ?",
+      "choice": {
+        "none": "Ne rien faire",
+        "drunk_one": "Bue",
+        "drunk_other": "Bues",
+        "input_error": "Erreur de saisie",
+        "written_off_one": "Cassée / offerte / perdue",
+        "written_off_other": "Cassées / offertes / perdues"
+      },
+      "addSurplus_one": "Ajouter {{count}} bouteille au groupe",
+      "addSurplus_other": "Ajouter {{count}} bouteilles au groupe",
+      "addToStock_one": "Ajouter {{count}} bouteille à la cave",
+      "addToStock_other": "Ajouter {{count}} bouteilles à la cave",
+      "joinLabel": "Ajouter à",
+      "newWine": "Un nouveau vin"
     },
     "errors": {
       "SESSION_NOT_FOUND": "Cette session d'inventaire est introuvable.",
       "SESSION_NOT_ACTIVE": "Cette session d'inventaire n'est plus active.",
       "SESSION_ALREADY_COMPLETED": "Cette session d'inventaire a déjà été clôturée.",
       "VALIDATION_ERROR": "Veuillez vérifier les informations saisies.",
-      "UNEXPECTED_ERROR": "Une erreur inattendue est survenue."
+      "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
+      "QUANTITY_TOO_LARGE": "Un groupe ne peut pas dépasser 1 000 bouteilles.",
+      "PRODUCT_IN_TRASH": "Ce vin est dans la corbeille : restaurez-le avant d'y ajouter des bouteilles."
     }
   },
   "analytics": {
