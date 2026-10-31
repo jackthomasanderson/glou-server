@@ -2030,5 +2030,47 @@
     "switchToLight": "Passer en mode clair",
     "activeDark": "Mode sombre activé",
     "activeLight": "Mode clair activé"
+  },
+  "familyList": {
+    "stockColumn": "Stock",
+    "openedChip": "Entamée",
+    "openedChipCigar": "Boîte entamée",
+    "filters": {
+      "gone": "Plus en cave"
+    },
+    "stock": {
+      "bottles_one": "{{count}} bouteille",
+      "bottles_other": "{{count}} bouteilles",
+      "full_one": "{{count}} pleine",
+      "full_other": "{{count}} pleines",
+      "openedLevel": "1 entamée ({{level}} %)",
+      "opened_one": "{{count}} entamée",
+      "opened_other": "{{count}} entamées",
+      "magnum_one": "dont {{count}} magnum",
+      "magnum_other": "dont {{count}} magnums",
+      "otherSize_one": "dont {{count}} en {{size}}",
+      "otherSize_other": "dont {{count}} en {{size}}",
+      "closedBoxes_one": "{{count}} boîte fermée",
+      "closedBoxes_other": "{{count}} boîtes fermées",
+      "singleCigars_one": "{{count}} à l'unité",
+      "singleCigars_other": "{{count}} à l'unité",
+      "here_one": "{{count}} ici",
+      "here_other": "{{count}} ici",
+      "total_one": "{{count}} en tout",
+      "total_other": "{{count}} en tout",
+      "goneBottle": "Plus de bouteille",
+      "goneCigar": "Plus de cigare",
+      "lastActivity": "Dernière fois le {{date}}",
+      "spoken": {
+        "bottles_one": "{{count}} bouteille",
+        "bottles_other": "{{count}} bouteilles",
+        "cigars_one": "{{count}} cigare",
+        "cigars_other": "{{count}} cigares",
+        "full_one": "{{count}} bouteille pleine",
+        "full_other": "{{count}} bouteilles pleines",
+        "openedLevel": "1 entamée à {{level}} %",
+        "here": "{{here}} dans cette cave, {{total}} en tout"
+      }
+    }
   }
 }
