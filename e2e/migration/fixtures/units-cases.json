@@ -1,5 +1,5 @@
 {
-  "_comment": "#471: cases of the counting rule (shared/units.ts). Read by api/tests/lib/units.test.ts and meant for the SQL/TS parity check of the families transformation (lot F3). Unit fields left out of an `item` are: quantity 1, isOpened false, fillLevel null, cigarsPerBox null, cigarsLeft null, writtenOffAt null, purchasePrice null, estimatedValue null.",
+  "_comment": "#471: cases of the counting rule and the keys (shared/units.ts, the reference). The single case table read both by api/tests/lib/units.test.ts and by the migration bench (e2e/migration/parity/families-rules.sql), which checks the SQL copy of these rules in the families_transform migration. `sqlMaySplit`: TypeScript sees one key, SQL may see two (no-break spaces are not trimmed in SQL; accented capitals depend on the server locale), never the reverse, so no silent merge. A count of 0 counts 0 here; only the transformation of old records turns a legacy count of 0 or less into 1 (design.md, rule 3). Unit fields left out of an `item` are: quantity 1, isOpened false, fillLevel null, cigarsPerBox null, cigarsLeft null, writtenOffAt null, purchasePrice null, estimatedValue null.",
   "units": [
     { "case": "group of 6 bottles at 20, no estimate", "item": { "quantity": 6, "purchasePrice": 20 }, "intact": true, "units": 6, "value": 120, "spend": 120 },
     { "case": "group of 2 bought 30, estimated 40", "item": { "quantity": 2, "purchasePrice": 30, "estimatedValue": 40 }, "intact": true, "units": 2, "value": 80, "spend": 60 },
@@ -15,7 +15,10 @@
     { "case": "3 closed boxes of 25 at 250 a box", "item": { "quantity": 3, "cigarsPerBox": 25, "purchasePrice": 250 }, "intact": true, "units": 75, "value": 750, "spend": 750 },
     { "case": "opened box of 25 with 10 left keeps its whole value", "item": { "isOpened": true, "cigarsPerBox": 25, "cigarsLeft": 10, "purchasePrice": 250 }, "intact": false, "units": 10, "value": 250, "spend": 250 },
     { "case": "4 single cigars at 12", "item": { "quantity": 4, "purchasePrice": 12 }, "intact": true, "units": 4, "value": 48, "spend": 48 },
-    { "case": "box smoked to its last cigar is finished", "item": { "isOpened": true, "fillLevel": 0, "cigarsPerBox": 25, "cigarsLeft": 0, "purchasePrice": 250 }, "intact": false, "units": 0, "value": 0, "spend": 250 }
+    { "case": "box smoked to its last cigar is finished", "item": { "isOpened": true, "fillLevel": 0, "cigarsPerBox": 25, "cigarsLeft": 0, "purchasePrice": 250 }, "intact": false, "units": 0, "value": 0, "spend": 250 },
+    { "case": "a count of 0 counts nothing", "item": { "quantity": 0, "purchasePrice": 10 }, "intact": true, "units": 0, "value": 0, "spend": 0 },
+    { "case": "a single cigar smoked", "item": { "isOpened": true, "fillLevel": 0, "purchasePrice": 12 }, "intact": false, "units": 0, "value": 0, "spend": 12 },
+    { "case": "a closed bottle below 100 % counting 2 still counts 2", "item": { "quantity": 2, "fillLevel": 80, "purchasePrice": 10 }, "intact": false, "units": 2, "value": 20, "spend": 20 }
   ],
   "stock": [
     {
@@ -55,7 +58,7 @@
     { "case": "case and surrounding spaces do not matter", "same": true,
       "a": { "category": "wine", "producer": "Château Talbot", "name": "Talbot", "vintage": 2015, "format": null },
       "b": { "category": "wine", "producer": "  château talbot ", "name": "TALBOT", "vintage": 2015, "format": null } },
-    { "case": "accented capitals (PostgreSQL may differ by locale: never a silent merge)", "same": true,
+    { "case": "accented capitals (PostgreSQL may differ by locale: never a silent merge)", "same": true, "sqlMaySplit": true,
       "a": { "category": "wine", "producer": "CHÂTEAU", "name": "Pétrus", "vintage": 2015, "format": null },
       "b": { "category": "wine", "producer": "Château", "name": "PÉTRUS", "vintage": 2015, "format": null } },
     { "case": "another vintage is another family", "same": false,
@@ -78,7 +81,22 @@
       "b": { "category": "cigar", "producer": "Cohiba", "name": "Siglo", "vintage": null, "format": "Churchill" } },
     { "case": "cigars: no vitola is a value of its own", "same": false,
       "a": { "category": "cigar", "producer": "Cohiba", "name": "Siglo", "vintage": null, "format": null },
-      "b": { "category": "cigar", "producer": "Cohiba", "name": "Siglo", "vintage": null, "format": "Robusto" } }
+      "b": { "category": "cigar", "producer": "Cohiba", "name": "Siglo", "vintage": null, "format": "Robusto" } },
+    { "case": "tabs and line breaks around are spaces too", "same": true,
+      "a": { "category": "spirit", "producer": "Lagavulin", "name": "16", "vintage": null, "format": null },
+      "b": { "category": "spirit", "producer": "\tLagavulin\n", "name": " 16\t", "vintage": null, "format": null } },
+    { "case": "a no-break space around: trimmed in TypeScript, not in SQL (never a silent merge)", "same": true, "sqlMaySplit": true,
+      "a": { "category": "wine", "producer": "Château Talbot", "name": "Talbot", "vintage": 2015, "format": null },
+      "b": { "category": "wine", "producer": "Château Talbot\u00a0", "name": "Talbot", "vintage": 2015, "format": null } },
+    { "case": "spaces inside a name are part of it", "same": false,
+      "a": { "category": "wine", "producer": "Domaine Leroy", "name": "Clos de Vougeot", "vintage": 2018, "format": null },
+      "b": { "category": "wine", "producer": "Domaine Leroy", "name": "Clos  de Vougeot", "vintage": 2018, "format": null } },
+    { "case": "the format is not part of the key of a wine", "same": true,
+      "a": { "category": "wine", "producer": "Talbot", "name": "Talbot", "vintage": 2015, "format": null },
+      "b": { "category": "wine", "producer": "Talbot", "name": "Talbot", "vintage": 2015, "format": "Magnum" } },
+    { "case": "cigars: an empty and a blank vitola are the same value", "same": true,
+      "a": { "category": "cigar", "producer": "Cohiba", "name": "Behike", "vintage": null, "format": null },
+      "b": { "category": "cigar", "producer": "Cohiba", "name": "Behike", "vintage": null, "format": "  " } }
   ],
   "groupKey": [
     { "case": "same family, cellar, price, day and size", "kind": "bottle", "same": true,
