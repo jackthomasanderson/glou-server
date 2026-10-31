@@ -4,7 +4,8 @@ import { test, expect, type APIRequestContext, type APIResponse, type Locator, t
  * #471 (lot W3, ux-ui.md §10.3-§10.4): the menu of one line of bottles in
  * the drawer of a wine — "Corriger le nombre" with each reason (FEAT-92 c3),
  * "Mettre à la corbeille" a whole line, "Modifier" a line's own values
- * (#726: an emptied price or opening day is really emptied).
+ * (#726: an emptied price or opening day is really emptied), "Déplacer" and
+ * "Changer le prix" part of a line (FEAT-98 c1, c4, c5).
  */
 
 const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
@@ -62,11 +63,11 @@ const dialogTitled = (page: Page, title: string) =>
 test.describe('the actions of a line in the drawer of a wine (#471, W3)', () => {
   const families: string[] = [];
   const envelopes: string[] = [];
-  const cellarIds: string[] = [];
+  const cellars: string[] = [];
   test.afterEach(async ({ page }) => {
     const api = page.request;
     for (const productId of families.splice(0)) await api.delete(`/api/products/${productId}`).catch(() => {});
-    for (const cellarId of cellarIds.splice(0)) await api.delete(`/api/cellars/${cellarId}`).catch(() => {});
+    for (const cellarId of cellars.splice(0)) await api.delete(`/api/cellars/${cellarId}`).catch(() => {});
     for (const id of envelopes.splice(0)) await api.delete(`/api/wishlist/budget-envelopes/${id}`).catch(() => {});
   });
 
@@ -224,6 +225,73 @@ test.describe('the actions of a line in the drawer of a wine (#471, W3)', () => 
     expect(unit).toMatchObject({ purchasedAt: '2025-12-24', location: 'Étagère du haut', quantity: 6 });
     await expect(drawer.getByTestId('family-line')).toContainText('Étagère du haut');
   });
+  // FEAT-98 c1 (and c4 in the dialog): "Combien déplacer ?", 2 of 6, to the kitchen.
+  test('moving 2 of 6 bottles to another cellar splits the line', async ({ page }) => {
+    const api = page.request;
+    const kitchen = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E W3 Cuisine ${stamp()}` } }))).id;
+    cellars.push(kitchen);
+    const name = `E2E W3 move ${stamp()}`;
+    const group = await wineOfSix(api, name);
+
+    const drawer = await openDrawer(page, group.productId, name);
+    await lineAction(page, drawer.getByTestId('family-line'), 'Déplacer');
+    const dialog = dialogTitled(page, 'Déplacer');
+    const count = dialog.getByLabel('Combien déplacer ?');
+    await expect(count).toHaveValue('6');
+    // c4: never more than the line holds.
+    await count.fill('7');
+    await dialog.getByRole('radio', { name: /^E2E W3 Cuisine/ }).check();
+    const confirm = dialog.getByRole('button', { name: 'Déplacer', exact: true });
+    await expect(confirm).toBeDisabled();
+    await count.fill('2');
+
+    const sent = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${group.id}/move`));
+    await confirm.click();
+    const res = await sent;
+    expect(res.status(), await res.text()).toBe(200);
+    expect(res.request().postDataJSON()).toMatchObject({ count: 2, cellarId: kitchen });
+    await expect(dialog).toBeHidden();
+
+    // The drawer at once: ×4 where they were, ×2 in the kitchen, still 6 bottles.
+    await expect(drawer.getByTestId('family-line')).toHaveCount(2);
+    await expect(drawer.getByTestId('family-line').filter({ hasText: '×4' })).toContainText('Sans cave');
+    await expect(drawer.getByTestId('family-line').filter({ hasText: '×2' })).toContainText('E2E W3 Cuisine');
+    await expect(drawer.getByTestId('family-drawer-stock')).toContainText('6 bouteilles');
+    await expect(drawer.getByTestId('family-history')).toContainText(/2 bouteilles déplacées vers E2E W3 Cuisine/);
+  });
+
+  // FEAT-98 c5: "Pour combien de bouteilles ?", 2 of 6 from 20 € to 25 €.
+  test('changing the price of 2 of 6 bottles splits the line', async ({ page }) => {
+    const api = page.request;
+    const name = `E2E W3 reprice ${stamp()}`;
+    const group = await wineOfSix(api, name);
+
+    const drawer = await openDrawer(page, group.productId, name);
+    await lineAction(page, drawer.getByTestId('family-line'), 'Changer le prix');
+    const dialog = dialogTitled(page, 'Changer le prix');
+    const count = dialog.getByLabel('Pour combien de bouteilles ?');
+    await expect(count).toHaveValue('6');
+    await count.fill('2');
+    const price = dialog.getByLabel("Prix d'une bouteille");
+    await expect(price).toHaveValue('20');
+    await price.fill('');
+    await price.pressSequentially('25');
+
+    const sent = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${group.id}/reprice`));
+    await dialog.getByRole('button', { name: 'Changer le prix', exact: true }).click();
+    const res = await sent;
+    expect(res.status(), await res.text()).toBe(200);
+    expect(res.request().postDataJSON()).toMatchObject({ count: 2, purchasePrice: 25 });
+    await expect(dialog).toBeHidden();
+
+    await expect(drawer.getByTestId('family-line')).toHaveCount(2);
+    await expect(drawer.getByTestId('family-line').filter({ hasText: '×4' })).toContainText(/20\s€ \/ bouteille/);
+    await expect(drawer.getByTestId('family-line').filter({ hasText: '×2' })).toContainText(/25\s€ \/ bouteille/);
+    await expect(drawer.getByTestId('family-history')).toContainText(/Prix de 2 bouteilles : 20(,00)?\s€ → 25(,00)?\s€/);
+    const lines = (await okData<{ items: Unit[] }>(await api.get(`/api/products/${group.productId}`))).items;
+    expect(lines.map((unit) => [unit.quantity, unit.purchasePrice]).sort()).toEqual([[2, 25], [4, 20]]);
+  });
+
   // design.md rule 4 (W3 review): a line edited, or a value restored, into an
   // identical line joins it — never two "Garage · 20 € · oct." lines.
   test('a line whose purchase day becomes another line\'s joins it, edited or restored', async ({ page }) => {
@@ -274,7 +342,7 @@ test.describe('the actions of a line in the drawer of a wine (#471, W3)', () => 
   test('bottles moved to a cellar whose identical line was bought elsewhere make a line of their own', async ({ page }) => {
     const api = page.request;
     const kitchen = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E W3 Cuisine ${stamp()}` } }))).id;
-    cellarIds.push(kitchen);
+    cellars.push(kitchen);
     const group = await wineOfSix(api, `E2E W3 move places ${stamp()}`);
     await okData(await api.patch(`/api/inventory/${group.id}`, { data: { purchasePlace: 'Caviste A' } }));
     const there = await okData<Unit>(await api.post(`/api/products/${group.productId}/items`, { data: { quantity: 1, purchasePrice: 20, cellarId: kitchen } }));

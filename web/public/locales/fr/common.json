@@ -2093,6 +2093,8 @@
   "stockLine": {
     "menu": "Actions de cette ligne",
     "actions": {
+      "move": "Déplacer",
+      "reprice": "Changer le prix",
       "correct": "Corriger le nombre",
       "edit": "Modifier",
       "trash": "Mettre à la corbeille"
@@ -2132,6 +2134,33 @@
       "trashInstead_cigar": "Mettre ces cigares à la corbeille",
       "done": "Nombre corrigé : {{from}} → {{to}}"
     },
+    "move": {
+      "title": "Déplacer",
+      "howMany": "Combien déplacer ?",
+      "where": "Vers quelle cave ?",
+      "noOtherCellar": "Aucune autre cave où les déplacer.",
+      "confirm": "Déplacer",
+      "done_bottle_one": "{{count}} bouteille déplacée vers {{cellar}}",
+      "done_bottle_other": "{{count}} bouteilles déplacées vers {{cellar}}",
+      "done_box_one": "{{count}} boîte déplacée vers {{cellar}}",
+      "done_box_other": "{{count}} boîtes déplacées vers {{cellar}}",
+      "done_cigar_one": "{{count}} cigare déplacé vers {{cellar}}",
+      "done_cigar_other": "{{count}} cigares déplacés vers {{cellar}}"
+    },
+    "reprice": {
+      "title": "Changer le prix",
+      "howMany_bottle": "Pour combien de bouteilles ?",
+      "howMany_box": "Pour combien de boîtes ?",
+      "howMany_cigar": "Pour combien de cigares ?",
+      "noPrice": "sans prix",
+      "confirm": "Changer le prix",
+      "done_bottle_one": "Prix de {{count}} bouteille : {{from}} → {{to}}",
+      "done_bottle_other": "Prix de {{count}} bouteilles : {{from}} → {{to}}",
+      "done_box_one": "Prix de {{count}} boîte : {{from}} → {{to}}",
+      "done_box_other": "Prix de {{count}} boîtes : {{from}} → {{to}}",
+      "done_cigar_one": "Prix de {{count}} cigare : {{from}} → {{to}}",
+      "done_cigar_other": "Prix de {{count}} cigares : {{from}} → {{to}}"
+    },
     "edit": {
       "title": "Modifier cette ligne",
       "scope_bottle_other": "S'applique aux {{count}} bouteilles de cette ligne.",
@@ -2158,6 +2187,18 @@
       "done_cigar_other": "{{count}} cigares mis à la corbeille"
     },
     "history": {
+      "moved_bottle_one": "{{count}} bouteille déplacée vers {{cellar}}",
+      "moved_bottle_other": "{{count}} bouteilles déplacées vers {{cellar}}",
+      "moved_box_one": "{{count}} boîte déplacée vers {{cellar}}",
+      "moved_box_other": "{{count}} boîtes déplacées vers {{cellar}}",
+      "moved_cigar_one": "{{count}} cigare déplacé vers {{cellar}}",
+      "moved_cigar_other": "{{count}} cigares déplacés vers {{cellar}}",
+      "repriced_bottle_one": "Prix de {{count}} bouteille : {{from}} → {{to}}",
+      "repriced_bottle_other": "Prix de {{count}} bouteilles : {{from}} → {{to}}",
+      "repriced_box_one": "Prix de {{count}} boîte : {{from}} → {{to}}",
+      "repriced_box_other": "Prix de {{count}} boîtes : {{from}} → {{to}}",
+      "repriced_cigar_one": "Prix de {{count}} cigare : {{from}} → {{to}}",
+      "repriced_cigar_other": "Prix de {{count}} cigares : {{from}} → {{to}}",
       "joined_bottle_one": "{{count}} bouteille rejointe ({{what}})",
       "joined_bottle_other": "{{count}} bouteilles rejointes ({{what}})",
       "joined_box_one": "{{count}} boîte rejointe ({{what}})",
@@ -2171,6 +2212,8 @@
     },
     "errors": {
       "conflict": "Non enregistré : cette ligne a changé entre-temps, sur un autre appareil ou par un autre membre. Elle vient d'être mise à jour : vérifiez-la puis recommencez.",
+      "tooLarge": "Non enregistré : la ligne d'arrivée dépasserait 1 000 exemplaires.",
+      "cellarGone": "Non enregistré : cette cave n'existe plus.",
       "offline": "Sans réseau, cette action n'est pas possible. Réessayez une fois la connexion revenue.",
       "failed": "Impossible d'enregistrer cette action."
     }

@@ -201,11 +201,11 @@ describe('FamilyDrawer — actions of a line (#471, W3)', () => {
     return within(menu).getAllByRole('menuitem').map((item) => item.getAttribute('aria-label'));
   };
 
-  it('a line of full bottles: correct the number, edit, trash (§10.3)', async () => {
+  it('a line of full bottles: move, change the price, correct the number, edit, trash (§10.3)', async () => {
     detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage' })] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
     const [line] = screen.getAllByTestId('family-line');
-    expect(await menuOf(line)).toEqual(['Corriger le nombre', 'Modifier', 'Mettre à la corbeille']);
+    expect(await menuOf(line)).toEqual(['Déplacer', 'Changer le prix', 'Corriger le nombre', 'Modifier', 'Mettre à la corbeille']);
   });
 
   it('an opened bottle: only edited or trashed from its menu', async () => {
@@ -220,6 +220,31 @@ describe('FamilyDrawer — actions of a line (#471, W3)', () => {
     createdAt: '2026-10-15T00:00:00.000Z', ...over,
   });
 
+  it('the history tells a move once, on the line the bottles went to: "2 bouteilles déplacées vers Garage"', () => {
+    detail = detailOf({
+      items: [unit({ id: 'k', quantity: 4, cellarId: 'kitchen' }), unit({ id: 'g', quantity: 2, cellarId: 'garage' })],
+      history: [
+        entry({ id: 2, action: 'MOVE_UNITS', itemId: 'g', count: 2, changes: [{ field: 'quantity', from: null, to: 2 }, { field: 'cellarId', from: 'kitchen', to: 'garage' }] }),
+        entry({ id: 1, action: 'MOVE_UNITS', itemId: 'k', count: 2, changes: [{ field: 'quantity', from: 6, to: 4 }] }),
+      ],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const history = screen.getByTestId('family-history');
+    expect(within(history).getAllByRole('listitem')).toHaveLength(1);
+    expect(history).toHaveTextContent('2 bouteilles déplacées vers Garage');
+    // Moved back by moving, never by restoring a field.
+    expect(within(history).queryByRole('button', { name: 'Restaurer cette valeur' })).toBeNull();
+  });
+
+  it('the history tells a new price: "Prix de 2 bouteilles : 20 € → 25 €"', () => {
+    detail = detailOf({
+      items: [unit({ id: 'g', quantity: 4, purchasePrice: 20 }), unit({ id: 'n', quantity: 2, purchasePrice: 25 })],
+      history: [entry({ action: 'REPRICE_UNITS', itemId: 'n', count: 2, changes: [{ field: 'quantity', from: null, to: 2 }, { field: 'purchasePrice', from: 20, to: 25 }] })],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(screen.getByTestId('family-history').textContent?.replace(/[\u00a0\u202f]/g, ' ')).toContain('Prix de 2 bouteilles : 20 € → 25 €');
+  });
+
   it('the history tells why a number was corrected: "Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)"', () => {
     detail = detailOf({
       items: [unit({ id: 'g', quantity: 5 })],
@@ -227,6 +252,16 @@ describe('FamilyDrawer — actions of a line (#471, W3)', () => {
     });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
     expect(screen.getByTestId('family-history')).toHaveTextContent('Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)');
+  });
+
+  it('boxes of cigars are told as boxes', () => {
+    detail = detailOf({
+      category: 'cigar',
+      items: [unit({ id: 'b', quantity: 1, cigarsPerBox: 25, cellarId: 'garage' })],
+      history: [entry({ action: 'MOVE_UNITS', itemId: 'b', count: 1, changes: [{ field: 'cellarId', from: 'kitchen', to: 'garage' }] })],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(screen.getByTestId('family-history')).toHaveTextContent('1 boîte déplacée vers Garage');
   });
 
   it('the history tells a line that joined this one: "2 bouteilles rejointes (date d\'achat … → …)", nothing to restore', () => {
