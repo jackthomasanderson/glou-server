@@ -41,7 +41,17 @@ describe('onboardingService.getState — joining member (FEAT-89)', () => {
   it('is a joining member when cellars exist and none was created by them', async () => {
     instance({ cellars: 2, own: null, inStock: 240 });
     const state = await onboardingService.getState('u2', 's1');
-    expect(state).toMatchObject({ joining: true, wizardCellar: null, cellarCount: 2, inStockCount: 240 });
+    expect(state).toMatchObject({ joining: true, wizardCellar: null, cellarCount: 2, bottleCount: 240 });
+  });
+
+  it('counts bottles and cigars apart, since "N bottles" would lie for a mix (W4)', async () => {
+    instance({ cellars: 1, own: null });
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unit({ quantity: 12 }),
+      unit({ quantity: 3, cigarsPerBox: 25, product: { category: 'cigar' } }),
+    ] as never);
+    const state = await onboardingService.getState('u2', 's1');
+    expect(state).toMatchObject({ bottleCount: 12, cigarCount: 75 });
   });
 
   it('is not a joining member on an empty instance', async () => {
@@ -71,7 +81,7 @@ describe('onboardingService.getState — joining member (FEAT-89)', () => {
       unit({ isOpened: true, fillLevel: 40 }),
       unit({ quantity: 1, cigarsPerBox: 25, product: { category: 'cigar' } }),
     ] as never);
-    expect((await onboardingService.getState('u2', 's1')).inStockCount).toBe(32);
+    expect(await onboardingService.getState('u2', 's1')).toMatchObject({ bottleCount: 7, cigarCount: 25 });
   });
 });
 

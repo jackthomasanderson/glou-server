@@ -4,9 +4,9 @@ import { useRouter } from 'next/navigation';
 import { Button, Badge, Chip, Popover, PopoverTrigger, PopoverContent } from '@heroui/react';
 import { Bell, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useInventory, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { useProducts, useUpdateProduct } from '@/hooks/useProducts';
+import { isGone } from '@/lib/products/filters';
 import { useHasMounted } from '@/hooks/useHasMounted';
-import { InventoryItem } from '@/lib/inventory/types';
 import { useAlerts, useToggleAlertPause } from '@/hooks/useAlerts';
 import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { AlertBottle } from '@/lib/alerts/client';
@@ -23,7 +23,7 @@ const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'>
 const ACTIONABLE = new Set(['past', 'peak']);
 const STATUS_ORDER: Record<string, number> = { past: 0, peak: 1, approaching: 2 };
 
-/** Opens the item's drawer on its own page (same `?scan=` deep link as QR codes). */
+/** Opens the wine's drawer on its own page (same `?scan=` deep link as QR codes). */
 function itemHref(id: string, category: string): string {
   return `${category === 'cigar' ? '/cigars' : '/bottles'}?scan=${encodeURIComponent(id)}`;
 }
@@ -31,23 +31,24 @@ function itemHref(id: string, category: string): string {
 export function NotificationBell() {
   const { t } = useTranslation();
   // #380: the badge count comes from the lightweight /stats/counts endpoint
-  // (already mounted app-wide for the sidebar); the full inventory — up to
-  // 2000 items — is only fetched once the panel is actually opened, to
-  // build the detailed reminder list below.
+  // (already mounted app-wide for the sidebar); the wines are only fetched
+  // once the panel is actually opened, to build the detailed reminder list.
+  // #471 (W4): the reminder is on the wine, so one wine in stock is one
+  // reminder here too, exactly as the badge counts it (never one per bottle).
   const [isOpen, setIsOpen] = useState(false);
   const { data: sidebarCounts } = useSidebarCounts();
-  const { data: items } = useInventory({ enabled: isOpen });
+  const { data: products } = useProducts({ enabled: isOpen });
   const { data: apogeeAlerts } = useAlerts();
   const togglePause = useToggleAlertPause();
-  const updateItem = useUpdateInventoryItem();
+  const updateProduct = useUpdateProduct();
   const router = useRouter();
   const hasMounted = useHasMounted();
 
   const reminderItems = useMemo(() => {
-    if (!items || !hasMounted) return [];
+    if (!products || !hasMounted) return [];
     const today = todayLocalIso();
-    return items.filter((b: InventoryItem) => b.reminderDate && b.reminderDate.split('T')[0] <= today);
-  }, [items, hasMounted]);
+    return products.filter((p) => !isGone(p) && p.reminderDate && p.reminderDate.split('T')[0] <= today);
+  }, [products, hasMounted]);
 
   const alertItems: AlertBottle[] = useMemo(() => {
     if (!apogeeAlerts || !hasMounted) return [];
@@ -143,8 +144,8 @@ export function NotificationBell() {
                     </button>
                     <Button
                       isIconOnly size="sm" variant="light" color="success"
-                      onPress={() => updateItem.mutate({ id: item.id, patch: { reminderDate: null } })}
-                      isDisabled={updateItem.isPending}
+                      onPress={() => updateProduct.mutate({ id: item.id, patch: { reminderDate: null } })}
+                      isDisabled={updateProduct.isPending}
                       aria-label={`${t('inventory.alerts.reminderDone')} — ${item.name}`}
                       title={t('inventory.alerts.reminderDone')}
                     >

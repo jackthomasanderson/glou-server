@@ -32,6 +32,8 @@ export interface GridItem {
   vintage?: number | null;
   slotColumn: number | null;
   slotRow: number | null;
+  /** #471: bottles of the group on this slot (1 for a single or opened bottle). */
+  quantity?: number;
 }
 
 export interface CellarGridData {

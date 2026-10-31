@@ -23,6 +23,8 @@ export interface CountReportItem {
   vintage: number | null;
   photoUrl: string | null;
   cellarId: string | null;
+  /** Cigars: the size of the boxes of a group, null for single cigars (or a bottle). */
+  cigarsPerBox?: number | null;
 }
 
 /**

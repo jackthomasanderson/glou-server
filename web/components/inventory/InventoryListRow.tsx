@@ -98,7 +98,7 @@ export function InventoryListRow({
       </TableCell>
 
       {/* §10.2: the same short stock line as the card. */}
-      <TableCell className="min-w-28">
+      <TableCell className="min-w-28 max-w-56 whitespace-normal">
         <p className="text-sm text-foreground-500" data-testid="family-stock-line">
           <span className="sr-only">{stock.spoken}</span>
           <span aria-hidden="true">{keepNumbersWhole(stock.parts.length > 0 ? stock.parts.join(' · ') : (stock.badge ?? ''))}</span>

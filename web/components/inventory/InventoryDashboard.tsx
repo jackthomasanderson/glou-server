@@ -519,6 +519,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           products={statsProducts}
           goneCount={goneCount}
           isCigarPage={Boolean(lockedCategories?.includes('cigar'))}
+          pageCategories={selectedCategories.length > 0 ? selectedCategories : lockedCategories}
           t={t}
         />
       )}
