@@ -6,6 +6,8 @@ import { stockSummaryOf } from '@/lib/products/filters';
 export interface InventoryStatsLineProps {
   /** The wines of the page's section, in stock or not: only what is in stock is counted. */
   products: Product[];
+  /** Bottles (cigars) drunk, smoked or gone: shown apart, never in the totals (§10.6). */
+  goneCount: number;
   isCigarPage: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
 }
@@ -15,7 +17,7 @@ export interface InventoryStatsLineProps {
  * or cigars — then full and opened ones, all through `summarizeStock`.
  * Its own component so the page labels (§10.6, lot W4) change here only.
  */
-export function InventoryStatsLine({ products, isCigarPage, t }: InventoryStatsLineProps) {
+export function InventoryStatsLine({ products, goneCount, isCigarPage, t }: InventoryStatsLineProps) {
   const stats = useMemo(() => {
     let units = 0;
     let intact = 0;
@@ -24,10 +26,13 @@ export function InventoryStatsLine({ products, isCigarPage, t }: InventoryStatsL
       const summary = stockSummaryOf(product);
       units += summary.units;
       intact += summary.intactUnits;
-      opened += summary.opened.length;
+      // Cigars are counted in cigars: those left in the opened boxes.
+      opened += isCigarPage
+        ? summary.opened.reduce((sum, box) => sum + (box.cigarsLeft ?? 0), 0)
+        : summary.opened.length;
     }
     return { units, intact, opened };
-  }, [products]);
+  }, [products, isCigarPage]);
 
   const tiles = [
     { value: stats.units, label: t('inventory.stats.total'), color: '' },
@@ -45,6 +50,11 @@ export function InventoryStatsLine({ products, isCigarPage, t }: InventoryStatsL
           </div>
         ))}
       </div>
+      {goneCount > 0 && (
+        <p className="text-xs text-foreground-500 mt-2">
+          {t(isCigarPage ? 'familyList.stats.goneCigar' : 'familyList.stats.gone', { count: goneCount })}
+        </p>
+      )}
     </div>
   );
 }

@@ -98,7 +98,7 @@ export function InventoryListRow({
       </TableCell>
 
       {/* §10.2: the same short stock line as the card. */}
-      <TableCell className="hidden sm:table-cell min-w-36">
+      <TableCell className="min-w-28">
         <p className="text-sm text-foreground-500" data-testid="family-stock-line">
           <span className="sr-only">{stock.spoken}</span>
           <span aria-hidden="true">{keepNumbersWhole(stock.parts.length > 0 ? stock.parts.join(' · ') : (stock.badge ?? ''))}</span>
@@ -147,7 +147,7 @@ export function InventoryListRow({
             </Button>
           </Tooltip>
         )}
-        <Tooltip content={t('actions.delete')} delay={500}>
+        <Tooltip content={t('familyList.trash.action')} delay={500}>
           <Button
             isIconOnly
             size="sm"
@@ -155,7 +155,7 @@ export function InventoryListRow({
             color="danger"
             onPress={() => onDelete(item)}
             isDisabled={isTemp}
-            aria-label={t('actions.delete')}
+            aria-label={t('familyList.trash.action')}
             className="min-w-unit-7 w-7 h-7"
           >
             <Trash2 size={14} />
@@ -187,7 +187,7 @@ export function InventoryListRowSkeleton() {
       <TableCell className="hidden md:table-cell">
         <Skeleton className="rounded h-4 w-1/2" />
       </TableCell>
-      <TableCell className="hidden sm:table-cell">
+      <TableCell>
         <Skeleton className="rounded h-4 w-16" />
       </TableCell>
       <TableCell className="hidden sm:table-cell">

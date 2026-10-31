@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { productsClient } from '@/lib/products/client';
 import { productsFromFlatItems } from '@/lib/products/fromFlat';
-import type { Product } from '@/lib/products/types';
+import type { Product, ProductDetailView, TrashedProduct } from '@/lib/products/types';
 import { getAllQueuedMutations, getCachedInventory } from '@/lib/offline/db';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
@@ -73,6 +73,24 @@ export function useProducts(options?: { enabled?: boolean }) {
     },
     staleTime: 1000 * 30,
     enabled: options?.enabled ?? true,
+  });
+}
+
+/** A wine's detail (its tastings: what the trash confirmation warns about). */
+export function useProductDetail(id: string | null) {
+  return useQuery<ProductDetailView>({
+    queryKey: ['inventory', 'product', id],
+    queryFn: () => productsClient.get(id as string),
+    enabled: !!id,
+  });
+}
+
+/** Wines in the trash (D10), refreshed with every bottle change (`inventory` prefix). */
+export function useProductsTrash() {
+  return useQuery<TrashedProduct[]>({
+    queryKey: ['inventory', 'products-trash'],
+    queryFn: productsClient.listTrash,
+    staleTime: 1000 * 60,
   });
 }
 

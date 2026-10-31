@@ -39,7 +39,7 @@ describe('InventoryCard — one card per wine', () => {
     card(product({ items: [unit()] }));
     expect(badge()).toBe('1');
     expect(stockLine()).toBeNull();
-    expect(screen.getByRole('button', { name: 'Cuvée X — Vin, 1 bouteille' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cuvée X 2020 — Vin, 1 bouteille' })).toBeInTheDocument();
   });
 
   it('a single opened bottle: its level on the counter, the opened accent', () => {
@@ -53,7 +53,7 @@ describe('InventoryCard — one card per wine', () => {
     card(product({ items: [unit({ quantity: 5 }), openedBottle(60)] }));
     expect(badge()).toBe('6');
     expect(stockLine()).toBe('5 pleines · 1 entamée (60 %)');
-    expect(screen.getByRole('button', { name: 'Cuvée X — Vin, 5 bouteilles pleines, 1 entamée à 60 %' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cuvée X 2020 — Vin, 5 bouteilles pleines, 1 entamée à 60 %' })).toBeInTheDocument();
   });
 
   it('a number never ends a line: it is tied to its word', () => {
@@ -99,12 +99,20 @@ describe('InventoryCard — one card per wine', () => {
     card(product({ name }));
     const open = screen.getByRole('button', { name: new RegExp(`^${name}`) });
     expect(open.getAttribute('title')).toBe(name);
-    expect(open.querySelector('.line-clamp-2')?.textContent).toBe(name);
+    const clamped = open.querySelector('.line-clamp-2');
+    expect(clamped?.textContent).toBe(name);
+    // Whole again when the name has the keyboard focus.
+    expect(clamped?.className).toContain('group-focus-visible:line-clamp-none');
   });
 
   it('without a bottle record to open, offers neither edit nor open, only the trash', () => {
     card(product({ items: [] }), { onEdit: undefined, onView: undefined });
     expect(screen.queryByRole('button', { name: 'Modifier' })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Supprimer' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mettre à la corbeille' })).toBeInTheDocument();
+  });
+
+  it('in selection mode, the checkbox names the wine', () => {
+    card(product({ items: [unit()] }), { onView: undefined, onSelectToggle: vi.fn() });
+    expect(screen.getByRole('checkbox', { name: 'Sélectionner Cuvée X 2020' })).toBeInTheDocument();
   });
 });

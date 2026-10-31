@@ -149,3 +149,7 @@ export function describeStock(
   const { parts, spoken } = kind === 'cigar' ? cigarParts(total, t) : bottleParts(total, product.items, t);
   return { ...base, gone: false, badge, badgeLow, parts, spoken: spoken.join(', ') };
 }
+
+/** How a wine is named in a sentence: "Cuvée X 2020" (the vintage when it has one). */
+export const wineName = (product: Pick<Product, 'name' | 'vintage'>) =>
+  product.vintage ? `${product.name} ${product.vintage}` : product.name;

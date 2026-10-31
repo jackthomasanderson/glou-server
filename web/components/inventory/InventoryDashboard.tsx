@@ -11,7 +11,9 @@ import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
 import { newestCopy } from '@/lib/inventory/newestCopy';
 import type { Product } from '@/lib/products/types';
-import { describeStock } from '@/lib/products/stock';
+import { describeStock, wineName } from '@/lib/products/stock';
+import { isGone, stockSummaryOf } from '@/lib/products/filters';
+import { isFinishedState } from '@shared/units';
 import { formatDate } from '@/lib/format';
 import {
   INVENTORY_KEY,
@@ -41,6 +43,7 @@ import { InventoryGridView } from './InventoryGridView';
 import { InventoryListView } from './InventoryListView';
 import { InventoryStatsLine } from './InventoryStatsLine';
 import { InventoryBanners } from './InventoryBanners';
+import { TrashWineDialog } from './TrashWineDialog';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -166,10 +169,27 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     hasActiveFilters,
   } = useInventoryFilters({ products, cellars, lockedCategories, t, hasMounted });
 
-  // #504: the counters answer "how many do I hold here?": the chosen section only.
+  // #504: the counters answer "how many do I hold here?": the chosen section
+  // only, what is in stock whatever the list shows ("Plus en cave" included),
+  // and the bottles drunk or gone counted apart (§10.6).
+  const inSection = useCallback(
+    (category: string) =>
+      (!lockedCategories?.length || lockedCategories.includes(category)) &&
+      (selectedCategories.length === 0 || selectedCategories.includes(category)),
+    [lockedCategories, selectedCategories],
+  );
   const statsProducts = useMemo(
-    () => (selectedCategories.length > 0 ? baseItems.filter((p) => selectedCategories.includes(p.category)) : baseItems),
-    [baseItems, selectedCategories],
+    () => (products ?? []).filter((p) => inSection(p.category) && !isGone(p)),
+    [products, inSection],
+  );
+  const goneCount = useMemo(
+    () => (items ?? []).reduce((count, item) => {
+      if (item.deletedAt || item.isOwned === false || !inSection(item.category)) return count;
+      const out = (item as InventoryItem & { writtenOffAt?: string | null }).writtenOffAt;
+      if (out) return count + Math.max(item.quantity ?? 1, 0);
+      return isFinishedState({ isOpened: item.isOpened, fillLevel: item.fillLevel ?? null }) ? count + 1 : count;
+    }, 0),
+    [items, inSection],
   );
 
   // Auto-open from a QR scan (FEAT-10, a bottle's id) or the search (a
@@ -284,8 +304,19 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     return ids;
   }, [products, selectedIds]);
 
+  const bulkSubtitle = useMemo(() => {
+    const units = (products ?? []).filter((p) => selectedIds.has(p.id)).reduce((sum, p) => sum + stockSummaryOf(p).units, 0);
+    const isCigarPage = Boolean(lockedCategories?.includes('cigar'));
+    return t('familyList.bulkSummary', {
+      wines: t('familyList.wines', { count: selectedIds.size }),
+      bottles: t(isCigarPage ? 'familyList.stock.spoken.cigars' : 'familyList.stock.spoken.bottles', { count: units }),
+    });
+  }, [products, selectedIds, lockedCategories, t]);
+
   const handleBulkApply = useCallback(
     (patch: Partial<InventoryItem>) => {
+      // Wines with nothing left have no bottle to change.
+      if (selectedItemIds.size === 0) return;
       bulkUpdateMutation.mutate(
         { ids: Array.from(selectedItemIds), patch },
         {
@@ -329,10 +360,18 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     [editingItem, editingVersion, updateMutation, syncCollections]
   );
 
-  // "Mettre ce vin à la corbeille": the wine and all its bottles (D10).
-  const handleDelete = useCallback(
+  // "Mettre ce vin à la corbeille": the wine and all its bottles (D10), once
+  // confirmed with the total (§10.4.7).
+  const [trashTarget, setTrashTarget] = useState<Product | null>(null);
+  const handleDelete = useCallback((product: Product) => setTrashTarget(product), []);
+  const confirmTrash = useCallback(
     (product: Product) => {
-      trashMutation.mutate(product.id, { onSuccess: () => setUndoTarget(product) });
+      trashMutation.mutate(product.id, {
+        onSuccess: () => {
+          setTrashTarget(null);
+          setUndoTarget(product);
+        },
+      });
     },
     [trashMutation]
   );
@@ -471,8 +510,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
       <InventoryBanners t={t} isTruncated={isTruncated} cellars={cellars} />
 
-      {!isLoading && baseItems.length > 0 && mode === 'idle' && (
-        <InventoryStatsLine products={statsProducts} isCigarPage={Boolean(lockedCategories?.includes('cigar'))} t={t} />
+      {!isLoading && (statsProducts.length > 0 || goneCount > 0) && mode === 'idle' && (
+        <InventoryStatsLine
+          products={statsProducts}
+          goneCount={goneCount}
+          isCigarPage={Boolean(lockedCategories?.includes('cigar'))}
+          t={t}
+        />
       )}
 
       {/* Main layout */}
@@ -658,7 +702,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       {/* Toasts */}
       {undoTarget && (
         <UndoToast
-          message={t('toast.deleteSuccess')}
+          message={t('familyList.trash.done', { name: wineName(undoTarget) })}
           undoLabel={t('actions.undo')}
           onUndo={handleUndo}
           onExpire={() => setUndoTarget(null)}
@@ -669,12 +713,22 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         bulkMode={bulkMode}
         selectedIds={selectedItemIds}
         selectedCount={selectedIds.size}
+        wineSelection
+        subtitle={bulkSubtitle}
         items={items}
         isBulkDialogOpen={isBulkDialogOpen}
         onOpenDialog={() => setIsBulkDialogOpen(true)}
         onCloseDialog={() => setIsBulkDialogOpen(false)}
         onApply={handleBulkApply}
         isSubmitting={bulkUpdateMutation.isPending}
+      />
+
+      <TrashWineDialog
+        product={trashTarget}
+        onConfirm={confirmTrash}
+        onClose={() => setTrashTarget(null)}
+        isPending={trashMutation.isPending}
+        t={t}
       />
 
       <InventoryDetailDialog

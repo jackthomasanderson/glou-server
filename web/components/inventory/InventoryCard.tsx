@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
-import { keepNumbersWhole, type StockLine } from '@/lib/products/stock';
+import { keepNumbersWhole, wineName, type StockLine } from '@/lib/products/stock';
 import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
@@ -34,7 +34,7 @@ interface InventoryCardProps {
   onEdit?: (item: Product) => void;
   onDelete: (item: Product) => void;
   onView?: (item: Product) => void;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
   isSelected?: boolean;
   isAnchor?: boolean;
   onSelectToggle?: (item: Product, event?: React.MouseEvent) => void;
@@ -190,7 +190,7 @@ export function InventoryCard({
               isSelected={isSelected}
               onValueChange={() => onSelectToggle(item)}
               size="sm"
-              aria-label={t('actions.select')}
+              aria-label={t('familyList.selectWine', { name: wineName(item) })}
               classNames={{ wrapper: 'bg-black/30 border-2 border-white/60 before:border-0 after:bg-primary' }}
             />
           </div>
@@ -245,12 +245,12 @@ export function InventoryCard({
           <button
             type="button"
             onClick={() => onView(item)}
-            aria-label={`${item.name} — ${categoryLabel}, ${stock.spoken}`}
+            aria-label={`${wineName(item)} — ${categoryLabel}, ${stock.spoken}`}
             title={item.name}
-            className={`block w-full text-left text-sm font-medium leading-snug break-words mb-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-focus after:absolute after:inset-0 after:content-['']${stock.gone ? ' text-foreground-500' : ''}`}
+            className={`group block w-full text-left text-sm font-medium leading-snug break-words mb-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-focus after:absolute after:inset-0 after:content-['']${stock.gone ? ' text-foreground-500' : ''}`}
           >
-            {/* §10.2: a long name on two lines at most, whole in the drawer and the tooltip. */}
-            <span className="line-clamp-2">{item.name}</span>
+            {/* §10.2: a long name on two lines at most, whole at focus and in the tooltip. */}
+            <span className="line-clamp-2 group-focus-visible:line-clamp-none">{item.name}</span>
           </button>
         ) : (
           <p className={`text-sm font-medium leading-snug line-clamp-2 break-words mb-1${stock.gone ? ' text-foreground-500' : ''}`} title={item.name}>
@@ -319,14 +319,14 @@ export function InventoryCard({
             </Button>
           </Tooltip>
         )}
-        <Tooltip content={t('actions.delete')} delay={500}>
+        <Tooltip content={t('familyList.trash.action')} delay={500}>
           <Button
             isIconOnly
             size="sm"
             variant="light"
             onPress={() => onDelete(item)}
             isDisabled={isTemp}
-            aria-label={t('actions.delete')}
+            aria-label={t('familyList.trash.action')}
             className="text-foreground-500 hover:text-danger min-w-10 w-10 h-10 sm:min-w-7 sm:w-7 sm:h-7"
           >
             <Trash2 size={14} />

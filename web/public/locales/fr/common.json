@@ -2068,6 +2068,37 @@
         "here": "{{here}} dans cette cave, {{total}} en tout"
       },
       "level": "{{level}} %"
+    },
+    "trash": {
+      "action": "Mettre à la corbeille",
+      "title": "Mettre à la corbeille ?",
+      "confirm": "Mettre {{name}} à la corbeille ?",
+      "confirmBottles_one": "Mettre {{name}} et sa bouteille à la corbeille ?",
+      "confirmBottles_other": "Mettre {{name}} et ses {{count}} bouteilles à la corbeille ?",
+      "confirmCigars_one": "Mettre {{name}} et son cigare à la corbeille ?",
+      "confirmCigars_other": "Mettre {{name}} et ses {{count}} cigares à la corbeille ?",
+      "restoreHint_one": "Vous pourrez le restaurer depuis la corbeille pendant {{count}} jour.",
+      "restoreHint_other": "Vous pourrez le restaurer depuis la corbeille pendant {{count}} jours.",
+      "tastingsWarning_one": "Sa dégustation sera effacée quand la corbeille sera vidée.",
+      "tastingsWarning_other": "Ses {{count}} dégustations seront effacées quand la corbeille sera vidée.",
+      "done": "{{name}} mis à la corbeille",
+      "wines": "Vins",
+      "bottles": "Bouteilles et cigares",
+      "withBottles_one": "avec {{count}} bouteille",
+      "withBottles_other": "avec {{count}} bouteilles",
+      "withCigars_one": "avec {{count}} cigare",
+      "withCigars_other": "avec {{count}} cigares",
+      "restore": "Restaurer"
+    },
+    "selectWine": "Sélectionner {{name}}",
+    "bulkSummary": "{{wines}}, {{bottles}}",
+    "wines_one": "{{count}} vin",
+    "wines_other": "{{count}} vins",
+    "stats": {
+      "gone_one": "{{count}} bue ou partie, non comptée",
+      "gone_other": "{{count}} bues ou parties, non comptées",
+      "goneCigar_one": "{{count}} fumé ou parti, non compté",
+      "goneCigar_other": "{{count}} fumés ou partis, non comptés"
     }
   }
 }

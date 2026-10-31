@@ -90,6 +90,6 @@ describe('InventoryListView rows are wines', () => {
   it('opens nothing and offers no edit for a wine without a bottle record', () => {
     render(view({ isOpenable: () => false }));
     expect(within(row()).queryByLabelText('actions.edit')).toBeNull();
-    expect(within(row()).getByLabelText('actions.delete')).toBeInTheDocument();
+    expect(within(row()).getByLabelText('familyList.trash.action')).toBeInTheDocument();
   });
 });

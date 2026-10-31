@@ -46,7 +46,7 @@ export function InventoryListView({
     { key: 'vintage', label: t('inventory.fields.vintage'), className: 'text-center' },
     { key: 'region', label: t('inventory.fields.region'), className: 'hidden md:table-cell' },
     { key: 'cellar', label: t('view.columns.cellar'), className: 'hidden md:table-cell' },
-    { key: 'stock', label: t('familyList.stockColumn'), className: 'hidden sm:table-cell' },
+    { key: 'stock', label: t('familyList.stockColumn') },
     { key: 'peak', label: t('view.columns.peak'), className: 'text-center hidden sm:table-cell' },
     { key: 'status', label: t('view.columns.status'), className: 'hidden sm:table-cell' },
     { key: 'actions', label: t('admin.maturityRefs.columns.actions'), className: 'text-right' },
