@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput, SwapSlotsInput } from '../schemas/cellar.schema';
 import type { Prisma } from '@prisma/client';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { lockFamily } from '../lib/product-fields';
 import { UNIT_COUNT_SELECT, sumTotals, type UnitTotalsRow } from '../lib/stock-units';
 import type { CellarStats } from '../../../shared/cellar';
 
@@ -162,20 +163,25 @@ export class CellarService {
     // Freeing A's slot first, then moving B into it, then moving A into B's
     // former (now-free) slot avoids ever having two rows claim the same
     // slot at once.
-    const [, updatedB, updatedA] = await prisma.$transaction([
-      prisma.inventoryItem.update({
+    // #471 (lock order, #787 review): both families locked first, in sorted
+    // order, before either unit is written (no deadlock with a description
+    // write, which locks the family and then copies onto its units).
+    const [updatedB, updatedA] = await prisma.$transaction(async (tx) => {
+      for (const productId of [...new Set([itemA.productId, itemB.productId])].sort()) await lockFamily(tx, productId);
+      await tx.inventoryItem.update({
         where: { id: itemA.id },
         data: { slotColumn: null, slotRow: null },
-      }),
-      prisma.inventoryItem.update({
+      });
+      const movedB = await tx.inventoryItem.update({
         where: { id: itemB.id },
         data: { slotColumn: itemA.slotColumn, slotRow: itemA.slotRow },
-      }),
-      prisma.inventoryItem.update({
+      });
+      const movedA = await tx.inventoryItem.update({
         where: { id: itemA.id },
         data: { slotColumn: itemB.slotColumn, slotRow: itemB.slotRow },
-      }),
-    ]);
+      });
+      return [movedB, movedA] as const;
+    });
 
     return {
       status: 'success',

@@ -10,7 +10,7 @@ import { isFinishedItem, NO_SLOT } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
-  isProductField, nextLocksAndSources, pickProductFields, todayAsPurchaseDate, toItemView,
+  isProductField, lockFamily, nextLocksAndSources, pickProductFields, todayAsPurchaseDate, toItemView,
   type FlatItemView,
 } from '../lib/product-fields';
 import { writeFamilyDescription } from './product.service';
@@ -535,6 +535,11 @@ export class InventoryService {
 
     let updatedCount = 0;
     await prisma.$transaction(async (tx) => {
+      // #471 (lock order, #787 review): every family of the selection locked
+      // first, in sorted order, before any unit is written — even for a patch
+      // of unit fields only, which would otherwise deadlock (40P01) with a
+      // description write (family lock, then copy onto its units).
+      for (const productId of new Set(existing.map(({ row }) => row.productId))) await lockFamily(tx, productId);
       // #471: each family written once, under its lock — the window checked
       // against its stored other end (#706, a ZodError rolls everything
       // back) and its alert recomputed (writeFamilyDescription).
