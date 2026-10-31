@@ -1800,7 +1800,7 @@
     },
     "csv": {
       "title": "CSV Import",
-      "subtitle": "Import a .csv file with the columns name, producer, category (wine, sparkling, spirit, cigar) and optionally vintage, price, region, quantity (number of bottles, or of cigars per box), ABV. French headers and category names (nom, producteur, catégorie, millésime, prix, quantité, degré; vin, bulles, spiritueux, cigare) work too.",
+      "subtitle": "Import a .csv file with the columns name, producer, category (wine, sparkling, spirit, cigar) and optionally vintage, price (of one bottle or one box), region, quantity (number of bottles, boxes or single cigars), ABV, cellar (created if it does not exist), purchase date (day first: 15/03/2024, or 2024-03-15), bottle size and, for cigars, vitola and box size (cigars per box, or \"single\"; without this column, the quantity is the number of cigars in one box). Identical rows are added up; 500 rows at most. French headers and category names (nom, producteur, catégorie, millésime, prix, quantité, degré, cave, date d'achat, contenance, vitole, format de boîte; vin, bulles, spiritueux, cigare) work too.",
       "csvOnlyHint": "Only the CSV format is supported (Excel/.xlsx is not).",
       "chooseFile": "Choose a CSV file",
       "chooseAnother": "Choose another file",
@@ -1817,12 +1817,33 @@
         "FILE_TOO_LARGE": "This file is too large to upload (2 MB at most). Split it into several smaller files.",
         "INVALID_FILE_TYPE": "This file is not a CSV. Save it as \"CSV UTF-8\" and try again."
       },
-      "itemsInFile_one": "{{count}} asset in the file",
-      "itemsInFile_other": "{{count}} assets in the file",
       "rowQuantity_one": "{{count}} bottle",
       "rowQuantity_other": "{{count}} bottles",
-      "tooManyItems_one": "This file stands for {{count}} asset, but one import takes at most {{max}}: nothing has been imported. Split it into several files, keeping all the rows of a given wine in the same file; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
-      "tooManyItems_other": "This file stands for {{count}} assets, but one import takes at most {{max}}: nothing has been imported. Split it into several files, keeping all the rows of a given wine in the same file; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
+      "rowCigars_one": "{{count}} cigar",
+      "rowCigars_other": "{{count}} cigars",
+      "mergedRows_one": "{{count}} row added up",
+      "mergedRows_other": "{{count}} rows added up",
+      "tooManyRows_one": "This file has {{count}} row, but one import takes at most {{max}}: nothing has been imported.",
+      "tooManyRows_other": "This file has {{count}} rows, but one import takes at most {{max}}, whatever the number of bottles: nothing has been imported. Split it into several files; after this first import, \"Review the getting started guide\" (Profile) lets you import the next ones.",
+      "newCellars_one": "1 cellar will be created: {{names}}",
+      "newCellars_other": "{{count}} cellars will be created: {{names}}",
+      "alreadyInCellar_one": "Wine already in the cellar ({{count}} bottle)",
+      "alreadyInCellar_other": "Wine already in the cellar ({{count}} bottles)",
+      "alreadyInCellarCigars_one": "Already in the cellar ({{count}} cigar)",
+      "alreadyInCellarCigars_other": "Already in the cellar ({{count}} cigars)",
+      "alreadyInCellarChoice": "{{name}}: already in the cellar, what should be done with this row?",
+      "addBottles_one": "Add this bottle",
+      "addBottles_other": "Add these {{count}} bottles",
+      "addCigars_one": "Add this cigar",
+      "addCigars_other": "Add these {{count}} cigars",
+      "ignoreBottles": "Ignore (already counted)",
+      "ignoreCigars": "Ignore (already in the cellar)",
+      "lineTooLarge": "These identical rows make {{total}} bottles, but one cellar line holds {{max}} at most: spread them over several purchase dates or files.",
+      "lineTooLargeCigars": "These identical rows make {{total}} boxes or cigars, but one cellar line holds {{max}} at most: spread them over several purchase dates or files.",
+      "confirmErrors": {
+        "LINE_TOO_LARGE": "Identical rows of the file add up past 1,000 bottles of one wine: nothing has been imported. Spread them over several purchase dates.",
+        "QUANTITY_TOO_LARGE": "Adding this file would take one cellar line past 1,000 bottles: nothing has been imported. Give these rows another purchase date."
+      },
       "errorCodes": {
         "NAME_REQUIRED": "Name is missing",
         "NAME_TOO_LONG": "Name exceeds 200 characters",
@@ -1836,7 +1857,12 @@
         "REGION_TOO_LONG": "Region exceeds 200 characters",
         "INVALID_ROW": "Invalid row",
         "UNRECOGNIZED_COLUMNS": "Unrecognised header: none of the expected columns (name, producer, category, vintage…) were found",
-        "INVALID_ENCODING": "This file isn't saved as UTF-8: accented characters were lost. In Excel, use \"File → Save As\" and pick \"CSV UTF-8 (Comma delimited)\", then try again."
+        "INVALID_ENCODING": "This file isn't saved as UTF-8: accented characters were lost. In Excel, use \"File → Save As\" and pick \"CSV UTF-8 (Comma delimited)\", then try again.",
+        "CELLAR_TOO_LONG": "Cellar name exceeds 100 characters",
+        "INVALID_PURCHASE_DATE": "Invalid purchase date (day first: 15/03/2024, or 2024-03-15; between 1900 and 2100)",
+        "BOTTLE_SIZE_TOO_LONG": "Bottle size exceeds 50 characters",
+        "FORMAT_TOO_LONG": "Vitola exceeds 100 characters",
+        "INVALID_BOX_SIZE": "Invalid box size (cigars per box, or \"single\")"
       }
     },
     "summary": {
@@ -1847,8 +1873,22 @@
       "itemsAdded_one": "{{count}} asset added to your inventory",
       "itemsAdded_other": "{{count}} assets added to your inventory",
       "noItems": "No asset added yet",
-      "duplicatesSkipped_one": "{{count}} row not imported: already in stock before the import",
-      "duplicatesSkipped_other": "{{count}} rows not imported: already in stock before the import",
+      "imported": "Imported: {{what}}",
+      "nothingImported": "No bottle imported",
+      "bottles_one": "{{count}} bottle",
+      "bottles_other": "{{count}} bottles",
+      "wines_one": "{{count}} wine",
+      "wines_other": "{{count}} wines",
+      "cigars_one": "{{count}} cigar",
+      "cigars_other": "{{count}} cigars",
+      "cigarReferences_one": "{{count}} cigar reference",
+      "cigarReferences_other": "{{count}} cigar references",
+      "cellarsCreated_one": "1 cellar created: {{names}}",
+      "cellarsCreated_other": "{{count}} cellars created: {{names}}",
+      "skippedLines_one": "{{count}} row ignored: wine already in the cellar, bottles already counted",
+      "skippedLines_other": "{{count}} rows ignored: wines already in the cellar, bottles already counted",
+      "staleLines_one": "{{count}} row not imported: the stock of this wine changed since the preview, import this row again",
+      "staleLines_other": "{{count}} rows not imported: the stock of these wines changed since the preview, import these rows again",
       "adminConfig": {
         "title": "System configuration (optional)",
         "description": "As an admin, you'll be able to set up SMTP, notif policy, webhook/Gotify, API integrations, retention, backups and network later.",
@@ -2108,7 +2148,10 @@
       "showLess": "See less",
       "needsReview": "To check after the update",
       "level": "Level of this bottle",
-      "reattached": "Bottle put back with the others"
+      "reattached": "Bottle put back with the others",
+      "levelFull": "Full",
+      "levelHalf": "Half",
+      "levelEmpty": "Empty"
     },
     "gone": {
       "title": "Already drunk or gone",
@@ -2137,7 +2180,8 @@
     "history": {
       "title": "History",
       "add_units": "Bottles added",
-      "correct_quantity": "Number corrected"
+      "correct_quantity": "Number corrected",
+      "numberChange": "{{what}}: {{from}} → {{to}}"
     },
     "loadError": "This wine could not be loaded.",
     "form": {

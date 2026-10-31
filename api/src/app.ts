@@ -9,6 +9,7 @@ import rateLimit from 'express-rate-limit';
 import { inventoryRouter } from './routes/inventory.router';
 import { productsRouter } from './routes/products.router';
 import { inventoryActionsRouter } from './routes/inventory-actions.router';
+import { reviewRouter } from './routes/review.router';
 import { authRouter } from './routes/auth.router';
 import { authMiddleware } from './middleware/auth.middleware';
 import cellarsRouter from './routes/cellars.router';
@@ -178,6 +179,8 @@ export function createApp(): express.Express {
   app.use('/api/auth', authRouter);
   app.use('/api/cellars', cellarsRouter);
   app.use('/api/stats', statsRouter);
+  // Before /api/inventory and /api/products, whose `/:id` routes would catch its paths.
+  app.use('/api', reviewRouter);
   app.use('/api/inventory', inventoryRouter);
   app.use('/api/products', productsRouter);
   app.use('/api', inventoryActionsRouter);

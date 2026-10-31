@@ -407,15 +407,18 @@ export class InventoryService {
     // by the detach rule, which keeps the slot with the group when a finished
     // copy is detached from it.
     const finished = this.isFinishedAfter(existing, safePatch);
+    // #798: a bottle moved to another cellar without new slot coordinates
+    // arrives unplaced — its old coordinates mean nothing in the new cellar.
+    const leavesSlot = finished || this.leavesSlotByMove(existing, safePatch);
 
     // Slot uniqueness: if assigning a grid slot, verify it is not occupied by
-    // another item. Not for a finished bottle (#573): it is leaving its slot,
-    // so it cannot conflict with anyone.
+    // another item. Not for a bottle leaving its slot (finished #573, or moved
+    // to another cellar #798): it cannot conflict with anyone.
     const targetCellarId = 'cellarId' in patch ? patch.cellarId : existing.cellarId;
     const targetSlotColumn = 'slotColumn' in patch ? patch.slotColumn : existing.slotColumn;
     const targetSlotRow = 'slotRow' in patch ? patch.slotRow : existing.slotRow;
 
-    if (!finished && targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
+    if (!leavesSlot && targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
       const conflict = await prisma.inventoryItem.findFirst({
         where: {
           cellarId: targetCellarId,
@@ -430,7 +433,13 @@ export class InventoryService {
 
     // #471: the family's fields go to the family (and its mirror), the rest
     // to the unit — each with its own locks and field sources (D1).
-    const dbData = this.mapInputToDb(safePatch);
+    // #798: a unit moved to another cellar gives its slot back with the move
+    // (its coordinates mean nothing in the new cellar); recorded in the
+    // changes below like any written field. A finished unit's slot is
+    // released by the detach rule instead (#573), which keeps it with the
+    // group when a finished copy is detached from it.
+    const writePatch: InventoryPatch = this.leavesSlotByMove(existing, safePatch) ? { ...safePatch, ...NO_SLOT } : safePatch;
+    const dbData = this.mapInputToDb(writePatch);
     const familyPatch = pickProductFields(dbData);
     const itemData = Object.fromEntries(Object.entries(dbData).filter(([key]) => !isProductField(key)));
 
@@ -623,8 +632,11 @@ export class InventoryService {
         if (smokeOne || changedEntries.some(([key]) => isStateField(key))) {
           const fresh = await tx.inventoryItem.findUnique({ where: { id: item.id } });
           if (!fresh || fresh.deletedAt) continue;
+          const unit = Object.fromEntries(changedEntries.filter(([key]) => !isStateField(key))) as InventoryPatch;
           await applyState(tx, fresh as StateItem, {
-            unit: Object.fromEntries(changedEntries.filter(([key]) => !isStateField(key))),
+            // #798: moved to another cellar along with the state, it arrives
+            // unplaced (a finished one's slot is the detach rule's, #573).
+            unit: this.leavesSlotByMove(item, unit) ? { ...unit, ...NO_SLOT } : unit,
             state: Object.fromEntries(Object.entries(unitPatch).filter(([key]) => isStateField(key))) as StatePatch,
             smokeOne, keepTastings,
           }, { userId, kind: unitKind(row.product.category), include: {} });
@@ -638,7 +650,8 @@ export class InventoryService {
           data: {
             ...changed,
             // #573: an item this call leaves finished gives its grid slot back (see updateItem).
-            ...(this.isFinishedAfter(item, changed) ? NO_SLOT : {}),
+            // #798: so does an item moved to another cellar ("move to a cellar" bulk action).
+            ...(this.isFinishedAfter(item, changed) || this.leavesSlotByMove(item, changed) ? NO_SLOT : {}),
             updatedAt: new Date(),
             updatedBy: userId,
           } as never,
@@ -851,6 +864,20 @@ export class InventoryService {
    */
   private getField(item: object, key: string): unknown {
     return (item as Record<string, unknown>)[key];
+  }
+
+  /**
+   * #798: whether `patch` moves `item` to another cellar without giving it
+   * new slot coordinates. Its stored coordinates belong to the old cellar,
+   * so it must arrive unplaced rather than claim the same cell in the new one.
+   */
+  private leavesSlotByMove(item: InventoryItem, patch: InventoryPatch): boolean {
+    return (
+      patch.cellarId !== undefined &&
+      patch.cellarId !== item.cellarId &&
+      patch.slotColumn === undefined &&
+      patch.slotRow === undefined
+    );
   }
 
   /**
