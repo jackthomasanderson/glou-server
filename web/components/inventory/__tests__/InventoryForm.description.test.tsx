@@ -34,7 +34,7 @@ import { InventoryForm } from '../InventoryForm';
 const wine = product({ region: 'Bordeaux', items: [unit({ quantity: 6, purchasePrice: 20 }), unit({ quantity: 3 })] });
 
 const BOTTLE_FIELDS = [
-  'Caves', 'Nombre de bouteilles', "Prix d'une bouteille", "Date d'achat", "Lieu d'achat", 'Valeur estimée (€)', 'Taille de bouteille',
+  'Caves', 'Nombre de bouteilles', "Prix d'une bouteille", "Date d'achat", "Lieu d'achat", "Valeur estimée d'une bouteille", 'Taille de bouteille',
 ];
 
 function draw(onSubmit = vi.fn(), description = true) {

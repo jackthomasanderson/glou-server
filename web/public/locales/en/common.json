@@ -179,6 +179,7 @@
       "notes": "Personal notes",
       "purchasePrice": "Purchase price (€)",
       "unitPrice": "Price of one bottle",
+      "unitValue": "Estimated value of one bottle",
       "quantityBottles": "Number of bottles",
       "purchasedAt": "Purchase date",
       "purchasePlace": "Purchase place",

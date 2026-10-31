@@ -876,7 +876,7 @@ export function InventoryForm({
 
                         {/* Estimated value */}
                         <ParsedNumberInput decimal
-                          label={t('inventory.fields.estimatedValue')}
+                          label={t(isCigar ? 'inventory.fields.estimatedValue' : 'inventory.fields.unitValue')}
                           variant="bordered"
                           size="sm"
                           value={values.estimatedValue}
