@@ -11,6 +11,7 @@ import { FilterChip } from '@/components/ui/FilterControls';
 import { notifyError } from '@/lib/toast';
 import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical, GlassWater } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
+import type { UnitKind } from '@shared/units';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
 import { Collection } from '@/lib/collections/types';
@@ -54,6 +55,13 @@ interface InventoryFormProps {
   defaultCategory?: InventoryCategory;
   /** Cellar preselected when creating (the setup wizard's cellar, FEAT-90 / #685). */
   defaultCellarId?: string | null;
+  /**
+   * #471 (FEAT-92 c4): edit a wine's description, shared by all its bottles
+   * (`units` of them in stock), instead of one bottle: the fields of a
+   * bottle (cellar, price, number, state) are not shown, and the form says
+   * how many bottles the change applies to.
+   */
+  descriptionOf?: { units: number; kind: UnitKind };
 }
 
 const EMPTY_FORM: Partial<InventoryItem> = {
@@ -78,7 +86,7 @@ const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
 const CATEGORY_COLORS = CATEGORY_CHIP_COLOR;
 
 export function InventoryForm({
-  open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested, defaultCategory, defaultCellarId,
+  open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested, defaultCategory, defaultCellarId, descriptionOf,
 }: InventoryFormProps) {
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
@@ -103,6 +111,8 @@ export function InventoryForm({
   // Last automatic photo pick and the "producer name" it was made for.
   const [autoPhoto, setAutoPhoto] = useState<{ query: string; path: string | null } | null>(null);
   const isEditing = Boolean(initialValues?.id);
+  // A bottle's own fields (cellar, price, number, state): not in a wine's description.
+  const showsBottle = !descriptionOf;
 
   const setField = (field: string, value: unknown) =>
     setValues((prev) => ({ ...prev, [field]: value }));
@@ -174,7 +184,7 @@ export function InventoryForm({
   const missingName = !values.name?.trim();
   const missingProducer = !values.producer?.trim();
   const missingAlcoholDegree = values.category === 'spirit' && (values.alcoholDegree == null || Number.isNaN(values.alcoholDegree));
-  const missingQuantity = values.category === 'cigar' && (values.quantity == null || Number.isNaN(values.quantity));
+  const missingQuantity = showsBottle && values.category === 'cigar' && (values.quantity == null || Number.isNaN(values.quantity));
   // #706: a peak window ending before it starts is refused, as by the API.
   const peakWindowReversed = ['wine', 'sparkling'].includes(values.category ?? '')
     && values.peakMaturityFrom != null && values.peakMaturityTo != null
@@ -254,7 +264,9 @@ export function InventoryForm({
                   {t(`categories.${category}`)}
                 </Chip>
                 <span className="text-base font-semibold">
-                  {isEditing ? t('inventory.edit') : t('inventory.add')}
+                  {descriptionOf
+                    ? t(category === 'cigar' ? 'familyDrawer.form.titleCigar' : category === 'spirit' ? 'familyDrawer.form.titleSpirit' : 'familyDrawer.form.title')
+                    : isEditing ? t('inventory.edit') : t('inventory.add')}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -302,6 +314,17 @@ export function InventoryForm({
               {/* Right form fields */}
               <div className="flex-1 min-w-0 min-h-0 px-6 py-5 overflow-y-auto">
                 <div className="flex flex-col gap-6">
+
+                  {descriptionOf && (
+                    <p data-testid="description-scope" className="text-sm text-foreground-500 -mb-2">
+                      {descriptionOf.kind === 'cigar'
+                        ? t('familyDrawer.form.scopeCigar', { count: descriptionOf.units })
+                        : t('familyDrawer.form.scope', {
+                          count: descriptionOf.units,
+                          what: t(category === 'spirit' ? 'familyDrawer.form.thisSpirit' : 'familyDrawer.form.thisWine'),
+                        })}
+                    </p>
+                  )}
 
                   {/* Section 1: Identity */}
                   <div>
@@ -355,6 +378,7 @@ export function InventoryForm({
                         required
                         isInvalid={submitAttempted && missingProducer}
                       />
+                      {showsBottle && (
                       <Select
                         label={t('nav.caves')}
                         variant="bordered"
@@ -371,6 +395,7 @@ export function InventoryForm({
                           </SelectItem>
                         )}
                       </Select>
+                      )}
                     </div>
                   </div>
 
@@ -525,17 +550,19 @@ export function InventoryForm({
                             value={values.format ?? ''}
                             onValueChange={(v) => setField('format', v)}
                           />
-                          <ParsedNumberInput
-                            label={t('inventory.fields.quantity')}
-                            variant="bordered"
-                            size="sm"
-                            isRequired
-                            isInvalid={submitAttempted && missingQuantity}
-                            errorMessage={t('inventory.validation.required')}
-                            value={values.quantity}
-                            onValueChange={(v) => setField('quantity', v)}
-                            min={0}
-                          />
+                          {showsBottle && (
+                            <ParsedNumberInput
+                              label={t('inventory.fields.quantity')}
+                              variant="bordered"
+                              size="sm"
+                              isRequired
+                              isInvalid={submitAttempted && missingQuantity}
+                              errorMessage={t('inventory.validation.required')}
+                              value={values.quantity}
+                              onValueChange={(v) => setField('quantity', v)}
+                              min={0}
+                            />
+                          )}
                           <ParsedNumberInput
                             label={t('inventory.fields.manufactureYear')}
                             variant="bordered"
@@ -748,6 +775,7 @@ export function InventoryForm({
                         />
 
                         {/* Purchase price */}
+                        {showsBottle && (<>
                         <ParsedNumberInput decimal
                           label={t('inventory.fields.purchasePrice')}
                           variant="bordered"
@@ -777,6 +805,7 @@ export function InventoryForm({
                           onValueChange={(v) => setField('estimatedValue', v)}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
                         />
+                        </>)}
 
                         {/* Notes */}
                         <div className="col-span-2 sm:col-span-4">
@@ -792,13 +821,15 @@ export function InventoryForm({
                         {/* Wine/Sparkling optionals */}
                         {isWineOrSparkling && (
                           <>
-                            <Input
-                              label={t('inventory.fields.bottleSize')}
-                              variant="bordered"
-                              size="sm"
-                              value={values.bottleSize ?? ''}
-                              onValueChange={(v) => setField('bottleSize', v)}
-                            />
+                            {showsBottle && (
+                              <Input
+                                label={t('inventory.fields.bottleSize')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.bottleSize ?? ''}
+                                onValueChange={(v) => setField('bottleSize', v)}
+                              />
+                            )}
                             <Input
                               label={t('inventory.fields.serviceTemp')}
                               placeholder={t('inventory.fields.serviceTempPlaceholder')}
@@ -885,13 +916,15 @@ export function InventoryForm({
                                 onValueChange={(v) => setField('additions', v)}
                               />
                             </div>
-                            <Input
-                              label={t('inventory.fields.bottleSize')}
-                              variant="bordered"
-                              size="sm"
-                              value={values.bottleSize ?? ''}
-                              onValueChange={(v) => setField('bottleSize', v)}
-                            />
+                            {showsBottle && (
+                              <Input
+                                label={t('inventory.fields.bottleSize')}
+                                variant="bordered"
+                                size="sm"
+                                value={values.bottleSize ?? ''}
+                                onValueChange={(v) => setField('bottleSize', v)}
+                              />
+                            )}
                           </>
                         )}
 
@@ -937,6 +970,7 @@ export function InventoryForm({
                         {/* FEAT-87: owned item vs non-owned reference. An item
                             created before this field existed has no `isOwned`
                             and is owned. */}
+                        {showsBottle && (
                         <div className="col-span-2 sm:col-span-4">
                           <div className="flex flex-wrap items-center gap-2">
                             <Button
@@ -966,9 +1000,10 @@ export function InventoryForm({
                             <p className="text-xs text-default-500 mt-1.5">{t('inventory.fields.isReferenceHint')}</p>
                           )}
                         </div>
+                        )}
 
                         {/* Opened status — a reference has no bottle to open */}
-                        {(values.isOwned ?? true) && (
+                        {showsBottle && (values.isOwned ?? true) && (
                           <div className="col-span-2 sm:col-span-4">
                             <div className="flex items-center gap-2">
                               <Button
@@ -989,7 +1024,7 @@ export function InventoryForm({
                           </div>
                         )}
 
-                        {(values.isOwned ?? true) && values.isOpened && (
+                        {showsBottle && (values.isOwned ?? true) && values.isOpened && (
                           <>
                             <div className="col-span-2 sm:col-span-4">
                               <p className="text-xs text-foreground-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
@@ -1023,6 +1058,18 @@ export function InventoryForm({
                               onValueChange={(v) => setField('reminderDate', v || null)}
                             />
                           </>
+                        )}
+
+                        {/* #471: the reminder is the wine's, whatever its bottles. */}
+                        {!showsBottle && (
+                          <Input
+                            label={t('inventory.fields.reminderDate')}
+                            type="date"
+                            variant="bordered"
+                            size="sm"
+                            value={typeof values.reminderDate === 'string' ? values.reminderDate.split('T')[0] : ''}
+                            onValueChange={(v) => setField('reminderDate', v || null)}
+                          />
                         )}
                       </div>
                     )}

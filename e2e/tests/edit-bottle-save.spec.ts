@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Locator, type APIRequestContext } from '@playwright/test';
 
 /**
- * #572: saving the edit form sent the whole bottle as it was when the form
+ * #572: saving the edit form sent the whole record as it was when the form
  * opened. A change made meanwhile by someone else was overwritten without a
  * word, and the API locked every field it received and dropped its scan/import
  * source. The form now sends only the changed fields plus the version it
@@ -9,18 +9,27 @@ import { test, expect, type Page, type Locator, type APIRequestContext } from '@
  *
  * #643: the name was greyed out when editing, so a misread name could not be
  * corrected.
+ *
+ * #471 (FEAT-92 c4): "Modifier" in the drawer of a wine edits its description,
+ * once for all its bottles (PATCH /api/products/:id, the wine's own version).
  */
 
-async function createBottle(api: APIRequestContext, name: string) {
+type Bottle = { id: string; productId: string; updatedAt: string };
+
+async function createBottle(api: APIRequestContext, name: string, extra: Record<string, unknown> = {}): Promise<Bottle> {
   const created = await api.post('/api/inventory', {
-    data: { category: 'wine', name, producer: 'E2E Domaine', vintage: 2015, region: 'Bourgogne', purchasePrice: 20 },
+    data: { category: 'wine', name, producer: 'E2E Domaine', vintage: 2015, region: 'Bourgogne', purchasePrice: 20, ...extra },
   });
   expect(created.status(), await created.text()).toBe(201);
-  return (await created.json()).data as { id: string; updatedAt: string };
+  return (await created.json()).data as Bottle;
 }
 
 async function getBottle(api: APIRequestContext, id: string) {
   return (await (await api.get(`/api/inventory/${id}`)).json()).data as Record<string, unknown>;
+}
+
+async function getWine(api: APIRequestContext, productId: string) {
+  return (await (await api.get(`/api/products/${productId}`)).json()).data as Record<string, unknown> & { updatedAt: string };
 }
 
 /**
@@ -33,27 +42,25 @@ async function openDetail(page: Page, id: string, name: string) {
   return page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });
 }
 
-/** Opens the bottle's edit form, from its detail window. */
+/** Opens the wine's description form, from its drawer. */
 async function openEditForm(page: Page, detail: Locator, name: string) {
-  // The detail window's own button: the cards behind have "Modifier" ones too.
+  // The drawer's own button: the cards behind have "Modifier" ones too.
   await detail.getByRole('button', { name: 'Modifier', exact: true }).click();
-  // The form window: the detail one may still be closing.
+  // The form window: the drawer may still be closing.
   const dialog = page.getByRole('dialog').filter({ has: page.getByTestId('inventory-form-submit') });
   await expect(dialog.getByTestId('inventory-name-input')).toHaveValue(name);
   return dialog;
 }
 
-function patchOf(page: Page, id: string) {
-  return page.waitForResponse(
-    (r) => r.url().endsWith(`/api/inventory/${id}`) && r.request().method() === 'PATCH',
-  );
+function patchOf(page: Page, path: string) {
+  return page.waitForResponse((r) => r.url().endsWith(path) && r.request().method() === 'PATCH');
 }
 
-test('a bottle name can be corrected when editing, without suggestions (#643)', async ({ page }) => {
+test('a wine name can be corrected when editing, without suggestions (#643)', async ({ page }) => {
   const api = page.request;
   const name = `E2E #643 ${Date.now()} Vougot`;
   const fixed = name.replace('Vougot', 'Vougeot');
-  const { id } = await createBottle(api, name);
+  const { id, productId } = await createBottle(api, name);
 
   try {
     const dialog = await openEditForm(page, await openDetail(page, id, name), name);
@@ -66,104 +73,89 @@ test('a bottle name can be corrected when editing, without suggestions (#643)', 
     await expect(dialog.locator('[role="option"]')).toHaveCount(0);
 
     await nameInput.fill(fixed);
-    const saved = patchOf(page, id);
+    const saved = patchOf(page, `/api/products/${productId}`);
     await dialog.getByTestId('inventory-form-submit').click();
     const res = await saved;
     expect(res.status(), await res.text()).toBe(200);
     expect(Object.keys(res.request().postDataJSON() as object).sort()).toEqual(['expectedUpdatedAt', 'name']);
     await expect(dialog).toBeHidden();
 
+    expect((await getWine(api, productId)).name).toBe(fixed);
     expect((await getBottle(api, id)).name).toBe(fixed);
   } finally {
-    await api.delete(`/api/inventory/${id}`).catch(() => {});
+    await api.delete(`/api/products/${productId}`).catch(() => {});
   }
 });
 
-test('saving a form opened before someone else changed the bottle does not overwrite it (#572)', async ({ page }) => {
+test('saving a form opened before someone else changed the wine does not overwrite it (#572)', async ({ page }) => {
   const api = page.request;
   const name = `E2E #572 conflict ${Date.now()}`;
-  const { id } = await createBottle(api, name);
+  const { id, productId } = await createBottle(api, name);
 
   try {
     const dialog = await openEditForm(page, await openDetail(page, id, name), name);
-    await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
-    const price = dialog.getByLabel("Prix d'achat (€)");
-    await price.fill('');
-    await price.pressSequentially('25');
+    const region = dialog.getByLabel('Région');
+    await region.fill('Médoc');
 
-    // Meanwhile, another member marks the bottle opened, half full.
-    const other = await api.patch(`/api/inventory/${id}`, { data: { isOpened: true, fillLevel: 50 } });
+    // Meanwhile, another member corrects the region of the same wine.
+    const before = await getWine(api, productId);
+    const other = await api.patch(`/api/products/${productId}`, { data: { region: 'Graves', expectedUpdatedAt: before.updatedAt } });
     expect(other.status(), await other.text()).toBe(200);
 
-    const saved = patchOf(page, id);
+    const saved = patchOf(page, `/api/products/${productId}`);
     await dialog.getByTestId('inventory-form-submit').click();
     const res = await saved;
     expect(res.status()).toBe(409);
     expect((await res.json()).error).toBe('CONFLICT');
 
-    await expect(page.getByText('Non enregistré : cet actif a été modifié entre-temps', { exact: false })).toBeVisible();
+    await expect(page.getByText('Non enregistré : ce vin a été modifié entre-temps', { exact: false })).toBeVisible();
     // The form stays open with what was typed.
-    await expect(dialog.getByLabel("Prix d'achat (€)")).toHaveValue('25');
-
-    const item = await getBottle(api, id);
-    expect(item.isOpened).toBe(true);
-    expect(item.fillLevel).toBe(50);
-    expect(Number(item.purchasePrice)).toBe(20);
+    await expect(dialog.getByLabel('Région')).toHaveValue('Médoc');
+    expect((await getWine(api, productId)).region).toBe('Graves');
   } finally {
-    await api.delete(`/api/inventory/${id}`).catch(() => {});
+    await api.delete(`/api/products/${productId}`).catch(() => {});
   }
 });
 
-test('after the level of an opened bottle set in its drawer, editing the price sends only the price and keeps the level (#572)', async ({ page }) => {
+test('after the level of an opened bottle set in its drawer, editing the wine sends only the description (#572, D22)', async ({ page }) => {
   const api = page.request;
-  const name = `E2E #572 price ${Date.now()}`;
-  const created = await api.post('/api/inventory', {
-    data: { category: 'wine', name, producer: 'E2E Domaine', vintage: 2015, region: 'Bourgogne', purchasePrice: 20, isOpened: true, fillLevel: 80 },
-  });
-  expect(created.status(), await created.text()).toBe(201);
-  const { id } = (await created.json()).data as { id: string };
+  const name = `E2E #572 level ${Date.now()}`;
+  const { id, productId } = await createBottle(api, name, { isOpened: true, fillLevel: 80 });
 
   try {
     // #471: only an opened bottle has a level in the wine's drawer (one
-    // bottle, nothing detached). The edit form opened next must start from
-    // the version that level change made, not conflict with it.
+    // bottle, nothing detached). That change does not move the wine's own
+    // version: the description form opened next must not conflict with it.
+    const wineVersion = (await getWine(api, productId)).updatedAt;
     const detail = await openDetail(page, id, name);
     const slider = detail.getByRole('slider', { name: 'Niveau de cette bouteille' });
     await expect(slider).toHaveValue('80');
-    const filled = patchOf(page, id);
+    const filled = patchOf(page, `/api/inventory/${id}`);
     await slider.focus();
     await page.keyboard.press('ArrowLeft');
     const fillRes = await filled;
     expect(fillRes.status()).toBe(200);
     expect(fillRes.request().postDataJSON()).toMatchObject({ fillLevel: 75 });
-    const filledVersion = (await fillRes.json()).data.updatedAt as string;
 
     const dialog = await openEditForm(page, detail, name);
-    await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
-    const price = dialog.getByLabel("Prix d'achat (€)");
-    await price.fill('');
-    await price.pressSequentially('25');
-
-    const saved = patchOf(page, id);
+    await dialog.getByLabel('Région').fill('Médoc');
+    const saved = patchOf(page, `/api/products/${productId}`);
     await dialog.getByTestId('inventory-form-submit').click();
     const res = await saved;
     expect(res.status(), await res.text()).toBe(200);
     // The changed field only, and the version the form started from.
-    expect(res.request().postDataJSON()).toEqual({ purchasePrice: 25, expectedUpdatedAt: filledVersion });
+    expect(res.request().postDataJSON()).toEqual({ region: 'Médoc', expectedUpdatedAt: wineVersion });
     await expect(dialog).toBeHidden();
 
+    const wine = await getWine(api, productId);
+    expect(wine.region).toBe('Médoc');
+    // Set by hand: the region; the untouched fields keep their origin.
+    expect(wine.lockedFields).toEqual(['region']);
     const item = await getBottle(api, id);
-    expect(Number(item.purchasePrice)).toBe(25);
     expect(item.isOpened).toBe(true);
     expect(item.fillLevel).toBe(75);
-    // Set by hand: the level and the price; the untouched fields keep their
-    // origin (scan/import badges are cleared the same way).
-    expect(item.lockedFields).toEqual(expect.arrayContaining(['fillLevel', 'purchasePrice']));
-    expect(item.lockedFields).not.toContain('name');
-    expect(item.lockedFields).not.toContain('region');
-    expect(item.name).toBe(name);
     expect(item.vintage).toBe(2015);
   } finally {
-    await api.delete(`/api/inventory/${id}`).catch(() => {});
+    await api.delete(`/api/products/${productId}`).catch(() => {});
   }
 });

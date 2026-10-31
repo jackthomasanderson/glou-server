@@ -6,28 +6,29 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
 import { Plus, Search, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
 import Link from 'next/link';
-import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
-import { newestCopy } from '@/lib/inventory/newestCopy';
+import { descriptionPatch, descriptionValues } from '@/lib/products/description';
 import type { Product } from '@/lib/products/types';
 import { describeStock, wineName } from '@/lib/products/stock';
 import { isGone, stockSummaryOf } from '@/lib/products/filters';
 import { familyIdOf } from '@/lib/products/fromFlat';
 import { inventoryClient } from '@/lib/inventory/client';
-import { isFinishedState } from '@shared/units';
+import { isFinishedState, unitKind } from '@shared/units';
 import { formatDate } from '@/lib/format';
 import {
-  INVENTORY_KEY,
   useInventory,
   useInventoryTruncated,
   useCreateInventoryItem,
   useUpdateInventoryItem,
   useBulkUpdateInventoryItem,
 } from '@/hooks/useInventory';
-import { useProducts, useProductsTruncated, useTrashProduct, useRestoreProduct } from '@/hooks/useProducts';
+import { useProducts, useProductsTruncated, useTrashProduct, useRestoreProduct, useUpdateProduct } from '@/hooks/useProducts';
 import { useCellars } from '@/hooks/useCellars';
-import { useCollections, useAddItemsToCollection, useRemoveItemFromCollection } from '@/hooks/useCollections';
+import {
+  useCollections, useAddItemsToCollection, useRemoveItemFromCollection,
+  useAddProductsToCollection, useRemoveProductFromCollection,
+} from '@/hooks/useCollections';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useInventoryFilters } from '@/hooks/useInventoryFilters';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
@@ -83,7 +84,6 @@ function getIsMobileServerSnapshot() {
 }
 
 export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardProps) {
-  const queryClient = useQueryClient();
   const { i18n } = useTranslation();
   // #471: the list shows wines (families); the flat bottles still back the
   // drawer, the edit form, QR codes, duplicates and bulk actions until their lots.
@@ -96,6 +96,9 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const { data: allCollections } = useCollections();
   const createMutation = useCreateInventoryItem();
   const updateMutation = useUpdateInventoryItem();
+  const updateProductMutation = useUpdateProduct();
+  const addProductsToCollectionMutation = useAddProductsToCollection();
+  const removeProductFromCollectionMutation = useRemoveProductFromCollection();
   const trashMutation = useTrashProduct();
   const restoreMutation = useRestoreProduct();
   const addItemsToCollectionMutation = useAddItemsToCollection();
@@ -115,31 +118,18 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     return ids;
   }, [offlineSyncQueue, items, products]);
 
-  // The bottle the edit form opens for a wine: one in stock, else its most
-  // recently changed one (finished). None for a wine known without any
-  // bottle record: its card offers no edit (the drawer still opens).
-  const openableItemOf = useMemo(() => {
-    const byId = new Map((items ?? []).map((item) => [item.id, item]));
-    const latestByProduct = new Map<string, InventoryItem>();
-    for (const item of items ?? []) {
-      if (!item.productId) continue;
-      const known = latestByProduct.get(item.productId);
-      if (!known || item.updatedAt > known.updatedAt) latestByProduct.set(item.productId, item);
-    }
-    return (product: Product): InventoryItem | undefined =>
-      product.items.map((unit) => byId.get(unit.id)).find(Boolean) ?? latestByProduct.get(product.id);
-  }, [items]);
-  const isOpenable = useCallback((product: Product) => openableItemOf(product) !== undefined, [openableItemOf]);
-
   const [mode, setMode] = useState<UIMode>('idle');
   const [scanOpen, setScanOpen] = useState(false);
   const scanAvailable = useScanAvailability();
-  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
-  // #572: the version the open edit form's save must still find on the
+  // #471 (FEAT-92 c4): "Modifier" edits the wine's description, for all its bottles.
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingFromDrawer, setEditingFromDrawer] = useState(false);
+  // #572: the wine's version the open form's save must still find on the
   // server, so a change made meanwhile by someone else is not overwritten.
   // Moves on with each save that went through: one whose collections then
   // failed keeps the form open, and its retry must not conflict with itself.
   const [editingVersion, setEditingVersion] = useState<string | null>(null);
+  const editingValues = useMemo(() => (editingProduct ? descriptionValues(editingProduct) : undefined), [editingProduct]);
   // #471: the drawer shows a wine (family), any wine — one without bottle included.
   const [viewingProductId, setViewingProductId] = useState<string | null>(null);
   const [undoTarget, setUndoTarget] = useState<Product | null>(null);
@@ -336,30 +326,42 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     [selectedItemIds, bulkUpdateMutation, setBulkMode, clearSelection]
   );
 
+
+  // The description only: a bottle's field is never sent (the API refuses it).
+  // Collections go to the wine (#471), with all its bottles.
   const handleUpdate = useCallback(
     async (values: Partial<InventoryItem>, newCollectionIds: string[]) => {
-      if (!editingItem) return;
+      if (!editingProduct) return;
+      const patch = descriptionPatch(values);
       try {
         // Only the collections changed: no PATCH, which would bump the version for nothing.
-        if (Object.keys(values).length > 0) {
-          const saved = await updateMutation.mutateAsync({
-            id: editingItem.id,
-            patch: values,
-            expectedUpdatedAt: editingVersion ?? editingItem.updatedAt,
+        if (Object.keys(patch).length > 0) {
+          const saved = await updateProductMutation.mutateAsync({
+            id: editingProduct.id,
+            patch,
+            expectedUpdatedAt: editingVersion ?? editingProduct.updatedAt,
           });
           setEditingVersion(saved.updatedAt);
         }
-        const oldIds = (editingItem.collections ?? []).map(c => c.id);
-        await syncCollections(editingItem.id, newCollectionIds, oldIds);
+        const oldSet = new Set(editingProduct.collections.map((c) => c.id));
+        const newSet = new Set(newCollectionIds);
+        await applyCollectionChanges([
+          ...newCollectionIds.filter((id) => !oldSet.has(id))
+            .map((id) => addProductsToCollectionMutation.mutateAsync({ id, productIds: [editingProduct.id] })),
+          ...[...oldSet].filter((id) => !newSet.has(id))
+            .map((id) => removeProductFromCollectionMutation.mutateAsync({ id, productId: editingProduct.id })),
+        ]);
       } catch {
         // Reported by the update's onError toast or by applyCollectionChanges; keep the form open.
         return;
       }
-      notifySuccess('toast.updateSuccess');
+      notifySuccess('familyDrawer.form.saved');
       setMode('idle');
-      setEditingItem(null);
+      setEditingProduct(null);
+      // Opened from the drawer: back to it, which shows the new description.
+      if (editingFromDrawer) setViewingProductId(editingProduct.id);
     },
-    [editingItem, editingVersion, updateMutation, syncCollections]
+    [editingProduct, editingFromDrawer, editingVersion, updateProductMutation, addProductsToCollectionMutation, removeProductFromCollectionMutation]
   );
 
   // "Mettre ce vin à la corbeille": the wine and all its bottles (D10), once
@@ -384,26 +386,26 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     setUndoTarget(null);
   }, [undoTarget, restoreMutation]);
 
-  // The copy handed over may predate a change made since (e.g. the fill level
-  // set in the detail window): the form must open with the latest one.
-  const handleEditItem = useCallback((item: InventoryItem) => {
-    const latest = newestCopy(
-      item,
-      queryClient.getQueryData<InventoryItem>(['inventory', item.id]),
-      queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY)?.find((i) => i.id === item.id),
-    );
-    setEditingItem(latest);
-    setEditingVersion(latest.updatedAt);
-    setMode('editing');
-  }, [queryClient]);
 
-  const handleEdit = useCallback((product: Product) => {
-    const item = openableItemOf(product);
-    if (item) handleEditItem(item);
-  }, [openableItemOf, handleEditItem]);
+  // From a card or from the drawer: the wine as last known (the drawer's
+  // detail is newer than the list right after a change).
+  const startEdit = useCallback((product: Product, fromDrawer: boolean) => {
+    setViewingProductId(null);
+    setEditingProduct(product);
+    setEditingFromDrawer(fromDrawer);
+    setEditingVersion(product.updatedAt);
+    setMode('editing');
+  }, []);
+  const handleEdit = useCallback((product: Product) => startEdit(product, false), [startEdit]);
+  const handleEditFromDrawer = useCallback((product: Product) => startEdit(product, true), [startEdit]);
 
   const handleView = useCallback((product: Product) => setViewingProductId(product.id), []);
-  const handleCancel = useCallback(() => { setMode('idle'); setEditingItem(null); }, []);
+  const handleCancel = useCallback(() => {
+    // Opened from the drawer: closing the form goes back to it.
+    if (mode === 'editing' && editingFromDrawer && editingProduct) setViewingProductId(editingProduct.id);
+    setMode('idle');
+    setEditingProduct(null);
+  }, [mode, editingFromDrawer, editingProduct]);
 
   const cellarNames = useMemo(() => new Map((cellars ?? []).map((c) => [c.id, c.name])), [cellars]);
   const cellarNameOf = useCallback((product: Product) => {
@@ -466,7 +468,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     items: paginatedItems,
     stockOf,
     cellarNameOf,
-    isOpenable,
     categoryLabel,
     onEdit: handleEdit,
     onDelete: handleDelete,
@@ -602,7 +603,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           {/* Form dialog */}
           <InventoryForm
             open={mode !== 'idle'}
-            initialValues={mode === 'editing' && editingItem ? editingItem : undefined}
+            initialValues={mode === 'editing' ? editingValues : undefined}
+            descriptionOf={mode === 'editing' && editingProduct
+              ? { units: stockSummaryOf(editingProduct).units, kind: unitKind(editingProduct.category) }
+              : undefined}
             defaultCategory={
               lockedCategories?.length === 1
                 ? (lockedCategories[0] as InventoryCategory)
@@ -612,7 +616,9 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
             }
             onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
             onClose={handleCancel}
-            isSubmitting={createMutation.isPending || updateMutation.isPending || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}
+            isSubmitting={createMutation.isPending || updateMutation.isPending || updateProductMutation.isPending
+              || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending
+              || addProductsToCollectionMutation.isPending || removeProductFromCollectionMutation.isPending}
             t={t}
             onScanRequested={mode === 'creating' && scanAvailable ? () => { setMode('idle'); setScanOpen(true); } : undefined}
           />
@@ -736,12 +742,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       <FamilyDrawer
         productId={viewingProductId}
         onClose={() => setViewingProductId(null)}
-        onEdit={(product) => {
-          const item = openableItemOf(product);
-          if (!item) return;
-          setViewingProductId(null);
-          handleEditItem(item);
-        }}
+        onEdit={handleEditFromDrawer}
       />
 
       {duplicateFound && duplicateCandidate && (

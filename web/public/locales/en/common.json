@@ -201,7 +201,7 @@
       "bottleSize": "Bottle size",
       "peakMaturity": "Ideal tasting window",
       "curveShape": "Consumption curve",
-      "curveShapeHint": "How readiness evolves across the window. Overrides the cave reference for this bottle only.",
+      "curveShapeHint": "How readiness evolves across the window. Overrides the cave reference for this wine only (all its bottles).",
       "needsAeration": "Needs aeration",
       "serviceTemp": "Service temperature",
       "serviceTempPlaceholder": "e.g. 16–18 °C",
@@ -2209,6 +2209,23 @@
       "correct_quantity": "Number corrected",
       "numberChange": "{{what}}: {{from}} → {{to}}"
     },
-    "loadError": "This wine could not be loaded."
+    "loadError": "This wine could not be loaded.",
+    "form": {
+      "title": "Edit this wine",
+      "titleSpirit": "Edit this spirit",
+      "titleCigar": "Edit this cigar",
+      "scope_zero": "Edits {{what}}, which has no bottle left in the cellar.",
+      "scope_one": "Edits {{what}} for its bottle.",
+      "scope_other": "Edits {{what}} for its {{count}} bottles.",
+      "scopeCigar_zero": "Edits this cigar, which is no longer in the cellar.",
+      "scopeCigar_one": "Edits this cigar for its only cigar in the cellar.",
+      "scopeCigar_other": "Edits this cigar for its {{count}} cigars.",
+      "saved": "Wine updated",
+      "conflict": "Not saved: this wine was changed meanwhile, by another member or on another device. Close the form and open it again to start from the current version.",
+      "rejected": "Not saved: the server refused one of the values. Check the form.",
+      "error": "The wine could not be saved.",
+      "thisWine": "this wine",
+      "thisSpirit": "this spirit"
+    }
   }
 }

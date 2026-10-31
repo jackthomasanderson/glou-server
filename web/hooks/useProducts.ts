@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { productsClient } from '@/lib/products/client';
 import { productsFromFlatItems } from '@/lib/products/fromFlat';
 import type { Product, ProductDetailView, TrashedProduct } from '@/lib/products/types';
+import type { ProductDescription } from '@shared/product';
 import { getAllQueuedMutations, getCachedInventory } from '@/lib/offline/db';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
@@ -124,6 +125,42 @@ export function useRestoreProduct() {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
       void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
+    },
+  });
+}
+
+export interface UpdateProductVariables {
+  id: string;
+  patch: Partial<ProductDescription>;
+  /** The wine's version the form started from (#572). */
+  expectedUpdatedAt?: string;
+}
+
+/**
+ * FEAT-92 c4: "Modifier" on a wine writes its description once, for every
+ * bottle. A change made meanwhile by someone else is refused (409) and
+ * reported; the form stays open with what was typed.
+ */
+export function useUpdateProduct() {
+  const queryClient = useQueryClient();
+  return useMutation<Product, Error, UpdateProductVariables>({
+    mutationFn: ({ id, patch, expectedUpdatedAt }) => productsClient.update(id, patch, expectedUpdatedAt),
+    onSuccess: (saved) => {
+      queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) =>
+        old?.map((product) => (product.id === saved.id ? saved : product)));
+    },
+    onError: (error) => {
+      if (error.message === 'CONFLICT') {
+        notifyError('familyDrawer.form.conflict');
+        return;
+      }
+      notifyError(error.message === 'VALIDATION_ERROR' ? 'familyDrawer.form.rejected' : 'familyDrawer.form.error');
+    },
+    onSettled: (_saved, _error, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: productDetailKey(id) });
+      // The flat bottles carry the description too (transitional copy).
+      void queryClient.invalidateQueries({ queryKey: ['inventory'], exact: true });
+      void queryClient.invalidateQueries({ queryKey: ['alerts'] });
     },
   });
 }
