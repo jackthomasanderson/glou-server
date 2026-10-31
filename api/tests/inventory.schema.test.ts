@@ -52,16 +52,16 @@ describe('inventoryInputSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  // ISSUE_101/ISSUE_029: an emptied box (quantity 0) is a real state, not a
-  // forbidden one — only a negative count is invalid.
-  it('validates a cigar with quantity 0 (an emptied box)', () => {
+  // #471 (FEAT-95): a cigar is stored as a group — N closed boxes or N
+  // single cigars, never none (ISSUE_101's emptied box is now a finished one).
+  it('rejects a cigar with quantity 0', () => {
     const result = inventoryInputSchema.safeParse({
       category: 'cigar',
       name: 'Romeo y Julieta',
       producer: 'Romeo y Julieta',
       quantity: 0,
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it('rejects a cigar with a negative quantity', () => {
@@ -244,5 +244,60 @@ describe('price of one bottle on creation (cents)', () => {
   it('refuses several bottles created at a level other than full', () => {
     expect(inventoryInputSchema.safeParse({ ...wine, quantity: 6, fillLevel: 50 }).success).toBe(false);
     expect(inventoryInputSchema.safeParse({ ...wine, quantity: 6, fillLevel: 100 }).success).toBe(true);
+  });
+});
+
+// #471 (FEAT-95): a cigar is created as a group — N closed boxes of M
+// cigars, or N single cigars — or as one box already opened.
+describe('cigar groups on creation (FEAT-95)', () => {
+  const cigar = { category: 'cigar', name: 'Robusto', producer: 'Partagás', format: 'Robusto' };
+  const parse = (data: Record<string, unknown>) => inventoryInputSchema.safeParse({ ...cigar, ...data });
+
+  it('keeps N closed boxes of M cigars', () => {
+    const res = parse({ quantity: 3, cigarsPerBox: 25, purchasePrice: 200 });
+    expect(res.success && res.data).toMatchObject({ quantity: 3, cigarsPerBox: 25, purchasePrice: 200 });
+  });
+
+  it('keeps N single cigars (no box size, or null)', () => {
+    const res = parse({ quantity: 4 });
+    expect(res.success && res.data.quantity).toBe(4);
+    expect(res.success && (res.data as { cigarsPerBox?: number | null }).cigarsPerBox).toBeUndefined();
+    const cleared = parse({ quantity: 4, cigarsPerBox: null });
+    expect(cleared.success && (cleared.data as { cigarsPerBox?: number | null }).cigarsPerBox).toBeNull();
+  });
+
+  it('refuses a box of no cigar, a fraction, or more than one group may count', () => {
+    for (const cigarsPerBox of [0, 2.5, 1001]) expect(parse({ quantity: 1, cigarsPerBox }).success).toBe(false);
+    expect(parse({ quantity: 1001 }).success).toBe(false);
+  });
+
+  it('keeps the purchase day like a bottle (D6)', () => {
+    const res = parse({ quantity: 2, cigarsPerBox: 10, purchasedAt: '2026-01-15' });
+    expect(res.success && res.data.purchasedAt).toBe('2026-01-15');
+  });
+
+  it('accepts one opened box with the cigars left in it', () => {
+    const res = parse({ quantity: 1, cigarsPerBox: 25, isOpened: true, cigarsLeft: 10 });
+    expect(res.success && res.data).toMatchObject({ isOpened: true, cigarsLeft: 10 });
+  });
+
+  it.each([
+    ['several opened boxes', { quantity: 2, cigarsPerBox: 25, isOpened: true, cigarsLeft: 10 }, 'quantity', 'OPENED_GROUP'],
+    ['opened single cigars', { quantity: 1, isOpened: true, cigarsLeft: 1 }, 'cigarsPerBox', 'OPENED_SINGLES'],
+    ['an opened box without its count', { quantity: 1, cigarsPerBox: 25, isOpened: true }, 'cigarsLeft', 'CIGARS_LEFT_REQUIRED'],
+    ['more cigars left than the box holds', { quantity: 1, cigarsPerBox: 25, isOpened: true, cigarsLeft: 26 }, 'cigarsLeft', 'CIGARS_LEFT_ABOVE_BOX'],
+    ['a count of cigars left in a closed box', { quantity: 1, cigarsPerBox: 25, cigarsLeft: 10 }, 'cigarsLeft', 'CIGARS_LEFT_ON_CLOSED'],
+    ['a level on a box', { quantity: 1, cigarsPerBox: 25, isOpened: true, cigarsLeft: 10, fillLevel: 0 }, 'fillLevel', 'FILL_LEVEL_FOR_BOTTLES_ONLY'],
+  ])('refuses %s', (_label, data, path, message) => {
+    const res = parse(data);
+    expect(res.success).toBe(false);
+    if (!res.success) expect(res.error.issues[0]).toMatchObject({ path: [path], message });
+  });
+
+  it('never keeps a box size or cigars left on a bottle', () => {
+    const wine = { category: 'wine', name: 'Talbot', producer: 'Château Talbot' };
+    const res = inventoryInputSchema.safeParse({ ...wine, cigarsPerBox: 25, cigarsLeft: 3 });
+    expect(res.success && res.data).not.toHaveProperty('cigarsPerBox');
+    expect(res.success && res.data).not.toHaveProperty('cigarsLeft');
   });
 });

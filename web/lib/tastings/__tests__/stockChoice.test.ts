@@ -1,10 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
-import { applyStockChoice, stockChoicesFor, stockPatchFor, type TastedItemStock } from '../stockChoice';
+import { applyStockChoice, smokeOutcome, stockChoicesFor, stockPatchFor, type TastedItemStock } from '../stockChoice';
 
 const closedBottle: TastedItemStock = { category: 'wine', isOpened: false };
 const openedBottle: TastedItemStock = { category: 'wine', isOpened: true, fillLevel: 20 };
 const finishedBottle: TastedItemStock = { category: 'wine', isOpened: true, fillLevel: 0 };
-const cigarBox = (quantity: number | null): TastedItemStock => ({ category: 'cigar', isOpened: false, quantity });
+// #471 (FEAT-95): N closed boxes of M cigars, one opened box, N single cigars.
+const closedBoxes = (quantity: number, cigarsPerBox = 25): TastedItemStock =>
+  ({ category: 'cigar', isOpened: false, quantity, cigarsPerBox, cigarsLeft: null });
+const openedBox = (cigarsLeft: number): TastedItemStock =>
+  ({ category: 'cigar', isOpened: true, fillLevel: null, quantity: 1, cigarsPerBox: 25, cigarsLeft });
+const singles = (quantity: number): TastedItemStock =>
+  ({ category: 'cigar', isOpened: false, quantity, cigarsPerBox: null, cigarsLeft: null });
+const smokedCigar: TastedItemStock = { category: 'cigar', isOpened: true, fillLevel: 0, quantity: 1, cigarsPerBox: null, cigarsLeft: 0 };
+const cigarBox = closedBoxes;
 
 describe('stockPatchFor', () => {
   it('leaves the stock alone on "ignore"', () => {
@@ -30,7 +38,7 @@ describe('stockPatchFor', () => {
   it('updates nothing when the tasted item is unknown', () => {
     expect(stockPatchFor('opened', undefined)).toBeNull();
     expect(stockPatchFor('consumed', undefined)).toBeNull();
-    expect(stockPatchFor('removeOneCigar', undefined)).toBeNull();
+    expect(stockPatchFor('smokeOne', undefined)).toBeNull();
   });
 
   // #595: an opened bottle at 20 % went back to 50 %, opened today.
@@ -38,10 +46,12 @@ describe('stockPatchFor', () => {
     expect(stockPatchFor('opened', openedBottle)).toBeNull();
   });
 
-  // #586: one smoked cigar emptied the whole box.
-  it('removes exactly one cigar from a box', () => {
-    expect(stockPatchFor('removeOneCigar', cigarBox(25))).toEqual({ quantity: 24 });
-    expect(stockPatchFor('removeOneCigar', cigarBox(1))).toEqual({ quantity: 0 });
+  // #586, #471 (K): one smoked cigar is never the whole box emptied, and
+  // never `quantity − 1` (a correction of the number): the API smokes it.
+  it('smokes exactly one cigar, whatever holds it', () => {
+    for (const item of [closedBoxes(3), closedBoxes(1), openedBox(10), openedBox(1), singles(4), singles(1)]) {
+      expect(stockPatchFor('smokeOne', item)).toEqual({ smokeOne: true });
+    }
   });
 
   it('never empties nor opens a cigar box', () => {
@@ -49,13 +59,34 @@ describe('stockPatchFor', () => {
     expect(stockPatchFor('opened', cigarBox(25))).toBeNull();
   });
 
-  it('removes nothing from an empty box', () => {
-    expect(stockPatchFor('removeOneCigar', cigarBox(0))).toBeNull();
-    expect(stockPatchFor('removeOneCigar', cigarBox(null))).toBeNull();
+  it('smokes nothing once there is no cigar left', () => {
+    expect(stockPatchFor('smokeOne', smokedCigar)).toBeNull();
+    expect(stockPatchFor('smokeOne', { ...singles(2), writtenOffAt: '2026-10-01T00:00:00.000Z' })).toBeNull();
   });
 
-  it('removes cigars from cigar boxes only', () => {
-    expect(stockPatchFor('removeOneCigar', closedBottle)).toBeNull();
+  it('smokes cigars only', () => {
+    expect(stockPatchFor('smokeOne', closedBottle)).toBeNull();
+  });
+});
+
+// FEAT-95 / ux-ui.md §10.4.3: what smoking one does to the line, for its label.
+describe('smokeOutcome', () => {
+  it('opens a closed box: M − 1 left in it', () => {
+    expect(smokeOutcome(closedBoxes(3, 25))).toEqual({ kind: 'opensBox', left: 24 });
+  });
+
+  it('takes one out of an opened box', () => {
+    expect(smokeOutcome(openedBox(10))).toEqual({ kind: 'fromBox', left: 9 });
+    expect(smokeOutcome(openedBox(1))).toEqual({ kind: 'fromBox', left: 0 });
+  });
+
+  it('takes one single cigar: N − 1 left', () => {
+    expect(smokeOutcome(singles(4))).toEqual({ kind: 'single', left: 3 });
+  });
+
+  it('has nothing to say of a bottle or of nothing left', () => {
+    expect(smokeOutcome(closedBottle)).toBeNull();
+    expect(smokeOutcome(smokedCigar)).toBeNull();
   });
 });
 
@@ -77,13 +108,14 @@ describe('stockChoicesFor', () => {
     expect(stockChoicesFor(openedBottle)).toEqual(['consumed']);
   });
 
-  it('offers only "one cigar less" for a box with cigars left (#586)', () => {
-    expect(stockChoicesFor(cigarBox(25))).toEqual(['removeOneCigar']);
+  it('offers only "smoke one" for cigars in stock (#586)', () => {
+    expect(stockChoicesFor(cigarBox(25))).toEqual(['smokeOne']);
+    expect(stockChoicesFor(openedBox(3))).toEqual(['smokeOne']);
+    expect(stockChoicesFor(singles(1))).toEqual(['smokeOne']);
   });
 
-  it('has nothing to ask for an empty box', () => {
-    expect(stockChoicesFor(cigarBox(0))).toEqual([]);
-    expect(stockChoicesFor(cigarBox(null))).toEqual([]);
+  it('has nothing to ask for a cigar already smoked', () => {
+    expect(stockChoicesFor(smokedCigar)).toEqual([]);
   });
 });
 
@@ -104,10 +136,10 @@ describe('applyStockChoice (#196)', () => {
     expect(onError).not.toHaveBeenCalled();
   });
 
-  it('sends one cigar less for a cigar box', async () => {
+  it('asks the API to smoke one cigar', async () => {
     const update = vi.fn().mockResolvedValue(undefined);
-    await expect(applyStockChoice('removeOneCigar', cigarBox(25), update, vi.fn())).resolves.toBe(true);
-    expect(update).toHaveBeenCalledWith({ quantity: 24 });
+    await expect(applyStockChoice('smokeOne', cigarBox(25), update, vi.fn())).resolves.toBe(true);
+    expect(update).toHaveBeenCalledWith({ smokeOne: true });
   });
 
   it('sends nothing for "opened" on an already opened bottle', async () => {

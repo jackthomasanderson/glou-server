@@ -2,7 +2,7 @@ import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal
 import { fetchOrNetworkError } from '../network-error';
 import type { UnitWriteResult } from '@shared/product';
 import type { Wire } from '@shared/wire';
-import { InventoryItem } from './types';
+import type { InventoryItem, InventoryItemPatch } from './types';
 
 /** D8: what a PATCH of one bottle changed — the bottle carrying the state asked, the others, those removed. */
 export type InventoryUnitWrite = Wire<UnitWriteResult<InventoryItem>>;
@@ -54,7 +54,7 @@ export const inventoryClient = {
    * `expectedUpdatedAt`: the version the change was made from. If the item
    * changed since, the API refuses with 409 `CONFLICT` instead of overwriting (#572).
    */
-  async update(id: string, patch: Partial<InventoryItem>, expectedUpdatedAt?: string): Promise<InventoryUnitWrite> {
+  async update(id: string, patch: InventoryItemPatch, expectedUpdatedAt?: string): Promise<InventoryUnitWrite> {
     const body = expectedUpdatedAt ? { ...patch, expectedUpdatedAt } : patch;
     const res = await fetchOrNetworkError(`/api/inventory/${encodeURIComponent(id)}`, {
       method: 'PATCH',

@@ -258,19 +258,21 @@ describe('stock question after a new tasting (#595, #586)', () => {
     expect(inventoryUpdate).not.toHaveBeenCalled();
   });
 
-  it('removes exactly one cigar from the box, never the whole box (#586)', async () => {
-    inventory = [item({ id: 'cigar-1', category: 'cigar', quantity: 25 })];
+  // #586, #471 (FEAT-95): one cigar smoked by the API, never `quantity − 1`
+  // (a correction of the number of boxes) nor the whole box.
+  it('smokes exactly one cigar of the box, never the whole box (#586)', async () => {
+    inventory = [item({ id: 'cigar-1', category: 'cigar', quantity: 3, cigarsPerBox: 25, cigarsLeft: null })];
     lookedUp = inventory;
     const onClose = vi.fn();
     await saveNewTastingOf('cigar-1', onClose);
 
-    const removeOne = await screen.findByRole('button', { name: 'tastings.stockUpdate.removeOneCigar|24' });
+    const removeOne = await screen.findByRole('button', { name: 'tastings.stockUpdate.smokeOne.opensBox|24' });
     expect(screen.queryByRole('button', { name: 'tastings.stockUpdate.consumed' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'tastings.stockUpdate.opened' })).toBeNull();
     fireEvent.click(removeOne);
 
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(inventoryUpdate).toHaveBeenCalledWith({ id: 'cigar-1', patch: { quantity: 24 } });
+    expect(inventoryUpdate).toHaveBeenCalledWith({ id: 'cigar-1', patch: { smokeOne: true } });
   });
 
   // The list misses it (2,000-row cap, not loaded, failed), but the item's
@@ -280,7 +282,7 @@ describe('stock question after a new tasting (#595, #586)', () => {
     lookedUp = [item({ id: 'cigar-1', category: 'cigar', quantity: 25 })];
     await saveNewTastingOf('cigar-1');
 
-    expect(await screen.findByRole('button', { name: 'tastings.stockUpdate.removeOneCigar|24' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'tastings.stockUpdate.smokeOne.single|24' })).toBeInTheDocument();
     expect(lookUpItem).toHaveBeenCalledWith('cigar-1');
     expect(screen.queryByRole('button', { name: 'tastings.stockUpdate.consumed' })).toBeNull();
   });

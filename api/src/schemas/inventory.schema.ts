@@ -133,9 +133,14 @@ export const spiritInventorySchema = commonInventorySchema.extend({
 export const cigarInventorySchema = commonInventorySchema.extend({
   category: z.literal('cigar'),
   format: z.string().max(100).optional(),
-  // ISSUE_101/ISSUE_029: min(0), not min(1) — a cigar box the owner has
-  // smoked through entirely is a real, representable state, not a forbidden one.
-  quantity: z.number().int().min(0).max(1000),
+  // #471 (FEAT-95): a group of cigars — `quantity` closed boxes of
+  // `cigarsPerBox` cigars, or `quantity` single cigars (`cigarsPerBox` absent
+  // or null). Always at least one: a box smoked through is a finished one
+  // (FEAT-103), no longer created empty (ISSUE_101).
+  quantity: z.number().int().min(1).max(MAX_COPIES),
+  cigarsPerBox: z.number().int().min(1).max(MAX_COPIES).nullable().optional(),
+  // One box already opened: the cigars left in it (from 1 to the box size).
+  cigarsLeft: z.number().int().min(1).max(MAX_COPIES).nullable().optional(),
   manufactureYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
   leafOrigin: z.string().max(200).optional(),
   factoryCode: z.string().max(50).optional(),
@@ -148,18 +153,41 @@ export const cigarInventorySchema = commonInventorySchema.extend({
 /**
  * #471: several bottles stored at once form a group of identical intact
  * copies (decision point 2): they cannot be created already opened — an
- * opened bottle is created on its own. Cigars are counted by their own
- * input (FEAT-95).
+ * opened bottle is created on its own. Cigars: see {@link checkCigarGroup}.
  */
-const intactGroup = (d: { category: string; quantity?: number; isOpened?: boolean; fillLevel?: number | null }) =>
-  d.category === 'cigar' || (d.quantity ?? 1) <= 1 || (!d.isOpened && (d.fillLevel == null || d.fillLevel === 100));
+const intactGroup = (d: { quantity?: number; isOpened?: boolean; fillLevel?: number | null }) =>
+  (d.quantity ?? 1) <= 1 || (!d.isOpened && (d.fillLevel == null || d.fillLevel === 100));
+
+type CigarInput = z.infer<typeof cigarInventorySchema>;
+
+/**
+ * #471 (FEAT-95, glossary "Boîte entamée"): several boxes, or single cigars,
+ * are stored closed; only one box may be stored already opened, with the
+ * cigars left in it. Same rules as the detach of a box (stock-state.service.ts).
+ */
+function checkCigarGroup(d: CigarInput, ctx: z.RefinementCtx): void {
+  const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
+  // A box is not filled: a level of 0 would even read as smoked through.
+  if (d.fillLevel != null && d.fillLevel !== 100) issue('fillLevel', 'FILL_LEVEL_FOR_BOTTLES_ONLY');
+  if (!d.isOpened) {
+    if (d.cigarsLeft != null) issue('cigarsLeft', 'CIGARS_LEFT_ON_CLOSED');
+    return;
+  }
+  if (d.quantity > 1) return issue('quantity', 'OPENED_GROUP');
+  if (d.cigarsPerBox == null) return issue('cigarsPerBox', 'OPENED_SINGLES');
+  if (d.cigarsLeft == null) return issue('cigarsLeft', 'CIGARS_LEFT_REQUIRED');
+  if (d.cigarsLeft > d.cigarsPerBox) issue('cigarsLeft', 'CIGARS_LEFT_ABOVE_BOX');
+}
 
 export const inventoryInputSchema = z.discriminatedUnion('category', [
   wineInventorySchema,
   sparklingInventorySchema,
   spiritInventorySchema,
   cigarInventorySchema,
-]).refine(intactGroup, { message: 'OPENED_GROUP', path: ['quantity'] });
+]).superRefine((d, ctx) => {
+  if (d.category === 'cigar') return checkCigarGroup(d, ctx);
+  if (!intactGroup(d)) ctx.addIssue({ code: 'custom', path: ['quantity'], message: 'OPENED_GROUP' });
+});
 
 export type InventoryInput = z.infer<typeof inventoryInputSchema>;
 export type InventoryCategory = InventoryInput['category'];

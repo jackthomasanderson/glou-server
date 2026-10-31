@@ -161,8 +161,10 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
   const renderBody = (p: ProductDetailView) => {
     const stock = describeStock(p, t);
-    const stockText = stock.parts.length > 0 ? stock.parts.join(' · ') : stock.spoken;
     const isCigar = p.category === 'cigar';
+    // FEAT-95 c3: a cigar's sheet says its cigars before its boxes ("89 cigares · 3 boîtes fermées…").
+    const cigarCount = isCigar && !stock.gone && stock.parts.length > 0 ? [t('familyList.stock.spoken.cigars', { count: stock.units })] : [];
+    const stockText = stock.parts.length > 0 ? [...cigarCount, ...stock.parts].join(' · ') : stock.spoken;
     const isWineOrSparkling = p.category === 'wine' || p.category === 'sparkling';
     const drinkingWindow = p.peakMaturityFrom && p.peakMaturityTo
       ? `${p.peakMaturityFrom} – ${p.peakMaturityTo}`

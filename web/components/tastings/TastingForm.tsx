@@ -17,7 +17,7 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { notifyError } from '@/lib/toast';
-import { applyStockChoice, stockChoicesFor, type StockChoice } from '@/lib/tastings/stockChoice';
+import { applyStockChoice, smokeOutcome, stockChoicesFor, type StockChoice } from '@/lib/tastings/stockChoice';
 import { blankTastingValues } from '@/lib/tastings/formValues';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
@@ -139,6 +139,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   const hasError = !!(createMutation.error || updateMutation.error);
   const showStockDialog = !!stockQuestion;
   const stockChoices = stockQuestion ? stockChoicesFor(stockQuestion.item) : [];
+  const smoke = smokeOutcome(stockQuestion?.item);
 
   return (
     <>
@@ -449,8 +450,8 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                     onPress={() => handleStockChoice(choice)}
                     isLoading={updateInventory.isPending}
                   >
-                    {choice === 'removeOneCigar'
-                      ? t('tastings.stockUpdate.removeOneCigar', { count: (stockQuestion?.item?.quantity ?? 0) - 1 })
+                    {choice === 'smokeOne' && smoke
+                      ? t(`tastings.stockUpdate.smokeOne.${smoke.kind}`, { count: smoke.left })
                       : t(`tastings.stockUpdate.${choice}`)}
                   </Button>
                 ))}

@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryClient } from '@/lib/inventory/client';
-import { InventoryItem } from '@/lib/inventory/types';
+import type { InventoryItem, InventoryItemPatch } from '@/lib/inventory/types';
 import { mirrorInventoryToCache, getCachedInventory } from '@/lib/offline/db';
 import { enqueueMutation, overlayQueuedChanges } from '@/lib/offline/syncEngine';
 import { notifyError, notifySuccess } from '@/lib/toast';
@@ -171,13 +171,17 @@ export function useCreateInventoryItem() {
  */
 export interface UpdateInventoryItemVariables {
   id: string;
-  patch: Partial<InventoryItem>;
+  patch: InventoryItemPatch;
   expectedUpdatedAt?: string;
 }
 
 const REATTACH_REFUSALS: Record<string, string> = {
   [TASTINGS_ON_ITEM]: 'toast.tastingsOnBottle',
   FIELDS_WITH_REATTACH: 'toast.fieldsWithReattach',
+  // #471 (FEAT-95): a box with cigars smoked out of it cannot be closed
+  // again, and a cigar already smoked cannot be smoked twice.
+  BOX_NOT_COMPLETE: 'toast.boxNotComplete',
+  NOTHING_LEFT_TO_SMOKE: 'toast.nothingLeftToSmoke',
 };
 
 export function useUpdateInventoryItem() {
@@ -246,7 +250,8 @@ export function useUpdateInventoryItem() {
     },
     onError: (error) => {
       // #471 (K): putting a bottle back full refuses to lose its tastings
-      // unasked (409), or another field written with it (400).
+      // unasked (409), or another field written with it (400); a box
+      // refuses to close again once cigars were smoked out of it (400).
       if (error.message in REATTACH_REFUSALS) {
         notifyError(REATTACH_REFUSALS[error.message]);
         return;
