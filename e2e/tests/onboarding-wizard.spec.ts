@@ -223,7 +223,8 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
     await confirm.click();
     expect((await imported).ok()).toBe(true);
 
-    await expect(wizard.getByText('6 actifs ajoutés à votre inventaire')).toBeVisible();
+    // #471 (FEAT-99): the import's summary speaks in bottles and wines.
+    await expect(wizard.getByText('Importé : 6 bouteilles · 6 vins')).toBeVisible();
     const finish = wizard.getByRole('button', { name: 'Accéder au tableau de bord' });
     await expectReachable(finish, 'Go to the dashboard');
     await finish.click();

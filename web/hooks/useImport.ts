@@ -1,8 +1,11 @@
 'use client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { importClient } from '@/lib/import/client';
-import { CsvImportPreview, CsvImportRow } from '@/lib/import/types';
+import { CsvImportChoice, CsvImportPreview, CsvImportResult, CsvImportRow } from '@/lib/import/types';
 import { notifyError } from '@/lib/toast';
+
+/** Refusals of the confirmation that get their own message. */
+const EXPLAINED_CONFIRM_ERRORS = new Set(['LINE_TOO_LARGE', 'QUANTITY_TOO_LARGE']);
 
 // ─── CSV Import hooks (FEAT-56 Onboarding Setup Wizard) ─────────────────────
 
@@ -14,13 +17,16 @@ export function useCsvPreview() {
 
 export function useCsvConfirm() {
   const queryClient = useQueryClient();
-  return useMutation<{ created: number; skippedDuplicates: number }, Error, { rows: CsvImportRow[]; cellarId: string | null }>({
-    mutationFn: ({ rows, cellarId }) => importClient.confirmCsv(rows, cellarId),
+  return useMutation<CsvImportResult, Error, { rows: CsvImportRow[]; cellarId: string | null; choices?: CsvImportChoice[] }>({
+    mutationFn: ({ rows, cellarId, choices }) => importClient.confirmCsv(rows, cellarId, choices),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
     },
     // FEAT-91 (#641): a failed import used to just stop the button spinning.
-    onError: () => notifyError('onboarding.csv.confirmError'),
+    // #471 (FEAT-99): a group the import would push past 1,000 copies gets its own explanation.
+    onError: (error) => notifyError(
+      EXPLAINED_CONFIRM_ERRORS.has(error.message) ? `onboarding.csv.confirmErrors.${error.message}` : 'onboarding.csv.confirmError',
+    ),
   });
 }
