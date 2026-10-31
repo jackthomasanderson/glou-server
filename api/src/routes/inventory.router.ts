@@ -219,7 +219,13 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     // the sub-record (which no longer exists).
     const outcome = result.outcome ? { outcome: result.outcome, targetItemId: id } : {};
     const deleted = result.deletedTastings ? { deletedTastings: result.deletedTastings } : {};
-    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId, details: { changes: result.changes, ...outcome, ...deleted } });
+    // #471 (W3): an edited group that joined an identical one is gone — its
+    // edit is told on the group that took its copies, as a number change
+    // (never a field to restore there, the survivor's own values did not move).
+    const details = result.joined
+      ? { changes: [{ field: 'quantity', from: result.joined.from, to: result.joined.to }], joinedItemId: id, joinedChanges: result.changes }
+      : { changes: result.changes, ...outcome, ...deleted };
+    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId, details });
     // The group's own history: one copy fewer (detached) or one more (reattached).
     if (result.groupChange) {
       const { itemId, from, to } = result.groupChange;
@@ -317,7 +323,13 @@ router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, bottleId: id, productId: result.item.productId, details: { changes: result.changes } });
+    // #471 (W3): restored identical to another group, the line joined it (see PATCH).
+    void auditLog({
+      userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId,
+      details: result.joined
+        ? { changes: [{ field: 'quantity', from: result.joined.from, to: result.joined.to }], joinedItemId: id, joinedChanges: result.changes }
+        : { changes: result.changes },
+    });
     res.json({ data: result.item });
   } catch (error) {
     if (error instanceof AppError) {

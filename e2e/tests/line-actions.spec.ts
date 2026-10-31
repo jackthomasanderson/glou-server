@@ -291,4 +291,33 @@ test.describe('the actions of a line in the drawer of a wine (#471, W3)', () => 
     const lines = (await okData<{ items: Unit[] }>(await api.get(`/api/products/${group.productId}`))).items;
     expect(lines.map((unit) => [unit.quantity, unit.purchasePrice]).sort()).toEqual([[2, 25], [4, 20]]);
   });
+
+  // design.md rule 4 (W3 review): a line edited, or a value restored, into an
+  // identical line joins it — never two "Garage · 20 € · oct." lines.
+  test('a line whose purchase day becomes another line\'s joins it, edited or restored', async ({ page }) => {
+    const api = page.request;
+    const group = await wineOfSix(api, `E2E W3 join ${stamp()}`);
+    const linesOf = async () => (await okData<{ items: Array<Unit & { purchasedAt: string | null }> }>(await api.get(`/api/products/${group.productId}`))).items
+      .filter((unit) => !unit.writtenOffAt).map((unit) => [unit.quantity, unit.purchasedAt]).sort();
+    const today = (await okData<{ items: Array<Unit & { purchasedAt: string }> }>(await api.get(`/api/products/${group.productId}`))).items[0].purchasedAt;
+
+    // Edited: a ×2 bought another day, given the ×6's day.
+    const other = await okData<Unit>(await api.post(`/api/products/${group.productId}/items`, { data: { quantity: 2, purchasePrice: 20, purchasedAt: '2025-09-01' } }));
+    expect(other.id).not.toBe(group.id);
+    const edited = await api.patch(`/api/inventory/${other.id}`, { data: { purchasedAt: today } });
+    expect(edited.status(), await edited.text()).toBe(200);
+    const write = (await edited.json()) as Written;
+    expect(write.data).toMatchObject({ id: group.id, quantity: 8 });
+    expect(write.removedIds).toEqual([other.id]);
+    expect(await linesOf()).toEqual([[8, today]]);
+
+    // Restored: a ×2 moved to another day, the ×8 then given its old day, the ×2's day restored.
+    const third = await okData<Unit>(await api.post(`/api/products/${group.productId}/items`, { data: { quantity: 2, purchasePrice: 20, purchasedAt: '2025-08-01' } }));
+    await okData(await api.patch(`/api/inventory/${third.id}`, { data: { purchasedAt: '2025-07-01' } }));
+    await okData(await api.patch(`/api/inventory/${group.id}`, { data: { purchasedAt: '2025-08-01' } }));
+    expect(await linesOf()).toEqual([[2, '2025-07-01'], [8, '2025-08-01']]);
+    const restored = await api.post(`/api/inventory/${third.id}/rollback`, { data: { field: 'purchasedAt', toValue: '2025-08-01T00:00:00.000Z' } });
+    expect(restored.status(), await restored.text()).toBe(200);
+    expect(await linesOf()).toEqual([[10, '2025-08-01']]);
+  });
 });

@@ -189,3 +189,60 @@ describe('cleared dates on creation (#726)', () => {
     expect(sparkling.success && (sparkling.data as { disgorgingDate?: Date | null }).disgorgingDate).toBeNull();
   });
 });
+
+// #471 (FEAT-92 c1-c2, lot E1): the add form says how many identical bottles
+// it stores and when they were bought — one group ×N, dated by its day.
+describe('number of bottles and purchase day on creation (FEAT-92)', () => {
+  const wine = { category: 'wine', name: 'Talbot', producer: 'Château Talbot' };
+
+  it.each(['wine', 'sparkling', 'spirit'])('keeps the number of bottles of a %s', (category) => {
+    const res = inventoryInputSchema.safeParse({ ...wine, category, alcoholDegree: 40, quantity: 6 });
+    expect(res.success && res.data.quantity).toBe(6);
+  });
+
+  it('refuses no bottle at all, or more than one group may count', () => {
+    expect(inventoryInputSchema.safeParse({ ...wine, quantity: 0 }).success).toBe(false);
+    expect(inventoryInputSchema.safeParse({ ...wine, quantity: 1001 }).success).toBe(false);
+    expect(inventoryInputSchema.safeParse({ ...wine, quantity: 2.5 }).success).toBe(false);
+  });
+
+  it('keeps the purchase day as YYYY-MM-DD (D6), and an emptied one as null', () => {
+    const res = inventoryInputSchema.safeParse({ ...wine, purchasedAt: '2026-01-15' });
+    expect(res.success && res.data.purchasedAt).toBe('2026-01-15');
+    const cleared = inventoryInputSchema.safeParse({ ...wine, purchasedAt: null });
+    expect(cleared.success && cleared.data.purchasedAt).toBeNull();
+  });
+
+  it('refuses a purchase day with a time or in another format', () => {
+    expect(inventoryInputSchema.safeParse({ ...wine, purchasedAt: '2026-01-15T00:00:00.000Z' }).success).toBe(false);
+    expect(inventoryInputSchema.safeParse({ ...wine, purchasedAt: '15/01/2026' }).success).toBe(false);
+  });
+
+  it('refuses several bottles created already opened: a group is intact', () => {
+    const res = inventoryInputSchema.safeParse({ ...wine, quantity: 6, isOpened: true, fillLevel: 50 });
+    expect(res.success).toBe(false);
+    if (!res.success) expect(res.error.issues[0]).toMatchObject({ path: ['quantity'], message: 'OPENED_GROUP' });
+    expect(inventoryInputSchema.safeParse({ ...wine, quantity: 1, isOpened: true, fillLevel: 50 }).success).toBe(true);
+  });
+});
+
+// #471 (review #803): the price and value of one bottle are kept in cents,
+// as "Ajouter des bouteilles" does — never rounded in silence, never past the column.
+describe('price of one bottle on creation (cents)', () => {
+  const wine = { category: 'wine', name: 'Talbot', producer: 'Château Talbot' };
+
+  it('accepts a price and a value in cents', () => {
+    expect(inventoryInputSchema.safeParse({ ...wine, purchasePrice: 12.35, estimatedValue: 0.1 }).success).toBe(true);
+  });
+
+  it('refuses a third decimal, or more than the column holds', () => {
+    expect(inventoryInputSchema.safeParse({ ...wine, purchasePrice: 12.345 }).success).toBe(false);
+    expect(inventoryInputSchema.safeParse({ ...wine, estimatedValue: 12.345 }).success).toBe(false);
+    expect(inventoryInputSchema.safeParse({ ...wine, purchasePrice: 10_000_000_000 }).success).toBe(false);
+  });
+
+  it('refuses several bottles created at a level other than full', () => {
+    expect(inventoryInputSchema.safeParse({ ...wine, quantity: 6, fillLevel: 50 }).success).toBe(false);
+    expect(inventoryInputSchema.safeParse({ ...wine, quantity: 6, fillLevel: 100 }).success).toBe(true);
+  });
+});

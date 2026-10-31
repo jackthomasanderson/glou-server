@@ -4,7 +4,7 @@ import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest, conflict, notFound } from '../lib/errors';
 import { groupKey, isGroupableItem, NO_SLOT, unitKind, type UnitKind } from '../lib/finished-item';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
-import { lockFamily, PRODUCT_FIELDS, todayAsPurchaseDate, toUnitView } from '../lib/product-fields';
+import { lockFamily, PRODUCT_FIELDS, purchaseDayFromInput, toUnitView } from '../lib/product-fields';
 import { MAX_COPIES, type AddUnitsInput, type CorrectQuantityInput } from '../schemas/stock.schema';
 import { LISTED_PRODUCT_FILTER } from './product.service';
 import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/product';
@@ -12,9 +12,6 @@ import type { GroupKeyFields } from '../../../shared/units';
 
 /** A unit row as the extended client reads it at the top level (money columns as numbers). */
 type UnitRecord = NonNullable<Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>>>;
-
-/** `YYYY-MM-DD` → the midnight-UTC Date Prisma stores in a `@db.Date` column (D6). */
-const toDay = (day: string): Date => new Date(`${day}T00:00:00.000Z`);
 
 /** What narrows {@link findGroupFor} beyond the group identity. */
 export interface GroupSearch {
@@ -198,7 +195,7 @@ export async function addUnitsIn(
     productId,
     cellarId,
     purchasePrice: input.purchasePrice ?? null,
-    purchasedAt: input.purchasedAt === undefined ? todayAsPurchaseDate() : input.purchasedAt ? toDay(input.purchasedAt) : null,
+    purchasedAt: purchaseDayFromInput(input.purchasedAt),
     bottleSize: input.bottleSize ?? null,
     cigarsPerBox: input.cigarsPerBox ?? null,
   };

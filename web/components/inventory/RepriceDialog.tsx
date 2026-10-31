@@ -7,7 +7,7 @@ import { notifySuccess } from '@/lib/toast';
 import { lineParts, type LineContext } from '@/lib/products/lines';
 import { lineCopies, unitNoun } from '@/lib/products/stockActions';
 import type { ProductItem } from '@/lib/products/types';
-import { CountField, isCountIn, LineDialogFrame } from './StockLineDialogParts';
+import { CountField, isCountIn, isPrice, LineDialogFrame } from './StockLineDialogParts';
 
 interface RepriceDialogProps {
   item: ProductItem;
@@ -15,10 +15,6 @@ interface RepriceDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
-/** A price in cents (the API refuses more decimals), or empty: no price. */
-const isPrice = (value: number | undefined) =>
-  value === undefined || (value >= 0 && Math.abs(Math.round(value * 100) - value * 100) < 1e-6);
 
 /**
  * "Changer le prix" (ux-ui.md §10.4.4, FEAT-98 c5, decision point 53):

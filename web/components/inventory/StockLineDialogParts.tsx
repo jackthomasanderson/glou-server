@@ -10,6 +10,10 @@ import { ParsedNumberInput } from '@/components/ui/ParsedInput';
 export const isCountIn = (value: number | undefined, min: number, max: number): value is number =>
   value !== undefined && Number.isInteger(value) && value >= min && value <= max;
 
+/** A price in cents (the API refuses more decimals), or empty: no price. */
+export const isPrice = (value: number | undefined) =>
+  value === undefined || (value >= 0 && Math.abs(Math.round(value * 100) - value * 100) < 1e-6);
+
 /**
  * ux-ui.md §10.4: every "Combien ?" offers a number from `min` to the line's
  * total, set from the keyboard and with − / +.

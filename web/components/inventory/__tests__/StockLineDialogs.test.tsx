@@ -92,7 +92,7 @@ describe('CorrectQuantityDialog (FEAT-92 c3, §10.4.5)', () => {
     open(group());
     expect(numberField('correct-quantity-input')).toHaveValue(6);
     expect(screen.queryByRole('radio')).toBeNull();
-    expect(screen.getByText('Pour en ajouter, utilisez « Ajouter des bouteilles ».')).toBeInTheDocument();
+    expect(screen.getByText("Pour en ajouter, utilisez « Ajouter des bouteilles » avec la même date d'achat pour rejoindre cette ligne.")).toBeInTheDocument();
     expect(confirmButton('Corriger')).toBeDisabled();
   });
 
@@ -291,6 +291,8 @@ describe('EditLineDialog (§10.3 "Modifier", #726)', () => {
     renderIn(<EditLineDialog item={group({ purchasedAt: '2026-01-15' })} ctx={ctx()} isOpen onClose={vi.fn()} />);
     expect(screen.getByText("S'applique aux 6 bouteilles de cette ligne.")).toBeInTheDocument();
     expect(screen.queryByLabelText(/Ouverte le/)).toBeNull();
+    // The price of full bottles is "Changer le prix" (split, history).
+    expect(screen.queryByLabelText(/Prix d'une bouteille/)).toBeNull();
     expect(screen.getByLabelText(/Date d'achat/)).toHaveValue('2026-01-15');
 
     fireEvent.change(screen.getByLabelText(/Date d'achat/), { target: { value: '2026-02-01' } });
@@ -302,6 +304,35 @@ describe('EditLineDialog (§10.3 "Modifier", #726)', () => {
     expect(requests[0].body).toEqual({
       purchasedAt: '2026-02-01', purchasePlace: 'Caviste du coin', location: 'Étagère du haut', expectedUpdatedAt: VERSION,
     });
+  });
+});
+
+describe('EditLineDialog — an opened bottle, review of W3a', () => {
+  it('refuses a price beyond cents', () => {
+    renderIn(<EditLineDialog item={openedBottle(50, { purchasePrice: 20 })} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText(/Prix d'une bouteille/), { target: { value: '24,555' } });
+    expect(confirmButton('Enregistrer')).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Prix d'une bouteille/), { target: { value: '24,55' } });
+    expect(confirmButton('Enregistrer')).toBeEnabled();
+  });
+
+  it('west of UTC, the opening day shown is the member\'s own, and the day typed is sent as that day', async () => {
+    const tz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    try {
+      // Opened on 28 Feb at 22:00 in New York (03:00 UTC on 1 March).
+      const opened = openedBottle(50, { id: 'o', openedAt: '2026-03-01T03:00:00.000Z', updatedAt: VERSION });
+      renderIn(<EditLineDialog item={opened} ctx={ctx()} isOpen onClose={vi.fn()} />);
+      const openedOn = screen.getByLabelText(/Ouverte le/);
+      expect(openedOn).toHaveValue('2026-02-28');
+      fireEvent.change(openedOn, { target: { value: '2026-03-05' } });
+      fireEvent.click(confirmButton('Enregistrer'));
+      await waitFor(() => expect(requests).toHaveLength(1));
+      const sent = (requests[0].body as { openedAt: string }).openedAt;
+      expect(sent).toBe('2026-03-05T05:00:00.000Z');
+    } finally {
+      process.env.TZ = tz;
+    }
   });
 });
 

@@ -76,7 +76,7 @@ export function CorrectQuantityDialog({ item, ctx, isOpen, onClose, onTrashInste
         testId="correct-quantity-input"
       />
       {quantity === from && (
-        <p className="text-xs text-foreground-500">{t('stockLine.correct.toAdd', { context: noun })}</p>
+        <p className="text-xs text-foreground-500">{t('stockLine.correct.toAdd', { action: t('addUnits.action') })}</p>
       )}
       {lowered && (
         <>

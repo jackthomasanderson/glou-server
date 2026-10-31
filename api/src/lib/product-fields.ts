@@ -52,6 +52,19 @@ export function todayAsPurchaseDate(now: Date = new Date()): Date {
   return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 }
 
+/** D6: a purchase day as exchanged, `YYYY-MM-DD` → the midnight-UTC Date Prisma stores in a `@db.Date` column. */
+export const purchaseDayToDate = (day: string): Date => new Date(`${day}T00:00:00.000Z`);
+
+/** D6: a stored purchase day (midnight UTC) → `YYYY-MM-DD`, how every contract exchanges it. */
+export const purchaseDayOf = (date: Date | null): string | null => (date ? date.toISOString().slice(0, 10) : null);
+
+/**
+ * D6: the purchase day of new copies from an input — today in the API's
+ * time zone when absent, none when emptied (null).
+ */
+export const purchaseDayFromInput = (day: string | null | undefined): Date | null =>
+  day === undefined ? todayAsPurchaseDate() : day === null ? null : purchaseDayToDate(day);
+
 /**
  * What {@link writeProductFields} may write: family fields and the family's
  * own bookkeeping. `updatedAt` only to carry it over in a maintenance pass.
@@ -134,9 +147,11 @@ export interface ItemWithProduct {
 }
 
 /** The flat record `/api/inventory*` keeps serving: a unit with its family's description. */
-export type FlatItemView<I extends ItemWithProduct> = Omit<I, 'product' | ProductField | 'fieldSources'>
+export type FlatItemView<I extends ItemWithProduct> = Omit<I, 'product' | ProductField | 'fieldSources' | 'purchasedAt'>
   & Pick<I['product'], ProductField>
   & { fieldSources: Record<string, string> | null }
+  // D6: the purchase day goes out as `YYYY-MM-DD`.
+  & (I extends { purchasedAt: Date | null } ? { purchasedAt: string | null } : unknown)
   & (I['product'] extends { collections: infer C } ? { collections: C } : unknown);
 
 /** A `fieldSources` column (`Json?`, shape `{ [field]: source }`) as a plain map. */
@@ -158,6 +173,7 @@ export function toItemView<I extends ItemWithProduct>(item: I): FlatItemView<I> 
   return {
     ...unit,
     ...description,
+    ...('purchasedAt' in unit ? { purchasedAt: purchaseDayOf(unit.purchasedAt as Date | null) } : {}),
     lockedFields: [...new Set([...product.lockedFields, ...unitLocks])],
     fieldSources: Object.keys(fieldSources).length > 0 ? fieldSources : null,
     ...('collections' in product ? { collections: product.collections } : {}),
@@ -234,7 +250,7 @@ export function toUnitView(row: UnitRow): ItemView {
     ...unit,
     purchasePrice: money(row.purchasePrice),
     estimatedValue: money(row.estimatedValue),
-    purchasedAt: row.purchasedAt ? row.purchasedAt.toISOString().slice(0, 10) : null,
+    purchasedAt: purchaseDayOf(row.purchasedAt),
     fieldSources: sources.length > 0 ? Object.fromEntries(sources) : null,
   };
 }
