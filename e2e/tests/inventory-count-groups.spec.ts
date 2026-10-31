@@ -6,7 +6,7 @@ import { test, expect, type APIRequestContext, type APIResponse } from '@playwri
  * surplus copies are corrected through the stock rules (finish, correct the
  * number, add), and a find of N bottles becomes a group ×N. API level; the
  * screens come with lot I2. One count session at a time instance-wide: each
- * test opens its own on a cellar of its own, and always closes it.
+ * test opens its own on a cellar of its own, and always closes it (afterEach).
  */
 
 const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
@@ -88,7 +88,8 @@ test.describe('rotating inventory by group (#471, FEAT-100)', () => {
       await okData(await api.post(`/api/products/${first.productId}/items`, { data: { quantity: count - 1, cellarId, purchasePrice: 20 } }));
     }
     const start = await api.post('/api/inventory-count/sessions', { data: { scopeLabel: `E2E #471 I1 ${label}`, cellarId } });
-    test.skip(start.status() === 409, 'another inventory count is already in progress on this instance');
+    // CI starts from an empty database and every count spec closes its own:
+    // a session still open here is a leak to fix, not a reason to skip.
     expect(start.status(), await start.text()).toBe(201);
     const sessionId = ((await start.json()).data as { id: string }).id;
     sessions.add(sessionId);
@@ -216,5 +217,42 @@ test.describe('rotating inventory by group (#471, FEAT-100)', () => {
     const after = await detail(api, productId);
     expect(after.items.length).toBe(family.items.length + 1);
     expect((await okData<{ id: string; name: string }[]>(await api.get('/api/products'))).filter((card) => card.name === name)).toHaveLength(1);
+  });
+
+  // Review of #792: two finds of the same known wine, closed together.
+  test('two finds of the same known wine both join it, in one group', async ({ page }) => {
+    const api = page.request;
+    const { cellarId, sessionId, productId } = await groupInCount(api, 'TwoFinds', 1);
+    const name = (await detail(api, productId)).name;
+    const find = async (label: string, quantity: number) =>
+      (await okData<{ entryId: string }>(await api.post(`/api/inventory-count/sessions/${sessionId}/found`, { data: { name: label, category: 'wine', quantity } }))).entryId;
+    const first = await find(name, 3);
+    const second = await find(name.toLowerCase(), 2);
+
+    const closed = await complete(api, sessionId, [
+      { action: 'add_to_stock', entryId: first, productId },
+      { action: 'add_to_stock', entryId: second, productId },
+    ]);
+    sessions.delete(sessionId);
+
+    expect(closed).toMatchObject({ appliedCount: 2, skipped: [] });
+    expect(await cellarStats(api, cellarId)).toMatchObject({ bottles: 6 });
+    expect((await detail(api, productId)).items.filter((unit) => !unit.writtenOffAt).map((unit) => unit.quantity).sort()).toEqual([1, 5]);
+  });
+
+  // Review of #792: a closure sent twice at once applies once.
+  test('two closures sent at once apply the corrections once', async ({ page }) => {
+    const api = page.request;
+    const { cellarId, sessionId, groupId } = await groupInCount(api, 'Twice', 3);
+    await scan(api, sessionId, groupId, 1);
+
+    const send = () => api.post(`/api/inventory-count/sessions/${sessionId}/complete`, {
+      data: { corrections: [{ action: 'correct_quantity', itemId: groupId, reason: 'input_error' }] },
+    });
+    const statuses = (await Promise.all([send(), send()])).map((res) => res.status()).sort();
+    sessions.delete(sessionId);
+
+    expect(statuses).toEqual([200, 409]);
+    expect(await cellarStats(api, cellarId)).toMatchObject({ bottles: 1 });
   });
 });

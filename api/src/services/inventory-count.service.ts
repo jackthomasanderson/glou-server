@@ -3,8 +3,9 @@ import { prisma, PrismaTransactionClient } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
 import { InventoryInput } from '../schemas/inventory.schema';
-import { IN_STOCK_ITEM_FILTER, isIntactItem } from '../lib/finished-item';
-import { lockFamily } from '../lib/product-fields';
+import { IN_STOCK_ITEM_FILTER, isFinishedState, isIntactItem } from '../lib/finished-item';
+import { lockFamilies } from '../lib/product-fields';
+import { moveCountEntry } from '../lib/count-entries';
 import { finishUnits } from './stock-state.service';
 import { addUnitsIn, correctQuantityIn } from './stock.service';
 import { LISTED_PRODUCT_FILTER } from './product.service';
@@ -161,7 +162,9 @@ export interface SessionReport {
 export interface SkippedCorrection {
   targetId: string;
   action: string;
-  reason: 'item_not_found' | 'session_has_no_cellar' | 'entry_not_found' | 'not_a_group' | 'nothing_to_correct' | 'product_not_found';
+  reason:
+    | 'item_not_found' | 'session_has_no_cellar' | 'entry_not_found' | 'not_a_group' | 'nothing_to_correct'
+    | 'product_not_found' | 'category_mismatch';
 }
 
 /**
@@ -588,9 +591,7 @@ async function applyCorrectionsInternal(
     ? await tx.inventoryItem.findMany({ where: { id: { in: itemIds } }, select: { productId: true } })
     : [];
   const joined = corrections.flatMap((correction) => (correction.action === 'add_to_stock' && correction.productId ? [correction.productId] : []));
-  for (const productId of [...new Set([...units.map((unit) => unit.productId), ...joined])].sort()) {
-    await lockFamily(tx, productId);
-  }
+  await lockFamilies(tx, [...units.map((unit) => unit.productId), ...joined]);
 
   // The answers of the count: the default number of copies a group's
   // correction applies to (#471, FEAT-100, D15).
@@ -622,9 +623,13 @@ async function applyCorrectionsInternal(
         // #471 (FEAT-100): a find of a wine already known completes its
         // group in this cellar, or forms a new line of it — never a second
         // card. Purchase day and price are not known for a find.
-        const listed = await tx.product.findFirst({ where: { id: correction.productId, ...LISTED_PRODUCT_FILTER }, select: { id: true } });
+        const listed = await tx.product.findFirst({ where: { id: correction.productId, ...LISTED_PRODUCT_FILTER }, select: { id: true, category: true } });
         if (!listed) {
           skip(correction.entryId, correction.action, 'product_not_found');
+          continue;
+        }
+        if (listed.category !== entry.newItemCategory) {
+          skip(correction.entryId, correction.action, 'category_mismatch');
           continue;
         }
         const added = await addUnitsIn(tx, actingUserId, correction.productId, {
@@ -632,7 +637,10 @@ async function applyCorrectionsInternal(
           cellarId: session.cellarId,
           purchasedAt: null,
         });
-        await tx.inventoryCountEntry.update({ where: { id: entry.id }, data: { itemId: added.result.data.id } });
+        // The find's copies were found: when they complete a group, the
+        // group's entry in this session (if any) counts them too — one entry
+        // per line and session — else the entry counts just them.
+        await moveCountEntry(tx, entry, count, { id: added.result.data.id, quantityBefore: added.from ?? 0 }, 'confirmed');
         history.push({
           action: 'ADD_UNITS',
           itemId: added.result.data.id,
@@ -688,7 +696,7 @@ async function applyCorrectionsInternal(
       // the last one the group itself), so the spending keeps them and a
       // group never carries a state. The slot goes with the last one.
       const count = Math.min(correction.count ?? line.missingQuantity, line.expectedQuantity);
-      if (count < 1) {
+      if (count < 1 || item.writtenOffAt != null || isFinishedState(item)) {
         skip(item.id, correction.action, 'nothing_to_correct');
         continue;
       }
@@ -832,13 +840,19 @@ export async function completeSession(
   if (session.status === 'completed') return { status: 'already_completed' };
 
   const result = await prisma.$transaction(async (tx) => {
-    const corrResult = await applyCorrectionsInternal(tx, session, corrections, actingUserId);
-    const updated = await tx.inventoryCountSession.update({
-      where: { id: sessionId },
+    // Taken first, in the same transaction: a second closure sent meanwhile
+    // (double tap, two members) finds the session completed and applies
+    // nothing twice.
+    const taken = await tx.inventoryCountSession.updateMany({
+      where: { id: sessionId, status: { not: 'completed' } },
       data: { status: 'completed', completedAt: new Date() },
     });
+    if (taken.count === 0) return null;
+    const corrResult = await applyCorrectionsInternal(tx, session, corrections, actingUserId);
+    const updated = await tx.inventoryCountSession.findUniqueOrThrow({ where: { id: sessionId } });
     return { session: updated, ...corrResult };
   }, { timeout: 60000, maxWait: 10000 });
+  if (!result) return { status: 'already_completed' };
 
   return {
     status: 'success',

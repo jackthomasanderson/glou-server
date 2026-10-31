@@ -23,6 +23,9 @@ vi.mock('../src/lib/prisma', () => ({
       deleteMany: vi.fn(),
     },
     tastingNote: { deleteMany: vi.fn(), count: vi.fn() },
+    // #471 (FEAT-100): a detach during an open count adjusts its entries.
+    inventoryCountEntry: { updateMany: vi.fn(), create: vi.fn() },
+    inventoryCountSession: { findFirst: vi.fn() },
     $executeRaw: vi.fn(),
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),

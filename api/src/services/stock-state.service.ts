@@ -6,6 +6,7 @@ import {
   FINISHED_ITEM_STATE, NO_SLOT, groupKey, isFinishedState, isGroupableItem, isIntactItem, unitKind, type UnitKind,
 } from '../lib/finished-item';
 import { lockFamily, mirrorFamilyOnto } from '../lib/product-fields';
+import { followDetach, moveCountEntry } from '../lib/count-entries';
 import { TASTINGS_ON_ITEM } from '../../../shared/product';
 
 // #471 (FEAT-103/106, design.md "Détacher / Rattacher", "Détachement côté
@@ -234,6 +235,10 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     await mirrorFamilyOnto(tx, subId);
     const created = await tx.inventoryItem.findUniqueOrThrow({ where: { id: subId }, include });
     const from = next.quantity ?? 1;
+    // A count in progress follows the copy that left (FEAT-100).
+    await followDetach(tx, item.id, from - 1, {
+      id: subId, cellarId: (created as { cellarId: string | null }).cellarId, finished: isFinishedState(next),
+    });
     return {
       outcome, ...done, data: created as R, changed: [group as R], removedIds: [],
       groupChange: { itemId: item.id, from, to: from - 1 },
@@ -306,12 +311,11 @@ async function absorb<I extends Prisma.InventoryItemInclude, R>(
   await tx.wishlistItem.updateMany({ where: { acquiredItemId: item.id }, data: { acquiredItemId: parent.id } });
   await tx.inventoryItem.updateMany({ where: { parentItemId: item.id }, data: { parentItemId: parent.id } });
   // One entry per unit and session: an entry of the sub-record moves to the
-  // group unless the group is counted in that session already (the
-  // sub-record's entry then goes with it, cascade).
-  const entries = await tx.inventoryCountEntry.findMany({ where: { itemId: item.id }, select: { id: true, sessionId: true } });
+  // group with the number it found (FEAT-100, D15) — never read as "the whole
+  // group found" — or adds that number to the group's own entry.
+  const entries = await tx.inventoryCountEntry.findMany({ where: { itemId: item.id }, select: { id: true, sessionId: true, foundQuantity: true } });
   for (const entry of entries) {
-    const taken = await tx.inventoryCountEntry.findFirst({ where: { sessionId: entry.sessionId, itemId: parent.id }, select: { id: true } });
-    if (!taken) await tx.inventoryCountEntry.update({ where: { id: entry.id }, data: { itemId: parent.id } });
+    await moveCountEntry(tx, entry, entry.foundQuantity ?? (item.quantity ?? 1), { id: parent.id, quantityBefore: parent.quantity ?? 1 });
   }
 
   // Deleted first: its grid slot, if any, then goes to the group (which has none).

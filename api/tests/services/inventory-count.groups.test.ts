@@ -14,17 +14,20 @@ vi.mock('../../src/lib/prisma', () => ({
     $transaction: vi.fn(),
   },
 }));
-vi.mock('../../src/lib/product-fields', () => ({ lockFamily: vi.fn() }));
+vi.mock('../../src/lib/product-fields', async () => ({
+  lockFamilies: vi.fn(),
+  compareFamilyIds: (await vi.importActual<typeof import('../../src/lib/product-fields')>('../../src/lib/product-fields')).compareFamilyIds,
+}));
 vi.mock('../../src/services/stock-state.service', () => ({ finishUnits: vi.fn() }));
 vi.mock('../../src/services/stock.service', () => ({ addUnitsIn: vi.fn(), correctQuantityIn: vi.fn() }));
 vi.mock('../../src/services/inventory.service', () => ({ inventoryService: { createItem: vi.fn() } }));
 
 import { prisma } from '../../src/lib/prisma';
-import { lockFamily } from '../../src/lib/product-fields';
+import { compareFamilyIds, lockFamilies } from '../../src/lib/product-fields';
 import { finishUnits } from '../../src/services/stock-state.service';
 import { addUnitsIn, correctQuantityIn } from '../../src/services/stock.service';
 import { inventoryService } from '../../src/services/inventory.service';
-import { applyCorrections, countLine, getSessionReport, recordScan } from '../../src/services/inventory-count.service';
+import { applyCorrections, completeSession, countLine, getSessionReport, recordScan } from '../../src/services/inventory-count.service';
 
 const SESSION = { id: 's1', cellarId: 'c1', status: 'active', scopeLabel: 'Cave', userId: 'u1', startedAt: new Date(), pausedAt: null, completedAt: null };
 
@@ -43,7 +46,11 @@ const opened = (id: string) => group(id, 1, { isOpened: true, fillLevel: 60 });
 /** A fake transaction: the units by id, the count entries, and every write recorded in order. */
 function fakeTx(units: ReturnType<typeof group>[], entries: { itemId: string; status: string; foundQuantity: number | null }[] = []) {
   const calls: string[] = [];
-  vi.mocked(lockFamily).mockImplementation(async (_tx, productId) => { calls.push(`lock:${productId}`); });
+  vi.mocked(lockFamilies).mockImplementation(async (_tx, productIds) => {
+    for (const productId of [...new Set(productIds)].sort(compareFamilyIds)) calls.push(`lock:${productId}`);
+  });
+  // The count entries of the finds, as stored (moveCountEntry reads and writes them).
+  const store: Record<string, unknown>[] = [];
   vi.mocked(finishUnits).mockImplementation(async (_tx, itemId, count) => {
     calls.push(`finish:${itemId}x${count}`);
     return Array.from({ length: count }, (_, i) => (i === 0 ? `${itemId}-sub` : `${itemId}-sub${i}`));
@@ -65,14 +72,19 @@ function fakeTx(units: ReturnType<typeof group>[], entries: { itemId: string; st
     },
     inventoryCountEntry: {
       findMany: vi.fn(async () => entries),
-      findUnique: vi.fn(),
-      update: vi.fn(),
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) => store.find((entry) => entry.id === where.id) ?? null),
+      findFirst: vi.fn(async ({ where }: { where: { sessionId: string; itemId: string; id: { not: string } } }) =>
+        store.find((entry) => entry.sessionId === where.sessionId && entry.itemId === where.itemId && entry.id !== where.id.not) ?? null),
+      update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) =>
+        Object.assign(store.find((entry) => entry.id === where.id) ?? {}, data)),
+      delete: vi.fn(async ({ where }: { where: { id: string } }) => store.splice(store.findIndex((entry) => entry.id === where.id), 1)),
     },
+    inventoryCountSession: { updateMany: vi.fn(async () => ({ count: 1 })), findUniqueOrThrow: vi.fn(async () => ({ ...SESSION, status: 'completed' })) },
     product: { findFirst: vi.fn() },
   };
   vi.mocked(prisma.$transaction).mockImplementation(((callback: (client: unknown) => unknown) => callback(tx)) as never);
   vi.mocked(prisma.inventoryCountSession.findUnique).mockResolvedValue(SESSION as never);
-  return { tx, calls };
+  return { tx, calls, store };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -238,6 +250,15 @@ describe('applyCorrections — the missing copies of a group (FEAT-100 c2)', () 
     expect(calls).toEqual(['lock:p-g1', 'finish:g1x1', 'finish:g1x6']);
   });
 
+  it('skips a bottle already finished: no history "1 → 1"', async () => {
+    fakeTx([group('g1', 1, { isOpened: true, fillLevel: 0 })]);
+
+    const result = await applyCorrections('s1', [{ action: 'mark_consumed', itemId: 'g1' }], 'u1');
+
+    expect(result).toMatchObject({ appliedCount: 0, skipped: [{ reason: 'nothing_to_correct' }], history: [] });
+    expect(finishUnits).not.toHaveBeenCalled();
+  });
+
   it('skips a line with nothing missing', async () => {
     fakeTx([group('g1', 6)], [{ itemId: 'g1', status: 'confirmed', foundQuantity: 6 }]);
 
@@ -310,8 +331,8 @@ describe('applyCorrections — surplus and finds (FEAT-100 c3, c4)', () => {
   });
 
   it('turns a find of 6 bottles of an unknown wine into a new card with a group ×6', async () => {
-    const { tx } = fakeTx([]);
-    tx.inventoryCountEntry.findUnique.mockResolvedValue({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Clos Inconnu', newItemCategory: 'wine', newItemQuantity: 6 });
+    const { tx, store } = fakeTx([]);
+    store.push({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Clos Inconnu', newItemCategory: 'wine', newItemQuantity: 6 });
     vi.mocked(inventoryService.createItem).mockResolvedValue({ id: 'new1', productId: 'pnew' } as never);
 
     const result = await applyCorrections('s1', [{ action: 'add_to_stock', entryId: 'f1' }], 'u1');
@@ -322,20 +343,67 @@ describe('applyCorrections — surplus and finds (FEAT-100 c3, c4)', () => {
   });
 
   it('attaches a find of a known wine to its family, never a second card', async () => {
-    const { tx, calls } = fakeTx([]);
-    tx.inventoryCountEntry.findUnique.mockResolvedValue({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Château Talbot', newItemCategory: 'wine', newItemQuantity: 6 });
-    tx.product.findFirst.mockResolvedValue({ id: 'p1' });
+    const { tx, calls, store } = fakeTx([]);
+    store.push({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Château Talbot', newItemCategory: 'wine', newItemQuantity: 6 });
+    tx.product.findFirst.mockResolvedValue({ id: 'p1', category: 'wine' });
 
     await applyCorrections('s1', [{ action: 'add_to_stock', entryId: 'f1', productId: 'p1' }], 'u1');
 
     expect(calls).toEqual(['lock:p1', 'add:p1x6']);
     expect(addUnitsIn).toHaveBeenCalledWith(tx, 'u1', 'p1', { quantity: 6, cellarId: 'c1', purchasedAt: null });
     expect(inventoryService.createItem).not.toHaveBeenCalled();
+    // The find's entry now counts the 6 copies found on the group (not "the whole group").
+    expect(store).toEqual([expect.objectContaining({ id: 'f1', itemId: 'g-added', foundQuantity: 6, status: 'confirmed' })]);
+  });
+
+  it('two finds of the same known wine add up on one entry of the group, never two (one entry per line and session)', async () => {
+    const { tx, store } = fakeTx([]);
+    store.push(
+      { id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Talbot', newItemCategory: 'wine', newItemQuantity: 3 },
+      { id: 'f2', sessionId: 's1', itemId: null, newItemName: 'talbot', newItemCategory: 'wine', newItemQuantity: 2 },
+    );
+    tx.product.findFirst.mockResolvedValue({ id: 'p1', category: 'wine' });
+    vi.mocked(addUnitsIn)
+      .mockResolvedValueOnce({ result: { data: { id: 'g' } as never, changed: [], removedIds: [] }, merged: false, from: null, to: 3 })
+      .mockResolvedValueOnce({ result: { data: { id: 'g' } as never, changed: [], removedIds: [] }, merged: true, from: 3, to: 5 });
+
+    const result = await applyCorrections('s1', [
+      { action: 'add_to_stock', entryId: 'f1', productId: 'p1' },
+      { action: 'add_to_stock', entryId: 'f2', productId: 'p1' },
+    ], 'u1');
+
+    expect(result).toMatchObject({ appliedCount: 2, skipped: [] });
+    expect(store).toEqual([expect.objectContaining({ id: 'f1', itemId: 'g', foundQuantity: 5 })]);
+  });
+
+  it('a find joining a group already counted adds its copies to the number found (null = the whole group before)', async () => {
+    const { tx, store } = fakeTx([]);
+    store.push(
+      { id: 'e1', sessionId: 's1', itemId: 'g', foundQuantity: null, status: 'confirmed' },
+      { id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Talbot', newItemCategory: 'wine', newItemQuantity: 2 },
+    );
+    tx.product.findFirst.mockResolvedValue({ id: 'p1', category: 'wine' });
+    vi.mocked(addUnitsIn).mockResolvedValueOnce({ result: { data: { id: 'g' } as never, changed: [], removedIds: [] }, merged: true, from: 6, to: 8 });
+
+    await applyCorrections('s1', [{ action: 'add_to_stock', entryId: 'f1', productId: 'p1' }], 'u1');
+
+    expect(store).toEqual([expect.objectContaining({ id: 'e1', itemId: 'g', foundQuantity: 8 })]);
+  });
+
+  it('refuses to put a find into a wine of another category', async () => {
+    const { tx, store } = fakeTx([]);
+    store.push({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Talbot', newItemCategory: 'cigar', newItemQuantity: 2 });
+    tx.product.findFirst.mockResolvedValue({ id: 'p1', category: 'wine' });
+
+    const result = await applyCorrections('s1', [{ action: 'add_to_stock', entryId: 'f1', productId: 'p1' }], 'u1');
+
+    expect(result).toMatchObject({ appliedCount: 0, skipped: [{ targetId: 'f1', reason: 'category_mismatch' }] });
+    expect(addUnitsIn).not.toHaveBeenCalled();
   });
 
   it('skips a find attached to a wine that is gone (trash)', async () => {
-    const { tx } = fakeTx([]);
-    tx.inventoryCountEntry.findUnique.mockResolvedValue({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'X', newItemCategory: 'wine', newItemQuantity: 1 });
+    const { tx, store } = fakeTx([]);
+    store.push({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'X', newItemCategory: 'wine', newItemQuantity: 1 });
     tx.product.findFirst.mockResolvedValue(null);
 
     const result = await applyCorrections('s1', [{ action: 'add_to_stock', entryId: 'f1', productId: 'gone' }], 'u1');
@@ -347,12 +415,12 @@ describe('applyCorrections — surplus and finds (FEAT-100 c3, c4)', () => {
 
 describe('applyCorrections — the locking rule (#471)', () => {
   it('locks every family written, in sorted order, before any unit is written', async () => {
-    const { tx, calls } = fakeTx(
+    const { tx, calls, store } = fakeTx(
       [group('b', 2, { productId: 'p-z' }), group('a', 2, { productId: 'p-m' })],
       [{ itemId: 'b', status: 'confirmed', foundQuantity: 1 }, { itemId: 'a', status: 'confirmed', foundQuantity: 3 }],
     );
-    tx.inventoryCountEntry.findUnique.mockResolvedValue({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'X', newItemCategory: 'wine', newItemQuantity: 1 });
-    tx.product.findFirst.mockResolvedValue({ id: 'p-a' });
+    store.push({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'X', newItemCategory: 'wine', newItemQuantity: 1 });
+    tx.product.findFirst.mockResolvedValue({ id: 'p-a', category: 'wine' });
 
     await applyCorrections('s1', [
       { action: 'mark_consumed', itemId: 'b' },
@@ -362,5 +430,30 @@ describe('applyCorrections — the locking rule (#471)', () => {
 
     expect(calls.slice(0, 3)).toEqual(['lock:p-a', 'lock:p-m', 'lock:p-z']);
     expect(calls.slice(3)).toEqual(['finish:bx1', 'add:p-mx1', 'add:p-ax1']);
+  });
+});
+
+describe('completeSession — a closure applies once', () => {
+  it('a second closure sent meanwhile finds the session completed and applies nothing', async () => {
+    const { tx } = fakeTx([group('g1', 3)]);
+    tx.inventoryCountSession.updateMany.mockResolvedValueOnce({ count: 0 });
+
+    const result = await completeSession('s1', [{ action: 'mark_consumed', itemId: 'g1' }], 'u1');
+
+    expect(result).toEqual({ status: 'already_completed' });
+    expect(finishUnits).not.toHaveBeenCalled();
+    expect(tx.inventoryCountSession.updateMany).toHaveBeenCalledWith({
+      where: { id: 's1', status: { not: 'completed' } }, data: { status: 'completed', completedAt: expect.any(Date) },
+    });
+  });
+
+  it('takes the session before applying the corrections', async () => {
+    const { tx, calls } = fakeTx([group('g1', 3)]);
+    tx.inventoryCountSession.updateMany.mockImplementationOnce(async () => { calls.push('take'); return { count: 1 }; });
+
+    const result = await completeSession('s1', [{ action: 'mark_consumed', itemId: 'g1' }], 'u1');
+
+    expect(result).toMatchObject({ status: 'success', appliedCount: 1 });
+    expect(calls).toEqual(['take', 'lock:p-g1', 'finish:g1x3']);
   });
 });
