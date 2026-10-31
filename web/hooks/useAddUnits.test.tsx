@@ -90,4 +90,28 @@ describe('useAddUnits', () => {
     await expect(result.current.mutateAsync({ product: product(), input: { quantity: 1 } })).rejects.toThrow();
     expect(notifyError).toHaveBeenCalledWith('addUnits.errors.offline');
   });
+
+  // #471 (FEAT-95): cigars are added by boxes or single cigars, and counted in cigars.
+  it('says how many cigars were added: 3 boxes of 25 are 75 cigars', async () => {
+    addUnits.mockResolvedValue({ data: unit({ quantity: 3, cigarsPerBox: 25 }), changed: [], removedIds: [] });
+    const { result } = setup();
+    const robusto = product({ category: 'cigar', name: 'Robusto', vintage: null, items: [] });
+    await result.current.mutateAsync({ product: robusto, input: { quantity: 3, cigarsPerBox: 25 } });
+    expect(notifySuccess).toHaveBeenCalledWith('addUnits.successCigar', { count: 75, name: 'Robusto' });
+
+    await result.current.mutateAsync({ product: robusto, input: { quantity: 4, cigarsPerBox: null } });
+    expect(notifySuccess).toHaveBeenLastCalledWith('addUnits.successCigar', { count: 4, name: 'Robusto' });
+  });
+
+  it.each([
+    ['PRODUCT_IN_TRASH', 'addUnits.errors.inTrashCigar'],
+    ['QUANTITY_TOO_LARGE', 'addUnits.errors.tooManyCigar'],
+    ['VALIDATION_ERROR', 'addUnits.errors.rejectedCigar'],
+    ['UNEXPECTED_ERROR', 'addUnits.errors.failedCigar'],
+  ])('speaks of cigars when refusing cigars: %s', async (code, key) => {
+    addUnits.mockRejectedValue(new Error(code));
+    const { result } = setup();
+    await expect(result.current.mutateAsync({ product: product({ category: 'cigar' }), input: { quantity: 1 } })).rejects.toThrow();
+    expect(notifyError).toHaveBeenCalledWith(key);
+  });
 });

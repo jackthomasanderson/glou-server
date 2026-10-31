@@ -115,10 +115,78 @@ describe('InventoryForm — adding bottles', () => {
     expect(within(dialog).getByLabelText("Date d'achat")).toHaveValue(todayLocalIso());
     expect(within(dialog).getByLabelText('Taille de bouteille')).toHaveValue('150cl');
   });
+});
 
-  it('leaves cigars to their own number (FEAT-95)', () => {
+// #471 (FEAT-95 c1-c2, ux-ui.md §10.4.1): a cigar is stored as N closed boxes
+// of M cigars or as N single cigars, at the price of ONE box or cigar.
+describe('InventoryForm — adding cigars', () => {
+  const submit = (dialog: HTMLElement) => fireEvent.click(within(dialog).getByTestId('inventory-form-submit'));
+
+  it('asks closed boxes or single cigars, the number, the box size, the price of one box and the day, without unfolding anything', () => {
     const { dialog } = draw({ defaultCategory: 'cigar' });
+    expect(within(dialog).getByRole('radio', { name: 'Boîtes fermées' })).toBeChecked();
+    expect(within(dialog).getByLabelText('Nombre de boîtes')).toHaveValue(1);
+    expect(within(dialog).getByLabelText('Cigares par boîte')).toHaveValue(null);
+    expect(within(dialog).getByLabelText("Prix d'une boîte")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Date d'achat")).toHaveValue(todayLocalIso());
     expect(within(dialog).queryByLabelText('Nombre de bouteilles')).toBeNull();
     expect(within(dialog).queryByLabelText("Prix d'une bouteille")).toBeNull();
+  });
+
+  it('sends 3 closed boxes of 25 at 200 € a box (FEAT-95 c1), and says it makes 75 cigars', () => {
+    const { dialog, onSubmit, sent } = draw({ defaultCategory: 'cigar' });
+    type(dialog, 'Nombre de boîtes', '3');
+    type(dialog, 'Cigares par boîte', '25');
+    expect(within(dialog).getByText('soit 75 cigares')).toBeInTheDocument();
+    type(dialog, "Prix d'une boîte", '200');
+    submit(dialog);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(sent()).toMatchObject({ category: 'cigar', quantity: 3, cigarsPerBox: 25, purchasePrice: 200, isOpened: false, cigarsLeft: null });
+    expect(sent()).not.toHaveProperty('fillLevel');
+  });
+
+  it('sends 4 single cigars at 9 € a cigar, without a box size (FEAT-95 c2)', () => {
+    const { dialog, sent } = draw({ defaultCategory: 'cigar' });
+    type(dialog, 'Cigares par boîte', '25');
+    fireEvent.click(within(dialog).getByRole('radio', { name: "À l'unité" }));
+    expect(within(dialog).queryByLabelText('Cigares par boîte')).toBeNull();
+    type(dialog, 'Nombre de cigares', '4');
+    type(dialog, "Prix d'un cigare", '9');
+    submit(dialog);
+    expect(sent()).toMatchObject({ quantity: 4, cigarsPerBox: null, purchasePrice: 9 });
+  });
+
+  it('refuses a box without its number of cigars', () => {
+    const { dialog, onSubmit } = draw({ defaultCategory: 'cigar' });
+    submit(dialog);
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(within(dialog).getByLabelText('Cigares par boîte')).toBeInvalid();
+  });
+
+  it('stores one box already opened with the cigars left in it, never several', () => {
+    const { dialog, sent } = draw({ defaultCategory: 'cigar' });
+    type(dialog, 'Cigares par boîte', '25');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Afficher les compléments' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Boîte entamée/ }));
+    // No level: a box is not filled.
+    expect(within(dialog).queryByRole('group', { name: 'Niveau restant' })).toBeNull();
+    type(dialog, 'Cigares restants dans la boîte', '10');
+    submit(dialog);
+    expect(sent()).toMatchObject({ quantity: 1, cigarsPerBox: 25, isOpened: true, cigarsLeft: 10 });
+
+    type(dialog, 'Nombre de boîtes', '2');
+    expect(within(dialog).queryByRole('button', { name: /Boîte entamée/ })).toBeNull();
+    submit(dialog);
+    expect(sent()).toMatchObject({ quantity: 2, isOpened: false, cigarsLeft: null });
+  });
+
+  it('refuses more cigars left than the box holds', () => {
+    const { dialog, onSubmit } = draw({ defaultCategory: 'cigar' });
+    type(dialog, 'Cigares par boîte', '25');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Afficher les compléments' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Boîte entamée/ }));
+    type(dialog, 'Cigares restants dans la boîte', '26');
+    submit(dialog);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

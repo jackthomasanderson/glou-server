@@ -8,7 +8,7 @@ import { Star, FlaskConical } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { TastingFormValues, TastingReadiness } from '@/lib/tastings/types';
 import { useCreateTasting, useUpdateTasting } from '@/hooks/useTastings';
-import { useInventory, useInventoryItemLookup, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { REATTACH_REFUSALS, useInventory, useInventoryItemLookup, useUpdateInventoryItem } from '@/hooks/useInventory';
 import { ServiceRecommendations } from './ServiceRecommendations';
 import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
@@ -17,7 +17,7 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { notifyError } from '@/lib/toast';
-import { applyStockChoice, stockChoicesFor, type StockChoice } from '@/lib/tastings/stockChoice';
+import { applyStockChoice, smokeOutcome, stockChoicesFor, type StockChoice } from '@/lib/tastings/stockChoice';
 import { blankTastingValues } from '@/lib/tastings/formValues';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
@@ -127,7 +127,8 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
           choice,
           stockQuestion.item,
           (patch) => updateInventory.mutateAsync({ id: stockQuestion.itemId, patch }),
-          () => notifyError('tastings.stockUpdate.error'),
+          // A refusal with its own message (a cigar already smoked…) was told by the mutation.
+          (error) => { if (!(error instanceof Error && error.message in REATTACH_REFUSALS)) notifyError('tastings.stockUpdate.error'); },
         )
       : true;
     if (!canClose) return;
@@ -139,6 +140,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   const hasError = !!(createMutation.error || updateMutation.error);
   const showStockDialog = !!stockQuestion;
   const stockChoices = stockQuestion ? stockChoicesFor(stockQuestion.item) : [];
+  const smoke = smokeOutcome(stockQuestion?.item);
 
   return (
     <>
@@ -449,8 +451,8 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                     onPress={() => handleStockChoice(choice)}
                     isLoading={updateInventory.isPending}
                   >
-                    {choice === 'removeOneCigar'
-                      ? t('tastings.stockUpdate.removeOneCigar', { count: (stockQuestion?.item?.quantity ?? 0) - 1 })
+                    {choice === 'smokeOne' && smoke
+                      ? t(`tastings.stockUpdate.smokeOne.${smoke.kind}`, { count: smoke.left })
                       : t(`tastings.stockUpdate.${choice}`)}
                   </Button>
                 ))}

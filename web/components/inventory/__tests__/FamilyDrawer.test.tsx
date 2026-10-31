@@ -81,6 +81,27 @@ describe('FamilyDrawer', () => {
     expect(stock.textContent?.replace(/ | /g, ' ')).toMatch(/^9 bouteilles · valeur estimée 210 €$/);
   });
 
+  // #471 (FEAT-95 c3): a cigar is counted in cigars, its lines by boxes and single cigars.
+  it('a cigar heads with its cigars, then its boxes: "89 cigares · 3 boîtes fermées · 1 entamée · 4 à l’unité"', () => {
+    detail = detailOf({
+      category: 'cigar', name: 'Robusto', vintage: null,
+      items: [
+        unit({ quantity: 3, cigarsPerBox: 25, cellarId: 'garage' }),
+        unit({ isOpened: true, cigarsPerBox: 25, cigarsLeft: 10, cellarId: 'garage', openedAt: '2026-10-01T00:00:00.000Z' }),
+        unit({ quantity: 4, cellarId: 'garage' }),
+      ],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const stock = screen.getByTestId('family-drawer-stock');
+    expect(stock.textContent?.replace(/\s/g, ' ')).toBe("89 cigares · 3 boîtes fermées · 1 entamée · 4 à l'unité");
+    const lines = screen.getAllByTestId('family-line').map((line) => line.textContent?.replace(/\s/g, ' '));
+    expect(lines[0]).toMatch(/^3 boîtes fermées de 25 · Garage/);
+    expect(lines[1]).toMatch(/^4 cigares à l'unité · Garage/);
+    expect(lines[2]).toMatch(/^Boîte entamée · 10 restants · Garage/);
+    // A box is not filled: no level to set on it.
+    expect(screen.queryByRole('slider')).toBeNull();
+  });
+
   it('a group of six full bottles has no level control: nothing can open one from here', () => {
     detail = detailOf({ items: [unit({ id: 'group', quantity: 6 })] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
