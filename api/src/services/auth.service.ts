@@ -831,7 +831,8 @@ export class AuthService {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
       include: {
-        inventory: { where: { deletedAt: null } },
+        // #471: each unit with its family, which holds the description.
+        inventory: { where: { deletedAt: null }, include: { product: true } },
         cellars: true,
         collections: { include: { items: { select: { id: true, name: true } } } },
         tastingNotes: true,
