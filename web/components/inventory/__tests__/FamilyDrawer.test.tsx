@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import type React from 'react';
 import type { ReactNode } from 'react';
 import { openedBottle, product, unit } from '@/lib/products/__tests__/factories';
 import { frenchT } from '@/lib/products/__tests__/i18n';
@@ -16,19 +17,25 @@ vi.mock('react-i18next', () => ({
 }));
 
 let detail: ProductDetailView | undefined;
-const mutate = vi.fn();
+const mutate = vi.fn(async (vars: { id: string }) => ({ id: vars.id }));
+const tastingPreset: { id?: string } = {};
 vi.mock('@/hooks/useProducts', () => ({
+  productDetailKey: (id: string) => ['inventory', 'product', id],
   useProductDetail: () => ({ data: detail, isLoading: false, isError: false, refetch: vi.fn(), isRefetching: false }),
 }));
+// ResponsiveModal (the history's restore confirmation) reads window.matchMedia.
+vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
 vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
 vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }] }) }));
 vi.mock('@/hooks/useInventory', () => ({
-  useUpdateInventoryItem: () => ({ mutate, isPending: false }),
+  useUpdateInventoryItem: () => ({ mutateAsync: mutate, isPending: false }),
   useRollbackField: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, isError: false }),
 }));
 vi.mock('@/hooks/useAlerts', () => ({ useToggleAlertPause: () => ({ mutate: vi.fn(), isPending: false }) }));
 vi.mock('@/components/collections/CollectionPickerInline', () => ({ CollectionPickerInline: () => null }));
-vi.mock('@/components/tastings/TastingForm', () => ({ TastingForm: () => null }));
+vi.mock('@/components/tastings/TastingForm', () => ({
+  TastingForm: ({ initialItemId }: { initialItemId?: string }) => { tastingPreset.id = initialItemId; return null; },
+}));
 vi.mock('../QrCodeModal', () => ({ QrCodeModal: () => null }));
 // The drawer's frame only: its content is what is tested.
 vi.mock('@heroui/react', async (importOriginal) => ({
@@ -37,7 +44,12 @@ vi.mock('@heroui/react', async (importOriginal) => ({
   DrawerContent: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-import { FamilyDrawer } from '../FamilyDrawer';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { FamilyDrawer as Drawer } from '../FamilyDrawer';
+
+const FamilyDrawer = (props: React.ComponentProps<typeof Drawer>) => (
+  <QueryClientProvider client={new QueryClient()}><Drawer {...props} /></QueryClientProvider>
+);
 
 const detailOf = (over: Partial<ProductDetailView>): ProductDetailView =>
   ({ ...product(), tastings: [], history: [], ...over }) as ProductDetailView;
@@ -49,7 +61,7 @@ const tasting = (over: Partial<ProductDetailView['tastings'][number]>) => ({
   createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z', ...over,
 });
 
-beforeEach(() => { mutate.mockReset(); });
+beforeEach(() => { mutate.mockClear(); });
 
 describe('FamilyDrawer', () => {
   it('opens a wine known without any bottle: its name, no line, its tastings', () => {
@@ -113,5 +125,43 @@ describe('FamilyDrawer', () => {
     render(<FamilyDrawer productId="p1" onClose={() => {}} onEdit={onEdit} />);
     fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
     expect(onEdit).toHaveBeenCalledWith(detail);
+  });
+});
+
+describe('FamilyDrawer — review of W2a', () => {
+  it('a tasting is preset on the opened bottle, never on a full one', () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 5 }), openedBottle(60, { id: 'sub' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(tastingPreset.id).toBe('sub');
+  });
+
+  it('without an opened bottle, nothing is preset: the member picks the bottle', () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 5 })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(tastingPreset.id).toBeUndefined();
+  });
+
+  it('shows the region, appellation and technical sheet, with where a value came from (FEAT-05)', () => {
+    detail = detailOf({
+      region: 'Bourgogne', appellation: 'Chablis', color: 'white', lotNumber: 'L42',
+      fieldSources: { appellation: 'ocr', producer: 'import_csv' }, items: [unit({ quantity: 2 })],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const sheet = screen.getByTestId('family-sheet');
+    expect(sheet).toHaveTextContent('Bourgogne');
+    expect(sheet).toHaveTextContent('Chablis');
+    expect(sheet).toHaveTextContent('Blanc');
+    expect(sheet).toHaveTextContent('L42');
+    expect(within(sheet).getByTestId('field-source-ocr')).toBeInTheDocument();
+    expect(screen.getAllByTestId('field-source-import_csv').length).toBeGreaterThan(0);
+  });
+
+  it('the history tells a corrected number: "Nombre corrigé : 2 → 1"', () => {
+    detail = detailOf({
+      items: [unit({ id: 'g', quantity: 1 })],
+      history: [{ id: 1, action: 'CORRECT_QUANTITY', status: 'success', actorId: 'u', actorName: 'Marie', itemId: 'g', changes: [{ field: 'quantity', from: 2, to: 1 }], createdAt: '2026-10-01T00:00:00.000Z' }],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(screen.getByTestId('family-history')).toHaveTextContent('Nombre corrigé : 2 → 1');
   });
 });

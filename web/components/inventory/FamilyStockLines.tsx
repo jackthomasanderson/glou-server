@@ -1,58 +1,112 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button, Chip, Slider } from '@heroui/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { isIntactItem } from '@shared/units';
 import { goneParts, goneSummary, lineParts, VISIBLE_LINES, type FamilyLines, type LineContext } from '@/lib/products/lines';
 import type { ProductItem } from '@/lib/products/types';
+import { FieldSourceBadge } from './FieldSourceBadge';
 
 interface FamilyStockLinesProps {
   lines: FamilyLines;
   ctx: LineContext;
   /**
-   * Sets the level of an opened bottle (a single copy: nothing is detached).
-   * A group of full bottles never gets a level control: opening one of them
-   * is "J'en ouvre une" (lot L1), which says which one.
+   * Sets the level of an opened bottle (a single copy: nothing is detached);
+   * rejects when refused. A group of full bottles never gets a level
+   * control: opening one of them is "J'en ouvre une" (lot L1), which says which one.
    */
-  onLevelCommit?: (item: ProductItem, level: number) => void;
-  isSaving?: boolean;
+  onLevelCommit?: (item: ProductItem, level: number) => Promise<unknown>;
   /** The menu of a line (W3: "J'en ouvre une", "Déplacer", "Corriger le nombre"…). */
   lineActions?: (item: ProductItem) => React.ReactNode;
 }
 
 const join = (parts: string[]) => parts.join(' · ');
 
-/** The level of one opened bottle, set on its own line (§10.3). */
-function OpenedLevel({ item, label, onCommit, isDisabled }: {
+const PRESETS = [
+  { value: 100, key: 'familyDrawer.lines.levelFull' },
+  { value: 50, key: 'familyDrawer.lines.levelHalf' },
+  { value: 0, key: 'familyDrawer.lines.levelEmpty' },
+] as const;
+
+/**
+ * The level of one opened bottle, set on its own line (§10.3): a slider and
+ * the Pleine / Moitié / Vide shortcuts. Never disabled while saving (keyboard
+ * focus would be lost): a level chosen meanwhile waits and is sent next, the
+ * last one only. A refused save puts the slider back on the saved level.
+ */
+function OpenedLevel({ item, t, onCommit }: {
   item: ProductItem;
-  label: string;
-  onCommit: (level: number) => void;
-  isDisabled: boolean;
+  t: LineContext['t'];
+  onCommit: (level: number) => Promise<unknown>;
 }) {
   const level = item.fillLevel ?? 0;
   const [shown, setShown] = useState(level);
-  // Follows the saved level (answer of the save, another device) unless being dragged.
+  // Follows the saved level (answer of the save, another device).
   const [prevLevel, setPrevLevel] = useState(level);
   if (level !== prevLevel) {
     setPrevLevel(level);
     setShown(level);
   }
+  const saving = useRef(false);
+  const waiting = useRef<number | null>(null);
+  const saved = useRef(level);
+  useEffect(() => { saved.current = level; }, [level]);
+
+  const send = async (value: number) => {
+    saving.current = true;
+    try {
+      await onCommit(value);
+    } catch {
+      // Refused (a tasting on it, a conflict, a server error): back to what is saved.
+      waiting.current = null;
+      setShown(saved.current);
+    } finally {
+      saving.current = false;
+    }
+    const next = waiting.current;
+    waiting.current = null;
+    if (next != null && next !== saved.current) void send(next);
+  };
+  const commit = (value: number) => {
+    setShown(value);
+    if (saving.current) {
+      waiting.current = value;
+      return;
+    }
+    if (value !== saved.current) void send(value);
+  };
+
   return (
-    <div className="flex items-center gap-3 mt-1">
-      <Slider
-        aria-label={label}
-        value={shown}
-        onChange={(value) => setShown(value as number)}
-        onChangeEnd={(value) => { if (value !== level) onCommit(value as number); }}
-        minValue={0}
-        maxValue={100}
-        step={5}
-        size="sm"
-        color={shown <= 20 ? 'danger' : 'warning'}
-        isDisabled={isDisabled}
-        className="flex-1"
-      />
-      <span className="text-sm font-bold tabular-nums w-12 text-right">{shown} %</span>
+    <div className="mt-1">
+      <div className="flex items-center gap-3">
+        <Slider
+          aria-label={t('familyDrawer.lines.level')}
+          value={shown}
+          onChange={(value) => setShown(value as number)}
+          onChangeEnd={(value) => commit(value as number)}
+          minValue={0}
+          maxValue={100}
+          step={5}
+          size="sm"
+          color={shown <= 20 ? 'danger' : 'warning'}
+          className="flex-1"
+        />
+        <span className="text-sm font-bold tabular-nums w-12 text-right">{shown} %</span>
+      </div>
+      <div className="flex gap-2 mt-1">
+        {PRESETS.map(({ value, key }) => (
+          <Button
+            key={value}
+            size="sm"
+            variant={shown === value ? 'solid' : 'bordered'}
+            color={shown === value ? 'warning' : 'default'}
+            className="flex-1 h-7"
+            onPress={() => commit(value)}
+          >
+            {t(key)}
+          </Button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -62,7 +116,7 @@ function OpenedLevel({ item, label, onCommit, isDisabled }: {
  * then the opened bottles, the first five then "Voir les N autres"; below,
  * "Déjà bues ou parties", folded.
  */
-export function FamilyStockLines({ lines, ctx, onLevelCommit, isSaving = false, lineActions }: FamilyStockLinesProps) {
+export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions }: FamilyStockLinesProps) {
   const { t, kind } = ctx;
   const [showAll, setShowAll] = useState(false);
   const [showGone, setShowGone] = useState(false);
@@ -90,19 +144,21 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, isSaving = false, 
                   className={`px-3 py-2 rounded-xl border ${opened ? 'border-warning-300 bg-warning-50/40' : 'border-divider'}`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium leading-snug">{join(lineParts(item, ctx, lines.showPurchaseMonth))}</p>
+                    <p className="text-sm font-medium leading-snug">
+                      {join(lineParts(item, ctx, lines.showPurchaseMonth))}
+                      {item.purchasePrice != null && (
+                        <span className="ml-1.5 inline-flex align-middle">
+                          <FieldSourceBadge source={item.fieldSources?.purchasePrice} t={t} />
+                        </span>
+                      )}
+                    </p>
                     {lineActions?.(item)}
                   </div>
                   {item.needsReview && (
                     <Chip size="sm" variant="flat" color="primary" className="mt-1">{t('familyDrawer.lines.needsReview')}</Chip>
                   )}
                   {opened && kind === 'bottle' && onLevelCommit && (
-                    <OpenedLevel
-                      item={item}
-                      label={t('familyDrawer.lines.level')}
-                      onCommit={(level) => onLevelCommit(item, level)}
-                      isDisabled={isSaving}
-                    />
+                    <OpenedLevel item={item} t={t} onCommit={(level) => onLevelCommit(item, level)} />
                   )}
                 </li>
               );

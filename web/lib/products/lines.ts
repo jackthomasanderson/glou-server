@@ -75,12 +75,18 @@ function priceOf(item: ProductItem, ctx: LineContext): string | null {
 /** Which bottle a tasting was of: "Garage · 20 € / bouteille". */
 export const bottleLabel = (item: ProductItem, ctx: LineContext) => whereAndWhat(item, ctx, false).join(' · ');
 
+/** Where the copy is: its cellar, and the free-text place within it ("Étagère du haut"). */
+function where(item: ProductItem, ctx: LineContext): string[] {
+  const cellar = (item.cellarId ? ctx.cellarName(item.cellarId) : undefined) ?? ctx.t('familyDrawer.lines.noCellar');
+  const location = item.location?.trim();
+  return location ? [cellar, location] : [cellar];
+}
+
 /** Where the copy is, its price, its size if not standard, its purchase month on a multi-line wine. */
 function whereAndWhat(item: ProductItem, ctx: LineContext, showPurchaseMonth: boolean): string[] {
-  const cellar = item.cellarId ? ctx.cellarName(item.cellarId) : undefined;
   const size = ctx.kind === 'bottle' ? item.bottleSize?.trim() : '';
   return [
-    cellar ?? ctx.t('familyDrawer.lines.noCellar'),
+    ...where(item, ctx),
     priceOf(item, ctx),
     size || null,
     showPurchaseMonth && item.purchasedAt ? ctx.formatMonth(item.purchasedAt) : null,
@@ -94,15 +100,15 @@ function whereAndWhat(item: ProductItem, ctx: LineContext, showPurchaseMonth: bo
  */
 export function lineParts(item: ProductItem, ctx: LineContext, showPurchaseMonth: boolean): string[] {
   const { t } = ctx;
-  const place = whereAndWhat(item, ctx, showPurchaseMonth);
   if (!isIntactItem(item)) {
     // An opened one: where it is and since when; its level is drawn beside.
     const opened = item.openedAt ? t('familyDrawer.lines.openedOn', { date: ctx.formatDate(item.openedAt as string) }) : null;
     const head = ctx.kind === 'cigar'
       ? [t('familyDrawer.lines.openedBox'), t('familyDrawer.lines.cigarsLeft', { count: item.cigarsLeft ?? 0 })]
       : [t('familyDrawer.lines.opened')];
-    return [...head, place[0], ...(opened ? [opened] : [])];
+    return [...head, ...where(item, ctx), ...(opened ? [opened] : [])];
   }
+  const place = whereAndWhat(item, ctx, showPurchaseMonth);
   const count = Math.max(item.quantity ?? 1, 0);
   if (ctx.kind === 'cigar') {
     const head = item.cigarsPerBox != null

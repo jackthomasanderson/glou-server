@@ -2148,7 +2148,10 @@
       "showLess": "See less",
       "needsReview": "To check after the update",
       "level": "Level of this bottle",
-      "reattached": "Bottle put back with the others"
+      "reattached": "Bottle put back with the others",
+      "levelFull": "Full",
+      "levelHalf": "Half",
+      "levelEmpty": "Empty"
     },
     "gone": {
       "title": "Already drunk or gone",
@@ -2177,7 +2180,8 @@
     "history": {
       "title": "History",
       "add_units": "Bottles added",
-      "correct_quantity": "Number corrected"
+      "correct_quantity": "Number corrected",
+      "numberChange": "{{what}}: {{from}} → {{to}}"
     },
     "loadError": "This wine could not be loaded."
   }

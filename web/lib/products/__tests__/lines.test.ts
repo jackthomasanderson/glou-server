@@ -47,6 +47,13 @@ describe('familyLines — order of the lines in the cellar', () => {
 });
 
 describe('lineParts — what a line says', () => {
+  it('the free-text place within the cellar follows the cellar', () => {
+    const item = unit({ quantity: 2, cellarId: 'garage', location: 'Étagère du haut', purchasePrice: 20 });
+    expect(lineParts(item, ctx, false)).toEqual(['×2', 'Garage', 'Étagère du haut', '20 € / bouteille']);
+    const opened = openedBottle(50, { location: ' Frigo ', openedAt: null });
+    expect(lineParts(opened, ctx, false)).toEqual(['Entamée', 'Sans cave', 'Frigo']);
+  });
+
   it('number, cellar, price of one bottle', () => {
     const item = unit({ quantity: 4, cellarId: 'garage', purchasePrice: 20, purchasedAt: '2026-01-10' });
     expect(lineParts(item, ctx, false)).toEqual(['×4', 'Garage', '20 € / bouteille']);

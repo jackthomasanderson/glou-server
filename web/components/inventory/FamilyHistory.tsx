@@ -58,6 +58,11 @@ export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryPro
     }
     return entry.changes
       .map((change) => {
+        // §10.3: "Nombre corrigé : 2 → 1", "Bouteilles ajoutées : 1 → 3".
+        if (change.field === 'quantity' && typeof change.from === 'number' && typeof change.to === 'number') {
+          const what = entry.action === 'ADD_UNITS' || entry.action === 'CORRECT_QUANTITY' ? actionLabel(entry.action) : fieldLabel('quantity');
+          return t('familyDrawer.history.numberChange', { what, from: change.from, to: change.to });
+        }
         if (change.field === 'fillLevel' && typeof change.to === 'number') {
           const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : `${change.to}%`;
           return `${t('inventory.detail.levelAdjusted')} ${level}`;

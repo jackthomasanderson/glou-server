@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { FamilyStockLines } from '../FamilyStockLines';
 import { familyLines, type LineContext } from '@/lib/products/lines';
 import { openedBottle, unit } from '@/lib/products/__tests__/factories';
@@ -80,6 +80,40 @@ describe('FamilyStockLines', () => {
     fireEvent.keyDown(slider, { key: 'ArrowLeft' });
     fireEvent.keyUp(slider, { key: 'ArrowLeft' });
     expect(onLevelCommit).toHaveBeenCalledWith(bottle, 55);
+  });
+
+  it('a refused level puts the slider back on the saved level (409, 400, 500)', async () => {
+    const onLevelCommit = vi.fn(() => Promise.reject(new Error('TASTINGS_ON_ITEM')));
+    draw([unit({ quantity: 5 }), openedBottle(60, { id: 'sub' })], { onLevelCommit });
+    fireEvent.click(screen.getByRole('button', { name: 'Pleine' }));
+    expect(onLevelCommit).toHaveBeenCalledWith(expect.objectContaining({ id: 'sub' }), 100);
+    await waitFor(() => expect(screen.getByRole('slider')).toHaveValue('60'));
+    expect(screen.getByText('60 %')).toBeInTheDocument();
+  });
+
+  it('stays usable while saving: a level chosen meanwhile is sent next, the last one only', async () => {
+    let finish: () => void = () => {};
+    const onLevelCommit = vi.fn()
+      .mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve; }))
+      .mockResolvedValue(undefined);
+    draw([openedBottle(60, { id: 'sub' })], { onLevelCommit });
+    const slider = screen.getByRole('slider');
+    fireEvent.click(screen.getByRole('button', { name: 'Moitié' }));
+    expect(slider).not.toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Vide' }));
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    fireEvent.keyUp(slider, { key: 'ArrowRight' });
+    expect(onLevelCommit).toHaveBeenCalledTimes(1);
+    await act(async () => { finish(); });
+    expect(onLevelCommit).toHaveBeenCalledTimes(2);
+    expect(onLevelCommit).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'sub' }), 5);
+  });
+
+  it('the shortcuts Pleine / Moitié / Vide set the level of the opened bottle', () => {
+    const onLevelCommit = vi.fn(async () => {});
+    draw([openedBottle(60)], { onLevelCommit });
+    fireEvent.click(screen.getByRole('button', { name: 'Moitié' }));
+    expect(onLevelCommit).toHaveBeenLastCalledWith(expect.anything(), 50);
   });
 
   it('a wine without any bottle left says so', () => {

@@ -2150,7 +2150,10 @@
       "showLess": "Voir moins",
       "needsReview": "À vérifier après la mise à jour",
       "level": "Niveau de cette bouteille",
-      "reattached": "Bouteille remise avec les autres"
+      "reattached": "Bouteille remise avec les autres",
+      "levelFull": "Pleine",
+      "levelHalf": "Moitié",
+      "levelEmpty": "Vide"
     },
     "gone": {
       "title": "Déjà bues ou parties",
@@ -2179,7 +2182,8 @@
     "history": {
       "title": "Historique",
       "add_units": "Bouteilles ajoutées",
-      "correct_quantity": "Nombre corrigé"
+      "correct_quantity": "Nombre corrigé",
+      "numberChange": "{{what}} : {{from}} → {{to}}"
     },
     "loadError": "Impossible de charger ce vin."
   }

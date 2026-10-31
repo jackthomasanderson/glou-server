@@ -6,9 +6,10 @@ import {
   X, Pencil, Flame, Thermometer, Droplets, Wine, BookMarked, GlassWater, Leaf, Sparkles, QrCode,
   TrendingUp, Bell, BellOff, Star, Grape,
 } from 'lucide-react';
-import { unitKind } from '@shared/units';
+import { isIntactItem, unitKind } from '@shared/units';
 import { useCellars } from '@/hooks/useCellars';
-import { useProductDetail } from '@/hooks/useProducts';
+import { productDetailKey, useProductDetail } from '@/hooks/useProducts';
+import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useToggleAlertPause } from '@/hooks/useAlerts';
 import { useHasMounted } from '@/hooks/useHasMounted';
@@ -25,6 +26,8 @@ import { bottleLabel, familyLines, type LineContext } from '@/lib/products/lines
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 import { QrCodeModal } from './QrCodeModal';
+import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
+import { FieldSourceBadge } from './FieldSourceBadge';
 import { FamilyStockLines } from './FamilyStockLines';
 import { FamilyHistory } from './FamilyHistory';
 
@@ -51,6 +54,24 @@ function InfoCard({ icon, label, value, valueClassName }: {
     </div>
   );
 }
+
+/**
+ * §10.3 block 4: the rest of the wine's description and technical sheet,
+ * shown when filled (a value of the wine, true of all its bottles).
+ */
+const SHEET_FIELDS = [
+  'region', 'appellation', 'classification', 'color', 'alcoholDegree', 'needsAeration',
+  'sparklingType', 'sugarLevel', 'baseYear', 'disgorgingDate',
+  'spiritType', 'edition', 'declaredAge', 'caskType', 'caskNumber', 'caskProof', 'isSingleCask',
+  'aromaticProfile', 'additions',
+  'leafOrigin', 'factoryCode', 'manufactureYear', 'humidificationSystem',
+  'lotNumber', 'batchDate',
+] as const satisfies readonly (keyof ProductDetailView)[];
+
+/** Values of a list (colour, sparkling type, sugar) read in words. */
+const LISTED_VALUES: Partial<Record<(typeof SHEET_FIELDS)[number], string>> = {
+  color: 'inventory.color', sparklingType: 'inventory.sparklingTypes', sugarLevel: 'inventory.sugarLevels',
+};
 
 const READINESS_COLOR = { TOO_YOUNG: 'default', PERFECT: 'success', PEAK: 'warning', PAST: 'danger' } as const;
 
@@ -96,6 +117,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const { data: product, isLoading, isError, refetch, isRefetching } = useProductDetail(productId);
   const { data: cellars } = useCellars();
   const updateItem = useUpdateInventoryItem();
+  const queryClient = useQueryClient();
   const togglePause = useToggleAlertPause();
   const [tastingOpen, setTastingOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -114,16 +136,26 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
   // One opened bottle: its own level, no copy detached. Put back full, it
   // rejoins its group (K): the answer is then that group.
-  const handleLevel = useCallback((item: ProductItem, level: number) => {
-    updateItem.mutate(
-      { id: item.id, patch: level >= 100 ? { fillLevel: 100, isOpened: false } : { fillLevel: level }, expectedUpdatedAt: item.updatedAt as string },
-      { onSuccess: (saved) => { if (saved.id !== item.id) notifySuccess('familyDrawer.lines.reattached'); } },
-    );
-  }, [updateItem]);
+  // The version sent is read from the cache when the level is sent: a level
+  // chosen while the previous one was saving goes after it, from its answer.
+  const handleLevel = useCallback(async (item: ProductItem, level: number) => {
+    const current = queryClient.getQueryData<ProductDetailView>(productDetailKey(item.productId))
+      ?.items.find((unit) => unit.id === item.id) ?? item;
+    const saved = await updateItem.mutateAsync({
+      id: item.id,
+      patch: level >= 100 ? { fillLevel: 100, isOpened: false } : { fillLevel: level },
+      expectedUpdatedAt: current.updatedAt as string,
+    });
+    if (saved.id !== item.id) notifySuccess('familyDrawer.lines.reattached');
+  }, [updateItem, queryClient]);
 
   const isOpen = productId !== null;
-  // A copy in stock, for what still goes through a bottle (a tasting form preset, the alert pause).
+  // A copy in stock, for the alert pause (it acts on the wine, through any of its bottles).
   const unitInStock = lines.inCellar[0];
+  // A tasting is preset on the opened bottle, the one being drunk; with none,
+  // the member picks the bottle (never a full one chosen for them, which a
+  // "Bue" answer would then detach).
+  const openedInStock = lines.inCellar.find((item) => !isIntactItem(item));
 
   const renderBody = (p: ProductDetailView) => {
     const stock = describeStock(p, t);
@@ -161,7 +193,6 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           lines={lines}
           ctx={ctx}
           onLevelCommit={handleLevel}
-          isSaving={updateItem.isPending}
           lineActions={lineActions ? (item) => lineActions(item, p) : undefined}
         />
 
@@ -215,6 +246,26 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
             {isCigar && p.format && <InfoCard icon={<Leaf />} label={t('inventory.fields.format')} value={p.format} />}
           </div>
 
+          {(() => {
+            const filled = SHEET_FIELDS.filter((field) => p[field] != null && p[field] !== '');
+            if (filled.length === 0) return null;
+            return (
+              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 mt-3 text-sm" data-testid="family-sheet">
+                {filled.map((field) => (
+                  <React.Fragment key={field}>
+                    <dt className="text-foreground-500">{historyFieldLabel(field, t)}</dt>
+                    <dd className="flex items-center gap-1.5 flex-wrap font-medium">
+                      {LISTED_VALUES[field]
+                        ? t(`${LISTED_VALUES[field]}.${String(p[field])}`)
+                        : formatHistoryValue(field, p[field], t, { lang })}
+                      <FieldSourceBadge source={p.fieldSources?.[field]} t={t} />
+                    </dd>
+                  </React.Fragment>
+                ))}
+              </dl>
+            );
+          })()}
+
           {/* #506: the pause can be undone here, as the bell hides paused alerts. */}
           {drinkingWindow && unitInStock && (
             <div className="flex items-center justify-between gap-2 mt-3">
@@ -234,8 +285,9 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
           {p.notes && (
             <div className="p-3 bg-default-50 rounded-xl mt-3 border border-divider">
-              <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-1">
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground-500 mb-1">
                 {isCigar ? t('inventory.detail.tastingNotes') : t('inventory.detail.sommelierNotes')}
+                <FieldSourceBadge source={p.fieldSources?.notes} t={t} />
               </p>
               <p className="text-sm text-foreground-500 italic leading-relaxed whitespace-pre-wrap">{p.notes}</p>
             </div>
@@ -309,7 +361,10 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                 {product ? t(`categories.${product.category}`) : ' '}
               </p>
               <div className="flex justify-between items-start gap-2">
-                <h2 id="inventory-detail-title" className="text-lg font-bold leading-tight break-words">{product?.name ?? ''}</h2>
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                  <h2 id="inventory-detail-title" className="text-lg font-bold leading-tight break-words">{product?.name ?? ''}</h2>
+                  <FieldSourceBadge source={product?.fieldSources?.name} t={t} />
+                </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {product && (
                     <Tooltip delay={500} content={t('qr.title')} size="sm" placement="bottom">
@@ -324,8 +379,16 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                 </div>
               </div>
               {product && (
-                <p className="text-xs text-foreground-500 mt-1">
-                  {[product.producer, product.vintage, product.region].filter((part) => part != null && part !== '').join(' · ')}
+                <p className="flex items-center gap-1.5 flex-wrap text-xs text-foreground-500 mt-1">
+                  {(['producer', 'vintage', 'region'] as const)
+                    .filter((field) => product[field] != null && product[field] !== '')
+                    .map((field, index) => (
+                      <React.Fragment key={field}>
+                        {index > 0 && <span className="text-foreground-400">·</span>}
+                        <span>{product[field]}</span>
+                        <FieldSourceBadge source={product.fieldSources?.[field]} t={t} />
+                      </React.Fragment>
+                    ))}
                 </p>
               )}
             </div>
@@ -368,7 +431,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
         </DrawerContent>
       </Drawer>
 
-      <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialItemId={unitInStock?.id} />
+      <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialItemId={openedInStock?.id} />
 
       {product && (
         <QrCodeModal isOpen={qrOpen} onClose={() => setQrOpen(false)} itemId={product.id} itemName={wineName(product)} />
