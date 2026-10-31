@@ -418,8 +418,10 @@
       "revokeError": "Impossible de révoquer le lien de partage"
     },
     "count": {
-      "scanError": "Impossible de confirmer l'actif",
-      "recordError": "Impossible d'enregistrer l'actif"
+      "scanError": "Impossible de confirmer la bouteille",
+      "recordError": "Impossible d'enregistrer la trouvaille",
+      "skipped_one": "Session clôturée : {{count}} correction n'a pas pu être appliquée (la bouteille a changé entre-temps).",
+      "skipped_other": "Session clôturée : {{count}} corrections n'ont pas pu être appliquées (les bouteilles ont changé entre-temps)."
     },
     "admin": {
       "roleSuccess": "Membre mis à jour",

@@ -23,9 +23,13 @@ export interface FindChoice {
   productId: string | null;
 }
 
-/** By default a find joins the first known wine of its name (ux-ui §10.11), else it is a new wine. */
+/**
+ * By default a find joins THE known wine of its name (ux-ui §10.11) — only
+ * when there is exactly one: among several, guessing could put the bottles
+ * in the wrong wine, so it stays a new wine until the member picks one.
+ */
 export function defaultFindChoice(find: CountUnexpectedItem): FindChoice {
-  return { add: false, productId: find.matchingProducts[0]?.id ?? null };
+  return { add: false, productId: find.matchingProducts.length === 1 ? find.matchingProducts[0].id : null };
 }
 
 export interface ReportChoices {

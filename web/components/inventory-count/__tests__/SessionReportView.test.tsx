@@ -116,6 +116,24 @@ describe('SessionReportView — surplus and finds (c3, c4)', () => {
     await waitFor(() => expect(mutateAsync).toHaveBeenLastCalledWith([{ entryId: 'f1', action: 'add_to_stock', productId: 'p1' }]));
   });
 
+  it('does not guess among several known wines of the same name: a new wine until one is picked', async () => {
+    withReport({ unexpected: [find({ matchingProducts: [
+      { id: 'p1', name: 'Talbot', producer: 'Domaine', vintage: 2015 },
+      { id: 'p2', name: 'Talbot', producer: 'Domaine', vintage: 2018 },
+    ] })] });
+    render(<SessionReportView session={session} />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'inventoryCount.report.addToStock|6 — Talbot' }));
+    fireEvent.click(closeButton());
+    await waitFor(() => expect(mutateAsync).toHaveBeenLastCalledWith([{ entryId: 'f1', action: 'add_to_stock' }]));
+
+    // The choices are cleared once sent: tick again, then pick a wine.
+    fireEvent.click(screen.getByRole('checkbox', { name: 'inventoryCount.report.addToStock|6 — Talbot' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Talbot · Domaine · 2018' }));
+    fireEvent.click(closeButton());
+    await waitFor(() => expect(mutateAsync).toHaveBeenLastCalledWith([{ entryId: 'f1', action: 'add_to_stock', productId: 'p2' }]));
+  });
+
   it('lets a find of a known name be a new wine after all', async () => {
     withReport({ unexpected: [find({ matchingProducts: [{ id: 'p1', name: 'Talbot', producer: 'Domaine', vintage: 2015 }] })] });
     render(<SessionReportView session={session} />);

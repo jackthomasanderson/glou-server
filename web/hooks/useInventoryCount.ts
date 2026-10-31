@@ -110,6 +110,9 @@ export function useCompleteCountSession(sessionId: string) {
   return useMutation<CompleteSessionResult, Error, Correction[]>({
     mutationFn: (corrections: Correction[]) => inventoryCountClient.complete(sessionId, corrections),
     onSuccess: (result) => {
+      // #471 (FEAT-100): a correction the data no longer allowed (a line gone,
+      // nothing left to correct…) is said, not dropped in silence.
+      if (result.skipped.length > 0) notifyError('toast.count.skipped', { count: result.skipped.length });
       queryClient.setQueryData<CountSession | null>(ACTIVE_SESSION_KEY, null);
       queryClient.setQueryData<SessionReport | undefined>(reportKey(sessionId), (old) =>
         old ? { ...old, session: result.session } : old

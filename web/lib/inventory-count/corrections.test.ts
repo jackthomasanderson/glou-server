@@ -31,8 +31,10 @@ describe('missingChoices', () => {
 });
 
 describe('defaultFindChoice', () => {
-  it('joins the first known wine of the same name, else makes a new wine; never added by default', () => {
-    expect(defaultFindChoice(find(['p1', 'p2']))).toEqual({ add: false, productId: 'p1' });
+  it('joins the one known wine of the same name, else makes a new wine; never added by default', () => {
+    expect(defaultFindChoice(find(['p1']))).toEqual({ add: false, productId: 'p1' });
+    // Among several, no guess: a new wine until the member picks one.
+    expect(defaultFindChoice(find(['p1', 'p2']))).toEqual({ add: false, productId: null });
     expect(defaultFindChoice(find([]))).toEqual({ add: false, productId: null });
   });
 });

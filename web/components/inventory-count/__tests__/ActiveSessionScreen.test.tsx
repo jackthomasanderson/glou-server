@@ -24,7 +24,8 @@ vi.mock('@/hooks/useInventoryCount', () => ({
   useScanItem: () => ({ mutate: scan, isPending: false, variables: undefined }),
   usePauseCountSession: () => ({ mutate: vi.fn(), isPending: false }),
 }));
-vi.mock('@/hooks/useInventory', () => ({ useInventory: () => ({ data: [] }) }));
+let inventory: { id: string; name: string; producer: string }[] = [];
+vi.mock('@/hooks/useInventory', () => ({ useInventory: () => ({ data: inventory }) }));
 vi.mock('../RecordFoundItemModal', () => ({ RecordFoundItemModal: () => null }));
 
 import { ActiveSessionScreen } from '../ActiveSessionScreen';
@@ -45,7 +46,18 @@ function withLines(lines: CountLine[]) {
   };
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  inventory = [];
+});
+
+/** Types in the quick search and picks the first result. */
+function pickFromSearch(text: string) {
+  const search = screen.getByRole('combobox');
+  fireEvent.focus(search);
+  fireEvent.change(search, { target: { value: text } });
+  fireEvent.click(screen.getAllByRole('option')[0]);
+}
 
 describe('ActiveSessionScreen — counting a group in one answer', () => {
   it('shows a group ×6 on one line, asking how many were found, prefilled with 6', () => {
@@ -92,5 +104,36 @@ describe('ActiveSessionScreen — counting a group in one answer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'inventoryCount.session.confirmTap' }));
 
     expect(scan).toHaveBeenCalledWith({ itemId: 'o1', foundQuantity: undefined });
+  });
+
+  it('a search that picks a group brings its question forward instead of confirming all 6', () => {
+    withLines([line('g1', {})]);
+    inventory = [{ id: 'g1', name: 'Wine g1', producer: 'Domaine' }];
+    render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+
+    pickFromSearch('Wine');
+
+    expect(scan).not.toHaveBeenCalled();
+    expect(screen.getByRole('spinbutton', { name: 'inventoryCount.session.howManyAria|Wine g1' })).toHaveFocus();
+  });
+
+  it('a search that picks a single bottle confirms it', () => {
+    withLines([line('o1', { isGroup: false, expectedQuantity: 1, missingQuantity: 1 })]);
+    inventory = [{ id: 'o1', name: 'Wine o1', producer: 'Domaine' }];
+    render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+
+    pickFromSearch('Wine');
+
+    expect(scan).toHaveBeenCalledWith({ itemId: 'o1' });
+  });
+
+  it('follows the report when it reloads with another answer', () => {
+    withLines([line('g1', { foundQuantity: 4, missingQuantity: 2 })]);
+    const { rerender } = render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+
+    withLines([line('g1', { foundQuantity: 3, missingQuantity: 3 })]);
+    rerender(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+
+    expect(screen.getByRole('spinbutton', { name: 'inventoryCount.session.howManyAria|Wine g1' })).toHaveValue(3);
   });
 });

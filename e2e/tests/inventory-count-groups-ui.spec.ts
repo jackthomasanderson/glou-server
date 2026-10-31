@@ -55,7 +55,8 @@ test('a group is counted in one answer, its gaps corrected, a find of 6 makes a 
   families.push(missing.productId, surplus.productId);
 
   const start = await api.post('/api/inventory-count/sessions', { data: { scopeLabel: `E2E #471 I2 ${id}`, cellarId } });
-  test.skip(start.status() === 409, 'another inventory count is already in progress on this instance');
+  // CI starts from an empty database and every count spec closes its own:
+  // a session still open here is a leak to fix, not a reason to skip.
   expect(start.status(), await start.text()).toBe(201);
   sessionId = ((await start.json()).data as { id: string }).id;
 

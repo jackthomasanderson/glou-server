@@ -11,11 +11,10 @@ import { useSessionReport, useScanItem, usePauseCountSession } from '@/hooks/use
 import { useInventory } from '@/hooks/useInventory';
 import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { RecordFoundItemModal } from './RecordFoundItemModal';
+import { MAX_COPIES } from '@shared/product';
 
 const MIN_SEARCH_LENGTH = 2;
 const MAX_SEARCH_RESULTS = 8;
-/** Copies one answer may count (the API's bound on a group). */
-const MAX_COPIES = 1000;
 
 interface ActiveSessionScreenProps {
   session: CountSession;
@@ -38,25 +37,43 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const [autoScannedFor, setAutoScannedFor] = useState<string | null>(null);
   const [isFoundModalOpen, setIsFoundModalOpen] = useState(false);
+  // #471 (FEAT-100): the group line a scan or a search pointed at, whose
+  // "Combien en avez-vous trouvé ?" takes the focus.
+  const [focusedLineId, setFocusedLineId] = useState<string | null>(null);
+
+  /**
+   * A group of several copies is never confirmed whole by a scan or a pick
+   * (that would also reset a number already answered): its question is
+   * brought forward instead. Anything else is confirmed as before.
+   */
+  const pointAt = (itemId: string) => {
+    const line = report?.expected.find((candidate) => candidate.id === itemId);
+    if (line && line.isGroup && line.expectedQuantity > 1) {
+      setFocusedLineId(itemId);
+      return;
+    }
+    scanMutation.mutate({ itemId });
+  };
 
   // Opening an existing QR code (?scan=itemId — same URL pattern as
   // InventoryDashboard's QR flow, see QrCodeModal.tsx) while a session is
   // active confirms that item directly instead of just opening its detail.
   useEffect(() => {
     const scanParam = searchParams.get('scan');
-    if (scanParam && scanParam !== autoScannedFor && session.status === 'active') {
+    // Waits for the report: whether the code is a group's decides what it does.
+    if (scanParam && scanParam !== autoScannedFor && session.status === 'active' && report) {
       // Paired with the router.replace() below (an external navigation side
       // effect that must stay in an effect) — splitting this setState out
       // to render-time would desync it from the URL cleanup.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAutoScannedFor(scanParam);
-      scanMutation.mutate({ itemId: scanParam });
+      pointAt(scanParam);
       const next = new URLSearchParams(searchParams.toString());
       next.delete('scan');
       router.replace(`${pathname}${next.toString() ? `?${next.toString()}` : ''}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, session.status, autoScannedFor]);
+  }, [searchParams, session.status, autoScannedFor, report]);
 
   // Quick-find search spans the FULL shared inventory (not just this
   // session's theoretical list) — an "unexpected" find is by definition an
@@ -84,7 +101,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   }, [query, allItems, alreadyRecordedIds]);
 
   const handleSelectResult = (itemId: string) => {
-    scanMutation.mutate({ itemId });
+    pointAt(itemId);
     setQuery('');
     setIsSearchOpen(false);
   };
@@ -273,6 +290,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
                   key={line.id}
                   line={line}
                   isActive={isActive}
+                  isFocused={focusedLineId === line.id}
                   isPending={scanMutation.isPending && scanMutation.variables?.itemId === line.id}
                   onConfirm={(foundQuantity) => scanMutation.mutate({ itemId: line.id, foundQuantity })}
                 />
@@ -288,6 +306,8 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
 interface CountRowProps {
   line: CountLine;
   isActive: boolean;
+  /** A scan or a search pointed at this group: its question takes the focus. */
+  isFocused: boolean;
   isPending: boolean;
   onConfirm: (foundQuantity?: number) => void;
 }
@@ -297,11 +317,26 @@ interface CountRowProps {
  * en avez-vous trouvé ?", prefilled with the number expected — and a single
  * bottle (or an opened one) is confirmed in one tap, as before.
  */
-function CountRow({ line, isActive, isPending, onConfirm }: CountRowProps) {
+function CountRow({ line, isActive, isFocused, isPending, onConfirm }: CountRowProps) {
   const { t } = useTranslation();
   const isGroup = line.isGroup && line.expectedQuantity > 1;
-  const [answer, setAnswer] = useState(String(line.foundQuantity ?? line.expectedQuantity));
   const found = line.foundQuantity;
+  const shown = String(found ?? line.expectedQuantity);
+  const [answer, setAnswer] = useState(shown);
+  // Follows the report when it reloads (another member's answer, a bottle
+  // opened meanwhile) — adjusted during render, React's documented pattern.
+  const [prevShown, setPrevShown] = useState(shown);
+  if (shown !== prevShown) {
+    setPrevShown(shown);
+    setAnswer(shown);
+  }
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!isFocused) return;
+    inputRef.current?.scrollIntoView?.({ block: 'center' });
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [isFocused]);
   const parsed = Number(answer);
   const isValid = answer.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_COPIES;
 
@@ -347,6 +382,7 @@ function CountRow({ line, isActive, isPending, onConfirm }: CountRowProps) {
             className="w-20"
             // The visible question is the same on every line: the name tells them apart.
             aria-label={t('inventoryCount.session.howManyAria', { name: line.name })}
+            ref={inputRef}
             value={answer}
             onValueChange={setAnswer}
             isInvalid={!isValid}

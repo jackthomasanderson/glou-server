@@ -418,8 +418,10 @@
       "revokeError": "Could not revoke the share link"
     },
     "count": {
-      "scanError": "Could not confirm the asset",
-      "recordError": "Could not record the asset"
+      "scanError": "Couldn't confirm the bottle",
+      "recordError": "Couldn't record the find",
+      "skipped_one": "Session closed: {{count}} correction couldn't be applied (the bottle changed meanwhile).",
+      "skipped_other": "Session closed: {{count}} corrections couldn't be applied (the bottles changed meanwhile)."
     },
     "admin": {
       "roleSuccess": "Member role updated",

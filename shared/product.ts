@@ -246,4 +246,7 @@ export interface UnitWriteResult<TData = ItemView, TUnit = ItemView> {
  * lost detaches them as a write-off (out of stock, still in the spending).
  */
 export const CORRECTION_REASONS = ['input_error', 'written_off'] as const;
+
+/** Copies one write may add, or one group may count (and one count answer may say). */
+export const MAX_COPIES = 1000;
 export type CorrectionReason = (typeof CORRECTION_REASONS)[number];
