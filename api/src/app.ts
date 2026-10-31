@@ -7,6 +7,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { inventoryRouter } from './routes/inventory.router';
+import { productsRouter } from './routes/products.router';
 import { authRouter } from './routes/auth.router';
 import { authMiddleware } from './middleware/auth.middleware';
 import cellarsRouter from './routes/cellars.router';
@@ -177,6 +178,7 @@ export function createApp(): express.Express {
   app.use('/api/cellars', cellarsRouter);
   app.use('/api/stats', statsRouter);
   app.use('/api/inventory', inventoryRouter);
+  app.use('/api/products', productsRouter);
   app.use('/api/bulk-presets', bulkPresetsRouter);
   app.use('/api/alerts', alertsRouter);
   app.use('/api/consumption-plan', consumptionPlanRouter);

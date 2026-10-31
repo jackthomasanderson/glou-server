@@ -59,9 +59,9 @@ export const commonInventorySchema = z.object({
 // to be stored as is and skewed the peak alerts.
 
 type PeakWindow = { peakMaturityFrom?: number | null; peakMaturityTo?: number | null };
-const peakWindowInOrder = (d: PeakWindow) =>
+export const peakWindowInOrder = (d: PeakWindow) =>
   d.peakMaturityFrom == null || d.peakMaturityTo == null || d.peakMaturityTo >= d.peakMaturityFrom;
-const PEAK_WINDOW_ORDER = { message: 'peakMaturityTo must be >= peakMaturityFrom', path: ['peakMaturityTo'] };
+export const PEAK_WINDOW_ORDER = { message: 'peakMaturityTo must be >= peakMaturityFrom', path: ['peakMaturityTo'] };
 
 /** The window an item ends up with once a patch is applied to it (see InventoryService.updateItem). */
 export const peakWindowSchema = z
@@ -149,7 +149,8 @@ export type InventoryCategory = InventoryInput['category'];
 // Uses a flat partial object instead of discriminatedUnion.partial() which is not
 // supported by Zod's type system for discriminated unions.
 
-export const inventoryPatchSchema = z.object({
+/** The patch fields, before the cross-field window check (#471: the family patch picks its own). */
+export const inventoryPatchObject = z.object({
   category: categorySchema.optional(),
   name: z.string().min(1).max(200).optional(),
   producer: z.string().min(1).max(200).optional(),
@@ -229,7 +230,9 @@ export const inventoryPatchSchema = z.object({
   expectedUpdatedAt: z.string().datetime().optional(),
   // Both years in one patch (what the bottle form sends). A patch carrying
   // only one is checked against the stored other one in updateItem.
-}).refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
+});
+
+export const inventoryPatchSchema = inventoryPatchObject.refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
 
 export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
 

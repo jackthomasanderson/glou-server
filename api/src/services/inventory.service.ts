@@ -2,26 +2,26 @@ import { Prisma } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
-import { InventoryPatch, InventoryInput, peakWindowSchema } from '../schemas/inventory.schema';
+import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
+import { readFieldHistory } from './audit.service';
+import type { FieldChange, ProductHistoryEntry } from '../../../shared/product';
 import { isFinishedItem, NO_SLOT } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
-  fieldSourcesOf, isProductField, pickProductFields, todayAsPurchaseDate, toItemView, writeProductFields,
-  type FlatItemView, type ProductWrite,
+  isProductField, nextLocksAndSources, pickProductFields, todayAsPurchaseDate, toItemView,
+  type FlatItemView,
 } from '../lib/product-fields';
+import { writeFamilyDescription } from './product.service';
+import { isSlotTaken } from '../lib/slots';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
 // endpoints (uploads/products/*) is ever safe to delete from disk — an
 // item whose photoUrl is some other external address must never be touched.
 const LOCAL_PRODUCT_PHOTO_PREFIX = '/uploads/products/';
 
-export interface FieldChange {
-  field: string;
-  from: unknown;
-  to: unknown;
-}
+export type { FieldChange };
 
 /**
  * Origin of a field's current value (FEAT-05), stored per field in
@@ -56,17 +56,8 @@ export type UpdateItemResult =
   | { item: InventoryItemView; changes: FieldChange[]; slotConflict?: boolean }
   | { conflict: true; serverItem: InventoryItemView };
 
-export interface InventoryHistoryEntry {
-  id: number;
-  action: string;
-  status: string;
-  actorId: string;
-  actorName: string;
-  /** ISSUE_483: set when the change came through a guest share link. */
-  viaGuest?: boolean;
-  changes: FieldChange[] | null;
-  createdAt: Date;
-}
+/** A line of a unit's history; `itemId` is the unit itself. */
+export type InventoryHistoryEntry = ProductHistoryEntry;
 
 export interface InventoryWithTraceability {
   item: Record<string, unknown>;
@@ -215,40 +206,8 @@ export class InventoryService {
     return { item: attachReadiness(toItemView(item)), creator, lastEditor };
   }
 
-  async getItemHistory(id: string): Promise<InventoryHistoryEntry[]> {
-    const logs = await prisma.auditLog.findMany({
-      where: {
-        bottleId: id,
-        action: { in: ['CREATE', 'UPDATE', 'DELETE', 'RESTORE', 'RESTORE_FIELD', 'GUEST_UPDATE'] },
-        status: 'success',
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const uniqueUserIds = [...new Set(logs.map((l) => l.userId))];
-    const users = await prisma.user.findMany({
-      where: { id: { in: uniqueUserIds } },
-      select: { id: true, displayName: true, username: true },
-    });
-    const userMap = new Map(users.map((u) => [u.id, u.displayName ?? u.username]));
-
-    return logs.map((log) => {
-      const details = log.details as Record<string, unknown> | null;
-      // ISSUE_483: a guest edit is logged under the share creator's id; show
-      // the guest's name instead so the history does not blame the member.
-      const viaGuest = log.action === 'GUEST_UPDATE';
-      const guestName = viaGuest && typeof details?.['inviteeName'] === 'string' ? details['inviteeName'] : null;
-      return {
-        id: log.id,
-        action: log.action,
-        status: log.status,
-        actorId: log.userId,
-        actorName: guestName ?? userMap.get(log.userId) ?? log.userId,
-        ...(viaGuest ? { viaGuest: true } : {}),
-        changes: details?.['changes'] as FieldChange[] | null ?? null,
-        createdAt: log.createdAt,
-      };
-    });
+  getItemHistory(id: string): Promise<InventoryHistoryEntry[]> {
+    return readFieldHistory({ bottleId: id });
   }
 
   /**
@@ -406,12 +365,15 @@ export class InventoryService {
     // from silently overwriting a manual edit — it must never block the user
     // from manually editing that same field again (e.g. bumping the quantity
     // of an already-locked duplicate, or resetting a bottle from "empty" back
-    // to "full"). Only a non-manual caller is filtered against it.
-    const safePatch = bypassFieldLock || isManualEdit
-      ? patch
-      : (Object.fromEntries(
-          Object.entries(patch).filter(([key]) => !existing.lockedFields.includes(key))
-        ) as InventoryPatch);
+    // to "full"). Only a non-manual caller is filtered against it. #471: the
+    // unit's own locks here; the family's are read once it is locked, in the
+    // transaction (writeFamilyDescription).
+    const respectLocks = !bypassFieldLock && !isManualEdit;
+    const safePatch = respectLocks
+      ? (Object.fromEntries(
+          Object.entries(patch).filter(([key]) => isProductField(key) || !row.lockedFields.includes(key))
+        ) as InventoryPatch)
+      : patch;
 
     // #573: a bottle this patch leaves finished gives its grid slot back (see
     // lib/finished-item.ts) — the cellar map hides it, so a slot it kept would
@@ -445,22 +407,14 @@ export class InventoryService {
     // slot sent alongside that `NO_SLOT` overrides.
     const writePatch: InventoryPatch = finished ? { ...safePatch, ...NO_SLOT } : safePatch;
 
-    const changes: FieldChange[] = Object.entries(writePatch)
-      .filter(([key, val]) => {
-        const existingVal = this.getField(existing, key);
-        return JSON.stringify(existingVal) !== JSON.stringify(val);
-      })
-      .map(([key, val]) => ({
-        field: key,
-        from: this.getField(existing, key),
-        to: val,
-      }));
-
     // #471: the family's fields go to the family (and its mirror), the rest
     // to the unit — each with its own locks and field sources (D1).
     const dbData = this.mapInputToDb(writePatch);
-    const productData: ProductWrite = pickProductFields(dbData);
+    const familyPatch = pickProductFields(dbData);
     const itemData = Object.fromEntries(Object.entries(dbData).filter(([key]) => !isProductField(key)));
+    const unitChanges = new Map(Object.entries(itemData)
+      .filter(([key, val]) => JSON.stringify(this.getField(existing, key)) !== JSON.stringify(val))
+      .map(([key, val]) => [key, { field: key, from: this.getField(existing, key), to: val }]));
 
     // ─── FEAT-05: auto-lock manually-edited fields + reconcile fieldSources ──
     // `lockedFields` can already be set explicitly in the patch (a future
@@ -469,27 +423,19 @@ export class InventoryService {
     const touched = Object.keys(safePatch).filter((key) => key !== 'lockedFields');
     const autoLock = isManualEdit && !Object.prototype.hasOwnProperty.call(safePatch, 'lockedFields');
     const isUnitField = (key: string) => !isProductField(key);
-    const bookkeeping = { touched, fieldSources, isManualEdit, autoLock };
-    Object.assign(productData, this.nextLocksAndSources(row.product, isProductField, bookkeeping));
-    Object.assign(itemData, this.nextLocksAndSources(row, isUnitField, bookkeeping));
-
-    const from = ('peakMaturityFrom' in safePatch ? safePatch.peakMaturityFrom : existing.peakMaturityFrom) as number | null | undefined;
-    const to = ('peakMaturityTo' in safePatch ? safePatch.peakMaturityTo : existing.peakMaturityTo) as number | null | undefined;
-    // #706: a patch moving only one end of the window is checked against the
-    // stored other end. Throws a ZodError, which the router answers with 400.
-    if ('peakMaturityFrom' in safePatch || 'peakMaturityTo' in safePatch) {
-      peakWindowSchema.parse({ peakMaturityFrom: from, peakMaturityTo: to });
-    }
-    // Written only when it moves, so a unit-only edit leaves the family untouched.
-    const alertStatus = computeAlertStatus(from, to);
-    if (alertStatus !== row.product.alertStatus) productData.alertStatus = alertStatus;
+    Object.assign(itemData, nextLocksAndSources(row, isUnitField, { touched, fieldSources, isManualEdit, autoLock }));
 
     let item: InventoryItemView;
+    let familyChanges = new Map<string, FieldChange>();
     try {
       item = await prisma.$transaction(async (tx) => {
-        if (Object.keys(productData).length > 0) {
-          await writeProductFields(tx, row.productId, { ...productData, updatedBy: userId });
-        }
+        // Also when the patch holds no family field: the derived alert may
+        // need realigning, and that is decided on the locked family (#706
+        // window check included — a ZodError, answered with 400).
+        const family = await writeFamilyDescription(tx, row.productId, familyPatch, {
+          userId, touched, fieldSources, isManualEdit, autoLock, respectLocks,
+        });
+        familyChanges = new Map(family.changes.map((change) => [change.field, change]));
         // The unit is always stamped: the flat record it stands for changed.
         const updated = await tx.inventoryItem.update({
           where: { id },
@@ -509,6 +455,9 @@ export class InventoryService {
       throw err;
     }
 
+    const changes = Object.keys(writePatch)
+      .map((key) => familyChanges.get(key) ?? unitChanges.get(key))
+      .filter((change): change is FieldChange => change !== undefined);
     return { item, changes };
   }
 
@@ -576,48 +525,45 @@ export class InventoryService {
     });
 
     if (rows.length === 0) return 0;
-    const existing = rows.map((row) => ({ row, view: toItemView(row) }));
-
-    // #706: as in updateItem, a patch moving one end of the peak window is
-    // checked against each item's stored other end, before anything is written.
-    if ('peakMaturityFrom' in patch || 'peakMaturityTo' in patch) {
-      for (const { view: item } of existing) {
-        peakWindowSchema.parse({
-          peakMaturityFrom: 'peakMaturityFrom' in patch ? patch.peakMaturityFrom : item.peakMaturityFrom,
-          peakMaturityTo: 'peakMaturityTo' in patch ? patch.peakMaturityTo : item.peakMaturityTo,
-        });
-      }
-    }
+    // #471: families locked in a stable order (by id), so two bulk actions
+    // over overlapping selections cannot deadlock.
+    const existing = rows
+      .map((row) => ({ row, view: toItemView(row) }))
+      .sort((a, b) => a.row.productId.localeCompare(b.row.productId) || a.row.id.localeCompare(b.row.id));
+    const familyPatch = pickProductFields(this.mapInputToDb(patch));
+    const unitPatch = Object.fromEntries(Object.entries(this.mapInputToDb(patch)).filter(([key]) => !isProductField(key)));
 
     let updatedCount = 0;
-    // #471: a family shared by several selected units is written once.
-    const writtenProducts = new Set<string>();
     await prisma.$transaction(async (tx) => {
+      // #471: each family written once, under its lock — the window checked
+      // against its stored other end (#706, a ZodError rolls everything
+      // back) and its alert recomputed (writeFamilyDescription).
+      const familyChanged = new Map<string, boolean>();
       for (const { row, view: item } of existing) {
-        // A bulk action is an explicit user action, exactly like the regular
-        // single-item PATCH: `lockedFields` only shields a field from a later
-        // *automated* pass (see `updateItem`), never from the user. Filtering
-        // the patch here silently turned "mark as opened" / "set fill level"
-        // into a no-op on every bottle whose level had once been adjusted by
-        // hand — and still counted it as updated (ISSUE_034).
-        const changedEntries = Object.entries(patch).filter(
+        if (!familyChanged.has(row.productId)) {
+          const changed = Object.keys(familyPatch).length > 0
+            && (await writeFamilyDescription(tx, row.productId, familyPatch, {
+              // A bulk action is an explicit user action, exactly like the regular
+              // single-item PATCH: `lockedFields` only shields a field from a later
+              // *automated* pass (see `updateItem`), never from the user. Filtering
+              // the patch here silently turned a bulk edit into a no-op on every
+              // field once adjusted by hand — and still counted it (ISSUE_034).
+              userId, isManualEdit: false, autoLock: false, respectLocks: false, onlyChanged: true,
+            })).changes.length > 0;
+          familyChanged.set(row.productId, changed);
+        }
+        const changedEntries = Object.entries(unitPatch).filter(
           ([key, value]) => JSON.stringify(this.getField(item, key)) !== JSON.stringify(value)
         );
         // Only items this call really changes are applied and counted, so the
         // "N items updated" confirmation tells the truth.
-        if (changedEntries.length === 0) continue;
+        if (changedEntries.length === 0 && !familyChanged.get(row.productId)) continue;
 
         const changed = Object.fromEntries(changedEntries) as InventoryPatch;
-        const dbData = this.mapInputToDb(changed);
-        const productData: ProductWrite = pickProductFields(dbData);
-        if (Object.keys(productData).length > 0 && !writtenProducts.has(row.productId)) {
-          writtenProducts.add(row.productId);
-          await writeProductFields(tx, row.productId, { ...productData, updatedBy: userId });
-        }
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
-            ...Object.fromEntries(Object.entries(dbData).filter(([key]) => !isProductField(key))),
+            ...changed,
             // #573: an item this call leaves finished gives its grid slot back (see updateItem).
             ...(this.isFinishedAfter(item, changed) ? NO_SLOT : {}),
             updatedAt: new Date(),
@@ -652,43 +598,31 @@ export class InventoryService {
         id,
         deletedAt: { not: null, gte: cutoff },
       },
+      include: { product: { select: { deletedAt: true } } },
     });
     if (!existing) return null;
 
     // A trashed bottle keeps its grid slot, which may have been given to another
     // bottle since (#174). Restore it unplaced rather than assign the slot twice.
-    let slotTaken = false;
-    if (existing.cellarId && existing.slotColumn != null && existing.slotRow != null) {
-      const occupant = await prisma.inventoryItem.findFirst({
-        where: {
-          cellarId: existing.cellarId,
-          slotColumn: existing.slotColumn,
-          slotRow: existing.slotRow,
-          id: { not: id },
-          deletedAt: null,
-        },
-        select: { id: true },
-      });
-      slotTaken = occupant !== null;
-    }
+    const slotTaken = await isSlotTaken(prisma, existing);
+    // #471 (D10): a unit back in stock brings its family out of the trash with
+    // it — otherwise it would come back inside a family nobody sees.
+    const restoreUnit = (data: Prisma.InventoryItemUpdateInput) => prisma.$transaction(async (tx) => {
+      if (existing.product.deletedAt) {
+        await tx.product.update({ where: { id: existing.productId }, data: { deletedAt: null } });
+      }
+      return toItemView(await tx.inventoryItem.update({ where: { id }, data, include: INVENTORY_ITEM_INCLUDE }));
+    });
 
     try {
-      return toItemView(await prisma.inventoryItem.update({
-        where: { id },
-        data: slotTaken ? { deletedAt: null, slotColumn: null, slotRow: null } : { deletedAt: null },
-        include: INVENTORY_ITEM_INCLUDE,
-      }));
+      return await restoreUnit(slotTaken ? { deletedAt: null, ...NO_SLOT } : { deletedAt: null });
     } catch (err) {
       // #173: the occupant check above closes almost every window; the
       // database's partial unique index is the actual guarantee against a
       // slot having been taken in the instant between that check and this
       // write — fall back to restoring unplaced rather than erroring out.
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        return toItemView(await prisma.inventoryItem.update({
-          where: { id },
-          data: { deletedAt: null, slotColumn: null, slotRow: null },
-          include: INVENTORY_ITEM_INCLUDE,
-        }));
+        return restoreUnit({ deletedAt: null, ...NO_SLOT });
       }
       throw err;
     }
@@ -703,35 +637,47 @@ export class InventoryService {
    * rolled-back transaction doesn't leave rows pointing at photos already
    * gone from disk.
    *
-   * #471: a family whose last units are purged goes with them unless it holds
-   * a tasting (QP1: it then stays, "Plus en cave"). A photo is only returned
-   * once nothing — no family (photo or other photos), no remaining unit —
-   * references it any more.
+   * #471: a family left without any unit by this purge goes with its units,
+   * unless it holds a tasting (QP1: it then stays, "Plus en cave"). A family
+   * put in the trash itself (D10) is deleted past the retention period, its
+   * tastings with it (QP7: erasing the wine was asked for explicitly). A
+   * photo is only returned once nothing — no family (photo or other photos),
+   * no remaining unit — references it any more.
+   *
+   * Without a client, runs in its own transaction (startup purge): a
+   * half-done purge would leave emptied families nobody ever looks at again.
    */
   async purgeTrashed(
-    client: PrismaClientOrTx = prisma,
+    client?: PrismaClientOrTx,
   ): Promise<{ count: number; photoPaths: string[] }> {
+    if (!client) return prisma.$transaction((tx) => this.purgeTrashed(tx), { timeout: 60000, maxWait: 10000 });
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const toPurge = await client.inventoryItem.findMany({
       where: { deletedAt: { lt: cutoff } },
       select: { id: true, photoUrl: true, productId: true },
     });
-    if (toPurge.length === 0) return { count: 0, photoPaths: [] };
+    const result = toPurge.length > 0
+      ? await client.inventoryItem.deleteMany({ where: { id: { in: toPurge.map((item) => item.id) } } })
+      : { count: 0 };
 
-    const result = await client.inventoryItem.deleteMany({
-      where: { id: { in: toPurge.map((item) => item.id) } },
-    });
-
-    const emptiedFamilies = {
-      id: { in: [...new Set(toPurge.map((item) => item.productId))] },
-      items: { none: {} },
-      tastingNotes: { none: {} },
-    } satisfies Prisma.ProductWhereInput;
     const purgedFamilies = await client.product.findMany({
-      where: emptiedFamilies,
-      select: { photoUrl: true, otherPhotoUrls: true },
+      where: {
+        items: { none: {} },
+        OR: [
+          // QP1: emptied by this purge, not in the trash themselves, no tasting.
+          { id: { in: [...new Set(toPurge.map((item) => item.productId))] }, deletedAt: null, tastingNotes: { none: {} } },
+          // QP7: trashed themselves, past the retention.
+          { deletedAt: { lt: cutoff } },
+        ],
+      },
+      select: { id: true, photoUrl: true, otherPhotoUrls: true },
     });
-    if (purgedFamilies.length > 0) await client.product.deleteMany({ where: emptiedFamilies });
+    if (purgedFamilies.length > 0) {
+      const ids = { in: purgedFamilies.map((family) => family.id) };
+      // `TastingNote.productId` is SET NULL: delete them first, or they would outlive their wine.
+      await client.tastingNote.deleteMany({ where: { productId: ids } });
+      await client.product.deleteMany({ where: { id: ids } });
+    }
 
     const candidates = [
       ...toPurge.map((item) => item.photoUrl),
@@ -830,44 +776,6 @@ export class InventoryService {
    */
   private getField(item: object, key: string): unknown {
     return (item as Record<string, unknown>)[key];
-  }
-
-  /**
-   * FEAT-05 bookkeeping of one table — the family or the unit, each for its
-   * own fields (#471, D1), told apart by `belongs`: a manual edit locks the
-   * touched fields and clears their stale non-manual source, `fieldSources`
-   * tags the fields this call filled. Returns only the columns that change.
-   */
-  private nextLocksAndSources(
-    current: { lockedFields: string[]; fieldSources: Prisma.JsonValue },
-    belongs: (field: string) => boolean,
-    options: { touched: string[]; fieldSources?: Partial<Record<string, FieldSource>>; isManualEdit: boolean; autoLock: boolean },
-  ): { lockedFields?: string[]; fieldSources?: Record<string, string> } {
-    const { fieldSources, isManualEdit, autoLock } = options;
-    const touched = options.touched.filter(belongs);
-    const result: { lockedFields?: string[]; fieldSources?: Record<string, string> } = {};
-
-    if (autoLock) {
-      const fieldsToLock = touched.filter((key) => !current.lockedFields.includes(key));
-      if (fieldsToLock.length > 0) result.lockedFields = [...current.lockedFields, ...fieldsToLock];
-    }
-
-    const existingSources = fieldSourcesOf(current.fieldSources);
-    const nextSources: Record<string, string> = { ...existingSources };
-    for (const [key, source] of Object.entries(fieldSources ?? {})) {
-      if (source && belongs(key)) nextSources[key] = source;
-    }
-    if (isManualEdit) {
-      // A field the user just edited by hand reclaims 'manual' status — any
-      // stale non-manual tag is cleared unless this very call re-tags it
-      // (e.g. a future OCR confirmation step calling updateItem with both
-      // isManualEdit: true and an explicit fieldSources entry).
-      for (const key of touched) {
-        if (!fieldSources || !(key in fieldSources)) delete nextSources[key];
-      }
-    }
-    if (JSON.stringify(nextSources) !== JSON.stringify(existingSources)) result.fieldSources = nextSources;
-    return result;
   }
 
   /**

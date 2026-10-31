@@ -5,7 +5,7 @@ import { notificationService } from './notification.service';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { escapeHtml } from '../lib/html';
 import { systemConfigService } from './system-config.service';
-import { writeProductFields } from '../lib/product-fields';
+import { lockFamily, writeAlertStatus, writeProductFields } from '../lib/product-fields';
 
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
@@ -145,11 +145,11 @@ export interface AlertStatusRecomputeResult {
  * written, which in practice is a handful per year.
  *
  * #471: one pass per family, not per unit — a wine of 9 bottles is written
- * once (with its mirror on the units, whose `updatedAt` the mirror never
- * touches) and notified once. The family's `updatedAt` is carried over
- * explicitly so this maintenance pass never looks like a user edit: bumping it
- * would reorder user-facing lists and trigger spurious conflicts in the
- * FEAT-16/23 offline-sync concurrency check.
+ * once and notified once. No `updatedAt` moves (`writeAlertStatus`, in SQL,
+ * with its mirror on the units), so this maintenance pass never looks like a
+ * user edit: bumping it would reorder user-facing lists and trigger spurious
+ * conflicts in the FEAT-16/23 offline-sync concurrency check — and carrying
+ * over an `updatedAt` read before could move it back past a concurrent edit.
  */
 export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResult> {
   const families = await prisma.product.findMany({
@@ -163,7 +163,6 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
       alertsPaused: true,
       peakMaturityFrom: true,
       peakMaturityTo: true,
-      updatedAt: true,
       // Is there anything left to drink? (#573, FEAT-87)
       items: { where: IN_STOCK_ITEM_FILTER, select: { id: true }, take: 1 },
     },
@@ -174,8 +173,7 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
   for (const family of families) {
     const nextStatus = computeAlertStatus(family.peakMaturityFrom, family.peakMaturityTo);
     if (family.alertStatus === nextStatus) continue;
-    await prisma.$transaction((tx) =>
-      writeProductFields(tx, family.id, { alertStatus: nextStatus, updatedAt: family.updatedAt }));
+    await writeAlertStatus(prisma, family.id, nextStatus);
     updated += 1;
 
     // #338: the `family.alertStatus === nextStatus` guard above is the
@@ -263,10 +261,15 @@ async function notifyPeakReached(items: PeakItem[]): Promise<void> {
  * for every bottle of the wine.
  */
 export async function toggleAlertPause(id: string): Promise<boolean> {
-  const item = await prisma.inventoryItem.findFirst({ where: { id, deletedAt: null }, include: { product: true } });
+  const item = await prisma.inventoryItem.findFirst({ where: { id, deletedAt: null }, select: { productId: true } });
   if (!item) return false;
 
-  await prisma.$transaction((tx) =>
-    writeProductFields(tx, item.productId, { alertsPaused: !item.product.alertsPaused }));
+  // #471: flipped on the family as it is once locked — two toggles in a row
+  // must not both read the same value and cancel into a no-op.
+  await prisma.$transaction(async (tx) => {
+    await lockFamily(tx, item.productId);
+    const { alertsPaused } = await tx.product.findUniqueOrThrow({ where: { id: item.productId }, select: { alertsPaused: true } });
+    await writeProductFields(tx, item.productId, { alertsPaused: !alertsPaused });
+  });
   return true;
 }
