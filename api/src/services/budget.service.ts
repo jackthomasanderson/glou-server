@@ -1,7 +1,8 @@
 import { prisma } from '../lib/prisma';
 import { BudgetEnvelopeCreateInput, BudgetEnvelopePatchInput } from '../schemas/budget.schema';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
-import { toNumber } from '../lib/decimal';
+import { itemSpend } from '../lib/finished-item';
+import { todayAsPurchaseDate } from '../lib/product-fields';
 
 /**
  * ISSUE_142: budget envelopes are household-wide, not personal. `userId` on
@@ -9,8 +10,8 @@ import { toNumber } from '../lib/decimal';
  * like `userId` on InventoryItem — it is never used to scope what a caller
  * can list, read, edit, delete, or count against. Every member of the
  * household sees and manages the same envelopes and the same "spent"
- * total, which is now the sum of `purchasePrice` across the full shared
- * inventory for the envelope's period, not just items this caller created.
+ * total, which is now the spending across the full shared inventory for the
+ * envelope's period (see `getBudgetProgress`), not just items this caller created.
  */
 
 export async function listBudgetEnvelopes() {
@@ -47,6 +48,13 @@ export async function deleteBudgetEnvelope(id: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * `purchasedAt` is a day (`@db.Date`, stored as midnight UTC): an envelope's
+ * bound is compared as its day in the instance's time zone, the way the
+ * purchase day itself is written (D6).
+ */
+const dayOf = (moment: Date): Date => todayAsPurchaseDate(moment);
+
 export interface BudgetProgress {
   envelope: Awaited<ReturnType<typeof prisma.budgetEnvelope.findFirst>>;
   spent: number;
@@ -55,27 +63,34 @@ export interface BudgetProgress {
 }
 
 /**
- * "Spent" = sum of `purchasePrice` across the whole shared inventory (not
- * scoped to any one member — see file-level note) whose `createdAt` falls
- * inside the envelope's period.
+ * "Spent" (#471, FEAT-96) = `itemSpend` (purchase price of one copy × copies
+ * bought) across the whole shared inventory (not scoped to any one member —
+ * see file-level note): drunk and written-off copies included, as only an
+ * "input error" correction lowers `quantity`. A purchase belongs to the
+ * envelope's period by its purchase day (`purchasedAt`, point 58), else by the
+ * day it was recorded (`createdAt`, units older than the purchase date, #578).
  */
 export async function getBudgetProgress(envelopeId: string): Promise<BudgetProgress | null> {
   const envelope = await prisma.budgetEnvelope.findFirst({ where: { id: envelopeId } });
   if (!envelope) return null;
 
-  const result = await prisma.inventoryItem.aggregate({
+  const units = await prisma.inventoryItem.findMany({
     where: {
       deletedAt: null,
       // FEAT-87: a non-owned reference was never bought, so it never counts
       // as money spent, even when a price was recorded on it.
       ...OWNED_ITEM_FILTER,
-      createdAt: { gte: envelope.periodStart, lte: envelope.periodEnd },
       purchasePrice: { not: null },
+      OR: [
+        { purchasedAt: { gte: dayOf(envelope.periodStart), lte: dayOf(envelope.periodEnd) } },
+        { purchasedAt: null, createdAt: { gte: envelope.periodStart, lte: envelope.periodEnd } },
+      ],
     },
-    _sum: { purchasePrice: true },
+    select: { quantity: true, purchasePrice: true },
   });
 
-  const spent = toNumber(result._sum.purchasePrice) ?? 0;
+  // Cents: a sum of decimal prices must not show 59.97000000000001.
+  const spent = Math.round(units.reduce((sum, unit) => sum + itemSpend(unit), 0) * 100) / 100;
   const remaining = Math.max(0, envelope.amount - spent);
   const percent = envelope.amount > 0 ? Math.min(100, Math.round((spent / envelope.amount) * 100)) : 0;
 

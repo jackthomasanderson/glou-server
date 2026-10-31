@@ -2,8 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessPercent } from '../lib/maturity-curve';
 import { notificationService } from './notification.service';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
-import { NOT_FINISHED_ITEM_FILTER, isFinishedItem } from '../lib/finished-item';
+import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { escapeHtml } from '../lib/html';
 import { systemConfigService } from './system-config.service';
 import { writeProductFields } from '../lib/product-fields';
@@ -47,40 +46,49 @@ export function computeReadiness(
 }
 
 /**
- * Matches every active item that has at least one end of a drinking window
- * defined — i.e. exactly the population for which `computeAlertStatus` can
+ * #471: the drinking window, its status and the pause are true of every
+ * bottle of the wine, so they live on the family (`Product`) and alerts reason
+ * per family — a wine of 9 bottles in 3 groups is one alert, one notification.
+ *
+ * Matches every family not in the trash with at least one end of a drinking
+ * window defined — exactly the population for which `computeAlertStatus` can
  * return something other than 'none'. Shared by `getAlerts` (read path) and
- * `recomputeAlertStatuses` (maintenance path) so both always agree on the
- * set of items an alert can possibly apply to. `getAlerts` then leaves out
- * finished bottles (#573); the recompute keeps them so the status shown on
- * their card stays current, and only skips them when notifying.
+ * `recomputeAlertStatuses` (maintenance path) so both always agree on the set
+ * of families an alert can possibly apply to. `getAlerts` then keeps only the
+ * families with a unit in stock (#573: a finished bottle has been drunk;
+ * FEAT-87: a reference has no bottle to drink); the recompute keeps them all
+ * so the status shown on their card stays current, and only skips them when
+ * notifying.
  */
 const HAS_MATURITY_WINDOW = {
   deletedAt: null,
-  // FEAT-87: a non-owned reference has no bottle to drink, so it never
-  // raises a peak-maturity alert.
-  ...OWNED_ITEM_FILTER,
   OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
-} satisfies Prisma.InventoryItemWhereInput;
+} satisfies Prisma.ProductWhereInput;
+
+/** A family has something to drink: at least one unit in stock. */
+const HAS_STOCK = { items: { some: IN_STOCK_ITEM_FILTER } } satisfies Prisma.ProductWhereInput;
 
 /**
- * Returns all active (non-deleted) inventory items with a computed alert status,
- * excluding paused alerts and 'none' status.
+ * Returns the families with a unit in stock and a computed alert status,
+ * excluding paused alerts and 'none' status — one row per family.
  * Sorted by urgency: past → peak → approaching.
  * Each row also carries a FEAT-86 `readiness` percentage (null when the curve
  * model has nothing to work with).
  *
+ * `id` and `cellarId` are those of one unit in stock of the family (the oldest
+ * purchase), the one the bell and the drink suggestions open; `productId` is
+ * the family's.
+ *
  * The status is computed on read and never taken from the denormalised
- * `InventoryItem.alertStatus` column: that column only changes when someone
- * edits the item, so a bottle whose window opens next January would otherwise
- * stay invisible here until it happens to be edited (ISSUE_033). The column is
- * still maintained — see `recomputeAlertStatuses` — for the consumers that
- * aggregate it in SQL, but this user-facing list is always exact.
+ * `alertStatus` column: that column only changes when someone edits the wine,
+ * so a bottle whose window opens next January would otherwise stay invisible
+ * here until it happens to be edited (ISSUE_033). The column is still
+ * maintained — see `recomputeAlertStatuses` — for the consumers that aggregate
+ * it in SQL, but this user-facing list is always exact.
  */
 export async function getAlerts() {
-  const items = await prisma.inventoryItem.findMany({
-    // #573: a finished bottle has been drunk — nothing left to act on.
-    where: { ...HAS_MATURITY_WINDOW, ...NOT_FINISHED_ITEM_FILTER, alertsPaused: false },
+  const families = await prisma.product.findMany({
+    where: { ...HAS_MATURITY_WINDOW, ...HAS_STOCK, alertsPaused: false },
     orderBy: [{ updatedAt: 'desc' }],
     select: {
       id: true,
@@ -92,49 +100,59 @@ export async function getAlerts() {
       peakMaturityTo: true,
       curveShape: true,
       alertsPaused: true,
-      cellarId: true,
       collection: true,
       photoUrl: true,
+      items: {
+        where: IN_STOCK_ITEM_FILTER,
+        select: { id: true, cellarId: true },
+        orderBy: [{ purchasedAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }],
+        take: 1,
+      },
     },
   });
 
   const urgencyOrder: Record<AlertStatus, number> = { past: 0, peak: 1, approaching: 2, none: 3 };
-  return items
-    .map((item) => ({
-      ...item,
-      alertStatus: computeAlertStatus(item.peakMaturityFrom, item.peakMaturityTo),
-      readiness: computeReadiness(item.curveShape, item.peakMaturityFrom, item.peakMaturityTo),
+  return families
+    .filter((family) => family.items.length > 0)
+    .map(({ items: [unit], id: productId, ...family }) => ({
+      ...family,
+      id: unit.id,
+      productId,
+      cellarId: unit.cellarId,
+      alertStatus: computeAlertStatus(family.peakMaturityFrom, family.peakMaturityTo),
+      readiness: computeReadiness(family.curveShape, family.peakMaturityFrom, family.peakMaturityTo),
     }))
-    .filter((item) => item.alertStatus !== 'none')
+    .filter((alert) => alert.alertStatus !== 'none')
     .sort((a, b) => urgencyOrder[a.alertStatus] - urgencyOrder[b.alertStatus]);
 }
 
 export interface AlertStatusRecomputeResult {
-  /** Items carrying a drinking window, i.e. the rows actually examined. */
+  /** Families carrying a drinking window, i.e. the rows actually examined. */
   scanned: number;
-  /** Rows whose stored status no longer matched the current year. */
+  /** Families whose stored status no longer matched the current year. */
   updated: number;
 }
 
 /**
- * Realigns the denormalised `InventoryItem.alertStatus` column with the
- * current year (ISSUE_033).
+ * Realigns the denormalised `alertStatus` column with the current year
+ * (ISSUE_033).
  *
  * `alertStatus` is a time-dependent value — it shifts on every 1st of January
- * — but it is only written when an item is created or edited, so without this
+ * — but it is only written when a wine is created or edited, so without this
  * pass the stored value silently rots and the consumers that read it straight
  * from SQL (analytics, guest shares) keep reporting last year's picture. Run
- * at startup and once a day; only rows whose status actually changed are
+ * at startup and once a day; only families whose status actually changed are
  * written, which in practice is a handful per year.
  *
- * `updatedAt` is carried over explicitly so this maintenance pass never looks
- * like a user edit: bumping it would reorder user-facing lists and trigger
- * spurious conflicts in the FEAT-16/23 offline-sync concurrency check.
- * #471: the status lives on the family, written with its mirror on the units
- * (whose `updatedAt` the mirror never touches); the family keeps its own.
+ * #471: one pass per family, not per unit — a wine of 9 bottles is written
+ * once (with its mirror on the units, whose `updatedAt` the mirror never
+ * touches) and notified once. The family's `updatedAt` is carried over
+ * explicitly so this maintenance pass never looks like a user edit: bumping it
+ * would reorder user-facing lists and trigger spurious conflicts in the
+ * FEAT-16/23 offline-sync concurrency check.
  */
 export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResult> {
-  const items = await prisma.inventoryItem.findMany({
+  const families = await prisma.product.findMany({
     where: HAS_MATURITY_WINDOW,
     select: {
       id: true,
@@ -145,42 +163,42 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
       alertsPaused: true,
       peakMaturityFrom: true,
       peakMaturityTo: true,
-      isOpened: true,
-      fillLevel: true,
-      productId: true,
-      product: { select: { updatedAt: true } },
+      updatedAt: true,
+      // Is there anything left to drink? (#573, FEAT-87)
+      items: { where: IN_STOCK_ITEM_FILTER, select: { id: true }, take: 1 },
     },
   });
 
   let updated = 0;
   const reachedPeak: PeakItem[] = [];
-  for (const item of items) {
-    const nextStatus = computeAlertStatus(item.peakMaturityFrom, item.peakMaturityTo);
-    if (item.alertStatus === nextStatus) continue;
+  for (const family of families) {
+    const nextStatus = computeAlertStatus(family.peakMaturityFrom, family.peakMaturityTo);
+    if (family.alertStatus === nextStatus) continue;
     await prisma.$transaction((tx) =>
-      writeProductFields(tx, item.productId, { alertStatus: nextStatus, updatedAt: item.product.updatedAt }));
+      writeProductFields(tx, family.id, { alertStatus: nextStatus, updatedAt: family.updatedAt }));
     updated += 1;
 
-    // #338: the `item.alertStatus === nextStatus` guard above is the
+    // #338: the `family.alertStatus === nextStatus` guard above is the
     // anti-repeat rule — once stored as 'peak', a daily recompute no longer
-    // sees a transition and stops notifying, so this fires once per item
+    // sees a transition and stops notifying, so this fires once per wine
     // until its window is edited or it leaves 'peak' and re-enters later.
     //
-    // #573: the column is still kept current for a finished bottle (its card
-    // shows it), but nobody is told to open a bottle already drunk.
-    if (nextStatus === 'peak' && !item.alertsPaused && !isFinishedItem(item)) reachedPeak.push(item);
+    // #573: the column is still kept current for a wine with nothing left in
+    // stock (its card shows it), but nobody is told to open a bottle already
+    // drunk.
+    if (nextStatus === 'peak' && !family.alertsPaused && family.items.length > 0) reachedPeak.push(family);
   }
 
-  // #478: statuses are year-granular, so every bottle whose window opens
-  // this year flips on 1 January — one message per bottle per member was a
-  // burst of dozens. Each member now gets one digest for the run.
+  // #478: statuses are year-granular, so every wine whose window opens this
+  // year flips on 1 January — one message per wine per member was a burst of
+  // dozens. Each member now gets one digest for the run.
   if (reachedPeak.length > 0) {
     void notifyPeakReached(reachedPeak).catch((err) => {
       console.error('[alert] Failed to send peak-maturity notification:', err);
     });
   }
 
-  return { scanned: items.length, updated };
+  return { scanned: families.length, updated };
 }
 
 type PeakItem = { id: string; name: string; producer: string; vintage: number | null };

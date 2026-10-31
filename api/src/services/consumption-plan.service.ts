@@ -27,7 +27,10 @@ const DEFAULT_POSTPONE_DAYS = 7;
 export type SuggestionReason = 'peak_window' | 'opened' | 'rotation';
 
 export interface ConsumptionSuggestion {
+  /** A unit in stock of the wine, the one the suggestion opens. */
   id: string;
+  /** #471: the wine (family) — one suggestion per wine. */
+  productId: string;
   name: string;
   producer: string;
   category: string;
@@ -41,22 +44,29 @@ export interface ConsumptionSuggestion {
   reason: SuggestionReason;
 }
 
+// #471: the description, the drinking window and the postponement are true
+// of every bottle of the wine, so they are read on the family.
 const SUGGESTION_SELECT = {
   id: true,
-  name: true,
-  producer: true,
-  category: true,
-  vintage: true,
-  photoUrl: true,
+  productId: true,
   cellarId: true,
-  collection: true,
   isOpened: true,
   fillLevel: true,
-  peakMaturityFrom: true,
-  peakMaturityTo: true,
-  curveShape: true,
-  consumptionPostponedUntil: true,
   createdAt: true,
+  product: {
+    select: {
+      name: true,
+      producer: true,
+      category: true,
+      vintage: true,
+      photoUrl: true,
+      collection: true,
+      peakMaturityFrom: true,
+      peakMaturityTo: true,
+      curveShape: true,
+      consumptionPostponedUntil: true,
+    },
+  },
 } satisfies Prisma.InventoryItemSelect;
 
 type SourceItem = Prisma.InventoryItemGetPayload<{ select: typeof SUGGESTION_SELECT }>;
@@ -73,24 +83,27 @@ const REASON_WEIGHT: Record<string, number> = {
   rotation: 5,
 };
 
-function isPostponed(item: { consumptionPostponedUntil: Date | null }, now: Date): boolean {
-  return !!item.consumptionPostponedUntil && item.consumptionPostponedUntil > now;
+function isPostponed(item: SourceItem, now: Date): boolean {
+  const until = item.product.consumptionPostponedUntil;
+  return !!until && until > now;
 }
 
 function toSuggestion(item: SourceItem, reason: SuggestionReason): ConsumptionSuggestion {
+  const { product } = item;
   return {
     id: item.id,
-    name: item.name,
-    producer: item.producer,
-    category: item.category,
-    vintage: item.vintage,
-    photoUrl: item.photoUrl,
+    productId: item.productId,
+    name: product.name,
+    producer: product.producer,
+    category: product.category,
+    vintage: product.vintage,
+    photoUrl: product.photoUrl,
     cellarId: item.cellarId,
-    collection: item.collection,
+    collection: product.collection,
     // Computed on read, never read back from the denormalised column: that
     // column is only refreshed on edit and on the daily maintenance pass, so
     // it can lag behind the current year (ISSUE_033).
-    alertStatus: computeAlertStatus(item.peakMaturityFrom, item.peakMaturityTo),
+    alertStatus: computeAlertStatus(product.peakMaturityFrom, product.peakMaturityTo),
     isOpened: item.isOpened,
     fillLevel: item.fillLevel,
     reason,
@@ -99,29 +112,30 @@ function toSuggestion(item: SourceItem, reason: SuggestionReason): ConsumptionSu
 
 /**
  * Priority-ordered "drink now / soon" list combining:
- * 1) peak-window items (reuses the existing, non-userId-filtered getAlerts())
- * 2) opened items not already surfaced via (1) — "finish what's started"
+ * 1) peak-window wines (reuses the existing, non-userId-filtered getAlerts())
+ * 2) opened bottles of wines not already surfaced via (1) — "finish what's started"
  * 3) rotation fillers (oldest untouched stock) if slots remain up to `limit`
  *
- * Items whose `consumptionPostponedUntil` is still in the future are
- * excluded from all three sources. No userId filter anywhere — the shared
- * inventory is visible to every member (design.md invariant).
+ * #471 (FEAT-96 c4): one line per wine (family), whatever its number of
+ * bottles and groups. Wines whose `consumptionPostponedUntil` is still in the
+ * future are excluded from all three sources. No userId filter anywhere — the
+ * shared inventory is visible to every member (design.md invariant).
  */
 export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise<ConsumptionSuggestion[]> {
   const now = new Date();
 
-  // 1) Peak-window candidates. alert.service.ts's select doesn't carry
-  // consumptionPostponedUntil/isOpened/fillLevel, so we fetch those extra
-  // fields in a follow-up query rather than touching the existing, tested
-  // getAlerts() implementation.
+  // 1) Peak-window candidates, one per family, each with a unit in stock.
+  // alert.service.ts's select doesn't carry consumptionPostponedUntil/isOpened/
+  // fillLevel, so we fetch those extra fields in a follow-up query rather than
+  // touching the existing, tested getAlerts() implementation.
   const alerts = await getAlerts();
   const alertIds = alerts.map((a) => a.id);
 
-  // Excluding by id is done in memory rather than with a `notIn: alertIds`
-  // clause: that list grows with the collection (every peak-window bottle),
-  // while the opened-items candidate set here, and the final result below,
-  // stay small (#162).
-  const alertIdSet = new Set(alertIds);
+  // Excluding by family is done in memory rather than with a `notIn` clause:
+  // that list grows with the collection (every peak-window wine), while the
+  // opened-items candidate set here, and the final result below, stay small
+  // (#162).
+  const listedFamilies = new Set(alerts.map((a) => a.productId));
 
   const [alertExtra, openedItemsRaw] = await Promise.all([
     alertIds.length > 0
@@ -134,7 +148,13 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
       select: SUGGESTION_SELECT,
     }),
   ]);
-  const openedItems = openedItemsRaw.filter((item) => !alertIdSet.has(item.id));
+  // One opened bottle per wine, and none of a wine already listed.
+  const openedItems: SourceItem[] = [];
+  for (const item of openedItemsRaw) {
+    if (listedFamilies.has(item.productId)) continue;
+    listedFamilies.add(item.productId);
+    openedItems.push(item);
+  }
 
   const alertExtraMap = new Map(alertExtra.map((item) => [item.id, item]));
 
@@ -162,9 +182,9 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
       weight: REASON_WEIGHT.opened,
       readiness:
         computeReadiness(
-          opened.curveShape as CurveShape | null,
-          opened.peakMaturityFrom,
-          opened.peakMaturityTo,
+          opened.product.curveShape as CurveShape | null,
+          opened.product.peakMaturityFrom,
+          opened.product.peakMaturityTo,
         ) ?? -1,
     });
   }
@@ -177,23 +197,23 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
   // the oldest untouched stock so nothing sits forgotten indefinitely.
   if (result.length < limit) {
     const needed = limit - result.length;
-    const excludeIds = new Set([...alertIds, ...openedItems.map((o) => o.id)]);
     // Over-fetch by the exclusion set's size rather than embedding it as a
     // `notIn` id list (#162): the WHERE clause stays cheap regardless of how
-    // many bottles are already surfaced elsewhere, and the slightly larger
+    // many wines are already surfaced elsewhere, and the slightly larger
     // LIMIT only matters when the final list is truncated to `needed` anyway.
     const rotationCandidates = await prisma.inventoryItem.findMany({
       where: {
-        deletedAt: null,
-        ...OWNED_ITEM_FILTER,
+        ...IN_STOCK_ITEM_FILTER,
         isOpened: false,
-        OR: [{ consumptionPostponedUntil: null }, { consumptionPostponedUntil: { lte: now } }],
+        product: { OR: [{ consumptionPostponedUntil: null }, { consumptionPostponedUntil: { lte: now } }] },
       },
       select: SUGGESTION_SELECT,
       orderBy: { createdAt: 'asc' },
-      take: needed + excludeIds.size,
+      // One unit per wine: its oldest one.
+      distinct: ['productId'],
+      take: needed + listedFamilies.size,
     });
-    const rotationItems = rotationCandidates.filter((item) => !excludeIds.has(item.id)).slice(0, needed);
+    const rotationItems = rotationCandidates.filter((item) => !listedFamilies.has(item.productId)).slice(0, needed);
     result = result.concat(rotationItems.map((item) => toSuggestion(item, 'rotation')));
   }
 
@@ -293,6 +313,8 @@ export async function getGoalProgress(userId: string): Promise<GoalProgress> {
     return { goal: null, consumedCount: 0, percent: 0, remaining: 0 };
   }
 
+  // #471: a finished unit is one copy (a sub-record detached from its group,
+  // or a group of one), so counting its rows counts bottles.
   const consumedCount = await prisma.inventoryItem.count({
     where: {
       deletedAt: null,

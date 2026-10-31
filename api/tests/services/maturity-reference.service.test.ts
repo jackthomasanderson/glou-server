@@ -7,7 +7,7 @@ vi.mock('../../src/lib/prisma', () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
-    inventoryItem: { count: vi.fn() },
+    inventoryItem: { findMany: vi.fn() },
     $transaction: vi.fn((ops: unknown[]) => Promise.all(ops)),
   },
 }));
@@ -123,5 +123,44 @@ describe('maturityReferenceService update/delete — ISSUE_107', () => {
   it('rethrows a constraint violation as well', async () => {
     vi.mocked(prisma.maturityReference.update).mockRejectedValue(prismaError('P2002'));
     await expect(maturityReferenceService.update('r1', {})).rejects.toMatchObject({ code: 'P2002' });
+  });
+});
+
+// #471 (FEAT-96): the admin table says how many bottles in stock a reference
+// applies to — units, not rows, matched on the family's description.
+describe('MaturityReferenceService.list bottle count (#471)', () => {
+  const unit = (overrides: Record<string, unknown> = {}) => ({
+    quantity: 1, isOpened: false, fillLevel: null, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null,
+    purchasePrice: null, estimatedValue: null, ...overrides,
+  });
+
+  it('counts the bottles in stock of the matching wines', async () => {
+    vi.mocked(prisma.maturityReference.findMany).mockResolvedValue([
+      ref({ region: 'Bourgogne', color: 'red', producer: 'Dom', vintageFrom: 2010, vintageTo: 2020 }),
+    ] as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unit({ quantity: 6 }),
+      unit({ isOpened: true, fillLevel: 50 }),
+    ] as never);
+
+    const [listed] = await maturityReferenceService.list();
+
+    expect(listed.bottleCount).toBe(7);
+    expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
+      where: {
+        deletedAt: null,
+        writtenOffAt: null,
+        isOwned: true,
+        NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
+        product: {
+          category: 'wine',
+          region: { contains: 'Bourgogne', mode: 'insensitive' },
+          color: 'red',
+          producer: { contains: 'Dom', mode: 'insensitive' },
+          vintage: { gte: 2010, lte: 2020 },
+        },
+      },
+      select: expect.objectContaining({ quantity: true, cigarsPerBox: true }),
+    });
   });
 });

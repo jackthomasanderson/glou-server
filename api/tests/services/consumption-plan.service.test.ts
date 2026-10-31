@@ -53,8 +53,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/** A unit as the suggestion queries read it, its family nested (#471). */
 function sourceItem(overrides: Record<string, unknown> = {}) {
-  return {
+  const flat = {
     id: 'b1',
     name: 'Chambertin',
     producer: 'Domaine X',
@@ -71,6 +72,19 @@ function sourceItem(overrides: Record<string, unknown> = {}) {
     consumptionPostponedUntil: null,
     createdAt: new Date('2029-01-01'),
     ...overrides,
+  };
+  const {
+    name, producer, category, vintage, photoUrl, collection, peakMaturityFrom, peakMaturityTo, curveShape,
+    consumptionPostponedUntil, ...unit
+  } = flat;
+  return {
+    // One family per unit unless a test says otherwise.
+    productId: `p-${flat.id}`,
+    ...unit,
+    product: {
+      name, producer, category, vintage, photoUrl, collection, peakMaturityFrom, peakMaturityTo, curveShape,
+      consumptionPostponedUntil,
+    },
   };
 }
 
@@ -99,9 +113,9 @@ function mockFindManyByShape(opts: {
 describe('getSuggestions', () => {
   it('orders peak-window items by urgency weight, then by readiness within the same weight (nominal)', async () => {
     vi.mocked(getAlerts).mockResolvedValue([
-      { id: 'past1', alertStatus: 'past', readiness: 10 },
-      { id: 'peak1', alertStatus: 'peak', readiness: 50 },
-      { id: 'peak2', alertStatus: 'peak', readiness: 90 },
+      { id: 'past1', productId: 'p-past1', alertStatus: 'past', readiness: 10 },
+      { id: 'peak1', productId: 'p-peak1', alertStatus: 'peak', readiness: 50 },
+      { id: 'peak2', productId: 'p-peak2', alertStatus: 'peak', readiness: 90 },
     ] as never);
     mockFindManyByShape({
       alertExtra: [
@@ -123,7 +137,7 @@ describe('getSuggestions', () => {
 
   it('excludes items whose consumptionPostponedUntil is still in the future, from both the alert and opened sources', async () => {
     vi.mocked(getAlerts).mockResolvedValue([
-      { id: 'postponed-alert', alertStatus: 'peak', readiness: 50 },
+      { id: 'postponed-alert', productId: 'p-postponed-alert', alertStatus: 'peak', readiness: 50 },
     ] as never);
     mockFindManyByShape({
       alertExtra: [
@@ -143,7 +157,7 @@ describe('getSuggestions', () => {
 
   it('adds opened items not already surfaced by the alert source, ranked below any peak/past item', async () => {
     vi.mocked(getAlerts).mockResolvedValue([
-      { id: 'peak1', alertStatus: 'peak', readiness: 50 },
+      { id: 'peak1', productId: 'p-peak1', alertStatus: 'peak', readiness: 50 },
     ] as never);
     mockFindManyByShape({
       alertExtra: [sourceItem({ id: 'peak1' })],
@@ -177,8 +191,8 @@ describe('getSuggestions', () => {
 
   it('never returns more than `limit` items, and skips the rotation query once the limit is already reached', async () => {
     vi.mocked(getAlerts).mockResolvedValue([
-      { id: 'p1', alertStatus: 'past', readiness: 0 },
-      { id: 'p2', alertStatus: 'past', readiness: 0 },
+      { id: 'p1', productId: 'p-p1', alertStatus: 'past', readiness: 0 },
+      { id: 'p2', productId: 'p-p2', alertStatus: 'past', readiness: 0 },
     ] as never);
     mockFindManyByShape({
       alertExtra: [sourceItem({ id: 'p1' }), sourceItem({ id: 'p2' })],
@@ -197,7 +211,7 @@ describe('getSuggestions', () => {
 
   it('does not enumerate alert ids in the opened-items query, and excludes them in memory instead (#162)', async () => {
     vi.mocked(getAlerts).mockResolvedValue([
-      { id: 'peak1', alertStatus: 'peak', readiness: 50 },
+      { id: 'peak1', productId: 'p-peak1', alertStatus: 'peak', readiness: 50 },
     ] as never);
     mockFindManyByShape({
       alertExtra: [sourceItem({ id: 'peak1' })],
@@ -230,7 +244,7 @@ describe('getSuggestions', () => {
 
   it('over-fetches the rotation candidates rather than enumerating excluded ids, and filters/truncates in memory (#162)', async () => {
     vi.mocked(getAlerts).mockResolvedValue([
-      { id: 'peak1', alertStatus: 'peak', readiness: 50 },
+      { id: 'peak1', productId: 'p-peak1', alertStatus: 'peak', readiness: 50 },
     ] as never);
     mockFindManyByShape({
       alertExtra: [sourceItem({ id: 'peak1' })],
@@ -271,6 +285,48 @@ describe('getSuggestions', () => {
     // `not: null` keeps the clause null-safe: without it, SQL's NOT over a
     // NULL `fillLevel` would drop an opened bottle whose level was never set.
     expect(openedWhere.NOT).toEqual({ isOpened: true, fillLevel: { equals: 0, not: null } });
+  });
+
+  // #471 (FEAT-96 c4): a wine of 9 bottles in 3 groups is one line.
+  it('lists a wine once, whatever its number of groups and opened bottles', async () => {
+    vi.mocked(getAlerts).mockResolvedValue([
+      { id: 'garage-x4', productId: 'p-cuvee', alertStatus: 'peak', readiness: 50 },
+    ] as never);
+    mockFindManyByShape({
+      alertExtra: [sourceItem({ id: 'garage-x4', productId: 'p-cuvee' })],
+      opened: [
+        // An opened bottle of the wine already listed for its peak window.
+        sourceItem({ id: 'cuvee-opened', productId: 'p-cuvee', isOpened: true }),
+        // Two opened bottles of another wine.
+        sourceItem({ id: 'other-opened-1', productId: 'p-other', isOpened: true }),
+        sourceItem({ id: 'other-opened-2', productId: 'p-other', isOpened: true }),
+      ],
+      rotation: [
+        sourceItem({ id: 'cuvee-kitchen-x2', productId: 'p-cuvee' }),
+        sourceItem({ id: 'old1', productId: 'p-old' }),
+      ],
+    });
+
+    const result = await getSuggestions(10);
+
+    expect(result.map((r) => ({ id: r.id, productId: r.productId, reason: r.reason }))).toEqual([
+      { id: 'garage-x4', productId: 'p-cuvee', reason: 'peak_window' },
+      { id: 'other-opened-1', productId: 'p-other', reason: 'opened' },
+      { id: 'old1', productId: 'p-old', reason: 'rotation' },
+    ]);
+    // The rotation query returns one unit per wine (its oldest), out of stock
+    // and postponed wines excluded on the family.
+    const rotationCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls.find(
+      ([args]) => (args as { where: Record<string, unknown> }).where.isOpened === false,
+    )?.[0] as unknown as { where: Record<string, unknown>; distinct: string[]; orderBy: unknown };
+    expect(rotationCall.distinct).toEqual(['productId']);
+    expect(rotationCall.orderBy).toEqual({ createdAt: 'asc' });
+    expect(rotationCall.where).toMatchObject({
+      deletedAt: null,
+      writtenOffAt: null,
+      isOwned: true,
+      product: { OR: [{ consumptionPostponedUntil: null }, { consumptionPostponedUntil: { lte: NOW } }] },
+    });
   });
 
   it('propagates a failure from the underlying alert lookup rather than swallowing it (error case)', async () => {

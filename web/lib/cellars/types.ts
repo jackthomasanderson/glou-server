@@ -1,13 +1,9 @@
 import type { InventoryCategory } from '../inventory/types';
+import type { CellarStats } from '@shared/cellar';
+
+export type { CellarStats };
 
 export type CellarType = 'VINTAGE' | 'COOLER' | 'SHELF' | 'HUMIDOR';
-
-export interface CellarStats {
-  totalItems: number;
-  totalQuantity: number;
-  estimatedValue: number | null;
-  alertCount: number;
-}
 
 export interface Cellar {
   id: string;
