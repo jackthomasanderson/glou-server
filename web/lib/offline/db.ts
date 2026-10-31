@@ -33,6 +33,11 @@ export interface QueuedMutation {
    * message for diagnostics); the UI shows a generic translated label plus
    * this as supporting detail. */
   errorReason?: string;
+  /** #585: how many times the server answered "try again later" (5xx,
+   * 429…) to this change. Past a limit it is marked `failed`, so a server
+   * that keeps refusing does not hold the queue forever. A request that got
+   * no answer at all (offline) does not count. */
+  temporaryFailures?: number;
 }
 
 interface GlouOfflineDB extends DBSchema {

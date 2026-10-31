@@ -10,7 +10,15 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Added
+- Before applying a database migration, an update now backs the database up automatically into `./backups/glou-backup-before-migration-<date>.sql.gz`. That file is never deleted by retention: it is the only way back to the previous version, so delete it yourself once you trust the update. If the backup cannot be taken, nothing is migrated and the API does not start; if a migration fails and the API restarts in a loop, the backup already taken is reused instead of a new one each time (#754).
+- **On Linux, before your next update:** run `mkdir -p backups && sudo chown 1001:1001 backups` in your Glou folder. Without it the automatic backup cannot be written and the API no longer starts after an update that brings a migration (#754).
+
+### Security
+- Dependencies updated for published security advisories: `multer` 2.5.0 (photo uploads), `nodemailer` 10.3.1 (emails), and `body-parser`, `qs`, `ip-address`, `fast-uri`, `seroval`, `serialize-javascript` and the test tool `vitest` to their fixed versions (#755).
+
 ### Fixed
+- Offline changes sync reliably. Two changes to the same bottle made without network (opened at 50 %, then finished) no longer end in a conflict with yourself; each is still sent on its own. Changes sent while the server restarts stay pending and go through on their own a few seconds later instead of being marked refused. The conflict window lists only the fields that differ, with their names and the cellar name, and *Decide later* is remembered when you change page. In the list view, the pending-sync clock, the cellar name and the category follow edits, cellar renames and language switches without a reload (#585, #738).
 - The quick start on the project website now has the Linux step that lets nightly backups work (`mkdir -p backups && sudo chown 1001:1001 backups`), and its update line asks for a backup first. If you installed from the website on Linux, run `sudo chown 1001:1001 backups` in your Glou folder before your next update (#752, #667).
 
 ## v2026.10.3 - 2026-10-30

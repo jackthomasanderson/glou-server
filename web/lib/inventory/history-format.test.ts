@@ -34,4 +34,9 @@ describe('item history formatting (#508)', () => {
     expect(formatHistoryValue('purchasePrice', 42, t, { lang: 'en' })).toContain('42');
     expect(formatHistoryValue('purchasePrice', 42, t, { lang: 'en' })).toContain('€');
   });
+
+  it('names the records of a list instead of printing "[object Object]" (#585)', () => {
+    expect(formatHistoryValue('collections', [{ id: 'k1', name: 'Garde' }, { id: 'k2', name: 'Fêtes' }], t)).toBe('Garde, Fêtes');
+    expect(formatHistoryValue('tags', ['rouge', 'garde'], t)).toBe('rouge, garde');
+  });
 });

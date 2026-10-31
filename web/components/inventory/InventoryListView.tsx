@@ -99,8 +99,14 @@ export function InventoryListView({
             </TableColumn>
           )}
         </TableHeader>
-        <TableBody items={items}>
-          {(item: InventoryItem) => React.cloneElement(
+        {/* #738: static rows, not the `items` render function. The table
+            caches a row built from `items` by its bottle object and reuses it
+            until that object changes, so what is computed beside the bottle
+            (pending-sync icon, cellar name, category label after a language
+            switch) stayed as first drawn. Static rows are rebuilt on every
+            render. */}
+        <TableBody>
+          {items.map((item) => React.cloneElement(
             InventoryListRow({
               item,
               categoryLabel: categoryLabel(item.category),
@@ -111,7 +117,7 @@ export function InventoryListView({
               hasPendingSync: pendingSyncItemIds.has(item.id),
             }),
             { key: item.id }
-          )}
+          ))}
         </TableBody>
       </Table>
       <PaginationBar
