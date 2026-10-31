@@ -169,7 +169,6 @@
       "load": "Could not load the inventory."
     },
     "filterByCategory": "By category",
-    "filterByOwnership": "Ownership",
     "filterByCellar": "By cellar",
     "step1": "Basic information",
     "step2": "Category details",
@@ -330,8 +329,7 @@
       "tagSearchPlaceholder": "Search a tag…",
       "tagsShowMore": "Show more",
       "tagsShowLess": "Show less",
-      "noTagsFound": "No tags found",
-      "showReferences": "Show references"
+      "noTagsFound": "No tags found"
     },
     "filterByTags": "By tags",
     "filterByWineColor": "By color (wine)",
@@ -340,8 +338,6 @@
       "total": "Total stock",
       "full": "Full stock",
       "opened": "Opened assets",
-      "finished_one": "{{count}} finished bottle not counted",
-      "finished_other": "{{count}} finished bottles not counted",
       "openedCigar": "Opened cigars"
     },
     "truncated": "Only the {{limit}} most recent items are loaded: older ones do not appear in this list, the search or duplicate detection.",

@@ -29,6 +29,10 @@ test('add a bottle through the form, see it in the list, then detect the duplica
 
     await expect(dialog).toBeHidden();
     await expect(page.getByText(name, { exact: true })).toBeVisible();
+    // #471 §10.2: one card for the wine; a single bottle needs no stock line.
+    const card = page.getByTestId('family-card').filter({ hasText: name });
+    await expect(card).toHaveCount(1);
+    await expect(card.getByTestId('family-card-badge')).toHaveText('1');
 
     // Submitting the exact same entry again must be caught client-side
     // (FEAT-65) before a second row is created — the duplicate dialog opens
@@ -80,6 +84,26 @@ for (const owned of [false, true]) {
       id = item.id;
       expect(item.isOwned).toBe(owned);
       await expect(dialog).toBeHidden();
+
+      // #471 (FEAT-101): a wine without any bottle in the cellar is hidden
+      // from the list, shown by "Plus en cave" with "Plus de bouteille", and
+      // always found by the search.
+      const card = page.getByTestId('family-card').filter({ hasText: name });
+      if (owned) {
+        await expect(card).toBeVisible();
+        await expect(card).not.toContainText('Plus de bouteille');
+      } else {
+        const goneFilter = page.getByRole('button', { name: 'Plus en cave', exact: true }).locator('visible=true');
+        if ((await goneFilter.count()) === 0) await page.getByRole('button', { name: 'Filtrer', exact: true }).click();
+        await goneFilter.first().click();
+        await expect(card).toBeVisible();
+        await expect(card.getByTestId('family-stock-line')).toContainText('Plus de bouteille');
+        await goneFilter.first().click();
+        await expect(card).toHaveCount(0);
+
+        await page.goto(`/bottles?q=${encodeURIComponent(name)}`);
+        await expect(card).toBeVisible();
+      }
     } finally {
       if (id) {
         await page.request.delete(`/api/inventory/${id}`);

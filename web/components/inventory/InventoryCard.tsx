@@ -6,9 +6,10 @@ import {
 import {
   Wine, Sparkles, GlassWater, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Clock,
 } from 'lucide-react';
-import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import { InventoryCategory } from '@/lib/inventory/types';
+import type { Product } from '@/lib/products/types';
+import { keepNumbersWhole, type StockLine } from '@/lib/products/stock';
 import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
-import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={12} />,
@@ -23,16 +24,20 @@ const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
 // same here as in the map asset list, item detail dialog, and image picker.
 
 interface InventoryCardProps {
-  item: InventoryItem;
+  /** #471: one card per wine (family), whatever its number of bottles. */
+  item: Product;
+  /** Its stock line (ux-ui.md §10.2), computed by `describeStock`. */
+  stock: StockLine;
   categoryLabel: string;
   cellarName?: string;
-  onEdit: (item: InventoryItem) => void;
-  onDelete: (item: InventoryItem) => void;
-  onView?: (item: InventoryItem) => void;
+  /** Absent: nothing to edit or open yet (a wine known without any bottle record). */
+  onEdit?: (item: Product) => void;
+  onDelete: (item: Product) => void;
+  onView?: (item: Product) => void;
   t: (key: string) => string;
   isSelected?: boolean;
   isAnchor?: boolean;
-  onSelectToggle?: (item: InventoryItem, event?: React.MouseEvent) => void;
+  onSelectToggle?: (item: Product, event?: React.MouseEvent) => void;
   /** FEAT-16/23: true when this item has one or more offline mutations still
    * sitting in the local sync queue (not yet confirmed by the server). */
   hasPendingSync?: boolean;
@@ -40,6 +45,7 @@ interface InventoryCardProps {
 
 export function InventoryCard({
   item,
+  stock,
   categoryLabel,
   cellarName,
   onEdit,
@@ -52,13 +58,6 @@ export function InventoryCard({
   hasPendingSync = false,
 }: InventoryCardProps) {
   const isTemp = item.id.startsWith('temp-');
-  const fillLevel = item.isOpened ? (item.fillLevel ?? 0) : 100;
-  // ISSUE_101/#479: a cigar box's stock is its cigar count, like the drawer
-  // shows; a non-owned reference has no stock at all, so no badge.
-  const isCigar = item.category === 'cigar';
-  const cigarCount = item.quantity ?? 0;
-  const showStockBadge = isOwnedItem(item);
-  const stockIsLow = isCigar ? cigarCount === 0 : fillLevel <= 20;
 
   const drinkingWindow =
     item.peakMaturityFrom && item.peakMaturityTo
@@ -84,9 +83,12 @@ export function InventoryCard({
     // the "open" button, stretched over the whole card with an ::after
     // overlay; the checkbox, drinking window and Edit/Delete sit above it.
     <Card
+      data-testid="family-card"
       className={[
         'relative flex flex-col transition-all hover:shadow-md',
         isTemp && 'opacity-75',
+        // §10.2: an opened bottle keeps the discreet warning accent.
+        stock.hasOpened && 'border border-warning-300',
         isSelected && onSelectToggle && 'ring-2 ring-primary ring-offset-0',
         isAnchor && isSelected && onSelectToggle && 'ring-2 ring-offset-2 ring-primary',
       ].filter(Boolean).join(' ')}
@@ -104,20 +106,6 @@ export function InventoryCard({
           {categoryLabel.toUpperCase()}
         </Chip>
         <div className="flex items-center gap-1 min-w-0 overflow-hidden">
-          {/* FEAT-87: a reference is only visible when the filter asks for
-              it, so it must say what it is wherever it shows up. */}
-          {!isOwnedItem(item) && (
-            <Chip
-              size="sm"
-              radius="sm"
-              classNames={{
-                base: 'h-5 bg-secondary-50 border border-secondary-200 shrink-0',
-                content: 'px-1.5 text-xs font-semibold text-secondary-700',
-              }}
-            >
-              {t('inventory.fields.isReference')}
-            </Chip>
-          )}
           {cellarName && (
             <Chip
               startContent={<MapPin size={10} />}
@@ -147,28 +135,49 @@ export function InventoryCard({
           <img loading="lazy" decoding="async"
             src={item.photoUrl}
             alt={item.name}
-            className="w-full object-contain bg-background"
+            className={`w-full object-contain bg-background${stock.gone ? ' grayscale' : ''}`}
             style={{ height: 120 }}
           />
         ) : (
           <div
             className="w-full flex items-center justify-center text-white/35"
-            style={{ height: 120, fontSize: '2.5rem', background: getCategoryPlaceholderGradient(item.category) }}
+            style={{
+              height: 120,
+              fontSize: '2.5rem',
+              background: getCategoryPlaceholderGradient(item.category),
+              // §10.5: a wine with nothing left is shown faded.
+              filter: stock.gone ? 'grayscale(1)' : undefined,
+            }}
           >
             {React.cloneElement(CATEGORY_ICONS[item.category], { size: 40 } as React.SVGProps<SVGSVGElement>)}
           </div>
         )}
 
-        {/* Stock badge: fill level, or cigar count for a box */}
-        {showStockBadge && (
+        {/* §10.2: bottles (cigars) in stock, or the level of a lone opened bottle. */}
+        {stock.badge && (
           <span
-            className={`absolute top-2 right-2 rounded-lg px-1.5 py-0.5 text-xs font-bold leading-tight tracking-wide text-white${
-              stockIsLow ? ' bg-danger' : ' bg-[#111]'
+            aria-hidden="true"
+            data-testid="family-card-badge"
+            className={`absolute top-2 right-2 max-w-[calc(100%-1rem)] whitespace-nowrap rounded-lg px-1.5 py-0.5 text-xs font-bold leading-tight tracking-wide tabular-nums text-white${
+              stock.badgeLow ? ' bg-danger' : ' bg-[#111]'
             }`}
-            title={isCigar ? t('inventory.fields.quantity') : undefined}
           >
-            {isCigar ? cigarCount : `${fillLevel}%`}
+            {stock.badge}
           </span>
+        )}
+
+        {/* §10.2: an opened bottle (box) keeps the "Entamée" chip. */}
+        {stock.hasOpened && (
+          <Chip
+            size="sm"
+            radius="sm"
+            classNames={{
+              base: 'absolute bottom-2 left-2 h-5 bg-warning-50 border border-warning-200',
+              content: 'px-1.5 text-xs font-semibold text-warning-700',
+            }}
+          >
+            {t(stock.kind === 'cigar' ? 'familyList.openedChipCigar' : 'familyList.openedChip')}
+          </Chip>
         )}
 
         {/* Bulk select indicator */}
@@ -236,14 +245,32 @@ export function InventoryCard({
           <button
             type="button"
             onClick={() => onView(item)}
-            aria-label={`${item.name} — ${categoryLabel}`}
-            className="block w-full text-left text-sm font-medium leading-snug truncate mb-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-focus after:absolute after:inset-0 after:content-['']"
+            aria-label={`${item.name} — ${categoryLabel}, ${stock.spoken}`}
+            title={item.name}
+            className={`block w-full text-left text-sm font-medium leading-snug break-words mb-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-focus after:absolute after:inset-0 after:content-['']${stock.gone ? ' text-foreground-500' : ''}`}
           >
-            {item.name}
+            {/* §10.2: a long name on two lines at most, whole in the drawer and the tooltip. */}
+            <span className="line-clamp-2">{item.name}</span>
           </button>
         ) : (
-          <p className="text-sm font-medium leading-snug truncate mb-1">
+          <p className={`text-sm font-medium leading-snug line-clamp-2 break-words mb-1${stock.gone ? ' text-foreground-500' : ''}`} title={item.name}>
             {item.name}
+          </p>
+        )}
+
+        {/* §10.2 stock line: parts wrap whole, never cut inside a number. */}
+        {stock.parts.length > 0 && (
+          <p
+            data-testid="family-stock-line"
+            className={`flex flex-wrap gap-x-1 text-xs mb-1 ${stock.gone ? 'text-foreground-500' : 'text-foreground-600'}`}
+          >
+            {/* §10.13: read as a sentence; the open button's name already carries it. */}
+            {!onView && <span className="sr-only">{stock.spoken}</span>}
+            {stock.parts.map((part, index) => (
+              <span key={index} aria-hidden="true" className="min-w-0 break-words">
+                {index > 0 && '· '}{keepNumbersWhole(part)}
+              </span>
+            ))}
           </p>
         )}
 
@@ -277,19 +304,21 @@ export function InventoryCard({
       {/* ── Actions ───────────────────────────────────────────── */}
       {/* 40 px touch targets on phones (ux-ui.md §5.4), compact from sm up. */}
       <CardFooter className="relative z-10 pt-0 px-2 pb-1.5 justify-end gap-1 sm:gap-0">
-        <Tooltip content={t('actions.edit')} delay={500}>
-          <Button
-            isIconOnly
-            size="sm"
-            variant="light"
-            onPress={() => onEdit(item)}
-            isDisabled={isTemp}
-            aria-label={t('actions.edit')}
-            className="text-foreground-500 hover:text-primary min-w-10 w-10 h-10 sm:min-w-7 sm:w-7 sm:h-7"
-          >
-            <Pencil size={14} />
-          </Button>
-        </Tooltip>
+        {onEdit && (
+          <Tooltip content={t('actions.edit')} delay={500}>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              onPress={() => onEdit(item)}
+              isDisabled={isTemp}
+              aria-label={t('actions.edit')}
+              className="text-foreground-500 hover:text-primary min-w-10 w-10 h-10 sm:min-w-7 sm:w-7 sm:h-7"
+            >
+              <Pencil size={14} />
+            </Button>
+          </Tooltip>
+        )}
         <Tooltip content={t('actions.delete')} delay={500}>
           <Button
             isIconOnly

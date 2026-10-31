@@ -4,11 +4,11 @@ import {
   TableRow, TableCell, Chip, Tooltip, Skeleton, Button,
 } from '@heroui/react';
 import { Wine, Sparkles, GlassWater, Leaf, Pencil, Trash2, Clock } from 'lucide-react';
-import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import { InventoryCategory } from '@/lib/inventory/types';
+import type { Product } from '@/lib/products/types';
+import { keepNumbersWhole, type StockLine } from '@/lib/products/stock';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
-import { Cellar } from '@/lib/cellars/types';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
-import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
@@ -18,11 +18,14 @@ const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
 };
 
 interface InventoryListRowProps {
-  item: InventoryItem;
+  /** #471: one row per wine (family). */
+  item: Product;
+  stock: StockLine;
   categoryLabel: string;
-  cellar?: Cellar;
-  onEdit: (item: InventoryItem) => void;
-  onDelete: (item: InventoryItem) => void;
+  cellarName?: string;
+  /** Absent: nothing to edit yet (a wine known without any bottle record). */
+  onEdit?: (item: Product) => void;
+  onDelete: (item: Product) => void;
   t: (key: string) => string;
   /** FEAT-16/23: true when this item has one or more offline mutations still
    * sitting in the local sync queue (not yet confirmed by the server). */
@@ -30,7 +33,7 @@ interface InventoryListRowProps {
 }
 
 export function InventoryListRow({
-  item, categoryLabel, cellar,
+  item, stock, categoryLabel, cellarName,
   onEdit, onDelete, t,
   hasPendingSync = false,
 }: InventoryListRowProps) {
@@ -47,6 +50,7 @@ export function InventoryListRow({
     <TableRow
       className={[
         isTemp ? 'opacity-75' : '',
+        stock.gone ? 'text-foreground-500' : '',
         'cursor-pointer',
         'transition-colors',
       ].filter(Boolean).join(' ')}
@@ -66,21 +70,7 @@ export function InventoryListRow({
 
       <TableCell>
         <div className="flex items-center gap-1.5 min-w-0">
-          <p className="text-sm font-semibold truncate max-w-[200px]">{item.name}</p>
-          {/* FEAT-87: same marker as the card view — a row that only shows
-              up with the references filter on has to say so. */}
-          {!isOwnedItem(item) && (
-            <Chip
-              size="sm"
-              radius="sm"
-              classNames={{
-                base: 'h-5 bg-secondary-50 border border-secondary-200 shrink-0',
-                content: 'px-1.5 text-xs font-semibold text-secondary-700',
-              }}
-            >
-              {t('inventory.fields.isReference')}
-            </Chip>
-          )}
+          <p className="text-sm font-semibold truncate max-w-[200px]" title={item.name}>{item.name}</p>
           {hasPendingSync && (
             <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
               <span className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700">
@@ -104,7 +94,15 @@ export function InventoryListRow({
       </TableCell>
 
       <TableCell className="hidden md:table-cell">
-        <p className="text-sm text-foreground-500 truncate max-w-[120px]">{cellar?.name ?? '—'}</p>
+        <p className="text-sm text-foreground-500 truncate max-w-[120px]">{cellarName ?? '—'}</p>
+      </TableCell>
+
+      {/* §10.2: the same short stock line as the card. */}
+      <TableCell className="hidden sm:table-cell min-w-36">
+        <p className="text-sm text-foreground-500" data-testid="family-stock-line">
+          <span className="sr-only">{stock.spoken}</span>
+          <span aria-hidden="true">{keepNumbersWhole(stock.parts.length > 0 ? stock.parts.join(' · ') : (stock.badge ?? ''))}</span>
+        </p>
       </TableCell>
 
       <TableCell className="hidden sm:table-cell text-center">
@@ -112,13 +110,9 @@ export function InventoryListRow({
       </TableCell>
 
       <TableCell className="hidden sm:table-cell">
-        {item.isOpened ? (
-          <Chip
-            size="sm"
-            color="warning"
-            variant={item.fillLevel === 0 ? 'bordered' : 'flat'}
-          >
-            {item.fillLevel ?? '?'}%
+        {stock.hasOpened ? (
+          <Chip size="sm" color="warning" variant="flat">
+            {t(stock.kind === 'cigar' ? 'familyList.openedChipCigar' : 'familyList.openedChip')}
           </Chip>
         ) : (
           <div className="flex items-center">
@@ -138,19 +132,21 @@ export function InventoryListRow({
         className="text-right"
         onClick={(e) => e.stopPropagation()}
       >
-        <Tooltip content={t('actions.edit')} delay={500}>
-          <Button
-            isIconOnly
-            size="sm"
-            variant="light"
-            onPress={() => onEdit(item)}
-            isDisabled={isTemp}
-            aria-label={t('actions.edit')}
-            className="text-foreground-500 hover:text-primary min-w-unit-7 w-7 h-7"
-          >
-            <Pencil size={14} />
-          </Button>
-        </Tooltip>
+        {onEdit && (
+          <Tooltip content={t('actions.edit')} delay={500}>
+            <Button
+              isIconOnly
+              size="sm"
+              variant="light"
+              onPress={() => onEdit(item)}
+              isDisabled={isTemp}
+              aria-label={t('actions.edit')}
+              className="text-foreground-500 hover:text-primary min-w-unit-7 w-7 h-7"
+            >
+              <Pencil size={14} />
+            </Button>
+          </Tooltip>
+        )}
         <Tooltip content={t('actions.delete')} delay={500}>
           <Button
             isIconOnly
@@ -190,6 +186,9 @@ export function InventoryListRowSkeleton() {
       </TableCell>
       <TableCell className="hidden md:table-cell">
         <Skeleton className="rounded h-4 w-1/2" />
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">
+        <Skeleton className="rounded h-4 w-16" />
       </TableCell>
       <TableCell className="hidden sm:table-cell">
         <Skeleton className="rounded h-4 w-14" />

@@ -169,7 +169,6 @@
       "load": "Impossible de charger l'inventaire."
     },
     "filterByCategory": "Par catégorie",
-    "filterByOwnership": "Possession",
     "filterByCellar": "Par cave",
     "step1": "Informations de base",
     "step2": "Détails par catégorie",
@@ -330,8 +329,7 @@
       "tagSearchPlaceholder": "Rechercher une étiquette…",
       "tagsShowMore": "Voir plus",
       "tagsShowLess": "Voir moins",
-      "noTagsFound": "Aucune étiquette trouvée",
-      "showReferences": "Afficher les références"
+      "noTagsFound": "Aucune étiquette trouvée"
     },
     "filterByTags": "Par étiquettes",
     "filterByWineColor": "Par couleur (vin)",
@@ -340,8 +338,6 @@
       "total": "Total stock",
       "full": "Stock plein",
       "opened": "Actifs entamés",
-      "finished_one": "{{count}} bouteille finie non comptée",
-      "finished_other": "{{count}} bouteilles finies non comptées",
       "openedCigar": "Cigares entamés"
     },
     "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche, ni dans la détection des doublons.",

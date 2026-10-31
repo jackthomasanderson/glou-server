@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import type { InventoryItem } from '@/lib/inventory/types';
-import type { Cellar } from '@/lib/cellars/types';
 import { InventoryListView, type InventoryListViewProps } from '../InventoryListView';
+import { describeStock } from '@/lib/products/stock';
+import { product, unit } from '@/lib/products/__tests__/factories';
 
 // #738: the table cached each row by its bottle object, so what is computed
 // beside the bottle (pending-sync icon, cellar name, category label) stayed
@@ -10,11 +10,7 @@ import { InventoryListView, type InventoryListViewProps } from '../InventoryList
 
 const PENDING = 'offline.pendingSyncTooltip';
 
-const bottle = {
-  id: 'b1', userId: 'u1', category: 'wine', name: 'Château Test', producer: 'Domaine',
-  tags: [], grapeVarieties: [], lockedFields: [], isOpened: false, cellarId: 'c1',
-  createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
-} as InventoryItem;
+const bottle = product({ id: 'b1', name: 'Château Test', items: [unit({ cellarId: 'c1', quantity: 2 })] });
 // The same array, and the same bottle object, on every render.
 const items = [bottle];
 
@@ -24,7 +20,9 @@ const english = (key: string) => ({ [PENDING]: 'Pending' } as Record<string, str
 function view(overrides: Partial<InventoryListViewProps> = {}) {
   const props: InventoryListViewProps = {
     items,
-    cellars: [{ id: 'c1', name: 'Cave du bas' } as Cellar],
+    stockOf: (p) => describeStock(p, (key, o) => `${key}:${String(o?.count ?? '')}`),
+    cellarNameOf: () => 'Cave du bas',
+    isOpenable: () => true,
     categoryLabel: (c) => `fr:${c}`,
     onEdit: () => {},
     onDelete: () => {},
@@ -33,7 +31,7 @@ function view(overrides: Partial<InventoryListViewProps> = {}) {
     bulkMode: false,
     selectedIds: new Set(),
     onSelectedIdsChange: () => {},
-    pendingSyncItemIds: new Set(),
+    pendingSyncIds: new Set(),
     page: 1,
     totalPages: 1,
     totalItems: 1,
@@ -55,11 +53,11 @@ describe('InventoryListView rows follow what is computed beside the bottle (#738
     expect(within(row()).queryByLabelText('En attente')).toBeNull();
 
     // Edited offline: the queue now holds a change for this bottle.
-    rerender(view({ pendingSyncItemIds: new Set(['b1']) }));
+    rerender(view({ pendingSyncIds: new Set(['b1']) }));
     expect(within(row()).getByLabelText('En attente')).toBeInTheDocument();
 
     // Synced: the queue is empty again.
-    rerender(view({ pendingSyncItemIds: new Set() }));
+    rerender(view({ pendingSyncIds: new Set() }));
     expect(within(row()).queryByLabelText('En attente')).toBeNull();
   });
 
@@ -67,17 +65,31 @@ describe('InventoryListView rows follow what is computed beside the bottle (#738
     const { rerender } = render(view());
     expect(within(row()).getByText('Cave du bas')).toBeInTheDocument();
 
-    rerender(view({ cellars: [{ id: 'c1', name: 'Cave de la cuisine' } as Cellar] }));
+    rerender(view({ cellarNameOf: () => 'Cave de la cuisine' }));
     expect(within(row()).getByText('Cave de la cuisine')).toBeInTheDocument();
     expect(within(row()).queryByText('Cave du bas')).toBeNull();
   });
 
   it('follows a language switch without a reload', () => {
-    const { rerender } = render(view({ pendingSyncItemIds: new Set(['b1']) }));
+    const { rerender } = render(view({ pendingSyncIds: new Set(['b1']) }));
     expect(within(row()).getByText('fr:wine')).toBeInTheDocument();
 
-    rerender(view({ pendingSyncItemIds: new Set(['b1']), t: english, categoryLabel: (c) => `en:${c}` }));
+    rerender(view({ pendingSyncIds: new Set(['b1']), t: english, categoryLabel: (c) => `en:${c}` }));
     expect(within(row()).getByText('en:wine')).toBeInTheDocument();
     expect(within(row()).getByLabelText('Pending')).toBeInTheDocument();
+  });
+});
+
+// #471 §10.2: one row per wine, with the same short stock line as the card.
+describe('InventoryListView rows are wines', () => {
+  it('shows the stock line of the wine', () => {
+    render(view());
+    expect(within(row()).getByTestId('family-stock-line').textContent).toContain('familyList.stock.bottles:2');
+  });
+
+  it('opens nothing and offers no edit for a wine without a bottle record', () => {
+    render(view({ isOpenable: () => false }));
+    expect(within(row()).queryByLabelText('actions.edit')).toBeNull();
+    expect(within(row()).getByLabelText('actions.delete')).toBeInTheDocument();
   });
 });

@@ -19,7 +19,6 @@ import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { notifyError } from '@/lib/toast';
 import { applyStockChoice, stockChoicesFor, type StockChoice } from '@/lib/tastings/stockChoice';
 import { blankTastingValues } from '@/lib/tastings/formValues';
-import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
@@ -111,7 +110,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
         // with nothing to update (empty box, finished bottle) or whose stock
         // could not be read.
         const tastedItem = note.itemId ? await lookUpItem(note.itemId) : undefined;
-        if (note.itemId && tastedItem && isOwnedItem(tastedItem) && stockChoicesFor(tastedItem).length > 0) {
+        if (note.itemId && tastedItem && tastedItem.isOwned !== false && stockChoicesFor(tastedItem).length > 0) {
           setStockQuestion({ itemId: note.itemId, item: tastedItem });
         } else {
           onClose();
@@ -186,7 +185,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                       {(item) => (
                         <AutocompleteItem key={item.id}>
                           {`${item.name} — ${item.producer}${item.vintage ? ` (${item.vintage})` : ''}${
-                            isOwnedItem(item) ? '' : ` · ${t('inventory.fields.isReference')}`
+                            item.isOwned !== false ? '' : ` · ${t('inventory.fields.isReference')}`
                           }`}
                         </AutocompleteItem>
                       )}
