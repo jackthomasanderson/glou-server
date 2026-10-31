@@ -11,7 +11,7 @@ import { useCellar, useCellarGrid } from '@/hooks/useCellars';
 import { useInventory } from '@/hooks/useInventory';
 import { CellarGridPlan } from '@/components/cellars/CellarGridPlan';
 import { HumidorPanel } from '@/components/cellars/HumidorPanel';
-import { InventoryDetailDialog } from '@/components/inventory/InventoryDetailDialog';
+import { FamilyDrawer } from '@/components/inventory/FamilyDrawer';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useExpertMode } from '@/hooks/useExpertMode';
 
@@ -40,6 +40,7 @@ export function CellarDetailClient() {
   const params = useParams();
   const cellarId = params.id as string;
   const [view, setView] = useState<DetailView>('map');
+  // #471: a bottle opens the drawer of its wine.
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
 
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
@@ -211,9 +212,8 @@ export function CellarDetailClient() {
         {isExpert && isHumidorEligible && <HumidorPanel cellarId={cellarId} />}
       </div>
 
-      <InventoryDetailDialog
-        item={viewingItem}
-        open={Boolean(viewingItem)}
+      <FamilyDrawer
+        productId={viewingItem ? viewingItem.productId ?? viewingItem.id : null}
         onClose={() => setViewingItem(null)}
       />
     </MainLayout>

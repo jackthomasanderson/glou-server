@@ -62,14 +62,6 @@ export interface TastingFormValues {
   longueurBouche?: number | null;
 }
 
-export interface TastingItemStats {
-  count: number;
-  avgRating: number | null;
-  lastTastedAt: string;
-  lastRating: number | null;
-  lastReadiness: TastingReadiness | null;
-}
-
 export interface TastingProducerRank {
   producer: string;
   avgRating: number;

@@ -125,22 +125,10 @@
     "noNotifications": "Aucune notification",
     "perPage": "{{count}} par page",
     "detail": {
-      "titleWine": "Détails de l'actif",
-      "titleCigar": "Détails de l'actif",
-      "wineLevel": "Ajustement tactile du niveau",
-      "cigarLevel": "Capacité de la boite / Humidité",
-      "spiritLevel": "Ajustement tactile du niveau",
-      "levelWine": "Niveau :",
       "full": "Pleine",
-      "half": "Moitié",
       "empty": "Vide",
-      "opened": "Ouverte / Entamée",
-      "decreaseQuantity": "Diminuer la quantité",
-      "increaseQuantity": "Augmenter la quantité",
-      "location": "Emplacement",
       "sommelierNotes": "Notes du sommelier",
       "tastingNotes": "Notes de dégustation & arômes",
-      "vitole": "Fiche technique de la vitole",
       "agingEstimate": "Apogée estimée",
       "levelAdjusted": "Niveau ajusté à",
       "humidityValue": "{{value}} % HR"
@@ -349,9 +337,6 @@
     "maturitySuggestion": {
       "apply": "Appliquer",
       "window": "Apogée : {{from}} – {{to}}"
-    },
-    "actions": {
-      "stockReference": "Mettre en stock"
     }
   },
   "alerts": {
@@ -371,6 +356,8 @@
     "createRejected": "L'actif n'a pas été ajouté : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire, ou signalez le problème s'il vous semble correct.",
     "updateError": "Impossible de mettre à jour l'actif",
     "updateConflict": "Non enregistré : cet actif a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
+    "tastingsOnBottle": "Non enregistré : une dégustation a été notée sur cette bouteille, elle reste entamée.",
+    "fieldsWithReattach": "Non enregistré : une bouteille remise pleine rejoint les autres, elle ne peut pas changer d'autre champ en même temps. Enregistrez d'abord vos autres modifications, puis remettez-la pleine.",
     "deleteError": "Impossible de supprimer l'actif",
     "restoreError": "Impossible de restaurer l'actif",
     "collection": {
@@ -1043,11 +1030,7 @@
       "error": "La mise à jour du stock a échoué. Réessayez."
     },
     "stats": {
-      "count": "Dégustations",
-      "avgRating": "Note moy.",
-      "lastTasted": "Dernière",
-      "viewAll": "Voir tout",
-      "empty": "Pas encore dégusté"
+      "avgRating": "Note moy."
     },
     "recommendations": {
       "title": "Recommandations de service",
@@ -2140,5 +2123,68 @@
       "goneCigar_one": "{{count}} fumé ou parti, non compté",
       "goneCigar_other": "{{count}} fumés ou partis, non comptés"
     }
+  },
+  "familyDrawer": {
+    "value": "valeur estimée {{value}}",
+    "lines": {
+      "title": "Bouteilles en cave",
+      "titleCigar": "Cigares en cave",
+      "empty": "Plus aucune bouteille en cave.",
+      "emptyCigar": "Plus aucun cigare en cave.",
+      "count": "×{{number}}",
+      "noCellar": "Sans cave",
+      "perBottle": "{{price}} / bouteille",
+      "perBox": "{{price}} / boîte",
+      "perCigar": "{{price}} / cigare",
+      "opened": "Entamée",
+      "openedOn": "ouverte le {{date}}",
+      "openedBox": "Boîte entamée",
+      "cigarsLeft_one": "{{count}} restant",
+      "cigarsLeft_other": "{{count}} restants",
+      "closedBoxes_one": "{{count}} boîte fermée de {{size}}",
+      "closedBoxes_other": "{{count}} boîtes fermées de {{size}}",
+      "singleCigars_one": "{{count}} cigare à l'unité",
+      "singleCigars_other": "{{count}} cigares à l'unité",
+      "showMore_one": "Voir l'autre ligne",
+      "showMore_other": "Voir les {{count}} autres",
+      "showLess": "Voir moins",
+      "needsReview": "À vérifier après la mise à jour",
+      "level": "Niveau de cette bouteille",
+      "reattached": "Bouteille remise avec les autres",
+      "levelFull": "Pleine",
+      "levelHalf": "Moitié",
+      "levelEmpty": "Vide"
+    },
+    "gone": {
+      "title": "Déjà bues ou parties",
+      "titleCigar": "Déjà fumés ou partis",
+      "drunk_one": "{{count}} bue",
+      "drunk_other": "{{count}} bues",
+      "smoked_one": "{{count}} fumé",
+      "smoked_other": "{{count}} fumés",
+      "writtenOff_one": "{{count}} cassée, offerte ou perdue",
+      "writtenOff_other": "{{count}} cassées, offertes ou perdues",
+      "drunkOn": "Bue le {{date}}",
+      "smokedOn": "Fumé le {{date}}",
+      "boxFinishedOn": "Boîte finie le {{date}}",
+      "writtenOffOn_one": "Cassée, offerte ou perdue le {{date}}",
+      "writtenOffOn_other": "{{count}} cassées, offertes ou perdues le {{date}}"
+    },
+    "description": {
+      "title": "Description du vin",
+      "titleCigar": "Description du cigare"
+    },
+    "tastings": {
+      "title": "Dégustations",
+      "empty": "Aucune dégustation de ce vin pour l'instant.",
+      "elsewhere": "Goûté ailleurs"
+    },
+    "history": {
+      "title": "Historique",
+      "add_units": "Bouteilles ajoutées",
+      "correct_quantity": "Nombre corrigé",
+      "numberChange": "{{what}} : {{from}} → {{to}}"
+    },
+    "loadError": "Impossible de charger ce vin."
   }
 }

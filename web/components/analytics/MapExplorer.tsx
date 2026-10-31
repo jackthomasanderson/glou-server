@@ -12,7 +12,7 @@ import { RegionCategoryStat } from '@/lib/analytics/types';
 import { itemMatchesMapFilters, hasActiveMapFilters } from '@/lib/analytics/mapFilters';
 import { MapFiltersPanel } from './MapFiltersPanel';
 import { MapAssetList } from './MapAssetList';
-import { InventoryDetailDialog } from '@/components/inventory/InventoryDetailDialog';
+import { FamilyDrawer } from '@/components/inventory/FamilyDrawer';
 
 // World map loaded client-side only (react-simple-maps' d3-zoom dependency touches `window`)
 const WorldHeatmap = dynamic(
@@ -51,6 +51,7 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
   const { data: tastingsPage } = useTastings(1, RATING_SAMPLE_SIZE);
   const [filters, setFilters, clearFilters] = useMapFilters();
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  // #471: a bottle opens the drawer of its wine.
   const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
@@ -190,9 +191,8 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
         </div>
       </div>
 
-      <InventoryDetailDialog
-        item={viewingItem}
-        open={Boolean(viewingItem)}
+      <FamilyDrawer
+        productId={viewingItem ? viewingItem.productId ?? viewingItem.id : null}
         onClose={() => setViewingItem(null)}
       />
     </div>

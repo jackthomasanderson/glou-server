@@ -13,6 +13,8 @@ import { newestCopy } from '@/lib/inventory/newestCopy';
 import type { Product } from '@/lib/products/types';
 import { describeStock, wineName } from '@/lib/products/stock';
 import { isGone, stockSummaryOf } from '@/lib/products/filters';
+import { familyIdOf } from '@/lib/products/fromFlat';
+import { inventoryClient } from '@/lib/inventory/client';
 import { isFinishedState } from '@shared/units';
 import { formatDate } from '@/lib/format';
 import {
@@ -54,7 +56,7 @@ import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
 // Screens that only appear after an action are split out of the page's first
 // load; they open behind a click, so a null placeholder is invisible.
 const InventoryForm = dynamic(() => import('./InventoryForm').then((m) => m.InventoryForm), { ssr: false, loading: () => null });
-const InventoryDetailDialog = dynamic(() => import('./InventoryDetailDialog').then((m) => m.InventoryDetailDialog), { ssr: false, loading: () => null });
+const FamilyDrawer = dynamic(() => import('./FamilyDrawer').then((m) => m.FamilyDrawer), { ssr: false, loading: () => null });
 const DuplicateDialog = dynamic(() => import('./DuplicateDialog').then((m) => m.DuplicateDialog), { ssr: false, loading: () => null });
 const ScanFlow = dynamic(() => import('./ScanFlow').then((m) => m.ScanFlow), { ssr: false, loading: () => null });
 
@@ -113,9 +115,9 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     return ids;
   }, [offlineSyncQueue, items, products]);
 
-  // The bottle the (former) drawer and edit form open for a wine: one in
-  // stock, else its most recently changed one (finished). None for a wine
-  // known without any bottle record — its card then only offers the trash.
+  // The bottle the edit form opens for a wine: one in stock, else its most
+  // recently changed one (finished). None for a wine known without any
+  // bottle record: its card offers no edit (the drawer still opens).
   const openableItemOf = useMemo(() => {
     const byId = new Map((items ?? []).map((item) => [item.id, item]));
     const latestByProduct = new Map<string, InventoryItem>();
@@ -138,7 +140,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   // Moves on with each save that went through: one whose collections then
   // failed keeps the form open, and its retry must not conflict with itself.
   const [editingVersion, setEditingVersion] = useState<string | null>(null);
-  const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
+  // #471: the drawer shows a wine (family), any wine — one without bottle included.
+  const [viewingProductId, setViewingProductId] = useState<string | null>(null);
   const [undoTarget, setUndoTarget] = useState<Product | null>(null);
 
   const bulkUpdateMutation = useBulkUpdateInventoryItem();
@@ -192,31 +195,30 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     [items, inSection],
   );
 
-  // Auto-open from a QR scan (FEAT-10, a bottle's id) or the search (a
-  // wine's id). Kept out of useInventoryFilters because it needs
-  // `setViewingItem`, dashboard-local UI state unrelated to filtering.
+  // Auto-open from a QR scan or a notification (FEAT-10, a bottle's id) or
+  // the search (a wine's id): the drawer of the wine, in both cases (#471).
+  // Kept out of useInventoryFilters: it drives dashboard-local UI state.
   useEffect(() => {
     const scanParam = searchParams.get('scan');
-    if (!scanParam || !items || !products) return;
-    const product = products.find((p) => p.id === scanParam);
-    const found = items.find((i) => i.id === scanParam) ?? (product ? openableItemOf(product) : undefined);
-    const next = new URLSearchParams(searchParams.toString());
-    next.delete('scan');
-    if (found) {
-      // Paired with the router.replace() below (an external navigation
-      // side effect that must stay in an effect) — splitting this
-      // setState out to render-time would desync it from the URL cleanup.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setViewingItem(found);
-    } else if (product) {
-      // A wine known without any bottle record: show its card instead.
-      next.set('q', product.name);
+    if (!scanParam || !products) return;
+    let cancelled = false;
+    const open = (productId: string | undefined) => {
+      if (cancelled) return;
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('scan');
+      if (productId) setViewingProductId(productId);
+      // Remove ?scan= from URL to avoid reopening on refresh
+      router.replace(`${pathname}${next.toString() ? `?${next.toString()}` : ''}`);
+    };
+    const known = familyIdOf(scanParam, products, items);
+    if (known) {
+      open(known);
     } else {
-      return;
+      // A bottle the lists do not hold (beyond their cap, or not loaded yet).
+      void inventoryClient.get(scanParam).then((item) => open(item.productId), () => open(undefined));
     }
-    // Remove ?scan= from URL to avoid reopening on refresh
-    router.replace(`${pathname}${next.toString() ? `?${next.toString()}` : ''}`);
-  }, [searchParams, items, products, openableItemOf, pathname, router]);
+    return () => { cancelled = true; };
+  }, [searchParams, items, products, pathname, router]);
 
   const {
     bulkMode, setBulkMode,
@@ -400,7 +402,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     if (item) handleEditItem(item);
   }, [openableItemOf, handleEditItem]);
 
-  const handleView = useCallback((product: Product) => setViewingItem(openableItemOf(product) ?? null), [openableItemOf]);
+  const handleView = useCallback((product: Product) => setViewingProductId(product.id), []);
   const handleCancel = useCallback(() => { setMode('idle'); setEditingItem(null); }, []);
 
   const cellarNames = useMemo(() => new Map((cellars ?? []).map((c) => [c.id, c.name])), [cellars]);
@@ -731,12 +733,15 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         t={t}
       />
 
-      <InventoryDetailDialog
-        item={viewingItem}
-        open={Boolean(viewingItem)}
-        onClose={() => setViewingItem(null)}
-        onEdit={handleEditItem}
-        t={t}
+      <FamilyDrawer
+        productId={viewingProductId}
+        onClose={() => setViewingProductId(null)}
+        onEdit={(product) => {
+          const item = openableItemOf(product);
+          if (!item) return;
+          setViewingProductId(null);
+          handleEditItem(item);
+        }}
       />
 
       {duplicateFound && duplicateCandidate && (

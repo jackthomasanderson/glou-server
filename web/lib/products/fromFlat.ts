@@ -147,3 +147,37 @@ export function flatWithUnitChanges(
       return unit ? ({ ...item, ...unit } as unknown as InventoryItem) : item;
     });
 }
+
+/**
+ * D8 on an open drawer (GET /api/products/:id, every copy out of the trash):
+ * the bottle written (`data`, flat), the others it changed and those it
+ * removed. Finished copies stay: the drawer lists them under "Déjà bues ou parties".
+ */
+export function detailWithUnitWrite<T extends { items: ProductItem[] }>(
+  detail: T | undefined,
+  data: InventoryItem | null,
+  changed: readonly ProductItem[] = [],
+  removedIds: readonly string[] = [],
+): T | undefined {
+  if (!detail) return detail;
+  const removed = new Set(removedIds);
+  const written = [...changed, ...(data ? [toUnit(data as FlatItem)] : [])];
+  const byId = new Map(written.map((unit) => [unit.id, unit]));
+  const items = detail.items.filter((unit) => !removed.has(unit.id)).map((unit) => byId.get(unit.id) ?? unit);
+  for (const unit of written) if (!items.some((known) => known.id === unit.id)) items.push(unit);
+  return { ...detail, items };
+}
+
+/**
+ * The wine a `?scan=` link opens: a wine's own id (search), or the id of one
+ * of its bottles (QR codes printed before #471, notifications), in stock or
+ * already drunk. Undefined when neither list knows it.
+ */
+export function familyIdOf(
+  id: string,
+  products: readonly Product[] | undefined,
+  items: readonly InventoryItem[] | undefined,
+): string | undefined {
+  const product = products?.find((p) => p.id === id || p.items.some((unit) => unit.id === id));
+  return product?.id ?? items?.find((item) => item.id === id)?.productId ?? undefined;
+}

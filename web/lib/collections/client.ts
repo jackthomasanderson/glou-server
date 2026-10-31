@@ -30,4 +30,15 @@ export const collectionsClient = {
     const { data } = await client.delete<Collection>(`/collections/${id}/items/${itemId}`);
     return data;
   },
+
+  /** #471: a collection holds wines (families). */
+  async addProducts(id: string, productIds: string[]): Promise<Collection> {
+    const { data } = await client.post<Collection>(`/collections/${id}/products`, { productIds });
+    return data;
+  },
+
+  async removeProduct(id: string, productId: string): Promise<Collection> {
+    const { data } = await client.delete<Collection>(`/collections/${id}/products/${encodeURIComponent(productId)}`);
+    return data;
+  },
 };

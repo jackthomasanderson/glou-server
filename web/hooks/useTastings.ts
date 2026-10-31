@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tastingsClient } from '@/lib/tastings/client';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { TastingNote, TastingFormValues, TastingListResult, TastingItemStats, TastingAnalytics } from '@/lib/tastings/types';
+import { TastingNote, TastingFormValues, TastingListResult, TastingAnalytics } from '@/lib/tastings/types';
 
 export const TASTINGS_KEY = ['tastings'];
 
@@ -41,15 +41,6 @@ export function useDeleteTasting() {
     onSuccess: () => notifySuccess('toast.tasting.deleteSuccess'),
     onError: () => notifyError('toast.tasting.deleteError'),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: TASTINGS_KEY }),
-  });
-}
-
-export function useTastingItemStats(itemId: string | undefined) {
-  return useQuery<TastingItemStats | null>({
-    queryKey: [...TASTINGS_KEY, 'stats', itemId],
-    queryFn: () => tastingsClient.itemStats(itemId!),
-    enabled: !!itemId,
-    staleTime: 1000 * 30,
   });
 }
 

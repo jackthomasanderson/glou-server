@@ -1,5 +1,5 @@
 import { client } from '../api';
-import { TastingNote, TastingListResult, TastingFormValues, TastingItemStats, TastingAnalytics } from './types';
+import { TastingNote, TastingListResult, TastingFormValues, TastingAnalytics } from './types';
 
 export const tastingsClient = {
   async list(page = 1, limit = 20, itemId?: string, search?: string): Promise<TastingListResult> {
@@ -22,11 +22,6 @@ export const tastingsClient = {
 
   async delete(id: string): Promise<void> {
     await client.delete<void>(`/tastings/${id}`);
-  },
-
-  async itemStats(itemId: string): Promise<TastingItemStats | null> {
-    const { data } = await client.get<TastingItemStats | null>(`/tastings/stats/${itemId}`);
-    return data;
   },
 
   async analytics(): Promise<TastingAnalytics> {

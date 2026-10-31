@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { InventoryListView, type InventoryListViewProps } from '../InventoryListView';
 import { describeStock } from '@/lib/products/stock';
 import { product, unit } from '@/lib/products/__tests__/factories';
@@ -87,9 +87,12 @@ describe('InventoryListView rows are wines', () => {
     expect(within(row()).getByTestId('family-stock-line').textContent).toContain('familyList.stock.bottles:2');
   });
 
-  it('opens nothing and offers no edit for a wine without a bottle record', () => {
-    render(view({ isOpenable: () => false }));
+  it('a wine without a bottle record offers no edit, but its row still opens its drawer', () => {
+    const opened: string[] = [];
+    render(view({ isOpenable: () => false, onView: (p) => opened.push(p.id) }));
     expect(within(row()).queryByLabelText('actions.edit')).toBeNull();
     expect(within(row()).getByLabelText('familyList.trash.action')).toBeInTheDocument();
+    fireEvent.click(within(row()).getByText('Château Test'));
+    expect(opened).toEqual(['b1']);
   });
 });
