@@ -2090,6 +2090,91 @@
     "activeDark": "Mode sombre activé",
     "activeLight": "Mode clair activé"
   },
+  "stockLine": {
+    "menu": "Actions de cette ligne",
+    "actions": {
+      "correct": "Corriger le nombre",
+      "edit": "Modifier",
+      "trash": "Mettre à la corbeille"
+    },
+    "count": {
+      "less": "Un de moins",
+      "more": "Un de plus",
+      "range": "Un nombre entre {{min}} et {{max}}"
+    },
+    "price_bottle": "Prix d'une bouteille",
+    "price_box": "Prix d'une boîte",
+    "price_cigar": "Prix d'un cigare",
+    "priceInvalid": "Un prix au centime près, par exemple 24,50.",
+    "correct": {
+      "title": "Corriger le nombre",
+      "number_bottle": "Nombre de bouteilles",
+      "number_box": "Nombre de boîtes",
+      "number_cigar": "Nombre de cigares",
+      "toAdd": "Pour en ajouter, utilisez « {{action}} » avec la même date d'achat pour rejoindre cette ligne.",
+      "why": "Pourquoi ce nombre baisse ?",
+      "reasons": {
+        "input_error": {
+          "label": "Erreur de saisie",
+          "hint": "Elles n'ont jamais existé : elles disparaissent, dépenses comprises."
+        },
+        "written_off": {
+          "label": "Cassée, offerte ou perdue",
+          "hint": "Elles quittent la cave et la valeur, mais restent dans les dépenses."
+        }
+      },
+      "drinkHint_bottle": "Pour une bouteille bue, utilisez plutôt « J'en bois une ».",
+      "drinkHint_cigar": "Pour un cigare fumé, utilisez plutôt « J'en fume un ».",
+      "trashHint": "Rien ne reste sur cette ligne : mettez-la à la corbeille, vous pourrez la restaurer.",
+      "confirm": "Corriger",
+      "trashInstead_bottle": "Mettre ces bouteilles à la corbeille",
+      "trashInstead_box": "Mettre ces boîtes à la corbeille",
+      "trashInstead_cigar": "Mettre ces cigares à la corbeille",
+      "done": "Nombre corrigé : {{from}} → {{to}}"
+    },
+    "edit": {
+      "title": "Modifier cette ligne",
+      "scope_bottle_other": "S'applique aux {{count}} bouteilles de cette ligne.",
+      "scope_box_other": "S'applique aux {{count}} boîtes de cette ligne.",
+      "scope_cigar_other": "S'applique aux {{count}} cigares de cette ligne.",
+      "purchasedAt": "Date d'achat",
+      "done": "Ligne mise à jour"
+    },
+    "trash": {
+      "title": "Mettre à la corbeille ?",
+      "question_bottle_one": "Mettre cette bouteille ({{line}}) à la corbeille ?",
+      "question_bottle_other": "Mettre ces {{count}} bouteilles ({{line}}) à la corbeille ?",
+      "question_box_one": "Mettre cette boîte ({{line}}) à la corbeille ?",
+      "question_box_other": "Mettre ces {{count}} boîtes ({{line}}) à la corbeille ?",
+      "question_cigar_one": "Mettre ce cigare ({{line}}) à la corbeille ?",
+      "question_cigar_other": "Mettre ces {{count}} cigares ({{line}}) à la corbeille ?",
+      "restorable": "Vous pourrez restaurer cette ligne depuis la corbeille.",
+      "confirm": "Mettre à la corbeille",
+      "done_bottle_one": "{{count}} bouteille mise à la corbeille",
+      "done_bottle_other": "{{count}} bouteilles mises à la corbeille",
+      "done_box_one": "{{count}} boîte mise à la corbeille",
+      "done_box_other": "{{count}} boîtes mises à la corbeille",
+      "done_cigar_one": "{{count}} cigare mis à la corbeille",
+      "done_cigar_other": "{{count}} cigares mis à la corbeille"
+    },
+    "history": {
+      "joined_bottle_one": "{{count}} bouteille rejointe ({{what}})",
+      "joined_bottle_other": "{{count}} bouteilles rejointes ({{what}})",
+      "joined_box_one": "{{count}} boîte rejointe ({{what}})",
+      "joined_box_other": "{{count}} boîtes rejointes ({{what}})",
+      "joined_cigar_one": "{{count}} cigare rejoint ({{what}})",
+      "joined_cigar_other": "{{count}} cigares rejoints ({{what}})",
+      "reasons": {
+        "input_error": "erreur de saisie",
+        "written_off": "cassée, offerte ou perdue"
+      }
+    },
+    "errors": {
+      "conflict": "Non enregistré : cette ligne a changé entre-temps, sur un autre appareil ou par un autre membre. Elle vient d'être mise à jour : vérifiez-la puis recommencez.",
+      "offline": "Sans réseau, cette action n'est pas possible. Réessayez une fois la connexion revenue.",
+      "failed": "Impossible d'enregistrer cette action."
+    }
+  },
   "familyList": {
     "stockColumn": "Stock",
     "openedChip": "Entamée",

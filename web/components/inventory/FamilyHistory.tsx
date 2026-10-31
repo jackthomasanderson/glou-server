@@ -61,6 +61,8 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
 
   // #508: translated labels and readable values, not raw ids.
   const describe = (entry: HistoryEntry): string => {
+    const joined = describeJoin(entry);
+    if (joined) return joined;
     if (!entry.changes || entry.changes.length === 0) return actionLabel(entry.action);
     if (entry.action === 'RESTORE_FIELD' && entry.changes.length === 1) {
       return t('traceability.restoredField', { field: fieldLabel(entry.changes[0].field) });
@@ -70,7 +72,9 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
         // §10.3: "Nombre corrigé : 2 → 1", "Bouteilles ajoutées : 1 → 3".
         if (change.field === 'quantity' && typeof change.from === 'number' && typeof change.to === 'number') {
           const what = entry.action === 'ADD_UNITS' || entry.action === 'CORRECT_QUANTITY' ? actionLabel(entry.action) : fieldLabel('quantity');
-          return t('familyDrawer.history.numberChange', { what, from: change.from, to: change.to });
+          const line = t('familyDrawer.history.numberChange', { what, from: change.from, to: change.to });
+          // §10.3: "Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)".
+          return entry.reason ? `${line} (${t(`stockLine.history.reasons.${entry.reason}`)})` : line;
         }
         if (change.field === 'fillLevel' && typeof change.to === 'number') {
           const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : `${change.to}%`;
@@ -83,6 +87,17 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
       })
       .join(' · ');
   };
+
+  /** An edited line that joined this one: "2 bouteilles rejointes (date d'achat 15/01/2026 → 31/10/2026)". */
+  function describeJoin(entry: HistoryEntry): string | null {
+    const number = entry.changes?.find((change) => change.field === 'quantity');
+    if (!entry.joinedChanges || typeof number?.from !== 'number' || typeof number.to !== 'number') return null;
+    const what = entry.joinedChanges
+      .filter((change) => change.field !== 'quantity')
+      .map((change) => `${fieldLabel(change.field).toLocaleLowerCase(i18n.language)} ${formatHistoryValue(change.field, change.from, t, context)} → ${formatHistoryValue(change.field, change.to, t, context)}`)
+      .join(', ');
+    return t('stockLine.history.joined', { context: 'bottle', count: number.to - number.from, what });
+  }
 
   const close = () => { setTarget(null); itemRollback.reset(); productRollback.reset(); };
   const confirm = () => {

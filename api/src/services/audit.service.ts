@@ -1,6 +1,6 @@
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
-import type { FieldChange, ProductHistoryEntry } from '../../../shared/product';
+import { CORRECTION_REASONS, type CorrectionReason, type FieldChange, type ProductHistoryEntry } from '../../../shared/product';
 
 export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'RESTORE_FIELD' | 'LOGIN' | 'LOGIN_2FA' | 'LOGOUT' | 'REGISTER' | 'CELLAR_CREATE' | 'CELLAR_READ' | 'CELLAR_UPDATE' | 'CELLAR_DELETE' | 'CELLAR_SWAP_SLOTS' | 'COLLECTION_CREATE' | 'COLLECTION_UPDATE' | 'COLLECTION_DELETE' | 'SESSION_REVOKE' | 'TRUST_DEVICE' | 'UNTRUST_DEVICE' | 'PIN_SET' | 'PIN_REMOVE' | 'GUEST_UPDATE' | 'ONBOARDING_COMPLETE' | 'IMPORT_CSV' | 'BACKUP_RESTORE' | 'PURGE' | 'BACKUP_DOWNLOAD' | 'SCAN' | 'HUMIDOR_READING_CREATE' | 'ADD_UNITS' | 'CORRECT_QUANTITY' | 'MERGE_PRODUCTS' | 'DISTINGUISH_PRODUCTS' | 'REVIEW_OK' | 'MOVE_UNITS' | 'REPRICE_UNITS';
 
@@ -72,6 +72,9 @@ export async function purgeOldAuditLogs(
  */
 const FIELD_HISTORY_ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'RESTORE', 'RESTORE_FIELD', 'GUEST_UPDATE', 'ADD_UNITS', 'CORRECT_QUANTITY', 'MERGE_PRODUCTS', 'REVIEW_OK', 'MOVE_UNITS', 'REPRICE_UNITS'];
 
+const isCorrectionReason = (value: unknown): value is CorrectionReason =>
+  (CORRECTION_REASONS as readonly unknown[]).includes(value);
+
 /**
  * The successful field-history entries matching `where`, most recent first,
  * with the actor's display name. #471: read for one unit
@@ -106,6 +109,10 @@ export async function readFieldHistory(where: Prisma.AuditLogWhereInput): Promis
       ...(viaGuest ? { viaGuest: true } : {}),
       itemId: log.bottleId,
       changes: details?.['changes'] as FieldChange[] | null ?? null,
+      // #471: what the drawer tells of a move, a new price or a correction.
+      ...(typeof details?.['count'] === 'number' ? { count: details['count'] } : {}),
+      ...(isCorrectionReason(details?.['reason']) ? { reason: details['reason'] } : {}),
+      ...(Array.isArray(details?.['joinedChanges']) ? { joinedChanges: details['joinedChanges'] as FieldChange[] } : {}),
       createdAt: log.createdAt,
     };
   });

@@ -193,3 +193,53 @@ describe('FamilyDrawer — review of W2a', () => {
     expect(screen.getByTestId('family-history')).toHaveTextContent('Nombre corrigé : 2 → 1');
   });
 });
+
+describe('FamilyDrawer — actions of a line (#471, W3)', () => {
+  const menuOf = async (line: HTMLElement) => {
+    fireEvent.click(within(line).getByRole('button', { name: 'Actions de cette ligne' }));
+    const menu = await screen.findByRole('menu');
+    return within(menu).getAllByRole('menuitem').map((item) => item.getAttribute('aria-label'));
+  };
+
+  it('a line of full bottles: correct the number, edit, trash (§10.3)', async () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const [line] = screen.getAllByTestId('family-line');
+    expect(await menuOf(line)).toEqual(['Corriger le nombre', 'Modifier', 'Mettre à la corbeille']);
+  });
+
+  it('an opened bottle: only edited or trashed from its menu', async () => {
+    detail = detailOf({ items: [openedBottle(60, { id: 'sub' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const [line] = screen.getAllByTestId('family-line');
+    expect(await menuOf(line)).toEqual(['Modifier', 'Mettre à la corbeille']);
+  });
+
+  const entry = (over: Partial<ProductDetailView['history'][number]>) => ({
+    id: 1, action: 'UPDATE', status: 'success', actorId: 'u', actorName: 'Marie', itemId: 'g', changes: [],
+    createdAt: '2026-10-15T00:00:00.000Z', ...over,
+  });
+
+  it('the history tells why a number was corrected: "Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)"', () => {
+    detail = detailOf({
+      items: [unit({ id: 'g', quantity: 5 })],
+      history: [entry({ action: 'CORRECT_QUANTITY', reason: 'written_off', changes: [{ field: 'quantity', from: 6, to: 5 }] })],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(screen.getByTestId('family-history')).toHaveTextContent('Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)');
+  });
+
+  it('the history tells a line that joined this one: "2 bouteilles rejointes (date d\'achat … → …)", nothing to restore', () => {
+    detail = detailOf({
+      items: [unit({ id: 'g', quantity: 8 })],
+      history: [entry({
+        action: 'UPDATE', changes: [{ field: 'quantity', from: 6, to: 8 }],
+        joinedChanges: [{ field: 'purchasedAt', from: '2026-01-15T00:00:00.000Z', to: '2026-10-31T00:00:00.000Z' }],
+      })],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const history = screen.getByTestId('family-history');
+    expect(history).toHaveTextContent("2 bouteilles rejointes (date d'achat 15/01/2026 → 31/10/2026)");
+    expect(within(history).queryByRole('button', { name: 'Restaurer cette valeur' })).toBeNull();
+  });
+});

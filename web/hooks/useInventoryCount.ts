@@ -121,6 +121,7 @@ export function useCompleteCountSession(sessionId: string) {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ACTIVE_SESSION_KEY });
       void queryClient.invalidateQueries({ queryKey: reportKey(sessionId) });
+      // The prefix covers the list of wines (PRODUCTS_KEY) and an open wine's drawer too.
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
     },
