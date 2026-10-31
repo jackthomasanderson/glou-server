@@ -168,8 +168,8 @@ export function useUpdateProduct() {
 }
 
 export interface AddUnitsVariables {
-  /** The wine the bottles are added to (its name goes into the message). */
-  product: Pick<Product, 'id' | 'name' | 'vintage'>;
+  /** The wine the bottles are added to (its name goes into the message; cigars are counted in cigars). */
+  product: Pick<Product, 'id' | 'name' | 'vintage'> & Partial<Pick<Product, 'category'>>;
   input: AddUnitsInput;
 }
 
@@ -196,14 +196,21 @@ export function useAddUnits() {
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withUnitChanges(old, written, write.removedIds));
       queryClient.setQueryData<ProductDetailView>(productDetailKey(product.id), (old) =>
         detailWithUnitWrite(old, null, written, write.removedIds));
-      notifySuccess('addUnits.success', { count: input.quantity, name: wineName(product) });
-    },
-    onError: (error) => {
-      if (error instanceof NetworkError) {
-        notifyError('addUnits.errors.offline');
+      // FEAT-95: cigars are counted in cigars, 3 boxes of 25 being 75.
+      if (product.category === 'cigar') {
+        const cigars = input.quantity * (input.cigarsPerBox ?? 1);
+        notifySuccess('addUnits.successCigar', { count: cigars, name: wineName(product) });
         return;
       }
-      notifyError(ADD_UNITS_REFUSALS[error.message] ?? 'addUnits.errors.failed');
+      notifySuccess('addUnits.success', { count: input.quantity, name: wineName(product) });
+    },
+    onError: (error, { product }) => {
+      const of = product.category === 'cigar' ? 'Cigar' : '';
+      if (error instanceof NetworkError) {
+        notifyError(`addUnits.errors.offline${of}`);
+        return;
+      }
+      notifyError(`${ADD_UNITS_REFUSALS[error.message] ?? 'addUnits.errors.failed'}${of}`);
     },
     onSettled: (_write, _error, { product }) => {
       // The drawer's history, the flat bottles, the cellars and the menu counts.

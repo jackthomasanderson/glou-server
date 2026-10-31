@@ -110,3 +110,73 @@ describe('AddUnitsAction', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
+
+// #471 (FEAT-95 c2, decision point 52, ux-ui.md §10.4.1): for a cigar, the
+// number and "boîtes de combien" or "à l'unité", the cellar and the price
+// of ONE box or cigar.
+describe('AddUnitsAction on a cigar', () => {
+  const cigar = (items: ProductDetailView['items']) =>
+    ({ ...product({ category: 'cigar', name: 'Robusto', vintage: null, items }), tastings: [], history: [] }) as ProductDetailView;
+
+  function openCigar(robusto: ProductDetailView) {
+    render(<AddUnitsAction product={robusto} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Ajouter des cigares' }));
+    return screen.getByRole('dialog');
+  }
+
+  it('adds closed boxes like the latest ones: their size and the price of one box', () => {
+    const dialog = openCigar(cigar([unit({ quantity: 3, cigarsPerBox: 25, cellarId: 'garage', purchasePrice: 200 })]));
+    expect(within(dialog).getByRole('radio', { name: 'Boîtes fermées' })).toBeChecked();
+    expect(within(dialog).getByLabelText('Cigares par boîte')).toHaveValue(25);
+    expect(within(dialog).queryByLabelText('Taille de bouteille')).toBeNull();
+    fireEvent.change(within(dialog).getByLabelText('Nombre de boîtes'), { target: { value: '2' } });
+    expect(within(dialog).getByText('soit 50 cigares')).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Prix d'une boîte")).toHaveValue('200');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
+    expect(sent().input).toEqual({ quantity: 2, cigarsPerBox: 25, cellarId: 'garage', purchasePrice: 200, purchasedAt: todayLocalIso() });
+  });
+
+  it('adds single cigars at the price of one cigar', () => {
+    const dialog = openCigar(cigar([unit({ quantity: 3, cigarsPerBox: 25, purchasePrice: 200 })]));
+    fireEvent.click(within(dialog).getByRole('radio', { name: "À l'unité" }));
+    expect(within(dialog).queryByLabelText('Cigares par boîte')).toBeNull();
+    fireEvent.change(within(dialog).getByLabelText('Nombre de cigares'), { target: { value: '4' } });
+    fireEvent.change(within(dialog).getByLabelText("Prix d'un cigare"), { target: { value: '9' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
+    expect(sent().input).toMatchObject({ quantity: 4, cigarsPerBox: null, purchasePrice: 9 });
+  });
+
+  // Review #807: a box price is never offered as the price of one cigar
+  // (3 boxes at 200 €, then 4 single cigars: 36 €, not 800 €).
+  it('empties the price prefilled from boxes when switching to single cigars, or to another box size', () => {
+    const dialog = openCigar(cigar([unit({ quantity: 3, cigarsPerBox: 25, purchasePrice: 200 })]));
+    fireEvent.click(within(dialog).getByRole('radio', { name: "À l'unité" }));
+    expect(within(dialog).getByLabelText("Prix d'un cigare")).toHaveValue('');
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Boîtes fermées' }));
+    expect(within(dialog).getByLabelText("Prix d'une boîte")).toHaveValue('200');
+    fireEvent.change(within(dialog).getByLabelText('Cigares par boîte'), { target: { value: '10' } });
+    expect(within(dialog).getByLabelText("Prix d'une boîte")).toHaveValue('');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
+    expect(sent().input).toMatchObject({ quantity: 1, cigarsPerBox: 10, purchasePrice: null });
+  });
+
+  it('keeps a price the member typed whatever the storage', () => {
+    const dialog = openCigar(cigar([unit({ quantity: 3, cigarsPerBox: 25, purchasePrice: 200 })]));
+    fireEvent.change(within(dialog).getByLabelText("Prix d'une boîte"), { target: { value: '180' } });
+    fireEvent.click(within(dialog).getByRole('radio', { name: "À l'unité" }));
+    expect(within(dialog).getByLabelText("Prix d'un cigare")).toHaveValue('180');
+  });
+
+  it('starts from single cigars when the latest ones were', () => {
+    const dialog = openCigar(cigar([unit({ quantity: 4, purchasePrice: 9 })]));
+    expect(within(dialog).getByRole('radio', { name: "À l'unité" })).toBeChecked();
+    expect(within(dialog).getByLabelText("Prix d'un cigare")).toHaveValue('9');
+  });
+
+  it('refuses a box without its number of cigars, and says so', () => {
+    const dialog = openCigar(cigar([]));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
+    expect(mutate).not.toHaveBeenCalled();
+    expect(within(dialog).getByText('Entre 1 et 1000 cigares par boîte')).toBeInTheDocument();
+  });
+});
