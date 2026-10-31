@@ -32,7 +32,6 @@ export const onboardingService = {
       joining: cellarCount > 0 && ownCellar === null,
       wizardCellar: ownCellar,
       cellarCount,
-      inStockCount: bottles + cigars,
       bottleCount: bottles,
       cigarCount: cigars,
     };

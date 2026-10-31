@@ -1,5 +1,6 @@
 'use client';
 
+import { StockTotals } from './StockTotals';
 import React, { useState, useCallback } from 'react';
 import {
   Card,
@@ -349,7 +350,7 @@ function MaturityPlanning({
   stats: AnalyticsStats;
   t: (k: string, opts?: Record<string, unknown>) => string;
 }) {
-  const { maturityPlanning, cigarModulesCount } = stats;
+  const { maturityPlanning, cigarCount } = stats;
   const currentYear = new Date().getFullYear();
 
   const rows = [
@@ -411,7 +412,7 @@ function MaturityPlanning({
             <ProgressBar value={row.percent} color={row.color} />
           </div>
         ))}
-        {cigarModulesCount > 0 && (
+        {cigarCount > 0 && (
           <div className="flex items-start gap-2 mt-4 bg-default-50 rounded-xl p-3">
             <ShieldCheck size={16} className="text-primary mt-0.5 shrink-0" />
             <div>
@@ -560,6 +561,9 @@ export function AnalyticsDashboard() {
               <div>
                 <h1 data-testid="analytics-page-title" className="text-lg font-bold">{t('analytics.pageTitle')}</h1>
                 <p className="text-xs text-foreground-500">{t('analytics.pageSubtitle')}</p>
+                {!isLoading && data && (
+                  <StockTotals bottles={totalItems - data.cigarCount} cigars={data.cigarCount} t={t} />
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -602,7 +606,7 @@ export function AnalyticsDashboard() {
             <StatCard
               testId="kpi-cigar-humidor"
               label={t('analytics.stats.cigarHumidor')}
-              value={t('analytics.stats.cigarCount', { count: data?.cigarModulesCount ?? 0 })}
+              value={t('analytics.stats.cigarCount', { count: data?.cigarCount ?? 0 })}
               hint={t('analytics.stats.cigarHumidorHint')}
               icon={<Leaf size={20} color="#7B1E30" />}
               iconBg="rgba(123,30,48,0.1)"

@@ -102,7 +102,7 @@ describe('getAnalytics — aggregation invariants', () => {
 
     // valuation falls back estimatedValue -> purchasePrice -> 0
     expect(stats.totalValuation).toBe(220);
-    expect(stats.cigarModulesCount).toBe(1);
+    expect(stats.cigarCount).toBe(1);
     expect(stats.urgentDegustationCount).toBe(2); // peak + past
   });
 
@@ -400,7 +400,7 @@ describe('getAnalytics — units, value and spending of groups (#471, FEAT-96)',
 
     const stats = await getAnalytics();
 
-    expect(stats.cigarModulesCount).toBe(89);
+    expect(stats.cigarCount).toBe(89);
     expect(stats.categoryBreakdown).toEqual([{ category: 'cigar', count: 89, valuation: 836 }]);
     expect(stats.totalLiquidLiters).toBe(0);
   });

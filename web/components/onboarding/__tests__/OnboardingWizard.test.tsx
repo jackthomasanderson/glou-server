@@ -9,7 +9,7 @@ vi.mock('react-i18next', () => ({
 }));
 vi.mock('@/hooks/useRestoreFocus', () => ({ useRestoreFocus: () => {} }));
 
-const EMPTY: OnboardingState = { postponed: false, joining: false, wizardCellar: null, cellarCount: 0, inStockCount: 0, bottleCount: 0, cigarCount: 0 };
+const EMPTY: OnboardingState = { postponed: false, joining: false, wizardCellar: null, cellarCount: 0, bottleCount: 0, cigarCount: 0 };
 let stateLoading = false;
 let onboardingState: OnboardingState | undefined = EMPTY;
 const completeOnboarding = vi.fn();
@@ -110,7 +110,7 @@ describe('OnboardingWizard resume (#574, #685)', () => {
 
 describe('OnboardingWizard for a member joining a filled cellar (FEAT-89)', () => {
   beforeEach(() => {
-    onboardingState = { ...EMPTY, joining: true, cellarCount: 2, inStockCount: 240, bottleCount: 200, cigarCount: 40 };
+    onboardingState = { ...EMPTY, joining: true, cellarCount: 2, bottleCount: 200, cigarCount: 40 };
   });
 
   it('welcomes them, then shows what the household already has', () => {

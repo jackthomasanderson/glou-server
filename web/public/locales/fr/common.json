@@ -1220,7 +1220,13 @@
       "addSurplus_cigar_one": "Ajouter {{count}} cigare au groupe",
       "addSurplus_cigar_other": "Ajouter {{count}} cigares au groupe",
       "addToStock_cigar_one": "Ajouter {{count}} cigare à la cave",
-      "addToStock_cigar_other": "Ajouter {{count}} cigares à la cave"
+      "addToStock_cigar_other": "Ajouter {{count}} cigares à la cave",
+      "addSurplus_box_one": "Ajouter {{count}} boîte au groupe",
+      "addSurplus_box_other": "Ajouter {{count}} boîtes au groupe",
+      "addToStock_box_one": "Ajouter {{count}} boîte à la cave",
+      "addToStock_box_other": "Ajouter {{count}} boîtes à la cave",
+      "missingOf_cigar_one": "{{count}} manquant sur {{expected}}",
+      "missingOf_cigar_other": "{{count}} manquants sur {{expected}}"
     },
     "errors": {
       "SESSION_NOT_FOUND": "Cette session d'inventaire est introuvable.",

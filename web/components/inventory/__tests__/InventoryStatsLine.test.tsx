@@ -83,3 +83,10 @@ describe('InventoryStatsLine — the words of each page', () => {
     expect(container.textContent).toContain('Cigares entamés');
   });
 });
+
+describe('InventoryStatsLine — nothing in stock', () => {
+  it('keeps the word of the page: "0 bouteille · 0 cuvée" on Sparkling, not "0 vin"', () => {
+    const { container } = render(<InventoryStatsLine products={[]} goneCount={2} isCigarPage={false} pageCategories={['sparkling']} t={t} />);
+    expect(container.textContent).toContain('0 bouteille · 0 cuvée');
+  });
+});

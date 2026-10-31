@@ -9,6 +9,8 @@ export interface InventoryStatsLineProps {
   /** Bottles (cigars) drunk, smoked or gone: shown apart, never in the totals (§10.6). */
   goneCount: number;
   isCigarPage: boolean;
+  /** The categories the page shows (its filter, else its section): the word used when nothing is in stock. */
+  pageCategories?: readonly string[];
   t: (key: string, options?: Record<string, unknown>) => string;
 }
 
@@ -28,7 +30,7 @@ export function familiesLabelKey(categories: ReadonlySet<string>): string {
  * stock through `summarizeStock`, then the full and opened ones. The second
  * figure follows the page: wines, cuvées, spirits, or references.
  */
-export function InventoryStatsLine({ products, goneCount, isCigarPage, t }: InventoryStatsLineProps) {
+export function InventoryStatsLine({ products, goneCount, isCigarPage, pageCategories, t }: InventoryStatsLineProps) {
   const stats = useMemo(() => {
     let units = 0;
     let intact = 0;
@@ -49,7 +51,10 @@ export function InventoryStatsLine({ products, goneCount, isCigarPage, t }: Inve
     return { units, intact, opened, families, categories };
   }, [products, isCigarPage]);
 
-  const categories = stats.categories.size > 0 ? stats.categories : new Set([isCigarPage ? 'cigar' : 'wine']);
+  // Nothing in stock: still the page's word ("0 cuvée" on Bulles), not "0 vin".
+  const categories = stats.categories.size > 0
+    ? stats.categories
+    : new Set(pageCategories?.length ? pageCategories : [isCigarPage ? 'cigar' : 'wine']);
   const headline = [
     t(isCigarPage ? 'inventory.stats.cigars' : 'inventory.stats.bottles', { count: stats.units }),
     t(familiesLabelKey(categories), { count: stats.families }),

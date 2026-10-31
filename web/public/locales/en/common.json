@@ -1161,7 +1161,7 @@
       "progressCount": "Found: {{confirmed}} / {{expected}}",
       "noTheoreticalList": "This free-form scope isn't linked to any cellar: no theoretical list is available. Any item confirmed here will be recorded as found.",
       "unexpectedFound_one": "{{count}} item found outside its expected scope",
-      "unexpectedFound_other": "{{count}} items found outside its expected scope",
+      "unexpectedFound_other": "{{count}} items found outside their expected scope",
       "searchLabel": "Search for a wine or a cigar",
       "searchPlaceholder": "Name or producer...",
       "emptyList": "Nothing to check for this scope.",
@@ -1218,7 +1218,13 @@
       "addSurplus_cigar_one": "Add {{count}} cigar to the group",
       "addSurplus_cigar_other": "Add {{count}} cigars to the group",
       "addToStock_cigar_one": "Add {{count}} cigar to the cellar",
-      "addToStock_cigar_other": "Add {{count}} cigars to the cellar"
+      "addToStock_cigar_other": "Add {{count}} cigars to the cellar",
+      "addSurplus_box_one": "Add {{count}} box to the group",
+      "addSurplus_box_other": "Add {{count}} boxes to the group",
+      "addToStock_box_one": "Add {{count}} box to the cellar",
+      "addToStock_box_other": "Add {{count}} boxes to the cellar",
+      "missingOf_cigar_one": "{{count}} missing out of {{expected}}",
+      "missingOf_cigar_other": "{{count}} missing out of {{expected}}"
     },
     "errors": {
       "SESSION_NOT_FOUND": "This count session could not be found.",

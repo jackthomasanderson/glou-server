@@ -19,7 +19,7 @@ test('analytics page renders KPIs, the world map and the garde histogram', async
   // not just "some digit exists somewhere on the page".
   await expect(page.getByTestId('kpi-total-valuation')).toContainText(String(stats.totalValuation));
   await expect(page.getByTestId('kpi-liquid-stock')).toContainText(String(stats.totalLiquidLiters));
-  await expect(page.getByTestId('kpi-cigar-humidor')).toContainText(String(stats.cigarModulesCount));
+  await expect(page.getByTestId('kpi-cigar-humidor')).toContainText(String(stats.cigarCount));
   await expect(page.getByTestId('kpi-urgent-degustation')).toContainText(String(stats.urgentDegustationCount));
 
   // The garde histogram actually rendered its bars, not just "some SVGs
