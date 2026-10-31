@@ -9,6 +9,8 @@ vi.mock('../src/lib/prisma', () => ({
     inventoryItem: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       deleteMany: vi.fn(),
@@ -20,7 +22,7 @@ vi.mock('../src/lib/prisma', () => ({
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
-    tastingNote: { deleteMany: vi.fn() },
+    tastingNote: { deleteMany: vi.fn(), count: vi.fn() },
     $executeRaw: vi.fn(),
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -69,6 +71,9 @@ describe('InventoryService', () => {
     vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string } }) =>
       Promise.resolve(unitRow({ id: args.where.id }))) as never);
     vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
+    // #471: the unit is read again once its family is locked — here, as the test served it.
+    vi.mocked(prisma.inventoryItem.findUnique).mockImplementation((async () =>
+      vi.mocked(prisma.inventoryItem.findFirst).mock.results.at(0)?.value) as never);
     // #471: the family is re-read once locked, in the transaction — here, the
     // family of the unit the test just served.
     vi.mocked(prisma.product.findUniqueOrThrow).mockImplementation((async () => {
@@ -155,6 +160,19 @@ describe('InventoryService', () => {
         where: { id: 'b1' },
         data: { deletedAt: null, slotColumn: null, slotRow: null },
       }));
+    });
+
+    // Review #789: the locking rule — the family before its unit.
+    it('locks the family before writing the unit back', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(unitRow({ deletedAt: new Date() }, { deletedAt: new Date() }) as never);
+      await service.restore('u1', 'b1');
+
+      const [, productId] = vi.mocked(prisma.$queryRaw).mock.calls[0] as unknown as [string[], string];
+      expect(productId).toBe('p1');
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.product.update).mock.invocationCallOrder[0]);
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
     });
 
     // #471 (D10): a unit back from the trash brings its family back with it.
@@ -320,6 +338,115 @@ describe('InventoryService', () => {
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
   });
 
+  // ─── #471 (FEAT-103, D8): a state written on a group detaches one copy ─────
+
+  describe('updateItem - detach (D8)', () => {
+    const DAY = new Date('2026-01-15T00:00:00.000Z');
+    const group = () => unitRow({
+      quantity: 6, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null, parentItemId: null, cellarId: 'c1',
+      purchasePrice: 20, estimatedValue: null, purchasedAt: DAY, bottleSize: '75cl', slotColumn: null, slotRow: null, updatedAt: DAY,
+    }, { name: 'Talbot', category: 'wine' });
+
+    beforeEach(() => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group() as never);
+      vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string }; data: Record<string, unknown> }) =>
+        Promise.resolve({ ...group(), ...args.data, id: args.where.id })) as never);
+      vi.mocked(prisma.inventoryItem.create).mockResolvedValue({} as never);
+      vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation(((args: { where: { id: string } }) =>
+        Promise.resolve({ ...group(), id: args.where.id, quantity: 1, isOpened: true, fillLevel: 60, parentItemId: 'b1' })) as never);
+    });
+
+    it('answers the opened bottle as data, the group it came from in changed', async () => {
+      const result = await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 60, expectedUpdatedAt: DAY.toISOString() });
+
+      if (!result || 'conflict' in result) throw new Error('expected a write');
+      // `data` stays a flat record: the current callers keep reading it.
+      expect(result.item).toMatchObject({ quantity: 1, isOpened: true, fillLevel: 60, parentItemId: 'b1', name: 'Talbot' });
+      expect(result.item.id).not.toBe('b1');
+      expect(result.changed).toEqual([expect.objectContaining({ id: 'b1', quantity: 5, isOpened: false, purchasedAt: '2026-01-15' })]);
+      expect(result.changed[0]).not.toHaveProperty('name');
+      expect(result.removedIds).toEqual([]);
+      expect(result.outcome).toBe('detached');
+      // The group's history gets its own line: one copy fewer.
+      expect(result.groupChange).toEqual({ itemId: 'b1', from: 6, to: 5 });
+      const created = vi.mocked(prisma.inventoryItem.create).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+      expect(created.data).toMatchObject({ productId: 'p1', quantity: 1, isOpened: true, fillLevel: 60, parentItemId: 'b1', slotColumn: null });
+    });
+
+    it('locks the family, then reads the unit again, before deciding', async () => {
+      await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 60 });
+
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.findUnique).mock.invocationCallOrder[0]);
+      expect(vi.mocked(prisma.inventoryItem.findUnique).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
+    });
+
+    it('decides on the count as it is once locked, not as first read', async () => {
+      // Another member opened one in between: 5 left, not 6.
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue({ ...group(), quantity: 5 } as never);
+
+      await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 60 });
+
+      const groupWrite = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+      expect(groupWrite.data.quantity).toBe(4);
+    });
+
+    it('a replayed write is a conflict once the group has changed under the lock (offline queue)', async () => {
+      // First read still the old group; once locked, the first replay has already bumped it.
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue({ ...group(), quantity: 5, updatedAt: new Date('2026-10-31T10:00:00.000Z') } as never);
+
+      const result = await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 60, expectedUpdatedAt: DAY.toISOString() });
+
+      expect(result).toMatchObject({ conflict: true });
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+    });
+
+    // A2 review (#788): a count sent with expectedUpdatedAt while a write-off
+    // of 2 committed in between must not land on top of it (7 + 2 = 9).
+    it('a count checked against expectedUpdatedAt as stored once locked, not as first read', async () => {
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue({ ...group(), quantity: 4, updatedAt: new Date('2026-10-31T10:00:00.000Z') } as never);
+
+      const result = await service.updateItem('u1', 'b1', { quantity: 7, expectedUpdatedAt: DAY.toISOString() });
+
+      expect(result).toMatchObject({ conflict: true });
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.findUnique).mock.invocationCallOrder[0]);
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+      expect(prisma.product.update).not.toHaveBeenCalled();
+    });
+
+    it('smokeOne and keepTastings never reach a column', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ ...group(), quantity: 1 } as never);
+
+      await service.updateItem('u1', 'b1', { fillLevel: 50, keepTastings: true });
+
+      const written = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+      expect(written.data).not.toHaveProperty('keepTastings');
+      expect(written.data).not.toHaveProperty('smokeOne');
+    });
+  });
+
+  it('bulkUpdate - drinks one bottle of each selected group (D18), the family locked first', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unitRow({ id: 'b1', quantity: 6, isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null }),
+    ] as never);
+    vi.mocked(prisma.inventoryItem.findUnique).mockImplementation((async () =>
+      unitRow({ id: 'b1', quantity: 6, isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null })) as never);
+    vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockResolvedValue(unitRow({ id: 'sub' }) as never);
+
+    const count = await service.bulkUpdate('u1', ['b1'], { isOpened: true, fillLevel: 0 });
+
+    expect(count).toBe(1);
+    const groupWrite = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { where: { id: string }; data: Record<string, unknown> };
+    expect(groupWrite).toMatchObject({ where: { id: 'b1' }, data: { quantity: 5 } });
+    expect(groupWrite.data).not.toHaveProperty('isOpened');
+    expect(prisma.inventoryItem.create).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
+  });
+
   // ─── #471: the flat record is split between the family and the unit ────────
 
   describe('updateItem - family / unit split (#471)', () => {
@@ -445,8 +572,13 @@ describe('InventoryService', () => {
    */
   function mockTransactionClient() {
     const update = vi.fn().mockResolvedValue({} as never);
+    // #471: a unit written with a state is read again once its family is locked.
+    const findUnique = vi.fn(async (args: { where: { id: string } }) => {
+      const rows = (await vi.mocked(prisma.inventoryItem.findMany).mock.results.at(0)?.value) as Array<{ id: string }>;
+      return rows.find((row) => row.id === args.where.id) ?? null;
+    });
     vi.mocked(prisma.$transaction).mockImplementation(
-      ((callback: (tx: unknown) => unknown) => callback({ inventoryItem: { update }, $queryRaw: prisma.$queryRaw })) as never,
+      ((callback: (tx: unknown) => unknown) => callback({ inventoryItem: { update, findUnique }, $queryRaw: prisma.$queryRaw })) as never,
     );
     return update;
   }
