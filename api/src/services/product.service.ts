@@ -216,6 +216,17 @@ export const productService = {
     return 'conflict' in outcome ? { conflict: true, product } : { product, changes: outcome.changes };
   },
 
+  /** Several families as the list shows them (their units in stock), in one read; unknown ids are left out. */
+  async views(ids: string[]): Promise<ProductView[]> {
+    if (ids.length === 0) return [];
+    const rows = await prisma.product.findMany({
+      where: { id: { in: [...new Set(ids)] } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      include: { collections: COLLECTIONS_INCLUDE, items: { where: IN_STOCK_ITEM_FILTER, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } },
+    });
+    return toProductViews(rows);
+  },
+
   /** The family as the list shows it (its units in stock), whatever its trash state. */
   async view(id: string): Promise<ProductView | null> {
     const row = await prisma.product.findUnique({
