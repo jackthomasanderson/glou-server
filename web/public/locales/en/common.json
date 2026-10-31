@@ -2028,5 +2028,48 @@
     "switchToLight": "Switch to light mode",
     "activeDark": "Dark mode enabled",
     "activeLight": "Light mode enabled"
+  },
+  "familyList": {
+    "stockColumn": "Stock",
+    "openedChip": "Opened",
+    "openedChipCigar": "Opened box",
+    "filters": {
+      "gone": "No longer in the cellar"
+    },
+    "stock": {
+      "bottles_one": "{{count}} bottle",
+      "bottles_other": "{{count}} bottles",
+      "full_one": "{{count}} full",
+      "full_other": "{{count}} full",
+      "openedLevel": "1 opened ({{level}}%)",
+      "opened_one": "{{count}} opened",
+      "opened_other": "{{count}} opened",
+      "magnum_one": "incl. {{count}} magnum",
+      "magnum_other": "incl. {{count}} magnums",
+      "otherSize_one": "incl. {{count}} in {{size}}",
+      "otherSize_other": "incl. {{count}} in {{size}}",
+      "closedBoxes_one": "{{count}} closed box",
+      "closedBoxes_other": "{{count}} closed boxes",
+      "singleCigars_one": "{{count}} single",
+      "singleCigars_other": "{{count}} single",
+      "here_one": "{{count}} here",
+      "here_other": "{{count}} here",
+      "total_one": "{{count}} in all",
+      "total_other": "{{count}} in all",
+      "goneBottle": "No bottle left",
+      "goneCigar": "No cigar left",
+      "lastActivity": "Last on {{date}}",
+      "spoken": {
+        "bottles_one": "{{count}} bottle",
+        "bottles_other": "{{count}} bottles",
+        "cigars_one": "{{count}} cigar",
+        "cigars_other": "{{count}} cigars",
+        "full_one": "{{count}} full bottle",
+        "full_other": "{{count}} full bottles",
+        "openedLevel": "1 opened at {{level}}%",
+        "here": "{{here}} in this cellar, {{total}} in all"
+      },
+      "level": "{{level}}%"
+    }
   }
 }
