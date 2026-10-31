@@ -147,7 +147,7 @@
     },
     "add": "Ajouter",
     "edit": "Modifier l'actif",
-    "restore": "Restaurer l'actif",
+    "restore": "Restaurer la bouteille",
     "trashDaysLeft_one": "{{count}} jour restant avant suppression définitive",
     "trashDaysLeft_other": "{{count}} jours restants avant suppression définitive",
     "trashEmpty": "La corbeille est vide.",
@@ -169,7 +169,6 @@
       "load": "Impossible de charger l'inventaire."
     },
     "filterByCategory": "Par catégorie",
-    "filterByOwnership": "Possession",
     "filterByCellar": "Par cave",
     "step1": "Informations de base",
     "step2": "Détails par catégorie",
@@ -330,8 +329,7 @@
       "tagSearchPlaceholder": "Rechercher une étiquette…",
       "tagsShowMore": "Voir plus",
       "tagsShowLess": "Voir moins",
-      "noTagsFound": "Aucune étiquette trouvée",
-      "showReferences": "Afficher les références"
+      "noTagsFound": "Aucune étiquette trouvée"
     },
     "filterByTags": "Par étiquettes",
     "filterByWineColor": "Par couleur (vin)",
@@ -340,8 +338,6 @@
       "total": "Total stock",
       "full": "Stock plein",
       "opened": "Actifs entamés",
-      "finished_one": "{{count}} bouteille finie non comptée",
-      "finished_other": "{{count}} bouteilles finies non comptées",
       "openedCigar": "Cigares entamés"
     },
     "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche, ni dans la détection des doublons.",
@@ -2030,5 +2026,79 @@
     "switchToLight": "Passer en mode clair",
     "activeDark": "Mode sombre activé",
     "activeLight": "Mode clair activé"
+  },
+  "familyList": {
+    "stockColumn": "Stock",
+    "openedChip": "Entamée",
+    "openedChipCigar": "Boîte entamée",
+    "filters": {
+      "gone": "Plus en cave"
+    },
+    "stock": {
+      "bottles_one": "{{count}} bouteille",
+      "bottles_other": "{{count}} bouteilles",
+      "full_one": "{{count}} pleine",
+      "full_other": "{{count}} pleines",
+      "openedLevel": "1 entamée ({{level}} %)",
+      "opened_one": "{{count}} entamée",
+      "opened_other": "{{count}} entamées",
+      "magnum_one": "dont {{count}} magnum",
+      "magnum_other": "dont {{count}} magnums",
+      "otherSize_one": "dont {{count}} en {{size}}",
+      "otherSize_other": "dont {{count}} en {{size}}",
+      "closedBoxes_one": "{{count}} boîte fermée",
+      "closedBoxes_other": "{{count}} boîtes fermées",
+      "singleCigars_one": "{{count}} à l'unité",
+      "singleCigars_other": "{{count}} à l'unité",
+      "here_one": "{{count}} ici",
+      "here_other": "{{count}} ici",
+      "total_one": "{{count}} en tout",
+      "total_other": "{{count}} en tout",
+      "goneBottle": "Plus de bouteille",
+      "goneCigar": "Plus de cigare",
+      "lastActivity": "Dernière fois le {{date}}",
+      "spoken": {
+        "bottles_one": "{{count}} bouteille",
+        "bottles_other": "{{count}} bouteilles",
+        "cigars_one": "{{count}} cigare",
+        "cigars_other": "{{count}} cigares",
+        "full_one": "{{count}} bouteille pleine",
+        "full_other": "{{count}} bouteilles pleines",
+        "openedLevel": "1 entamée à {{level}} %",
+        "here": "{{here}} dans cette cave, {{total}} en tout"
+      },
+      "level": "{{level}} %"
+    },
+    "trash": {
+      "action": "Mettre à la corbeille",
+      "title": "Mettre à la corbeille ?",
+      "confirm": "Mettre {{name}} à la corbeille ?",
+      "confirmBottles_one": "Mettre {{name}} et sa bouteille à la corbeille ?",
+      "confirmBottles_other": "Mettre {{name}} et ses {{count}} bouteilles à la corbeille ?",
+      "confirmCigars_one": "Mettre {{name}} et son cigare à la corbeille ?",
+      "confirmCigars_other": "Mettre {{name}} et ses {{count}} cigares à la corbeille ?",
+      "restoreHint_one": "Vous pourrez le restaurer depuis la corbeille pendant {{count}} jour.",
+      "restoreHint_other": "Vous pourrez le restaurer depuis la corbeille pendant {{count}} jours.",
+      "tastingsWarning_one": "Sa dégustation sera effacée quand la corbeille sera vidée.",
+      "tastingsWarning_other": "Ses {{count}} dégustations seront effacées quand la corbeille sera vidée.",
+      "done": "{{name}} mis à la corbeille",
+      "wines": "Vins",
+      "bottles": "Bouteilles et cigares",
+      "withBottles_one": "avec {{count}} bouteille",
+      "withBottles_other": "avec {{count}} bouteilles",
+      "withCigars_one": "avec {{count}} cigare",
+      "withCigars_other": "avec {{count}} cigares",
+      "restore": "Restaurer"
+    },
+    "selectWine": "Sélectionner {{name}}",
+    "bulkSummary": "{{wines}}, {{bottles}}",
+    "wines_one": "{{count}} vin",
+    "wines_other": "{{count}} vins",
+    "stats": {
+      "gone_one": "{{count}} bue ou partie, non comptée",
+      "gone_other": "{{count}} bues ou parties, non comptées",
+      "goneCigar_one": "{{count}} fumé ou parti, non compté",
+      "goneCigar_other": "{{count}} fumés ou partis, non comptés"
+    }
   }
 }

@@ -24,7 +24,6 @@ import { CollectionPickerInline } from '@/components/collections/CollectionPicke
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
-import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
@@ -136,7 +135,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
   const handleFillCommit = useCallback(
     (value: number) => {
       // FEAT-87: a non-owned reference has no bottle, so no level to set.
-      if (!item || !isOwnedItem(item)) return;
+      if (!item || item.isOwned === false) return;
       updateMutation.mutate({
         id: item.id,
         patch: {
@@ -159,7 +158,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
 
   const handleQuantityStep = useCallback(
     (delta: number) => {
-      if (!item || !isOwnedItem(item)) return;
+      if (!item || item.isOwned === false) return;
       const next = Math.max(0, Math.min(1000, localQuantity + delta));
       if (next === localQuantity) return;
       setLocalQuantity(next);
@@ -386,7 +385,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                         step={1}
                         color="primary"
                         size="sm"
-                        isDisabled={updateMutation.isPending || !isOwnedItem(d)}
+                        isDisabled={updateMutation.isPending || d.isOwned === false}
                         className="py-2"
                         aria-label={t('inventory.detail.levelWine')}
                       />
@@ -410,7 +409,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                           color={localFill === value ? 'primary' : 'default'}
                           size="sm"
                           onPress={() => handlePreset(value)}
-                          isDisabled={updateMutation.isPending || !isOwnedItem(d)}
+                          isDisabled={updateMutation.isPending || d.isOwned === false}
                           className="flex-1 text-xs py-3"
                         >
                           {label}
@@ -493,7 +492,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
                 {/* #506: pausing a peak alert used to be possible only from the
                     bell, which hides paused alerts — so it could never be
                     resumed. The toggle lives here, both ways. */}
-                {drinkingWindow && isOwnedItem(d) && (
+                {drinkingWindow && d.isOwned !== false && (
                   <div className="flex items-center justify-between gap-2 -mt-2 mb-5">
                     <span className="text-xs text-foreground-500">
                       {d.alertsPaused ? t('alerts.paused') : t('alerts.title')}
@@ -671,7 +670,7 @@ export function InventoryDetailDialog({ item, open, onClose, onEdit }: Inventory
               {/* FEAT-87: one click turns a reference into a held bottle.
                   Cellar, slot and price are then filled by editing it, like
                   any other bottle. */}
-              {!isOwnedItem(item) && (
+              {item.isOwned === false && (
                 <Button
                   variant="bordered"
                   color="success"

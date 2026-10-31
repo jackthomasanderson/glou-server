@@ -3,19 +3,20 @@ import React, { useCallback, useMemo } from 'react';
 import { Input } from '@heroui/react';
 import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Filter } from 'lucide-react';
-import { InventoryItem, CATEGORY_VALUES } from '@/lib/inventory/types';
+import { CATEGORY_VALUES } from '@/lib/inventory/types';
+import type { Product } from '@/lib/products/types';
+import type { InventorySortBy, InventoryOpenedFilter } from '@/lib/products/filters';
 import { WINE_COLORS } from '@shared/inventory';
 import { Cellar } from '@/lib/cellars/types';
 
-export type InventorySortBy = 'default' | 'value' | 'urgency' | 'name';
-export type InventoryOpenedFilter = 'all' | 'full' | 'opened' | 'alerts';
+export type { InventorySortBy, InventoryOpenedFilter };
 
 export interface InventoryFilterBarProps {
   t: (key: string, options?: Record<string, unknown>) => string;
   lockedCategories?: string[];
   cellars?: Cellar[];
-  /** Raw (unfiltered) inventory items, used to compute tag usage. */
-  items?: InventoryItem[];
+  /** Raw (unfiltered) wines, used to compute tag usage. */
+  products?: Product[];
 
   isFiltersOpen: boolean;
   hasActiveFilters: boolean;
@@ -36,8 +37,8 @@ export interface InventoryFilterBarProps {
   sortBy: InventorySortBy;
   setSortBy: React.Dispatch<React.SetStateAction<InventorySortBy>>;
   openedFilter: InventoryOpenedFilter;
-  showReferences: boolean;
-  setShowReferences: React.Dispatch<React.SetStateAction<boolean>>;
+  showGone: boolean;
+  setShowGone: React.Dispatch<React.SetStateAction<boolean>>;
   setOpenedFilter: React.Dispatch<React.SetStateAction<InventoryOpenedFilter>>;
 
   tagSearchQuery: string;
@@ -59,7 +60,7 @@ export function InventoryFilterBar({
   t,
   lockedCategories,
   cellars,
-  items,
+  products,
   isFiltersOpen,
   hasActiveFilters,
   onClearFilters,
@@ -79,8 +80,8 @@ export function InventoryFilterBar({
   setSortBy,
   openedFilter,
   setOpenedFilter,
-  showReferences,
-  setShowReferences,
+  showGone,
+  setShowGone,
   tagSearchQuery,
   setTagSearchQuery,
   showAllTags,
@@ -100,13 +101,13 @@ export function InventoryFilterBar({
 
   // Tags sorted by usage frequency (most used first, alphabetical as tiebreaker).
   const tagUsage = useMemo(() => {
-    if (!items) return [];
+    if (!products) return [];
     const counts = new Map<string, number>();
-    items.forEach((b: InventoryItem) => (b.tags || []).forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1)));
+    products.forEach((b: Product) => (b.tags || []).forEach((tag) => counts.set(tag, (counts.get(tag) ?? 0) + 1)));
     return Array.from(counts.entries())
       .map(([tag, count]) => ({ tag, count }))
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-  }, [items]);
+  }, [products]);
 
   const TAG_DISPLAY_LIMIT = 15;
 
@@ -162,21 +163,16 @@ export function InventoryFilterBar({
         </div>
       </div>
 
-      {/* FEAT-87: references are part of the inventory but hidden by
-          default — the list is about what the instance holds. */}
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
-          {t('inventory.filterByOwnership')}
-        </p>
-        <div role="group" className="flex flex-col gap-0.5">
-          <FilterOption
-            selected={showReferences}
-            onPress={() => setShowReferences((prev) => !prev)}
-            mode="toggle"
-          >
-            {t('inventory.filters.showReferences')}
-          </FilterOption>
-        </div>
+      {/* FEAT-101: wines with nothing left stay known but hidden by
+          default — the list is about what is in the cellar. */}
+      <div role="group" aria-label={t('familyList.filters.gone')} className="flex flex-col gap-0.5">
+        <FilterOption
+          selected={showGone}
+          onPress={() => setShowGone((prev) => !prev)}
+          mode="toggle"
+        >
+          {t('familyList.filters.gone')}
+        </FilterOption>
       </div>
 
       {/* Category filter */}

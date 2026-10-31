@@ -4,38 +4,39 @@ import { useRouter } from 'next/navigation';
 import { Input, Chip } from '@heroui/react';
 import { Search, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useInventory } from '@/hooks/useInventory';
+import { useProducts } from '@/hooks/useProducts';
 import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { useCellars } from '@/hooks/useCellars';
-import { InventoryItem } from '@/lib/inventory/types';
+import type { Product } from '@/lib/products/types';
+import { isGone } from '@/lib/products/filters';
 import { Cellar } from '@/lib/cellars/types';
 
 function normalize(s: string) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
-/** One selectable row of the result list, bottles first then cellars. */
+/** One selectable row of the result list, wines first then cellars. */
 type SearchOption =
-  | { kind: 'item'; id: string; item: InventoryItem }
+  | { kind: 'item'; id: string; item: Product }
   | { kind: 'cellar'; id: string; cellar: Cellar };
 
-// #380: search only needs the inventory once the user has actually typed
+// #380: search only needs the wines once the user has actually typed
 // something — fetching the full list on every mount (every protected page,
-// via MainLayout) downloaded up to 2000 items for a field that might never
-// be touched.
+// via MainLayout) downloaded up to 2000 wines for a field that might never
+// be touched. #471: wines with nothing left in stock are found too (FEAT-101).
 const MIN_QUERY_LENGTH = 2;
 
 function useSearch() {
   const [query, setQuery] = useState('');
   const router = useRouter();
-  const { data: items } = useInventory({ enabled: query.trim().length >= MIN_QUERY_LENGTH });
+  const { data: items } = useProducts({ enabled: query.trim().length >= MIN_QUERY_LENGTH });
   const { data: cellars } = useCellars();
 
   const itemResults = React.useMemo(() => {
     if (!query.trim() || !items) return [];
     const q = normalize(query);
     return items
-      .filter((b: InventoryItem) => {
+      .filter((b: Product) => {
         const ss = [b.name, b.producer, b.vintage?.toString(), b.region].filter(Boolean) as string[];
         return ss.some((s: string) => normalize(s).includes(q));
       })
@@ -69,7 +70,7 @@ function useSearch() {
         router.push(`/cellars/${encodeURIComponent(option.cellar.id)}`);
         return;
       }
-      // ?scan=<id> opens the item drawer directly (same mechanism as QR codes);
+      // ?scan=<id> opens the wine directly (same mechanism as QR codes);
       // cigars live on their own page, /bottles excludes them.
       const base = option.item.category === 'cigar' ? '/cigars' : '/bottles';
       router.push(`${base}?scan=${encodeURIComponent(option.item.id)}`);
@@ -128,6 +129,11 @@ function ResultsList({
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold">{option.item.name}</span>
                     <Chip size="sm" variant="flat" radius="sm" className="text-xs">{t(`categories.${option.item.category}`, option.item.category)}</Chip>
+                    {isGone(option.item) && (
+                      <span className="text-xs text-foreground-500">
+                        {t(option.item.category === 'cigar' ? 'familyList.stock.goneCigar' : 'familyList.stock.goneBottle')}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-foreground-400 mt-0.5">
                     {option.item.producer}{option.item.vintage ? ` · ${option.item.vintage}` : ''}

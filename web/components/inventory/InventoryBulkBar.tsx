@@ -31,8 +31,15 @@ export function InventoryBulkToggleButton({ bulkMode, onToggle, t }: InventoryBu
 export interface InventoryBulkBarProps {
   t: (key: string, options?: Record<string, unknown>) => string;
   bulkMode: boolean;
+  /** Ids of the bottles the bulk action applies to. */
   selectedIds: Set<string>;
+  /** What the pill counts (the wines selected); the bottles' number by default. */
+  selectedCount?: number;
   items?: InventoryItem[];
+  /** #471: the selection is wines (see BulkActionDialog). */
+  wineSelection?: boolean;
+  /** The dialog's subtitle ("3 vins, 14 bouteilles"). */
+  subtitle?: string;
   isBulkDialogOpen: boolean;
   onOpenDialog: () => void;
   onCloseDialog: () => void;
@@ -54,7 +61,10 @@ export function InventoryBulkBar({
   t,
   bulkMode,
   selectedIds,
+  selectedCount = selectedIds.size,
   items,
+  wineSelection,
+  subtitle,
   isBulkDialogOpen,
   onOpenDialog,
   onCloseDialog,
@@ -64,10 +74,11 @@ export function InventoryBulkBar({
   return (
     <>
       {/* Bulk floating bar */}
-      {bulkMode && selectedIds.size > 0 && (
+      {bulkMode && selectedCount > 0 && (
         <div className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">
-          <span className="font-bold text-primary" aria-live="polite">{t('bulk.selected', { count: selectedIds.size })}</span>
-          <Button color="primary" onPress={onOpenDialog}>
+          <span className="font-bold text-primary" aria-live="polite">{t('bulk.selected', { count: selectedCount })}</span>
+          {/* Wines with nothing left only: no bottle to change. */}
+          <Button color="primary" onPress={onOpenDialog} isDisabled={selectedIds.size === 0}>
             {t('bulk.title')}
           </Button>
         </div>
@@ -80,6 +91,8 @@ export function InventoryBulkBar({
         onApply={onApply}
         isSubmitting={isSubmitting}
         t={t}
+        wineSelection={wineSelection}
+        subtitle={subtitle}
       />
     </>
   );
