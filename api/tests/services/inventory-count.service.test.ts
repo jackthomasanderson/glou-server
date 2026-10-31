@@ -18,12 +18,15 @@ import { applyCorrections, getSessionReport } from '../../src/services/inventory
  */
 function mockTransactionClient(itemRow: Record<string, unknown> | null) {
   const findFirst = vi.fn().mockResolvedValue(itemRow as never);
-  const update = vi.fn().mockResolvedValue({} as never);
+  const update = vi.fn().mockResolvedValue({ id: itemRow?.id } as never);
+  // #471: the families of the corrected units are locked first (lockFamily).
+  const findMany = vi.fn().mockResolvedValue(itemRow ? [{ productId: 'p1' }] : []);
+  const $queryRaw = vi.fn();
   vi.mocked(prisma.$transaction).mockImplementation(
     ((callback: (tx: unknown) => unknown) =>
-      callback({ inventoryItem: { findFirst, update } })) as never,
+      callback({ inventoryItem: { findFirst, update, findMany }, $queryRaw })) as never,
   );
-  return { findFirst, update };
+  return { findFirst, update, $queryRaw };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -49,8 +52,17 @@ describe('applyCorrections', () => {
     } as never);
     const tx = mockTransactionClient({
       id: 'b1',
+      productId: 'p1',
       deletedAt: null,
+      writtenOffAt: null,
+      quantity: 1,
+      isOpened: false,
+      fillLevel: null,
+      cigarsLeft: null,
+      slotColumn: 2,
+      slotRow: 3,
       lockedFields: ['fillLevel', 'isOpened'],
+      product: { category: 'wine' },
     });
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'mark_consumed' }], 'u1');
@@ -67,7 +79,10 @@ describe('applyCorrections', () => {
         updatedAt: expect.any(Date),
         updatedBy: 'u1',
       },
+      include: expect.anything(),
     });
+    // #471: the family is locked before the unit is written.
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(tx.update.mock.invocationCallOrder[0]);
   });
 
   it('moves a bottle into the session scope even when cellarId is locked', async () => {

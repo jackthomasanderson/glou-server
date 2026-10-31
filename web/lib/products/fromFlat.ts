@@ -1,4 +1,4 @@
-import { isFinishedState } from '@shared/units';
+import { isFinishedState, itemUnits } from '@shared/units';
 import type { InventoryItem } from '@/lib/inventory/types';
 import type { Product, ProductItem } from './types';
 
@@ -93,4 +93,57 @@ export function withoutUnit(products: readonly Product[] | undefined, itemId: st
     product.items.some((unit) => unit.id === itemId)
       ? { ...product, items: product.items.filter((unit) => unit.id !== itemId) }
       : product);
+}
+
+const unitInStock = (unit: ProductItem) => unit.deletedAt == null && itemUnits(unit) > 0;
+
+/**
+ * D8: the other bottles a write changed (`changed`: the group a bottle was
+ * detached from, the group that absorbed it) and those it removed
+ * (`removedIds`: a sub-record reattached), applied to the cached wines.
+ */
+export function withUnitChanges(
+  products: readonly Product[] | undefined,
+  changed: readonly ProductItem[],
+  removedIds: readonly string[],
+): Product[] | undefined {
+  if (!products || (changed.length === 0 && removedIds.length === 0)) return products as Product[] | undefined;
+  const byId = new Map(changed.map((unit) => [unit.id, unit]));
+  const removed = new Set(removedIds);
+  return products.map((product) => {
+    const touched = product.items.some((unit) => byId.has(unit.id) || removed.has(unit.id))
+      || changed.some((unit) => unit.productId === product.id);
+    if (!touched) return product;
+    const items = product.items
+      .filter((unit) => !removed.has(unit.id))
+      .flatMap((unit) => {
+        const next = byId.get(unit.id);
+        if (!next) return [unit];
+        return unitInStock(next) ? [next] : [];
+      });
+    const known = new Set(items.map((unit) => unit.id));
+    for (const unit of changed) {
+      if (unit.productId === product.id && !known.has(unit.id) && !product.items.some((u) => u.id === unit.id) && unitInStock(unit)) {
+        items.push(unit);
+      }
+    }
+    return { ...product, items };
+  });
+}
+
+/** The same changes on the flat list of bottles (still loaded by the page): no row left behind. */
+export function flatWithUnitChanges(
+  items: readonly InventoryItem[] | undefined,
+  changed: readonly ProductItem[],
+  removedIds: readonly string[],
+): InventoryItem[] | undefined {
+  if (!items || (changed.length === 0 && removedIds.length === 0)) return items as InventoryItem[] | undefined;
+  const byId = new Map(changed.map((unit) => [unit.id, unit]));
+  const removed = new Set(removedIds);
+  return items
+    .filter((item) => !removed.has(item.id))
+    .map((item) => {
+      const unit = byId.get(item.id);
+      return unit ? ({ ...item, ...unit } as unknown as InventoryItem) : item;
+    });
 }

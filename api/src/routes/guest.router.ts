@@ -3,6 +3,8 @@ import rateLimit from 'express-rate-limit';
 import { ZodError } from 'zod';
 import { guestMiddleware } from '../middleware/guest.middleware';
 import { routeParam } from '../lib/http';
+import { AppError } from '../lib/errors';
+import type { UnitWriteResult } from '../../../shared/product';
 import { sharesService } from '../services/shares.service';
 import { guestInventoryUpdateSchema } from '../schemas/inventory.schema';
 import { inventoryService } from '../services/inventory.service';
@@ -138,17 +140,45 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       action: 'GUEST_UPDATE',
       status: 'success',
       ip,
-      bottleId: itemId,
+      // #471 (D8): logged on the unit that now carries the state (a detached sub-record).
+      bottleId: result.item.id,
       productId: result.item.productId,
-      details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: result.changes },
+      details: {
+        via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: result.changes,
+        ...(result.outcome ? { outcome: result.outcome, targetItemId: itemId } : {}),
+      },
     });
+    // The group's own history: one copy fewer (detached) or one more (reattached).
+    if (result.groupChange) {
+      const { itemId: groupId, from, to } = result.groupChange;
+      void auditLog({
+        userId: share.userId,
+        action: 'GUEST_UPDATE',
+        status: 'success',
+        ip,
+        bottleId: groupId,
+        productId: result.item.productId,
+        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: [{ field: 'quantity', from, to }], outcome: result.outcome },
+      });
+    }
 
     // ISSUE_483: `result.item` is the full row (purchase price, estimated
     // value, notes…). Re-read it through the share's own select so the
     // response honours hidePrices/hideNotes exactly like the read routes.
-    const visible = await sharesService.getItemForShare(share, itemId);
-    res.json({ data: visible });
+    // #471 (D8): the unit carrying the state, and the other units written.
+    const visible = await sharesService.getItemForShare(share, result.item.id);
+    const changed = await Promise.all(result.changed.map((unit) => sharesService.getItemForShare(share, unit.id)));
+    type SharedUnit = NonNullable<typeof visible>;
+    const response: UnitWriteResult<typeof visible, SharedUnit> = {
+      data: visible, changed: changed.filter((unit): unit is SharedUnit => unit != null), removedIds: result.removedIds,
+    };
+    res.json(response);
   } catch (error) {
+    if (error instanceof AppError) {
+      // #471: a write the detach / reattach rule refuses (TASTINGS_ON_ITEM…).
+      res.status(error.status).json({ error: error.code, details: error.details });
+      return;
+    }
     if (error instanceof ZodError) {
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({
