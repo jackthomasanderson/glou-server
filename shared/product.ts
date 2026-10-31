@@ -104,6 +104,24 @@ export interface ItemView {
   updatedAt: Date;
 }
 
+/**
+ * D8: the answer of a write that may detach or reattach a unit (PATCH
+ * /api/inventory/:id, the guest PATCH). `data` is the unit that now carries
+ * the requested state: the sub-record created, the unit itself, or the group
+ * that absorbed it — still a unit, so the callers that only read `data` keep
+ * working (the flat routes answer it as their flat record). `changed` holds
+ * the other units written in the same transaction (the group a copy was
+ * taken from), `removedIds` the units deleted (a sub-record absorbed).
+ */
+export interface UnitWriteResponse<TData = ItemView> {
+  data: TData;
+  changed: ItemView[];
+  removedIds: string[];
+}
+
+/** 409 of a reattach that would delete a sub-record holding tastings: send `keepTastings`. */
+export const TASTINGS_ON_ITEM = 'TASTINGS_ON_ITEM';
+
 export interface ProductCollection {
   id: string;
   name: string;

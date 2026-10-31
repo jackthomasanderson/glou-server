@@ -10,6 +10,17 @@ describe('inventoryPatchSchema', () => {
     expect(inventoryPatchSchema.safeParse({}).success).toBe(true);
   });
 
+  // #471 (FEAT-103/106): the detach / reattach instructions.
+  it('accepts smokeOne: true only, cigarsLeft and cigarsPerBox as counts, keepTastings as a boolean', () => {
+    expect(inventoryPatchSchema.safeParse({ smokeOne: true }).success).toBe(true);
+    expect(inventoryPatchSchema.safeParse({ smokeOne: false }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ cigarsLeft: 24, cigarsPerBox: 25 }).success).toBe(true);
+    expect(inventoryPatchSchema.safeParse({ cigarsLeft: -1 }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ cigarsPerBox: 0 }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ keepTastings: false }).success).toBe(true);
+    expect(inventoryPatchSchema.safeParse({ keepTastings: 'yes' }).success).toBe(false);
+  });
+
   it('allows nulling out nullable fields', () => {
     const res = inventoryPatchSchema.safeParse({ vintage: null, region: null, cellarId: null });
     expect(res.success).toBe(true);

@@ -9,6 +9,8 @@ import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { systemConfigService } from '../services/system-config.service';
 import { routeParam } from '../lib/http';
+import { AppError } from '../lib/errors';
+import type { UnitWriteResponse } from '../../../shared/product';
 
 const router = Router();
 
@@ -119,6 +121,11 @@ router.post('/bulk', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, details: { count, bulk: true } });
     res.json({ data: { updatedCount: count } });
   } catch (error) {
+    if (error instanceof AppError) {
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, details: { reason: error.code, bulk: true } });
+      res.status(error.status).json({ error: error.code, details: error.details });
+      return;
+    }
     console.error('[inventory] POST /bulk error:', error);
     if (error instanceof ZodError) {
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
@@ -207,9 +214,20 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(409).json({ error: 'SLOT_OCCUPIED' });
       return;
     }
-    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: id, productId: result.item.productId, details: { changes: result.changes } });
-    res.json({ data: result.item });
+    // #471 (D8): a detach or a reattach is logged on the unit that now
+    // carries the state — the sub-record created, or the group that absorbed
+    // the sub-record (which no longer exists).
+    const outcome = result.outcome ? { outcome: result.outcome, targetItemId: id } : {};
+    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId, details: { changes: result.changes, ...outcome } });
+    const response: UnitWriteResponse<typeof result.item> = { data: result.item, changed: result.changed, removedIds: result.removedIds };
+    res.json(response);
   } catch (error) {
+    if (error instanceof AppError) {
+      // #471: a write the detach / reattach rule refuses (TASTINGS_ON_ITEM, NOT_A_CIGAR…).
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: error.code } });
+      res.status(error.status).json({ error: error.code, details: error.details });
+      return;
+    }
     console.error('[inventory] PATCH /:id error:', error);
     if (error instanceof ZodError) {
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');

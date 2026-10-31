@@ -168,6 +168,15 @@ export const inventoryPatchObject = z.object({
   isOpened: z.boolean().optional(),
   fillLevel: z.number().int().min(0).max(100).optional().nullable(),
   openedAt: z.coerce.date().optional().nullable(),
+  // #471 (FEAT-103): cigars left in an opened box (null = closed and complete).
+  cigarsLeft: z.number().int().min(0).max(1000).optional().nullable(),
+  // #471 (FEAT-103): smoke one cigar of this unit — the first one of a closed
+  // box opens it (M−1 left), a single cigar is finished (stock-state.service.ts).
+  smokeOne: z.literal(true).optional(),
+  // #471 (FEAT-106): a sub-record put back intact goes back into its group;
+  // if tastings were noted on it, the answer to "keep them?" (on the family)
+  // — without it, 409 TASTINGS_ON_ITEM.
+  keepTastings: z.boolean().optional(),
   reminderDate: z.coerce.date().optional().nullable(),
   alertStatus: z.enum(ALERT_STATUSES).optional().nullable(),
   alertsPaused: z.boolean().optional(),
@@ -212,6 +221,8 @@ export const inventoryPatchObject = z.object({
   format: z.string().max(100).optional().nullable(),
   // ISSUE_101/ISSUE_029: min(0) — see cigarInventorySchema's quantity field above.
   quantity: z.number().int().min(0).max(1000).optional().nullable(),
+  // #471 (FEAT-95): cigars per box of a group of closed boxes (null = single cigars).
+  cigarsPerBox: z.number().int().min(1).max(1000).optional().nullable(),
   manufactureYear: z.number().int().optional().nullable(),
   leafOrigin: z.string().max(200).optional().nullable(),
   factoryCode: z.string().max(50).optional().nullable(),
