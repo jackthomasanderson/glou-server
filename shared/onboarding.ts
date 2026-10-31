@@ -10,5 +10,8 @@ export interface OnboardingState {
   wizardCellar: { id: string; name: string } | null;
   /** FEAT-89: what a joining member finds — every cellar, and the units in stock (bottles and cigars, #471). */
   cellarCount: number;
+  /** Bottles and cigars together; the wizard shows the two apart (`bottleCount`, `cigarCount`). */
   inStockCount: number;
+  bottleCount: number;
+  cigarCount: number;
 }

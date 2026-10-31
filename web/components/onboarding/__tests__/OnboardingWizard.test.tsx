@@ -9,7 +9,7 @@ vi.mock('react-i18next', () => ({
 }));
 vi.mock('@/hooks/useRestoreFocus', () => ({ useRestoreFocus: () => {} }));
 
-const EMPTY: OnboardingState = { postponed: false, joining: false, wizardCellar: null, cellarCount: 0, inStockCount: 0 };
+const EMPTY: OnboardingState = { postponed: false, joining: false, wizardCellar: null, cellarCount: 0, inStockCount: 0, bottleCount: 0, cigarCount: 0 };
 let stateLoading = false;
 let onboardingState: OnboardingState | undefined = EMPTY;
 const completeOnboarding = vi.fn();
@@ -33,11 +33,11 @@ vi.mock('../steps/CellarStep', () => ({
   ),
 }));
 vi.mock('../steps/JoiningStep', () => ({
-  JoiningStep: ({ cellarCount, inStockCount, onExplore, onAddBottles }: {
-    cellarCount: number; inStockCount: number; onExplore: () => void; onAddBottles: () => void;
+  JoiningStep: ({ cellarCount, bottleCount, cigarCount, onExplore, onAddBottles }: {
+    cellarCount: number; bottleCount: number; cigarCount: number; onExplore: () => void; onAddBottles: () => void;
   }) => (
     <div>
-      <p>{`joining: ${cellarCount} cellars, ${inStockCount} in stock`}</p>
+      <p>{`joining: ${cellarCount} cellars, ${bottleCount} bottles, ${cigarCount} cigars`}</p>
       <button type="button" onClick={onExplore}>explore</button>
       <button type="button" onClick={onAddBottles}>add bottles</button>
     </div>
@@ -110,13 +110,13 @@ describe('OnboardingWizard resume (#574, #685)', () => {
 
 describe('OnboardingWizard for a member joining a filled cellar (FEAT-89)', () => {
   beforeEach(() => {
-    onboardingState = { ...EMPTY, joining: true, cellarCount: 2, inStockCount: 240 };
+    onboardingState = { ...EMPTY, joining: true, cellarCount: 2, inStockCount: 240, bottleCount: 200, cigarCount: 40 };
   });
 
   it('welcomes them, then shows what the household already has', () => {
     render(<OnboardingWizard onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: 'welcome (joining)' }));
-    expect(screen.getByText('joining: 2 cellars, 240 in stock')).toBeInTheDocument();
+    expect(screen.getByText('joining: 2 cellars, 200 bottles, 40 cigars')).toBeInTheDocument();
     expect(progress()).toBe('onboarding.stepProgress|2/5');
   });
 
@@ -134,7 +134,7 @@ describe('OnboardingWizard for a member joining a filled cellar (FEAT-89)', () =
     fireEvent.click(screen.getByRole('button', { name: 'add bottles' }));
     expect(screen.getByText('ingestion-choice')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'choice back' }));
-    expect(screen.getByText('joining: 2 cellars, 240 in stock')).toBeInTheDocument();
+    expect(screen.getByText('joining: 2 cellars, 200 bottles, 40 cigars')).toBeInTheDocument();
     expect(screen.queryByText(/cellar step/)).toBeNull();
   });
 

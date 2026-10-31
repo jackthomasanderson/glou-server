@@ -33,6 +33,8 @@ export const onboardingService = {
       wizardCellar: ownCellar,
       cellarCount,
       inStockCount: bottles + cigars,
+      bottleCount: bottles,
+      cigarCount: cigars,
     };
   },
 

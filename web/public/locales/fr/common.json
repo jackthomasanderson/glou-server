@@ -326,9 +326,25 @@
     "filterByWineColor": "Par couleur (vin)",
     "filterByValue": "Par valeur (€)",
     "stats": {
-      "total": "Total stock",
-      "full": "Stock plein",
-      "opened": "Actifs entamés",
+      "bottles_one": "{{count}} bouteille",
+      "bottles_other": "{{count}} bouteilles",
+      "cigars_one": "{{count}} cigare",
+      "cigars_other": "{{count}} cigares",
+      "families": {
+        "wine_one": "{{count}} vin",
+        "wine_other": "{{count}} vins",
+        "sparkling_one": "{{count}} cuvée",
+        "sparkling_other": "{{count}} cuvées",
+        "spirit_one": "{{count}} spiritueux",
+        "spirit_other": "{{count}} spiritueux",
+        "cigar_one": "{{count}} référence",
+        "cigar_other": "{{count}} références",
+        "mixed_one": "{{count}} référence",
+        "mixed_other": "{{count}} références"
+      },
+      "full": "Pleines",
+      "fullCigar": "Intacts",
+      "opened": "Entamées",
       "openedCigar": "Cigares entamés"
     },
     "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche, ni dans la détection des doublons.",
@@ -545,12 +561,14 @@
     "deleteTitle": "Supprimer la cave",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les actifs qu'elle contient deviendront orphelins.",
     "stats": {
-      "items": "actifs",
-      "itemsCount_one": "{{count}} actif",
-      "itemsCount_other": "{{count}} actifs",
       "alerts": "alertes",
       "alertCount_one": "{{count}} alerte",
-      "alertCount_other": "{{count}} alertes"
+      "alertCount_other": "{{count}} alertes",
+      "items": "Contenu",
+      "bottlesCount_one": "{{count}} bouteille",
+      "bottlesCount_other": "{{count}} bouteilles",
+      "cigarsCount_one": "{{count}} cigare",
+      "cigarsCount_other": "{{count}} cigares"
     },
     "grid": {
       "showConfig": "Configurer le plan de cave (optionnel)",
@@ -587,7 +605,8 @@
       "slotOccupied": "Cet emplacement est déjà occupé.",
       "removeFromSlot": "Retirer de l'emplacement",
       "slot": "Emplacement",
-      "moveError": "Le déplacement a échoué, la grille a été resynchronisée avec le serveur."
+      "moveError": "Le déplacement a échoué, la grille a été resynchronisée avec le serveur.",
+      "copies": "×{{number}}"
     },
     "filterByType": "Filtrer par type",
     "filterByStatus": "Filtrer par état",
@@ -1142,18 +1161,18 @@
       "viewSummary": "Voir le bilan",
       "progressAria": "Progression du comptage",
       "progressCount": "Trouvé : {{confirmed}} / {{expected}}",
-      "noTheoreticalList": "Ce périmètre libre n'est lié à aucune cave : aucune liste théorique n'est disponible. Toute bouteille confirmée ici sera enregistrée comme trouvée.",
-      "unexpectedFound_one": "{{count}} bouteille trouvée hors périmètre",
-      "unexpectedFound_other": "{{count}} bouteilles trouvées hors périmètre",
-      "searchLabel": "Rechercher une bouteille",
+      "noTheoreticalList": "Ce périmètre libre n'est lié à aucune cave : aucune liste théorique n'est disponible. Tout exemplaire confirmé ici sera enregistré comme trouvé.",
+      "unexpectedFound_one": "{{count}} exemplaire trouvé hors périmètre",
+      "unexpectedFound_other": "{{count}} exemplaires trouvés hors périmètre",
+      "searchLabel": "Rechercher un vin ou un cigare",
       "searchPlaceholder": "Nom ou producteur...",
-      "emptyList": "Aucune bouteille à vérifier pour ce périmètre.",
+      "emptyList": "Rien à vérifier pour ce périmètre.",
       "confirmTap": "Confirmer",
       "pausedNotice": "Cette session est en pause. Reprenez-la pour continuer le comptage.",
       "foundNew": {
         "trigger": "Introuvable dans la liste ? Enregistrer une trouvaille",
         "title": "Nouvelle trouvaille",
-        "description": "Enregistrez des bouteilles présentes mais absentes de Glou. Une trouvaille de plusieurs bouteilles forme un seul groupe ; elle est ajoutée à la cave quand vous la confirmez à la clôture de la session.",
+        "description": "Enregistrez des exemplaires présents mais absents de Glou. Une trouvaille de plusieurs exemplaires forme un seul groupe ; elle est ajoutée à la cave quand vous la confirmez à la clôture de la session.",
         "nameLabel": "Nom",
         "categoryLabel": "Catégorie",
         "quantityLabel": "Nombre trouvé"
@@ -1183,7 +1202,7 @@
       "foundOf": "{{found}} / {{expected}}",
       "missingOf_one": "{{count}} manquante sur {{expected}}",
       "missingOf_other": "{{count}} manquantes sur {{expected}}",
-      "missingChoiceAria": "Que faire des bouteilles manquantes de {{name}} ?",
+      "missingChoiceAria": "Que faire des exemplaires manquants de {{name}} ?",
       "choice": {
         "none": "Ne rien faire",
         "drunk_one": "Bue",
@@ -1197,7 +1216,11 @@
       "addToStock_one": "Ajouter {{count}} bouteille à la cave",
       "addToStock_other": "Ajouter {{count}} bouteilles à la cave",
       "joinLabel": "Ajouter à",
-      "newWine": "Un nouveau vin"
+      "newWine": "Un nouveau vin",
+      "addSurplus_cigar_one": "Ajouter {{count}} cigare au groupe",
+      "addSurplus_cigar_other": "Ajouter {{count}} cigares au groupe",
+      "addToStock_cigar_one": "Ajouter {{count}} cigare à la cave",
+      "addToStock_cigar_other": "Ajouter {{count}} cigares à la cave"
     },
     "errors": {
       "SESSION_NOT_FOUND": "Cette session d'inventaire est introuvable.",
@@ -1205,8 +1228,8 @@
       "SESSION_ALREADY_COMPLETED": "Cette session d'inventaire a déjà été clôturée.",
       "VALIDATION_ERROR": "Veuillez vérifier les informations saisies.",
       "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
-      "QUANTITY_TOO_LARGE": "Un groupe ne peut pas dépasser 1 000 bouteilles.",
-      "PRODUCT_IN_TRASH": "Ce vin est dans la corbeille : restaurez-le avant d'y ajouter des bouteilles."
+      "QUANTITY_TOO_LARGE": "Un groupe ne peut pas dépasser 1 000 exemplaires.",
+      "PRODUCT_IN_TRASH": "Ce vin est dans la corbeille : restaurez-le avant d'y ajouter des exemplaires."
     }
   },
   "analytics": {
@@ -1222,10 +1245,10 @@
       "liquidStockHint": "Hors cigares de collection",
       "cigarHumidor": "Cigares en humidor",
       "cigarHumidorHint": "Préservés sous hygrométrie contrôlée",
-      "cigarModules_one": "{{count}} module",
-      "cigarModules_other": "{{count}} modules",
       "urgentDegustation": "Urgence de dégustation",
-      "urgentDegustationHint": "Actifs à l'apogée ou l'ayant dépassée"
+      "urgentDegustationHint": "Actifs à l'apogée ou l'ayant dépassée",
+      "cigarCount_one": "{{count}} cigare",
+      "cigarCount_other": "{{count}} cigares"
     },
     "regionMap": {
       "title": "Répartition géographique",
@@ -1792,10 +1815,12 @@
       "subtitle": "Tout est partagé : vous voyez et gérez les mêmes bouteilles que les autres membres.",
       "cellars_one": "{{count}} cave",
       "cellars_other": "{{count}} caves",
-      "items_one": "{{count}} bouteille en stock",
-      "items_other": "{{count}} bouteilles en stock",
       "explore": "Découvrir la cave",
-      "addBottles": "Ajouter des bouteilles"
+      "addBottles": "Ajouter des bouteilles",
+      "bottles_one": "{{count}} bouteille en stock",
+      "bottles_other": "{{count}} bouteilles en stock",
+      "cigars_one": "{{count}} cigare en stock",
+      "cigars_other": "{{count}} cigares en stock"
     },
     "ingestion": {
       "title": "Comment souhaitez-vous ajouter vos actifs ?",

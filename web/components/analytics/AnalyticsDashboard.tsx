@@ -602,7 +602,7 @@ export function AnalyticsDashboard() {
             <StatCard
               testId="kpi-cigar-humidor"
               label={t('analytics.stats.cigarHumidor')}
-              value={t('analytics.stats.cigarModules', { count: data?.cigarModulesCount ?? 0 })}
+              value={t('analytics.stats.cigarCount', { count: data?.cigarModulesCount ?? 0 })}
               hint={t('analytics.stats.cigarHumidorHint')}
               icon={<Leaf size={20} color="#7B1E30" />}
               iconBg="rgba(123,30,48,0.1)"

@@ -186,13 +186,25 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
 
   it('getGridData only places the bottles still in stock on the map', async () => {
     const cave = { id: 'c1', name: 'Cave A' };
-    const placed = [{ id: 'a', name: 'Chambertin', slotColumn: 1, slotRow: 1 }];
+    const placed = [
+      { id: 'a', name: 'Chambertin', slotColumn: 1, slotRow: 1, quantity: 4, isOpened: false },
+      { id: 'b', name: 'Musigny', slotColumn: 2, slotRow: 1, quantity: null, isOpened: false },
+      { id: 'c', name: 'Opened', slotColumn: 3, slotRow: 1, quantity: 1, isOpened: true },
+    ];
     vi.mocked(prisma.cellar.findFirst).mockResolvedValue(cave as never);
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(placed as never);
 
     const grid = await CellarService.getGridData('u1', 'c1');
 
-    expect(grid).toEqual({ cellar: cave, items: placed });
+    // The group's size rides on its slot ("×4"); an empty quantity is one bottle.
+    expect(grid).toEqual({
+      cellar: cave,
+      items: [
+        { id: 'a', name: 'Chambertin', slotColumn: 1, slotRow: 1, quantity: 4 },
+        { id: 'b', name: 'Musigny', slotColumn: 2, slotRow: 1, quantity: 1 },
+        { id: 'c', name: 'Opened', slotColumn: 3, slotRow: 1, quantity: 1 },
+      ],
+    });
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: { cellarId: 'c1', ...IN_STOCK_SCOPE },
       select: expect.anything(),

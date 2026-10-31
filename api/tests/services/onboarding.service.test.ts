@@ -44,6 +44,16 @@ describe('onboardingService.getState — joining member (FEAT-89)', () => {
     expect(state).toMatchObject({ joining: true, wizardCellar: null, cellarCount: 2, inStockCount: 240 });
   });
 
+  it('counts bottles and cigars apart, since "N bottles" would lie for a mix (W4)', async () => {
+    instance({ cellars: 1, own: null });
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unit({ quantity: 12 }),
+      unit({ quantity: 3, cigarsPerBox: 25, product: { category: 'cigar' } }),
+    ] as never);
+    const state = await onboardingService.getState('u2', 's1');
+    expect(state).toMatchObject({ bottleCount: 12, cigarCount: 75, inStockCount: 87 });
+  });
+
   it('is not a joining member on an empty instance', async () => {
     instance({ cellars: 0, own: null });
     expect((await onboardingService.getState('u1', 's1')).joining).toBe(false);

@@ -23,6 +23,9 @@ function toggleId(set: Set<string>, id: string): Set<string> {
   return next;
 }
 
+/** The cigar wording of a count label (`key_cigar`), nothing for a bottle. */
+const cigarContext = (category: string) => (category === 'cigar' ? { context: 'cigar' } : {});
+
 export function SessionReportView({ session }: SessionReportViewProps) {
   const { t } = useTranslation();
   const { data: report, isLoading } = useSessionReport(session.id);
@@ -179,12 +182,12 @@ export function SessionReportView({ session }: SessionReportViewProps) {
                     isSelected={surplus.has(line.id)}
                     onValueChange={() => setSurplus((prev) => toggleId(prev, line.id))}
                     isDisabled={isCompleted}
-                    aria-label={t('inventoryCount.report.addSurplus', { count: line.surplusQuantity, name: line.name })}
+                    aria-label={t('inventoryCount.report.addSurplus', { count: line.surplusQuantity, name: line.name, ...cigarContext(line.category) })}
                   />
                   <div className="flex-1 min-w-0">
                     {lineTitle(line)}
                     <p className="text-xs text-primary mt-0.5">
-                      {t('inventoryCount.report.addSurplus', { count: line.surplusQuantity, name: line.name })}
+                      {t('inventoryCount.report.addSurplus', { count: line.surplusQuantity, name: line.name, ...cigarContext(line.category) })}
                     </p>
                   </div>
                 </div>
@@ -207,7 +210,7 @@ export function SessionReportView({ session }: SessionReportViewProps) {
               report.unexpected.map((item) => {
                 const isNewFind = item.itemId === null;
                 const choice = findChoice(item);
-                const addLabel = isNewFind ? t('inventoryCount.report.addToStock', { count: item.quantity ?? 1 }) : t('inventoryCount.report.moveToScope');
+                const addLabel = isNewFind ? t('inventoryCount.report.addToStock', { count: item.quantity ?? 1, ...cigarContext(item.category) }) : t('inventoryCount.report.moveToScope');
                 return (
                   <div key={item.entryId} className="flex items-start gap-2">
                     <Checkbox

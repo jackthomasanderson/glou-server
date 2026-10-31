@@ -326,9 +326,25 @@
     "filterByWineColor": "By color (wine)",
     "filterByValue": "By value (€)",
     "stats": {
-      "total": "Total stock",
-      "full": "Full stock",
-      "opened": "Opened assets",
+      "bottles_one": "{{count}} bottle",
+      "bottles_other": "{{count}} bottles",
+      "cigars_one": "{{count}} cigar",
+      "cigars_other": "{{count}} cigars",
+      "families": {
+        "wine_one": "{{count}} wine",
+        "wine_other": "{{count}} wines",
+        "sparkling_one": "{{count}} cuvée",
+        "sparkling_other": "{{count}} cuvées",
+        "spirit_one": "{{count}} spirit",
+        "spirit_other": "{{count}} spirits",
+        "cigar_one": "{{count}} reference",
+        "cigar_other": "{{count}} references",
+        "mixed_one": "{{count}} reference",
+        "mixed_other": "{{count}} references"
+      },
+      "full": "Full",
+      "fullCigar": "Intact",
+      "opened": "Opened",
       "openedCigar": "Opened cigars"
     },
     "truncated": "Only the {{limit}} most recent items are loaded: older ones do not appear in this list, the search or duplicate detection.",
@@ -545,12 +561,14 @@
     "deleteTitle": "Delete cellar",
     "deleteConfirm": "Are you sure you want to delete this cellar? The assets inside will become orphans.",
     "stats": {
-      "items": "items",
-      "itemsCount_one": "{{count}} item",
-      "itemsCount_other": "{{count}} items",
       "alerts": "alerts",
       "alertCount_one": "{{count}} alert",
-      "alertCount_other": "{{count}} alerts"
+      "alertCount_other": "{{count}} alerts",
+      "items": "Contents",
+      "bottlesCount_one": "{{count}} bottle",
+      "bottlesCount_other": "{{count}} bottles",
+      "cigarsCount_one": "{{count}} cigar",
+      "cigarsCount_other": "{{count}} cigars"
     },
     "grid": {
       "showConfig": "Configure grid layout (optional)",
@@ -585,7 +603,8 @@
       "slotOccupied": "This slot is already occupied.",
       "removeFromSlot": "Remove from slot",
       "slot": "Slot",
-      "moveError": "The move failed — the grid was resynced with the server."
+      "moveError": "The move failed — the grid was resynced with the server.",
+      "copies": "×{{number}}"
     },
     "filterByType": "Filter by type",
     "filterByStatus": "Filter by status",
@@ -1140,18 +1159,18 @@
       "viewSummary": "View summary",
       "progressAria": "Counting progress",
       "progressCount": "Found: {{confirmed}} / {{expected}}",
-      "noTheoreticalList": "This free-form scope isn't linked to any cellar: no theoretical list is available. Any bottle confirmed here will be recorded as found.",
-      "unexpectedFound_one": "{{count}} bottle found outside its expected scope",
-      "unexpectedFound_other": "{{count}} bottles found outside their expected scope",
-      "searchLabel": "Search for a bottle",
+      "noTheoreticalList": "This free-form scope isn't linked to any cellar: no theoretical list is available. Any item confirmed here will be recorded as found.",
+      "unexpectedFound_one": "{{count}} item found outside its expected scope",
+      "unexpectedFound_other": "{{count}} items found outside its expected scope",
+      "searchLabel": "Search for a wine or a cigar",
       "searchPlaceholder": "Name or producer...",
-      "emptyList": "No bottle to check for this scope.",
+      "emptyList": "Nothing to check for this scope.",
       "confirmTap": "Confirm",
       "pausedNotice": "This session is paused. Resume it to continue counting.",
       "foundNew": {
         "trigger": "Not in the list? Log a new find",
         "title": "New find",
-        "description": "Record bottles that are physically present but not in Glou yet. A find of several bottles makes a single group; it's added to the cellar once you confirm it when closing the session.",
+        "description": "Record items that are here but missing from Glou. A find of several items forms a single group; it is added to the cellar when you confirm it as the session closes.",
         "nameLabel": "Name",
         "categoryLabel": "Category",
         "quantityLabel": "Number found"
@@ -1181,7 +1200,7 @@
       "foundOf": "{{found}} / {{expected}}",
       "missingOf_one": "{{count}} missing out of {{expected}}",
       "missingOf_other": "{{count}} missing out of {{expected}}",
-      "missingChoiceAria": "What to do with the missing bottles of {{name}}?",
+      "missingChoiceAria": "What to do with the missing items of {{name}}?",
       "choice": {
         "none": "Do nothing",
         "drunk_one": "Drunk",
@@ -1195,7 +1214,11 @@
       "addToStock_one": "Add {{count}} bottle to the cellar",
       "addToStock_other": "Add {{count}} bottles to the cellar",
       "joinLabel": "Add to",
-      "newWine": "A new wine"
+      "newWine": "A new wine",
+      "addSurplus_cigar_one": "Add {{count}} cigar to the group",
+      "addSurplus_cigar_other": "Add {{count}} cigars to the group",
+      "addToStock_cigar_one": "Add {{count}} cigar to the cellar",
+      "addToStock_cigar_other": "Add {{count}} cigars to the cellar"
     },
     "errors": {
       "SESSION_NOT_FOUND": "This count session could not be found.",
@@ -1203,8 +1226,8 @@
       "SESSION_ALREADY_COMPLETED": "This count session has already been closed.",
       "VALIDATION_ERROR": "Please check the information you entered.",
       "UNEXPECTED_ERROR": "An unexpected error occurred.",
-      "QUANTITY_TOO_LARGE": "A group cannot hold more than 1,000 bottles.",
-      "PRODUCT_IN_TRASH": "This wine is in the trash: restore it before adding bottles to it."
+      "QUANTITY_TOO_LARGE": "A group cannot hold more than 1,000 items.",
+      "PRODUCT_IN_TRASH": "This wine is in the trash: restore it before adding items to it."
     }
   },
   "analytics": {
@@ -1220,10 +1243,10 @@
       "liquidStockHint": "Excluding collection cigars",
       "cigarHumidor": "Cigars in humidor",
       "cigarHumidorHint": "Preserved under controlled humidity",
-      "cigarModules_one": "{{count}} module",
-      "cigarModules_other": "{{count}} modules",
       "urgentDegustation": "Tasting urgency",
-      "urgentDegustationHint": "Assets at or past their peak"
+      "urgentDegustationHint": "Assets at or past their peak",
+      "cigarCount_one": "{{count}} cigar",
+      "cigarCount_other": "{{count}} cigars"
     },
     "regionMap": {
       "title": "Geographic distribution",
@@ -1790,10 +1813,12 @@
       "subtitle": "Everything is shared: you see and manage the same bottles as the other members.",
       "cellars_one": "{{count}} cellar",
       "cellars_other": "{{count}} cellars",
-      "items_one": "{{count}} bottle in stock",
-      "items_other": "{{count}} bottles in stock",
       "explore": "Explore the cellar",
-      "addBottles": "Add bottles"
+      "addBottles": "Add bottles",
+      "bottles_one": "{{count}} bottle in stock",
+      "bottles_other": "{{count}} bottles in stock",
+      "cigars_one": "{{count}} cigar in stock",
+      "cigars_other": "{{count}} cigars in stock"
     },
     "ingestion": {
       "title": "How would you like to add your assets?",

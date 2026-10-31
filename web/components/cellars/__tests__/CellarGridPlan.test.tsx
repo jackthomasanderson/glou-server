@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CellarGridPlan } from '../CellarGridPlan';
 import type { CellarGridData } from '@/lib/cellars/types';
@@ -45,11 +45,11 @@ const data = {
   ],
 } as unknown as CellarGridData;
 
-function renderGrid() {
+function renderGrid(gridData: CellarGridData = data) {
   const qc = new QueryClient();
   return render(
     <QueryClientProvider client={qc}>
-      <CellarGridPlan data={data} />
+      <CellarGridPlan data={gridData} />
     </QueryClientProvider>,
   );
 }
@@ -85,5 +85,26 @@ describe('CellarGridPlan keyboard access (#199)', () => {
   it('describes the keyboard drag for screen readers', () => {
     const { container } = renderGrid();
     expect(container.ownerDocument.body.textContent).toContain('cellars.grid.dragInstructions');
+  });
+});
+
+// #471 (FEAT-96, ux-ui.md §10.6): a slot holding a group of bottles says how many.
+describe('CellarGridPlan group badge (#471)', () => {
+  const withQuantity = (quantity: number | undefined) => ({
+    ...data,
+    items: [{ ...data.items[0], ...(quantity === undefined ? {} : { quantity }) }],
+  }) as unknown as CellarGridData;
+
+  it('shows "×4" on a slot that holds four bottles', () => {
+    renderGrid(withQuantity(4));
+    expect(screen.getByTestId('slot-copies')).toHaveTextContent('cellars.grid.copies|4');
+  });
+
+  it('shows nothing on a single bottle', () => {
+    renderGrid(withQuantity(1));
+    expect(screen.queryByTestId('slot-copies')).toBeNull();
+    cleanup();
+    renderGrid(withQuantity(undefined));
+    expect(screen.queryByTestId('slot-copies')).toBeNull();
   });
 });

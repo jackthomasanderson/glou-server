@@ -96,6 +96,14 @@ describe('SessionReportView — surplus and finds (c3, c4)', () => {
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith([{ itemId: 'g1', action: 'add_units' }]));
   });
 
+  it('words the surplus of a cigar group in cigars, not bottles (W4)', () => {
+    const g1 = line('g1', { category: 'cigar', foundQuantity: 8, surplusQuantity: 2 });
+    withReport({ expected: [g1], confirmed: [g1], surplus: [g1] });
+    render(<SessionReportView session={session} />);
+
+    expect(screen.getByRole('checkbox', { name: 'inventoryCount.report.addSurplus|2|Wine g1|cigar' })).toBeInTheDocument();
+  });
+
   it('adds a find of an unknown wine as a new wine', async () => {
     withReport({ unexpected: [find({})] });
     render(<SessionReportView session={session} />);

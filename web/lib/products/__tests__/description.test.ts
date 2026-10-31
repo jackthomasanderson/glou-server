@@ -18,3 +18,11 @@ describe('descriptionValues / descriptionPatch', () => {
       .toEqual({ region: 'Médoc', reminderDate: null });
   });
 });
+
+// Follow-up of #802: the written fields are the shared list the API checks, not a copy.
+describe('descriptionPatch follows the shared restorable list', () => {
+  it('never sends consumptionPostponedUntil, which the API refuses on a description patch', () => {
+    expect(descriptionPatch({ consumptionPostponedUntil: '2027-01-01T00:00:00.000Z', region: 'Médoc' } as never))
+      .toEqual({ region: 'Médoc' });
+  });
+});
