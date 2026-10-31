@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { wishlistClient } from '@/lib/wishlist/client';
 import { notifyError, notifySuccess } from '@/lib/toast';
+import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
 import {
   WishlistItem, WishlistCreateInput, WishlistPatchInput, ConvertToInventoryInput, ConvertResult,
 } from '@/lib/wishlist/types';
@@ -72,6 +73,9 @@ export function useConvertToInventory() {
       void queryClient.invalidateQueries({ queryKey: WISHLIST_KEY });
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['budget'] });
+      // #471: the bottles bought count in the menu and in their cellar.
+      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
     },
   });
 }

@@ -227,6 +227,7 @@ export function WishlistDashboard() {
                       size="sm" variant="solid" color="primary"
                       startContent={<ArrowRightCircle size={14} />}
                       onPress={() => openConvert(item)}
+                      data-testid="wishlist-convert-button"
                     >
                       {t('wishlist.convert.action')}
                     </Button>
@@ -377,7 +378,8 @@ export function WishlistDashboard() {
                 <div className="grid grid-cols-2 gap-4">
                   <Input
                     type="number" min={0}
-                    label={t('wishlist.convert.purchasePrice')}
+                    // #471: the price of ONE bottle (or cigar), for the whole group bought.
+                    label={t(convertTarget?.category === 'cigar' ? 'wishlist.convert.purchasePrice' : 'inventory.fields.unitPrice')}
                     value={convertForm.purchasePrice}
                     onValueChange={(v) => setConvertForm((f) => ({ ...f, purchasePrice: v }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
@@ -405,15 +407,15 @@ export function WishlistDashboard() {
                     onValueChange={(v) => setConvertForm((f) => ({ ...f, bottleSize: v }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
-                  {convertTarget?.category === 'cigar' && (
-                    <Input
-                      type="number" min={1}
-                      label={t('wishlist.convert.quantity')}
-                      value={convertForm.quantity}
-                      onValueChange={(v) => setConvertForm((f) => ({ ...f, quantity: v }))}
-                      variant="bordered" size="md" radius="md" labelPlacement="outside"
-                    />
-                  )}
+                  {/* #471 (FEAT-92, point 15): the number bought, one group — the number wished for by default. */}
+                  <Input
+                    type="number" min={1}
+                    data-testid="wishlist-convert-quantity"
+                    label={t(convertTarget?.category === 'cigar' ? 'wishlist.convert.quantity' : 'inventory.fields.quantityBottles')}
+                    value={convertForm.quantity}
+                    onValueChange={(v) => setConvertForm((f) => ({ ...f, quantity: v }))}
+                    variant="bordered" size="md" radius="md" labelPlacement="outside"
+                  />
                 </div>
               </ModalBody>
               <ModalFooter>
@@ -422,6 +424,7 @@ export function WishlistDashboard() {
                   color="primary" variant="solid"
                   isLoading={convertMutation.isPending}
                   onPress={handleConvertSubmit}
+                  data-testid="wishlist-convert-submit"
                 >
                   {t('wishlist.convert.submit')}
                 </Button>
