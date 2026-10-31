@@ -26,3 +26,24 @@ export const productPatchSchema = inventoryPatchObject
   .refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
 
 export type ProductPatch = z.infer<typeof productPatchSchema>;
+
+/** The description fields a member may write — and restore (FEAT-05). */
+const DESCRIPTION_FIELDS: ReadonlySet<string> = new Set(Object.keys(DESCRIPTION_MASK));
+
+export const isWritableDescriptionField = (field: string): field is DescriptionField => DESCRIPTION_FIELDS.has(field);
+
+/**
+ * #471 (FEAT-05): POST /api/products/:id/rollback — the same contract as the
+ * restore of a bottle's field (POST /api/inventory/:id/rollback): the field
+ * and a value read in the history, which the service checks against the
+ * wine's real history. `expectedUpdatedAt` is the family's own `updatedAt`.
+ */
+export const productRollbackSchema = z
+  .object({
+    field: z.string().min(1).max(100),
+    toValue: z.unknown(),
+    expectedUpdatedAt: z.string().datetime().optional(),
+  })
+  .strict();
+
+export type ProductRollbackInput = z.infer<typeof productRollbackSchema>;

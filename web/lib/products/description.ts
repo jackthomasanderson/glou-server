@@ -23,6 +23,10 @@ const WRITABLE: Record<keyof ProductDescription, boolean> = {
 
 const DESCRIPTION_FIELDS = Object.keys(WRITABLE) as (keyof ProductDescription)[];
 
+/** A field of the wine a member may write — and restore from its history (FEAT-05). */
+export const isWritableDescriptionField = (field: string): boolean =>
+  Object.prototype.hasOwnProperty.call(WRITABLE, field) && WRITABLE[field as keyof ProductDescription];
+
 /** What the description form opens with: the wine's description, its collections, its id. */
 export function descriptionValues(product: Product): Partial<InventoryItem> {
   const values = Object.fromEntries(DESCRIPTION_FIELDS.map((field) => [field, product[field]]));

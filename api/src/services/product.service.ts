@@ -153,6 +153,18 @@ export type UpdateDescriptionResult =
   | { product: ProductView; changes: FieldChange[] }
   | { conflict: true; product: ProductView };
 
+/** A description field to restore: the value as read in the history, and as the description edit takes it. */
+export interface DescriptionRestore {
+  field: string;
+  toValue: unknown;
+  patch: Omit<ProductPatch, 'expectedUpdatedAt'>;
+}
+
+export type RollbackDescriptionResult =
+  | { status: 'invalid_value' }
+  | { conflict: true; product: ProductView }
+  | { status: 'success'; product: ProductView; changes: FieldChange[] };
+
 export const productService = {
   /** D9: the families with their units in stock, wines known without bottle included. */
   async list(): Promise<ProductList> {
@@ -214,6 +226,41 @@ export const productService = {
     const product = await this.view(id);
     if (!product) return null;
     return 'conflict' in outcome ? { conflict: true, product } : { product, changes: outcome.changes };
+  },
+
+  /**
+   * FEAT-05 (#471): restores one description field of the family to a value
+   * found in its real history — on either side of a recorded change, made to
+   * the family or, before #471, through one of its bottles. Any other value
+   * is refused, so nothing untracked can be injected this way. The route
+   * has already refused a field of the bottles (restored from the bottle's
+   * own change) and parsed the value (`patch`). The write is the description edit's
+   * ({@link updateDescription}): family locked first, `expectedUpdatedAt`
+   * checked under the lock, copy onto the bottles, the field locked as a
+   * manual entry (a restore is the member's explicit choice).
+   */
+  async rollbackField(
+    userId: string,
+    id: string,
+    { field, toValue, patch }: DescriptionRestore,
+    expectedUpdatedAt?: string,
+  ): Promise<RollbackDescriptionResult | null> {
+    const exists = await prisma.product.findFirst({ where: { id, deletedAt: null }, select: { id: true } });
+    if (!exists) return null;
+
+    const seen = new Set<string>();
+    for (const entry of await readFieldHistory({ productId: id })) {
+      for (const change of entry.changes ?? []) {
+        if (change.field !== field) continue;
+        if (change.from !== undefined) seen.add(JSON.stringify(change.from));
+        if (change.to !== undefined) seen.add(JSON.stringify(change.to));
+      }
+    }
+    if (toValue === undefined || !seen.has(JSON.stringify(toValue))) return { status: 'invalid_value' };
+
+    const result = await this.updateDescription(userId, id, { ...patch, ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}) });
+    if (!result) return null;
+    return 'conflict' in result ? result : { status: 'success', ...result };
   },
 
   /** Several families as the list shows them (their units in stock), in one read; unknown ids are left out. */

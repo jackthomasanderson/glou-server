@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { productPatchSchema } from '../schemas/product.schema';
+import { isWritableDescriptionField, productPatchSchema, productRollbackSchema } from '../schemas/product.schema';
 import { productService } from '../services/product.service';
 import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
-import { notFound } from '../lib/errors';
+import { badRequest, notFound } from '../lib/errors';
 
 /**
  * #471 (FEAT-92/101, D9/D10): the families — one card per wine. The flat
@@ -47,6 +47,36 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     return;
   }
   void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, productId: id, details: { changes: result.changes } });
+  res.json({ data: result.product });
+});
+
+// POST /api/products/:id/rollback — FEAT-05: one description field back to a
+// value of the wine's history, for every bottle of it. Logged under
+// RESTORE_FIELD, like the restore of a bottle's field.
+router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> => {
+  const id = routeParam(req.params.id);
+  const ip = getClientIp(req);
+  const { field, toValue, expectedUpdatedAt } = productRollbackSchema.parse(req.body);
+  if (!isWritableDescriptionField(field)) {
+    // A field of the bottles is restored from the bottle's own change.
+    void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, productId: id, details: { field, reason: 'FIELD_NOT_RESTORABLE' } });
+    throw badRequest('FIELD_NOT_RESTORABLE');
+  }
+  // The value as the description edit takes it: a date read back from the
+  // history as a string becomes a date again (a ZodError answers 400).
+  const patch = productPatchSchema.parse({ [field]: toValue });
+  const result = await productService.rollbackField(req.userId, id, { field, toValue, patch }, expectedUpdatedAt);
+  if (!result) throw notFound('PRODUCT_NOT_FOUND');
+  if ('conflict' in result) {
+    void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'error', ip, productId: id, details: { field, reason: 'CONFLICT' } });
+    res.status(409).json({ error: 'CONFLICT', data: result.product });
+    return;
+  }
+  if (result.status === 'invalid_value') {
+    void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, productId: id, details: { field, reason: 'VALUE_NOT_IN_HISTORY' } });
+    throw badRequest('VALUE_NOT_IN_HISTORY');
+  }
+  void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, productId: id, details: { changes: result.changes } });
   res.json({ data: result.product });
 });
 

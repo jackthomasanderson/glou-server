@@ -11,7 +11,7 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
 }));
 vi.mock('../../src/services/product.service', () => ({
   productService: {
-    list: vi.fn(), listTrash: vi.fn(), get: vi.fn(), updateDescription: vi.fn(), trash: vi.fn(), restore: vi.fn(),
+    list: vi.fn(), listTrash: vi.fn(), get: vi.fn(), updateDescription: vi.fn(), rollbackField: vi.fn(), trash: vi.fn(), restore: vi.fn(),
   },
 }));
 vi.mock('../../src/services/inventory.service', () => ({
@@ -161,5 +161,90 @@ describe('DELETE /api/products/:id and POST /api/products/:id/restore (D10)', ()
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'PRODUCT_NOT_FOUND_OR_EXPIRED' });
+  });
+});
+
+describe('POST /api/products/:id/rollback (FEAT-05 on a wine)', () => {
+  it('restores the value and logs it as a restore on the family', async () => {
+    vi.mocked(productService.rollbackField).mockResolvedValue({
+      status: 'success', product: { id: 'p1', region: 'Bordeaux' }, changes: [{ field: 'region', from: 'Médoc', to: 'Bordeaux' }],
+    } as never);
+
+    const res = await request(app).post('/api/products/p1/rollback')
+      .send({ field: 'region', toValue: 'Bordeaux', expectedUpdatedAt: '2026-10-01T10:00:00.000Z' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ id: 'p1', region: 'Bordeaux' });
+    expect(productService.rollbackField).toHaveBeenCalledWith(
+      'u1', 'p1', { field: 'region', toValue: 'Bordeaux', patch: { region: 'Bordeaux' } }, '2026-10-01T10:00:00.000Z',
+    );
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'RESTORE_FIELD', status: 'success', productId: 'p1', details: { changes: [{ field: 'region', from: 'Médoc', to: 'Bordeaux' }] },
+    }));
+    expect(vi.mocked(auditLog).mock.calls[0][0]).not.toHaveProperty('bottleId');
+  });
+
+  it('hands over a date read back from the history as a date', async () => {
+    vi.mocked(productService.rollbackField).mockResolvedValue({ status: 'success', product: { id: 'p1' }, changes: [] } as never);
+
+    await request(app).post('/api/products/p1/rollback').send({ field: 'reminderDate', toValue: '2027-01-01T00:00:00.000Z' });
+
+    expect(vi.mocked(productService.rollbackField).mock.calls[0][2]).toEqual({
+      field: 'reminderDate', toValue: '2027-01-01T00:00:00.000Z', patch: { reminderDate: new Date('2027-01-01T00:00:00.000Z') },
+    });
+  });
+
+  it.each(['purchasePrice', 'cellarId', 'quantity', 'fillLevel', 'isOpened', 'alertStatus', 'otherPhotoUrls', 'lockedFields', 'nope'])(
+    'refuses %s, not a description field of the wine, with 400 FIELD_NOT_RESTORABLE',
+    async (field) => {
+      const res = await request(app).post('/api/products/p1/rollback').send({ field, toValue: 1 });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({ error: 'FIELD_NOT_RESTORABLE' });
+      expect(productService.rollbackField).not.toHaveBeenCalled();
+      expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ action: 'RESTORE_FIELD', status: 'validation_error', productId: 'p1' }));
+    },
+  );
+
+  it('answers 400 VALUE_NOT_IN_HISTORY for a value the wine never had', async () => {
+    vi.mocked(productService.rollbackField).mockResolvedValue({ status: 'invalid_value' });
+
+    const res = await request(app).post('/api/products/p1/rollback').send({ field: 'region', toValue: 'Bourgogne' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'VALUE_NOT_IN_HISTORY' });
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ action: 'RESTORE_FIELD', status: 'validation_error', productId: 'p1' }));
+  });
+
+  it('answers 409 with the current family when it changed meanwhile', async () => {
+    vi.mocked(productService.rollbackField).mockResolvedValue({ conflict: true, product: { id: 'p1', region: 'Graves' } } as never);
+
+    const res = await request(app).post('/api/products/p1/rollback')
+      .send({ field: 'region', toValue: 'Bordeaux', expectedUpdatedAt: '2026-10-01T10:00:00.000Z' });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: 'CONFLICT', data: { id: 'p1', region: 'Graves' } });
+  });
+
+  it('answers 404 for an unknown or trashed family', async () => {
+    vi.mocked(productService.rollbackField).mockResolvedValue(null);
+
+    const res = await request(app).post('/api/products/p1/rollback').send({ field: 'region', toValue: 'Bordeaux' });
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'PRODUCT_NOT_FOUND' });
+  });
+
+  it.each([
+    ['no field', { toValue: 'Bordeaux' }],
+    ['an unknown key', { field: 'region', toValue: 'Bordeaux', itemId: 'b1' }],
+    ['a malformed version', { field: 'region', toValue: 'Bordeaux', expectedUpdatedAt: 'yesterday' }],
+    ['a value of the wrong type', { field: 'vintage', toValue: 'old' }],
+  ])('refuses %s with 400', async (_label, body) => {
+    const res = await request(app).post('/api/products/p1/rollback').send(body);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(productService.rollbackField).not.toHaveBeenCalled();
   });
 });
