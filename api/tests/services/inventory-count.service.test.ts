@@ -86,6 +86,25 @@ describe('applyCorrections', () => {
     });
   });
 
+  // #798: the slot coordinates belong to the bottle's old cellar.
+  it('moves a slotted bottle into the session scope unplaced', async () => {
+    vi.mocked(prisma.inventoryCountSession.findUnique).mockResolvedValue({
+      id: 's1',
+      cellarId: 'c1',
+    } as never);
+    const tx = mockTransactionClient({
+      id: 'b1', deletedAt: null, lockedFields: [], cellarId: 'c2', slotColumn: 2, slotRow: 3,
+    });
+
+    const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'move_to_scope' }], 'u1');
+
+    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [] });
+    expect(tx.update).toHaveBeenCalledWith({
+      where: { id: 'b1' },
+      data: expect.objectContaining({ cellarId: 'c1', slotColumn: null, slotRow: null }),
+    });
+  });
+
   it('still skips a correction whose item no longer exists', async () => {
     vi.mocked(prisma.inventoryCountSession.findUnique).mockResolvedValue({
       id: 's1',

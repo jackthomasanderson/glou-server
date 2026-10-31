@@ -375,15 +375,18 @@ export class InventoryService {
     // what is really written: a locked `fillLevel` stripped from an automated
     // update must not unplace a bottle that stays full.
     const finished = this.isFinishedAfter(existing, safePatch);
+    // #798: a bottle moved to another cellar without new slot coordinates
+    // arrives unplaced — its old coordinates mean nothing in the new cellar.
+    const leavesSlot = finished || this.leavesSlotByMove(existing, safePatch);
 
     // Slot uniqueness: if assigning a grid slot, verify it is not occupied by
-    // another item. Not for a finished bottle (#573): it is leaving its slot,
-    // so it cannot conflict with anyone.
+    // another item. Not for a bottle leaving its slot (finished #573, or moved
+    // to another cellar #798): it cannot conflict with anyone.
     const targetCellarId = 'cellarId' in patch ? patch.cellarId : existing.cellarId;
     const targetSlotColumn = 'slotColumn' in patch ? patch.slotColumn : existing.slotColumn;
     const targetSlotRow = 'slotRow' in patch ? patch.slotRow : existing.slotRow;
 
-    if (!finished && targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
+    if (!leavesSlot && targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
       const conflict = await prisma.inventoryItem.findFirst({
         where: {
           cellarId: targetCellarId,
@@ -396,10 +399,10 @@ export class InventoryService {
       if (conflict) return { item: existing, changes: [], slotConflict: true };
     }
 
-    // #573: the released slot goes into the recorded changes as well as the
-    // write, so the history records which slot the bottle left — and never a
-    // slot sent alongside that `NO_SLOT` overrides.
-    const writePatch: InventoryPatch = finished ? { ...safePatch, ...NO_SLOT } : safePatch;
+    // #573/#798: the released slot goes into the recorded changes as well as
+    // the write, so the history records which slot the bottle left — and never
+    // a slot sent alongside that `NO_SLOT` overrides.
+    const writePatch: InventoryPatch = leavesSlot ? { ...safePatch, ...NO_SLOT } : safePatch;
 
     const changes: FieldChange[] = Object.entries(writePatch)
       .filter(([key, val]) => {
@@ -582,7 +585,8 @@ export class InventoryService {
           data: {
             ...this.mapInputToDb(changed),
             // #573: an item this call leaves finished gives its grid slot back (see updateItem).
-            ...(this.isFinishedAfter(item, changed) ? NO_SLOT : {}),
+            // #798: so does an item moved to another cellar ("move to a cellar" bulk action).
+            ...(this.isFinishedAfter(item, changed) || this.leavesSlotByMove(item, changed) ? NO_SLOT : {}),
             updatedAt: new Date(),
             updatedBy: userId,
           } as never,
@@ -756,6 +760,20 @@ export class InventoryService {
    */
   private getField(item: InventoryItem, key: string): unknown {
     return item[key as keyof InventoryItem];
+  }
+
+  /**
+   * #798: whether `patch` moves `item` to another cellar without giving it
+   * new slot coordinates. Its stored coordinates belong to the old cellar,
+   * so it must arrive unplaced rather than claim the same cell in the new one.
+   */
+  private leavesSlotByMove(item: InventoryItem, patch: InventoryPatch): boolean {
+    return (
+      patch.cellarId !== undefined &&
+      patch.cellarId !== item.cellarId &&
+      patch.slotColumn === undefined &&
+      patch.slotRow === undefined
+    );
   }
 
   /**
