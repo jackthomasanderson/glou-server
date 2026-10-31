@@ -1,13 +1,56 @@
 import { prisma } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput, SwapSlotsInput } from '../schemas/cellar.schema';
+import type { Prisma } from '@prisma/client';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
-import { toNumber } from '../lib/decimal';
+import { UNIT_COUNT_SELECT, sumTotals, type UnitTotalsRow } from '../lib/stock-units';
+import type { CellarStats } from '../../../shared/cellar';
 
 export type SwapSlotsResult =
   | { status: 'not_found' }
   | { status: 'not_in_grid' }
   | { status: 'success'; items: [{ id: string; slotColumn: number | null; slotRow: number | null }, { id: string; slotColumn: number | null; slotRow: number | null }] };
+
+/**
+ * ISSUE_239 + #573 + #471 (FEAT-96): a cellar card counts and values what the
+ * cellar still holds, in bottles and cigars (`itemUnits`) and with the value
+ * rule of the analytics (`itemValue`, #594) — the same figures as the sidebar
+ * and the analytics. A finished or written-off unit stays in the inventory for
+ * its history, but is neither counted nor valued here.
+ */
+const CELLAR_STOCK_SELECT = {
+  ...UNIT_COUNT_SELECT,
+  cellarId: true,
+  productId: true,
+  product: { select: { category: true, reminderDate: true } },
+} satisfies Prisma.InventoryItemSelect;
+
+type CellarStockRow = UnitTotalsRow & {
+  cellarId: string | null;
+  productId: string;
+  product: { reminderDate: Date | null };
+};
+
+/** End of "today" in the instance's time zone (`TZ`, #575), like the sidebar's reminder count. */
+function endOfToday(): Date {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return today;
+}
+
+function cellarStats(rows: CellarStockRow[], today: Date): CellarStats {
+  const { bottles, cigars, value } = sumTotals(rows);
+  // #471: the reminder is on the family — a wine with 6 bottles here is one reminder.
+  const dueFamilies = new Set(
+    rows.filter((row) => row.product.reminderDate != null && row.product.reminderDate <= today).map((row) => row.productId),
+  );
+  return {
+    bottles,
+    cigars,
+    totalItems: bottles + cigars,
+    estimatedValue: value > 0 ? value : null,
+    alertCount: dueFamilies.size,
+  };
+}
 
 export class CellarService {
   static async createCellar(userId: string, data: CreateCellarInput) {
@@ -23,74 +66,31 @@ export class CellarService {
     const cellars = await prisma.cellar.findMany({ orderBy: { createdAt: 'desc' } });
     if (cellars.length === 0) return [];
 
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    const cellarIds = cellars.map((c) => c.id);
-
-    // ISSUE_239 + #573: a cellar card counts and values what the cellar
-    // still holds — the same scope as the sidebar badge and the inventory
-    // list counter (#504). A finished bottle (opened, nothing left) stays in
-    // the inventory for its history, but is neither counted nor valued here.
-    const [inStockGroups, alertGroups] = await Promise.all([
-      prisma.inventoryItem.groupBy({
-        by: ['cellarId'],
-        where: { cellarId: { in: cellarIds }, ...IN_STOCK_ITEM_FILTER },
-        _count: { id: true },
-        _sum: { quantity: true, estimatedValue: true },
-      }),
-      prisma.inventoryItem.groupBy({
-        by: ['cellarId'],
-        where: { cellarId: { in: cellarIds }, deletedAt: null, ...OWNED_ITEM_FILTER, reminderDate: { lte: today } },
-        _count: { id: true },
-      }),
-    ]);
-
-    const inStockMap = new Map(inStockGroups.map((g) => [g.cellarId, g]));
-    const alertMap = new Map(alertGroups.map((g) => [g.cellarId, g._count.id]));
-
-    return cellars.map((cellar) => {
-      const inStock = inStockMap.get(cellar.id);
-      return {
-        ...cellar,
-        stats: {
-          totalItems: inStock?._count.id ?? 0,
-          totalQuantity: inStock?._sum.quantity ?? 0,
-          estimatedValue: toNumber(inStock?._sum.estimatedValue),
-          alertCount: alertMap.get(cellar.id) ?? 0,
-        },
-      };
+    const rows = await prisma.inventoryItem.findMany({
+      where: { cellarId: { in: cellars.map((c) => c.id) }, ...IN_STOCK_ITEM_FILTER },
+      select: CELLAR_STOCK_SELECT,
     });
+    const rowsByCellar = new Map<string, CellarStockRow[]>();
+    for (const row of rows) {
+      if (!row.cellarId) continue;
+      const cellarRows = rowsByCellar.get(row.cellarId);
+      if (cellarRows) cellarRows.push(row);
+      else rowsByCellar.set(row.cellarId, [row]);
+    }
+
+    const today = endOfToday();
+    return cellars.map((cellar) => ({ ...cellar, stats: cellarStats(rowsByCellar.get(cellar.id) ?? [], today) }));
   }
 
   static async getCellar(_userId: string, id: string) {
     const cellar = await prisma.cellar.findFirst({ where: { id } });
     if (!cellar) return null;
 
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-
-    // ISSUE_239 + #573: see listCellars — counts and valuation cover what
-    // the cellar still holds.
-    const [inStock, alertCount] = await Promise.all([
-      prisma.inventoryItem.aggregate({
-        where: { cellarId: id, ...IN_STOCK_ITEM_FILTER },
-        _count: { id: true },
-        _sum: { quantity: true, estimatedValue: true },
-      }),
-      prisma.inventoryItem.count({
-        where: { cellarId: id, deletedAt: null, ...OWNED_ITEM_FILTER, reminderDate: { lte: today } },
-      }),
-    ]);
-
-    return {
-      ...cellar,
-      stats: {
-        totalItems: inStock._count.id,
-        totalQuantity: inStock._sum.quantity ?? 0,
-        estimatedValue: toNumber(inStock._sum.estimatedValue),
-        alertCount,
-      },
-    };
+    const rows = await prisma.inventoryItem.findMany({
+      where: { cellarId: id, ...IN_STOCK_ITEM_FILTER },
+      select: CELLAR_STOCK_SELECT,
+    });
+    return { ...cellar, stats: cellarStats(rows, endOfToday()) };
   }
 
   static async updateCellar(userId: string, id: string, data: UpdateCellarInput) {

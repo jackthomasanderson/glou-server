@@ -100,7 +100,7 @@ describe('CellarService.swapSlots (ISSUE_037)', () => {
 
 // ISSUE_239 + #573: a cellar counts and values what it still holds. A
 // finished bottle (opened, nothing left) stays in the inventory for its
-// history, but is neither counted in `totalItems`/`totalQuantity`, nor valued,
+// history, but is neither counted in `bottles`/`cigars`, nor valued,
 // nor drawn on the map.
 describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)', () => {
   /** The in-stock scope, spelled out to pin the SQL shape (lib/finished-item.ts). */
@@ -112,81 +112,50 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
     NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
   };
 
-  it('listCellars counts and values only the bottles still in stock, in one grouped query', async () => {
+  /** A unit row as the stock query returns it, with its family nested (#471). */
+  const unit = (overrides: Record<string, unknown> = {}) => ({
+    quantity: 1, isOpened: false, fillLevel: null, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null,
+    purchasePrice: null, estimatedValue: null, cellarId: 'c1', productId: 'p1',
+    product: { category: 'wine', reminderDate: null }, ...overrides,
+  });
+
+  it('listCellars reads the units in stock of every cellar in one query', async () => {
     vi.mocked(prisma.cellar.findMany).mockResolvedValue([
       { id: 'c1', name: 'Cave A', type: 'VINTAGE' },
       { id: 'c2', name: 'Cave B', type: 'VINTAGE' },
     ] as never);
-    vi.mocked(prisma.inventoryItem.groupBy)
-      // bottles in stock: count, quantity and valuation in one pass
-      .mockResolvedValueOnce([
-        { cellarId: 'c1', _count: { id: 5 }, _sum: { quantity: 12, estimatedValue: 300 } },
-      ] as never)
-      // reminder alerts
-      .mockResolvedValueOnce([{ cellarId: 'c1', _count: { id: 2 } }] as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unit({ quantity: 5, estimatedValue: 60 }),
+    ] as never);
 
     const [caveA, caveB] = await CellarService.listCellars('u1');
 
-    expect(caveA.stats).toEqual({
-      totalItems: 5,
-      totalQuantity: 12,
-      estimatedValue: 300,
-      alertCount: 2,
-    });
-    // A cellar left with only finished bottles has no in-stock group: it reads
+    expect(caveA.stats).toEqual({ bottles: 5, cigars: 0, totalItems: 5, estimatedValue: 300, alertCount: 0 });
+    // A cellar left with only finished bottles has no unit in stock: it reads
     // as empty, not as missing.
-    expect(caveB.stats).toEqual({
-      totalItems: 0,
-      totalQuantity: 0,
-      estimatedValue: null,
-      alertCount: 0,
-    });
+    expect(caveB.stats).toEqual({ bottles: 0, cigars: 0, totalItems: 0, estimatedValue: null, alertCount: 0 });
 
-    expect(prisma.inventoryItem.groupBy).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(prisma.inventoryItem.groupBy).mock.calls[0][0]).toEqual({
-      by: ['cellarId'],
+    expect(prisma.inventoryItem.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: { cellarId: { in: ['c1', 'c2'] }, ...IN_STOCK_SCOPE },
-      _count: { id: true },
-      _sum: { quantity: true, estimatedValue: true },
+      select: expect.objectContaining({
+        quantity: true, cigarsPerBox: true, cigarsLeft: true, purchasePrice: true, estimatedValue: true,
+        product: { select: { category: true, reminderDate: true } },
+      }),
     });
-    // Reminders are not about stock: owned items only (FEAT-87), finished or not.
-    expect(vi.mocked(prisma.inventoryItem.groupBy).mock.calls[1][0]).toEqual({
-      by: ['cellarId'],
-      where: {
-        cellarId: { in: ['c1', 'c2'] },
-        deletedAt: null,
-        isOwned: true,
-        reminderDate: { lte: expect.any(Date) },
-      },
-      _count: { id: true },
-    });
+    expect(prisma.inventoryItem.groupBy).not.toHaveBeenCalled();
   });
 
-  it('getCellar applies the same in-stock scope to the single-cellar counts and valuation', async () => {
+  it('getCellar applies the same in-stock scope to the single-cellar figures', async () => {
     vi.mocked(prisma.cellar.findFirst).mockResolvedValue({ id: 'c1', name: 'Cave A' } as never);
-    vi.mocked(prisma.inventoryItem.aggregate).mockResolvedValueOnce({
-      _count: { id: 5 },
-      _sum: { quantity: 12, estimatedValue: 300 },
-    } as never);
-    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(1 as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([unit({ estimatedValue: 12 })] as never);
 
     const cellar = await CellarService.getCellar('u1', 'c1');
 
-    expect(cellar?.stats).toEqual({
-      totalItems: 5,
-      totalQuantity: 12,
-      estimatedValue: 300,
-      alertCount: 1,
-    });
-
-    expect(prisma.inventoryItem.aggregate).toHaveBeenCalledTimes(1);
-    expect(prisma.inventoryItem.aggregate).toHaveBeenCalledWith({
+    expect(cellar?.stats).toEqual({ bottles: 1, cigars: 0, totalItems: 1, estimatedValue: 12, alertCount: 0 });
+    expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: { cellarId: 'c1', ...IN_STOCK_SCOPE },
-      _count: { id: true },
-      _sum: { quantity: true, estimatedValue: true },
-    });
-    expect(prisma.inventoryItem.count).toHaveBeenCalledWith({
-      where: { cellarId: 'c1', deletedAt: null, isOwned: true, reminderDate: { lte: expect.any(Date) } },
+      select: expect.any(Object),
     });
   });
 
@@ -204,5 +173,58 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
       select: expect.anything(),
       orderBy: { createdAt: 'asc' },
     });
+  });
+});
+
+// #471 (FEAT-96): a cellar counts bottles and cigars, not rows, and values them
+// with the analytics' rule (#594: estimated value, else purchase price).
+describe('CellarService — bottles, cigars and value (#471, FEAT-96, #594)', () => {
+  const unit = (overrides: Record<string, unknown> = {}) => ({
+    quantity: 1, isOpened: false, fillLevel: null, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null,
+    purchasePrice: null, estimatedValue: null, cellarId: 'c1', productId: 'p1',
+    product: { category: 'wine', reminderDate: null }, ...overrides,
+  });
+
+  it('shows 9 bottles worth 215 € for a ×6 at 20 €, a ×2 bought 30 € estimated 40 €, and an opened bottle at 15 € (FEAT-96 c1)', async () => {
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue({ id: 'c1', name: 'Garage' } as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unit({ quantity: 6, purchasePrice: 20 }),
+      unit({ quantity: 2, purchasePrice: 30, estimatedValue: 40 }),
+      unit({ isOpened: true, fillLevel: 60, purchasePrice: 15 }),
+    ] as never);
+
+    const cellar = await CellarService.getCellar('u1', 'c1');
+
+    expect(cellar?.stats).toMatchObject({ bottles: 9, totalItems: 9, estimatedValue: 215 });
+  });
+
+  it('counts bottles and cigars apart (24 bottles · 50 cigars)', async () => {
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue({ id: 'c1', name: 'Cave' } as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unit({ quantity: 24 }),
+      unit({ quantity: 2, cigarsPerBox: 25, product: { category: 'cigar', reminderDate: null } }),
+    ] as never);
+
+    const cellar = await CellarService.getCellar('u1', 'c1');
+
+    expect(cellar?.stats).toMatchObject({ bottles: 24, cigars: 50, totalItems: 74 });
+  });
+
+  it('counts one reminder per wine (family) due by today, not one per unit', async () => {
+    const due = new Date(Date.now() - 86_400_000);
+    const later = new Date(Date.now() + 30 * 86_400_000);
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue({ id: 'c1', name: 'Cave' } as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      // One wine in three groups, its reminder due: one reminder.
+      unit({ productId: 'p1', quantity: 4, product: { category: 'wine', reminderDate: due } }),
+      unit({ productId: 'p1', quantity: 2, product: { category: 'wine', reminderDate: due } }),
+      unit({ productId: 'p1', isOpened: true, product: { category: 'wine', reminderDate: due } }),
+      // Another wine, reminder later this month: none.
+      unit({ productId: 'p2', product: { category: 'wine', reminderDate: later } }),
+    ] as never);
+
+    const cellar = await CellarService.getCellar('u1', 'c1');
+
+    expect(cellar?.stats.alertCount).toBe(1);
   });
 });
