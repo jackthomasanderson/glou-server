@@ -129,7 +129,7 @@ router.post('/items/:id/convert', async (req: Request, res: Response, next: Next
     if (!result) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND_OR_NOT_ACTIVE' });
     void auditLog({
       userId, ip, action: 'CREATE', status: 'success',
-      bottleId: result.inventoryItem.id,
+      bottleId: result.inventoryItem.id, productId: result.inventoryItem.productId,
       details: { scope: 'wishlist-convert', wishlistItemId: result.wishlistItem.id },
     });
     res.status(201).json({ data: result });

@@ -10,7 +10,7 @@ import { isFinishedItem, NO_SLOT, unitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
-  compareFamilyIds, isProductField, lockFamilies, lockFamily, nextLocksAndSources, pickProductFields, todayAsPurchaseDate,
+  compareFamilyIds, isProductField, lockFamilies, lockFamily, nextLocksAndSources, pickProductFields, purchaseDayFromInput,
   toItemView, toUnitView,
   type FlatItemView,
 } from '../lib/product-fields';
@@ -288,7 +288,8 @@ export class InventoryService {
     // #471: the unit is created with its own family, in the same write. The
     // description is still written on the unit too (transitional mirror read
     // by every existing path); the family keeps its own locks and sources.
-    const { cellarId, ...itemData } = dbData;
+    // The purchase day is the group's (D5), stored as a day (D6).
+    const { cellarId, purchasedAt: _day, ...itemData } = dbData as typeof dbData & { purchasedAt?: string | null };
     const { category, name, producer } = data;
     const productSources = pickProductFields(fieldSources ?? {});
     const product = {
@@ -303,8 +304,8 @@ export class InventoryService {
     const created = await client.inventoryItem.create({
       data: {
         id: uuidv4(),
-        purchasedAt: todayAsPurchaseDate(),
         ...itemData,
+        purchasedAt: purchaseDayFromInput(data.purchasedAt),
         ...extra,
         category,
         name,
@@ -871,7 +872,7 @@ export class InventoryService {
    * new slot coordinates. Its stored coordinates belong to the old cellar,
    * so it must arrive unplaced rather than claim the same cell in the new one.
    */
-  private leavesSlotByMove(item: InventoryItem, patch: InventoryPatch): boolean {
+  private leavesSlotByMove(item: Pick<InventoryItem, 'cellarId'>, patch: InventoryPatch): boolean {
     return (
       patch.cellarId !== undefined &&
       patch.cellarId !== item.cellarId &&

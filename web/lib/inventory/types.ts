@@ -37,6 +37,8 @@ export interface InventoryItem {
   purchasePrice?: number | null;
   purchasePlace?: string | null;
   estimatedValue?: number | null;
+  /** #471: the day the bottles were bought, `YYYY-MM-DD` both ways (D6) — never turned into a local Date. */
+  purchasedAt?: string | null;
 
   // Wine/Sparkling
   vintage?: number | null;
@@ -152,7 +154,6 @@ export const inventoryFormSchema = z.object({
   notes: z.string().max(2000).optional(),
   purchasePrice: z.number().min(0).optional(),
   estimatedValue: z.number().min(0).optional(),
-  isOwned: z.boolean().default(true),
   isOpened: z.boolean().default(false),
   fillLevel: z.number().int().min(0).max(100).optional(),
   openedAt: z.string().optional().nullable(),

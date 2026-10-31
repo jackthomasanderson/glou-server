@@ -120,7 +120,8 @@
     "validation": {
       "required": "This field is required",
       "missingFields": "Fill in the required fields before saving",
-      "peakWindowOrder": "The end of the peak cannot come before its start"
+      "peakWindowOrder": "The end of the peak cannot come before its start",
+      "bottleCount": "Between 1 and {{max}} bottles"
     },
     "noNotifications": "No notifications",
     "perPage": "{{count}} per page",
@@ -177,12 +178,14 @@
       "photoUrl": "Photo URL",
       "notes": "Personal notes",
       "purchasePrice": "Purchase price (€)",
+      "unitPrice": "Price of one bottle",
+      "unitValue": "Estimated value of one bottle",
+      "quantityBottles": "Number of bottles",
+      "purchasedAt": "Purchase date",
       "purchasePlace": "Purchase place",
       "estimatedValue": "Estimated value (€)",
       "isOpened": "Bottle opened",
-      "isOwned": "In the cellar",
       "isReference": "Reference",
-      "isReferenceHint": "A bottle described but not owned: left out of the collection value, the counters and the alerts. You can log a tasting on it, then stock it if you buy it.",
       "isOpenedCigar": "Opened cigar",
       "fillLevel": "Fill level",
       "openedAt": "Opened on",
@@ -1986,6 +1989,7 @@
       "cellarPlaceholder": "Select a cellar",
       "bottleSize": "Bottle size",
       "quantity": "Quantity (cigars)",
+      "quantityInvalid": "Between 1 and {{max}}",
       "submit": "Add to inventory"
     }
   },
@@ -2226,6 +2230,20 @@
       "error": "The wine could not be saved.",
       "thisWine": "this wine",
       "thisSpirit": "this spirit"
+    }
+  },
+  "addUnits": {
+    "action": "Add bottles",
+    "title": "Add bottles",
+    "submit": "Add",
+    "success_one": "{{count}} bottle added to {{name}}",
+    "success_other": "{{count}} bottles added to {{name}}",
+    "errors": {
+      "inTrash": "This wine is in the trash: restore it first.",
+      "tooMany": "A line holds at most 1,000 bottles.",
+      "rejected": "These bottles could not be added: check the number, the price and the date.",
+      "failed": "These bottles could not be added. Please try again.",
+      "offline": "Adding bottles needs a connection."
     }
   }
 }

@@ -1,7 +1,9 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { productsClient } from '@/lib/products/client';
-import { productsFromFlatItems } from '@/lib/products/fromFlat';
+import { productsClient, type AddUnitsInput, type UnitWrite } from '@/lib/products/client';
+import { detailWithUnitWrite, productsFromFlatItems, withUnitChanges } from '@/lib/products/fromFlat';
+import { wineName } from '@/lib/products/stock';
+import { NetworkError } from '@/lib/network-error';
 import type { Product, ProductDetailView, TrashedProduct } from '@/lib/products/types';
 import type { ProductDescription } from '@shared/product';
 import { getAllQueuedMutations, getCachedInventory } from '@/lib/offline/db';
@@ -161,6 +163,54 @@ export function useUpdateProduct() {
       // The flat bottles carry the description too (transitional copy).
       void queryClient.invalidateQueries({ queryKey: ['inventory'], exact: true });
       void queryClient.invalidateQueries({ queryKey: ['alerts'] });
+    },
+  });
+}
+
+export interface AddUnitsVariables {
+  /** The wine the bottles are added to (its name goes into the message). */
+  product: Pick<Product, 'id' | 'name' | 'vintage'>;
+  input: AddUnitsInput;
+}
+
+const ADD_UNITS_REFUSALS: Record<string, string> = {
+  PRODUCT_IN_TRASH: 'addUnits.errors.inTrash',
+  PRODUCT_NOT_FOUND: 'addUnits.errors.inTrash',
+  QUANTITY_TOO_LARGE: 'addUnits.errors.tooMany',
+  CELLAR_NOT_FOUND: 'addUnits.errors.rejected',
+  VALIDATION_ERROR: 'addUnits.errors.rejected',
+};
+
+/**
+ * #471 (FEAT-92 c2, FEAT-101 c3, ux-ui.md §10.4.1): "Ajouter des bouteilles"
+ * to a wine, one known without bottle included. The answer (D8) goes into
+ * the list and the open drawer at once: the line completed (×6 → ×8) or
+ * created. Online only (decision point 47).
+ */
+export function useAddUnits() {
+  const queryClient = useQueryClient();
+  return useMutation<UnitWrite, Error, AddUnitsVariables>({
+    mutationFn: ({ product, input }) => productsClient.addUnits(product.id, input),
+    onSuccess: (write, { product, input }) => {
+      const written = [write.data, ...write.changed];
+      queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withUnitChanges(old, written, write.removedIds));
+      queryClient.setQueryData<ProductDetailView>(productDetailKey(product.id), (old) =>
+        detailWithUnitWrite(old, null, written, write.removedIds));
+      notifySuccess('addUnits.success', { count: input.quantity, name: wineName(product) });
+    },
+    onError: (error) => {
+      if (error instanceof NetworkError) {
+        notifyError('addUnits.errors.offline');
+        return;
+      }
+      notifyError(ADD_UNITS_REFUSALS[error.message] ?? 'addUnits.errors.failed');
+    },
+    onSettled: (_write, _error, { product }) => {
+      // The drawer's history, the flat bottles, the cellars and the menu counts.
+      void queryClient.invalidateQueries({ queryKey: productDetailKey(product.id) });
+      void queryClient.invalidateQueries({ queryKey: ['inventory'], exact: true });
+      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
     },
   });
 }

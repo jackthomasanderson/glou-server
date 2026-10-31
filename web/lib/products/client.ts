@@ -1,6 +1,25 @@
 import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal } from '../api';
-import type { ProductDescription } from '@shared/product';
-import type { Product, ProductDetailView, ProductListResponse, TrashedProduct } from './types';
+import { fetchOrNetworkError } from '../network-error';
+import type { ProductDescription, UnitWriteResult } from '@shared/product';
+import type { Wire } from '@shared/wire';
+import type { Product, ProductDetailView, ProductItem, ProductListResponse, TrashedProduct } from './types';
+
+/**
+ * #471 (FEAT-92 c2, FEAT-101 c3): POST /api/products/:id/items — "Ajouter des
+ * bouteilles" to a known wine: what tells a line apart and the number, never
+ * the description. The price is that of ONE bottle; `purchasedAt` is a day,
+ * `YYYY-MM-DD` (D6), today for the API when absent, none when null.
+ */
+export interface AddUnitsInput {
+  quantity: number;
+  cellarId?: string | null;
+  purchasePrice?: number | null;
+  bottleSize?: string | null;
+  purchasedAt?: string | null;
+}
+
+/** D8: the line completed or created (`data`), and anything else the write changed. */
+export type UnitWrite = Wire<UnitWriteResult<ProductItem, ProductItem>>;
 
 // ─── Families API client (#471, D9/D10) ─────────────────────────────────────
 
@@ -38,6 +57,20 @@ export const productsClient = {
     });
     if (!res.ok) throw await apiErrorFrom(res);
     return ((await res.json()) as { data: Product }).data;
+  },
+
+  /** Adds bottles to the wine: they complete the identical line (same cellar, price, size and day), else form a new one. */
+  async addUnits(id: string, input: AddUnitsInput): Promise<UnitWrite> {
+    const res = await fetchOrNetworkError(`/api/products/${encodeURIComponent(id)}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(input),
+      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
+    });
+    if (!res.ok) throw await apiErrorFrom(res);
+    const result = (await res.json()) as Partial<UnitWrite> & { data: ProductItem };
+    return { data: result.data, changed: result.changed ?? [], removedIds: result.removedIds ?? [] };
   },
 
   /**

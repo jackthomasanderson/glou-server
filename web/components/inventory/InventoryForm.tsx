@@ -35,6 +35,7 @@ import {
   CURVE_SHAPES, DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey,
 } from '@/lib/maturity-references/curve';
 import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '@shared/inventory';
+import { MAX_COPIES } from '@shared/product';
 
 interface InventoryFormProps {
   open: boolean;
@@ -70,10 +71,19 @@ const EMPTY_FORM: Partial<InventoryItem> = {
   producer: '',
   tags: [],
   grapeVarieties: [],
-  isOwned: true,
   isOpened: false,
   alertStatus: 'none',
 };
+
+/**
+ * #471 (FEAT-92 c1, ux-ui.md §10.4.1): what a new entry starts with — one
+ * bottle, bought today (`YYYY-MM-DD`, D6). Cigars count their own way
+ * (FEAT-95): no number of bottles.
+ */
+const creationDefaults = (category?: InventoryCategory): Partial<InventoryItem> => ({
+  purchasedAt: todayLocalIso(),
+  ...(category === 'cigar' ? {} : { quantity: 1 }),
+});
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
@@ -95,11 +105,21 @@ export function InventoryForm({
     ...EMPTY_FORM,
     ...(defaultCategory ? { category: defaultCategory } : {}),
     ...(defaultCellarId ? { cellarId: defaultCellarId } : {}),
+    ...creationDefaults(defaultCategory ?? EMPTY_FORM.category),
   };
-  const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? emptyForm);
+  // A new entry prefilled by a scan gets the same defaults, under its values.
+  const startValues = (): Partial<InventoryItem> =>
+    !initialValues ? emptyForm
+      : initialValues.id || descriptionOf ? initialValues
+        : {
+          ...creationDefaults(initialValues.category ?? EMPTY_FORM.category),
+          // A value the scan left undefined (a wine's number) keeps the default.
+          ...Object.fromEntries(Object.entries(initialValues).filter(([, value]) => value !== undefined)),
+        };
+  const [values, setValues] = useState<Partial<InventoryItem>>(startValues);
   // ISSUE_119: snapshot of the values the form opened with, used to tell
   // whether closing now would throw away something the user typed.
-  const [baseline, setBaseline] = useState<Partial<InventoryItem>>(initialValues ?? emptyForm);
+  const [baseline, setBaseline] = useState<Partial<InventoryItem>>(startValues);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   // Inline errors show on blur or on submit (ux-ui.md §5.3), and go away
   // while the field is typed in again, so a year being typed never shows red.
@@ -128,8 +148,9 @@ export function InventoryForm({
     setPrevOpen(open);
     setPrevInitialValues(initialValues);
     if (open) {
-      setValues(initialValues ?? emptyForm);
-      setBaseline(initialValues ?? emptyForm);
+      const start = startValues();
+      setValues(start);
+      setBaseline(start);
       setSubmitAttempted(false);
       setPeakWindowChecked(false);
       setSelectedCollections(
@@ -185,11 +206,14 @@ export function InventoryForm({
   const missingProducer = !values.producer?.trim();
   const missingAlcoholDegree = values.category === 'spirit' && (values.alcoholDegree == null || Number.isNaN(values.alcoholDegree));
   const missingQuantity = showsBottle && values.category === 'cigar' && (values.quantity == null || Number.isNaN(values.quantity));
+  // #471 (FEAT-92): from 1 to what one group may count.
+  const invalidBottleCount = showsBottle && values.category !== 'cigar'
+    && (values.quantity == null || !Number.isInteger(values.quantity) || values.quantity < 1 || values.quantity > MAX_COPIES);
   // #706: a peak window ending before it starts is refused, as by the API.
   const peakWindowReversed = ['wine', 'sparkling'].includes(values.category ?? '')
     && values.peakMaturityFrom != null && values.peakMaturityTo != null
     && values.peakMaturityTo < values.peakMaturityFrom;
-  const missingRequired = !values.category || missingName || missingProducer || missingAlcoholDegree || missingQuantity;
+  const missingRequired = !values.category || missingName || missingProducer || missingAlcoholDegree || missingQuantity || invalidBottleCount;
   const canSave = !missingRequired && !peakWindowReversed;
 
   // ISSUE_119: closing a half-filled form must never discard the entry silently.
@@ -339,7 +363,12 @@ export function InventoryForm({
                           startContent={CATEGORY_ICONS[cat]}
                           color={CATEGORY_COLORS[cat]}
                           selected={category === cat}
-                          onPress={() => setField('category', cat)}
+                          onPress={() => setValues((prev) => {
+                            const wasCigar = prev.category === 'cigar';
+                            // A number of bottles is not a number of cigars (FEAT-95): switching resets it.
+                            if (!showsBottle || wasCigar === (cat === 'cigar')) return { ...prev, category: cat };
+                            return { ...prev, category: cat, quantity: creationDefaults(cat).quantity };
+                          })}
                         >
                           {t(`categories.${cat}`)}
                         </FilterChip>
@@ -397,6 +426,57 @@ export function InventoryForm({
                       </Select>
                       )}
                     </div>
+
+                    {/* #471 (FEAT-92 c1, ux-ui.md §10.4.1): what is stored, with the
+                        cellar — how many identical bottles, their size, the price of
+                        ONE bottle and the day they were bought. Cigars: FEAT-95. */}
+                    {showsBottle && !isCigar && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3" data-testid="inventory-bottles">
+                        <ParsedNumberInput
+                          data-testid="inventory-quantity-input"
+                          label={t('inventory.fields.quantityBottles')}
+                          variant="bordered"
+                          size="sm"
+                          isRequired
+                          isInvalid={submitAttempted && invalidBottleCount}
+                          errorMessage={t('inventory.validation.bottleCount', { max: MAX_COPIES })}
+                          value={values.quantity}
+                          onValueChange={(v) => setValues((prev) => ({
+                            ...prev,
+                            quantity: v,
+                            // Several bottles form a group of full ones: only a single one is stored opened.
+                            ...(v != null && v > 1 ? { isOpened: false, fillLevel: null, openedAt: null } : {}),
+                          }))}
+                          min={1} max={MAX_COPIES}
+                        />
+                        <Input
+                          label={t('inventory.fields.bottleSize')}
+                          variant="bordered"
+                          size="sm"
+                          value={values.bottleSize ?? ''}
+                          onValueChange={(v) => setField('bottleSize', v)}
+                        />
+                        <ParsedNumberInput decimal
+                          data-testid="inventory-unit-price-input"
+                          label={t('inventory.fields.unitPrice')}
+                          variant="bordered"
+                          size="sm"
+                          value={values.purchasePrice}
+                          onValueChange={(v) => setField('purchasePrice', v)}
+                          endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
+                        />
+                        {/* D6: a day, kept as the YYYY-MM-DD text of the field, never a local Date. */}
+                        <Input
+                          data-testid="inventory-purchased-at-input"
+                          label={t('inventory.fields.purchasedAt')}
+                          type="date"
+                          variant="bordered"
+                          size="sm"
+                          value={values.purchasedAt ?? ''}
+                          onValueChange={(v) => setField('purchasedAt', v || null)}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <Divider />
@@ -774,8 +854,9 @@ export function InventoryForm({
                           onSelectedChange={setSelectedCollections}
                         />
 
-                        {/* Purchase price */}
+                        {/* Purchase price: a cigar's (bottles have theirs with the number, above) */}
                         {showsBottle && (<>
+                        {isCigar && (
                         <ParsedNumberInput decimal
                           label={t('inventory.fields.purchasePrice')}
                           variant="bordered"
@@ -784,6 +865,7 @@ export function InventoryForm({
                           onValueChange={(v) => setField('purchasePrice', v)}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
                         />
+                        )}
 
                         {/* Purchase place */}
                         <div className="col-span-2">
@@ -798,7 +880,7 @@ export function InventoryForm({
 
                         {/* Estimated value */}
                         <ParsedNumberInput decimal
-                          label={t('inventory.fields.estimatedValue')}
+                          label={t(isCigar ? 'inventory.fields.estimatedValue' : 'inventory.fields.unitValue')}
                           variant="bordered"
                           size="sm"
                           value={values.estimatedValue}
@@ -821,15 +903,6 @@ export function InventoryForm({
                         {/* Wine/Sparkling optionals */}
                         {isWineOrSparkling && (
                           <>
-                            {showsBottle && (
-                              <Input
-                                label={t('inventory.fields.bottleSize')}
-                                variant="bordered"
-                                size="sm"
-                                value={values.bottleSize ?? ''}
-                                onValueChange={(v) => setField('bottleSize', v)}
-                              />
-                            )}
                             <Input
                               label={t('inventory.fields.serviceTemp')}
                               placeholder={t('inventory.fields.serviceTempPlaceholder')}
@@ -916,15 +989,6 @@ export function InventoryForm({
                                 onValueChange={(v) => setField('additions', v)}
                               />
                             </div>
-                            {showsBottle && (
-                              <Input
-                                label={t('inventory.fields.bottleSize')}
-                                variant="bordered"
-                                size="sm"
-                                value={values.bottleSize ?? ''}
-                                onValueChange={(v) => setField('bottleSize', v)}
-                              />
-                            )}
                           </>
                         )}
 
@@ -967,43 +1031,8 @@ export function InventoryForm({
                           </>
                         )}
 
-                        {/* FEAT-87: owned item vs non-owned reference. An item
-                            created before this field existed has no `isOwned`
-                            and is owned. */}
-                        {showsBottle && (
-                        <div className="col-span-2 sm:col-span-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant={(values.isOwned ?? true) ? 'solid' : 'bordered'}
-                              color={(values.isOwned ?? true) ? 'success' : 'default'}
-                              onPress={() => setField('isOwned', true)}
-                            >
-                              {(values.isOwned ?? true) ? '✓ ' : ''}{t('inventory.fields.isOwned')}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={(values.isOwned ?? true) ? 'bordered' : 'solid'}
-                              color={(values.isOwned ?? true) ? 'default' : 'secondary'}
-                              onPress={() => {
-                                // A reference has nothing to open and no level.
-                                setField('isOwned', false);
-                                setField('isOpened', false);
-                                setField('fillLevel', null);
-                                setField('openedAt', null);
-                              }}
-                            >
-                              {(values.isOwned ?? true) ? '' : '✓ '}{t('inventory.fields.isReference')}
-                            </Button>
-                          </div>
-                          {!(values.isOwned ?? true) && (
-                            <p className="text-xs text-default-500 mt-1.5">{t('inventory.fields.isReferenceHint')}</p>
-                          )}
-                        </div>
-                        )}
-
-                        {/* Opened status — a reference has no bottle to open */}
-                        {showsBottle && (values.isOwned ?? true) && (
+                        {/* Opened status — of a single bottle: several are stored full (a group) */}
+                        {showsBottle && (isCigar || (values.quantity ?? 1) <= 1) && (
                           <div className="col-span-2 sm:col-span-4">
                             <div className="flex items-center gap-2">
                               <Button
@@ -1024,7 +1053,7 @@ export function InventoryForm({
                           </div>
                         )}
 
-                        {showsBottle && (values.isOwned ?? true) && values.isOpened && (
+                        {showsBottle && values.isOpened && (
                           <>
                             <div className="col-span-2 sm:col-span-4">
                               <p className="text-xs text-foreground-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
