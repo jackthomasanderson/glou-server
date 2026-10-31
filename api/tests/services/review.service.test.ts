@@ -19,7 +19,7 @@ vi.mock('../../src/services/product.service', async (importOriginal) => ({
 
 import { prisma } from '../../src/lib/prisma';
 import { productService } from '../../src/services/product.service';
-import { reviewService } from '../../src/services/review.service';
+import { rememberDistinct, reviewService } from '../../src/services/review.service';
 import { PRODUCT_FIELDS } from '../../src/lib/product-fields';
 import { AppError } from '../../src/lib/errors';
 
@@ -375,6 +375,38 @@ describe('reviewService.distinguish (FEAT-102 c3)', () => {
 
     expect(await rejection(reviewService.distinguish({ productIds: ['p1', 'p2'] }))).toMatchObject({ status: 400, code: 'NOT_SAME_WINE' });
     expect(prisma.productDistinction.createMany).not.toHaveBeenCalled();
+  });
+});
+
+// #471 (FEAT-97 c5): "C'est un autre vin" at the creation — the new family
+// and the ones it was told apart from are never proposed together again.
+describe('rememberDistinct (FEAT-97 c5)', () => {
+  it('remembers the new family apart from each wine of the same name, the others locked in order', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
+      family({ id: 'p5' }), family({ id: 'p3' }), family({ id: 'p1' }),
+    ] as never);
+
+    const pairs = await rememberDistinct(prisma, 'p5', ['p3', 'p1', 'p3', 'p5']);
+
+    expect(events).toEqual(['lock p1', 'lock p3']);
+    expect(vi.mocked(prisma.product.findMany).mock.calls[0][0]).toMatchObject({ where: { id: { in: ['p5', 'p3', 'p1'] }, deletedAt: null } });
+    expect(pairs).toEqual([['p3', 'p5'], ['p1', 'p5']]);
+    expect(prisma.productDistinction.createMany).toHaveBeenCalledWith({
+      data: [{ productId: 'p3', otherProductId: 'p5' }, { productId: 'p1', otherProductId: 'p5' }],
+      skipDuplicates: true,
+    });
+  });
+
+  it('leaves out a family gone meanwhile (merged, trashed) or no longer of the same name', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([family({ id: 'p5' }), family({ id: 'p2', vintage: 2021 })] as never);
+
+    expect(await rememberDistinct(prisma, 'p5', ['p1', 'p2'])).toEqual([]);
+    expect(prisma.productDistinction.createMany).not.toHaveBeenCalled();
+  });
+
+  it('does nothing without another family', async () => {
+    expect(await rememberDistinct(prisma, 'p5', [])).toEqual([]);
+    expect(prisma.product.findMany).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,6 @@
 import { Prisma, type Product } from '@prisma/client';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
-import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER, productKey } from '../lib/finished-item';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import {
   fieldSourcesOf, isProductField, lockFamily, nextLocksAndSources, toUnitView, writeProductFields,
@@ -8,7 +8,7 @@ import {
 } from '../lib/product-fields';
 import { isSlotTaken } from '../lib/slots';
 import { peakWindowSchema } from '../schemas/inventory.schema';
-import type { ProductPatch } from '../schemas/product.schema';
+import type { ProductMatchQuery, ProductPatch } from '../schemas/product.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
@@ -261,6 +261,22 @@ export const productService = {
     const result = await this.updateDescription(userId, id, { ...patch, ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}) });
     if (!result) return null;
     return 'conflict' in result ? result : { status: 'success', ...result };
+  },
+
+  /**
+   * #471 (FEAT-97 c1, c3): "Vous avez déjà ce vin" — the listed families of
+   * the wine typed (`productKey`: same category, producer, name and vintage,
+   * the vitola for a cigar; case and edge spaces ignored), wines known
+   * without bottle included (FEAT-101). Narrowed in the database by category
+   * and name, the key compared here as everywhere else (shared/units.ts).
+   */
+  async matching(asked: ProductMatchQuery): Promise<ProductView[]> {
+    const key = productKey(asked);
+    const candidates = await prisma.product.findMany({
+      where: { category: asked.category, ...LISTED_PRODUCT_FILTER, name: { contains: asked.name.trim(), mode: 'insensitive' } },
+    });
+    const ids = candidates.filter((family) => productKey(family) === key).map((family) => family.id);
+    return this.views(ids);
   },
 
   /** Several families as the list shows them (their units in stock), in one read; unknown ids are left out. */

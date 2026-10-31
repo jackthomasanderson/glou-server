@@ -1,5 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { inventoryService } from './inventory.service';
+import { addUnitsIn } from './stock.service';
+import { rememberDistinct } from './review.service';
 import { notificationService } from './notification.service';
 import { escapeHtml } from '../lib/html';
 import { WishlistCreateInput, WishlistPatchInput, ConvertToInventoryInput } from '../schemas/wishlist.schema';
@@ -121,7 +123,11 @@ async function notifyOpportunity(userId: string, item: NonNullable<WishlistItemD
  * transaction — a second conversion of the same wish (double tap, two
  * devices) waits on that row, then finds it taken and creates nothing.
  * Lock order (#787): the bottles go to a family created in this very
- * transaction, which no other one can hold — no family lock to take.
+ * transaction, which no other one can hold — no family lock to take — or,
+ * #471 (FEAT-97 c4), to the known wine `productId` ("Vous avez déjà ce
+ * vin"), whose lock `addUnitsIn` takes before writing: they complete its
+ * identical line (same cellar, price, size, bought today) or form a new one.
+ * `distinctFrom` ("C'est un autre vin") remembers the new wine apart.
  *
  * KNOWN LIMITATION (documented, not silently papered over): InventoryInput
  * requires `alcoholDegree` for 'spirit' — a field a wishlist entry never
@@ -168,13 +174,27 @@ export async function convertToInventory(userId: string, id: string, additionalF
       break;
   }
 
+  const { productId, distinctFrom = [] } = additionalFields;
   return prisma.$transaction(async (tx) => {
     const claimed = await tx.wishlistItem.updateMany({
       where: { id: wish.id, userId, status: 'active' },
       data: { status: 'acquired' },
     });
     if (claimed.count === 0) return null;
-    const created = await inventoryService.createItem(userId, inventoryInput, tx);
+    let created: { id: string; productId: string };
+    if (productId !== undefined) {
+      // FEAT-97 c4: the bottles join the known wine, bought today (its lock
+      // taken there, before any bottle is written).
+      const added = await addUnitsIn(tx, userId, productId, {
+        quantity, cellarId: base.cellarId, purchasePrice: base.purchasePrice,
+        bottleSize: wish.category === 'cigar' ? undefined : bottleSize,
+      });
+      created = added.result.data;
+    } else {
+      created = await inventoryService.createItem(userId, inventoryInput, tx);
+      // FEAT-97 c5: "C'est un autre vin".
+      if (distinctFrom.length > 0) await rememberDistinct(tx, created.productId, distinctFrom);
+    }
     const updatedWish = await tx.wishlistItem.update({
       where: { id: wish.id },
       data: { acquiredItemId: created.id },

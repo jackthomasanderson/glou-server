@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PRODUCT_FIELDS, type ProductField } from '../lib/product-fields';
 import { inventoryPatchObject, peakWindowInOrder, PEAK_WINDOW_ORDER } from './inventory.schema';
+import { CATEGORY_VALUES } from '../../../shared/inventory';
 
 type PatchField = keyof typeof inventoryPatchObject.shape;
 /** A description field a member may write: `alertStatus` is always derived from the drinking window. */
@@ -45,3 +46,25 @@ export const productRollbackSchema = z
   .strict();
 
 export type ProductRollbackInput = z.infer<typeof productRollbackSchema>;
+
+/**
+ * #471 (FEAT-97): GET /api/products/match — the wine being typed in an add
+ * form, as `productKey` reads it (shared/units.ts). An absent vintage is "no
+ * year", a value of its own (D26); the vitola only counts for a cigar.
+ */
+export const productMatchQuerySchema = z.object({
+  category: z.enum(CATEGORY_VALUES),
+  producer: z.string().trim().min(1).max(200),
+  name: z.string().trim().min(1).max(200),
+  vintage: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(1000).max(3000).optional())
+    .transform((v) => v ?? null),
+  format: z.string().max(100).optional().transform((v) => v ?? null),
+});
+
+export type ProductMatchQuery = z.infer<typeof productMatchQuerySchema>;
+
+/**
+ * #471 (FEAT-97 c5): "C'est un autre vin" — the families of the same name the
+ * wine created is told apart from (a creation, the conversion of a wish).
+ */
+export const distinctFromSchema = z.array(z.string().min(1).max(100)).max(50);

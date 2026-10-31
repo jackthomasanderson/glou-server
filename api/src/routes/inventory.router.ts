@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import QRCode from 'qrcode';
 import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
 import { scanJobIdHintSchema } from '../schemas/scan.schema';
+import { distinctFromSchema } from '../schemas/product.schema';
 import { inventoryService } from '../services/inventory.service';
 import { scanService } from '../services/scan.service';
 import { auditLog } from '../services/audit.service';
@@ -155,24 +156,16 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       ? await scanService.computeOcrFieldSources(req.userId, scanJobIdResult.data, data.category)
       : undefined;
 
-    // ISSUE_141: the FEAT-65 dedup rule only ever ran in the browser against
-    // whatever page of the inventory happened to be loaded — the one real
-    // backstop (two members creating the same bottle at the same time from
-    // two devices) never existed. `confirmDuplicate` is the client's existing
-    // "Create Anyway" action telling the server this was already decided;
-    // without it, a match returns 409 instead of silently creating a second row.
-    const confirmDuplicate = (req.body as Record<string, unknown>).confirmDuplicate === true;
-    if (!confirmDuplicate) {
-      const duplicate = await inventoryService.findDuplicateCandidate(data);
-      if (duplicate) {
-        void auditLog({ userId: req.userId, action: 'CREATE', status: 'validation_error', ip, details: { reason: 'DUPLICATE_CANDIDATE', category: data.category, duplicateId: duplicate.id } });
-        res.status(409).json({ error: 'DUPLICATE_CANDIDATE', data: duplicate });
-        return;
-      }
-    }
+    // #471 (FEAT-97): no duplicate refusal any more — "Vous avez déjà ce vin"
+    // is asked while typing (GET /api/products/match). `distinctFrom` is the
+    // answer "C'est un autre vin": the new wine is remembered apart from those.
+    const distinctFrom = distinctFromSchema.optional().parse((req.body as Record<string, unknown>).distinctFrom) ?? [];
 
-    const item = await inventoryService.createItem(req.userId, data, undefined, fieldSources);
-    void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, productId: item.productId, details: { category: data.category } });
+    const item = distinctFrom.length > 0
+      ? await inventoryService.createApart(req.userId, data, distinctFrom, fieldSources)
+      : await inventoryService.createItem(req.userId, data, undefined, fieldSources);
+    const apart = distinctFrom.length > 0 ? { distinctFrom } : {};
+    void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, productId: item.productId, details: { category: data.category, ...apart } });
     res.status(201).json({ data: item });
   } catch (error) {
     console.error('[inventory] POST / error:', error);
