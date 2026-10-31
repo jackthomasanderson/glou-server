@@ -30,6 +30,8 @@ import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-f
 import { FieldSourceBadge } from './FieldSourceBadge';
 import { FamilyStockLines } from './FamilyStockLines';
 import { FamilyHistory } from './FamilyHistory';
+import { StockLineMenu } from './StockLineMenu';
+import { unitNoun } from '@/lib/products/stockActions';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
@@ -95,9 +97,9 @@ export interface FamilyDrawerProps {
   /** "Modifier": the wine's description, for all its bottles. */
   onEdit?: (product: ProductDetailView) => void;
   /**
-   * Anchors for the actions of the next lots: the menu of a line (W3:
-   * "J'en ouvre une", "Déplacer", "Corriger le nombre"…) and the footer's
-   * main action (L1: "J'en ouvre une", "Ajouter des bouteilles").
+   * Anchors for the actions of the next lots: the menu of a line (by
+   * default {@link StockLineMenu}: "Déplacer", "Corriger le nombre"…) and the
+   * footer's main action (L1: "J'en ouvre une", "Ajouter des bouteilles").
    */
   lineActions?: (item: ProductItem, product: ProductDetailView) => React.ReactNode;
   primaryAction?: (product: ProductDetailView) => React.ReactNode;
@@ -197,7 +199,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           lines={lines}
           ctx={ctx}
           onLevelCommit={handleLevel}
-          lineActions={lineActions ? (item) => lineActions(item, p) : undefined}
+          lineActions={(item) => (lineActions ? lineActions(item, p) : <StockLineMenu item={item} ctx={ctx} />)}
         />
 
         {/* 4. The wine's description, shared by all its bottles */}
@@ -354,6 +356,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           history={p.history}
           itemIds={new Set(p.items.map((item) => item.id))}
           cellarName={cellarName}
+          nounOf={(itemId) => unitNoun(p.items.find((item) => item.id === itemId) ?? { cigarsPerBox: null }, kind)}
         />
       </div>
     );

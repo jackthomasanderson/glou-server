@@ -195,6 +195,12 @@ export interface ProductHistoryEntry {
   /** The unit changed; null for a change of the description itself. */
   itemId: string | null;
   changes: FieldChange[] | null;
+  /** FEAT-98 (point 57): how many copies were moved or repriced. */
+  count?: number;
+  /** FEAT-92 c3: why a number was corrected (`CORRECT_QUANTITY`). */
+  reason?: CorrectionReason;
+  /** #471 (W3): an edited line that joined this group — what its edit changed. */
+  joinedChanges?: FieldChange[];
   createdAt: Date;
 }
 

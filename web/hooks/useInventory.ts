@@ -317,10 +317,14 @@ export function useDeleteInventoryItem() {
         old?.filter((item) => item.id !== id)
       );
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withoutUnit(old, id));
+      // #471 (W3): the line leaves the wine's drawer too (every copy out of the trash is listed there).
+      queryClient.setQueriesData<ProductDetailView>({ queryKey: productDetailKey(null).slice(0, 2) }, (old) =>
+        old?.items.some((unit) => unit.id === id) ? { ...old, items: old.items.filter((unit) => unit.id !== id) } : old);
     },
     onError: () => notifyError('toast.deleteError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: TRASH_KEY });
+      void queryClient.invalidateQueries({ queryKey: productDetailKey(null).slice(0, 2) });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
       // See useUpdateInventoryItem: the sidebar badges piggyback on an
       // INVENTORY_KEY invalidation that this mutation no longer does.

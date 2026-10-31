@@ -9,6 +9,7 @@ import { MAX_COPIES, type AddUnitsInput, type CorrectQuantityInput } from '../sc
 import { LISTED_PRODUCT_FILTER } from './product.service';
 import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/product';
 import type { GroupKeyFields } from '../../../shared/units';
+import { placesAgree } from '../../../shared/review';
 
 /** A unit row as the extended client reads it at the top level (money columns as numbers). */
 type UnitRecord = NonNullable<Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>>>;
@@ -21,6 +22,11 @@ export interface GroupSearch {
   estimatedValue?: number | null;
   /** Never a group whose number is still to review (needsReview), as the review merge (planGroupFusion). */
   settledOnly?: boolean;
+  /**
+   * Only a group whose place of purchase and location agree with these
+   * (design.md rule 4, {@link placesAgree}): joining must never drop one.
+   */
+  placesOf?: { purchasePlace: string | null; location: string | null };
 }
 
 /**
@@ -50,7 +56,8 @@ export async function findGroupFor(
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
   return candidates.find((unit) => isGroupableItem(unit) && groupKey(unit, kind) === key
-    && (search.estimatedValue === undefined || (unit.estimatedValue ?? null) === search.estimatedValue)) ?? null;
+    && (search.estimatedValue === undefined || (unit.estimatedValue ?? null) === search.estimatedValue)
+    && (search.placesOf === undefined || placesAgree(unit, search.placesOf))) ?? null;
 }
 
 /**

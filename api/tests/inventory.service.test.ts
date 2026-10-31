@@ -24,7 +24,7 @@ vi.mock('../src/lib/prisma', () => ({
     },
     tastingNote: { deleteMany: vi.fn(), count: vi.fn() },
     // #471 (FEAT-100): a detach during an open count adjusts its entries.
-    inventoryCountEntry: { updateMany: vi.fn(), create: vi.fn() },
+    inventoryCountEntry: { updateMany: vi.fn(), create: vi.fn(), findMany: vi.fn() },
     inventoryCountSession: { findFirst: vi.fn() },
     $executeRaw: vi.fn(),
     $queryRaw: vi.fn(),
@@ -472,6 +472,81 @@ describe('InventoryService', () => {
       // Family first, then the unit, which comes back with the new mirror.
       expect(vi.mocked(prisma.product.update).mock.invocationCallOrder[0])
         .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
+    });
+
+    // #471 (W3 review, design.md rule 4): a group edited into an identical one joins it.
+    describe('a group made identical to another one by an edit', () => {
+      const OCT = new Date('2026-10-01T00:00:00.000Z');
+      const SEP = new Date('2026-09-01T00:00:00.000Z');
+      const line = (id: string, fields: Record<string, unknown> = {}) => ({
+        id, userId: 'u1', productId: 'p1', cellarId: 'garage', purchasePrice: 20, estimatedValue: null, bottleSize: null,
+        cigarsPerBox: null, cigarsLeft: null, isOpened: false, fillLevel: null, openedAt: null, writtenOffAt: null,
+        deletedAt: null, isOwned: true, needsReview: false, slotColumn: null, slotRow: null, parentItemId: null,
+        purchasePlace: null, location: null, lockedFields: [], fieldSources: null,
+        createdAt: new Date('2026-01-01T00:00:00.000Z'), updatedAt: new Date('2026-10-02T00:00:00.000Z'), ...fields,
+      });
+      beforeEach(() => {
+        // The edited ×2 bought in September; the ×6 bought in October, older.
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ ...line('b2', { quantity: 2, purchasedAt: SEP }), product: family() } as never);
+        vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string }; data: Record<string, unknown> }) =>
+          Promise.resolve({ ...line(args.where.id, { quantity: args.where.id === 'b6' ? 6 : 2, purchasedAt: OCT }), ...args.data, product: family() })) as never);
+        vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([line('b6', { quantity: 6, purchasedAt: OCT, createdAt: new Date('2025-12-01T00:00:00.000Z') })] as never);
+        vi.mocked(prisma.inventoryCountEntry.findMany).mockResolvedValue([] as never);
+        vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockResolvedValue({ ...line('b6', { quantity: 8, purchasedAt: OCT }), product: family() } as never);
+      });
+
+      it('its purchase day set to the other one\'s: one line ×8, the edited one removed (D8)', async () => {
+        const result = await service.updateItem('u1', 'b2', { purchasedAt: OCT });
+
+        expect(result).toMatchObject({ item: { id: 'b6', quantity: 8 }, removedIds: ['b2'], joined: { from: 6, to: 8 } });
+        // The older group takes the copies; the edited one is deleted, in the same transaction.
+        expect(prisma.inventoryItem.update).toHaveBeenLastCalledWith(expect.objectContaining({
+          where: { id: 'b6' }, data: expect.objectContaining({ quantity: 8 }),
+        }));
+        expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['b2'] } } });
+      });
+
+      it('never with a group still to review, nor when both are in a slot', async () => {
+        vi.mocked(prisma.inventoryItem.findMany).mockResolvedValueOnce([] as never); // settledOnly: none settled
+        expect(await service.updateItem('u1', 'b2', { purchasedAt: OCT })).not.toHaveProperty('joined');
+
+        vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string } }) =>
+          Promise.resolve({ ...line(args.where.id, { quantity: 2, purchasedAt: OCT, slotColumn: 1, slotRow: 1 }), product: family() })) as never);
+        vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([line('b6', { quantity: 6, purchasedAt: OCT, slotColumn: 2, slotRow: 1 })] as never);
+        expect(await service.updateItem('u1', 'b2', { purchasedAt: OCT })).not.toHaveProperty('joined');
+        expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        ['places of purchase', { purchasePlace: 'Caviste A' }, { purchasePlace: 'Caviste B' }],
+        ['locations', { location: 'Bas' }, { location: 'Haut' }],
+      ])('never when their %s contradict each other: neither is lost (rule 4)', async (_label, target, edited) => {
+        vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string } }) =>
+          Promise.resolve({ ...line(args.where.id, { quantity: 2, purchasedAt: OCT, ...edited }), product: family() })) as never);
+        vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([line('b6', { quantity: 6, purchasedAt: OCT, ...target })] as never);
+
+        expect(await service.updateItem('u1', 'b2', { purchasedAt: OCT })).not.toHaveProperty('joined');
+        expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+      });
+
+      it('nothing to join when no field of the group changed', async () => {
+        const result = await service.updateItem('u1', 'b2', { location: 'Étagère' });
+        expect(result).not.toHaveProperty('joined');
+        expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
+      });
+    });
+
+    // #471 (W3): "Modifier" a line — its purchase day is the line's own, never the family's.
+    it('writes a purchase day on the unit, recorded in its history', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow() as never);
+      const day = new Date('2026-03-14T00:00:00.000Z');
+
+      const result = await service.updateItem('u1', 'b1', { purchasedAt: day });
+
+      const unitData = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+      expect(unitData.data).toMatchObject({ purchasedAt: day });
+      expect(prisma.product.update).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ changes: [{ field: 'purchasedAt', to: day }] });
     });
 
     // #471 (F2 review): two members editing the family through two sibling
