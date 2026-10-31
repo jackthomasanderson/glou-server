@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { MAX_COPIES } from '../../src/schemas/stock.schema';
+import { CSV_IMPORT_MAX_COPIES } from '../../../shared/import';
 import {
   csvRawRowSchema,
   csvImportRowSchema,
   confirmCsvImportSchema,
+  toPurchaseDay,
 } from '../../src/schemas/import.schema';
 
 describe('csvRawRowSchema (raw CSV cells, all strings)', () => {
@@ -41,6 +44,33 @@ describe('csvRawRowSchema (raw CSV cells, all strings)', () => {
   });
 });
 
+describe('toPurchaseDay (spreadsheet days)', () => {
+  it('reads ISO and European days, and leaves anything else for the schema to refuse', () => {
+    expect(toPurchaseDay('2024-03-15')).toBe('2024-03-15');
+    expect(toPurchaseDay('5/3/2024')).toBe('2024-03-05');
+    expect(toPurchaseDay('05.03.2024')).toBe('2024-03-05');
+    expect(toPurchaseDay('29-02-2024')).toBe('2024-02-29');
+    expect(toPurchaseDay('29/02/2023')).toBe('29/02/2023');
+    expect(toPurchaseDay('0001-01-01')).toBe('0001-01-01');
+    expect(toPurchaseDay('2200-01-01')).toBe('2200-01-01');
+    expect(toPurchaseDay('31/12/1899')).toBe('31/12/1899');
+    expect(toPurchaseDay('mars 2024')).toBe('mars 2024');
+    expect(toPurchaseDay('  ')).toBeUndefined();
+  });
+});
+
+describe('group bound', () => {
+  it('is the same on both sides', () => {
+    expect(CSV_IMPORT_MAX_COPIES).toBe(MAX_COPIES);
+  });
+});
+
+describe('csvRawRowSchema (prices)', () => {
+  it('keeps cents only, as the price column stores them', () => {
+    expect(csvRawRowSchema.parse({ name: 'X', producer: 'Y', category: 'wine', purchasePrice: '12,505' }).purchasePrice).toBe(12.51);
+  });
+});
+
 describe('confirmCsvImportSchema (canonical, already-typed rows)', () => {
   const row = { name: 'X', producer: 'Y', category: 'wine' as const };
 
@@ -50,18 +80,34 @@ describe('confirmCsvImportSchema (canonical, already-typed rows)', () => {
     expect(confirmCsvImportSchema.safeParse({ rows: Array(501).fill(row) }).success).toBe(false);
   });
 
-  // FEAT-91: the 500 cap counts the items the rows become, not the rows.
-  it('accepts up to 500 items in all, counting a wine row\'s quantity as that many bottles', () => {
-    const atCap = { rows: [{ ...row, quantity: 300 }, { ...row, quantity: 200 }] };
-    expect(confirmCsvImportSchema.safeParse(atCap).success).toBe(true);
+  // #471 (FEAT-99 c4, decision 39): the cap counts rows, whatever the bottles they stand for.
+  it('accepts 500 rows standing for far more than 500 bottles', () => {
+    const rows = Array.from({ length: 500 }, (_, i) => ({ ...row, name: `Wine ${i}`, quantity: 12 }));
+    expect(confirmCsvImportSchema.safeParse({ rows }).success).toBe(true);
 
-    const overCap = confirmCsvImportSchema.safeParse({ rows: [{ ...row, quantity: 300 }, { ...row, quantity: 201 }] });
-    expect(overCap.success).toBe(false);
-    if (!overCap.success) expect(overCap.error.issues[0].message).toBe('TOO_MANY_ITEMS');
+    const over = confirmCsvImportSchema.safeParse({ rows: [...rows, row] });
+    expect(over.success).toBe(false);
+    if (!over.success) expect(over.error.issues[0].message).toBe('TOO_MANY_ROWS');
+  });
 
-    // A cigar row is one box, whatever its number of cigars.
-    const boxes = { rows: [{ ...row, quantity: 499 }, { ...row, category: 'cigar' as const, quantity: 1000 }] };
-    expect(confirmCsvImportSchema.safeParse(boxes).success).toBe(true);
+  it('refuses identical rows that add up past what one group may count', () => {
+    const res = confirmCsvImportSchema.safeParse({ rows: [{ ...row, quantity: 600 }, { ...row, quantity: 600 }] });
+    expect(res.success).toBe(false);
+    if (!res.success) expect(res.error.issues[0].message).toBe('LINE_TOO_LARGE');
+  });
+
+  it('takes the member\'s choices for wines already in the cellar, none by default', () => {
+    expect(confirmCsvImportSchema.parse({ rows: [row] }).choices).toEqual([]);
+    const choices = [{ key: 'k', inStock: 4, add: true }];
+    expect(confirmCsvImportSchema.parse({ rows: [row], choices }).choices).toEqual(choices);
+    expect(confirmCsvImportSchema.safeParse({ rows: [row], choices: [{ key: 'k', inStock: -1, add: true }] }).success).toBe(false);
+  });
+
+  it('takes a cigar box size or single cigars, and a purchase day as YYYY-MM-DD', () => {
+    expect(csvImportRowSchema.safeParse({ ...row, cigarsPerBox: 25, purchasedAt: '2024-03-15' }).success).toBe(true);
+    expect(csvImportRowSchema.safeParse({ ...row, cigarsPerBox: 'single' }).success).toBe(true);
+    expect(csvImportRowSchema.safeParse({ ...row, cigarsPerBox: 'box' }).success).toBe(false);
+    expect(csvImportRowSchema.safeParse({ ...row, purchasedAt: '15/03/2024' }).success).toBe(false);
   });
 
   it('rejects a row whose vintage is still a string (must be pre-parsed)', () => {

@@ -16,31 +16,62 @@ type UnitRecord = NonNullable<Awaited<ReturnType<typeof prisma.inventoryItem.fin
 /** `YYYY-MM-DD` → the midnight-UTC Date Prisma stores in a `@db.Date` column (D6). */
 const toDay = (day: string): Date => new Date(`${day}T00:00:00.000Z`);
 
+/** What narrows {@link findGroupFor} beyond the group identity. */
+export interface GroupSearch {
+  /** The unit the copies come from, never its own target. */
+  excludeId?: string;
+  /** Only a group of this estimated value, strictly (empty = empty only): a move must not change the value. */
+  estimatedValue?: number | null;
+  /** Never a group whose number is still to review (needsReview), as the review merge (planGroupFusion). */
+  settledOnly?: boolean;
+}
+
 /**
  * #471 (D5): the group of the family that `target` would join — intact, out
  * of the trash, not written off, same `groupKey` — or null. The single
  * reading of "the same group" for every path that adds copies; the oldest
- * wins should two identical groups ever coexist. Run it inside the
- * transaction that holds the family lock.
+ * wins should two identical groups ever coexist. Copies without a purchase
+ * day never complete a group: the budget then dates each line by its
+ * creation, and joining a line created another day would move their
+ * spending to another period (same rule as planGroupFusion). Run it inside
+ * the transaction that holds the family lock.
  */
 export async function findGroupFor(
   tx: PrismaClientOrTx,
   target: GroupKeyFields,
   kind: UnitKind,
+  search: GroupSearch = {},
 ): Promise<UnitRecord | null> {
+  if (target.purchasedAt == null) return null;
   const key = groupKey(target, kind);
   const candidates = await tx.inventoryItem.findMany({
-    where: { productId: target.productId, deletedAt: null, writtenOffAt: null, ...OWNED_ITEM_FILTER },
+    where: {
+      productId: target.productId, deletedAt: null, writtenOffAt: null, ...OWNED_ITEM_FILTER,
+      ...(search.excludeId !== undefined ? { id: { not: search.excludeId } } : {}),
+      ...(search.settledOnly ? { needsReview: false } : {}),
+    },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   });
-  return candidates.find((unit) => isGroupableItem(unit) && groupKey(unit, kind) === key) ?? null;
+  return candidates.find((unit) => isGroupableItem(unit) && groupKey(unit, kind) === key
+    && (search.estimatedValue === undefined || (unit.estimatedValue ?? null) === search.estimatedValue)) ?? null;
+}
+
+/**
+ * D15: the inventory entries that counted `itemIds` keep the number they
+ * found (an empty `foundQuantity` reads "the whole unit") before those
+ * groups grow — the copies added were not there when they were counted.
+ * In SQL, as the transformation and the review merge do.
+ */
+export async function keepFoundQuantities(tx: PrismaClientOrTx, itemIds: string[]): Promise<void> {
+  await tx.$executeRaw`UPDATE "inventory_count_entries" AS e SET "foundQuantity" = coalesce(e."foundQuantity", b."quantity")
+    FROM "bottles" AS b WHERE b."id" = e."itemId" AND e."itemId" IN (${Prisma.join(itemIds)})`;
 }
 
 /**
  * The family as it stands once locked: 404 when unknown, 409 when in the
  * trash — itself, or computed as such because every unit of it is (D10).
  */
-async function lockedListedFamily(tx: PrismaClientOrTx, productId: string): Promise<Product> {
+export async function lockedListedFamily(tx: PrismaClientOrTx, productId: string): Promise<Product> {
   await lockFamily(tx, productId);
   const listed = await tx.product.findFirst({ where: { id: productId, ...LISTED_PRODUCT_FILTER } });
   if (listed) return listed;
@@ -50,6 +81,46 @@ async function lockedListedFamily(tx: PrismaClientOrTx, productId: string): Prom
 
 /** The description copied on a new unit's transitional mirror columns (removed by lot Z). */
 const mirrorOf = (product: Product) => Object.fromEntries(PRODUCT_FIELDS.map((field) => [field, product[field]]));
+
+/** Where new copies go (D5): everything of a group's identity. */
+export type CopiesTarget = GroupKeyFields & { purchasedAt: Date | null };
+
+/**
+ * #471 (D5): adds `count` copies to `product` — completing its group of the
+ * same `target` identity (×6 → ×8), else as a new line of the family. The
+ * single write behind "Ajouter des bouteilles" and the CSV import. Run it in
+ * the transaction that holds the family's lock (lock order: families first).
+ * `fieldSources` tags a new line's own fields; a completed group keeps its.
+ */
+export async function addCopies(
+  tx: PrismaClientOrTx,
+  userId: string,
+  product: Product,
+  target: CopiesTarget,
+  count: number,
+  fieldSources?: Record<string, string>,
+): Promise<{ unit: UnitRecord; from: number | null; to: number }> {
+  const group = await findGroupFor(tx, target, unitKind(product.category));
+  if (group) {
+    const from = group.quantity ?? 1;
+    // One group counts at most what one write may (`quantity`'s own bound).
+    if (from + count > MAX_COPIES) throw badRequest('QUANTITY_TOO_LARGE');
+    await keepFoundQuantities(tx, [group.id]);
+    const unit = await tx.inventoryItem.update({ where: { id: group.id }, data: { quantity: from + count, updatedBy: userId } });
+    return { unit, from, to: from + count };
+  }
+  const unit = await tx.inventoryItem.create({
+    data: {
+      ...mirrorOf(product),
+      ...target,
+      id: uuidv4(),
+      userId,
+      quantity: count,
+      ...(fieldSources && Object.keys(fieldSources).length > 0 ? { fieldSources } : {}),
+    } as Prisma.InventoryItemUncheckedCreateInput,
+  });
+  return { unit, from: null, to: count };
+}
 
 export interface AddUnitsOutcome {
   result: UnitWriteResult;
@@ -93,32 +164,12 @@ export const stockService = {
         productId,
         cellarId,
         purchasePrice: input.purchasePrice ?? null,
-        purchasedAt: input.purchasedAt === undefined ? todayAsPurchaseDate() : input.purchasedAt && toDay(input.purchasedAt),
+        purchasedAt: input.purchasedAt === undefined ? todayAsPurchaseDate() : input.purchasedAt ? toDay(input.purchasedAt) : null,
         bottleSize: input.bottleSize ?? null,
         cigarsPerBox: input.cigarsPerBox ?? null,
       };
-      const group = await findGroupFor(tx, target, kind);
-      if (group) {
-        const from = group.quantity ?? 1;
-        // One group counts at most what one write may (`quantity`'s own bound).
-        if (from + input.quantity > MAX_COPIES) throw badRequest('QUANTITY_TOO_LARGE');
-        const completed = await tx.inventoryItem.update({
-          where: { id: group.id },
-          data: { quantity: from + input.quantity, updatedBy: userId },
-        });
-        return { result: { data: toUnitView(completed), changed: [], removedIds: [] }, merged: true, from, to: from + input.quantity };
-      }
-
-      const created = await tx.inventoryItem.create({
-        data: {
-          ...mirrorOf(product),
-          ...target,
-          id: uuidv4(),
-          userId,
-          quantity: input.quantity,
-        } as Prisma.InventoryItemUncheckedCreateInput,
-      });
-      return { result: { data: toUnitView(created), changed: [], removedIds: [] }, merged: false, from: null, to: input.quantity };
+      const added = await addCopies(tx, userId, product, target, input.quantity);
+      return { result: { data: toUnitView(added.unit), changed: [], removedIds: [] }, merged: added.from !== null, from: added.from, to: added.to };
     });
   },
 
