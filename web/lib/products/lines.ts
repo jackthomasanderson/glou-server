@@ -72,6 +72,9 @@ function priceOf(item: ProductItem, ctx: LineContext): string | null {
   return ctx.t(`familyDrawer.lines.${per}`, { price: ctx.formatPrice(item.purchasePrice) });
 }
 
+/** Which bottle a tasting was of: "Garage · 20 € / bouteille". */
+export const bottleLabel = (item: ProductItem, ctx: LineContext) => whereAndWhat(item, ctx, false).join(' · ');
+
 /** Where the copy is, its price, its size if not standard, its purchase month on a multi-line wine. */
 function whereAndWhat(item: ProductItem, ctx: LineContext, showPurchaseMonth: boolean): string[] {
   const cellar = item.cellarId ? ctx.cellarName(item.cellarId) : undefined;

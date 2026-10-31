@@ -21,7 +21,7 @@ import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
 import { notifySuccess } from '@/lib/toast';
 import { describeStock, keepNumbersWhole, wineName } from '@/lib/products/stock';
-import { familyLines, lineParts, type LineContext } from '@/lib/products/lines';
+import { bottleLabel, familyLines, type LineContext } from '@/lib/products/lines';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 import { QrCodeModal } from './QrCodeModal';
@@ -264,10 +264,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
             <ul className="flex flex-col gap-2" data-testid="family-tastings">
               {p.tastings.map((tasting) => {
                 const bottle = tasting.itemId ? p.items.find((item) => item.id === tasting.itemId) : undefined;
-                // "Garage · 20 €": where the bottle tasted was, and its price.
-                const which = bottle
-                  ? lineParts(bottle, ctx, false).slice(1).join(' · ')
-                  : t('familyDrawer.tastings.elsewhere');
+                // "Garage · 20 € / bouteille": where the bottle tasted was, and its price.
+                const which = bottle ? bottleLabel(bottle, ctx) : t('familyDrawer.tastings.elsewhere');
                 return (
                   <li key={tasting.id} className="p-3 rounded-xl border border-divider">
                     <div className="flex items-center justify-between gap-2 text-xs text-foreground-500">
@@ -303,7 +301,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
   return (
     <>
-      <Drawer isOpen={isOpen} onClose={onClose} placement="right" backdrop="opaque" classNames={{ base: 'max-w-[440px] shadow-xl' }}>
+      <Drawer isOpen={isOpen} onClose={onClose} placement="right" backdrop="opaque" hideCloseButton classNames={{ base: 'max-w-[440px] shadow-xl' }}>
         <DrawerContent>
           <>
             <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">

@@ -124,20 +124,19 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, isSaving = false, 
 
       {lines.gone.length > 0 && (
         <section>
-          <Button
-            size="sm"
-            variant="light"
-            className="px-0 h-auto min-w-0 justify-start"
+          <button
+            type="button"
+            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-left rounded-lg hover:bg-default-100 px-1 -mx-1 py-0.5"
             aria-expanded={showGone}
             aria-controls="family-gone-lines"
-            endContent={showGone ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            onPress={() => setShowGone((open) => !open)}
+            onClick={() => setShowGone((open) => !open)}
           >
             <span className="text-xs font-bold uppercase tracking-widest text-foreground-500">
               {t(kind === 'cigar' ? 'familyDrawer.gone.titleCigar' : 'familyDrawer.gone.title')}
             </span>
-            <span className="text-xs text-foreground-500 normal-case">{goneSummary(lines, kind, t)}</span>
-          </Button>
+            <span className="text-xs text-foreground-500">{goneSummary(lines, kind, t)}</span>
+            {showGone ? <ChevronUp size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+          </button>
           {showGone && (
             <ul id="family-gone-lines" className="flex flex-col gap-1 mt-2" data-testid="family-gone-lines">
               {lines.gone.map((item) => (
