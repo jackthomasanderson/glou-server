@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { isWritableDescriptionField, productPatchSchema, productRollbackSchema } from '../schemas/product.schema';
+import { ZodError } from 'zod';
+import { productPatchSchema, productRollbackSchema } from '../schemas/product.schema';
+import { isRestorableDescriptionField } from '../../../shared/product';
 import { productService } from '../services/product.service';
 import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
@@ -56,8 +58,22 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
 router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   const ip = getClientIp(req);
+  try {
+    await rollbackDescription(req, res, id, ip);
+  } catch (error) {
+    // A value of the wrong type, a reversed drinking window: answered 400 by
+    // the error middleware, traced here like the restore of a bottle's field.
+    if (error instanceof ZodError) {
+      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, productId: id, details: { issues } });
+    }
+    throw error;
+  }
+});
+
+async function rollbackDescription(req: Request, res: Response, id: string, ip: string): Promise<void> {
   const { field, toValue, expectedUpdatedAt } = productRollbackSchema.parse(req.body);
-  if (!isWritableDescriptionField(field)) {
+  if (!isRestorableDescriptionField(field)) {
     // A field of the bottles is restored from the bottle's own change.
     void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, productId: id, details: { field, reason: 'FIELD_NOT_RESTORABLE' } });
     throw badRequest('FIELD_NOT_RESTORABLE');
@@ -78,7 +94,7 @@ router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> 
   }
   void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, productId: id, details: { changes: result.changes } });
   res.json({ data: result.product });
-});
+}
 
 // DELETE /api/products/:id — the wine and all its bottles to the trash (D10).
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {

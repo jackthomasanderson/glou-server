@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+import { ZodError } from 'zod';
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   authMiddleware: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -194,7 +195,7 @@ describe('POST /api/products/:id/rollback (FEAT-05 on a wine)', () => {
     });
   });
 
-  it.each(['purchasePrice', 'cellarId', 'quantity', 'fillLevel', 'isOpened', 'alertStatus', 'otherPhotoUrls', 'lockedFields', 'nope'])(
+  it.each(['purchasePrice', 'cellarId', 'quantity', 'fillLevel', 'isOpened', 'alertStatus', 'otherPhotoUrls', 'consumptionPostponedUntil', 'lockedFields', 'nope'])(
     'refuses %s, not a description field of the wine, with 400 FIELD_NOT_RESTORABLE',
     async (field) => {
       const res = await request(app).post('/api/products/p1/rollback').send({ field, toValue: 1 });
@@ -246,5 +247,25 @@ describe('POST /api/products/:id/rollback (FEAT-05 on a wine)', () => {
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
     expect(productService.rollbackField).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a value of the wrong type', () => undefined, { field: 'vintage', toValue: 'old' }, 'vintage'],
+    ['a reversed drinking window', () => {
+      vi.mocked(productService.rollbackField).mockRejectedValue(
+        new ZodError([{ code: 'custom', path: ['peakMaturityTo'], message: 'PEAK_WINDOW_ORDER', input: 2025 } as never]),
+      );
+    }, { field: 'peakMaturityTo', toValue: 2025 }, 'PEAK_WINDOW_ORDER'],
+  ])('traces %s as a refused restore of the wine', async (_label, arrange, body, issue) => {
+    arrange();
+
+    const res = await request(app).post('/api/products/p1/rollback').send(body);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'RESTORE_FIELD', status: 'validation_error', productId: 'p1', details: { issues: expect.stringContaining(issue) },
+    }));
+    expect(auditLog).toHaveBeenCalledTimes(1);
   });
 });

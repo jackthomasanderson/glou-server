@@ -81,6 +81,8 @@ describe('FamilyHistory — restoring a value (FEAT-05)', () => {
   it('offers nothing for what is not a written field of the wine, nor for a bottle no longer there', () => {
     renderHistory([
       entry({ id: 2, changes: [{ field: 'alertStatus', from: 'none', to: 'peak' }, { field: 'otherPhotoUrls', from: [], to: ['x'] }] }),
+      // Written by a merge, never by the description edit: the API would refuse it.
+      entry({ id: 5, action: 'MERGE_PRODUCTS', changes: [{ field: 'consumptionPostponedUntil', from: null, to: '2027-01-01T00:00:00.000Z' }] }),
       entry({ id: 3, itemId: 'gone' }),
       entry({ id: 4, action: 'DELETE', changes: null }),
     ]);
@@ -101,6 +103,16 @@ describe('FamilyHistory — restoring a value (FEAT-05)', () => {
     await confirmRestore();
 
     expect(screen.getByRole('dialog')).toHaveTextContent('Impossible de restaurer cette valeur.');
+  });
+
+  it('says the wine changed meanwhile when the restore is refused (409)', async () => {
+    productRollback = mutation({ isError: true, error: new Error('CONFLICT') });
+    renderHistory([entry({})]);
+
+    await confirmRestore();
+
+    expect(screen.getByRole('dialog')).toHaveTextContent('ce vin a été modifié entre-temps');
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('Impossible de restaurer cette valeur.');
   });
 
   it('closing the confirmation forgets a past failure of either kind', async () => {

@@ -9,7 +9,7 @@ import { useRollbackProductField } from '@/hooks/useRollbackProductField';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { formatDate } from '@/lib/format';
 import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
-import { isWritableDescriptionField } from '@/lib/products/description';
+import { isRestorableDescriptionField } from '@shared/product';
 import type { ProductDetailView } from '@/lib/products/types';
 
 type HistoryEntry = ProductDetailView['history'][number];
@@ -101,7 +101,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
   /** What of an entry can be restored: a copy's change if it is still there, the wine's description changes. */
   const restorableOf = (entry: HistoryEntry): FieldChange[] => {
     const changes = entry.changes ?? [];
-    if (!entry.itemId) return changes.filter((change) => isWritableDescriptionField(change.field));
+    if (!entry.itemId) return changes.filter((change) => isRestorableDescriptionField(change.field));
     return itemIds.has(entry.itemId) ? changes.filter((change) => !NOT_RESTORABLE.has(change.field)) : [];
   };
 
@@ -167,7 +167,12 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
                     value: formatHistoryValue(target.change.field, target.change.from, t, context),
                   })}
                 </p>
-                {rollbackMutation.isError && <p className="text-xs text-danger">{t('traceability.restoreError')}</p>}
+                {/* 409: the wine changed meanwhile — restoring now would overwrite that change. */}
+                {rollbackMutation.isError && (
+                  <p className="text-xs text-danger">
+                    {t(rollbackMutation.error?.message === 'CONFLICT' ? 'familyDrawer.form.conflict' : 'traceability.restoreError')}
+                  </p>
+                )}
               </ModalBody>
               <ModalFooter className="flex gap-2 px-4 pb-4 pt-2">
                 <Button color="danger" variant="light" onPress={close} isDisabled={rollbackMutation.isPending} className="flex-1">

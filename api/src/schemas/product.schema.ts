@@ -27,10 +27,8 @@ export const productPatchSchema = inventoryPatchObject
 
 export type ProductPatch = z.infer<typeof productPatchSchema>;
 
-/** The description fields a member may write — and restore (FEAT-05). */
-const DESCRIPTION_FIELDS: ReadonlySet<string> = new Set(Object.keys(DESCRIPTION_MASK));
-
-export const isWritableDescriptionField = (field: string): field is DescriptionField => DESCRIPTION_FIELDS.has(field);
+/** The description fields the patch accepts: shared/product.ts's RESTORABLE_DESCRIPTION_FIELDS (checked by a test). */
+export const DESCRIPTION_PATCH_FIELDS: readonly string[] = Object.keys(DESCRIPTION_MASK);
 
 /**
  * #471 (FEAT-05): POST /api/products/:id/rollback — the same contract as the
