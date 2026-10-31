@@ -1149,6 +1149,37 @@ describe('InventoryService', () => {
       );
     });
 
+    // #471 (FEAT-92 c1, lot E1): one family and one group of N bottles.
+    it('creates one group of the number of bottles given, never on the family', async () => {
+      await service.createItem('u1', { ...wine, quantity: 6 } as never);
+
+      expect(created().quantity).toBe(6);
+      expect(created().product.create).not.toHaveProperty('quantity');
+    });
+
+    it('dates the purchase on the day given, as midnight UTC (D6)', async () => {
+      await service.createItem('u1', { ...wine, purchasedAt: '2026-01-15' } as never);
+
+      expect(created().purchasedAt).toEqual(new Date('2026-01-15T00:00:00.000Z'));
+      expect(created().product.create).not.toHaveProperty('purchasedAt');
+    });
+
+    it('stores no purchase day when it was emptied', async () => {
+      await service.createItem('u1', { ...wine, purchasedAt: null } as never);
+
+      expect(created().purchasedAt).toBeNull();
+    });
+
+    it('answers the purchase day as YYYY-MM-DD, never as a time (D6)', async () => {
+      vi.mocked(prisma.inventoryItem.create).mockResolvedValue(
+        unitRow({ id: 'i1', purchasedAt: new Date('2026-01-15T00:00:00.000Z') }) as never,
+      );
+
+      const view = await service.createItem('u1', wine as never);
+
+      expect(view.purchasedAt).toBe('2026-01-15');
+    });
+
     it('splits field sources and locks between the family and the unit', async () => {
       await service.createItem(
         'u1', { ...wine, lockedFields: ['name', 'purchasePrice'] } as never, undefined,

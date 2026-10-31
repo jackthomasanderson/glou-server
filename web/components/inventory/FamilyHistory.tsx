@@ -5,9 +5,11 @@ import { History as HistoryIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useRollbackField } from '@/hooks/useInventory';
+import { useRollbackProductField } from '@/hooks/useRollbackProductField';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { formatDate } from '@/lib/format';
 import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
+import { isRestorableDescriptionField } from '@shared/product';
 import type { ProductDetailView } from '@/lib/products/types';
 
 type HistoryEntry = ProductDetailView['history'][number];
@@ -24,6 +26,9 @@ const NOT_RESTORABLE = new Set(['fillLevel', 'isOpened', 'openedAt', 'quantity',
 const SHOWN_ENTRIES = 10;
 
 interface FamilyHistoryProps {
+  /** The wine, and its version as read: a change of its description is restored on it, for all its bottles. */
+  productId: string;
+  productUpdatedAt: string;
   history: HistoryEntry[];
   /** Copies of the wine still out of the trash: a change of one of them can be restored (FEAT-05). */
   itemIds: ReadonlySet<string>;
@@ -33,13 +38,17 @@ interface FamilyHistoryProps {
 /**
  * Block 6 of a wine's drawer (ux-ui.md §10.3): the field history of the wine
  * and of its copies together (A1), with "Restaurer cette valeur" (FEAT-05) on
- * a change made to a copy still there.
+ * a change made to a copy still there, and on a change of the wine's
+ * description (no copy: restored on the wine, for all its bottles).
  */
-export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryProps) {
+export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, cellarName }: FamilyHistoryProps) {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
-  const rollbackMutation = useRollbackField();
-  const [target, setTarget] = useState<{ itemId: string; change: FieldChange } | null>(null);
+  const itemRollback = useRollbackField();
+  const productRollback = useRollbackProductField();
+  /** `itemId` null: a change of the wine itself. */
+  const [target, setTarget] = useState<{ itemId: string | null; change: FieldChange } | null>(null);
+  const rollbackMutation = target?.itemId ? itemRollback : productRollback;
 
   const context = { lang: i18n.language, cellarName };
   const fieldLabel = (field: string) => historyFieldLabel(field, t);
@@ -77,13 +86,25 @@ export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryPro
       .join(' · ');
   };
 
-  const close = () => { setTarget(null); rollbackMutation.reset(); };
+  const close = () => { setTarget(null); itemRollback.reset(); productRollback.reset(); };
   const confirm = () => {
     if (!target) return;
-    rollbackMutation.mutate(
-      { id: target.itemId, field: target.change.field, toValue: target.change.from },
-      { onSuccess: () => setTarget(null) },
-    );
+    const { field, from: toValue } = target.change;
+    if (target.itemId) {
+      itemRollback.mutate({ id: target.itemId, field, toValue }, { onSuccess: () => setTarget(null) });
+    } else {
+      productRollback.mutate(
+        { id: productId, field, toValue, expectedUpdatedAt: productUpdatedAt },
+        { onSuccess: () => setTarget(null) },
+      );
+    }
+  };
+
+  /** What of an entry can be restored: a copy's change if it is still there, the wine's description changes. */
+  const restorableOf = (entry: HistoryEntry): FieldChange[] => {
+    const changes = entry.changes ?? [];
+    if (!entry.itemId) return changes.filter((change) => isRestorableDescriptionField(change.field));
+    return itemIds.has(entry.itemId) ? changes.filter((change) => !NOT_RESTORABLE.has(change.field)) : [];
   };
 
   if (history.length === 0) return null;
@@ -98,9 +119,7 @@ export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryPro
       </div>
       <ul data-testid="family-history">
         {history.slice(0, SHOWN_ENTRIES).map((entry) => {
-          const restorable = entry.itemId && itemIds.has(entry.itemId)
-            ? (entry.changes ?? []).filter((change) => !NOT_RESTORABLE.has(change.field))
-            : [];
+          const restorable = restorableOf(entry);
           return (
             <li key={entry.id} className="py-2 border-b border-divider last:border-b-0">
               <div className="flex items-center gap-2">
@@ -123,7 +142,7 @@ export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryPro
                     variant="light"
                     color="primary"
                     className="h-5 min-w-0 px-1.5 text-xs shrink-0"
-                    onPress={() => setTarget({ itemId: entry.itemId as string, change })}
+                    onPress={() => setTarget({ itemId: entry.itemId, change })}
                   >
                     {t('traceability.restoreValue')}
                   </Button>
@@ -150,7 +169,12 @@ export function FamilyHistory({ history, itemIds, cellarName }: FamilyHistoryPro
                     value: formatHistoryValue(target.change.field, target.change.from, t, context),
                   })}
                 </p>
-                {rollbackMutation.isError && <p className="text-xs text-danger">{t('traceability.restoreError')}</p>}
+                {/* 409: the wine changed meanwhile — restoring now would overwrite that change. */}
+                {rollbackMutation.isError && (
+                  <p className="text-xs text-danger">
+                    {t(rollbackMutation.error?.message === 'CONFLICT' ? 'familyDrawer.form.conflict' : 'traceability.restoreError')}
+                  </p>
+                )}
               </ModalBody>
               <ModalFooter className="flex gap-2 px-4 pb-4 pt-2">
                 <Button color="danger" variant="light" onPress={close} isDisabled={rollbackMutation.isPending} className="flex-1">

@@ -2,7 +2,7 @@ import type { CellarType, Product } from '@prisma/client';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { IN_STOCK_ITEM_FILTER, itemUnits, productKey } from '../lib/finished-item';
 import { parseCsv } from '../lib/csv';
-import { lockFamilies, todayAsPurchaseDate } from '../lib/product-fields';
+import { lockFamilies, purchaseDayToDate, todayAsPurchaseDate } from '../lib/product-fields';
 import { csvRawRowSchema, normalizeCsvToken } from '../schemas/import.schema';
 import { MAX_COPIES } from '../schemas/stock.schema';
 import { computeAlertStatus } from './alert.service';
@@ -65,9 +65,6 @@ export interface CsvParseResult {
 }
 
 const normalizeName = (value: string) => value.trim().toLowerCase();
-
-/** `YYYY-MM-DD` → the midnight-UTC Date Prisma stores in a `@db.Date` column (D6). */
-const toDay = (day: string): Date => new Date(`${day}T00:00:00.000Z`);
 
 /**
  * #471 (FEAT-99): the listed families of each line's `productKey`, oldest
@@ -275,7 +272,7 @@ export class ImportService {
               productId: family.id,
               cellarId: lineCellarId,
               purchasePrice: line.row.purchasePrice ?? null,
-              purchasedAt: line.row.purchasedAt ? toDay(line.row.purchasedAt) : today,
+              purchasedAt: line.row.purchasedAt ? purchaseDayToDate(line.row.purchasedAt) : today,
               bottleSize: line.kind === 'bottle' ? line.row.bottleSize ?? null : null,
               cigarsPerBox: line.cigarsPerBox,
             },

@@ -58,6 +58,7 @@ import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
 // load; they open behind a click, so a null placeholder is invisible.
 const InventoryForm = dynamic(() => import('./InventoryForm').then((m) => m.InventoryForm), { ssr: false, loading: () => null });
 const FamilyDrawer = dynamic(() => import('./FamilyDrawer').then((m) => m.FamilyDrawer), { ssr: false, loading: () => null });
+const AddUnitsAction = dynamic(() => import('./AddUnitsDialog').then((m) => m.AddUnitsAction), { ssr: false, loading: () => null });
 const DuplicateDialog = dynamic(() => import('./DuplicateDialog').then((m) => m.DuplicateDialog), { ssr: false, loading: () => null });
 const ScanFlow = dynamic(() => import('./ScanFlow').then((m) => m.ScanFlow), { ssr: false, loading: () => null });
 
@@ -743,6 +744,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         productId={viewingProductId}
         onClose={() => setViewingProductId(null)}
         onEdit={handleEditFromDrawer}
+        // #471 (FEAT-92 c2, FEAT-101 c3): bottles only, cigars are counted their own way (FEAT-95).
+        primaryAction={(product) => (product.category === 'cigar' ? null : <AddUnitsAction product={product} />)}
       />
 
       {duplicateFound && duplicateCandidate && (

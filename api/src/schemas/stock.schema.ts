@@ -9,7 +9,7 @@ export { MAX_COPIES };
  * (12.345 would be stored 12.35 and never find its group again) and within
  * the column's range (a larger value fails the write).
  */
-const unitPrice = z.number().min(0).multipleOf(0.01).max(9_999_999_999.99);
+export const unitPrice = z.number().min(0).multipleOf(0.01).max(9_999_999_999.99);
 
 /**
  * #471 (FEAT-92 c1-c2, FEAT-95, FEAT-101 c3): POST /api/products/:id/items —

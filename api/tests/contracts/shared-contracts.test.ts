@@ -12,9 +12,10 @@ import type { DateFormat, Language, TempUnit, Theme } from '../../../shared/auth
 import type { CsvImportRow } from '../../../shared/import';
 import type { csvImportRowSchema } from '../../src/schemas/import.schema';
 import {
-  TASTING_READINESS, type ItemView, type ProductCollection, type ProductTasting, type ProductView, type TastingReadiness,
+  RESTORABLE_DESCRIPTION_FIELDS, TASTING_READINESS, type ItemView, type ProductCollection, type ProductTasting, type ProductView, type TastingReadiness,
 } from '../../../shared/product';
 import { toUnitView, type ProductField } from '../../src/lib/product-fields';
+import { DESCRIPTION_PATCH_FIELDS } from '../../src/schemas/product.schema';
 
 // #466: shared/ may not import Prisma or zod, so each list or type that
 // mirrors one of them is checked here (values at run time, types by tsc —
@@ -72,5 +73,11 @@ describe('shared/product.ts matches the Prisma schema (#471)', () => {
 
   it('serves a tasting as stored', () => {
     expectTypeOf<ProductTasting>().toEqualTypeOf<TastingNote>();
+  });
+});
+
+describe('shared/product.ts matches the description patch (#471, FEAT-05)', () => {
+  it('restores exactly the description fields PATCH /api/products/:id writes', () => {
+    expect(sorted(RESTORABLE_DESCRIPTION_FIELDS)).toEqual(sorted(DESCRIPTION_PATCH_FIELDS));
   });
 });
