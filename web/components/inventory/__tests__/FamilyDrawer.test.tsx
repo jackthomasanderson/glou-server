@@ -177,7 +177,7 @@ describe('FamilyDrawer — actions of a line (#471, W3)', () => {
   const menuOf = async (line: HTMLElement) => {
     fireEvent.click(within(line).getByRole('button', { name: 'Actions de cette ligne' }));
     const menu = await screen.findByRole('menu');
-    return within(menu).getAllByRole('menuitem').map((item) => item.textContent);
+    return within(menu).getAllByRole('menuitem').map((item) => item.getAttribute('aria-label'));
   };
 
   it('a line of full bottles: correct the number, edit, trash (§10.3)', async () => {

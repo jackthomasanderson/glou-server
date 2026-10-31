@@ -1,0 +1,225 @@
+import { test, expect, type APIRequestContext, type APIResponse, type Locator, type Page } from '@playwright/test';
+
+/**
+ * #471 (lot W3, ux-ui.md §10.3-§10.4): the menu of one line of bottles in
+ * the drawer of a wine — "Corriger le nombre" with each reason (FEAT-92 c3),
+ * "Mettre à la corbeille" a whole line, "Modifier" a line's own values
+ * (#726: an emptied price or opening day is really emptied).
+ */
+
+const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
+
+type Unit = {
+  id: string; productId: string; cellarId: string | null; quantity: number | null; purchasePrice: number | null;
+  isOpened: boolean; openedAt: string | null; writtenOffAt: string | null; deletedAt: string | null;
+};
+type Written = { data: Unit; changed: Unit[]; removedIds: string[] };
+
+async function okData<T>(res: APIResponse): Promise<T> {
+  expect(res.ok(), `${res.url()} → ${res.status()} ${await res.text()}`).toBe(true);
+  return (await res.json()).data as T;
+}
+
+/** A budget envelope over the current month, and how much it has spent. */
+async function monthEnvelope(api: APIRequestContext): Promise<{ id: string; spent: () => Promise<number> }> {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const lastDay = String(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()).padStart(2, '0');
+  const { id } = await okData<{ id: string }>(await api.post('/api/wishlist/budget-envelopes', {
+    data: {
+      periodStart: new Date(`${now.getFullYear()}-${month}-01`).toISOString(),
+      periodEnd: new Date(`${now.getFullYear()}-${month}-${lastDay}`).toISOString(),
+      amount: 1000,
+    },
+  }));
+  return {
+    id,
+    spent: async () => (await okData<{ spent: number }>(await api.get(`/api/wishlist/budget-envelopes/${id}/progress`))).spent,
+  };
+}
+
+/** The drawer of a wine, opened from its link. */
+async function openDrawer(page: Page, productId: string, name: string): Promise<Locator> {
+  await page.goto(`/bottles?scan=${encodeURIComponent(productId)}`);
+  const drawer = page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });
+  await expect(drawer.locator('#inventory-detail-title')).toHaveText(name);
+  // The page done loading behind it: a menu opened meanwhile closes again.
+  await page.waitForLoadState('networkidle');
+  return drawer;
+}
+
+/** Picks an action in the menu of one line of the drawer. */
+async function lineAction(page: Page, line: Locator, action: string): Promise<void> {
+  await line.getByRole('button', { name: 'Actions de cette ligne' }).click();
+  // By CSS: like a Select's options (#727), the open menu is drawn but kept
+  // out of the accessibility tree while the drawer is open.
+  await page.locator('[role="menuitem"]').filter({ hasText: action }).click();
+}
+
+const dialogTitled = (page: Page, title: string) =>
+  page.getByRole('dialog').filter({ has: page.locator('header', { hasText: title }) });
+
+test.describe('the actions of a line in the drawer of a wine (#471, W3)', () => {
+  const families: string[] = [];
+  const envelopes: string[] = [];
+  test.afterEach(async ({ page }) => {
+    const api = page.request;
+    for (const productId of families.splice(0)) await api.delete(`/api/products/${productId}`).catch(() => {});
+    for (const id of envelopes.splice(0)) await api.delete(`/api/wishlist/budget-envelopes/${id}`).catch(() => {});
+  });
+
+  /** A wine of `count` bottles at 20 €: one group, bought today. */
+  async function wineOfSix(api: APIRequestContext, name: string): Promise<Unit> {
+    const first = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name, producer: 'E2E Domaine', purchasePrice: 20 },
+    }));
+    families.push(first.productId);
+    const group = (await okData<Unit>(await api.post(`/api/products/${first.productId}/items`, { data: { quantity: 5, purchasePrice: 20 } })));
+    expect(group).toMatchObject({ id: first.id, quantity: 6 });
+    return group;
+  }
+
+  for (const { reason, spentDrop, gone } of [
+    { reason: 'Erreur de saisie', spentDrop: 40, gone: false },
+    { reason: 'Cassée, offerte ou perdue', spentDrop: 0, gone: true },
+  ]) {
+    // FEAT-92 c3: 6 → 4, each reason, from the line's menu.
+    test(`correcting 6 → 4, "${reason}"`, async ({ page }) => {
+      const api = page.request;
+      const envelope = await monthEnvelope(api);
+      envelopes.push(envelope.id);
+      const name = `E2E W3 correct ${stamp()}`;
+      const group = await wineOfSix(api, name);
+      const spentBefore = await envelope.spent();
+
+      const drawer = await openDrawer(page, group.productId, name);
+      const line = drawer.getByTestId('family-line');
+      await expect(line).toHaveCount(1);
+      await lineAction(page, line, 'Corriger le nombre');
+
+      const dialog = dialogTitled(page, 'Corriger le nombre');
+      const number = dialog.getByLabel('Nombre de bouteilles');
+      await expect(number).toHaveValue('6');
+      await number.fill('4');
+      // No reason chosen in advance: nothing can be sent yet.
+      const confirm = dialog.getByRole('button', { name: 'Corriger', exact: true });
+      await expect(confirm).toBeDisabled();
+      await dialog.getByRole('radio', { name: reason }).check();
+
+      const sent = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${group.id}/correct`));
+      await confirm.click();
+      const res = await sent;
+      expect(res.status(), await res.text()).toBe(200);
+      await expect(dialog).toBeHidden();
+
+      // The drawer at once: ×4, and the 2 gone when broken / given away / lost.
+      await expect(drawer.getByTestId('family-drawer-stock')).toContainText('4 bouteilles');
+      await expect(line).toContainText('×4');
+      if (gone) {
+        await expect(drawer.getByText('2 cassées, offertes ou perdues')).toBeVisible();
+        await expect(drawer.getByTestId('family-history')).toContainText('Nombre corrigé : 6 → 4 (cassée, offerte ou perdue)');
+      } else {
+        await expect(drawer.getByTestId('family-history')).toContainText('Nombre corrigé : 6 → 4 (erreur de saisie)');
+      }
+      expect(spentBefore - await envelope.spent()).toBe(spentDrop);
+    });
+  }
+
+  test('down to 0 by an input error, the line goes to the trash instead', async ({ page }) => {
+    const api = page.request;
+    const name = `E2E W3 zero ${stamp()}`;
+    const group = await wineOfSix(api, name);
+    const drawer = await openDrawer(page, group.productId, name);
+    await lineAction(page, drawer.getByTestId('family-line'), 'Corriger le nombre');
+    const dialog = dialogTitled(page, 'Corriger le nombre');
+    await dialog.getByLabel('Nombre de bouteilles').fill('0');
+    await dialog.getByRole('radio', { name: 'Erreur de saisie' }).check();
+    await dialog.getByRole('button', { name: 'Mettre ces bouteilles à la corbeille' }).click();
+
+    const trash = dialogTitled(page, 'Mettre à la corbeille ?');
+    await expect(trash).toContainText('Mettre ces 6 bouteilles');
+    const deleted = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${group.id}`) && r.request().method() === 'DELETE');
+    await trash.getByRole('button', { name: 'Mettre à la corbeille' }).click();
+    expect((await deleted).status()).toBe(200);
+    await expect(drawer.getByText('Plus aucune bouteille en cave.')).toBeVisible();
+  });
+
+  // §10.4.7: the whole line, its number said; restored, it comes back whole.
+  test('trashing one line of a wine of two lines', async ({ page }) => {
+    const api = page.request;
+    const name = `E2E W3 trash ${stamp()}`;
+    const group = await wineOfSix(api, name);
+    const other = (await okData<Unit>(await api.post(`/api/products/${group.productId}/items`, { data: { quantity: 2, purchasePrice: 25 } })));
+
+    const drawer = await openDrawer(page, group.productId, name);
+    await expect(drawer.getByTestId('family-drawer-stock')).toContainText('8 bouteilles');
+    const line = drawer.getByTestId('family-line').filter({ hasText: '×2' });
+    await lineAction(page, line, 'Mettre à la corbeille');
+    const dialog = dialogTitled(page, 'Mettre à la corbeille ?');
+    await expect(dialog).toContainText(/Mettre ces 2 bouteilles \(Sans cave · 25\s€ \/ bouteille\) à la corbeille \?/);
+
+    const deleted = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${other.id}`) && r.request().method() === 'DELETE');
+    await dialog.getByRole('button', { name: 'Mettre à la corbeille' }).click();
+    expect((await deleted).status()).toBe(200);
+    await expect(drawer.getByTestId('family-line')).toHaveCount(1);
+    await expect(drawer.getByTestId('family-drawer-stock')).toContainText('6 bouteilles');
+
+    // Restored, the line comes back with its 2 bottles.
+    await okData(await api.post(`/api/inventory/${other.id}/restore`));
+    const lines = (await okData<{ items: Unit[] }>(await api.get(`/api/products/${group.productId}`))).items;
+    expect(lines.map((unit) => unit.quantity).sort()).toEqual([2, 6]);
+  });
+
+  // #726, moved here by #471: a line's own price and opening day, emptied, are empty.
+  test('emptying the price and the opening day of an opened bottle clears them', async ({ page }) => {
+    const api = page.request;
+    const name = `E2E W3 #726 ${stamp()}`;
+    const opened = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name, producer: 'E2E Domaine', purchasePrice: 20, isOpened: true, fillLevel: 50, openedAt: '2026-01-10' },
+    }));
+    families.push(opened.productId);
+
+    const drawer = await openDrawer(page, opened.productId, name);
+    await lineAction(page, drawer.getByTestId('family-line'), 'Modifier');
+    const dialog = dialogTitled(page, 'Modifier cette ligne');
+    const price = dialog.getByLabel("Prix d'une bouteille");
+    await expect(price).toHaveValue('20');
+    await price.fill('');
+    const openedOn = dialog.getByLabel('Ouverte le');
+    await expect(openedOn).toHaveValue('2026-01-10');
+    await openedOn.fill('');
+
+    const saved = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${opened.id}`) && r.request().method() === 'PATCH');
+    await dialog.getByRole('button', { name: 'Enregistrer' }).click();
+    const res = await saved;
+    expect(res.status(), await res.text()).toBe(200);
+    expect(res.request().postDataJSON()).toMatchObject({ purchasePrice: null, openedAt: null });
+    await expect(dialog).toBeHidden();
+
+    const item = await okData<Unit & { fillLevel: number }>(await api.get(`/api/inventory/${opened.id}`));
+    expect(item.purchasePrice).toBeNull();
+    expect(item.openedAt).toBeNull();
+    // Its state untouched: still opened, at its level.
+    expect(item).toMatchObject({ isOpened: true, fillLevel: 50 });
+  });
+
+  test('a line\'s purchase day is set from its "Modifier"', async ({ page }) => {
+    const api = page.request;
+    const name = `E2E W3 day ${stamp()}`;
+    const group = await wineOfSix(api, name);
+    const drawer = await openDrawer(page, group.productId, name);
+    await lineAction(page, drawer.getByTestId('family-line'), 'Modifier');
+    const dialog = dialogTitled(page, 'Modifier cette ligne');
+    await expect(dialog).toContainText("S'applique aux 6 bouteilles de cette ligne.");
+    await dialog.getByLabel("Date d'achat").fill('2025-12-24');
+    await dialog.getByLabel('Emplacement').fill('Étagère du haut');
+    const saved = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${group.id}`) && r.request().method() === 'PATCH');
+    await dialog.getByRole('button', { name: 'Enregistrer' }).click();
+    expect((await saved).status()).toBe(200);
+    await expect(dialog).toBeHidden();
+
+    const [unit] = (await okData<{ items: Array<Unit & { purchasedAt: string | null; location: string | null }> }>(await api.get(`/api/products/${group.productId}`))).items;
+    expect(unit).toMatchObject({ purchasedAt: '2025-12-24', location: 'Étagère du haut', quantity: 6 });
+    await expect(drawer.getByTestId('family-line')).toContainText('Étagère du haut');
+  });
+});

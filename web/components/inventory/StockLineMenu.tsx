@@ -47,6 +47,9 @@ export function StockLineMenu({ item, ctx }: { item: ProductItem; ctx: LineConte
           {actions.map((action) => (
             <DropdownItem
               key={action}
+              // Named for assistive technologies (the item's own label is not read as its name).
+              textValue={t(`stockLine.actions.${action}`)}
+              aria-label={t(`stockLine.actions.${action}`)}
               startContent={ICONS[action]}
               color={action === 'trash' ? 'danger' : 'default'}
               className={action === 'trash' ? 'text-danger' : undefined}
