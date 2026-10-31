@@ -3,7 +3,7 @@ import { prisma, PrismaTransactionClient } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
 import { InventoryInput } from '../schemas/inventory.schema';
-import { IN_STOCK_ITEM_FILTER, isFinishedState, isIntactItem } from '../lib/finished-item';
+import { IN_STOCK_ITEM_FILTER, NO_SLOT, isFinishedState, isIntactItem } from '../lib/finished-item';
 import { lockFamilies } from '../lib/product-fields';
 import { moveCountEntry } from '../lib/count-entries';
 import { finishUnits } from './stock-state.service';
@@ -783,7 +783,14 @@ async function applyCorrectionsInternal(
     }
     await tx.inventoryItem.update({
       where: { id: item.id },
-      data: { cellarId: session.cellarId, updatedAt: new Date(), updatedBy: actingUserId },
+      // #798: the bottle's slot coordinates belong to its old cellar, so it
+      // arrives unplaced in the session's cellar.
+      data: {
+        cellarId: session.cellarId,
+        ...(item.cellarId !== session.cellarId ? NO_SLOT : {}),
+        updatedAt: new Date(),
+        updatedBy: actingUserId,
+      },
     });
     appliedCount++;
   }

@@ -126,6 +126,27 @@ describe('stockService.addUnits (FEAT-92 c1-c2, D5)', () => {
     expect(createData()).toMatchObject({ productId: 'p1', userId: 'u2', quantity: 1 });
   });
 
+  it('without purchase day, never completes a line: each dates its spending by its own creation', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([unit({ purchasedAt: null, createdAt: new Date('2026-01-05T09:00:00Z') })] as never);
+
+    const outcome = await stockService.addUnits('u1', 'p1', { quantity: 2, cellarId: 'c1', purchasePrice: 20, purchasedAt: null });
+
+    expect(outcome.merged).toBe(false);
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    expect(createData()).toMatchObject({ purchasedAt: null, quantity: 2 });
+  });
+
+  it('keeps the number an inventory entry found in the group before completing it (D15)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([unit({ quantity: 6 })] as never);
+
+    await stockService.addUnits('u1', 'p1', { quantity: 2, cellarId: 'c1', purchasePrice: 20, purchasedAt: '2026-01-15' });
+
+    const frozen = vi.mocked(prisma.$executeRaw).mock.calls
+      .filter((call) => (call[0] as unknown as string[]).join('?').includes('coalesce(e."foundQuantity"'));
+    expect(frozen.map((call) => (call[1] as { values: string[] }).values)).toEqual([['b1']]);
+    expect(vi.mocked(prisma.$executeRaw).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
+  });
+
   it('never completes a unit that is not an intact group in stock', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
       unit({ id: 'opened', quantity: 1, isOpened: true, fillLevel: 60 }),

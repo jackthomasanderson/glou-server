@@ -43,3 +43,31 @@ export const correctQuantitySchema = z.object({
 }).strict();
 
 export type CorrectQuantityInput = z.infer<typeof correctQuantitySchema>;
+
+/**
+ * #471 (FEAT-98, decision points 12 and 53): how many copies of a group the
+ * move or the new price is for — from 1 to the group's number (checked
+ * against the group itself by the service). `expectedUpdatedAt`: the group's
+ * `updatedAt` as the client knew it, a dialog left open meanwhile is answered
+ * 409.
+ */
+const splitCount = {
+  count: z.number().int().min(1).max(MAX_COPIES),
+  expectedUpdatedAt: z.string().datetime().optional(),
+};
+
+/** POST /api/inventory/:id/move — "Déplacer": `count` copies to `cellarId` (null: no cellar). */
+export const moveUnitsSchema = z.object({
+  ...splitCount,
+  cellarId: z.preprocess((v) => (v === 'none' || v === '' ? null : v), z.string().max(100).nullable()),
+}).strict();
+
+export type MoveUnitsInput = z.infer<typeof moveUnitsSchema>;
+
+/** POST /api/inventory/:id/reprice — "Changer le prix": the price of ONE copy for `count` copies (null: no price). */
+export const repriceUnitsSchema = z.object({
+  ...splitCount,
+  purchasePrice: unitPrice.nullable(),
+}).strict();
+
+export type RepriceUnitsInput = z.infer<typeof repriceUnitsSchema>;
