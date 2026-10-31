@@ -6,6 +6,8 @@ import { collectPageProblems } from './_helpers';
  * selected nothing. And Select → tick a bottle → Bulk actions → tick "Tags" →
  * Cancel → leave selection mode replaced the page with "Une erreur est
  * survenue". Desktop only: phones always show cards.
+ * #471: a row is a wine; a bulk action applies to the bottles of the wines
+ * selected (until the bulk actions on wines, lot P).
  */
 
 async function createItem(api: APIRequestContext, data: Record<string, unknown>): Promise<string> {
@@ -96,6 +98,20 @@ test('bottles can be selected in list view, and a cancelled bulk action does not
     await page.getByRole('button', { name: 'Actions groupées', exact: true }).click();
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('checkbox', { name: 'Étiquettes' })).not.toBeChecked();
+
+    // Applying it reaches the bottle of the wine selected, and only it.
+    await dialog.getByRole('checkbox', { name: 'Étiquettes' }).check();
+    const tagInput = dialog.getByRole('textbox', { name: 'Étiquettes' });
+    await tagInput.fill('e2e-471');
+    await tagInput.press('Enter');
+    const applied = page.waitForResponse((r) => r.url().endsWith('/api/inventory/bulk') && r.request().method() === 'POST');
+    await dialog.getByRole('button', { name: 'Appliquer les modifications' }).click();
+    expect((await applied).status()).toBe(200);
+    const tagsOf = async (id: string) => ((await (await api.get(`/api/inventory/${id}`)).json()).data.tags as string[]);
+    const selectedName = (await nameIn(first).textContent()) ?? '';
+    const selectedId = ids[['Alpha', 'Beta', 'Gamma'].findIndex((suffix) => selectedName.endsWith(suffix))];
+    expect(await tagsOf(selectedId)).toContain('e2e-471');
+    for (const id of ids.filter((other) => other !== selectedId)) expect(await tagsOf(id)).not.toContain('e2e-471');
 
     await problems.dump();
     expect(problems.get(), problems.get().join('\n')).toEqual([]);

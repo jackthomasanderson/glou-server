@@ -7,6 +7,9 @@ import { mirrorInventoryToCache, getCachedInventory } from '@/lib/offline/db';
 import { enqueueMutation, overlayQueuedChanges } from '@/lib/offline/syncEngine';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
+import { PRODUCTS_KEY } from '@/hooks/useProducts';
+import { flatWithUnitChanges, withFlatItem, withoutUnit, withUnitChanges } from '@/lib/products/fromFlat';
+import type { Product } from '@/lib/products/types';
 
 export const INVENTORY_KEY = ['inventory'];
 // #475: whether the last loaded list hit the server's 2,000-item cap.
@@ -185,7 +188,16 @@ export function useUpdateInventoryItem() {
   return useMutation<InventoryItem, Error, UpdateInventoryItemVariables>({
     mutationFn: async ({ id, patch, expectedUpdatedAt }: UpdateInventoryItemVariables) => {
       try {
-        return await inventoryClient.update(id, patch, expectedUpdatedAt);
+        const write = await inventoryClient.update(id, patch, expectedUpdatedAt);
+        // D8 (#471): opening one bottle of a group creates a sub-record
+        // (`data`) and decrements the group (`changed`); a reattachment
+        // removes the sub-record (`removedIds`). Every cache follows.
+        queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
+          flatWithUnitChanges(old, write.changed, write.removedIds));
+        queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) =>
+          withUnitChanges(old, write.changed, write.removedIds));
+        for (const removedId of write.removedIds) queryClient.removeQueries({ queryKey: ['inventory', removedId], exact: true });
+        return write.data;
       } catch (error) {
         // FEAT-16/23 offline resilience: `fetch` throws a `TypeError` only
         // when the request never reached the network at all (no
@@ -216,10 +228,15 @@ export function useUpdateInventoryItem() {
       // final state — merge it into both caches in place instead of
       // invalidating the whole list, which would re-fetch up to 2,000 items
       // and re-trigger a full IndexedDB mirror rewrite for a one-field edit.
+      // A sub-record just detached is a new row.
       queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
-        old?.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+        old && !old.some((item) => item.id === updatedItem.id)
+          ? [...old, updatedItem]
+          : old?.map((item) => (item.id === updatedItem.id ? updatedItem : item))
       );
       queryClient.setQueryData<InventoryItem>(['inventory', updatedItem.id], updatedItem);
+      // #471: the wine's card sums its bottles: update it in place too.
+      queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withFlatItem(old, updatedItem));
     },
     onError: (error) => {
       if (error.message !== 'CONFLICT') {
@@ -281,6 +298,7 @@ export function useDeleteInventoryItem() {
       queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
         old?.filter((item) => item.id !== id)
       );
+      queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withoutUnit(old, id));
     },
     onError: () => notifyError('toast.deleteError'),
     onSettled: () => {
