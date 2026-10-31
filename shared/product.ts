@@ -218,3 +218,23 @@ export interface TrashedProductView extends Omit<ProductView, 'items' | 'deleted
   deletedAt: Date;
   items: ItemView[];
 }
+
+/**
+ * Answer of a stock write that may touch several units (D8): `data` is the
+ * unit that now carries what was asked (the group completed or created, the
+ * group corrected, or the write-off detached from it), `changed` the other
+ * units the same transaction modified, `removedIds` the units it deleted.
+ */
+export interface UnitWriteResult {
+  data: ItemView;
+  changed: ItemView[];
+  removedIds: string[];
+}
+
+/**
+ * "Corriger le nombre" (decision #471, point 34): an input error erases the
+ * copies (out of the spending too, never below 1); broken / given away /
+ * lost detaches them as a write-off (out of stock, still in the spending).
+ */
+export const CORRECTION_REASONS = ['input_error', 'written_off'] as const;
+export type CorrectionReason = (typeof CORRECTION_REASONS)[number];
