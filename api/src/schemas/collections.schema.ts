@@ -15,6 +15,12 @@ export const collectionItemsSchema = z.object({
   itemIds: z.array(z.string().guid()).min(1),
 });
 
+/** #471: a collection holds families; at most 500 at once, like the bulk actions (ISSUE_052). */
+export const collectionProductsSchema = z.object({
+  productIds: z.array(z.string().guid()).min(1).max(500),
+});
+
 export type CollectionCreateInput = z.infer<typeof collectionCreateSchema>;
 export type CollectionPatchInput = z.infer<typeof collectionPatchSchema>;
 export type CollectionItemsInput = z.infer<typeof collectionItemsSchema>;
+export type CollectionProductsInput = z.infer<typeof collectionProductsSchema>;

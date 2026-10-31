@@ -266,7 +266,7 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     expect(call.where).not.toHaveProperty('userId');
     expect(call.where.OR).toEqual([
       { cellarId: { in: ['cellarA'] } },
-      { collections: { some: { id: { in: ['colB'] } } } },
+      { product: { collections: { some: { id: { in: ['colB'] } } } } },
     ]);
   });
 

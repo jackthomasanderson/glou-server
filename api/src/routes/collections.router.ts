@@ -4,6 +4,7 @@ import {
   collectionCreateSchema,
   collectionPatchSchema,
   collectionItemsSchema,
+  collectionProductsSchema,
 } from '../schemas/collections.schema';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
@@ -58,7 +59,29 @@ router.post('/:id/items', async (req: Request, res: Response) => {
   if (!validation.success) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
   }
-  const collection = await collectionsService.addItems(id, userId, validation.data.itemIds);
+  // #471: compatibility route — the families of these units join the collection.
+  const collection = await collectionsService.addProducts(id, userId, { itemIds: validation.data.itemIds });
+  if (!collection) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
+  res.json({ data: collection });
+});
+
+router.post('/:id/products', async (req: Request, res: Response) => {
+  const userId = req.userId!;
+  const id = routeParam(req.params.id);
+  const validation = collectionProductsSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
+  }
+  const collection = await collectionsService.addProducts(id, userId, { productIds: validation.data.productIds });
+  if (!collection) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
+  res.json({ data: collection });
+});
+
+router.delete('/:id/products/:productId', async (req: Request, res: Response) => {
+  const userId = req.userId!;
+  const id = routeParam(req.params.id);
+  const productId = routeParam(req.params.productId);
+  const collection = await collectionsService.removeProduct(id, userId, productId);
   if (!collection) return res.status(404).json({ error: 'COLLECTION_NOT_FOUND' });
   res.json({ data: collection });
 });

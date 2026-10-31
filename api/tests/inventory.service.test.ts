@@ -15,10 +15,13 @@ vi.mock('../src/lib/prisma', () => ({
     },
     product: {
       findMany: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
     $executeRaw: vi.fn(),
+    $queryRaw: vi.fn(),
     $transaction: vi.fn(),
   },
 }));
@@ -65,6 +68,12 @@ describe('InventoryService', () => {
     vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string } }) =>
       Promise.resolve(unitRow({ id: args.where.id }))) as never);
     vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
+    // #471: the family is re-read once locked, in the transaction — here, the
+    // family of the unit the test just served.
+    vi.mocked(prisma.product.findUniqueOrThrow).mockImplementation((async () => {
+      const read = await vi.mocked(prisma.inventoryItem.findFirst).mock.results.at(0)?.value as { product?: unknown } | undefined;
+      return read?.product ?? family();
+    }) as never);
   });
 
   it('daysUntilPermanentDelete - returns 7 for a just-deleted item', () => {
@@ -145,6 +154,24 @@ describe('InventoryService', () => {
         where: { id: 'b1' },
         data: { deletedAt: null, slotColumn: null, slotRow: null },
       }));
+    });
+
+    // #471 (D10): a unit back from the trash brings its family back with it.
+    it('takes the family out of the trash with it', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(
+        unitRow({ deletedAt: new Date() }, { deletedAt: new Date() }) as never,
+      );
+      await service.restore('u1', 'b1');
+
+      expect(prisma.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { deletedAt: null } });
+      expect(prisma.inventoryItem.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'b1' }, data: { deletedAt: null } }));
+    });
+
+    it('leaves a family that is not in the trash alone', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(unitRow({ deletedAt: new Date() }) as never);
+      await service.restore('u1', 'b1');
+
+      expect(prisma.product.update).not.toHaveBeenCalled();
     });
 
     it('keeps the slot when it is still free', async () => {
@@ -303,6 +330,54 @@ describe('InventoryService', () => {
       // Family first, then the unit, which comes back with the new mirror.
       expect(vi.mocked(prisma.product.update).mock.invocationCallOrder[0])
         .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
+    });
+
+    // #471 (F2 review): two members editing the family through two sibling
+    // bottles — the family is locked and re-read in the transaction, so the
+    // first one's lock and window are not computed away by the second.
+    describe('concurrent edits of one family through sibling bottles', () => {
+      it('locks the family row before reading it, inside the transaction', async () => {
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow() as never);
+
+        await service.updateItem('u1', 'b1', { region: 'Médoc' });
+
+        const [sql, productId] = vi.mocked(prisma.$queryRaw).mock.calls[0] as unknown as [string[], string];
+        expect(sql.join('?')).toMatch(/FROM "products" WHERE "id" = \? FOR UPDATE/);
+        expect(productId).toBe('p1');
+        expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+          .toBeLessThan(vi.mocked(prisma.product.findUniqueOrThrow).mock.invocationCallOrder[0]);
+        expect(vi.mocked(prisma.$transaction).mock.invocationCallOrder[0])
+          .toBeLessThan(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0]);
+      });
+
+      it("keeps the lock another member's edit just put on the family", async () => {
+        // Read before the other edit committed: no lock yet.
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ id: 'b2' }) as never);
+        // Once locked: the sibling bottle's edit of the colour is there.
+        vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({ color: 'red', lockedFields: ['color'] }) as never);
+
+        await service.updateItem('u1', 'b2', { region: 'Médoc' });
+
+        expect(productUpdateData()).toMatchObject({ region: 'Médoc', lockedFields: ['color', 'region'] });
+      });
+
+      it('checks a drinking window end against the other end as stored once locked', async () => {
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ id: 'b2' }) as never);
+        vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({ peakMaturityFrom: 2030 }) as never);
+
+        await expect(service.updateItem('u1', 'b2', { peakMaturityTo: 2025 })).rejects.toBeInstanceOf(ZodError);
+        expect(prisma.product.update).not.toHaveBeenCalled();
+        expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+      });
+
+      it('records the change from the value stored once locked', async () => {
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({}, { region: 'Bordeaux' }) as never);
+        vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({ region: 'Graves' }) as never);
+
+        const result = await service.updateItem('u1', 'b1', { region: 'Médoc', fillLevel: 50 });
+
+        expect(result).toMatchObject({ changes: [{ field: 'region', from: 'Graves', to: 'Médoc' }, { field: 'fillLevel', from: null, to: 50 }] });
+      });
     });
 
     it('recomputes the alert status on the family when the drinking window moves', async () => {
@@ -619,16 +694,52 @@ describe('InventoryService', () => {
         ] as never)
         .mockResolvedValueOnce([] as never);
       vi.mocked(prisma.product.findMany)
-        .mockResolvedValueOnce([{ photoUrl: '/uploads/products/p1.jpg', otherPhotoUrls: ['/uploads/products/p1-old.jpg'] }] as never)
+        .mockResolvedValueOnce([{ id: 'p1', photoUrl: '/uploads/products/p1.jpg', otherPhotoUrls: ['/uploads/products/p1-old.jpg'] }] as never)
         .mockResolvedValueOnce([] as never);
       vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 3 } as never);
 
       const result = await service.purgeTrashed();
 
-      const emptied = { id: { in: ['p1', 'p2'] }, items: { none: {} }, tastingNotes: { none: {} } };
-      expect(prisma.product.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({ where: emptied }));
-      expect(prisma.product.deleteMany).toHaveBeenCalledWith({ where: emptied });
+      const where = vi.mocked(prisma.product.findMany).mock.calls[0][0]!.where as Record<string, unknown>;
+      expect(where).toMatchObject({ items: { none: {} }, tastingNotes: { none: {} } });
+      // Emptied by this purge (and not in the trash themselves), or trashed past the retention.
+      expect(where.OR).toEqual([
+        { id: { in: ['p1', 'p2'] }, deletedAt: null },
+        { deletedAt: { lt: expect.any(Date) } },
+      ]);
+      expect(prisma.product.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['p1'] } } });
       expect(result.photoPaths).toEqual(['/uploads/products/p1.jpg', '/uploads/products/p1-old.jpg']);
+    });
+
+    // #471 (F2 review): QP1 vs D10 — a family trashed on its own that holds a
+    // tasting outlives the purge, and must then leave the trash ("Plus en cave").
+    it('takes out of the trash a family past the retention that a tasting keeps', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+      await service.purgeTrashed();
+
+      expect(prisma.product.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ items: { none: {} }, deletedAt: { lt: expect.any(Date) }, tastingNotes: { some: {} } }),
+        data: { deletedAt: null },
+      });
+    });
+
+    // #471 (F2 review): the startup purge passes no client — it must still be
+    // one transaction, or a crash between the two deletes strands empty families.
+    it('runs in its own transaction when no client is given', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+      await service.purgeTrashed();
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it("joins the caller's transaction when given one", async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+      await service.purgeTrashed(prisma);
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('does nothing when nothing is past the retention window', async () => {

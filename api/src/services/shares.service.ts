@@ -40,8 +40,9 @@ function buildShareWhere(share: { cellarIds: string[]; collectionIds: string[] }
   }
 
   if (share.collectionIds.length > 0) {
+    // #471: a collection holds families; a unit is shared through its family.
     scopeConditions.push({
-      collections: { some: { id: { in: share.collectionIds } } },
+      product: { collections: { some: { id: { in: share.collectionIds } } } },
     });
   }
 

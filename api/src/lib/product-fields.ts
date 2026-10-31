@@ -1,5 +1,7 @@
 import { Prisma, type Product } from '@prisma/client';
 import type { PrismaClientOrTx } from './prisma';
+import type { FieldSource } from '../../../shared/inventory';
+import type { ItemView } from '../../../shared/product';
 
 /**
  * #471 (FEAT-92/94): the input fields that belong to the family (`Product`)
@@ -112,4 +114,79 @@ export function toItemView<I extends ItemWithProduct>(item: I): FlatItemView<I> 
     fieldSources: Object.keys(fieldSources).length > 0 ? fieldSources : null,
     ...('collections' in product ? { collections: product.collections } : {}),
   } as unknown as FlatItemView<I>;
+}
+
+/**
+ * FEAT-05 bookkeeping of one table — the family or the unit, each for its
+ * own fields (#471, D1), told apart by `belongs`: a manual edit locks the
+ * touched fields and clears their stale non-manual source, `fieldSources`
+ * tags the fields this call filled. Returns only the columns that change.
+ */
+export function nextLocksAndSources(
+  current: { lockedFields: string[]; fieldSources: Prisma.JsonValue },
+  belongs: (field: string) => boolean,
+  options: { touched: string[]; fieldSources?: Partial<Record<string, FieldSource>>; isManualEdit: boolean; autoLock: boolean },
+): { lockedFields?: string[]; fieldSources?: Record<string, string> } {
+  const { fieldSources, isManualEdit, autoLock } = options;
+  const touched = options.touched.filter(belongs);
+  const result: { lockedFields?: string[]; fieldSources?: Record<string, string> } = {};
+
+  if (autoLock) {
+    const fieldsToLock = touched.filter((key) => !current.lockedFields.includes(key));
+    if (fieldsToLock.length > 0) result.lockedFields = [...current.lockedFields, ...fieldsToLock];
+  }
+
+  const existingSources = fieldSourcesOf(current.fieldSources);
+  const nextSources: Record<string, string> = { ...existingSources };
+  for (const [key, source] of Object.entries(fieldSources ?? {})) {
+    if (source && belongs(key)) nextSources[key] = source;
+  }
+  if (isManualEdit) {
+    // A field the user just edited by hand reclaims 'manual' status — any
+    // stale non-manual tag is cleared unless this very call re-tags it
+    // (e.g. a future OCR confirmation step calling updateItem with both
+    // isManualEdit: true and an explicit fieldSources entry).
+    for (const key of touched) {
+      if (!fieldSources || !(key in fieldSources)) delete nextSources[key];
+    }
+  }
+  if (JSON.stringify(nextSources) !== JSON.stringify(existingSources)) result.fieldSources = nextSources;
+  return result;
+}
+
+/** What {@link toUnitView} reads: a unit row, money columns as numbers or Decimals. */
+export type UnitRow = Omit<ItemView, 'purchasedAt' | 'fieldSources' | 'purchasePrice' | 'estimatedValue'> & {
+  purchasedAt: Date | null;
+  fieldSources: Prisma.JsonValue;
+  purchasePrice: number | Prisma.Decimal | null;
+  estimatedValue: number | Prisma.Decimal | null;
+};
+
+/** The unit's own columns, exactly the {@link ItemView} contract (D9): no description, no locks. */
+const ITEM_VIEW_FIELDS = [
+  'id', 'productId', 'userId', 'updatedBy', 'cellarId', 'slotColumn', 'slotRow', 'location',
+  'purchasePlace', 'bottleSize', 'quantity', 'cigarsPerBox', 'cigarsLeft', 'isOpened', 'fillLevel',
+  'openedAt', 'parentItemId', 'writtenOffAt', 'needsReview', 'deletedAt', 'createdAt', 'updatedAt',
+] as const satisfies readonly (keyof ItemView)[];
+
+// The money extension (lib/prisma.ts) only reaches a unit read at the top
+// level; a unit included under its family arrives as a Decimal.
+const money = (value: number | Prisma.Decimal | null): number | null =>
+  value === null ? null : typeof value === 'number' ? value : value.toNumber();
+
+/**
+ * #471 (D9): a unit as /api/products serves it — its own columns only. The
+ * purchase day goes out as `YYYY-MM-DD` (D6), and `fieldSources` keeps the
+ * unit's own fields (the mirror's tags belong to the family).
+ */
+export function toUnitView(row: UnitRow): ItemView {
+  const unit = Object.fromEntries(ITEM_VIEW_FIELDS.map((field) => [field, row[field]])) as Pick<ItemView, (typeof ITEM_VIEW_FIELDS)[number]>;
+  const sources = Object.entries(fieldSourcesOf(row.fieldSources)).filter(([field]) => !isProductField(field));
+  return {
+    ...unit,
+    purchasePrice: money(row.purchasePrice),
+    estimatedValue: money(row.estimatedValue),
+    purchasedAt: row.purchasedAt ? row.purchasedAt.toISOString().slice(0, 10) : null,
+    fieldSources: sources.length > 0 ? Object.fromEntries(sources) : null,
+  };
 }

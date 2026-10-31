@@ -1,5 +1,6 @@
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
+import type { FieldChange, ProductHistoryEntry } from '../../../shared/product';
 
 export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'RESTORE_FIELD' | 'LOGIN' | 'LOGIN_2FA' | 'LOGOUT' | 'REGISTER' | 'CELLAR_CREATE' | 'CELLAR_READ' | 'CELLAR_UPDATE' | 'CELLAR_DELETE' | 'CELLAR_SWAP_SLOTS' | 'COLLECTION_CREATE' | 'COLLECTION_UPDATE' | 'COLLECTION_DELETE' | 'SESSION_REVOKE' | 'TRUST_DEVICE' | 'UNTRUST_DEVICE' | 'PIN_SET' | 'PIN_REMOVE' | 'GUEST_UPDATE' | 'ONBOARDING_COMPLETE' | 'IMPORT_CSV' | 'BACKUP_RESTORE' | 'PURGE' | 'BACKUP_DOWNLOAD' | 'SCAN' | 'HUMIDOR_READING_CREATE';
 
@@ -61,4 +62,46 @@ export async function purgeOldAuditLogs(
     where: { createdAt: { lt: cutoff } },
   });
   return result.count;
+}
+
+/** The actions that make up the field history of a unit or a family (FEAT-05). */
+const FIELD_HISTORY_ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'RESTORE', 'RESTORE_FIELD', 'GUEST_UPDATE'];
+
+/**
+ * The successful field-history entries matching `where`, most recent first,
+ * with the actor's display name. #471: read for one unit
+ * (`{ bottleId }`) or for a whole family (`{ productId }`: its description
+ * changes and every change of its units).
+ */
+export async function readFieldHistory(where: Prisma.AuditLogWhereInput): Promise<ProductHistoryEntry[]> {
+  const logs = await prisma.auditLog.findMany({
+    where: { ...where, action: { in: FIELD_HISTORY_ACTIONS }, status: 'success' },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const uniqueUserIds = [...new Set(logs.map((l) => l.userId))];
+  const users = await prisma.user.findMany({
+    where: { id: { in: uniqueUserIds } },
+    select: { id: true, displayName: true, username: true },
+  });
+  const userMap = new Map(users.map((u) => [u.id, u.displayName ?? u.username]));
+
+  return logs.map((log) => {
+    const details = log.details as Record<string, unknown> | null;
+    // ISSUE_483: a guest edit is logged under the share creator's id; show
+    // the guest's name instead so the history does not blame the member.
+    const viaGuest = log.action === 'GUEST_UPDATE';
+    const guestName = viaGuest && typeof details?.['inviteeName'] === 'string' ? details['inviteeName'] : null;
+    return {
+      id: log.id,
+      action: log.action,
+      status: log.status,
+      actorId: log.userId,
+      actorName: guestName ?? userMap.get(log.userId) ?? log.userId,
+      ...(viaGuest ? { viaGuest: true } : {}),
+      itemId: log.bottleId,
+      changes: details?.['changes'] as FieldChange[] | null ?? null,
+      createdAt: log.createdAt,
+    };
+  });
 }
