@@ -73,7 +73,9 @@ export class CellarService {
     const rowsByCellar = new Map<string, CellarStockRow[]>();
     for (const row of rows) {
       if (!row.cellarId) continue;
-      rowsByCellar.set(row.cellarId, [...(rowsByCellar.get(row.cellarId) ?? []), row]);
+      const cellarRows = rowsByCellar.get(row.cellarId);
+      if (cellarRows) cellarRows.push(row);
+      else rowsByCellar.set(row.cellarId, [row]);
     }
 
     const today = endOfToday();
