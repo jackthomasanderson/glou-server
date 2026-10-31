@@ -6,6 +6,7 @@ vi.mock('../../src/lib/prisma', () => ({
     cellar: { findUnique: vi.fn() },
     inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
     $queryRaw: vi.fn(),
+    $executeRaw: vi.fn(),
     $transaction: vi.fn(),
   },
 }));
@@ -225,6 +226,17 @@ describe('stockService.addUnits (FEAT-92 c1-c2, D5)', () => {
     });
   });
 
+  it('refuses to make a group of more than 1000 copies', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([unit({ quantity: 999 })] as never);
+    const same = { cellarId: 'c1', purchasePrice: 20, purchasedAt: '2026-01-15' };
+
+    expect(await rejection(stockService.addUnits('u1', 'p1', { quantity: 2, ...same })))
+      .toMatchObject({ status: 400, code: 'QUANTITY_TOO_LARGE' });
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+
+    expect(await stockService.addUnits('u1', 'p1', { quantity: 1, ...same })).toMatchObject({ merged: true, to: 1000 });
+  });
+
   it('refuses a box size for bottles', async () => {
     expect(await rejection(stockService.addUnits('u1', 'p1', { quantity: 1, cigarsPerBox: 25 })))
       .toMatchObject({ status: 400, code: 'CIGARS_PER_BOX_FOR_CIGARS_ONLY' });
@@ -292,6 +304,20 @@ describe('stockService.correctQuantity (FEAT-92 c3, point 34)', () => {
     expect(outcome.writtenOffItemId).toBe('b1');
   });
 
+  it('a whole group written off loses its sub-records\' way back (never put back into stock)', async () => {
+    await stockService.correctQuantity('u2', 'b1', { quantity: 0, reason: 'written_off' });
+
+    const [sql, groupId] = vi.mocked(prisma.$executeRaw).mock.calls[0] as unknown as [TemplateStringsArray, string];
+    expect(sql.join('?')).toBe('UPDATE "bottles" SET "parentItemId" = NULL WHERE "parentItemId" = ?');
+    expect(groupId).toBe('b1');
+  });
+
+  it('a partial write-off leaves the sub-records attached to the group that stays', async () => {
+    await stockService.correctQuantity('u2', 'b1', { quantity: 5, reason: 'written_off' });
+
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+  });
+
   it('cigars: 3 boxes corrected to 2 (FEAT-95 c4) — nothing smoked', async () => {
     storeGroup({ quantity: 3, cigarsPerBox: 25, category: 'cigar' });
 
@@ -304,6 +330,7 @@ describe('stockService.correctQuantity (FEAT-92 c3, point 34)', () => {
     ['an opened bottle', { quantity: 1, isOpened: true, fillLevel: 50 }],
     ['an opened box', { quantity: 1, isOpened: true, cigarsLeft: 10 }],
     ['a write-off', { quantity: 2, writtenOffAt: new Date() }],
+    ['a former reference not owned (FEAT-87)', { quantity: 2, isOwned: false }],
   ])('refuses %s: only a group has a number', async (_label, fields) => {
     storeGroup(fields);
 
@@ -317,6 +344,18 @@ describe('stockService.correctQuantity (FEAT-92 c3, point 34)', () => {
     });
 
     expect(outcome).toMatchObject({ conflict: true, item: { id: 'b1', quantity: 7 } });
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+  });
+
+  it('answers a conflict when the group moved to another family meanwhile (its lock was not taken)', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst)
+      .mockResolvedValueOnce(unit({ productId: 'p1' }) as never)
+      .mockResolvedValueOnce(unit({ productId: 'p9', quantity: 6 }) as never);
+
+    const outcome = await stockService.correctQuantity('u1', 'b1', { quantity: 5, reason: 'input_error' });
+
+    expect(lockedIds()).toEqual(['p1']);
+    expect(outcome).toMatchObject({ conflict: true, item: { id: 'b1', productId: 'p9' } });
     expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
   });
 

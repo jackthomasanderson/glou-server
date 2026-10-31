@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput, SwapSlotsInput } from '../schemas/cellar.schema';
 import type { Prisma } from '@prisma/client';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
-import { lockFamily } from '../lib/product-fields';
+import { lockFamilies } from '../lib/product-fields';
 import { UNIT_COUNT_SELECT, sumTotals, type UnitTotalsRow } from '../lib/stock-units';
 import type { CellarStats } from '../../../shared/cellar';
 
@@ -167,7 +167,7 @@ export class CellarService {
     // order, before either unit is written (no deadlock with a description
     // write, which locks the family and then copies onto its units).
     const [updatedB, updatedA] = await prisma.$transaction(async (tx) => {
-      for (const productId of [...new Set([itemA.productId, itemB.productId])].sort()) await lockFamily(tx, productId);
+      await lockFamilies(tx, [itemA.productId, itemB.productId]);
       await tx.inventoryItem.update({
         where: { id: itemA.id },
         data: { slotColumn: null, slotRow: null },

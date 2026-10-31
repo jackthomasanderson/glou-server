@@ -49,6 +49,14 @@ describe('POST /api/products/:id/items (FEAT-92 c1-c2)', () => {
     }));
   });
 
+  it('takes a price in cents', async () => {
+    vi.mocked(stockService.addUnits).mockResolvedValue({ result: written({ id: 'b2' }), merged: false, from: null, to: 1 });
+
+    const res = await request(app).post('/api/products/p1/items').send({ quantity: 1, purchasePrice: 19.99 });
+
+    expect(res.status).toBe(201);
+  });
+
   it('answers 201 for a new line', async () => {
     vi.mocked(stockService.addUnits).mockResolvedValue({ result: written({ id: 'b2', quantity: 1 }), merged: false, from: null, to: 1 });
 
@@ -64,6 +72,9 @@ describe('POST /api/products/:id/items (FEAT-92 c1-c2)', () => {
     ['a description field', { quantity: 1, region: 'Médoc' }],
     ['a purchase day that is not a day', { quantity: 1, purchasedAt: '2026-01-15T10:00:00Z' }],
     ['a negative price', { quantity: 1, purchasePrice: -1 }],
+    ['a price below the cent (stored rounded, it would never find its group)', { quantity: 1, purchasePrice: 12.345 }],
+    ['a price beyond the column', { quantity: 1, purchasePrice: 10_000_000_000 }],
+    ['more than 1000 copies at once', { quantity: 1001 }],
   ])('refuses %s with 400', async (_label, body) => {
     const res = await request(app).post('/api/products/p1/items').send(body);
 

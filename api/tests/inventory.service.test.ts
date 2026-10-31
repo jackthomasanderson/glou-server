@@ -458,14 +458,16 @@ describe('InventoryService', () => {
   it('bulkUpdate - locks the families in sorted order before writing unit fields only', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
       unitRow({ id: 'b3', productId: 'p2', cellarId: 'c1' }),
-      unitRow({ id: 'b1', productId: 'p1', cellarId: 'c1' }),
       unitRow({ id: 'b2', productId: 'p2', cellarId: 'c1' }),
+      unitRow({ id: 'b1', productId: 'p1', cellarId: 'c1' }),
+      unitRow({ id: 'b4', productId: 'P0', cellarId: 'c1' }),
     ] as never);
     const txUpdate = mockTransactionClient();
 
-    expect(await service.bulkUpdate('u1', ['b1', 'b2', 'b3'], { cellarId: 'c2' })).toBe(3);
+    expect(await service.bulkUpdate('u1', ['b1', 'b2', 'b3', 'b4'], { cellarId: 'c2' })).toBe(4);
 
-    expect(vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1])).toEqual(['p1', 'p2']);
+    // By code unit, as the slot swap does (lockFamilies): 'P0' < 'p1'.
+    expect(vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1])).toEqual(['P0', 'p1', 'p2']);
     const lastLock = Math.max(...vi.mocked(prisma.$queryRaw).mock.invocationCallOrder);
     expect(Math.min(...txUpdate.mock.invocationCallOrder)).toBeGreaterThan(lastLock);
     expect(prisma.product.update).not.toHaveBeenCalled();

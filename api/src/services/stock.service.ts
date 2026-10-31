@@ -5,7 +5,7 @@ import { badRequest, conflict, notFound } from '../lib/errors';
 import { groupKey, isGroupableItem, NO_SLOT, unitKind, type UnitKind } from '../lib/finished-item';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { lockFamily, PRODUCT_FIELDS, todayAsPurchaseDate, toUnitView } from '../lib/product-fields';
-import type { AddUnitsInput, CorrectQuantityInput } from '../schemas/stock.schema';
+import { MAX_COPIES, type AddUnitsInput, type CorrectQuantityInput } from '../schemas/stock.schema';
 import { LISTED_PRODUCT_FILTER } from './product.service';
 import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/product';
 import type { GroupKeyFields } from '../../../shared/units';
@@ -100,6 +100,8 @@ export const stockService = {
       const group = await findGroupFor(tx, target, kind);
       if (group) {
         const from = group.quantity ?? 1;
+        // One group counts at most what one write may (`quantity`'s own bound).
+        if (from + input.quantity > MAX_COPIES) throw badRequest('QUANTITY_TOO_LARGE');
         const completed = await tx.inventoryItem.update({
           where: { id: group.id },
           data: { quantity: from + input.quantity, updatedBy: userId },
@@ -168,6 +170,10 @@ export const stockService = {
           where: { id: itemId },
           data: { writtenOffAt, needsReview: false, ...NO_SLOT, updatedBy: userId },
         });
+        // A write-off is never put back: its sub-records lose their way back
+        // to it, so that putting one back cannot bring it into stock again.
+        // In SQL, so that their `updatedAt` (a pending offline edit) stays.
+        await tx.$executeRaw`UPDATE "bottles" SET "parentItemId" = NULL WHERE "parentItemId" = ${itemId}`;
         return {
           result: { data: toUnitView(marked), changed: [], removedIds: [] },
           productId: group.productId,

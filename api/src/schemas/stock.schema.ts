@@ -2,7 +2,14 @@ import { z } from 'zod';
 import { CORRECTION_REASONS } from '../../../shared/product';
 
 /** Copies one write may add, or that one group may count (same bound as `quantity`). */
-const MAX_COPIES = 1000;
+export const MAX_COPIES = 1000;
+
+/**
+ * A price of one copy, as the `Decimal(12, 2)` column stores it: cents only
+ * (12.345 would be stored 12.35 and never find its group again) and within
+ * the column's range (a larger value fails the write).
+ */
+const unitPrice = z.number().min(0).multipleOf(0.01).max(9_999_999_999.99);
 
 /**
  * #471 (FEAT-92 c1-c2, FEAT-95, FEAT-101 c3): POST /api/products/:id/items —
@@ -15,7 +22,7 @@ const MAX_COPIES = 1000;
 export const addUnitsSchema = z.object({
   quantity: z.number().int().min(1).max(MAX_COPIES),
   cellarId: z.preprocess((v) => (v === 'none' || v === '' ? null : v), z.string().max(100).nullable().optional()),
-  purchasePrice: z.number().min(0).nullable().optional(),
+  purchasePrice: unitPrice.nullable().optional(),
   bottleSize: z.string().max(50).nullable().optional(),
   cigarsPerBox: z.number().int().min(1).max(MAX_COPIES).nullable().optional(),
   purchasedAt: z.iso.date().nullable().optional(),
