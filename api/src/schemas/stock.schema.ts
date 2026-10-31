@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { CORRECTION_REASONS } from '../../../shared/product';
+import { CORRECTION_REASONS, MAX_COPIES } from '../../../shared/product';
 
 /** Copies one write may add, or that one group may count (same bound as `quantity`). */
-export const MAX_COPIES = 1000;
+export { MAX_COPIES };
 
 /**
  * A price of one copy, as the `Decimal(12, 2)` column stores it: cents only
