@@ -3,7 +3,9 @@ import { prisma, PrismaTransactionClient } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
 import { InventoryInput } from '../schemas/inventory.schema';
-import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER, NO_SLOT } from '../lib/finished-item';
+import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { lockFamily } from '../lib/product-fields';
+import { finishUnits } from './stock-state.service';
 
 /**
  * FEAT-12: Inventaire Physique Assisté & Réconciliation.
@@ -445,6 +447,16 @@ async function applyCorrectionsInternal(
   let appliedCount = 0;
   const skipped: SkippedCorrection[] = [];
 
+  // #471: the locking rule — the families of the units corrected, in sorted
+  // order, before any unit is written.
+  const itemIds = corrections.flatMap((correction) => (correction.action === 'add_to_stock' ? [] : [correction.itemId]));
+  if (itemIds.length > 0) {
+    const families = await tx.inventoryItem.findMany({ where: { id: { in: itemIds } }, select: { productId: true } });
+    for (const productId of [...new Set(families.map((family) => family.productId))].sort()) {
+      await lockFamily(tx, productId);
+    }
+  }
+
   for (const correction of corrections) {
     if (correction.action === 'add_to_stock') {
       const entry = await tx.inventoryCountEntry.findUnique({ where: { id: correction.entryId } });
@@ -494,10 +506,12 @@ async function applyCorrectionsInternal(
       // correction a silent no-op on every bottle whose level had once been
       // adjusted by hand, so those items came back as "missing" at every
       // subsequent count (ISSUE_034).
-      await tx.inventoryItem.update({
-        where: { id: item.id },
-        data: { ...FINISHED_ITEM_STATE, ...NO_SLOT, updatedAt: new Date(), updatedBy: actingUserId },
-      });
+      //
+      // #471 (FEAT-103): through the detach rule — every copy of a missing
+      // group is finished (each one a finished sub-record, the last one the
+      // group itself), so the spending keeps them and a group never carries
+      // a state. The slot goes with the last one.
+      await finishUnits(tx, item.id, Math.max(item.quantity ?? 1, 1), { userId: actingUserId });
       appliedCount++;
       continue;
     }

@@ -104,6 +104,9 @@ export interface ItemView {
   updatedAt: Date;
 }
 
+/** 409 of a reattach that would delete a sub-record holding tastings: send `keepTastings`. */
+export const TASTINGS_ON_ITEM = 'TASTINGS_ON_ITEM';
+
 export interface ProductCollection {
   id: string;
   name: string;
@@ -220,14 +223,20 @@ export interface TrashedProductView extends Omit<ProductView, 'items' | 'deleted
 }
 
 /**
- * Answer of a stock write that may touch several units (D8): `data` is the
- * unit that now carries what was asked (the group completed or created, the
- * group corrected, or the write-off detached from it), `changed` the other
- * units the same transaction modified, `removedIds` the units it deleted.
+ * D8: the answer of every write that may touch several units — adding,
+ * correcting, detaching or reattaching. `data` is the unit that now carries
+ * what was asked (the group completed or created, the group corrected, the
+ * write-off or the sub-record detached, the unit itself, or the group that
+ * absorbed a sub-record). `changed` holds the other units the same
+ * transaction modified, `removedIds` the units it deleted (a sub-record
+ * absorbed). The flat routes (PATCH /api/inventory/:id, the guest PATCH)
+ * answer `data` as their own record (`TData`), so the callers that only
+ * read `data` keep working; the guest PATCH answers every unit as the
+ * share shows it (`TData`, `TUnit`: prices and notes hidden as asked).
  */
-export interface UnitWriteResult {
-  data: ItemView;
-  changed: ItemView[];
+export interface UnitWriteResult<TData = ItemView, TUnit = ItemView> {
+  data: TData;
+  changed: TUnit[];
   removedIds: string[];
 }
 

@@ -174,3 +174,40 @@ test('a tasting never reopens an already opened bottle', async ({ page }) => {
     if (itemId) await api.delete(`/api/inventory/${itemId}`).catch(() => {});
   }
 });
+
+// #471 (FEAT-103 c2, "dégustation bouteille finie"): finishing a bottle of a
+// group of 6 from the tasting's stock question drinks one bottle, not six.
+test('a tasting that finishes a bottle of a group of 6 leaves 5 in stock', async ({ page }) => {
+  const api = page.request;
+  const name = `E2E #471 ${stamp()}`;
+  let itemId = '';
+  let productId = '';
+  const tastingIds: string[] = [];
+  try {
+    itemId = await createItem(api, { category: 'wine', name, producer: 'E2E Domaine', purchasePrice: 20 });
+    productId = (await okData<{ productId: string }>(await api.patch(`/api/inventory/${itemId}`, { data: { quantity: 6 } }))).productId;
+
+    const form = await openTastingFormOf(page, name);
+    const stock = await saveAndAskStock(page, form, tastingIds);
+    const patched = page.waitForResponse(
+      (r) => r.url().endsWith(`/api/inventory/${itemId}`) && r.request().method() === 'PATCH',
+    );
+    await stock.getByRole('button', { name: 'Actif consommé (vide)' }).click();
+    const res = await patched;
+    expect(res.status()).toBe(200);
+    // D8: the finished bottle, and the group it came from.
+    const body = (await res.json()) as { data: Record<string, unknown>; changed: Array<Record<string, unknown>> };
+    expect(body.data).toMatchObject({ isOpened: true, fillLevel: 0, quantity: 1, parentItemId: itemId });
+    expect(body.changed).toEqual([expect.objectContaining({ id: itemId, quantity: 5, isOpened: false })]);
+    await expect(stock).toBeHidden();
+
+    const detail = await okData<{ items: Array<{ id: string; quantity: number; isOpened: boolean; fillLevel: number | null }> }>(
+      await api.get(`/api/products/${productId}`),
+    );
+    expect(detail.items).toHaveLength(2);
+    expect(detail.items.find((item) => item.id === itemId)).toMatchObject({ quantity: 5, isOpened: false });
+  } finally {
+    for (const id of tastingIds) await api.delete(`/api/tastings/${id}`).catch(() => {});
+    if (productId) await api.delete(`/api/products/${productId}`).catch(() => {});
+  }
+});

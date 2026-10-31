@@ -79,6 +79,14 @@ export async function writeProductFields(client: PrismaClientOrTx, productId: st
 }
 
 /**
+ * #471: copies its family's fields onto the mirror columns of one new unit
+ * (a detached sub-record), in SQL like {@link writeProductFields}.
+ */
+export async function mirrorFamilyOnto(client: PrismaClientOrTx, itemId: string): Promise<void> {
+  await client.$executeRaw`UPDATE "bottles" AS b SET ${MIRROR_ASSIGNMENTS} FROM "products" AS p WHERE p."id" = b."productId" AND b."id" = ${itemId}`;
+}
+
+/**
  * #471 (F2 review): serialises every write of a family's fields. Two members
  * changing the region and the colour through two sibling bottles, or each one
  * end of the drinking window, used to read the family outside the
