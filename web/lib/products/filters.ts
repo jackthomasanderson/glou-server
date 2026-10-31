@@ -116,11 +116,10 @@ export function filterProducts(
   } else if (criteria.openedFilter === 'alerts') {
     const today = ctx.today;
     if (today === null) return [];
-    // #573: a wine with nothing left raises no drinking-window alert, as in
-    // the bell — its due reminder still shows.
-    keep((p) =>
+    // #573: a wine with nothing left is nothing to drink: no alert, no reminder.
+    keep((p) => !isGone(p) && (
       (!!p.reminderDate && p.reminderDate.split('T')[0] <= today) ||
-      (!isGone(p) && !!p.alertStatus && p.alertStatus !== 'none' && !p.alertsPaused));
+      (!!p.alertStatus && p.alertStatus !== 'none' && !p.alertsPaused)));
   }
 
   if (criteria.searchQuery.trim()) keep((p) => matchesSearch(p, criteria.searchQuery, ctx));

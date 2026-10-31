@@ -53,7 +53,7 @@ describe('filterProducts — other filters on wines', () => {
     expect(ids({ openedFilter: 'opened' })).toEqual(['opened']);
   });
 
-  it('"alerts": no drinking-window alert once gone, a due reminder still shows', () => {
+  it('"alerts": a wine with nothing left shows neither its alert nor its due reminder', () => {
     const list = [
       product({ id: 'peak', alertStatus: 'peak' }),
       product({ id: 'gone-peak', alertStatus: 'peak', items: [] }),
@@ -61,7 +61,8 @@ describe('filterProducts — other filters on wines', () => {
       product({ id: 'paused', alertStatus: 'past', alertsPaused: true }),
     ];
     expect(ids({ openedFilter: 'alerts', showGone: false }, list)).toEqual(['peak']);
-    expect(ids({ openedFilter: 'alerts', showGone: true }, list)).toEqual(['gone-reminder']);
+    expect(ids({ openedFilter: 'alerts', showGone: true }, list)).toEqual([]);
+    expect(ids({ openedFilter: 'alerts' }, [product({ id: 'due', reminderDate: '2026-01-01' })])).toEqual(['due']);
     expect(ids({ openedFilter: 'alerts' }, list, { ...ctx, today: null })).toEqual([]);
   });
 

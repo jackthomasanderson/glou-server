@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { productsFromFlatItems } from '../fromFlat';
+import { productsFromFlatItems, withFlatItem, withoutUnit } from '../fromFlat';
 import { isGone, stockSummaryOf } from '../filters';
 import type { InventoryItem } from '@/lib/inventory/types';
 
@@ -28,5 +28,31 @@ describe('productsFromFlatItems', () => {
     expect(stockSummaryOf(cuvee).units).toBe(5);
     // Only finished bottles left: "Plus en cave".
     expect(isGone(other)).toBe(true);
+  });
+});
+
+describe('withFlatItem / withoutUnit (ISSUE_381: the card updated in place)', () => {
+  const [wine] = productsFromFlatItems([
+    flat({ id: 'a', productId: 'p1', quantity: 4 }),
+    flat({ id: 'b', productId: 'p1', isOpened: true, fillLevel: 60 }),
+  ]);
+
+  it('a bottle saved changes its line and the description it carries', () => {
+    const [next] = withFlatItem([wine], flat({ id: 'b', productId: 'p1', name: 'Cuvée Y', isOpened: true, fillLevel: 30 }))!;
+    expect(next.name).toBe('Cuvée Y');
+    expect(next.items.map((u) => [u.id, u.fillLevel])).toEqual([['a', null], ['b', 30]]);
+  });
+
+  it('a bottle finished leaves the card, and dates its last activity', () => {
+    const [next] = withFlatItem([wine], flat({ id: 'b', productId: 'p1', isOpened: true, fillLevel: 0, updatedAt: '2026-10-30T10:00:00.000Z' }))!;
+    expect(next.items.map((u) => u.id)).toEqual(['a']);
+    expect(next.lastActivityAt).toBe('2026-10-30T10:00:00.000Z');
+  });
+
+  it('a bottle trashed leaves the card; other wines are untouched', () => {
+    const other = { ...wine, id: 'p2', items: [] };
+    const next = withoutUnit([wine, other], 'a')!;
+    expect(next[0].items.map((u) => u.id)).toEqual(['b']);
+    expect(next[1]).toBe(other);
   });
 });

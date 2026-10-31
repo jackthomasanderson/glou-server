@@ -49,6 +49,24 @@ describe('describeStock — bottles', () => {
       .toEqual(['3 bouteilles dont 1 en 37,5cl']);
   });
 
+  it('sizes: spaces and case ignored, an empty size is the standard one, 150cl is a magnum', () => {
+    expect(line(product({ items: [unit({ quantity: 2, bottleSize: '75 cl' }), unit({ bottleSize: '75CL' }), unit({ bottleSize: null })] })).parts)
+      .toEqual(['4 bouteilles']);
+    expect(line(product({ items: [unit({ quantity: 3, bottleSize: null }), unit({ bottleSize: '150 cl' })] })).parts)
+      .toEqual(['4 bouteilles dont 1 magnum']);
+    // A tie keeps the standard size as the usual one; an empty size is never reported.
+    expect(line(product({ items: [unit({ bottleSize: 'Magnum' }), unit({ bottleSize: null })] })).parts)
+      .toEqual(['2 bouteilles dont 1 magnum']);
+    expect(line(product({ items: [unit({ quantity: 3, bottleSize: 'Magnum' }), unit({ bottleSize: null })] })).parts)
+      .toEqual(['4 bouteilles']);
+  });
+
+  it('the level follows the language: "60 %" in French, "60%" in English', () => {
+    expect(line(product({ items: [openedBottle(60)] })).badge).toBe('60 %');
+    const english = (key: string, o?: Record<string, unknown>) => (key === 'familyList.stock.level' ? `${String(o?.level)}%` : key);
+    expect(describeStock(product({ items: [openedBottle(60)] }), english).badge).toBe('60%');
+  });
+
   it('only what is in stock counts: written off and trashed units are left out', () => {
     const s = line(product({ items: [unit({ quantity: 3 }), unit({ writtenOffAt: '2026-03-01T00:00:00.000Z' }), unit({ deletedAt: '2026-03-01T00:00:00.000Z' })] }));
     expect(s.units).toBe(3);
@@ -72,6 +90,7 @@ describe('describeStock — cigars', () => {
     expect(s.parts).toEqual(['3 boîtes fermées', '1 entamée', "4 à l'unité"]);
     expect(s.badge).toBe('89');
     expect(s.kind).toBe('cigar');
+    expect(s.spoken).toBe("89 cigares, 3 boîtes fermées, 1 entamée, 4 à l'unité");
   });
 
   it('one closed box says so', () => {

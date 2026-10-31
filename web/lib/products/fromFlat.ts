@@ -9,12 +9,12 @@ const UNIT_FIELDS = [
   'needsReview', 'fieldSources', 'deletedAt', 'createdAt', 'updatedAt',
 ] as const satisfies ReadonlyArray<keyof ProductItem>;
 
-type FlatItem = InventoryItem & Partial<Record<(typeof UNIT_FIELDS)[number], unknown>>;
+export type FlatItem = InventoryItem & Partial<Record<(typeof UNIT_FIELDS)[number], unknown>>;
 
-const inStock = (item: FlatItem) =>
+export const inStock = (item: FlatItem) =>
   item.isOwned !== false && !item.deletedAt && !item.writtenOffAt && !isFinishedState({ isOpened: item.isOpened, fillLevel: item.fillLevel ?? null });
 
-function toUnit(item: FlatItem): ProductItem {
+export function toUnit(item: FlatItem): ProductItem {
   const unit = Object.fromEntries(UNIT_FIELDS.map((field) => [field, item[field] ?? null]));
   return { ...unit, productId: item.productId ?? item.id, isOpened: item.isOpened, needsReview: Boolean(item.needsReview) } as ProductItem;
 }
@@ -52,4 +52,45 @@ export function productsFromFlatItems(items: readonly InventoryItem[]): Product[
       items: units,
     } as unknown as Product;
   });
+}
+
+/** Fields of a wine that are not its description: never copied from a bottle. */
+const NOT_DESCRIPTION = new Set([
+  'id', 'userId', 'updatedBy', 'lockedFields', 'fieldSources', 'deletedAt', 'createdAt', 'updatedAt', 'lastActivityAt', 'items',
+]);
+
+/**
+ * ISSUE_381: a bottle saved (form, drawer, offline queue) updates its wine's
+ * card in place — its own line, and the description it carries — instead of
+ * reloading every wine. A bottle no longer in stock leaves the card's units.
+ */
+export function withFlatItem(products: readonly Product[] | undefined, item: InventoryItem): Product[] | undefined {
+  if (!products) return products;
+  const flatItem = item as FlatItem;
+  return products.map((product) => {
+    const isOwn = product.id === flatItem.productId || product.items.some((unit) => unit.id === item.id);
+    if (!isOwn) return product;
+    const known = product.items.some((unit) => unit.id === item.id);
+    const kept = inStock(flatItem);
+    const items = known
+      ? product.items.flatMap((unit) => (unit.id !== item.id ? [unit] : kept ? [toUnit(flatItem)] : []))
+      : kept ? [...product.items, toUnit(flatItem)] : product.items;
+    // A bottle just finished is the wine's latest activity (§10.5).
+    const finished = isFinishedState({ isOpened: item.isOpened, fillLevel: item.fillLevel ?? null });
+    const lastActivityAt = finished && (!product.lastActivityAt || item.updatedAt > product.lastActivityAt)
+      ? item.updatedAt : product.lastActivityAt;
+    const description = Object.fromEntries(
+      Object.entries(item).filter(([field]) => field in product && !NOT_DESCRIPTION.has(field) && !(UNIT_FIELDS as readonly string[]).includes(field)),
+    );
+    return { ...product, ...description, lastActivityAt, items } as Product;
+  });
+}
+
+/** A bottle trashed: it leaves its wine's card. */
+export function withoutUnit(products: readonly Product[] | undefined, itemId: string): Product[] | undefined {
+  if (!products) return products;
+  return products.map((product) =>
+    product.items.some((unit) => unit.id === itemId)
+      ? { ...product, items: product.items.filter((unit) => unit.id !== itemId) }
+      : product);
 }
