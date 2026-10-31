@@ -117,8 +117,13 @@ export function dumpFailedMessage(error: unknown): string {
  *
  * So the newest glou-backup-before-migration-* file is reused only when all
  * of these hold:
- *   - a failed migration row exists that started at or after the file's time:
- *     the attempt this very backup was taken for;
+ *   - a failed migration row exists. Its start time is not compared with the
+ *     file: when an update brings several migrations and the first one
+ *     finishes before the second fails, the next start rightly takes a new
+ *     backup (a migration ran after the first file), and that backup is newer
+ *     than the failed row; requiring the row to be newer would dump again on
+ *     every restart. Its mere presence is enough: while it exists, no image
+ *     starts, so the data is the same as when the newest backup was taken;
  *   - no `backup_runs` row names the file: no API (v2026.10.3 or later) has
  *     started since it was written;
  *   - it is newer than every migration that finished or was rolled back:
@@ -145,10 +150,10 @@ export async function findReusableBackup(db: Queryable, backupsDir: string): Pro
   const newest = dated[0];
 
   // The trace of the failed attempt: without it, the data may have changed.
-  const failed = await db.query<{ started_at: Date | string }>(
-    'SELECT started_at FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL',
+  const failed = await db.query<{ count: string | number }>(
+    'SELECT count(*) AS count FROM _prisma_migrations WHERE finished_at IS NULL AND rolled_back_at IS NULL',
   );
-  if (!failed.rows.some((row) => new Date(row.started_at).getTime() >= newest.date.getTime())) return null;
+  if (!(Number(failed.rows[0]?.count) > 0)) return null;
 
   const table = await db.query<{ exists: boolean }>("SELECT to_regclass('backup_runs') IS NOT NULL AS exists");
   if (!table.rows[0]?.exists) return null;

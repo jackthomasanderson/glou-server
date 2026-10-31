@@ -37,7 +37,7 @@ function fakeDb(opts: {
       if (sql.includes("to_regclass('backup_runs')")) return { rows: [{ exists: backupRuns !== undefined }] as unknown as R[] };
       if (sql.includes('FROM backup_runs')) return { rows: (backupRuns ?? []).map((filePath) => ({ filePath })) as unknown as R[] };
       if (sql.includes('WHERE finished_at IS NULL AND rolled_back_at IS NULL')) {
-        return { rows: failedStartedAt.map((started_at) => ({ started_at })) as unknown as R[] };
+        return { rows: [{ count: String(failedStartedAt.length) }] as unknown as R[] };
       }
       if (sql.includes('max(GREATEST(finished_at, rolled_back_at))')) return { rows: [{ last: lastMigrationChange }] as unknown as R[] };
       if (sql.includes('FROM _prisma_migrations')) {
@@ -314,12 +314,28 @@ describe('preMigrate after a failed migrate deploy (restart loop)', () => {
     expect(backupFiles()).toHaveLength(2);
   });
 
-  it('a failed row older than the file (from an earlier attempt): a new backup', async () => {
-    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [], failedStartedAt: [new Date('2026-10-20T00:00:00Z')] });
-    await firstStart(db);
-    const second = deps(db, { now: () => LATER });
-    expect(await preMigrate(second.d)).toBe(0);
-    expect(second.dump).toHaveBeenCalledTimes(1);
+  it('update with two migrations, M1 finished then M2 failed: one more backup, then reused on starts 3 to 10', async () => {
+    const T1 = new Date('2026-11-01T08:30:02.000Z'); // M1 finished
+    const T2 = new Date('2026-11-01T08:30:03.000Z'); // M2 started, failed
+    // Start 1: both pending, no failure yet.
+    const before = fakeDb({ applied: SHIPPED.slice(0, 1), backupRuns: [] }).db;
+    const start1 = deps(before);
+    expect(await preMigrate(start1.d)).toBe(0);
+    expect(backupFiles()).toEqual([EXPECTED_NAME]);
+
+    // Then: M1 finished after that file, M2 left a failed row.
+    const { db } = fakeDb({ applied: SHIPPED.slice(0, 2), backupRuns: [], lastMigrationChange: T1, failedStartedAt: [T2] });
+    const start2 = deps(db, { now: () => LATER });
+    expect(await preMigrate(start2.d)).toBe(0);
+    expect(start2.dump).toHaveBeenCalledTimes(1);
+    expect(backupFiles()).toHaveLength(2);
+
+    for (let i = 3; i <= 10; i++) {
+      const next = deps(db, { now: () => new Date(LATER.getTime() + i * 60_000) });
+      expect(await preMigrate(next.d)).toBe(0);
+      expect(next.dump).not.toHaveBeenCalled();
+    }
+    expect(backupFiles()).toHaveLength(2);
   });
 });
 
