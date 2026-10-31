@@ -128,3 +128,21 @@ describe('SystemConfigSection — restore takes a safety backup first (#666)', (
     expect(fetchMock.mock.calls.filter(([u]) => String(u).endsWith('/api/admin/backups/runs'))).toHaveLength(2);
   });
 });
+
+describe('SystemConfigSection — backup taken before a migration (FEAT-94)', () => {
+  it('labels it "before update, kept" from its file name, and only it', async () => {
+    const beforeMigration = {
+      ...run('bm', '2026-11-01T08:30:00.123Z'),
+      filePath: '/app/backups/glou-backup-before-migration-2026-11-01T08-30-00-123Z.sql.gz',
+    };
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const ok = String(input).endsWith('/api/admin/backups/runs');
+      return {
+        ok, status: ok ? 200 : 500,
+        json: async () => (ok ? { data: [beforeMigration, OLD] } : { error: 'INTERNAL_SERVER_ERROR' }),
+      } as Response;
+    }));
+    render(<SystemConfigSection />);
+    expect(await screen.findAllByText('adminConfig.backup.history.beforeMigration')).toHaveLength(1);
+  });
+});

@@ -101,6 +101,19 @@ describe('backupService.syncHistoryWithFiles (#666)', () => {
     }));
   });
 
+  it('lists the backup taken before a migration (FEAT-94), dated from its name', async () => {
+    const file = backup();
+    const name = 'glou-backup-before-migration-2026-11-01T08-30-00-123Z.sql.gz';
+    folderWith({ [name]: file });
+
+    expect(await backupService.syncHistoryWithFiles()).toBe(1);
+    expect(createMany.mock.calls[0][0].data[0]).toMatchObject({
+      filePath: path.join(BACKUPS_DIR, name),
+      runAt: new Date('2026-11-01T08:30:00.123Z'),
+      success: true,
+    });
+  });
+
   it('dates a hand-named backup file from the disk', async () => {
     const file = backup();
     folderWith({ 'glou-backup-from-the-old-server.sql.gz': file });

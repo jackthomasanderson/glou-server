@@ -1691,6 +1691,7 @@
         "noHistory": "No backup recorded.",
         "download": "Download this backup",
         "restore": "Restore this backup",
+        "beforeMigration": "Before update, kept",
         "trigger": {
           "scheduled": "Scheduled",
           "manual": "Manual"
