@@ -46,9 +46,8 @@ test.describe('families API (#471)', () => {
     for (const productId of families.splice(0)) await page.request.delete(`/api/products/${productId}`).catch(() => {});
   });
 
-  // FEAT-92 (D9): one card per wine, its groups under it. Needs a way to add
-  // bottles to an existing wine — `POST /api/products/:id/items`, lot A2.
-  test.fixme('one family lists each of its groups (enabled by A2)', async ({ page }) => {
+  // FEAT-92 (D9): one card per wine, its groups under it.
+  test('one family lists each of its groups', async ({ page }) => {
     const api = page.request;
     const first = await addWine(api, `Groups ${stamp()}`, { purchasePrice: 20 });
     families.push(first.productId);
@@ -56,6 +55,8 @@ test.describe('families API (#471)', () => {
 
     const family = await listedFamily(api, first.productId);
     expect(family?.items).toHaveLength(2);
+    const list = await okData<Family[]>(await api.get('/api/products'));
+    expect(list.filter((listed) => listed.id === first.productId)).toHaveLength(1);
   });
 
   // FEAT-92 c4: the description is corrected once, for every bottle.

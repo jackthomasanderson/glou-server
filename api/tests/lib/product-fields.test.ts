@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Prisma } from '@prisma/client';
 import {
-  PRODUCT_FIELDS, pickProductFields, todayAsPurchaseDate, toItemView, writeAlertStatus, writeProductFields,
+  compareFamilyIds, lockFamilies, PRODUCT_FIELDS, pickProductFields, todayAsPurchaseDate, toItemView, writeAlertStatus, writeProductFields,
 } from '../../src/lib/product-fields';
 
 const migrationsDir = path.join(__dirname, '../../prisma/migrations');
@@ -153,5 +153,18 @@ describe('toItemView (#471: the flat record of /api/inventory)', () => {
   it('has no field sources when neither side has any', () => {
     const view = toItemView({ lockedFields: [], fieldSources: null, product: { ...product, fieldSources: null } as never });
     expect(view.fieldSources).toBeNull();
+  });
+});
+
+describe('lockFamilies (lock order, #787 review)', () => {
+  it('locks each family once, by code unit, whatever the order given', async () => {
+    const queryRaw = vi.fn();
+    await lockFamilies({ $queryRaw: queryRaw } as never, ['p2', 'P9', 'p1', 'p2']);
+
+    expect(queryRaw.mock.calls.map((call) => call[1])).toEqual(['P9', 'p1', 'p2']);
+  });
+
+  it('orders ids by code unit, never by locale', () => {
+    expect(['b', 'B', 'a'].sort(compareFamilyIds)).toEqual(['B', 'a', 'b']);
   });
 });

@@ -2064,7 +2064,8 @@
         "full_other": "{{count}} full bottles",
         "openedLevel": "1 opened at {{level}}%",
         "here": "{{here}} in this cellar, {{total}} in all"
-      }
+      },
+      "level": "{{level}}%"
     }
   }
 }

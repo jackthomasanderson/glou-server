@@ -34,29 +34,36 @@ export interface StockLineOptions {
 /** A number stays with the word after it ("500 pleines", "60 %"): a line never breaks right after it. */
 export const keepNumbersWhole = (text: string) => text.replace(/(\d) /g, '$1\u00a0');
 
-const normalizeSize = (size: string | null) => (size ?? '').trim().toLowerCase();
+/** Size key: case and spaces ignored ("75 cl" = "75cl"); an empty size is the standard bottle. */
+const STANDARD_SIZE = '75cl';
+const sizeKey = (size: string | null) => (size ?? '').replace(/\s+/g, '').toLowerCase() || STANDARD_SIZE;
+const MAGNUM_KEYS = new Set(['150cl', '1.5l', '1,5l', '1500ml']);
+const isMagnum = (key: string) => key.includes('magnum') || MAGNUM_KEYS.has(key);
 
 /**
  * "dont 1 magnum": intact bottles whose size differs from the family's usual
- * one (the size most of its full bottles have). A magnum counts as one bottle.
+ * one (the size most of its full bottles have, the standard one on a tie). A
+ * magnum counts as one bottle; an empty size is never reported.
  */
 function otherSizes(items: readonly ProductItem[], t: Translate): string[] {
   const sizes = new Map<string, { label: string; count: number }>();
   for (const item of items) {
     if (!isIntactItem(item) || item.writtenOffAt != null || item.deletedAt != null) continue;
-    const key = normalizeSize(item.bottleSize);
-    const entry = sizes.get(key) ?? { label: (item.bottleSize ?? '').trim(), count: 0 };
+    const key = sizeKey(item.bottleSize);
+    const entry = sizes.get(key) ?? { label: '', count: 0 };
+    entry.label ||= (item.bottleSize ?? '').trim();
     entry.count += Math.max(item.quantity ?? 1, 0);
     sizes.set(key, entry);
   }
   if (sizes.size < 2) return [];
-  const usual = [...sizes.entries()].reduce((best, entry) => (entry[1].count > best[1].count ? entry : best))[0];
+  const usual = [...sizes.entries()].reduce((best, entry) =>
+    entry[1].count > best[1].count || (entry[1].count === best[1].count && entry[0] === STANDARD_SIZE) ? entry : best)[0];
   return [...sizes.entries()]
-    .filter(([key, { count }]) => key !== usual && count > 0)
+    .filter(([key, { label, count }]) => key !== usual && count > 0 && (label !== '' || isMagnum(key)))
     .map(([key, { label, count }]) =>
-      key.includes('magnum')
+      isMagnum(key)
         ? t('familyList.stock.magnum', { count })
-        : t('familyList.stock.otherSize', { count, size: label || '—' }));
+        : t('familyList.stock.otherSize', { count, size: label }));
 }
 
 function bottleParts(summary: StockSummary, items: readonly ProductItem[], t: Translate): { parts: string[]; spoken: string[] } {
@@ -95,7 +102,8 @@ function cigarParts(summary: StockSummary, t: Translate): { parts: string[]; spo
   if (summary.closedBoxes > 0) parts.push(t('familyList.stock.closedBoxes', { count: summary.closedBoxes }));
   if (summary.opened.length > 0) parts.push(t('familyList.stock.opened', { count: summary.opened.length }));
   if (summary.singleCigars > 0) parts.push(t('familyList.stock.singleCigars', { count: summary.singleCigars }));
-  return { parts, spoken: parts };
+  // §10.13: the sentence says how many cigars before how they are kept.
+  return { parts, spoken: [t('familyList.stock.spoken.cigars', { count: summary.units }), ...parts] };
 }
 
 /**
@@ -121,7 +129,7 @@ export function describeStock(
   }
 
   const loneOpened = kind === 'bottle' && total.units === 1 && total.opened.length === 1 ? total.opened[0] : null;
-  const badge = loneOpened && loneOpened.fillLevel != null ? `${loneOpened.fillLevel} %` : String(total.units);
+  const badge = loneOpened && loneOpened.fillLevel != null ? t('familyList.stock.level', { level: loneOpened.fillLevel }) : String(total.units);
   const badgeLow = loneOpened != null && loneOpened.fillLevel != null && loneOpened.fillLevel <= 20;
 
   const cellarIds = options.cellarIds ?? [];

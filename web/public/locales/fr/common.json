@@ -2066,7 +2066,8 @@
         "full_other": "{{count}} bouteilles pleines",
         "openedLevel": "1 entamée à {{level}} %",
         "here": "{{here}} dans cette cave, {{total}} en tout"
-      }
+      },
+      "level": "{{level}} %"
     }
   }
 }

@@ -8,6 +8,8 @@ import { enqueueMutation, overlayQueuedChanges } from '@/lib/offline/syncEngine'
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
 import { PRODUCTS_KEY } from '@/hooks/useProducts';
+import { withFlatItem, withoutUnit } from '@/lib/products/fromFlat';
+import type { Product } from '@/lib/products/types';
 
 export const INVENTORY_KEY = ['inventory'];
 // #475: whether the last loaded list hit the server's 2,000-item cap.
@@ -221,6 +223,8 @@ export function useUpdateInventoryItem() {
         old?.map((item) => (item.id === updatedItem.id ? updatedItem : item))
       );
       queryClient.setQueryData<InventoryItem>(['inventory', updatedItem.id], updatedItem);
+      // #471: the wine's card sums its bottles: update it in place too.
+      queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withFlatItem(old, updatedItem));
     },
     onError: (error) => {
       if (error.message !== 'CONFLICT') {
@@ -237,8 +241,6 @@ export function useUpdateInventoryItem() {
       // The sidebar badges (useSidebarCounts) normally piggyback on an
       // INVENTORY_KEY invalidation, which this mutation no longer does.
       void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-      // #471: the wines' cards sum their bottles: refresh them after any bottle change.
-      void queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY, exact: true });
     },
   });
 }
@@ -284,11 +286,11 @@ export function useDeleteInventoryItem() {
       queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
         old?.filter((item) => item.id !== id)
       );
+      queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withoutUnit(old, id));
     },
     onError: () => notifyError('toast.deleteError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: TRASH_KEY });
-      void queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY, exact: true });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
       // See useUpdateInventoryItem: the sidebar badges piggyback on an
       // INVENTORY_KEY invalidation that this mutation no longer does.
