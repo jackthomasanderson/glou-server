@@ -41,6 +41,8 @@ import { notifySuccess } from '@/lib/toast';
 import { applyCollectionChanges } from '@/lib/collections/sync';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
 import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
+import { BulkWinesDialog, type BulkWinesActionName } from './BulkWinesDialog';
+import { bulkSummary } from '@/lib/products/bulk';
 import { InventoryListRowSkeleton } from './InventoryListRow';
 import { InventoryGridView } from './InventoryGridView';
 import { InventoryListView } from './InventoryListView';
@@ -136,6 +138,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   const bulkUpdateMutation = useBulkUpdateInventoryItem();
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  // #471 (FEAT-111): "Déplacer", "Marquer comme bus", "Mettre à la corbeille" on the wines selected.
+  const [winesAction, setWinesAction] = useState<BulkWinesActionName | null>(null);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -287,8 +291,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     [createMutation, syncCollections],
   );
 
-  // Until the bulk actions on wines (lot P), the selected wines stand for
-  // their bottles in stock.
+  // The bulk edit (tags, presets) writes the bottles in stock of the wines
+  // selected; the other bulk actions name the wines (BulkWinesDialog).
   const selectedItemIds = useMemo(() => {
     const ids = new Set<string>();
     for (const product of products ?? []) {
@@ -297,14 +301,12 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     return ids;
   }, [products, selectedIds]);
 
-  const bulkSubtitle = useMemo(() => {
-    const units = (products ?? []).filter((p) => selectedIds.has(p.id)).reduce((sum, p) => sum + stockSummaryOf(p).units, 0);
-    const isCigarPage = Boolean(lockedCategories?.includes('cigar'));
-    return t('familyList.bulkSummary', {
-      wines: t('familyList.wines', { count: selectedIds.size }),
-      bottles: t(isCigarPage ? 'familyList.stock.spoken.cigars' : 'familyList.stock.spoken.bottles', { count: units }),
-    });
-  }, [products, selectedIds, lockedCategories, t]);
+  const isCigarPage = Boolean(lockedCategories?.includes('cigar'));
+  // FEAT-111: the wines still in the cellar and their bottles, as the bulk dialogs count them.
+  const bulkSubtitle = useMemo(
+    () => bulkSummary(products ?? [], selectedIds, isCigarPage, t),
+    [products, selectedIds, isCigarPage, t],
+  );
 
   const handleBulkApply = useCallback(
     (patch: Partial<InventoryItem>) => {
@@ -731,6 +733,21 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         onCloseDialog={() => setIsBulkDialogOpen(false)}
         onApply={handleBulkApply}
         isSubmitting={bulkUpdateMutation.isPending}
+        onWinesAction={setWinesAction}
+        cigars={isCigarPage}
+      />
+      <BulkWinesDialog
+        action={winesAction}
+        products={products ?? []}
+        selectedIds={selectedIds}
+        cigars={isCigarPage}
+        viewedCellarIds={selectedCellars}
+        onClose={() => setWinesAction(null)}
+        onDone={() => {
+          setWinesAction(null);
+          setBulkMode(false);
+          clearSelection();
+        }}
       />
 
       <TrashWineDialog

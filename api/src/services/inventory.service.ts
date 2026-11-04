@@ -6,7 +6,7 @@ import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
-import { isFinishedItem, NO_SLOT, unitKind } from '../lib/finished-item';
+import { isFinishedItem, isGroupableItem, NO_SLOT, unitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
@@ -19,7 +19,7 @@ import {
 } from './stock-state.service';
 import { writeFamilyDescription } from './product.service';
 import { rememberDistinct } from './review.service';
-import { GROUP_KEY_FIELDS, joinIdenticalGroup } from './stock-split.service';
+import { GROUP_KEY_FIELDS, joinIdenticalGroup, splitLockedGroup } from './stock-split.service';
 import { isSlotTaken } from '../lib/slots';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
@@ -603,8 +603,9 @@ export class InventoryService {
     const existing = rows
       .map((row) => ({ row, view: toItemView(row) }))
       .sort((a, b) => compareFamilyIds(a.row.productId, b.row.productId) || compareFamilyIds(a.row.id, b.row.id));
-    // #471: `smokeOne`/`keepTastings` are instructions to the detach rule, not columns.
-    const { smokeOne, keepTastings, tastingId: _tasting, expectedUpdatedAt: _sync, ...columns } = patch;
+    // #471 (D18): no state reaches here — the bulk schema refuses one ("Marquer
+    // comme bus" is POST /api/products/bulk-drink). The sync version is not a column.
+    const { expectedUpdatedAt: _sync, ...columns } = patch;
     const familyPatch = pickProductFields(this.mapInputToDb(columns));
     const unitPatch = Object.fromEntries(Object.entries(this.mapInputToDb(columns)).filter(([key]) => !isProductField(key)));
 
@@ -637,34 +638,33 @@ export class InventoryService {
         );
         // Only items this call really changes are applied and counted, so the
         // "N items updated" confirmation tells the truth.
-        if (changedEntries.length === 0 && !familyChanged.get(row.productId) && !smokeOne) continue;
+        if (changedEntries.length === 0 && !familyChanged.get(row.productId)) continue;
+        // Read again under its family's lock: a bottle trashed since the
+        // selection was read is left alone (never moved or edited in the trash).
+        const fresh = await tx.inventoryItem.findFirst({ where: { id: item.id, deletedAt: null } });
+        if (!fresh) continue;
 
-        // #471: a state written on a group detaches one copy (D18: "Marquer
-        // comme bus" from a selection drinks one bottle of each), decided on
-        // the unit as it is once its family is locked.
-        if (smokeOne || changedEntries.some(([key]) => isStateField(key))) {
-          const fresh = await tx.inventoryItem.findUnique({ where: { id: item.id } });
-          if (!fresh || fresh.deletedAt) continue;
-          const unit = Object.fromEntries(changedEntries.filter(([key]) => !isStateField(key))) as InventoryPatch;
-          await applyState(tx, fresh as StateItem, {
-            // #798: moved to another cellar along with the state, it arrives
-            // unplaced (a finished one's slot is the detach rule's, #573).
-            unit: this.leavesSlotByMove(item, unit) ? { ...unit, ...NO_SLOT } : unit,
-            state: Object.fromEntries(Object.entries(unitPatch).filter(([key]) => isStateField(key))) as StatePatch,
-            smokeOne, keepTastings,
-          }, { userId, kind: unitKind(row.product.category), include: {} });
+        const changed = Object.fromEntries(changedEntries) as InventoryPatch;
+        if (changed.cellarId !== undefined && isGroupableItem(fresh) && fresh.isOwned) {
+          // #471 (FEAT-111): a whole group moved to another cellar joins the
+          // identical group there, as "Déplacer" does (a preset or the bulk
+          // edit's cellar): never a line apart that should be one. Its other
+          // fields are written first, so the group it joins is the one it now is.
+          const { cellarId, ...others } = changed;
+          const group = Object.keys(others).length === 0 ? fresh : await tx.inventoryItem.update({
+            where: { id: item.id },
+            data: { ...others, updatedAt: new Date(), updatedBy: userId } as never,
+          });
+          await splitLockedGroup(tx, userId, group, group.quantity ?? 1, { field: 'cellarId', to: cellarId ?? null }, unitKind(row.product.category));
           updatedCount++;
           continue;
         }
-
-        const changed = Object.fromEntries(changedEntries) as InventoryPatch;
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
             ...changed,
-            // #573: an item this call leaves finished gives its grid slot back (see updateItem).
-            // #798: so does an item moved to another cellar ("move to a cellar" bulk action).
-            ...(this.isFinishedAfter(item, changed) || this.leavesSlotByMove(item, changed) ? NO_SLOT : {}),
+            // #798: an item moved to another cellar arrives unplaced (an opened bottle; a group joins above).
+            ...(this.leavesSlotByMove(item, changed) ? NO_SLOT : {}),
             updatedAt: new Date(),
             updatedBy: userId,
           } as never,

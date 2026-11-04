@@ -1,6 +1,6 @@
 import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal } from '../api';
 import { fetchOrNetworkError } from '../network-error';
-import type { ProductDescription, UnitWriteResult } from '@shared/product';
+import type { BulkStockResult, BulkWinesAction, ProductDescription, UnitWriteResult } from '@shared/product';
 import type { InventoryCategory } from '@shared/inventory';
 import type { Wire } from '@shared/wire';
 import type { Product, ProductDetailView, ProductItem, ProductListResponse, TrashedProduct } from './types';
@@ -132,6 +132,12 @@ export const productsClient = {
   /** Brings back the wine and the bottles trashed together with it. */
   async restore(id: string): Promise<Product> {
     const { data } = await client.post<Product>(`/products/${encodeURIComponent(id)}/restore`);
+    return data;
+  },
+
+  /** FEAT-111: POST /api/products/bulk-move, bulk-trash or bulk-drink — all of it, or nothing. */
+  async bulk({ action, ...body }: BulkWinesAction): Promise<BulkStockResult> {
+    const { data } = await client.post<BulkStockResult>(`/products/bulk-${action}`, body);
     return data;
   },
 };

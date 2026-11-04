@@ -1,7 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { addUnitsSchema, correctQuantitySchema, moveUnitsSchema, repriceUnitsSchema } from '../schemas/stock.schema';
+import {
+  addUnitsSchema, bulkDrinkSchema, bulkMoveSchema, bulkTrashSchema, correctQuantitySchema, moveUnitsSchema, repriceUnitsSchema,
+} from '../schemas/stock.schema';
 import { stockService } from '../services/stock.service';
 import { stockSplitService, type SplitOutcome } from '../services/stock-split.service';
+import { bulkStockService, type BulkOutcome } from '../services/bulk-stock.service';
+import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
@@ -86,6 +90,32 @@ router.post('/inventory/:id/reprice', authMiddleware, async (req: Request, res: 
   const id = routeParam(req.params.id);
   const input = repriceUnitsSchema.parse(req.body);
   answerSplit(req, res, 'REPRICE_UNITS', id, await stockSplitService.repriceUnits(req.userId, id, input));
+});
+
+/**
+ * #471 (FEAT-111, D18): answers a bulk action on wines and records each unit
+ * it changed in that unit's history, once the transaction went through.
+ */
+function answerBulk(req: Request, res: Response, outcome: BulkOutcome, meta?: Record<string, unknown>): void {
+  const ip = getClientIp(req);
+  for (const entry of outcome.entries) void auditLog({ userId: req.userId, status: 'success', ip, ...entry });
+  res.json({ data: outcome.result, ...(meta ? { meta } : {}) });
+}
+
+// POST /api/products/bulk-move — "Déplacer" the wines selected: every bottle of them in the cellar (point 54).
+router.post('/products/bulk-move', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  answerBulk(req, res, await bulkStockService.move(req.userId, bulkMoveSchema.parse(req.body)));
+});
+
+// POST /api/products/bulk-trash — "Mettre à la corbeille" every bottle in the cellar of the wines selected (point 54).
+router.post('/products/bulk-trash', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const { deletedAt, ...outcome } = await bulkStockService.trash(req.userId, bulkTrashSchema.parse(req.body));
+  answerBulk(req, res, outcome, { daysUntilPermanentDelete: inventoryService.daysUntilPermanentDelete(deletedAt) });
+});
+
+// POST /api/products/bulk-drink — "Marquer comme bus": how many of each wine selected (point 42).
+router.post('/products/bulk-drink', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  answerBulk(req, res, await bulkStockService.drink(req.userId, bulkDrinkSchema.parse(req.body)));
 });
 
 export { router as inventoryActionsRouter };

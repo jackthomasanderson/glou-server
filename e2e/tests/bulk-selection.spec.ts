@@ -6,8 +6,8 @@ import { collectPageProblems } from './_helpers';
  * selected nothing. And Select → tick a bottle → Bulk actions → tick "Tags" →
  * Cancel → leave selection mode replaced the page with "Une erreur est
  * survenue". Desktop only: phones always show cards.
- * #471: a row is a wine; a bulk action applies to the bottles of the wines
- * selected (until the bulk actions on wines, lot P).
+ * #471: a row is a wine; the bulk edit (FEAT-111: "Modifier des champs…" in
+ * the menu of bulk actions) applies to the bottles in stock of the wines selected.
  */
 
 async function createItem(api: APIRequestContext, data: Record<string, unknown>): Promise<string> {
@@ -64,8 +64,12 @@ test('bottles can be selected in list view, and a cancelled bulk action does not
     await expect(middle.getByRole('checkbox')).not.toBeChecked();
     await expect(last.getByRole('checkbox')).toBeChecked();
 
-    // Bulk actions → tick "Tags" → Cancel.
-    await page.getByRole('button', { name: 'Actions groupées', exact: true }).click();
+    // Bulk actions → edit → tick "Tags" → Cancel.
+    const openBulkEdit = async () => {
+      await page.getByRole('button', { name: 'Actions groupées', exact: true }).click();
+      await page.locator('[role="menuitem"]').filter({ hasText: 'Modifier des champs' }).click();
+    };
+    await openBulkEdit();
     const dialog = page.getByRole('dialog').filter({ hasText: 'Champs à modifier' });
     await expect(dialog).toBeVisible();
     // HeroUI's checkbox input is a transparent layer over its whole label:
@@ -95,7 +99,7 @@ test('bottles can be selected in list view, and a cancelled bulk action does not
     // Reopening the bulk actions starts blank.
     await page.getByRole('button', { name: 'Sélectionner', exact: true }).click();
     await nameIn(first).click();
-    await page.getByRole('button', { name: 'Actions groupées', exact: true }).click();
+    await openBulkEdit();
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('checkbox', { name: 'Étiquettes' })).not.toBeChecked();
 
