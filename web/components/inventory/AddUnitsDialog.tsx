@@ -10,6 +10,7 @@ import { MAX_COPIES } from '@shared/product';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ParsedNumberInput } from '@/components/ui/ParsedInput';
 import { useAddUnits } from '@/hooks/useProducts';
+import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { useCellars } from '@/hooks/useCellars';
 import { currencySymbol, todayLocalIso } from '@/lib/format';
 import { wineName } from '@/lib/products/stock';
@@ -221,10 +222,13 @@ export function AddUnitsAction({ product }: AddUnitsActionProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const isMain = !product.items.some((item) => !item.writtenOffAt && !item.deletedAt && itemUnits(item) > 0);
+  // FEAT-108 (point 47): adding bottles needs the network: shown disabled, with the reason.
+  const offline = useOfflineBlocked();
 
   return (
     <>
-      <Button
+      <OfflineBlockedButton
+        blocked={offline}
         data-testid="add-units-button"
         data-primary={isMain}
         size="sm"
@@ -234,7 +238,7 @@ export function AddUnitsAction({ product }: AddUnitsActionProps) {
         onPress={() => setIsOpen(true)}
       >
         {t(product.category === 'cigar' ? 'addUnits.actionCigar' : 'addUnits.action')}
-      </Button>
+      </OfflineBlockedButton>
       <AddUnitsModal isOpen={isOpen} product={product} onDone={() => setIsOpen(false)} />
     </>
   );

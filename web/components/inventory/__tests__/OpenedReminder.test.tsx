@@ -21,8 +21,18 @@ vi.mock('react-i18next', () => ({
 }));
 const toast = vi.hoisted(() => ({ notifySuccess: vi.fn(), notifyError: vi.fn(), notifyUndoable: vi.fn() }));
 vi.mock('@/lib/toast', () => toast);
-const offline = vi.hoisted(() => ({ enqueueMutation: vi.fn(async () => undefined), overlayQueuedChanges: vi.fn() }));
-vi.mock('@/lib/offline/syncEngine', () => offline);
+const offline = vi.hoisted(() => ({
+  enqueueMutation: vi.fn(async (_qc: unknown, itemId: string, patch: Record<string, unknown>) => (
+    { id: 'q1', itemId, patch, createdAt: '2026-10-05T00:00:00.000Z', expectedUpdatedAt: '', status: 'pending' }
+  )),
+  overlayQueuedChanges: vi.fn(),
+  discardQueuedMutation: vi.fn(async () => true),
+}));
+// The queue itself is stubbed; what it shows (shownAfter, the queued mark) is the real thing.
+vi.mock('@/lib/offline/syncEngine', async (importOriginal) => ({ ...(await importOriginal<object>()), ...offline }));
+// Connectivity is probed by a GET of its own: kept out of the stubbed API.
+const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
+vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,

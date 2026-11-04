@@ -9,6 +9,9 @@ const UNIT_FIELDS = [
   'needsReview', 'fieldSources', 'deletedAt', 'createdAt', 'updatedAt',
 ] as const satisfies ReadonlyArray<keyof ProductItem>;
 
+/** The columns of a bottle itself (not of its wine). */
+export const UNIT_FIELD_SET: ReadonlySet<string> = new Set(UNIT_FIELDS);
+
 export type FlatItem = InventoryItem & Partial<Record<(typeof UNIT_FIELDS)[number], unknown>>;
 
 export const inStock = (item: FlatItem) =>

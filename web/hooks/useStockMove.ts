@@ -4,7 +4,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { UnitKind } from '@shared/units';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
 import { productDetailKey } from '@/hooks/useProducts';
-import { notifySuccess, notifyUndoable } from '@/lib/toast';
+import { notifyError, notifyUndoable } from '@/lib/toast';
+import { discardQueuedMutation, queuedMutationOf } from '@/lib/offline/syncEngine';
+import { isProvisional } from '@/lib/offline/optimistic';
 import { isIntactItem } from '@shared/units';
 import { movePatch, restorePatch, undoPatch, type StockMove } from '@/lib/products/openDrink';
 import type { InventoryItem, InventoryItemPatch } from '@/lib/inventory/types';
@@ -62,6 +64,8 @@ export function useStockMove() {
   }, [latest, mutateAsync, settle]);
 
   const run = useCallback(async (item: ProductItem, move: StockMove, kind: UnitKind): Promise<boolean> => {
+    // FEAT-108: a copy shown before the server took it off its group has no id there yet.
+    if (isProvisional(item)) return false;
     // The line as known now: its version, and its level to put back on "Annuler".
     const before = latest(item) ?? item;
     const sent = before.updatedAt as string;
@@ -75,11 +79,17 @@ export function useStockMove() {
     }
     settle(item.productId);
     const message = `openDrink.done.${move}`;
-    // Without network the write waits in the offline queue (FEAT-108): nothing
-    // was written yet, so there is nothing to take back from here.
-    const queued = written.id === item.id && written.updatedAt === sent;
+    // Without network the write waits in the offline queue (FEAT-108),
+    // already shown ("en attente"): "Annuler" drops it from the queue and
+    // puts the copy back on screen — nothing was written on the server.
+    const queued = queuedMutationOf(written);
     if (queued) {
-      notifySuccess(message);
+      notifyUndoable(`openDrink.queued.${move}`, undefined, () => {
+        void discardQueuedMutation(queued, queryClient).then((dropped) => {
+          // Already being sent: it is taken back like any other ("Annuler l'ouverture").
+          if (!dropped) notifyError('offline.undoTooLate');
+        });
+      });
       return true;
     }
     // A line of one drunk (or smoked out) in place gave its grid slot back
@@ -88,7 +98,7 @@ export function useStockMove() {
     const extra: InventoryItemPatch = slotGiven ? { slotColumn: item.slotColumn, slotRow: item.slotRow } : {};
     notifyUndoable(message, undefined, () => { void undo(written, before, kind, extra); });
     return true;
-  }, [latest, mutateAsync, settle, undo]);
+  }, [latest, mutateAsync, queryClient, settle, undo]);
 
   return { run, isPending: update.isPending };
 }

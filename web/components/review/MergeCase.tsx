@@ -12,6 +12,7 @@ import { describeStock, wineName } from '@/lib/products/stock';
 import { mergeKind, preselectedChoices, reviewValueLabel } from '@/lib/review/cases';
 import type { ReviewMerge } from '@/lib/review/client';
 import { notifySuccess } from '@/lib/toast';
+import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 
 interface MergeCaseProps {
   merge: ReviewMerge;
@@ -33,6 +34,7 @@ export function MergeCase({ merge, onMerged }: MergeCaseProps) {
   const keepApart = useKeepApart();
   const [choices, setChoices] = useState(() => preselectedChoices(merge));
   const [confirming, setConfirming] = useState(false);
+  const offline = useOfflineBlocked();
   const kind = mergeKind(merge);
   const productIds = merge.products.map((product) => product.id);
   const name = wineName(merge.products[0]);
@@ -129,9 +131,10 @@ export function MergeCase({ merge, onMerged }: MergeCaseProps) {
         >
           {t('review.merges.keepApart')}
         </Button>
-        <Button color="primary" startContent={<Combine size={16} />} onPress={() => setConfirming(true)} isDisabled={busy}>
+        {/* FEAT-108 (point 47): merging needs the network: shown disabled, with the reason. */}
+        <OfflineBlockedButton blocked={offline} color="primary" startContent={<Combine size={16} />} onPress={() => setConfirming(true)} isDisabled={busy}>
           {t('review.merges.merge')}
-        </Button>
+        </OfflineBlockedButton>
       </div>
 
       <ResponsiveModal isOpen={confirming} onClose={() => !mergeMutation.isPending && setConfirming(false)} size="sm" placement="center">

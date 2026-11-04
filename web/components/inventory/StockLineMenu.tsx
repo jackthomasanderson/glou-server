@@ -16,6 +16,7 @@ import { MoveUnitsDialog } from './MoveUnitsDialog';
 import { RepriceDialog } from './RepriceDialog';
 import { EditLineDialog } from './EditLineDialog';
 import { TrashLineDialog } from './TrashLineDialog';
+import { useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 
 type DialogAction = 'move' | 'reprice' | 'correct' | 'edit' | 'trash';
 /** On an opened bottle: "Je la finis", "Annuler l'ouverture" (§10.3, §10.4.6). */
@@ -31,6 +32,8 @@ type LineAction = StockMove | OpenedAction | DialogAction;
  */
 const GROUP_ACTIONS: readonly DialogAction[] = ['move', 'reprice', 'correct', 'edit', 'trash'];
 const OPENED_ACTIONS: readonly DialogAction[] = ['edit', 'trash'];
+/** Actions that need the server, disabled offline (§10.8); "Corriger le nombre" waits in the queue. */
+const NEEDS_NETWORK: ReadonlySet<LineAction> = new Set(['move', 'reprice']);
 const isMove = (action: LineAction): action is StockMove => action === 'open' || action === 'drink' || action === 'smoke';
 
 /** The first actions of a line, before a divider: its moves, or what is done with an opened copy. */
@@ -76,6 +79,9 @@ export function StockLineMenu({ item, ctx, product, onFinishOpened }: {
   const putBack = usePutBackOpened(ctx);
   const head = headActions(item, ctx.kind);
   const actions: readonly LineAction[] = [...head, ...(isIntactItem(item) ? GROUP_ACTIONS : OPENED_ACTIONS)];
+  // FEAT-108 (point 47): moving or repricing part of a line needs the network.
+  const offline = useOfflineBlocked();
+  const blocked: LineAction[] = offline ? actions.filter((action) => NEEDS_NETWORK.has(action)) : [];
   const close = () => setOpen(null);
   const choose = (action: LineAction) => {
     if (action === 'putBack') void putBack.putBack(item);
@@ -100,7 +106,7 @@ export function StockLineMenu({ item, ctx, product, onFinishOpened }: {
             <MoreVertical size={16} />
           </Button>
         </DropdownTrigger>
-        <DropdownMenu aria-label={t('stockLine.menu')} onAction={(key) => choose(key as LineAction)}>
+        <DropdownMenu aria-label={t('stockLine.menu')} onAction={(key) => choose(key as LineAction)} disabledKeys={blocked}>
           {actions.map((action) => (
             <DropdownItem
               key={action}
@@ -111,6 +117,8 @@ export function StockLineMenu({ item, ctx, product, onFinishOpened }: {
               color={action === 'trash' ? 'danger' : 'default'}
               className={action === 'trash' ? 'text-danger' : undefined}
               showDivider={action === head.at(-1)}
+              // FEAT-108 (§10.8): visible, disabled, with the reason, never hidden.
+              description={blocked.includes(action) ? t('offline.blocked') : undefined}
             >
               {label(action)}
             </DropdownItem>

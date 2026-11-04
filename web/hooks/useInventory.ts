@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryClient } from '@/lib/inventory/client';
 import type { InventoryItem, InventoryItemPatch } from '@/lib/inventory/types';
 import { mirrorInventoryToCache, getCachedInventory } from '@/lib/offline/db';
-import { enqueueMutation, overlayQueuedChanges } from '@/lib/offline/syncEngine';
+import type { UnitLike } from '@/lib/offline/optimistic';
+import { enqueueMutation, markQueuedResult, overlayQueuedChanges, queuedMutationOf, shownAfter } from '@/lib/offline/syncEngine';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
 import { PRODUCTS_KEY, productDetailKey } from '@/hooks/useProducts';
@@ -76,6 +77,10 @@ export function useInventory(options?: { enabled?: boolean }) {
     },
     staleTime: 1000 * 30,
     enabled: options?.enabled ?? true,
+    // FEAT-108: offline, React Query would pause the request (`online`
+    // mode) and never reach the offline copy below; it is tried, fails at
+    // once and falls back to that copy.
+    networkMode: 'always',
   });
 
   const lastMirroredFingerprint = useRef<string | null>(null);
@@ -135,6 +140,19 @@ export function useInventoryItemLookup() {
   );
 }
 
+/** A bottle as a wine's card or drawer knows it, when the flat list does not hold it. */
+function unitOfWines(queryClient: ReturnType<typeof useQueryClient>, id: string): InventoryItem | undefined {
+  for (const product of queryClient.getQueryData<Product[]>(PRODUCTS_KEY) ?? []) {
+    const unit = product.items.find((item) => item.id === id);
+    if (unit) return unit as unknown as InventoryItem;
+  }
+  for (const [, detail] of queryClient.getQueriesData<ProductDetailView>({ queryKey: productDetailKey(null).slice(0, 2) })) {
+    const unit = detail?.items?.find((item) => item.id === id);
+    if (unit) return unit as unknown as InventoryItem;
+  }
+  return undefined;
+}
+
 // ─── Mutation: Create ────────────────────────────────────────────────────────
 
 export function useCreateInventoryItem() {
@@ -187,6 +205,10 @@ export const REATTACH_REFUSALS: Record<string, string> = {
 export function useUpdateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, UpdateInventoryItemVariables>({
+    // FEAT-108: offline, the change must reach the queue below at once —
+    // React Query's default (`online`) would hold it, unseen, until the
+    // network is back, and lose it on a reload.
+    networkMode: 'always',
     mutationFn: async ({ id, patch, expectedUpdatedAt }: UpdateInventoryItemVariables) => {
       try {
         const write = await inventoryClient.update(id, patch, expectedUpdatedAt);
@@ -217,19 +239,30 @@ export function useUpdateInventoryItem() {
         const cachedList = queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY);
         const cachedItem =
           cachedList?.find((item) => item.id === id) ??
-          queryClient.getQueryData<InventoryItem>(['inventory', id]);
+          queryClient.getQueryData<InventoryItem>(['inventory', id]) ??
+          unitOfWines(queryClient, id);
         // No known `updatedAt` to anchor the conflict check on (item never
         // loaded in this session) — nothing sensible to queue.
         if (!cachedItem) throw error;
 
-        await enqueueMutation(queryClient, id, patch, expectedUpdatedAt ?? cachedItem.updatedAt);
-        // Optimistic UI: resolve successfully with the merged local state
-        // instead of surfacing an error — the mutation is safely queued and
-        // `ConnectivityIndicator` reflects the pending count.
-        return { ...cachedItem, ...patch } as InventoryItem;
+        // FEAT-108: the change shows at once wherever the bottle is listed —
+        // one copy taken off a group shows on its own line, the group one
+        // fewer — and waits for the network. Checked on replay against the
+        // version of the unit it was made on (for a group, the group's).
+        const mutation = await enqueueMutation(queryClient, id, patch, expectedUpdatedAt ?? cachedItem.updatedAt, {
+          productId: cachedItem.productId ?? null,
+          shown: cachedItem as unknown as UnitLike,
+        });
+        // Optimistic UI: resolve successfully with what the screen now shows
+        // (the provisional copy, or the bottle itself) instead of surfacing
+        // an error — the mutation is safely queued and `ConnectivityIndicator`
+        // reflects the pending count. Marked, so the caches are not written twice.
+        return markQueuedResult(shownAfter(cachedItem, mutation), mutation.id);
       }
     },
     onSuccess: (updatedItem) => {
+      // FEAT-108: queued without network, already shown by the queue.
+      if (queuedMutationOf(updatedItem)) return;
       // ISSUE_381: the server/offline-queue result already has the item's
       // final state — merge it into both caches in place instead of
       // invalidating the whole list, which would re-fetch up to 2,000 items

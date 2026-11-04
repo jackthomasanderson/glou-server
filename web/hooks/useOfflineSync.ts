@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useConnectivity } from './useConnectivity';
 import type { QueuedMutation } from '@/lib/offline/db';
+import { notifyError } from '@/lib/toast';
 import {
   getQueuedMutations,
   subscribeToSyncQueueChanges,
@@ -15,6 +16,28 @@ import {
   resolveConflictKeepLocal,
   resolveConflictKeepServer,
 } from '@/lib/offline/syncEngine';
+
+/**
+ * FEAT-108: the changes waiting on this device (any status), kept up to
+ * date — for a "en attente" mark (a line of a wine's drawer) without the
+ * replay triggers of {@link useOfflineSync}.
+ */
+export function useSyncQueue(): QueuedMutation[] {
+  const [queue, setQueue] = useState<QueuedMutation[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      void getQueuedMutations().then((mutations) => { if (alive) setQueue(mutations); }).catch(() => undefined);
+    };
+    refresh();
+    const unsubscribe = subscribeToSyncQueueChanges(refresh);
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, []);
+  return queue;
+}
 
 /**
  * FEAT-16/23 — exposes the offline sync queue's state (pending / syncing /
@@ -92,7 +115,10 @@ export function useOfflineSync() {
     undeferConflict,
     isSyncing: syncingCount > 0,
     hasPendingWork: pendingCount + syncingCount + failedCount + conflictMutations.length > 0,
-    removeMutation: (id: string) => removeQueuedMutation(id, queryClient),
+    // Review of #823: a change already being sent cannot be dropped — said, not hidden.
+    removeMutation: async (id: string) => {
+      if (!(await removeQueuedMutation(id, queryClient))) notifyError('offline.undoTooLate');
+    },
     retryMutation: (id: string) => retryFailedMutation(id, queryClient),
     retrySync: () => flushQueue(queryClient),
     resolveKeepLocal: (id: string) => resolveConflictKeepLocal(id, queryClient),
