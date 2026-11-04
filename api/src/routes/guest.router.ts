@@ -11,6 +11,8 @@ import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
 import { getClientIp } from '../middleware/auth.middleware';
 import { checkGuestWrite } from '../lib/guest-write';
+import { guestTastingSchema } from '../schemas/guest-tasting.schema';
+import { createGuestTasting } from '../services/guest-tasting.service';
 
 const router = Router({ mergeParams: true });
 
@@ -226,6 +228,47 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       details: { via: 'guest_share', shareId: share.id, message: String(error) },
     });
     res.status(500).json({ error: 'FAILED_TO_UPDATE_ITEM' });
+  }
+});
+
+// ─── POST /api/guest/:token/tastings ─────────────────────────────────────────
+// #471 (FEAT-109 c3, D16): a guest notes a tasting on a wine of a cellar the
+// share opens with write access; it goes on the wine, signed with the guest's
+// name. Same rate limiter as every guest route (router-level).
+
+router.post('/tastings', async (req: Request, res: Response): Promise<void> => {
+  const share = req.guestShare!;
+  const ip = getClientIp(req);
+  const parsed = guestTastingSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+    void auditLog({
+      userId: share.userId, action: 'GUEST_TASTING', status: 'validation_error', ip,
+      details: { via: 'guest_share', shareId: share.id, issues },
+    });
+    res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
+    return;
+  }
+  try {
+    const note = await createGuestTasting(share, parsed.data);
+    void auditLog({
+      userId: share.userId, action: 'GUEST_TASTING', status: 'success', ip,
+      productId: parsed.data.productId,
+      ...(parsed.data.itemId ? { bottleId: parsed.data.itemId } : {}),
+      details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, tastingId: note.id },
+    });
+    res.status(201).json({ data: note });
+  } catch (error) {
+    if (error instanceof AppError) {
+      void auditLog({
+        userId: share.userId, action: 'GUEST_TASTING', status: 'error', ip,
+        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, reason: error.code, productId: parsed.data.productId },
+      });
+      res.status(error.status).json({ error: error.code });
+      return;
+    }
+    console.error('[guest] tasting error:', error);
+    res.status(500).json({ error: 'FAILED_TO_CREATE_TASTING' });
   }
 });
 

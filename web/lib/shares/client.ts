@@ -1,5 +1,5 @@
 import { client } from '../api';
-import { CreatedGuestShare, GuestInventoryUpdatePayload, GuestShare, ShareFormValues } from './types';
+import { CreatedGuestShare, GuestInventoryUpdatePayload, GuestShare, GuestTastingPayload, ShareFormValues } from './types';
 
 /** Carries the HTTP status so callers can tell an invalid link from a transient failure. */
 export class GuestRequestError extends Error {
@@ -67,8 +67,24 @@ export const guestClient = {
       body: JSON.stringify(patch),
     });
     if (!res.ok) {
+      // #471 (FEAT-109): the code says why (GUEST_ITEM_FINISHED, READ_ONLY_ACCESS…).
       const body = await res.json().catch(() => ({ error: 'NETWORK_ERROR' })) as { error: string };
-      throw new Error(body.error ?? `HTTP ${res.status}`);
+      throw new GuestRequestError(body.error ?? `HTTP ${res.status}`, res.status);
+    }
+    const body = await res.json() as { data: unknown };
+    return body.data;
+  },
+
+  /** #471 (FEAT-109 c3, D16): a tasting on a wine of a cellar shared with write access. */
+  async createTasting(token: string, tasting: GuestTastingPayload): Promise<unknown> {
+    const res = await fetch(`/api/guest/${token}/tastings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tasting),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'NETWORK_ERROR' })) as { error: string };
+      throw new GuestRequestError(body.error ?? `HTTP ${res.status}`, res.status);
     }
     const body = await res.json() as { data: unknown };
     return body.data;

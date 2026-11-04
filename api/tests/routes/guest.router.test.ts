@@ -22,10 +22,13 @@ vi.mock('../../src/services/inventory.service', () => ({
   inventoryService: { updateItem: vi.fn() },
 }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));
+vi.mock('../../src/services/guest-tasting.service', () => ({ createGuestTasting: vi.fn() }));
 
 import guestRouter from '../../src/routes/guest.router';
 import { sharesService } from '../../src/services/shares.service';
 import { inventoryService } from '../../src/services/inventory.service';
+import { createGuestTasting } from '../../src/services/guest-tasting.service';
+import { auditLog } from '../../src/services/audit.service';
 
 const app = express();
 app.use(express.json());
@@ -144,5 +147,41 @@ describe('GET /api/guest/:token', () => {
     expect(res.status).toBe(200);
     expect(res.body.data).toMatchObject({ writeCellarIds: ['c1'], cellars: [{ id: 'c1', name: 'Garage' }, { id: 'c2', name: 'Cuisine' }] });
     expect(sharesService.getCellarsForShare).toHaveBeenCalledWith(expect.objectContaining({ cellarIds: ['c1', 'c2'] }));
+  });
+});
+
+// #471 (FEAT-109 c3, D16): a guest notes a tasting on a wine of a cellar shared with write access.
+describe('POST /api/guest/:token/tastings', () => {
+  const P1 = '11111111-1111-4111-8111-111111111111';
+
+  it('creates it for the share and logs GUEST_TASTING', async () => {
+    vi.mocked(createGuestTasting).mockResolvedValue({ id: 't1', productId: P1, guestName: 'Marie' } as never);
+
+    const res = await request(app).post('/api/guest/tok/tastings').send({ productId: P1, rating: 4 });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data).toEqual({ id: 't1', productId: P1, guestName: 'Marie' });
+    expect(createGuestTasting).toHaveBeenCalledWith(expect.objectContaining({ id: 's1', writeCellarIds: ['c1'] }), { productId: P1, rating: 4 });
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'GUEST_TASTING', status: 'success', productId: P1, details: expect.objectContaining({ inviteeName: 'Marie', tastingId: 't1' }),
+    }));
+  });
+
+  it('refuses a field outside the guest schema (400), before anything', async () => {
+    const res = await request(app).post('/api/guest/tok/tastings').send({ productId: P1, photoUrl: 'https://evil.example/x.png' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(createGuestTasting).not.toHaveBeenCalled();
+  });
+
+  it('answers the refusal of a wine out of the write scope (c4)', async () => {
+    const { AppError } = await import('../../src/lib/errors');
+    vi.mocked(createGuestTasting).mockRejectedValue(new AppError(403, 'READ_ONLY_ACCESS'));
+
+    const res = await request(app).post('/api/guest/tok/tastings').send({ productId: P1 });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('READ_ONLY_ACCESS');
   });
 });

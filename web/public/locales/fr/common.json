@@ -1496,12 +1496,16 @@
       "sortBy": "Trier par",
       "empty": "Aucun article dans ce partage.",
       "scopeAll": "Collection complète",
-      "edit": {
-        "action": "Modifier",
-        "opened": "Actif entamé",
-        "openedBadge": "Entamée",
-        "fillLevel": "Niveau restant (%)",
-        "error": "Impossible d'enregistrer la modification."
+      "errors": {
+        "finished": "Cette bouteille a été bue ou retirée entre-temps.",
+        "restock": "Seul un membre de la cave peut remettre une bouteille en stock.",
+        "readOnly": "Cette cave vous est partagée en lecture seule.",
+        "generic": "Impossible d'enregistrer. Réessayez."
+      },
+      "tasting": {
+        "action": "Noter une dégustation",
+        "title": "Noter une dégustation",
+        "done": "Dégustation notée"
       }
     }
   },

@@ -1494,12 +1494,16 @@
       "sortBy": "Sort by",
       "empty": "No items in this share.",
       "scopeAll": "Full collection",
-      "edit": {
-        "action": "Edit",
-        "opened": "Asset opened",
-        "openedBadge": "Opened",
-        "fillLevel": "Remaining level (%)",
-        "error": "Unable to save the change."
+      "errors": {
+        "finished": "This bottle was drunk or removed in the meantime.",
+        "restock": "Only a member of the cellar can put a bottle back in stock.",
+        "readOnly": "This cellar is shared with you read-only.",
+        "generic": "Could not save. Please try again."
+      },
+      "tasting": {
+        "action": "Note a tasting",
+        "title": "Note a tasting",
+        "done": "Tasting noted"
       }
     }
   },
