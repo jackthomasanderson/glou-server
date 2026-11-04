@@ -159,7 +159,7 @@ function DrinkQuestion({ choice, answer, onAnswer }: {
       <legend className="text-sm font-semibold mb-1">{name}</legend>
       {choice.units > 1 ? (
         <CountField
-          label={t(cigar ? 'bulkWines.drink.howManyCigars' : 'bulkWines.drink.howMany', { total: choice.units })}
+          label={t('bulkWines.drink.howMany', { total: choice.units })}
           value={answer.count}
           onChange={(count) => onAnswer({ count })}
           min={1}
