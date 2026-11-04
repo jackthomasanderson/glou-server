@@ -34,8 +34,8 @@ const tx = {
     }),
   },
   inventoryItem: {
-    findMany: vi.fn(async ({ where }: { where: { productId: string | { in: string[] }; id?: { notIn: string[] } } }) =>
-      db.units.filter((u) => u.deletedAt === null && u.writtenOffAt === null && !where.id?.notIn?.includes(u.id)
+    findMany: vi.fn(async ({ where }: { where: { productId: string | { in: string[] }; needsReview?: boolean } }) =>
+      db.units.filter((u) => u.deletedAt === null && u.writtenOffAt === null && (where.needsReview === undefined || (u.needsReview ?? false) === where.needsReview)
         && (typeof where.productId === 'string' ? u.productId === where.productId : where.productId.in.includes(u.productId)))),
     create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
       const unit = {
@@ -575,10 +575,63 @@ describe('FEAT-99 export: nothing lost on the way back', () => {
     });
   });
 
-  it('leaves out an unknown colour or sugar level instead of refusing the row, but refuses a bad number', () => {
+  it('leaves out an unknown colour or sugar level, and a reversed drinking window, instead of refusing the row', () => {
     const { valid, errors } = importService.previewCsv(csv('name,producer,category,color,sugar level,drink from,drink until\nA,P,wine,bordeaux,sirupeux,,\nB,P,wine,red,,2030,2020\n'));
-    expect(valid).toEqual([{ name: 'A', producer: 'P', category: 'wine' }]);
-    expect(errors).toEqual([{ row: 3, reason: 'INVALID_PEAK_WINDOW' }]);
+    expect(errors).toEqual([]);
+    expect(valid).toEqual([
+      { name: 'A', producer: 'P', category: 'wine' },
+      { name: 'B', producer: 'P', category: 'wine', color: 'red' },
+    ]);
+  });
+
+  it('keeps the row of a file from other software whose description cells are not what the importer expects', () => {
+    const { valid, errors } = importService.previewCsv(csv([
+      'Nom,Producteur,Catégorie,Aération,Fût unique,À boire à partir de,À boire jusqu\'en,Année de base,Notes,Cépages',
+      `A,P,vin,1 h,peut-être,2025-2030,bientôt,vieille,${'x'.repeat(2500)},Merlot|${'y'.repeat(150)}`,
+    ].join('\n')));
+    expect(errors).toEqual([]);
+    expect(valid).toEqual([{ name: 'A', producer: 'P', category: 'wine', notes: 'x'.repeat(2000) }]);
+  });
+
+  it('adds the copies of a line to the group of the cellar it names, however the line was written (no cellar column, no date)', async () => {
+    db.cellars.push({ id: 'cellar-1', name: 'Cave', createdAt: new Date() });
+    await importService.confirmImport('u1', [
+      row({ quantity: 3, purchasePrice: 20 }),
+      row({ quantity: 2, purchasePrice: 20, cellar: 'Cave' }),
+    ], 'cellar-1');
+    expect(db.units.map((u) => [u.quantity, u.cellarId])).toEqual([[5, 'cellar-1']]);
+
+    db.units = [];
+    await importService.confirmImport('u1', [
+      row({ quantity: 3, purchasePrice: 20 }),
+      row({ quantity: 2, purchasePrice: 20, purchasedAt: new Date().toLocaleDateString('en-CA') }),
+    ], 'cellar-1');
+    expect(db.units.map((u) => u.quantity)).toEqual([5]);
+  });
+
+  it('carries the place of purchase and location of the line onto the group it completes, when the group has none', async () => {
+    existingWine('Pétrus', 3);
+    db.cellars.push({ id: 'cellar-1', name: 'Cave', createdAt: new Date() });
+    const salon = row({ cellar: 'Cave', purchasePrice: 20, purchasedAt: '2025-01-01', quantity: 2, purchasePlace: 'Salon', location: 'Étagère 2' });
+    await importService.confirmImport('u1', [salon], null, [{ key: csvLineKey(salon), inStock: 3, add: true }]);
+    expect(db.units.map((u) => [u.quantity, u.purchasePlace, u.location])).toEqual([[5, 'Salon', 'Étagère 2']]);
+  });
+
+  it('keeps the place a group already has when the line gives none', async () => {
+    existingWine('Pétrus', 3);
+    Object.assign(db.units[0], { purchasePlace: 'Nicolas' });
+    db.cellars.push({ id: 'cellar-1', name: 'Cave', createdAt: new Date() });
+    const line = row({ cellar: 'Cave', purchasePrice: 20, purchasedAt: '2025-01-01', quantity: 2, location: 'Cave' });
+    await importService.confirmImport('u1', [line], null, [{ key: csvLineKey(line), inStock: 3, add: true }]);
+    expect(db.units.map((u) => [u.quantity, u.purchasePlace, u.location])).toEqual([[5, 'Nicolas', 'Cave']]);
+  });
+
+  it('never completes a group still to review', async () => {
+    existingWine('Pétrus', 3);
+    Object.assign(db.units[0], { needsReview: true });
+    const line = row({ purchasePrice: 20, purchasedAt: '2025-01-01', quantity: 2 });
+    await importService.confirmImport('u1', [line], null, [{ key: csvLineKey(line), inStock: 3, add: true }]);
+    expect(db.units.map((u) => [u.quantity, u.needsReview])).toEqual([[3, true], [2, false]]);
   });
 
   it('does not take an old file\'s "Niveau", "Level", "Open" or "Restants" column for the opened columns', () => {

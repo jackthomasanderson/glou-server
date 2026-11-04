@@ -140,6 +140,14 @@ export interface FusedGroup {
 
 const blank = (value: string | null) => (value === null ? null : normalizeText(value));
 
+/** Strictly the same places of purchase and locations, normalised as {@link placesAgree} (empty = empty only). */
+export function placesEqual(
+  a: { purchasePlace: string | null; location: string | null },
+  b: { purchasePlace: string | null; location: string | null },
+): boolean {
+  return blank(a.purchasePlace) === blank(b.purchasePlace) && blank(a.location) === blank(b.location);
+}
+
 /**
  * Design.md rule 4: two groups may join only if their places of purchase,
  * and their locations, agree — normalised as {@link planGroupFusion}

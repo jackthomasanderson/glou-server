@@ -303,7 +303,7 @@ export class ImportService {
         const result: CsvImportResult = {
           bottles: 0, wines: 0, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, staleLines: 0, createdCellars: [],
         };
-        // Units this import wrote or completed: its other lines stay apart from them (they differ by definition).
+        // Units this import wrote or completed: its other lines join them only by strictly the same places.
         const touched = new Set<string>();
         const wines = new Set<string>();
         const cigarReferences = new Set<string>();
@@ -343,7 +343,7 @@ export class ImportService {
             },
             line.count,
             this.unitSources(line),
-            { ...this.copiesOptions(line), excludeIds: touched },
+            { ...this.copiesOptions(line), strictPlacesFor: touched },
           );
           touched.add(written.unit.id);
           if (line.kind === 'cigar') {

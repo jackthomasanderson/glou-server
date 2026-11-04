@@ -97,12 +97,9 @@ export const toOpened = (v: unknown): unknown => {
  * what it is; neither of the two says anything for a closed one.
  */
 function checkOpenedState(
-  row: { opened?: boolean; quantity?: number; cigarsPerBox?: number | 'single'; cigarsLeft?: number; peakMaturityFrom?: number; peakMaturityTo?: number },
+  row: { opened?: boolean; quantity?: number; cigarsPerBox?: number | 'single'; cigarsLeft?: number},
   ctx: z.RefinementCtx,
 ) {
-  if (row.peakMaturityFrom !== undefined && row.peakMaturityTo !== undefined && row.peakMaturityTo < row.peakMaturityFrom) {
-    ctx.addIssue({ code: 'custom', message: 'INVALID_PEAK_WINDOW', path: ['peakMaturityTo'] });
-  }
   if (!row.opened) return;
   if (row.quantity !== undefined && row.quantity > 1) ctx.addIssue({ code: 'custom', message: 'INVALID_QUANTITY', path: ['quantity'] });
   if (typeof row.cigarsPerBox === 'number' && row.cigarsLeft !== undefined && row.cigarsLeft > row.cigarsPerBox) {
@@ -180,7 +177,8 @@ const familyCells: Record<keyof typeof familyFields, (v: unknown) => unknown> = 
   color: leniently(WINE_COLORS, COLOR_ALIASES),
   appellation: emptyToUndefined, classification: emptyToUndefined,
   grapeVarieties: toList, tags: toList,
-  notes: emptyToUndefined, collection: emptyToUndefined, serviceTemp: emptyToUndefined, lotNumber: emptyToUndefined,
+  notes: (v) => { const cell = emptyToUndefined(v); return typeof cell === 'string' ? cell.trim().slice(0, 2000) : cell; },
+  collection: emptyToUndefined, serviceTemp: emptyToUndefined, lotNumber: emptyToUndefined,
   peakMaturityFrom: toNum, peakMaturityTo: toNum,
   needsAeration: toOpened,
   sparklingType: leniently(SPARKLING_TYPES), sugarLevel: leniently(SUGAR_LEVELS),
@@ -192,9 +190,19 @@ const familyCells: Record<keyof typeof familyFields, (v: unknown) => unknown> = 
   recommendedHumidity: toNum, humidificationSystem: emptyToUndefined,
 };
 
-/** {@link familyFields} reading raw cells (all strings). */
+/**
+ * {@link familyFields} reading raw cells (all strings). The description is optional and a file from
+ * other software fills these columns as it likes ("Aération: 1 h", "À boire: 2025-2030"): a cell
+ * that cannot be read is left out, never a reason to refuse the row. Notes keep their first 2,000 characters.
+ */
 const rawFamilyFields = Object.fromEntries(
-  Object.entries(familyFields).map(([key, schema]) => [key, z.preprocess(familyCells[key as keyof typeof familyFields], schema)]),
+  Object.entries(familyFields).map(([key, schema]) => {
+    const read = familyCells[key as keyof typeof familyFields];
+    return [key, z.preprocess((v) => {
+      const cell = read(v);
+      return schema.safeParse(cell).success ? cell : undefined;
+    }, schema)];
+  }),
 ) as unknown as typeof familyFields;
 
 export const csvRawRowSchema = z.object({
@@ -255,7 +263,11 @@ export const csvRawRowSchema = z.object({
     z.coerce.number({ error: 'INVALID_ESTIMATED_VALUE' }).min(0, 'INVALID_ESTIMATED_VALUE').max(10_000_000, 'INVALID_ESTIMATED_VALUE').optional(),
   ).transform(toCents),
   needsReview: z.preprocess(toOpened, z.boolean({ error: 'INVALID_NEEDS_REVIEW' }).optional()),
-}).superRefine(checkOpenedState);
+}).superRefine(checkOpenedState).transform((row) => {
+  // A drinking window that ends before it starts is unreadable too: left out, like any description cell.
+  const reversed = row.peakMaturityFrom !== undefined && row.peakMaturityTo !== undefined && row.peakMaturityTo < row.peakMaturityFrom;
+  return reversed ? { ...row, peakMaturityFrom: undefined, peakMaturityTo: undefined } : row;
+});
 
 /**
  * Canonical row shape once validated — sent back by the client at /confirm
@@ -284,7 +296,11 @@ export const csvImportRowSchema = z.object({
   estimatedValue: z.number().min(0).max(10_000_000).optional(),
   needsReview: z.boolean().optional(),
   ...familyFields,
-}).superRefine(checkOpenedState);
+}).superRefine(checkOpenedState).superRefine((row, ctx) => {
+  if (row.peakMaturityFrom !== undefined && row.peakMaturityTo !== undefined && row.peakMaturityTo < row.peakMaturityFrom) {
+    ctx.addIssue({ code: 'custom', message: 'INVALID_PEAK_WINDOW', path: ['peakMaturityTo'] });
+  }
+});
 
 // #466: the row type is the contract in shared/import.ts;
 // tests/contracts/shared-contracts.test.ts checks this schema infers exactly it.

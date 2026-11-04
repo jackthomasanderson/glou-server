@@ -3,9 +3,9 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
-vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
+vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifyWarning: vi.fn() }));
 
-import { notifyError, notifySuccess } from '@/lib/toast';
+import { notifyError, notifyWarning } from '@/lib/toast';
 import { useCsvExport } from './useCsvExport';
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -57,7 +57,7 @@ describe('useCsvExport (FEAT-99)', () => {
     result.current.mutate('en');
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(notifySuccess).toHaveBeenCalledWith('gdpr.csvTooLong', { count: 620, max: 500 });
+    expect(notifyWarning).toHaveBeenCalledWith('gdpr.csvTooLong', { count: 620, max: 500 });
   });
 
   it('says nothing more for a file one import takes', async () => {
@@ -68,6 +68,6 @@ describe('useCsvExport (FEAT-99)', () => {
     result.current.mutate('en');
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(notifySuccess).not.toHaveBeenCalled();
+    expect(notifyWarning).not.toHaveBeenCalled();
   });
 });

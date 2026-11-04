@@ -133,3 +133,12 @@ describe('purchase day year bounds (H1 review)', () => {
     expect(csvImportRowSchema.safeParse({ ...base, purchasedAt: '2024-03-15' }).success).toBe(true);
   });
 });
+
+describe('drinking window of a confirmed row', () => {
+  it('refuses a window that ends before it starts (a client could send it without the preview)', () => {
+    const base = { name: 'X', producer: 'Y', category: 'wine' };
+    expect(csvImportRowSchema.safeParse({ ...base, peakMaturityFrom: 2030, peakMaturityTo: 2020 }).success).toBe(false);
+    expect(csvImportRowSchema.safeParse({ ...base, peakMaturityFrom: 2020, peakMaturityTo: 2030 }).success).toBe(true);
+  });
+});
+
