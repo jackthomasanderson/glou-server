@@ -7,7 +7,7 @@ import { test, expect } from '@playwright/test';
 //
 // ISSUE_434: the sidebar's single "bottles" entry became 3 category
 // shortcuts; this now checks the "wine" one specifically rather than a
-// link that no longer exists (`a[href="/bottles"]` with "Actifs"/"Assets").
+// link that no longer exists (`a[href="/bottles"]` with "Bouteilles"/"Bottles").
 test('the app honours the interface-language preference after a reload', async ({ page }) => {
   const wineNav = page.locator('a[href="/bottles?category=wine"]').first();
 

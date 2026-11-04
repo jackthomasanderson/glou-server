@@ -414,8 +414,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {product && (
-                    <Tooltip delay={500} content={t('qr.title')} size="sm" placement="bottom">
-                      <button onClick={() => setQrOpen(true)} className="p-1 rounded-lg hover:bg-default-100 transition-colors" aria-label={t('qr.title')}>
+                    <Tooltip delay={500} content={t('qr.title', product.category === 'cigar' ? { context: 'cigar' } : undefined)} size="sm" placement="bottom">
+                      <button onClick={() => setQrOpen(true)} className="p-1 rounded-lg hover:bg-default-100 transition-colors" aria-label={t('qr.title', product.category === 'cigar' ? { context: 'cigar' } : undefined)}>
                         <QrCode size={16} />
                       </button>
                     </Tooltip>
@@ -485,7 +485,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
       <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialProductId={product?.id} initialItemId={tastingPreset?.id} />
 
       {product && (
-        <QrCodeModal isOpen={qrOpen} onClose={() => setQrOpen(false)} itemId={product.id} itemName={wineName(product)} />
+        <QrCodeModal isOpen={qrOpen} onClose={() => setQrOpen(false)} itemId={product.id} itemName={wineName(product)} category={product.category} />
       )}
     </>
   );

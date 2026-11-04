@@ -96,6 +96,17 @@ describe('SessionReportView — surplus and finds (c3, c4)', () => {
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith([{ itemId: 'g1', action: 'add_units' }]));
   });
 
+  it('offers the missing cigars as smoked, never as drunk (V)', async () => {
+    const g1 = line('g1', { category: 'cigar', foundQuantity: 4, missingQuantity: 2 });
+    withReport({ expected: [g1], missing: [g1] });
+    render(<SessionReportView session={session} />);
+
+    fireEvent.click(screen.getByRole('radio', { name: 'inventoryCount.report.choice.drunk|2|cigar' }));
+    fireEvent.click(closeButton());
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledWith([{ itemId: 'g1', action: 'mark_consumed' }]));
+  });
+
   it('words the surplus of a cigar group in cigars, not bottles (W4)', () => {
     const g1 = line('g1', { category: 'cigar', foundQuantity: 8, surplusQuantity: 2 });
     withReport({ expected: [g1], confirmed: [g1], surplus: [g1] });

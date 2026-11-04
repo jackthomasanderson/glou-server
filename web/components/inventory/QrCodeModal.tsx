@@ -11,9 +11,11 @@ interface QrCodeModalProps {
   onClose: () => void;
   itemId: string;
   itemName: string;
+  /** A cigar's code is titled for the cigar; any other family for the wine. */
+  category?: string;
 }
 
-export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalProps) {
+export function QrCodeModal({ isOpen, onClose, itemId, itemName, category }: QrCodeModalProps) {
   const { t } = useTranslation('common');
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const isLocalhost = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
@@ -32,7 +34,7 @@ export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalPr
     <ResponsiveModal isOpen={isOpen} onClose={onClose} size="sm" placement="center">
       <ModalContent>
         <ModalHeader className="flex items-center gap-2">
-          <span className="text-base font-bold">{t('qr.title')}</span>
+          <span className="text-base font-bold">{t('qr.title', category === 'cigar' ? { context: 'cigar' } : undefined)}</span>
         </ModalHeader>
         <ModalBody className="flex flex-col items-center gap-4 py-4">
           <p className="text-sm text-foreground-500 text-center">{itemName}</p>

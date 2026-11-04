@@ -3,9 +3,9 @@ import { test, expect, type APIRequestContext, type APIResponse, type Locator, t
 /**
  * #642: editing a tasting showed its perceived maturity and expert grid
  * empty, and saving it untouched erased its perceived maturity.
- * #595: "Asset opened" after a tasting put an opened bottle back to 50 %,
+ * #595: "Bottle opened" after a tasting put an opened bottle back to 50 %,
  * opened today.
- * #586: "Asset consumed" after a cigar tasting emptied the whole box.
+ * #586: "Bottle consumed" after a cigar tasting emptied the whole box.
  */
 
 const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
@@ -127,8 +127,8 @@ test('a cigar tasting smokes one cigar: the closed box is opened, 24 left', asyn
 
     const form = await openTastingFormOf(page, name);
     const stock = await saveAndAskStock(page, form, tastingIds);
-    await expect(stock.getByRole('button', { name: 'Actif consommé (vide)' })).toHaveCount(0);
-    await expect(stock.getByRole('button', { name: 'Actif entamé' })).toHaveCount(0);
+    await expect(stock.getByRole('button', { name: 'Bouteille bue (vide)' })).toHaveCount(0);
+    await expect(stock.getByRole('button', { name: 'Bouteille entamée' })).toHaveCount(0);
 
     const patched = page.waitForResponse(
       (r) => r.url().endsWith(`/api/inventory/${itemId}`) && r.request().method() === 'PATCH',
@@ -163,8 +163,8 @@ test('a tasting never reopens an already opened bottle', async ({ page }) => {
 
     const form = await openTastingFormOf(page, name);
     const stock = await saveAndAskStock(page, form, tastingIds);
-    await expect(stock.getByRole('button', { name: 'Actif consommé (vide)' })).toBeVisible();
-    await expect(stock.getByRole('button', { name: 'Actif entamé' })).toHaveCount(0);
+    await expect(stock.getByRole('button', { name: 'Bouteille bue (vide)' })).toBeVisible();
+    await expect(stock.getByRole('button', { name: 'Bouteille entamée' })).toHaveCount(0);
     await stock.getByRole('button', { name: 'Ne pas modifier le stock' }).click();
     await expect(stock).toBeHidden();
 
@@ -198,7 +198,7 @@ test('a tasting that finishes a bottle of a group of 6 leaves 5 in stock, the fi
     const patched = page.waitForResponse(
       (r) => r.url().endsWith(`/api/inventory/${itemId}`) && r.request().method() === 'PATCH',
     );
-    await stock.getByRole('button', { name: 'Actif consommé (vide)' }).click();
+    await stock.getByRole('button', { name: 'Bouteille bue (vide)' }).click();
     const res = await patched;
     expect(res.status()).toBe(200);
     // D8: the finished bottle, and the group it came from.

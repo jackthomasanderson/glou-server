@@ -185,6 +185,20 @@ describe('FamilyStockLines', () => {
     expect(opened).toHaveFocus();
   });
 
+  it('the focus ring shows only on the line led to, and goes at blur (a plain click draws none)', () => {
+    const items = [unit({ quantity: 2, purchasePrice: 10 }), openedBottle(60, { id: 'sub' })];
+    const lines = familyLines(items, ctx.cellarName);
+    const { rerender } = render(<FamilyStockLines lines={lines} ctx={ctx} />);
+    const lineOf = (id: string) => screen.getAllByTestId('family-line').find((line) => line.dataset.lineId === id)!;
+    const other = screen.getAllByTestId('family-line').find((line) => line.dataset.lineId !== 'sub')!;
+    other.focus();
+    expect(other.dataset.ringed).toBeUndefined();
+    rerender(<FamilyStockLines lines={lines} ctx={ctx} focus={{ id: 'sub', nonce: 1 }} />);
+    expect(lineOf('sub').dataset.ringed).toBe('true');
+    fireEvent.blur(lineOf('sub'));
+    expect(lineOf('sub').dataset.ringed).toBeUndefined();
+  });
+
   it('a line "à vérifier" carries its mention and the review actions (§10.3)', () => {
     draw([unit({ quantity: 5, needsReview: true }), unit({ quantity: 2 })], {
       reviewActions: (item) => <button type="button">review {item.quantity}</button>,

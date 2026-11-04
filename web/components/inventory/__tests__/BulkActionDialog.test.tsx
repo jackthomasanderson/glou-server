@@ -13,6 +13,12 @@ vi.mock('@/hooks/useBulkPresets', () => ({
   useCreateBulkPreset: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteBulkPreset: () => ({ mutate: vi.fn(), isPending: false }),
 }));
+vi.mock('@/components/offline/OfflineBlockedButton', () => ({
+  useOfflineBlocked: () => false,
+  OfflineBlockedButton: ({ children, onPress, isDisabled }: { children?: ReactNode; onPress?: () => void; isDisabled?: boolean }) => (
+    <button type="button" onClick={onPress} disabled={isDisabled}>{children}</button>
+  ),
+}));
 vi.mock('@/components/ui/FilterControls', () => ({ FilterChip: () => null }));
 // Closed modals render nothing, like HeroUI's.
 vi.mock('@/components/ui/ResponsiveModal', () => ({

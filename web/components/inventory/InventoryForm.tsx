@@ -372,7 +372,7 @@ export function InventoryForm({
                 <span className="text-base font-semibold">
                   {descriptionOf
                     ? t(category === 'cigar' ? 'familyDrawer.form.titleCigar' : category === 'spirit' ? 'familyDrawer.form.titleSpirit' : 'familyDrawer.form.title')
-                    : isEditing ? t('inventory.edit') : t('inventory.add')}
+                    : isEditing ? t('inventory.edit', category === 'cigar' ? { context: 'cigar' } : undefined) : t('inventory.add')}
                 </span>
               </div>
               <div className="flex items-center gap-2">
