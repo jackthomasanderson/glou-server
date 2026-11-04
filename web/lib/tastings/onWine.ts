@@ -92,4 +92,7 @@ export function tastedWineTitle(note: Pick<TastingNote, 'item' | 'product'>): st
 export const tastedPhoto = (note: Pick<TastingNote, 'item' | 'product'>) => note.item?.photoUrl ?? note.product?.photoUrl ?? undefined;
 
 /** A tasting of a known wine, not of a bottle of the cellar ("Goûté ailleurs"). */
-export const isTastedElsewhere = (note: Pick<TastingNote, 'itemId' | 'productId'>) => !note.itemId && !!note.productId;
+// #471 (FEAT-109): a guest's tasting without a bottle was noted on a wine of
+// the shared cellar, not tasted elsewhere — its signature says who.
+export const isTastedElsewhere = (note: Pick<TastingNote, 'itemId' | 'productId' | 'guestName'>) =>
+  !note.itemId && !!note.productId && note.guestName == null;

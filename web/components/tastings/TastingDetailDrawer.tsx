@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { isTastedElsewhere, tastedPhoto, tastedWineTitle } from '@/lib/tastings/onWine';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { formatDate } from '@/lib/format';
+import { guestSignature } from '@/lib/shares/guestSignature';
 
 interface TastingDetailDrawerProps {
   note: TastingNote | null;
@@ -89,6 +90,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
                 })}
                 {note.context ? ` · ${note.context}` : ''}
                 {isTastedElsewhere(note) ? ` · ${t('familyDrawer.tastings.elsewhere')}` : ''}
+                {note.guestName != null ? ` · ${guestSignature(note.guestName, t)}` : ''}
               </p>
             </div>
           </div>

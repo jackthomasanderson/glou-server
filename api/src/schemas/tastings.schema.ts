@@ -18,7 +18,7 @@ export const tastedWineSchema = z.object({
   format: z.string().trim().max(100).optional().nullable(),
 });
 
-const tastingFields = {
+export const tastingFields = {
   // A cleared date field sends '': no date, i.e. today on create and
   // unchanged on edit, instead of a 400 (#704).
   tastedAt: z.preprocess((v) => (v === '' ? undefined : v), z.string().date().optional()).optional(),
