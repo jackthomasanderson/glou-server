@@ -1,4 +1,4 @@
-# Manage my wine cellars
+# Manage my cellars, wines and bottles
 
 **TL;DR**: Organize your bottles by storage zone (aging, service, display).
 
@@ -23,6 +23,45 @@
 ### Move bottles in the cellar grid, with mouse or keyboard
 - **Mouse or touch**: drag a bottle onto an empty slot.
 - **Keyboard**: focus a slot and press `Enter` to open the bottle's details, or `Space` to pick it up. Move with the arrow keys, one cell at a time, then press `Space` again to drop it. `Escape` cancels. Each step is announced to screen readers.
+
+## A wine, its lines and its bottles
+
+**TL;DR**: One wine = one card in the list, whatever the number of bottles. Its identical bottles (same cellar, price, bottle size and purchase date, all intact) make a **line** "×4". Open the card to act on a line or on a single bottle.
+
+### Reading the list and the counters
+- The card shows the stock: "5 full · 1 opened (60 %)". For cigars: "3 closed boxes · 1 opened · 4 single".
+- Figures count **bottles** (or **cigars**), not records: "142 bottles · 58 wines" on Wines, "23 bottles · 17 spirits" on Spirits, "34 bottles · 12 cuvées" on Sparkling, "89 cigars · 12 references" on Cigars, "165 bottles · 89 cigars" on the home page. Value and spending follow: the price and estimated value are those of **one** bottle, multiplied by the number.
+- Filtered by cellar, the card reads "2 here · 9 in all".
+- A wine with no bottle left (all drunk, or tasted elsewhere) is **hidden** from the list. The **No longer in the cellar** filter shows it ("No bottle left"; "No cigar left") and the search always finds it. **Add bottles** puts it back in the cellar. It keeps its tastings and history.
+- A cellar plan shows a line of identical bottles on **one** slot, with a "×4" badge.
+
+### I'm opening one, I'm drinking one, I'm smoking one
+In the wine's drawer, **I'm opening one** (the main button; **I'm smoking one** for a cigar) and **I'm drinking one** (a secondary button) act on **one** bottle only: it detaches from its line (×4 becomes ×3) and becomes a bottle of its own, opened or drunk. A drunk bottle stays in your history and spending. For a line of a single bottle, that bottle changes state.
+- If several lines could serve, Glou asks **Which bottles?** with a choice already selected: the cellar you were looking at, otherwise the oldest purchase; on a tie (or no date), the cheapest, then the largest line.
+- A message **"1 bottle opened · Undo"** stays for 5 seconds: **Undo** puts the bottle back with the others.
+- If a bottle of this wine is already opened, Glou reminds you: "A bottle is already opened (60 %)": **Finish the opened one** or **Open a new one**. When marking a bottle as drunk: "Is it the one you finished?" (Yes: the opened one is marked drunk; No: a full bottle is). The [consumption plan](./22-Consumption-Plan.md) suggests finishing the opened one first.
+- Cigars: smoking the first cigar of a closed box opens it ("opened box, 24 left"). With an opened box and closed boxes, Glou asks "From the opened box or open a new one?". A smoked single cigar stays in your history like a drunk bottle.
+
+### Putting an opened bottle back
+In the menu of an opened bottle, **Undo the opening** (or setting its level back to "Full") puts it back with the others: it rejoins its original line (×5 becomes ×6) if it is identical to it, otherwise it makes a line ×1. If a tasting had been noted on that bottle, Glou first asks whether to keep it (it then stays on the wine) or not. After **Don't keep it**, the "Undo" message reopens the bottle but does not bring the erased tasting back.
+
+### Actions on a line
+A line's menu offers:
+- **Move**: "How many to move?" then the cellar. The line splits (Garage ×4, Kitchen ×2); a line that becomes identical to another one joins it.
+- **Change the price**: "For how many bottles?". Repricing only part of a line splits it.
+- **Correct the number** (downwards, with its reason) and **Edit** (purchase date, place, location…): see [05-Bottle-Addition.md](./05-Bottle-Addition.md).
+- **Move to trash**: the line can be restored from the trash.
+
+The wine's description (name, region, grapes, notes…) is edited **once for all its bottles** from the drawer's edit button.
+
+### Bulk actions on wines
+Select wines, then **Move**, **Mark as drunk** or **Move to trash**: the action applies to **every bottle in the cellar** of those wines, after a summary ("3 wines, 14 bottles"). For part of a wine, open it. **Mark as drunk** asks how many for each wine with several bottles (1 by default; starting with the opened one). Bulk-action templates that changed a state (opened, level, opening date) were deleted by the update. Bulk actions are unavailable offline.
+
+### The trash
+Trashing a line, bottles (bulk action) or a whole wine is **restorable** from the **Trash** tab until the end of the displayed delay ("N days left before permanent deletion"). At purge time:
+* if it is the **bottles** of a wine that go, the wine stays "No longer in the cellar" **only if it has tastings**; otherwise it disappears too;
+* if it is the **wine itself** you moved to the trash, it is erased for good, **tastings included** (the confirmation window says so).
+Correcting a number with the reason "Input error" sends nothing to the trash: the bottles simply disappear (see [05-Bottle-Addition.md](./05-Bottle-Addition.md)).
 
 ## Humidor hygrometry monitoring
 

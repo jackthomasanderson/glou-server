@@ -1,4 +1,4 @@
-# Gérer mes caves à vin
+# Gérer mes caves, mes vins et mes bouteilles
 
 **TL;DR** : Organisez vos bouteilles par zone de stockage (vieillissement, service, vitrine).
 
@@ -23,6 +23,45 @@
 ### Déplacer des bouteilles dans la grille, à la souris ou au clavier
 - **Souris ou tactile** : glissez une bouteille sur un emplacement vide.
 - **Clavier** : placez le focus sur un emplacement, puis `Entrée` ouvre le détail de la bouteille et `Espace` la saisit. Déplacez-la avec les flèches, une case à la fois, puis rappuyez sur `Espace` pour la déposer. `Échap` annule. Chaque étape est annoncée aux lecteurs d'écran.
+
+## Un vin, ses lignes et ses bouteilles
+
+**TL;DR** : Un vin = une carte dans la liste, quel que soit le nombre de bouteilles. Ses bouteilles identiques (même cave, même prix, même contenance, même date d'achat, toutes intactes) forment une **ligne** « ×4 ». Ouvrez la carte pour agir sur une ligne ou sur une seule bouteille.
+
+### Lire la liste et les compteurs
+- La carte indique le stock : « 5 pleines · 1 entamée (60 %) ». Pour les cigares : « 3 boîtes fermées · 1 entamée · 4 à l'unité ».
+- Les chiffres comptent des **bouteilles** (ou des **cigares**), pas des enregistrements : « 142 bouteilles · 58 vins » sur Vins, « 23 bouteilles · 17 spiritueux » sur Spiritueux, « 34 bouteilles · 12 cuvées » sur Bulles, « 89 cigares · 12 références » sur Cigares, « 165 bouteilles · 89 cigares » sur l'accueil. La valeur et les dépenses suivent : prix et valeur estimée sont ceux d'**une** bouteille, multipliés par le nombre.
+- Filtrée par cave, la carte indique « 2 ici · 9 en tout ».
+- Un vin dont il ne reste aucune bouteille (tout bu, ou goûté ailleurs) est **caché** de la liste. Le filtre **Plus en cave** l'affiche (« Plus de bouteille » ; « Plus de cigare ») ; la recherche le retrouve toujours. **Ajouter des bouteilles** le remet en cave. Il garde ses dégustations et son historique.
+- Un plan de cave affiche une ligne de bouteilles identiques sur **une** case, avec un badge « ×4 ».
+
+### J'en ouvre une, j'en bois une, j'en fume un
+Dans le tiroir du vin, **J'en ouvre une** (bouton principal ; **J'en fume un** pour un cigare) et **J'en bois une** (bouton secondaire) agissent sur **une seule** bouteille : elle se détache de sa ligne (×4 devient ×3) et devient une bouteille à part, entamée ou bue. Une bouteille bue reste dans votre historique et vos dépenses. Pour une ligne d'une seule bouteille, c'est cette bouteille qui change d'état.
+- Si plusieurs lignes peuvent servir, Glou demande **Quelles bouteilles ?** avec un choix déjà sélectionné : la cave que vous regardiez, sinon l'achat le plus ancien ; à égalité de date (ou sans date), la moins chère puis la ligne la plus nombreuse.
+- Un message **« 1 bouteille ouverte · Annuler »** reste affiché 5 secondes : **Annuler** remet la bouteille avec les autres.
+- Si une bouteille de ce vin est déjà entamée, Glou vous le rappelle : « Une bouteille est déjà entamée (60 %) » — **Finir l'entamée** ou **En ouvrir une nouvelle**. En marquant une bouteille comme bue : « C'est elle que vous avez finie ? » (Oui : l'entamée passe en bue ; Non : une bouteille pleine passe en bue). Le [plan de consommation](./22-Plan-De-Consommation.md) propose de finir l'entamée d'abord.
+- Cigares : fumer le premier cigare d'une boîte fermée l'entame (« boîte entamée, 24 restants »). Avec une boîte entamée et des boîtes fermées, Glou demande « Dans la boîte entamée ou en ouvrir une nouvelle ? ». Un cigare à l'unité fumé reste dans l'historique comme une bouteille bue.
+
+### Remettre une bouteille entamée
+Dans le menu d'une bouteille entamée, **Annuler l'ouverture** (ou remettre son niveau à « Pleine ») la remet avec les autres : elle rejoint sa ligne d'origine (×5 devient ×6) si elle y est identique, sinon elle forme une ligne ×1. Si une dégustation avait été notée sur cette bouteille, Glou demande d'abord de la garder (elle reste alors sur le vin) ou non. Après **Ne pas la garder**, le message « Annuler » rouvre la bouteille mais ne rend pas la dégustation effacée.
+
+### Actions sur une ligne
+Le menu d'une ligne propose :
+- **Déplacer** : « Combien déplacer ? » puis la cave. La ligne se scinde (Garage ×4, Cuisine ×2) ; une ligne qui devient identique à une autre la rejoint.
+- **Changer le prix** : « Pour combien de bouteilles ? ». Le prix d'une partie seulement scinde la ligne.
+- **Corriger le nombre** (à la baisse, avec son motif) et **Modifier** (date d'achat, lieu, emplacement…) : voir [05-Ajout-Bouteille.md](./05-Ajout-Bouteille.md).
+- **Mettre à la corbeille** : la ligne se restaure depuis la corbeille.
+
+La description du vin (nom, région, cépages, notes…) se modifie **une fois pour toutes ses bouteilles** depuis le bouton de modification du tiroir.
+
+### Actions groupées sur des vins
+Sélectionnez des vins puis **Déplacer**, **Marquer comme bus** ou **Mettre à la corbeille** : l'action s'applique à **toutes les bouteilles en cave** de ces vins, après un résumé (« 3 vins, 14 bouteilles »). Pour une partie d'un vin, ouvrez-le. **Marquer comme bus** demande combien pour chaque vin de plusieurs bouteilles (1 par défaut ; en commençant par l'entamée). Les modèles d'actions groupées qui modifiaient l'état (entamée, niveau, date d'ouverture) ont été supprimés à la mise à jour. Hors connexion, les actions groupées sont indisponibles.
+
+### La corbeille
+Mettre à la corbeille une ligne, des bouteilles (action groupée) ou un vin entier est **restaurable** depuis l'onglet **Corbeille** jusqu'à la fin du délai affiché (« N jours restants avant suppression définitive »). À la purge :
+* si ce sont les **bouteilles** d'un vin qui partent, le vin reste « Plus en cave » **seulement s'il a des dégustations** ; sinon il disparaît aussi ;
+* si c'est le **vin lui-même** que vous avez mis à la corbeille, il est effacé pour de bon, **dégustations comprises** (la fenêtre de confirmation le rappelle).
+Corriger un nombre avec le motif « Erreur de saisie » n'envoie rien à la corbeille : les bouteilles disparaissent (voir [05-Ajout-Bouteille.md](./05-Ajout-Bouteille.md)).
 
 ## Suivi hygrométrique (cave Humidor)
 

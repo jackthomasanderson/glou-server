@@ -48,12 +48,12 @@ Action codes recorded by the system:
 | `LOGIN_2FA` | Login via two-factor authentication |
 | `LOGOUT` | Logout |
 | `REGISTER` | Account creation |
-| `CREATE` | Asset creation (bottle, etc.) |
-| `READ` | Asset read |
-| `LIST` | Asset listing |
-| `UPDATE` | Asset update |
-| `DELETE` | Asset deletion |
-| `RESTORE` | Archived asset restore |
+| `CREATE` | Creation of a bottle, a wine, etc. |
+| `READ` | Bottle read |
+| `LIST` | Bottle listing |
+| `UPDATE` | Update of a bottle or a wine |
+| `DELETE` | Deletion (to trash) of a bottle or a wine |
+| `RESTORE` | Restore from the trash |
 | `CELLAR_CREATE` | Cellar creation |
 | `CELLAR_READ` | Cellar read |
 | `CELLAR_UPDATE` | Cellar update |

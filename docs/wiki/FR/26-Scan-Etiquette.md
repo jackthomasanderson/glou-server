@@ -13,8 +13,8 @@ Le bouton « Scanner une étiquette » ouvre l'appareil photo, envoie la photo �
 2. Photographiez l'étiquette de la bouteille, du spiritueux ou de la boîte de cigares, avec un cadrage net et une luminosité correcte.
 3. Patientez pendant l'analyse (« Analyse de l'étiquette en cours… ») : le traitement est asynchrone et peut prendre plusieurs dizaines de secondes sur un serveur sans GPU, le modèle tournant en CPU par défaut.
 4. Vérifiez et corrigez les informations détectées (nom, producteur, millésime, catégorie, contenance). Tous les champs restent éditables avant validation.
-5. Si le produit ressemble à un item déjà en stock, une alerte de doublon s'affiche (voir déduplication universelle) : choisissez d'incrémenter le stock existant ou de créer une nouvelle fiche.
-6. Cliquez **Confirmer et ajouter**. L'item est créé immédiatement (pas de brouillon en attente) et ajouté au panier « À Ranger » de la session.
+5. Si le vin est déjà dans votre cave, **Vous avez déjà ce vin** s'affiche (voir [05-Ajout-Bouteille.md](./05-Ajout-Bouteille.md)) : **Ajouter des bouteilles à ce vin** (nombre, cave, prix) ou **C'est un autre vin**.
+6. Cliquez **Confirmer et ajouter**. Les bouteilles sont créées immédiatement (pas de brouillon en attente) et ajoutées au panier « À Ranger » de la session (« Ajouté à votre vin », « … spiritueux », « … cigare » quand elles rejoignent un vin existant).
 7. Cliquez **Scanner l'article suivant** pour enchaîner sans quitter l'appareil photo, pour tout un lot de bouteilles.
 8. Cliquez **Terminer** pour clore la session. Le panier « À Ranger » conserve l'ordre de scan pour faciliter le rangement physique.
 
@@ -41,4 +41,4 @@ Le bouton « Scanner une étiquette » ouvre l'appareil photo, envoie la photo �
 | **« Cette photo n'a pas pu être envoyée »** | La photo dépasse 10 Mo ou n'est ni en JPEG, ni en PNG, ni en WebP, ni en GIF. |
 | **« L'analyse de l'étiquette a échoué pour une raison technique »** | Tout autre échec. Le journal de l'API (`[scan] Job … failed`) en donne la cause. |
 | **Les informations détectées sont fausses ou incomplètes** | Attendu avec un modèle de vision léger : corrigez manuellement les champs avant de cliquer « Confirmer et ajouter ». Rien n'est jamais enregistré sans validation explicite de votre part. |
-| **Doublon signalé alors que ce n'est pas le même produit** | La détection de doublon compare nom/producteur/millésime. Si deux bouteilles différentes ont des libellés très proches, choisissez de créer une nouvelle fiche plutôt que d'incrémenter le stock existant. |
+| **Doublon signalé alors que ce n'est pas le même produit** | La détection de doublon compare nom/producteur/millésime. Si deux bouteilles différentes ont des libellés très proches, choisissez **C'est un autre vin** plutôt que d'ajouter au vin existant. |

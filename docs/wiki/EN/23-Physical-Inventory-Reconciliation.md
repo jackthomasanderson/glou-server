@@ -29,5 +29,5 @@ From **Physical Inventory**, start a session scoped to a cellar or a free-form a
 | **"An inventory session is already in progress"** | Only one active session is allowed per instance. Resume the existing session or close it before starting a new one. |
 | **"Move to this scope" is greyed out** | This action requires a scope tied to a real cellar. A free-form scope has no target cellar to move items into. |
 | **No expected list shows up** | Expected for a free-form scope: without a linked cellar, the system cannot know which bottles should be there. Anything you confirm is recorded as found. |
-| **"N corrections couldn't be applied"** after closing | Those bottles changed between the summary and the closure (drunk, corrected or trashed by another member). Check them on their card. |
+| **"N corrections couldn't be applied"** after closing | Those bottles changed between the summary and the closure (drunk, corrected or trashed by another member). Check them on the wine's card. |
 | **Another member sees/edits my in-progress session** | Expected: inventory is shared at the instance level, so any session is visible and actionable by every member, not just its creator. |

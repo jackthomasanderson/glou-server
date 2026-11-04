@@ -29,5 +29,5 @@ Depuis **Inventaire physique**, démarrez une session sur une cave ou un périm�
 | **« Une session d'inventaire est déjà en cours »** | Une seule session active est autorisée par instance. Reprenez la session existante ou clôturez-la avant d'en démarrer une nouvelle. |
 | **« Déplacer vers ce périmètre » est grisé** | Cette action nécessite un périmètre lié à une vraie cave. Un périmètre libre n'a pas de cave cible pour le déplacement. |
 | **Aucune liste théorique ne s'affiche** | Normal pour un périmètre libre : sans cave associée, le système ne peut pas savoir quelles bouteilles sont censées s'y trouver. Tout ce que vous confirmez est traité comme trouvé. |
-| **« N corrections n'ont pas pu être appliquées »** après la clôture | Les bouteilles concernées ont changé entre le bilan et la clôture (bues, corrigées ou mises à la corbeille par un autre membre). Vérifiez-les dans leur fiche. |
+| **« N corrections n'ont pas pu être appliquées »** après la clôture | Les bouteilles concernées ont changé entre le bilan et la clôture (bues, corrigées ou mises à la corbeille par un autre membre). Vérifiez-les sur la carte du vin. |
 | **Un autre membre voit/modifie ma session en cours** | Attendu : l'inventaire est partagé au niveau de l'instance, donc toute session est visible et actionnable par tous les membres, pas seulement par son créateur. |
