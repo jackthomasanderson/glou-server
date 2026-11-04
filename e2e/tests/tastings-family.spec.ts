@@ -70,7 +70,10 @@ test('a tasting elsewhere of a wine in stock leaves its 6 bottles', async ({ pag
     await drawer.getByRole('button', { name: 'Dégustation', exact: true }).click();
     const form = page.getByRole('dialog').filter({ hasText: 'Nouvelle dégustation' });
     await expect(form.getByText('Sur une bouteille de la cave ?')).toBeVisible();
-    await form.getByText('Non, goûté ailleurs').click();
+    // HeroUI lays the radio input over its label: the radio itself takes the click.
+    const elsewhere = form.getByRole('radio', { name: 'Non, goûté ailleurs' });
+    await elsewhere.click();
+    await expect(elsewhere).toBeChecked();
 
     const created = page.waitForResponse((r) => /\/api\/tastings\/?$/.test(r.url()) && r.request().method() === 'POST');
     await form.getByRole('button', { name: 'Enregistrer', exact: true }).click();
