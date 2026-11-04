@@ -204,7 +204,8 @@ describe('FamilyStockLines — waiting for the network (FEAT-108, ux-ui.md §10.
     ], { pendingIds: new Set(['g']), lineActions, onLevelCommit });
 
     const [group, provisional] = screen.getAllByTestId('family-line');
-    expect(within(group).getByTestId('line-pending')).toHaveAccessibleName('Modifié hors-ligne — en attente de synchronisation');
+    // Read by screen readers as an image with its name (review of #823, N5).
+    expect(within(group).getByRole('img', { name: 'Modifié hors-ligne — en attente de synchronisation' })).toBe(within(group).getByTestId('line-pending'));
     expect(within(provisional).getByTestId('line-pending')).toBeInTheDocument();
     // The group keeps its menu; the provisional bottle has no menu and no level (no id on the server yet).
     expect(lineActions).toHaveBeenCalledTimes(1);

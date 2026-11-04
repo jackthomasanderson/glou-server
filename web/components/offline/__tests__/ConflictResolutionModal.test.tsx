@@ -19,6 +19,19 @@ vi.mock('@/lib/offline/db', () => ({
   putQueuedMutation: vi.fn(async (m: QueuedMutation) => { store.set(m.id, m); }),
   deleteQueuedMutation: vi.fn(async (id: string) => { store.delete(id); }),
   getQueuedMutation: vi.fn(async (id: string) => store.get(id)),
+  claimQueuedMutation: vi.fn(async (id: string) => {
+    const found = store.get(id);
+    if (!found || found.status !== 'pending') return undefined;
+    const claimed = { ...found, status: 'syncing' as const };
+    store.set(id, claimed);
+    return claimed;
+  }),
+  takeQueuedMutationUnlessSyncing: vi.fn(async (id: string) => {
+    const found = store.get(id);
+    if (!found || found.status === 'syncing') return undefined;
+    store.delete(id);
+    return found;
+  }),
   rewriteCachedItems: vi.fn(async () => {}),
 }));
 vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => true }));
@@ -45,8 +58,8 @@ vi.mock('@/components/ui/ResponsiveModal', () => ({
     isOpen ? <div role="dialog">{children}</div> : null,
 }));
 vi.mock('@heroui/react', () => ({
-  Button: ({ children, onPress, isDisabled }: { children?: ReactNode; onPress?: () => void; isDisabled?: boolean }) => (
-    <button type="button" onClick={onPress} disabled={isDisabled}>{children}</button>
+  Button: ({ children, onPress, isDisabled, 'data-primary': primary }: { children?: ReactNode; onPress?: () => void; isDisabled?: boolean; 'data-primary'?: boolean }) => (
+    <button type="button" onClick={onPress} disabled={isDisabled} data-primary={primary === undefined ? undefined : String(primary)}>{children}</button>
   ),
   Chip: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   ModalContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
@@ -166,6 +179,33 @@ describe('ConflictResolutionModal (#585)', () => {
     expect(action).toHaveTextContent('×6 quand vous avez agi, ×3 maintenant');
     // Not as fields ("Ouvert : oui / non").
     expect(within(dialog).queryByText(fr.offline.conflict.field)).toBeNull();
+  });
+});
+
+describe('ConflictResolutionModal — a drink that may already be recorded (review of #823, N1)', () => {
+  it('×6 then, ×5 now: says the connection may have dropped, and puts « Garder la version serveur » first', async () => {
+    store.set('A', {
+      ...conflict('A', 't1', { isOpened: true, fillLevel: 0 }),
+      before: { quantity: 6 },
+      conflictServerItem: { ...serverItem, isOpened: false, fillLevel: 100, quantity: 5 } as unknown as QueuedMutation['conflictServerItem'],
+    });
+    page();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByTestId('conflict-maybe-recorded')).toHaveTextContent(fr.offline.conflict.maybeRecorded);
+    expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepServer })).toHaveAttribute('data-primary', 'true');
+    expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepLocal })).toHaveAttribute('data-primary', 'false');
+  });
+
+  it('×6 then, ×4 now (changed elsewhere): no such hint, « Garder ma version » stays first', async () => {
+    store.set('A', {
+      ...conflict('A', 't1', { isOpened: true, fillLevel: 0 }),
+      before: { quantity: 6 },
+      conflictServerItem: { ...serverItem, isOpened: false, fillLevel: 100, quantity: 4 } as unknown as QueuedMutation['conflictServerItem'],
+    });
+    page();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByTestId('conflict-maybe-recorded')).toBeNull();
+    expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepLocal })).toHaveAttribute('data-primary', 'true');
   });
 });
 

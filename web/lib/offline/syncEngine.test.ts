@@ -22,6 +22,20 @@ vi.mock('./db', () => ({
     store.delete(id);
   }),
   getQueuedMutation: vi.fn(async (id: string) => store.get(id)),
+  // One step each, like the IndexedDB transactions they stand for.
+  claimQueuedMutation: vi.fn(async (id: string) => {
+    const found = store.get(id);
+    if (!found || found.status !== 'pending') return undefined;
+    const claimed = { ...found, status: 'syncing' as const };
+    store.set(id, claimed);
+    return claimed;
+  }),
+  takeQueuedMutationUnlessSyncing: vi.fn(async (id: string) => {
+    const found = store.get(id);
+    if (!found || found.status === 'syncing') return undefined;
+    store.delete(id);
+    return found;
+  }),
   rewriteCachedItems: vi.fn(async (change: (items: Array<{ id: string }>) => Array<{ id: string }>) => {
     const after = change([...cachedItems.values()] as Array<{ id: string }>);
     cachedItems.clear();
@@ -484,7 +498,11 @@ function groupServer(quantity: number) {
   const received: Array<{ url: string; method: string; body: Record<string, unknown> }> = [];
   /** Lets the request reach the server, then cuts the answer (the network dropped meanwhile). */
   let loseNextAnswer = false;
+  const subs: Array<Record<string, unknown>> = [];
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    if ((init?.method ?? 'GET') === 'GET' && url === '/api/products/p1') {
+      return { ok: true, status: 200, json: async () => ({ data: { id: 'p1', items: [group, ...subs] } }) } as Response;
+    }
     const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
     received.push({ url, method: init?.method ?? 'GET', body });
     if (body.expectedUpdatedAt !== group.updatedAt) return errResponse(409, { error: 'CONFLICT', data: group });
@@ -496,7 +514,11 @@ function groupServer(quantity: number) {
       answer = { data: { id: `w-${version}`, productId: 'p1', quantity: gone, writtenOffAt: 'now', updatedAt: `w-${version}` }, changed: [group], removedIds: [] };
     } else {
       group = { ...group, quantity: group.quantity - 1, updatedAt: `g-${version}` };
-      const sub = { id: `s-${version}`, productId: 'p1', quantity: 1, isOpened: true, fillLevel: body.fillLevel, parentItemId: 'g', updatedAt: `s-${version}` };
+      const sub = {
+        id: `s-${version}`, productId: 'p1', quantity: 1, isOpened: true, fillLevel: body.fillLevel,
+        openedAt: body.openedAt ?? null, parentItemId: 'g', deletedAt: null, updatedAt: `s-${version}`,
+      };
+      subs.push(sub);
       answer = { data: sub, changed: [group], removedIds: [] };
     }
     if (loseNextAnswer) {
@@ -597,8 +619,8 @@ describe('FEAT-108 — shown at once, sent once', () => {
     expect(lines(card())).toEqual([['g', 4, false], [provisionalIdOf(second.id), 1, true], ['s-2', 1, true]]);
   });
 
-  it('c3: a change replayed after its answer was lost is refused, never a ×4', async () => {
-    const { qc } = wineCaches();
+  it('c3 / review N1: an opening replayed after its answer was lost is recognised by its opening time — done once, no conflict', async () => {
+    const { qc, card } = wineCaches();
     const m = await enqueueMutation(qc, 'g', OPEN, 'g-1', { productId: 'p1' });
     const server = groupServer(6);
     vi.stubGlobal('fetch', server.fetchMock);
@@ -607,11 +629,41 @@ describe('FEAT-108 — shown at once, sent once', () => {
     await flushQueue(qc); // reached the server, no answer: still waiting
     expect(store.get(m.id)?.status).toBe('pending');
     cancelSyncRetry();
-    await flushQueue(qc); // replayed: the group moved on, refused
+    await flushQueue(qc); // replayed: refused (409), then found on the server
 
     expect(server.group().quantity).toBe(5);
-    expect(server.received).toHaveLength(2);
+    expect(server.received.filter((r) => r.method === 'PATCH')).toHaveLength(2);
+    expect(store.size).toBe(0);
+    expect(lines(card())).toEqual([['g', 5, false], ['s-2', 1, true]]);
+  });
+
+  it('c3: a drink replayed after its answer was lost is refused (never a ×4) and left to the member', async () => {
+    const { qc } = wineCaches();
+    const m = await enqueueMutation(qc, 'g', { isOpened: true, fillLevel: 0 }, 'g-1', { productId: 'p1' });
+    const server = groupServer(6);
+    vi.stubGlobal('fetch', server.fetchMock);
+    server.loseNextAnswer();
+
+    await flushQueue(qc);
+    cancelSyncRetry();
+    await flushQueue(qc);
+
+    expect(server.group().quantity).toBe(5);
+    expect(store.get(m.id)).toMatchObject({ status: 'conflict', before: { quantity: 6 }, conflictServerItem: { quantity: 5 } });
+  });
+
+  it('an opening by someone else at another time is not taken for this one', async () => {
+    const { qc } = wineCaches();
+    const m = await enqueueMutation(qc, 'g', OPEN, 'g-1', { productId: 'p1' });
+    const server = groupServer(6);
+    vi.stubGlobal('fetch', server.fetchMock);
+    // Another device opens one meanwhile, a minute later.
+    await server.fetchMock('/api/inventory/g', { method: 'PATCH', body: JSON.stringify({ ...OPEN, openedAt: '2026-11-04T10:01:00.000Z', expectedUpdatedAt: 'g-1' }) });
+
+    await flushQueue(qc);
+
     expect(store.get(m.id)?.status).toBe('conflict');
+    expect(server.group().quantity).toBe(5);
   });
 
   it('c4: changed by another member meanwhile, the action is a conflict, not applied, and the screen shows the server\'s line', async () => {
@@ -714,6 +766,23 @@ describe('FEAT-108 — "Annuler" before the network is back', () => {
     store.set(m.id, { ...store.get(m.id)!, status: 'syncing' });
     expect(await discardQueuedMutation(m.id, qc)).toBe(false);
     expect(store.has(m.id)).toBe(true);
+  });
+
+  it('review N4: « Annuler » pressed while the change is being sent is refused — it is recorded, not dropped', async () => {
+    const { qc } = wineCaches();
+    const m = await enqueueMutation(qc, 'g', OPEN, 'g-1', { productId: 'p1' });
+    const server = groupServer(6);
+    let dropped: boolean | undefined;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      dropped = await discardQueuedMutation(m.id, qc);
+      return server.fetchMock(url, init);
+    }));
+
+    await flushQueue(qc);
+
+    expect(dropped).toBe(false);
+    expect(server.group().quantity).toBe(5);
+    expect(store.size).toBe(0);
   });
 
   it('a change dropped while the replay runs is never sent', async () => {

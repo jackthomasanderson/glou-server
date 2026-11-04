@@ -1,19 +1,13 @@
 'use client';
 import React from 'react';
 import { ToastProvider } from '@heroui/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createQueryClient } from '@/lib/queryClient';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { I18nProvider } from './I18nProvider';
 import { ThemeWrapper } from '@/components/ui/ThemeWrapper';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 2,
-      staleTime: 1000 * 30,
-    },
-  },
-});
+const queryClient = createQueryClient();
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (

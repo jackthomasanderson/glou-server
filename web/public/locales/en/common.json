@@ -2129,10 +2129,11 @@
       "keepServer": "Keep server version",
       "decideLater": "Decide later",
       "noDifference": "Your change and the server version hold the same values.",
-      "yourAction": "Your action",
-      "line": "This line",
+      "yourAction": "Your action:",
+      "line": "This line:",
       "lineThenNow": "×{{then}} when you acted, ×{{now}} now",
-      "actionHint": "“Keep my version” applies your action to the line as it is now; “Keep server version” drops it."
+      "actionHint": "“Keep my version” applies your action to the line as it is now; “Keep server version” drops it.",
+      "maybeRecorded": "The connection may have dropped while it was being sent: your action may already be recorded. If so, keep the server version."
     },
     "blocked": "Available when the connection is back",
     "undoTooLate": "Already being sent: it can no longer be undone from here.",

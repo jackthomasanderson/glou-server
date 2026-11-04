@@ -146,6 +146,39 @@ export async function putQueuedMutation(mutation: QueuedMutation): Promise<void>
   await db.put('sync_queue', mutation);
 }
 
+/**
+ * FEAT-108 (review of #823): takes a change for sending — only if it is
+ * still `pending` — and marks it `syncing`, in ONE transaction: an
+ * « Annuler » can no longer drop it between the check and the mark (and
+ * see it sent anyway). Undefined when it is gone or not pending.
+ */
+export async function claimQueuedMutation(id: string): Promise<QueuedMutation | undefined> {
+  const db = await getOfflineDB();
+  const tx = db.transaction('sync_queue', 'readwrite');
+  const found = await tx.store.get(id);
+  let claimed: QueuedMutation | undefined;
+  if (found && found.status === 'pending') {
+    claimed = { ...found, status: 'syncing' };
+    await tx.store.put(claimed);
+  }
+  await tx.done;
+  return claimed;
+}
+
+/**
+ * FEAT-108 (review of #823): drops a change unless it is being sent, in ONE
+ * transaction (« Annuler » racing the replay). Returns what was dropped.
+ */
+export async function takeQueuedMutationUnlessSyncing(id: string): Promise<QueuedMutation | undefined> {
+  const db = await getOfflineDB();
+  const tx = db.transaction('sync_queue', 'readwrite');
+  const found = await tx.store.get(id);
+  const taken = found && found.status !== 'syncing' ? found : undefined;
+  if (taken) await tx.store.delete(id);
+  await tx.done;
+  return taken;
+}
+
 export async function deleteQueuedMutation(id: string): Promise<void> {
   const db = await getOfflineDB();
   await db.delete('sync_queue', id);

@@ -1,16 +1,35 @@
 'use client';
-import React, { useId } from 'react';
+import React, { useId, useSyncExternalStore } from 'react';
 import { Button, Tooltip, type ButtonProps } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
 import { useConnectivity } from '@/hooks/useConnectivity';
 
+function subscribeToNetwork(onChange: () => void): () => void {
+  window.addEventListener('online', onChange);
+  window.addEventListener('offline', onChange);
+  return () => {
+    window.removeEventListener('online', onChange);
+    window.removeEventListener('offline', onChange);
+  };
+}
+
+/** The browser's own network state, followed live; online on the server (no hydration mismatch). */
+export function useNavigatorOnline(): boolean {
+  return useSyncExternalStore(subscribeToNetwork, () => navigator.onLine !== false, () => true);
+}
+
 /**
  * FEAT-108 (ux-ui.md §10.8): true while the device is known to be offline —
  * the actions that need the server (add bottles, move or reprice part of a
- * line, merge two wines) are then shown disabled, with the reason.
+ * line, merge two wines) are then shown disabled, with the reason. Review of
+ * #823 (N2): the probe only learns "offline" from an `offline` event during
+ * the session; an app started already offline (the cellar underground) is
+ * caught by the browser's own state.
  */
 export function useOfflineBlocked(): boolean {
-  return useConnectivity() === false;
+  const reachable = useConnectivity();
+  const networkUp = useNavigatorOnline();
+  return reachable === false || !networkUp;
 }
 
 /**

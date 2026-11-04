@@ -10,9 +10,11 @@ import {
   deleteQueuedMutation,
   getQueuedMutation,
   rewriteCachedItems,
+  claimQueuedMutation,
+  takeQueuedMutationUnlessSyncing,
 } from './db';
 import {
-  applyChange, beforeOf, overlayChanges, provisionalIdOf, revertChange, unitInStock, type UnitLike,
+  actionOf, applyChange, beforeOf, overlayChanges, provisionalIdOf, revertChange, unitInStock, type UnitLike,
 } from './optimistic';
 
 // ─── FEAT-16/23 — offline sync engine ──────────────────────────────────────
@@ -286,9 +288,9 @@ export function queuedMutationOf(result: object | null | undefined): string | un
  * sent, or already gone).
  */
 export async function discardQueuedMutation(id: string, queryClient: QueryClient): Promise<boolean> {
-  const mutation = await getQueuedMutation(id);
-  if (!mutation || mutation.status === 'syncing') return false;
-  await deleteQueuedMutation(id);
+  // Checked and dropped at once: never dropped while the replay sends it.
+  const mutation = await takeQueuedMutationUnlessSyncing(id);
+  if (!mutation) return false;
   // A change in conflict no longer shows: nothing to take back.
   if (mutation.status !== 'conflict') {
     await updateUnitCaches(queryClient, (units) => revertChange(units, mutation, mutation.before));
@@ -397,6 +399,41 @@ async function sendChange(mutation: QueuedMutation): Promise<PatchOutcome> {
   return { kind: 'success', write: { data: body.data, changed: body.changed ?? [], removedIds: body.removedIds ?? [] } };
 }
 
+const sameInstant = (a: unknown, b: unknown) =>
+  typeof a === 'string' && typeof b === 'string' && new Date(a).getTime() === new Date(b).getTime();
+
+/**
+ * Review of #823 (N1): a change can reach the server and its answer be lost
+ * (the network drops during the send). Replayed, it is refused (409) since
+ * the unit moved on. An opening carries its own opening time, to the
+ * millisecond: if the server holds an opened copy of that group (or the
+ * unit itself) opened at that very time, the opening went through — the
+ * answer is rebuilt as D8 (the copy, the group as it is now). Null when
+ * not found, or for any other change (the dialog then says the action may
+ * already be recorded).
+ */
+async function alreadyApplied(mutation: QueuedMutation, serverItem: InventoryItem): Promise<ServerWrite | null> {
+  if (mutation.kind === 'correct' || actionOf(mutation) !== 'open' || typeof mutation.patch.openedAt !== 'string') return null;
+  const openedAt = mutation.patch.openedAt;
+  const server = serverItem as unknown as UnitLike;
+  if (server.isOpened === true && sameInstant(server.openedAt, openedAt)) return { data: server, changed: [], removedIds: [] };
+  const productId = mutation.productId ?? (typeof server.productId === 'string' ? server.productId : undefined);
+  if (!productId) return null;
+  try {
+    const res = await fetch(`/api/products/${encodeURIComponent(productId)}`, {
+      credentials: 'include',
+      signal: timeoutSignal(15000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { data?: { items?: UnitLike[] } };
+    const copy = body.data?.items?.find((unit) =>
+      unit.parentItemId === mutation.itemId && unit.isOpened === true && unit.deletedAt == null && sameInstant(unit.openedAt, openedAt));
+    return copy ? { data: copy, changed: [server], removedIds: [] } : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * FEAT-108: puts what the server answered for `done` into every copy of the
  * units (D8: the unit written, the group a copy was taken from, a sub-record
@@ -503,20 +540,26 @@ async function replayQueue(queryClient: QueryClient): Promise<void> {
       }
       if (blockedItemIds.has(mutation.itemId)) continue;
 
-      // Re-read: an earlier success in this replay may have moved the
-      // expected version forward (see `rebaseLaterMutations`), and the
-      // member may have dropped it meanwhile ("Annuler").
-      const current = await getQueuedMutation(mutation.id);
-      if (!current || current.status !== 'pending') continue;
-      await markMutation(mutation.id, { status: 'syncing' });
+      // Re-read and taken for sending in one step: an earlier success in
+      // this replay may have moved the expected version forward (see
+      // `rebaseLaterMutations`), and the member may have dropped it
+      // meanwhile ("Annuler") — then nothing is sent.
+      const current = await claimQueuedMutation(mutation.id);
+      if (!current) continue;
+      notifyListeners();
       const outcome = await sendChange(current);
 
-      if (outcome.kind === 'success') {
+      // Review of #823: an opening refused because the server already has
+      // it (sent, its answer lost) is that very opening — found by its own
+      // opening time — never shown as a conflict to "keep" a second time.
+      const already = outcome.kind === 'conflict' ? await alreadyApplied(current, outcome.serverItem) : null;
+      if (outcome.kind === 'success' || already) {
+        const write = outcome.kind === 'success' ? outcome.write : (already as ServerWrite);
         await deleteQueuedMutation(mutation.id);
         anySynced = true;
-        const target = [outcome.write.data, ...outcome.write.changed].find((unit) => unit?.id === current.itemId);
+        const target = [write.data, ...write.changed].find((unit) => unit?.id === current.itemId);
         if (typeof target?.updatedAt === 'string') await rebaseLaterMutations(current, target.updatedAt);
-        await applyServerWrite(queryClient, current, outcome.write);
+        await applyServerWrite(queryClient, current, write);
         notifyListeners();
       } else if (outcome.kind === 'retry') {
         const failures = (current.temporaryFailures ?? 0) + (outcome.reason ? 1 : 0);

@@ -46,6 +46,12 @@ export function ConflictResolutionModal() {
   const label = changeLabel(current, t);
   const numberThen = current.before?.quantity;
   const numberNow = serverItem?.quantity;
+  // Review of #823 (N1): the line moved exactly as the action would have
+  // moved it — the connection may have dropped while it was being sent, so
+  // it may already be recorded. Keeping the server's version comes first.
+  const maybeRecorded = action !== 'edit' && typeof numberNow === 'number' && (action === 'correct'
+    ? numberNow === Number(current.patch.quantity)
+    : typeof numberThen === 'number' && numberNow === numberThen - 1);
   const valueContext = {
     lang: i18n.language,
     cellarName: (id: string) => cellars?.find((c) => c.id === id)?.name,
@@ -100,14 +106,17 @@ export function ConflictResolutionModal() {
           {action !== 'edit' ? (
             <div className="mt-2 border border-divider rounded-lg px-3 py-2 text-sm flex flex-col gap-1" data-testid="conflict-action">
               <p>
-                <span className="text-foreground-500">{t('offline.conflict.yourAction')} : </span>
+                <span className="text-foreground-500">{t('offline.conflict.yourAction')} </span>
                 <span className="font-medium text-primary">{label}</span>
               </p>
               {numberThen != null && numberNow != null && (
                 <p>
-                  <span className="text-foreground-500">{t('offline.conflict.line')} : </span>
+                  <span className="text-foreground-500">{t('offline.conflict.line')} </span>
                   <span className="font-medium text-warning-600">{t('offline.conflict.lineThenNow', { then: numberThen, now: numberNow })}</span>
                 </p>
+              )}
+              {maybeRecorded && (
+                <p className="text-sm text-warning-700" data-testid="conflict-maybe-recorded">{t('offline.conflict.maybeRecorded')}</p>
               )}
               <p className="text-xs text-foreground-500">{t('offline.conflict.actionHint')}</p>
             </div>
@@ -143,8 +152,9 @@ export function ConflictResolutionModal() {
             {t('offline.conflict.decideLater')}
           </Button>
           <Button
-            variant="light"
-            color="default"
+            variant={maybeRecorded ? 'solid' : 'light'}
+            color={maybeRecorded ? 'primary' : 'default'}
+            data-primary={maybeRecorded}
             onPress={handleKeepServer}
             isLoading={isResolving}
             isDisabled={isResolving}
@@ -152,8 +162,9 @@ export function ConflictResolutionModal() {
             {t('offline.conflict.keepServer')}
           </Button>
           <Button
-            color="primary"
-            variant="solid"
+            color={maybeRecorded ? 'default' : 'primary'}
+            variant={maybeRecorded ? 'light' : 'solid'}
+            data-primary={!maybeRecorded}
             onPress={handleKeepLocal}
             isLoading={isResolving}
             isDisabled={isResolving}

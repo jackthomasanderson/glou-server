@@ -49,6 +49,19 @@ describe('AddUnitsAction', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('started already offline (no `offline` event, the probe still says reachable): blocked too (review of #823, N2)', () => {
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      render(<AddUnitsAction product={detail([unit({ quantity: 6 })])} />);
+      const button = screen.getByRole('button', { name: 'Ajouter des bouteilles' });
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      fireEvent.click(button);
+      expect(screen.queryByRole('dialog')).toBeNull();
+    } finally {
+      onLine.mockRestore();
+    }
+  });
+
   it('asks the number, cellar, price of one bottle, size and purchase day of the new bottles only', () => {
     const dialog = open(detail([unit({ quantity: 6 })]));
     expect(within(dialog).getByText('Cuvée X 2020')).toBeInTheDocument();

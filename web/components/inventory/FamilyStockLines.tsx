@@ -39,7 +39,7 @@ function PendingMark({ t }: { t: LineContext['t'] }) {
   const label = t('offline.pendingSyncTooltip');
   return (
     <Tooltip content={label} delay={300}>
-      <span className="inline-flex items-center ml-1.5 align-middle text-warning-600" data-testid="line-pending" tabIndex={0} aria-label={label}>
+      <span role="img" className="inline-flex items-center ml-1.5 align-middle text-warning-600" data-testid="line-pending" tabIndex={0} aria-label={label}>
         <Clock size={12} aria-hidden />
       </span>
     </Tooltip>

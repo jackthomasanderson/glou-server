@@ -161,4 +161,26 @@ test.describe('open, drink or correct without network (#471, FEAT-108)', () => {
     const units = await unitsOf(api, group.productId);
     expect(units.map((unit) => [unit.id, unit.quantity, unit.isOpened])).toEqual([[group.id, 4, false]]);
   });
+
+  test('review N2: the app started already offline still blocks what needs the server', async ({ page, context }) => {
+    const api = page.request;
+    const name = `E2E N cold ${stamp()}`;
+    const group = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name, producer: 'E2E Domaine', purchasePrice: 20, quantity: 6 },
+    }));
+    families.push(group.productId);
+    // Online once: the service worker keeps the app, the device its copy of the wines.
+    await openDrawer(page, group.productId, name);
+    await page.evaluate(async () => { await navigator.serviceWorker?.ready; });
+    // Once more under the service worker, so the page itself is kept too.
+    await openDrawer(page, group.productId, name);
+
+    // The cellar underground: the app is opened again with no network at all —
+    // no `offline` event in this session, and the probe is never answered from a cache.
+    await context.setOffline(true);
+    await page.goto(`/bottles?scan=${encodeURIComponent(group.productId)}`);
+    const drawer = page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });
+    await expect(drawer.locator('#inventory-detail-title')).toHaveText(name);
+    await expect(drawer.getByTestId('add-units-button')).toHaveAttribute('aria-disabled', 'true');
+  });
 });

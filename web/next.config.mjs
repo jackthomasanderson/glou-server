@@ -56,6 +56,16 @@ const withPWA = withPWAInit({
   extendDefaultRuntimeCaching: true,
   workboxOptions: {
     runtimeCaching: [
+      // FEAT-108 (review of #823): the connectivity probe must never be
+      // answered from a cache — the plugin's default `apis` rule
+      // (NetworkFirst) would serve a stale `{ online: true }` to an app
+      // started offline, and the actions that need the server would look
+      // available. Listed first: the first matching rule wins.
+      {
+        urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname === '/api/connectivity',
+        method: 'GET',
+        handler: 'NetworkOnly',
+      },
       {
         urlPattern: ({ url, sameOrigin }) =>
           sameOrigin && /^\/api\/(inventory|cellars|collections)(\/|$)/.test(url.pathname),

@@ -2131,10 +2131,11 @@
       "keepServer": "Garder la version serveur",
       "decideLater": "Décider plus tard",
       "noDifference": "Votre modification et la version du serveur ont les mêmes valeurs.",
-      "yourAction": "Votre action",
-      "line": "Cette ligne",
+      "yourAction": "Votre action :",
+      "line": "Cette ligne :",
       "lineThenNow": "×{{then}} quand vous avez agi, ×{{now}} maintenant",
-      "actionHint": "« Garder ma version » applique votre action à la ligne telle qu'elle est maintenant ; « Garder la version serveur » l'abandonne."
+      "actionHint": "« Garder ma version » applique votre action à la ligne telle qu'elle est maintenant ; « Garder la version serveur » l'abandonne.",
+      "maybeRecorded": "La connexion a peut-être coupé pendant l'envoi : votre action est peut-être déjà enregistrée. Dans ce cas, gardez la version du serveur."
     },
     "blocked": "Disponible au retour de la connexion",
     "undoTooLate": "Déjà en cours d'envoi : elle ne peut plus être annulée d'ici.",
