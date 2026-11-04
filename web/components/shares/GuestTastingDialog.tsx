@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button, Input, Textarea } from '@heroui/react';
 import { Star } from 'lucide-react';
 import { LineDialogFrame } from '@/components/inventory/StockLineDialogParts';
+import { todayLocalIso } from '@/lib/format';
 import type { GuestTastingPayload } from '@/lib/shares/types';
 
 interface GuestTastingDialogProps {
@@ -17,11 +18,12 @@ interface GuestTastingDialogProps {
 /**
  * "Noter une dégustation" for a guest (FEAT-109 c3, ux-ui.md §10.9): the
  * day, the stars, what was noticed and what it was served with. It goes on
- * the wine, signed with the guest's name (decision #471, point 64).
+ * the wine, signed with the guest's name (decision #471, point 64). The
+ * day is today unless changed, as in the member's form (recette #471).
  */
 export function GuestTastingDialog({ wine, isPending, onConfirm, onClose }: GuestTastingDialogProps) {
   const { t } = useTranslation();
-  const [tastedAt, setTastedAt] = useState('');
+  const [tastedAt, setTastedAt] = useState(() => todayLocalIso());
   const [rating, setRating] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [foodPairing, setFoodPairing] = useState('');

@@ -188,6 +188,22 @@ describe('checkGuestUndo — only the guest\'s own move, just made', () => {
     expect(isGuestMove({ smokeOne: true }, boxes(1, { isOpened: true, cigarsLeft: 10 }))).toBe(true);
     expect(isGuestMove({ fillLevel: 30 }, opened())).toBe(false);
   });
+
+  // Recette #471 lot RB: « J'en bois une » finishes the opened bottle (§10.4.2,
+  // as for members) — the guest's own move, undone back to its level.
+  it('« J\'en bois une » on the opened bottle is a move: undone back opened at its level, never closed', () => {
+    expect(guestWrite(opened(), { isOpened: true, fillLevel: 0 })).toBe('updated');
+    expect(isGuestMove({ isOpened: true, fillLevel: 0 }, opened())).toBe(true);
+    const back = undoPatch(stateBefore(opened({ openedAt: DAY }), false), null);
+    expect(back).toEqual({ isOpened: true, fillLevel: 60, openedAt: DAY, cigarsLeft: null });
+    expect(planState(finished(), { state: back }, 'bottle').outcome).not.toMatch(/reattached|regrouped/);
+  });
+
+  it('a level set to empty with the slider stays a level set (no « Annuler »), and a level up stays one', () => {
+    expect(isGuestMove({ fillLevel: 0 }, opened())).toBe(false);
+    expect(isGuestMove({ isOpened: true, fillLevel: 100 }, opened())).toBe(false);
+    expect(isGuestMove({ isOpened: true, fillLevel: 30 }, opened())).toBe(false);
+  });
 });
 
 describe('the guest schema', () => {

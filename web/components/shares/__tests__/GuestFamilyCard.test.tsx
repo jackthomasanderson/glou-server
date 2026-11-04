@@ -58,18 +58,20 @@ beforeEach(() => {
   Object.values(toast).forEach((fn) => fn.mockClear());
   onNoteTasting.mockClear();
   onLinkGone.mockClear();
+  onDrunk.mockClear();
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 
 const onNoteTasting = vi.fn();
 const onLinkGone = vi.fn();
+const onDrunk = vi.fn();
 
 function draw(items: GuestItem[], meta = META) {
   const [family] = guestFamilies(items);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <GuestFamilyCard family={family} token="tok" meta={meta} onNoteTasting={onNoteTasting} onLinkGone={onLinkGone} />
+      <GuestFamilyCard family={family} token="tok" meta={meta} onNoteTasting={onNoteTasting} onLinkGone={onLinkGone} onDrunk={onDrunk} />
     </QueryClientProvider>,
   );
 }
@@ -218,6 +220,82 @@ describe('a guest on a cellar shared with write access (FEAT-109)', () => {
       expect(screen.queryByRole('button', { name })).toBeNull();
     }
     expect(screen.queryByRole('textbox')).toBeNull();
+  });
+});
+
+// Recette #471 (lot RB): the same sequence as a member's (§10.9 → §10.4.2).
+describe('a guest and the opened bottle (recette #471, decisions 68-70)', () => {
+  it('only the opened bottle left: « J\'en bois une » is offered and finishes it, no « J\'en ouvre une »', async () => {
+    answer = () => ({ status: 200, body: { data: { id: 'sub' } } });
+    draw([copy({ id: 'sub', isOpened: true, fillLevel: 40, openedAt: T })]);
+
+    expect(screen.queryByTestId('guest-move-open')).toBeNull();
+    fireEvent.click(screen.getByTestId('guest-move-drink'));
+
+    await waitFor(() => expect(writes()).toHaveLength(1));
+    expect(writes()[0]).toMatchObject({ url: '/api/guest/tok/inventory/sub', body: { isOpened: true, fillLevel: 0 } });
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+    // « Annuler » (decision 68) and « Noter une dégustation » on that very bottle (decision 70).
+    expect(typeof toast.notifyUndoable.mock.calls[0][2]).toBe('function');
+    expect(toast.notifyUndoable.mock.calls[0][3]).toMatchObject({ labelKey: 'shares.guest.tasting.action' });
+    expect(onDrunk).toHaveBeenCalledWith({ productId: 'p1', itemId: 'sub', wine: 'Talbot 2018' });
+  });
+
+  it('an opened bottle and a full line: « C\'est elle que vous avez finie ? » — « Oui » finishes it', async () => {
+    draw([copy({ id: 'g', quantity: 5 }), copy({ id: 'sub', isOpened: true, fillLevel: 60, openedAt: T })]);
+    fireEvent.click(screen.getByTestId('guest-move-drink'));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/C'est elle que vous avez finie/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByTestId('opened-reminder-use'));
+
+    await waitFor(() => expect(writes()).toHaveLength(1));
+    expect(writes()[0]).toMatchObject({ url: '/api/guest/tok/inventory/sub', body: { isOpened: true, fillLevel: 0 } });
+  });
+
+  it('« Non » drinks one of the full line', async () => {
+    draw([copy({ id: 'g', quantity: 5 }), copy({ id: 'sub', isOpened: true, fillLevel: 60, openedAt: T })]);
+    fireEvent.click(screen.getByTestId('guest-move-drink'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByTestId('opened-reminder-new'));
+
+    await waitFor(() => expect(writes()).toHaveLength(1));
+    expect(writes()[0]).toMatchObject({ url: '/api/guest/tok/inventory/g', body: { isOpened: true, fillLevel: 0 } });
+  });
+
+  it('« J\'en ouvre une » with an opened bottle: « Finir l\'entamée » writes nothing (its level is on the card)', async () => {
+    draw([copy({ id: 'g', quantity: 5 }), copy({ id: 'sub', isOpened: true, fillLevel: 60, openedAt: T })]);
+    fireEvent.click(screen.getByTestId('guest-move-open'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByTestId('opened-reminder-use'));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(writes()).toHaveLength(0);
+  });
+
+  it('never offers « Pleine » on the opened bottle (decision 69): « Moitié » and « Vide » only', () => {
+    draw([copy({ id: 'sub', isOpened: true, fillLevel: 60 })]);
+    expect(screen.queryByRole('button', { name: 'Pleine' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Moitié' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Vide' })).toBeInTheDocument();
+  });
+
+  it('opening one is no drink: nothing kept for a tasting', async () => {
+    draw([copy({ id: 'g', quantity: 6 })]);
+    fireEvent.click(screen.getByTestId('guest-move-open'));
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+    expect(onDrunk).not.toHaveBeenCalled();
+  });
+
+  it('two lines that read the same (prices hidden) are told apart in « Quelles bouteilles ? »', async () => {
+    draw([
+      copy({ id: 'a', bottleSize: '75 cl', createdAt: '2026-11-03T10:00:00.000Z' }),
+      copy({ id: 'b', bottleSize: '75 cl', createdAt: '2026-11-04T10:00:00.000Z' }),
+    ]);
+    fireEvent.click(screen.getByTestId('guest-move-drink'));
+    const dialog = await screen.findByRole('dialog');
+    const labels = within(dialog).getAllByRole('radio').map((radio) => radio.closest('label')?.textContent ?? '');
+    expect(labels).toHaveLength(2);
+    expect(new Set(labels).size).toBe(2);
+    expect(labels.join(' | ')).toMatch(/ajout du 3 nov\. 2026.*\|.*ajout du 4 nov\. 2026/);
   });
 });
 

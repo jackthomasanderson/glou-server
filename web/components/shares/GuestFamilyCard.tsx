@@ -7,10 +7,12 @@ import { Flame, GlassWater, NotebookPen, Wine } from 'lucide-react';
 import { isIntactItem } from '@shared/units';
 import { preselectGroup, type Preselection } from '@shared/stock-choice';
 import { OpenedLevel } from '@/components/inventory/FamilyStockLines';
+import { OpenedReminderDialog } from '@/components/inventory/OpenedReminderDialog';
 import { WhichBottlesDialog } from '@/components/inventory/WhichBottlesDialog';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { familyLines, hasOwnLevel, lineParts, type LineContext } from '@/lib/products/lines';
 import { movePatch, movesFor, type StockMove } from '@/lib/products/openDrink';
+import { firstStep, footerMoves, fullStep, type FirstStep } from '@/lib/products/openedReminder';
 import { describeStock, wineName } from '@/lib/products/stock';
 import type { ProductItem } from '@/lib/products/types';
 import { guestClient, GuestRequestError } from '@/lib/shares/client';
@@ -53,6 +55,13 @@ interface GuestFamilyCardProps {
   meta: Pick<GuestShareMeta, 'writeCellarIds' | 'cellars'>;
   /** « Noter une dégustation »: the dialog lives on the page, so it outlives a card whose last bottle was just drunk. */
   onNoteTasting: (target: GuestTastingTarget) => void;
+  /**
+   * A bottle drunk: the page keeps offering its tasting after the 5-second
+   * message (decision #471 point 70, recette: the message alone was missed);
+   * `undone` once its « Annuler » went through.
+   */
+  onDrunk?: (target: GuestTastingTarget) => void;
+  onUndone?: (itemId: string) => void;
   /** A write refused because the link expired or was revoked meanwhile. */
   onLinkGone: () => void;
 }
@@ -65,11 +74,15 @@ interface GuestFamilyCardProps {
  * bottle; "Noter une dégustation". No action on a number, a move, a price,
  * an addition nor the wine's notes: absent, not disabled.
  */
-export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone }: GuestFamilyCardProps) {
+export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone, onDrunk, onUndone }: GuestFamilyCardProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const queryClient = useQueryClient();
-  const [asking, setAsking] = useState<{ move: StockMove; preselection: Preselection<ProductItem> } | null>(null);
+  const [asking, setAsking] = useState<
+    | { step: 'which'; move: StockMove; groups: readonly ProductItem[]; preselection: Preselection<ProductItem> }
+    | { step: 'remind'; move: StockMove; opened: ProductItem[]; hasFull: boolean }
+    | null
+  >(null);
 
   const cellarName = useMemo(() => {
     const names = new Map(meta.cellars.map((cellar) => [cellar.id, cellar.name]));
@@ -87,6 +100,8 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
   const lines = familyLines(family.items, cellarName);
   const stock = describeStock({ category: family.category, items: family.items, lastActivityAt: null }, t);
   const groups = guestOpenableGroups(family, meta.writeCellarIds);
+  // The copies the guest may take one from: those of the cellars shared with write access.
+  const writeItems = family.items.filter((item) => item.cellarId != null && meta.writeCellarIds.includes(item.cellarId));
   const writable = family.items.some((item) => item.cellarId != null && meta.writeCellarIds.includes(item.cellarId));
   // Opened bottles or boxes of the write cellars, the one opened first first (familyLines' order).
   const touchable = lines.inCellar.filter((item) => guestCanTouch(item, meta.writeCellarIds));
@@ -123,28 +138,49 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
     const undo = async () => {
       try {
         await write.mutateAsync({ id: unitId, patch: { undo: true } });
+        onUndone?.(unitId);
       } catch (error) {
         refused(error);
       }
     };
+    const target = { productId: family.productId, itemId: unitId, wine };
     notifyUndoable(`openDrink.done.${move}`, undefined, () => { void undo(); }, move === 'drink'
-      ? { labelKey: 'shares.guest.tasting.action', onPress: () => onNoteTasting({ productId: family.productId, itemId: unitId, wine }) }
+      ? { labelKey: 'shares.guest.tasting.action', onPress: () => onNoteTasting(target) }
       : undefined);
+    if (move === 'drink') onDrunk?.(target);
     return true;
   };
 
+  /** After the reminder, or without one: the line to write, or "Quelles bouteilles ?" (FEAT-104). */
+  const go = (move: StockMove, step: FirstStep) => {
+    if (step.step === 'run') {
+      setAsking(null);
+      void run(step.line, move);
+    } else if (step.step === 'which') {
+      const preselection = preselectGroup(step.groups);
+      setAsking(preselection ? { step: 'which', move, groups: step.groups, preselection } : null);
+    } else {
+      setAsking(null);
+    }
+  };
+
+  /**
+   * The same sequence as a member's (ux-ui.md §10.9 → §10.4.2): bottles start
+   * with the reminder of the opened bottle — « J'en bois une » finishes it
+   * (recette #471), « J'en ouvre une » leads to its level. Cigars: smoked from
+   * the opened box first, without a question (review of #820).
+   */
   const start = (move: StockMove) => {
-    if (move === 'smoke' && openedBox) {
-      void run(openedBox, move);
+    if (move === 'smoke') {
+      go(move, openedBox ? { step: 'run', line: openedBox } : fullStep(groups));
       return;
     }
-    const preselection = preselectGroup(groups);
-    if (!preselection) return;
-    if (groups.length === 1) {
-      void run(preselection.line, move);
+    const step = firstStep(move, writeItems);
+    if (step.step === 'remind') {
+      setAsking({ step: 'remind', move, opened: step.opened, hasFull: step.hasFull });
       return;
     }
-    setAsking({ move, preselection });
+    go(move, step);
   };
 
   /** The level of an opened bottle (a single copy: nothing is detached); rejects when refused. */
@@ -157,7 +193,10 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
     }
   };
 
-  const moves = movesFor(family.kind).filter((move) => groups.length > 0 || (move === 'smoke' && openedBox));
+  // Opening needs a full line; drinking the opened bottle or smoking in the opened box does not.
+  const moves = family.kind === 'cigar'
+    ? movesFor(family.kind).filter(() => groups.length > 0 || openedBox)
+    : footerMoves(movesFor(family.kind), writeItems);
 
   return (
     <div className="bg-content1 border border-divider rounded-2xl p-4 flex flex-col gap-2" data-testid="guest-family">
@@ -191,7 +230,8 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
             >
               {lineParts(item, ctx, lines.showPurchaseMonth).join(' · ')}
               {family.kind === 'bottle' && hasOwnLevel(item) && guestCanTouch(item, meta.writeCellarIds) && (
-                <OpenedLevel item={item} t={t} onCommit={(level) => setLevel(item, level)} />
+                // No « Pleine »: a guest never closes an opened bottle again (decision #471 point 69).
+                <OpenedLevel item={item} t={t} onCommit={(level) => setLevel(item, level)} canPutBack={false} />
               )}
             </li>
           );
@@ -230,11 +270,31 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
         </div>
       )}
 
-      {asking && (
+      {asking?.step === 'remind' && (
+        <OpenedReminderDialog
+          wine={wine}
+          move={asking.move}
+          opened={asking.opened}
+          hasFull={asking.hasFull}
+          ctx={ctx}
+          isPending={write.isPending}
+          onClose={() => setAsking(null)}
+          onUseOpened={async (item) => {
+            // « Finir l'entamée » after « J'en ouvre une »: nothing is opened, its level is on the card.
+            if (asking.move === 'open') {
+              setAsking(null);
+              return;
+            }
+            if (await run(item, asking.move)) setAsking(null);
+          }}
+          onNew={() => go(asking.move, fullStep(groups))}
+        />
+      )}
+      {asking?.step === 'which' && (
         <WhichBottlesDialog
           wine={wine}
           move={asking.move}
-          groups={groups}
+          groups={asking.groups}
           preselection={asking.preselection}
           ctx={ctx}
           isPending={write.isPending}

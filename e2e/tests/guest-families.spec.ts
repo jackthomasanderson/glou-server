@@ -144,8 +144,9 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
     await expect(tastings).not.toContainText('Goûté ailleurs');
   });
 
-  // Decision 70: the bottle just drunk, even the last one, takes the guest's tasting.
-  test('the last bottle drunk: its tasting is noted on it from the message', async ({ page, browser }) => {
+  // Decision 70: the bottle just drunk, even the last one, takes the guest's tasting —
+  // still offered once the 5-second message is gone (recette #471, lot RB).
+  test('the last bottle drunk: its tasting is noted on it, still offered after the message', async ({ page, browser }) => {
     const api = page.request;
     const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E O Last ${stamp()}` } }))).id;
     cellars.push(cellar);
@@ -164,14 +165,18 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
       const card = guest.getByTestId('guest-family').filter({ hasText: name });
       await card.getByTestId('guest-move-drink').click();
       await expect(guest.getByText('1 bouteille bue')).toBeVisible();
-      // Out of stock: its card leaves the showcase, the message stays.
+      // Out of stock: its card leaves the showcase; once the message is gone, the page still offers its tasting.
       await expect(card).toHaveCount(0);
-      await guest.getByRole('button', { name: 'Noter une dégustation' }).click();
+      await expect(guest.getByText('1 bouteille bue')).toBeHidden({ timeout: 10_000 });
+      const offer = guest.getByTestId('guest-just-drunk');
+      await expect(offer).toContainText(name);
+      await offer.getByTestId('guest-just-drunk-tasting').click();
       const dialog = guest.getByRole('dialog');
       await dialog.getByRole('button', { name: /Note 5/ }).click();
       const noted = guest.waitForResponse((r) => r.url().endsWith('/tastings') && r.request().method() === 'POST');
       await dialog.getByRole('button', { name: 'Enregistrer' }).click();
       expect((await noted).status()).toBe(201);
+      await expect(offer).toBeHidden();
     } finally {
       await context.close();
     }
@@ -179,6 +184,47 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
       await api.get(`/api/products/${bottle.productId}`),
     );
     expect(detail.tastings).toEqual([expect.objectContaining({ guestName: 'Paul', itemId: bottle.id, rating: 5 })]);
+  });
+
+  // Recette #471 (lot RB): « J'en bois une » finishes the opened bottle, as for a member
+  // (§10.4.2); its « Annuler » gives it back opened at its level — never closed (decision 69).
+  test('« J\'en bois une » finishes the opened bottle, « Annuler » gives it back at its level', async ({ page, browser }) => {
+    const api = page.request;
+    const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E RB Opened ${stamp()}` } }))).id;
+    cellars.push(cellar);
+    const name = `E2E RB opened ${stamp()}`;
+    const bottle = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name, producer: 'E2E Domaine', cellarId: cellar },
+    }));
+    families.push(bottle.productId);
+    await okData(await api.patch(`/api/inventory/${bottle.id}`, { data: { isOpened: true, fillLevel: 40, openedAt: new Date().toISOString() } }));
+    const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
+      data: { label: `E2E RB opened ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], collectionIds: [] },
+    }));
+    shares.push(share.id);
+
+    const { context, page: guest } = await asGuest(browser, share.token);
+    try {
+      const card = guest.getByTestId('guest-family').filter({ hasText: name });
+      // Only the opened bottle is left: no « J'en ouvre une », no « Pleine ».
+      await expect(card.getByTestId('guest-move-open')).toHaveCount(0);
+      await expect(card.getByRole('button', { name: 'Pleine' })).toHaveCount(0);
+      const sent = guest.waitForResponse((r) => r.url().endsWith(`/inventory/${bottle.id}`) && r.request().method() === 'PATCH');
+      await card.getByTestId('guest-move-drink').click();
+      const finished = await sent;
+      expect(finished.status()).toBe(200);
+      expect((await finished.json()).data).toMatchObject({ id: bottle.id, isOpened: true, fillLevel: 0 });
+      await expect(card).toHaveCount(0);
+
+      const undone = guest.waitForResponse((r) => r.url().endsWith(`/inventory/${bottle.id}`) && r.request().method() === 'PATCH');
+      await guest.locator('button', { hasText: /^Annuler$/ }).last().click();
+      expect((await undone).status()).toBe(200);
+      await expect(guest.getByTestId('guest-family').filter({ hasText: name })).toHaveCount(1);
+      await expect(guest.getByTestId('guest-just-drunk')).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ id: bottle.id, isOpened: true, fillLevel: 40 });
   });
 
   // Review of #820: two « Annuler » in either order end as one line ×2.
