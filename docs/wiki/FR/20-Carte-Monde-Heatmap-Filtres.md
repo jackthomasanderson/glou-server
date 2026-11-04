@@ -1,7 +1,7 @@
 # Explorer sa collection sur la carte du monde
 
 ## TL;DR
-Le tableau de bord Analytics comprend une carte du monde interactive de votre collection par région. Filtrez-la par catégorie, basculez en mode heatmap par type, affinez avec des filtres prix/millésime/note/état, et cliquez sur n'importe quelle bouteille de la liste pour ouvrir sa fiche détaillée.
+Le tableau de bord Analytics comprend une carte du monde interactive de votre collection par région. Filtrez-la par catégorie, basculez en mode heatmap par type, affinez avec des filtres prix/millésime/note/état, et cliquez sur n'importe quelle bouteille de la liste pour ouvrir le tiroir de son vin.
 
 ## Prérequis
 * Des bouteilles avec un pays/région renseigné. Les bouteilles sans cette information n'apparaissent pas sur la carte.
@@ -41,14 +41,14 @@ Tous les filtres se combinent avec le filtre catégorie et s'appliquent à la fo
 
 ### Parcourir et ouvrir des bouteilles depuis la liste
 1. Sous la carte, la liste filtrée affiche pour chaque bouteille : miniature, nom, badge catégorie, millésime et localisation.
-2. Cliquez sur une ligne (ou appuyez sur Entrée/Espace lorsqu'elle est sélectionnée au clavier) pour ouvrir la **fiche détaillée** de cette bouteille dans une fenêtre modale. Vous restez sur la page Analytics, sans navigation vers une autre page.
+2. Cliquez sur une ligne (ou appuyez sur Entrée/Espace lorsqu'elle est sélectionnée au clavier) pour ouvrir le **tiroir** du vin de cette bouteille, à droite. Vous restez sur la page Analytics, sans navigation vers une autre page.
 3. Cliquez sur un marqueur de la carte (ou une région) pour restreindre la liste à cette région uniquement ; une puce apparaît indiquant la région sélectionnée avec un bouton pour la retirer et revenir à la liste filtrée complète.
 
 ## Le pare-feu (troubleshooting)
 
 | Erreur / Comportement | Solution |
 | :--- | :--- |
-| **Certaines de mes bouteilles n'apparaissent pas du tout sur la carte** | Ils n'ont pas de valeur pays/région. Ajoutez-en une depuis la description du vin : la carte n'affiche que les bouteilles avec ce champ renseigné. |
+| **Certaines de mes bouteilles n'apparaissent pas du tout sur la carte** | Elles n'ont pas de valeur pays/région. Ajoutez-en une depuis la description du vin : la carte n'affiche que les bouteilles avec ce champ renseigné. |
 | **Les couleurs de la heatmap ne correspondent pas à ce que j'attends** | Vérifiez le sélecteur de type au-dessus de la légende : "Catégorie dominante" colore selon la catégorie la plus fréquente par région, ce qui peut différer d'une heatmap sur une seule catégorie. |
 | **Le filtre note semble ignorer certaines dégustations** | Il se base volontairement sur vos 50 notes de dégustation les plus récentes uniquement (voir l'infobulle à côté du filtre Note). C'est une approximation pour les grandes collections, pas une requête sur l'historique complet. |
 | **Cliquer sur une bouteille ne fait rien / rien ne s'ouvre** | Cliquez directement sur la ligne (ou l'élément de liste), pas sur le marqueur de la carte : les marqueurs restreignent la liste à une région, ils n'ouvrent pas de bouteille. |

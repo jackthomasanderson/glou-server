@@ -1,7 +1,7 @@
 # Explore your collection on the world map
 
 ## TL;DR
-The Analytics dashboard includes an interactive world map of your collection by region. Filter it by category, switch to a heatmap by type, narrow it with price/vintage/rating/state filters, and click any item in the list to open its detail card.
+The Analytics dashboard includes an interactive world map of your collection by region. Filter it by category, switch to a heatmap by type, narrow it with price/vintage/rating/state filters, and click any bottle in the list to open its wine's drawer.
 
 ## Prerequisites
 * Items with a country/region set. Items without one do not appear on the map.
@@ -41,14 +41,14 @@ All filters combine with the category filter and apply to both the map and the l
 
 ### Browse and open items from the list
 1. Below the map, the filtered list shows each bottle's thumbnail, name, category badge, vintage, and location.
-2. Click any row (or press Enter/Space while it's focused) to open that item's **detail card** in a modal. You stay on the Analytics page; there is no page navigation.
+2. Click any row (or press Enter/Space while it's focused) to open the **drawer** of that bottle's wine, on the right. You stay on the Analytics page; there is no page navigation.
 3. Click a marker on the map (or a region) to narrow the list to that region only; a chip appears showing the selected region with a button to clear it and go back to the full filtered list.
 
 ## The firewall (troubleshooting)
 
 | Error / Behavior | Fix |
 | :--- | :--- |
-| **Some of my items don't show up on the map at all** | They have no country/region value. Add one from the item's detail card; the map only plots items with that field set. |
+| **Some of my items don't show up on the map at all** | They have no country/region value. Add one from the wine's description; the map only plots items with that field set. |
 | **Heatmap colors don't match what I expect** | Check the type selector above the legend: "Dominant category" colors by the most common category per region, which can differ from what a single-category heatmap would show. |
 | **The rating filter seems to ignore some tastings** | It is based on your 50 most recent tasting notes only, by design (see the tooltip next to the Rating filter). It is an approximation for large collections, not a full historical query. |
 | **Clicking an item does nothing / nothing opens** | Click directly on the row (or list item), not the map marker: map markers narrow the list to a region, they do not open an item. |

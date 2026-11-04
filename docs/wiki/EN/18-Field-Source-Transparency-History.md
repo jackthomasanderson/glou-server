@@ -37,5 +37,5 @@ Every field of a wine's description can show where its value came from. Every ch
 | :--- | :--- |
 | **No source badge appears on a field I imported via CSV** | Badges only show on `name`, `producer`, `vintage`, `region`, `purchase price`, and `notes`. Other columns aren't tracked with a source badge. |
 | **Restore fails with "value not in history"** | The value you are trying to restore is no longer in the recorded history for that field (e.g. it was never saved as a distinct change). Check the History list for the values available to restore. |
-| **I can't find a Restore button for the fill level** | Expected: fill level uses its own slider on the detail card instead of the history/restore mechanism. |
+| **I can't find a Restore button for the fill level** | Expected: fill level uses its own slider in the line of the wine's drawer instead of the history/restore mechanism. |
 | **The History section doesn't appear at all** | It is hidden until the wine has at least one recorded change. A freshly added wine with no edits does not show it. |

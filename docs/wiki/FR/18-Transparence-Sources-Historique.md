@@ -37,5 +37,5 @@ Chaque champ de la description d'un vin peut afficher l'origine de sa valeur. Ch
 | :--- | :--- |
 | **Aucun badge de source n'apparaît sur un champ que j'ai importé en CSV** | Les badges ne s'affichent que sur `name`, `producer`, `vintage`, `region`, `prix d'achat` et `notes`. Les autres colonnes ne sont pas suivies avec un badge de source. |
 | **La restauration échoue avec "valeur absente de l'historique"** | La valeur que vous essayez de restaurer n'est plus dans l'historique enregistré pour ce champ (par exemple elle n'a jamais été sauvegardée comme un changement distinct). Vérifiez dans la liste Historique les valeurs disponibles à la restauration. |
-| **Je ne trouve pas de bouton Restaurer pour le niveau de remplissage** | Normal : le niveau de remplissage utilise son propre curseur sur la fiche détaillée plutôt que le mécanisme historique/restauration. |
+| **Je ne trouve pas de bouton Restaurer pour le niveau de remplissage** | Normal : le niveau de remplissage utilise son propre curseur dans la ligne du tiroir du vin plutôt que le mécanisme historique/restauration. |
 | **La section Historique n'apparaît pas du tout** | Elle reste masquée tant que le vin n'a aucune modification enregistrée. Un vin fraîchement ajouté sans édition ne l'affiche pas. |
