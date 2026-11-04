@@ -9,6 +9,7 @@ import {
   useConsumptionSuggestions, usePostponeSuggestion, useGoalProgress, useSetGoal,
 } from '@/hooks/useConsumptionPlan';
 import { ConsumptionSuggestion, GoalTargetType, SuggestionReason } from '@/lib/consumption-plan/types';
+import { consumeLabel } from '@/lib/consumption-plan/label';
 import { TastingForm } from '@/components/tastings/TastingForm';
 import { ErrorState } from '@/components/ui/ErrorState';
 
@@ -231,7 +232,7 @@ export function ConsumptionPlanWidget() {
                   </div>
                   <div className="flex flex-col gap-1 shrink-0">
                     <Button color="primary" variant="solid" size="sm" onPress={() => setConsumeTarget(s.id)}>
-                      {t('consumptionPlan.suggestions.consume')}
+                      {consumeLabel(s, t)}
                     </Button>
                     <Button
                       variant="light"

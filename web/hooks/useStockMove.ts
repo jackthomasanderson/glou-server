@@ -5,7 +5,8 @@ import type { UnitKind } from '@shared/units';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
 import { productDetailKey } from '@/hooks/useProducts';
 import { notifySuccess, notifyUndoable } from '@/lib/toast';
-import { movePatch, undoPatch, type StockMove } from '@/lib/products/openDrink';
+import { isIntactItem } from '@shared/units';
+import { movePatch, restorePatch, undoPatch, type StockMove } from '@/lib/products/openDrink';
 import type { InventoryItem, InventoryItemPatch } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 
@@ -33,7 +34,12 @@ export function useStockMove() {
     void queryClient.invalidateQueries({ queryKey: ['budget'] });
   }, [queryClient]);
 
-  /** Puts back intact the copy `written` (its id, its version), with `extra` (a grid slot given back). */
+  /**
+   * Puts the copy `written` (its id, its version) back as it was: intact when
+   * taken from a full line, else opened at its level (an opened bottle
+   * finished, a cigar smoked out of an opened box, FEAT-105); with `extra`
+   * (a grid slot given back).
+   */
   const undo = useCallback(async (
     written: Pick<InventoryItem, 'id' | 'updatedAt' | 'cigarsPerBox'>,
     item: ProductItem,
@@ -41,10 +47,11 @@ export function useStockMove() {
     extra: InventoryItemPatch,
   ) => {
     const current = latest({ id: written.id, productId: item.productId });
+    const back = isIntactItem(item) ? undoPatch({ cigarsPerBox: written.cigarsPerBox ?? null }, kind) : restorePatch(item);
     try {
       await mutateAsync({
         id: written.id,
-        patch: { ...undoPatch({ cigarsPerBox: written.cigarsPerBox ?? null }, kind), ...extra },
+        patch: { ...back, ...extra },
         expectedUpdatedAt: (current?.updatedAt as string | undefined) ?? written.updatedAt,
       });
     } catch {
@@ -55,7 +62,9 @@ export function useStockMove() {
   }, [latest, mutateAsync, settle]);
 
   const run = useCallback(async (item: ProductItem, move: StockMove, kind: UnitKind): Promise<boolean> => {
-    const sent = (latest(item) ?? item).updatedAt as string;
+    // The line as known now: its version, and its level to put back on "Annuler".
+    const before = latest(item) ?? item;
+    const sent = before.updatedAt as string;
     let written: InventoryItem;
     try {
       written = await mutateAsync({ id: item.id, patch: movePatch(move), expectedUpdatedAt: sent });
@@ -77,7 +86,7 @@ export function useStockMove() {
     // (#573): "Annuler" puts it back in that slot.
     const slotGiven = written.id === item.id && item.slotColumn != null && item.slotRow != null && written.slotColumn == null;
     const extra: InventoryItemPatch = slotGiven ? { slotColumn: item.slotColumn, slotRow: item.slotRow } : {};
-    notifyUndoable(message, undefined, () => { void undo(written, item, kind, extra); });
+    notifyUndoable(message, undefined, () => { void undo(written, before, kind, extra); });
     return true;
   }, [latest, mutateAsync, settle, undo]);
 

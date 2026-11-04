@@ -241,11 +241,11 @@ describe('FamilyDrawer — actions of a line (#471, W3)', () => {
     expect(screen.queryByTestId('stock-move-open')).toBeNull();
   });
 
-  it('an opened bottle: only edited or trashed from its menu', async () => {
+  it('an opened bottle: finished, put back, edited or trashed from its menu (§10.3)', async () => {
     detail = detailOf({ items: [openedBottle(60, { id: 'sub' })] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
     const [line] = screen.getAllByTestId('family-line');
-    expect(await menuOf(line)).toEqual(['Modifier', 'Mettre à la corbeille']);
+    expect(await menuOf(line)).toEqual(['Je la finis', "Annuler l'ouverture", 'Modifier', 'Mettre à la corbeille']);
   });
 
   const entry = (over: Partial<ProductDetailView['history'][number]>) => ({
