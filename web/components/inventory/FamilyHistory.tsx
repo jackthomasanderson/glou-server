@@ -21,7 +21,10 @@ type FieldChange = NonNullable<HistoryEntry['changes']>[number];
  * correct the number), never by restoring an old value: on a group, it would
  * open or drop a bottle that was never touched.
  */
-const NOT_RESTORABLE = new Set(['fillLevel', 'isOpened', 'openedAt', 'quantity', 'cigarsLeft', 'writtenOffAt', 'parentItemId']);
+const NOT_RESTORABLE = new Set(['fillLevel', 'isOpened', 'openedAt', 'quantity', 'cigarsLeft', 'writtenOffAt', 'parentItemId', 'needsReview']);
+
+/** Actions said by the drawer's own words (#471); the others keep the traceability labels. */
+const DRAWER_ACTIONS = new Set(['add_units', 'correct_quantity', 'merge_products', 'review_ok']);
 
 /** Entries shown at most, most recent first (as before). */
 const SHOWN_ENTRIES = 10;
@@ -68,7 +71,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
   const fieldLabel = (field: string) => historyFieldLabel(field, t);
   const actionLabel = (action: string) => {
     const key = action.toLowerCase();
-    return key === 'add_units' || key === 'correct_quantity'
+    return DRAWER_ACTIONS.has(key)
       ? t(`familyDrawer.history.${key}`)
       : t(`traceability.actions.${key}`);
   };
@@ -79,11 +82,14 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
     if (joined) return joined;
     const split = describeSplit(entry);
     if (split) return split;
-    if (!entry.changes || entry.changes.length === 0) return actionLabel(entry.action);
+    // "Nombre vérifié": only the mark of a guessed number changed (FEAT-102 c4).
+    if (!entry.changes || entry.changes.length === 0 || entry.action === 'REVIEW_OK') return actionLabel(entry.action);
     if (entry.action === 'RESTORE_FIELD' && entry.changes.length === 1) {
       return t('traceability.restoredField', { field: fieldLabel(entry.changes[0].field) });
     }
-    return entry.changes
+    // "Vins regroupés · Région : Graves": the values the merge chose (FEAT-102 c2).
+    const merged = entry.action === 'MERGE_PRODUCTS' ? [actionLabel(entry.action)] : [];
+    return merged.concat(entry.changes
       .map((change) => {
         // §10.3: "Nombre corrigé : 2 → 1", "Bouteilles ajoutées : 1 → 3".
         if (change.field === 'quantity' && typeof change.from === 'number' && typeof change.to === 'number') {
@@ -100,7 +106,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
           field: fieldLabel(change.field),
           value: formatHistoryValue(change.field, change.to, t, context),
         });
-      })
+      }))
       .join(' · ');
   };
 
@@ -129,6 +135,8 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
       .filter((change) => change.field !== 'quantity')
       .map((change) => `${fieldLabel(change.field).toLocaleLowerCase(i18n.language)} ${formatHistoryValue(change.field, change.from, t, context)} → ${formatHistoryValue(change.field, change.to, t, context)}`)
       .join(', ');
+    // Nothing but the number joined: said as a number change, never "rejointes ()".
+    if (!what) return null;
     return t('stockLine.history.joined', { context: nounOf(entry.itemId), count: number.to - number.from, what });
   }
 
@@ -150,6 +158,8 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
   const restorableOf = (entry: HistoryEntry): FieldChange[] => {
     // A move or a new price is undone by moving back or repricing, never field by field.
     if (entry.action in SPLIT_FIELD) return [];
+    // Recorded on a line since absorbed by this one: its values would rewrite every copy of this line.
+    if (entry.absorbed) return [];
     const changes = entry.changes ?? [];
     if (!entry.itemId) return changes.filter((change) => isRestorableDescriptionField(change.field));
     return itemIds.has(entry.itemId) ? changes.filter((change) => !NOT_RESTORABLE.has(change.field)) : [];

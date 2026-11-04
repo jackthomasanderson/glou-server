@@ -14,7 +14,7 @@ const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
 
 type Unit = { id: string; productId: string; quantity: number | null; needsReview: boolean; updatedAt: string };
 type Family = { id: string; region: string | null; items: Unit[] };
-type Detail = Family & { tastings: { id: string }[]; history: { action: string }[] };
+type Detail = Family & { tastings: { id: string }[]; history: { action: string; itemId: string | null; absorbed?: boolean; changes: { field: string }[] | null }[] };
 type Disagreement = { field: string; values: { productId: string; value: unknown }[]; preselectedProductId: string };
 type Review = {
   merges: { products: Family[]; disagreements: Disagreement[]; units: number }[];
@@ -137,6 +137,76 @@ test.describe('review after the update (#471, FEAT-102)', () => {
 
     // Settled for everyone: no longer proposed.
     expect(caseOf(await review(api), [bordeaux.productId, graves.productId])).toBeUndefined();
+  });
+
+  // J2 (ux-ui.md §10.7): the banner above the list leads to the screen, where
+  // the usual case takes "Regrouper" and its confirmation.
+  test('the review screen merges two families field by field after a definitive confirmation', async ({ page }) => {
+    const api = page.request;
+    const name = `E2E #471 J2 Écran ${stamp()}`;
+    const cellarId = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E #471 J2 ${stamp()}` } }))).id;
+    cellars.push(cellarId);
+    const bordeaux = await createFamily(api, name, cellarId, 'Bordeaux', 2); // ×3
+    const graves = await createFamily(api, name, cellarId, 'Graves', 1); // ×2, the most recent
+    families.push(bordeaux.productId, graves.productId);
+
+    await page.goto('/bottles');
+    const banner = page.getByTestId('review-banner');
+    await expect(banner).toContainText('à vérifier après la mise à jour');
+    await banner.getByText('Voir').click();
+    await expect(page).toHaveURL(/\/review$/);
+    await expect(page.getByRole('heading', { name: 'À vérifier après la mise à jour' })).toBeVisible();
+
+    const card = page.getByTestId('review-merge-case').filter({ has: page.getByRole('heading', { name: `${name} 2020` }) });
+    await expect(card).toBeVisible();
+    // c1: only the region, said in words, pre-checked on the most recent family.
+    await expect(card.getByRole('radiogroup')).toHaveCount(1);
+    await expect(card.getByText('En désaccord')).toBeVisible();
+    await expect(card.getByRole('radio', { name: /Graves/ })).toBeChecked();
+    await expect(card.getByRole('radio', { name: /Bordeaux/ })).not.toBeChecked();
+
+    await card.getByRole('button', { name: 'Regrouper' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Regrouper ces 2 vins en 1, 5 bouteilles ? Cette action est définitive.');
+    await dialog.getByRole('button', { name: 'Regrouper' }).click();
+
+    // c2: one card, the region chosen, every bottle.
+    await expect(card).toHaveCount(0);
+    const detail = await okData<Detail>(await api.get(`/api/products/${bordeaux.productId}`));
+    expect(detail.region).toBe('Graves');
+    expect(detail.items.reduce((sum, unit) => sum + (unit.quantity ?? 1), 0)).toBe(5);
+    expect((await api.get(`/api/products/${graves.productId}`)).status()).toBe(404);
+  });
+
+  // W3 report (#471): a line's history moved onto the line that absorbed it is
+  // marked, and none of its values can be restored on all the survivor's copies.
+  test('the history of a group fused by a merge is never restored onto the surviving group', async ({ page }) => {
+    const api = page.request;
+    const name = `E2E #471 J2 Historique ${stamp()}`;
+    const cellarId = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E #471 J2 ${stamp()}` } }))).id;
+    cellars.push(cellarId);
+    const kept = await createFamily(api, name, cellarId, 'Bordeaux', 2); // ×3
+    const absorbed = await createFamily(api, name, cellarId, 'Graves', 1); // ×2
+    families.push(kept.productId, absorbed.productId);
+    // A place of purchase given on the absorbed group only: the groups still agree and fuse.
+    await okData(await api.patch(`/api/inventory/${absorbed.id}`, { data: { purchasePlace: 'Foire' } }));
+    // The history is written after the answer: wait for it before merging.
+    await expect.poll(async () => (await okData<Detail>(await api.get(`/api/products/${absorbed.productId}`))).history
+      .some((entry) => entry.changes?.some((change) => change.field === 'purchasePlace'))).toBe(true);
+
+    const merged = await okData<Family>(await api.post('/api/products/merge', { data: { productIds: [kept.productId, absorbed.productId] } }));
+    expect(merged.id).toBe(kept.productId);
+
+    const detail = await okData<Detail>(await api.get(`/api/products/${kept.productId}`));
+    expect(detail.items.map((unit) => [unit.id, unit.quantity])).toEqual([[kept.id, 5]]);
+    const moved = detail.history.find((entry) => entry.changes?.some((change) => change.field === 'purchasePlace'));
+    expect(moved).toMatchObject({ itemId: kept.id, absorbed: true });
+    expect(detail.history.filter((entry) => entry.itemId === kept.id && entry !== moved).every((entry) => !entry.absorbed)).toBe(true);
+
+    // Restoring "no place of purchase" would rewrite the 5 bottles of the surviving group.
+    const refused = await api.post(`/api/inventory/${kept.id}/rollback`, { data: { field: 'purchasePlace', toValue: null } });
+    expect(refused.status()).toBe(400);
+    expect((await refused.json()).error).toBe('VALUE_NOT_IN_HISTORY');
   });
 
   // c3: "Garder séparées" — never proposed again, even after adding bottles.

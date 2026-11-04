@@ -567,6 +567,8 @@ export class InventoryService {
     const history = await this.getItemHistory(itemId);
     const seenValues = new Set<string>();
     for (const entry of history) {
+      // #471: a value of a line since absorbed by this one would rewrite all its copies.
+      if (entry.absorbed) continue;
       for (const change of entry.changes ?? []) {
         if (change.field === field) {
           seenValues.add(JSON.stringify(change.from));

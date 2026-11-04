@@ -212,7 +212,11 @@ export async function fuseIdenticalGroups(tx: PrismaClientOrTx, productId: strin
 export async function absorbGroups(tx: PrismaClientOrTx, survivorId: string, absorbedIds: string[]): Promise<void> {
   const absorbed = Prisma.join(absorbedIds);
   await tx.$executeRaw`UPDATE "tasting_notes" SET "itemId" = ${survivorId} WHERE "itemId" IN (${absorbed})`;
-  await tx.$executeRaw`UPDATE "audit_logs" SET "bottleId" = ${survivorId} WHERE "bottleId" IN (${absorbed})`;
+  // Each entry keeps the line it was recorded on (`absorbedFrom`, the first one
+  // if absorbed again): its values were that line's, never restored on the survivor.
+  await tx.$executeRaw`UPDATE "audit_logs" SET "bottleId" = ${survivorId},
+    "details" = coalesce("details", '{}'::jsonb) || jsonb_build_object('absorbedFrom', coalesce("details"->>'absorbedFrom', "bottleId"))
+    WHERE "bottleId" IN (${absorbed})`;
   await tx.$executeRaw`UPDATE "inventory_count_entries" SET "itemId" = ${survivorId} WHERE "itemId" IN (${absorbed})`;
   await tx.$executeRaw`UPDATE "wishlist_items" SET "acquiredItemId" = ${survivorId} WHERE "acquiredItemId" IN (${absorbed})`;
   await tx.$executeRaw`UPDATE "bottles" SET "parentItemId" = ${survivorId} WHERE "parentItemId" IN (${absorbed})`;
