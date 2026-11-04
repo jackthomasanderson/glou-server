@@ -5,7 +5,9 @@ vi.mock('../../src/lib/prisma', () => ({
     auditLog: {
       create: vi.fn(),
       deleteMany: vi.fn(),
+      findMany: vi.fn(),
     },
+    user: { findMany: vi.fn() },
     inventoryItem: {
       findUnique: vi.fn(),
     },
@@ -13,7 +15,7 @@ vi.mock('../../src/lib/prisma', () => ({
 }));
 
 import { prisma } from '../../src/lib/prisma';
-import { auditLog, purgeOldAuditLogs } from '../../src/services/audit.service';
+import { auditLog, purgeOldAuditLogs, readFieldHistory } from '../../src/services/audit.service';
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -114,5 +116,24 @@ describe('purgeOldAuditLogs', () => {
 
     expect(count).toBe(1);
     expect(prisma.auditLog.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('readFieldHistory', () => {
+  const row = (details: Record<string, unknown>) => ({
+    id: 1, action: 'UPDATE', status: 'success', userId: 'u1', bottleId: 'b1', productId: 'p1', details, createdAt: new Date('2026-10-30T10:00:00Z'),
+  });
+
+  it('tells an entry moved from a line since absorbed (#471), and only that one', async () => {
+    vi.mocked(prisma.auditLog.findMany).mockResolvedValue([
+      row({ changes: [{ field: 'purchasePrice', from: 20, to: 25 }], absorbedFrom: 'b2' }),
+      row({ changes: [{ field: 'purchasePrice', from: 18, to: 20 }] }),
+    ] as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', displayName: 'Marie', username: 'marie' }] as never);
+
+    const [moved, own] = await readFieldHistory({ productId: 'p1' });
+
+    expect(moved).toMatchObject({ itemId: 'b1', absorbed: true, actorName: 'Marie' });
+    expect(own).not.toHaveProperty('absorbed');
   });
 });

@@ -5,6 +5,7 @@ import { isIntactItem, productKey, summarizeStock, unitKind } from '../lib/finis
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { compareFamilyIds, fieldSourcesOf, lockFamilies, lockFamily, toUnitView, writeProductFields, type ProductWrite } from '../lib/product-fields';
 import { peakWindowSchema } from '../schemas/inventory.schema';
+import { moveHistoryOnto } from '../lib/audit-history';
 import { computeAlertStatus } from './alert.service';
 import { LISTED_PRODUCT_FILTER, productService } from './product.service';
 import type { FieldChange, ItemView } from '../../../shared/product';
@@ -212,7 +213,7 @@ export async function fuseIdenticalGroups(tx: PrismaClientOrTx, productId: strin
 export async function absorbGroups(tx: PrismaClientOrTx, survivorId: string, absorbedIds: string[]): Promise<void> {
   const absorbed = Prisma.join(absorbedIds);
   await tx.$executeRaw`UPDATE "tasting_notes" SET "itemId" = ${survivorId} WHERE "itemId" IN (${absorbed})`;
-  await tx.$executeRaw`UPDATE "audit_logs" SET "bottleId" = ${survivorId} WHERE "bottleId" IN (${absorbed})`;
+  await moveHistoryOnto(tx, survivorId, absorbedIds);
   await tx.$executeRaw`UPDATE "inventory_count_entries" SET "itemId" = ${survivorId} WHERE "itemId" IN (${absorbed})`;
   await tx.$executeRaw`UPDATE "wishlist_items" SET "acquiredItemId" = ${survivorId} WHERE "acquiredItemId" IN (${absorbed})`;
   await tx.$executeRaw`UPDATE "bottles" SET "parentItemId" = ${survivorId} WHERE "parentItemId" IN (${absorbed})`;
@@ -319,6 +320,11 @@ export const reviewService = {
     if (ids.length < 2) throw badRequest('NOT_ENOUGH_FAMILIES');
     return prisma.$transaction(async (tx) => {
       const families = await lockedFamilies(tx, ids);
+      // Checked under the locks: a family changed since the member saw the case.
+      const seen = input.expectedUpdatedAt ?? {};
+      if (families.some((family) => family.id in seen && new Date(seen[family.id]).getTime() !== family.updatedAt.getTime())) {
+        throw conflict('CONFLICT');
+      }
       await assertSameWine(tx, families);
       const walk = [...families].sort(byAge);
       const [survivor, ...others] = walk;

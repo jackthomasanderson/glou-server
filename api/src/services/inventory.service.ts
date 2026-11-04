@@ -530,10 +530,14 @@ export class InventoryService {
       where: { id: itemId, deletedAt: null },
     });
     if (!existing) return { status: 'not_found' };
+    // #471 (FEAT-102): a guessed number is settled by "C'est bon" or "Corriger le nombre", never marked again from the history.
+    if (field === 'needsReview') return { status: 'invalid_value' };
 
     const history = await this.getItemHistory(itemId);
     const seenValues = new Set<string>();
     for (const entry of history) {
+      // #471: a value of a line since absorbed by this one would rewrite all its copies.
+      if (entry.absorbed) continue;
       for (const change of entry.changes ?? []) {
         if (change.field === field) {
           seenValues.add(JSON.stringify(change.from));
