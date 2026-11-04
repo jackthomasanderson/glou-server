@@ -27,7 +27,8 @@ describe('ShareForm — write access of a shared cellar', () => {
     render(<ShareForm onSubmit={onSubmit} onCancel={() => {}} />);
     fireEvent.click(screen.getByRole('checkbox', { name: 'Garage' }));
 
-    const toggle = screen.getByRole('switch', { name: 'Autoriser à ouvrir, boire ou fumer' });
+    // Each cellar's switch is named with its cellar (review of #829).
+    const toggle = screen.getByRole('switch', { name: 'Garage Autoriser à ouvrir, boire ou fumer' });
     expect(toggle).not.toBeChecked();
     expect(screen.getByText('Autoriser à ouvrir, boire ou fumer')).toBeInTheDocument();
     expect(screen.queryByText('Lecture seule')).toBeNull();

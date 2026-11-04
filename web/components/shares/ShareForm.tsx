@@ -178,7 +178,7 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
                       onValueChange={() => toggleCellar(cellar.id)}
                       size="sm"
                     >
-                      {cellar.name}
+                      <span id={`share-cellar-name-${cellar.id}`}>{cellar.name}</span>
                     </Checkbox>
                     {isSelected && (
                       // Recette #471: the label names the action the switch grants, never the
@@ -188,8 +188,10 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
                         onValueChange={() => toggleCellarWrite(cellar.id)}
                         size="sm"
                         data-testid={`share-cellar-write-${cellar.id}`}
+                        // One name per cellar for a screen reader (HeroUI drops aria-label here).
+                        aria-labelledby={`share-cellar-name-${cellar.id} share-cellar-write-label-${cellar.id}`}
                       >
-                        <span className="text-xs text-foreground-500">{t('shares.fields.allowWrite')}</span>
+                        <span id={`share-cellar-write-label-${cellar.id}`} className="text-xs text-foreground-500">{t('shares.fields.allowWrite')}</span>
                       </Switch>
                     )}
                   </div>
