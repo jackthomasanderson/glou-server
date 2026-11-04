@@ -22,7 +22,7 @@ vi.mock('../src/lib/prisma', () => ({
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
-    tastingNote: { deleteMany: vi.fn(), count: vi.fn() },
+    tastingNote: { deleteMany: vi.fn(), count: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
     // #471 (FEAT-100): a detach during an open count adjusts its entries.
     inventoryCountEntry: { updateMany: vi.fn(), create: vi.fn(), findMany: vi.fn() },
     inventoryCountSession: { findFirst: vi.fn() },
@@ -74,6 +74,7 @@ describe('InventoryService', () => {
     vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string } }) =>
       Promise.resolve(unitRow({ id: args.where.id }))) as never);
     vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([] as never);
     // #471: the unit is read again once its family is locked — here, as the test served it.
     vi.mocked(prisma.inventoryItem.findUnique).mockImplementation((async () =>
       vi.mocked(prisma.inventoryItem.findFirst).mock.results.at(0)?.value) as never);
@@ -418,6 +419,33 @@ describe('InventoryService', () => {
         .toBeLessThan(vi.mocked(prisma.inventoryItem.findUnique).mock.invocationCallOrder[0]);
       expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
       expect(prisma.product.update).not.toHaveBeenCalled();
+    });
+
+    // FEAT-107 c3: "Bue" after a tasting of a ×6 → ×5 and a finished bottle holding the tasting.
+    it('moves the tasting it was noted with onto the detached copy', async () => {
+      vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation(((args: { where: { id: string } }) =>
+        Promise.resolve({ ...group(), id: args.where.id, quantity: 1, isOpened: true, fillLevel: 0, parentItemId: 'b1' })) as never);
+
+      const result = await service.updateItem('u1', 'b1', {
+        isOpened: true, fillLevel: 0, tastingId: '11111111-1111-4111-8111-111111111111',
+      });
+
+      if (!result || 'conflict' in result) throw new Error('expected a write');
+      expect(result.changed).toEqual([expect.objectContaining({ id: 'b1', quantity: 5 })]);
+      expect(prisma.tastingNote.updateMany).toHaveBeenCalledWith({
+        where: { id: '11111111-1111-4111-8111-111111111111', itemId: 'b1' },
+        data: { itemId: result.item.id },
+      });
+      const written = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+      expect(written.data).not.toHaveProperty('tastingId');
+    });
+
+    it('leaves the tasting where it is when nothing is detached (a group of one)', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ ...group(), quantity: 1 } as never);
+
+      await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0, tastingId: '11111111-1111-4111-8111-111111111111' });
+
+      expect(prisma.tastingNote.updateMany).not.toHaveBeenCalled();
     });
 
     it('smokeOne and keepTastings never reach a column', async () => {
@@ -1074,6 +1102,18 @@ describe('InventoryService', () => {
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
+    it('keeps a purged photo a tasting still shows', async () => {
+      vi.mocked(prisma.inventoryItem.findMany)
+        .mockResolvedValueOnce([{ id: 'a', photoUrl: '/uploads/products/shared.jpg', productId: 'p1' }] as never)
+        .mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([{ photoUrl: 'http://localhost:3001/uploads/products/shared.jpg' }] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 1 } as never);
+
+      const result = await service.purgeTrashed();
+
+      expect(result.photoPaths).toEqual([]);
+    });
+
     it('does nothing when nothing is past the retention window', async () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
 
@@ -1119,6 +1159,22 @@ describe('InventoryService', () => {
       expect(count).toBe(1);
       expect(fsUnlink).toHaveBeenCalledTimes(1);
       expect(fsUnlink.mock.calls[0][0]).toContain('orphan.jpg');
+    });
+
+    // #471 (A1/K reports, FEAT-107): a tasting's photo is a reference too —
+    // and once its tasting is deleted, the sweep takes it.
+    it("keeps a photo a tasting still shows, by the path of its absolute URL", async () => {
+      fsReaddir.mockResolvedValue(['tasted.jpg', 'deleted-tasting.jpg']);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([
+        { photoUrl: 'https://glou.example/uploads/products/tasted.jpg' },
+      ] as never);
+
+      const count = await service.sweepOrphanProductPhotos();
+
+      expect(count).toBe(1);
+      expect(fsUnlink.mock.calls[0][0]).toContain('deleted-tasting.jpg');
     });
 
     it('returns 0 without touching the database when the upload dir does not exist', async () => {
@@ -1246,5 +1302,16 @@ describe('InventoryService', () => {
       });
       expect(created().fieldSources).toEqual({ name: 'import_csv', purchasePrice: 'import_csv' });
     });
+  });
+});
+
+describe('localPhotoPath', () => {
+  it('reads the local product photo path of a URL, absolute or not', async () => {
+    const { localPhotoPath } = await import('../src/services/inventory.service');
+    expect(localPhotoPath('https://glou.example/uploads/products/a.jpg')).toBe('/uploads/products/a.jpg');
+    expect(localPhotoPath('/uploads/products/a.jpg')).toBe('/uploads/products/a.jpg');
+    expect(localPhotoPath('https://cdn.example/b.jpg')).toBeNull();
+    expect(localPhotoPath('https://glou.example/uploads/products/x/../../avatars/a.jpg')).toBeNull();
+    expect(localPhotoPath(null)).toBeNull();
   });
 });

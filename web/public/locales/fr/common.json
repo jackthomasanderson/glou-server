@@ -999,6 +999,20 @@
       "load": "Impossible de charger les collections."
     }
   },
+  "tastingWine": {
+    "wine": "Vin dégusté",
+    "notListed": "Ce vin n'est pas dans la liste",
+    "pickFromList": "Choisir un vin de la liste",
+    "namedHint": "Goûté ailleurs : si Glou connaît déjà ce vin, la dégustation va sur lui ; sinon, Glou l'ajoute sans bouteille.",
+    "vitola": "Vitole",
+    "onBottle": "Sur une bouteille de la cave ?",
+    "onCigar": "Sur un cigare de la cave ?",
+    "yes": "Oui",
+    "elsewhere": "Non, goûté ailleurs",
+    "whichBottle": "Quelle bouteille ?",
+    "vintageInvalid": "Millésime sur 4 chiffres, au plus {{year}} ; laissez vide pour un vin sans année.",
+    "whichCigars": "Quels cigares ?"
+  },
   "tastings": {
     "title": "Journal de dégustation",
     "create": "Nouvelle dégustation",
