@@ -91,7 +91,7 @@ test('a group is counted in one answer, its gaps corrected, a find of 6 makes a 
   await expect(page.getByText('2 manquantes sur 6')).toBeVisible();
   // HeroUI's radios and checkboxes are visually hidden inputs: a DOM click
   // is what the member's tap on their label amounts to.
-  const writtenOff = page.getByRole('radiogroup', { name: `Que faire des bouteilles manquantes de ${missingName} ?` })
+  const writtenOff = page.getByRole('radiogroup', { name: `Que faire des exemplaires manquants de ${missingName} ?` })
     .getByRole('radio', { name: 'Cassées / offertes / perdues' });
   await writtenOff.dispatchEvent('click');
   await expect(writtenOff).toBeChecked();

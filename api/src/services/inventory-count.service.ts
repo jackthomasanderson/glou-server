@@ -58,6 +58,8 @@ const REPORT_ITEM_SELECT = {
   isOpened: true,
   fillLevel: true,
   cigarsLeft: true,
+  // A cigar group counts boxes (cigarsPerBox set) or single cigars (null): the report words it so.
+  cigarsPerBox: true,
 } satisfies Prisma.InventoryItemSelect;
 
 type ReportItemRow = Prisma.InventoryItemGetPayload<{ select: typeof REPORT_ITEM_SELECT }>;

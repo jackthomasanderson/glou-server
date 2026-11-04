@@ -100,7 +100,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   let totalValuation = 0;
   let totalPurchasePrice = 0;
   let totalLiquidLiters = 0;
-  let cigarModulesCount = 0;
+  let cigarCount = 0;
   let urgentDegustationCount = 0;
   let noWindow = 0;
   let preserve = 0;
@@ -134,7 +134,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     totalValuation += value;
     totalLiquidLiters += computeBottleVolume(product.category, item.bottleSize, item.fillLevel) * units;
 
-    if (product.category === 'cigar') cigarModulesCount += units;
+    if (product.category === 'cigar') cigarCount += units;
 
     if (!categoryMap[product.category]) categoryMap[product.category] = { count: 0, valuation: 0 };
     categoryMap[product.category].count += units;
@@ -242,7 +242,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     totalValuation: Math.round(totalValuation),
     totalPurchasePrice: Math.round(totalPurchasePrice),
     totalLiquidLiters: Math.round(totalLiquidLiters * 100) / 100,
-    cigarModulesCount,
+    cigarCount,
     urgentDegustationCount,
     totalActiveItems: inStockUnits,
     categoryBreakdown: Object.entries(categoryMap)

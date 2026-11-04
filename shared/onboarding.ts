@@ -8,7 +8,8 @@ export interface OnboardingState {
   joining: boolean;
   /** FEAT-90 (#685): the first cellar this member created, the wizard's default when it resumes. */
   wizardCellar: { id: string; name: string } | null;
-  /** FEAT-89: what a joining member finds — every cellar, and the units in stock (bottles and cigars, #471). */
+  /** FEAT-89: what a joining member finds — every cellar, and the bottles and the cigars in stock, counted apart (#471). */
   cellarCount: number;
-  inStockCount: number;
+  bottleCount: number;
+  cigarCount: number;
 }

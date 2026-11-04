@@ -1,5 +1,6 @@
 'use client';
 
+import { cellarContentsLabel } from '@/lib/cellars/contents';
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Button,
@@ -428,7 +429,7 @@ export const CellarDashboard: React.FC = () => {
                 {cellar.stats && (
                   <div className="flex gap-1.5 mt-1 flex-wrap">
                     <Chip size="sm" variant="flat">
-                      {t('cellars.stats.itemsCount', { count: cellar.stats.totalItems })}
+                      {cellarContentsLabel(cellar.stats, t)}
                     </Chip>
                     {cellar.stats.alertCount > 0 && (
                       <Chip size="sm" color="warning" variant="flat">
@@ -527,7 +528,7 @@ export const CellarDashboard: React.FC = () => {
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
-                  <span className="text-sm">{cellar.stats?.totalItems ?? 0}</span>
+                  <span className="text-sm">{cellarContentsLabel(cellar.stats ?? { bottles: 0, cigars: 0 }, t)}</span>
                 </TableCell>
                 <TableCell className="text-right">
                   {cellar.stats?.alertCount ? (

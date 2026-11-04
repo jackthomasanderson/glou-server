@@ -129,11 +129,21 @@ export class CellarService {
         vintage: true,
         slotColumn: true,
         slotRow: true,
+        quantity: true,
+        isOpened: true,
       },
       orderBy: { createdAt: 'asc' },
     });
 
-    return { cellar, items };
+    // #471 (W4): a group of N bottles holds one slot for now (several slots: step 3);
+    // the map says "×N" on it. An opened bottle is a record of its own: one.
+    return {
+      cellar,
+      items: items.map(({ quantity, isOpened, ...item }) => ({
+        ...item,
+        quantity: isOpened ? 1 : Math.max(quantity ?? 1, 1),
+      })),
+    };
   }
 
   /**

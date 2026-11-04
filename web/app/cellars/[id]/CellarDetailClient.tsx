@@ -1,5 +1,6 @@
 'use client';
 
+import { cellarContentsLabel } from '@/lib/cellars/contents';
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button, Chip, CircularProgress, Tooltip, ButtonGroup, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Card, CardBody } from '@heroui/react';
@@ -97,7 +98,7 @@ export function CellarDetailClient() {
 
         {cellar.stats && (
           <div className="flex gap-2 flex-wrap mb-4 ml-10">
-            <Chip size="sm" variant="flat">{t('cellars.stats.itemsCount', { count: cellar.stats.totalItems })}</Chip>
+            <Chip size="sm" variant="flat">{cellarContentsLabel(cellar.stats, t)}</Chip>
             {cellar.stats.alertCount > 0 && (
               <Chip size="sm" color="warning" variant="flat">{t('cellars.stats.alertCount', { count: cellar.stats.alertCount })}</Chip>
             )}
