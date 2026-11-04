@@ -168,10 +168,13 @@ test.describe('review after the update (#471, FEAT-102)', () => {
     await card.getByRole('button', { name: 'Regrouper' }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('Regrouper ces 2 vins en 1, 5 bouteilles ? Cette action est définitive.');
+    const merged = page.waitForResponse((res) => res.url().endsWith('/api/products/merge') && res.request().method() === 'POST');
     await dialog.getByRole('button', { name: 'Regrouper' }).click();
+    expect((await merged).ok()).toBe(true);
 
-    // c2: one card, the region chosen, every bottle.
-    await expect(card).toHaveCount(0);
+    // c2: the case leaves the screen; one card, the region chosen, every bottle.
+    await expect(dialog).toBeHidden();
+    await expect(page.getByTestId('review-merge-case').filter({ hasText: name })).toHaveCount(0);
     const detail = await okData<Detail>(await api.get(`/api/products/${bordeaux.productId}`));
     expect(detail.region).toBe('Graves');
     expect(detail.items.reduce((sum, unit) => sum + (unit.quantity ?? 1), 0)).toBe(5);
@@ -201,7 +204,8 @@ test.describe('review after the update (#471, FEAT-102)', () => {
     expect(detail.items.map((unit) => [unit.id, unit.quantity])).toEqual([[kept.id, 5]]);
     const moved = detail.history.find((entry) => entry.changes?.some((change) => change.field === 'purchasePlace'));
     expect(moved).toMatchObject({ itemId: kept.id, absorbed: true });
-    expect(detail.history.filter((entry) => entry.itemId === kept.id && entry !== moved).every((entry) => !entry.absorbed)).toBe(true);
+    // The surviving group's own entries (its creation, its added bottles) stay its own.
+    expect(detail.history.some((entry) => entry.itemId === kept.id && !entry.absorbed)).toBe(true);
 
     // Restoring "no place of purchase" would rewrite the 5 bottles of the surviving group.
     const refused = await api.post(`/api/inventory/${kept.id}/rollback`, { data: { field: 'purchasePlace', toValue: null } });
