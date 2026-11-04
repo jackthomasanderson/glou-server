@@ -49,12 +49,20 @@ describe('createGuestTasting', () => {
     expect(prisma.tastingNote.create).not.toHaveBeenCalled();
   });
 
-  it('keeps the bottle tasted when it is one of that wine in such a cellar, else refuses', async () => {
+  it('notes it on the bottle just drunk, even the last one: no copy in stock needed (decision 70)', async () => {
     await createGuestTasting(SHARE, { productId: P1, itemId: B1 });
-    expect(created().data).toMatchObject({ productId: P1, itemId: B1 });
 
-    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce({ id: B1 } as never).mockResolvedValueOnce(null);
+    expect(created().data).toMatchObject({ productId: P1, itemId: B1 });
+    expect(prisma.inventoryItem.findFirst).toHaveBeenCalledTimes(1);
+    const where = (vi.mocked(prisma.inventoryItem.findFirst).mock.calls[0]?.[0] as { where: Record<string, unknown> }).where;
+    // Finished is fine (no fill-level filter); written off or in the trash is not.
+    expect(where).toEqual({ id: B1, productId: P1, cellarId: { in: ['garage'] }, deletedAt: null, writtenOffAt: null });
+  });
+
+  it('refuses a bottle out of the write cellars, of another wine, or written off', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null);
     await expect(createGuestTasting(SHARE, { productId: P1, itemId: B1 })).rejects.toMatchObject({ code: 'READ_ONLY_ACCESS' });
+    expect(prisma.tastingNote.create).not.toHaveBeenCalled();
   });
 });
 

@@ -328,8 +328,15 @@ export const guestInventoryUpdateSchema = z
     fillLevel: z.number().int().min(0).max(100).optional().nullable(),
     // #471 (FEAT-109): "J'en fume un" — one cigar, through the detach rule.
     smokeOne: z.literal(true).optional(),
+    // #471 (decision 68): "Annuler" of the guest's own move, just made through
+    // this share (checkGuestUndo) — alone, never with a state.
+    undo: z.literal(true).optional(),
   })
-  .strict();
+  .strict()
+  .refine((patch) => !patch.undo || Object.keys(patch).length === 1, {
+    message: 'undo comes alone',
+    path: ['undo'],
+  });
 
 export type GuestInventoryUpdate = z.infer<typeof guestInventoryUpdateSchema>;
 

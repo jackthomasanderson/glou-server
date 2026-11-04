@@ -58,6 +58,8 @@ export interface GuestInventoryUpdatePayload {
   openedAt?: string | null;
   fillLevel?: number | null;
   smokeOne?: true;
+  /** Decision #471 point 68: « Annuler » of the guest's own move, just made — alone. */
+  undo?: true;
 }
 
 /**

@@ -10,7 +10,10 @@ import { guestInventoryUpdateSchema } from '../schemas/inventory.schema';
 import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
 import { getClientIp } from '../middleware/auth.middleware';
-import { checkGuestWrite } from '../lib/guest-write';
+import {
+  checkGuestUndo, checkGuestWrite, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestUndoMarker,
+} from '../lib/guest-write';
+import type { StateItem } from '../services/stock-state.service';
 import { guestTastingSchema } from '../schemas/guest-tasting.schema';
 import { createGuestTasting } from '../services/guest-tasting.service';
 
@@ -133,11 +136,30 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     }
 
     const patch = guestInventoryUpdateSchema.parse(req.body);
-    // #471 (FEAT-109): one copy opened, drunk or smoked, a level set — never
-    // a number changed; decided on the unit as read under its family's lock.
-    const result = await inventoryService.updateItem(share.userId, itemId, patch, {
-      guard: (unit, planned) => checkGuestWrite(share, patch, unit, planned),
-    });
+    let undone: GuestUndoMarker | null = null;
+    let before: StateItem | null = null;
+    let result: Awaited<ReturnType<typeof inventoryService.updateItem>>;
+    if (patch.undo) {
+      // #471 (decision 68): "Annuler" of the guest's own move, just made
+      // through this share, the unit untouched since (checkGuestUndo, under
+      // the family's lock) — never a general "close" or "put back".
+      const entry = await sharesService.findLatestGuestMove(itemId, new Date(Date.now() - GUEST_UNDO_WINDOW_MS));
+      if (!entry?.undo) throw new AppError(403, 'GUEST_UNDO_REFUSED');
+      const marker = entry.undo;
+      result = await inventoryService.updateItem(share.userId, itemId, undoPatch(marker.before, item.cigarsPerBox ?? null), {
+        guard: (unit) => { checkGuestUndo(share, entry, unit); },
+      });
+      undone = marker;
+    } else {
+      // #471 (FEAT-109): one copy opened, drunk or smoked, a level set — never
+      // a number changed; decided on the unit as read under its family's lock.
+      result = await inventoryService.updateItem(share.userId, itemId, patch, {
+        guard: (unit, planned) => {
+          checkGuestWrite(share, patch, unit, planned);
+          before = unit;
+        },
+      });
+    }
 
     if (!result) {
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
@@ -152,7 +174,19 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       return;
     }
 
-    void auditLog({
+    // A move (not a level set) can be undone for a moment (decision 68): what
+    // it found, and the version of the unit it left. Awaited, so the
+    // "Annuler" that follows the answer always finds it.
+    const moved = before as StateItem | null;
+    const sameUnit = result.item.id === itemId;
+    const marker: GuestUndoMarker | null = moved && isGuestMove(patch, moved)
+      ? {
+        // The grid slot only when the unit gave it back itself (a line of one finished in place).
+        before: stateBefore(moved, sameUnit && result.item.slotColumn == null),
+        stampedAt: new Date(result.item.updatedAt).toISOString(),
+      }
+      : null;
+    await auditLog({
       userId: share.userId,
       action: 'GUEST_UPDATE',
       status: 'success',
@@ -163,6 +197,8 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       details: {
         via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: result.changes,
         ...(result.outcome ? { outcome: result.outcome, targetItemId: itemId } : {}),
+        ...(marker ? { undo: marker } : {}),
+        ...(undone ? { undoOf: undone.stampedAt } : {}),
       },
     });
     // The group's own history: one copy fewer (detached) or one more (reattached).

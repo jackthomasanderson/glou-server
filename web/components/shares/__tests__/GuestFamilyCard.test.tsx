@@ -56,15 +56,20 @@ beforeEach(() => {
   answer = () => ({ status: 200, body: { data: {} } });
   vi.stubGlobal('fetch', fetchMock);
   Object.values(toast).forEach((fn) => fn.mockClear());
+  onNoteTasting.mockClear();
+  onLinkGone.mockClear();
 });
 afterEach(() => { vi.unstubAllGlobals(); });
+
+const onNoteTasting = vi.fn();
+const onLinkGone = vi.fn();
 
 function draw(items: GuestItem[], meta = META) {
   const [family] = guestFamilies(items);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <GuestFamilyCard family={family} token="tok" meta={meta} />
+      <GuestFamilyCard family={family} token="tok" meta={meta} onNoteTasting={onNoteTasting} onLinkGone={onLinkGone} />
     </QueryClientProvider>,
   );
 }
@@ -80,9 +85,58 @@ describe('a guest on a cellar shared with write access (FEAT-109)', () => {
 
     await waitFor(() => expect(writes()).toHaveLength(1));
     expect(writes()[0]).toMatchObject({ url: '/api/guest/tok/inventory/g', method: 'PATCH', body: { isOpened: true, fillLevel: 100 } });
-    await waitFor(() => expect(toast.notifySuccess).toHaveBeenCalledWith('openDrink.done.open'));
-    // A guest never puts a copy back: no "Annuler".
-    expect(toast.notifyUndoable).not.toHaveBeenCalled();
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+    expect(toast.notifyUndoable.mock.calls[0][0]).toBe('openDrink.done.open');
+    // Opening offers no tasting: only « Annuler ».
+    expect(toast.notifyUndoable.mock.calls[0][3]).toBeUndefined();
+  });
+
+  // Decision #471 point 68: « Annuler » of the guest's own move, on the copy it detached.
+  it('« Annuler » sends undo on the copy the move answered with', async () => {
+    answer = (url) => (url.endsWith('/inventory/g') ? { status: 200, body: { data: { id: 'sub' } } } : { status: 200, body: { data: {} } });
+    draw([copy({ id: 'g', quantity: 6 })]);
+    fireEvent.click(screen.getByTestId('guest-move-drink'));
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+
+    (toast.notifyUndoable.mock.calls[0][2] as () => void)();
+
+    await waitFor(() => expect(writes()).toHaveLength(2));
+    expect(writes()[1]).toMatchObject({ url: '/api/guest/tok/inventory/sub', method: 'PATCH', body: { undo: true } });
+  });
+
+  it('a refused « Annuler » says it is too late', async () => {
+    let calls = 0;
+    answer = () => (++calls === 1 ? { status: 200, body: { data: { id: 'sub' } } } : { status: 403, body: { error: 'GUEST_UNDO_REFUSED' } });
+    draw([copy({ id: 'g', quantity: 6 })]);
+    fireEvent.click(screen.getByTestId('guest-move-drink'));
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+
+    (toast.notifyUndoable.mock.calls[0][2] as () => void)();
+
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('shares.guest.errors.undo'));
+  });
+
+  // Decision #471 point 70: the bottle just drunk, even the last one.
+  it('after « J\'en bois une », the message offers « Noter une dégustation » on the bottle drunk', async () => {
+    answer = () => ({ status: 200, body: { data: { id: 'sub' } } });
+    draw([copy({ id: 'g', quantity: 1 })]);
+    fireEvent.click(screen.getByTestId('guest-move-drink'));
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+
+    const extra = toast.notifyUndoable.mock.calls[0][3] as { labelKey: string; onPress: () => void };
+    expect(extra.labelKey).toBe('shares.guest.tasting.action');
+    extra.onPress();
+    expect(onNoteTasting).toHaveBeenCalledWith({ productId: 'p1', itemId: 'sub', wine: 'Talbot 2018' });
+  });
+
+  it('a link expired or revoked meanwhile switches the page to its "expired" screen', async () => {
+    answer = () => ({ status: 403, body: { error: 'SHARE_EXPIRED_OR_REVOKED' } });
+    draw([copy({ id: 'g', quantity: 6 })]);
+
+    fireEvent.click(screen.getByTestId('guest-move-open'));
+
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('shares.guest.expired'));
+    expect(onLinkGone).toHaveBeenCalled();
   });
 
   it('"J\'en bois une" takes the line of the shared cellar, never the read-only one: no question', async () => {
@@ -116,6 +170,21 @@ describe('a guest on a cellar shared with write access (FEAT-109)', () => {
     expect(writes()[0].body).toEqual({ smokeOne: true });
   });
 
+  it('"J\'en fume un" smokes from the opened box first, even with no closed box left', async () => {
+    draw([
+      copy({ id: 'box', category: 'cigar', quantity: 2, cigarsPerBox: 25, vintage: null }),
+      copy({ id: 'opened', category: 'cigar', quantity: 1, cigarsPerBox: 25, isOpened: true, cigarsLeft: 10, vintage: null }),
+    ]);
+    fireEvent.click(screen.getByTestId('guest-move-smoke'));
+    await waitFor(() => expect(writes()).toHaveLength(1));
+    expect(writes()[0]).toMatchObject({ url: '/api/guest/tok/inventory/opened', body: { smokeOne: true } });
+  });
+
+  it('an opened box alone still offers "J\'en fume un"', () => {
+    draw([copy({ id: 'opened', category: 'cigar', quantity: 1, cigarsPerBox: 25, isOpened: true, cigarsLeft: 3, vintage: null })]);
+    expect(screen.getByTestId('guest-move-smoke')).toBeInTheDocument();
+  });
+
   it('sets the level of an opened bottle of the shared cellar on that bottle, never on its line', async () => {
     draw([copy({ id: 'g', quantity: 5 }), copy({ id: 'sub', isOpened: true, fillLevel: 60 })]);
 
@@ -135,18 +204,10 @@ describe('a guest on a cellar shared with write access (FEAT-109)', () => {
     await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('shares.guest.errors.finished'));
   });
 
-  it('c3: notes a tasting on the wine', async () => {
-    draw([copy({ id: 'g', quantity: 6 })]);
-
+  it('c3: « Noter une dégustation » on the opened bottle when there is one, else on the wine', () => {
+    draw([copy({ id: 'g', quantity: 5 }), copy({ id: 'sub', isOpened: true, fillLevel: 60 })]);
     fireEvent.click(screen.getByTestId('guest-tasting'));
-    const dialog = await screen.findByRole('dialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: /Note 4/ }));
-    fireEvent.change(within(dialog).getByLabelText('Notes de dégustation'), { target: { value: 'Superbe' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }));
-
-    await waitFor(() => expect(writes()).toHaveLength(1));
-    expect(writes()[0]).toMatchObject({ url: '/api/guest/tok/tastings', method: 'POST', body: { productId: 'p1', rating: 4, notes: 'Superbe' } });
-    await waitFor(() => expect(toast.notifySuccess).toHaveBeenCalledWith('shares.guest.tasting.done'));
+    expect(onNoteTasting).toHaveBeenCalledWith({ productId: 'p1', itemId: 'sub', wine: 'Talbot 2018' });
   });
 
   it('c2: no action to correct a number, move, reprice, add, or edit the wine or its notes', () => {

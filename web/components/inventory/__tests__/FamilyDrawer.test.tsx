@@ -159,12 +159,20 @@ describe('FamilyDrawer', () => {
   it('a tasting noted by a guest is signed "Marie (invité)", or "Invité" without a name', () => {
     detail = detailOf({
       items: [unit({ id: 'b1', quantity: 2, cellarId: 'garage' })],
-      tastings: [tasting({ id: 't1', guestName: 'Marie' }), tasting({ id: 't2', guestName: '' }), tasting({ id: 't3' })],
+      tastings: [
+        tasting({ id: 't1', itemId: 'b1', guestName: 'Marie' }),
+        tasting({ id: 't2', guestName: '' }),
+        tasting({ id: 't3' }),
+      ],
     });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
     const [named, anonymous, member] = within(screen.getByTestId('family-tastings')).getAllByRole('listitem');
-    expect(named).toHaveTextContent('Goûté ailleurs · Marie (invité)');
-    expect(anonymous).toHaveTextContent('Goûté ailleurs · Invité');
+    // On the bottle the guest drank: which one, then who.
+    expect(named).toHaveTextContent(/Garage.* · Marie \(invité\)/);
+    // Without a bottle, a guest's tasting is not "tasted elsewhere".
+    expect(anonymous).toHaveTextContent('Invité');
+    expect(anonymous).not.toHaveTextContent('Goûté ailleurs');
+    expect(member).toHaveTextContent('Goûté ailleurs');
     expect(member).not.toHaveTextContent('nvité');
   });
 

@@ -23,6 +23,9 @@ vi.mock('../../src/lib/prisma', () => ({
     user: {
       findUnique: vi.fn(),
     },
+    auditLog: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -428,5 +431,26 @@ describe('sharesService.getCellarsForShare', () => {
   it('names none for a share by collection only', async () => {
     expect(await sharesService.getCellarsForShare({ cellarIds: [] })).toEqual([]);
     expect(prisma.cellar.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// Decision #471 point 68: what a guest's "Annuler" is checked against.
+describe('sharesService.findLatestGuestMove', () => {
+  it('reads the latest successful guest write on the unit within the window, with its marker', async () => {
+    const createdAt = new Date('2030-06-15T11:59:50.000Z');
+    const undo = { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, stampedAt: '2030-06-15T11:59:50.000Z' };
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({ createdAt, details: { shareId: 's1', undo } } as never);
+    const since = new Date('2030-06-15T11:59:00.000Z');
+
+    expect(await sharesService.findLatestGuestMove('sub', since)).toEqual({ shareId: 's1', createdAt, undo });
+    expect(prisma.auditLog.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { bottleId: 'sub', action: 'GUEST_UPDATE', status: 'success', createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+    }));
+  });
+
+  it('gives no marker for a write that was not a move (a level set)', async () => {
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({ createdAt: NOW, details: { shareId: 's1' } } as never);
+    expect((await sharesService.findLatestGuestMove('sub', NOW))?.undo).toBeNull();
   });
 });

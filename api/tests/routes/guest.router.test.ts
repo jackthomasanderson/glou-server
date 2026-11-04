@@ -16,6 +16,7 @@ vi.mock('../../src/services/shares.service', () => ({
     getItemForShare: vi.fn(),
     canWriteCellar: vi.fn(),
     getCellarsForShare: vi.fn(),
+    findLatestGuestMove: vi.fn(),
   },
 }));
 vi.mock('../../src/services/inventory.service', () => ({
@@ -183,5 +184,86 @@ describe('POST /api/guest/:token/tastings', () => {
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('READ_ONLY_ACCESS');
+  });
+});
+
+// Decision #471 point 68: "Annuler" of the guest's own move, just made through this share.
+describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
+  type Guard = (unit: unknown, planned: () => string) => void;
+  const STAMP = '2026-11-04T10:00:00.000Z';
+  const group = { id: 'i1', cellarId: 'c1', quantity: 6, isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null, openedAt: null, slotColumn: null, slotRow: null, category: 'wine', updatedAt: new Date('2026-11-01T00:00:00.000Z') };
+
+  it('a move records what it found and the version it left, before answering', async () => {
+    vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+      options?.guard?.(group, () => 'detached');
+      return { item: { id: 'sub', productId: 'p1', updatedAt: new Date(STAMP), slotColumn: null }, changes: [], changed: [], removedIds: [], outcome: 'detached' };
+    }) as never);
+
+    const res = await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 0 });
+
+    expect(res.status).toBe(200);
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
+      bottleId: 'sub',
+      details: expect.objectContaining({
+        shareId: 's1',
+        undo: { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, stampedAt: STAMP },
+      }),
+    }));
+  });
+
+  it('a level set records no "Annuler"', async () => {
+    const sub = { ...group, id: 'sub', quantity: 1, isOpened: true, fillLevel: 60 };
+    vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+      options?.guard?.(sub, () => 'updated');
+      return { item: { id: 'sub', productId: 'p1', updatedAt: new Date(STAMP) }, changes: [], changed: [], removedIds: [] };
+    }) as never);
+
+    await request(app).patch('/api/guest/tok/inventory/sub').send({ fillLevel: 30 });
+
+    const details = (vi.mocked(auditLog).mock.calls[0]?.[0] as { details: Record<string, unknown> }).details;
+    expect(details).not.toHaveProperty('undo');
+  });
+
+  it('puts the bottle back when the latest move on it was this share\'s, just made, and nothing changed since', async () => {
+    vi.mocked(sharesService.findLatestGuestMove).mockResolvedValue({
+      shareId: 's1', createdAt: new Date(),
+      undo: { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, stampedAt: STAMP },
+    } as never);
+    vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+      options?.guard?.({ cellarId: 'c1', updatedAt: new Date(STAMP) }, () => 'reattached');
+      return { item: { id: 'i1', productId: 'p1', updatedAt: new Date() }, changes: [], changed: [], removedIds: ['sub'], outcome: 'reattached' };
+    }) as never);
+
+    const res = await request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
+
+    expect(res.status).toBe(200);
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'sub', { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, { guard: expect.any(Function) });
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ details: expect.objectContaining({ undoOf: STAMP }) }));
+  });
+
+  it('refuses it when nothing undoable was recorded (later than the window, or never)', async () => {
+    vi.mocked(sharesService.findLatestGuestMove).mockResolvedValue(null);
+
+    const res = await request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('GUEST_UNDO_REFUSED');
+    expect(inventoryService.updateItem).not.toHaveBeenCalled();
+  });
+
+  it('refuses it from another share, and on a unit changed since', async () => {
+    const run = async (entryShare: string, updatedAt: string) => {
+      vi.mocked(sharesService.findLatestGuestMove).mockResolvedValue({
+        shareId: entryShare, createdAt: new Date(),
+        undo: { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, stampedAt: STAMP },
+      } as never);
+      vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+        options?.guard?.({ cellarId: 'c1', updatedAt: new Date(updatedAt) }, () => 'reattached');
+        return { item: { id: 'i1' }, changes: [], changed: [], removedIds: [] };
+      }) as never);
+      return request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
+    };
+    expect((await run('s2', STAMP)).body.error).toBe('GUEST_UNDO_REFUSED');
+    expect((await run('s1', '2026-11-04T10:00:05.000Z')).body.error).toBe('GUEST_UNDO_REFUSED');
   });
 });

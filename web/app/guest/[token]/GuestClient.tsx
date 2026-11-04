@@ -1,7 +1,7 @@
 'use client';
 
 import React, { use, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Chip, Input, Select, SelectItem, Spinner } from '@heroui/react';
 import { Eye, EyeOff, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -9,14 +9,16 @@ import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { guestClient, GuestRequestError } from '@/lib/shares/client';
 import { guestFamilies } from '@/lib/shares/guestFamilies';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { GuestFamilyCard } from '@/components/shares/GuestFamilyCard';
-import type { GuestItem, GuestShareMeta } from '@/lib/shares/types';
+import { GuestFamilyCard, isLinkGone, refusalKey, type GuestTastingTarget } from '@/components/shares/GuestFamilyCard';
+import { GuestTastingDialog } from '@/components/shares/GuestTastingDialog';
+import { notifyError, notifySuccess } from '@/lib/toast';
+import type { GuestItem, GuestShareMeta, GuestTastingPayload } from '@/lib/shares/types';
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 const GUEST_PAGE_SIZE = 60;
 
-function GuestPageContent({ token }: { token: string }) {
+export function GuestPageContent({ token }: { token: string }) {
   const { t } = useTranslation();
   useBrowserTabTitle(t('shares.guest.badge'));
 
@@ -38,6 +40,28 @@ function GuestPageContent({ token }: { token: string }) {
   });
 
   const families = useMemo(() => guestFamilies(inventoryQuery.data ?? []), [inventoryQuery.data]);
+
+  // #471 (FEAT-109): a write refused because the link died meanwhile → the "expired" screen.
+  const queryClient = useQueryClient();
+  const linkGone = () => { void queryClient.invalidateQueries({ queryKey: ['guest', token, 'meta'] }); };
+
+  // « Noter une dégustation »: held by the page, so it outlives the card of a
+  // wine whose last bottle was just drunk (decision #471 point 70).
+  const [tastingTarget, setTastingTarget] = useState<GuestTastingTarget | null>(null);
+  const noteTasting = useMutation({
+    mutationFn: (payload: GuestTastingPayload) => guestClient.createTasting(token, payload),
+  });
+  const saveTasting = async (target: GuestTastingTarget, payload: GuestTastingPayload) => {
+    try {
+      await noteTasting.mutateAsync({ productId: target.productId, ...(target.itemId ? { itemId: target.itemId } : {}), ...payload });
+    } catch (error) {
+      if (isLinkGone(error)) linkGone();
+      notifyError(refusalKey(error));
+      return;
+    }
+    notifySuccess('shares.guest.tasting.done');
+    setTastingTarget(null);
+  };
 
   // Only a server answer saying the link is unusable means "expired or revoked";
   // network drops, 5xx and rate limits are transient and deserve a retry.
@@ -166,7 +190,14 @@ function GuestPageContent({ token }: { token: string }) {
         {items.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {meta && items.slice(0, visibleCount).map((family) => (
-              <GuestFamilyCard key={family.productId} family={family} token={token} meta={meta} />
+              <GuestFamilyCard
+                key={family.productId}
+                family={family}
+                token={token}
+                meta={meta}
+                onNoteTasting={setTastingTarget}
+                onLinkGone={linkGone}
+              />
             ))}
           </div>
         )}
@@ -178,6 +209,14 @@ function GuestPageContent({ token }: { token: string }) {
           </div>
         )}
       </div>
+      {tastingTarget && (
+        <GuestTastingDialog
+          wine={tastingTarget.wine}
+          isPending={noteTasting.isPending}
+          onClose={() => setTastingTarget(null)}
+          onConfirm={(payload) => { void saveTasting(tastingTarget, payload); }}
+        />
+      )}
     </main>
   );
 }

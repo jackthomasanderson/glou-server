@@ -1502,7 +1502,8 @@
         "finished": "This bottle was drunk or removed in the meantime.",
         "restock": "Only a member of the cellar can put a bottle back in stock.",
         "readOnly": "This cellar is shared with you read-only.",
-        "generic": "Could not save. Please try again."
+        "generic": "Could not save. Please try again.",
+        "undo": "Too late to undo: the bottle has changed since."
       },
       "tasting": {
         "action": "Note a tasting",

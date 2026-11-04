@@ -335,13 +335,14 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
               {p.tastings.map((tasting) => {
                 const bottle = tasting.itemId ? p.items.find((item) => item.id === tasting.itemId) : undefined;
                 // "Garage · 20 € / bouteille": where the bottle tasted was, and its price.
-                const which = bottle ? bottleLabel(bottle, ctx) : t('familyDrawer.tastings.elsewhere');
-                // FEAT-109: noted through a guest link — "Marie (invité)".
+                // FEAT-109: noted through a guest link — "Marie (invité)"; without a
+                // bottle, on a wine of the shared cellar, not "tasted elsewhere".
                 const guest = guestSignature(tasting.guestName, t);
+                const which = bottle ? bottleLabel(bottle, ctx) : guest ? null : t('familyDrawer.tastings.elsewhere');
                 return (
                   <li key={tasting.id} className="p-3 rounded-xl border border-divider">
                     <div className="flex items-center justify-between gap-2 text-xs text-foreground-500">
-                      <span>{hasMounted ? ctx.formatDate(tasting.tastedAt as string) : ''} · {which}{guest ? ` · ${guest}` : ''}</span>
+                      <span>{[hasMounted ? ctx.formatDate(tasting.tastedAt as string) : '', which, guest].filter((part) => part != null).join(' · ')}</span>
                       {tasting.rating != null && (
                         <span className="flex items-center gap-0.5 font-bold text-foreground">
                           <Star size={12} className="text-warning" aria-hidden /> {tasting.rating}

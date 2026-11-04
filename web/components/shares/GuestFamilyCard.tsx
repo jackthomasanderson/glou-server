@@ -15,9 +15,8 @@ import { describeStock, wineName } from '@/lib/products/stock';
 import type { ProductItem } from '@/lib/products/types';
 import { guestClient, GuestRequestError } from '@/lib/shares/client';
 import { guestCanTouch, guestOpenableGroups, type GuestFamily } from '@/lib/shares/guestFamilies';
-import type { GuestInventoryUpdatePayload, GuestShareMeta, GuestTastingPayload } from '@/lib/shares/types';
-import { notifyError, notifySuccess } from '@/lib/toast';
-import { GuestTastingDialog } from './GuestTastingDialog';
+import type { GuestInventoryUpdatePayload, GuestShareMeta } from '@/lib/shares/types';
+import { notifyError, notifyUndoable } from '@/lib/toast';
 
 const ICONS: Record<StockMove, React.ReactElement> = {
   open: <Wine size={15} />,
@@ -29,16 +28,33 @@ const ICONS: Record<StockMove, React.ReactElement> = {
 const GUEST_REFUSALS: Record<string, string> = {
   GUEST_ITEM_FINISHED: 'shares.guest.errors.finished',
   GUEST_CANNOT_RESTOCK: 'shares.guest.errors.restock',
+  GUEST_UNDO_REFUSED: 'shares.guest.errors.undo',
   READ_ONLY_ACCESS: 'shares.guest.errors.readOnly',
   ITEM_NOT_FOUND: 'shares.guest.errors.finished',
+  // The link died during the visit: the page switches to its "expired" screen.
+  SHARE_EXPIRED_OR_REVOKED: 'shares.guest.expired',
+  SHARE_NOT_FOUND: 'shares.guest.expired',
 };
-const refusalKey = (error: unknown) =>
-  (error instanceof GuestRequestError && GUEST_REFUSALS[error.message]) || 'shares.guest.errors.generic';
+const LINK_GONE = new Set(['SHARE_EXPIRED_OR_REVOKED', 'SHARE_NOT_FOUND']);
+const codeOf = (error: unknown) => (error instanceof GuestRequestError ? error.message : '');
+export const refusalKey = (error: unknown) => GUEST_REFUSALS[codeOf(error)] ?? 'shares.guest.errors.generic';
+export const isLinkGone = (error: unknown) => LINK_GONE.has(codeOf(error));
+
+/** What a guest's tasting is noted on: the wine, and the bottle when known (the one just drunk, an opened one). */
+export interface GuestTastingTarget {
+  productId: string;
+  itemId?: string;
+  wine: string;
+}
 
 interface GuestFamilyCardProps {
   family: GuestFamily;
   token: string;
   meta: Pick<GuestShareMeta, 'writeCellarIds' | 'cellars'>;
+  /** « Noter une dégustation »: the dialog lives on the page, so it outlives a card whose last bottle was just drunk. */
+  onNoteTasting: (target: GuestTastingTarget) => void;
+  /** A write refused because the link expired or was revoked meanwhile. */
+  onLinkGone: () => void;
 }
 
 /**
@@ -49,12 +65,11 @@ interface GuestFamilyCardProps {
  * bottle; "Noter une dégustation". No action on a number, a move, a price,
  * an addition nor the wine's notes: absent, not disabled.
  */
-export function GuestFamilyCard({ family, token, meta }: GuestFamilyCardProps) {
+export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone }: GuestFamilyCardProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const queryClient = useQueryClient();
   const [asking, setAsking] = useState<{ move: StockMove; preselection: Preselection<ProductItem> } | null>(null);
-  const [tasting, setTasting] = useState(false);
 
   const cellarName = useMemo(() => {
     const names = new Map(meta.cellars.map((cellar) => [cellar.id, cellar.name]));
@@ -73,6 +88,10 @@ export function GuestFamilyCard({ family, token, meta }: GuestFamilyCardProps) {
   const stock = describeStock({ category: family.category, items: family.items, lastActivityAt: null }, t);
   const groups = guestOpenableGroups(family, meta.writeCellarIds);
   const writable = family.items.some((item) => item.cellarId != null && meta.writeCellarIds.includes(item.cellarId));
+  // Opened bottles or boxes of the write cellars, the one opened first first (familyLines' order).
+  const touchable = lines.inCellar.filter((item) => guestCanTouch(item, meta.writeCellarIds));
+  // Cigars: smoked from the opened box first (as for members, lot L2), then a closed line.
+  const openedBox = family.kind === 'cigar' ? touchable[0] : undefined;
   const wine = wineName(family);
 
   const settle = () => queryClient.invalidateQueries({ queryKey: ['guest', token, 'inventory'] });
@@ -80,23 +99,45 @@ export function GuestFamilyCard({ family, token, meta }: GuestFamilyCardProps) {
     mutationFn: ({ id, patch }: { id: string; patch: GuestInventoryUpdatePayload }) => guestClient.updateItem(token, id, patch),
     onSettled: settle,
   });
-  const note = useMutation({
-    mutationFn: (payload: GuestTastingPayload) => guestClient.createTasting(token, { productId: family.productId, ...payload }),
-  });
 
-  /** One copy of `line` opened, drunk or smoked; no "Annuler": a guest never puts a copy back (FEAT-109). */
+  const refused = (error: unknown) => {
+    if (isLinkGone(error)) onLinkGone();
+    notifyError(refusalKey(error));
+  };
+
+  /**
+   * One copy of `line` opened, drunk or smoked. Its message offers
+   * « Annuler » for 5 s (decision #471 point 68: the guest's own move, just
+   * made) and, after a bottle drunk, « Noter une dégustation » on that very
+   * bottle (point 70) — the one the API answers (`data`, a detached copy).
+   */
   const run = async (line: ProductItem, move: StockMove): Promise<boolean> => {
+    let written: { id?: string } | null;
     try {
-      await write.mutateAsync({ id: line.id, patch: movePatch(move) as GuestInventoryUpdatePayload });
+      written = await write.mutateAsync({ id: line.id, patch: movePatch(move) as GuestInventoryUpdatePayload }) as { id?: string } | null;
     } catch (error) {
-      notifyError(refusalKey(error));
+      refused(error);
       return false;
     }
-    notifySuccess(`openDrink.done.${move}`);
+    const unitId = written?.id ?? line.id;
+    const undo = async () => {
+      try {
+        await write.mutateAsync({ id: unitId, patch: { undo: true } });
+      } catch (error) {
+        refused(error);
+      }
+    };
+    notifyUndoable(`openDrink.done.${move}`, undefined, () => { void undo(); }, move === 'drink'
+      ? { labelKey: 'shares.guest.tasting.action', onPress: () => onNoteTasting({ productId: family.productId, itemId: unitId, wine }) }
+      : undefined);
     return true;
   };
 
   const start = (move: StockMove) => {
+    if (move === 'smoke' && openedBox) {
+      void run(openedBox, move);
+      return;
+    }
     const preselection = preselectGroup(groups);
     if (!preselection) return;
     if (groups.length === 1) {
@@ -111,10 +152,12 @@ export function GuestFamilyCard({ family, token, meta }: GuestFamilyCardProps) {
     try {
       await write.mutateAsync({ id: item.id, patch: { fillLevel: level } });
     } catch (error) {
-      notifyError(refusalKey(error));
+      refused(error);
       throw error;
     }
   };
+
+  const moves = movesFor(family.kind).filter((move) => groups.length > 0 || (move === 'smoke' && openedBox));
 
   return (
     <div className="bg-content1 border border-divider rounded-2xl p-4 flex flex-col gap-2" data-testid="guest-family">
@@ -159,7 +202,7 @@ export function GuestFamilyCard({ family, token, meta }: GuestFamilyCardProps) {
 
       {writable && (
         <div className="pt-2 mt-1 border-t border-divider flex flex-wrap gap-2">
-          {groups.length > 0 && movesFor(family.kind).map((move, index) => (
+          {moves.map((move, index) => (
             <Button
               key={move}
               size="sm"
@@ -179,7 +222,8 @@ export function GuestFamilyCard({ family, token, meta }: GuestFamilyCardProps) {
             color="primary"
             data-testid="guest-tasting"
             startContent={<NotebookPen size={15} />}
-            onPress={() => setTasting(true)}
+            // On the opened bottle when there is one (the one being drunk), else on the wine.
+            onPress={() => onNoteTasting({ productId: family.productId, itemId: touchable[0]?.id, wine })}
           >
             {t('shares.guest.tasting.action')}
           </Button>
@@ -197,23 +241,6 @@ export function GuestFamilyCard({ family, token, meta }: GuestFamilyCardProps) {
           onClose={() => setAsking(null)}
           onConfirm={async (line) => {
             if (await run(line, asking.move)) setAsking(null);
-          }}
-        />
-      )}
-      {tasting && (
-        <GuestTastingDialog
-          wine={wine}
-          isPending={note.isPending}
-          onClose={() => setTasting(false)}
-          onConfirm={async (payload) => {
-            try {
-              await note.mutateAsync(payload);
-            } catch (error) {
-              notifyError(refusalKey(error));
-              return;
-            }
-            notifySuccess('shares.guest.tasting.done');
-            setTasting(false);
           }}
         />
       )}

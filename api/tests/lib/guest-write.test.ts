@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { AppError } from '../../src/lib/errors';
-import { checkGuestWrite } from '../../src/lib/guest-write';
+import {
+  checkGuestUndo, checkGuestWrite, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestMoveEntry,
+} from '../../src/lib/guest-write';
 import { planState, type StateItem } from '../../src/services/stock-state.service';
 import { guestInventoryUpdateSchema, type GuestInventoryUpdate } from '../../src/schemas/inventory.schema';
 
@@ -101,6 +103,14 @@ describe('checkGuestWrite — never a number changed (FEAT-109 c2)', () => {
     expect(refusal(() => guestWrite(smoked, { isOpened: false }, 'cigar'))).toEqual({ status: 409, code: 'GUEST_ITEM_FINISHED' });
   });
 
+  it('a cigar: only smoking one — never a level or an opening that would open or finish a whole box', () => {
+    expect(refusal(() => guestWrite(boxes(3), { isOpened: true, fillLevel: 0 }, 'cigar'))).toEqual({ status: 400, code: 'GUEST_NOT_A_MOVE' });
+    expect(refusal(() => guestWrite(boxes(1), { isOpened: true }, 'cigar'))).toEqual({ status: 400, code: 'GUEST_NOT_A_MOVE' });
+    const openedBox = boxes(1, { isOpened: true, cigarsLeft: 24, parentItemId: 'g1' });
+    expect(refusal(() => guestWrite(openedBox, { fillLevel: 0 }, 'cigar'))).toEqual({ status: 400, code: 'GUEST_NOT_A_MOVE' });
+    expect(refusal(() => guestWrite(openedBox, { smokeOne: true, fillLevel: 0 }, 'cigar'))).toEqual({ status: 400, code: 'GUEST_NOT_A_MOVE' });
+  });
+
   it('refuses a written-off copy', () => {
     expect(refusal(() => guestWrite(group(2, { writtenOffAt: DAY }), { isOpened: true }))).toEqual({ status: 409, code: 'GUEST_ITEM_FINISHED' });
   });
@@ -115,5 +125,74 @@ describe('checkGuestWrite — never a number changed (FEAT-109 c2)', () => {
       expect(guestInventoryUpdateSchema.safeParse({ isOpened: true, [field]: 1 }).success, field).toBe(false);
     }
     expect(guestInventoryUpdateSchema.safeParse({ smokeOne: false }).success).toBe(false);
+  });
+});
+
+// Decision #471 point 68: "Annuler" of the guest's own move, just made.
+describe('checkGuestUndo — only the guest\'s own move, just made', () => {
+  const NOW = new Date('2026-11-04T10:00:30.000Z');
+  const STAMP = new Date('2026-11-04T10:00:00.000Z');
+  const share = { id: 's1', writeCellarIds: ['garage'] };
+  const entry = (over: Partial<GuestMoveEntry> = {}): GuestMoveEntry => ({
+    shareId: 's1', createdAt: STAMP,
+    undo: { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, stampedAt: STAMP.toISOString() },
+    ...over,
+  });
+  const sub = (updatedAt = STAMP) => ({ cellarId: 'garage', updatedAt });
+
+  it('is accepted right after the move', () => {
+    expect(checkGuestUndo(share, entry(), sub(), NOW).before).toMatchObject({ isOpened: false });
+  });
+
+  it('is refused once the window has passed', () => {
+    const later = new Date(STAMP.getTime() + GUEST_UNDO_WINDOW_MS + 1);
+    expect(refusal(() => checkGuestUndo(share, entry(), sub(), later))).toEqual({ status: 403, code: 'GUEST_UNDO_REFUSED' });
+  });
+
+  it('is refused on a unit changed since, by anyone (a member set its level)', () => {
+    expect(refusal(() => checkGuestUndo(share, entry(), sub(new Date('2026-11-04T10:00:10.000Z')), NOW)))
+      .toEqual({ status: 403, code: 'GUEST_UNDO_REFUSED' });
+  });
+
+  it('is refused from another share, and when the latest change was not a guest move', () => {
+    expect(refusal(() => checkGuestUndo(share, entry({ shareId: 's2' }), sub(), NOW))).toEqual({ status: 403, code: 'GUEST_UNDO_REFUSED' });
+    expect(refusal(() => checkGuestUndo(share, entry({ undo: null }), sub(), NOW))).toEqual({ status: 403, code: 'GUEST_UNDO_REFUSED' });
+    expect(refusal(() => checkGuestUndo(share, null, sub(), NOW))).toEqual({ status: 403, code: 'GUEST_UNDO_REFUSED' });
+  });
+
+  it('is refused outside the write cellars', () => {
+    expect(refusal(() => checkGuestUndo(share, entry(), { cellarId: 'kitchen', updatedAt: STAMP }, NOW))).toEqual({ status: 403, code: 'READ_ONLY_ACCESS' });
+  });
+
+  it('puts a bottle back closed and full — rejoining its line — and a box complete', () => {
+    const bottlePatch = undoPatch(stateBefore(group(6), false), null);
+    expect(bottlePatch).toEqual({ isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null });
+    expect(planState(unit({ isOpened: true, fillLevel: 100, parentItemId: 'g1' }), { state: bottlePatch }, 'bottle').outcome).toBe('reattached');
+
+    const boxSub = boxes(1, { isOpened: true, cigarsLeft: 24, parentItemId: 'g1' });
+    const boxPatch = undoPatch(stateBefore(boxes(3), false), 25);
+    expect(boxPatch.cigarsLeft).toBe(25);
+    expect(planState(boxSub, { state: boxPatch }, 'cigar').outcome).toBe('reattached');
+  });
+
+  it('gives a cigar back to an opened box, and a slot back to a line of one finished in place', () => {
+    const openedBox = boxes(1, { isOpened: true, cigarsLeft: 10, parentItemId: 'g1' });
+    expect(undoPatch(stateBefore(openedBox, false), 25)).toMatchObject({ isOpened: true, cigarsLeft: 10 });
+    const placed = group(1, { slotColumn: 2, slotRow: 3 });
+    expect(undoPatch(stateBefore(placed, true), null)).toMatchObject({ slotColumn: 2, slotRow: 3 });
+    expect(undoPatch(stateBefore(placed, false), null)).not.toHaveProperty('slotColumn');
+  });
+
+  it('only a move is undoable, not a level set', () => {
+    expect(isGuestMove({ isOpened: true, fillLevel: 0 }, group(6))).toBe(true);
+    expect(isGuestMove({ smokeOne: true }, boxes(1, { isOpened: true, cigarsLeft: 10 }))).toBe(true);
+    expect(isGuestMove({ fillLevel: 30 }, opened())).toBe(false);
+  });
+});
+
+describe('the guest schema', () => {
+  it('takes "undo" alone', () => {
+    expect(guestInventoryUpdateSchema.safeParse({ undo: true }).success).toBe(true);
+    expect(guestInventoryUpdateSchema.safeParse({ undo: true, isOpened: false }).success).toBe(false);
   });
 });

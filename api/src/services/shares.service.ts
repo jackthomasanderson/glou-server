@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma';
 import { ShareCreateInput } from '../schemas/shares.schema';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import type { GuestUndoMarker } from '../lib/guest-write';
 
 function isShareValid(share: { expiresAt: Date | null; revokedAt: Date | null }): boolean {
   if (share.revokedAt) return false;
@@ -260,6 +261,25 @@ export const sharesService = {
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     });
+  },
+
+  /**
+   * #471 (decision 68): the latest successful guest write recorded on a unit
+   * within the undo window — what "Annuler" is checked against
+   * (lib/guest-write.ts `checkGuestUndo`).
+   */
+  async findLatestGuestMove(unitId: string, since: Date) {
+    const entry = await prisma.auditLog.findFirst({
+      where: { bottleId: unitId, action: 'GUEST_UPDATE', status: 'success', createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true, details: true },
+    });
+    if (!entry) return null;
+    const details = (entry.details ?? {}) as Record<string, unknown>;
+    const undo = details['undo'] as { before?: unknown; stampedAt?: unknown } | undefined;
+    const marker = undo && typeof undo.stampedAt === 'string' && undo.before && typeof undo.before === 'object'
+      ? (undo as GuestUndoMarker) : null;
+    return { shareId: details['shareId'], createdAt: entry.createdAt, undo: marker };
   },
 
   /**

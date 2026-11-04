@@ -1504,7 +1504,8 @@
         "finished": "Cette bouteille a été bue ou retirée entre-temps.",
         "restock": "Seul un membre de la cave peut remettre une bouteille en stock.",
         "readOnly": "Cette cave vous est partagée en lecture seule.",
-        "generic": "Impossible d'enregistrer. Réessayez."
+        "generic": "Impossible d'enregistrer. Réessayez.",
+        "undo": "Il est trop tard pour annuler : la bouteille a changé depuis."
       },
       "tasting": {
         "action": "Noter une dégustation",
