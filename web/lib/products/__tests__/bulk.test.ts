@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { drinkChoices, drinkRequest, unitsInStock, winesInStock } from '../bulk';
+import { beforeAll, describe, it, expect } from 'vitest';
+import { bulkSummary, drinkChoices, drinkRequest, unitsInStock, winesInStock } from '../bulk';
+import { frenchT } from './i18n';
 import { openedBottle, product, unit } from './factories';
 
 // #471 (FEAT-111): what the bulk dialogs say and send for the wines selected.
@@ -31,5 +32,18 @@ describe('bulk actions on wines (FEAT-111)', () => {
     expect(drinkRequest(choices, { six: { count: 9, openedFirst: false } }, ['c1'])).toEqual({
       action: 'drink', items: [{ productId: 'six', count: 6, openedFirst: false }], cellarIds: ['c1'],
     });
+  });
+});
+
+describe('bulkSummary (FEAT-111, review of #821)', () => {
+  let t: Awaited<ReturnType<typeof frenchT>>;
+  beforeAll(async () => { t = await frenchT(); });
+
+  it('counts only the wines still in the cellar, as the dialogs do: a « Plus en cave » wine selected is left out', () => {
+    expect(bulkSummary([six, one, gone], new Set(['six', 'one', 'gone']), false, t)).toBe('2 vins, 7 bouteilles');
+  });
+
+  it('says « références » and « cigares » on the cigars page', () => {
+    expect(bulkSummary([cigars], new Set(['cig']), true, t)).toBe('1 référence, 50 cigares');
   });
 });

@@ -8,9 +8,9 @@ import { useBulkWines } from '@/hooks/useProducts';
 import { notifySuccess } from '@/lib/toast';
 import { wineName } from '@/lib/products/stock';
 import {
-  DEFAULT_DRINK_ANSWER, drinkChoices, drinkRequest, unitsInStock, winesInStock, type DrinkAnswer, type DrinkChoice,
+  bulkSummary, DEFAULT_DRINK_ANSWER, drinkChoices, drinkRequest, winesInStock, type DrinkAnswer, type DrinkChoice,
 } from '@/lib/products/bulk';
-import type { BulkWinesAction } from '@/lib/products/client';
+import type { BulkWinesAction } from '@shared/product';
 import type { Product } from '@/lib/products/types';
 import { CountField, isCountIn } from './StockLineDialogParts';
 
@@ -57,11 +57,7 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
   const wines = useMemo(() => winesInStock(products, selectedIds), [products, selectedIds]);
   const choices = useMemo(() => drinkChoices(products, selectedIds), [products, selectedIds]);
   const unitsKey = cigars ? 'familyList.stock.spoken.cigars' : 'familyList.stock.spoken.bottles';
-  const units = unitsInStock(products, selectedIds);
-  const summary = t('familyList.bulkSummary', {
-    wines: t('familyList.wines', { count: wines.length }),
-    bottles: t(unitsKey, { count: units }),
-  });
+  const summary = bulkSummary(products, selectedIds, cigars, t);
   const answerOf = (id: string) => answers[id] ?? DEFAULT_DRINK_ANSWER;
   const answer = (id: string, change: Partial<DrinkAnswer>) =>
     setAnswers((previous) => ({ ...previous, [id]: { ...answerOf(id), ...previous[id], ...change } }));

@@ -97,7 +97,8 @@ export type BulkTrashInput = z.infer<typeof bulkTrashSchema>;
  * 42): how many bottles (cigars) of each wine were drunk (smoked).
  * `openedFirst` (default true): an opened bottle (box) of the wine is
  * finished first (ux-ui.md §10.4.8). `cellarIds`: the cellars being looked
- * at, whose line is taken first (FEAT-104).
+ * at, whose line is taken first (FEAT-104). At most {@link MAX_COPIES}
+ * bottles (cigars) in all.
  */
 export const bulkDrinkSchema = z.object({
   items: z.array(z.object({
@@ -105,7 +106,10 @@ export const bulkDrinkSchema = z.object({
     count: z.number().int().min(1).max(MAX_COPIES),
     openedFirst: z.boolean().optional(),
   }).strict()).min(1).max(MAX_BULK_WINES)
-    .refine((items) => new Set(items.map((item) => item.productId)).size === items.length, 'Each wine once'),
+    .refine((items) => new Set(items.map((item) => item.productId)).size === items.length, 'Each wine once')
+    // Each bottle is finished on its own (detach rule), inside one transaction
+    // holding every family's lock: the whole action stays within MAX_COPIES.
+    .refine((items) => items.reduce((sum, item) => sum + item.count, 0) <= MAX_COPIES, 'TOO_MANY_AT_ONCE'),
   cellarIds: z.array(z.string().max(100)).max(100).optional(),
 }).strict();
 

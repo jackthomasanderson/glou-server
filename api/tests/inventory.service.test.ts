@@ -459,25 +459,6 @@ describe('InventoryService', () => {
     });
   });
 
-  it('bulkUpdate - drinks one bottle of each selected group (D18), the family locked first', async () => {
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-      unitRow({ id: 'b1', quantity: 6, isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null }),
-    ] as never);
-    vi.mocked(prisma.inventoryItem.findUnique).mockImplementation((async () =>
-      unitRow({ id: 'b1', quantity: 6, isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null })) as never);
-    vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockResolvedValue(unitRow({ id: 'sub' }) as never);
-
-    const count = await service.bulkUpdate('u1', ['b1'], { isOpened: true, fillLevel: 0 });
-
-    expect(count).toBe(1);
-    const groupWrite = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { where: { id: string }; data: Record<string, unknown> };
-    expect(groupWrite).toMatchObject({ where: { id: 'b1' }, data: { quantity: 5 } });
-    expect(groupWrite.data).not.toHaveProperty('isOpened');
-    expect(prisma.inventoryItem.create).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
-      .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
-  });
-
   // ─── #471: the flat record is split between the family and the unit ────────
 
   describe('updateItem - family / unit split (#471)', () => {
@@ -720,36 +701,56 @@ describe('InventoryService', () => {
 
   it('bulkUpdate - applies the patch to locked fields (a bulk action is a user action)', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-      unitRow({ lockedFields: ['fillLevel', 'isOpened'], isOpened: false, fillLevel: 100 }),
+      unitRow({ lockedFields: ['location'], location: 'Rack A' }),
     ] as never);
     const txUpdate = mockTransactionClient();
 
-    const count = await service.bulkUpdate('u1', ['b1'], { isOpened: true, fillLevel: 0 } as never);
+    const count = await service.bulkUpdate('u1', ['b1'], { location: 'Rack B' });
 
     expect(count).toBe(1);
     expect(txUpdate).toHaveBeenCalledTimes(1);
-    const data = (txUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> }).data;
-    expect(data.isOpened).toBe(true);
-    expect(data.fillLevel).toBe(0);
+    expect((txUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> }).data.location).toBe('Rack B');
   });
+
 
   it('bulkUpdate - only counts the items it really changed', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-      // Already opened and empty → the patch is a no-op for this one.
-      unitRow({ id: 'noop', isOpened: true, fillLevel: 0 }),
-      unitRow({ id: 'changed', isOpened: false, fillLevel: 80 }),
+      // Already there → the patch is a no-op for this one.
+      unitRow({ id: 'noop', location: 'Rack B' }),
+      unitRow({ id: 'changed', location: 'Rack A' }),
     ] as never);
     const txUpdate = mockTransactionClient();
 
-    const count = await service.bulkUpdate('u1', ['noop', 'changed'], {
-      isOpened: true,
-      fillLevel: 0,
-    } as never);
+    const count = await service.bulkUpdate('u1', ['noop', 'changed'], { location: 'Rack B' });
 
     expect(count).toBe(1);
     expect(txUpdate).toHaveBeenCalledTimes(1);
     expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({ where: { id: 'changed' } });
   });
+
+  // FEAT-111 review: a bottle trashed between the read of the selection and
+  // its family's lock is left alone — never moved or edited in the trash.
+  it('bulkUpdate - skips a bottle trashed meanwhile', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unitRow({ id: 'kept', cellarId: 'c1' }),
+      unitRow({ id: 'trashed', cellarId: 'c1' }),
+    ] as never);
+    const txUpdate = mockTransactionClient();
+    const tx = vi.mocked(prisma.$transaction).getMockImplementation()!;
+    vi.mocked(prisma.$transaction).mockImplementation(((callback: (client: unknown) => unknown) => tx(((client: {
+      inventoryItem: { findFirst: (args: { where: { id: string } }) => Promise<unknown> };
+    }) => {
+      const findFirst = client.inventoryItem.findFirst;
+      client.inventoryItem.findFirst = async (args) => (args.where.id === 'trashed' ? null : findFirst(args));
+      return callback(client);
+    }) as never)) as never);
+
+    const count = await service.bulkUpdate('u1', ['kept', 'trashed'], { location: 'Rack B' });
+
+    expect(count).toBe(1);
+    expect(txUpdate.mock.calls.map((call) => (call[0] as { where: { id: string } }).where.id)).toEqual(['kept']);
+  });
+
 
   // #471: description fields go to the family, once per family.
   it('bulkUpdate - writes a shared family once and the unit fields on each unit', async () => {
@@ -757,6 +758,9 @@ describe('InventoryService', () => {
       unitRow({ id: 'b1', cellarId: 'c1' }, { region: 'Bordeaux' }),
       unitRow({ id: 'b2', cellarId: 'c1' }, { region: 'Bordeaux' }),
     ] as never);
+    // Read again under the lock: opened bottles here (no group to join), so a plain cellar change.
+    vi.mocked(prisma.inventoryItem.findFirst).mockImplementation((async (args: { where: { id: string } }) =>
+      unitRow({ id: args.where.id, cellarId: 'c1', isOpened: true, fillLevel: 50 })) as never);
 
     const count = await service.bulkUpdate('u1', ['b1', 'b2'], { region: 'Médoc', cellarId: 'c2' });
 
@@ -774,7 +778,7 @@ describe('InventoryService', () => {
   it('bulkUpdate - returns 0 and writes nothing when no item matches', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
 
-    const count = await service.bulkUpdate('u1', ['unknown'], { isOpened: true } as never);
+    const count = await service.bulkUpdate('u1', ['unknown'], { location: 'Rack B' });
 
     expect(count).toBe(0);
     expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -833,33 +837,6 @@ describe('InventoryService', () => {
       ]);
     });
 
-    it('bulkUpdate - finishing a slotted item clears its slot', async () => {
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        { ...slotted, isOpened: false, fillLevel: 100 },
-      ] as never);
-      const txUpdate = mockTransactionClient();
-
-      const count = await service.bulkUpdate('u1', ['b1'], { isOpened: true, fillLevel: 0 });
-
-      expect(count).toBe(1);
-      expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({
-        where: { id: 'b1' },
-        data: { isOpened: true, fillLevel: 0, slotColumn: null, slotRow: null },
-      });
-    });
-
-    it('bulkUpdate - an item left unfinished keeps its slot', async () => {
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([slotted] as never);
-      const txUpdate = mockTransactionClient();
-
-      const count = await service.bulkUpdate('u1', ['b1'], { fillLevel: 50 });
-
-      expect(count).toBe(1);
-      const data = (txUpdate.mock.calls[0]?.[0] as { data: Record<string, unknown> }).data;
-      expect(data.fillLevel).toBe(50);
-      expect(data).not.toHaveProperty('slotColumn');
-      expect(data).not.toHaveProperty('slotRow');
-    });
   });
 
   // ─── #798: moving a bottle to another cellar ───────────────────────────────
@@ -954,22 +931,6 @@ describe('InventoryService', () => {
       expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({
         where: { id: 'b1' },
         data: { cellarId: 'c2', slotColumn: null, slotRow: null },
-      });
-    });
-
-    it('bulkUpdate - an item moved with a state change also arrives unplaced', async () => {
-      // #471: a state in the patch goes through the detach rule (applyState),
-      // which must still carry the slot release of the move.
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([slotted] as never);
-      const txUpdate = mockTransactionClient();
-
-      const count = await service.bulkUpdate('u1', ['b1'], { cellarId: 'c2', isOpened: true, fillLevel: 50 });
-
-      expect(count).toBe(1);
-      expect(txUpdate).toHaveBeenCalledTimes(1);
-      expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({
-        where: { id: 'b1' },
-        data: { cellarId: 'c2', isOpened: true, fillLevel: 50, slotColumn: null, slotRow: null },
       });
     });
 

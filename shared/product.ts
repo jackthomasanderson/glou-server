@@ -298,3 +298,17 @@ export interface BulkStockResult {
   wines: number;
   units: number;
 }
+
+/**
+ * The request of a bulk action, by its route (`/api/products/bulk-<action>`):
+ * every bottle in the cellar of the wines moved or trashed, or how many of
+ * each drunk ("Marquer comme bus"; `openedFirst`: an opened bottle finished
+ * first, true by default; `cellarIds`: the cellars looked at, FEAT-104).
+ */
+export type BulkWinesAction =
+  | { action: 'move'; productIds: string[]; cellarId: string | null }
+  | { action: 'trash'; productIds: string[] }
+  | { action: 'drink'; items: Array<{ productId: string; count: number; openedFirst?: boolean }>; cellarIds?: string[] };
+
+/** The refusals of a bulk action the dialog names; any other one is the generic message. */
+export const BULK_WINES_ERRORS = ['COUNT_ABOVE_STOCK', 'QUANTITY_TOO_LARGE', 'CELLAR_NOT_FOUND'] as const;

@@ -42,6 +42,7 @@ import { applyCollectionChanges } from '@/lib/collections/sync';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
 import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
 import { BulkWinesDialog, type BulkWinesActionName } from './BulkWinesDialog';
+import { bulkSummary } from '@/lib/products/bulk';
 import { InventoryListRowSkeleton } from './InventoryListRow';
 import { InventoryGridView } from './InventoryGridView';
 import { InventoryListView } from './InventoryListView';
@@ -301,13 +302,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   }, [products, selectedIds]);
 
   const isCigarPage = Boolean(lockedCategories?.includes('cigar'));
-  const bulkSubtitle = useMemo(() => {
-    const units = (products ?? []).filter((p) => selectedIds.has(p.id)).reduce((sum, p) => sum + stockSummaryOf(p).units, 0);
-    return t('familyList.bulkSummary', {
-      wines: t('familyList.wines', { count: selectedIds.size }),
-      bottles: t(isCigarPage ? 'familyList.stock.spoken.cigars' : 'familyList.stock.spoken.bottles', { count: units }),
-    });
-  }, [products, selectedIds, isCigarPage, t]);
+  // FEAT-111: the wines still in the cellar and their bottles, as the bulk dialogs count them.
+  const bulkSubtitle = useMemo(
+    () => bulkSummary(products ?? [], selectedIds, isCigarPage, t),
+    [products, selectedIds, isCigarPage, t],
+  );
 
   const handleBulkApply = useCallback(
     (patch: Partial<InventoryItem>) => {

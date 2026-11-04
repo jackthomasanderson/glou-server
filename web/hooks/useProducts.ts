@@ -1,11 +1,11 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { productsClient, type AddUnitsInput, type BulkWinesAction, type UnitWrite } from '@/lib/products/client';
+import { productsClient, type AddUnitsInput, type UnitWrite } from '@/lib/products/client';
 import { detailWithUnitWrite, productsFromFlatItems, withUnitChanges } from '@/lib/products/fromFlat';
 import { wineName } from '@/lib/products/stock';
 import { NetworkError } from '@/lib/network-error';
 import type { Product, ProductDetailView, TrashedProduct } from '@/lib/products/types';
-import type { BulkStockResult, ProductDescription } from '@shared/product';
+import { BULK_WINES_ERRORS, type BulkStockResult, type BulkWinesAction, type ProductDescription } from '@shared/product';
 import { getAllQueuedMutations, getCachedInventory } from '@/lib/offline/db';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
@@ -140,7 +140,10 @@ export function useBulkWines() {
   const queryClient = useQueryClient();
   return useMutation<BulkStockResult, Error, BulkWinesAction>({
     mutationFn: productsClient.bulk,
-    onError: () => notifyError('bulkWines.error'),
+    // A refusal the dialog can name (a wine with fewer bottles left, a line
+    // over the maximum, a cellar deleted meanwhile); any other one is generic.
+    onError: (error) => notifyError((BULK_WINES_ERRORS as readonly string[]).includes(error.message)
+      ? `bulkWines.errors.${error.message}` : 'bulkWines.error'),
     onSettled: () => {
       // The wines, their drawers, the flat list and the trash all live under `inventory`.
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });

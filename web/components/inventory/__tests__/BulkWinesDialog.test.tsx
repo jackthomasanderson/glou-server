@@ -138,11 +138,17 @@ describe('BulkWinesDialog (FEAT-111)', () => {
     expect(confirmButton('Marquer comme bus')).toBeDisabled();
   });
 
-  it('a refusal is told, and nothing is closed', async () => {
-    answer = { status: 400, body: { error: 'COUNT_ABOVE_STOCK' } };
+  it.each([
+    ['COUNT_ABOVE_STOCK', 'bulkWines.errors.COUNT_ABOVE_STOCK'],
+    ['QUANTITY_TOO_LARGE', 'bulkWines.errors.QUANTITY_TOO_LARGE'],
+    ['CELLAR_NOT_FOUND', 'bulkWines.errors.CELLAR_NOT_FOUND'],
+    ['UNEXPECTED_ERROR', 'bulkWines.error'],
+  ])('a refusal %s is told by its own message, and nothing is closed', async (code, message) => {
+    answer = { status: code === 'UNEXPECTED_ERROR' ? 500 : 400, body: { error: code } };
     const onDone = open('trash', ['a']);
     fireEvent.click(confirmButton('Mettre à la corbeille'));
-    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('bulkWines.error'));
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith(message));
     expect(onDone).not.toHaveBeenCalled();
+    expect(t(message)).toMatch(/Rien n'a été modifié\.$/);
   });
 });

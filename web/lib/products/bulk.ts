@@ -1,6 +1,6 @@
 import { isFinishedState, isIntactItem, unitKind, type UnitKind } from '@shared/units';
 import { stockSummaryOf } from './filters';
-import type { BulkWinesAction } from './client';
+import type { BulkWinesAction } from '@shared/product';
 import type { Product, ProductItem } from './types';
 
 /**
@@ -15,6 +15,20 @@ export const winesInStock = (products: readonly Product[], selectedIds: Readonly
 /** Bottles (cigars) in the cellar of the wines selected: the "14 bouteilles" of "3 vins, 14 bouteilles" (c4: never a drunk one). */
 export const unitsInStock = (products: readonly Product[], selectedIds: ReadonlySet<string>): number =>
   winesInStock(products, selectedIds).reduce((sum, product) => sum + stockSummaryOf(product).units, 0);
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+/**
+ * "3 vins, 14 bouteilles" — what a bulk action applies to: the wines selected
+ * that still have bottles in the cellar, and those bottles. On the cigars
+ * page: "2 références, 50 cigares".
+ */
+export function bulkSummary(products: readonly Product[], selectedIds: ReadonlySet<string>, cigars: boolean, t: Translate): string {
+  return t('familyList.bulkSummary', {
+    wines: t('familyList.wines', { count: winesInStock(products, selectedIds).length, context: cigars ? 'cigar' : undefined }),
+    bottles: t(cigars ? 'familyList.stock.spoken.cigars' : 'familyList.stock.spoken.bottles', { count: unitsInStock(products, selectedIds) }),
+  });
+}
 
 /** One wine of "Marquer comme bus": how many it has, and its opened bottle (box) finished first. */
 export interface DrinkChoice {

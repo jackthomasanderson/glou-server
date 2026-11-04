@@ -950,6 +950,11 @@
   },
   "bulkWines": {
     "error": "Impossible d'appliquer l'action groupée. Rien n'a été modifié.",
+    "errors": {
+      "COUNT_ABOVE_STOCK": "Un des vins n'a plus autant de bouteilles en cave. Rien n'a été modifié.",
+      "QUANTITY_TOO_LARGE": "Une ligne de cette cave dépasserait 1 000 bouteilles. Rien n'a été modifié.",
+      "CELLAR_NOT_FOUND": "Cette cave n'existe plus. Rien n'a été modifié."
+    },
     "partHint": "Pour une partie seulement d'un vin, passez par sa fiche.",
     "move": {
       "action": "Déplacer",
@@ -2364,6 +2369,8 @@
     "bulkSummary": "{{wines}}, {{bottles}}",
     "wines_one": "{{count}} vin",
     "wines_other": "{{count}} vins",
+    "wines_cigar_one": "{{count}} référence",
+    "wines_cigar_other": "{{count}} références",
     "stats": {
       "gone_one": "{{count}} bue ou partie, non comptée",
       "gone_other": "{{count}} bues ou parties, non comptées",

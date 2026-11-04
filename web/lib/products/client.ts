@@ -1,6 +1,6 @@
 import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal } from '../api';
 import { fetchOrNetworkError } from '../network-error';
-import type { BulkStockResult, ProductDescription, UnitWriteResult } from '@shared/product';
+import type { BulkStockResult, BulkWinesAction, ProductDescription, UnitWriteResult } from '@shared/product';
 import type { InventoryCategory } from '@shared/inventory';
 import type { Wire } from '@shared/wire';
 import type { Product, ProductDetailView, ProductItem, ProductListResponse, TrashedProduct } from './types';
@@ -31,16 +31,6 @@ export interface KnownWineQuery {
   /** A cigar asked without its vitola (a wish has none): every vitola of the reference. */
   anyFormat?: boolean;
 }
-
-/**
- * #471 (FEAT-111, D18): a bulk action on the wines selected in the list —
- * every bottle of them in the cellar moved or trashed, or how many of each
- * drunk ("Marquer comme bus", `openedFirst`: an opened bottle finished first).
- */
-export type BulkWinesAction =
-  | { action: 'move'; productIds: string[]; cellarId: string | null }
-  | { action: 'trash'; productIds: string[] }
-  | { action: 'drink'; items: Array<{ productId: string; count: number; openedFirst: boolean }>; cellarIds?: string[] };
 
 /** D8: the line completed or created (`data`), and anything else the write changed. */
 export type UnitWrite = Wire<UnitWriteResult<ProductItem, ProductItem>>;

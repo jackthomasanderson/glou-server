@@ -294,6 +294,14 @@ describe('POST /api/products/bulk-move, bulk-trash, bulk-drink (FEAT-111)', () =
     expect(res.body).toEqual({ data: { wines: 1, units: 3 }, meta: { daysUntilPermanentDelete: 30 } });
   });
 
+  it('bulk-drink takes up to 1000 bottles in all', async () => {
+    vi.mocked(bulkStockService.drink).mockResolvedValue({ result: { wines: 2, units: 1000 }, entries: [] });
+
+    const res = await request(app).post('/api/products/bulk-drink').send({ items: [{ productId: W1, count: 600 }, { productId: W2, count: 400 }] });
+
+    expect(res.status).toBe(200);
+  });
+
   it('bulk-drink passes how many of each wine', async () => {
     vi.mocked(bulkStockService.drink).mockResolvedValue({ result: { wines: 2, units: 2 }, entries: [] });
 
@@ -313,6 +321,7 @@ describe('POST /api/products/bulk-move, bulk-trash, bulk-drink (FEAT-111)', () =
     ['bulk-drink', '0 bottles', { items: [{ productId: W1, count: 0 }] }],
     ['bulk-drink', 'a wine twice', { items: [{ productId: W1, count: 1 }, { productId: W1, count: 2 }] }],
     ['bulk-drink', 'an unknown field', { items: [{ productId: W1, count: 1, fillLevel: 0 }] }],
+    ['bulk-drink', 'more than 1000 bottles in all', { items: [{ productId: W1, count: 600 }, { productId: W2, count: 401 }] }],
   ])('%s refuses %s (400)', async (route, _what, body) => {
     const res = await request(app).post(`/api/products/${route}`).send(body);
 
