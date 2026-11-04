@@ -58,16 +58,6 @@
     "saving": "Enregistrement...",
     "none": "Aucun"
   },
-  "duplicate": {
-    "title": "Cet actif existe déjà",
-    "description": "{{name}} ({{producer}}) est déjà présent dans votre inventaire.",
-    "currentQuantity": "Quantité actuelle : {{count}}",
-    "cellar": "Cave : {{cellar}}",
-    "noCellar": "Aucune cave assignée",
-    "increment": "Incrémenter la quantité",
-    "createAnyway": "Créer quand même",
-    "cancel": "Retour au formulaire"
-  },
   "status": {
     "loading": "Chargement…",
     "saving": "Enregistrement…",
@@ -347,7 +337,7 @@
       "opened": "Entamées",
       "openedCigar": "Cigares entamés"
     },
-    "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche, ni dans la détection des doublons.",
+    "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche.",
     "alerts": {
       "reminderDone": "Rappel traité",
       "title": "Rappels à consommer",
@@ -2128,7 +2118,9 @@
     "cart": {
       "title": "À Ranger ({{count}})",
       "created": "Créé",
-      "incremented": "Incrémenté"
+      "addedWine": "Ajouté à votre vin",
+      "addedSpirit": "Ajouté à votre spiritueux",
+      "addedCigar": "Ajouté à votre cigare"
     }
   },
   "unsavedChanges": {
@@ -2577,5 +2569,29 @@
       "offline": "Regrouper ou confirmer demande une connexion.",
       "failed": "L'action n'a pas abouti. Réessayez."
     }
+  },
+  "knownWine": {
+    "title": "Vous avez déjà ce vin",
+    "titleSpirit": "Vous avez déjà ce spiritueux",
+    "titleCigar": "Vous avez déjà ce cigare",
+    "add": "Ajouter des bouteilles à ce vin",
+    "addSpirit": "Ajouter des bouteilles à ce spiritueux",
+    "addCigar": "Ajouter des cigares à cette référence",
+    "distinct": "C'est un autre vin",
+    "distinctSpirit": "C'est un autre spiritueux",
+    "distinctCigar": "C'est un autre cigare",
+    "stockBottles_one": "{{count}} bouteille en cave",
+    "stockBottles_other": "{{count}} bouteilles en cave",
+    "stockCigars_one": "{{count}} cigare en cave",
+    "stockCigars_other": "{{count}} cigares en cave",
+    "inCellar": "{{cellar}} : {{count}}",
+    "noCellar": "Sans cave",
+    "backToEntry": "Retour à la saisie",
+    "distinctNoted": "Ce sera un nouveau vin : Glou ne vous proposera plus de le regrouper avec celui-ci.",
+    "distinctNotedSpirit": "Ce sera un nouveau spiritueux : Glou ne vous proposera plus de le regrouper avec celui-ci.",
+    "distinctNotedCigar": "Ce sera une nouvelle référence : Glou ne vous proposera plus de la regrouper avec celle-ci.",
+    "joining": "Ces bouteilles rejoindront {{name}}.",
+    "joiningCigar": "Ces cigares rejoindront {{name}}.",
+    "addAria": "{{action}} : {{wine}}, {{stock}}"
   }
 }

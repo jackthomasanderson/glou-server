@@ -58,16 +58,6 @@
     "saving": "Saving...",
     "none": "None"
   },
-  "duplicate": {
-    "title": "This asset already exists",
-    "description": "{{name}} ({{producer}}) is already in your inventory.",
-    "currentQuantity": "Current quantity: {{count}}",
-    "cellar": "Cellar: {{cellar}}",
-    "noCellar": "No cellar assigned",
-    "increment": "Increment quantity",
-    "createAnyway": "Create anyway",
-    "cancel": "Back to form"
-  },
   "status": {
     "loading": "Loading…",
     "saving": "Saving…",
@@ -347,7 +337,7 @@
       "opened": "Opened",
       "openedCigar": "Opened cigars"
     },
-    "truncated": "Only the {{limit}} most recent items are loaded: older ones do not appear in this list, the search or duplicate detection.",
+    "truncated": "Only the {{limit}} most recent items are loaded: older ones do not appear in this list or the search.",
     "alerts": {
       "reminderDone": "Reminder done",
       "title": "Reminders to consume",
@@ -2126,7 +2116,9 @@
     "cart": {
       "title": "To Shelve ({{count}})",
       "created": "Created",
-      "incremented": "Incremented"
+      "addedWine": "Added to your wine",
+      "addedSpirit": "Added to your spirit",
+      "addedCigar": "Added to your cigar"
     }
   },
   "unsavedChanges": {
@@ -2575,5 +2567,29 @@
       "offline": "Merging or confirming needs a connection.",
       "failed": "The action did not go through. Try again."
     }
+  },
+  "knownWine": {
+    "title": "You already have this wine",
+    "titleSpirit": "You already have this spirit",
+    "titleCigar": "You already have this cigar",
+    "add": "Add bottles to this wine",
+    "addSpirit": "Add bottles to this spirit",
+    "addCigar": "Add cigars to this reference",
+    "distinct": "It's another wine",
+    "distinctSpirit": "It's another spirit",
+    "distinctCigar": "It's another cigar",
+    "stockBottles_one": "{{count}} bottle in stock",
+    "stockBottles_other": "{{count}} bottles in stock",
+    "stockCigars_one": "{{count}} cigar in stock",
+    "stockCigars_other": "{{count}} cigars in stock",
+    "inCellar": "{{cellar}}: {{count}}",
+    "noCellar": "No cellar",
+    "backToEntry": "Back to the entry",
+    "distinctNoted": "This will be a new wine: Glou will no longer suggest grouping it with that one.",
+    "distinctNotedSpirit": "This will be a new spirit: Glou will no longer suggest grouping it with that one.",
+    "distinctNotedCigar": "This will be a new reference: Glou will no longer suggest grouping it with that one.",
+    "joining": "These bottles will join {{name}}.",
+    "joiningCigar": "These cigars will join {{name}}.",
+    "addAria": "{{action}}: {{wine}}, {{stock}}"
   }
 }

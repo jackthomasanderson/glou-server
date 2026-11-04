@@ -52,11 +52,11 @@ async function expectReachable(locator: Locator, what: string) {
   await expectOnTop(locator, what);
 }
 
-test('first-run wizard: an error toast, the add form and the duplicate choice show above the wizard', async ({ page }) => {
+test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vin" show above the wizard', async ({ page }) => {
   const name = `E2E Wizard ${stamp()}`;
   let cellarId: string | undefined;
   let itemId: string | undefined;
-  let secondItemId: string | undefined;
+  let productId: string | undefined;
 
   try {
     // A cellar makes the wizard resume at "How do you want to add your assets?".
@@ -105,26 +105,31 @@ test('first-run wizard: an error toast, the add form and the duplicate choice sh
     const res = await created;
     expect(res.status()).toBe(201);
     itemId = (await res.json())?.data?.id as string;
+    productId = (await res.json())?.data?.productId as string;
 
     await expect(nameInput).toBeHidden();
     await expect(wizard.getByText('1 actif ajouté pour l\'instant')).toBeVisible();
 
-    // 3. A second bottle of the same wine (AUDIT_006): saving it used to do
-    // nothing at all. The duplicate choice now shows, on top.
+    // 3. A second bottle of the same wine (AUDIT_006, #690): "Vous avez déjà
+    // ce vin" shows on top, as on the inventory page (FEAT-97 c4), and the
+    // bottle joins that wine.
     await wizard.getByRole('button', { name: 'Ajouter un actif' }).click();
     await nameInput.fill(name);
     await page.getByTestId('inventory-producer-input').fill('E2E Domaine');
-    await page.getByTestId('inventory-form-submit').click();
-    const createAnyway = page.getByTestId('duplicate-create-anyway');
-    await expectOnTop(createAnyway, 'the duplicate choice');
-    const createdAgain = page.waitForResponse(
-      (r) => r.url().match(/\/api\/inventory\/?$/) !== null && r.request().method() === 'POST',
-    );
-    await createAnyway.click();
-    const resAgain = await createdAgain;
-    expect(resAgain.status()).toBe(201);
-    secondItemId = (await resAgain.json())?.data?.id as string;
-    await expect(nameInput).toBeHidden();
+    const addToKnown = page.getByTestId('known-wine-add');
+    // On a phone the first bottle's success toast sits over the top of the
+    // full-screen form, where the proposal shows: wait for it to go.
+    await expect(page.getByText('Actif ajouté avec succès')).toHaveCount(0, { timeout: 15_000 });
+    await addToKnown.scrollIntoViewIfNeeded();
+    await expectOnTop(addToKnown, 'the "Vous avez déjà ce vin" proposal');
+    await addToKnown.click();
+    const added = page.waitForResponse((r) => /\/api\/products\/[^/]+\/items$/.test(r.url()) && r.request().method() === 'POST');
+    await page.getByTestId('add-units-submit').click();
+    const addedRes = await added;
+    // 201 for a new line, 200 when the bottle completes the identical one (same day, cellar, price).
+    expect(addedRes.ok(), await addedRes.text()).toBe(true);
+    expect((await addedRes.json())?.data?.productId).toBe(productId);
+    await expect(page.getByTestId('add-units-submit')).toBeHidden();
     await expect(wizard.getByText('2 actifs ajoutés pour l\'instant')).toBeVisible();
 
     // 4. The wizard carries on to its summary, then hands over to the app.
@@ -133,8 +138,8 @@ test('first-run wizard: an error toast, the add form and the duplicate choice sh
     await wizard.getByRole('button', { name: 'Accéder au tableau de bord' }).click();
     await expect(wizard).toBeHidden();
   } finally {
-    if (itemId) await page.request.delete(`/api/inventory/${itemId}`);
-    if (secondItemId) await page.request.delete(`/api/inventory/${secondItemId}`);
+    if (productId) await page.request.delete(`/api/products/${productId}`);
+    else if (itemId) await page.request.delete(`/api/inventory/${itemId}`);
     if (cellarId) await page.request.delete(`/api/cellars/${cellarId}`);
   }
 });

@@ -12,6 +12,8 @@ beforeAll(async () => { t = await frenchT(); });
 
 vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }] }) }));
 vi.mock('@/hooks/useCollections', () => ({ useCollections: () => ({ data: [] }) }));
+// FEAT-97: no wine of the same name here (InventoryForm.knownWine.test.tsx).
+vi.mock('@/hooks/useKnownWine', () => ({ useKnownWine: () => [] }));
 vi.mock('@/hooks/useExpertMode', () => ({ useExpertMode: () => false }));
 // ResponsiveModal reads window.matchMedia (useIsMobile), absent from jsdom.
 vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));

@@ -21,6 +21,13 @@ import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { MAX_COPIES } from '@shared/product';
+import { KnownWineBanner } from '@/components/inventory/KnownWineBanner';
+import { useKnownWine } from '@/hooks/useKnownWine';
+import { wineName } from '@/lib/products/stock';
+import { latestLine } from '@/components/inventory/AddUnitsDialog';
+import { CigarGroupFields } from '@/components/inventory/CigarGroupFields';
+import { cigarGroupInput, cigarPriceKey, draftFrom, isCigarGroupValid, type CigarGroupDraft } from '@/lib/products/cigarGroup';
+import type { Product } from '@/lib/products/types';
 
 const CATEGORIES: WishlistCategory[] = [...CATEGORY_VALUES];
 
@@ -61,8 +68,43 @@ export function WishlistDashboard() {
     purchasePrice?: number; purchasePlace: string; cellarId: string; bottleSize: string; quantity?: number;
   }>({ purchasePlace: '', cellarId: '', bottleSize: '' });
   const [convertTried, setConvertTried] = useState(false);
-  const convertCountInvalid = convertForm.quantity == null || !Number.isInteger(convertForm.quantity)
-    || convertForm.quantity < 1 || convertForm.quantity > MAX_COPIES;
+  // #471 (FEAT-97 c4): "Vous avez déjà ce vin" for the wine wished for — the
+  // known wine the bottles join, and the wines answered "C'est un autre vin".
+  const [joining, setJoining] = useState<Product | null>(null);
+  const [distinctFrom, setDistinctFrom] = useState<string[]>([]);
+  // FEAT-95: a cigar joining a known reference is kept in closed boxes of M, or as single cigars.
+  const [cigars, setCigars] = useState<CigarGroupDraft>(() => draftFrom(undefined));
+  // A wish has no vitola: every vitola of the cigar wished for is proposed.
+  const sameName = useKnownWine({ ...(convertTarget ?? {}), anyFormat: true }, convertTarget !== null && joining === null);
+  const joinsCigars = joining?.category === 'cigar';
+  const knownWines = sameName.filter((product) => !distinctFrom.includes(product.id));
+  const toldApart = sameName.filter((product) => distinctFrom.includes(product.id)).map((product) => product.id);
+  const convertCountInvalid = joinsCigars
+    ? !isCigarGroupValid(cigars)
+    : convertForm.quantity == null || !Number.isInteger(convertForm.quantity)
+      || convertForm.quantity < 1 || convertForm.quantity > MAX_COPIES;
+
+  /**
+   * "Ajouter des bouteilles à ce vin": the reduced form starts from the wine's
+   * latest line in stock — its size (ux-ui.md §10.4.1), and its cellar and
+   * price when none was typed — so that the same purchase completes it (D5).
+   * Without a line in stock, what was typed stays. A cigar wish counts
+   * cigars and its last price seen is that of one cigar: joining a line of
+   * boxes of M, it becomes ⌈cigars / M⌉ boxes at the line's box price.
+   */
+  const joinKnownWine = (product: Product) => {
+    const line = latestLine(product.items);
+    const boxSize = product.category === 'cigar' ? line?.cigarsPerBox ?? null : null;
+    setJoining(product);
+    setConvertForm((f) => ({
+      ...f,
+      bottleSize: line ? line.bottleSize ?? '' : f.bottleSize,
+      cellarId: f.cellarId || line?.cellarId || '',
+      purchasePrice: boxSize !== null ? line?.purchasePrice ?? undefined : f.purchasePrice ?? line?.purchasePrice ?? undefined,
+    }));
+    const wanted = convertForm.quantity ?? 1;
+    setCigars({ ...draftFrom(line?.cigarsPerBox), quantity: boxSize !== null ? Math.max(1, Math.ceil(wanted / boxSize)) : wanted });
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -135,6 +177,8 @@ export function WishlistDashboard() {
       purchasePlace: '', cellarId: '', bottleSize: '', quantity: item.targetQuantity,
     });
     setConvertTried(false);
+    setJoining(null);
+    setDistinctFrom([]);
   };
   const handleConvertSubmit = async () => {
     if (!convertTarget) return;
@@ -146,10 +190,12 @@ export function WishlistDashboard() {
         id: convertTarget.id,
         data: {
           purchasePrice: convertForm.purchasePrice ?? null,
-          purchasePlace: convertForm.purchasePlace || null,
           cellarId: convertForm.cellarId || null,
-          bottleSize: convertForm.bottleSize || null,
-          quantity: convertForm.quantity,
+          ...(joinsCigars ? cigarGroupInput(cigars) : { bottleSize: convertForm.bottleSize || null, quantity: convertForm.quantity }),
+          // A known wine takes only what tells its bottles apart (ux-ui.md §10.4.1).
+          ...(joining
+            ? { productId: joining.id }
+            : { purchasePlace: convertForm.purchasePlace || null, ...(toldApart.length > 0 ? { distinctFrom: toldApart } : {}) }),
         },
       });
       setConvertTarget(null);
@@ -386,22 +432,38 @@ export function WishlistDashboard() {
                 <p className="text-sm text-foreground-500">
                   {t('wishlist.convert.description', { name: convertTarget?.name ?? '' })}
                 </p>
+                <KnownWineBanner
+                  matches={knownWines}
+                  onAdd={joinKnownWine}
+                  onDistinct={() => setDistinctFrom((prev) => [...prev, ...knownWines.map((product) => product.id)])}
+                  isDisabled={convertMutation.isPending}
+                  t={t}
+                />
+                {joining && (
+                  <div data-testid="known-wine-joining" className="flex flex-wrap items-center gap-2 text-sm">
+                    <span>{t(joining.category === 'cigar' ? 'knownWine.joiningCigar' : 'knownWine.joining', { name: wineName(joining) })}</span>
+                    <Button size="sm" variant="light" onPress={() => setJoining(null)}>{t('knownWine.backToEntry')}</Button>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <ParsedNumberInput
                     decimal
                     data-testid="wishlist-convert-price"
                     // #471: the price of ONE bottle (or cigar), for the whole group bought.
-                    label={t(convertTarget?.category === 'cigar' ? 'wishlist.convert.purchasePrice' : 'inventory.fields.unitPrice')}
+                    label={t(joinsCigars ? cigarPriceKey(cigars.storage)
+                      : convertTarget?.category === 'cigar' ? 'wishlist.convert.purchasePrice' : 'inventory.fields.unitPrice')}
                     value={convertForm.purchasePrice}
                     onValueChange={(v) => setConvertForm((f) => ({ ...f, purchasePrice: v }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
+                  {!joining && (
                   <Input
                     label={t('wishlist.convert.purchasePlace')}
                     value={convertForm.purchasePlace}
                     onValueChange={(v) => setConvertForm((f) => ({ ...f, purchasePlace: v }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
+                  )}
                 </div>
                 <Select
                   label={t('wishlist.convert.cellar')}
@@ -412,6 +474,12 @@ export function WishlistDashboard() {
                 >
                   {(cellars ?? []).map((c) => <SelectItem key={c.id}>{c.name}</SelectItem>)}
                 </Select>
+                {joinsCigars ? (
+                  // FEAT-95: closed boxes of M cigars or single cigars, so that the purchase can complete a box line.
+                  <div className="grid grid-cols-2 gap-4">
+                    <CigarGroupFields draft={cigars} onChange={setCigars} submitted={convertTried} t={t} />
+                  </div>
+                ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <Input
                     label={t('wishlist.convert.bottleSize')}
@@ -432,6 +500,7 @@ export function WishlistDashboard() {
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
                 </div>
+                )}
               </ModalBody>
               <ModalFooter>
                 <Button color="danger" variant="light" onPress={() => setConvertTarget(null)}>{t('actions.cancel')}</Button>

@@ -40,6 +40,12 @@ export interface ConvertToInventoryInput {
   cellarId?: string | null;
   bottleSize?: string | null;
   quantity?: number | null;
+  /** #471 (FEAT-97): "Vous avez déjà ce vin" — the known wine the bottles join (no place of purchase then). */
+  productId?: string;
+  /** FEAT-95: a cigar group of closed boxes of this many cigars; null, single cigars. */
+  cigarsPerBox?: number | null;
+  /** #471 (FEAT-97 c5): "C'est un autre vin" — the wines of the same name the new one is not. */
+  distinctFrom?: string[];
 }
 
 export interface ConvertResult {

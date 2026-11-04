@@ -32,10 +32,10 @@ import {
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useInventoryFilters } from '@/hooks/useInventoryFilters';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
-import { useDuplicateResolution } from '@/hooks/useDuplicateResolution';
 import { useScanAvailability } from '@/hooks/useScan';
 import { InventoryCardSkeleton } from './InventoryCard';
 import type { InventoryCategory } from '@/lib/inventory/types';
+import type { InventoryEntry } from './InventoryForm';
 import { UndoToast } from '@/components/ui/UndoToast';
 import { notifySuccess } from '@/lib/toast';
 import { applyCollectionChanges } from '@/lib/collections/sync';
@@ -59,7 +59,6 @@ import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
 const InventoryForm = dynamic(() => import('./InventoryForm').then((m) => m.InventoryForm), { ssr: false, loading: () => null });
 const FamilyDrawer = dynamic(() => import('./FamilyDrawer').then((m) => m.FamilyDrawer), { ssr: false, loading: () => null });
 const AddUnitsAction = dynamic(() => import('./AddUnitsDialog').then((m) => m.AddUnitsAction), { ssr: false, loading: () => null });
-const DuplicateDialog = dynamic(() => import('./DuplicateDialog').then((m) => m.DuplicateDialog), { ssr: false, loading: () => null });
 const ScanFlow = dynamic(() => import('./ScanFlow').then((m) => m.ScanFlow), { ssr: false, loading: () => null });
 
 type UIMode = 'idle' | 'creating' | 'editing';
@@ -272,20 +271,21 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     [addItemsToCollectionMutation, removeItemFromCollectionMutation]
   );
 
-  const {
-    duplicateFound,
-    duplicateCandidate,
-    handleCreate,
-    handleDuplicateIncrement,
-    handleDuplicateCreateAnyway,
-    handleDuplicateCancel,
-  } = useDuplicateResolution({
-    items,
-    createMutation,
-    updateMutation,
-    syncCollections,
-    onResolved: () => setMode('idle'),
-  });
+  // #471 (FEAT-97): a wine of the same name is proposed while typing ("Vous
+  // avez déjà ce vin"); a submitted entry is a new wine. A failure is told
+  // by the mutation's toast and leaves the form open with the entry.
+  const handleCreate = useCallback(
+    async (values: InventoryEntry, collectionIds: string[]) => {
+      try {
+        const created = await createMutation.mutateAsync(values);
+        setMode('idle');
+        if (collectionIds.length > 0) await syncCollections(created.id, collectionIds, []);
+      } catch {
+        // Reported by the mutation's onError toast.
+      }
+    },
+    [createMutation, syncCollections],
+  );
 
   // Until the bulk actions on wines (lot P), the selected wines stand for
   // their bottles in stock.
@@ -750,18 +750,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         // #471 (FEAT-92 c2, FEAT-101 c3, FEAT-95): "Ajouter des bouteilles" / "Ajouter des cigares".
         primaryAction={(product) => <AddUnitsAction product={product} />}
       />
-
-      {duplicateFound && duplicateCandidate && (
-        <DuplicateDialog
-          duplicate={duplicateFound}
-          candidate={duplicateCandidate}
-          cellars={cellars ?? []}
-          t={t}
-          onIncrement={handleDuplicateIncrement}
-          onCreateAnyway={handleDuplicateCreateAnyway}
-          onCancel={handleDuplicateCancel}
-        />
-      )}
 
       <ScanFlow open={scanOpen} onClose={() => setScanOpen(false)} t={t} />
     </div>

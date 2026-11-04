@@ -3,14 +3,10 @@ import { useCallback, useState } from 'react';
 import { Button } from '@heroui/react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { InventoryForm } from '@/components/inventory/InventoryForm';
-import { DuplicateDialog } from '@/components/inventory/DuplicateDialog';
-import { useCreateInventoryItem, useInventory, useUpdateInventoryItem } from '@/hooks/useInventory';
-import { useCellars } from '@/hooks/useCellars';
+import { InventoryForm, type InventoryEntry } from '@/components/inventory/InventoryForm';
+import { useCreateInventoryItem } from '@/hooks/useInventory';
 import { useAddItemsToCollection } from '@/hooks/useCollections';
-import { useDuplicateResolution } from '@/hooks/useDuplicateResolution';
 import { applyCollectionChanges } from '@/lib/collections/sync';
-import { InventoryItem } from '@/lib/inventory/types';
 
 interface ManualIngestionStepProps {
   cellarId: string | null;
@@ -24,19 +20,14 @@ interface ManualIngestionStepProps {
  * Step 4/5 (manual path) — reuses the existing `InventoryForm` as-is,
  * repeatable so the user can add several assets before continuing.
  *
- * Saving goes through the same duplicate flow as the inventory page
- * (`useDuplicateResolution`): a household often enters several bottles of the
- * same wine, and the server refuses a duplicate until the member chooses
- * (AUDIT_006 — this step used to ignore that refusal, so the second bottle
- * silently did nothing).
+ * #471 (FEAT-97 c4, #690): a household often enters several bottles of the
+ * same wine — the form says "Vous avez déjà ce vin" as on the inventory
+ * page, and bottles added to that wine count as an entry too.
  */
 export function ManualIngestionStep({ cellarId, itemsAdded, onItemAdded, onDone, onBack }: ManualIngestionStepProps) {
   const { t } = useTranslation();
   const [formOpen, setFormOpen] = useState(false);
-  const { data: items } = useInventory();
-  const { data: cellars } = useCellars();
   const createItem = useCreateInventoryItem();
-  const updateItem = useUpdateInventoryItem();
   const addItemsToCollection = useAddItemsToCollection();
 
   // A new item has no collection yet, so syncing is only ever adding.
@@ -47,16 +38,15 @@ export function ManualIngestionStep({ cellarId, itemsAdded, onItemAdded, onDone,
     [addItemsToCollection],
   );
 
-  const duplicate = useDuplicateResolution({
-    items,
-    createMutation: createItem,
-    updateMutation: updateItem,
-    syncCollections,
-    onResolved: () => { setFormOpen(false); onItemAdded(); },
-  });
-
-  const handleSubmit = (values: Partial<InventoryItem>, collectionIds: string[]) => {
-    void duplicate.handleCreate({ ...values, cellarId: values.cellarId ?? cellarId }, collectionIds);
+  const handleSubmit = async (values: InventoryEntry, collectionIds: string[]) => {
+    try {
+      const created = await createItem.mutateAsync({ ...values, cellarId: values.cellarId ?? cellarId });
+      setFormOpen(false);
+      onItemAdded();
+      if (collectionIds.length > 0) await syncCollections(created.id, collectionIds);
+    } catch {
+      // Reported by the mutation's toast; the form stays open with the entry.
+    }
   };
 
   return (
@@ -85,23 +75,12 @@ export function ManualIngestionStep({ cellarId, itemsAdded, onItemAdded, onDone,
       <InventoryForm
         open={formOpen}
         defaultCellarId={cellarId}
-        onSubmit={handleSubmit}
+        onSubmit={(values, collectionIds) => void handleSubmit(values, collectionIds)}
         onClose={() => setFormOpen(false)}
-        isSubmitting={createItem.isPending || updateItem.isPending}
+        onJoined={onItemAdded}
+        isSubmitting={createItem.isPending}
         t={t}
       />
-
-      {duplicate.duplicateFound && duplicate.duplicateCandidate && (
-        <DuplicateDialog
-          duplicate={duplicate.duplicateFound}
-          candidate={duplicate.duplicateCandidate}
-          cellars={cellars ?? []}
-          t={t}
-          onIncrement={duplicate.handleDuplicateIncrement}
-          onCreateAnyway={() => void duplicate.handleDuplicateCreateAnyway()}
-          onCancel={duplicate.handleDuplicateCancel}
-        />
-      )}
 
       <div className="flex items-center gap-2 mt-2">
         <Button variant="light" onPress={onBack}>{t('onboarding.back')}</Button>
