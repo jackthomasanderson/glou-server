@@ -46,6 +46,15 @@ export function notifyError(messageKey: string, values?: Record<string, unknown>
   });
 }
 
+/** A heads-up the member should read (a file too long for the next step): stays until closed, in the warning colour. */
+export function notifyWarning(messageKey: string, values?: Record<string, unknown>): void {
+  addToast({
+    title: translate(messageKey, values),
+    color: 'warning',
+    timeout: PERSISTENT_TIMEOUT,
+  });
+}
+
 /** ux-ui.md §10.4: an everyday action is undone from its message for 5 seconds. */
 export const UNDO_TIMEOUT_MS = 5000;
 

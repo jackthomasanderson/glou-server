@@ -5,6 +5,7 @@ import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackF
 import { scanJobIdHintSchema } from '../schemas/scan.schema';
 import { distinctFromSchema } from '../schemas/product.schema';
 import { inventoryService } from '../services/inventory.service';
+import { inventoryExportService } from '../services/inventory-export.service';
 import { scanService } from '../services/scan.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
@@ -30,6 +31,27 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     res.json({ data: items, truncated });
   } catch (error) {
     console.error('[inventory] GET / error:', error);
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── GET /api/inventory/export.csv ───────────────────────────────────────────
+// #471 (FEAT-99): the cellar as a CSV the import reads back. Members only
+// (authMiddleware above); guests never reach it. Read-only, so no audit row.
+
+router.get('/export.csv', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const lang = req.query.lang === 'fr' ? 'fr' : 'en';
+    const { csv, rows } = await inventoryExportService.exportCsv(lang);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="glou-cellar-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.setHeader('Cache-Control', 'no-store');
+    // The screen warns when the file is longer than one import takes.
+    res.setHeader('X-Glou-Rows', String(rows));
+    res.setHeader('Access-Control-Expose-Headers', 'X-Glou-Rows');
+    res.send(csv);
+  } catch (error) {
+    console.error('[inventory] GET /export.csv error:', error);
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
