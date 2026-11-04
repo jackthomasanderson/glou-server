@@ -16,6 +16,7 @@ import { useHasMounted } from '@/hooks/useHasMounted';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { CollectionPickerInline } from '@/components/collections/CollectionPickerInline';
 import { TastingForm } from '@/components/tastings/TastingForm';
+import { guestSignature } from '@/lib/shares/guestSignature';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { DEFAULT_CURVE_SHAPE, curveShapeDescriptionKey, curveShapeLabelKey } from '@/lib/maturity-references/curve';
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
@@ -335,10 +336,12 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                 const bottle = tasting.itemId ? p.items.find((item) => item.id === tasting.itemId) : undefined;
                 // "Garage · 20 € / bouteille": where the bottle tasted was, and its price.
                 const which = bottle ? bottleLabel(bottle, ctx) : t('familyDrawer.tastings.elsewhere');
+                // FEAT-109: noted through a guest link — "Marie (invité)".
+                const guest = guestSignature(tasting.guestName, t);
                 return (
                   <li key={tasting.id} className="p-3 rounded-xl border border-divider">
                     <div className="flex items-center justify-between gap-2 text-xs text-foreground-500">
-                      <span>{hasMounted ? ctx.formatDate(tasting.tastedAt as string) : ''} · {which}</span>
+                      <span>{hasMounted ? ctx.formatDate(tasting.tastedAt as string) : ''} · {which}{guest ? ` · ${guest}` : ''}</span>
                       {tasting.rating != null && (
                         <span className="flex items-center gap-0.5 font-bold text-foreground">
                           <Star size={12} className="text-warning" aria-hidden /> {tasting.rating}

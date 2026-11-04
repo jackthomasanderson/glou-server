@@ -1504,6 +1504,10 @@
         "action": "Note a tasting",
         "title": "Note a tasting",
         "done": "Tasting noted"
+      },
+      "signature": {
+        "named": "{{name}} (guest)",
+        "anonymous": "Guest"
       }
     }
   },

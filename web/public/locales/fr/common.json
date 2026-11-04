@@ -1506,6 +1506,10 @@
         "action": "Noter une dégustation",
         "title": "Noter une dégustation",
         "done": "Dégustation notée"
+      },
+      "signature": {
+        "named": "{{name}} (invité)",
+        "anonymous": "Invité"
       }
     }
   },
