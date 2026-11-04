@@ -43,11 +43,19 @@ function knownFirst<V extends string | number>(a: V | null, b: V | null): number
   return a < b ? -1 : 1;
 }
 
+/**
+ * The price of one unit: a bottle, or one cigar — a box's price spread over
+ * its cigars, so a box at 250 € (25 cigars) and a single cigar at 12 € compare.
+ */
+const unitPrice = (line: ChoiceLine): number | null =>
+  line.purchasePrice == null ? null : line.purchasePrice / (line.cigarsPerBox ?? 1);
+
 /** The criteria in order, each one read only when the previous ones tie. */
 const CRITERIA: ReadonlyArray<[Exclude<PreselectReason, 'cellar'>, (a: ChoiceLine, b: ChoiceLine) => number]> = [
   ['oldest', (a, b) => knownFirst(dayOf(a.purchasedAt), dayOf(b.purchasedAt))],
-  ['cheapest', (a, b) => knownFirst(a.purchasePrice, b.purchasePrice)],
-  ['largest', (a, b) => Math.max(b.quantity ?? 1, 0) - Math.max(a.quantity ?? 1, 0)],
+  ['cheapest', (a, b) => knownFirst(unitPrice(a), unitPrice(b))],
+  // Counted in units (bottles, cigars): 3 boxes of 25 are more than 10 single cigars.
+  ['largest', (a, b) => itemUnits(b) - itemUnits(a)],
 ];
 
 /**
@@ -55,8 +63,9 @@ const CRITERIA: ReadonlyArray<[Exclude<PreselectReason, 'cellar'>, (a: ChoiceLin
  * 1. the groups of the cellar being looked at (`cellarIds`: the list filtered
  *    on a cellar, a cellar's page), when it holds some but not all;
  * 2. among them, the one bought first (a known day before an unknown one);
- * 3. same day, or no day: the cheapest (a known price before none);
- * 4. same price: the largest group.
+ * 3. same day, or no day: the cheapest unit, a bottle or a cigar (a known
+ *    price before none);
+ * 4. same price: the largest group, in units (bottles, cigars).
  * Opened, finished and written-off copies are never chosen. Null when the
  * wine has no group in stock.
  */

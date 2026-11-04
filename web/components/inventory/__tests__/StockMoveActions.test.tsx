@@ -251,6 +251,36 @@ describe('the drawer\'s footer: "J\'en ouvre une", "J\'en bois une" (FEAT-103, F
     await waitFor(() => expect(cachedDetail().items).toEqual([expect.objectContaining({ id: 'g', quantity: 6 })]));
   });
 
+  // Review of L1: a line of one drunk in place gave its grid slot back (#573).
+  it('"Annuler" a line of one drunk in its grid slot puts it back in that slot', async () => {
+    const only = unit({ id: 'one', quantity: 1, cellarId: 'garage', slotColumn: 2, slotRow: 3, updatedAt: VERSION });
+    answer = () => ({ status: 200, body: { data: { ...only, isOpened: true, fillLevel: 0, slotColumn: null, slotRow: null, updatedAt: LATER }, changed: [], removedIds: [] } });
+    drawFooter(detailOf([only]));
+    fireEvent.click(screen.getByTestId('stock-move-drink'));
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+
+    answer = () => ({ status: 200, body: { data: { ...only, updatedAt: '2026-10-04T00:00:00.000Z' }, changed: [], removedIds: [] } });
+    const undo = toast.notifyUndoable.mock.calls[0][2] as () => void;
+    await act(async () => { undo(); });
+    await waitFor(() => expect(patches()).toHaveLength(2));
+    expect(patches()[1]).toMatchObject({
+      url: '/api/inventory/one',
+      body: { isOpened: false, fillLevel: 100, slotColumn: 2, slotRow: 3, expectedUpdatedAt: LATER },
+    });
+  });
+
+  it('"Annuler" a bottle detached from a group sends no slot (the slot stayed with the group)', async () => {
+    const group = unit({ id: 'g', quantity: 6, cellarId: 'garage', slotColumn: 1, slotRow: 1, updatedAt: VERSION });
+    answer = () => detachAnswer(group, { isOpened: true, fillLevel: 0, slotColumn: null, slotRow: null });
+    drawFooter(detailOf([group]));
+    fireEvent.click(screen.getByTestId('stock-move-drink'));
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+    const undo = toast.notifyUndoable.mock.calls[0][2] as () => void;
+    await act(async () => { undo(); });
+    await waitFor(() => expect(patches()).toHaveLength(2));
+    expect(patches()[1].body).not.toHaveProperty('slotColumn');
+  });
+
   it('a refused write says so (by the mutation) and keeps the question open', async () => {
     const garage = unit({ id: 'garage', quantity: 4, cellarId: 'garage', updatedAt: VERSION });
     const kitchen = unit({ id: 'kitchen', quantity: 2, cellarId: 'kitchen', updatedAt: VERSION });

@@ -13,6 +13,7 @@ const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
 type Unit = {
   id: string; productId: string; cellarId: string | null; quantity: number | null; purchasePrice: number | null;
   isOpened: boolean; fillLevel: number | null; parentItemId: string | null; writtenOffAt: string | null; deletedAt: string | null;
+  slotColumn: number | null; slotRow: number | null;
 };
 
 async function okData<T>(res: APIResponse): Promise<T> {
@@ -107,5 +108,31 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     expect(units.find((unit) => unit.id === garageLine.id)?.quantity).toBe(4);
     expect(units.filter((unit) => unit.isOpened && unit.fillLevel === 0)).toHaveLength(1);
     await expect(drawer.getByTestId('family-drawer-stock')).toContainText('5 bouteilles');
+  });
+
+  // Review of L1: a bottle alone in its grid slot, drunk, gives the slot back
+  // (#573); "Annuler" puts it back in that slot.
+  test('"Annuler" a bottle alone in its slot puts it back in the slot', async ({ page }) => {
+    const api = page.request;
+    const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E L1 Plan ${stamp()}`, columns: 3, rows: 3 } }))).id;
+    cellars.push(cellar);
+    const name = `E2E L1 slot ${stamp()}`;
+    const bottle = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name, producer: 'E2E Domaine', purchasePrice: 20, cellarId: cellar },
+    }));
+    families.push(bottle.productId);
+    await okData(await api.patch(`/api/inventory/${bottle.id}`, { data: { slotColumn: 2, slotRow: 3 } }));
+
+    const drawer = await openDrawer(page, bottle.productId, name);
+    const drunk = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${bottle.id}`) && r.request().method() === 'PATCH');
+    await drawer.getByTestId('stock-move-drink').click();
+    expect((await drunk).status()).toBe(200);
+    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ fillLevel: 0, slotColumn: null, slotRow: null });
+
+    await expect(page.getByText('1 bouteille bue')).toBeVisible();
+    const undone = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${bottle.id}`) && r.request().method() === 'PATCH');
+    await page.locator('button', { hasText: /^Annuler$/ }).last().click();
+    expect((await undone).status()).toBe(200);
+    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ id: bottle.id, isOpened: false, fillLevel: 100, slotColumn: 2, slotRow: 3 });
   });
 });

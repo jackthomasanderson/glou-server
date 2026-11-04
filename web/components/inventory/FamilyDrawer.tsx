@@ -22,7 +22,7 @@ import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
 import { notifySuccess } from '@/lib/toast';
 import { describeStock, keepNumbersWhole, wineName } from '@/lib/products/stock';
-import { bottleLabel, familyLines, type LineContext } from '@/lib/products/lines';
+import { bottleLabel, familyLines, hasOwnLevel, type LineContext } from '@/lib/products/lines';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 import { QrCodeModal } from './QrCodeModal';
@@ -150,6 +150,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const handleLevel = useCallback(async (item: ProductItem, level: number) => {
     const current = queryClient.getQueryData<ProductDetailView>(productDetailKey(item.productId))
       ?.items.find((unit) => unit.id === item.id) ?? item;
+    // Never a level on a line of more than one bottle: it would open one more.
+    if (!hasOwnLevel(current)) throw new Error('NOT_ONE_BOTTLE');
     const saved = await updateItem.mutateAsync({
       id: item.id,
       patch: level >= 100 ? { fillLevel: 100, isOpened: false } : { fillLevel: level },

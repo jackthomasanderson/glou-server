@@ -142,6 +142,20 @@ describe('FamilyStockLines', () => {
     expect(onLevelCommit).toHaveBeenCalledWith(expect.objectContaining({ id: 'sub' }), 100);
   });
 
+  // Review of L1: an offline opening merged into its group shows the group opened.
+  it('a line of more than one bottle shown opened gets no level control', () => {
+    draw([unit({ id: 'group', quantity: 6, isOpened: true, fillLevel: 100 })], { onLevelCommit: vi.fn() });
+    expect(screen.queryByRole('slider')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Pleine' })).toBeNull();
+  });
+
+  it('"Pleine" on a bottle just opened (100 %) still puts it back full (§10.4.6)', () => {
+    const onLevelCommit = vi.fn(async () => {});
+    draw([openedBottle(100, { id: 'sub' })], { onLevelCommit });
+    fireEvent.click(screen.getByRole('button', { name: 'Pleine' }));
+    expect(onLevelCommit).toHaveBeenCalledWith(expect.objectContaining({ id: 'sub' }), 100);
+  });
+
   it('the shortcuts Pleine / Moitié / Vide set the level of the opened bottle', () => {
     const onLevelCommit = vi.fn(async () => {});
     draw([openedBottle(60)], { onLevelCommit });

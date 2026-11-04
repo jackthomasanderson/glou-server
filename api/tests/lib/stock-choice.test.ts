@@ -81,6 +81,17 @@ describe('preselectGroup (FEAT-104 c3)', () => {
     expect(preselectGroup([unpriced, priced])).toEqual({ line: priced, reason: 'cheapest' });
   });
 
+  it('cigars: the price of one cigar and the number of cigars, not of boxes', () => {
+    // A box of 25 at 250 € is 10 € a cigar: cheaper than single cigars at 12 €.
+    const box = line('box', { quantity: 1, cigarsPerBox: 25, purchasePrice: 250 });
+    const singles = line('singles', { quantity: 10, purchasePrice: 12 });
+    expect(preselectGroup([singles, box])).toEqual({ line: box, reason: 'cheapest' });
+    // Same price per cigar: 3 boxes of 25 (75 cigars) are more than 10 single cigars.
+    const boxes = line('boxes', { quantity: 3, cigarsPerBox: 25, purchasePrice: 250 });
+    const tens = line('tens', { quantity: 10, purchasePrice: 10 });
+    expect(preselectGroup([tens, boxes])).toEqual({ line: boxes, reason: 'largest' });
+  });
+
   it('nothing tells two groups apart: the first one, no reason given', () => {
     const a = line('a', { quantity: 2 });
     const b = line('b', { quantity: 2 });
