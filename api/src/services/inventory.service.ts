@@ -484,9 +484,12 @@ export class InventoryService {
           await tx.tastingNote.updateMany({ where: { id: tastingId, itemId: id }, data: { itemId: result.data.id } });
         }
         // A whole group made identical to another one by this edit joins it
-        // (design.md rule 4): the answer is then that group (D8).
-        const regroups = result.outcome === 'updated'
-          && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field]));
+        // (design.md rule 4): the answer is then that group (D8). So does a
+        // copy put back intact that became a line of its own (its line of
+        // origin finished or gone meanwhile): two « Annuler » in either order
+        // end as one line, never two identical ones side by side.
+        const regroups = result.outcome === 'regrouped' || (result.outcome === 'updated'
+          && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field])));
         const joined = regroups ? await joinIdenticalGroup(tx, result.data, kind, userId) : null;
         if (!joined) return { result, fresh: fresh as StateItem, joined: null };
         const survivor = await tx.inventoryItem.findUniqueOrThrow({ where: { id: joined.survivorId }, include: INVENTORY_ITEM_INCLUDE });

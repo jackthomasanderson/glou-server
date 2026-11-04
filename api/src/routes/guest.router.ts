@@ -146,9 +146,14 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       const entry = await sharesService.findLatestGuestMove(itemId, new Date(Date.now() - GUEST_UNDO_WINDOW_MS));
       if (!entry?.undo) throw new AppError(403, 'GUEST_UNDO_REFUSED');
       const marker = entry.undo;
-      result = await inventoryService.updateItem(share.userId, itemId, undoPatch(marker.before, item.cigarsPerBox ?? null), {
-        guard: (unit) => { checkGuestUndo(share, entry, unit); },
-      });
+      const restore = undoPatch(marker.before, item.cigarsPerBox ?? null);
+      const options = { guard: (unit: StateItem) => { checkGuestUndo(share, entry, unit); } };
+      result = await inventoryService.updateItem(share.userId, itemId, restore, options);
+      if (result && 'slotConflict' in result && result.slotConflict) {
+        // Its grid slot was taken meanwhile: the bottle still comes back, without a slot.
+        const { slotColumn: _column, slotRow: _row, ...unplaced } = restore as typeof restore & { slotColumn?: number; slotRow?: number };
+        result = await inventoryService.updateItem(share.userId, itemId, unplaced, options);
+      }
       undone = marker;
     } else {
       // #471 (FEAT-109): one copy opened, drunk or smoked, a level set — never
@@ -172,6 +177,10 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       // exhaustive for type-safety against `InventoryService.updateItem`.
       res.status(409).json({ error: 'CONFLICT', data: result.serverItem });
       return;
+    }
+    if (result.slotConflict) {
+      // Nothing was written (inventory.router answers the same): never logged as a success.
+      throw new AppError(409, 'SLOT_OCCUPIED');
     }
 
     // A move (not a level set) can be undone for a moment (decision 68): what

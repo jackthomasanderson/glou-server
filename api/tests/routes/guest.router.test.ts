@@ -267,3 +267,55 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     expect((await run('s1', '2026-11-04T10:00:05.000Z')).body.error).toBe('GUEST_UNDO_REFUSED');
   });
 });
+
+// Review of #820: an « Annuler » whose grid slot was taken meanwhile still
+// brings the bottle back (without a slot); a write that wrote nothing is
+// never logged as a success.
+describe('PATCH /api/guest/:token/inventory/:itemId — a grid slot taken meanwhile', () => {
+  type Guard = (unit: unknown, planned: () => string) => void;
+  const STAMP = '2026-11-04T10:00:00.000Z';
+  const placedMove = {
+    shareId: 's1', createdAt: new Date(),
+    undo: { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null, slotColumn: 1, slotRow: 1 }, stampedAt: STAMP },
+  };
+  const successes = () => vi.mocked(auditLog).mock.calls.filter(([entry]) => (entry as { status: string }).status === 'success');
+
+  it('« Annuler » brings the bottle back without its slot when someone took it', async () => {
+    vi.mocked(sharesService.findLatestGuestMove).mockResolvedValue(placedMove as never);
+    vi.mocked(inventoryService.updateItem)
+      .mockResolvedValueOnce({ item: { id: 'b1' }, changes: [], changed: [], removedIds: [], slotConflict: true } as never)
+      .mockImplementationOnce((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+        options?.guard?.({ cellarId: 'c1', updatedAt: new Date(STAMP) }, () => 'regrouped');
+        return { item: { id: 'b1', productId: 'p1', updatedAt: new Date() }, changes: [], changed: [], removedIds: [], outcome: 'regrouped' };
+      }) as never);
+
+    const res = await request(app).patch('/api/guest/tok/inventory/b1').send({ undo: true });
+
+    expect(res.status).toBe(200);
+    const calls = vi.mocked(inventoryService.updateItem).mock.calls;
+    expect(calls[0][2]).toMatchObject({ isOpened: false, slotColumn: 1, slotRow: 1 });
+    expect(calls[1][2]).toEqual({ isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null });
+    expect(successes()).toHaveLength(1);
+  });
+
+  it('answers 409 SLOT_OCCUPIED, never a success, when a write wrote nothing', async () => {
+    vi.mocked(inventoryService.updateItem).mockResolvedValue({ item: { id: 'i1' }, changes: [], changed: [], removedIds: [], slotConflict: true } as never);
+
+    const res = await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 0 });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('SLOT_OCCUPIED');
+    expect(successes()).toHaveLength(0);
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ status: 'error', details: expect.objectContaining({ reason: 'SLOT_OCCUPIED' }) }));
+  });
+
+  it('an « Annuler » refused twice by the slot rule is a 409 too, not a success', async () => {
+    vi.mocked(sharesService.findLatestGuestMove).mockResolvedValue(placedMove as never);
+    vi.mocked(inventoryService.updateItem).mockResolvedValue({ item: { id: 'b1' }, changes: [], changed: [], removedIds: [], slotConflict: true } as never);
+
+    const res = await request(app).patch('/api/guest/tok/inventory/b1').send({ undo: true });
+
+    expect(res.status).toBe(409);
+    expect(successes()).toHaveLength(0);
+  });
+});

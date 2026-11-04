@@ -544,6 +544,33 @@ describe('InventoryService', () => {
         expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['b2'] } } });
       });
 
+      // Review of #820: a copy put back intact whose line of origin is gone
+      // becomes a line of its own — and joins an identical one, so two
+      // « Annuler » in either order end as one line.
+      it('a finished line of one put back intact joins the identical line (regrouped)', async () => {
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ ...line('b2', { quantity: 1, purchasedAt: OCT, isOpened: true, fillLevel: 0 }), product: family() } as never);
+        vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue(line('b2', { quantity: 1, purchasedAt: OCT, isOpened: true, fillLevel: 0 }) as never);
+        vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string }; data: Record<string, unknown> }) =>
+          Promise.resolve({ ...line(args.where.id, { quantity: args.where.id === 'b6' ? 6 : 1, purchasedAt: OCT }), ...args.data, product: family() })) as never);
+        vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockResolvedValue({ ...line('b6', { quantity: 7, purchasedAt: OCT }), product: family() } as never);
+
+        const result = await service.updateItem('u1', 'b2', { isOpened: false, fillLevel: 100 });
+
+        expect(result).toMatchObject({ outcome: 'regrouped', item: { id: 'b6', quantity: 7 }, removedIds: ['b2'], joined: { from: 6, to: 7 } });
+        expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['b2'] } } });
+      });
+
+      it('before this rule, the same put-back stayed a line of its own (regression guard)', async () => {
+        vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never); // no identical line
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ ...line('b2', { quantity: 1, purchasedAt: OCT, isOpened: true, fillLevel: 0 }), product: family() } as never);
+        vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue(line('b2', { quantity: 1, purchasedAt: OCT, isOpened: true, fillLevel: 0 }) as never);
+
+        const result = await service.updateItem('u1', 'b2', { isOpened: false, fillLevel: 100 });
+
+        expect(result).toMatchObject({ outcome: 'regrouped' });
+        expect(result).not.toHaveProperty('joined');
+      });
+
       it('never with a group still to review, nor when both are in a slot', async () => {
         vi.mocked(prisma.inventoryItem.findMany).mockResolvedValueOnce([] as never); // settledOnly: none settled
         expect(await service.updateItem('u1', 'b2', { purchasedAt: OCT })).not.toHaveProperty('joined');

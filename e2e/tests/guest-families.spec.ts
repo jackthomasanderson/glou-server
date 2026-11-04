@@ -181,6 +181,72 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
     expect(detail.tastings).toEqual([expect.objectContaining({ guestName: 'Paul', itemId: bottle.id, rating: 5 })]);
   });
 
+  // Review of #820: two « Annuler » in either order end as one line ×2.
+  for (const order of ['first move first', 'last move first'] as const) {
+    test(`two bottles of a ×2 drunk, both undone (${order}): one line ×2`, async ({ page, browser }) => {
+      const api = page.request;
+      const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E O Undo ${stamp()}` } }))).id;
+      cellars.push(cellar);
+      const group = await okData<Unit>(await api.post('/api/inventory', {
+        data: { category: 'wine', name: `E2E O undo ${stamp()}`, producer: 'E2E Domaine', quantity: 2, cellarId: cellar },
+      }));
+      families.push(group.productId);
+      const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
+        data: { label: `E2E O undo ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], collectionIds: [] },
+      }));
+      shares.push(share.id);
+
+      const { context, page: guest } = await asGuest(browser, share.token);
+      try {
+        const patch = async (id: string, data: Record<string, unknown>) =>
+          okData<{ id: string }>(await guest.request.patch(`/api/guest/${share.token}/inventory/${id}`, { data }));
+        const first = await patch(group.id, { isOpened: true, fillLevel: 0 }); // detached from the ×2
+        const second = await patch(group.id, { isOpened: true, fillLevel: 0 }); // the line of one, finished in place
+        expect(first.id).not.toBe(group.id);
+        expect(second.id).toBe(group.id);
+        for (const id of order === 'first move first' ? [first.id, second.id] : [second.id, first.id]) await patch(id, { undo: true });
+      } finally {
+        await context.close();
+      }
+      const units = await unitsOf(api, group.productId);
+      expect(units.map((unit) => [unit.quantity, unit.isOpened])).toEqual([[2, false]]);
+    });
+  }
+
+  // Review of #820: « Annuler » after the bottle's grid slot was taken: it comes back, without a slot.
+  test('« Annuler » of a bottle drunk in place whose slot was taken meanwhile: back in stock, unplaced', async ({ page, browser }) => {
+    const api = page.request;
+    const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E O Slot ${stamp()}`, columns: 3, rows: 3 } }))).id;
+    cellars.push(cellar);
+    const bottle = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name: `E2E O slot ${stamp()}`, producer: 'E2E Domaine', cellarId: cellar },
+    }));
+    families.push(bottle.productId);
+    await okData(await api.patch(`/api/inventory/${bottle.id}`, { data: { slotColumn: 2, slotRow: 3 } }));
+    const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
+      data: { label: `E2E O slot ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], collectionIds: [] },
+    }));
+    shares.push(share.id);
+
+    const { context, page: guest } = await asGuest(browser, share.token);
+    try {
+      const url = `/api/guest/${share.token}/inventory/${bottle.id}`;
+      expect((await guest.request.patch(url, { data: { isOpened: true, fillLevel: 0 } })).status()).toBe(200);
+      // A member puts another bottle in the slot it gave back.
+      const other = await okData<Unit>(await api.post('/api/inventory', {
+        data: { category: 'wine', name: `E2E O other ${stamp()}`, producer: 'E2E Domaine', cellarId: cellar },
+      }));
+      families.push(other.productId);
+      await okData(await api.patch(`/api/inventory/${other.id}`, { data: { slotColumn: 2, slotRow: 3 } }));
+
+      expect((await guest.request.patch(url, { data: { undo: true } })).status()).toBe(200);
+    } finally {
+      await context.close();
+    }
+    const [back] = await unitsOf(api, bottle.productId);
+    expect(back).toMatchObject({ id: bottle.id, isOpened: false, slotColumn: null, slotRow: null });
+  });
+
   test('read-only (c4): neither open, drink nor note a tasting', async ({ page, browser }) => {
     const api = page.request;
     const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E O Lecture ${stamp()}` } }))).id;
