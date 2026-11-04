@@ -108,20 +108,29 @@ describe('inventoryInputSchema', () => {
 // #471 (FEAT-94): a non-owned reference is now a wine without bottles; a
 // bottle is always held, so `isOwned` is no column and no input any more.
 describe('isOwned is gone (FEAT-87, #471)', () => {
-  it('never carries an ownership flag into a created bottle', () => {
+  it('refuses a bottle created as a reference by an older client: it would be counted in stock', () => {
     const result = inventoryInputSchema.safeParse({
       category: 'wine',
       name: 'Pétrus',
       producer: 'Château Pétrus',
       isOwned: false,
     });
-    expect(result.success).toBe(true);
-    expect(result.success && result.data).not.toHaveProperty('isOwned');
+    expect(result.success).toBe(false);
   });
 
-  it('never carries an ownership flag into a bottle patch', () => {
-    const result = inventoryPatchSchema.safeParse({ isOwned: false });
-    expect(result.success && result.data).not.toHaveProperty('isOwned');
+  it('ignores the flag of a bottle held, sent by an older client', () => {
+    const result = inventoryInputSchema.safeParse({
+      category: 'wine',
+      name: 'Pétrus',
+      producer: 'Château Pétrus',
+      isOwned: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('refuses a bottle patched into a reference, ignores one patched as held', () => {
+    expect(inventoryPatchSchema.safeParse({ isOwned: false }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ isOwned: true }).success).toBe(true);
   });
 
   // #683: the form's level and opening date may be cleared to null.

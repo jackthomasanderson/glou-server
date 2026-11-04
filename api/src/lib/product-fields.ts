@@ -224,7 +224,7 @@ const money = (value: number | Prisma.Decimal | null): number | null =>
 /**
  * #471 (D9): a unit as /api/products serves it — its own columns only. The
  * purchase day goes out as `YYYY-MM-DD` (D6), and `fieldSources` keeps the
- * unit's own fields (the mirror's tags belong to the family).
+ * unit's own fields (sources of description fields, left on older units, belong to the family).
  */
 export function toUnitView(row: UnitRow): ItemView {
   const unit = Object.fromEntries(ITEM_VIEW_FIELDS.map((field) => [field, row[field]])) as Pick<ItemView, (typeof ITEM_VIEW_FIELDS)[number]>;

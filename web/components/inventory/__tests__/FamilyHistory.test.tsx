@@ -90,6 +90,13 @@ describe('FamilyHistory — restoring a value (FEAT-05)', () => {
     expect(restoreButtons()).toHaveLength(0);
   });
 
+  // #471 (lot Z): "Stocker cette référence" (FEAT-87) left this in the history of a bottle still there.
+  it('offers nothing for the former reference flag of a bottle', () => {
+    renderHistory([entry({ itemId: 'b1', changes: [{ field: 'isOwned', from: false, to: true }] })]);
+
+    expect(restoreButtons()).toHaveLength(0);
+  });
+
   it('offers one restore per field of the wine changed', () => {
     renderHistory([entry({ changes: [{ field: 'region', from: 'Bordeaux', to: 'Médoc' }, { field: 'vintage', from: 2019, to: 2020 }] })]);
 

@@ -76,13 +76,18 @@ export type BackupVersion = 'same' | 'older' | 'newer' | 'unknown';
 /**
  * How a dump's migrations compare with this image's: `older` when it lacks one
  * this image ships (taken before an update), `newer` when it holds one this
- * image does not know (taken by a later version).
+ * image does not know, dated after its last one (taken by a later version).
+ * An unknown migration dated before that is a row of a migration since
+ * removed from the folder (the repository deleted a few, once applied on
+ * some instances), not a sign of a later version: ignored.
  */
 export function compareVersions(shipped: readonly string[], dumped: readonly string[] | null): BackupVersion {
   if (dumped === null) return 'unknown';
   const inDump = new Set(dumped);
   const known = new Set(shipped);
-  if (dumped.some((name) => !known.has(name))) return 'newer';
+  // Migration folder names start with their date: byte order is date order.
+  const last = [...shipped].sort().at(-1) ?? '';
+  if (dumped.some((name) => !known.has(name) && name > last)) return 'newer';
   if (shipped.some((name) => !inDump.has(name))) return 'older';
   return 'same';
 }

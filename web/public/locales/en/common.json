@@ -1853,7 +1853,7 @@
         "error": "Restore failed.",
         "errors": {
           "BACKUP_BEFORE_RESTORE_FAILED": "The backup of the current data taken before the restore failed, so nothing was restored. Check the backup history.",
-          "BACKUP_FROM_OLDER_VERSION": "This backup was taken by an earlier version of Glou, before an update: nothing was restored. To go back to that version, follow \"Go back\" on the wiki page \"Upgrade Glou and go back if something goes wrong\".",
+          "BACKUP_FROM_OLDER_VERSION": "This backup was taken by an earlier version of Glou, before an update: nothing was restored. To go back to that version, follow \"Go back\" on the wiki page \"Upgrade Glou and go back if something goes wrong\". To keep the current version with this data, restore it with the command of the \"Disaster recovery\" page, then restart the API: Glou updates it.",
           "BACKUP_FROM_NEWER_VERSION": "This backup was taken by a newer version of Glou: nothing was restored. Update Glou, then restore it.",
           "TIMEOUT": "The restore is taking longer than expected and is still running on the server. Wait a few minutes, then reload the page and check the backup history."
         }

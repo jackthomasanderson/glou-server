@@ -247,6 +247,8 @@ describe('backupService.restoreBackup — a backup of another version of Glou (#
   ].join('\n');
   const applied = (names: string[]) => names.map((name): [string, boolean, boolean] => [name, true, false]);
 
+  // TO RELAX once the families migration has shipped: later migrations will
+  // follow it; the cases below then need the families one by name, not last.
   it('ships the families migration as its last one', () => {
     expect(families).toBeDefined();
     expect(shipped[shipped.length - 1]).toBe(families);
@@ -271,6 +273,24 @@ describe('backupService.restoreBackup — a backup of another version of Glou (#
     expect(compareVersions(['a', 'b'], ['a'])).toBe('older');
     expect(compareVersions(['a'], ['a', 'b'])).toBe('newer');
     expect(compareVersions(['a', 'b'], null)).toBe('unknown');
+  });
+
+  // The repository deleted migrations once applied on some instances (0_init,
+  // 20260117_fix_cellar_type_constraint, 20260612125733_feat_14_storage_zones).
+  it('takes a row of a migration since removed for history, not for a later version', () => {
+    const shippedHere = ['20260101000000_a', '20261001000000_b'];
+    expect(compareVersions(shippedHere, ['0_init', ...shippedHere, '20260117_fix_cellar_type_constraint'])).toBe('same');
+    expect(compareVersions(shippedHere, ['20260612125733_feat_14_storage_zones', '20260101000000_a'])).toBe('older');
+    expect(compareVersions(shippedHere, [...shippedHere, '20261101000000_c'])).toBe('newer');
+  });
+
+  it('restores a backup holding a ghost row of a removed migration', async () => {
+    writeDump(dumpOf(applied(['0_init', ...shipped])));
+    const done = backupService.restoreBackup(file, 'u1', '127.0.0.1');
+    await new Promise((r) => setTimeout(r, 50));
+    psql.emit('close', 0);
+
+    await expect(done).resolves.toEqual({ safetyBackupRunId: 'safety-1' });
   });
 
   it('refuses a backup taken before the families migration, before any copy or write', async () => {

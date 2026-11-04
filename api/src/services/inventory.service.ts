@@ -111,6 +111,17 @@ type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> 
 // #471: every read of /api/inventory* joins the unit's family, which holds
 // the description and the collections (see `toItemView`). Using Prisma's
 // GetPayload helper keeps this in sync with the schema automatically.
+/**
+ * #471 (lot Z): the unit's own columns a history value may be restored to —
+ * every column but its identity and bookkeeping. Description fields are the
+ * family's ({@link isProductField}), restored on it.
+ */
+const RESTORABLE_UNIT_FIELDS: ReadonlySet<string> = new Set(
+  Object.values(Prisma.InventoryItemScalarFieldEnum).filter((field) => ![
+    'id', 'userId', 'productId', 'createdAt', 'updatedAt', 'deletedAt', 'updatedBy', 'lockedFields', 'fieldSources',
+  ].includes(field)),
+);
+
 const INVENTORY_ITEM_INCLUDE = {
   product: { include: { collections: { select: { id: true, name: true, color: true, icon: true } } } },
 } satisfies Prisma.InventoryItemInclude;
@@ -353,7 +364,8 @@ export class InventoryService {
     // #471: `smokeOne` and `keepTastings` are instructions to the detach /
     // reattach rule (stock-state.service.ts), not columns either; nor is
     // `tastingId`, the tasting that follows a detached copy (FEAT-107).
-    const { expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, tastingId, ...patch } = rawPatch;
+    // #471 (lot Z): `isOwned` is only an older client's leftover (schema: `true` ignored, `false` refused).
+    const { expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, tastingId, isOwned: _legacy, ...patch } = rawPatch;
     const row = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
       include: INVENTORY_ITEM_INCLUDE,
@@ -426,7 +438,7 @@ export class InventoryService {
       if (conflict) return { item: existing, changes: [], changed: [], removedIds: [], slotConflict: true };
     }
 
-    // #471: the family's fields go to the family (and its mirror), the rest
+    // #471: the family's fields go to the family, the rest
     // to the unit — each with its own locks and field sources (D1).
     // #798: a unit moved to another cellar gives its slot back with the move
     // (its coordinates mean nothing in the new cellar); recorded in the
@@ -563,6 +575,10 @@ export class InventoryService {
     if (!existing) return { status: 'not_found' };
     // #471 (FEAT-102): a guessed number is settled by "C'est bon" or "Corriger le nombre", never marked again from the history.
     if (field === 'needsReview') return { status: 'invalid_value' };
+    // #471 (lot Z): only a column of the unit or of its family can be written
+    // back. An older history line may name one that is gone (FEAT-87's
+    // `isOwned`, "Stocker cette référence"): refused, never sent to Prisma.
+    if (!isProductField(field) && !RESTORABLE_UNIT_FIELDS.has(field)) return { status: 'invalid_value' };
 
     const history = await this.getItemHistory(itemId);
     const seenValues = new Set<string>();
@@ -884,7 +900,8 @@ export class InventoryService {
 
   private mapInputToDb(data: Partial<InventoryPatch>): Partial<InventoryPatch> {
     return Object.fromEntries(
-      Object.entries(data).filter(([, v]) => v !== undefined)
+      // #471 (lot Z): `isOwned` is no column any more (an older client's `true`, see the schema).
+      Object.entries(data).filter(([key, v]) => v !== undefined && key !== 'isOwned')
     ) as Partial<InventoryPatch>;
   }
 

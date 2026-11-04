@@ -1046,6 +1046,46 @@ describe('InventoryService', () => {
       expect(update).not.toHaveBeenCalled();
     });
 
+    // #471 (lot Z): "Stocker cette référence" (FEAT-87) left { isOwned: false → true } in the history of
+    // bottles that survive the update; the column is gone, so Prisma would answer 500.
+    it.each([
+      ['isOwned', true],
+      ['collections', ['c1']],
+      ['id', 'other'],
+    ])('refuses to restore %s, which is no column of the bottle nor of its wine', async (field, value) => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ quantity: 1 }) as never);
+      vi.spyOn(service, 'getItemHistory').mockResolvedValue([
+        entry({ id: 3, changes: [{ field, from: value, to: value }] }),
+      ] as never);
+      const update = vi.spyOn(service, 'updateItem');
+
+      expect(await service.rollbackField('u1', 'b1', field, value)).toEqual({ status: 'invalid_value' });
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    // An old history line names a description field as the bottle had it: it is restored on the wine.
+    it('restores a description field of an old bottle line on its wine', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ quantity: 1 }) as never);
+      vi.spyOn(service, 'getItemHistory').mockResolvedValue([
+        entry({ id: 3, changes: [{ field: 'region', from: 'Bordeaux', to: 'Médoc' }] }),
+      ] as never);
+      const update = vi.spyOn(service, 'updateItem').mockResolvedValue({ item: { id: 'b1' }, changes: [] } as never);
+
+      expect(await service.rollbackField('u1', 'b1', 'region', 'Bordeaux')).toMatchObject({ status: 'success' });
+      expect(update).toHaveBeenCalledWith('u1', 'b1', { region: 'Bordeaux' }, { isManualEdit: true, bypassFieldLock: true });
+    });
+
+    it('drops the former ownership flag of an older client from an edit, without locking it', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ quantity: 1 }) as never);
+
+      await service.updateItem('u1', 'b1', { isOwned: true, location: 'Rack C' } as never);
+
+      const written = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
+      expect(written.data).toMatchObject({ location: 'Rack C' });
+      expect(written.data).not.toHaveProperty('isOwned');
+      expect(written.data.lockedFields).not.toContain('isOwned');
+    });
+
     it('still restores a value of the line\'s own history', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ quantity: 6 }) as never);
       vi.spyOn(service, 'getItemHistory').mockResolvedValue([entry({ absorbed: true }), entry({ id: 2 })] as never);
@@ -1274,6 +1314,14 @@ describe('InventoryService', () => {
       }
       expect(created()).not.toHaveProperty('userId');
       expect(created()).not.toHaveProperty('cellarId');
+    });
+
+    // #471 (lot Z): an older client's `isOwned: true` (the schema refuses `false`) never reaches Prisma.
+    it('drops the former ownership flag of an older client', async () => {
+      await service.createItem('u1', { ...wine, isOwned: true } as never);
+
+      expect(created()).not.toHaveProperty('isOwned');
+      expect(created().product.create).not.toHaveProperty('isOwned');
     });
 
     it('creates a unit without a cellar', async () => {

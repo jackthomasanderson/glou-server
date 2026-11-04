@@ -74,6 +74,8 @@ migrations_before() {
 families=$(find "$migrations" -mindepth 1 -maxdepth 1 -type d -name '*_families_*' -printf '%f\n' | sort)
 # Lot Z (D7): one migration only, the last one of the folder (dated after the
 # last migration of `dev`), so the bench replays it from the schema of `dev`.
+# TO RELAX once the families migration has shipped: later migrations will
+# follow it, and the bench must then replay up to it, not require it last.
 [ "$(wc -l <<<"$families")" = 1 ] && [ -n "$families" ] \
   || { echo "Expected exactly one *_families_* migration in $migrations, found: $families"; exit 1; }
 last=$(find "$migrations" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -n 1)

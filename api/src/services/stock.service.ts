@@ -317,7 +317,7 @@ export async function correctQuantityIn(
 
 /**
  * The write-off line of `count` copies detached from `group`: everything of
- * the group (family, cellar, prices, purchase day, size, mirror) but no slot,
+ * the group (family, cellar, prices, purchase day, size) but no slot,
  * no parent (a write-off is never put back) and nothing left to review.
  */
 function writeOffOf(group: UnitRecord, userId: string, count: number, writtenOffAt: Date): Prisma.InventoryItemUncheckedCreateInput {

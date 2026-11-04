@@ -330,7 +330,7 @@ export const reviewService = {
       const otherIds = others.map((family) => family.id);
       const data = mergedFamily(walk, input.choices);
 
-      // In SQL like the description mirror (D22): a unit only changes family.
+      // In SQL (D22): a unit only changes family; its `updatedAt` stays, so no pending offline change conflicts.
       const absorbed = Prisma.join(otherIds);
       await tx.$executeRaw`UPDATE "bottles" SET "productId" = ${survivor.id} WHERE "productId" IN (${absorbed})`;
       await tx.$executeRaw`UPDATE "tasting_notes" SET "productId" = ${survivor.id} WHERE "productId" IN (${absorbed})`;
