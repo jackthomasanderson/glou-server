@@ -2414,5 +2414,33 @@
       "failed": "Impossible d'ajouter ces bouteilles. Réessayez.",
       "offline": "Ajouter des bouteilles demande une connexion."
     }
+  },
+  "openDrink": {
+    "actions": {
+      "open": "J'en ouvre une",
+      "drink": "J'en bois une",
+      "smoke": "J'en fume un"
+    },
+    "which": {
+      "title": "Quelles bouteilles ?",
+      "titleCigar": "Lesquels ?",
+      "reason": {
+        "cellar": "Dans la cave affichée",
+        "oldest": "Achetée en premier",
+        "cheapest": "La moins chère",
+        "largest": "La ligne la plus nombreuse"
+      },
+      "reasonCigar": {
+        "cellar": "Dans la cave affichée",
+        "oldest": "Achetés en premier",
+        "cheapest": "Les moins chers",
+        "largest": "La ligne la plus nombreuse"
+      }
+    },
+    "done": {
+      "open": "1 bouteille ouverte",
+      "drink": "1 bouteille bue",
+      "smoke": "1 cigare fumé"
+    }
   }
 }

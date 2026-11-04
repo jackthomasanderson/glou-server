@@ -201,11 +201,29 @@ describe('FamilyDrawer — actions of a line (#471, W3)', () => {
     return within(menu).getAllByRole('menuitem').map((item) => item.getAttribute('aria-label'));
   };
 
-  it('a line of full bottles: move, change the price, correct the number, edit, trash (§10.3)', async () => {
+  it('a line of full bottles: open, drink, move, change the price, correct the number, edit, trash (§10.3)', async () => {
     detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage' })] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
     const [line] = screen.getAllByTestId('family-line');
-    expect(await menuOf(line)).toEqual(['Déplacer', 'Changer le prix', 'Corriger le nombre', 'Modifier', 'Mettre à la corbeille']);
+    expect(await menuOf(line)).toEqual([
+      "J'en ouvre une", "J'en bois une", 'Déplacer', 'Changer le prix', 'Corriger le nombre', 'Modifier', 'Mettre à la corbeille',
+    ]);
+  });
+
+  // #471 (L1, ux-ui.md §10.3): one main action in the footer, before "Ajouter des bouteilles".
+  it('the footer leads with "J\'en ouvre une", then "J\'en bois une" and the page\'s actions', () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} primaryAction={() => <button type="button">Ajouter des bouteilles</button>} />);
+    const open = screen.getByTestId('stock-move-open');
+    expect(open).toHaveAttribute('data-primary', 'true');
+    expect(screen.getByTestId('stock-move-drink')).toHaveAttribute('data-primary', 'false');
+    expect(open.compareDocumentPosition(screen.getByRole('button', { name: 'Ajouter des bouteilles' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('a wine with no line of full bottles has no "J\'en ouvre une"', () => {
+    detail = detailOf({ items: [] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(screen.queryByTestId('stock-move-open')).toBeNull();
   });
 
   it('an opened bottle: only edited or trashed from its menu', async () => {
