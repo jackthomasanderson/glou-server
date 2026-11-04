@@ -103,6 +103,13 @@ describe('FamilyDrawer', () => {
     expect(screen.queryByRole('slider')).toBeNull();
   });
 
+  // #471 (recette v2): a cigar's drawer said « Aucune dégustation de ce vin ».
+  it('a cigar without any tasting says so of the cigar, not of a wine', () => {
+    detail = detailOf({ category: 'cigar', name: 'Robusto', vintage: null, items: [] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(screen.getByText("Aucune dégustation de ce cigare pour l'instant.")).toBeInTheDocument();
+  });
+
   it('a group of six full bottles has no level control: nothing can open one from here', () => {
     detail = detailOf({ items: [unit({ id: 'group', quantity: 6 })] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);

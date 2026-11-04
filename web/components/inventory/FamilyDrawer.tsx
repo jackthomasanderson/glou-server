@@ -352,7 +352,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
             </p>
           )}
           {p.tastings.length === 0 ? (
-            <p className="text-sm text-foreground-500">{t('familyDrawer.tastings.empty')}</p>
+            <p className="text-sm text-foreground-500">{t('familyDrawer.tastings.empty', { context: p.category })}</p>
           ) : (
             <ul className="flex flex-col gap-2" data-testid="family-tastings">
               {p.tastings.map((tasting) => {
