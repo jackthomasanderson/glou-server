@@ -17,7 +17,7 @@ import type { ProductDetailView, ProductItem } from '@/lib/products/types';
  * Sent from the line's latest known version (a change made meanwhile is
  * refused, 409, rather than overwritten). The caches follow the D8 answer
  * (useUpdateInventoryItem: the sub-record, the group decremented); the
- * message "1 bouteille ouverte · Annuler" puts the copy back for 5 seconds.
+ * message "1 bouteille ouverte · Annuler" puts the copy back for 8 seconds.
  * Resolves true once written, false when refused (already told).
  */
 export function useStockMove() {

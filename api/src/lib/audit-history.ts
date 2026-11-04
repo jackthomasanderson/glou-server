@@ -25,7 +25,7 @@ export interface HistoryLog {
 }
 
 /**
- * How long after an action its "Annuler" (the message shown 5 seconds, or
+ * How long after an action its "Annuler" (the message shown 8 seconds, or
  * "Annuler l'ouverture" right after) still takes it back as if it never
  * happened. Past it, both stay in the history.
  */

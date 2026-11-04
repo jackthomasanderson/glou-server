@@ -55,8 +55,8 @@ export function notifyWarning(messageKey: string, values?: Record<string, unknow
   });
 }
 
-/** ux-ui.md §10.4: an everyday action is undone from its message for 5 seconds. */
-export const UNDO_TIMEOUT_MS = 5000;
+/** ux-ui.md §10.4: an everyday action is undone from its message for 8 seconds (decision #471 point 71). */
+export const UNDO_TIMEOUT_MS = 8000;
 
 /**
  * A success that can be taken back (#471, ux-ui.md §10.4: "1 bouteille

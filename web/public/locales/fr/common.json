@@ -111,7 +111,10 @@
       "required": "Ce champ est obligatoire",
       "missingFields": "Complétez les champs obligatoires avant d'enregistrer",
       "peakWindowOrder": "La fin de l'apogée ne peut pas précéder son début",
-      "bottleCount": "Entre 1 et {{max}} bouteilles"
+      "bottleCount": "Entre 1 et {{max}} bouteilles",
+      "range": "Entre {{min}} et {{max}}",
+      "atLeast": "{{min}} au minimum",
+      "atMost": "{{max}} au maximum"
     },
     "noNotifications": "Aucune notification",
     "perPage": "{{count}} par page",

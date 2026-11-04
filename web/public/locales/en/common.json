@@ -111,7 +111,10 @@
       "required": "This field is required",
       "missingFields": "Fill in the required fields before saving",
       "peakWindowOrder": "The end of the peak cannot come before its start",
-      "bottleCount": "Between 1 and {{max}} bottles"
+      "bottleCount": "Between 1 and {{max}} bottles",
+      "range": "Between {{min}} and {{max}}",
+      "atLeast": "At least {{min}}",
+      "atMost": "At most {{max}}"
     },
     "noNotifications": "No notifications",
     "perPage": "{{count}} per page",
