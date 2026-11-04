@@ -113,6 +113,8 @@ export async function readFieldHistory(where: Prisma.AuditLogWhereInput): Promis
       ...(typeof details?.['count'] === 'number' ? { count: details['count'] } : {}),
       ...(isCorrectionReason(details?.['reason']) ? { reason: details['reason'] } : {}),
       ...(Array.isArray(details?.['joinedChanges']) ? { joinedChanges: details['joinedChanges'] as FieldChange[] } : {}),
+      // #471: moved here from a line since absorbed (absorbGroups): not restorable.
+      ...(typeof details?.['absorbedFrom'] === 'string' ? { absorbed: true } : {}),
       createdAt: log.createdAt,
     };
   });

@@ -941,6 +941,42 @@ describe('InventoryService', () => {
 
   // ISSUE_141/ISSUE_068: port of web/lib/inventory/duplicate.ts's isDuplicateOf,
   // applied server-side — the one check that previously existed only in the browser.
+  describe('rollbackField - history of an absorbed line (#471)', () => {
+    const entry = (over: Record<string, unknown>) => ({
+      id: 1, action: 'UPDATE', status: 'success', actorId: 'u1', actorName: 'Marie', itemId: 'b1',
+      changes: [{ field: 'location', from: 'Rack A', to: 'Rack B' }], createdAt: new Date('2026-10-30T10:00:00Z'), ...over,
+    });
+
+    it('refuses a value only seen on a line since absorbed: it would rewrite every copy of this one', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ quantity: 6 }) as never);
+      vi.spyOn(service, 'getItemHistory').mockResolvedValue([entry({ absorbed: true })] as never);
+      const update = vi.spyOn(service, 'updateItem');
+
+      expect(await service.rollbackField('u1', 'b1', 'location', 'Rack A')).toEqual({ status: 'invalid_value' });
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('never marks a number "to check" again from the history ("C\'est bon" is settled)', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ quantity: 6 }) as never);
+      vi.spyOn(service, 'getItemHistory').mockResolvedValue([
+        entry({ action: 'REVIEW_OK', changes: [{ field: 'needsReview', from: true, to: false }] }),
+      ] as never);
+      const update = vi.spyOn(service, 'updateItem');
+
+      expect(await service.rollbackField('u1', 'b1', 'needsReview', true)).toEqual({ status: 'invalid_value' });
+      expect(update).not.toHaveBeenCalled();
+    });
+
+    it('still restores a value of the line\'s own history', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ quantity: 6 }) as never);
+      vi.spyOn(service, 'getItemHistory').mockResolvedValue([entry({ absorbed: true }), entry({ id: 2 })] as never);
+      const update = vi.spyOn(service, 'updateItem').mockResolvedValue({ item: { id: 'b1' }, changes: [] } as never);
+
+      expect(await service.rollbackField('u1', 'b1', 'location', 'Rack A')).toMatchObject({ status: 'success' });
+      expect(update).toHaveBeenCalledWith('u1', 'b1', { location: 'Rack A' }, { isManualEdit: true, bypassFieldLock: true });
+    });
+  });
+
   describe('findDuplicateCandidate', () => {
     it('matches case-insensitively on producer + name + vintage for wine', async () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([

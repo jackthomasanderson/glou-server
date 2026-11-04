@@ -7,6 +7,7 @@ import {
 } from '../lib/finished-item';
 import { lockFamily, mirrorFamilyOnto } from '../lib/product-fields';
 import { followDetach, moveCountEntry } from '../lib/count-entries';
+import { moveHistoryOnto } from '../lib/audit-history';
 import { TASTINGS_ON_ITEM } from '../../../shared/product';
 
 // #471 (FEAT-103/106, design.md "Détacher / Rattacher", "Détachement côté
@@ -307,7 +308,8 @@ async function absorb<I extends Prisma.InventoryItemInclude, R>(
     await tx.tastingNote.deleteMany({ where: { itemId: item.id } });
   }
 
-  await tx.auditLog.updateMany({ where: { bottleId: item.id }, data: { bottleId: parent.id } });
+  // Marked as absorbed: a value of the opened bottle (its cellar…) never restored onto the whole group.
+  await moveHistoryOnto(tx, parent.id, [item.id]);
   await tx.wishlistItem.updateMany({ where: { acquiredItemId: item.id }, data: { acquiredItemId: parent.id } });
   await tx.inventoryItem.updateMany({ where: { parentItemId: item.id }, data: { parentItemId: parent.id } });
   // One entry per unit and session: an entry of the sub-record moves to the

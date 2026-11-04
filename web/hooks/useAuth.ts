@@ -6,6 +6,7 @@ import { apiErrorFrom } from '@/lib/api';
 import { fetchOrNetworkError } from '@/lib/network-error';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { clearQuickLock } from '@/lib/quick-lock-storage';
+import { resetReviewBanner } from '@/lib/review/banner';
 import { postLoginPath } from '@/lib/auth/next-path';
 import type { ExportCategory, PublicUser as PublicUserContract } from '@shared/auth';
 import type { Wire } from '@shared/wire';
@@ -79,6 +80,8 @@ export function useLogin() {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, data);
       queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
       clearQuickLock();
+      // #471 (QP5): "Plus tard" on the review banner lasts until the next sign-in.
+      resetReviewBanner();
       router.push(postLoginPath(window.location.search));
     },
   });
@@ -99,6 +102,7 @@ export function useRegister() {
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
       queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
+      resetReviewBanner();
       router.push('/bottles');
     },
   });
@@ -154,6 +158,8 @@ export function useLogout() {
       queryClient.setQueryData(ME_KEY, null);
       queryClient.clear();
       clearQuickLock();
+      // #471 (QP5): "Plus tard" on the review banner lasts until the next sign-in.
+      resetReviewBanner();
       router.push('/login');
     },
   });
@@ -297,6 +303,8 @@ export function useVerify2faLogin() {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
       queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
       clearQuickLock();
+      // #471 (QP5): "Plus tard" on the review banner lasts until the next sign-in.
+      resetReviewBanner();
       router.push(postLoginPath(window.location.search));
     },
   });
