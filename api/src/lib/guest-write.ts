@@ -2,8 +2,9 @@ import { AppError } from './errors';
 import { isFinishedState, isIntactItem } from './finished-item';
 import type { GuestInventoryUpdate } from '../schemas/inventory.schema';
 import type { StateItem, StateOutcome } from '../services/stock-state.service';
+import type { UnitKind } from '../../../shared/units';
 
-type GuestUnit = Pick<StateItem, 'cellarId' | 'quantity' | 'isOpened' | 'fillLevel' | 'cigarsLeft' | 'writtenOffAt' | 'category'>;
+type GuestUnit = Pick<StateItem, 'cellarId' | 'quantity' | 'isOpened' | 'fillLevel' | 'cigarsLeft' | 'writtenOffAt'>;
 
 const inWriteCellar = (share: { writeCellarIds: readonly string[] }, unit: Pick<StateItem, 'cellarId'>) =>
   unit.cellarId != null && share.writeCellarIds.includes(unit.cellarId);
@@ -36,11 +37,13 @@ export function checkGuestWrite(
   unit: GuestUnit,
   /** The outcome the detach rule plans for the write (it may itself refuse it), read once the unit passed the checks above. */
   planned: () => StateOutcome,
+  /** A bottle or a cigar, as its family says. */
+  kind: UnitKind,
 ): void {
   if (!inWriteCellar(share, unit)) throw new AppError(403, 'READ_ONLY_ACCESS');
   if (unit.writtenOffAt != null || isFinishedState(unit)) throw new AppError(409, 'GUEST_ITEM_FINISHED');
   if (patch.isOpened === false && !isIntactItem(unit)) throw new AppError(403, 'GUEST_CANNOT_RESTOCK');
-  if (unit.category === 'cigar' && !(patch.smokeOne && Object.keys(patch).length === 1)) throw new AppError(400, 'GUEST_NOT_A_MOVE');
+  if (kind === 'cigar' && !(patch.smokeOne && Object.keys(patch).length === 1)) throw new AppError(400, 'GUEST_NOT_A_MOVE');
   const outcome = planned();
   if (outcome === 'reattached' || outcome === 'regrouped') throw new AppError(403, 'GUEST_CANNOT_RESTOCK');
   if (isIntactItem(unit)) {

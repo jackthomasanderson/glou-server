@@ -21,9 +21,6 @@ export const commonInventorySchema = z.object({
   purchasePrice: unitPrice.optional(),
   purchasePlace: z.string().max(200).optional(),
   estimatedValue: unitPrice.optional(),
-  // FEAT-87: false = non-owned reference. Defaults to owned, so the ordinary
-  // "add a bottle" path and every existing client keep their behaviour.
-  isOwned: z.boolean().default(true),
   isOpened: z.boolean().default(false),
   // #683: nullable like on the patch schema — the form sends null when the
   // item is marked as a reference (no level), and rejecting it blocked every add.
@@ -214,9 +211,6 @@ export const inventoryPatchObject = z.object({
     .transform((day) => (day === null ? null : new Date(`${day}T00:00:00.000Z`)))
     .optional(),
   estimatedValue: z.number().min(0).optional().nullable(),
-  // FEAT-87: flipping this is how a reference gets stocked (and how a
-  // mistakenly-stocked item goes back to being a reference).
-  isOwned: z.boolean().optional(),
   isOpened: z.boolean().optional(),
   fillLevel: z.number().int().min(0).max(100).optional().nullable(),
   openedAt: z.coerce.date().optional().nullable(),

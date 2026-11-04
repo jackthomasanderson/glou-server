@@ -122,15 +122,11 @@ export class CellarService {
       where: { cellarId, ...IN_STOCK_ITEM_FILTER },
       select: {
         id: true,
-        name: true,
-        producer: true,
-        category: true,
-        color: true,
-        vintage: true,
         slotColumn: true,
         slotRow: true,
         quantity: true,
         isOpened: true,
+        product: { select: { name: true, producer: true, category: true, color: true, vintage: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -139,8 +135,9 @@ export class CellarService {
     // the map says "×N" on it. An opened bottle is a record of its own: one.
     return {
       cellar,
-      items: items.map(({ quantity, isOpened, ...item }) => ({
+      items: items.map(({ quantity, isOpened, product, ...item }) => ({
         ...item,
+        ...product,
         quantity: isOpened ? 1 : Math.max(quantity ?? 1, 1),
       })),
     };

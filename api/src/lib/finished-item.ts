@@ -1,4 +1,3 @@
-import { OWNED_ITEM_FILTER } from './owned-item';
 import { isFinishedState } from '../../../shared/units';
 
 // #471: the pure counting rules and state predicates live in shared/units.ts
@@ -46,9 +45,8 @@ export const NOT_FINISHED_ITEM_FILTER = {
 } as const;
 
 /**
- * #573: what is in stock — not in the trash, owned (not a FEAT-87
- * reference), not finished and not written off (#471: broken, given away or
- * lost — `writtenOffAt`) ("En stock" in the design.md glossary). The
+ * #573: what is in stock — not in the trash, not finished and not written
+ * off (#471: broken, given away or lost — `writtenOffAt`) ("En stock" in the design.md glossary). The
  * scope of every "what is in the cellar" figure: peak alerts, drink
  * suggestions, inventory counts, the cellar map and the item counters. A new
  * query describing the cellar's contents uses it rather than rebuilding it.
@@ -56,7 +54,6 @@ export const NOT_FINISHED_ITEM_FILTER = {
 export const IN_STOCK_ITEM_FILTER = {
   deletedAt: null,
   writtenOffAt: null,
-  ...OWNED_ITEM_FILTER,
   ...NOT_FINISHED_ITEM_FILTER,
 } as const;
 

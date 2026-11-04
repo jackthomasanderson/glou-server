@@ -132,7 +132,6 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
   const IN_STOCK_SCOPE = {
     deletedAt: null,
     writtenOffAt: null,
-    isOwned: true,
     // `not: null` keeps an opened bottle with no recorded level in stock.
     NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
   };
@@ -187,9 +186,9 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
   it('getGridData only places the bottles still in stock on the map', async () => {
     const cave = { id: 'c1', name: 'Cave A' };
     const placed = [
-      { id: 'a', name: 'Chambertin', slotColumn: 1, slotRow: 1, quantity: 4, isOpened: false },
-      { id: 'b', name: 'Musigny', slotColumn: 2, slotRow: 1, quantity: null, isOpened: false },
-      { id: 'c', name: 'Opened', slotColumn: 3, slotRow: 1, quantity: 1, isOpened: true },
+      { id: 'a', product: { name: 'Chambertin' }, slotColumn: 1, slotRow: 1, quantity: 4, isOpened: false },
+      { id: 'b', product: { name: 'Musigny' }, slotColumn: 2, slotRow: 1, quantity: null, isOpened: false },
+      { id: 'c', product: { name: 'Opened' }, slotColumn: 3, slotRow: 1, quantity: 1, isOpened: true },
     ];
     vi.mocked(prisma.cellar.findFirst).mockResolvedValue(cave as never);
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(placed as never);
@@ -197,6 +196,7 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
     const grid = await CellarService.getGridData('u1', 'c1');
 
     // The group's size rides on its slot ("×4"); an empty quantity is one bottle.
+    // #471 (lot Z): the description is read on the family, served flat as before.
     expect(grid).toEqual({
       cellar: cave,
       items: [
@@ -207,7 +207,7 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
     });
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: { cellarId: 'c1', ...IN_STOCK_SCOPE },
-      select: expect.anything(),
+      select: expect.objectContaining({ product: { select: { name: true, producer: true, category: true, color: true, vintage: true } } }),
       orderBy: { createdAt: 'asc' },
     });
   });

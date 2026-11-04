@@ -150,8 +150,8 @@ describe('getBudgetProgress', () => {
 
 // FEAT-87: a non-owned reference was never bought, so it is not spending —
 // even when a price was recorded on it.
-describe('budget progress excludes non-owned references (FEAT-87)', () => {
-  it('restricts the spending query to owned items', async () => {
+describe('budget progress (FEAT-87, #471)', () => {
+  it('needs no ownership filter: a reference has no bottle (#471)', async () => {
     vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue({
       id: 'e1',
       userId: 'u1',
@@ -167,6 +167,6 @@ describe('budget progress excludes non-owned references (FEAT-87)', () => {
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(call.where).toMatchObject({ isOwned: true });
+    expect(call.where).not.toHaveProperty('isOwned');
   });
 });

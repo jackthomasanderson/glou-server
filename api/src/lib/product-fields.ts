@@ -12,7 +12,7 @@ import type { ItemView } from '../../../shared/product';
  *
  * Bookkeeping columns (`lockedFields`, `fieldSources`, `updatedBy`, `userId`,
  * `deletedAt`) are written by the services themselves, never copied from an
- * input. The families_expand migration copies exactly these columns; a test
+ * input. The families migration copies exactly these columns; a test
  * keeps the two lists equal.
  */
 export const PRODUCT_FIELDS = [
@@ -74,29 +74,14 @@ export type ProductWrite = Pick<
   ProductField | 'lockedFields' | 'fieldSources' | 'updatedBy' | 'updatedAt'
 >;
 
-// Built from the static PRODUCT_FIELDS list only — no input ever reaches it.
-const MIRROR_ASSIGNMENTS = Prisma.raw(PRODUCT_FIELDS.map((field) => `"${field}" = p."${field}"`).join(', '));
-
 /**
- * #471: the one way to write a family's fields. Writes `Product` (bumping its
- * `updatedAt`), then copies the family fields onto the transitional mirror
- * columns of every unit of the family, in SQL so that the units' `updatedAt`
- * stays untouched (D22: a description change must not put a pending offline
- * change of a unit in conflict). Pass a transaction client: both writes must
- * land together.
+ * #471: the one way to write a family's fields: `Product` only (bumping its
+ * `updatedAt`); its units carry no copy of them (D22: a description change
+ * never moves a unit's `updatedAt`, so it never puts a pending offline change
+ * of a unit in conflict).
  */
 export async function writeProductFields(client: PrismaClientOrTx, productId: string, data: ProductWrite): Promise<Product> {
-  const product = await client.product.update({ where: { id: productId }, data });
-  await client.$executeRaw`UPDATE "bottles" AS b SET ${MIRROR_ASSIGNMENTS} FROM "products" AS p WHERE p."id" = b."productId" AND b."productId" = ${productId}`;
-  return product;
-}
-
-/**
- * #471: copies its family's fields onto the mirror columns of one new unit
- * (a detached sub-record), in SQL like {@link writeProductFields}.
- */
-export async function mirrorFamilyOnto(client: PrismaClientOrTx, itemId: string): Promise<void> {
-  await client.$executeRaw`UPDATE "bottles" AS b SET ${MIRROR_ASSIGNMENTS} FROM "products" AS p WHERE p."id" = b."productId" AND b."id" = ${itemId}`;
+  return client.product.update({ where: { id: productId }, data });
 }
 
 /**
@@ -129,14 +114,12 @@ export async function lockFamilies(client: PrismaClientOrTx, productIds: Iterabl
 }
 
 /**
- * #471: the derived `alertStatus` of a family (and its mirror), written in
- * SQL so that no `updatedAt` moves — it changes with the calendar, not with
+ * #471: the derived `alertStatus` of a family, written in SQL so that no `updatedAt` moves — it changes with the calendar, not with
  * an edit, and must neither put a client's `expectedUpdatedAt` in conflict
  * nor carry back an `updatedAt` read earlier.
  */
 export async function writeAlertStatus(client: PrismaClientOrTx, productId: string, status: AlertStatus): Promise<void> {
   await client.$executeRaw`UPDATE "products" SET "alertStatus" = ${status}::"AlertStatus" WHERE "id" = ${productId}`;
-  await client.$executeRaw`UPDATE "bottles" SET "alertStatus" = ${status}::"AlertStatus" WHERE "productId" = ${productId}`;
 }
 
 /** A unit row read with its family (and the family's collections, when included). */

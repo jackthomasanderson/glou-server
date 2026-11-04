@@ -491,7 +491,7 @@ describe('InventoryService', () => {
   // ─── #471: the flat record is split between the family and the unit ────────
 
   describe('updateItem - family / unit split (#471)', () => {
-    it('writes the description on the family, then mirrors it onto its units without touching their updatedAt', async () => {
+    it('writes the description on the family only, the unit fields on the unit', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({}, { region: 'Bordeaux' }) as never);
 
       await service.updateItem('u1', 'b1', { region: 'Médoc', purchasePrice: 25 });
@@ -500,14 +500,12 @@ describe('InventoryService', () => {
         where: { id: 'p1' },
         data: { region: 'Médoc', lockedFields: ['region'], updatedBy: 'u1' },
       });
-      // The mirror: one SQL statement copying the family columns onto every unit of the family.
-      const [sql, ...values] = vi.mocked(prisma.$executeRaw).mock.calls[0] as unknown as [string[], ...unknown[]];
-      expect(sql.join('?')).toContain('UPDATE "bottles"');
-      expect(values).toContain('p1');
+      // No copy of the description on the units any more (lot Z).
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
       const unitData = vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> };
       expect(unitData.data).toMatchObject({ purchasePrice: 25, lockedFields: ['purchasePrice'], updatedBy: 'u1' });
       expect(unitData.data).not.toHaveProperty('region');
-      // Family first, then the unit, which comes back with the new mirror.
+      // Family first, then the unit.
       expect(vi.mocked(prisma.product.update).mock.invocationCallOrder[0])
         .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
     });
@@ -519,7 +517,7 @@ describe('InventoryService', () => {
       const line = (id: string, fields: Record<string, unknown> = {}) => ({
         id, userId: 'u1', productId: 'p1', cellarId: 'garage', purchasePrice: 20, estimatedValue: null, bottleSize: null,
         cigarsPerBox: null, cigarsLeft: null, isOpened: false, fillLevel: null, openedAt: null, writtenOffAt: null,
-        deletedAt: null, isOwned: true, needsReview: false, slotColumn: null, slotRow: null, parentItemId: null,
+        deletedAt: null, needsReview: false, slotColumn: null, slotRow: null, parentItemId: null,
         purchasePlace: null, location: null, lockedFields: [], fieldSources: null,
         createdAt: new Date('2026-01-01T00:00:00.000Z'), updatedAt: new Date('2026-10-02T00:00:00.000Z'), ...fields,
       });
@@ -725,7 +723,7 @@ describe('InventoryService', () => {
     // #471 (FEAT-111): a group moved to another cellar is read again to join an identical one there.
     const findFirst = vi.fn(async (args: { where: { id: string } }) => {
       const row = await findUnique(args);
-      return row ? { isOwned: true, quantity: 1, writtenOffAt: null, purchasedAt: null, ...row } : null;
+      return row ? { quantity: 1, writtenOffAt: null, purchasedAt: null, ...row } : null;
     });
     vi.mocked(prisma.$transaction).mockImplementation(
       ((callback: (tx: unknown) => unknown) => callback({ inventoryItem: { update, findUnique, findFirst }, $queryRaw: prisma.$queryRaw })) as never,
@@ -823,7 +821,7 @@ describe('InventoryService', () => {
     expect(count).toBe(2);
     expect(prisma.product.update).toHaveBeenCalledTimes(1);
     expect(productUpdateData()).toEqual({ region: 'Médoc', updatedBy: 'u1' });
-    expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
     for (const call of vi.mocked(prisma.inventoryItem.update).mock.calls) {
       const data = (call[0] as { data: Record<string, unknown> }).data;
       expect(data.cellarId).toBe('c2');
@@ -994,7 +992,7 @@ describe('InventoryService', () => {
       const day = new Date('2026-01-15T00:00:00Z');
       const moved = unitRow({
         id: 'b1', cellarId: 'c1', quantity: 2, purchasePrice: 20, estimatedValue: null, purchasedAt: day, bottleSize: null, cigarsPerBox: null, cigarsLeft: null,
-        purchasePlace: null, location: null, slotColumn: null, slotRow: null, isOwned: true, writtenOffAt: null, needsReview: false, createdAt: day,
+        purchasePlace: null, location: null, slotColumn: null, slotRow: null, writtenOffAt: null, needsReview: false, createdAt: day,
       });
       const target = { ...moved, id: 'b9', cellarId: 'c2', quantity: 4, product: undefined };
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([moved] as never);
@@ -1061,51 +1059,47 @@ describe('InventoryService', () => {
   // ISSUE_096: a purged item's local photo must be deleted from disk too —
   // only when it's actually local (uploads/products/*), never an external URL.
   describe('purgeTrashed', () => {
-    it('only returns the local photo paths among the purged items', async () => {
-      vi.mocked(prisma.inventoryItem.findMany)
+    // #471 (lot Z): a photo belongs to a family; a purged unit carries none.
+    it('only returns the local photo paths among the purged families', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValueOnce([{ id: 'a', productId: 'pa' }] as never);
+      vi.mocked(prisma.product.findMany)
         .mockResolvedValueOnce([
-          { id: 'a', photoUrl: '/uploads/products/a.jpg', productId: 'pa' },
-          { id: 'b', photoUrl: 'https://example.com/b.jpg', productId: 'pb' },
-          { id: 'c', photoUrl: null, productId: 'pc' },
+          { id: 'pa', photoUrl: '/uploads/products/a.jpg', otherPhotoUrls: ['https://example.com/b.jpg'] },
+          { id: 'pc', photoUrl: null, otherPhotoUrls: [] },
         ] as never)
-        .mockResolvedValueOnce([] as never); // no remaining unit references a.jpg
-      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 3 } as never);
+        .mockResolvedValueOnce([] as never); // nothing else references a.jpg
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 1 } as never);
 
       const result = await service.purgeTrashed();
 
-      expect(result).toEqual({ count: 3, photoPaths: ['/uploads/products/a.jpg'] });
-      expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['a', 'b', 'c'] } } });
+      expect(result).toEqual({ count: 1, photoPaths: ['/uploads/products/a.jpg'] });
+      expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['a'] } } });
+      expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]!.select).toEqual({ id: true, productId: true });
     });
 
-    // #471 (F1 review): the family keeps the photo; purging one unit must not delete it.
-    it('keeps a photo still referenced by a family or by another unit', async () => {
-      vi.mocked(prisma.inventoryItem.findMany)
-        .mockResolvedValueOnce([
-          { id: 'a', photoUrl: '/uploads/products/family.jpg', productId: 'p1' },
-          { id: 'b', photoUrl: '/uploads/products/sibling.jpg', productId: 'p2' },
-          { id: 'c', photoUrl: '/uploads/products/gone.jpg', productId: 'p3' },
-        ] as never)
-        .mockResolvedValueOnce([{ photoUrl: '/uploads/products/sibling.jpg' }] as never);
+    // #471 (F1 review): a photo another family still shows stays.
+    it('keeps a photo still referenced by another family', async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValueOnce([{ id: 'a', productId: 'p1' }] as never);
       vi.mocked(prisma.product.findMany)
-        .mockResolvedValueOnce([] as never) // no family emptied
-        .mockResolvedValueOnce([{ photoUrl: null, otherPhotoUrls: ['/uploads/products/family.jpg'] }] as never);
-      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 3 } as never);
+        .mockResolvedValueOnce([
+          { id: 'p1', photoUrl: '/uploads/products/shared.jpg', otherPhotoUrls: ['/uploads/products/gone.jpg'] },
+        ] as never)
+        .mockResolvedValueOnce([{ photoUrl: null, otherPhotoUrls: ['/uploads/products/shared.jpg'] }] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 1 } as never);
 
       const result = await service.purgeTrashed();
 
       expect(result.photoPaths).toEqual(['/uploads/products/gone.jpg']);
-      expect(prisma.product.deleteMany).not.toHaveBeenCalled();
     });
 
     // QP1: a family left without units goes with them, unless a tasting keeps it.
     it('purges the families left without any unit and without tastings, with their photos', async () => {
       vi.mocked(prisma.inventoryItem.findMany)
         .mockResolvedValueOnce([
-          { id: 'a', photoUrl: null, productId: 'p1' },
-          { id: 'b', photoUrl: null, productId: 'p1' },
-          { id: 'c', photoUrl: null, productId: 'p2' },
-        ] as never)
-        .mockResolvedValueOnce([] as never);
+          { id: 'a', productId: 'p1' },
+          { id: 'b', productId: 'p1' },
+          { id: 'c', productId: 'p2' },
+        ] as never);
       vi.mocked(prisma.product.findMany)
         .mockResolvedValueOnce([{ id: 'p1', photoUrl: '/uploads/products/p1.jpg', otherPhotoUrls: ['/uploads/products/p1-old.jpg'] }] as never)
         .mockResolvedValueOnce([] as never);
@@ -1158,8 +1152,9 @@ describe('InventoryService', () => {
     });
 
     it('keeps a purged photo a tasting still shows', async () => {
-      vi.mocked(prisma.inventoryItem.findMany)
-        .mockResolvedValueOnce([{ id: 'a', photoUrl: '/uploads/products/shared.jpg', productId: 'p1' }] as never)
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValueOnce([{ id: 'a', productId: 'p1' }] as never);
+      vi.mocked(prisma.product.findMany)
+        .mockResolvedValueOnce([{ id: 'p1', photoUrl: '/uploads/products/shared.jpg', otherPhotoUrls: [] }] as never)
         .mockResolvedValueOnce([] as never);
       vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([{ photoUrl: 'http://localhost:3001/uploads/products/shared.jpg' }] as never);
       vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 1 } as never);
@@ -1199,12 +1194,9 @@ describe('InventoryService', () => {
       fsUnlink.mockReset().mockResolvedValue(undefined);
     });
 
-    it('deletes a file on disk that no item references any more', async () => {
-      fsReaddir.mockResolvedValue(['referenced.jpg', 'orphan.jpg', 'family.jpg', 'merged.jpg']);
-      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        { photoUrl: '/uploads/products/referenced.jpg' },
-      ] as never);
-      // #471: a family's photo and other photos are references too.
+    it('deletes a file on disk that no family references any more', async () => {
+      fsReaddir.mockResolvedValue(['orphan.jpg', 'family.jpg', 'merged.jpg']);
+      // #471: a family's photo and other photos are the references (a unit has none, lot Z).
       vi.mocked(prisma.product.findMany).mockResolvedValue([
         { photoUrl: '/uploads/products/family.jpg', otherPhotoUrls: ['/uploads/products/merged.jpg'] },
       ] as never);
@@ -1214,6 +1206,7 @@ describe('InventoryService', () => {
       expect(count).toBe(1);
       expect(fsUnlink).toHaveBeenCalledTimes(1);
       expect(fsUnlink.mock.calls[0][0]).toContain('orphan.jpg');
+      expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
     });
 
     // #471 (A1/K reports, FEAT-107): a tasting's photo is a reference too —
@@ -1247,7 +1240,7 @@ describe('InventoryService', () => {
     const wine = {
       category: 'wine', name: 'Talbot', producer: 'Château Talbot', vintage: 2015, region: 'Bordeaux',
       notes: 'Gift', tags: ['gift'], purchasePrice: 20, cellarId: 'c1', bottleSize: '75cl',
-      grapeVarieties: [], isOwned: true, isOpened: false, alertStatus: 'none', lockedFields: [],
+      grapeVarieties: [], isOpened: false, alertStatus: 'none', lockedFields: [],
     };
     const created = () => vi.mocked(prisma.inventoryItem.create).mock.calls[0]?.[0]?.data as Record<string, any>;
 
@@ -1269,13 +1262,16 @@ describe('InventoryService', () => {
       expect(product).not.toHaveProperty('isOwned');
     });
 
-    it('keeps writing the unit\'s own columns and the transitional description mirror', async () => {
+    it('writes the unit\'s own columns only, no copy of the description (lot Z)', async () => {
       await service.createItem('u1', wine as never);
 
       expect(created()).toMatchObject({
-        name: 'Talbot', region: 'Bordeaux', purchasePrice: 20, bottleSize: '75cl',
+        purchasePrice: 20, bottleSize: '75cl',
         user: { connect: { id: 'u1' } }, cellar: { connect: { id: 'c1' } },
       });
+      for (const field of ['category', 'name', 'producer', 'region', 'notes', 'tags', 'alertStatus', 'isOwned']) {
+        expect(created()).not.toHaveProperty(field);
+      }
       expect(created()).not.toHaveProperty('userId');
       expect(created()).not.toHaveProperty('cellarId');
     });
@@ -1306,7 +1302,7 @@ describe('InventoryService', () => {
 
     // #471 (FEAT-95 c1-c2): a cigar group is N boxes of M cigars, or N single cigars.
     it('creates a group of closed boxes, the box size on the unit only', async () => {
-      const cigar = { category: 'cigar', name: 'Robusto', producer: 'Partagás', format: 'Robusto', tags: [], isOwned: true, isOpened: false, alertStatus: 'none', lockedFields: [] };
+      const cigar = { category: 'cigar', name: 'Robusto', producer: 'Partagás', format: 'Robusto', tags: [], isOpened: false, alertStatus: 'none', lockedFields: [] };
       await service.createItem('u1', { ...cigar, quantity: 3, cigarsPerBox: 25, purchasePrice: 200 } as never);
 
       expect(created()).toMatchObject({ quantity: 3, cigarsPerBox: 25, purchasePrice: 200 });
@@ -1316,7 +1312,7 @@ describe('InventoryService', () => {
     });
 
     it('creates one opened box with the cigars left in it', async () => {
-      const cigar = { category: 'cigar', name: 'Robusto', producer: 'Partagás', tags: [], isOwned: true, alertStatus: 'none', lockedFields: [] };
+      const cigar = { category: 'cigar', name: 'Robusto', producer: 'Partagás', tags: [], alertStatus: 'none', lockedFields: [] };
       await service.createItem('u1', { ...cigar, quantity: 1, cigarsPerBox: 25, isOpened: true, cigarsLeft: 10 } as never);
 
       expect(created()).toMatchObject({ quantity: 1, cigarsPerBox: 25, isOpened: true, cigarsLeft: 10 });
@@ -1355,7 +1351,8 @@ describe('InventoryService', () => {
       expect(created().product.create).toMatchObject({
         fieldSources: { name: 'import_csv' }, lockedFields: ['name'],
       });
-      expect(created().fieldSources).toEqual({ name: 'import_csv', purchasePrice: 'import_csv' });
+      expect(created().fieldSources).toEqual({ purchasePrice: 'import_csv' });
+      expect(created().lockedFields).toEqual(['purchasePrice']);
     });
   });
 });

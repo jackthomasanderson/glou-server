@@ -1,5 +1,5 @@
 -- #471 migration bench: the SQL copy of the shared rules (the "families
--- rules" block of the families_transform migration, loaded just before this
+-- rules" block of the families migration, loaded just before this
 -- file) against the case table api/tests/lib/units.test.ts also reads
 -- (fixtures/units-cases.json, in the `bench.cases` setting).
 

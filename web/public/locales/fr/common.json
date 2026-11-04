@@ -1826,6 +1826,8 @@
         "error": "La restauration a échoué.",
         "errors": {
           "BACKUP_BEFORE_RESTORE_FAILED": "La sauvegarde des données actuelles prise avant la restauration a échoué : rien n'a été restauré. Consultez l'historique des sauvegardes.",
+          "BACKUP_FROM_OLDER_VERSION": "Cette sauvegarde a été prise par une version antérieure de Glou, avant une mise à jour : rien n'a été restauré. Pour revenir à cette version, suivez « Revenir en arrière » dans la page du wiki « Mettre à jour Glou et revenir en arrière en cas de problème ».",
+          "BACKUP_FROM_NEWER_VERSION": "Cette sauvegarde a été prise par une version plus récente de Glou : rien n'a été restauré. Mettez Glou à jour, puis restaurez-la.",
           "TIMEOUT": "La restauration prend plus de temps que prévu et se poursuit sur le serveur. Patientez quelques minutes, puis rechargez la page et consultez l'historique des sauvegardes."
         }
       }

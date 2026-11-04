@@ -104,6 +104,16 @@ describe('SystemConfigSection — restore takes a safety backup first (#666)', (
     expect(message.closest('[role="alert"]')).not.toBeNull();
   });
 
+  // #471 (lot Z): a backup of another version of Glou is refused by the API, nothing restored.
+  it.each(['BACKUP_FROM_OLDER_VERSION', 'BACKUP_FROM_NEWER_VERSION'])('explains the refusal of %s', async (code) => {
+    stubApi({ status: 409, body: { error: code } });
+    await openRestoreDialog();
+    confirmRestore();
+
+    const message = await screen.findByText(`adminConfig.backup.restore.errors.${code}`);
+    expect(message.closest('[role="alert"]')).not.toBeNull();
+  });
+
   it('says the restore is still running on the server when the browser stops waiting', async () => {
     stubApi('timeout');
     await openRestoreDialog();

@@ -101,9 +101,6 @@ export interface InventoryItem {
   slotRow?: number | null;
 
   // Cross-cutting
-  // FEAT-87: false = non-owned reference (described, not possessed). Absent
-  // on items returned by an older API: treated as owned.
-  isOwned?: boolean;
   isOpened: boolean;
   fillLevel?: number | null;
   openedAt?: string | null;

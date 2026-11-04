@@ -1,6 +1,5 @@
 import { prisma } from '../lib/prisma';
 import { BudgetEnvelopeCreateInput, BudgetEnvelopePatchInput } from '../schemas/budget.schema';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { itemSpend } from '../lib/finished-item';
 
 /**
@@ -78,9 +77,8 @@ export async function getBudgetProgress(envelopeId: string): Promise<BudgetProgr
   const units = await prisma.inventoryItem.findMany({
     where: {
       deletedAt: null,
-      // FEAT-87: a non-owned reference was never bought, so it never counts
-      // as money spent, even when a price was recorded on it.
-      ...OWNED_ITEM_FILTER,
+      // FEAT-87: a non-owned reference was never bought: it is a wine
+      // without bottles (#471), so no unit of it is ever counted here.
       purchasePrice: { not: null },
       OR: [
         { purchasedAt: { gte: dayOf(envelope.periodStart), lte: dayOf(envelope.periodEnd) } },

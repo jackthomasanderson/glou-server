@@ -1,9 +1,12 @@
--- #471 (FEAT-94), transform step of the families model: turns the one-family-
--- per-record state left by families_expand into real families and groups,
--- following design.md "Sauvegarde & Migration" (rules 1 to 9) and the
--- technical decisions D2 (grouping), D3 (family fields), D4 (splits), D5
--- (group identity), D26 (empty values in the key) and QP6 (bulk presets).
+-- #471 (FEAT-92/94), the families model, in one migration: expansion,
+-- transformation, contraction (design.md "Sauvegarde & Migration", rules 1
+-- to 9; technical decisions D2 grouping, D3 family fields, D4 splits, D5
+-- group identity, D6 purchase day, D26 empty values in the key, QP6 bulk
+-- presets).
 --
+--   expansion: adds the family (`products`), "C'est un autre vin" pairs and
+--   the new unit columns, and gives every existing row of `bottles` its own
+--   family, one to one, with the same id; then the transformation:
 --   1. families: records of the same product key are grouped, in a fixed
 --      order, into the first family whose accumulated description does not
 --      contradict theirs (D2); the family fields are merged (D3);
@@ -15,7 +18,8 @@
 --   5. identical full groups of a family are fused, except groups in a slot
 --      of the cellar plan or counted in the same inventory session;
 --   6. bulk presets that wrote a state (opened, level, opening date) are deleted;
---   7. the description mirror on `bottles` is copied again from the families.
+--   then the contraction: the description columns, the FEAT-87 `isOwned`
+--   flag and the unit collections (`_CollectionItems`) leave `bottles`.
 --
 -- Every figure the members rely on (units, value and spending per category,
 -- tastings, history, slots, collections, inventory counts, wishlist links) is
@@ -24,13 +28,282 @@
 -- with RAISE NOTICE.
 --
 -- Forward only: going back means restoring the backup taken before the
--- update. Applied entirely or not at all, in one transaction, but WITHOUT an
+-- update (glou-backup-before-migration-*.sql.gz) with the previous image.
+-- Applied entirely or not at all, in one transaction, but WITHOUT an
 -- explicit BEGIN / COMMIT: `prisma migrate deploy` sends the file as one
 -- simple query, which PostgreSQL runs as a single transaction. With an
 -- explicit BEGIN, a failed check leaves that transaction aborted, Prisma's
 -- own bookkeeping then fails on it and the administrator only reads "current
 -- transaction is aborted" instead of the reason (the migration bench checks
 -- the failure path: full rollback, the reason shown, P3009 on restart).
+-- Nor anything that leaves or breaks the implicit transaction: no CREATE
+-- INDEX CONCURRENTLY, no VACUUM, no COMMIT / ROLLBACK, no enum value added
+-- and used here.
+
+-- ===========================================================================
+-- Expansion
+-- ===========================================================================
+
+-- AlterTable
+ALTER TABLE "bottles" ADD COLUMN     "cigarsLeft" INTEGER,
+ADD COLUMN     "cigarsPerBox" INTEGER,
+ADD COLUMN     "needsReview" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "parentItemId" TEXT,
+ADD COLUMN     "productId" TEXT,
+ADD COLUMN     "purchasedAt" DATE,
+ADD COLUMN     "writtenOffAt" TIMESTAMP(3);
+
+-- AlterTable
+ALTER TABLE "audit_logs" ADD COLUMN     "productId" TEXT;
+
+-- AlterTable
+ALTER TABLE "tasting_notes" ADD COLUMN     "guestName" TEXT,
+ADD COLUMN     "productId" TEXT;
+
+-- AlterTable
+ALTER TABLE "inventory_count_entries" ADD COLUMN     "foundQuantity" INTEGER;
+
+-- CreateTable
+CREATE TABLE "products" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "category" "BottleCategory" NOT NULL,
+    "name" TEXT NOT NULL,
+    "producer" TEXT NOT NULL,
+    "collection" TEXT,
+    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "photoUrl" TEXT,
+    "otherPhotoUrls" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "notes" TEXT,
+    "vintage" INTEGER,
+    "color" TEXT,
+    "region" TEXT,
+    "grapeVarieties" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "alcoholDegree" DOUBLE PRECISION,
+    "needsAeration" BOOLEAN,
+    "serviceTemp" TEXT,
+    "lotNumber" TEXT,
+    "batchDate" TIMESTAMP(3),
+    "appellation" TEXT,
+    "classification" TEXT,
+    "sparklingType" TEXT,
+    "sugarLevel" TEXT,
+    "disgorgingDate" TIMESTAMP(3),
+    "baseYear" INTEGER,
+    "spiritType" TEXT,
+    "edition" TEXT,
+    "declaredAge" INTEGER,
+    "caskType" TEXT,
+    "additions" TEXT,
+    "aromaticProfile" TEXT,
+    "isSingleCask" BOOLEAN,
+    "caskNumber" TEXT,
+    "caskProof" DOUBLE PRECISION,
+    "format" TEXT,
+    "manufactureYear" INTEGER,
+    "leafOrigin" TEXT,
+    "factoryCode" TEXT,
+    "recommendedHumidity" DOUBLE PRECISION,
+    "humidificationSystem" TEXT,
+    "peakMaturityFrom" INTEGER,
+    "peakMaturityTo" INTEGER,
+    "curveShape" "CurveShape",
+    "alertsPaused" BOOLEAN NOT NULL DEFAULT false,
+    "consumptionPostponedUntil" TIMESTAMP(3),
+    "reminderDate" TIMESTAMP(3),
+    "alertStatus" "AlertStatus",
+    "updatedBy" TEXT,
+    "lockedFields" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "fieldSources" JSONB,
+    "deletedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "products_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "product_distinctions" (
+    "productId" TEXT NOT NULL,
+    "otherProductId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "product_distinctions_pkey" PRIMARY KEY ("productId","otherProductId")
+);
+
+-- CreateTable
+CREATE TABLE "_CollectionProducts" (
+    "A" TEXT NOT NULL,
+    "B" TEXT NOT NULL,
+
+    CONSTRAINT "_CollectionProducts_AB_pkey" PRIMARY KEY ("A","B")
+);
+
+-- CreateIndex
+CREATE INDEX "products_userId_idx" ON "products"("userId");
+
+-- CreateIndex
+CREATE INDEX "products_deletedAt_idx" ON "products"("deletedAt");
+
+-- CreateIndex
+CREATE INDEX "products_category_deletedAt_idx" ON "products"("category", "deletedAt");
+
+-- CreateIndex
+CREATE INDEX "products_alertStatus_idx" ON "products"("alertStatus");
+
+-- CreateIndex
+CREATE INDEX "products_name_idx" ON "products"("name");
+
+-- CreateIndex
+CREATE INDEX "products_producer_idx" ON "products"("producer");
+
+-- CreateIndex
+CREATE INDEX "products_vintage_idx" ON "products"("vintage");
+
+-- CreateIndex
+CREATE INDEX "product_distinctions_otherProductId_idx" ON "product_distinctions"("otherProductId");
+
+-- CreateIndex
+CREATE INDEX "_CollectionProducts_B_index" ON "_CollectionProducts"("B");
+
+-- CreateIndex
+CREATE INDEX "bottles_productId_idx" ON "bottles"("productId");
+
+-- CreateIndex
+CREATE INDEX "bottles_parentItemId_idx" ON "bottles"("parentItemId");
+
+-- CreateIndex
+CREATE INDEX "audit_logs_productId_idx" ON "audit_logs"("productId");
+
+-- CreateIndex
+CREATE INDEX "tasting_notes_productId_idx" ON "tasting_notes"("productId");
+
+-- AddForeignKey
+ALTER TABLE "products" ADD CONSTRAINT "products_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "product_distinctions" ADD CONSTRAINT "product_distinctions_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "product_distinctions" ADD CONSTRAINT "product_distinctions_otherProductId_fkey" FOREIGN KEY ("otherProductId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+
+-- AddForeignKey
+ALTER TABLE "bottles" ADD CONSTRAINT "bottles_parentItemId_fkey" FOREIGN KEY ("parentItemId") REFERENCES "bottles"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "tasting_notes" ADD CONSTRAINT "tasting_notes_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_CollectionProducts" ADD CONSTRAINT "_CollectionProducts_A_fkey" FOREIGN KEY ("A") REFERENCES "collections"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "_CollectionProducts" ADD CONSTRAINT "_CollectionProducts_B_fkey" FOREIGN KEY ("B") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- "C'est un autre vin": one row per pair, smallest id first. Byte order
+-- (COLLATE "C"), so the rule does not depend on the server's locale.
+ALTER TABLE "product_distinctions" ADD CONSTRAINT "product_distinctions_ordered_pair"
+  CHECK ("productId" COLLATE "C" < "otherProductId" COLLATE "C");
+
+-- One family per existing row, same id. Locks and field sources keep only the
+-- family's own columns (the unit has no locks; its sources stay on `bottles`).
+-- Not in the trash: trashing a whole family is a new action, and a family
+-- whose units are all in the trash is already treated as trashed.
+WITH product_fields(names) AS (
+  SELECT ARRAY[
+  'category', 'name', 'producer', 'collection', 'tags', 'photoUrl',
+  'notes', 'vintage', 'color', 'region', 'grapeVarieties', 'alcoholDegree',
+  'needsAeration', 'serviceTemp', 'lotNumber', 'batchDate', 'appellation', 'classification',
+  'sparklingType', 'sugarLevel', 'disgorgingDate', 'baseYear', 'spiritType', 'edition',
+  'declaredAge', 'caskType', 'additions', 'aromaticProfile', 'isSingleCask', 'caskNumber',
+  'caskProof', 'format', 'manufactureYear', 'leafOrigin', 'factoryCode', 'recommendedHumidity',
+  'humidificationSystem', 'peakMaturityFrom', 'peakMaturityTo', 'curveShape', 'alertsPaused', 'consumptionPostponedUntil',
+  'reminderDate', 'alertStatus'
+  ]::TEXT[]
+)
+INSERT INTO "products" (
+  "id", "userId",
+  "category", "name", "producer", "collection", "tags", "photoUrl",
+  "notes", "vintage", "color", "region", "grapeVarieties", "alcoholDegree",
+  "needsAeration", "serviceTemp", "lotNumber", "batchDate", "appellation", "classification",
+  "sparklingType", "sugarLevel", "disgorgingDate", "baseYear", "spiritType", "edition",
+  "declaredAge", "caskType", "additions", "aromaticProfile", "isSingleCask", "caskNumber",
+  "caskProof", "format", "manufactureYear", "leafOrigin", "factoryCode", "recommendedHumidity",
+  "humidificationSystem", "peakMaturityFrom", "peakMaturityTo", "curveShape", "alertsPaused", "consumptionPostponedUntil",
+  "reminderDate", "alertStatus",
+  "updatedBy", "lockedFields", "fieldSources", "createdAt", "updatedAt"
+)
+SELECT
+  b."id", b."userId",
+  b."category", b."name", b."producer", b."collection", b."tags", b."photoUrl",
+  b."notes", b."vintage", b."color", b."region", b."grapeVarieties", b."alcoholDegree",
+  b."needsAeration", b."serviceTemp", b."lotNumber", b."batchDate", b."appellation", b."classification",
+  b."sparklingType", b."sugarLevel", b."disgorgingDate", b."baseYear", b."spiritType", b."edition",
+  b."declaredAge", b."caskType", b."additions", b."aromaticProfile", b."isSingleCask", b."caskNumber",
+  b."caskProof", b."format", b."manufactureYear", b."leafOrigin", b."factoryCode", b."recommendedHumidity",
+  b."humidificationSystem", b."peakMaturityFrom", b."peakMaturityTo", b."curveShape", b."alertsPaused", b."consumptionPostponedUntil",
+  b."reminderDate", b."alertStatus",
+  b."updatedBy",
+  ARRAY(
+    SELECT f FROM unnest(b."lockedFields") WITH ORDINALITY AS t(f, n)
+    WHERE f = ANY (pf.names) ORDER BY n
+  ),
+  CASE WHEN jsonb_typeof(b."fieldSources") = 'object' THEN
+    (SELECT jsonb_object_agg(key, value) FROM jsonb_each(b."fieldSources") WHERE key = ANY (pf.names))
+  END,
+  b."createdAt", b."updatedAt"
+FROM "bottles" b CROSS JOIN product_fields pf;
+
+-- D6: the purchase day is the day the record was created, read in the images'
+-- default time zone. `createdAt` is a UTC timestamp without zone; the zone is
+-- written here on purpose (TZ=Europe/Paris in api/Dockerfile): an instance set
+-- to another zone may see a purchase made near midnight one day off.
+-- A plain UPDATE leaves "updatedAt" alone (no trigger), so a change queued
+-- offline against a unit is not turned into a conflict by this migration.
+UPDATE "bottles" SET
+  "productId" = "id",
+  "purchasedAt" = ("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Paris')::DATE;
+
+ALTER TABLE "bottles" ALTER COLUMN "productId" SET NOT NULL;
+
+-- AddForeignKey
+ALTER TABLE "bottles" ADD CONSTRAINT "bottles_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- Tastings and field history follow their unit to its family; an orphan
+-- tasting or log line (unit purged) stays without a family.
+UPDATE "tasting_notes" SET "productId" = "itemId" WHERE "itemId" IS NOT NULL;
+UPDATE "audit_logs" SET "productId" = "bottleId" WHERE "bottleId" IS NOT NULL;
+
+-- Collections now hold families ("_CollectionItems" is dropped at the end).
+INSERT INTO "_CollectionProducts" ("A", "B") SELECT "A", "B" FROM "_CollectionItems";
+
+-- The expansion's invariants: any failure rolls the whole migration back.
+DO $$
+BEGIN
+  IF (SELECT count(*) FROM "products") <> (SELECT count(*) FROM "bottles") THEN
+    RAISE EXCEPTION 'families: % families for % records',
+      (SELECT count(*) FROM "products"), (SELECT count(*) FROM "bottles");
+  END IF;
+  IF EXISTS (SELECT 1 FROM "bottles" WHERE "productId" <> "id" OR "purchasedAt" IS NULL) THEN
+    RAISE EXCEPTION 'families: a record is not attached to its own family or has no purchase day. The migration was rolled back: no data was changed.';
+  END IF;
+  IF EXISTS (SELECT 1 FROM "tasting_notes" WHERE "productId" IS DISTINCT FROM "itemId") THEN
+    RAISE EXCEPTION 'families: a tasting is not on the family of its bottle. The migration was rolled back: no data was changed.';
+  END IF;
+  IF EXISTS (SELECT 1 FROM "audit_logs" WHERE "productId" IS DISTINCT FROM "bottleId") THEN
+    RAISE EXCEPTION 'families: a history line is not on the family of its bottle. The migration was rolled back: no data was changed.';
+  END IF;
+  IF (SELECT count(*) FROM "_CollectionProducts") <> (SELECT count(*) FROM "_CollectionItems") THEN
+    RAISE EXCEPTION 'families: collection links were not all copied. The migration was rolled back: no data was changed.';
+  END IF;
+END $$;
+
+-- ===========================================================================
+-- Transformation
+-- ===========================================================================
 
 -- >>> families rules
 -- The rules shared with TypeScript (shared/units.ts is the reference, line for
@@ -130,7 +403,7 @@ CREATE FUNCTION pg_temp.fam_fail_if(failed BOOLEAN, message TEXT) RETURNS VOID
 LANGUAGE plpgsql AS $$
 BEGIN
   IF failed THEN
-    RAISE EXCEPTION 'families_transform: %. The migration was rolled back: no data was changed.', message;
+    RAISE EXCEPTION 'families: %. The migration was rolled back: no data was changed.', message;
   END IF;
 END $$;
 
@@ -138,12 +411,12 @@ END $$;
 CREATE TEMP TABLE fam_counts (what TEXT PRIMARY KEY, n BIGINT NOT NULL) ON COMMIT DROP;
 
 -- ---------------------------------------------------------------------------
--- 0. The state families_expand leaves: one family per record.
+-- 0. The state the expansion above leaves: one family per record.
 -- ---------------------------------------------------------------------------
 SELECT pg_temp.fam_fail_if(
   EXISTS (SELECT 1 FROM "bottles" GROUP BY "productId" HAVING count(*) > 1)
   OR EXISTS (SELECT 1 FROM "products" p WHERE NOT EXISTS (SELECT 1 FROM "bottles" b WHERE b."productId" = p."id")),
-  'expected one family per record, as families_expand leaves them');
+  'expected one family per record, as the expansion leaves them');
 
 -- ---------------------------------------------------------------------------
 -- 1. Before: what the members have, counted as rule 3 will turn it.
@@ -601,9 +874,6 @@ FROM "bottles" b JOIN fam_split s ON s.item_id = b."id";
 UPDATE "bottles" b SET "quantity" = 1, "parentItemId" = s.group_id
 FROM fam_split s WHERE b."id" = s.item_id;
 
-INSERT INTO "_CollectionItems" ("A", "B")
-SELECT ci."A", s.group_id FROM "_CollectionItems" ci JOIN fam_split s ON s.item_id = ci."B";
-
 INSERT INTO fam_counts SELECT 'groups split by guess, to review (needsReview)', count(*) FROM fam_split;
 
 -- ---------------------------------------------------------------------------
@@ -722,10 +992,6 @@ FROM fuse_of f WHERE a."bottleId" = f.item_id AND f.item_id <> f.grp;
 UPDATE "inventory_count_entries" e SET "itemId" = f.grp FROM fuse_of f WHERE e."itemId" = f.item_id AND f.item_id <> f.grp;
 UPDATE "wishlist_items" w SET "acquiredItemId" = f.grp FROM fuse_of f WHERE w."acquiredItemId" = f.item_id AND f.item_id <> f.grp;
 UPDATE "bottles" b SET "parentItemId" = f.grp FROM fuse_of f WHERE b."parentItemId" = f.item_id AND f.item_id <> f.grp;
-INSERT INTO "_CollectionItems" ("A", "B")
-SELECT DISTINCT ci."A", f.grp FROM "_CollectionItems" ci JOIN fuse_of f ON f.item_id = ci."B"
-WHERE f.item_id <> f.grp
-ON CONFLICT DO NOTHING;
 DELETE FROM "bottles" b USING fuse_of f WHERE b."id" = f.item_id AND f.item_id <> f.grp;
 
 INSERT INTO fam_counts
@@ -742,38 +1008,7 @@ WITH gone AS (
 INSERT INTO fam_counts SELECT 'bulk presets deleted (they wrote a state)', count(*) FROM gone;
 
 -- ---------------------------------------------------------------------------
--- 8. The transitional mirror: every unit carries its family's description
--- again, and belongs to its family's collections. A plain UPDATE leaves
--- "updatedAt" alone (D22).
--- ---------------------------------------------------------------------------
-UPDATE "bottles" b SET
-  "category" = p."category", "name" = p."name", "producer" = p."producer",
-  "collection" = p."collection", "tags" = p."tags", "photoUrl" = p."photoUrl", "notes" = p."notes",
-  "vintage" = p."vintage", "color" = p."color", "region" = p."region",
-  "grapeVarieties" = p."grapeVarieties", "alcoholDegree" = p."alcoholDegree",
-  "needsAeration" = p."needsAeration", "serviceTemp" = p."serviceTemp",
-  "lotNumber" = p."lotNumber", "batchDate" = p."batchDate", "appellation" = p."appellation",
-  "classification" = p."classification", "sparklingType" = p."sparklingType",
-  "sugarLevel" = p."sugarLevel", "disgorgingDate" = p."disgorgingDate", "baseYear" = p."baseYear",
-  "spiritType" = p."spiritType", "edition" = p."edition", "declaredAge" = p."declaredAge",
-  "caskType" = p."caskType", "additions" = p."additions", "aromaticProfile" = p."aromaticProfile",
-  "isSingleCask" = p."isSingleCask", "caskNumber" = p."caskNumber", "caskProof" = p."caskProof",
-  "format" = p."format", "manufactureYear" = p."manufactureYear", "leafOrigin" = p."leafOrigin",
-  "factoryCode" = p."factoryCode", "recommendedHumidity" = p."recommendedHumidity",
-  "humidificationSystem" = p."humidificationSystem",
-  "peakMaturityFrom" = p."peakMaturityFrom", "peakMaturityTo" = p."peakMaturityTo",
-  "curveShape" = p."curveShape", "alertsPaused" = p."alertsPaused",
-  "consumptionPostponedUntil" = p."consumptionPostponedUntil",
-  "reminderDate" = p."reminderDate", "alertStatus" = p."alertStatus"
-FROM "products" p
-WHERE b."productId" = p."id" AND p."id" IN (SELECT fam FROM fam_multi);
-
-INSERT INTO "_CollectionItems" ("A", "B")
-SELECT cp."A", b."id" FROM "_CollectionProducts" cp JOIN "bottles" b ON b."productId" = cp."B"
-ON CONFLICT DO NOTHING;
-
--- ---------------------------------------------------------------------------
--- 9. Invariants (rule 9). Any failure rolls the whole migration back.
+-- 8. Invariants (rule 9). Any failure rolls the whole migration back.
 -- ---------------------------------------------------------------------------
 -- Where each record went: itself, the group that absorbed it, or nowhere (a reference).
 CREATE TEMP TABLE fam_fate ON COMMIT DROP AS
@@ -875,14 +1110,11 @@ SELECT pg_temp.fam_fail_if(
          AND ("slotColumn" IS NOT NULL OR "slotRow" IS NOT NULL)),
   'an occupied slot of the cellar plan was lost or moved');
 
--- Collections hold the family of every record they held; units mirror them.
+-- Collections hold the family of every record they held.
 SELECT pg_temp.fam_fail_if(
   EXISTS (
     SELECT 1 FROM fam_links l JOIN fam_of o ON o.product_id = l."B"
-    WHERE NOT EXISTS (SELECT 1 FROM "_CollectionProducts" cp WHERE cp."A" = l."A" AND cp."B" = o.fam))
-  OR EXISTS (
-    SELECT 1 FROM "_CollectionProducts" cp JOIN "bottles" b ON b."productId" = cp."B"
-    WHERE NOT EXISTS (SELECT 1 FROM "_CollectionItems" ci WHERE ci."A" = cp."A" AND ci."B" = b."id")),
+    WHERE NOT EXISTS (SELECT 1 FROM "_CollectionProducts" cp WHERE cp."A" = l."A" AND cp."B" = o.fam)),
   'a collection lost a wine');
 
 -- An entry on a fused group says how many of it were found.
@@ -907,13 +1139,83 @@ SELECT pg_temp.fam_fail_if(
     WHERE w."acquiredItemId" IS DISTINCT FROM CASE WHEN x.old_id IS NULL THEN w0."acquiredItemId" ELSE x.new_id END),
   'a wishlist link does not follow its unit');
 
--- The mirror matches the family.
-SELECT pg_temp.fam_fail_if(
-  EXISTS (
-    SELECT 1 FROM "bottles" b JOIN "products" p ON p."id" = b."productId"
-    WHERE (b."category", b."name", b."producer", b."vintage", b."region", b."format", b."notes", b."photoUrl", b."tags")
-      IS DISTINCT FROM (p."category", p."name", p."producer", p."vintage", p."region", p."format", p."notes", p."photoUrl", p."tags")),
-  'a unit does not mirror the description of its family');
+-- ---------------------------------------------------------------------------
+-- 9. Contraction: the description lives on the family only. The columns of
+-- `bottles` that the families now hold, the FEAT-87 flag (a reference is a
+-- family without units) and the collections of units go; every reader goes
+-- through the family. Generated with `prisma migrate diff` from the schema.
+-- The legacy free-text `collection` label stays, on the family (D1).
+-- ---------------------------------------------------------------------------
+-- DropForeignKey
+ALTER TABLE "_CollectionItems" DROP CONSTRAINT "_CollectionItems_A_fkey";
+
+-- DropForeignKey
+ALTER TABLE "_CollectionItems" DROP CONSTRAINT "_CollectionItems_B_fkey";
+
+-- DropIndex
+DROP INDEX "bottles_category_deletedAt_idx";
+
+-- DropIndex
+DROP INDEX "bottles_alertStatus_idx";
+
+-- DropIndex
+DROP INDEX "bottles_name_idx";
+
+-- DropIndex
+DROP INDEX "bottles_vintage_idx";
+
+-- DropIndex
+DROP INDEX "bottles_producer_idx";
+
+-- AlterTable
+ALTER TABLE "bottles" DROP COLUMN "additions",
+DROP COLUMN "alcoholDegree",
+DROP COLUMN "alertStatus",
+DROP COLUMN "alertsPaused",
+DROP COLUMN "appellation",
+DROP COLUMN "aromaticProfile",
+DROP COLUMN "baseYear",
+DROP COLUMN "batchDate",
+DROP COLUMN "caskNumber",
+DROP COLUMN "caskProof",
+DROP COLUMN "caskType",
+DROP COLUMN "category",
+DROP COLUMN "classification",
+DROP COLUMN "collection",
+DROP COLUMN "color",
+DROP COLUMN "consumptionPostponedUntil",
+DROP COLUMN "curveShape",
+DROP COLUMN "declaredAge",
+DROP COLUMN "disgorgingDate",
+DROP COLUMN "edition",
+DROP COLUMN "factoryCode",
+DROP COLUMN "format",
+DROP COLUMN "grapeVarieties",
+DROP COLUMN "humidificationSystem",
+DROP COLUMN "isOwned",
+DROP COLUMN "isSingleCask",
+DROP COLUMN "leafOrigin",
+DROP COLUMN "lotNumber",
+DROP COLUMN "manufactureYear",
+DROP COLUMN "name",
+DROP COLUMN "needsAeration",
+DROP COLUMN "notes",
+DROP COLUMN "peakMaturityFrom",
+DROP COLUMN "peakMaturityTo",
+DROP COLUMN "photoUrl",
+DROP COLUMN "producer",
+DROP COLUMN "recommendedHumidity",
+DROP COLUMN "region",
+DROP COLUMN "reminderDate",
+DROP COLUMN "serviceTemp",
+DROP COLUMN "sparklingType",
+DROP COLUMN "spiritType",
+DROP COLUMN "sugarLevel",
+DROP COLUMN "tags",
+DROP COLUMN "vintage";
+
+-- DropTable
+DROP TABLE "_CollectionItems";
 
 -- ---------------------------------------------------------------------------
 -- 10. Counts for the release notes (rule 7).
@@ -923,7 +1225,7 @@ DECLARE
   c RECORD;
 BEGIN
   FOR c IN SELECT * FROM fam_counts ORDER BY what LOOP
-    RAISE NOTICE 'families_transform: %: %', c.what, c.n;
+    RAISE NOTICE 'families: %: %', c.what, c.n;
   END LOOP;
 END $$;
 

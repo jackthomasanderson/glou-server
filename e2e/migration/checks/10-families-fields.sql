@@ -1,5 +1,6 @@
 -- #471 migration bench: where the fields of fixtures/before-families.sql live
--- once the families migrations have run (expand, then transform), and the
+-- once the families migration has run (expansion, transformation,
+-- contraction), and the
 -- database rules of the new tables. The grouping itself is checked by
 -- 20-families-transform.sql. Every failed expectation is listed, then the
 -- script fails.
@@ -21,18 +22,32 @@ CREATE FUNCTION pg_temp.id(n TEXT) RETURNS TEXT AS $$
   SELECT '00000000-0000-4000-8000-' || lpad(n, 12, '0')
 $$ LANGUAGE sql;
 
--- Every unit belongs to a family and mirrors its description (the copy kept
--- on bottles until the end of the families work).
+-- The contraction (lot Z): the description lives on the family only. No
+-- column of `bottles` repeats one of `products` (bookkeeping aside), the
+-- FEAT-87 flag and the unit collections are gone, the legacy free-text label
+-- stays on the family (D1), and every unit belongs to a family.
 SELECT pg_temp.expect(
   NOT EXISTS (
-    SELECT 1
-    FROM "bottles" b JOIN "products" p ON p."id" = b."productId",
-         jsonb_each(to_jsonb(p)) AS col(key, value)
-    WHERE col.key NOT IN ('id', 'userId', 'otherPhotoUrls', 'updatedBy', 'lockedFields', 'fieldSources',
-                          'deletedAt', 'createdAt', 'updatedAt')
-      AND col.value IS DISTINCT FROM to_jsonb(b) -> col.key
-  ),
-  'every unit mirrors the description, alerts, photo, notes and tags of its family');
+    SELECT 1 FROM information_schema.columns b
+    JOIN information_schema.columns p ON p.table_schema = b.table_schema AND p.table_name = 'products'
+      AND p.column_name = b.column_name
+    WHERE b.table_schema = current_schema() AND b.table_name = 'bottles'
+      AND b.column_name NOT IN ('id', 'userId', 'updatedBy', 'lockedFields', 'fieldSources',
+                                'deletedAt', 'createdAt', 'updatedAt')),
+  'no description column is left on bottles');
+SELECT pg_temp.expect(
+  (SELECT array_agg(column_name::TEXT ORDER BY column_name::TEXT) FROM information_schema.columns
+   WHERE table_schema = current_schema() AND table_name = 'bottles')
+  = '{bottleSize,cellarId,cigarsLeft,cigarsPerBox,createdAt,deletedAt,estimatedValue,fieldSources,fillLevel,id,isOpened,location,lockedFields,needsReview,openedAt,parentItemId,productId,purchasePlace,purchasePrice,purchasedAt,quantity,slotColumn,slotRow,updatedAt,updatedBy,userId,writtenOffAt}',
+  'bottles holds exactly the columns of a unit (no isOwned, no description)');
+SELECT pg_temp.expect(to_regclass('"_CollectionItems"') IS NULL, 'the collections of units are gone');
+SELECT pg_temp.expect(
+  EXISTS (SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema() AND table_name = 'products' AND column_name = 'collection'),
+  'the legacy free-text label stays, on the family');
+SELECT pg_temp.expect(
+  NOT EXISTS (SELECT 1 FROM "bottles" b LEFT JOIN "products" p ON p."id" = b."productId" WHERE p."id" IS NULL),
+  'every unit belongs to a family');
 
 SELECT pg_temp.expect(
   (SELECT "region" = 'Bordeaux' AND "grapeVarieties" = '{Merlot,"Cabernet Sauvignon"}' AND "tags" = '{gift,bordeaux}'

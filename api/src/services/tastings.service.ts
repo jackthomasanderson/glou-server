@@ -105,8 +105,6 @@ export const tastingsService = {
         ? {
             OR: [
               { foodPairing: contains(trimmedSearch) },
-              { item: { is: { name: contains(trimmedSearch) } } },
-              { item: { is: { producer: contains(trimmedSearch) } } },
               { product: { is: { name: contains(trimmedSearch) } } },
               { product: { is: { producer: contains(trimmedSearch) } } },
             ],

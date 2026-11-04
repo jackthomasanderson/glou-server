@@ -27,6 +27,7 @@ const auditLog = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../src/services/audit.service', () => ({ auditLog: (...a: unknown[]) => auditLog(...a) }));
 
 import { backupService, BACKUPS_DIR } from '../../src/services/backup.service';
+import { compareVersions, dumpedMigrations, shippedMigrations } from '../../src/lib/backup-version';
 
 class FakePsql extends EventEmitter {
   stdin = new PassThrough();
@@ -222,4 +223,88 @@ describe('backupService.restoreBackup — safety copy and history (#666)', () =>
 
 afterAll(() => {
   try { fs.unlinkSync(target); } catch { /* already gone */ }
+});
+
+// #471 (lot Z): a backup taken before an update (the families migration, for
+// one) restored under the new API left it on tables it does not know, every
+// page failing until the next start. Read in the dump, the version decides.
+describe('backupService.restoreBackup — a backup of another version of Glou (#471)', () => {
+  const shipped = shippedMigrations();
+  const families = shipped.find((name) => name.endsWith('_families_model'))!;
+  /** A plain pg_dump holding `_prisma_migrations` rows: [name, finished, rolled back]. */
+  const dumpOf = (rows: [string, boolean, boolean][]) => [
+    'SET statement_timeout = 0;',
+    'CREATE TABLE public._prisma_migrations (id character varying(36) NOT NULL);',
+    'COPY public._prisma_migrations (id, checksum, finished_at, migration_name, logs, rolled_back_at, started_at, applied_steps_count) FROM stdin;',
+    ...rows.map(([name, finished, rolledBack], i) => [
+      `id-${i}`, 'sum', finished ? '2026-10-01 10:00:00.1+00' : '\\N', name, '\\N',
+      rolledBack ? '2026-10-01 10:00:00.2+00' : '\\N', '2026-10-01 10:00:00+00', '1',
+    ].join('\t')),
+    '\\.',
+    '',
+    'CREATE TABLE t (id int);',
+    '',
+  ].join('\n');
+  const applied = (names: string[]) => names.map((name): [string, boolean, boolean] => [name, true, false]);
+
+  it('ships the families migration as its last one', () => {
+    expect(families).toBeDefined();
+    expect(shipped[shipped.length - 1]).toBe(families);
+  });
+
+  it('reads the applied migrations of a dump, a failed or rolled back one left out', async () => {
+    writeDump(dumpOf([['a', true, false], ['b', false, false], ['c', true, true], ['d', true, false]]));
+    await expect(dumpedMigrations(target)).resolves.toEqual(['a', 'd']);
+  });
+
+  it('cannot tell without a migration history, or from a truncated file', async () => {
+    writeDump('CREATE TABLE t (id int);\n');
+    await expect(dumpedMigrations(target)).resolves.toBeNull();
+    writeDump(dumpOf(applied(shipped)).repeat(50), true);
+    await expect(dumpedMigrations(target)).resolves.toEqual(shipped);
+    writeDump('x'.repeat(5000), true);
+    await expect(dumpedMigrations(target)).resolves.toBeNull();
+  });
+
+  it('compares the versions', () => {
+    expect(compareVersions(['a', 'b'], ['a', 'b'])).toBe('same');
+    expect(compareVersions(['a', 'b'], ['a'])).toBe('older');
+    expect(compareVersions(['a'], ['a', 'b'])).toBe('newer');
+    expect(compareVersions(['a', 'b'], null)).toBe('unknown');
+  });
+
+  it('refuses a backup taken before the families migration, before any copy or write', async () => {
+    writeDump(dumpOf(applied(shipped.filter((name) => name !== families))));
+
+    await expect(backupService.restoreBackup(file, 'u1', '127.0.0.1')).rejects.toThrow('BACKUP_FROM_OLDER_VERSION');
+    expect(safetyBackup).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalled();
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'BACKUP_RESTORE', status: 'error', details: expect.objectContaining({ error: 'BACKUP_FROM_OLDER_VERSION' }),
+    }));
+  });
+
+  it('refuses a backup whose families migration had failed (P3009): it is still the old schema', async () => {
+    writeDump(dumpOf([...applied(shipped.filter((name) => name !== families)), [families, false, false]]));
+
+    await expect(backupService.restoreBackup(file, 'u1', '127.0.0.1')).rejects.toThrow('BACKUP_FROM_OLDER_VERSION');
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses a backup taken by a later version', async () => {
+    writeDump(dumpOf(applied([...shipped, '29990101000000_from_the_future'])));
+
+    await expect(backupService.restoreBackup(file, 'u1', '127.0.0.1')).rejects.toThrow('BACKUP_FROM_NEWER_VERSION');
+    expect(spawnMock).not.toHaveBeenCalled();
+  });
+
+  it('restores a backup of this very version', async () => {
+    writeDump(dumpOf(applied(shipped)));
+    const done = backupService.restoreBackup(file, 'u1', '127.0.0.1');
+    await new Promise((r) => setTimeout(r, 50));
+    psql.emit('close', 0);
+
+    await expect(done).resolves.toEqual({ safetyBackupRunId: 'safety-1' });
+    expect(psql.received).toContain(families);
+  });
 });

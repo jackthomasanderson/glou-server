@@ -36,7 +36,7 @@ function group(id: string, quantity: number, extra: Record<string, unknown> = {}
   return {
     id, productId: `p-${id}`, name: `Wine ${id}`, producer: 'Domaine', category: 'wine', vintage: 2015, photoUrl: null,
     cellarId: 'c1', quantity, isOpened: false, fillLevel: null, cigarsLeft: null, cigarsPerBox: null,
-    purchasePrice: 20, purchasedAt: new Date('2024-01-15T00:00:00.000Z'), bottleSize: '75cl', isOwned: true,
+    purchasePrice: 20, purchasedAt: new Date('2024-01-15T00:00:00.000Z'), bottleSize: '75cl',
     deletedAt: null, writtenOffAt: null, ...extra,
   };
 }
@@ -170,6 +170,27 @@ describe('getSessionReport — one line per group (FEAT-100 c1)', () => {
 
     expect(report!.confirmed).toEqual([]);
     expect(report!.missing[0].missingQuantity).toBe(6);
+  });
+
+  // #471 (lot Z): a unit has no description of its own; the report reads its family's.
+  it('serves each line and each find elsewhere with its family\'s description, ordered by its name', async () => {
+    vi.mocked(prisma.inventoryCountSession.findUnique).mockResolvedValue(SESSION as never);
+    const { name: _n, producer: _p, category: _c, vintage: _v, photoUrl: _ph, ...unit } = group('g1', 2);
+    const row = { ...unit, product: { name: 'Talbot', producer: 'Château Talbot', category: 'wine', vintage: 2015, photoUrl: '/p.jpg' } };
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([row] as never);
+    vi.mocked(prisma.inventoryCountEntry.findMany).mockResolvedValue([
+      { id: 'e1', itemId: 'g1', status: 'unexpected', foundQuantity: 2, item: row, scannedAt: new Date() },
+    ] as never);
+
+    const report = await getSessionReport('s1');
+
+    expect(report!.expected[0]).toMatchObject({ id: 'g1', name: 'Talbot', producer: 'Château Talbot', vintage: 2015, photoUrl: '/p.jpg' });
+    expect(report!.expected[0]).not.toHaveProperty('product');
+    expect(report!.unexpected[0]).toMatchObject({ itemId: 'g1', name: 'Talbot', producer: 'Château Talbot', category: 'wine' });
+    const query = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]!;
+    expect(query.orderBy).toEqual([{ product: { name: 'asc' } }, { id: 'asc' }]);
+    expect(query.select).toMatchObject({ product: { select: { name: true, producer: true, category: true, vintage: true, photoUrl: true } } });
+    expect(query.select).not.toHaveProperty('name');
   });
 
   it('proposes the known wines of the same category and name for a find', async () => {
@@ -461,8 +482,8 @@ describe('completeSession — a closure applies once', () => {
 // W4: the report words a cigar group in boxes or in cigars, so each line carries the box size.
 describe('countLine — cigar groups', () => {
   it('keeps cigarsPerBox: a group of boxes (25) differs from single cigars (null)', () => {
-    const boxes = countLine(group('b', 3, { category: 'cigar', cigarsPerBox: 25 }) as never, { foundQuantity: 5 });
-    const singles = countLine(group('s', 3, { category: 'cigar' }) as never, { foundQuantity: 5 });
+    const boxes = countLine(group('b', 3, { cigarsPerBox: 25 }), { foundQuantity: 5 });
+    const singles = countLine(group('s', 3), { foundQuantity: 5 });
     expect(boxes).toMatchObject({ cigarsPerBox: 25, surplusQuantity: 2 });
     expect(singles.cigarsPerBox).toBeNull();
   });

@@ -290,7 +290,6 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     expect(call.where).toEqual({
       deletedAt: null,
       writtenOffAt: null,
-      isOwned: true,
       NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
     });
   });
@@ -400,7 +399,7 @@ describe('guest showcase excludes non-owned references (FEAT-87)', () => {
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
+    expect(call.where).toMatchObject({ deletedAt: null });
   });
 
   it('scopes the single-item lookup to owned units, with no cellar scope either', async () => {
@@ -413,7 +412,7 @@ describe('guest showcase excludes non-owned references (FEAT-87)', () => {
     };
     // A bottle the guest just finished is still returned to them (guest.router
     // re-reads it after the write); a written-off one is gone (#471).
-    expect(call.where).toEqual({ id: 'i1', deletedAt: null, writtenOffAt: null, isOwned: true });
+    expect(call.where).toEqual({ id: 'i1', deletedAt: null, writtenOffAt: null });
   });
 });
 

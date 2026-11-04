@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import { GuestShare } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ShareCreateInput } from '../schemas/shares.schema';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import type { GuestUndoMarker } from '../lib/guest-write';
 
@@ -66,7 +65,7 @@ const SHOWCASE_SCOPE = IN_STOCK_ITEM_FILTER;
  * bottle as drunk gets it back from the write route (guest.router.ts), but a
  * written-off one is out of the cellar for good (FEAT-87: references never).
  */
-const SHARED_ITEM_SCOPE = { deletedAt: null, writtenOffAt: null, ...OWNED_ITEM_FILTER } as const;
+const SHARED_ITEM_SCOPE = { deletedAt: null, writtenOffAt: null } as const;
 
 function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
   return {

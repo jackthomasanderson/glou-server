@@ -3,8 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest, conflict, notFound } from '../lib/errors';
 import { groupKey, isGroupableItem, NO_SLOT, unitKind, type UnitKind } from '../lib/finished-item';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
-import { lockFamily, PRODUCT_FIELDS, purchaseDayFromInput, toUnitView } from '../lib/product-fields';
+import { lockFamily, purchaseDayFromInput, toUnitView } from '../lib/product-fields';
 import { MAX_COPIES, type AddUnitsInput, type CorrectQuantityInput } from '../schemas/stock.schema';
 import { LISTED_PRODUCT_FILTER } from './product.service';
 import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/product';
@@ -55,7 +54,7 @@ export async function findGroupFor(
   const key = groupKey(target, kind);
   const candidates = await tx.inventoryItem.findMany({
     where: {
-      productId: target.productId, deletedAt: null, writtenOffAt: null, ...OWNED_ITEM_FILTER,
+      productId: target.productId, deletedAt: null, writtenOffAt: null,
       ...(search.excludeId !== undefined ? { id: { not: search.excludeId } } : {}),
       ...(search.settledOnly ? { needsReview: false } : {}),
     },
@@ -89,9 +88,6 @@ export async function lockedListedFamily(tx: PrismaClientOrTx, productId: string
   if (await tx.product.findUnique({ where: { id: productId } })) throw conflict('PRODUCT_IN_TRASH');
   throw notFound('PRODUCT_NOT_FOUND');
 }
-
-/** The description copied on a new unit's transitional mirror columns (removed by lot Z). */
-const mirrorOf = (product: Product) => Object.fromEntries(PRODUCT_FIELDS.map((field) => [field, product[field]]));
 
 /** Where new copies go (D5): everything of a group's identity. */
 export type CopiesTarget = GroupKeyFields & { purchasedAt: Date | null };
@@ -159,7 +155,6 @@ export async function addCopies(
   }
   const unit = await tx.inventoryItem.create({
     data: {
-      ...mirrorOf(product),
       ...target,
       id: uuidv4(),
       userId,
@@ -275,7 +270,7 @@ export async function correctQuantityIn(
     && new Date(input.expectedUpdatedAt).getTime() !== group.updatedAt.getTime();
   // Moved to another family meanwhile (a merge): its lock was not the one taken.
   if (stale || group.productId !== productId) return { conflict: true, item: toUnitView(group) };
-  if (!isGroupableItem(group) || !group.isOwned) throw conflict('NOT_A_GROUP');
+  if (!isGroupableItem(group)) throw conflict('NOT_A_GROUP');
 
   const from = group.quantity ?? 1;
   if (input.quantity >= from) throw badRequest('QUANTITY_NOT_LOWER');

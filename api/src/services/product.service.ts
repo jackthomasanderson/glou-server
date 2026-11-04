@@ -2,7 +2,6 @@ import { Prisma, type Product } from '@prisma/client';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { namesSameWine } from '../../../shared/units';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import {
   fieldSourcesOf, isProductField, lockFamily, nextLocksAndSources, toUnitView, writeProductFields,
   type ProductField, type ProductWrite, type UnitRow,
@@ -64,7 +63,7 @@ async function lastActivities(productIds: string[]): Promise<Map<string, Date | 
     prisma.tastingNote.groupBy({ by: ['productId'], where: { productId: { in: productIds } }, _max: { tastedAt: true } }),
     prisma.inventoryItem.groupBy({
       by: ['productId'],
-      where: { productId: { in: productIds }, deletedAt: null, ...OWNED_ITEM_FILTER, ...FINISHED_ITEM_STATE },
+      where: { productId: { in: productIds }, deletedAt: null, ...FINISHED_ITEM_STATE },
       _max: { updatedAt: true },
     }),
   ]);
@@ -190,7 +189,7 @@ export const productService = {
       where: { id, deletedAt: null },
       include: {
         collections: COLLECTIONS_INCLUDE,
-        items: { where: { deletedAt: null, ...OWNED_ITEM_FILTER }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        items: { where: { deletedAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
       },
     });
     if (!row) return null;
@@ -368,7 +367,7 @@ export const productService = {
       orderBy: { deletedAt: 'desc' },
       include: {
         collections: COLLECTIONS_INCLUDE,
-        items: { where: { deletedAt: { not: null }, ...OWNED_ITEM_FILTER }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        items: { where: { deletedAt: { not: null } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
       },
     });
     const trashedTogether = (row: (typeof rows)[number]) =>

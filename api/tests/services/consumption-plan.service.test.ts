@@ -241,7 +241,6 @@ describe('getSuggestions', () => {
       where: {
         deletedAt: null,
         writtenOffAt: null,
-        isOwned: true,
         isOpened: true,
         NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
       },
@@ -338,7 +337,6 @@ describe('getSuggestions', () => {
     expect(rotationCall.where).toMatchObject({
       deletedAt: null,
       writtenOffAt: null,
-      isOwned: true,
       product: { OR: [{ consumptionPostponedUntil: null }, { consumptionPostponedUntil: { lte: NOW } }] },
     });
   });
@@ -478,7 +476,6 @@ describe('consumption goals', () => {
     expect(prisma.inventoryItem.count).toHaveBeenCalledWith({
       where: {
         deletedAt: null,
-        isOwned: true,
         isOpened: true,
         fillLevel: 0,
         updatedBy: 'u1',
@@ -501,8 +498,8 @@ describe('consumption goals', () => {
 
 // FEAT-87: a non-owned reference is never something to drink, so neither
 // the "finish what's started" query nor the rotation filler may return one.
-describe('consumption suggestions exclude non-owned references (FEAT-87)', () => {
-  it('restricts the opened-items and rotation queries to owned items', async () => {
+describe('consumption suggestions (FEAT-87, #471)', () => {
+  it('needs no ownership filter: a reference has no bottle (#471)', async () => {
     vi.mocked(getAlerts).mockResolvedValue([] as never);
     mockFindManyByShape({});
 
@@ -513,11 +510,11 @@ describe('consumption suggestions exclude non-owned references (FEAT-87)', () =>
       .mock.calls.map((c) => (c[0] as unknown as { where: Record<string, unknown> }).where);
     expect(wheres.length).toBeGreaterThan(0);
     for (const where of wheres) {
-      expect(where).toMatchObject({ isOwned: true });
+      expect(where).not.toHaveProperty('isOwned');
     }
   });
 
-  it('counts only owned bottles towards a personal consumption goal', async () => {
+  it('counts the finished bottles towards a personal consumption goal', async () => {
     vi.mocked(prisma.consumptionGoal.findFirst).mockResolvedValue({
       id: 'g1',
       userId: 'u1',
@@ -532,6 +529,6 @@ describe('consumption suggestions exclude non-owned references (FEAT-87)', () =>
     const call = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(call.where).toMatchObject({ isOwned: true, isOpened: true, fillLevel: 0 });
+    expect(call.where).toMatchObject({ isOpened: true, fillLevel: 0 });
   });
 });

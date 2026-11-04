@@ -17,10 +17,10 @@ function unit(fields: Partial<StateItem> = {}): StateItem {
   return {
     id: 'u1', userId: 'creator', productId: 'p1', cellarId: 'garage', slotColumn: null, slotRow: null,
     purchasedAt: DAY, cigarsPerBox: null, cigarsLeft: null, parentItemId: null, writtenOffAt: null,
-    needsReview: false, category: 'wine', name: 'Talbot', producer: 'Château Talbot', location: null,
+    needsReview: false, location: null,
     purchasePrice: 20, estimatedValue: null, purchasePlace: null, bottleSize: '75cl', quantity: 1,
     isOpened: false, fillLevel: null, openedAt: null, lockedFields: [], fieldSources: null,
-    deletedAt: null, createdAt: DAY, updatedAt: DAY, updatedBy: null, isOwned: true,
+    deletedAt: null, createdAt: DAY, updatedAt: DAY, updatedBy: null,
     ...fields,
   } as unknown as StateItem;
 }
@@ -28,14 +28,14 @@ function unit(fields: Partial<StateItem> = {}): StateItem {
 const group = (quantity: number, fields: Partial<StateItem> = {}) => unit({ quantity, ...fields });
 const opened = (fields: Partial<StateItem> = {}) => unit({ isOpened: true, fillLevel: 60, parentItemId: 'g1', ...fields });
 const finished = (fields: Partial<StateItem> = {}) => unit({ isOpened: true, fillLevel: 0, parentItemId: 'g1', ...fields });
-const boxes = (quantity: number, fields: Partial<StateItem> = {}) => unit({ category: 'cigar', quantity, cigarsPerBox: 25, ...fields } as Partial<StateItem>);
+const boxes = (quantity: number, fields: Partial<StateItem> = {}) => unit({ quantity, cigarsPerBox: 25, ...fields });
 
 /** The guest's write as the route runs it: parsed by the strict schema, planned, then checked. */
 function guestWrite(item: StateItem, body: Record<string, unknown>, kind: 'bottle' | 'cigar' = 'bottle') {
   const patch: GuestInventoryUpdate = guestInventoryUpdateSchema.parse(body);
   const { smokeOne, ...state } = patch;
   let outcome: string | undefined;
-  checkGuestWrite(SHARE, patch, item, () => (outcome = planState(item, { state, smokeOne }, kind).outcome));
+  checkGuestWrite(SHARE, patch, item, () => (outcome = planState(item, { state, smokeOne }, kind).outcome), kind);
   return outcome;
 }
 
@@ -99,7 +99,7 @@ describe('checkGuestWrite — never a number changed (FEAT-109 c2)', () => {
   it('refuses any way back from a finished bottle or a smoked cigar (+1 to the stock)', () => {
     expect(refusal(() => guestWrite(finished(), { isOpened: false, fillLevel: 100 }))).toEqual({ status: 409, code: 'GUEST_ITEM_FINISHED' });
     expect(refusal(() => guestWrite(finished(), { fillLevel: 50 }))).toEqual({ status: 409, code: 'GUEST_ITEM_FINISHED' });
-    const smoked = unit({ category: 'cigar', isOpened: true, fillLevel: 0, parentItemId: 'g1' } as Partial<StateItem>);
+    const smoked = unit({ isOpened: true, fillLevel: 0, parentItemId: 'g1' });
     expect(refusal(() => guestWrite(smoked, { isOpened: false }, 'cigar'))).toEqual({ status: 409, code: 'GUEST_ITEM_FINISHED' });
   });
 

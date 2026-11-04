@@ -4,6 +4,7 @@ import path from 'path';
 import zlib from 'zlib';
 import { prisma } from '../lib/prisma';
 import { BackupRun, Prisma } from '@prisma/client';
+import { compareVersions, dumpedMigrations, shippedMigrations } from '../lib/backup-version';
 import { auditLog } from './audit.service';
 import { notificationService } from './notification.service';
 import { isNotifEn } from '../lib/notif-lang';
@@ -364,6 +365,13 @@ export const backupService = {
     const conn = parseDatabaseUrl();
     let safetyBackupRunId: string | undefined;
     try {
+      // #471 (lot Z): a backup of another version of the schema (one taken
+      // before an update, glou-backup-before-migration-* included) would leave
+      // this API on tables it does not know. Refused before anything is
+      // written; wiki 30/31 say how to restore it (lib/backup-version.ts).
+      const version = compareVersions(shippedMigrations(), await dumpedMigrations(safePath));
+      if (version === 'older') throw new Error('BACKUP_FROM_OLDER_VERSION');
+      if (version === 'newer') throw new Error('BACKUP_FROM_NEWER_VERSION');
       // Safety copy and restore under one lock: no other backup or restore in between.
       safetyBackupRunId = await withBackupLock(async () => {
         const safetyCopy = await this.runBackupUnlocked('manual', userId, { beforeRestore: true });

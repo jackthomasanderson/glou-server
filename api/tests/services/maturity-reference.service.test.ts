@@ -150,7 +150,6 @@ describe('MaturityReferenceService.list bottle count (#471)', () => {
       where: {
         deletedAt: null,
         writtenOffAt: null,
-        isOwned: true,
         NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
         product: {
           category: 'wine',

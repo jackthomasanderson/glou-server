@@ -181,7 +181,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   );
   const goneCount = useMemo(
     () => (items ?? []).reduce((count, item) => {
-      if (item.deletedAt || item.isOwned === false || !inSection(item.category)) return count;
+      if (item.deletedAt || !inSection(item.category)) return count;
       const out = (item as InventoryItem & { writtenOffAt?: string | null }).writtenOffAt;
       if (out) return count + Math.max(item.quantity ?? 1, 0);
       return isFinishedState({ isOpened: item.isOpened, fillLevel: item.fillLevel ?? null }) ? count + 1 : count;

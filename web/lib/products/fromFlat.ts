@@ -15,7 +15,7 @@ export const UNIT_FIELD_SET: ReadonlySet<string> = new Set(UNIT_FIELDS);
 export type FlatItem = InventoryItem & Partial<Record<(typeof UNIT_FIELDS)[number], unknown>>;
 
 export const inStock = (item: FlatItem) =>
-  item.isOwned !== false && !item.deletedAt && !item.writtenOffAt && !isFinishedState({ isOpened: item.isOpened, fillLevel: item.fillLevel ?? null });
+  !item.deletedAt && !item.writtenOffAt && !isFinishedState({ isOpened: item.isOpened, fillLevel: item.fillLevel ?? null });
 
 export function toUnit(item: FlatItem): ProductItem {
   const unit = Object.fromEntries(UNIT_FIELDS.map((field) => [field, item[field] ?? null]));

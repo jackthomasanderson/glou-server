@@ -153,12 +153,11 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
           ? { kind: 'named' }
           // A wine whose lines are not known (list not loaded): the bottle given stays.
           : { kind: 'listed', onBottle: asksBottle ? onBottle : !product }));
-        // FEAT-87: a non-owned reference has no bottle to mark as opened or
-        // finished, so the stock question is skipped for it, as for an item
-        // with nothing to update (empty box, finished bottle) or whose stock
-        // could not be read.
+        // The stock question is skipped for an item with nothing to update
+        // (empty box, finished bottle) or whose stock could not be read. A
+        // wine tasted without a bottle (FEAT-87) has no item to ask about.
         const tastedItem = note.itemId ? await lookUpItem(note.itemId) : undefined;
-        if (note.itemId && tastedItem && tastedItem.isOwned !== false && stockChoicesFor(tastedItem).length > 0) {
+        if (note.itemId && tastedItem && stockChoicesFor(tastedItem).length > 0) {
           setStockQuestion({ itemId: note.itemId, item: tastedItem, tastingId: note.id });
         } else {
           onClose();

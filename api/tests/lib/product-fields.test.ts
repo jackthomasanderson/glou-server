@@ -12,7 +12,7 @@ const migration = (suffix: string) => {
   if (!dir) throw new Error(`${suffix} migration not found`);
   return fs.readFileSync(path.join(migrationsDir, dir, 'migration.sql'), 'utf8');
 };
-const expandMigration = () => migration('_families_expand');
+const familiesMigration = () => migration('_families_model');
 
 describe('PRODUCT_FIELDS (#471, design.md "Où vit une donnée")', () => {
   it('lists only real columns of Product', () => {
@@ -20,16 +20,16 @@ describe('PRODUCT_FIELDS (#471, design.md "Où vit une donnée")', () => {
     for (const field of PRODUCT_FIELDS) expect(productColumns).toContain(field);
   });
 
-  it('lists only columns still mirrored on bottles, so the expansion can copy them', () => {
+  it('lists no column of the unit: the description lives on the family only (lot Z)', () => {
     const itemColumns = Object.values(Prisma.InventoryItemScalarFieldEnum) as string[];
-    for (const field of PRODUCT_FIELDS) expect(itemColumns).toContain(field);
+    for (const field of PRODUCT_FIELDS) expect(itemColumns).not.toContain(field);
   });
 
   it('leaves what depends on the physical unit on the item', () => {
     for (const field of [
       'cellarId', 'slotColumn', 'slotRow', 'location', 'purchasePrice', 'estimatedValue',
       'purchasePlace', 'purchasedAt', 'bottleSize', 'quantity', 'isOpened', 'fillLevel', 'openedAt',
-      'isOwned', 'deletedAt', 'userId', 'updatedBy', 'lockedFields', 'fieldSources',
+      'deletedAt', 'userId', 'updatedBy', 'lockedFields', 'fieldSources',
     ]) {
       expect(PRODUCT_FIELDS as readonly string[]).not.toContain(field);
     }
@@ -45,8 +45,8 @@ describe('PRODUCT_FIELDS (#471, design.md "Où vit une donnée")', () => {
     }
   });
 
-  it('is copied in full by the expansion migration, in both the insert and the lock filter', () => {
-    const sql = expandMigration();
+  it('is copied in full by the expansion, in both the insert and the lock filter', () => {
+    const sql = familiesMigration();
     const insert = sql.slice(sql.indexOf('INSERT INTO "products"'), sql.indexOf('FROM "bottles"'));
     const lockList = sql.slice(sql.indexOf('product_fields'), sql.indexOf(']', sql.indexOf('product_fields')));
     for (const field of PRODUCT_FIELDS) {
@@ -55,12 +55,12 @@ describe('PRODUCT_FIELDS (#471, design.md "Où vit une donnée")', () => {
     }
   });
 
-  it('is merged and mirrored again in full by the transform migration (FEAT-94)', () => {
-    const sql = migration('_families_transform');
+  it('is merged in full by the transformation, then dropped from bottles by the contraction (FEAT-94)', () => {
+    const sql = familiesMigration();
     const merge = sql.slice(sql.indexOf('UPDATE "products" p SET'), sql.indexOf('FROM fam_merged f'));
-    const mirror = sql.slice(sql.indexOf('UPDATE "bottles" b SET\n  "category"'), sql.indexOf('FROM "products" p\nWHERE b."productId"'));
+    const contraction = sql.slice(sql.indexOf('ALTER TABLE "bottles" DROP COLUMN'), sql.indexOf('DROP TABLE "_CollectionItems"'));
     expect(merge.length).toBeGreaterThan(0);
-    expect(mirror.length).toBeGreaterThan(0);
+    expect(contraction.length).toBeGreaterThan(0);
     // The key fields stay the surviving family's own (equal once normalised);
     // the alert status is recomputed from the merged drinking window.
     expect(merge).toContain('"alertStatus" = CASE');
@@ -68,8 +68,17 @@ describe('PRODUCT_FIELDS (#471, design.md "Où vit une donnée")', () => {
       if (!['category', 'name', 'producer', 'alertStatus'].includes(field)) {
         expect(merge).toContain(`"${field}" = f."${field}"`);
       }
-      expect(mirror).toContain(`"${field}" = p."${field}"`);
+      expect(contraction).toContain(`DROP COLUMN "${field}"`);
     }
+    expect(contraction).toContain('DROP COLUMN "isOwned"');
+  });
+
+  it('is one migration, dated after every other one, without an explicit transaction (D7, design.md)', () => {
+    const names = fs.readdirSync(migrationsDir).filter((name) => /^\d{14}_/.test(name)).sort();
+    expect(names.filter((name) => name.includes('_families'))).toEqual([names[names.length - 1]]);
+    const statements = familiesMigration().replace(/--.*$/gm, '');
+    expect(statements).not.toMatch(/\b(BEGIN|COMMIT|ROLLBACK)\s*;/i);
+    expect(statements).not.toMatch(/CONCURRENTLY|VACUUM/i);
   });
 });
 
@@ -92,30 +101,20 @@ describe('todayAsPurchaseDate (D6)', () => {
 });
 
 describe('writeProductFields (#471, D22)', () => {
-  it('writes the family, then copies every family column onto its units in SQL, leaving their updatedAt alone', async () => {
-    const calls: string[] = [];
-    const client = {
-      product: { update: vi.fn(async () => { calls.push('product'); return { id: 'p1' }; }) },
-      $executeRaw: vi.fn(async () => { calls.push('mirror'); return 2; }),
-    };
+  it('writes the family only: its units carry no copy, their updatedAt is left alone', async () => {
+    const client = { product: { update: vi.fn(async () => ({ id: 'p1' })) }, $executeRaw: vi.fn() };
 
     await writeProductFields(client as never, 'p1', { region: 'Médoc', updatedBy: 'u1' });
 
     expect(client.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { region: 'Médoc', updatedBy: 'u1' } });
-    expect(calls).toEqual(['product', 'mirror']);
-    const [strings, assignments, productId] = client.$executeRaw.mock.calls[0] as unknown as [string[], { text?: string; sql?: string }, string];
-    const sql = `${strings.join('?')} ${JSON.stringify(assignments)}`;
-    expect(sql).toContain('UPDATE "bottles"');
-    expect(sql).not.toContain('updatedAt');
-    for (const field of PRODUCT_FIELDS) expect(sql).toContain(`\\"${field}\\" = p.\\"${field}\\"`);
-    expect(productId).toBe('p1');
+    expect(client.$executeRaw).not.toHaveBeenCalled();
   });
 });
 
 // #471 (A1 review): the calendar moves the alert, not an edit — no `updatedAt`
 // moves, and none read earlier is carried back.
 describe('writeAlertStatus', () => {
-  it('writes the family and its mirror in SQL, without any updatedAt', async () => {
+  it('writes the family in SQL, without any updatedAt', async () => {
     const client = { $executeRaw: vi.fn() };
 
     await writeAlertStatus(client as never, 'p1', 'peak');
@@ -123,7 +122,6 @@ describe('writeAlertStatus', () => {
     const statements = client.$executeRaw.mock.calls.map(([sql, ...values]) => ({ sql: (sql as string[]).join('?'), values }));
     expect(statements).toEqual([
       { sql: expect.stringContaining('UPDATE "products" SET "alertStatus"'), values: ['peak', 'p1'] },
-      { sql: expect.stringContaining('UPDATE "bottles" SET "alertStatus"'), values: ['peak', 'p1'] },
     ]);
     for (const { sql } of statements) expect(sql).not.toContain('updatedAt');
   });
