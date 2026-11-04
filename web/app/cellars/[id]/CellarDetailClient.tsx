@@ -46,10 +46,9 @@ function WineCard({ product, cellarId, onPress }: { product: Product; cellarId: 
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold line-clamp-2 break-words">{product.name}</p>
           <p className="text-xs text-foreground-400 line-clamp-2 break-words">{product.producer}</p>
-          <p className="flex flex-wrap gap-x-1 text-xs text-foreground-600 mt-1" data-testid="cellar-wine-stock">
-            {stock.parts.map((part, index) => (
-              <span key={index}>{keepNumbersWhole(part)}{index < stock.parts.length - 1 && '\u00a0·'}</span>
-            ))}
+          {/* A line breaks after « · », never inside a number and its word. */}
+          <p className="text-xs text-foreground-600 mt-1" data-testid="cellar-wine-stock">
+            {keepNumbersWhole(stock.parts.join('\u00a0· '))}
           </p>
           <div className="flex gap-1 mt-1 flex-wrap">
             <Chip size="sm" variant="flat" radius="sm">{t(`categories.${product.category}`)}</Chip>

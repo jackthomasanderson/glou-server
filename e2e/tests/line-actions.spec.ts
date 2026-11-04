@@ -159,7 +159,7 @@ test.describe('the actions of a line in the drawer of a wine (#471, W3)', () => 
     const line = drawer.getByTestId('family-line').filter({ hasText: '×2' });
     await lineAction(page, line, 'Mettre à la corbeille');
     const dialog = dialogTitled(page, 'Mettre à la corbeille ?');
-    await expect(dialog).toContainText(/Mettre ces 2 bouteilles \(Sans cave · 25\s€ \/ bouteille\) à la corbeille \?/);
+    await expect(dialog).toContainText(/Mettre ces 2 bouteilles \(Sans cave · 25\s€ \/ bouteille\) à la corbeille\s\?/);
 
     const deleted = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${other.id}`) && r.request().method() === 'DELETE');
     await dialog.getByRole('button', { name: 'Mettre à la corbeille' }).click();
@@ -287,7 +287,7 @@ test.describe('the actions of a line in the drawer of a wine (#471, W3)', () => 
     await expect(drawer.getByTestId('family-line')).toHaveCount(2);
     await expect(drawer.getByTestId('family-line').filter({ hasText: '×4' })).toContainText(/20\s€ \/ bouteille/);
     await expect(drawer.getByTestId('family-line').filter({ hasText: '×2' })).toContainText(/25\s€ \/ bouteille/);
-    await expect(drawer.getByTestId('family-history')).toContainText(/Prix de 2 bouteilles : 20(,00)?\s€ → 25(,00)?\s€/);
+    await expect(drawer.getByTestId('family-history')).toContainText(/Prix de 2 bouteilles\s:\s20(,00)?\s€ → 25(,00)?\s€/);
     const lines = (await okData<{ items: Unit[] }>(await api.get(`/api/products/${group.productId}`))).items;
     expect(lines.map((unit) => [unit.quantity, unit.purchasePrice]).sort()).toEqual([[2, 25], [4, 20]]);
   });

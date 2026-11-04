@@ -27,7 +27,7 @@ test('a cellar shows its wines with their bottles here, and their drawer has eve
     await page.getByRole('button', { name: 'Vue en cartes' }).click();
     const card = page.getByTestId('cellar-wine-card').filter({ hasText: `E2E Cuvée RD ${stamp}` });
     await expect(card).toHaveCount(1);
-    await expect(card.getByTestId('cellar-wine-stock')).toHaveText(/^2\s+ici\s*·\s+5\s+en\s+tout$/);
+    await expect(card.getByTestId('cellar-wine-stock')).toHaveText(/^2\s+ici\s*·\s*5\s+en\s+tout$/);
 
     await card.click();
     const drawer = page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });

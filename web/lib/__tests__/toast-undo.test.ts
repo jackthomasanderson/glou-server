@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const addToast = vi.fn((_options: { timeout?: number }) => 'toast-1');
+const addToast = vi.fn<(options: { timeout?: number }) => string>(() => 'toast-1');
 vi.mock('@heroui/react', () => ({
   addToast: (options: { timeout?: number }) => addToast(options),
   closeToast: vi.fn(),
