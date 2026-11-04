@@ -62,12 +62,26 @@ describe('POST /api/products/merge (FEAT-102 c2)', () => {
     }));
   });
 
+  it('passes the versions the member saw to the merge', async () => {
+    vi.mocked(reviewService.merge).mockResolvedValue({
+      productId: 'p1', removedProductIds: ['p2'], removedItemIds: [], overLimits: { notes: false, tags: false }, changes: [],
+    });
+    vi.mocked(productService.view).mockResolvedValue({ id: 'p1' } as never);
+    const expectedUpdatedAt = { p1: '2026-03-01T00:00:00.000Z', p2: '2026-09-01T00:00:00.000Z' };
+
+    const res = await request(app).post('/api/products/merge').send({ productIds: ['p1', 'p2'], expectedUpdatedAt });
+
+    expect(res.status).toBe(200);
+    expect(reviewService.merge).toHaveBeenCalledWith('u1', { productIds: ['p1', 'p2'], expectedUpdatedAt });
+  });
+
   it.each([
     ['one family', { productIds: ['p1'] }],
     ['the same family twice', { productIds: ['p1', 'p1'] }],
     ['a field that is not compared', { productIds: ['p1', 'p2'], choices: { name: 'p2' } }],
     ['a value instead of a family', { productIds: ['p1', 'p2'], choices: { region: 42 } }],
     ['anything else', { productIds: ['p1', 'p2'], region: 'Graves' }],
+    ['a version that is not a date', { productIds: ['p1', 'p2'], expectedUpdatedAt: { p1: 'yesterday' } }],
   ])('refuses %s with 400', async (_label, body) => {
     const res = await request(app).post('/api/products/merge').send(body);
 

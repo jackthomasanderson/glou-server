@@ -2393,7 +2393,10 @@
       "title": "History",
       "add_units": "Bottles added",
       "correct_quantity": "Number corrected",
-      "numberChange": "{{what}}: {{from}} → {{to}}"
+      "numberChange": "{{what}}: {{from}} → {{to}}",
+      "merge_products": "Wines merged",
+      "review_ok": "Number checked",
+      "merge_products_cigar": "References merged"
     },
     "loadError": "This wine could not be loaded.",
     "form": {
@@ -2455,6 +2458,113 @@
       "rejected": "These bottles could not be added: check the number, the price and the date.",
       "failed": "These bottles could not be added. Please try again.",
       "offline": "Adding bottles needs a connection."
+    }
+  },
+  "openDrink": {
+    "actions": {
+      "open": "I'm opening one",
+      "drink": "I'm drinking one",
+      "smoke": "I'm smoking one"
+    },
+    "which": {
+      "title": "Which bottles?",
+      "titleCigar": "Which ones?",
+      "reason": {
+        "cellar": "In the cellar shown",
+        "oldest": "Bought first",
+        "cheapest": "The cheapest",
+        "largest": "The largest line"
+      },
+      "reasonCigar": {
+        "cellar": "In the cellar shown",
+        "oldest": "Bought first",
+        "cheapest": "The cheapest",
+        "largest": "The largest line"
+      }
+    },
+    "done": {
+      "open": "1 bottle opened",
+      "drink": "1 bottle drunk",
+      "smoke": "1 cigar smoked"
+    }
+  },
+  "review": {
+    "title": "To check after the update",
+    "intro": "What Glou could not settle on its own during the update. A point settled by one member disappears for everyone.",
+    "loading": "Loading the points to check",
+    "empty": "Nothing to check",
+    "emptyHint": "The update left nothing to settle.",
+    "banner_one": "{{count}} point to check after the update",
+    "banner_other": "{{count}} points to check after the update",
+    "bannerView": "View",
+    "bannerLater": "Later",
+    "merges": {
+      "title": "Merge?",
+      "hint": "Wines of the same name kept apart because their descriptions contradicted each other. For each field, tick the value to keep: the most recent wine is ticked in advance.",
+      "addedOn": "added on {{date}}",
+      "noDisagreement": "No field in disagreement: nothing to choose before merging.",
+      "disagreement": "In disagreement",
+      "choose": "Value to keep for “{{field}}”",
+      "merge": "Merge",
+      "keepApart": "It's another wine",
+      "keptApart": "Kept apart: this case will not be proposed again.",
+      "confirmTitle": "Merge?",
+      "confirm_bottle_one": "Merge these {{wines}} wines into 1, {{count}} bottle? This cannot be undone.",
+      "confirm_bottle_other": "Merge these {{wines}} wines into 1, {{count}} bottles? This cannot be undone.",
+      "confirm_cigar_one": "Merge these {{wines}} references into 1, {{count}} cigar? This cannot be undone.",
+      "confirm_cigar_other": "Merge these {{wines}} references into 1, {{count}} cigars? This cannot be undone.",
+      "done": "Merged",
+      "overLimits": {
+        "notes": "“{{name}}” is merged. Its notes exceed 2,000 characters: shorten them before editing its description.",
+        "tags": "“{{name}}” is merged. It has more than 20 tags: remove some before editing its description.",
+        "both": "“{{name}}” is merged. Its notes exceed 2,000 characters and it has more than 20 tags: shorten them before editing its description."
+      },
+      "family_bottle": "Wine {{number}}",
+      "family_cigar": "Reference {{number}}"
+    },
+    "counts": {
+      "title": "Numbers to check",
+      "hint": "Old opened or finished entries that counted several bottles, which Glou split as best it could.",
+      "before_bottle_one": "Before the update: {{count}} bottle, {{state}}.",
+      "before_bottle_other": "Before the update: {{count}} bottles, {{state}}.",
+      "before_box_one": "Before the update: {{count}} box, {{state}}.",
+      "before_box_other": "Before the update: {{count}} boxes, {{state}}.",
+      "before_cigar_one": "Before the update: {{count}} cigar, {{state}}.",
+      "before_cigar_other": "Before the update: {{count}} cigars, {{state}}.",
+      "state_opened_bottle": "opened",
+      "state_finished_bottle": "finished",
+      "state_opened_box": "opened",
+      "state_finished_box": "finished",
+      "state_opened_cigar": "started",
+      "state_finished_cigar": "smoked",
+      "split_opened_bottle_one": "{{count}} opened",
+      "split_opened_bottle_other": "{{count}} opened",
+      "split_finished_bottle_one": "{{count}} drunk",
+      "split_finished_bottle_other": "{{count}} drunk",
+      "split_opened_box_one": "{{count}} opened box",
+      "split_opened_box_other": "{{count}} opened boxes",
+      "split_finished_box_one": "{{count}} finished box",
+      "split_finished_box_other": "{{count}} finished boxes",
+      "split_opened_cigar_one": "{{count}} started",
+      "split_opened_cigar_other": "{{count}} started",
+      "split_finished_cigar_one": "{{count}} smoked",
+      "split_finished_cigar_other": "{{count}} smoked",
+      "counted_bottle_one": "Glou counted {{split}} + {{count}} full.",
+      "counted_bottle_other": "Glou counted {{split}} + {{count}} full.",
+      "counted_box_one": "Glou counted {{split}} + {{count}} closed box.",
+      "counted_box_other": "Glou counted {{split}} + {{count}} closed boxes.",
+      "counted_cigar_one": "Glou counted {{split}} + {{count}} cigar.",
+      "counted_cigar_other": "Glou counted {{split}} + {{count}} cigars.",
+      "guessed": "Glou guessed this number during the update.",
+      "ok": "That's right",
+      "correct": "Correct the number",
+      "confirmed": "Number confirmed."
+    },
+    "errors": {
+      "load": "Could not load the points to check.",
+      "changed": "This case changed meanwhile: the list is updated.",
+      "offline": "Merging or confirming needs a connection.",
+      "failed": "The action did not go through. Try again."
     }
   }
 }

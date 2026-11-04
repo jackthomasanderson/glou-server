@@ -1,5 +1,6 @@
 'use client';
-import { addToast } from '@heroui/react';
+import { createElement } from 'react';
+import { addToast, Button, closeToast } from '@heroui/react';
 import i18n from '@/lib/i18n';
 
 /**
@@ -42,5 +43,34 @@ export function notifyError(messageKey: string, values?: Record<string, unknown>
     title: translate(messageKey, values),
     color: 'danger',
     timeout: PERSISTENT_TIMEOUT,
+  });
+}
+
+/** ux-ui.md §10.4: an everyday action is undone from its message for 5 seconds. */
+export const UNDO_TIMEOUT_MS = 5000;
+
+/**
+ * A success that can be taken back (#471, ux-ui.md §10.4: "1 bouteille
+ * ouverte · Annuler"). The toast region is a top layer: its button works
+ * above an open drawer without closing it. Pressing "Annuler" closes the
+ * message and calls `onUndo` once.
+ */
+export function notifyUndoable(messageKey: string, values: Record<string, unknown> | undefined, onUndo: () => void): void {
+  let undone = false;
+  const key = addToast({
+    title: translate(messageKey, values),
+    color: 'success',
+    timeout: UNDO_TIMEOUT_MS,
+    endContent: createElement(Button, {
+      size: 'sm',
+      variant: 'flat',
+      color: 'success',
+      onPress: () => {
+        if (undone) return;
+        undone = true;
+        if (key) closeToast(key);
+        onUndo();
+      },
+    }, translate('actions.undo')),
   });
 }

@@ -137,3 +137,12 @@ export function goneSummary(lines: Pick<FamilyLines, 'finished' | 'writtenOff'>,
     lines.writtenOff > 0 ? t('familyDrawer.gone.writtenOff', { count: lines.writtenOff }) : null,
   ].filter(Boolean).join(' · ');
 }
+
+/**
+ * A copy whose level can be set: an opened bottle that is ONE bottle. A line
+ * of more than one (even shown opened, as an offline opening merged into its
+ * group may be) never gets a level: written on a group, a level detaches one
+ * more bottle (second review of K, #471).
+ */
+export const hasOwnLevel = (item: Pick<ProductItem, 'isOpened' | 'fillLevel' | 'cigarsLeft' | 'quantity'>) =>
+  !isIntactItem(item) && (item.quantity ?? 1) <= 1;

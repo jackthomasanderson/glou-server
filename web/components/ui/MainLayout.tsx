@@ -32,6 +32,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin': 'nav.admin',
   '/inventory-count': 'inventoryCount.title',
   '/wishlist-budget': 'wishlist.title',
+  '/review': 'review.title',
 };
 
 // ISSUE_434: /bottles is the one path shared by the 3 category nav

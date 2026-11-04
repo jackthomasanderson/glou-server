@@ -201,6 +201,12 @@ export interface ProductHistoryEntry {
   reason?: CorrectionReason;
   /** #471 (W3): an edited line that joined this group — what its edit changed. */
   joinedChanges?: FieldChange[];
+  /**
+   * #471: recorded on a line since absorbed by this one (lines joined, a
+   * merge, a move): its values were that line's, so restoring one would
+   * rewrite every copy of this line — never offered, refused by the API.
+   */
+  absorbed?: boolean;
   createdAt: Date;
 }
 

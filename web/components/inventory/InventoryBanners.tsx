@@ -5,6 +5,7 @@ import { Button } from '@heroui/react';
 import { Warehouse } from 'lucide-react';
 import { glouKey, readStorageMigrating, safeWriteStorage } from '@/lib/safe-storage';
 import type { Cellar } from '@/lib/cellars/types';
+import { ReviewBanner } from '@/components/review/ReviewBanner';
 
 const NO_CELLAR_BANNER_KEY = glouKey('no-cellar-banner-dismissed');
 
@@ -18,8 +19,8 @@ export interface InventoryBannersProps {
 
 /**
  * The information banners above the list, one place for all of them: the
- * capped list (#475), no cellar yet, and — later — "N points à vérifier
- * après la mise à jour" (ux-ui.md §10.7, lot J2).
+ * capped list (#475), no cellar yet, and "N points à vérifier après la mise
+ * à jour" (ux-ui.md §10.7, #471).
  */
 export function InventoryBanners({ t, isTruncated, cellars }: InventoryBannersProps) {
   // Only rendered once `cellars` has loaded client-side, so reading storage lazily is hydration-safe.
@@ -34,6 +35,8 @@ export function InventoryBanners({ t, isTruncated, cellars }: InventoryBannersPr
 
   return (
     <>
+      <ReviewBanner t={t} />
+
       {/* #475: the list is capped server-side; never let the oldest wines
           vanish silently from the list, the search and duplicate checks. */}
       {isTruncated && (

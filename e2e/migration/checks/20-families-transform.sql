@@ -108,9 +108,11 @@ SELECT pg_temp.expect(
   (SELECT "itemId" = pg_temp.id('101') AND "productId" = pg_temp.id('101') FROM "tasting_notes" WHERE "id" = pg_temp.id('d6')),
   'c1: the tasting of an absorbed record is on the surviving group and its family');
 SELECT pg_temp.expect(
-  (SELECT "bottleId" = pg_temp.id('101') AND "productId" = pg_temp.id('101') FROM "audit_logs"
+  (SELECT "bottleId" = pg_temp.id('101') AND "productId" = pg_temp.id('101')
+     -- #471 (J2): marked with the record it was written on, never restored onto the whole group.
+     AND "details" ->> 'absorbedFrom' = pg_temp.id('105') FROM "audit_logs"
    WHERE "details" -> 'changes' -> 0 ->> 'to' = '/uploads/products/margaux-new.jpg'),
-  'c1: the history of an absorbed record is on the surviving group and its family');
+  'c1: the history of an absorbed record is on the surviving group and its family, marked as absorbed');
 SELECT pg_temp.expect(
   (SELECT "itemId" = pg_temp.id('101') FROM "inventory_count_entries" WHERE "id" = pg_temp.id('f6')),
   'c1: the inventory entry of an absorbed record is on the surviving group');

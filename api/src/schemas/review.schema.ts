@@ -13,6 +13,7 @@ const familyIds = z.array(familyId).min(2).max(MAX_REVIEW_FAMILIES)
 export const mergeSchema = z.object({
   productIds: familyIds,
   choices: z.partialRecord(z.enum(REVIEW_FIELDS), familyId).optional(),
+  expectedUpdatedAt: z.record(familyId, z.string().datetime()).optional(),
 }).strict();
 
 /**

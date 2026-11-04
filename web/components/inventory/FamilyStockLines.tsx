@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button, Chip, Slider } from '@heroui/react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { isIntactItem } from '@shared/units';
-import { goneParts, goneSummary, lineParts, VISIBLE_LINES, type FamilyLines, type LineContext } from '@/lib/products/lines';
+import { goneParts, goneSummary, hasOwnLevel, lineParts, VISIBLE_LINES, type FamilyLines, type LineContext } from '@/lib/products/lines';
 import type { ProductItem } from '@/lib/products/types';
 import { FieldSourceBadge } from './FieldSourceBadge';
 
@@ -22,8 +22,11 @@ interface FamilyStockLinesProps {
 
 const join = (parts: string[]) => parts.join(' · ');
 
+/** A level of 100 % puts an opened bottle back full (§10.4.6). */
+const FULL = 100;
+
 const PRESETS = [
-  { value: 100, key: 'familyDrawer.lines.levelFull' },
+  { value: FULL, key: 'familyDrawer.lines.levelFull' },
   { value: 50, key: 'familyDrawer.lines.levelHalf' },
   { value: 0, key: 'familyDrawer.lines.levelEmpty' },
 ] as const;
@@ -56,6 +59,13 @@ function OpenedLevel({ item, t, onCommit }: {
     saving.current = true;
     try {
       await onCommit(value);
+      // Saved now, not when the answer reaches the props: a level chosen
+      // meanwhile that goes back to the previous one is still sent.
+      saved.current = value;
+      // Put back full, the bottle rejoined its line (or is full again): no
+      // opened bottle is left to set a level on — a level waiting would be
+      // sent to a bottle that no longer exists.
+      if (value >= FULL) waiting.current = null;
     } catch {
       // Refused (a tasting on it, a conflict, a server error): back to what is saved.
       waiting.current = null;
@@ -65,7 +75,7 @@ function OpenedLevel({ item, t, onCommit }: {
     }
     const next = waiting.current;
     waiting.current = null;
-    if (next != null && next !== saved.current) void send(next);
+    if (next != null && (next !== saved.current || next >= FULL)) void send(next);
   };
   const commit = (value: number) => {
     setShown(value);
@@ -73,7 +83,9 @@ function OpenedLevel({ item, t, onCommit }: {
       waiting.current = value;
       return;
     }
-    if (value !== saved.current) void send(value);
+    // "Pleine" always sends: an opened bottle at 100 % (just opened) is put
+    // back full with the others (§10.4.6), even if its level does not move.
+    if (value !== saved.current || value >= FULL) void send(value);
   };
 
   return (
@@ -157,7 +169,7 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions }: Fam
                   {item.needsReview && (
                     <Chip size="sm" variant="flat" color="primary" className="mt-1">{t('familyDrawer.lines.needsReview')}</Chip>
                   )}
-                  {opened && kind === 'bottle' && onLevelCommit && (
+                  {hasOwnLevel(item) && kind === 'bottle' && onLevelCommit && (
                     <OpenedLevel item={item} t={t} onCommit={(level) => onLevelCommit(item, level)} />
                   )}
                 </li>

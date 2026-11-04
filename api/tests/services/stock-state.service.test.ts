@@ -62,7 +62,12 @@ function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entrie
   };
   const updateMany = (list: Row[]) => async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
     const hit = list.filter((row) => matches(row, where));
-    hit.forEach((row) => Object.assign(row, data));
+    // Prisma's `{ decrement: n }` on a number column, as the count entries use it.
+    const apply = (row: Row) => Object.fromEntries(Object.entries(data).map(([field, value]) =>
+      [field, value !== null && typeof value === 'object' && 'decrement' in value
+        ? (row[field] as number) - (value as { decrement: number }).decrement
+        : value]));
+    hit.forEach((row) => Object.assign(row, apply(row)));
     return { count: hit.length };
   };
   const order: string[] = [];
@@ -602,7 +607,14 @@ describe('applyState — reattach (FEAT-106)', () => {
 
     await apply(db, subId, { state: { isOpened: false, fillLevel: 100 } });
 
-    expect(db.audits[0].bottleId).toBe('g');
+    // The history follows the group, marked as recorded on the opened bottle:
+    // never restored onto the whole group (e.g. its cellar after a move).
+    const history = (db.raw.$executeRaw.mock.calls as unknown as [string[], ...unknown[]][])
+      .map(([strings, ...values]) => ({ sql: strings.join('?'), values }))
+      .find((call) => call.sql.includes('UPDATE "audit_logs" SET "bottleId"'));
+    expect(history?.sql).toContain(`jsonb_build_object('absorbedFrom', coalesce("details"->>'absorbedFrom', "bottleId"))`);
+    expect(history?.values[0]).toBe('g');
+    expect((history?.values[1] as { values: unknown[] }).values).toEqual([subId]);
     expect(db.wishlist[0].acquiredItemId).toBe('g');
     // FEAT-100 (D15): the entry keeps the number it found — one bottle,
     // never "the whole group" — and where the group is counted already the
@@ -634,6 +646,25 @@ describe('a count in progress follows a detach (FEAT-100)', () => {
       expect.objectContaining({ id: 'e1', itemId: 'g', foundQuantity: 5 }),
       expect.objectContaining({ sessionId: 's1', itemId: result.data.id, status: 'confirmed' }),
     ]);
+  });
+
+  it('opening one of a group counted 4 of 6 leaves 3 found and the opened bottle: still 2 missing (final review of I1/I2)', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })], { sessions: [session], entries: [{ id: 'e1', sessionId: 's1', itemId: 'g', foundQuantity: 4, status: 'confirmed' }] });
+
+    const result = await apply(db, 'g', { state: { isOpened: true, fillLevel: 80 } });
+
+    expect(db.entries).toEqual([
+      expect.objectContaining({ id: 'e1', itemId: 'g', foundQuantity: 3 }),
+      expect.objectContaining({ sessionId: 's1', itemId: result.data.id, status: 'confirmed' }),
+    ]);
+  });
+
+  it('opening one of a group not counted yet (or counted whole) leaves its entry as it is', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })], { sessions: [session], entries: [{ id: 'e1', sessionId: 's1', itemId: 'g', foundQuantity: null }] });
+
+    await apply(db, 'g', { state: { isOpened: true, fillLevel: 80 } });
+
+    expect(db.entries[0]).toEqual(expect.objectContaining({ id: 'e1', foundQuantity: null }));
   });
 
   it('drinking one leaves no false surplus, and the finished bottle is not counted', async () => {

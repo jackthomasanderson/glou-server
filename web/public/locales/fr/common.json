@@ -2395,7 +2395,10 @@
       "title": "Historique",
       "add_units": "Bouteilles ajoutées",
       "correct_quantity": "Nombre corrigé",
-      "numberChange": "{{what}} : {{from}} → {{to}}"
+      "numberChange": "{{what}} : {{from}} → {{to}}",
+      "merge_products": "Vins regroupés",
+      "review_ok": "Nombre vérifié",
+      "merge_products_cigar": "Références regroupées"
     },
     "loadError": "Impossible de charger ce vin.",
     "form": {
@@ -2457,6 +2460,113 @@
       "rejected": "Ces bouteilles n'ont pas pu être ajoutées : vérifiez le nombre, le prix et la date.",
       "failed": "Impossible d'ajouter ces bouteilles. Réessayez.",
       "offline": "Ajouter des bouteilles demande une connexion."
+    }
+  },
+  "openDrink": {
+    "actions": {
+      "open": "J'en ouvre une",
+      "drink": "J'en bois une",
+      "smoke": "J'en fume un"
+    },
+    "which": {
+      "title": "Quelles bouteilles ?",
+      "titleCigar": "Lesquels ?",
+      "reason": {
+        "cellar": "Dans la cave affichée",
+        "oldest": "Achetée en premier",
+        "cheapest": "La moins chère",
+        "largest": "La ligne la plus nombreuse"
+      },
+      "reasonCigar": {
+        "cellar": "Dans la cave affichée",
+        "oldest": "Achetés en premier",
+        "cheapest": "Les moins chers",
+        "largest": "La ligne la plus nombreuse"
+      }
+    },
+    "done": {
+      "open": "1 bouteille ouverte",
+      "drink": "1 bouteille bue",
+      "smoke": "1 cigare fumé"
+    }
+  },
+  "review": {
+    "title": "À vérifier après la mise à jour",
+    "intro": "Ce que Glou n'a pas pu trancher seul pendant la mise à jour. Un point traité par un membre disparaît pour tous.",
+    "loading": "Chargement des points à vérifier",
+    "empty": "Rien à vérifier",
+    "emptyHint": "La mise à jour n'a laissé aucun point à trancher.",
+    "banner_one": "{{count}} point à vérifier après la mise à jour",
+    "banner_other": "{{count}} points à vérifier après la mise à jour",
+    "bannerView": "Voir",
+    "bannerLater": "Plus tard",
+    "merges": {
+      "title": "À regrouper ?",
+      "hint": "Vins de même nom restés séparés parce que leurs descriptions se contredisaient. Pour chaque champ, cochez la valeur à garder : le vin le plus récent est coché d'avance.",
+      "addedOn": "ajoutée le {{date}}",
+      "noDisagreement": "Aucun champ en désaccord : rien à choisir avant de regrouper.",
+      "disagreement": "En désaccord",
+      "choose": "Valeur à garder pour « {{field}} »",
+      "merge": "Regrouper",
+      "keepApart": "C'est un autre vin",
+      "keptApart": "Gardés séparés : ce cas ne sera plus proposé.",
+      "confirmTitle": "Regrouper ?",
+      "confirm_bottle_one": "Regrouper ces {{wines}} vins en 1, {{count}} bouteille ? Cette action est définitive.",
+      "confirm_bottle_other": "Regrouper ces {{wines}} vins en 1, {{count}} bouteilles ? Cette action est définitive.",
+      "confirm_cigar_one": "Regrouper ces {{wines}} références en 1, {{count}} cigare ? Cette action est définitive.",
+      "confirm_cigar_other": "Regrouper ces {{wines}} références en 1, {{count}} cigares ? Cette action est définitive.",
+      "done": "Regroupé",
+      "overLimits": {
+        "notes": "« {{name}} » est regroupé. Ses notes dépassent 2 000 caractères : raccourcissez-les avant de modifier sa description.",
+        "tags": "« {{name}} » est regroupé. Il a plus de 20 étiquettes : retirez-en avant de modifier sa description.",
+        "both": "« {{name}} » est regroupé. Ses notes dépassent 2 000 caractères et il a plus de 20 étiquettes : raccourcissez-les avant de modifier sa description."
+      },
+      "family_bottle": "Vin {{number}}",
+      "family_cigar": "Référence {{number}}"
+    },
+    "counts": {
+      "title": "Nombres à vérifier",
+      "hint": "Anciennes fiches entamées ou finies qui comptaient plusieurs bouteilles, que Glou a découpées au mieux.",
+      "before_bottle_one": "Avant la mise à jour : {{count}} bouteille, {{state}}.",
+      "before_bottle_other": "Avant la mise à jour : {{count}} bouteilles, {{state}}.",
+      "before_box_one": "Avant la mise à jour : {{count}} boîte, {{state}}.",
+      "before_box_other": "Avant la mise à jour : {{count}} boîtes, {{state}}.",
+      "before_cigar_one": "Avant la mise à jour : {{count}} cigare, {{state}}.",
+      "before_cigar_other": "Avant la mise à jour : {{count}} cigares, {{state}}.",
+      "state_opened_bottle": "entamée",
+      "state_finished_bottle": "finie",
+      "state_opened_box": "entamée",
+      "state_finished_box": "finie",
+      "state_opened_cigar": "entamé",
+      "state_finished_cigar": "fumé",
+      "split_opened_bottle_one": "{{count}} entamée",
+      "split_opened_bottle_other": "{{count}} entamées",
+      "split_finished_bottle_one": "{{count}} bue",
+      "split_finished_bottle_other": "{{count}} bues",
+      "split_opened_box_one": "{{count}} boîte entamée",
+      "split_opened_box_other": "{{count}} boîtes entamées",
+      "split_finished_box_one": "{{count}} boîte finie",
+      "split_finished_box_other": "{{count}} boîtes finies",
+      "split_opened_cigar_one": "{{count}} entamé",
+      "split_opened_cigar_other": "{{count}} entamés",
+      "split_finished_cigar_one": "{{count}} fumé",
+      "split_finished_cigar_other": "{{count}} fumés",
+      "counted_bottle_one": "Glou a compté {{split}} + {{count}} pleine.",
+      "counted_bottle_other": "Glou a compté {{split}} + {{count}} pleines.",
+      "counted_box_one": "Glou a compté {{split}} + {{count}} boîte fermée.",
+      "counted_box_other": "Glou a compté {{split}} + {{count}} boîtes fermées.",
+      "counted_cigar_one": "Glou a compté {{split}} + {{count}} cigare.",
+      "counted_cigar_other": "Glou a compté {{split}} + {{count}} cigares.",
+      "guessed": "Glou a deviné ce nombre pendant la mise à jour.",
+      "ok": "C'est bon",
+      "correct": "Corriger le nombre",
+      "confirmed": "Nombre confirmé."
+    },
+    "errors": {
+      "load": "Impossible de charger les points à vérifier.",
+      "changed": "Ce cas a changé entre-temps : la liste est mise à jour.",
+      "offline": "Regrouper ou confirmer demande une connexion.",
+      "failed": "L'action n'a pas abouti. Réessayez."
     }
   }
 }
