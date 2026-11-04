@@ -2447,6 +2447,34 @@
       "offline": "Adding bottles needs a connection."
     }
   },
+  "openDrink": {
+    "actions": {
+      "open": "I'm opening one",
+      "drink": "I'm drinking one",
+      "smoke": "I'm smoking one"
+    },
+    "which": {
+      "title": "Which bottles?",
+      "titleCigar": "Which ones?",
+      "reason": {
+        "cellar": "In the cellar shown",
+        "oldest": "Bought first",
+        "cheapest": "The cheapest",
+        "largest": "The largest line"
+      },
+      "reasonCigar": {
+        "cellar": "In the cellar shown",
+        "oldest": "Bought first",
+        "cheapest": "The cheapest",
+        "largest": "The largest line"
+      }
+    },
+    "done": {
+      "open": "1 bottle opened",
+      "drink": "1 bottle drunk",
+      "smoke": "1 cigar smoked"
+    }
+  },
   "review": {
     "title": "To check after the update",
     "intro": "What Glou could not settle on its own during the update. A point settled by one member disappears for everyone.",

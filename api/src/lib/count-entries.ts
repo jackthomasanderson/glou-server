@@ -44,6 +44,10 @@ export async function moveCountEntry(
  * A copy left group `groupId` during an open count (opened, drunk): the
  * group's number found can no longer exceed what it holds (no false surplus),
  * and an opened copy still on the shelf counted is not reported missing.
+ * An opened copy was one of those found on its group (it is taken from the
+ * shelf): the group's number found loses one and the opened copy is counted
+ * on its own line, so the total found stays the same — 4 found out of 6, one
+ * opened, is 3 + 1 found and still 2 missing (final review of I1/I2).
  */
 export async function followDetach(
   tx: PrismaClientOrTx,
@@ -51,11 +55,18 @@ export async function followDetach(
   quantity: number,
   sub: { id: string; cellarId: string | null; finished: boolean },
 ): Promise<void> {
+  const session = !sub.finished && sub.cellarId
+    ? await tx.inventoryCountSession.findFirst({ where: { ...OPEN_SESSION, cellarId: sub.cellarId }, select: { id: true } })
+    : null;
+  if (session) {
+    await tx.inventoryCountEntry.updateMany({
+      where: { itemId: groupId, sessionId: session.id, foundQuantity: { gt: 0 } },
+      data: { foundQuantity: { decrement: 1 } },
+    });
+  }
   await tx.inventoryCountEntry.updateMany({
     where: { itemId: groupId, foundQuantity: { gt: quantity }, session: OPEN_SESSION },
     data: { foundQuantity: quantity },
   });
-  if (sub.finished || !sub.cellarId) return;
-  const session = await tx.inventoryCountSession.findFirst({ where: { ...OPEN_SESSION, cellarId: sub.cellarId }, select: { id: true } });
   if (session) await tx.inventoryCountEntry.create({ data: { sessionId: session.id, itemId: sub.id, status: 'confirmed' } });
 }

@@ -745,6 +745,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         productId={viewingProductId}
         onClose={() => setViewingProductId(null)}
         onEdit={handleEditFromDrawer}
+        // FEAT-104 c3: "Quelles bouteilles ?" preselects the line of the cellars filtered on.
+        viewedCellarIds={selectedCellars}
         // #471 (FEAT-92 c2, FEAT-101 c3, FEAT-95): "Ajouter des bouteilles" / "Ajouter des cigares".
         primaryAction={(product) => <AddUnitsAction product={product} />}
       />
