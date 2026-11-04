@@ -46,6 +46,8 @@ export interface TastingNote {
   item?: TastingItemSummary | null;
   productId?: string | null;
   product?: TastingProductSummary | null;
+  /** #471 (FEAT-109): noted through a guest link — the guest's name ('' when the share named nobody). */
+  guestName?: string | null;
   tastedAt: string;
   context?: string | null;
   rating?: number | null;

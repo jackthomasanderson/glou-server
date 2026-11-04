@@ -15,7 +15,7 @@ import {
   type FlatItemView,
 } from '../lib/product-fields';
 import {
-  applyState, isStateField, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
+  applyState, isStateField, planState, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
 } from './stock-state.service';
 import { writeFamilyDescription } from './product.service';
 import { rememberDistinct } from './review.service';
@@ -337,6 +337,13 @@ export class InventoryService {
        * the rollback would be a no-op. Never set this from a route handler.
        */
       bypassFieldLock?: boolean;
+      /**
+       * #471 (FEAT-109): a check of the write against the unit as read under
+       * its family's lock, with the outcome the detach rule plans for it —
+       * the guest route refuses there what would change a number. Throws an
+       * AppError to refuse; nothing is written then.
+       */
+      guard?: (unit: StateItem, planned: () => StateOutcome) => void;
     },
   ): Promise<UpdateItemResult | null> {
     const { fieldSources, isManualEdit = true, bypassFieldLock = false } = options ?? {};
@@ -456,6 +463,8 @@ export class InventoryService {
         const fresh = await tx.inventoryItem.findUnique({ where: { id } });
         if (!fresh || fresh.deletedAt) return null;
         if (isStale(fresh.updatedAt)) return { conflict: true as const };
+        options?.guard?.(fresh as StateItem, () =>
+          planState(fresh as StateItem, { unit, state, smokeOne, keepTastings }, unitKind(safePatch.category ?? row.product.category)).outcome);
         // Also when the patch holds no family field: the derived alert may
         // need realigning, and that is decided on the locked family (#706
         // window check included — a ZodError, answered with 400).
@@ -475,9 +484,12 @@ export class InventoryService {
           await tx.tastingNote.updateMany({ where: { id: tastingId, itemId: id }, data: { itemId: result.data.id } });
         }
         // A whole group made identical to another one by this edit joins it
-        // (design.md rule 4): the answer is then that group (D8).
-        const regroups = result.outcome === 'updated'
-          && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field]));
+        // (design.md rule 4): the answer is then that group (D8). So does a
+        // copy put back intact that became a line of its own (its line of
+        // origin finished or gone meanwhile): two « Annuler » in either order
+        // end as one line, never two identical ones side by side.
+        const regroups = result.outcome === 'regrouped' || (result.outcome === 'updated'
+          && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field])));
         const joined = regroups ? await joinIdenticalGroup(tx, result.data, kind, userId) : null;
         if (!joined) return { result, fresh: fresh as StateItem, joined: null };
         const survivor = await tx.inventoryItem.findUniqueOrThrow({ where: { id: joined.survivorId }, include: INVENTORY_ITEM_INCLUDE });

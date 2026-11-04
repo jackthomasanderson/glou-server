@@ -44,7 +44,7 @@ const PRESETS = [
  * focus would be lost): a level chosen meanwhile waits and is sent next, the
  * last one only. A refused save puts the slider back on the saved level.
  */
-function OpenedLevel({ item, t, onCommit }: {
+export function OpenedLevel({ item, t, onCommit }: {
   item: ProductItem;
   t: LineContext['t'];
   onCommit: (level: number) => Promise<unknown>;

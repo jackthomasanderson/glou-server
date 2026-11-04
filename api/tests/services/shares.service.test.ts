@@ -15,12 +15,16 @@ vi.mock('../../src/lib/prisma', () => ({
     },
     cellar: {
       count: vi.fn(),
+      findMany: vi.fn(),
     },
     collection: {
       count: vi.fn(),
     },
     user: {
       findUnique: vi.fn(),
+    },
+    auditLog: {
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -241,6 +245,9 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     expect(call.select.purchasePrice).toBe(false);
     expect(call.select.purchasePlace).toBe(false);
     expect(call.select.estimatedValue).toBe(false);
+    // #471 (FEAT-109): the purchase day is purchase information, hidden with the prices.
+    expect(call.select.purchasedAt).toBe(false);
+    expect(call.select.openedAt).toBe(true);
   });
 
   it('includes notes and price fields when hidePrices/hideNotes are false', async () => {
@@ -253,6 +260,7 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> };
     expect(call.select.notes).toBe(true);
     expect(call.select.purchasePrice).toBe(true);
+    expect(call.select.purchasedAt).toBe(true);
   });
 
   it('scopes to the declared cellarIds/collectionIds, not to the creating user (shared-inventory invariant)', async () => {
@@ -406,5 +414,43 @@ describe('guest showcase excludes non-owned references (FEAT-87)', () => {
     // A bottle the guest just finished is still returned to them (guest.router
     // re-reads it after the write); a written-off one is gone (#471).
     expect(call.where).toEqual({ id: 'i1', deletedAt: null, writtenOffAt: null, isOwned: true });
+  });
+});
+
+// #471 (FEAT-109): the guest's lines say where a bottle is — only the share's cellars.
+describe('sharesService.getCellarsForShare', () => {
+  it('names only the cellars of the share', async () => {
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([{ id: 'c1', name: 'Garage' }] as never);
+
+    expect(await sharesService.getCellarsForShare({ cellarIds: ['c1'] })).toEqual([{ id: 'c1', name: 'Garage' }]);
+    expect(prisma.cellar.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: { in: ['c1'] } }, select: { id: true, name: true },
+    }));
+  });
+
+  it('names none for a share by collection only', async () => {
+    expect(await sharesService.getCellarsForShare({ cellarIds: [] })).toEqual([]);
+    expect(prisma.cellar.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// Decision #471 point 68: what a guest's "Annuler" is checked against.
+describe('sharesService.findLatestGuestMove', () => {
+  it('reads the latest successful guest write on the unit within the window, with its marker', async () => {
+    const createdAt = new Date('2030-06-15T11:59:50.000Z');
+    const undo = { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, stampedAt: '2030-06-15T11:59:50.000Z' };
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({ createdAt, details: { shareId: 's1', undo } } as never);
+    const since = new Date('2030-06-15T11:59:00.000Z');
+
+    expect(await sharesService.findLatestGuestMove('sub', since)).toEqual({ shareId: 's1', createdAt, undo });
+    expect(prisma.auditLog.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { bottleId: 'sub', action: 'GUEST_UPDATE', status: 'success', createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+    }));
+  });
+
+  it('gives no marker for a write that was not a move (a level set)', async () => {
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({ createdAt: NOW, details: { shareId: 's1' } } as never);
+    expect((await sharesService.findLatestGuestMove('sub', NOW))?.undo).toBeNull();
   });
 });

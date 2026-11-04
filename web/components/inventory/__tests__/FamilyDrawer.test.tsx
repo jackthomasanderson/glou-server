@@ -155,6 +155,27 @@ describe('FamilyDrawer', () => {
     expect(entry).toHaveTextContent('À point');
   });
 
+  // #471 (FEAT-109 c3, decision point 64): a guest's tasting is signed with the guest's name.
+  it('a tasting noted by a guest is signed "Marie (invité)", or "Invité" without a name', () => {
+    detail = detailOf({
+      items: [unit({ id: 'b1', quantity: 2, cellarId: 'garage' })],
+      tastings: [
+        tasting({ id: 't1', itemId: 'b1', guestName: 'Marie' }),
+        tasting({ id: 't2', guestName: '' }),
+        tasting({ id: 't3' }),
+      ],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const [named, anonymous, member] = within(screen.getByTestId('family-tastings')).getAllByRole('listitem');
+    // On the bottle the guest drank: which one, then who.
+    expect(named).toHaveTextContent(/Garage.* · Marie \(invité\)/);
+    // Without a bottle, a guest's tasting is not "tasted elsewhere".
+    expect(anonymous).toHaveTextContent('Invité');
+    expect(anonymous).not.toHaveTextContent('Goûté ailleurs');
+    expect(member).toHaveTextContent('Goûté ailleurs');
+    expect(member).not.toHaveTextContent('nvité');
+  });
+
   it('"Modifier" hands the wine over for its description', () => {
     detail = detailOf({ items: [unit({ quantity: 9 })] });
     const onEdit = vi.fn();
