@@ -2382,7 +2382,8 @@
       "correct_quantity": "Number corrected",
       "numberChange": "{{what}}: {{from}} → {{to}}",
       "merge_products": "Wines merged",
-      "review_ok": "Number checked"
+      "review_ok": "Number checked",
+      "merge_products_cigar": "References merged"
     },
     "loadError": "This wine could not be loaded.",
     "form": {
@@ -2458,10 +2459,9 @@
     "bannerLater": "Later",
     "merges": {
       "title": "Merge?",
-      "hint": "Wines of the same name kept apart because their descriptions contradicted each other. For each field, tick the value to keep: the most recent record is ticked in advance.",
-      "family": "Record {{number}}",
+      "hint": "Wines of the same name kept apart because their descriptions contradicted each other. For each field, tick the value to keep: the most recent wine is ticked in advance.",
       "addedOn": "added on {{date}}",
-      "noDisagreement": "No field in disagreement: these records describe the same wine.",
+      "noDisagreement": "No field in disagreement: nothing to choose before merging.",
       "disagreement": "In disagreement",
       "choose": "Value to keep for “{{field}}”",
       "merge": "Merge",
@@ -2477,11 +2477,13 @@
         "notes": "“{{name}}” is merged. Its notes exceed 2,000 characters: shorten them before editing its description.",
         "tags": "“{{name}}” is merged. It has more than 20 tags: remove some before editing its description.",
         "both": "“{{name}}” is merged. Its notes exceed 2,000 characters and it has more than 20 tags: shorten them before editing its description."
-      }
+      },
+      "family_bottle": "Wine {{number}}",
+      "family_cigar": "Reference {{number}}"
     },
     "counts": {
       "title": "Numbers to check",
-      "hint": "Old records, opened or finished, that counted several bottles, which Glou split as best it could.",
+      "hint": "Old opened or finished entries that counted several bottles, which Glou split as best it could.",
       "before_bottle_one": "Before the update: {{count}} bottle, {{state}}.",
       "before_bottle_other": "Before the update: {{count}} bottles, {{state}}.",
       "before_box_one": "Before the update: {{count}} box, {{state}}.",

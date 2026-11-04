@@ -956,6 +956,17 @@ describe('InventoryService', () => {
       expect(update).not.toHaveBeenCalled();
     });
 
+    it('never marks a number "to check" again from the history ("C\'est bon" is settled)', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ quantity: 6 }) as never);
+      vi.spyOn(service, 'getItemHistory').mockResolvedValue([
+        entry({ action: 'REVIEW_OK', changes: [{ field: 'needsReview', from: true, to: false }] }),
+      ] as never);
+      const update = vi.spyOn(service, 'updateItem');
+
+      expect(await service.rollbackField('u1', 'b1', 'needsReview', true)).toEqual({ status: 'invalid_value' });
+      expect(update).not.toHaveBeenCalled();
+    });
+
     it('still restores a value of the line\'s own history', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ quantity: 6 }) as never);
       vi.spyOn(service, 'getItemHistory').mockResolvedValue([entry({ absorbed: true }), entry({ id: 2 })] as never);

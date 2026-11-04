@@ -35,8 +35,10 @@ vi.mock('@heroui/react', async (importOriginal) => ({
 import { ReviewScreen } from '../ReviewScreen';
 
 /** Two families of "Cuvée X 2020" apart for their region only: 3 + 5 bottles. */
-const bordeaux = product({ id: 'p1', region: 'Bordeaux', items: [unit({ quantity: 3, productId: 'p1' })], createdAt: '2026-01-01T00:00:00.000Z' });
-const graves = product({ id: 'p2', region: 'Graves', items: [unit({ quantity: 5, productId: 'p2' })], createdAt: '2026-02-01T00:00:00.000Z' });
+const bordeaux = product({ id: 'p1', region: 'Bordeaux', items: [unit({ quantity: 3, productId: 'p1' })], createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-03-01T00:00:00.000Z' });
+const graves = product({ id: 'p2', region: 'Graves', items: [unit({ quantity: 5, productId: 'p2' })], createdAt: '2026-02-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z' });
+/** The versions of the two wines as shown: sent with the merge (409 if one changed). */
+const SEEN = { p1: '2026-03-01T00:00:00.000Z', p2: '2026-09-01T00:00:00.000Z' };
 const mergeCase = (over: Partial<ReviewCases['merges'][number]> = {}): ReviewCases['merges'][number] => ({
   products: [bordeaux, graves],
   disagreements: [{
@@ -100,9 +102,11 @@ describe('ReviewScreen — À regrouper ? (FEAT-102 c1-c3)', () => {
 
     expect(within(card).getByRole('heading', { name: 'Cuvée X 2020' })).toBeInTheDocument();
     expect(within(card).getAllByTestId('review-merge-family').map((family) => family.textContent)).toEqual([
-      expect.stringContaining('3 bouteilles'),
-      expect.stringContaining('5 bouteilles'),
+      expect.stringMatching(/^Vin 1.*3 bouteilles/),
+      expect.stringMatching(/^Vin 2.*5 bouteilles/),
     ]);
+    // The glossary: never « fiche » on screen.
+    expect(card.textContent).not.toMatch(/fiche/i);
     expect(within(card).getAllByRole('radiogroup')).toHaveLength(1);
     // Said in words, not by colour only.
     expect(within(card).getByText('Région')).toBeInTheDocument();
@@ -125,7 +129,7 @@ describe('ReviewScreen — À regrouper ? (FEAT-102 c1-c3)', () => {
 
     await waitFor(() => expect(toast.notifySuccess).toHaveBeenCalledWith('review.merges.done'));
     expect(t('review.merges.done')).toBe('Regroupé');
-    expect(posts()).toEqual([{ url: '/api/products/merge', method: 'POST', body: { productIds: ['p1', 'p2'], choices: { region: 'p1' } } }]);
+    expect(posts()).toEqual([{ url: '/api/products/merge', method: 'POST', body: { productIds: ['p1', 'p2'], choices: { region: 'p1' }, expectedUpdatedAt: SEEN } }]);
     // The case leaves the screen at once; nothing offers to undo it.
     await waitFor(() => expect(screen.queryByTestId('review-merge-case')).toBeNull());
     expect(screen.queryByRole('button', { name: 'Annuler' })).toBeNull();
@@ -138,7 +142,7 @@ describe('ReviewScreen — À regrouper ? (FEAT-102 c1-c3)', () => {
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Regrouper' }));
 
     await waitFor(() => expect(posts()).toHaveLength(1));
-    expect(posts()[0].body).toEqual({ productIds: ['p1', 'p2'], choices: { region: 'p2' } });
+    expect(posts()[0].body).toEqual({ productIds: ['p1', 'p2'], choices: { region: 'p2' }, expectedUpdatedAt: SEEN });
   });
 
   it('says cigars in cigars, and references for the wines', async () => {
@@ -151,6 +155,7 @@ describe('ReviewScreen — À regrouper ? (FEAT-102 c1-c3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Regrouper' }));
 
     expect(screen.getByRole('dialog')).toHaveTextContent('Regrouper ces 2 références en 1, 50 cigares ? Cette action est définitive.');
+    expect(screen.getAllByTestId('review-merge-family')[0]).toHaveTextContent('Référence 1');
   });
 
   it('warns when the merged notes or tags exceed what the description form accepts', async () => {
@@ -165,8 +170,8 @@ describe('ReviewScreen — À regrouper ? (FEAT-102 c1-c3)', () => {
     );
   });
 
-  it('a case changed meanwhile is said, and the list read again', async () => {
-    answers['/api/products/merge'] = { status: 409, body: { error: 'DISTINCT_WINES' } };
+  it.each(['DISTINCT_WINES', 'CONFLICT'])('a case changed meanwhile (%s) is said, and the list read again', async (code) => {
+    answers['/api/products/merge'] = { status: 409, body: { error: code } };
     renderScreen();
     await screen.findByTestId('review-merge-case');
     const reads = () => requests.filter((request) => request.method === 'GET').length;
@@ -196,7 +201,7 @@ describe('ReviewScreen — À regrouper ? (FEAT-102 c1-c3)', () => {
     await screen.findByTestId('review-merge-case');
 
     expect(screen.queryByRole('radiogroup')).toBeNull();
-    expect(screen.getByText('Aucun champ en désaccord : ces fiches décrivent le même vin.')).toBeInTheDocument();
+    expect(screen.getByText('Aucun champ en désaccord : rien à choisir avant de regrouper.')).toBeInTheDocument();
   });
 });
 

@@ -26,6 +26,7 @@ export function useReviewCases(options?: { enabled?: boolean }) {
 
 /** Refusals of a review action said in words: the case changed meanwhile, the list is read again. */
 const REFUSALS: Record<string, string> = {
+  CONFLICT: 'review.errors.changed',
   DISTINCT_WINES: 'review.errors.changed',
   PRODUCT_NOT_FOUND: 'review.errors.changed',
   PRODUCT_IN_TRASH: 'review.errors.changed',

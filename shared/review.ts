@@ -243,6 +243,12 @@ export const MAX_REVIEW_FAMILIES = 20;
 export interface MergeRequest {
   productIds: string[];
   choices?: Partial<Record<ReviewField, string>>;
+  /**
+   * Each family's own `updatedAt` as the member saw it: one changed meanwhile
+   * (its description edited, another merge) refuses the merge (409
+   * `CONFLICT`) rather than merging values the member never saw.
+   */
+  expectedUpdatedAt?: Record<string, string>;
 }
 
 /**

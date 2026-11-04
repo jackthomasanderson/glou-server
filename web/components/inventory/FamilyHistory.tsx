@@ -71,6 +71,8 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
   const fieldLabel = (field: string) => historyFieldLabel(field, t);
   const actionLabel = (action: string) => {
     const key = action.toLowerCase();
+    // « Références regroupées » for cigars (the wine's own noun: no copy named).
+    if (key === 'merge_products') return t('familyDrawer.history.merge_products', { context: nounOf(null) === 'bottle' ? undefined : 'cigar' });
     return DRAWER_ACTIONS.has(key)
       ? t(`familyDrawer.history.${key}`)
       : t(`traceability.actions.${key}`);

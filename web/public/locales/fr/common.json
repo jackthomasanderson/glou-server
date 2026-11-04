@@ -2384,7 +2384,8 @@
       "correct_quantity": "Nombre corrigé",
       "numberChange": "{{what}} : {{from}} → {{to}}",
       "merge_products": "Vins regroupés",
-      "review_ok": "Nombre vérifié"
+      "review_ok": "Nombre vérifié",
+      "merge_products_cigar": "Références regroupées"
     },
     "loadError": "Impossible de charger ce vin.",
     "form": {
@@ -2460,10 +2461,9 @@
     "bannerLater": "Plus tard",
     "merges": {
       "title": "À regrouper ?",
-      "hint": "Vins de même nom restés séparés parce que leurs descriptions se contredisaient. Pour chaque champ, cochez la valeur à garder : la fiche la plus récente est cochée d'avance.",
-      "family": "Fiche {{number}}",
+      "hint": "Vins de même nom restés séparés parce que leurs descriptions se contredisaient. Pour chaque champ, cochez la valeur à garder : le vin le plus récent est coché d'avance.",
       "addedOn": "ajoutée le {{date}}",
-      "noDisagreement": "Aucun champ en désaccord : ces fiches décrivent le même vin.",
+      "noDisagreement": "Aucun champ en désaccord : rien à choisir avant de regrouper.",
       "disagreement": "En désaccord",
       "choose": "Valeur à garder pour « {{field}} »",
       "merge": "Regrouper",
@@ -2479,7 +2479,9 @@
         "notes": "« {{name}} » est regroupé. Ses notes dépassent 2 000 caractères : raccourcissez-les avant de modifier sa description.",
         "tags": "« {{name}} » est regroupé. Il a plus de 20 étiquettes : retirez-en avant de modifier sa description.",
         "both": "« {{name}} » est regroupé. Ses notes dépassent 2 000 caractères et il a plus de 20 étiquettes : raccourcissez-les avant de modifier sa description."
-      }
+      },
+      "family_bottle": "Vin {{number}}",
+      "family_cigar": "Référence {{number}}"
     },
     "counts": {
       "title": "Nombres à vérifier",

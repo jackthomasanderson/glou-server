@@ -602,7 +602,14 @@ describe('applyState — reattach (FEAT-106)', () => {
 
     await apply(db, subId, { state: { isOpened: false, fillLevel: 100 } });
 
-    expect(db.audits[0].bottleId).toBe('g');
+    // The history follows the group, marked as recorded on the opened bottle:
+    // never restored onto the whole group (e.g. its cellar after a move).
+    const history = (db.raw.$executeRaw.mock.calls as unknown as [string[], ...unknown[]][])
+      .map(([strings, ...values]) => ({ sql: strings.join('?'), values }))
+      .find((call) => call.sql.includes('UPDATE "audit_logs" SET "bottleId"'));
+    expect(history?.sql).toContain(`jsonb_build_object('absorbedFrom', coalesce("details"->>'absorbedFrom', "bottleId"))`);
+    expect(history?.values[0]).toBe('g');
+    expect((history?.values[1] as { values: unknown[] }).values).toEqual([subId]);
     expect(db.wishlist[0].acquiredItemId).toBe('g');
     // FEAT-100 (D15): the entry keeps the number it found — one bottle,
     // never "the whole group" — and where the group is counted already the

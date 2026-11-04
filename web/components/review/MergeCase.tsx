@@ -37,12 +37,13 @@ export function MergeCase({ merge, onMerged }: MergeCaseProps) {
   const productIds = merge.products.map((product) => product.id);
   const name = wineName(merge.products[0]);
   const busy = mergeMutation.isPending || keepApart.isPending;
-  // The families are numbered as shown, oldest first: "Fiche 1", "Fiche 2".
+  // The wines are numbered as shown, oldest first: "Vin 1", "Vin 2" ("Référence 1" for cigars).
   const ordinal = (productId: string) => productIds.indexOf(productId) + 1;
 
   const confirm = () => {
     mergeMutation.mutate(
-      { productIds, choices },
+      // The versions seen: a wine changed meanwhile refuses the merge (409), the list is read again.
+      { productIds, choices, expectedUpdatedAt: Object.fromEntries(merge.products.map((product) => [product.id, product.updatedAt])) },
       {
         onSuccess: (answer) => {
           setConfirming(false);
@@ -70,7 +71,7 @@ export function MergeCase({ merge, onMerged }: MergeCaseProps) {
       <ul className="grid gap-2 sm:grid-cols-2">
         {merge.products.map((product, index) => (
           <li key={product.id} className="rounded-lg bg-default-100 px-3 py-2 text-sm" data-testid="review-merge-family">
-            <p className="font-medium">{t('review.merges.family', { number: index + 1 })}</p>
+            <p className="font-medium">{t('review.merges.family', { context: kind, number: index + 1 })}</p>
             <p className="text-foreground-500">{describeStock(product, t).spoken}</p>
             <p className="text-xs text-foreground-400">
               {t('review.merges.addedOn', { date: formatDate(product.createdAt, lang, { day: 'numeric', month: 'short', year: 'numeric' }) })}
@@ -107,7 +108,7 @@ export function MergeCase({ merge, onMerged }: MergeCaseProps) {
                   <Radio
                     key={productId}
                     value={productId}
-                    description={t('review.merges.family', { number: ordinal(productId) })}
+                    description={t('review.merges.family', { context: kind, number: ordinal(productId) })}
                     classNames={{ base: 'max-w-none mr-4' }}
                   >
                     {reviewValueLabel(field, value, t, { lang })}

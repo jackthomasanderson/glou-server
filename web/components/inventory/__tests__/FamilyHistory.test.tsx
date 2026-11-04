@@ -133,6 +133,21 @@ describe('FamilyHistory — review after the update (#471, FEAT-102)', () => {
     expect(restoreButtons()).toHaveLength(1);
   });
 
+  it('says « Références regroupées » for cigars', () => {
+    render(
+      <FamilyHistory
+        productId="p1"
+        productUpdatedAt="2026-10-30T10:00:00.000Z"
+        history={[entry({ action: 'MERGE_PRODUCTS', changes: [] })]}
+        itemIds={new Set()}
+        cellarName={() => undefined}
+        nounOf={() => 'cigar'}
+      />,
+    );
+
+    expect(screen.getByTestId('family-history')).toHaveTextContent('Références regroupées');
+  });
+
   it('says "Nombre vérifié" for "C\'est bon", with nothing to restore', () => {
     renderHistory([entry({ action: 'REVIEW_OK', itemId: 'b1', changes: [{ field: 'needsReview', from: true, to: false }] })]);
 

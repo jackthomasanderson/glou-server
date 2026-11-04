@@ -563,6 +563,8 @@ export class InventoryService {
       where: { id: itemId, deletedAt: null },
     });
     if (!existing) return { status: 'not_found' };
+    // #471 (FEAT-102): a guessed number is settled by "C'est bon" or "Corriger le nombre", never marked again from the history.
+    if (field === 'needsReview') return { status: 'invalid_value' };
 
     const history = await this.getItemHistory(itemId);
     const seenValues = new Set<string>();

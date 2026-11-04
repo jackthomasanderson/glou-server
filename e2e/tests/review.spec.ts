@@ -197,6 +197,13 @@ test.describe('review after the update (#471, FEAT-102)', () => {
     await expect.poll(async () => (await okData<Detail>(await api.get(`/api/products/${absorbed.productId}`))).history
       .some((entry) => entry.changes?.some((change) => change.field === 'purchasePlace'))).toBe(true);
 
+    // A version older than the wine's: the merge is refused, nothing written.
+    const stale = await api.post('/api/products/merge', {
+      data: { productIds: [kept.productId, absorbed.productId], expectedUpdatedAt: { [kept.productId]: '2000-01-01T00:00:00.000Z' } },
+    });
+    expect(stale.status()).toBe(409);
+    expect((await stale.json()).error).toBe('CONFLICT');
+
     const merged = await okData<Family>(await api.post('/api/products/merge', { data: { productIds: [kept.productId, absorbed.productId] } }));
     expect(merged.id).toBe(kept.productId);
 
