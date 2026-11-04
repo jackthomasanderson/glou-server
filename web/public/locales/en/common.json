@@ -1517,7 +1517,7 @@
   },
   "shares": {
     "title": "Guest Shares",
-    "subtitle": "Share a read-only view of your cellar with friends or experts.",
+    "subtitle": "Share your cellar with friends through a link. By default they can only browse it; cellar by cellar, you can allow them to open, drink or smoke and to note their tastings.",
     "create": "New share",
     "empty": "No shares created",
     "emptyHint": "Create a share link to invite someone to browse your cellar.",
@@ -1552,16 +1552,14 @@
       "scope": "Visible scope",
       "selectCellars": "Specific cellars",
       "selectCollections": "Specific collections",
-      "readOnly": "Read-only",
-      "readWrite": "Read/write",
-      "cellarWriteAccessAria": "Read/write access for cellar {{name}}",
       "durations": {
         "1d": "24 hours",
         "7d": "7 days",
         "30d": "30 days",
         "custom": "Custom date",
         "unlimited": "Unlimited"
-      }
+      },
+      "allowWrite": "Allow opening, drinking or smoking"
     },
     "errors": {
       "load": "Unable to load shares."
@@ -1595,6 +1593,10 @@
       "signature": {
         "named": "{{name}} (guest)",
         "anonymous": "Guest"
+      },
+      "drunk": {
+        "message": "You just drank a bottle of {{wine}}.",
+        "dismiss": "Hide this message"
       }
     }
   },
@@ -2587,7 +2589,10 @@
         "oldest": "Bought first",
         "cheapest": "The cheapest",
         "largest": "The largest line"
-      }
+      },
+      "boughtOn": "bought {{date}}",
+      "addedOn": "added {{date}}",
+      "lineNumber": "line {{number}}"
     },
     "done": {
       "open": "1 bottle opened",

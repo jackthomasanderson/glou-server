@@ -80,9 +80,16 @@ export interface GuestUndoMarker {
   stampedAt: string;
 }
 
-/** A move: one copy opened, drunk or smoked from a closed line, or a cigar smoked — not a level set. */
+/**
+ * A move: one copy opened, drunk or smoked from a closed line, a cigar
+ * smoked, or the opened bottle finished by « J'en bois une » (its payload,
+ * `isOpened: true, fillLevel: 0`, §10.4.2 step 1) — not a level set, even
+ * one to empty with the slider. Its "Annuler" puts the unit back as found:
+ * an opened bottle stays opened at its level, never closed (decision 69).
+ */
 export const isGuestMove = (patch: GuestInventoryUpdate, before: Pick<StateItem, 'isOpened' | 'fillLevel' | 'cigarsLeft'>) =>
-  patch.smokeOne === true || (isIntactItem(before) && patch.isOpened === true);
+  patch.smokeOne === true
+  || (patch.isOpened === true && (isIntactItem(before) || (patch.fillLevel === 0 && !isFinishedState(before))));
 
 export function stateBefore(unit: StateItem, keepSlot: boolean): GuestStateBefore {
   return {

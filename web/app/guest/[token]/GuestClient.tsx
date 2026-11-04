@@ -3,7 +3,7 @@
 import React, { use, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Chip, Input, Select, SelectItem, Spinner } from '@heroui/react';
-import { Eye, EyeOff, Lock } from 'lucide-react';
+import { Eye, EyeOff, GlassWater, Lock, NotebookPen, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { guestClient, GuestRequestError } from '@/lib/shares/client';
@@ -48,6 +48,11 @@ export function GuestPageContent({ token }: { token: string }) {
   // « Noter une dégustation »: held by the page, so it outlives the card of a
   // wine whose last bottle was just drunk (decision #471 point 70).
   const [tastingTarget, setTastingTarget] = useState<GuestTastingTarget | null>(null);
+  // The bottle just drunk: its tasting stays offered on the page after the
+  // 5-second message (recette #471: the message alone was missed, and the
+  // card of a last bottle is gone) — until noted, undone or dismissed.
+  const [drunk, setDrunk] = useState<GuestTastingTarget | null>(null);
+  const undone = (itemId: string) => setDrunk((current) => (current?.itemId === itemId ? null : current));
   const noteTasting = useMutation({
     mutationFn: (payload: GuestTastingPayload) => guestClient.createTasting(token, payload),
   });
@@ -61,6 +66,7 @@ export function GuestPageContent({ token }: { token: string }) {
     }
     notifySuccess('shares.guest.tasting.done');
     setTastingTarget(null);
+    if (target.itemId) undone(target.itemId);
   };
 
   // Only a server answer saying the link is unusable means "expired or revoked";
@@ -123,30 +129,58 @@ export function GuestPageContent({ token }: { token: string }) {
             {meta?.label ?? t('shares.guest.badge')}
           </h1>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Chip color="primary" variant="flat" size="sm">
-            {meta && meta.writeCellarIds.length > 0
-              ? t('shares.guest.partialWrite')
-              : t('shares.guest.readOnly')}
-          </Chip>
-          {meta?.hidePrices && (
-            <Chip color="warning" variant="flat" size="sm" startContent={<EyeOff size={10} />}>
-              {t('shares.guest.pricesHidden')}
-            </Chip>
-          )}
-          {meta?.hideNotes && (
-            <Chip color="warning" variant="flat" size="sm" startContent={<EyeOff size={10} />}>
-              {t('shares.guest.notesHidden')}
-            </Chip>
-          )}
-        </div>
       </div>
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-4 py-6">
-        {/* Scope subtitle */}
+        {/* Scope and access: below the bar, where the 5-second messages (top right) never cover them (recette #471) */}
         {meta && (
-          <p className="text-xs text-foreground-400 mb-4">{scopeLabel}</p>
+          <div className="flex flex-wrap items-center gap-2 mb-4" data-testid="guest-access">
+            <p className="text-xs text-foreground-400 mr-1">{scopeLabel}</p>
+            <Chip color="primary" variant="flat" size="sm">
+              {meta.writeCellarIds.length > 0 ? t('shares.guest.partialWrite') : t('shares.guest.readOnly')}
+            </Chip>
+            {meta.hidePrices && (
+              <Chip color="warning" variant="flat" size="sm" startContent={<EyeOff size={10} />}>
+                {t('shares.guest.pricesHidden')}
+              </Chip>
+            )}
+            {meta.hideNotes && (
+              <Chip color="warning" variant="flat" size="sm" startContent={<EyeOff size={10} />}>
+                {t('shares.guest.notesHidden')}
+              </Chip>
+            )}
+          </div>
+        )}
+
+        {/* The bottle just drunk: « Noter une dégustation » stays offered (decision #471 point 70) */}
+        {drunk && (
+          <div
+            role="status"
+            data-testid="guest-just-drunk"
+            className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/50 px-4 py-3"
+          >
+            <GlassWater size={16} className="text-primary shrink-0" aria-hidden />
+            <p className="text-sm flex-1 min-w-0">{t('shares.guest.drunk.message', { wine: drunk.wine })}</p>
+            <Button
+              size="sm"
+              color="primary"
+              data-testid="guest-just-drunk-tasting"
+              startContent={<NotebookPen size={15} />}
+              onPress={() => setTastingTarget(drunk)}
+            >
+              {t('shares.guest.tasting.action')}
+            </Button>
+            <Button
+              size="sm"
+              variant="light"
+              isIconOnly
+              aria-label={t('shares.guest.drunk.dismiss')}
+              onPress={() => setDrunk(null)}
+            >
+              <X size={15} />
+            </Button>
+          </div>
         )}
 
         {/* Loading */}
@@ -197,6 +231,8 @@ export function GuestPageContent({ token }: { token: string }) {
                 meta={meta}
                 onNoteTasting={setTastingTarget}
                 onLinkGone={linkGone}
+                onDrunk={setDrunk}
+                onUndone={undone}
               />
             ))}
           </div>

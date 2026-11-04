@@ -1519,7 +1519,7 @@
   },
   "shares": {
     "title": "Partages invités",
-    "subtitle": "Partagez une vue en lecture seule de votre cave avec vos proches.",
+    "subtitle": "Partagez votre cave avec vos proches par un lien. Par défaut, ils la consultent sans rien modifier ; cave par cave, vous pouvez les autoriser à ouvrir, boire ou fumer et à noter leurs dégustations.",
     "create": "Nouveau partage",
     "empty": "Aucun partage créé",
     "emptyHint": "Créez un lien de partage pour inviter quelqu'un à consulter votre cave.",
@@ -1554,16 +1554,14 @@
       "scope": "Périmètre visible",
       "selectCellars": "Caves spécifiques",
       "selectCollections": "Collections spécifiques",
-      "readOnly": "Lecture seule",
-      "readWrite": "Lecture/écriture",
-      "cellarWriteAccessAria": "Accès en lecture/écriture pour la cave {{name}}",
       "durations": {
         "1d": "24 heures",
         "7d": "7 jours",
         "30d": "30 jours",
         "custom": "Date personnalisée",
         "unlimited": "Illimité"
-      }
+      },
+      "allowWrite": "Autoriser à ouvrir, boire ou fumer"
     },
     "errors": {
       "load": "Impossible de charger les partages."
@@ -1597,6 +1595,10 @@
       "signature": {
         "named": "{{name}} (invité)",
         "anonymous": "Invité"
+      },
+      "drunk": {
+        "message": "Vous venez de boire une bouteille de {{wine}}.",
+        "dismiss": "Masquer ce message"
       }
     }
   },
@@ -2589,7 +2591,10 @@
         "oldest": "Achetés en premier",
         "cheapest": "Les moins chers",
         "largest": "La ligne la plus nombreuse"
-      }
+      },
+      "boughtOn": "achat du {{date}}",
+      "addedOn": "ajout du {{date}}",
+      "lineNumber": "ligne {{number}}"
     },
     "done": {
       "open": "1 bouteille ouverte",
