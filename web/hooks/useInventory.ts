@@ -154,6 +154,7 @@ function cachedCategory(queryClient: ReturnType<typeof useQueryClient>, id: stri
   return (
     queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY)?.find((item) => item.id === id) ??
     queryClient.getQueryData<InventoryItem>(['inventory', id]) ??
+    queryClient.getQueryData<InventoryItem[]>(TRASH_KEY)?.find((item) => item.id === id) ??
     unitOfWines(queryClient, id)
   )?.category;
 }

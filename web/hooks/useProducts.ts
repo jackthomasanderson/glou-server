@@ -143,8 +143,11 @@ async function knownWine(queryClient: ReturnType<typeof useQueryClient>, id: str
  * FEAT-112: a wine's messages name what it is (« ce vin », « ce spiritueux »,
  * « ce cigare »), read from the cached list; the wine wording by default.
  */
-function productCtx(queryClient: ReturnType<typeof useQueryClient>, id: string): { context: string } | undefined {
-  const category = queryClient.getQueryData<Product[]>(PRODUCTS_KEY)?.find((product) => product.id === id)?.category;
+function productCtx(queryClient: ReturnType<typeof useQueryClient>, id: string, known?: string): { context: string } | undefined {
+  // A wine in the trash has left the list: its category is read from the trash too.
+  const category = known
+    ?? queryClient.getQueryData<Product[]>(PRODUCTS_KEY)?.find((product) => product.id === id)?.category
+    ?? queryClient.getQueryData<TrashedProduct[]>(['inventory', 'products-trash'])?.find((product) => product.id === id)?.category;
   return category === 'cigar' || category === 'spirit' ? { context: category } : undefined;
 }
 
@@ -178,7 +181,7 @@ export function useRestoreProduct() {
   const queryClient = useQueryClient();
   return useMutation<Product, Error, string>({
     mutationFn: productsClient.restore,
-    onSuccess: (product) => notifySuccess('toast.product.restoreSuccess', productCtx(queryClient, product.id)),
+    onSuccess: (product) => notifySuccess('toast.product.restoreSuccess', productCtx(queryClient, product.id, product.category)),
     onError: (_error, id) => notifyError('toast.product.restoreError', productCtx(queryClient, id)),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });

@@ -362,10 +362,6 @@
   "toast": {
     "createSuccess": "Bouteille ajoutée avec succès",
     "createSuccess_cigar": "Cigare ajouté avec succès",
-    "updateSuccess": "Bouteille mise à jour",
-    "updateSuccess_cigar": "Cigare mis à jour",
-    "deleteSuccess": "Bouteille déplacée dans la corbeille",
-    "deleteSuccess_cigar": "Cigare déplacé dans la corbeille",
     "restoreSuccess": "Bouteille restaurée",
     "restoreSuccess_cigar": "Cigare restauré",
     "createError": "Impossible d'ajouter la bouteille",
@@ -959,8 +955,8 @@
     "selected_one": "{{count}} sélectionné",
     "selected_other": "{{count}} sélectionnés",
     "title": "Actions groupées",
-    "subtitle_one": "Modifier {{count}} vin",
-    "subtitle_other": "Modifier {{count}} vins simultanément",
+    "subtitle_one": "Modifier {{count}} bouteille",
+    "subtitle_other": "Modifier {{count}} bouteilles simultanément",
     "fieldsToUpdate": "Champs à modifier",
     "preview": "Récapitulatif des changements",
     "mixed": "(Valeurs multiples)",
@@ -981,7 +977,7 @@
       "QUANTITY_TOO_LARGE": "Une ligne de cette cave dépasserait 1 000 bouteilles. Rien n'a été modifié.",
       "CELLAR_NOT_FOUND": "Cette cave n'existe plus. Rien n'a été modifié."
     },
-    "partHint": "Pour une partie seulement d'un vin, passez par sa fiche.",
+    "partHint": "Pour une partie seulement d'un vin, ouvrez-le.",
     "move": {
       "action": "Déplacer",
       "title": "Déplacer vers une cave",
@@ -1386,17 +1382,17 @@
         "regionAny": "Toutes les régions"
       },
       "list": {
-        "title": "Bouteilles de la région sélectionnée",
-        "titleAll": "Bouteilles correspondant aux filtres",
-        "empty": "Aucune bouteille ne correspond aux filtres sélectionnés.",
-        "itemCount_one": "{{count}} bouteille",
-        "itemCount_other": "{{count}} bouteilles"
+        "title": "Résultats de la région sélectionnée",
+        "titleAll": "Résultats correspondant aux filtres",
+        "empty": "Rien ne correspond aux filtres sélectionnés.",
+        "itemCount_one": "{{count}} résultat",
+        "itemCount_other": "{{count}} résultats"
       },
       "regionSelected": "Région sélectionnée : {{region}}"
     },
     "categories": {
       "title": "Répartition des catégories",
-      "active": "Bouteilles",
+      "active": "En stock",
       "wine": "Vins Rouges & Blancs",
       "sparkling": "Bulles & Champagnes",
       "spirit": "Spiritueux Fins",
@@ -1430,8 +1426,8 @@
       "atPeak": "À l'apogée (À consommer en priorité)",
       "pastPeak": "Apogée dépassé (À consommer d'urgence)",
       "noWindow": "Sans fenêtre de maturité renseignée",
-      "countLabel_one": "{{count}} bouteille ({{percent}}%)",
-      "countLabel_other": "{{count}} bouteilles ({{percent}}%)",
+      "countLabel_one": "{{count}} ({{percent}}%)",
+      "countLabel_other": "{{count}} ({{percent}}%)",
       "humidorTip": "Conseil de l'Humidor",
       "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70%. Évitez les chocs thermiques pour préserver la souplesse de la cape."
     },
@@ -1476,8 +1472,7 @@
   },
   "qr": {
     "localhostWarning": "Cette adresse (localhost) ne sera pas joignable depuis un autre appareil : le QR code ne fonctionnera pas sur un téléphone. Ouvrez Glou via l'adresse du serveur avant de l'imprimer.",
-    "title": "QR Code du vin",
-    "title_cigar": "QR Code du cigare",
+    "title": "QR Code",
     "download": "Télécharger PNG"
   },
   "gdpr": {
@@ -1486,7 +1481,7 @@
     "exportDescription": "Téléchargez une copie complète de vos données personnelles au format JSON (RGPD).",
     "exportButton": "Exporter",
     "csvTitle": "Exporter ma cave (CSV)",
-    "csvDescription": "Un tableau de ce qui est en cave et des bouteilles ou boîtes entamées, une ligne par groupe, avec la fiche du vin, que l'import de fichier relit. Ne sont pas dans le CSV : les photos, les dégustations, l'historique, les alertes, les cases du plan de cave et les bouteilles bues ou sorties (elles restent dans l'export JSON). L'import prend 500 lignes à la fois.",
+    "csvDescription": "Un tableau de ce qui est en cave et des bouteilles ou boîtes entamées, une ligne par groupe, avec la description du vin, que l'import de fichier relit. Ne sont pas dans le CSV : les photos, les dégustations, l'historique, les alertes, les cases du plan de cave et les bouteilles bues ou sorties (elles restent dans l'export JSON). L'import prend 500 lignes à la fois.",
     "csvButton": "Exporter en CSV",
     "csvTooLong_one": "Le fichier compte {{count}} ligne : l'import en prend {{max}} à la fois. Découpez-le avant de le réimporter ; à partir du 2e morceau, les vins déjà importés demandent « Ajouter ces bouteilles » (le choix par défaut est « Ignorer (déjà comptées) »).",
     "csvTooLong_other": "Le fichier compte {{count}} lignes : l'import en prend {{max}} à la fois. Découpez-le avant de le réimporter ; à partir du 2e morceau, les vins déjà importés demandent « Ajouter ces bouteilles » (le choix par défaut est « Ignorer (déjà comptées) »).",

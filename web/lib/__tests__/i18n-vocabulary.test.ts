@@ -21,18 +21,18 @@ function leaves(o: Record<string, unknown>, path = ''): [string, string][] {
 
 describe('vocabulary (FEAT-112)', () => {
   it('French never says « actif » outside the listed adjectival uses', () => {
-    const found = leaves(fr).filter(([key, value]) => /\bactifs?\b/i.test(value) && !(key in ADJECTIVAL_FR)).map(([key]) => key);
+    const found = leaves(fr).filter(([key, value]) => /(?<![\p{L}\p{N}])actifs?(?![\p{L}\p{N}])/iu.test(value) && !(key in ADJECTIVAL_FR)).map(([key]) => key);
     expect(found).toEqual([]);
   });
 
   it('English never says « asset »', () => {
-    expect(leaves(en).filter(([, value]) => /\bassets?\b/i.test(value)).map(([key]) => key)).toEqual([]);
+    expect(leaves(en).filter(([, value]) => /(?<![\p{L}\p{N}])assets?(?![\p{L}\p{N}])/iu.test(value)).map(([key]) => key)).toEqual([]);
   });
 
   it('every listed adjectival use still exists and still says « actif » (the list stays honest)', () => {
     const all = new Map(leaves(fr));
     for (const key of Object.keys(ADJECTIVAL_FR)) {
-      expect(all.get(key), key).toMatch(/\bactifs?\b/i);
+      expect(all.get(key), key).toMatch(/(?<![\p{L}\p{N}])actifs?(?![\p{L}\p{N}])/iu);
     }
   });
 
@@ -50,5 +50,14 @@ describe('vocabulary (FEAT-112)', () => {
     expect(i.t('inventoryCount.report.choice.drunk', { count: 2, context: 'cigar' })).toBe('Fumés');
     expect(i.t('inventoryCount.report.choice.drunk', { count: 1, context: 'cigar' })).toBe('Fumé');
     expect(i.t('inventoryCount.report.choice.written_off', { count: 2, context: 'box' })).toBe('Cassées / offertes / perdues');
+  });
+
+  it('totals that mix bottles and cigars use a neutral word, not "Bouteilles" (analytics)', () => {
+    expect(fr.analytics.categories.active).toBe('En stock');
+    expect(en.analytics.categories.active).toBe('In stock');
+    for (const bundle of [fr, en]) {
+      expect(bundle.analytics.maturity.countLabel_other).toBe('{{count}} ({{percent}}%)');
+      expect(JSON.stringify(bundle.analytics.map.list)).not.toMatch(/bouteille|bottle/i);
+    }
   });
 });

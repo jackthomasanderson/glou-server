@@ -188,20 +188,20 @@ export function AdminClient() {
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
-                    <Chip size="sm" variant="flat" radius="sm" color={u.isActive ? 'success' : 'default'}>
-                      {t(u.isActive ? 'admin.users.statusEnabled' : 'admin.users.statusDisabled')}
-                    </Chip>
-                    <Tooltip content={u.id === user.id ? t('admin.users.deactivateSelf') : u.isActive ? t('admin.users.deactivate') : t('admin.users.activate')} delay={500}>
-                      <Button
-                        isIconOnly size="sm" variant="light"
-                        color={u.isActive ? 'success' : 'default'}
-                        onPress={() => handleStatusToggle(u)}
-                        isDisabled={u.id === user.id}
-                        aria-label={u.id === user.id ? t('admin.users.deactivateSelf') : u.isActive ? t('admin.users.deactivate') : t('admin.users.activate')}
-                      >
-                        {u.isActive ? <CheckCircle size={16} /> : <Ban size={16} />}
-                      </Button>
-                    </Tooltip>
+                      <Chip size="sm" variant="flat" radius="sm" color={u.isActive ? 'success' : 'default'}>
+                        {t(u.isActive ? 'admin.users.statusEnabled' : 'admin.users.statusDisabled')}
+                      </Chip>
+                      <Tooltip content={u.id === user.id ? t('admin.users.deactivateSelf') : u.isActive ? t('admin.users.deactivate') : t('admin.users.activate')} delay={500}>
+                        <Button
+                          isIconOnly size="sm" variant="light"
+                          color={u.isActive ? 'success' : 'default'}
+                          onPress={() => handleStatusToggle(u)}
+                          isDisabled={u.id === user.id}
+                          aria-label={u.id === user.id ? t('admin.users.deactivateSelf') : u.isActive ? t('admin.users.deactivate') : t('admin.users.activate')}
+                        >
+                          {u.isActive ? <CheckCircle size={16} /> : <Ban size={16} />}
+                        </Button>
+                      </Tooltip>
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-foreground-400 hidden sm:table-cell">

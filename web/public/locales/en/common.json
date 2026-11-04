@@ -362,10 +362,6 @@
   "toast": {
     "createSuccess": "Bottle added successfully",
     "createSuccess_cigar": "Cigar added successfully",
-    "updateSuccess": "Bottle updated",
-    "updateSuccess_cigar": "Cigar updated",
-    "deleteSuccess": "Bottle moved to trash",
-    "deleteSuccess_cigar": "Cigar moved to trash",
     "restoreSuccess": "Bottle restored",
     "restoreSuccess_cigar": "Cigar restored",
     "createError": "Could not add the bottle",
@@ -957,8 +953,8 @@
     "selected_one": "{{count}} selected",
     "selected_other": "{{count}} selected",
     "title": "Bulk Actions",
-    "subtitle_one": "Update {{count}} wine",
-    "subtitle_other": "Update {{count}} wines simultaneously",
+    "subtitle_one": "Update {{count}} bottle",
+    "subtitle_other": "Update {{count}} bottles simultaneously",
     "fieldsToUpdate": "Fields to update",
     "preview": "Changes summary",
     "mixed": "(Mixed values)",
@@ -979,7 +975,7 @@
       "QUANTITY_TOO_LARGE": "A line in this cellar would go over 1,000 bottles. Nothing was changed.",
       "CELLAR_NOT_FOUND": "This cellar no longer exists. Nothing was changed."
     },
-    "partHint": "For part of a wine only, go through its sheet.",
+    "partHint": "For part of a wine only, open it.",
     "move": {
       "action": "Move",
       "title": "Move to a cellar",
@@ -1384,17 +1380,17 @@
         "regionAny": "All regions"
       },
       "list": {
-        "title": "Bottles in the selected region",
-        "titleAll": "Bottles matching the filters",
-        "empty": "No bottles match the selected filters.",
-        "itemCount_one": "{{count}} bottle",
-        "itemCount_other": "{{count}} bottles"
+        "title": "Results in the selected region",
+        "titleAll": "Results matching the filters",
+        "empty": "Nothing matches the selected filters.",
+        "itemCount_one": "{{count}} result",
+        "itemCount_other": "{{count}} results"
       },
       "regionSelected": "Selected region: {{region}}"
     },
     "categories": {
       "title": "Category breakdown",
-      "active": "Bottles",
+      "active": "In stock",
       "wine": "Red & White Wines",
       "sparkling": "Bubbles & Champagnes",
       "spirit": "Fine Spirits",
@@ -1428,8 +1424,8 @@
       "atPeak": "At peak (Drink with priority)",
       "pastPeak": "Past peak (Drink urgently)",
       "noWindow": "No maturity window tracked",
-      "countLabel_one": "{{count}} bottle ({{percent}}%)",
-      "countLabel_other": "{{count}} bottles ({{percent}}%)",
+      "countLabel_one": "{{count}} ({{percent}}%)",
+      "countLabel_other": "{{count}} ({{percent}}%)",
       "humidorTip": "Humidor Tip",
       "humidorTipText": "Cuban cigars benefit from stable humidity at 70%. Avoid thermal shocks to preserve the wrapper's suppleness."
     },
@@ -1474,8 +1470,7 @@
   },
   "qr": {
     "localhostWarning": "This address (localhost) will not be reachable from another device: the QR code will not work on a phone. Open Glou through the server address before printing it.",
-    "title": "Wine QR Code",
-    "title_cigar": "Cigar QR Code",
+    "title": "QR Code",
     "download": "Download PNG"
   },
   "gdpr": {
