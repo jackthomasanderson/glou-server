@@ -4,14 +4,14 @@ import { Button, Chip } from '@heroui/react';
 import { Trash2 } from 'lucide-react';
 import { useInventoryTrash, useRestoreInventoryItem } from '@/hooks/useInventory';
 import { useProductsTrash, useRestoreProduct } from '@/hooks/useProducts';
-import { itemUnits, unitKind } from '@shared/units';
+import { isIntactItem, itemUnits, unitKind } from '@shared/units';
 import type { TrashedProduct } from '@/lib/products/types';
+import type { InventoryItem } from '@/lib/inventory/types';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { InventoryListRowSkeleton } from './InventoryListRow';
 import { TRASH_RETENTION_DAYS } from '@shared/inventory';
 import { unitNoun } from '@/lib/products/stockActions';
-import type { InventoryItem } from '@/lib/inventory/types';
 
 interface InventoryTrashProps {
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -25,6 +25,13 @@ function daysLeft(deletedAt: string): number {
   const expiresAt = new Date(deletedAt).getTime() + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
   return Math.max(0, Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000)));
 }
+
+/** Copies of a line in the trash: a group's number, one for an opened bottle or box (recette #471). */
+const lineCopies = (item: InventoryItem) =>
+  isIntactItem({ isOpened: item.isOpened, fillLevel: item.fillLevel ?? null, cigarsLeft: item.cigarsLeft ?? null })
+    ? Math.max(item.quantity ?? 1, 0)
+    : 1;
+const lineNoun = (item: InventoryItem) => unitNoun({ cigarsPerBox: item.cigarsPerBox ?? null }, unitKind(item.category));
 
 // ISSUE_072: the trash route/service/client/hook already existed end to end
 // (listTrash, restore) but no screen called useInventoryTrash — deleted
@@ -45,16 +52,10 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
   );
   const unitsOf = (wine: TrashedProduct) =>
     wine.items.reduce((sum, unit) => sum + itemUnits(unit), 0);
-  // #471 (recette v2): a box or a cigar thrown away is called so, with how
-  // many copies went to the trash (a box: also its size).
+  // #471 (recette v2): a box or a cigar thrown away is restored as such.
   const unitLabels = (item: InventoryItem) => {
-    const noun = unitNoun({ cigarsPerBox: item.cigarsPerBox ?? null }, unitKind(item.category));
-    const context = noun === 'bottle' ? undefined : noun;
-    const copies = item.isOpened ? 1 : Math.max(item.quantity ?? 1, 1);
-    return {
-      copies: t('inventory.trashCopies', { count: copies, size: item.cigarsPerBox, context }),
-      restore: t('inventory.restore', { context }),
-    };
+    const noun = lineNoun(item);
+    return { restore: t('inventory.restore', { context: noun === 'bottle' ? undefined : noun }) };
   };
 
   if (isLoading || winesTrash.isLoading) {
@@ -143,10 +144,13 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
               </p>
               <Chip size="sm" variant="flat">{t(`categories.${item.category}`)}</Chip>
             </div>
-            <p className="text-xs text-foreground-400">
-              {label.copies}
-              {item.deletedAt && ` · ${t('inventory.trashDaysLeft', { count: daysLeft(item.deletedAt) })}`}
-            </p>
+            {item.deletedAt && (
+              <p className="text-xs text-foreground-400">
+                {/* Recette #471: how many went with a line of several bottles (boxes). */}
+                {lineCopies(item) > 1 && `${t('familyList.trash.lineCount', { context: lineNoun(item), count: lineCopies(item) })} · `}
+                {t('inventory.trashDaysLeft', { count: daysLeft(item.deletedAt) })}
+              </p>
+            )}
           </div>
           <Button
             size="sm"

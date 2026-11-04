@@ -162,6 +162,17 @@ describe('FamilyDrawer', () => {
     expect(entry).toHaveTextContent('À point');
   });
 
+  // Recette #471 (KO 8.4): only a tasting without any bottle was noted elsewhere.
+  it('a tasting of a bottle no longer listed (in the trash) is not "tasted elsewhere"', () => {
+    detail = detailOf({
+      items: [unit({ id: 'b1', quantity: 2, cellarId: 'garage' })],
+      tastings: [tasting({ id: 't1', itemId: 'trashed' })],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const entry = within(screen.getByTestId('family-tastings')).getByRole('listitem');
+    expect(entry).not.toHaveTextContent('Goûté ailleurs');
+  });
+
   // #471 (FEAT-109 c3, decision point 64): a guest's tasting is signed with the guest's name.
   it('a tasting noted by a guest is signed "Marie (invité)", or "Invité" without a name', () => {
     detail = detailOf({

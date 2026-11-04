@@ -1,5 +1,6 @@
-import { isFinishedState, isIntactItem, unitKind, type UnitKind } from '@shared/units';
+import { isFinishedState, isIntactItem, itemUnits, unitKind, type UnitKind } from '@shared/units';
 import { stockSummaryOf } from './filters';
+import { wineName } from './stock';
 import type { BulkWinesAction } from '@shared/product';
 import type { Product, ProductItem } from './types';
 
@@ -29,6 +30,30 @@ export function bulkSummary(products: readonly Product[], selectedIds: ReadonlyS
     bottles: t(cigars ? 'familyList.stock.spoken.cigars' : 'familyList.stock.spoken.bottles', { count: unitsInStock(products, selectedIds) }),
   });
 }
+
+/** Wines named in a recap before "et N autres". */
+const NAMED_WINES = 3;
+
+/**
+ * Recette #471: which wines a bulk action applies to — "ZZ Recette B", or
+ * "A, B, C et 2 autres" — the wines selected still in the cellar.
+ */
+export function bulkWineNames(products: readonly Product[], selectedIds: ReadonlySet<string>, t: Translate): string {
+  const names = winesInStock(products, selectedIds).map(wineName);
+  const shown = names.slice(0, NAMED_WINES).join(', ');
+  return names.length > NAMED_WINES ? t('bulkWines.andOthers', { names: shown, count: names.length - NAMED_WINES }) : shown;
+}
+
+/**
+ * Recette #471: bottles (cigars) of the wines selected already in the cellar
+ * a move goes to (`null`: without a cellar) — the API leaves them where they
+ * are, so "11 bouteilles" moves 9 when 2 are there already.
+ */
+export const unitsAlreadyIn = (products: readonly Product[], selectedIds: ReadonlySet<string>, cellarId: string | null): number =>
+  winesInStock(products, selectedIds)
+    .flatMap((product) => product.items)
+    .filter((item) => item.deletedAt == null && (item.cellarId ?? null) === cellarId)
+    .reduce((sum, item) => sum + itemUnits(item), 0);
 
 /** One wine of "Marquer comme bus": how many it has, and its opened bottle (box) finished first. */
 export interface DrinkChoice {

@@ -17,7 +17,7 @@ const distinctions: readonly ((item: ProductItem) => string | null)[] = [
  * day the line was added, else its rank — only on the lines that collide.
  */
 export function distinctLineLabels(groups: readonly ProductItem[], ctx: LineContext): Map<string, string> {
-  const base = new Map(groups.map((group) => [group.id, lineParts(group, ctx, true).join(' · ')]));
+  const base = new Map(groups.map((group) => [group.id, lineParts(group, ctx).join(' · ')]));
   const byLabel = new Map<string, ProductItem[]>();
   for (const group of groups) {
     const label = base.get(group.id) as string;

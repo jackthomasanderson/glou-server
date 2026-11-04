@@ -28,7 +28,7 @@ interface OpenedReminderDialogProps {
 
 /** "Entamée · Garage · ouverte le 3 oct. — 60 %", "Boîte entamée · 10 restants · Humidor". */
 function openedLabel(item: ProductItem, ctx: LineContext): string {
-  const parts = lineParts(item, ctx, false).join(' · ');
+  const parts = lineParts(item, ctx).join(' · ');
   return ctx.kind === 'bottle' && item.fillLevel != null ? `${parts} — ${item.fillLevel} %` : parts;
 }
 

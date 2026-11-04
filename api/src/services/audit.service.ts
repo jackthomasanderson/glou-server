@@ -1,5 +1,6 @@
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
+import { withoutUndone } from '../lib/audit-history';
 import { CORRECTION_REASONS, type CorrectionReason, type FieldChange, type ProductHistoryEntry } from '../../../shared/product';
 
 export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'RESTORE_FIELD' | 'LOGIN' | 'LOGIN_2FA' | 'LOGOUT' | 'REGISTER' | 'CELLAR_CREATE' | 'CELLAR_READ' | 'CELLAR_UPDATE' | 'CELLAR_DELETE' | 'CELLAR_SWAP_SLOTS' | 'COLLECTION_CREATE' | 'COLLECTION_UPDATE' | 'COLLECTION_DELETE' | 'SESSION_REVOKE' | 'TRUST_DEVICE' | 'UNTRUST_DEVICE' | 'PIN_SET' | 'PIN_REMOVE' | 'GUEST_UPDATE' | 'GUEST_TASTING' | 'ONBOARDING_COMPLETE' | 'IMPORT_CSV' | 'BACKUP_RESTORE' | 'PURGE' | 'BACKUP_DOWNLOAD' | 'SCAN' | 'HUMIDOR_READING_CREATE' | 'ADD_UNITS' | 'CORRECT_QUANTITY' | 'MERGE_PRODUCTS' | 'DISTINGUISH_PRODUCTS' | 'REVIEW_OK' | 'MOVE_UNITS' | 'REPRICE_UNITS';
@@ -82,10 +83,11 @@ const isCorrectionReason = (value: unknown): value is CorrectionReason =>
  * changes and every change of its units).
  */
 export async function readFieldHistory(where: Prisma.AuditLogWhereInput): Promise<ProductHistoryEntry[]> {
-  const logs = await prisma.auditLog.findMany({
+  // Recette #471: an action taken back at once ("Annuler") is not told.
+  const logs = withoutUndone(await prisma.auditLog.findMany({
     where: { ...where, action: { in: FIELD_HISTORY_ACTIONS }, status: 'success' },
     orderBy: { createdAt: 'desc' },
-  });
+  }));
 
   const uniqueUserIds = [...new Set(logs.map((l) => l.userId))];
   const users = await prisma.user.findMany({

@@ -1,5 +1,5 @@
 import { beforeAll, describe, it, expect } from 'vitest';
-import { bulkSummary, drinkChoices, drinkRequest, unitsInStock, winesInStock } from '../bulk';
+import { bulkSummary, bulkWineNames, drinkChoices, drinkRequest, unitsAlreadyIn, unitsInStock, winesInStock } from '../bulk';
 import { frenchT } from './i18n';
 import { openedBottle, product, unit } from './factories';
 
@@ -45,5 +45,27 @@ describe('bulkSummary (FEAT-111, review of #821)', () => {
 
   it('says « références » and « cigares » on the cigars page', () => {
     expect(bulkSummary([cigars], new Set(['cig']), true, t)).toBe('1 référence, 50 cigares');
+  });
+});
+
+// Recette #471: the summary names the wines, and a move says what is already there.
+describe('bulk recap names the wines and what a move leaves (recette #471)', () => {
+  let t: Awaited<ReturnType<typeof frenchT>>;
+  beforeAll(async () => { t = await frenchT(); });
+
+  it('names the wines in the cellar, three at most then how many more', () => {
+    const named = (id: string, name: string) => product({ id, name, vintage: null, items: [unit({ quantity: 1 })] });
+    const wines = [named('a', 'ZZ Recette B'), named('b', 'Beta'), named('c', 'Gamma'), named('d', 'Delta'), gone];
+    expect(bulkWineNames(wines, new Set(['a']), t)).toBe('ZZ Recette B');
+    expect(bulkWineNames(wines, new Set(['a', 'b', 'gone']), t)).toBe('ZZ Recette B, Beta');
+    expect(bulkWineNames(wines, new Set(['a', 'b', 'c', 'd']), t)).toBe('ZZ Recette B, Beta, Gamma et 1 autre');
+  });
+
+  it('a move counts the bottles already in the cellar chosen: they stay where they are', () => {
+    const spread = product({ id: 'spread', items: [unit({ quantity: 9, cellarId: 'a' }), unit({ quantity: 2, cellarId: 'b' }), openedBottle(50, { cellarId: null })] });
+    const selected = new Set(['spread']);
+    expect(unitsAlreadyIn([spread], selected, 'b')).toBe(2);
+    expect(unitsAlreadyIn([spread], selected, null)).toBe(1);
+    expect(unitsAlreadyIn([spread], selected, 'elsewhere')).toBe(0);
   });
 });

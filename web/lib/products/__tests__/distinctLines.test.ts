@@ -14,7 +14,7 @@ beforeAll(async () => {
     t: await frenchT(),
     cellarName: (id) => ({ garage: 'Garage' } as Record<string, string>)[id],
     formatPrice: (value) => `${value} €`,
-    formatMonth: (day) => day.slice(0, 7),
+    formatDay: (day) => day,
     formatDate: (iso) => iso.slice(0, 10),
   };
 });
@@ -29,14 +29,14 @@ describe('distinctLineLabels', () => {
     expect(labels.get('b')).not.toMatch(/achat|ajout|ligne/);
   });
 
-  it('adds the purchase day when it tells them apart, never shifted by the time zone', () => {
+  it('two purchase days already read apart: each line shows its own day (lot RC), nothing added', () => {
     const labels = distinctLineLabels([
       unit({ id: 'a', cellarId: 'garage', purchasedAt: '2026-11-03', createdAt: '2026-11-04T08:00:00.000Z' }),
       unit({ id: 'b', cellarId: 'garage', purchasedAt: '2026-11-04', createdAt: '2026-11-04T08:00:00.000Z' }),
       unit({ id: 'c', cellarId: 'garage', purchasePrice: 9 }),
-    ], { ...ctx, formatMonth: () => 'nov. 2026' });
-    expect(labels.get('a')).toBe('×1 · Garage · nov. 2026 · achat du 2026-11-03');
-    expect(labels.get('b')).toBe('×1 · Garage · nov. 2026 · achat du 2026-11-04');
+    ], ctx);
+    expect(labels.get('a')).toBe('×1 · Garage · 2026-11-03');
+    expect(labels.get('b')).toBe('×1 · Garage · 2026-11-04');
     expect(labels.get('c')).not.toMatch(/achat/);
   });
 

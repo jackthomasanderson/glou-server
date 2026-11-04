@@ -100,10 +100,11 @@ export function EditLineDialog({ item, ctx, isOpen, onClose }: EditLineDialogPro
 
   return (
     <LineDialogFrame
+      wine={ctx.wineName}
       isOpen={isOpen}
       onClose={onClose}
       title={t('stockLine.edit.title')}
-      line={lineParts(item, ctx, false).join(' · ')}
+      line={lineParts(item, ctx).join(' · ')}
       confirmLabel={t('actions.save')}
       onConfirm={confirm}
       canConfirm={changed && priceOk}

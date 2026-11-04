@@ -101,6 +101,17 @@ describe('BulkWinesDialog (FEAT-111)', () => {
     expect(toast.notifySuccess).toHaveBeenCalledWith('bulkWines.move.done', { units: '14 bouteilles', context: undefined });
   });
 
+  // Recette #471: the recap names the wines, and says what a move leaves where it is.
+  it('names the wines, and "Déplacer" says the bottles already in the cellar chosen stay there', () => {
+    open('move', ['a', 'b', 'c']);
+    expect(screen.getByTestId('bulk-wines-names')).toHaveTextContent('Alpha 2020, Beta 2020, Gamma 2020');
+    expect(screen.queryByTestId('bulk-wines-already')).toBeNull();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Garage' }));
+    expect(screen.getByTestId('bulk-wines-already'))
+      .toHaveTextContent('Dont 5 bouteilles déjà dans Garage, qui y restent : 9 bouteilles à déplacer.');
+  });
+
   it('c2/c4: "Mettre à la corbeille" gives the same summary; a wine without bottle is neither counted nor sent', async () => {
     const onDone = open('trash', ['a', 'b', 'c', 'gone']);
     expect(screen.getByTestId('bulk-wines-summary')).toHaveTextContent('3 vins, 14 bouteilles');

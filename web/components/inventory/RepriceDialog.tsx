@@ -49,10 +49,11 @@ export function RepriceDialog({ item, ctx, isOpen, onClose }: RepriceDialogProps
 
   return (
     <LineDialogFrame
+      wine={ctx.wineName}
       isOpen={isOpen}
       onClose={onClose}
       title={t('stockLine.reprice.title')}
-      line={lineParts(item, ctx, false).join(' · ')}
+      line={lineParts(item, ctx).join(' · ')}
       confirmLabel={t('stockLine.reprice.confirm')}
       onConfirm={confirm}
       canConfirm={canConfirm}

@@ -58,10 +58,11 @@ export function MoveUnitsDialog({ item, ctx, isOpen, onClose }: MoveUnitsDialogP
 
   return (
     <LineDialogFrame
+      wine={ctx.wineName}
       isOpen={isOpen}
       onClose={onClose}
       title={t('stockLine.move.title')}
-      line={lineParts(item, ctx, false).join(' · ')}
+      line={lineParts(item, ctx).join(' · ')}
       confirmLabel={t('stockLine.move.confirm')}
       onConfirm={confirm}
       canConfirm={canConfirm}

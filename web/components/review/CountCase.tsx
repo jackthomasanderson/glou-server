@@ -9,7 +9,7 @@ import { TrashLineDialog } from '@/components/inventory/TrashLineDialog';
 import { useCellars } from '@/hooks/useCellars';
 import { REVIEW_KEY, useConfirmCount } from '@/hooks/useReview';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { lineParts, type LineContext } from '@/lib/products/lines';
+import { formatPurchaseDay, lineParts, type LineContext } from '@/lib/products/lines';
 import { wineName } from '@/lib/products/stock';
 import { countSplit, describeCountSplit } from '@/lib/review/cases';
 import type { ReviewCount } from '@/lib/review/client';
@@ -32,14 +32,16 @@ export function CountCase({ count }: { count: ReviewCount }) {
   const { group, product } = count;
 
   const cellarName = useCallback((id: string) => cellars?.find((cellar) => cellar.id === id)?.name, [cellars]);
+  const name = wineName(product);
   const ctx: LineContext = useMemo(() => ({
     kind: unitKind(product.category),
     t,
     cellarName,
     formatPrice: (value) => formatCurrency(value, lang),
-    formatMonth: (day) => formatDate(day, lang, { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+    formatDay: (day) => formatPurchaseDay(day, lang),
     formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
-  }), [product.category, t, cellarName, lang]);
+    wineName: name,
+  }), [product.category, t, cellarName, lang, name]);
   const split = countSplit(count);
 
   const closeDialog = () => {
@@ -56,7 +58,7 @@ export function CountCase({ count }: { count: ReviewCount }) {
     >
       <header>
         <h3 id={`count-${group.id}-title`} className="font-semibold">{wineName(product)}</h3>
-        <p className="text-sm text-foreground-500">{lineParts(group, ctx, true).join(' · ')}</p>
+        <p className="text-sm text-foreground-500">{lineParts(group, ctx).join(' · ')}</p>
       </header>
       <p className="text-sm">{split ? describeCountSplit(split, t) : t('review.counts.guessed')}</p>
       <div className="flex flex-wrap gap-2 justify-end">

@@ -108,3 +108,31 @@ describe('CellarGridPlan group badge (#471)', () => {
     expect(screen.queryByTestId('slot-copies')).toBeNull();
   });
 });
+
+// Recette #471 (KO 13.2): a box of cigars on a slot, and two lines of the same cigar to choose from.
+describe('CellarGridPlan and boxes of cigars (recette #471)', () => {
+  const box = { name: 'ZZ Recette Robusto', producer: 'P', category: 'cigar', color: null, vintage: null, quantity: 1, cigarsPerBox: 25, purchasePrice: 200, purchasedAt: '2026-11-03' };
+  const boxes = {
+    ...data,
+    items: [
+      { ...box, id: 'placed', slotColumn: 1, slotRow: 1, units: 25, isOpened: false, cigarsLeft: null },
+      { ...box, id: 'closed', slotColumn: null, slotRow: null, units: 25, isOpened: false, cigarsLeft: null },
+      { ...box, id: 'opened', slotColumn: null, slotRow: null, units: 23, isOpened: true, cigarsLeft: 23 },
+    ],
+  } as unknown as CellarGridData;
+
+  it('a box of 25 on a slot shows "×25"', () => {
+    renderGrid(boxes);
+    expect(screen.getByTestId('slot-copies')).toHaveTextContent('cellars.grid.copies|25');
+  });
+
+  it('"Assigner" tells the closed box from the opened one', () => {
+    renderGrid(boxes);
+    fireEvent.keyDown(screen.getByLabelText(/^cellars\.grid\.cellLabelEmpty\|2,1/), { key: 'Enter' });
+    const [closed, opened] = screen.getAllByTestId('assign-line').map((line) => line.textContent);
+    expect(closed).toContain('familyDrawer.lines.closedBoxes|1,25');
+    expect(opened).toContain('familyDrawer.lines.openedBox');
+    expect(opened).toContain('familyDrawer.lines.cigarsLeft|23');
+    expect(closed).not.toBe(opened);
+  });
+});

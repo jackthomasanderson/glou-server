@@ -41,7 +41,7 @@ FROM jsonb_array_elements(current_setting('bench.cases')::JSONB -> 'groupKey') A
 -- Units, value, spend and intact, with the defaults of the file's _comment.
 SELECT pg_temp.expect(
   pg_temp.fam_units(q, per_box, left_, opened, fill, off) = (c ->> 'units')::INT
-  AND pg_temp.fam_value(est, price, q, opened, fill, off) = (c ->> 'value')::NUMERIC
+  AND pg_temp.fam_value(est, price, q, opened, fill, off) = coalesce(c ->> 'migrationValue', c ->> 'value')::NUMERIC
   AND pg_temp.fam_spend(price, q) = (c ->> 'spend')::NUMERIC
   AND pg_temp.fam_is_intact(opened, fill, left_) = (c ->> 'intact')::BOOLEAN,
   'units, value, spend, intact: ' || (c ->> 'case'))

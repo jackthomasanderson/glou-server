@@ -130,12 +130,6 @@
     "restore": "Restaurer la bouteille",
     "restore_box": "Restaurer la boîte",
     "restore_cigar": "Restaurer le cigare",
-    "trashCopies_one": "{{count}} bouteille",
-    "trashCopies_other": "{{count}} bouteilles",
-    "trashCopies_box_one": "{{count}} boîte de {{size}} cigares",
-    "trashCopies_box_other": "{{count}} boîtes de {{size}} cigares",
-    "trashCopies_cigar_one": "{{count}} cigare",
-    "trashCopies_cigar_other": "{{count}} cigares",
     "trashDaysLeft_one": "{{count}} jour restant avant suppression définitive",
     "trashDaysLeft_other": "{{count}} jours restants avant suppression définitive",
     "trashEmpty": "La corbeille est vide.",
@@ -990,10 +984,14 @@
       "CELLAR_NOT_FOUND": "Cette cave n'existe plus. Rien n'a été modifié."
     },
     "partHint": "Pour une partie seulement d'un vin, ouvrez-le.",
+    "andOthers_one": "{{names}} et {{count}} autre",
+    "andOthers_other": "{{names}} et {{count}} autres",
     "move": {
       "action": "Déplacer",
       "title": "Déplacer vers une cave",
       "where": "Vers quelle cave ?",
+      "alreadyThere": "Dont {{units}} déjà dans {{cellar}}, qui y restent : {{moved}} à déplacer.",
+      "alreadyAll": "Tout est déjà dans {{cellar}} : rien à déplacer.",
       "confirm": "Déplacer",
       "done": "Déplacé : {{units}}"
     },
@@ -2446,6 +2444,12 @@
       "withBottles_other": "avec {{count}} bouteilles",
       "withCigars_one": "avec {{count}} cigare",
       "withCigars_other": "avec {{count}} cigares",
+      "lineCount_bottle_one": "{{count}} bouteille",
+      "lineCount_bottle_other": "{{count}} bouteilles",
+      "lineCount_box_one": "{{count}} boîte",
+      "lineCount_box_other": "{{count}} boîtes",
+      "lineCount_cigar_one": "{{count}} cigare",
+      "lineCount_cigar_other": "{{count}} cigares",
       "restore": "Restaurer"
     },
     "selectWine": "Sélectionner {{name}}",
@@ -2522,6 +2526,7 @@
       "add_units": "Bouteilles ajoutées",
       "correct_quantity": "Nombre corrigé",
       "numberChange": "{{what}} : {{from}} → {{to}}",
+      "numberAdded": "{{what}} : {{number}}",
       "merge_products": "Vins regroupés",
       "review_ok": "Nombre vérifié",
       "merge_products_cigar": "Références regroupées"

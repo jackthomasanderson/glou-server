@@ -104,6 +104,10 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
           // §10.3: "Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)".
           return entry.reason ? `${line} (${t(`stockLine.history.reasons.${entry.reason}`)})` : line;
         }
+        // Recette #471 (KO 4.2): an add that made a new line has no number before it.
+        if (change.field === 'quantity' && entry.action === 'ADD_UNITS' && change.from == null && typeof change.to === 'number') {
+          return t('familyDrawer.history.numberAdded', { what: actionLabel(entry.action), number: change.to });
+        }
         if (change.field === 'fillLevel' && typeof change.to === 'number') {
           const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : `${change.to}%`;
           return `${t('inventory.detail.levelAdjusted')} ${level}`;

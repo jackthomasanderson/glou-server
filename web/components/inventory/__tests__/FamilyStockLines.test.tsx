@@ -15,7 +15,7 @@ beforeAll(async () => {
     t: await frenchT(),
     cellarName: (id) => ({ garage: 'Garage', kitchen: 'Cuisine' } as Record<string, string>)[id],
     formatPrice: (value) => `${value} €`,
-    formatMonth: (day) => day.slice(0, 7),
+    formatDay: (day) => day,
     formatDate: (iso) => iso.slice(0, 10),
   };
 });
@@ -34,9 +34,9 @@ describe('FamilyStockLines', () => {
       unit({ quantity: 2, cellarId: 'kitchen', purchasePrice: 20, purchasedAt: '2026-01-15' }),
     ]);
     expect(lineTexts()).toEqual([
-      '×2 · Cuisine · 20 € / bouteille · 2026-01',
-      '×6 · Garage · 20 € / bouteille · 2026-01',
-      '×2 · Garage · 20 € / bouteille · 2026-06',
+      '×2 · Cuisine · 20 € / bouteille · 2026-01-15',
+      '×6 · Garage · 20 € / bouteille · 2026-01-15',
+      '×2 · Garage · 20 € / bouteille · 2026-06-01',
       'Entamée · Garage · ouverte le 2026-02-01',
     ]);
   });

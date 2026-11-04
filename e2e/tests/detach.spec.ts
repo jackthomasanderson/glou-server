@@ -206,7 +206,7 @@ test.describe('detach and reattach (#471)', () => {
     expect((await stats(api, cellarId)).bottles).toBe(6);
   });
 
-  test('FEAT-106 c2: a tasting noted on the bottle is asked about, then kept on the family', async ({ page }) => {
+  test('FEAT-106 c2: a tasting noted on the bottle is asked about, then kept on its line', async ({ page }) => {
     const api = page.request;
     const { group } = await groupOf(api, 6);
     const opened = await write(api, group.id, { isOpened: true, fillLevel: 60 });
@@ -220,7 +220,8 @@ test.describe('detach and reattach (#471)', () => {
     const back = await write(api, opened.data.id, { isOpened: false, fillLevel: 100, keepTastings: true });
     expect(back.data).toMatchObject({ id: group.id, quantity: 6 });
     const detail = await okData<Detail>(await api.get(`/api/products/${group.productId}`));
-    expect(detail.tastings).toEqual([expect.objectContaining({ id: tasting.id, itemId: null })]);
+    // On the line the bottle went back to, never "tasted elsewhere" (recette #471, KO 8.4).
+    expect(detail.tastings).toEqual([expect.objectContaining({ id: tasting.id, itemId: group.id })]);
   });
 
   test('FEAT-106 c3: when the group moved to another cellar, the bottle put back is a group of 1 in its own cellar', async ({ page }) => {

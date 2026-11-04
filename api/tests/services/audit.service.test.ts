@@ -136,4 +136,53 @@ describe('readFieldHistory', () => {
     expect(moved).toMatchObject({ itemId: 'b1', absorbed: true, actorName: 'Marie' });
     expect(own).not.toHaveProperty('absorbed');
   });
+
+  // Recette #471: "1 bouteille ouverte · Annuler" leaves nothing in the drawer's history.
+  describe('an action taken back at once leaves nothing (recette #471)', () => {
+    const at = (seconds: number) => new Date(Date.UTC(2026, 10, 4, 10, 0, seconds));
+    const log = (id: number, seconds: number, bottleId: string, details: Record<string, unknown>, userId = 'u1') => ({
+      id, action: 'UPDATE', status: 'success', userId, bottleId, productId: 'p1', details, createdAt: at(seconds),
+    });
+    // Opened out of the group g (6 → 5) as the sub-record s, then put back (5 → 6): most recent first,
+    // the opening's own entry moved onto g when s was absorbed.
+    const openedThenPutBack = (backAfter: number, backBy = 'u1', extra: Record<string, unknown> = {}) => [
+      log(4, backAfter, 'g', { changes: [{ field: 'quantity', from: 5, to: 6 }], outcome: 'reattached', subItemId: 's' }, backBy),
+      log(3, backAfter, 'g', { changes: [{ field: 'isOpened', from: true, to: false }], outcome: 'reattached', targetItemId: 's', ...extra }, backBy),
+      log(2, 0, 'g', { changes: [{ field: 'quantity', from: 6, to: 5 }], outcome: 'detached', subItemId: 's' }),
+      log(1, 0, 'g', {
+        changes: [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 100 }],
+        outcome: 'detached', targetItemId: 'g', absorbedFrom: 's',
+      }),
+    ];
+    const read = async (rows: unknown[]) => {
+      vi.mocked(prisma.auditLog.findMany).mockResolvedValue(rows as never);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', displayName: 'Marie', username: 'marie' }] as never);
+      return (await readFieldHistory({ productId: 'p1' })).map((entry) => entry.id);
+    };
+
+    it('an opening put back within the minute: none of its four entries', async () => {
+      expect(await read([log(9, 120, 'g', { changes: [{ field: 'location', from: null, to: 'Haut' }] }), ...openedThenPutBack(5)])).toEqual([9]);
+    });
+
+    it('a bottle put back later, by someone else, or with its tasting deleted is told', async () => {
+      expect(await read(openedThenPutBack(600))).toEqual([4, 3, 2, 1]);
+      expect(await read(openedThenPutBack(5, 'u2'))).toEqual([4, 3, 2, 1]);
+      expect(await read(openedThenPutBack(5, 'u1', { deletedTastings: 1 }))).toEqual([4, 3, 2, 1]);
+    });
+
+    // An in-place write is logged without `outcome` (only a detach or a reattach carries one).
+    it('a lone bottle drunk in place then taken back: both entries go, its slot given back included', async () => {
+      expect(await read([
+        log(2, 4, 'b', { changes: [{ field: 'isOpened', from: true, to: false }, { field: 'fillLevel', from: 0, to: 100 }, { field: 'slotColumn', from: null, to: 2 }], outcome: 'regrouped', targetItemId: 'b' }),
+        log(1, 0, 'b', { changes: [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 0 }, { field: 'slotColumn', from: 2, to: null }] }),
+      ])).toEqual([]);
+    });
+
+    it('two writes that do not cancel out are both told', async () => {
+      expect(await read([
+        log(2, 4, 'b', { changes: [{ field: 'fillLevel', from: 50, to: 30 }] }),
+        log(1, 0, 'b', { changes: [{ field: 'fillLevel', from: 100, to: 50 }] }),
+      ])).toEqual([2, 1]);
+    });
+  });
 });
