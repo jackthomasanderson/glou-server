@@ -45,7 +45,8 @@ export const inventoryClient = {
   // submission — it must not run its own FEAT-65 check again and reject
   // with 409. Not part of `InventoryItem`: it's a one-shot instruction to
   // this call, not a stored field.
-  async create(data: Partial<InventoryItem> & { confirmDuplicate?: boolean }): Promise<InventoryItem> {
+  /** `distinctFrom` (#471, FEAT-97 c5): the wines of the same name answered "C'est un autre vin". */
+  async create(data: Partial<InventoryItem> & { distinctFrom?: string[]; scanJobId?: string }): Promise<InventoryItem> {
     const { data: result } = await client.post<InventoryItem>('/inventory', data);
     return result;
   },

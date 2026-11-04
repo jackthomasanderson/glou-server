@@ -8,16 +8,17 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf, PenLine } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
-import { useInventory, useCreateInventoryItem, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { useCreateInventoryItem } from '@/hooks/useInventory';
 import { useCellars } from '@/hooks/useCellars';
 import { useUploadScan, useScanJob, SCAN_STATUS_QUERY_KEY } from '@/hooks/useScan';
 import { scanErrorCause, type ScanErrorCause } from '@/lib/scan/errors';
-import { findDuplicate } from '@/lib/inventory/duplicate';
-import { inventoryClient } from '@/lib/inventory/client';
 import { getDefaultCellarForCategory, setDefaultCellarForCategory } from '@/lib/scan/defaultLocations';
-import { DuplicateDialog } from './DuplicateDialog';
 import { FilterChip } from '@/components/ui/FilterControls';
-import { InventoryForm } from './InventoryForm';
+import { InventoryForm, type InventoryEntry } from './InventoryForm';
+import { KnownWineBanner } from './KnownWineBanner';
+import { AddUnitsModal } from './AddUnitsDialog';
+import { useKnownWine } from '@/hooks/useKnownWine';
+import type { Product } from '@/lib/products/types';
 
 type Phase = 'capture' | 'uploading' | 'processing' | 'review' | 'error';
 
@@ -35,7 +36,7 @@ interface CartEntry {
  * job's own extracted data and tag the fields it really populated as 'ocr'
  * (FEAT-05 provenance), never trusting a client-supplied source map.
  */
-type InventoryCreateWithScanHint = Partial<InventoryItem> & { scanJobId?: string; confirmDuplicate?: boolean };
+type InventoryCreateWithScanHint = InventoryEntry & { scanJobId?: string };
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
@@ -58,8 +59,8 @@ interface ScanFlowProps {
  * FEAT-04 — Scan Étiquette & Ajout Express. Full-screen capture flow
  * (ux-ui.md 6.5): take/pick a photo -> background OCR job polled until
  * done -> compact editable review card -> confirm. Each confirmed item is
- * created (or incremented, via the same FEAT-65 dedup dialog used by the
- * main "Ajouter" form) IMMEDIATELY — the "À Ranger" cart below is a
+ * created (or, #471 FEAT-97, added to a wine already known — "Vous avez
+ * déjà ce vin", as in the main "Ajouter" form) IMMEDIATELY — the "À Ranger" cart below is a
  * scan-ordered checklist of what was just added this session, not a
  * pending/uncommitted staging area, so closing the modal at any point never
  * loses data. This keeps the acceptance criterion "max 3 actions to confirm
@@ -68,10 +69,8 @@ interface ScanFlowProps {
  * the capture screen so the next photo is one click away.
  */
 export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitted, t }: ScanFlowProps) {
-  const { data: items } = useInventory();
   const { data: cellars } = useCellars();
   const createMutation = useCreateInventoryItem();
-  const updateMutation = useUpdateInventoryItem();
   const uploadScan = useUploadScan();
   const queryClient = useQueryClient();
 
@@ -86,8 +85,9 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [nothingRecognised, setNothingRecognised] = useState(false);
   const [fullFormOpen, setFullFormOpen] = useState(false);
-  const [duplicateFound, setDuplicateFound] = useState<InventoryItem | null>(null);
-  const [duplicateCandidate, setDuplicateCandidate] = useState<Partial<InventoryItem> | null>(null);
+  // #471 (FEAT-97): the known wine whose reduced form is open, and the wines answered "C'est un autre vin".
+  const [joining, setJoining] = useState<Product | null>(null);
+  const [distinctFrom, setDistinctFrom] = useState<string[]>([]);
   const [cart, setCart] = useState<CartEntry[]>([]);
 
   const jobQuery = useScanJob(jobId);
@@ -104,8 +104,8 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       setPhase('capture');
       setJobId(null);
       setReviewValues(null);
-      setDuplicateFound(null);
-      setDuplicateCandidate(null);
+      setJoining(null);
+      setDistinctFrom([]);
       setCart([]);
       setServiceUnavailable(false);
     }
@@ -158,6 +158,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
 
   const resetToCapture = () => {
     setReviewValues(null);
+    setDistinctFrom([]);
     setJobId(null);
     setPhase('capture');
   };
@@ -188,44 +189,40 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       return;
     }
     setReviewValues(null);
+    setDistinctFrom([]);
     setJobId(null);
     setPhase('error');
   };
 
-  const pushCartEntry = (item: InventoryItem, mode: CartEntry['mode']) => {
+  const pushCartEntry = (item: Pick<InventoryItem, 'id' | 'name' | 'producer'>, mode: CartEntry['mode']) => {
     setCart((prev) => [...prev, { key: `${item.id}-${prev.length}`, name: item.name, producer: item.producer, mode }]);
     onItemCommitted?.();
   };
 
-  const commitItem = async (values: Partial<InventoryItem>) => {
+  // FEAT-97 c4: the wines of the same name as the label read (and corrected).
+  const sameName = useKnownWine(
+    reviewValues ?? {},
+    phase === 'review' && !fullFormOpen && joining === null,
+  );
+  const knownWines = sameName.filter((product) => !distinctFrom.includes(product.id));
+  const toldApart = sameName.filter((product) => distinctFrom.includes(product.id)).map((product) => product.id);
+
+  /** The bottles were added to a known wine: as committed as a creation. */
+  const afterJoin = (product: Product) => {
+    setJoining(null);
+    pushCartEntry({ id: product.id, name: product.name, producer: product.producer }, 'incremented');
+    afterCommit();
+  };
+
+  const commitItem = async (values: InventoryEntry) => {
     setReviewValues(values);
-    const dup = findDuplicate(items ?? [], values);
-    if (dup) {
-      setDuplicateFound(dup);
-      setDuplicateCandidate(values);
-      setPhase('review');
-      return;
-    }
     const payload: InventoryCreateWithScanHint = { ...values, scanJobId: jobId ?? undefined };
     try {
       const created = await createMutation.mutateAsync(payload);
       pushCartEntry(created, 'created');
       afterCommit();
-    } catch (err) {
-      // ISSUE_141: the client's own `items` was stale — the server's FEAT-65
-      // check caught a match it couldn't see. Re-check against a fresh fetch
-      // instead of surfacing a raw error for what the user can still resolve.
-      if (err instanceof Error && err.message === 'DUPLICATE_CANDIDATE') {
-        const fresh = await inventoryClient.list();
-        const freshDup = findDuplicate(fresh, values);
-        if (freshDup) {
-          setDuplicateFound(freshDup);
-          setDuplicateCandidate(values);
-          setPhase('review');
-          return;
-        }
-      }
-      // Any other failure was reported by the mutation's onError toast.
+    } catch {
+      // Reported by the mutation's onError toast.
     }
   };
 
@@ -234,49 +231,14 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     if (saveAsDefault && reviewValues.category && reviewValues.cellarId) {
       setDefaultCellarForCategory(reviewValues.category, reviewValues.cellarId);
     }
-    void commitItem(reviewValues);
+    void commitItem(toldApart.length > 0 ? { ...reviewValues, distinctFrom: toldApart } : reviewValues);
   };
 
-  const handleAdvancedSubmit = (values: Partial<InventoryItem>) => {
+  const handleAdvancedSubmit = (values: InventoryEntry) => {
     setFullFormOpen(false);
     // An untouched cellar field (undefined, not the explicit "none") gets the
     // wizard's cellar, as the scan review and ManualIngestionStep do.
     void commitItem(values.cellarId === undefined ? { ...values, cellarId: defaultCellarId } : values);
-  };
-
-  const handleDuplicateIncrement = async () => {
-    if (!duplicateFound || !duplicateCandidate) return;
-    const newQty = (duplicateFound.quantity ?? 1) + (duplicateCandidate.quantity ?? 1);
-    try {
-      const updated = await updateMutation.mutateAsync({ id: duplicateFound.id, patch: { quantity: newQty } });
-      pushCartEntry(updated, 'incremented');
-      setDuplicateFound(null);
-      setDuplicateCandidate(null);
-      afterCommit();
-    } catch {
-      // Reported by the mutation's onError toast.
-    }
-  };
-
-  const handleDuplicateCreateAnyway = async () => {
-    if (!duplicateCandidate) return;
-    const candidate = duplicateCandidate;
-    setDuplicateFound(null);
-    setDuplicateCandidate(null);
-    const payload: InventoryCreateWithScanHint = { ...candidate, scanJobId: jobId ?? undefined, confirmDuplicate: true };
-    try {
-      const created = await createMutation.mutateAsync(payload);
-      pushCartEntry(created, 'created');
-      afterCommit();
-    } catch {
-      // Reported by the mutation's onError toast.
-    }
-  };
-
-  const handleDuplicateCancel = () => {
-    setDuplicateFound(null);
-    setDuplicateCandidate(null);
-    // Stay in 'review' so the user can adjust the candidate before retrying.
   };
 
   const canConfirm = Boolean(
@@ -292,7 +254,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     reviewValues?.category === 'spirit' && reviewValues.alcoholDegree == null && t('inventory.fields.alcoholDegree'),
   ].filter((f): f is string => Boolean(f));
 
-  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const isSubmitting = createMutation.isPending;
 
   return (
     <>
@@ -385,7 +347,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                   </div>
                 )}
 
-                {phase === 'review' && reviewValues && !duplicateFound && (
+                {phase === 'review' && reviewValues && (
                   <div className="flex flex-col gap-4 px-4 py-5 max-w-md w-full mx-auto">
                     <p className="text-xs font-semibold text-foreground-500">{t('scan.review.title')}</p>
 
@@ -483,6 +445,15 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       }
                     />
 
+                    {/* FEAT-97 (ux-ui.md §10.4.1): "Vous avez déjà ce vin", under the name fields. */}
+                    <KnownWineBanner
+                      matches={knownWines}
+                      onAdd={setJoining}
+                      onDistinct={() => setDistinctFrom((prev) => [...prev, ...knownWines.map((product) => product.id)])}
+                      isDisabled={isSubmitting}
+                      t={t}
+                    />
+
                     <Select
                       label={t('nav.caves')}
                       variant="bordered"
@@ -556,19 +527,21 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
         initialValues={reviewValues ?? undefined}
         onSubmit={handleAdvancedSubmit}
         onClose={() => setFullFormOpen(false)}
+        onJoined={(_write, product) => {
+          pushCartEntry({ id: product.id, name: product.name, producer: product.producer }, 'incremented');
+          afterCommit();
+        }}
         isSubmitting={isSubmitting}
         t={t}
       />
 
-      {duplicateFound && duplicateCandidate && (
-        <DuplicateDialog
-          duplicate={duplicateFound}
-          candidate={duplicateCandidate}
-          cellars={cellars ?? []}
-          t={t}
-          onIncrement={() => void handleDuplicateIncrement()}
-          onCreateAnyway={() => void handleDuplicateCreateAnyway()}
-          onCancel={handleDuplicateCancel}
+      {joining && (
+        <AddUnitsModal
+          isOpen
+          product={joining}
+          start={{ cellarId: reviewValues?.cellarId, bottleSize: reviewValues?.bottleSize ?? undefined }}
+          onCancel={() => setJoining(null)}
+          onDone={() => afterJoin(joining)}
         />
       )}
     </>

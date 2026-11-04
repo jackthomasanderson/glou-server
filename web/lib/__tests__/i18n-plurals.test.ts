@@ -30,7 +30,7 @@ describe('plural forms (#220)', () => {
   // forms ("5 item", "1 alerts"). Any key with a count must come as
   // key_one/key_other, unless the count is not attached to a noun.
   const COUNT_WITHOUT_NOUN = new Set([
-    'duplicate.currentQuantity', // "Current quantity: 3"
+    'knownWine.inCellar', // "Garage: 4"
     'inventory.perPage', // "24 per page"
     'profile.autoLockMinutes', // "5 min"
     'consumptionPlan.goal.progressLabel', // plural follows {{target}}

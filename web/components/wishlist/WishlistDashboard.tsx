@@ -21,6 +21,10 @@ import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { MAX_COPIES } from '@shared/product';
+import { KnownWineBanner } from '@/components/inventory/KnownWineBanner';
+import { useKnownWine } from '@/hooks/useKnownWine';
+import { wineName } from '@/lib/products/stock';
+import type { Product } from '@/lib/products/types';
 
 const CATEGORIES: WishlistCategory[] = [...CATEGORY_VALUES];
 
@@ -61,6 +65,13 @@ export function WishlistDashboard() {
     purchasePrice?: number; purchasePlace: string; cellarId: string; bottleSize: string; quantity?: number;
   }>({ purchasePlace: '', cellarId: '', bottleSize: '' });
   const [convertTried, setConvertTried] = useState(false);
+  // #471 (FEAT-97 c4): "Vous avez déjà ce vin" for the wine wished for — the
+  // known wine the bottles join, and the wines answered "C'est un autre vin".
+  const [joining, setJoining] = useState<Product | null>(null);
+  const [distinctFrom, setDistinctFrom] = useState<string[]>([]);
+  const sameName = useKnownWine(convertTarget ?? {}, convertTarget !== null && joining === null);
+  const knownWines = sameName.filter((product) => !distinctFrom.includes(product.id));
+  const toldApart = sameName.filter((product) => distinctFrom.includes(product.id)).map((product) => product.id);
   const convertCountInvalid = convertForm.quantity == null || !Number.isInteger(convertForm.quantity)
     || convertForm.quantity < 1 || convertForm.quantity > MAX_COPIES;
 
@@ -135,6 +146,8 @@ export function WishlistDashboard() {
       purchasePlace: '', cellarId: '', bottleSize: '', quantity: item.targetQuantity,
     });
     setConvertTried(false);
+    setJoining(null);
+    setDistinctFrom([]);
   };
   const handleConvertSubmit = async () => {
     if (!convertTarget) return;
@@ -146,10 +159,13 @@ export function WishlistDashboard() {
         id: convertTarget.id,
         data: {
           purchasePrice: convertForm.purchasePrice ?? null,
-          purchasePlace: convertForm.purchasePlace || null,
           cellarId: convertForm.cellarId || null,
           bottleSize: convertForm.bottleSize || null,
           quantity: convertForm.quantity,
+          // A known wine takes only what tells its bottles apart (ux-ui.md §10.4.1).
+          ...(joining
+            ? { productId: joining.id }
+            : { purchasePlace: convertForm.purchasePlace || null, ...(toldApart.length > 0 ? { distinctFrom: toldApart } : {}) }),
         },
       });
       setConvertTarget(null);
@@ -386,6 +402,19 @@ export function WishlistDashboard() {
                 <p className="text-sm text-foreground-500">
                   {t('wishlist.convert.description', { name: convertTarget?.name ?? '' })}
                 </p>
+                <KnownWineBanner
+                  matches={knownWines}
+                  onAdd={setJoining}
+                  onDistinct={() => setDistinctFrom((prev) => [...prev, ...knownWines.map((product) => product.id)])}
+                  isDisabled={convertMutation.isPending}
+                  t={t}
+                />
+                {joining && (
+                  <div data-testid="known-wine-joining" className="flex flex-wrap items-center gap-2 text-sm">
+                    <span>{t(joining.category === 'cigar' ? 'knownWine.joiningCigar' : 'knownWine.joining', { name: wineName(joining) })}</span>
+                    <Button size="sm" variant="light" onPress={() => setJoining(null)}>{t('knownWine.backToEntry')}</Button>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <ParsedNumberInput
                     decimal
@@ -396,12 +425,14 @@ export function WishlistDashboard() {
                     onValueChange={(v) => setConvertForm((f) => ({ ...f, purchasePrice: v }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
+                  {!joining && (
                   <Input
                     label={t('wishlist.convert.purchasePlace')}
                     value={convertForm.purchasePlace}
                     onValueChange={(v) => setConvertForm((f) => ({ ...f, purchasePlace: v }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
+                  )}
                 </div>
                 <Select
                   label={t('wishlist.convert.cellar')}

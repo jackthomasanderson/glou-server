@@ -13,7 +13,8 @@ import { useAddUnits } from '@/hooks/useProducts';
 import { useCellars } from '@/hooks/useCellars';
 import { currencySymbol, todayLocalIso } from '@/lib/format';
 import { wineName } from '@/lib/products/stock';
-import type { ProductDetailView, ProductItem } from '@/lib/products/types';
+import type { UnitWrite } from '@/lib/products/client';
+import type { Product, ProductItem } from '@/lib/products/types';
 
 const NO_CELLAR = 'none';
 
@@ -32,29 +33,51 @@ function latestLine(items: readonly ProductItem[]): ProductItem | undefined {
   return [...inCellar].sort(latestFirst)[0] ?? [...kept].sort(latestFirst)[0];
 }
 
-interface AddUnitsFormProps {
-  product: ProductDetailView;
-  onDone: () => void;
+/** What the entry typed so far brings to the reduced form (FEAT-97): kept over the wine's latest line. */
+export interface AddUnitsStart {
+  quantity?: number;
+  cellarId?: string | null;
+  purchasePrice?: number;
+  bottleSize?: string;
+  purchasedAt?: string;
 }
 
-/** The reduced form, mounted on each opening: it starts again from the wine as it is. */
-function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
+export interface AddUnitsFormProps {
+  /** The wine (its bottles in stock at least: the latest line pre-fills cellar, price and size). */
+  product: Product;
+  /** Closes the form: after the bottles are added, or on cancel unless `onCancel` is given. */
+  onDone: () => void;
+  /** Cancel without adding (FEAT-97: back to the full entry). */
+  onCancel?: () => void;
+  /** The bottles were added (FEAT-97: the add journey counts them). */
+  onAdded?: (write: UnitWrite) => void;
+  start?: AddUnitsStart;
+  /** Label of the cancel button ("Annuler" by default). */
+  cancelLabel?: string;
+}
+
+/**
+ * The reduced form (ux-ui.md §10.4.1), mounted on each opening: it starts
+ * again from the wine as it is. Rendered inside a modal's content: from the
+ * drawer, "Vous avez déjà ce vin" in the add form, the scan.
+ */
+export function AddUnitsForm({ product, onDone, onCancel = onDone, onAdded, start: typed = {}, cancelLabel }: AddUnitsFormProps) {
   const { t, i18n } = useTranslation();
   const { data: cellars } = useCellars();
   const addUnits = useAddUnits();
   const [start] = useState(() => latestLine(product.items));
-  const [quantity, setQuantity] = useState<number | undefined>(1);
-  const [cellarId, setCellarId] = useState<string | null>(start?.cellarId ?? null);
-  const [price, setPrice] = useState<number | undefined>(start?.purchasePrice ?? undefined);
-  const [bottleSize, setBottleSize] = useState(start?.bottleSize ?? '');
+  const [quantity, setQuantity] = useState<number | undefined>(typed.quantity ?? 1);
+  const [cellarId, setCellarId] = useState<string | null>(typed.cellarId !== undefined ? typed.cellarId : start?.cellarId ?? null);
+  const [price, setPrice] = useState<number | undefined>(typed.purchasePrice ?? start?.purchasePrice ?? undefined);
+  const [bottleSize, setBottleSize] = useState(typed.bottleSize || start?.bottleSize || '');
   // D6: a day, the YYYY-MM-DD text of the field — never a local Date.
-  const [purchasedAt, setPurchasedAt] = useState(todayLocalIso());
+  const [purchasedAt, setPurchasedAt] = useState(typed.purchasedAt || todayLocalIso());
   const [submitted, setSubmitted] = useState(false);
   // FEAT-95 (decision point 52): a cigar asks "boîtes de combien" or "à l'unité" instead of a size.
   const isCigar = product.category === 'cigar';
   const [cigars, setCigars] = useState<CigarGroupDraft>(() => draftFrom(start?.cigarsPerBox));
   // A ref: read by the storage choice, whose handler may be an earlier render's.
-  const priceTyped = useRef(false);
+  const priceTyped = useRef(typed.purchasePrice !== undefined);
   // The price shown is that of ONE box or cigar of the latest line: kept only
   // while the cigars are kept the same way (single, or boxes of the same
   // size) — a box price is never offered as the price of one cigar.
@@ -85,7 +108,7 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
           purchasedAt: purchasedAt || null,
         },
       },
-      { onSuccess: onDone },
+      { onSuccess: (write) => { onAdded?.(write); onDone(); } },
     );
   };
 
@@ -158,7 +181,7 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
         </div>
       </ModalBody>
       <ModalFooter>
-        <Button variant="light" onPress={onDone} isDisabled={addUnits.isPending}>{t('actions.cancel')}</Button>
+        <Button data-testid="add-units-cancel" variant="light" onPress={onCancel} isDisabled={addUnits.isPending}>{cancelLabel ?? t('actions.cancel')}</Button>
         <Button data-testid="add-units-submit" type="submit" color="primary" isLoading={addUnits.isPending}>
           {t('addUnits.submit')}
         </Button>
@@ -167,8 +190,23 @@ function AddUnitsForm({ product, onDone }: AddUnitsFormProps) {
   );
 }
 
+interface AddUnitsModalProps extends AddUnitsFormProps {
+  isOpen: boolean;
+}
+
+/** The reduced form in its own dialog (the drawer's action, the scan's "Vous avez déjà ce vin"). */
+export function AddUnitsModal({ isOpen, ...form }: AddUnitsModalProps) {
+  return (
+    <ResponsiveModal isOpen={isOpen} onClose={form.onCancel ?? form.onDone} size="md" radius="lg" backdrop="opaque" placement="center">
+      <ModalContent>
+        {() => <AddUnitsForm {...form} />}
+      </ModalContent>
+    </ResponsiveModal>
+  );
+}
+
 export interface AddUnitsActionProps {
-  product: ProductDetailView;
+  product: Product;
 }
 
 /**
@@ -197,11 +235,7 @@ export function AddUnitsAction({ product }: AddUnitsActionProps) {
       >
         {t(product.category === 'cigar' ? 'addUnits.actionCigar' : 'addUnits.action')}
       </Button>
-      <ResponsiveModal isOpen={isOpen} onClose={() => setIsOpen(false)} size="md" radius="lg" backdrop="opaque" placement="center">
-        <ModalContent>
-          {() => <AddUnitsForm product={product} onDone={() => setIsOpen(false)} />}
-        </ModalContent>
-      </ResponsiveModal>
+      <AddUnitsModal isOpen={isOpen} product={product} onDone={() => setIsOpen(false)} />
     </>
   );
 }

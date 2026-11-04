@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 // error screen offers to enter the item by hand.
 
 let uploadOutcome: { error: string } | { jobId: string } = { error: 'UNEXPECTED_ERROR' };
-let polledJob: { status: 'failed'; errorMessage: string | null } | undefined;
+let polledJob: { status: 'failed'; errorMessage: string | null } | { status: 'done'; extractedData: Record<string, unknown> } | undefined;
 const invalidateQueries = vi.fn();
 const createItem = vi.fn();
 
@@ -44,7 +44,23 @@ vi.mock('../InventoryForm', () => ({
       </div>
     ) : null,
 }));
-vi.mock('../DuplicateDialog', () => ({ DuplicateDialog: () => null }));
+// FEAT-97: the wines of the same name the lookup answers (none unless a test says).
+let sameName: Array<{ id: string; name: string; producer: string; vintage: number; category: string; items: unknown[] }> = [];
+vi.mock('@/hooks/useKnownWine', () => ({ useKnownWine: (_fields: unknown, enabled: boolean) => (enabled ? sameName : []) }));
+vi.mock('../KnownWineBanner', () => ({
+  KnownWineBanner: ({ matches, onAdd, onDistinct }: { matches: Array<{ id: string }>; onAdd: (p: unknown) => void; onDistinct: () => void }) =>
+    matches.length > 0 ? (
+      <div data-testid="known-wine-banner">
+        <button type="button" onClick={() => onAdd(matches[0])}>known-add</button>
+        <button type="button" onClick={onDistinct}>known-distinct</button>
+      </div>
+    ) : null,
+}));
+// The reduced form: a stand-in whose "add" says the bottles were added.
+vi.mock('../AddUnitsDialog', () => ({
+  AddUnitsModal: ({ isOpen, product, onDone }: { isOpen: boolean; product: { name: string }; onDone: () => void }) =>
+    isOpen ? <button type="button" onClick={onDone}>reduced-add {product.name}</button> : null,
+}));
 vi.mock('@heroui/react', () => ({
   Button: ({ children, onPress }: { children?: ReactNode; onPress?: () => void }) => (
     <button type="button" onClick={onPress}>{children}</button>
@@ -73,6 +89,7 @@ function renderAndSendPhoto(defaultCellarId?: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   polledJob = undefined;
+  sameName = [];
   createItem.mockResolvedValue({ id: 'i1', name: 'Talbot', producer: 'Château Talbot' });
 });
 
@@ -169,5 +186,37 @@ describe('ScanFlow error screen offers manual entry (#639)', () => {
 
     expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
     expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ cellarId: 'cellar-1' }));
+  });
+});
+
+// #471 (FEAT-97 c4): a label of a wine already known says "Vous avez déjà ce vin".
+describe('ScanFlow — a wine already known (FEAT-97)', () => {
+  const talbot = { id: 'p1', name: 'Talbot', producer: 'Château Talbot', vintage: 2015, category: 'wine', items: [] };
+  const readLabel = () => {
+    uploadOutcome = { jobId: 'j1' };
+    polledJob = { status: 'done', extractedData: { category: 'wine', name: 'Talbot', producer: 'Château Talbot', vintage: 2015 } };
+    renderAndSendPhoto();
+  };
+
+  it('adds the bottles to the known wine through the reduced form, and lists them', async () => {
+    sameName = [talbot];
+    readLabel();
+    fireEvent.click(screen.getByRole('button', { name: 'known-add' }));
+    fireEvent.click(screen.getByRole('button', { name: 'reduced-add Talbot' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(screen.getByText('scan.cart.incremented')).toBeInTheDocument();
+    expect(createItem).not.toHaveBeenCalled();
+  });
+
+  it('"C\'est un autre vin" creates a new wine, told apart from the known one', async () => {
+    sameName = [talbot];
+    readLabel();
+    fireEvent.click(screen.getByRole('button', { name: 'known-distinct' }));
+    expect(screen.queryByTestId('known-wine-banner')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.review.confirm' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ name: 'Talbot', distinctFrom: ['p1'], scanJobId: 'j1' }));
   });
 });
