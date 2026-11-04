@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type React from 'react';
 import type { ReactNode } from 'react';
 import { openedBottle, product, unit } from '@/lib/products/__tests__/factories';
@@ -47,8 +47,9 @@ vi.mock('@heroui/react', async (importOriginal) => ({
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { FamilyDrawer as Drawer } from '../FamilyDrawer';
 
+let queryClient = new QueryClient();
 const FamilyDrawer = (props: React.ComponentProps<typeof Drawer>) => (
-  <QueryClientProvider client={new QueryClient()}><Drawer {...props} /></QueryClientProvider>
+  <QueryClientProvider client={queryClient}><Drawer {...props} /></QueryClientProvider>
 );
 
 const detailOf = (over: Partial<ProductDetailView>): ProductDetailView =>
@@ -61,7 +62,7 @@ const tasting = (over: Partial<ProductDetailView['tastings'][number]>) => ({
   createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z', ...over,
 });
 
-beforeEach(() => { mutate.mockClear(); });
+beforeEach(() => { mutate.mockClear(); queryClient = new QueryClient(); });
 
 describe('FamilyDrawer', () => {
   it('opens a wine known without any bottle: its name, no line, its tastings', () => {
@@ -106,6 +107,20 @@ describe('FamilyDrawer', () => {
     detail = detailOf({ items: [unit({ id: 'group', quantity: 6 })] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
     expect(screen.queryByRole('slider')).toBeNull();
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  // Review of L1: never a level on a line of more than one bottle, whatever is on screen.
+  it('refuses a level on a line known meanwhile as more than one bottle (an offline opening merged into its group)', async () => {
+    const sub = openedBottle(60, { id: 'sub', updatedAt: '2026-10-02T00:00:00.000Z' });
+    detail = detailOf({ items: [sub] });
+    queryClient.setQueryData(['inventory', 'product', 'p1'], detailOf({ items: [{ ...sub, quantity: 6 }] }));
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const slider = screen.getByRole('slider');
+    fireEvent.keyDown(slider, { key: 'ArrowLeft' });
+    fireEvent.keyUp(slider, { key: 'ArrowLeft' });
+    // Refused before any request: the slider goes back to the saved level.
+    await waitFor(() => expect(slider).toHaveValue('60'));
     expect(mutate).not.toHaveBeenCalled();
   });
 
@@ -201,11 +216,29 @@ describe('FamilyDrawer — actions of a line (#471, W3)', () => {
     return within(menu).getAllByRole('menuitem').map((item) => item.getAttribute('aria-label'));
   };
 
-  it('a line of full bottles: move, change the price, correct the number, edit, trash (§10.3)', async () => {
+  it('a line of full bottles: open, drink, move, change the price, correct the number, edit, trash (§10.3)', async () => {
     detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage' })] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
     const [line] = screen.getAllByTestId('family-line');
-    expect(await menuOf(line)).toEqual(['Déplacer', 'Changer le prix', 'Corriger le nombre', 'Modifier', 'Mettre à la corbeille']);
+    expect(await menuOf(line)).toEqual([
+      "J'en ouvre une", "J'en bois une", 'Déplacer', 'Changer le prix', 'Corriger le nombre', 'Modifier', 'Mettre à la corbeille',
+    ]);
+  });
+
+  // #471 (L1, ux-ui.md §10.3): one main action in the footer, before "Ajouter des bouteilles".
+  it('the footer leads with "J\'en ouvre une", then "J\'en bois une" and the page\'s actions', () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} primaryAction={() => <button type="button">Ajouter des bouteilles</button>} />);
+    const open = screen.getByTestId('stock-move-open');
+    expect(open).toHaveAttribute('data-primary', 'true');
+    expect(screen.getByTestId('stock-move-drink')).toHaveAttribute('data-primary', 'false');
+    expect(open.compareDocumentPosition(screen.getByRole('button', { name: 'Ajouter des bouteilles' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('a wine with no line of full bottles has no "J\'en ouvre une"', () => {
+    detail = detailOf({ items: [] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(screen.queryByTestId('stock-move-open')).toBeNull();
   });
 
   it('an opened bottle: only edited or trashed from its menu', async () => {

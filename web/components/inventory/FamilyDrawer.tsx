@@ -22,7 +22,7 @@ import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
 import { notifySuccess } from '@/lib/toast';
 import { describeStock, keepNumbersWhole, wineName } from '@/lib/products/stock';
-import { bottleLabel, familyLines, type LineContext } from '@/lib/products/lines';
+import { bottleLabel, familyLines, hasOwnLevel, type LineContext } from '@/lib/products/lines';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 import { QrCodeModal } from './QrCodeModal';
@@ -31,6 +31,7 @@ import { FieldSourceBadge } from './FieldSourceBadge';
 import { FamilyStockLines } from './FamilyStockLines';
 import { FamilyHistory } from './FamilyHistory';
 import { StockLineMenu } from './StockLineMenu';
+import { StockMoveActions } from './StockMoveActions';
 import { unitNoun } from '@/lib/products/stockActions';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
@@ -99,10 +100,16 @@ export interface FamilyDrawerProps {
   /**
    * Anchors for the actions of the next lots: the menu of a line (by
    * default {@link StockLineMenu}: "Déplacer", "Corriger le nombre"…) and the
-   * footer's main action (L1: "J'en ouvre une", "Ajouter des bouteilles").
+   * footer's other actions ("Ajouter des bouteilles"), after the drawer's
+   * own "J'en ouvre une" / "J'en bois une" / "J'en fume un".
    */
   lineActions?: (item: ProductItem, product: ProductDetailView) => React.ReactNode;
   primaryAction?: (product: ProductDetailView) => React.ReactNode;
+  /**
+   * The cellars being looked at (the list filtered on cellars, a cellar's
+   * page): "Quelles bouteilles ?" preselects their line (FEAT-104 c3).
+   */
+  viewedCellarIds?: readonly string[];
 }
 
 /**
@@ -112,7 +119,7 @@ export interface FamilyDrawerProps {
  * The state of a group of bottles is never set from here: only the level
  * of a bottle already opened (a single copy, nothing detached).
  */
-export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryAction }: FamilyDrawerProps) {
+export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryAction, viewedCellarIds }: FamilyDrawerProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const hasMounted = useHasMounted();
@@ -143,6 +150,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const handleLevel = useCallback(async (item: ProductItem, level: number) => {
     const current = queryClient.getQueryData<ProductDetailView>(productDetailKey(item.productId))
       ?.items.find((unit) => unit.id === item.id) ?? item;
+    // Never a level on a line of more than one bottle: it would open one more.
+    if (!hasOwnLevel(current)) throw new Error('NOT_ONE_BOTTLE');
     const saved = await updateItem.mutateAsync({
       id: item.id,
       patch: level >= 100 ? { fillLevel: 100, isOpened: false } : { fillLevel: level },
@@ -420,6 +429,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
             {product && (
               <div className="px-5 py-3 border-t border-divider flex flex-wrap gap-2 shrink-0">
+                <StockMoveActions product={product} ctx={ctx} viewedCellarIds={viewedCellarIds} />
                 {primaryAction?.(product)}
                 <Button
                   variant="bordered"
