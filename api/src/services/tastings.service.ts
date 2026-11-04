@@ -1,5 +1,10 @@
-import { prisma } from '../lib/prisma';
-import { TastingCreateInput, TastingPatchInput } from '../schemas/tastings.schema';
+import type { Prisma } from '@prisma/client';
+import { prisma, type PrismaClientOrTx } from '../lib/prisma';
+import { AppError, badRequest } from '../lib/errors';
+import { productKey } from '../lib/finished-item';
+import { TastingCreateInput, TastingPatchInput, TastedWineInput } from '../schemas/tastings.schema';
+import { computeAlertStatus } from './alert.service';
+import { LISTED_PRODUCT_FILTER } from './product.service';
 
 const ITEM_SELECT = {
   id: true,
@@ -13,6 +18,28 @@ const ITEM_SELECT = {
   format: true,
 } as const;
 
+/** #471: the wine (family) a tasting is of — the only one when it was tasted elsewhere. */
+const PRODUCT_SELECT = {
+  id: true,
+  name: true,
+  producer: true,
+  category: true,
+  vintage: true,
+  photoUrl: true,
+  color: true,
+  spiritType: true,
+  sparklingType: true,
+  format: true,
+} as const;
+
+const NOTE_INCLUDE = { item: { select: ITEM_SELECT }, product: { select: PRODUCT_SELECT } } as const;
+
+/**
+ * Key space of the advisory lock taken while a wine tasted elsewhere is
+ * looked up then created (two int4 keys: never the CSV import's bigint key).
+ */
+const TASTED_WINE_LOCK_SPACE = 471107;
+
 const DEFAULT_PAGE_SIZE = 20;
 
 // Analytics top/flop item rankings.
@@ -20,6 +47,38 @@ const TOP_ITEMS_SIZE = 5;
 // Minimum number of distinct rated items before a "lowest-rated" list is
 // worth showing at all (ISSUE_038).
 const MIN_ITEMS_FOR_FLOP = 10;
+
+/**
+ * The wine a tasting elsewhere goes on: the oldest listed wine of the same
+ * `productKey`, else a new one without any bottle. Serialised per wine name,
+ * so two tastings of one new wine noted at once make one wine, not two.
+ */
+async function tastedWine(tx: PrismaClientOrTx, userId: string, wine: TastedWineInput): Promise<string> {
+  const isCigar = wine.category === 'cigar';
+  // What `productKey` reads: a cigar is told apart by its vitola, any other
+  // wine by its vintage (a spirit's included), so a wine named twice is found.
+  const vintage = isCigar ? null : wine.vintage ?? null;
+  const format = isCigar ? wine.format?.trim() || null : null;
+  const key = productKey({ category: wine.category, producer: wine.producer, name: wine.name, vintage, format });
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${TASTED_WINE_LOCK_SPACE}::int, hashtext(${key}))`;
+  const candidates = await tx.product.findMany({
+    where: { ...LISTED_PRODUCT_FILTER, category: wine.category, producer: { contains: wine.producer.trim(), mode: 'insensitive' } },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  });
+  const known = candidates.find((product) => productKey(product) === key);
+  if (known) return known.id;
+  const description = {
+    name: wine.name,
+    producer: wine.producer,
+    ...(vintage !== null ? { vintage } : {}),
+    ...(format !== null ? { format } : {}),
+  };
+  const created = await tx.product.create({
+    data: { userId, category: wine.category, ...description, alertStatus: computeAlertStatus(null, null) },
+    select: { id: true },
+  });
+  return created.id;
+}
 
 export const tastingsService = {
   // `search` (FEAT-09) filters the consumption history by dish (foodPairing)
@@ -32,17 +91,24 @@ export const tastingsService = {
   // see also FEAT-62 on visible collective contributions). Every member sees
   // every tasting note, not just the ones they personally logged; `_userId`
   // is kept for signature stability with the router but unused here.
-  async list(_userId: string, page = 1, limit = DEFAULT_PAGE_SIZE, itemId?: string, search?: string) {
+  //
+  // #471 (FEAT-107): the journal lists every tasting, with or without a
+  // bottle — a wine tasted elsewhere is found by its wine's name too.
+  async list(_userId: string, page = 1, limit = DEFAULT_PAGE_SIZE, itemId?: string, search?: string, productId?: string) {
     const skip = (page - 1) * limit;
     const trimmedSearch = search?.trim();
-    const where = {
+    const contains = (value: string) => ({ contains: value, mode: 'insensitive' as const });
+    const where: Prisma.TastingNoteWhereInput = {
       ...(itemId ? { itemId } : {}),
+      ...(productId ? { productId } : {}),
       ...(trimmedSearch
         ? {
             OR: [
-              { foodPairing: { contains: trimmedSearch, mode: 'insensitive' as const } },
-              { item: { is: { name: { contains: trimmedSearch, mode: 'insensitive' as const } } } },
-              { item: { is: { producer: { contains: trimmedSearch, mode: 'insensitive' as const } } } },
+              { foodPairing: contains(trimmedSearch) },
+              { item: { is: { name: contains(trimmedSearch) } } },
+              { item: { is: { producer: contains(trimmedSearch) } } },
+              { product: { is: { name: contains(trimmedSearch) } } },
+              { product: { is: { producer: contains(trimmedSearch) } } },
             ],
           }
         : {}),
@@ -50,7 +116,7 @@ export const tastingsService = {
     const [notes, total] = await Promise.all([
       prisma.tastingNote.findMany({
         where,
-        include: { item: { select: ITEM_SELECT } },
+        include: NOTE_INCLUDE,
         orderBy: { tastedAt: 'desc' },
         skip,
         take: limit,
@@ -60,27 +126,45 @@ export const tastingsService = {
     return { notes, total, page, limit };
   },
 
+  /**
+   * #471 (FEAT-107): a tasting is of a wine (the family). Of a bottle of the
+   * cellar (`itemId`): that bottle's wine. Of a known wine tasted elsewhere
+   * (`productId`): that wine alone, the stock untouched. Of a wine named
+   * (`wine`): the wine of the same `productKey` when Glou knows it, else a
+   * new wine without any bottle ("Plus en cave", FEAT-101).
+   */
   async create(userId: string, data: TastingCreateInput) {
-    let productId: string | undefined;
-    if (data.itemId) {
+    const { wine, productId: givenProductId, ...fields } = data;
+    const write = async (client: PrismaClientOrTx, productId: string | undefined) => client.tastingNote.create({
+      data: {
+        userId, // audit: who logged this tasting note
+        ...fields,
+        productId,
+        tastedAt: fields.tastedAt ? new Date(fields.tastedAt) : new Date(),
+      },
+      include: NOTE_INCLUDE,
+    });
+
+    if (wine) return prisma.$transaction(async (tx) => write(tx, await tastedWine(tx, userId, wine)));
+
+    let productId = givenProductId;
+    if (fields.itemId) {
       // Shared inventory: any item in the instance can be tasted/logged
       // against, not just the ones the current user created.
       const item = await prisma.inventoryItem.findFirst({
-        where: { id: data.itemId, deletedAt: null },
+        where: { id: fields.itemId, deletedAt: null },
+        select: { productId: true },
       });
-      if (!item) return null;
+      if (!item) throw new AppError(404, 'ITEM_NOT_FOUND');
+      if (productId && productId !== item.productId) throw badRequest('ITEM_NOT_IN_PRODUCT');
       // #471: the tasting belongs to the wine (the family) of the bottle.
       productId = item.productId;
+    } else if (productId) {
+      // A wine in the trash is not offered: it is restored first.
+      const product = await prisma.product.findFirst({ where: { id: productId, ...LISTED_PRODUCT_FILTER }, select: { id: true } });
+      if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND');
     }
-    return prisma.tastingNote.create({
-      data: {
-        userId, // audit: who logged this tasting note
-        ...data,
-        productId,
-        tastedAt: data.tastedAt ? new Date(data.tastedAt) : new Date(),
-      },
-      include: { item: { select: ITEM_SELECT } },
-    });
+    return write(prisma, productId);
   },
 
   // Any member can edit/delete any tasting note — full read/write access to
@@ -88,10 +172,16 @@ export const tastingsService = {
   async update(id: string, _userId: string, data: TastingPatchInput) {
     const existing = await prisma.tastingNote.findFirst({ where: { id } });
     if (!existing) return null;
-    // #471: moved to another bottle, the tasting follows that bottle's family.
-    const item = data.itemId
-      ? await prisma.inventoryItem.findFirst({ where: { id: data.itemId }, select: { productId: true } })
+    // #471: a tasting moves to another bottle of its wine, never to another
+    // wine (FEAT-107, out of scope); a tasting not yet on a wine follows the
+    // bottle's. Its own bottle resent unchanged is no move: it may be in the
+    // trash by now (or its wine), and the tasting must still be editable.
+    const moved = data.itemId !== undefined && data.itemId !== existing.itemId;
+    const item = moved
+      ? await prisma.inventoryItem.findFirst({ where: { id: data.itemId, deletedAt: null }, select: { productId: true } })
       : null;
+    if (moved && !item) throw new AppError(404, 'ITEM_NOT_FOUND');
+    if (item && existing.productId && item.productId !== existing.productId) throw badRequest('ITEM_NOT_IN_PRODUCT');
     return prisma.tastingNote.update({
       where: { id },
       data: {
@@ -99,7 +189,7 @@ export const tastingsService = {
         ...(item ? { productId: item.productId } : {}),
         tastedAt: data.tastedAt ? new Date(data.tastedAt) : undefined,
       },
-      include: { item: { select: ITEM_SELECT } },
+      include: NOTE_INCLUDE,
     });
   },
 
@@ -109,9 +199,11 @@ export const tastingsService = {
     return prisma.tastingNote.delete({ where: { id } });
   },
 
+  /** FEAT-79 over the wine (#471): every tasting of the bottle's wine, whichever bottle it was. */
   async itemStats(_userId: string, itemId: string) {
+    const item = await prisma.inventoryItem.findFirst({ where: { id: itemId }, select: { productId: true } });
     const notes = await prisma.tastingNote.findMany({
-      where: { itemId },
+      where: item ? { productId: item.productId } : { itemId },
       select: { rating: true, readiness: true, tastedAt: true },
       orderBy: { tastedAt: 'desc' },
     });
@@ -132,19 +224,20 @@ export const tastingsService = {
 
   async analytics(_userId: string) {
     const notes = await prisma.tastingNote.findMany({
-      where: { itemId: { not: null } },
+      // #471 (FEAT-107): by wine (family), a tasting elsewhere included.
+      where: { productId: { not: null } },
       select: {
         rating: true,
         readiness: true,
-        item: { select: { id: true, name: true, producer: true } },
+        product: { select: { id: true, name: true, producer: true } },
       },
     });
 
     // Producer rankings
     const byProducer: Record<string, { ratings: number[]; producer: string }> = {};
     for (const n of notes) {
-      if (!n.item?.producer || n.rating == null) continue;
-      const key = n.item.producer;
+      if (!n.product?.producer || n.rating == null) continue;
+      const key = n.product.producer;
       if (!byProducer[key]) byProducer[key] = { ratings: [], producer: key };
       byProducer[key].ratings.push(n.rating);
     }
@@ -159,9 +252,9 @@ export const tastingsService = {
     // Item top/flop
     const byItem: Record<string, { ratings: number[]; name: string; producer: string }> = {};
     for (const n of notes) {
-      if (!n.item || n.rating == null) continue;
-      const key = n.item.id;
-      if (!byItem[key]) byItem[key] = { ratings: [], name: n.item.name, producer: n.item.producer };
+      if (!n.product || n.rating == null) continue;
+      const key = n.product.id;
+      if (!byItem[key]) byItem[key] = { ratings: [], name: n.product.name, producer: n.product.producer };
       byItem[key].ratings.push(n.rating);
     }
     const itemStats = Object.entries(byItem)

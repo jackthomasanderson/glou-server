@@ -455,7 +455,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
         </DrawerContent>
       </Drawer>
 
-      <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialItemId={tastingPreset?.id} />
+      {/* FEAT-107: on this wine — one of its bottles, or tasted elsewhere (a wine without any bottle). */}
+      <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialProductId={product?.id} initialItemId={tastingPreset?.id} />
 
       {product && (
         <QrCodeModal isOpen={qrOpen} onClose={() => setQrOpen(false)} itemId={product.id} itemName={wineName(product)} />

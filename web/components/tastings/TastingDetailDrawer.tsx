@@ -4,8 +4,10 @@ import { Avatar, Button, Chip, Drawer, DrawerContent } from '@heroui/react';
 import { X, Pencil, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
+import { isTastedElsewhere, tastedPhoto, tastedWineTitle } from '@/lib/tastings/onWine';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { formatDate } from '@/lib/format';
+import { guestSignature } from '@/lib/shares/guestSignature';
 
 interface TastingDetailDrawerProps {
   note: TastingNote | null;
@@ -45,9 +47,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
           </p>
           <div className="flex justify-between items-start">
             <h2 id="tasting-detail-title" className="text-lg font-bold leading-tight pr-8">
-              {note.item
-                ? `${note.item.name} — ${note.item.producer}`
-                : t('tastings.noItem')}
+              {tastedWineTitle(note) ?? t('tastings.noItem')}
             </h2>
             <button
               onClick={onClose}
@@ -64,7 +64,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
           {/* Avatar + rating + date */}
           <div className="flex items-center gap-4">
             <Avatar
-              src={note.item?.photoUrl ?? undefined}
+              src={tastedPhoto(note)}
               fallback={<Wine size={24} />}
               className="w-14 h-14 bg-primary-100 text-primary shrink-0"
               showFallback
@@ -89,6 +89,8 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
                   year: 'numeric',
                 })}
                 {note.context ? ` · ${note.context}` : ''}
+                {isTastedElsewhere(note) ? ` · ${t('familyDrawer.tastings.elsewhere')}` : ''}
+                {note.guestName != null ? ` · ${guestSignature(note.guestName, t)}` : ''}
               </p>
             </div>
           </div>

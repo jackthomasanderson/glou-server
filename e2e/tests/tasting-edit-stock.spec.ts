@@ -136,7 +136,8 @@ test('a cigar tasting smokes one cigar: the closed box is opened, 24 left', asyn
     await stock.getByRole('button', { name: "J'en ai fumé un : la boîte est entamée (24 restants)" }).click();
     const res = await patched;
     expect(res.status()).toBe(200);
-    expect(res.request().postDataJSON()).toEqual({ smokeOne: true });
+    // FEAT-107: the tasting goes along, for the box opened off a group of several.
+    expect(res.request().postDataJSON()).toEqual({ smokeOne: true, tastingId: tastingIds[0] });
     await expect(stock).toBeHidden();
 
     const box = await okData<{ quantity: number; isOpened: boolean; cigarsLeft: number | null; cigarsPerBox: number | null }>(
@@ -179,9 +180,10 @@ test('a tasting never reopens an already opened bottle', async ({ page }) => {
   }
 });
 
-// #471 (FEAT-103 c2, "dégustation bouteille finie"): finishing a bottle of a
-// group of 6 from the tasting's stock question drinks one bottle, not six.
-test('a tasting that finishes a bottle of a group of 6 leaves 5 in stock', async ({ page }) => {
+// #471 (FEAT-103 c2, FEAT-107 c3, "dégustation bouteille finie"): finishing
+// a bottle of a group of 6 from the tasting's stock question drinks one
+// bottle, not six — and that finished bottle holds the tasting.
+test('a tasting that finishes a bottle of a group of 6 leaves 5 in stock, the finished one holding it', async ({ page }) => {
   const api = page.request;
   const name = `E2E #471 ${stamp()}`;
   let itemId = '';
@@ -205,11 +207,14 @@ test('a tasting that finishes a bottle of a group of 6 leaves 5 in stock', async
     expect(body.changed).toEqual([expect.objectContaining({ id: itemId, quantity: 5, isOpened: false })]);
     await expect(stock).toBeHidden();
 
-    const detail = await okData<{ items: Array<{ id: string; quantity: number; isOpened: boolean; fillLevel: number | null }> }>(
-      await api.get(`/api/products/${productId}`),
-    );
+    expect(res.request().postDataJSON()).toEqual({ isOpened: true, fillLevel: 0, tastingId: tastingIds[0] });
+    const detail = await okData<{
+      items: Array<{ id: string; quantity: number; isOpened: boolean; fillLevel: number | null }>;
+      tastings: Array<{ id: string; itemId: string | null }>;
+    }>(await api.get(`/api/products/${productId}`));
     expect(detail.items).toHaveLength(2);
     expect(detail.items.find((item) => item.id === itemId)).toMatchObject({ quantity: 5, isOpened: false });
+    expect(detail.tastings).toEqual([expect.objectContaining({ id: tastingIds[0], itemId: body.data.id })]);
   } finally {
     for (const id of tastingIds) await api.delete(`/api/tastings/${id}`).catch(() => {});
     if (productId) await api.delete(`/api/products/${productId}`).catch(() => {});

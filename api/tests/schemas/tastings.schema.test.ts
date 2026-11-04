@@ -78,3 +78,30 @@ describe('tastingPatchSchema', () => {
     expect(tastingPatchSchema.safeParse({ rating: null }).success).toBe(true);
   });
 });
+
+// #471 (FEAT-107): what was tasted.
+describe('tastingCreateSchema — the wine tasted', () => {
+  const ID = '11111111-1111-4111-8111-111111111111';
+
+  it('accepts a known wine alone, or with one of its bottles', () => {
+    expect(tastingCreateSchema.safeParse({ productId: ID }).success).toBe(true);
+    expect(tastingCreateSchema.safeParse({ productId: ID, itemId: ID }).success).toBe(true);
+  });
+
+  it('accepts a wine named, trimmed', () => {
+    const res = tastingCreateSchema.safeParse({ wine: { category: 'wine', producer: ' Domaine X ', name: 'Cuvée', vintage: 2020 } });
+    expect(res.success && res.data.wine).toMatchObject({ producer: 'Domaine X' });
+  });
+
+  it('refuses a wine named without a name or producer, or with a bottle', () => {
+    expect(tastingCreateSchema.safeParse({ wine: { category: 'wine', producer: 'X', name: ' ' } }).success).toBe(false);
+    expect(tastingCreateSchema.safeParse({ wine: { category: 'wine', name: 'X' } }).success).toBe(false);
+    expect(tastingCreateSchema.safeParse({ wine: { category: 'wine', producer: 'X', name: 'Y' }, itemId: ID }).success).toBe(false);
+    expect(tastingCreateSchema.safeParse({ wine: { category: 'wine', producer: 'X', name: 'Y' }, productId: ID }).success).toBe(false);
+  });
+
+  it('never moves a tasting to another wine on edit', () => {
+    const res = tastingPatchSchema.safeParse({ productId: ID, wine: { category: 'wine', producer: 'X', name: 'Y' }, rating: 3 });
+    expect(res.success && res.data).toEqual({ rating: 3 });
+  });
+});
