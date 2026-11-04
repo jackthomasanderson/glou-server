@@ -216,6 +216,8 @@ export function CellarDetailClient() {
       <FamilyDrawer
         productId={viewingItem ? viewingItem.productId ?? viewingItem.id : null}
         onClose={() => setViewingItem(null)}
+        // FEAT-104 c3: from a cellar's page, its line is preselected.
+        viewedCellarIds={[cellarId]}
       />
     </MainLayout>
   );
