@@ -322,6 +322,8 @@ export const guestInventoryUpdateSchema = z
     isOpened: z.boolean().optional(),
     openedAt: z.coerce.date().optional().nullable(),
     fillLevel: z.number().int().min(0).max(100).optional().nullable(),
+    // #471 (FEAT-109): "J'en fume un" — one cigar, through the detach rule.
+    smokeOne: z.literal(true).optional(),
   })
   .strict();
 

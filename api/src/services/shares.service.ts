@@ -104,6 +104,11 @@ function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
     leafOrigin: true,
     isOpened: true,
     fillLevel: true,
+    // #471 (FEAT-109): "Entamée · ouverte le 3 oct." on the guest's lines.
+    openedAt: true,
+    // The purchase day picks the line a bottle is taken from (FEAT-104):
+    // purchase information, hidden with the prices.
+    purchasedAt: !hidePrices,
     peakMaturityFrom: true,
     peakMaturityTo: true,
     alertStatus: true,
@@ -242,6 +247,19 @@ export const sharesService = {
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
     return item ? redactPrices([item], share.hidePrices)[0] : item;
+  },
+
+  /**
+   * #471 (FEAT-109): the names of the share's cellars, so the guest's lines
+   * say where a bottle is ("×4 · Garage"). Only the cellars of the share.
+   */
+  async getCellarsForShare(share: { cellarIds: string[] }) {
+    if (share.cellarIds.length === 0) return [];
+    return prisma.cellar.findMany({
+      where: { id: { in: share.cellarIds } },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
   },
 
   /**

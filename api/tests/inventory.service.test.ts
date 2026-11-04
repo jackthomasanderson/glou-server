@@ -420,6 +420,35 @@ describe('InventoryService', () => {
       expect(prisma.product.update).not.toHaveBeenCalled();
     });
 
+    // #471 (FEAT-109): the guest route's check runs on the unit as read under
+    // the family's lock, with the outcome the detach rule plans — and a
+    // refusal writes nothing.
+    it('runs the guard on the unit read under the lock, with the planned outcome', async () => {
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue({ ...group(), quantity: 5 } as never);
+      const seen: Array<[number | null, string]> = [];
+
+      await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0 }, {
+        guard: (unit, planned) => { seen.push([unit.quantity, planned()]); },
+      });
+
+      expect(seen).toEqual([[5, 'detached']]);
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.findUnique).mock.invocationCallOrder[0]);
+    });
+
+    it('writes nothing when the guard refuses', async () => {
+      const { AppError } = await import('../src/lib/errors');
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue(group() as never);
+
+      await expect(service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0 }, {
+        guard: () => { throw new AppError(403, 'GUEST_CANNOT_RESTOCK'); },
+      })).rejects.toMatchObject({ code: 'GUEST_CANNOT_RESTOCK' });
+
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+      expect(prisma.product.update).not.toHaveBeenCalled();
+    });
+
     it('smokeOne and keepTastings never reach a column', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ ...group(), quantity: 1 } as never);
 

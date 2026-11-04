@@ -15,7 +15,7 @@ import {
   type FlatItemView,
 } from '../lib/product-fields';
 import {
-  applyState, isStateField, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
+  applyState, isStateField, planState, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
 } from './stock-state.service';
 import { writeFamilyDescription } from './product.service';
 import { GROUP_KEY_FIELDS, joinIdenticalGroup } from './stock-split.service';
@@ -356,6 +356,13 @@ export class InventoryService {
        * the rollback would be a no-op. Never set this from a route handler.
        */
       bypassFieldLock?: boolean;
+      /**
+       * #471 (FEAT-109): a check of the write against the unit as read under
+       * its family's lock, with the outcome the detach rule plans for it —
+       * the guest route refuses there what would change a number. Throws an
+       * AppError to refuse; nothing is written then.
+       */
+      guard?: (unit: StateItem, planned: () => StateOutcome) => void;
     },
   ): Promise<UpdateItemResult | null> {
     const { fieldSources, isManualEdit = true, bypassFieldLock = false } = options ?? {};
@@ -474,6 +481,8 @@ export class InventoryService {
         const fresh = await tx.inventoryItem.findUnique({ where: { id } });
         if (!fresh || fresh.deletedAt) return null;
         if (isStale(fresh.updatedAt)) return { conflict: true as const };
+        options?.guard?.(fresh as StateItem, () =>
+          planState(fresh as StateItem, { unit, state, smokeOne, keepTastings }, unitKind(safePatch.category ?? row.product.category)).outcome);
         // Also when the patch holds no family field: the derived alert may
         // need realigning, and that is decided on the locked family (#706
         // window check included — a ZodError, answered with 400).

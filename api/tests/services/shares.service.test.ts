@@ -15,6 +15,7 @@ vi.mock('../../src/lib/prisma', () => ({
     },
     cellar: {
       count: vi.fn(),
+      findMany: vi.fn(),
     },
     collection: {
       count: vi.fn(),
@@ -241,6 +242,9 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     expect(call.select.purchasePrice).toBe(false);
     expect(call.select.purchasePlace).toBe(false);
     expect(call.select.estimatedValue).toBe(false);
+    // #471 (FEAT-109): the purchase day is purchase information, hidden with the prices.
+    expect(call.select.purchasedAt).toBe(false);
+    expect(call.select.openedAt).toBe(true);
   });
 
   it('includes notes and price fields when hidePrices/hideNotes are false', async () => {
@@ -253,6 +257,7 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> };
     expect(call.select.notes).toBe(true);
     expect(call.select.purchasePrice).toBe(true);
+    expect(call.select.purchasedAt).toBe(true);
   });
 
   it('scopes to the declared cellarIds/collectionIds, not to the creating user (shared-inventory invariant)', async () => {
@@ -406,5 +411,22 @@ describe('guest showcase excludes non-owned references (FEAT-87)', () => {
     // A bottle the guest just finished is still returned to them (guest.router
     // re-reads it after the write); a written-off one is gone (#471).
     expect(call.where).toEqual({ id: 'i1', deletedAt: null, writtenOffAt: null, isOwned: true });
+  });
+});
+
+// #471 (FEAT-109): the guest's lines say where a bottle is — only the share's cellars.
+describe('sharesService.getCellarsForShare', () => {
+  it('names only the cellars of the share', async () => {
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([{ id: 'c1', name: 'Garage' }] as never);
+
+    expect(await sharesService.getCellarsForShare({ cellarIds: ['c1'] })).toEqual([{ id: 'c1', name: 'Garage' }]);
+    expect(prisma.cellar.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: { in: ['c1'] } }, select: { id: true, name: true },
+    }));
+  });
+
+  it('names none for a share by collection only', async () => {
+    expect(await sharesService.getCellarsForShare({ cellarIds: [] })).toEqual([]);
+    expect(prisma.cellar.findMany).not.toHaveBeenCalled();
   });
 });

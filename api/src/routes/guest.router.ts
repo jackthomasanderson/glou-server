@@ -10,6 +10,7 @@ import { guestInventoryUpdateSchema } from '../schemas/inventory.schema';
 import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
 import { getClientIp } from '../middleware/auth.middleware';
+import { checkGuestWrite } from '../lib/guest-write';
 
 const router = Router({ mergeParams: true });
 
@@ -39,8 +40,17 @@ router.use(guestMiddleware);
 // ─── GET /api/guest/:token ──────────────────────────────────────────────────
 // Validate token and return share metadata (scope + masking options)
 
-router.get('/', (_req: Request, res: Response): void => {
+router.get('/', async (_req: Request, res: Response): Promise<void> => {
   const share = _req.guestShare!;
+  // #471 (FEAT-109): the share's cellars by name, for the guest's lines.
+  let cellars: Array<{ id: string; name: string }>;
+  try {
+    cellars = await sharesService.getCellarsForShare(share);
+  } catch (error) {
+    console.error('[guest] cellars error:', error);
+    res.status(500).json({ error: 'FAILED_TO_FETCH_SHARE' });
+    return;
+  }
   res.json({
     data: {
       id: share.id,
@@ -52,6 +62,7 @@ router.get('/', (_req: Request, res: Response): void => {
       // Subset of cellarIds where the guest is also allowed to edit items (FEAT-37).
       writeCellarIds: share.writeCellarIds,
       collectionIds: share.collectionIds,
+      cellars,
     },
   });
 });
@@ -120,7 +131,11 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     }
 
     const patch = guestInventoryUpdateSchema.parse(req.body);
-    const result = await inventoryService.updateItem(share.userId, itemId, patch);
+    // #471 (FEAT-109): one copy opened, drunk or smoked, a level set — never
+    // a number changed; decided on the unit as read under its family's lock.
+    const result = await inventoryService.updateItem(share.userId, itemId, patch, {
+      guard: (unit, planned) => checkGuestWrite(share, patch, unit, planned),
+    });
 
     if (!result) {
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
@@ -175,7 +190,16 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     res.json(response);
   } catch (error) {
     if (error instanceof AppError) {
-      // #471: a write the detach / reattach rule refuses (TASTINGS_ON_ITEM…).
+      // #471: a write the detach / reattach rule refuses (TASTINGS_ON_ITEM…),
+      // or one a guest may not make (checkGuestWrite).
+      void auditLog({
+        userId: share.userId,
+        action: 'GUEST_UPDATE',
+        status: 'error',
+        ip,
+        bottleId: itemId,
+        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, reason: error.code },
+      });
       res.status(error.status).json({ error: error.code, details: error.details });
       return;
     }
