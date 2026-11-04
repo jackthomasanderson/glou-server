@@ -86,19 +86,24 @@ export function WishlistDashboard() {
 
   /**
    * "Ajouter des bouteilles à ce vin": the reduced form starts from the wine's
-   * latest line — its size (ux-ui.md §10.4.1), and its cellar and price when
-   * none was typed — so that the same purchase completes it (D5).
+   * latest line in stock — its size (ux-ui.md §10.4.1), and its cellar and
+   * price when none was typed — so that the same purchase completes it (D5).
+   * Without a line in stock, what was typed stays. A cigar wish counts
+   * cigars and its last price seen is that of one cigar: joining a line of
+   * boxes of M, it becomes ⌈cigars / M⌉ boxes at the line's box price.
    */
   const joinKnownWine = (product: Product) => {
     const line = latestLine(product.items);
+    const boxSize = product.category === 'cigar' ? line?.cigarsPerBox ?? null : null;
     setJoining(product);
     setConvertForm((f) => ({
       ...f,
-      bottleSize: line?.bottleSize ?? '',
+      bottleSize: line ? line.bottleSize ?? '' : f.bottleSize,
       cellarId: f.cellarId || line?.cellarId || '',
-      purchasePrice: f.purchasePrice ?? line?.purchasePrice ?? undefined,
+      purchasePrice: boxSize !== null ? line?.purchasePrice ?? undefined : f.purchasePrice ?? line?.purchasePrice ?? undefined,
     }));
-    setCigars({ ...draftFrom(line?.cigarsPerBox), quantity: convertForm.quantity ?? 1 });
+    const wanted = convertForm.quantity ?? 1;
+    setCigars({ ...draftFrom(line?.cigarsPerBox), quantity: boxSize !== null ? Math.max(1, Math.ceil(wanted / boxSize)) : wanted });
   };
 
   const openCreate = () => {

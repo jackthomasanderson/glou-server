@@ -78,12 +78,19 @@ describe('WishlistDashboard — a wish for a wine already known (FEAT-97 c4)', (
     });
   });
 
-  it('asks a cigar joining a known reference for its boxes, and sends their size', async () => {
-    wishes = [wish({ category: 'cigar', name: 'No. 2', producer: 'Montecristo', vintage: null })];
-    sameName = [product({
-      id: 'p2', category: 'cigar', name: 'No. 2', producer: 'Montecristo', vintage: null, format: 'Robusto',
-      items: [unit({ quantity: 3, cigarsPerBox: 25, purchasePrice: 200, purchasedAt: '2026-01-15' })],
-    })];
+  const montecristo = (line: Parameters<typeof unit>[0]) => product({
+    id: 'p2', category: 'cigar', name: 'No. 2', producer: 'Montecristo', vintage: null, format: 'Robusto',
+    items: [unit({ quantity: 3, purchasedAt: '2026-01-15', ...line })],
+  });
+  const cigarWish = (targetQuantity: number) =>
+    wish({ category: 'cigar', name: 'No. 2', producer: 'Montecristo', vintage: null, targetQuantity, lastSeenPrice: 15 });
+
+  it.each([
+    [10, 1],
+    [60, 3],
+  ])('turns a wish of %i cigars joining boxes of 25 into %i boxes at the box price, not the price of one cigar (verifier #817)', async (cigars, boxes) => {
+    wishes = [cigarWish(cigars)];
+    sameName = [montecristo({ cigarsPerBox: 25, purchasePrice: 200 })];
     const dialog = openConversion();
     // A wish has no vitola: every vitola of the reference is looked up.
     expect(asked).toHaveBeenCalledWith(expect.objectContaining({ category: 'cigar', name: 'No. 2', anyFormat: true }), true);
@@ -92,8 +99,29 @@ describe('WishlistDashboard — a wish for a wine already known (FEAT-97 c4)', (
     expect(within(dialog).getByTestId('cigar-storage')).toBeInTheDocument();
     fireEvent.click(within(dialog).getByTestId('wishlist-convert-submit'));
     await vi.waitFor(() => expect(convert).toHaveBeenCalled());
-    expect(sent().data).toMatchObject({ productId: 'p2', quantity: 2, cigarsPerBox: 25, purchasePrice: 200 });
+    expect(sent().data).toMatchObject({ productId: 'p2', quantity: boxes, cigarsPerBox: 25, purchasePrice: 200 });
     expect(sent().data).not.toHaveProperty('bottleSize');
+  });
+
+  it('keeps the number of cigars and the price of one cigar seen when joining single cigars', async () => {
+    wishes = [cigarWish(10)];
+    sameName = [montecristo({ cigarsPerBox: null, purchasePrice: 9 })];
+    const dialog = openConversion();
+    fireEvent.click(within(dialog).getByTestId('known-wine-add'));
+    fireEvent.click(within(dialog).getByTestId('wishlist-convert-submit'));
+    await vi.waitFor(() => expect(convert).toHaveBeenCalled());
+    expect(sent().data).toMatchObject({ productId: 'p2', quantity: 10, cigarsPerBox: null, purchasePrice: 15 });
+  });
+
+  it('keeps the size typed when the wine has no bottle left in stock (verifier #817)', async () => {
+    wishes = [wish()];
+    sameName = [product({ id: 'p1', name: 'Cuvée X', producer: 'Domaine Y', vintage: 2018, items: [] })];
+    const dialog = openConversion();
+    fireEvent.change(within(dialog).getByLabelText(t('wishlist.convert.bottleSize')), { target: { value: '150cl' } });
+    fireEvent.click(within(dialog).getByTestId('known-wine-add'));
+    fireEvent.click(within(dialog).getByTestId('wishlist-convert-submit'));
+    await vi.waitFor(() => expect(convert).toHaveBeenCalled());
+    expect(sent().data).toMatchObject({ productId: 'p1', bottleSize: '150cl' });
   });
 
   it('"C\'est un autre vin" converts into a new wine told apart', async () => {

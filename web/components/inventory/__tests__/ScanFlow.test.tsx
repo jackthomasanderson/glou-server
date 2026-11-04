@@ -209,6 +209,21 @@ describe('ScanFlow — a wine already known (FEAT-97)', () => {
     expect(createItem).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['spirit', 'scan.cart.addedSpirit'],
+    ['cigar', 'scan.cart.addedCigar'],
+  ])('says the bottles were added to your %s, in its own word', async (category, label) => {
+    sameName = [{ ...talbot, category }];
+    uploadOutcome = { jobId: 'j1' };
+    polledJob = { status: 'done', extractedData: { category, name: 'Talbot', producer: 'Château Talbot' } };
+    renderAndSendPhoto();
+    fireEvent.click(screen.getByRole('button', { name: 'known-add' }));
+    fireEvent.click(screen.getByRole('button', { name: 'reduced-add Talbot' }));
+
+    expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(screen.queryByText('scan.cart.addedWine')).toBeNull();
+  });
+
   it('"C\'est un autre vin" creates a new wine, told apart from the known one', async () => {
     sameName = [talbot];
     readLabel();
