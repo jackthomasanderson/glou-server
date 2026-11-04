@@ -6,6 +6,7 @@ import type { LineContext } from '@/lib/products/lines';
 import type { StockMove } from '@/lib/products/openDrink';
 import { firstStep, fullStep, type FirstStep } from '@/lib/products/openedReminder';
 import type { ProductItem } from '@/lib/products/types';
+import { isProvisional } from '@/lib/offline/optimistic';
 import { OpenedReminderDialog } from './OpenedReminderDialog';
 import { WhichBottlesDialog } from './WhichBottlesDialog';
 
@@ -49,7 +50,11 @@ export function useStockMoveFlow({ wine, ctx, viewedCellarIds, onFinishOpened }:
     }
   }, [ctx.kind, run]);
 
-  const start = useCallback((move: StockMove, items: readonly ProductItem[], line?: ProductItem) => {
+  const start = useCallback((move: StockMove, all: readonly ProductItem[], line?: ProductItem) => {
+    // FEAT-108: a copy shown before the server took it off its group
+    // (offline) is neither reminded of nor chosen: it has no id there yet.
+    if (line && isProvisional(line)) return;
+    const items = all.filter((item) => !isProvisional(item));
     const step = firstStep(move, items, line);
     if (step.step === 'remind') {
       setAsking({ step: 'remind', move, opened: step.opened, hasFull: step.hasFull, groups: openableGroups(items), line });

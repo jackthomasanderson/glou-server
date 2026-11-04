@@ -47,9 +47,25 @@ const withPWA = withPWAInit({
   // cached worker can never mask local changes during `next dev`.
   disable: process.env.NODE_ENV === 'development',
   register: true,
+  // FEAT-108 (ux-ui.md §10.8): back online, the page is NOT reloaded (the
+  // plugin's default). The app follows by itself — the offline queue is
+  // replayed (useOfflineSync) and the lists refetched — so the open drawer
+  // stays where it was, and a reload can no longer cut a queued change
+  // while it is being sent (its answer lost, then replayed as a conflict).
+  reloadOnOnline: false,
   extendDefaultRuntimeCaching: true,
   workboxOptions: {
     runtimeCaching: [
+      // FEAT-108 (review of #823): the connectivity probe must never be
+      // answered from a cache — the plugin's default `apis` rule
+      // (NetworkFirst) would serve a stale `{ online: true }` to an app
+      // started offline, and the actions that need the server would look
+      // available. Listed first: the first matching rule wins.
+      {
+        urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname === '/api/connectivity',
+        method: 'GET',
+        handler: 'NetworkOnly',
+      },
       {
         urlPattern: ({ url, sameOrigin }) =>
           sameOrigin && /^\/api\/(inventory|cellars|collections)(\/|$)/.test(url.pathname),

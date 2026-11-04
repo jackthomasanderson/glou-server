@@ -12,8 +12,14 @@ import { frenchT } from '@/lib/products/__tests__/i18n';
 
 const update = vi.fn();
 vi.mock('@/lib/inventory/client', () => ({ inventoryClient: { update: (...a: unknown[]) => update(...a) } }));
-const enqueueMutation = vi.fn();
-vi.mock('@/lib/offline/syncEngine', () => ({ overlayQueuedChanges: async <T,>(items: T) => items, enqueueMutation: (...a: unknown[]) => enqueueMutation(...a) }));
+const enqueueMutation = vi.fn<(...args: unknown[]) => Promise<{ id: string }>>(async () => ({ id: 'q1' }));
+vi.mock('@/lib/offline/syncEngine', () => ({
+  overlayQueuedChanges: async <T,>(items: T) => items,
+  enqueueMutation: (...a: unknown[]) => enqueueMutation(...a),
+  shownAfter: <T,>(item: T) => item,
+  markQueuedResult: <T,>(result: T) => result,
+  queuedMutationOf: () => undefined,
+}));
 vi.mock('@/lib/offline/db', () => ({ mirrorInventoryToCache: vi.fn(), getCachedInventory: vi.fn() }));
 const notifyError = vi.fn();
 vi.mock('@/lib/toast', () => ({ notifyError: (...a: unknown[]) => notifyError(...a), notifySuccess: vi.fn() }));
@@ -28,7 +34,7 @@ function setup() {
 
 afterEach(() => {
   update.mockReset();
-  enqueueMutation.mockReset();
+  enqueueMutation.mockClear();
   notifyError.mockReset();
 });
 
@@ -65,7 +71,7 @@ describe('useUpdateInventoryItem (#572)', () => {
     // The list moved on (a refetch) while the form was open.
     qc.setQueryData(INVENTORY_KEY, [{ id: 'A', updatedAt: 'v2' }]);
     await result.current.mutateAsync({ id: 'A', patch: { purchasePrice: 25 }, expectedUpdatedAt: 'v1' });
-    expect(enqueueMutation).toHaveBeenCalledWith(qc, 'A', { purchasePrice: 25 }, 'v1');
+    expect(enqueueMutation).toHaveBeenCalledWith(qc, 'A', { purchasePrice: 25 }, 'v1', expect.objectContaining({ shown: { id: 'A', updatedAt: 'v2' } }));
   });
 });
 

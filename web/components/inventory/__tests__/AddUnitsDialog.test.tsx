@@ -17,6 +17,8 @@ const mutate = vi.fn();
 vi.mock('@/hooks/useProducts', () => ({ useAddUnits: () => ({ mutate, isPending: false }) }));
 vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }, { id: 'kitchen', name: 'Cuisine' }] }) }));
 vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
+const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
+vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, o?: Record<string, unknown>) => t(key, o), i18n: { language: 'fr' } }) }));
 
 import { AddUnitsAction } from '../AddUnitsDialog';
@@ -31,9 +33,35 @@ function open(wine: ProductDetailView) {
 
 const sent = () => mutate.mock.calls.at(-1)?.[0] as { product: { id: string }; input: Record<string, unknown> };
 
-beforeEach(() => mutate.mockReset());
+beforeEach(() => {
+  mutate.mockReset();
+  connectivity.online = true;
+});
 
 describe('AddUnitsAction', () => {
+  it('offline: still shown, unavailable, with the reason, and opens nothing (FEAT-108, ux-ui.md §10.8)', () => {
+    connectivity.online = false;
+    render(<AddUnitsAction product={detail([unit({ quantity: 6 })])} />);
+    const button = screen.getByRole('button', { name: 'Ajouter des bouteilles' });
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveAccessibleDescription('Disponible au retour de la connexion');
+    fireEvent.click(button);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('started already offline (no `offline` event, the probe still says reachable): blocked too (review of #823, N2)', () => {
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    try {
+      render(<AddUnitsAction product={detail([unit({ quantity: 6 })])} />);
+      const button = screen.getByRole('button', { name: 'Ajouter des bouteilles' });
+      expect(button).toHaveAttribute('aria-disabled', 'true');
+      fireEvent.click(button);
+      expect(screen.queryByRole('dialog')).toBeNull();
+    } finally {
+      onLine.mockRestore();
+    }
+  });
+
   it('asks the number, cellar, price of one bottle, size and purchase day of the new bottles only', () => {
     const dialog = open(detail([unit({ quantity: 6 })]));
     expect(within(dialog).getByText('Cuvée X 2020')).toBeInTheDocument();

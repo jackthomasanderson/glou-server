@@ -21,8 +21,18 @@ vi.mock('react-i18next', () => ({
 }));
 const toast = vi.hoisted(() => ({ notifySuccess: vi.fn(), notifyError: vi.fn(), notifyUndoable: vi.fn() }));
 vi.mock('@/lib/toast', () => toast);
-const offline = vi.hoisted(() => ({ enqueueMutation: vi.fn(async () => undefined), overlayQueuedChanges: vi.fn() }));
-vi.mock('@/lib/offline/syncEngine', () => offline);
+const offline = vi.hoisted(() => ({
+  enqueueMutation: vi.fn(async (_qc: unknown, itemId: string, patch: Record<string, unknown>) => (
+    { id: 'q1', itemId, patch, createdAt: '2026-10-05T00:00:00.000Z', expectedUpdatedAt: '', status: 'pending' }
+  )),
+  overlayQueuedChanges: vi.fn(),
+  discardQueuedMutation: vi.fn(async () => true),
+}));
+// The queue itself is stubbed; what it shows (shownAfter, the queued mark) is the real thing.
+vi.mock('@/lib/offline/syncEngine', async (importOriginal) => ({ ...(await importOriginal<object>()), ...offline }));
+// Connectivity is probed by a GET of its own: kept out of the stubbed API.
+const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
+vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,
@@ -66,11 +76,13 @@ const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
 
 let queryClient: QueryClient;
 beforeEach(() => {
+  connectivity.online = true;
   requests = [];
   answer = () => ({ status: 200, body: { data: {}, changed: [], removedIds: [] } });
   vi.stubGlobal('fetch', fetchMock);
   Object.values(toast).forEach((fn) => fn.mockClear());
   offline.enqueueMutation.mockClear();
+  offline.discardQueuedMutation.mockClear();
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
 });
 afterEach(() => { vi.unstubAllGlobals(); });
@@ -295,7 +307,7 @@ describe('the drawer\'s footer: "J\'en ouvre une", "J\'en bois une" (FEAT-103, F
     expect(toast.notifyUndoable).not.toHaveBeenCalled();
   });
 
-  it('without network the move waits in the offline queue: said, with nothing to undo yet', async () => {
+  it('without network the move waits in the offline queue, against the group\'s version: "Annuler" drops it from the queue (FEAT-108)', async () => {
     const group = unit({ id: 'g', quantity: 6, updatedAt: VERSION });
     queryClient.setQueryData(['inventory'], [{ ...group, category: 'wine', name: 'Cuvée X' }]);
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
@@ -304,8 +316,14 @@ describe('the drawer\'s footer: "J\'en ouvre une", "J\'en bois une" (FEAT-103, F
     fireEvent.click(screen.getByTestId('stock-move-open'));
 
     await waitFor(() => expect(offline.enqueueMutation).toHaveBeenCalled());
-    await waitFor(() => expect(toast.notifySuccess).toHaveBeenCalledWith('openDrink.done.open'));
-    expect(toast.notifyUndoable).not.toHaveBeenCalled();
+    const [, itemId, patch, expected] = offline.enqueueMutation.mock.calls[0] as unknown as [unknown, string, Record<string, unknown>, string];
+    expect([itemId, expected]).toEqual(['g', VERSION]);
+    expect(patch).toMatchObject({ isOpened: true });
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalledWith('openDrink.queued.open', undefined, expect.any(Function)));
+    // Nothing was sent: "Annuler" takes it out of the queue, no request.
+    const undo = toast.notifyUndoable.mock.calls[0][2] as () => void;
+    undo();
+    await waitFor(() => expect(offline.discardQueuedMutation).toHaveBeenCalledWith('q1', queryClient));
   });
 
   it('nothing to open when no line of full bottles is left, nor anything to drink when no bottle is left', () => {
@@ -407,5 +425,20 @@ describe('a line\'s menu: open, drink, smoke from that very line', () => {
     await waitFor(() => expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0));
     // §10.3: an opened bottle is finished or put back, never opened again.
     expect(menuItems()).toEqual(['Je la finis', "Annuler l'ouverture", 'Modifier', 'Mettre à la corbeille']);
+  });
+
+  it('offline: "Déplacer" and "Changer le prix" stay in the menu, disabled, with the reason; opening still works (FEAT-108, §10.8)', async () => {
+    connectivity.online = false;
+    drawMenu(unit({ id: 'g', quantity: 6, updatedAt: VERSION }));
+    fireEvent.click(screen.getByTestId('stock-line-menu'));
+    await waitFor(() => expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0));
+    for (const name of ['Déplacer', 'Changer le prix']) {
+      const entry = screen.getByRole('menuitem', { name });
+      expect(entry).toHaveAttribute('aria-disabled', 'true');
+      expect(entry).toHaveTextContent('Disponible au retour de la connexion');
+    }
+    for (const name of ["J'en ouvre une", "J'en bois une", 'Corriger le nombre']) {
+      expect(screen.getByRole('menuitem', { name })).not.toHaveAttribute('aria-disabled', 'true');
+    }
   });
 });

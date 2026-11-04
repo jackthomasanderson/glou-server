@@ -5,6 +5,7 @@ import { Radio, RadioGroup } from '@heroui/react';
 import { CORRECTION_REASONS, type CorrectionReason } from '@shared/product';
 import { useCorrectQuantity } from '@/hooks/useStockActions';
 import { notifySuccess } from '@/lib/toast';
+import { queuedMutationOf } from '@/lib/offline/syncEngine';
 import { lineParts, type LineContext } from '@/lib/products/lines';
 import { lineCopies, unitNoun } from '@/lib/products/stockActions';
 import type { ProductItem } from '@/lib/products/types';
@@ -46,8 +47,9 @@ export function CorrectQuantityDialog({ item, ctx, isOpen, onClose, onTrashInste
     correct.mutate(
       { item, body: { quantity, reason } },
       {
-        onSuccess: () => {
-          notifySuccess('stockLine.correct.done', { from, to: quantity });
+        onSuccess: (write) => {
+          // FEAT-108: without network, shown at once and sent when it is back.
+          notifySuccess(queuedMutationOf(write) ? 'stockLine.correct.queued' : 'stockLine.correct.done', { from, to: quantity });
           onClose();
         },
       },

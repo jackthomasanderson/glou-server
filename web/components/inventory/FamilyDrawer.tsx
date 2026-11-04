@@ -29,6 +29,8 @@ import { QrCodeModal } from './QrCodeModal';
 import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
 import { FieldSourceBadge } from './FieldSourceBadge';
 import { FamilyStockLines } from './FamilyStockLines';
+import { useSyncQueue } from '@/hooks/useOfflineSync';
+import { isProvisional } from '@/lib/offline/optimistic';
 import { FamilyHistory } from './FamilyHistory';
 import { StockLineMenu } from './StockLineMenu';
 import { StockMoveActions } from './StockMoveActions';
@@ -149,6 +151,9 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
     formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
   }), [kind, t, cellarName, lang]);
   const lines = useMemo(() => familyLines(product?.items ?? [], cellarName), [product?.items, cellarName]);
+  // FEAT-108: the lines with a change waiting for the network ("en attente").
+  const syncQueue = useSyncQueue();
+  const pendingIds = useMemo(() => new Set(syncQueue.map((m) => m.itemId)), [syncQueue]);
   const { putBack: putBackOpened, dialog: putBackDialog } = usePutBackOpened(ctx);
 
   // One opened bottle: its own level, no copy detached. Put back full, it
@@ -179,8 +184,10 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   // only line in the cellar (no question when the answer is obvious, §10.4).
   // Several lines and none opened: the member picks the bottle — never a full
   // one chosen for them, which a "Bue" answer would then detach.
-  const tastingPreset = lines.inCellar.find((item) => !isIntactItem(item))
-    ?? (lines.inCellar.length === 1 ? lines.inCellar[0] : undefined);
+  // A copy still waiting for the network (FEAT-108) has no id on the server yet.
+  const tastingLines = lines.inCellar.filter((item) => !isProvisional(item));
+  const tastingPreset = tastingLines.find((item) => !isIntactItem(item))
+    ?? (tastingLines.length === 1 ? tastingLines[0] : undefined);
 
   const renderBody = (p: ProductDetailView) => {
     const stock = describeStock(p, t);
@@ -225,6 +232,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
             : <StockLineMenu item={item} ctx={ctx} product={p} onFinishOpened={finishOpened} />)}
           reviewActions={(item) => <ReviewLineActions item={item} ctx={ctx} />}
           focus={focusLine}
+          pendingIds={pendingIds}
         />
 
         {/* 4. The wine's description, shared by all its bottles */}

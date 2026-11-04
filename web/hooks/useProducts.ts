@@ -1,12 +1,13 @@
 'use client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { productsClient, type AddUnitsInput, type UnitWrite } from '@/lib/products/client';
-import { detailWithUnitWrite, productsFromFlatItems, withUnitChanges } from '@/lib/products/fromFlat';
+import { detailWithUnitWrite, productsFromFlatItems, UNIT_FIELD_SET, withUnitChanges } from '@/lib/products/fromFlat';
 import { wineName } from '@/lib/products/stock';
 import { NetworkError } from '@/lib/network-error';
-import type { Product, ProductDetailView, TrashedProduct } from '@/lib/products/types';
+import type { Product, ProductDetailView, ProductItem, TrashedProduct } from '@/lib/products/types';
 import { BULK_WINES_ERRORS, type BulkStockResult, type BulkWinesAction, type ProductDescription } from '@shared/product';
-import { getAllQueuedMutations, getCachedInventory } from '@/lib/offline/db';
+import { getAllQueuedMutations, getCachedInventory, type QueuedMutation } from '@/lib/offline/db';
+import { overlayChanges, unitInStock, type UnitLike } from '@/lib/offline/optimistic';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
 
@@ -20,10 +21,12 @@ const PRODUCTS_TRUNCATED_KEY = ['inventory-meta', 'products-truncated'];
 
 /**
  * #585: a bottle change still waiting in the offline queue stays on screen.
- * Only the bottle's own fields are overlaid; a description change shows once sent.
+ * Only the bottle's own fields are overlaid; a description change shows once
+ * sent. FEAT-108: a copy opened, drunk or smoked out of a group shows on its
+ * own line (provisional), the group one fewer; the card lists what is in the cellar.
  */
 async function overlayQueuedUnitChanges(products: Product[]): Promise<Product[]> {
-  let queued;
+  let queued: QueuedMutation[];
   try {
     queued = (await getAllQueuedMutations()).filter((m) => m.status !== 'conflict');
   } catch {
@@ -31,16 +34,31 @@ async function overlayQueuedUnitChanges(products: Product[]): Promise<Product[]>
   }
   if (queued.length === 0) return products;
   return products.map((product) => {
-    if (!product.items.some((item) => queued.some((m) => m.itemId === item.id))) return product;
-    const items = product.items.map((item) =>
-      queued.reduce((shown, m) => {
-        if (m.itemId !== item.id) return shown;
-        const own = Object.fromEntries(Object.entries(m.patch).filter(([field]) => field in shown));
-        return { ...shown, ...own };
-      }, item),
-    );
-    return { ...product, items };
+    const items = withQueued(product.items, queued);
+    return items === product.items ? product : { ...product, items: items.filter((item) => unitInStock(item as unknown as UnitLike)) };
   });
+}
+
+/** `items` with the queued changes made on them laid over (the same array when none is). */
+function withQueued(items: ProductItem[], queued: readonly QueuedMutation[]): ProductItem[] {
+  const own = queued.filter((m) => items.some((item) => item.id === m.itemId));
+  if (own.length === 0) return items;
+  return overlayChanges(items as unknown as UnitLike[], own.map((m) => ({ ...m, patch: unitFieldsOf(m) }))) as unknown as ProductItem[];
+}
+
+/** The drawer's copies with the changes still waiting on this device. */
+async function overlayQueuedOnDetail(items: ProductItem[]): Promise<ProductItem[]> {
+  try {
+    return withQueued(items, (await getAllQueuedMutations()).filter((m) => m.status !== 'conflict'));
+  } catch {
+    return items;
+  }
+}
+
+/** The bottle's own fields of a queued change (a correction keeps its number and reason). */
+function unitFieldsOf(m: QueuedMutation): Record<string, unknown> {
+  if (m.kind === 'correct') return m.patch;
+  return Object.fromEntries(Object.entries(m.patch).filter(([field]) => UNIT_FIELD_SET.has(field) || field === 'smokeOne'));
 }
 
 /** #475: true when the list only holds the 2,000 most recent wines. */
@@ -76,6 +94,8 @@ export function useProducts(options?: { enabled?: boolean }) {
     },
     staleTime: 1000 * 30,
     enabled: options?.enabled ?? true,
+    // FEAT-108: tried even offline, so the offline copy is reached (see useInventory).
+    networkMode: 'always',
   });
 }
 
@@ -84,11 +104,39 @@ export const productDetailKey = (id: string | null) => ['inventory', 'product', 
 
 /** A wine's detail: its drawer, and the tastings the trash confirmation warns about. */
 export function useProductDetail(id: string | null) {
+  const queryClient = useQueryClient();
   return useQuery<ProductDetailView>({
     queryKey: productDetailKey(id),
-    queryFn: () => productsClient.get(id as string),
+    queryFn: async () => {
+      try {
+        const detail = await productsClient.get(id as string);
+        // FEAT-108: the changes still waiting show in the drawer too.
+        return { ...detail, items: await overlayQueuedOnDetail(detail.items) };
+      } catch (error) {
+        // FEAT-108: without network, the drawer opens on what the device
+        // knows of the wine (its card, the offline copy) — enough to open,
+        // drink or correct a line; tastings and history come with the network.
+        const known = error instanceof NetworkError ? await knownWine(queryClient, id as string) : undefined;
+        if (known) return known;
+        throw error;
+      }
+    },
     enabled: !!id,
+    // FEAT-108: tried even offline, so the drawer opens on what the device knows.
+    networkMode: 'always',
   });
+}
+
+/**
+ * The drawer as last shown (already with the changes waiting), else the wine
+ * as its card shows it, else rebuilt from the offline copy.
+ */
+async function knownWine(queryClient: ReturnType<typeof useQueryClient>, id: string): Promise<ProductDetailView | undefined> {
+  const shown = queryClient.getQueryData<ProductDetailView>(productDetailKey(id));
+  if (shown) return shown;
+  const product = queryClient.getQueryData<Product[]>(PRODUCTS_KEY)?.find((p) => p.id === id)
+    ?? productsFromFlatItems(await getCachedInventory().catch(() => [])).find((p) => p.id === id);
+  return product ? ({ ...product, tastings: [], history: [] } as unknown as ProductDetailView) : undefined;
 }
 
 /** Wines in the trash (D10), refreshed with every bottle change (`inventory` prefix). */
