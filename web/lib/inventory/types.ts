@@ -136,7 +136,12 @@ export interface InventoryItem {
  * `keepTastings` answers "keep the tasting?" when a bottle holding one is
  * put back with the others (FEAT-106).
  */
-export type InventoryItemPatch = Partial<InventoryItem> & { smokeOne?: true; keepTastings?: boolean };
+export type InventoryItemPatch = Partial<InventoryItem> & {
+  smokeOne?: true;
+  keepTastings?: boolean;
+  /** #471 (FEAT-107 c3): the tasting noted with this state follows the bottle detached from its group. */
+  tastingId?: string;
+};
 
 export interface InventoryFieldChange {
   field: string;

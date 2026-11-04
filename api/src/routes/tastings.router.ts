@@ -24,7 +24,8 @@ router.get('/', async (req: Request, res: Response) => {
   }
   const itemId = firstStr(req.query.itemId);
   const search = firstStr(req.query.search);
-  const result = await tastingsService.list(userId, query.data.page, query.data.limit, itemId, search);
+  const productId = firstStr(req.query.productId);
+  const result = await tastingsService.list(userId, query.data.page, query.data.limit, itemId, search, productId);
   res.json({ data: result });
 });
 
@@ -34,8 +35,8 @@ router.post('/', async (req: Request, res: Response) => {
   if (!validation.success) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
   }
+  // 404 ITEM_NOT_FOUND / PRODUCT_NOT_FOUND, 400 ITEM_NOT_IN_PRODUCT: thrown as AppError.
   const note = await tastingsService.create(userId, validation.data);
-  if (!note) return res.status(404).json({ error: 'ITEM_NOT_FOUND' });
   res.status(201).json({ data: note });
 });
 

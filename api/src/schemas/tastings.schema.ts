@@ -1,9 +1,24 @@
 import { z } from 'zod';
+import { categorySchema } from '../lib/category';
 
 export const TASTING_READINESS_VALUES = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'] as const;
 
-export const tastingCreateSchema = z.object({
-  itemId: z.string().guid().optional(),
+/**
+ * #471 (FEAT-107): a wine tasted elsewhere, by its name. It goes on the
+ * family of the same wine (`productKey`: category, producer, name, vintage —
+ * the vitola for a cigar) when Glou knows it; else Glou creates that wine,
+ * without any bottle (FEAT-101).
+ */
+export const tastedWineSchema = z.object({
+  category: categorySchema,
+  name: z.string().trim().min(1).max(200),
+  producer: z.string().trim().min(1).max(200),
+  vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional().nullable(),
+  // A cigar's vitola: what tells two cigars of a producer and name apart.
+  format: z.string().trim().max(100).optional().nullable(),
+});
+
+const tastingFields = {
   // A cleared date field sends '': no date, i.e. today on create and
   // unchanged on edit, instead of a 400 (#704).
   tastedAt: z.preprocess((v) => (v === '' ? undefined : v), z.string().date().optional()).optional(),
@@ -24,9 +39,33 @@ export const tastingCreateSchema = z.object({
   tanin: z.number().int().min(1).max(5).optional().nullable(),
   acidite: z.number().int().min(1).max(5).optional().nullable(),
   longueurBouche: z.number().int().min(0).max(600).optional().nullable(),
+};
+
+/**
+ * #471 (FEAT-107): what was tasted — a bottle of the cellar (`itemId`, the
+ * wine is that bottle's), a known wine without any bottle of the cellar
+ * (`productId`: tasted elsewhere), or a wine named (`wine`). One of them at
+ * most; `productId` may come with `itemId` when it is that bottle's wine.
+ */
+export const tastingCreateSchema = z.object({
+  itemId: z.string().guid().optional(),
+  productId: z.string().guid().optional(),
+  wine: tastedWineSchema.optional(),
+  ...tastingFields,
+}).refine((data) => !(data.wine && (data.itemId || data.productId)), {
+  message: 'A named wine cannot come with a bottle or a known wine',
+  path: ['wine'],
 });
 
-export const tastingPatchSchema = tastingCreateSchema.partial();
+/**
+ * Editing a tasting: its fields, and the bottle of the same wine it was of
+ * (moving a tasting to another wine is out of scope, FEAT-107).
+ */
+export const tastingPatchSchema = z.object({
+  itemId: z.string().guid().optional(),
+  ...tastingFields,
+}).partial();
 
 export type TastingCreateInput = z.infer<typeof tastingCreateSchema>;
 export type TastingPatchInput = z.infer<typeof tastingPatchSchema>;
+export type TastedWineInput = z.infer<typeof tastedWineSchema>;
