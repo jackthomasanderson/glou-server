@@ -112,9 +112,11 @@ export function InventoryCard({
               size="sm"
               radius="sm"
               classNames={{
-                base: 'h-5 bg-danger-50 border border-danger-200 min-w-0',
-                content: 'px-1.5 text-xs font-semibold text-danger-700 truncate max-w-[80px]',
+                base: 'h-5 bg-danger-50 border border-danger-200 min-w-0 max-w-full',
+                // The width the card leaves it, not 80 px (« ZZ Recett… », recette #471).
+                content: 'px-1.5 text-xs font-semibold text-danger-700 truncate',
               }}
+              title={cellarName}
             >
               {cellarName}
             </Chip>
@@ -236,7 +238,8 @@ export function InventoryCard({
           just this body (HeroUI's CardBody is position: relative). */}
       <CardBody className="static pt-2 pb-1 px-3 flex-1 gap-0">
         {/* Producer */}
-        <p className="text-xs font-bold tracking-widest uppercase text-foreground-500 truncate mb-0.5">
+        {/* A long producer or cigar brand on two lines, not cut (recette #471). */}
+        <p className="text-xs font-bold tracking-widest uppercase text-foreground-500 line-clamp-2 break-words mb-0.5" title={item.producer}>
           {item.producer}
         </p>
 
@@ -266,9 +269,10 @@ export function InventoryCard({
           >
             {/* §10.13: read as a sentence; the open button's name already carries it. */}
             {!onView && <span className="sr-only">{stock.spoken}</span>}
+            {/* The separator ends a part: a line never starts with « · » (recette #471). */}
             {stock.parts.map((part, index) => (
               <span key={index} aria-hidden="true" className="min-w-0 break-words">
-                {index > 0 && '· '}{keepNumbersWhole(part)}
+                {keepNumbersWhole(part)}{index < stock.parts.length - 1 && '\u00a0·'}
               </span>
             ))}
           </p>

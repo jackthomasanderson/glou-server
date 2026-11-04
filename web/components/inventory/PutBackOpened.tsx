@@ -136,11 +136,13 @@ function KeepTastingDialog({ line, onAnswer }: { line: string; onAnswer: (keep: 
               <p className="text-sm">{t('openedReminder.keepTasting.question')}</p>
             </ModalBody>
             <ModalFooter className="flex flex-wrap gap-2 px-4 pb-4 pt-2">
-              <Button variant="light" onPress={() => onAnswer(null)} className="flex-1">{t('actions.cancel')}</Button>
-              <Button variant="bordered" onPress={() => onAnswer(false)} className="flex-1" data-testid="keep-tasting-no">
+              {/* flex-auto: each answer as wide as its words, on its own line when
+                  they do not fit (« rder la dégustati », recette #471). */}
+              <Button variant="light" onPress={() => onAnswer(null)} className="flex-auto">{t('actions.cancel')}</Button>
+              <Button variant="bordered" onPress={() => onAnswer(false)} className="flex-auto" data-testid="keep-tasting-no">
                 {t('openedReminder.keepTasting.drop')}
               </Button>
-              <Button color="primary" onPress={() => onAnswer(true)} className="flex-1" data-testid="keep-tasting-yes" autoFocus>
+              <Button color="primary" onPress={() => onAnswer(true)} className="flex-auto" data-testid="keep-tasting-yes" autoFocus>
                 {t('openedReminder.keepTasting.keep')}
               </Button>
             </ModalFooter>

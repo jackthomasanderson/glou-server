@@ -190,18 +190,20 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
           const restorable = restorableOf(entry);
           return (
             <li key={entry.id} className="py-2 border-b border-divider last:border-b-0">
+              {/* Who and when on a line, what below: the author is no longer cut
+                  to 80 px beside the sentence (recette #471). */}
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-md bg-primary text-white text-xs font-bold shrink-0 max-w-[80px] overflow-hidden text-ellipsis whitespace-nowrap">
+                <span className="px-2 py-0.5 rounded-md bg-primary text-white text-xs font-bold min-w-0 truncate" title={entry.actorName}>
                   {entry.actorName}
                 </span>
-                <span className="flex-1 text-xs text-foreground-500">
-                  {describe(entry)}
-                  {entry.viaGuest && ` · ${t('traceability.viaGuest')}`}
-                </span>
-                <span className="shrink-0 text-xs text-foreground-400">
+                <span className="ml-auto shrink-0 text-xs text-foreground-400">
                   {hasMounted ? formatDate(entry.createdAt, i18n.language) : ''}
                 </span>
               </div>
+              <p className="mt-1 text-xs text-foreground-500">
+                {describe(entry)}
+                {entry.viaGuest && ` · ${t('traceability.viaGuest')}`}
+              </p>
               {restorable.map((change, index) => (
                 <div key={`${entry.id}-${change.field}-${index}`} className="mt-1 pl-1 flex items-center justify-between gap-2">
                   <span className="text-xs text-foreground-500 truncate">{fieldLabel(change.field)}</span>

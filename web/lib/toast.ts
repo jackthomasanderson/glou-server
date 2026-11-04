@@ -16,6 +16,12 @@ import i18n from '@/lib/i18n';
  * components and from the mutation hooks that own the server round-trip.
  */
 
+/**
+ * Every message is read whole: HeroUI cuts a toast's title to one line
+ * (« Bouteille remise avec les a… », recette #471). Given to ToastProvider.
+ */
+export const TOAST_PROPS = { classNames: { title: 'whitespace-normal break-words' } };
+
 /** Success notifications are transient (ux-ui.md 9.4: 3 seconds). */
 const SUCCESS_TIMEOUT_MS = 3000;
 

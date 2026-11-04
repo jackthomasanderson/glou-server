@@ -48,7 +48,7 @@ function WineCard({ product, cellarId, onPress }: { product: Product; cellarId: 
           <p className="text-xs text-foreground-400 line-clamp-2 break-words">{product.producer}</p>
           <p className="flex flex-wrap gap-x-1 text-xs text-foreground-600 mt-1" data-testid="cellar-wine-stock">
             {stock.parts.map((part, index) => (
-              <span key={index}>{index > 0 && '· '}{keepNumbersWhole(part)}</span>
+              <span key={index}>{keepNumbersWhole(part)}{index < stock.parts.length - 1 && '\u00a0·'}</span>
             ))}
           </p>
           <div className="flex gap-1 mt-1 flex-wrap">
