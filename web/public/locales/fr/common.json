@@ -995,7 +995,8 @@
       "action": "Déplacer",
       "title": "Déplacer vers une cave",
       "where": "Vers quelle cave ?",
-      "alreadyThere": "Dont {{units}} déjà dans {{cellar}}, qui y restent : {{moved}} à déplacer.",
+      "alreadyThere_one": "Dont {{units}} déjà dans {{cellar}}, qui y reste : {{moved}} à déplacer.",
+      "alreadyThere_other": "Dont {{units}} déjà dans {{cellar}}, qui y restent : {{moved}} à déplacer.",
       "alreadyAll": "Tout est déjà dans {{cellar}} : rien à déplacer.",
       "confirm": "Déplacer",
       "done": "Déplacé : {{units}}"

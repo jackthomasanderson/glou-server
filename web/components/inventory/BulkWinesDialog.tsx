@@ -125,6 +125,7 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
                   {already >= total
                     ? t('bulkWines.move.alreadyAll', { cellar: destinationName })
                     : t('bulkWines.move.alreadyThere', {
+                      count: already,
                       units: t(unitsKey, { count: already }),
                       cellar: destinationName,
                       moved: t(unitsKey, { count: total - already }),

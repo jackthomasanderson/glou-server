@@ -170,6 +170,24 @@ describe('readFieldHistory', () => {
       expect(await read(openedThenPutBack(5, 'u1', { deletedTastings: 1 }))).toEqual([4, 3, 2, 1]);
     });
 
+    // Review of #830: an entry of someone else on that bottle meanwhile (a
+    // member, or a guest — logged with the owner's userId) is never hidden.
+    it('another member or a guest wrote on that bottle meanwhile: everything is told', async () => {
+      const levelBy = (userId: string, action = 'UPDATE', details: Record<string, unknown> = {}) => ({
+        ...log(7, 3, 's', { changes: [{ field: 'fillLevel', from: 100, to: 80 }], ...details }, userId), action,
+      });
+      const [back4, back3, open2, open1] = openedThenPutBack(5);
+      expect(await read([back4, back3, levelBy('u2'), open2, open1])).toEqual([4, 3, 7, 2, 1]);
+      expect(await read([back4, back3, levelBy('u1', 'GUEST_UPDATE', { via: 'guest_share', shareId: 'sh1' }), open2, open1]))
+        .toEqual([4, 3, 7, 2, 1]);
+    });
+
+    it('a guest\'s own opening taken back at once leaves nothing', async () => {
+      const guest = { via: 'guest_share', shareId: 'sh1' };
+      const asGuest = (row: ReturnType<typeof log>) => ({ ...row, action: 'GUEST_UPDATE', details: { ...(row.details as object), ...guest } });
+      expect(await read(openedThenPutBack(5).map(asGuest))).toEqual([]);
+    });
+
     // An in-place write is logged without `outcome` (only a detach or a reattach carries one).
     it('a lone bottle drunk in place then taken back: both entries go, its slot given back included', async () => {
       expect(await read([

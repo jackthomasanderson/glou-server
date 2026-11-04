@@ -993,7 +993,8 @@
       "action": "Move",
       "title": "Move to a cellar",
       "where": "To which cellar?",
-      "alreadyThere": "{{units}} already in {{cellar}} stay there: {{moved}} to move.",
+      "alreadyThere_one": "{{units}} already in {{cellar}} stays there: {{moved}} to move.",
+      "alreadyThere_other": "{{units}} already in {{cellar}} stay there: {{moved}} to move.",
       "alreadyAll": "Everything is already in {{cellar}}: nothing to move.",
       "confirm": "Move",
       "done": "Moved: {{units}}"

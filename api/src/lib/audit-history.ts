@@ -32,7 +32,7 @@ export interface HistoryLog {
 export const UNDO_WINDOW_MS = 60_000;
 
 type Change = { field: string; from: unknown; to: unknown };
-type StateDetails = { outcome?: string; subItemId?: string; targetItemId?: string; absorbedFrom?: string; deletedTastings?: number; changes?: Change[] };
+type StateDetails = { shareId?: string; outcome?: string; subItemId?: string; targetItemId?: string; absorbedFrom?: string; deletedTastings?: number; changes?: Change[] };
 
 const detailsOf = (log: HistoryLog) => (log.details ?? {}) as StateDetails;
 
@@ -44,6 +44,14 @@ function subRecordOf(log: HistoryLog): string | null {
   if (details.outcome === 'reattached' || details.outcome === 'regrouped') return details.targetItemId ?? null;
   return null;
 }
+
+/**
+ * Who wrote an entry: a member, or a guest's share — a guest's move is logged
+ * with the userId of the share's creator (GUEST_UPDATE), so the userId alone
+ * does not tell them apart (review of #830).
+ */
+const actorOf = (log: HistoryLog) =>
+  log.action === 'GUEST_UPDATE' ? `${log.userId}|share:${detailsOf(log).shareId ?? ''}` : `${log.userId}|member`;
 
 /** A write of a copy's state (opened, level, cigars left); an in-place one is logged without `outcome`. */
 const STATE_FIELDS = new Set(['isOpened', 'fillLevel', 'cigarsLeft']);
@@ -68,7 +76,8 @@ function cancelsOut(first: Change[], later: Change[]): boolean {
  * Recette #471: an opening, a drink or a smoke taken back at once ("1
  * bouteille ouverte · Annuler") leaves nothing in a wine's history — not the
  * four technical entries of a bottle detached then put back. Taken back:
- * by the same member, within {@link UNDO_WINDOW_MS}, and either the bottle
+ * by the same member (or guest share), with no one else writing on that
+ * bottle meanwhile, within {@link UNDO_WINDOW_MS}, and either the bottle
  * detached went back to its line (a tasting deleted with it is told), or
  * the next write of a lone bottle cancelled its state change exactly. The
  * audit log itself keeps everything. `logs`: most recent first.
@@ -83,15 +92,18 @@ export function withoutUndone<L extends HistoryLog>(logs: readonly L[]): L[] {
     if ((details.outcome !== 'reattached' && details.outcome !== 'regrouped') || details.subItemId || details.deletedTastings) continue;
     const sub = subRecordOf(back);
     const opened = chronological.find((log) => detailsOf(log).outcome === 'detached' && !detailsOf(log).subItemId && subRecordOf(log) === sub);
-    if (!sub || !opened || opened.userId !== back.userId) continue;
+    if (!sub || !opened || actorOf(opened) !== actorOf(back)) continue;
     const from = opened.createdAt.getTime();
     const to = back.createdAt.getTime();
     if (to - from < 0 || to - from > UNDO_WINDOW_MS) continue;
-    for (const log of chronological) {
+    const inWindow = chronological.filter((log) => {
       const time = log.createdAt.getTime();
       const aboutSub = subRecordOf(log) === sub || detailsOf(log).absorbedFrom === sub || log.bottleId === sub;
-      if (aboutSub && time >= from && time <= to) hidden.add(log);
-    }
+      return aboutSub && time >= from && time <= to;
+    });
+    // Someone else wrote on that bottle meanwhile: nothing of it is hidden.
+    if (inWindow.some((log) => actorOf(log) !== actorOf(back))) continue;
+    for (const log of inWindow) hidden.add(log);
   }
 
   // A lone bottle's state written, then written back.
@@ -103,7 +115,7 @@ export function withoutUndone<L extends HistoryLog>(logs: readonly L[]): L[] {
     if (!previous || hidden.has(previous)) continue;
     const [first, later] = [detailsOf(previous), detailsOf(log)];
     if (!isStateWrite(first) || !isStateWrite(later) || later.deletedTastings) continue;
-    if (previous.action !== 'UPDATE' || log.action !== 'UPDATE' || previous.userId !== log.userId) continue;
+    if (previous.action !== 'UPDATE' || log.action !== 'UPDATE' || actorOf(previous) !== actorOf(log)) continue;
     if (log.createdAt.getTime() - previous.createdAt.getTime() > UNDO_WINDOW_MS) continue;
     if (cancelsOut(first.changes ?? [], later.changes ?? [])) {
       hidden.add(previous);

@@ -4,6 +4,7 @@ vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     inventoryItem: { findFirst: vi.fn() },
     tastingNote: { create: vi.fn() },
+    auditLog: { findFirst: vi.fn() },
   },
 }));
 
@@ -16,7 +17,7 @@ import { guestTastingSchema } from '../../src/schemas/guest-tasting.schema';
 
 const P1 = '11111111-1111-4111-8111-111111111111';
 const B1 = '22222222-2222-4222-8222-222222222222';
-const SHARE = { userId: 'creator', inviteeName: ' Marie ', writeCellarIds: ['garage'] };
+const SHARE = { id: 'share-1', userId: 'creator', inviteeName: ' Marie ', writeCellarIds: ['garage'] };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -57,6 +58,51 @@ describe('createGuestTasting', () => {
     const where = (vi.mocked(prisma.inventoryItem.findFirst).mock.calls[0]?.[0] as { where: Record<string, unknown> }).where;
     // Finished is fine (no fill-level filter); written off or in the trash is not.
     expect(where).toEqual({ id: B1, productId: P1, cellarId: { in: ['garage'] }, deletedAt: null, writtenOffAt: null });
+  });
+
+  // Review of #829 (security, low): any finished bottle of a cellar shared
+  // with write access took a guest's tasting, one drunk months ago included.
+  describe('a finished bottle', () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const finished = (agoMs: number) => vi.mocked(prisma.inventoryItem.findFirst)
+      .mockResolvedValue({ id: B1, isOpened: true, fillLevel: 0, updatedAt: new Date(Date.now() - agoMs) } as never);
+    const lastWrite = (action: string, shareId?: string) => vi.mocked(prisma.auditLog.findFirst)
+      .mockResolvedValue({ action, details: shareId ? { via: 'guest_share', shareId } : {} } as never);
+
+    it('finished by this share, even days ago: accepted', async () => {
+      finished(3 * DAY);
+      lastWrite('GUEST_UPDATE', 'share-1');
+      await createGuestTasting(SHARE, { productId: P1, itemId: B1 });
+      expect(created().data).toMatchObject({ itemId: B1 });
+      const where = (vi.mocked(prisma.auditLog.findFirst).mock.calls[0]?.[0] as { where: Record<string, unknown> }).where;
+      expect(where).toMatchObject({ bottleId: B1, status: 'success' });
+    });
+
+    it('finished by a member less than 24 h ago: accepted', async () => {
+      finished(2 * 60 * 60 * 1000);
+      lastWrite('UPDATE');
+      await createGuestTasting(SHARE, { productId: P1, itemId: B1 });
+      expect(created().data).toMatchObject({ itemId: B1 });
+    });
+
+    it('finished by a member more than 24 h ago: refused', async () => {
+      finished(DAY + 60_000);
+      lastWrite('UPDATE');
+      await expect(createGuestTasting(SHARE, { productId: P1, itemId: B1 })).rejects.toMatchObject({ status: 403, code: 'READ_ONLY_ACCESS' });
+      expect(prisma.tastingNote.create).not.toHaveBeenCalled();
+    });
+
+    it('finished by another share more than 24 h ago: refused', async () => {
+      finished(2 * DAY);
+      lastWrite('GUEST_UPDATE', 'share-2');
+      await expect(createGuestTasting(SHARE, { productId: P1, itemId: B1 })).rejects.toMatchObject({ status: 403, code: 'READ_ONLY_ACCESS' });
+      expect(prisma.tastingNote.create).not.toHaveBeenCalled();
+    });
+
+    it('a bottle not finished asks nothing of the history', async () => {
+      await createGuestTasting(SHARE, { productId: P1, itemId: B1 });
+      expect(prisma.auditLog.findFirst).not.toHaveBeenCalled();
+    });
   });
 
   it('refuses a bottle out of the write cellars, of another wine, or written off', async () => {

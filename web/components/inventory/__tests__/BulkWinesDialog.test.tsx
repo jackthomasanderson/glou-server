@@ -66,10 +66,10 @@ const wines: Product[] = [
   product({ id: 'gone', name: 'Delta', items: [] }),
 ];
 
-function open(action: BulkWinesActionName, selected: string[], onDone = vi.fn()) {
+function open(action: BulkWinesActionName, selected: string[], onDone = vi.fn(), products = wines) {
   render(
     <QueryClientProvider client={queryClient}>
-      <BulkWinesDialog action={action} products={wines} selectedIds={new Set(selected)} cigars={false} viewedCellarIds={['garage']} onClose={vi.fn()} onDone={onDone} />
+      <BulkWinesDialog action={action} products={products} selectedIds={new Set(selected)} cigars={false} viewedCellarIds={['garage']} onClose={vi.fn()} onDone={onDone} />
     </QueryClientProvider>,
   );
   return onDone;
@@ -110,6 +110,18 @@ describe('BulkWinesDialog (FEAT-111)', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Garage' }));
     expect(screen.getByTestId('bulk-wines-already'))
       .toHaveTextContent('Dont 5 bouteilles déjà dans Garage, qui y restent : 9 bouteilles à déplacer.');
+  });
+
+  // Review of #830: « Dont 1 bouteille déjà dans Garage, qui y restent ».
+  it('one bottle already there « y reste »', () => {
+    const one = [
+      product({ id: 'a', name: 'Alpha', items: [unit({ productId: 'a', quantity: 1, cellarId: 'garage' })] }),
+      product({ id: 'b', name: 'Beta', items: [unit({ productId: 'b', quantity: 6 })] }),
+    ];
+    open('move', ['a', 'b'], vi.fn(), one);
+    fireEvent.click(screen.getByRole('radio', { name: 'Garage' }));
+    expect(screen.getByTestId('bulk-wines-already'))
+      .toHaveTextContent('Dont 1 bouteille déjà dans Garage, qui y reste : 6 bouteilles à déplacer.');
   });
 
   it('c2/c4: "Mettre à la corbeille" gives the same summary; a wine without bottle is neither counted nor sent', async () => {
