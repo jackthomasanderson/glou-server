@@ -8,6 +8,8 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useCellars } from '@/hooks/useCellars';
 import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
 import { conflictingFields } from '@/lib/offline/conflictFields';
+import { actionOf } from '@/lib/offline/optimistic';
+import { changeLabel } from '@/lib/offline/describe';
 
 // ─── FEAT-16/23 — offline sync conflict resolution ─────────────────────────
 // Surfaces whenever a queued offline mutation comes back from the server
@@ -37,6 +39,13 @@ export function ConflictResolutionModal() {
   const serverItem = current.conflictServerItem as Record<string, unknown> | undefined;
   // #585: only the fields that really differ, technical ones left out.
   const rows = conflictingFields(current.patch, serverItem);
+  // FEAT-108: an action on a line (open, drink, smoke one; correct its
+  // number) is said as such, with the line's number then and now — not as
+  // fields ("Ouvert : oui / non") that would hide what changed elsewhere.
+  const action = actionOf(current);
+  const label = changeLabel(current, t);
+  const numberThen = current.before?.quantity;
+  const numberNow = serverItem?.quantity;
   const valueContext = {
     lang: i18n.language,
     cellarName: (id: string) => cellars?.find((c) => c.id === id)?.name,
@@ -88,6 +97,21 @@ export function ConflictResolutionModal() {
             </Chip>
           )}
 
+          {action !== 'edit' ? (
+            <div className="mt-2 border border-divider rounded-lg px-3 py-2 text-sm flex flex-col gap-1" data-testid="conflict-action">
+              <p>
+                <span className="text-foreground-500">{t('offline.conflict.yourAction')} : </span>
+                <span className="font-medium text-primary">{label}</span>
+              </p>
+              {numberThen != null && numberNow != null && (
+                <p>
+                  <span className="text-foreground-500">{t('offline.conflict.line')} : </span>
+                  <span className="font-medium text-warning-600">{t('offline.conflict.lineThenNow', { then: numberThen, now: numberNow })}</span>
+                </p>
+              )}
+              <p className="text-xs text-foreground-500">{t('offline.conflict.actionHint')}</p>
+            </div>
+          ) : (
           <div className="mt-2 border border-divider rounded-lg overflow-hidden">
             <div className="grid grid-cols-3 gap-2 px-3 py-2 bg-content2 text-xs font-semibold text-foreground-500">
               <span>{t('offline.conflict.field')}</span>
@@ -107,6 +131,7 @@ export function ConflictResolutionModal() {
               </p>
             )}
           </div>
+          )}
         </ModalBody>
         <ModalFooter>
           <Button

@@ -4,6 +4,8 @@ import { PRODUCTS_KEY, productDetailKey } from '@/hooks/useProducts';
 import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
 import { NetworkError } from '@/lib/network-error';
 import { notifyError } from '@/lib/toast';
+import { enqueueMutation, markQueuedResult, queuedMutationOf, shownAfter } from '@/lib/offline/syncEngine';
+import type { UnitLike } from '@/lib/offline/optimistic';
 import { detailWithUnitWrite, withUnitChanges } from '@/lib/products/fromFlat';
 import {
   postStockAction, type CorrectBody, type MoveBody, type RepriceBody, type StockAction, type StockWrite,
@@ -32,8 +34,28 @@ const REFUSALS: Record<string, string> = {
 function useStockAction<TBody extends CorrectBody | MoveBody | RepriceBody>(action: StockAction) {
   const queryClient = useQueryClient();
   return useMutation<StockWrite, Error, StockVariables<TBody>>({
-    mutationFn: ({ item, body }) => postStockAction(action, item.id, body, item.updatedAt as string),
+    // FEAT-108: offline, a correction is queued at once, and a move or a new
+    // price says at once that it waits for the network (never held unseen).
+    networkMode: 'always',
+    mutationFn: async ({ item, body }) => {
+      try {
+        return await postStockAction(action, item.id, body, item.updatedAt as string);
+      } catch (error) {
+        // FEAT-108 (point 47): "Corriger le nombre" also works without
+        // network — shown at once (×6 → ×5, the copies gone in "Déjà bues
+        // ou parties"), sent when it is back, checked against the line's
+        // version then. Moving or repricing part of a line waits for it.
+        if (action !== 'correct' || !(error instanceof NetworkError)) throw error;
+        const mutation = await enqueueMutation(queryClient, item.id, { ...body }, item.updatedAt as string, {
+          kind: 'correct', productId: item.productId, shown: item as unknown as UnitLike,
+        });
+        const shown = shownAfter(item, mutation);
+        return markQueuedResult<StockWrite>({ data: shown as unknown as StockWrite['data'], changed: [], removedIds: [] }, mutation.id);
+      }
+    },
     onSuccess: (write, { item }) => {
+      // Queued without network: already shown by the queue.
+      if (queuedMutationOf(write)) return;
       const written: ProductItem[] = [write.data, ...write.changed];
       queryClient.setQueryData<ProductDetailView>(productDetailKey(item.productId), (old) =>
         detailWithUnitWrite(old, null, written, write.removedIds));

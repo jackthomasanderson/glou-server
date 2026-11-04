@@ -2075,7 +2075,25 @@
       "keepLocal": "Keep my version",
       "keepServer": "Keep server version",
       "decideLater": "Decide later",
-      "noDifference": "Your change and the server version hold the same values."
+      "noDifference": "Your change and the server version hold the same values.",
+      "yourAction": "Your action",
+      "line": "This line",
+      "lineThenNow": "×{{then}} when you acted, ×{{now}} now",
+      "actionHint": "“Keep my version” applies your action to the line as it is now; “Keep server version” drops it."
+    },
+    "blocked": "Available when the connection is back",
+    "undoTooLate": "Already being sent: it can no longer be undone from here.",
+    "actions": {
+      "correct": "Number corrected: {{from}} → {{to}}"
+    },
+    "errors": {
+      "notOneBottle": "Not saved: this line counts several bottles, a level is only set on one opened bottle.",
+      "notAGroup": "Not saved: this line is no longer a line of full bottles.",
+      "notLower": "Not saved: this number is no longer lower than the line's.",
+      "belowOne": "Not saved: an input error cannot go below 1; move the line to the trash instead.",
+      "gone": "Not saved: this bottle no longer exists (put back with the others or deleted meanwhile).",
+      "rejected": "Not saved: the server refused this value.",
+      "changed": "Not saved: the line changed meanwhile."
     }
   },
   "scan": {
@@ -2170,7 +2188,8 @@
       "trashInstead_bottle": "Move these bottles to the trash",
       "trashInstead_box": "Move these boxes to the trash",
       "trashInstead_cigar": "Move these cigars to the trash",
-      "done": "Number corrected: {{from}} → {{to}}"
+      "done": "Number corrected: {{from}} → {{to}}",
+      "queued": "Number corrected: {{from}} → {{to}} · waiting for the connection"
     },
     "move": {
       "title": "Move",
@@ -2482,6 +2501,11 @@
       "open": "1 bottle opened",
       "drink": "1 bottle drunk",
       "smoke": "1 cigar smoked"
+    },
+    "queued": {
+      "open": "1 bottle opened · waiting for the connection",
+      "drink": "1 bottle drunk · waiting for the connection",
+      "smoke": "1 cigar smoked · waiting for the connection"
     }
   },
   "openedReminder": {

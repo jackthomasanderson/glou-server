@@ -1,7 +1,8 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
-import { Button, Chip, Slider } from '@heroui/react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Button, Chip, Slider, Tooltip } from '@heroui/react';
+import { ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { isProvisional } from '@/lib/offline/optimistic';
 import { isIntactItem } from '@shared/units';
 import { goneParts, goneSummary, hasOwnLevel, lineParts, VISIBLE_LINES, type FamilyLines, type LineContext } from '@/lib/products/lines';
 import type { ProductItem } from '@/lib/products/types';
@@ -25,6 +26,24 @@ interface FamilyStockLinesProps {
    * "Voir les N autres", scrolled to and focused. A new `nonce` leads to it again.
    */
   focus?: { id: string; nonce: number } | null;
+  /**
+   * FEAT-108: the lines with a change waiting for the network ("en
+   * attente"). A copy shown taken off its group before the server did it
+   * (provisional) is marked too, and has no action until then.
+   */
+  pendingIds?: ReadonlySet<string>;
+}
+
+/** The "en attente" mark of a line (§10.8): the clock and its tooltip, read by screen readers. */
+function PendingMark({ t }: { t: LineContext['t'] }) {
+  const label = t('offline.pendingSyncTooltip');
+  return (
+    <Tooltip content={label} delay={300}>
+      <span className="inline-flex items-center ml-1.5 align-middle text-warning-600" data-testid="line-pending" tabIndex={0} aria-label={label}>
+        <Clock size={12} aria-hidden />
+      </span>
+    </Tooltip>
+  );
 }
 
 const join = (parts: string[]) => parts.join(' · ');
@@ -135,7 +154,8 @@ function OpenedLevel({ item, t, onCommit }: {
  * then the opened bottles, the first five then "Voir les N autres"; below,
  * "Déjà bues ou parties", folded.
  */
-export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, reviewActions, focus }: FamilyStockLinesProps) {
+export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, reviewActions, focus, pendingIds }: FamilyStockLinesProps) {
+  const isPending = (item: ProductItem) => isProvisional(item) || (pendingIds?.has(item.id) ?? false);
   const { t, kind } = ctx;
   const [showAll, setShowAll] = useState(false);
   const [showGone, setShowGone] = useState(false);
@@ -172,6 +192,7 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
           <ul className="flex flex-col gap-2" data-testid="family-lines">
             {visible.map((item) => {
               const opened = !isIntactItem(item);
+              const provisional = isProvisional(item);
               return (
                 <li
                   key={item.id}
@@ -189,8 +210,9 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
                           <FieldSourceBadge source={item.fieldSources?.purchasePrice} t={t} />
                         </span>
                       )}
+                      {isPending(item) && <PendingMark t={t} />}
                     </p>
-                    {lineActions?.(item)}
+                    {!provisional && lineActions?.(item)}
                   </div>
                   {item.needsReview && (
                     <>
@@ -198,7 +220,7 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
                       {reviewActions?.(item)}
                     </>
                   )}
-                  {hasOwnLevel(item) && kind === 'bottle' && onLevelCommit && (
+                  {hasOwnLevel(item) && kind === 'bottle' && onLevelCommit && !provisional && (
                     <OpenedLevel item={item} t={t} onCommit={(level) => onLevelCommit(item, level)} />
                   )}
                 </li>
@@ -239,6 +261,7 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
               {lines.gone.map((item) => (
                 <li key={item.id} className="text-sm text-foreground-500 px-3 py-1.5 rounded-lg bg-default-50">
                   {join(goneParts(item, ctx))}
+                  {isPending(item) && <PendingMark t={t} />}
                 </li>
               ))}
             </ul>

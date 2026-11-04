@@ -9,6 +9,7 @@ import { movesFor, type StockMove } from '@/lib/products/openDrink';
 import { footerMoves } from '@/lib/products/openedReminder';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 import { useStockMoveFlow } from './StockMoveFlow';
+import { isProvisional } from '@/lib/offline/optimistic';
 
 const ICONS: Record<StockMove, React.ReactElement> = {
   open: <Wine size={15} />,
@@ -37,7 +38,9 @@ interface StockMoveActionsProps {
 export function StockMoveActions({ product, ctx, viewedCellarIds, onFinishOpened }: StockMoveActionsProps) {
   const { t } = useTranslation();
   const { start, dialogs, isPending } = useStockMoveFlow({ wine: wineName(product), ctx, viewedCellarIds, onFinishOpened });
-  const moves = footerMoves(movesFor(ctx.kind), product.items);
+  // FEAT-108: a copy still waiting for the network is not acted on.
+  const items = product.items.filter((item) => !isProvisional(item));
+  const moves = footerMoves(movesFor(ctx.kind), items);
   if (moves.length === 0) return null;
 
   return (
@@ -52,7 +55,7 @@ export function StockMoveActions({ product, ctx, viewedCellarIds, onFinishOpened
           data-testid={`stock-move-${move}`}
           startContent={ICONS[move]}
           isDisabled={isPending}
-          onPress={() => start(move, product.items)}
+          onPress={() => start(move, items)}
         >
           {t(`openDrink.actions.${move}`)}
         </Button>

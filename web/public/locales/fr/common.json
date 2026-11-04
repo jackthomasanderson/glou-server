@@ -2077,7 +2077,25 @@
       "keepLocal": "Garder ma version",
       "keepServer": "Garder la version serveur",
       "decideLater": "Décider plus tard",
-      "noDifference": "Votre modification et la version du serveur ont les mêmes valeurs."
+      "noDifference": "Votre modification et la version du serveur ont les mêmes valeurs.",
+      "yourAction": "Votre action",
+      "line": "Cette ligne",
+      "lineThenNow": "×{{then}} quand vous avez agi, ×{{now}} maintenant",
+      "actionHint": "« Garder ma version » applique votre action à la ligne telle qu'elle est maintenant ; « Garder la version serveur » l'abandonne."
+    },
+    "blocked": "Disponible au retour de la connexion",
+    "undoTooLate": "Déjà en cours d'envoi : elle ne peut plus être annulée d'ici.",
+    "actions": {
+      "correct": "Nombre corrigé : {{from}} → {{to}}"
+    },
+    "errors": {
+      "notOneBottle": "Non enregistré : cette ligne compte plusieurs bouteilles, le niveau ne se règle que sur une bouteille entamée.",
+      "notAGroup": "Non enregistré : cette ligne n'est plus une ligne de bouteilles pleines.",
+      "notLower": "Non enregistré : ce nombre n'est plus inférieur à celui de la ligne.",
+      "belowOne": "Non enregistré : une erreur de saisie ne descend pas sous 1 ; mettez plutôt la ligne à la corbeille.",
+      "gone": "Non enregistré : cette bouteille n'existe plus (remise avec les autres ou supprimée entre-temps).",
+      "rejected": "Non enregistré : le serveur a refusé cette valeur.",
+      "changed": "Non enregistré : la ligne a changé entre-temps."
     }
   },
   "scan": {
@@ -2172,7 +2190,8 @@
       "trashInstead_bottle": "Mettre ces bouteilles à la corbeille",
       "trashInstead_box": "Mettre ces boîtes à la corbeille",
       "trashInstead_cigar": "Mettre ces cigares à la corbeille",
-      "done": "Nombre corrigé : {{from}} → {{to}}"
+      "done": "Nombre corrigé : {{from}} → {{to}}",
+      "queued": "Nombre corrigé : {{from}} → {{to}} · en attente de connexion"
     },
     "move": {
       "title": "Déplacer",
@@ -2484,6 +2503,11 @@
       "open": "1 bouteille ouverte",
       "drink": "1 bouteille bue",
       "smoke": "1 cigare fumé"
+    },
+    "queued": {
+      "open": "1 bouteille ouverte · en attente de connexion",
+      "drink": "1 bouteille bue · en attente de connexion",
+      "smoke": "1 cigare fumé · en attente de connexion"
     }
   },
   "openedReminder": {

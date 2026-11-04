@@ -5,6 +5,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import type { InventoryItem } from '@/lib/inventory/types';
+import type { Product } from '@/lib/products/types';
+import { changeLabel, refusalKey } from '@/lib/offline/describe';
 
 /**
  * #337 — lists the offline sync queue so a mutation the server refused
@@ -23,8 +25,11 @@ export function PendingChangesList({ onResolveConflict }: { onResolveConflict?: 
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
   const items = queryClient.getQueryData<InventoryItem[]>(['inventory']);
+  const products = queryClient.getQueryData<Product[]>(['inventory', 'products']);
   const nameOf = (itemId: string) =>
-    items?.find((i) => i.id === itemId)?.name ?? t('connectivity.panel.unknownItem');
+    items?.find((i) => i.id === itemId)?.name
+    ?? products?.find((p) => p.items.some((unit) => unit.id === itemId))?.name
+    ?? t('connectivity.panel.unknownItem');
 
   const run = async (id: string, action: (id: string) => Promise<void>) => {
     setBusyId(id);
@@ -44,10 +49,11 @@ export function PendingChangesList({ onResolveConflict }: { onResolveConflict?: 
       {queue.map((m) => (
         <li key={m.id} className="flex flex-col gap-2 rounded-lg border border-divider p-3">
           <div className="font-medium">{nameOf(m.itemId)}</div>
+          {changeLabel(m, t) && <div className="text-sm">{changeLabel(m, t)}</div>}
           <div className="text-sm text-foreground-500">{t(`connectivity.panel.${m.status}`)}</div>
-          {m.status === 'failed' && m.errorReason && (
+          {m.status === 'failed' && (m.errorCode || m.errorReason) && (
             <div className="text-sm text-danger">
-              {t('connectivity.panel.reason')} : {m.errorReason}
+              {t('connectivity.panel.reason')} : {refusalKey(m.errorCode) ? t(refusalKey(m.errorCode) as string) : m.errorReason}
             </div>
           )}
           {m.status === 'conflict' && (

@@ -19,8 +19,7 @@ vi.mock('@/lib/offline/db', () => ({
   putQueuedMutation: vi.fn(async (m: QueuedMutation) => { store.set(m.id, m); }),
   deleteQueuedMutation: vi.fn(async (id: string) => { store.delete(id); }),
   getQueuedMutation: vi.fn(async (id: string) => store.get(id)),
-  patchCachedItem: vi.fn(async () => {}),
-  putCachedItem: vi.fn(async () => {}),
+  rewriteCachedItems: vi.fn(async () => {}),
 }));
 vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => true }));
 vi.mock('@/hooks/useCellars', () => ({
@@ -34,7 +33,7 @@ function translate(key: string, options?: Record<string, unknown>): string {
     (node, part) => (node && typeof node === 'object' ? (node as Record<string, unknown>)[part] : undefined),
     fr,
   );
-  if (typeof found === 'string') return found.replace('{{count}}', String(options?.count ?? ''));
+  if (typeof found === 'string') return found.replace(/\{\{(\w+)\}\}/g, (_, name: string) => String(options?.[name] ?? ''));
   return typeof options?.defaultValue === 'string' ? options.defaultValue : key;
 }
 vi.mock('react-i18next', () => ({
@@ -151,5 +150,41 @@ describe('ConflictResolutionModal (#585)', () => {
 
     expect(await screen.findByRole('dialog')).toHaveTextContent('Premier vin');
     expect(onResolveConflict).toHaveBeenCalled();
+  });
+
+  it('FEAT-108: an action on a line is said as such, with the line\'s number then and now', async () => {
+    store.set('A', {
+      ...conflict('A', 't1', { isOpened: true, fillLevel: 100, openedAt: '2026-11-04T10:00:00.000Z' }),
+      before: { quantity: 6 },
+      conflictServerItem: { ...serverItem, isOpened: false, fillLevel: 100, quantity: 3 } as unknown as QueuedMutation['conflictServerItem'],
+    });
+    page();
+
+    const dialog = await screen.findByRole('dialog');
+    const action = within(dialog).getByTestId('conflict-action');
+    expect(action).toHaveTextContent("Votre action : J'en ouvre une");
+    expect(action).toHaveTextContent('×6 quand vous avez agi, ×3 maintenant');
+    // Not as fields ("Ouvert : oui / non").
+    expect(within(dialog).queryByText(fr.offline.conflict.field)).toBeNull();
+  });
+});
+
+describe('PendingChangesList (FEAT-108)', () => {
+  it('says what each change does, and a refusal in words', async () => {
+    store.set('c1', {
+      // Failed (else the replay run when the list mounts would send it).
+      id: 'c1', itemId: 'A', createdAt: 't1', status: 'failed', expectedUpdatedAt: 'v1', kind: 'correct',
+      patch: { quantity: 5, reason: 'written_off' }, before: { quantity: 6 },
+    });
+    store.set('p1', {
+      id: 'p1', itemId: 'B', createdAt: 't2', status: 'failed', expectedUpdatedAt: 'v1',
+      patch: { isOpened: false, fillLevel: 100 }, errorCode: 'TASTINGS_ON_ITEM', errorReason: 'TASTINGS_ON_ITEM',
+    });
+    const queryClient = new QueryClient();
+    render(<QueryClientProvider client={queryClient}><PendingChangesList /></QueryClientProvider>);
+
+    expect(await screen.findByText('Nombre corrigé : 6 → 5')).toBeInTheDocument();
+    expect(document.body).toHaveTextContent(fr.toast.tastingsOnBottle);
+    expect(screen.queryByText(/: TASTINGS_ON_ITEM$/)).toBeNull();
   });
 });

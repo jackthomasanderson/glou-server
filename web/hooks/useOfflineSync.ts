@@ -17,6 +17,28 @@ import {
 } from '@/lib/offline/syncEngine';
 
 /**
+ * FEAT-108: the changes waiting on this device (any status), kept up to
+ * date — for a "en attente" mark (a line of a wine's drawer) without the
+ * replay triggers of {@link useOfflineSync}.
+ */
+export function useSyncQueue(): QueuedMutation[] {
+  const [queue, setQueue] = useState<QueuedMutation[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const refresh = () => {
+      void getQueuedMutations().then((mutations) => { if (alive) setQueue(mutations); }).catch(() => undefined);
+    };
+    refresh();
+    const unsubscribe = subscribeToSyncQueueChanges(refresh);
+    return () => {
+      alive = false;
+      unsubscribe();
+    };
+  }, []);
+  return queue;
+}
+
+/**
  * FEAT-16/23 — exposes the offline sync queue's state (pending / syncing /
  * failed / conflict) and the actions the UI can trigger on it:
  * `ConnectivityIndicator` (aggregate counts), `ConflictResolutionModal`

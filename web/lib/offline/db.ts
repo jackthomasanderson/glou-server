@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { InventoryItem } from '@/lib/inventory/types';
+import type { UnitBefore } from './optimistic';
 
 // ─── FEAT-16/23 — offline cache + sync queue (IndexedDB via `idb`) ─────────
 // Scope reminder (see .vibe/features/wip/FEAT-16/feature.md and FEAT-23):
@@ -15,6 +16,17 @@ export interface QueuedMutation {
   /** uuid, generated client-side at enqueue time via `crypto.randomUUID()`. */
   id: string;
   itemId: string;
+  /**
+   * FEAT-108: which request replays it — `patch` (default, the changes
+   * queued before FEAT-108 have none): PATCH /api/inventory/:id with
+   * `patch`; `correct`: POST /api/inventory/:id/correct ("Corriger le
+   * nombre", `patch` = `{ quantity, reason }`).
+   */
+  kind?: 'patch' | 'correct';
+  /** FEAT-108: the wine of the unit, whose drawer shows the change. */
+  productId?: string;
+  /** FEAT-108: the unit as shown when the change was made — to take the change back ("Annuler"). */
+  before?: UnitBefore;
   patch: Record<string, unknown>;
   /**
    * `updatedAt` of the item AS KNOWN at enqueue time — sent back to the
@@ -33,6 +45,8 @@ export interface QueuedMutation {
    * message for diagnostics); the UI shows a generic translated label plus
    * this as supporting detail. */
   errorReason?: string;
+  /** FEAT-108: the API's error code of a refusal (`TASTINGS_ON_ITEM`…), said in words by the UI. */
+  errorCode?: string;
   /** #585: how many times the server answered "try again later" (5xx,
    * 429…) to this change. Past a limit it is marked `failed`, so a server
    * that keeps refusing does not hold the queue forever. A request that got
@@ -100,23 +114,22 @@ export async function getCachedInventory(): Promise<InventoryItem[]> {
 }
 
 /**
- * Applies a partial patch to a single cached item (best-effort — keeps the
- * IndexedDB mirror consistent with an optimistic UI update so a page reload
- * while still offline doesn't show stale data). No-op if the item isn't in
- * the cache yet.
+ * FEAT-108: rewrites the offline copy of the bottles through `change` (a
+ * queued change shown, an answer of the server applied). Only the rows
+ * `change` returns as new objects are written; those it drops are deleted.
  */
-export async function patchCachedItem(itemId: string, patch: Record<string, unknown>): Promise<void> {
+export async function rewriteCachedItems(change: (items: InventoryItem[]) => InventoryItem[]): Promise<void> {
   const db = await getOfflineDB();
-  const existing = await db.get('inventory_cache', itemId);
-  if (!existing) return;
-  await db.put('inventory_cache', { ...existing, ...patch });
-}
-
-/** Replaces a single cached item with the authoritative server state
- * (used after a successful sync or a resolved conflict). */
-export async function putCachedItem(item: InventoryItem): Promise<void> {
-  const db = await getOfflineDB();
-  await db.put('inventory_cache', item);
+  const tx = db.transaction('inventory_cache', 'readwrite');
+  const before = await tx.store.getAll();
+  const after = change(before);
+  const known = new Set(before);
+  const kept = new Set(after.map((item) => item.id));
+  await Promise.all([
+    ...after.filter((item) => !known.has(item)).map((item) => tx.store.put(item)),
+    ...before.filter((item) => !kept.has(item.id)).map((item) => tx.store.delete(item.id)),
+  ]);
+  await tx.done;
 }
 
 // ─── sync_queue helpers ──────────────────────────────────────────────────────

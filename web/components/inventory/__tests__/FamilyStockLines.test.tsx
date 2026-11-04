@@ -193,3 +193,27 @@ describe('FamilyStockLines', () => {
     expect(screen.getAllByRole('button', { name: /^review/ }).map((button) => button.textContent)).toEqual(['review 5']);
   });
 });
+
+describe('FamilyStockLines — waiting for the network (FEAT-108, ux-ui.md §10.8)', () => {
+  it('marks "en attente" the group changed offline and its provisional opened bottle, which has no action yet', () => {
+    const lineActions = vi.fn(() => <button type="button">menu</button>);
+    const onLevelCommit = vi.fn(async () => undefined);
+    draw([
+      unit({ id: 'g', quantity: 5, cellarId: 'garage' }),
+      openedBottle(100, { id: 'offline:m1', cellarId: 'garage', parentItemId: 'g' }),
+    ], { pendingIds: new Set(['g']), lineActions, onLevelCommit });
+
+    const [group, provisional] = screen.getAllByTestId('family-line');
+    expect(within(group).getByTestId('line-pending')).toHaveAccessibleName('Modifié hors-ligne — en attente de synchronisation');
+    expect(within(provisional).getByTestId('line-pending')).toBeInTheDocument();
+    // The group keeps its menu; the provisional bottle has no menu and no level (no id on the server yet).
+    expect(lineActions).toHaveBeenCalledTimes(1);
+    expect(within(provisional).queryByRole('slider')).toBeNull();
+    expect(within(provisional).queryByRole('button')).toBeNull();
+  });
+
+  it('no mark without a change waiting', () => {
+    draw([unit({ id: 'g', quantity: 6 })], { pendingIds: new Set() });
+    expect(screen.queryByTestId('line-pending')).toBeNull();
+  });
+});

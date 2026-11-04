@@ -47,6 +47,12 @@ const withPWA = withPWAInit({
   // cached worker can never mask local changes during `next dev`.
   disable: process.env.NODE_ENV === 'development',
   register: true,
+  // FEAT-108 (ux-ui.md §10.8): back online, the page is NOT reloaded (the
+  // plugin's default). The app follows by itself — the offline queue is
+  // replayed (useOfflineSync) and the lists refetched — so the open drawer
+  // stays where it was, and a reload can no longer cut a queued change
+  // while it is being sent (its answer lost, then replayed as a conflict).
+  reloadOnOnline: false,
   extendDefaultRuntimeCaching: true,
   workboxOptions: {
     runtimeCaching: [
