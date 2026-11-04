@@ -308,9 +308,25 @@ export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
 // ISSUE_052: `ids` used to be cast `as string[]` with no content check and
 // no length cap — bounded only by the 2MB request body limit, i.e. tens of
 // thousands of ids could reach a single `updateMany`.
+// #471 (FEAT-111, D18): a state (opened, a level, a smoked cigar) is never
+// written in bulk — on a group it would open one bottle of each, silently.
+// "Marquer comme bus" (POST /api/products/bulk-drink), which asks how many of
+// each wine, is the only bulk write of a state. Refused in a bulk edit and in
+// a saved preset alike (the old presets that wrote one were deleted by the
+// update, QP6).
+export const BULK_REFUSED_FIELDS = ['isOpened', 'fillLevel', 'openedAt', 'cigarsLeft', 'smokeOne', 'keepTastings', 'tastingId'] as const;
+
+export const bulkPatchSchema = inventoryPatchSchema.superRefine((patch, ctx) => {
+  for (const field of BULK_REFUSED_FIELDS) {
+    if ((patch as Record<string, unknown>)[field] !== undefined) {
+      ctx.addIssue({ code: 'custom', path: [field], message: 'STATE_NOT_IN_BULK' });
+    }
+  }
+});
+
 export const bulkUpdateSchema = z.object({
   ids: z.array(z.string().guid()).min(1).max(500),
-  patch: inventoryPatchSchema,
+  patch: bulkPatchSchema,
 });
 
 export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;

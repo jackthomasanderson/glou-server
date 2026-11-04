@@ -1,8 +1,9 @@
 'use client';
 import React from 'react';
-import { Button } from '@heroui/react';
-import { List, X } from 'lucide-react';
+import { Button, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from '@heroui/react';
+import { ArrowRightLeft, GlassWater, List, Pencil, Trash2, X } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
+import type { BulkWinesActionName } from './BulkWinesDialog';
 import dynamic from 'next/dynamic';
 
 const BulkActionDialog = dynamic(() => import('./BulkActionDialog').then((m) => m.BulkActionDialog), { ssr: false, loading: () => null });
@@ -45,11 +46,28 @@ export interface InventoryBulkBarProps {
   onCloseDialog: () => void;
   onApply: (patch: Partial<InventoryItem>) => void;
   isSubmitting: boolean;
+  /**
+   * #471 (FEAT-111): the actions on every bottle in the cellar of the wines
+   * selected ("Déplacer", "Marquer comme bus", "Mettre à la corbeille"),
+   * next to the bulk edit (tags, presets). Disabled when none of the wines
+   * selected has any bottle left.
+   */
+  onWinesAction: (action: BulkWinesActionName) => void;
+  /** Cigars page: "Marquer comme fumés". */
+  cigars?: boolean;
 }
+
+const WINES_ACTIONS: ReadonlyArray<{ key: BulkWinesActionName | 'edit'; icon: React.ReactElement }> = [
+  { key: 'move', icon: <ArrowRightLeft size={15} /> },
+  { key: 'drink', icon: <GlassWater size={15} /> },
+  { key: 'trash', icon: <Trash2 size={15} /> },
+  { key: 'edit', icon: <Pencil size={15} /> },
+];
 
 /**
  * Floating bulk-selection action bar: shows the "N selected" pill + the
- * button that opens the bulk edit dialog, and the dialog itself.
+ * menu of bulk actions (#471, FEAT-111: move, mark as drunk, trash, edit),
+ * and the bulk edit dialog itself.
  *
  * The post-update confirmation is a plain success toast raised by the
  * dashboard through the shared notification system. It deliberately does NOT
@@ -70,7 +88,10 @@ export function InventoryBulkBar({
   onCloseDialog,
   onApply,
   isSubmitting,
+  onWinesAction,
+  cigars = false,
 }: InventoryBulkBarProps) {
+  const context = cigars ? 'cigar' : undefined;
   return (
     <>
       {/* Bulk floating bar */}
@@ -78,9 +99,28 @@ export function InventoryBulkBar({
         <div className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">
           <span className="font-bold text-primary" aria-live="polite">{t('bulk.selected', { count: selectedCount })}</span>
           {/* Wines with nothing left only: no bottle to change. */}
-          <Button color="primary" onPress={onOpenDialog} isDisabled={selectedIds.size === 0}>
-            {t('bulk.title')}
-          </Button>
+          <Dropdown placement="top">
+            <DropdownTrigger>
+              <Button color="primary" isDisabled={selectedIds.size === 0} data-testid="bulk-actions-menu">
+                {t('bulk.title')}
+              </Button>
+            </DropdownTrigger>
+            <DropdownMenu
+              aria-label={t('bulk.title')}
+              onAction={(key) => (key === 'edit' ? onOpenDialog() : onWinesAction(key as BulkWinesActionName))}
+            >
+              {WINES_ACTIONS.map(({ key, icon }) => (
+                <DropdownItem
+                  key={key}
+                  startContent={icon}
+                  color={key === 'trash' ? 'danger' : 'default'}
+                  className={key === 'trash' ? 'text-danger' : undefined}
+                >
+                  {t(`bulkWines.${key}.action`, { context })}
+                </DropdownItem>
+              ))}
+            </DropdownMenu>
+          </Dropdown>
         </div>
       )}
 

@@ -30,7 +30,7 @@ import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/pro
 type UnitRecord = NonNullable<Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>>>;
 
 /** What changes on the copies taken: their cellar, or their purchase price. */
-type SplitChange = { field: 'cellarId'; to: string | null } | { field: 'purchasePrice'; to: number | null };
+export type SplitChange = { field: 'cellarId'; to: string | null } | { field: 'purchasePrice'; to: number | null };
 
 /** One line of the history the split writes (decision point 57): on which unit, what moved. */
 export interface SplitEntry {
@@ -53,6 +53,9 @@ export type SplitOutcome =
       change: FieldChange;
       entries: SplitEntry[];
     };
+
+/** A split written (no conflict). */
+export type SplitApplied = Exclude<SplitOutcome, { conflict: true }>;
 
 /** Two cellars or prices (ids, numbers or empty) are the same. */
 const sameValue = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -192,71 +195,91 @@ async function splitUnits(
       throw badRequest('CELLAR_NOT_FOUND');
     }
 
-    const kind = unitKind(product.category);
-    const moved: FieldChange = { field: change.field, from: before, to: change.to };
-    const done = (result: UnitWriteResult, entries: SplitEntry[]): SplitOutcome =>
-      ({ result, productId: group.productId, count, change: moved, entries });
-    const stamp = { updatedBy: userId };
-    // Never a line whose place of purchase or location contradicts the
-    // copies taken (design.md rule 4): one of them would be lost.
-    let target = await findGroupFor(tx, { ...group, ...changeData(change) }, kind, {
-      excludeId: group.id, estimatedValue: group.estimatedValue, settledOnly: true, placesOf: group,
-    });
-    if (target && count === from) {
-      // Two groups counted in the same inventory session keep their entries
-      // apart (one per unit); a new price for a group and the identical
-      // group both in a slot would lose one slot. The whole group then
-      // simply changes, next to the other.
-      const twoSlots = change.field === 'purchasePrice' && group.slotColumn !== null && target.slotColumn !== null;
-      if (twoSlots || await sharesAnInventorySession(tx, group.id, target.id)) target = null;
-    }
-    if (target && (target.quantity ?? 1) + count > MAX_COPIES) throw badRequest('QUANTITY_TOO_LARGE');
-
-    if (count === from) {
-      if (!target) {
-        // A whole group moved leaves its slot: a place in its old cellar's plan.
-        const leaves = change.field === 'cellarId' && group.slotColumn !== null ? NO_SLOT : {};
-        const changed = await tx.inventoryItem.update({ where: { id: group.id }, data: { ...changeData(change), ...leaves, ...stamp } });
-        const slotChanges = Object.keys(leaves).map((field) => ({ field, from: group[field as keyof typeof NO_SLOT], to: null }));
-        return done({ data: toUnitView(changed), changed: [], removedIds: [] }, [{ itemId: group.id, changes: [moved, ...slotChanges] }]);
-      }
-      // The whole group completes the identical one: it takes its copies and
-      // everything hanging on it, the group is gone.
-      const to = (target.quantity ?? 1) + count;
-      await keepFoundQuantities(tx, [group.id, target.id]);
-      await absorbGroups(tx, target.id, [group.id]);
-      // A new price in the same cellar: the copies stay where they were, so
-      // the group's slot goes to the line that has none (deleted first: one slot, one unit).
-      const keepsSlot = change.field === 'purchasePrice' && group.slotColumn !== null
-        ? { slotColumn: group.slotColumn, slotRow: group.slotRow } : {};
-      const completed = await tx.inventoryItem.update({
-        where: { id: target.id },
-        data: {
-          ...completion(target, group, to),
-          needsReview: target.needsReview || group.needsReview,
-          ...keepsSlot,
-          ...stamp,
-        },
-      });
-      return done(
-        { data: toUnitView(completed), changed: [], removedIds: [group.id] },
-        [{ itemId: target.id, fromItemId: group.id, changes: [{ field: 'quantity', from: target.quantity ?? 1, to }, moved] }],
-      );
-    }
-
-    // Part of the group: it keeps the rest; the copies taken complete the
-    // identical group, or make a new line.
-    const rest = await tx.inventoryItem.update({ where: { id: group.id }, data: { quantity: from - count, ...stamp } });
-    if (target) await keepFoundQuantities(tx, [target.id]);
-    const line = target
-      ? await tx.inventoryItem.update({ where: { id: target.id }, data: { ...completion(target, group, (target.quantity ?? 1) + count), ...stamp } })
-      : await tx.inventoryItem.create({ data: splitLineOf(group, userId, count, change) });
-    const lineFrom = target ? target.quantity ?? 1 : null;
-    return done({ data: toUnitView(line), changed: [toUnitView(rest)], removedIds: [] }, [
-      { itemId: group.id, toItemId: line.id, changes: [{ field: 'quantity', from, to: from - count }] },
-      { itemId: line.id, fromItemId: group.id, changes: [{ field: 'quantity', from: lineFrom, to: lineFrom === null ? count : lineFrom + count }, moved] },
-    ]);
+    return splitLockedGroup(tx, userId, group, count, change, unitKind(product.category));
   });
+}
+
+/**
+ * Takes `count` copies of `group` (an intact group in stock, read once its
+ * family is locked) and applies `change` to them: the part taken completes
+ * the identical group of the family, or makes a line of its own (see
+ * {@link splitUnits}). Also the step of a bulk move (lot P, FEAT-111): each
+ * group moved whole joins its identical group in the destination, never a
+ * line apart.
+ */
+export async function splitLockedGroup(
+  tx: PrismaClientOrTx,
+  userId: string,
+  group: UnitRecord,
+  count: number,
+  change: SplitChange,
+  kind: ReturnType<typeof unitKind>,
+): Promise<SplitApplied> {
+  const from = group.quantity ?? 1;
+  const before = group[change.field];
+  const moved: FieldChange = { field: change.field, from: before, to: change.to };
+  const done = (result: UnitWriteResult, entries: SplitEntry[]): SplitApplied =>
+    ({ result, productId: group.productId, count, change: moved, entries });
+  const stamp = { updatedBy: userId };
+  // Never a line whose place of purchase or location contradicts the
+  // copies taken (design.md rule 4): one of them would be lost.
+  let target = await findGroupFor(tx, { ...group, ...changeData(change) }, kind, {
+    excludeId: group.id, estimatedValue: group.estimatedValue, settledOnly: true, placesOf: group,
+  });
+  if (target && count === from) {
+    // Two groups counted in the same inventory session keep their entries
+    // apart (one per unit); a new price for a group and the identical
+    // group both in a slot would lose one slot. The whole group then
+    // simply changes, next to the other.
+    const twoSlots = change.field === 'purchasePrice' && group.slotColumn !== null && target.slotColumn !== null;
+    if (twoSlots || await sharesAnInventorySession(tx, group.id, target.id)) target = null;
+  }
+  if (target && (target.quantity ?? 1) + count > MAX_COPIES) throw badRequest('QUANTITY_TOO_LARGE');
+
+  if (count === from) {
+    if (!target) {
+      // A whole group moved leaves its slot: a place in its old cellar's plan.
+      const leaves = change.field === 'cellarId' && group.slotColumn !== null ? NO_SLOT : {};
+      const changed = await tx.inventoryItem.update({ where: { id: group.id }, data: { ...changeData(change), ...leaves, ...stamp } });
+      const slotChanges = Object.keys(leaves).map((field) => ({ field, from: group[field as keyof typeof NO_SLOT], to: null }));
+      return done({ data: toUnitView(changed), changed: [], removedIds: [] }, [{ itemId: group.id, changes: [moved, ...slotChanges] }]);
+    }
+    // The whole group completes the identical one: it takes its copies and
+    // everything hanging on it, the group is gone.
+    const to = (target.quantity ?? 1) + count;
+    await keepFoundQuantities(tx, [group.id, target.id]);
+    await absorbGroups(tx, target.id, [group.id]);
+    // A new price in the same cellar: the copies stay where they were, so
+    // the group's slot goes to the line that has none (deleted first: one slot, one unit).
+    const keepsSlot = change.field === 'purchasePrice' && group.slotColumn !== null
+      ? { slotColumn: group.slotColumn, slotRow: group.slotRow } : {};
+    const completed = await tx.inventoryItem.update({
+      where: { id: target.id },
+      data: {
+        ...completion(target, group, to),
+        needsReview: target.needsReview || group.needsReview,
+        ...keepsSlot,
+        ...stamp,
+      },
+    });
+    return done(
+      { data: toUnitView(completed), changed: [], removedIds: [group.id] },
+      [{ itemId: target.id, fromItemId: group.id, changes: [{ field: 'quantity', from: target.quantity ?? 1, to }, moved] }],
+    );
+  }
+
+  // Part of the group: it keeps the rest; the copies taken complete the
+  // identical group, or make a new line.
+  const rest = await tx.inventoryItem.update({ where: { id: group.id }, data: { quantity: from - count, ...stamp } });
+  if (target) await keepFoundQuantities(tx, [target.id]);
+  const line = target
+    ? await tx.inventoryItem.update({ where: { id: target.id }, data: { ...completion(target, group, (target.quantity ?? 1) + count), ...stamp } })
+    : await tx.inventoryItem.create({ data: splitLineOf(group, userId, count, change) });
+  const lineFrom = target ? target.quantity ?? 1 : null;
+  return done({ data: toUnitView(line), changed: [toUnitView(rest)], removedIds: [] }, [
+    { itemId: group.id, toItemId: line.id, changes: [{ field: 'quantity', from, to: from - count }] },
+    { itemId: line.id, fromItemId: group.id, changes: [{ field: 'quantity', from: lineFrom, to: lineFrom === null ? count : lineFrom + count }, moved] },
+  ]);
 }
 
 export const stockSplitService = {

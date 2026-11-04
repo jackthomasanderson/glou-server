@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { inventoryPatchSchema } from './inventory.schema';
+import { bulkPatchSchema } from './inventory.schema';
 
 export const bulkPresetSchema = z.object({
   id: z.string().guid().optional(),
   name: z.string().min(1, 'Name is required').max(100),
-  payload: inventoryPatchSchema,
+  // #471 (D18, QP6): what a bulk edit may write — never a state.
+  payload: bulkPatchSchema,
   userId: z.string().guid().optional(),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
