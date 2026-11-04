@@ -117,12 +117,17 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
     await nameInput.fill(name);
     await page.getByTestId('inventory-producer-input').fill('E2E Domaine');
     const addToKnown = page.getByTestId('known-wine-add');
+    // On a phone the first bottle's success toast sits over the top of the
+    // full-screen form, where the proposal shows: wait for it to go.
+    await expect(page.getByText('Actif ajouté avec succès')).toHaveCount(0, { timeout: 15_000 });
+    await addToKnown.scrollIntoViewIfNeeded();
     await expectOnTop(addToKnown, 'the "Vous avez déjà ce vin" proposal');
     await addToKnown.click();
     const added = page.waitForResponse((r) => /\/api\/products\/[^/]+\/items$/.test(r.url()) && r.request().method() === 'POST');
     await page.getByTestId('add-units-submit').click();
     const addedRes = await added;
-    expect(addedRes.status()).toBe(201);
+    // 201 for a new line, 200 when the bottle completes the identical one (same day, cellar, price).
+    expect(addedRes.ok(), await addedRes.text()).toBe(true);
     expect((await addedRes.json())?.data?.productId).toBe(productId);
     await expect(page.getByTestId('add-units-submit')).toBeHidden();
     await expect(wizard.getByText('2 actifs ajoutés pour l\'instant')).toBeVisible();
