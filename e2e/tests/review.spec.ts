@@ -4,8 +4,8 @@ import { test, expect, type APIRequestContext, type APIResponse } from '@playwri
  * #471 (FEAT-102 c1-c5, API): "À vérifier après la mise à jour" on a real
  * PostgreSQL — families of one wine left apart, merged field by field or kept
  * apart for good, and "C'est bon" on a number. Two families of the same wine
- * are made the way the add form still makes them until FEAT-97 (a second
- * record confirmed as a duplicate opens its own family). The web screen comes
+ * are made as the add form makes them when "Vous avez déjà ce vin" is
+ * ignored (FEAT-97: a creation opens a family of its own). The web screen comes
  * with lot J2. Figures shared by the whole instance (sidebar, budget) are
  * compared before/after, as other specs add bottles too.
  */
@@ -38,9 +38,8 @@ const caseOf = (list: Review, ids: string[]) =>
 async function createFamily(api: APIRequestContext, name: string, cellarId: string, region: string, extra: number): Promise<Unit> {
   const unit = await okData<Unit>(await api.post('/api/inventory', {
     data: {
+      // A second record of the same wine opens a family of its own (FEAT-97: a creation is a new wine).
       category: 'wine', name, producer: 'E2E Domaine', vintage: 2020, region, cellarId, purchasePrice: 20,
-      // A second record of the same wine, confirmed: until FEAT-97 it opens a family of its own.
-      confirmDuplicate: true,
     },
   }));
   if (extra > 0) await okData(await api.post(`/api/products/${unit.productId}/items`, { data: { quantity: extra, cellarId, purchasePrice: 20 } }));

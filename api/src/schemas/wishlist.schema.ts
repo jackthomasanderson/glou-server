@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { distinctFromSchema } from './product.schema';
 import { unitPrice } from './stock.schema';
 import { categorySchema } from '../lib/category';
 
@@ -49,6 +50,16 @@ export const convertToInventorySchema = z.object({
   bottleSize: z.string().max(50).optional().nullable(),
   // #471 (FEAT-92): the number bought, one group; the wish's `targetQuantity` when absent.
   quantity: z.number().int().min(1).max(1000).optional().nullable(),
+  // #471 (FEAT-97): "Vous avez déjà ce vin" — the known wine the bottles join
+  // (only what tells its bottles apart is taken, never a place of purchase),
+  // or "C'est un autre vin": the wines of the same name the new one is not.
+  productId: z.string().min(1).max(100).optional(),
+  // FEAT-95: a cigar group of closed boxes of this many cigars; absent or null, single cigars.
+  cigarsPerBox: z.number().int().min(1).max(1000).optional().nullable(),
+  distinctFrom: distinctFromSchema.optional(),
+}).refine((input) => input.productId === undefined || (input.purchasePlace == null && input.distinctFrom === undefined), {
+  message: 'A known wine takes neither a place of purchase nor wines told apart',
+  path: ['productId'],
 });
 
 export type ConvertToInventoryInput = z.infer<typeof convertToInventorySchema>;

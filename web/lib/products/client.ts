@@ -1,6 +1,7 @@
 import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal } from '../api';
 import { fetchOrNetworkError } from '../network-error';
 import type { ProductDescription, UnitWriteResult } from '@shared/product';
+import type { InventoryCategory } from '@shared/inventory';
 import type { Wire } from '@shared/wire';
 import type { Product, ProductDetailView, ProductItem, ProductListResponse, TrashedProduct } from './types';
 
@@ -20,6 +21,17 @@ export interface AddUnitsInput {
   purchasedAt?: string | null;
 }
 
+/** The wine typed in an add form, as `productKey` reads it (shared/units.ts). */
+export interface KnownWineQuery {
+  category: InventoryCategory;
+  producer: string;
+  name: string;
+  vintage: number | null;
+  format: string | null;
+  /** A cigar asked without its vitola (a wish has none): every vitola of the reference. */
+  anyFormat?: boolean;
+}
+
 /** D8: the line completed or created (`data`), and anything else the write changed. */
 export type UnitWrite = Wire<UnitWriteResult<ProductItem, ProductItem>>;
 
@@ -36,6 +48,20 @@ export const productsClient = {
     if (!res.ok) await handleResponse(res); // throws Error(<API code>)
     const body = (await res.json()) as ProductListResponse;
     return { data: body.data, truncated: body.truncated === true };
+  },
+
+  /**
+   * FEAT-97 ("Vous avez déjà ce vin"): the wines of the same name as the one
+   * typed — same category, producer, name and vintage (the vitola for a
+   * cigar), case and edge spaces ignored; wines without bottle included.
+   */
+  async match(wine: KnownWineQuery): Promise<Product[]> {
+    const query = new URLSearchParams({ category: wine.category, producer: wine.producer, name: wine.name });
+    if (wine.vintage != null) query.set('vintage', String(wine.vintage));
+    if (wine.format) query.set('format', wine.format);
+    if (wine.anyFormat) query.set('anyFormat', 'true');
+    const { data } = await client.get<Product[]>(`/products/match?${query.toString()}`);
+    return data;
   },
 
   /** A wine with every bottle out of the trash, its tastings and history. */

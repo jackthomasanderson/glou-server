@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import { productPatchSchema, productRollbackSchema } from '../schemas/product.schema';
+import { productMatchQuerySchema, productPatchSchema, productRollbackSchema } from '../schemas/product.schema';
 import { isRestorableDescriptionField } from '../../../shared/product';
 import { productService } from '../services/product.service';
 import { inventoryService } from '../services/inventory.service';
@@ -25,6 +25,11 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 // GET /api/products/trash — families in the trash, with the units trashed together with them.
 router.get('/trash', async (_req: Request, res: Response): Promise<void> => {
   res.json({ data: await productService.listTrash() });
+});
+
+// GET /api/products/match — FEAT-97: the families of the wine being typed ("Vous avez déjà ce vin").
+router.get('/match', async (req: Request, res: Response): Promise<void> => {
+  res.json({ data: await productService.matching(productMatchQuerySchema.parse(req.query)) });
 });
 
 // GET /api/products/:id — every unit out of the trash, the tastings and the history.

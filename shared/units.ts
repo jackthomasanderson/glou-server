@@ -104,6 +104,16 @@ export function productKey(product: ProductKeyFields): string {
   return JSON.stringify([product.category, normalize(product.producer), normalize(product.name), distinguisher]);
 }
 
+/**
+ * FEAT-97: whether `family` is the wine `asked` names ("Vous avez déjà ce
+ * vin"). `anyVitola`: a cigar asked without its vitola (a wish has none)
+ * names every vitola of that reference.
+ */
+export function namesSameWine(asked: ProductKeyFields, family: ProductKeyFields, anyVitola = false): boolean {
+  const vitola = anyVitola && asked.category === 'cigar' ? { format: family.format } : {};
+  return productKey({ ...asked, ...vitola }) === productKey(family);
+}
+
 export interface GroupKeyFields {
   productId: string;
   cellarId: string | null;

@@ -18,11 +18,12 @@ function today(): string {
 // inventory, so the created item is always cleaned up via the API.
 // #471 (FEAT-92 c1): 6 bottles in one entry are one wine (one card ×6), one
 // line of 6 at 20 € each, worth 120 €.
-test('add 6 bottles through the form, see one wine ×6 worth 120 €, then detect the duplicate', async ({ page }) => {
+test('add 6 bottles through the form, see one wine ×6 worth 120 €, then "Vous avez déjà ce vin" (FEAT-97)', async ({ page }) => {
   const name = `E2E Bottle ${Date.now()}`;
   const producer = 'E2E Domaine';
   let id: string | undefined;
   let productId: string | undefined;
+  let otherProductId: string | undefined;
 
   try {
     await page.goto('/bottles');
@@ -72,20 +73,60 @@ test('add 6 bottles through the form, see one wine ×6 worth 120 €, then detec
     await drawer.getByRole('button', { name: 'Fermer' }).first().click();
     await expect(drawer).toBeHidden();
 
-    // Submitting the exact same entry again must be caught client-side
-    // (FEAT-65) before a second row is created — the duplicate dialog opens
-    // instead of a second POST.
+    // #471 (FEAT-97 c1-c2): the same wine typed again says "Vous avez déjà
+    // ce vin" before any save (case and edge spaces ignored); accepting
+    // reduces the form to the bottles, which join the wine on a new line
+    // (another price): no second card, the description unchanged.
     await page.getByTestId('inventory-add-button').click();
     const dialog2 = page.getByRole('dialog');
-    await dialog2.getByTestId('inventory-name-input').fill(name);
-    await dialog2.getByTestId('inventory-producer-input').fill(producer);
+    await dialog2.getByTestId('inventory-name-input').fill(` ${name.toUpperCase()} `);
+    await dialog2.getByTestId('inventory-producer-input').fill(producer.toLowerCase());
+    await dialog2.getByTestId('inventory-vintage-input').fill('2019');
+    // c3: another vintage is another wine.
+    await page.waitForTimeout(800);
+    await expect(dialog2.getByTestId('known-wine-banner')).toHaveCount(0);
     await dialog2.getByTestId('inventory-vintage-input').fill('2020');
-    await dialog2.getByTestId('inventory-form-submit').click();
+    const banner = dialog2.getByTestId('known-wine-banner');
+    await expect(banner).toContainText('Vous avez déjà ce vin');
+    await expect(banner.getByTestId('known-wine-stock')).toContainText('6 bouteilles en cave');
+    await banner.getByTestId('known-wine-add').click();
+    await expect(dialog2.getByTestId('inventory-name-input')).toHaveCount(0);
+    await dialog2.getByTestId('add-units-quantity').fill('3');
+    await dialog2.getByTestId('add-units-price').fill('');
+    await dialog2.getByTestId('add-units-price').pressSequentially('25');
+    const added = page.waitForResponse((r) => r.url().endsWith(`/api/products/${productId}/items`) && r.request().method() === 'POST');
+    await dialog2.getByTestId('add-units-submit').click();
+    expect((await added).status()).toBe(201);
+    await expect(dialog2).toBeHidden();
+    await expect(page.getByTestId('family-card').filter({ hasText: name })).toHaveCount(1);
+    const joined = await okData<Family & { region: string | null; name: string }>(await page.request.get(`/api/products/${productId}`));
+    expect(joined.name).toBe(name);
+    expect(joined.items.map((unit) => [unit.quantity, unit.purchasePrice]).sort()).toEqual([[3, 25], [6, 20]]);
 
-    await expect(page.getByTestId('duplicate-increment')).toBeVisible();
-    await page.getByTestId('duplicate-cancel').click();
-    await expect(page.getByTestId('duplicate-increment')).toBeHidden();
+    // c5: "C'est un autre vin" creates a second card of the same name, never
+    // proposed in "À regrouper ?".
+    await page.getByTestId('inventory-add-button').click();
+    const dialog3 = page.getByRole('dialog');
+    await dialog3.getByTestId('inventory-name-input').fill(name);
+    await dialog3.getByTestId('inventory-producer-input').fill(producer);
+    await dialog3.getByTestId('inventory-vintage-input').fill('2020');
+    await dialog3.getByTestId('known-wine-distinct').click();
+    await expect(dialog3.getByTestId('known-wine-banner')).toHaveCount(0);
+    const createdApart = page.waitForResponse(
+      (r) => r.url().match(/\/api\/inventory\/?$/) !== null && r.request().method() === 'POST',
+    );
+    await dialog3.getByTestId('inventory-form-submit').click();
+    const apartRes = await createdApart;
+    expect(apartRes.status()).toBe(201);
+    expect(apartRes.request().postDataJSON()).toMatchObject({ distinctFrom: [productId] });
+    otherProductId = ((await apartRes.json()).data as Unit).productId;
+    expect(otherProductId).not.toBe(productId);
+    await expect(dialog3).toBeHidden();
+    await expect(page.getByTestId('family-card').filter({ hasText: name })).toHaveCount(2);
+    const review = await okData<{ merges: { products: { id: string }[] }[] }>(await page.request.get('/api/products/review'));
+    expect(review.merges.filter((c) => c.products.some((p) => p.id === productId || p.id === otherProductId))).toEqual([]);
   } finally {
+    if (otherProductId) await page.request.delete(`/api/products/${otherProductId}`).catch(() => {});
     if (productId) await page.request.delete(`/api/products/${productId}`).catch(() => {});
     else if (id) await page.request.delete(`/api/inventory/${id}`).catch(() => {});
   }
