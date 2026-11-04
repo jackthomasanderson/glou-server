@@ -87,3 +87,24 @@ describe('InventoryTrash names what was thrown away', () => {
     expect(screen.getAllByRole('button', { name: 'Restaurer la bouteille' })).toHaveLength(1);
   });
 });
+
+// Review of #828: the cigars' trash headed its sections « Vins » and
+// « Bouteilles et cigares ».
+describe('InventoryTrash headings follow the page', () => {
+  it('the cigars page says « Cigares » and « Boîtes et cigares »', () => {
+    data.wines = [{ ...product({ id: 'c1', name: 'Robusto', category: 'cigar', items: [] }), deletedAt: when }];
+    data.items = [{ id: 'box', productId: 'c2', deletedAt: when, category: 'cigar', name: 'Corona', producer: 'M', quantity: 2, cigarsPerBox: 25, isOpened: false }];
+    render(<InventoryTrash t={t} lockedCategories={['cigar']} />);
+    expect(screen.getByRole('region', { name: 'Cigares' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Cigares' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Boîtes et cigares' })).toBeInTheDocument();
+  });
+
+  it('the bottles page says « Vins » and « Bouteilles »', () => {
+    data.wines = [{ ...product({ id: 'w1', name: 'Cuvée X', items: [] }), deletedAt: when }];
+    data.items = [{ id: 'b', productId: 'w2', deletedAt: when, category: 'wine', name: 'Autre', producer: 'D', quantity: 1, isOpened: false }];
+    render(<InventoryTrash t={t} lockedCategories={['wine', 'sparkling', 'spirit']} />);
+    expect(screen.getByRole('region', { name: 'Vins' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Bouteilles' })).toBeInTheDocument();
+  });
+});

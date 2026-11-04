@@ -69,6 +69,18 @@ describe('translations after an update (#471)', () => {
     expect(precached.filter((file) => file.startsWith('locales/'))).toEqual([]);
   });
 
+  it('the translations of this version, both languages, are precached at their fingerprinted URL (review of #828)', () => {
+    // Offline at the first start after an update, or in the other language,
+    // the app still has its words: the worker installs them with the rest.
+    const version = localesVersion(LOCALES_DIR);
+    const entries = (pwaOptions.workboxOptions as { additionalManifestEntries?: Array<{ url: string; revision: string | null }> })
+      .additionalManifestEntries ?? [];
+    expect(entries).toEqual(expect.arrayContaining([
+      { url: `/locales/fr/common.json?v=${version}`, revision: null },
+      { url: `/locales/en/common.json?v=${version}`, revision: null },
+    ]));
+  });
+
   it('offline, the translations fetched once are kept by a network-first rule (FEAT-108)', () => {
     const href = 'https://cave.example/locales/fr/common.json?v=abc123';
     const rules = [

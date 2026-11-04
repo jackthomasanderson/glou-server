@@ -86,11 +86,15 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
   }
 
   const both = wines.length > 0 && visibleItems.length > 0;
+  // The headings follow the page: cigars, or bottles (review of #828).
+  const page = !lockedCategories ? undefined : lockedCategories.every((category) => category === 'cigar') ? 'cigar' : 'bottle';
+  const winesHeading = t('familyList.trash.wines', { context: page === 'cigar' ? 'cigar' : undefined });
+  const linesHeading = t('familyList.trash.bottles', { context: page });
   return (
     <div className="flex flex-col gap-4">
     {wines.length > 0 && (
-      <section aria-label={t('familyList.trash.wines')}>
-        {both && <h2 className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">{t('familyList.trash.wines')}</h2>}
+      <section aria-label={winesHeading}>
+        {both && <h2 className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">{winesHeading}</h2>}
         <ul className="flex flex-col gap-2" data-testid="trash-wines">
           {wines.map((wine) => {
             const units = unitsOf(wine);
@@ -126,8 +130,8 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
       </section>
     )}
     {visibleItems.length > 0 && (
-    <section aria-label={t('familyList.trash.bottles')}>
-    {both && <h2 className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">{t('familyList.trash.bottles')}</h2>}
+    <section aria-label={linesHeading}>
+    {both && <h2 className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">{linesHeading}</h2>}
     <ul className="flex flex-col gap-2">
       {visibleItems.map((item) => {
         const label = unitLabels(item);

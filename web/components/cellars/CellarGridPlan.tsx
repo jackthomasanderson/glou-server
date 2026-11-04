@@ -452,6 +452,34 @@ interface CellarGridPlanProps {
   data: CellarGridData;
 }
 
+/**
+ * What a screen reader hears while a bottle or a cigar is moved on the plan,
+ * in the member's language; French agrees with the thing moved (« Robusto
+ * déposé », « Cuvée X déposée », review of #828).
+ */
+export function dragAnnouncements(t: (key: string, options?: Record<string, unknown>) => string): Announcements {
+  const slotOf = (over: { data: { current?: unknown } } | null) =>
+    over?.data.current as { col: number; row: number } | undefined;
+  const itemOf = (active: { data: { current?: unknown } }) => (active.data.current as { item: GridItem }).item;
+  const say = (key: string, item: GridItem, values?: Record<string, unknown>) =>
+    t(key, { name: item.name, context: item.category === 'cigar' ? 'cigar' : undefined, ...values });
+  return {
+    onDragStart: ({ active }) => {
+      const d = active.data.current as { item: GridItem; fromCol: number; fromRow: number };
+      return say('cellars.grid.announceStart', d.item, { col: d.fromCol, row: d.fromRow });
+    },
+    onDragOver: ({ active, over }) => {
+      const slot = slotOf(over);
+      return slot ? say('cellars.grid.announceOver', itemOf(active), slot) : undefined;
+    },
+    onDragEnd: ({ active, over }) => {
+      const slot = slotOf(over);
+      return slot ? say('cellars.grid.announceDrop', itemOf(active), slot) : say('cellars.grid.announceCancel', itemOf(active));
+    },
+    onDragCancel: ({ active }) => say('cellars.grid.announceCancel', itemOf(active)),
+  };
+}
+
 export function CellarGridPlan({ data }: CellarGridPlanProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -523,27 +551,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
   );
 
   // dnd-kit's default screen-reader texts are English only.
-  const announcements = useMemo<Announcements>(() => {
-    const slotOf = (over: { data: { current?: unknown } } | null) =>
-      over?.data.current as { col: number; row: number } | undefined;
-    const nameOf = (active: { data: { current?: unknown } }) =>
-      (active.data.current as { item: GridItem }).item.name;
-    return {
-      onDragStart: ({ active }) => {
-        const d = active.data.current as { item: GridItem; fromCol: number; fromRow: number };
-        return t('cellars.grid.announceStart', { name: d.item.name, col: d.fromCol, row: d.fromRow });
-      },
-      onDragOver: ({ active, over }) => {
-        const slot = slotOf(over);
-        return slot ? t('cellars.grid.announceOver', { name: nameOf(active), ...slot }) : undefined;
-      },
-      onDragEnd: ({ active, over }) => {
-        const slot = slotOf(over);
-        return slot ? t('cellars.grid.announceDrop', { name: nameOf(active), ...slot }) : t('cellars.grid.announceCancel', { name: nameOf(active) });
-      },
-      onDragCancel: ({ active }) => t('cellars.grid.announceCancel', { name: nameOf(active) }),
-    };
-  }, [t]);
+  const announcements = useMemo(() => dragAnnouncements(t), [t]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { item, fromCol, fromRow } = event.active.data.current as { item: GridItem; fromCol: number; fromRow: number };
