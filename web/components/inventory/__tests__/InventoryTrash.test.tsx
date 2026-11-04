@@ -67,3 +67,23 @@ describe('InventoryTrash with wines', () => {
     expect(one).not.toHaveTextContent('1 bouteille');
   });
 });
+
+// #471 (recette v2): a box thrown away read « Restaurer la bouteille », with
+// no word of how many went to the trash.
+describe('InventoryTrash names what was thrown away', () => {
+  it('a box of cigars: its count and size, and « Restaurer la boîte »', () => {
+    data.wines = [];
+    data.items = [
+      { id: 'box', deletedAt: when, category: 'cigar', name: 'Robusto', producer: 'Cohiba', quantity: 2, cigarsPerBox: 25, isOpened: false },
+      { id: 'single', deletedAt: when, category: 'cigar', name: 'Corona', producer: 'Partagas', quantity: 3, cigarsPerBox: null, isOpened: false },
+      { id: 'bottle', deletedAt: when, category: 'wine', name: 'Margaux', producer: 'Château', quantity: 6, isOpened: false },
+    ];
+    render(<InventoryTrash t={t} />);
+    expect(screen.getByText(/^2 boîtes · /)).toBeInTheDocument();
+    expect(screen.getByText(/3 cigares/)).toBeInTheDocument();
+    expect(screen.getByText(/6 bouteilles/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restaurer la boîte' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restaurer le cigare' })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Restaurer la bouteille' })).toHaveLength(1);
+  });
+});

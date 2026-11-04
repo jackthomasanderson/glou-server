@@ -7,7 +7,13 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'Glou — Cellar manager · Gestionnaire de cave',
+  // #471 (recette v2): one neutral title for every page. The server can't
+  // know the member's language (chosen in the browser), and a bilingual
+  // title (« Inventory · Inventaire ») is what a tab showed whenever the
+  // translated one (useBrowserTabTitle) was not applied over it. Same
+  // value as NEUTRAL_TAB_TITLE there (a 'use client' module: not importable
+  // as a value from this server component).
+  title: 'Glou',
   description: 'Manage your wine, spirits and cigar cellar. Self-hosted, private. · Gérez votre cave à vin, spiritueux et cigares. Application auto-hébergée et privée.',
   // FEAT-16/23: PWA manifest — see web/public/manifest.json. Icons live in
   // public/icons/; app/icon.png, app/apple-icon.png and app/favicon.ico are

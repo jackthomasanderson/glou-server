@@ -45,6 +45,10 @@ function subRecordOf(log: HistoryLog): string | null {
   return null;
 }
 
+/** A write of a copy's state (opened, level, cigars left); an in-place one is logged without `outcome`. */
+const STATE_FIELDS = new Set(['isOpened', 'fillLevel', 'cigarsLeft']);
+const isStateWrite = (details: StateDetails) => (details.changes ?? []).some((change) => STATE_FIELDS.has(change.field));
+
 /** A closed bottle without a level is full: `fillLevel` null and 100 say the same. */
 const sameValue = (field: string, a: unknown, b: unknown) =>
   field === 'fillLevel' ? (a ?? 100) === (b ?? 100) : JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -98,7 +102,7 @@ export function withoutUndone<L extends HistoryLog>(logs: readonly L[]): L[] {
     lastOn.set(log.bottleId, log);
     if (!previous || hidden.has(previous)) continue;
     const [first, later] = [detailsOf(previous), detailsOf(log)];
-    if (!first.outcome || !later.outcome || later.deletedTastings) continue;
+    if (!isStateWrite(first) || !isStateWrite(later) || later.deletedTastings) continue;
     if (previous.action !== 'UPDATE' || log.action !== 'UPDATE' || previous.userId !== log.userId) continue;
     if (log.createdAt.getTime() - previous.createdAt.getTime() > UNDO_WINDOW_MS) continue;
     if (cancelsOut(first.changes ?? [], later.changes ?? [])) {

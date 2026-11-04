@@ -128,7 +128,7 @@ describe('CellarGridPlan and boxes of cigars (recette #471)', () => {
 
   it('"Assigner" tells the closed box from the opened one', () => {
     renderGrid(boxes);
-    fireEvent.keyDown(screen.getByLabelText('cellars.grid.cellLabelEmpty|2,1'), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByLabelText(/^cellars\.grid\.cellLabelEmpty\|2,1/), { key: 'Enter' });
     const [closed, opened] = screen.getAllByTestId('assign-line').map((line) => line.textContent);
     expect(closed).toContain('familyDrawer.lines.closedBoxes|1,25');
     expect(opened).toContain('familyDrawer.lines.openedBox');

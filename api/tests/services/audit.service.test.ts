@@ -170,17 +170,18 @@ describe('readFieldHistory', () => {
       expect(await read(openedThenPutBack(5, 'u1', { deletedTastings: 1 }))).toEqual([4, 3, 2, 1]);
     });
 
+    // An in-place write is logged without `outcome` (only a detach or a reattach carries one).
     it('a lone bottle drunk in place then taken back: both entries go, its slot given back included', async () => {
       expect(await read([
         log(2, 4, 'b', { changes: [{ field: 'isOpened', from: true, to: false }, { field: 'fillLevel', from: 0, to: 100 }, { field: 'slotColumn', from: null, to: 2 }], outcome: 'regrouped', targetItemId: 'b' }),
-        log(1, 0, 'b', { changes: [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 0 }, { field: 'slotColumn', from: 2, to: null }], outcome: 'updated', targetItemId: 'b' }),
+        log(1, 0, 'b', { changes: [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 0 }, { field: 'slotColumn', from: 2, to: null }] }),
       ])).toEqual([]);
     });
 
     it('two writes that do not cancel out are both told', async () => {
       expect(await read([
-        log(2, 4, 'b', { changes: [{ field: 'fillLevel', from: 50, to: 30 }], outcome: 'updated', targetItemId: 'b' }),
-        log(1, 0, 'b', { changes: [{ field: 'fillLevel', from: 100, to: 50 }], outcome: 'updated', targetItemId: 'b' }),
+        log(2, 4, 'b', { changes: [{ field: 'fillLevel', from: 50, to: 30 }] }),
+        log(1, 0, 'b', { changes: [{ field: 'fillLevel', from: 100, to: 50 }] }),
       ])).toEqual([2, 1]);
     });
   });

@@ -181,15 +181,15 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
                       {cellar.name}
                     </Checkbox>
                     {isSelected && (
+                      // Recette #471: the label names the action the switch grants, never the
+                      // current state (« Lecture seule » beside an "on" switch read backwards).
                       <Switch
                         isSelected={canWrite}
                         onValueChange={() => toggleCellarWrite(cellar.id)}
                         size="sm"
-                        aria-label={t('shares.fields.cellarWriteAccessAria', { name: cellar.name })}
+                        data-testid={`share-cellar-write-${cellar.id}`}
                       >
-                        <span className="text-xs text-foreground-500">
-                          {canWrite ? t('shares.fields.readWrite') : t('shares.fields.readOnly')}
-                        </span>
+                        <span className="text-xs text-foreground-500">{t('shares.fields.allowWrite')}</span>
                       </Switch>
                     )}
                   </div>

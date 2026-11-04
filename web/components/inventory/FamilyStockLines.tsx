@@ -62,11 +62,14 @@ const PRESETS = [
  * the Pleine / Moitié / Vide shortcuts. Never disabled while saving (keyboard
  * focus would be lost): a level chosen meanwhile waits and is sent next, the
  * last one only. A refused save puts the slider back on the saved level.
+ * `canPutBack={false}` (a guest, decision #471 point 69): no « Pleine », which
+ * would put the bottle back closed with the others.
  */
-export function OpenedLevel({ item, t, onCommit }: {
+export function OpenedLevel({ item, t, onCommit, canPutBack = true }: {
   item: ProductItem;
   t: LineContext['t'];
   onCommit: (level: number) => Promise<unknown>;
+  canPutBack?: boolean;
 }) {
   const level = item.fillLevel ?? 0;
   const [shown, setShown] = useState(level);
@@ -132,13 +135,14 @@ export function OpenedLevel({ item, t, onCommit }: {
         <span className="text-sm font-bold tabular-nums w-12 text-right">{shown} %</span>
       </div>
       <div className="flex gap-2 mt-1">
-        {PRESETS.map(({ value, key }) => (
+        {PRESETS.filter(({ value }) => canPutBack || value < FULL).map(({ value, key }) => (
           <Button
             key={value}
             size="sm"
             variant={shown === value ? 'solid' : 'bordered'}
             color={shown === value ? 'warning' : 'default'}
-            className="flex-1 h-7"
+            // min-w-0: in a narrow card (the guest's) the shortcuts share the width instead of overflowing it.
+            className="flex-1 min-w-0 h-7"
             onPress={() => commit(value)}
           >
             {t(key)}

@@ -1,9 +1,10 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Radio, RadioGroup } from '@heroui/react';
 import type { Preselection } from '@shared/stock-choice';
-import { lineParts, type LineContext } from '@/lib/products/lines';
+import { distinctLineLabels } from '@/lib/products/distinctLines';
+import type { LineContext } from '@/lib/products/lines';
 import type { StockMove } from '@/lib/products/openDrink';
 import type { ProductItem } from '@/lib/products/types';
 import { LineDialogFrame } from './StockLineDialogParts';
@@ -24,13 +25,15 @@ interface WhichBottlesDialogProps {
 /**
  * "Quelles bouteilles ?" (ux-ui.md §10.4.2, FEAT-104 c2-c4; cigars:
  * "Lesquels ?", §10.4.3): one choice among the wine's lines, each shown as
- * in the drawer (cellar, number, price, size, purchase month). The most
- * likely line is preselected and says why, so one validation suffices.
+ * in the drawer (cellar, number, price, size, purchase month) — two lines
+ * that read the same are told apart (distinctLineLabels). The most likely
+ * line is preselected and says why, so one validation suffices.
  */
 export function WhichBottlesDialog({ wine, move, groups, preselection, ctx, isPending, onConfirm, onClose }: WhichBottlesDialogProps) {
   const { t } = useTranslation();
   const [chosen, setChosen] = useState(preselection.line.id);
   const line = groups.find((group) => group.id === chosen);
+  const labels = useMemo(() => distinctLineLabels(groups, ctx), [groups, ctx]);
 
   return (
     <LineDialogFrame
@@ -57,7 +60,7 @@ export function WhichBottlesDialog({ wine, move, groups, preselection, ctx, isPe
               ? t(`openDrink.which.${ctx.kind === 'cigar' ? 'reasonCigar' : 'reason'}.${preselection.reason}`)
               : undefined}
           >
-            {lineParts(group, ctx).join(' · ')}
+            {labels.get(group.id)}
           </Radio>
         ))}
       </RadioGroup>

@@ -128,6 +128,8 @@
     "edit": "Modifier la bouteille",
     "edit_cigar": "Modifier le cigare",
     "restore": "Restaurer la bouteille",
+    "restore_box": "Restaurer la boîte",
+    "restore_cigar": "Restaurer le cigare",
     "trashDaysLeft_one": "{{count}} jour restant avant suppression définitive",
     "trashDaysLeft_other": "{{count}} jours restants avant suppression définitive",
     "trashEmpty": "La corbeille est vide.",
@@ -606,14 +608,18 @@
       "hotZoneLabel": "Zone chaude",
       "coldZoneLabel": "Zone froide",
       "cellLabelEmpty": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner une bouteille.",
+      "cellLabelEmpty_cigar": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner un cigare ou une boîte.",
       "cellLabelOccupied": "Colonne {{col}}, rangée {{row}} : {{name}}. Entrée pour le détail, Espace pour déplacer.",
       "dragInstructions": "Pour déplacer cette bouteille, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour la déposer. Échap annule.",
+      "dragInstructions_cigar": "Pour déplacer ce cigare, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour le déposer. Échap annule.",
       "announceStart": "{{name}} saisie depuis la colonne {{col}}, rangée {{row}}.",
       "announceOver": "{{name}} est au-dessus de la colonne {{col}}, rangée {{row}}.",
       "announceDrop": "{{name}} déposée en colonne {{col}}, rangée {{row}}.",
       "announceCancel": "Déplacement annulé. {{name}} reste en place.",
       "assignTitle": "Assigner une bouteille à l'emplacement C{{col}}·R{{row}}",
+      "assignTitle_cigar": "Assigner un cigare ou une boîte à l'emplacement C{{col}}·R{{row}}",
       "noUnassignedBottles": "Toutes les bouteilles de cette cave sont déjà assignées à un emplacement.",
+      "noUnassignedBottles_cigar": "Tous les cigares de cette cave sont déjà assignés à un emplacement.",
       "slotOccupied": "Cet emplacement est déjà occupé.",
       "removeFromSlot": "Retirer de l'emplacement",
       "slot": "Emplacement",
@@ -1523,7 +1529,7 @@
   },
   "shares": {
     "title": "Partages invités",
-    "subtitle": "Partagez une vue en lecture seule de votre cave avec vos proches.",
+    "subtitle": "Partagez votre cave avec vos proches par un lien. Par défaut, ils la consultent sans rien modifier ; cave par cave, vous pouvez les autoriser à ouvrir, boire ou fumer et à noter leurs dégustations.",
     "create": "Nouveau partage",
     "empty": "Aucun partage créé",
     "emptyHint": "Créez un lien de partage pour inviter quelqu'un à consulter votre cave.",
@@ -1536,6 +1542,9 @@
       "done": "Terminé"
     },
     "revoke": "Révoquer",
+    "statusActive": "En cours",
+    "statusExpired": "Expiré",
+    "statusRevoked": "Révoqué",
     "expiresAt": "Expire le {{date}}",
     "noExpiry": "Sans expiration",
     "allCellars": "Toutes les caves",
@@ -1558,16 +1567,14 @@
       "scope": "Périmètre visible",
       "selectCellars": "Caves spécifiques",
       "selectCollections": "Collections spécifiques",
-      "readOnly": "Lecture seule",
-      "readWrite": "Lecture/écriture",
-      "cellarWriteAccessAria": "Accès en lecture/écriture pour la cave {{name}}",
       "durations": {
         "1d": "24 heures",
         "7d": "7 jours",
         "30d": "30 jours",
         "custom": "Date personnalisée",
         "unlimited": "Illimité"
-      }
+      },
+      "allowWrite": "Autoriser à ouvrir, boire ou fumer"
     },
     "errors": {
       "load": "Impossible de charger les partages."
@@ -1601,6 +1608,10 @@
       "signature": {
         "named": "{{name}} (invité)",
         "anonymous": "Invité"
+      },
+      "drunk": {
+        "message": "Vous venez de boire une bouteille de {{wine}}.",
+        "dismiss": "Masquer ce message"
       }
     }
   },
@@ -2506,6 +2517,8 @@
     "tastings": {
       "title": "Dégustations",
       "empty": "Aucune dégustation de ce vin pour l'instant.",
+      "empty_spirit": "Aucune dégustation de ce spiritueux pour l'instant.",
+      "empty_cigar": "Aucune dégustation de ce cigare pour l'instant.",
       "elsewhere": "Goûté ailleurs"
     },
     "history": {
@@ -2600,7 +2613,10 @@
         "oldest": "Achetés en premier",
         "cheapest": "Les moins chers",
         "largest": "La ligne la plus nombreuse"
-      }
+      },
+      "boughtOn": "achat du {{date}}",
+      "addedOn": "ajout du {{date}}",
+      "lineNumber": "ligne {{number}}"
     },
     "done": {
       "open": "1 bouteille ouverte",
