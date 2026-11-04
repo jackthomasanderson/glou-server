@@ -5,7 +5,7 @@ import { detailWithUnitWrite, productsFromFlatItems, UNIT_FIELD_SET, withUnitCha
 import { wineName } from '@/lib/products/stock';
 import { NetworkError } from '@/lib/network-error';
 import type { Product, ProductDetailView, ProductItem, TrashedProduct } from '@/lib/products/types';
-import type { ProductDescription } from '@shared/product';
+import { BULK_WINES_ERRORS, type BulkStockResult, type BulkWinesAction, type ProductDescription } from '@shared/product';
 import { getAllQueuedMutations, getCachedInventory, type QueuedMutation } from '@/lib/offline/db';
 import { overlayChanges, unitInStock, type UnitLike } from '@/lib/offline/optimistic';
 import { notifyError, notifySuccess } from '@/lib/toast';
@@ -175,6 +175,30 @@ export function useRestoreProduct() {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
       void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
+    },
+  });
+}
+
+/**
+ * #471 (FEAT-111): "Déplacer", "Mettre à la corbeille" or "Marquer comme bus"
+ * on the wines selected — all of it or nothing (D18). Every list, drawer,
+ * cellar and counter that shows those bottles is read again afterwards.
+ */
+export function useBulkWines() {
+  const queryClient = useQueryClient();
+  return useMutation<BulkStockResult, Error, BulkWinesAction>({
+    mutationFn: productsClient.bulk,
+    // A refusal the dialog can name (a wine with fewer bottles left, a line
+    // over the maximum, a cellar deleted meanwhile); any other one is generic.
+    onError: (error) => notifyError((BULK_WINES_ERRORS as readonly string[]).includes(error.message)
+      ? `bulkWines.errors.${error.message}` : 'bulkWines.error'),
+    onSettled: () => {
+      // The wines, their drawers, the flat list and the trash all live under `inventory`.
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['budget'] });
+      void queryClient.invalidateQueries({ queryKey: ['alerts'] });
     },
   });
 }

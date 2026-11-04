@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CORRECTION_REASONS, MAX_COPIES } from '../../../shared/product';
+import { CORRECTION_REASONS, MAX_BULK_WINES, MAX_COPIES } from '../../../shared/product';
 
 /** Copies one write may add, or that one group may count (same bound as `quantity`). */
 export { MAX_COPIES };
@@ -71,3 +71,46 @@ export const repriceUnitsSchema = z.object({
 }).strict();
 
 export type RepriceUnitsInput = z.infer<typeof repriceUnitsSchema>;
+
+/**
+ * #471 (FEAT-111, D18): the wines a bulk action applies to — each one once
+ * (a wine twice would be counted twice in the answer).
+ */
+const bulkWines = z.array(z.string().guid()).min(1).max(MAX_BULK_WINES)
+  .refine((ids) => new Set(ids).size === ids.length, 'Each wine once');
+
+/** POST /api/products/bulk-move — every bottle in the cellar of these wines to `cellarId` (null: no cellar). */
+export const bulkMoveSchema = z.object({
+  productIds: bulkWines,
+  cellarId: z.preprocess((v) => (v === 'none' || v === '' ? null : v), z.string().max(100).nullable()),
+}).strict();
+
+export type BulkMoveInput = z.infer<typeof bulkMoveSchema>;
+
+/** POST /api/products/bulk-trash — every bottle in the cellar of these wines to the trash. */
+export const bulkTrashSchema = z.object({ productIds: bulkWines }).strict();
+
+export type BulkTrashInput = z.infer<typeof bulkTrashSchema>;
+
+/**
+ * POST /api/products/bulk-drink — "Marquer comme bus" (decision #471, point
+ * 42): how many bottles (cigars) of each wine were drunk (smoked).
+ * `openedFirst` (default true): an opened bottle (box) of the wine is
+ * finished first (ux-ui.md §10.4.8). `cellarIds`: the cellars being looked
+ * at, whose line is taken first (FEAT-104). At most {@link MAX_COPIES}
+ * bottles (cigars) in all.
+ */
+export const bulkDrinkSchema = z.object({
+  items: z.array(z.object({
+    productId: z.string().guid(),
+    count: z.number().int().min(1).max(MAX_COPIES),
+    openedFirst: z.boolean().optional(),
+  }).strict()).min(1).max(MAX_BULK_WINES)
+    .refine((items) => new Set(items.map((item) => item.productId)).size === items.length, 'Each wine once')
+    // Each bottle is finished on its own (detach rule), inside one transaction
+    // holding every family's lock: the whole action stays within MAX_COPIES.
+    .refine((items) => items.reduce((sum, item) => sum + item.count, 0) <= MAX_COPIES, 'TOO_MANY_AT_ONCE'),
+  cellarIds: z.array(z.string().max(100)).max(100).optional(),
+}).strict();
+
+export type BulkDrinkInput = z.infer<typeof bulkDrinkSchema>;

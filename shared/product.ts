@@ -285,3 +285,30 @@ export const CORRECTION_REASONS = ['input_error', 'written_off'] as const;
 /** Copies one write may add, or one group may count (and one count answer may say). */
 export const MAX_COPIES = 1000;
 export type CorrectionReason = (typeof CORRECTION_REASONS)[number];
+
+/**
+ * #471 (FEAT-111, D18): the bulk actions on wines selected in the list —
+ * POST /api/products/bulk-move, bulk-trash and bulk-drink. At most
+ * {@link MAX_BULK_WINES} wines per action (the bound of the bulk edit).
+ */
+export const MAX_BULK_WINES = 500;
+
+/** What a bulk action did: on how many wines, and how many bottles or cigars it moved, trashed or finished. */
+export interface BulkStockResult {
+  wines: number;
+  units: number;
+}
+
+/**
+ * The request of a bulk action, by its route (`/api/products/bulk-<action>`):
+ * every bottle in the cellar of the wines moved or trashed, or how many of
+ * each drunk ("Marquer comme bus"; `openedFirst`: an opened bottle finished
+ * first, true by default; `cellarIds`: the cellars looked at, FEAT-104).
+ */
+export type BulkWinesAction =
+  | { action: 'move'; productIds: string[]; cellarId: string | null }
+  | { action: 'trash'; productIds: string[] }
+  | { action: 'drink'; items: Array<{ productId: string; count: number; openedFirst?: boolean }>; cellarIds?: string[] };
+
+/** The refusals of a bulk action the dialog names; any other one is the generic message. */
+export const BULK_WINES_ERRORS = ['COUNT_ABOVE_STOCK', 'QUANTITY_TOO_LARGE', 'CELLAR_NOT_FOUND'] as const;

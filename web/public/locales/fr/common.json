@@ -945,8 +945,52 @@
     "loadPreset": "Charger un modèle",
     "deletePreset": "Supprimer le modèle",
     "deletePresetConfirm": "Ce modèle d'actions sera définitivement supprimé.",
-    "success_one": "{{count}} actif a été mis à jour",
-    "success_other": "{{count}} actifs ont été mis à jour"
+    "success_one": "Modification appliquée",
+    "success_other": "Modifications appliquées"
+  },
+  "bulkWines": {
+    "error": "Impossible d'appliquer l'action groupée. Rien n'a été modifié.",
+    "errors": {
+      "COUNT_ABOVE_STOCK": "Un des vins n'a plus autant de bouteilles en cave. Rien n'a été modifié.",
+      "QUANTITY_TOO_LARGE": "Une ligne de cette cave dépasserait 1 000 bouteilles. Rien n'a été modifié.",
+      "CELLAR_NOT_FOUND": "Cette cave n'existe plus. Rien n'a été modifié."
+    },
+    "partHint": "Pour une partie seulement d'un vin, passez par sa fiche.",
+    "move": {
+      "action": "Déplacer",
+      "title": "Déplacer vers une cave",
+      "where": "Vers quelle cave ?",
+      "confirm": "Déplacer",
+      "done": "Déplacé : {{units}}"
+    },
+    "drink": {
+      "action": "Marquer comme bus",
+      "action_cigar": "Marquer comme fumés",
+      "title": "Marquer comme bus",
+      "title_cigar": "Marquer comme fumés",
+      "howMany": "Combien ? (sur {{total}})",
+      "onlyBottle": "Sa seule bouteille en cave sera marquée comme bue.",
+      "onlyCigar": "Son seul cigare en cave sera marqué comme fumé.",
+      "openedFirst": "En commençant par l'entamée ({{level}} %)",
+      "openedFirstNoLevel": "En commençant par l'entamée",
+      "openedBoxFirst_one": "En commençant par la boîte entamée ({{count}} restant)",
+      "openedBoxFirst_other": "En commençant par la boîte entamée ({{count}} restants)",
+      "confirm": "Marquer comme bus",
+      "confirm_cigar": "Marquer comme fumés",
+      "done": "Marqué comme bu : {{units}}",
+      "done_cigar": "Marqué comme fumé : {{units}}"
+    },
+    "trash": {
+      "action": "Mettre à la corbeille",
+      "title": "Mettre à la corbeille",
+      "body": "Toutes les bouteilles en cave de ces vins vont à la corbeille, d'où vous pourrez les restaurer. Les bouteilles déjà bues ne sont pas concernées.",
+      "body_cigar": "Tous les cigares en cave de ces références vont à la corbeille, d'où vous pourrez les restaurer. Les cigares déjà fumés ne sont pas concernés.",
+      "confirm": "Mettre à la corbeille",
+      "done": "Mis à la corbeille : {{units}}"
+    },
+    "edit": {
+      "action": "Modifier des champs…"
+    }
   },
   "traceability": {
     "title": "Traçabilité",
@@ -2344,6 +2388,8 @@
     "bulkSummary": "{{wines}}, {{bottles}}",
     "wines_one": "{{count}} vin",
     "wines_other": "{{count}} vins",
+    "wines_cigar_one": "{{count}} référence",
+    "wines_cigar_other": "{{count}} références",
     "stats": {
       "gone_one": "{{count}} bue ou partie, non comptée",
       "gone_other": "{{count}} bues ou parties, non comptées",

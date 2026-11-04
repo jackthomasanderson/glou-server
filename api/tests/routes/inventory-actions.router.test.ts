@@ -16,12 +16,19 @@ vi.mock('../../src/services/stock-split.service', () => ({
   stockSplitService: { moveUnits: vi.fn(), repriceUnits: vi.fn() },
 }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));
+vi.mock('../../src/services/bulk-stock.service', () => ({
+  bulkStockService: { move: vi.fn(), trash: vi.fn(), drink: vi.fn() },
+}));
+vi.mock('../../src/services/inventory.service', () => ({
+  inventoryService: { daysUntilPermanentDelete: vi.fn(() => 30) },
+}));
 
 import { inventoryActionsRouter } from '../../src/routes/inventory-actions.router';
 import { errorMiddleware } from '../../src/middleware/error.middleware';
 import { stockService } from '../../src/services/stock.service';
 import { stockSplitService } from '../../src/services/stock-split.service';
 import { auditLog } from '../../src/services/audit.service';
+import { bulkStockService } from '../../src/services/bulk-stock.service';
 import { badRequest, conflict } from '../../src/lib/errors';
 
 const app = express();
@@ -245,5 +252,92 @@ describe('POST /api/inventory/:id/move and /reprice (FEAT-98)', () => {
     expect(res.status).toBe(400);
     expect(stockSplitService.moveUnits).not.toHaveBeenCalled();
     expect(stockSplitService.repriceUnits).not.toHaveBeenCalled();
+  });
+});
+
+// ─── #471 (FEAT-111, D18): bulk actions on wines ─────────────────────────────
+
+const W1 = '11111111-1111-4111-8111-111111111111';
+const W2 = '22222222-2222-4222-8222-222222222222';
+
+describe('POST /api/products/bulk-move, bulk-trash, bulk-drink (FEAT-111)', () => {
+  it('bulk-move answers what was moved and records each unit in its history', async () => {
+    vi.mocked(bulkStockService.move).mockResolvedValue({
+      result: { wines: 2, units: 14 },
+      entries: [{ action: 'MOVE_UNITS', bottleId: 'g1', productId: W1, details: { count: 6 } }],
+    });
+
+    const res = await request(app).post('/api/products/bulk-move').send({ productIds: [W1, W2], cellarId: 'kitchen' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { wines: 2, units: 14 } });
+    expect(bulkStockService.move).toHaveBeenCalledWith('u1', { productIds: [W1, W2], cellarId: 'kitchen' });
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1', action: 'MOVE_UNITS', status: 'success', bottleId: 'g1', productId: W1, details: { count: 6 },
+    }));
+  });
+
+  it('bulk-move takes "none" as no cellar', async () => {
+    vi.mocked(bulkStockService.move).mockResolvedValue({ result: { wines: 1, units: 1 }, entries: [] });
+
+    await request(app).post('/api/products/bulk-move').send({ productIds: [W1], cellarId: 'none' });
+
+    expect(bulkStockService.move).toHaveBeenCalledWith('u1', { productIds: [W1], cellarId: null });
+  });
+
+  it('bulk-trash answers the days left before the trash is emptied', async () => {
+    vi.mocked(bulkStockService.trash).mockResolvedValue({ result: { wines: 1, units: 3 }, entries: [], deletedAt: new Date() });
+
+    const res = await request(app).post('/api/products/bulk-trash').send({ productIds: [W1] });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { wines: 1, units: 3 }, meta: { daysUntilPermanentDelete: 30 } });
+  });
+
+  it('bulk-drink takes up to 1000 bottles in all', async () => {
+    vi.mocked(bulkStockService.drink).mockResolvedValue({ result: { wines: 2, units: 1000 }, entries: [] });
+
+    const res = await request(app).post('/api/products/bulk-drink').send({ items: [{ productId: W1, count: 600 }, { productId: W2, count: 400 }] });
+
+    expect(res.status).toBe(200);
+  });
+
+  it('bulk-drink passes how many of each wine', async () => {
+    vi.mocked(bulkStockService.drink).mockResolvedValue({ result: { wines: 2, units: 2 }, entries: [] });
+
+    const body = { items: [{ productId: W1, count: 1 }, { productId: W2, count: 1, openedFirst: false }], cellarIds: ['c1'] };
+    const res = await request(app).post('/api/products/bulk-drink').send(body);
+
+    expect(res.status).toBe(200);
+    expect(bulkStockService.drink).toHaveBeenCalledWith('u1', body);
+  });
+
+  it.each([
+    ['bulk-move', 'no wine', { productIds: [], cellarId: null }],
+    ['bulk-move', 'no cellar given', { productIds: [W1] }],
+    ['bulk-move', 'a wine twice', { productIds: [W1, W1], cellarId: null }],
+    ['bulk-move', 'more than 500 wines', { productIds: Array.from({ length: 501 }, (_, i) => `${String(i).padStart(8, '0')}-1111-4111-8111-111111111111`), cellarId: null }],
+    ['bulk-trash', 'an id that is not one', { productIds: ['p1'] }],
+    ['bulk-drink', '0 bottles', { items: [{ productId: W1, count: 0 }] }],
+    ['bulk-drink', 'a wine twice', { items: [{ productId: W1, count: 1 }, { productId: W1, count: 2 }] }],
+    ['bulk-drink', 'an unknown field', { items: [{ productId: W1, count: 1, fillLevel: 0 }] }],
+    ['bulk-drink', 'more than 1000 bottles in all', { items: [{ productId: W1, count: 600 }, { productId: W2, count: 401 }] }],
+  ])('%s refuses %s (400)', async (route, _what, body) => {
+    const res = await request(app).post(`/api/products/${route}`).send(body);
+
+    expect(res.status).toBe(400);
+    expect(bulkStockService.move).not.toHaveBeenCalled();
+    expect(bulkStockService.trash).not.toHaveBeenCalled();
+    expect(bulkStockService.drink).not.toHaveBeenCalled();
+  });
+
+  it('a refusal of the service (more than the wine has) answers its code', async () => {
+    vi.mocked(bulkStockService.drink).mockRejectedValue(badRequest('COUNT_ABOVE_STOCK', { productId: W1 }));
+
+    const res = await request(app).post('/api/products/bulk-drink').send({ items: [{ productId: W1, count: 9 }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('COUNT_ABOVE_STOCK');
+    expect(auditLog).not.toHaveBeenCalled();
   });
 });
