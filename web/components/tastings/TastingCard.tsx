@@ -4,6 +4,7 @@ import { Card, CardBody, CardFooter, Avatar, Chip, Button, Tooltip } from '@hero
 import { Pencil, Trash2, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
+import { isTastedElsewhere, tastedPhoto, tastedWineTitle } from '@/lib/tastings/onWine';
 import { formatDate } from '@/lib/format';
 
 interface TastingCardProps {
@@ -23,20 +24,19 @@ export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps
         <div className="flex justify-between items-start gap-2 mb-2">
           <div className="flex items-center gap-2 min-w-0">
             <Avatar
-              src={note.item?.photoUrl ?? undefined}
+              src={tastedPhoto(note)}
               fallback={<Wine size={16} />}
               className="w-9 h-9 shrink-0 bg-primary-100 text-primary"
               showFallback
             />
             <div className="min-w-0">
               <p className="font-bold text-sm truncate">
-                {note.item
-                  ? `${note.item.name} — ${note.item.producer}`
-                  : t('tastings.noItem')}
+                {tastedWineTitle(note) ?? t('tastings.noItem')}
               </p>
               <p className="text-xs text-foreground-500">
                 {formatDate(note.tastedAt, i18n.language)}
                 {note.context ? ` · ${note.context}` : ''}
+                {isTastedElsewhere(note) ? ` · ${t('familyDrawer.tastings.elsewhere')}` : ''}
               </p>
             </div>
           </div>

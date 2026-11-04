@@ -2,9 +2,10 @@ import { todayLocalIso } from '@/lib/format';
 import type { TastingFormValues, TastingNote } from './types';
 
 /** Values of the tasting form for a new tasting. */
-export function blankTastingValues(itemId?: string, foodPairing?: string): TastingFormValues {
+export function blankTastingValues(itemId?: string, foodPairing?: string, productId?: string): TastingFormValues {
   return {
     itemId,
+    productId,
     rating: null,
     readiness: null,
     notes: '',
@@ -27,6 +28,8 @@ export function blankTastingValues(itemId?: string, foodPairing?: string): Tasti
 export function tastingToFormValues(note: TastingNote): TastingFormValues {
   const values = {
     itemId: note.itemId ?? undefined,
+    productId: note.productId ?? undefined,
+    wine: undefined,
     tastedAt: note.tastedAt.split('T')[0],
     context: note.context ?? '',
     rating: note.rating ?? null,
