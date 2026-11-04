@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ProductItem } from '@/lib/products/types';
-import { isTastedElsewhere, parseYear, tastedWineTitle, tastingLinePreset, tastingPayload, wineOptionLabel } from '../onWine';
+import { isTastedElsewhere, isValidVintage, parseYear, tastedWineTitle, tastingLinePreset, tastingPayload, wineOptionLabel } from '../onWine';
 
 const line = (id: string, fields: Partial<ProductItem> = {}) =>
   ({ id, isOpened: false, fillLevel: null, cigarsLeft: null, ...fields }) as ProductItem;
@@ -43,13 +43,16 @@ describe('tastingPayload', () => {
       { wine: { category: 'cigar', producer: 'Cohiba', name: 'Siglo', vintage: 2020, format: ' Robusto ' } },
       { kind: 'named' },
     )).toEqual({ wine: { category: 'cigar', producer: 'Cohiba', name: 'Siglo', format: 'Robusto' } });
-    expect(tastingPayload({ wine: { category: 'spirit', producer: 'X', name: 'Y', vintage: 2020 } }, { kind: 'named' }))
-      .toEqual({ wine: { category: 'spirit', producer: 'X', name: 'Y' } });
+    // A spirit keeps its vintage, as its identity (`productKey`) does.
+    expect(tastingPayload({ wine: { category: 'spirit', producer: 'X', name: 'Y', vintage: 2010 } }, { kind: 'named' }))
+      .toEqual({ wine: { category: 'spirit', producer: 'X', name: 'Y', vintage: 2010 } });
   });
 
-  it('an edit never changes the wine', () => {
-    expect(tastingPayload({ ...fields, productId: 'p', itemId: 'b', wine: { category: 'wine', producer: 'X', name: 'Y' } }, { kind: 'edit' }))
-      .toEqual({ ...fields, itemId: 'b' });
+  it('an edit never changes the wine, and sends its bottle only when changed', () => {
+    expect(tastingPayload({ ...fields, productId: 'p', itemId: 'b2', wine: { category: 'wine', producer: 'X', name: 'Y' } }, { kind: 'edit', itemId: 'b' }))
+      .toEqual({ ...fields, itemId: 'b2' });
+    // Review #818: its own bottle, maybe in the trash by now, is not resent.
+    expect(tastingPayload({ ...fields, productId: 'p', itemId: 'b' }, { kind: 'edit', itemId: 'b' })).toEqual(fields);
   });
 });
 
@@ -67,6 +70,17 @@ describe('labels', () => {
     expect(tastedWineTitle({ product: null, item: null })).toBeNull();
     expect(isTastedElsewhere({ itemId: null, productId: 'p' })).toBe(true);
     expect(isTastedElsewhere({ itemId: 'b', productId: 'p' })).toBe(false);
+  });
+
+  it('accepts an empty vintage or 4 digits up to this year, nothing else', () => {
+    const now = new Date('2026-11-04T12:00:00Z');
+    expect(isValidVintage('', now)).toBe(true);
+    expect(isValidVintage('2019', now)).toBe(true);
+    expect(isValidVintage('2026', now)).toBe(true);
+    expect(isValidVintage('202', now)).toBe(false);
+    expect(isValidVintage('2027', now)).toBe(false);
+    expect(isValidVintage('1799', now)).toBe(false);
+    expect(isValidVintage('20a0', now)).toBe(false);
   });
 
   it('reads a year typed', () => {

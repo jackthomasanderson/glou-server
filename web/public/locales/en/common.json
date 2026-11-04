@@ -1018,6 +1018,7 @@
     "yes": "Yes",
     "elsewhere": "No, tasted elsewhere",
     "whichBottle": "Which bottle?",
+    "vintageInvalid": "Vintage in 4 digits, {{year}} at the latest; leave empty for a non-vintage wine.",
     "whichCigars": "Which cigars?"
   },
   "tastings": {

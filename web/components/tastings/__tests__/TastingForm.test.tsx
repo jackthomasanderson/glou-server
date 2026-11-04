@@ -68,12 +68,16 @@ interface FieldProps {
   onChange?: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   onValueChange?: (v: string) => void;
   onBlur?: () => void;
+  isInvalid?: boolean;
+  errorMessage?: ReactNode;
 }
 
 vi.mock('@heroui/react', async () => {
   const { forwardRef } = await vi.importActual<typeof import('react')>('react');
-  const Input = forwardRef<HTMLInputElement, FieldProps>(function Input({ label, value, name, type, onChange, onValueChange, onBlur }, ref) {
+  const Input = forwardRef<HTMLInputElement, FieldProps>(function Input({ label, value, name, type, onChange, onValueChange, onBlur, isInvalid, errorMessage }, ref) {
     return (
+      <>
+      {isInvalid && errorMessage ? <span>{errorMessage}</span> : null}
       <input
         ref={ref}
         aria-label={label}
@@ -83,6 +87,7 @@ vi.mock('@heroui/react', async () => {
         onChange={(e) => { onChange?.(e); onValueChange?.(e.target.value); }}
         onBlur={onBlur}
       />
+      </>
     );
   });
   const Textarea = forwardRef<HTMLTextAreaElement, FieldProps>(function Textarea({ label, value, name, onChange, onBlur }, ref) {
@@ -192,6 +197,17 @@ describe('editing a tasting (#642)', () => {
     expect(field('tastings.fields.acidite')).toHaveValue(3);
     expect(field('tastings.fields.longueurBouche')).toHaveValue(12);
     expect(field('tastings.fields.notes')).toHaveValue('Long and silky');
+  });
+
+  // Review #818: its bottle (maybe in the trash by now) is not resent unchanged.
+  it('saves an edit without resending its unchanged bottle', async () => {
+    render(<TastingForm open onClose={vi.fn()} editNote={editNoteOf(expertTasting)} />);
+    await waitFor(() => expect(field('tastings.fields.robe')).toHaveValue('Deep ruby'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'actions.save' }));
+
+    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledTimes(1));
+    expect(updateMutateAsync.mock.calls[0][0].data).not.toHaveProperty('itemId');
   });
 
   it('saves an untouched tasting with its perceived maturity and expert grid', async () => {
@@ -476,6 +492,22 @@ describe('the wine tasted (FEAT-107)', () => {
     expect(sent.wine).toEqual({ category: 'wine', producer: 'Domaine X', name: 'Cuvée A', vintage: 2020 });
     expect(sent).not.toHaveProperty('productId');
     expect(sent).not.toHaveProperty('itemId');
+  });
+
+  // Review #818: "202" is not a vintage — said, never sent as a wine without a year.
+  it.each(['202', String(new Date().getFullYear() + 1)])('refuses the vintage "%s" with a readable message', async (typed) => {
+    products = [];
+    render(<TastingForm open onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'tastingWine.notListed' }));
+    fireEvent.change(field('inventory.fields.producer *'), { target: { value: 'Domaine X' } });
+    fireEvent.change(field('inventory.fields.name *'), { target: { value: 'Cuvée A' } });
+    fireEvent.change(field('inventory.fields.vintage'), { target: { value: typed } });
+
+    save();
+    await act(async () => {});
+
+    expect(createMutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('tastingWine.vintageInvalid')).toBeInTheDocument();
   });
 
   it('a wine named needs its producer and its name', async () => {

@@ -18,7 +18,7 @@ import { CATEGORY_VALUES } from '@shared/inventory';
 import { unitKind } from '@shared/units';
 import { familyLines, lineParts, type LineContext } from '@/lib/products/lines';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { parseYear, tastingLinePreset, tastingPayload, wineOptionLabel } from '@/lib/tastings/onWine';
+import { isValidVintage, parseYear, tastingLinePreset, tastingPayload, wineOptionLabel } from '@/lib/tastings/onWine';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
@@ -146,7 +146,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
   const onSubmit = async (values: TastingFormValues) => {
     try {
       if (editNote) {
-        await updateMutation.mutateAsync({ id: editNote.id, data: tastingPayload(values, { kind: 'edit' }) });
+        await updateMutation.mutateAsync({ id: editNote.id, data: tastingPayload(values, { kind: 'edit', itemId: editNote.values.itemId }) });
         onClose();
       } else {
         const note = await createMutation.mutateAsync(tastingPayload(values, naming
@@ -277,10 +277,11 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                           <Input {...field} value={field.value ?? ''} label={t('tastingWine.vitola')} variant="bordered" />
                         )}
                       />
-                    ) : (namedCategory === 'wine' || namedCategory === 'sparkling') && (
+                    ) : (
                       <Controller
                         name="wine.vintage"
                         control={control}
+                        rules={{ validate: () => !naming || isCigar || isValidVintage(vintageText) || t('tastingWine.vintageInvalid', { year: new Date().getFullYear() }) }}
                         render={({ field }) => (
                           <Input
                             inputMode="numeric"
@@ -288,6 +289,8 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                             value={vintageText}
                             onValueChange={(text) => { setVintageText(text); field.onChange(parseYear(text)); }}
                             label={t('inventory.fields.vintage')}
+                            isInvalid={!!errors.wine?.vintage}
+                            errorMessage={errors.wine?.vintage?.message}
                             variant="bordered"
                           />
                         )}

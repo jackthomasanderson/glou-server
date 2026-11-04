@@ -33,13 +33,14 @@ export type TastedWineMode =
   | { kind: 'listed'; onBottle: boolean }
   /** Named: Glou finds it, or adds it without any bottle. */
   | { kind: 'named' }
-  /** An existing tasting: its wine never changes. */
-  | { kind: 'edit' };
+  /** An existing tasting: its wine never changes; `itemId` is the bottle it was saved on. */
+  | { kind: 'edit'; itemId?: string };
 
 /** What a named wine sends: only what its category keeps (a vintage is not a cigar's, a vitola only a cigar's). */
 function namedWine(wine: TastedWine): TastedWine {
   const isCigar = wine.category === 'cigar';
-  const keepsVintage = wine.category === 'wine' || wine.category === 'sparkling';
+  // Same as the wine's identity (`productKey`): a vintage for anything but a cigar.
+  const keepsVintage = !isCigar;
   return {
     category: wine.category,
     producer: wine.producer.trim(),
@@ -52,7 +53,8 @@ function namedWine(wine: TastedWine): TastedWine {
 /** The body of POST/PATCH /api/tastings for what the form holds. */
 export function tastingPayload(values: TastingFormValues, mode: TastedWineMode): TastingFormValues {
   const { itemId, productId, wine, ...fields } = values;
-  if (mode.kind === 'edit') return itemId ? { ...fields, itemId } : fields;
+  // Its bottle sent only when changed: an unchanged one may be in the trash by now.
+  if (mode.kind === 'edit') return itemId && itemId !== mode.itemId ? { ...fields, itemId } : fields;
   if (mode.kind === 'named') return wine ? { ...fields, wine: namedWine(wine) } : fields;
   return {
     ...fields,
@@ -61,10 +63,20 @@ export function tastingPayload(values: TastingFormValues, mode: TastedWineMode):
   };
 }
 
+/** Oldest vintage the API takes. */
+const MIN_VINTAGE = 1800;
+
 /** A year typed in a text field: a whole number, else none. */
 export function parseYear(text: string): number | null {
   const trimmed = text.trim();
   return /^\d{4}$/.test(trimmed) ? Number(trimmed) : null;
+}
+
+/** A vintage typed is empty (none), or four digits from 1800 to this year; false otherwise. */
+export function isValidVintage(text: string, now: Date = new Date()): boolean {
+  if (text.trim() === '') return true;
+  const year = parseYear(text);
+  return year !== null && year >= MIN_VINTAGE && year <= now.getFullYear();
 }
 
 /**

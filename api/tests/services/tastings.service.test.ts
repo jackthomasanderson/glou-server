@@ -206,6 +206,38 @@ describe('tastingsService — tastings of the wine (FEAT-107)', () => {
     expect(vi.mocked(prisma.product.create).mock.calls[0]?.[0]?.data).not.toHaveProperty('vintage');
   });
 
+  // Review #818: the edit form resends the tasting's own bottle, which may be
+  // in the trash by now (or its wine): no lookup, no 404.
+  it('edits a tasting whose bottle is in the trash, its bottle resent unchanged', async () => {
+    vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1', productId: 'p1', itemId: 'b1' } as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null as never);
+
+    await tastingsService.update('t1', 'u1', { itemId: 'b1', rating: 2 });
+
+    expect(prisma.inventoryItem.findFirst).not.toHaveBeenCalled();
+    expect(vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]?.data).toMatchObject({ rating: 2 });
+    expect(vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]?.data).not.toHaveProperty('productId');
+  });
+
+  it('answers 404 when a tasting is moved to a bottle in the trash', async () => {
+    vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1', productId: 'p1', itemId: 'b1' } as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null as never);
+
+    await expect(tastingsService.update('t1', 'u1', { itemId: 'b2' })).rejects.toMatchObject({ status: 404, code: 'ITEM_NOT_FOUND' });
+  });
+
+  // Review #818: `productKey` keeps a spirit's vintage — named twice, one wine.
+  it("keeps a named spirit's vintage, so naming it again finds it", async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
+      { id: 'whisky-2010', category: 'spirit', producer: 'Distillerie', name: 'Single Malt', vintage: 2010, format: null },
+    ] as never);
+
+    await tastingsService.create('u1', { wine: { category: 'spirit', producer: 'Distillerie', name: 'Single Malt', vintage: 2010 } });
+
+    expect(prisma.product.create).not.toHaveBeenCalled();
+    expect(created()).toMatchObject({ productId: 'whisky-2010' });
+  });
+
   it('refuses to move a tasting to a bottle of another wine', async () => {
     vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1', productId: 'p1' } as never);
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ productId: 'p2' } as never);

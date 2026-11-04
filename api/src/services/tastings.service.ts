@@ -55,8 +55,9 @@ const MIN_ITEMS_FOR_FLOP = 10;
  */
 async function tastedWine(tx: PrismaClientOrTx, userId: string, wine: TastedWineInput): Promise<string> {
   const isCigar = wine.category === 'cigar';
-  // Only what the category keeps: a vintage is not a cigar's, a vitola only a cigar's.
-  const vintage = isCigar || wine.category === 'spirit' ? null : wine.vintage ?? null;
+  // What `productKey` reads: a cigar is told apart by its vitola, any other
+  // wine by its vintage (a spirit's included), so a wine named twice is found.
+  const vintage = isCigar ? null : wine.vintage ?? null;
   const format = isCigar ? wine.format?.trim() || null : null;
   const key = productKey({ category: wine.category, producer: wine.producer, name: wine.name, vintage, format });
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(${TASTED_WINE_LOCK_SPACE}::int, hashtext(${key}))`;
@@ -172,11 +173,14 @@ export const tastingsService = {
     const existing = await prisma.tastingNote.findFirst({ where: { id } });
     if (!existing) return null;
     // #471: a tasting moves to another bottle of its wine, never to another
-    // wine (FEAT-107, out of scope); a tasting not yet on a wine follows the bottle's.
-    const item = data.itemId
+    // wine (FEAT-107, out of scope); a tasting not yet on a wine follows the
+    // bottle's. Its own bottle resent unchanged is no move: it may be in the
+    // trash by now (or its wine), and the tasting must still be editable.
+    const moved = data.itemId !== undefined && data.itemId !== existing.itemId;
+    const item = moved
       ? await prisma.inventoryItem.findFirst({ where: { id: data.itemId, deletedAt: null }, select: { productId: true } })
       : null;
-    if (data.itemId && !item) throw new AppError(404, 'ITEM_NOT_FOUND');
+    if (moved && !item) throw new AppError(404, 'ITEM_NOT_FOUND');
     if (item && existing.productId && item.productId !== existing.productId) throw badRequest('ITEM_NOT_IN_PRODUCT');
     return prisma.tastingNote.update({
       where: { id },
