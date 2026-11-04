@@ -81,7 +81,7 @@ export interface AnalyticsStats {
   totalPurchasePrice: number;
   totalLiquidLiters: number;
   /** Cigars in stock. */
-  cigarModulesCount: number;
+  cigarCount: number;
   /** Units in stock at or past their peak. */
   urgentDegustationCount: number;
   /** Units in stock, bottles and cigars together (the sum of `categoryBreakdown`). */

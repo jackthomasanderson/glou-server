@@ -201,7 +201,8 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
         {step === 'joining' && (
           <JoiningStep
             cellarCount={state?.cellarCount ?? 0}
-            inStockCount={state?.inStockCount ?? 0}
+            bottleCount={state?.bottleCount ?? 0}
+            cigarCount={state?.cigarCount ?? 0}
             onExplore={finish}
             onAddBottles={() => setStep('ingestion-choice')}
             onBack={() => setStep('welcome')}

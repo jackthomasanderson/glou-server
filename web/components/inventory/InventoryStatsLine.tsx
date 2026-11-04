@@ -9,21 +9,37 @@ export interface InventoryStatsLineProps {
   /** Bottles (cigars) drunk, smoked or gone: shown apart, never in the totals (§10.6). */
   goneCount: number;
   isCigarPage: boolean;
+  /** The categories the page shows (its filter, else its section): the word used when nothing is in stock. */
+  pageCategories?: readonly string[];
   t: (key: string, options?: Record<string, unknown>) => string;
 }
 
+/** The word after the dot, by page: "58 vins", "12 cuvées", "17 spiritueux", "12 références" (§10.6, decisions 50 and 56). */
+export function familiesLabelKey(categories: ReadonlySet<string>): string {
+  if (categories.size === 1) {
+    const [only] = [...categories];
+    return `inventory.stats.families.${only}`;
+  }
+  // Several categories on one page (the bottles page unfiltered): a neutral word.
+  return 'inventory.stats.families.mixed';
+}
+
 /**
- * The counters above the list (#504, #471 FEAT-96): units in stock — bottles,
- * or cigars — then full and opened ones, all through `summarizeStock`.
- * Its own component so the page labels (§10.6, lot W4) change here only.
+ * The counters above the list (#504, #471 FEAT-96, §10.6): "142 bottles · 58
+ * wines" (cigars: "89 cigars · 12 references") counted in the units in
+ * stock through `summarizeStock`, then the full and opened ones. The second
+ * figure follows the page: wines, cuvées, spirits, or references.
  */
-export function InventoryStatsLine({ products, goneCount, isCigarPage, t }: InventoryStatsLineProps) {
+export function InventoryStatsLine({ products, goneCount, isCigarPage, pageCategories, t }: InventoryStatsLineProps) {
   const stats = useMemo(() => {
     let units = 0;
     let intact = 0;
     let opened = 0;
+    const categories = new Set<string>();
     for (const product of products) {
       const summary = stockSummaryOf(product);
+      if (summary.units === 0) continue;
+      categories.add(product.category);
       units += summary.units;
       intact += summary.intactUnits;
       // Cigars are counted in cigars: those left in the opened boxes.
@@ -31,17 +47,27 @@ export function InventoryStatsLine({ products, goneCount, isCigarPage, t }: Inve
         ? summary.opened.reduce((sum, box) => sum + (box.cigarsLeft ?? 0), 0)
         : summary.opened.length;
     }
-    return { units, intact, opened };
+    const families = products.filter((product) => stockSummaryOf(product).units > 0).length;
+    return { units, intact, opened, families, categories };
   }, [products, isCigarPage]);
 
+  // Nothing in stock: still the page's word ("0 cuvée" on Bulles), not "0 vin".
+  const categories = stats.categories.size > 0
+    ? stats.categories
+    : new Set(pageCategories?.length ? pageCategories : [isCigarPage ? 'cigar' : 'wine']);
+  const headline = [
+    t(isCigarPage ? 'inventory.stats.cigars' : 'inventory.stats.bottles', { count: stats.units }),
+    t(familiesLabelKey(categories), { count: stats.families }),
+  ].join(' · ');
+
   const tiles = [
-    { value: stats.units, label: t('inventory.stats.total'), color: '' },
-    { value: stats.intact, label: t('inventory.stats.full'), color: 'text-success-700' },
-    { value: stats.opened, label: isCigarPage ? t('inventory.stats.openedCigar') : t('inventory.stats.opened'), color: 'text-warning-700' },
+    { value: stats.intact, label: t(isCigarPage ? 'inventory.stats.fullCigar' : 'inventory.stats.full', { count: stats.intact }), color: 'text-success-700' },
+    { value: stats.opened, label: t(isCigarPage ? 'inventory.stats.openedCigar' : 'inventory.stats.opened', { count: stats.opened }), color: 'text-warning-700' },
   ];
 
   return (
     <div className="mb-5" data-testid="inventory-stats">
+      <p className="text-lg font-bold mb-3" data-testid="inventory-stats-headline">{headline}</p>
       <div className="flex gap-3 sm:gap-4">
         {tiles.map(({ value, label, color }) => (
           <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">

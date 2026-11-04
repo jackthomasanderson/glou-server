@@ -14,7 +14,8 @@ type OnboardingState = {
   joining: boolean;
   wizardCellar: { id: string; name: string } | null;
   cellarCount: number;
-  inStockCount: number;
+  bottleCount: number;
+  cigarCount: number;
 };
 
 async function okData<T>(res: APIResponse): Promise<T> {
@@ -25,7 +26,7 @@ async function okData<T>(res: APIResponse): Promise<T> {
 test('"Later" postpones the wizard for this sign-in, not the next one', async ({ page, baseURL }) => {
   const before = await okData<OnboardingState>(await page.request.get('/api/user/onboarding'));
   expect(typeof before.cellarCount).toBe('number');
-  expect(typeof before.inStockCount).toBe('number');
+  expect(typeof before.bottleCount).toBe('number');
 
   await okData(await page.request.post('/api/user/onboarding/postpone'));
   const after = await okData<OnboardingState>(await page.request.get('/api/user/onboarding'));
