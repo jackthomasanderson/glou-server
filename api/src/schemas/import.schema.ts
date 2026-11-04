@@ -41,6 +41,12 @@ const toNumber = (v: unknown): unknown => {
 /** Cents only, as the price column stores it — 12.345 would never find its group again. */
 const toCents = (v: number | undefined) => (v === undefined ? v : Math.round(v * 100) / 100);
 
+const PURCHASE_YEAR_MIN = 1900;
+const PURCHASE_YEAR_MAX = 2100;
+
+/** A purchase day: a real `YYYY-MM-DD` whose year is within the bounds (an ISO day is not otherwise checked). */
+const inPurchaseYears = (day: string) => Number(day.slice(0, 4)) >= PURCHASE_YEAR_MIN && Number(day.slice(0, 4)) <= PURCHASE_YEAR_MAX;
+
 /**
  * #471 (FEAT-99): a purchase day as a spreadsheet writes it — `2024-03-15`,
  * `15/03/2024`, `15-03-2024` or `15.03.2024` — as `YYYY-MM-DD` (D6). Anything
@@ -53,7 +59,9 @@ export function toPurchaseDay(v: unknown): unknown {
   const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(text);
   const european = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(text);
   const [year, month, day] = iso ? [iso[1], iso[2], iso[3]] : european ? [european[3], european[2], european[1]] : [];
-  if (!year || !month || !day || Number(year) < 1900 || Number(year) > 2100) return text;
+  if (!year || !month || !day) return text;
+  // The year bound is the schema's (PURCHASE_YEAR_BOUNDS): an ISO day out of it is refused there.
+  if (Number(year) < PURCHASE_YEAR_MIN || Number(year) > PURCHASE_YEAR_MAX) return text;
   const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
   if (date.getUTCMonth() !== Number(month) - 1 || date.getUTCDate() !== Number(day)) return text;
   return date.toISOString().slice(0, 10);
@@ -68,8 +76,34 @@ const toBoxSize = (v: unknown): unknown => {
   return SINGLE_CIGAR_TOKENS.has(normalizeCsvToken(v)) ? CSV_SINGLE_CIGARS : v.trim();
 };
 
-const purchaseDay = z.iso.date();
+const purchaseDay = z.iso.date().refine(inPurchaseYears, 'INVALID_PURCHASE_DATE');
 const boxSize = z.union([z.number().int().min(1).max(MAX_COPIES), z.literal(CSV_SINGLE_CIGARS)]);
+
+/** FEAT-99: "yes"/"oui"/"x"… in the opened column; blank = not opened. */
+const OPENED_TOKENS = new Set(['yes', 'y', 'oui', 'o', 'true', '1', 'x', 'opened', 'open', 'entame', 'entamee', 'ouvert', 'ouverte']);
+const CLOSED_TOKENS = new Set(['no', 'n', 'non', 'false', '0', 'closed', 'ferme', 'fermee']);
+
+const toOpened = (v: unknown): unknown => {
+  if (typeof v !== 'string') return v;
+  if (v.trim() === '') return undefined;
+  const token = normalizeCsvToken(v);
+  return OPENED_TOKENS.has(token) ? true : CLOSED_TOKENS.has(token) ? false : v;
+};
+
+/**
+ * An opened bottle or box is one sub-record whose level or cigars left fit
+ * what it is; neither of the two says anything for a closed one.
+ */
+function checkOpenedState(
+  row: { opened?: boolean; quantity?: number; cigarsPerBox?: number | 'single'; cigarsLeft?: number },
+  ctx: z.RefinementCtx,
+) {
+  if (!row.opened) return;
+  if (row.quantity !== undefined && row.quantity > 1) ctx.addIssue({ code: 'custom', message: 'INVALID_QUANTITY', path: ['quantity'] });
+  if (typeof row.cigarsPerBox === 'number' && row.cigarsLeft !== undefined && row.cigarsLeft > row.cigarsPerBox) {
+    ctx.addIssue({ code: 'custom', message: 'CIGARS_LEFT_ABOVE_BOX', path: ['cigarsLeft'] });
+  }
+}
 
 export const csvRawRowSchema = z.object({
   name: z.string().trim().min(1, 'NAME_REQUIRED').max(200, 'NAME_TOO_LONG'),
@@ -103,14 +137,24 @@ export const csvRawRowSchema = z.object({
   // #471 (FEAT-99): the cellar (created when unknown), the purchase day, the
   // bottle size, a cigar's vitola and box — what tells a group apart (D5).
   cellar: z.preprocess(emptyToUndefined, z.string().trim().max(100, 'CELLAR_TOO_LONG').optional()),
-  purchasedAt: z.preprocess(toPurchaseDay, z.iso.date({ error: 'INVALID_PURCHASE_DATE' }).optional()),
+  purchasedAt: z.preprocess(toPurchaseDay, z.iso.date({ error: 'INVALID_PURCHASE_DATE' }).refine(inPurchaseYears, 'INVALID_PURCHASE_DATE').optional()),
   bottleSize: z.preprocess(emptyToUndefined, z.string().trim().max(50, 'BOTTLE_SIZE_TOO_LONG').optional()),
   format: z.preprocess(emptyToUndefined, z.string().trim().max(100, 'FORMAT_TOO_LONG').optional()),
   cigarsPerBox: z.preprocess(
     toBoxSize,
     z.union([z.coerce.number({ error: 'INVALID_BOX_SIZE' }).int('INVALID_BOX_SIZE').min(1, 'INVALID_BOX_SIZE').max(MAX_COPIES, 'INVALID_BOX_SIZE'), z.literal(CSV_SINGLE_CIGARS)], { error: 'INVALID_BOX_SIZE' }).optional(),
   ),
-});
+  // FEAT-99 export: an opened bottle (level 1-100 %) or box (cigars left).
+  opened: z.preprocess(toOpened, z.boolean({ error: 'INVALID_OPENED' }).optional()),
+  fillLevel: z.preprocess(
+    toNumber,
+    z.coerce.number({ error: 'INVALID_FILL_LEVEL' }).int('INVALID_FILL_LEVEL').min(1, 'INVALID_FILL_LEVEL').max(100, 'INVALID_FILL_LEVEL').optional(),
+  ),
+  cigarsLeft: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number({ error: 'INVALID_CIGARS_LEFT' }).int('INVALID_CIGARS_LEFT').min(1, 'INVALID_CIGARS_LEFT').max(MAX_COPIES, 'INVALID_CIGARS_LEFT').optional(),
+  ),
+}).superRefine(checkOpenedState);
 
 /**
  * Canonical row shape once validated — sent back by the client at /confirm
@@ -130,7 +174,10 @@ export const csvImportRowSchema = z.object({
   bottleSize: z.string().trim().max(50).optional(),
   format: z.string().trim().max(100).optional(),
   cigarsPerBox: boxSize.optional(),
-});
+  opened: z.boolean().optional(),
+  fillLevel: z.number().int().min(1).max(100).optional(),
+  cigarsLeft: z.number().int().min(1).max(MAX_COPIES).optional(),
+}).superRefine(checkOpenedState);
 
 // #466: the row type is the contract in shared/import.ts;
 // tests/contracts/shared-contracts.test.ts checks this schema infers exactly it.

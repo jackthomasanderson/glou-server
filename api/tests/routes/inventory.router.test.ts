@@ -12,12 +12,14 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
 vi.mock('../../src/services/inventory.service', () => ({
   inventoryService: { updateItem: vi.fn(), rollbackField: vi.fn(), createItem: vi.fn(), createApart: vi.fn() },
 }));
+vi.mock('../../src/services/inventory-export.service', () => ({ inventoryExportService: { exportCsv: vi.fn() } }));
 vi.mock('../../src/services/scan.service', () => ({ scanService: {} }));
 vi.mock('../../src/services/system-config.service', () => ({ systemConfigService: {} }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));
 
 import { inventoryRouter } from '../../src/routes/inventory.router';
 import { inventoryService } from '../../src/services/inventory.service';
+import { inventoryExportService } from '../../src/services/inventory-export.service';
 import { auditLog } from '../../src/services/audit.service';
 import { AppError } from '../../src/lib/errors';
 
@@ -114,5 +116,35 @@ describe('POST /api/inventory/:id/rollback', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('BOX_NOT_COMPLETE');
+  });
+});
+
+// #471 (FEAT-99): the CSV export is a member-only, read-only download.
+describe('GET /api/inventory/export.csv (FEAT-99)', () => {
+  it('serves the CSV as an attachment, headers in English by default', async () => {
+    vi.mocked(inventoryExportService.exportCsv).mockResolvedValue('\ufeffName\r\n');
+
+    const res = await request(app).get('/api/inventory/export.csv');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/^text\/csv; charset=utf-8/);
+    expect(res.headers['content-disposition']).toMatch(/^attachment; filename="glou-cellar-\d{4}-\d{2}-\d{2}\.csv"$/);
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(inventoryExportService.exportCsv).toHaveBeenCalledWith('en');
+    expect(auditLog).not.toHaveBeenCalled();
+  });
+
+  it('writes the French headers on ?lang=fr and falls back to English otherwise', async () => {
+    vi.mocked(inventoryExportService.exportCsv).mockResolvedValue('');
+    await request(app).get('/api/inventory/export.csv?lang=fr');
+    await request(app).get('/api/inventory/export.csv?lang=de');
+    expect(vi.mocked(inventoryExportService.exportCsv).mock.calls.map(([lang]) => lang)).toEqual(['fr', 'en']);
+  });
+
+  it('answers 500 UNEXPECTED_ERROR when the read fails', async () => {
+    vi.mocked(inventoryExportService.exportCsv).mockRejectedValue(new Error('db down'));
+    const res = await request(app).get('/api/inventory/export.csv');
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'UNEXPECTED_ERROR' });
   });
 });

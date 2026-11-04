@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseCsv } from '../../src/lib/csv';
+import { parseCsv, toCsv, CSV_BOM, neutralizeFormula } from '../../src/lib/csv';
 
 describe('parseCsv', () => {
   it('parses a simple header + rows document, lowercasing/trimming headers', () => {
@@ -67,5 +67,31 @@ describe('parseCsv', () => {
 
   it('throws CSV_TOO_LARGE past the hard character cap', () => {
     expect(() => parseCsv('a\n' + 'x'.repeat(5_000_001))).toThrow('CSV_TOO_LARGE');
+  });
+});
+
+describe('toCsv (FEAT-99 export)', () => {
+  it('starts with a UTF-8 BOM and ends every line with CRLF', () => {
+    const out = toCsv(['a', 'b'], [['x', 1]]);
+    expect(out.startsWith(CSV_BOM)).toBe(true);
+    expect(out.slice(1)).toBe('a,b\r\nx,1\r\n');
+  });
+
+  it('quotes commas, quotes and line breaks so the parser reads the same text back', () => {
+    const cells = ['A, B', 'She said "hi"', 'two\nlines', 'cr\rlf', ' padded ', 'é ü ß 日本'];
+    const parsed = parseCsv(toCsv(cells.map((_, i) => `c${i}`), [cells]));
+    expect(Object.values(parsed[0])).toEqual(['A, B', 'She said "hi"', 'two\nlines', 'cr\nlf', 'padded', 'é ü ß 日本']);
+  });
+
+  it('writes an empty cell for null and undefined', () => {
+    expect(toCsv(['a', 'b', 'c'], [[null, undefined, 'x']]).slice(1)).toBe('a,b,c\r\n,,x\r\n');
+  });
+
+  it('neutralises a text cell a spreadsheet would run as a formula, but not a number', () => {
+    for (const text of ['=1+1', '+SUM(A1)', '-2+3', '@cmd', '\t=x']) {
+      expect(neutralizeFormula(text)).toBe(`'${text}`);
+    }
+    expect(neutralizeFormula('Château')).toBe('Château');
+    expect(toCsv(['a', 'b'], [['=HYPERLINK("http://x")', -5]]).slice(1)).toBe(`a,b\r\n"'=HYPERLINK(""http://x"")",-5\r\n`);
   });
 });

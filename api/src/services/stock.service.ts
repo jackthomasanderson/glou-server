@@ -89,6 +89,13 @@ const mirrorOf = (product: Product) => Object.fromEntries(PRODUCT_FIELDS.map((fi
 /** Where new copies go (D5): everything of a group's identity. */
 export type CopiesTarget = GroupKeyFields & { purchasedAt: Date | null };
 
+/** The state of a sub-record written opened (the CSV import of an exported opened bottle or box). */
+export interface OpenedState {
+  isOpened: true;
+  fillLevel: number | null;
+  cigarsLeft: number | null;
+}
+
 /**
  * #471 (D5): adds `count` copies to `product` — completing its group of the
  * same `target` identity (×6 → ×8), else as a new line of the family. The
@@ -103,8 +110,10 @@ export async function addCopies(
   target: CopiesTarget,
   count: number,
   fieldSources?: Record<string, string>,
+  opened?: OpenedState,
 ): Promise<{ unit: UnitRecord; from: number | null; to: number }> {
-  const group = await findGroupFor(tx, target, unitKind(product.category));
+  // An opened bottle or box is a sub-record: one unit of its own, never a group to complete.
+  const group = opened ? null : await findGroupFor(tx, target, unitKind(product.category));
   if (group) {
     const from = group.quantity ?? 1;
     // One group counts at most what one write may (`quantity`'s own bound).
@@ -120,6 +129,7 @@ export async function addCopies(
       id: uuidv4(),
       userId,
       quantity: count,
+      ...(opened ?? {}),
       ...(fieldSources && Object.keys(fieldSources).length > 0 ? { fieldSources } : {}),
     } as Prisma.InventoryItemUncheckedCreateInput,
   });

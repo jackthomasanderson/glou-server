@@ -150,3 +150,34 @@ function parseCsvRows(text: string): string[][] {
 
   return rows;
 }
+
+// ─── Writing (FEAT-99 export) ────────────────────────────────────────────────
+
+/** UTF-8 byte order mark: makes Excel read the file as UTF-8 (the parser above strips it). */
+export const CSV_BOM = '﻿';
+
+/**
+ * A text cell that a spreadsheet would run as a formula (`=`, `+`, `-`, `@`,
+ * or a tab / carriage return that hides one) gets a leading `'`, which the
+ * spreadsheet shows as nothing; the import removes it again.
+ */
+export function neutralizeFormula(text: string): string {
+  return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
+/** One cell: quoted when it holds a comma, a quote, a line break or edge spaces (RFC 4180). */
+function csvCell(value: string | number | null | undefined, isText: boolean): string {
+  if (value === null || value === undefined) return '';
+  const text = isText ? neutralizeFormula(String(value)) : String(value);
+  return /[",\r\n]|^\s|\s$/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+/**
+ * RFC 4180 text of `header` + `rows`, CRLF-separated, UTF-8 BOM first. Strings
+ * are text (formulas neutralised); numbers are written as they are — they are
+ * never user-typed text, so a negative one is not a formula.
+ */
+export function toCsv(header: readonly string[], rows: readonly (readonly (string | number | null | undefined)[])[]): string {
+  const lines = [header.map((h) => csvCell(h, false)), ...rows.map((row) => row.map((v) => csvCell(v, typeof v === 'string')))];
+  return CSV_BOM + lines.map((line) => line.join(',')).join('\r\n') + '\r\n';
+}

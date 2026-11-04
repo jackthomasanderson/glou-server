@@ -454,3 +454,56 @@ describe('ImportService.confirmImport', () => {
     expect(stockReads).toHaveLength(1);
   });
 });
+
+describe('opened bottles and boxes (FEAT-99 export)', () => {
+  it('reads the opened, level and cigars-left columns, in English and in French', () => {
+    const result = importService.previewCsv(csv([
+      'name,producer,category,quantity,opened,fill level,cigars left,cigars per box',
+      'A,P,wine,,yes,40,,',
+      'B,P,cigar,,oui,,7,20',
+    ].join('\n')));
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toEqual([
+      { name: 'A', producer: 'P', category: 'wine', opened: true, fillLevel: 40 },
+      { name: 'B', producer: 'P', category: 'cigar', opened: true, cigarsLeft: 7, cigarsPerBox: 20 },
+    ]);
+    const french = importService.previewCsv(csv('Nom;Producteur;Catégorie;Entamée;Niveau\nA;P;vin;oui;60\n'));
+    expect(french.valid).toEqual([{ name: 'A', producer: 'P', category: 'wine', opened: true, fillLevel: 60 }]);
+  });
+
+  it('refuses a level of 0 (a finished bottle), more cigars left than the box holds, and several opened at once', () => {
+    const { errors } = importService.previewCsv(csv([
+      'name,producer,category,quantity,opened,fill level,cigars left,cigars per box',
+      'A,P,wine,,yes,0,,',
+      'B,P,cigar,,yes,,30,20',
+      'C,P,wine,3,yes,50,,',
+    ].join('\n')));
+    expect(errors).toEqual([{ row: 2, reason: 'INVALID_FILL_LEVEL' }, { row: 3, reason: 'CIGARS_LEFT_ABOVE_BOX' }, { row: 4, reason: 'INVALID_QUANTITY' }]);
+  });
+
+  it('gives back a text cell that the export prefixed against a formula', () => {
+    const { valid } = importService.previewCsv(csv("name,producer,category\n'=SUM(A1),'-Dash,wine\n"));
+    expect(valid[0]).toMatchObject({ name: '=SUM(A1)', producer: '-Dash' });
+  });
+
+  it('writes an opened bottle as its own unit next to the group, never into it', async () => {
+    const result = await importService.confirmImport('u1', [
+      row({ quantity: 4 }),
+      row({ opened: true, fillLevel: 40 }),
+      row({ opened: true }),
+    ], null);
+    expect(result).toMatchObject({ bottles: 6, wines: 1 });
+    expect(db.products).toHaveLength(1);
+    expect(db.units.map((u) => [u.quantity, u.isOpened, u.fillLevel])).toEqual([[4, false, null], [1, true, 40], [1, true, null]]);
+  });
+
+  it('writes an opened box with the cigars left, counted as those cigars', async () => {
+    const result = await importService.confirmImport('u1', [
+      row({ category: 'cigar', name: 'Robusto', vintage: undefined, quantity: 2, cigarsPerBox: 20 }),
+      row({ category: 'cigar', name: 'Robusto', vintage: undefined, opened: true, cigarsPerBox: 20, cigarsLeft: 7 }),
+    ], null);
+    expect(result).toMatchObject({ cigars: 47, cigarReferences: 1 });
+    expect(db.units.map((u) => [u.quantity, u.cigarsPerBox, u.isOpened, u.cigarsLeft])).toEqual([[2, 20, false, null], [1, 20, true, 7]]);
+  });
+});
+

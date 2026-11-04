@@ -7,7 +7,7 @@ import { csvRawRowSchema, normalizeCsvToken } from '../schemas/import.schema';
 import { MAX_COPIES } from '../schemas/stock.schema';
 import { computeAlertStatus } from './alert.service';
 import { LISTED_PRODUCT_FILTER } from './product.service';
-import { addCopies } from './stock.service';
+import { addCopies, type OpenedState } from './stock.service';
 import {
   CSV_IMPORT_TRANSACTION_MAX_WAIT_MS,
   CSV_IMPORT_TRANSACTION_TIMEOUT_MS,
@@ -27,7 +27,7 @@ import {
 // normalizeCsvToken (no case, accents, spaces or punctuation). English and
 // French, so a French spreadsheet ("Nom; Producteur; Catégorie; Millésime")
 // imports as is.
-const HEADER_ALIASES: Record<string, string> = {
+export const HEADER_ALIASES: Record<string, string> = {
   name: 'name', nom: 'name', cuvee: 'name', designation: 'name', libelle: 'name',
   producer: 'producer', producteur: 'producer', domaine: 'producer', maison: 'producer', distillerie: 'producer', marque: 'producer',
   category: 'category', categorie: 'category',
@@ -42,15 +42,31 @@ const HEADER_ALIASES: Record<string, string> = {
   vitola: 'format', vitole: 'format',
   cigarsperbox: 'cigarsPerBox', boxsize: 'cigarsPerBox', box: 'cigarsPerBox', boite: 'cigarsPerBox', formatdeboite: 'cigarsPerBox',
   cigaresparboite: 'cigarsPerBox', parboite: 'cigarsPerBox',
+  // FEAT-99 export: an opened bottle or box, its level, the cigars left in it.
+  opened: 'opened', open: 'opened', entame: 'opened', entamee: 'opened', ouvert: 'opened', ouverte: 'opened',
+  filllevel: 'fillLevel', level: 'fillLevel', niveau: 'fillLevel',
+  cigarsleft: 'cigarsLeft', cigaresrestants: 'cigarsLeft', restants: 'cigarsLeft',
   abv: 'alcoholDegree', alcohol: 'alcoholDegree', alcool: 'alcoholDegree', degre: 'alcoholDegree', alcoholdegree: 'alcoholDegree', '%vol': 'alcoholDegree', vol: 'alcoholDegree',
 };
+
+/** Columns holding free text: the export neutralises a formula in them (see {@link unneutralize}). */
+const TEXT_COLUMNS = new Set(['name', 'producer', 'region', 'cellar', 'format', 'bottleSize']);
+
+/**
+ * The export writes `'` before a text cell starting with `=`, `+`, `-` or `@`
+ * (a spreadsheet would run it as a formula); reading it back removes that
+ * mark, so an export imports as written.
+ */
+function unneutralize(value: string): string {
+  return /^'[=+\-@]/.test(value) ? value.slice(1) : value;
+}
 
 /** Renames a parsed record's keys to the importer's column names; unknown columns are dropped. */
 function canonicalRecord(record: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(record)) {
     const column = HEADER_ALIASES[normalizeCsvToken(key)];
-    if (column && !(column in out)) out[column] = value;
+    if (column && !(column in out)) out[column] = TEXT_COLUMNS.has(column) ? unneutralize(value) : value;
   }
   return out;
 }
@@ -278,6 +294,7 @@ export class ImportService {
             },
             line.count,
             this.unitSources(line),
+            line.row.opened ? this.openedState(line) : undefined,
           );
           if (line.kind === 'cigar') {
             result.cigars += line.units;
@@ -296,6 +313,17 @@ export class ImportService {
       // with no explanation (#161) — give it real headroom instead.
       { timeout: CSV_IMPORT_TRANSACTION_TIMEOUT_MS, maxWait: CSV_IMPORT_TRANSACTION_MAX_WAIT_MS },
     );
+  }
+
+  /**
+   * FEAT-99: the state of an opened bottle or box read from the file. A bottle
+   * keeps the level the file gave (none = unknown); an opened box holds the
+   * cigars left, a full box when the file does not say.
+   */
+  private openedState(line: CsvLineDraft): OpenedState {
+    const { row } = line;
+    if (line.kind === 'bottle') return { isOpened: true, fillLevel: row.fillLevel ?? null, cigarsLeft: null };
+    return { isOpened: true, fillLevel: null, cigarsLeft: line.cigarsPerBox === null ? null : row.cigarsLeft ?? line.cigarsPerBox };
   }
 
   /**
@@ -365,6 +393,8 @@ export class ImportService {
     if (row.bottleSize !== undefined && line.kind === 'bottle') sources.bottleSize = 'import_csv';
     if (row.quantity !== undefined) sources[legacyBox ? 'cigarsPerBox' : 'quantity'] = 'import_csv';
     if (typeof row.cigarsPerBox === 'number') sources.cigarsPerBox = 'import_csv';
+    if (row.opened && row.fillLevel !== undefined) sources.fillLevel = 'import_csv';
+    if (row.opened && row.cigarsLeft !== undefined) sources.cigarsLeft = 'import_csv';
     return sources;
   }
 }

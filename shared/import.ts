@@ -30,7 +30,47 @@ export interface CsvImportRow {
    * row is read as before FEAT-99: one box of `quantity` cigars.
    */
   cigarsPerBox?: number | typeof CSV_SINGLE_CIGARS;
+  /**
+   * An opened bottle or box (a sub-record, FEAT-99 export): always one unit,
+   * never added up with another row. `fillLevel` (1-100 %) is a bottle's
+   * level, `cigarsLeft` the cigars left in an opened box.
+   */
+  opened?: boolean;
+  fillLevel?: number;
+  cigarsLeft?: number;
 }
+
+/**
+ * FEAT-99: the columns of the CSV export, in order. Each one is a column the
+ * import reads back (its aliases are in the API's `HEADER_ALIASES`; a test
+ * checks both labels resolve to the column), so an export imports as is.
+ */
+export const CSV_EXPORT_COLUMNS = [
+  'name', 'producer', 'category', 'vintage', 'quantity', 'purchasePrice', 'region', 'alcoholDegree',
+  'cellar', 'purchasedAt', 'bottleSize', 'format', 'cigarsPerBox', 'opened', 'fillLevel', 'cigarsLeft',
+] as const;
+
+export type CsvExportColumn = (typeof CSV_EXPORT_COLUMNS)[number];
+export type CsvExportLang = 'en' | 'fr';
+
+/** Header of each export column, per language. */
+export const CSV_EXPORT_HEADERS: Record<CsvExportLang, Record<CsvExportColumn, string>> = {
+  en: {
+    name: 'Name', producer: 'Producer', category: 'Category', vintage: 'Vintage', quantity: 'Quantity',
+    purchasePrice: 'Purchase price', region: 'Region', alcoholDegree: 'ABV', cellar: 'Cellar',
+    purchasedAt: 'Purchase date', bottleSize: 'Bottle size', format: 'Vitola', cigarsPerBox: 'Cigars per box',
+    opened: 'Opened', fillLevel: 'Fill level', cigarsLeft: 'Cigars left',
+  },
+  fr: {
+    name: 'Nom', producer: 'Producteur', category: 'Catégorie', vintage: 'Millésime', quantity: 'Quantité',
+    purchasePrice: "Prix d'achat", region: 'Région', alcoholDegree: 'Alcool', cellar: 'Cave',
+    purchasedAt: "Date d'achat", bottleSize: 'Contenance', format: 'Vitole', cigarsPerBox: 'Cigares par boîte',
+    opened: 'Entamée', fillLevel: 'Niveau', cigarsLeft: 'Cigares restants',
+  },
+};
+
+/** The "opened" cell of an opened bottle or box, per language (the import reads both). */
+export const CSV_OPENED_VALUE: Record<CsvExportLang, string> = { en: 'yes', fr: 'oui' };
 
 export interface CsvImportError {
   /** 1-based row number as a spreadsheet shows it (header = row 1). */
@@ -148,6 +188,8 @@ export function csvRowProductKey(row: CsvImportRow): string {
  * `quantity` cigars (as read before FEAT-99).
  */
 export function csvRowGroup(row: CsvImportRow): { count: number; cigarsPerBox: number | null } {
+  // An opened bottle or box is one sub-record, whatever the quantity cell says.
+  if (row.opened) return { count: 1, cigarsPerBox: row.category === 'cigar' && typeof row.cigarsPerBox === 'number' ? row.cigarsPerBox : null };
   if (row.category !== 'cigar') return { count: row.quantity ?? 1, cigarsPerBox: null };
   if (row.cigarsPerBox === CSV_SINGLE_CIGARS) return { count: row.quantity ?? 1, cigarsPerBox: null };
   if (row.cigarsPerBox !== undefined) return { count: row.quantity ?? 1, cigarsPerBox: row.cigarsPerBox };
@@ -164,6 +206,12 @@ export function csvLineKey(row: CsvImportRow): string {
   return JSON.stringify([csvRowProductKey(row), normalize(row.cellar), row.purchasePrice ?? null, row.purchasedAt ?? null, size]);
 }
 
+/** Units a line adds: an opened box holds the cigars left in it, an opened bottle is one. */
+function csvLineUnits(line: Pick<CsvLineDraft, 'row' | 'count' | 'cigarsPerBox' | 'kind'>): number {
+  if (line.row.opened) return line.kind === 'cigar' ? line.row.cigarsLeft ?? line.cigarsPerBox ?? 1 : 1;
+  return line.count * (line.cigarsPerBox ?? 1);
+}
+
 export type CsvLineDraft = Omit<CsvImportLine, 'inStock' | 'newCellar' | 'tooLarge'>;
 
 /**
@@ -173,8 +221,10 @@ export type CsvLineDraft = Omit<CsvImportLine, 'inStock' | 'newCellar' | 'tooLar
  */
 export function groupCsvRows(rows: readonly CsvImportRow[]): CsvLineDraft[] {
   const lines = new Map<string, CsvLineDraft>();
-  for (const row of rows) {
-    const key = csvLineKey(row);
+  rows.forEach((row, index) => {
+    // An opened unit is its own line, even next to an identical one: two
+    // opened bottles are two sub-records, never "×2".
+    const key = row.opened ? `${csvLineKey(row)}#opened${index}` : csvLineKey(row);
     const { count, cigarsPerBox } = csvRowGroup(row);
     const line = lines.get(key);
     if (line) {
@@ -185,6 +235,6 @@ export function groupCsvRows(rows: readonly CsvImportRow[]): CsvLineDraft[] {
     } else {
       lines.set(key, { key, row, rowCount: 1, count, cigarsPerBox, kind: unitKind(row.category), units: 0 });
     }
-  }
-  return [...lines.values()].map((line) => ({ ...line, units: line.count * (line.cigarsPerBox ?? 1) }));
+  });
+  return [...lines.values()].map((line) => ({ ...line, units: csvLineUnits(line) }));
 }
