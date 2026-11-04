@@ -13,8 +13,8 @@ The Analytics dashboard includes an interactive world map of your collection by 
 2. Scroll to the **World Map** section of the dashboard. It is part of the Analytics page, not a separate route.
 
 ### Filter by category
-1. In the filters panel, use the **Asset type** chips to select one or more categories (**Wine**, **Sparkling**, **Spirit**, **Cigar**), or leave **All categories** selected.
-2. Both the map markers and the asset list below update immediately. Filtering runs entirely in your browser against the inventory you already have loaded.
+1. In the filters panel, use the **Category** chips to select one or more categories (**Wine**, **Sparkling**, **Spirit**, **Cigar**), or leave **All categories** selected.
+2. Both the map markers and the list of bottles below update immediately. Filtering runs entirely in your browser against the inventory you already have loaded.
 
 ### Switch to heatmap mode
 1. Use the mode toggle above the map to switch from **Markers** to **Heatmap by type**.
@@ -40,7 +40,7 @@ The filters panel (retractable; it hides to leave more room for the map on small
 All filters combine with the category filter and apply to both the map and the list below.
 
 ### Browse and open items from the list
-1. Below the map, the filtered asset list shows each item's thumbnail, name, category badge, vintage, and location.
+1. Below the map, the filtered list shows each bottle's thumbnail, name, category badge, vintage, and location.
 2. Click any row (or press Enter/Space while it's focused) to open that item's **detail card** in a modal. You stay on the Analytics page; there is no page navigation.
 3. Click a marker on the map (or a region) to narrow the list to that region only; a chip appears showing the selected region with a button to clear it and go back to the full filtered list.
 
