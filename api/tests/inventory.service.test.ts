@@ -677,14 +677,21 @@ describe('InventoryService', () => {
    * transaction client and returns that client's `update` spy.
    */
   function mockTransactionClient() {
-    const update = vi.fn().mockResolvedValue({} as never);
+    const update = vi.fn(async (args: { where: { id: string }; data: Record<string, unknown> }) => ({
+      id: args.where.id, purchasePrice: null, estimatedValue: null, purchasedAt: null, fieldSources: null, ...args.data,
+    }));
     // #471: a unit written with a state is read again once its family is locked.
     const findUnique = vi.fn(async (args: { where: { id: string } }) => {
       const rows = (await vi.mocked(prisma.inventoryItem.findMany).mock.results.at(0)?.value) as Array<{ id: string }>;
       return rows.find((row) => row.id === args.where.id) ?? null;
     });
+    // #471 (FEAT-111): a group moved to another cellar is read again to join an identical one there.
+    const findFirst = vi.fn(async (args: { where: { id: string } }) => {
+      const row = await findUnique(args);
+      return row ? { isOwned: true, quantity: 1, writtenOffAt: null, purchasedAt: null, ...row } : null;
+    });
     vi.mocked(prisma.$transaction).mockImplementation(
-      ((callback: (tx: unknown) => unknown) => callback({ inventoryItem: { update, findUnique }, $queryRaw: prisma.$queryRaw })) as never,
+      ((callback: (tx: unknown) => unknown) => callback({ inventoryItem: { update, findUnique, findFirst }, $queryRaw: prisma.$queryRaw })) as never,
     );
     return update;
   }
@@ -964,6 +971,37 @@ describe('InventoryService', () => {
         where: { id: 'b1' },
         data: { cellarId: 'c2', isOpened: true, fillLevel: 50, slotColumn: null, slotRow: null },
       });
+    });
+
+    it('bulkUpdate - a group moved next to its identical group joins it (FEAT-111, a preset or the bulk edit)', async () => {
+      const day = new Date('2026-01-15T00:00:00Z');
+      const moved = unitRow({
+        id: 'b1', cellarId: 'c1', quantity: 2, purchasePrice: 20, estimatedValue: null, purchasedAt: day, bottleSize: null, cigarsPerBox: null, cigarsLeft: null,
+        purchasePlace: null, location: null, slotColumn: null, slotRow: null, isOwned: true, writtenOffAt: null, needsReview: false, createdAt: day,
+      });
+      const target = { ...moved, id: 'b9', cellarId: 'c2', quantity: 4, product: undefined };
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([moved] as never);
+      const update = vi.fn(async (args: { where: { id: string }; data: Record<string, unknown> }) => ({ ...target, ...args.data }));
+      const deleteMany = vi.fn(async () => ({ count: 1 }));
+      const tx = {
+        inventoryItem: {
+          update, deleteMany,
+          findFirst: vi.fn(async () => ({ ...moved, product: undefined })),
+          // findGroupFor: the family's lines, the moved one excluded.
+          findMany: vi.fn(async () => [target]),
+        },
+        inventoryCountEntry: { findMany: vi.fn(async () => []) },
+        $queryRaw: prisma.$queryRaw,
+        $executeRaw: vi.fn(async () => 1),
+      };
+      vi.mocked(prisma.$transaction).mockImplementation(((callback: (client: unknown) => unknown) => callback(tx)) as never);
+
+      expect(await service.bulkUpdate('u1', ['b1'], { cellarId: 'c2' })).toBe(1);
+
+      // One line of 6 in c2: the moved group is gone, never a second line beside it.
+      expect(deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['b1'] } } });
+      expect(update).toHaveBeenCalledTimes(1);
+      expect(update.mock.calls[0]?.[0]).toMatchObject({ where: { id: 'b9' }, data: { quantity: 6 } });
     });
   });
 

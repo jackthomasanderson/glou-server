@@ -6,7 +6,7 @@ import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
-import { isFinishedItem, NO_SLOT, unitKind } from '../lib/finished-item';
+import { isFinishedItem, isGroupableItem, NO_SLOT, unitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
@@ -19,7 +19,7 @@ import {
 } from './stock-state.service';
 import { writeFamilyDescription } from './product.service';
 import { rememberDistinct } from './review.service';
-import { GROUP_KEY_FIELDS, joinIdenticalGroup } from './stock-split.service';
+import { GROUP_KEY_FIELDS, joinIdenticalGroup, splitLockedGroup } from './stock-split.service';
 import { isSlotTaken } from '../lib/slots';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
@@ -658,6 +658,23 @@ export class InventoryService {
         }
 
         const changed = Object.fromEntries(changedEntries) as InventoryPatch;
+        if (changed.cellarId !== undefined) {
+          // #471 (FEAT-111): a whole group moved to another cellar joins the
+          // identical group there, as "Déplacer" does (a preset or the bulk
+          // edit's cellar): never a line apart that should be one. Its other
+          // fields are written first, so the group it joins is the one it now is.
+          const fresh = await tx.inventoryItem.findFirst({ where: { id: item.id, deletedAt: null } });
+          if (fresh && isGroupableItem(fresh) && fresh.isOwned) {
+            const { cellarId, ...others } = changed;
+            const group = Object.keys(others).length === 0 ? fresh : await tx.inventoryItem.update({
+              where: { id: item.id },
+              data: { ...others, updatedAt: new Date(), updatedBy: userId } as never,
+            });
+            await splitLockedGroup(tx, userId, group, group.quantity ?? 1, { field: 'cellarId', to: cellarId ?? null }, unitKind(row.product.category));
+            updatedCount++;
+            continue;
+          }
+        }
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
