@@ -628,7 +628,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
               </ModalHeader>
               <ModalBody className="pb-1">
                 <p className="text-sm text-foreground-500">
-                  {t('tastings.stockUpdate.description')}
+                  {t('tastings.stockUpdate.description', isCigar ? { context: 'cigar' } : undefined)}
                 </p>
               </ModalBody>
               <ModalFooter className="flex-col gap-2">

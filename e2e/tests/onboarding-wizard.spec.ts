@@ -68,7 +68,7 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
 
     await page.goto('/bottles?onboarding=1');
     const wizard = page.getByRole('dialog', { name: 'Assistant de démarrage' });
-    await expect(wizard.getByText('Comment souhaitez-vous ajouter vos actifs ?')).toBeVisible();
+    await expect(wizard.getByText('Comment souhaitez-vous ajouter vos bouteilles ?')).toBeVisible();
 
     // 1. "Create a cellar" fails: its error toast must not hide behind the wizard.
     await wizard.getByRole('button', { name: 'Retour' }).click();
@@ -91,7 +91,7 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
     // 2. Manual entry: the add form opens on top and can be saved.
     await wizard.getByRole('button', { name: 'Passer cette étape' }).click();
     await wizard.getByText('Ajout Manuel', { exact: true }).click();
-    await wizard.getByRole('button', { name: 'Ajouter un actif' }).click();
+    await wizard.getByRole('button', { name: 'Ajouter une bouteille' }).click();
 
     const nameInput = page.getByTestId('inventory-name-input');
     await expectOnTop(nameInput, 'the add form');
@@ -108,18 +108,18 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
     productId = (await res.json())?.data?.productId as string;
 
     await expect(nameInput).toBeHidden();
-    await expect(wizard.getByText('1 actif ajouté pour l\'instant')).toBeVisible();
+    await expect(wizard.getByText('1 bouteille ou cigare ajouté pour l\'instant')).toBeVisible();
 
     // 3. A second bottle of the same wine (AUDIT_006, #690): "Vous avez déjà
     // ce vin" shows on top, as on the inventory page (FEAT-97 c4), and the
     // bottle joins that wine.
-    await wizard.getByRole('button', { name: 'Ajouter un actif' }).click();
+    await wizard.getByRole('button', { name: 'Ajouter une bouteille' }).click();
     await nameInput.fill(name);
     await page.getByTestId('inventory-producer-input').fill('E2E Domaine');
     const addToKnown = page.getByTestId('known-wine-add');
     // On a phone the first bottle's success toast sits over the top of the
     // full-screen form, where the proposal shows: wait for it to go.
-    await expect(page.getByText('Actif ajouté avec succès')).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByText('Bouteille ajoutée avec succès')).toHaveCount(0, { timeout: 15_000 });
     await addToKnown.scrollIntoViewIfNeeded();
     await expectOnTop(addToKnown, 'the "Vous avez déjà ce vin" proposal');
     await addToKnown.click();
@@ -130,11 +130,11 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
     expect(addedRes.ok(), await addedRes.text()).toBe(true);
     expect((await addedRes.json())?.data?.productId).toBe(productId);
     await expect(page.getByTestId('add-units-submit')).toBeHidden();
-    await expect(wizard.getByText('2 actifs ajoutés pour l\'instant')).toBeVisible();
+    await expect(wizard.getByText('2 bouteilles ou cigares ajoutés pour l\'instant')).toBeVisible();
 
     // 4. The wizard carries on to its summary, then hands over to the app.
     await wizard.getByRole('button', { name: 'Terminer l\'ajout' }).click();
-    await expect(wizard.getByText('2 actifs ajoutés à votre inventaire')).toBeVisible();
+    await expect(wizard.getByText('2 bouteilles ou cigares ajoutés à votre inventaire')).toBeVisible();
     await wizard.getByRole('button', { name: 'Accéder au tableau de bord' }).click();
     await expect(wizard).toBeHidden();
   } finally {
@@ -164,7 +164,7 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
     await page.setViewportSize({ width: 375, height: 553 });
     await page.goto('/bottles?onboarding=1');
     const wizard = page.getByRole('dialog', { name: 'Assistant de démarrage' });
-    const methodTitle = wizard.getByText('Comment souhaitez-vous ajouter vos actifs ?');
+    const methodTitle = wizard.getByText('Comment souhaitez-vous ajouter vos bouteilles ?');
     const close = wizard.getByRole('button', { name: 'Fermer' });
     const back = wizard.getByRole('button', { name: 'Retour' });
     const skip = wizard.getByRole('button', { name: 'Passer cette étape' });

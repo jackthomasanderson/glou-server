@@ -8,7 +8,7 @@
     "allCategories": "All categories"
   },
   "nav": {
-    "bottles": "Assets",
+    "bottles": "Bottles",
     "wines": "Wines",
     "sparkling": "Sparkling",
     "spirits": "Spirits",
@@ -22,7 +22,7 @@
     "searchResultsCount_other": "{{count}} results",
     "skipToContent": "Skip to main content",
     "primary": "Main navigation",
-    "searchBottles": "Assets",
+    "searchBottles": "Bottles",
     "searchCellars": "Cellars",
     "collections": "Collections",
     "tastings": "Tastings",
@@ -125,7 +125,8 @@
       "humidityValue": "{{value}}% RH"
     },
     "add": "Add",
-    "edit": "Edit item",
+    "edit": "Edit bottle",
+    "edit_cigar": "Edit cigar",
     "restore": "Restore the bottle",
     "trashDaysLeft_one": "{{count}} day left before permanent deletion",
     "trashDaysLeft_other": "{{count}} days left before permanent deletion",
@@ -135,9 +136,11 @@
       "items": "Inventory",
       "trash": "Trash"
     },
-    "noBottles": "No items in your cellar",
-    "noBottlesDesc": "Add your first item to get started.",
-    "noCellarBanner": "No cellar created — your assets will have no location.",
+    "noBottles": "No bottles in your cellar",
+    "noBottles_cigar": "No cigars in your humidor",
+    "noBottlesDesc": "Add your first bottle to get started.",
+    "noBottlesDesc_cigar": "Add your first cigar to get started.",
+    "noCellarBanner": "No cellar created — your bottles will have no location.",
     "noCellarBannerAction": "Create a cellar",
     "noCellar": "No cellar",
     "noResults": "No results for \"{{query}}\"",
@@ -357,20 +360,26 @@
     "resumeAlert": "Resume alert"
   },
   "toast": {
-    "createSuccess": "Asset added successfully",
-    "updateSuccess": "Asset updated",
-    "deleteSuccess": "Asset moved to trash",
-    "restoreSuccess": "Asset restored",
-    "createError": "Could not add the asset",
-    "createRejected": "The asset was not added: the server refused one of the values entered. Check the form, or report the problem if it looks right.",
-    "updateError": "Could not update the asset",
-    "updateConflict": "Not saved: this asset was changed in the meantime, by another member or on another device. Close the form and open it again to start from the latest version.",
+    "createSuccess": "Bottle added successfully",
+    "createSuccess_cigar": "Cigar added successfully",
+    "restoreSuccess": "Bottle restored",
+    "restoreSuccess_cigar": "Cigar restored",
+    "createError": "Could not add the bottle",
+    "createError_cigar": "Could not add the cigar",
+    "createRejected": "The bottle was not added: the server refused one of the values entered. Check the form, or report the problem if it looks right.",
+    "createRejected_cigar": "The cigar was not added: the server refused one of the values entered. Check the form, or report the problem if it looks right.",
+    "updateError": "Could not update the bottle",
+    "updateError_cigar": "Could not update the cigar",
+    "updateConflict": "Not saved: this bottle was changed in the meantime, by another member or on another device. Close the form and open it again to start from the latest version.",
+    "updateConflict_cigar": "Not saved: this cigar was changed in the meantime, by another member or on another device. Close the form and open it again to start from the latest version.",
     "tastingsOnBottle": "Not saved: a tasting was noted on this bottle, it stays opened.",
     "fieldsWithReattach": "Not saved: a bottle put back full joins the others and cannot change another field at the same time. Save your other changes first, then put it back full.",
     "boxNotComplete": "Not saved: cigars were already smoked from this box, it cannot be closed again.",
     "nothingLeftToSmoke": "Not saved: there is no cigar left to smoke here.",
-    "deleteError": "Could not delete the asset",
-    "restoreError": "Could not restore the asset",
+    "deleteError": "Could not delete the bottle",
+    "deleteError_cigar": "Could not delete the cigar",
+    "restoreError": "Could not restore the bottle",
+    "restoreError_cigar": "Could not restore the cigar",
     "collection": {
       "createSuccess": "Collection created",
       "updateSuccess": "Collection updated",
@@ -407,7 +416,7 @@
       "priceError": "Could not save the observed price",
       "convertError": "Could not turn the wish into an inventory item"
     },
-    "bulkUpdateError": "Could not update the selected assets",
+    "bulkUpdateError": "Could not update the selected wines",
     "bulkPreset": {
       "deleteError": "Could not delete the action preset"
     },
@@ -430,6 +439,17 @@
     "onboarding": {
       "completeError": "Could not complete the setup",
       "postponeError": "Couldn't save your choice: the wizard may show up again."
+    },
+    "product": {
+      "deleteError": "Could not move this wine to the trash",
+      "deleteError_spirit": "Could not move this spirit to the trash",
+      "deleteError_cigar": "Could not move this cigar to the trash",
+      "restoreSuccess": "Wine restored",
+      "restoreSuccess_spirit": "Spirit restored",
+      "restoreSuccess_cigar": "Cigar restored",
+      "restoreError": "Could not restore this wine",
+      "restoreError_spirit": "Could not restore this spirit",
+      "restoreError_cigar": "Could not restore this cigar"
     }
   },
   "auth": {
@@ -551,7 +571,7 @@
       }
     },
     "deleteTitle": "Delete cellar",
-    "deleteConfirm": "Are you sure you want to delete this cellar? The assets inside will become orphans.",
+    "deleteConfirm": "Are you sure you want to delete this cellar? The bottles and cigars inside will be left without a cellar.",
     "stats": {
       "alerts": "alerts",
       "alertCount_one": "{{count}} alert",
@@ -583,15 +603,15 @@
       "coldZone_other": "Cold zone ({{count}} rows)",
       "hotZoneLabel": "Hot zone",
       "coldZoneLabel": "Cold zone",
-      "cellLabelEmpty": "Column {{col}}, row {{row}}: empty. Press Enter to assign an asset.",
+      "cellLabelEmpty": "Column {{col}}, row {{row}}: empty. Press Enter to assign a bottle.",
       "cellLabelOccupied": "Column {{col}}, row {{row}}: {{name}}. Enter for details, Space to move.",
-      "dragInstructions": "To move this asset, press Space, use the arrow keys to choose a slot, then press Space again to drop it. Escape cancels.",
+      "dragInstructions": "To move this bottle, press Space, use the arrow keys to choose a slot, then press Space again to drop it. Escape cancels.",
       "announceStart": "Picked up {{name}} from column {{col}}, row {{row}}.",
       "announceOver": "{{name}} is over column {{col}}, row {{row}}.",
       "announceDrop": "{{name}} dropped on column {{col}}, row {{row}}.",
       "announceCancel": "Move cancelled. {{name}} stays in place.",
-      "assignTitle": "Assign an asset to slot C{{col}}·R{{row}}",
-      "noUnassignedBottles": "All assets in this cellar are already assigned to a slot.",
+      "assignTitle": "Assign a bottle to slot C{{col}}·R{{row}}",
+      "noUnassignedBottles": "All bottles in this cellar are already assigned to a slot.",
       "slotOccupied": "This slot is already occupied.",
       "removeFromSlot": "Remove from slot",
       "slot": "Slot",
@@ -825,7 +845,9 @@
       "resetPassword": "Reset password",
       "resetPasswordConfirm": "Generate a new temporary password for {{username}}? Their current sessions and trusted devices will be signed out, and they will have to set a new password on their next login.",
       "resetPasswordResultTitle": "Temporary password for {{username}}",
-      "resetPasswordResultHint": "Copy this password and share it with the member through a secure channel. It is shown only once and cannot be retrieved afterwards — they will be asked to set a real password on their next login."
+      "resetPasswordResultHint": "Copy this password and share it with the member through a secure channel. It is shown only once and cannot be retrieved afterwards — they will be asked to set a real password on their next login.",
+      "statusEnabled": "Enabled",
+      "statusDisabled": "Disabled"
     },
     "auditLog": {
       "filters": {
@@ -851,7 +873,7 @@
     "maturityRefs": {
       "title": "Peak Maturity References",
       "subtitle": "Define reference drinking windows by category, region, color, or producer.",
-      "cascadeHint": "Rules are evaluated top to bottom — the first one that matches an asset wins. Put your most specific rules above the general ones.",
+      "cascadeHint": "Rules are evaluated top to bottom — the first one that matches a wine wins. Put your most specific rules above the general ones.",
       "add": "Add reference",
       "addTitle": "New peak maturity reference",
       "editTitle": "Edit reference",
@@ -867,7 +889,7 @@
         "criteria": "Criteria",
         "window": "Window",
         "curve": "Curve",
-        "bottles": "Assets",
+        "bottles": "Bottles",
         "actions": "Actions"
       },
       "fields": {
@@ -890,7 +912,7 @@
         "criteria": "Optional matching criteria",
         "windowRelative": "E.g. 5 → 15 for a bottle drinkable 5 to 15 years after vintage",
         "windowAbsolute": "E.g. 2010 → 2030 for a fixed calendar window",
-        "curveShape": "Shape of the readiness curve applied to matching assets",
+        "curveShape": "Shape of the readiness curve applied to matching wines",
         "colorPlaceholder": "Red, White, Rosé…"
       },
       "errors": {
@@ -902,7 +924,7 @@
     "maintenance": {
       "title": "Maintenance",
       "purge": {
-        "description": "This action will delete ALL assets, ALL cellars and ALL activity logs. User accounts will be preserved.",
+        "description": "This action will delete ALL bottles and cigars, ALL cellars and ALL activity logs. User accounts will be preserved.",
         "button": "Purge all data",
         "confirmTitle": "Full Purge Confirmation",
         "confirmDescription": "Warning! This action is irreversible. To confirm that you want to delete ALL business data, please enter the keyword below:",
@@ -917,8 +939,8 @@
           "BACKUP_BEFORE_PURGE_FAILED": "The backup taken before the purge failed, so nothing was deleted. Check the Backups tab."
         },
         "counts": {
-          "bottles_one": "{{count}} asset deleted",
-          "bottles_other": "{{count}} assets deleted",
+          "bottles_one": "{{count}} bottle or cigar deleted",
+          "bottles_other": "{{count}} bottles or cigars deleted",
           "cellars_one": "{{count}} cellar deleted",
           "cellars_other": "{{count}} cellars deleted",
           "logs_one": "{{count}} log entry deleted",
@@ -931,8 +953,8 @@
     "selected_one": "{{count}} selected",
     "selected_other": "{{count}} selected",
     "title": "Bulk Actions",
-    "subtitle_one": "Update {{count}} item",
-    "subtitle_other": "Update {{count}} items simultaneously",
+    "subtitle_one": "Update {{count}} bottle",
+    "subtitle_other": "Update {{count}} bottles simultaneously",
     "fieldsToUpdate": "Fields to update",
     "preview": "Changes summary",
     "mixed": "(Mixed values)",
@@ -953,7 +975,7 @@
       "QUANTITY_TOO_LARGE": "A line in this cellar would go over 1,000 bottles. Nothing was changed.",
       "CELLAR_NOT_FOUND": "This cellar no longer exists. Nothing was changed."
     },
-    "partHint": "For part of a wine only, go through its sheet.",
+    "partHint": "For part of a wine only, open it.",
     "move": {
       "action": "Move",
       "title": "Move to a cellar",
@@ -1093,9 +1115,10 @@
     },
     "stockUpdate": {
       "title": "Update stock?",
-      "description": "Did this tasting change the state of the asset in your cellar?",
-      "opened": "Asset opened",
-      "consumed": "Asset consumed (empty)",
+      "description": "Did this tasting change the state of the bottle in your cellar?",
+      "description_cigar": "Did this tasting change the state of the cigar in your humidor?",
+      "opened": "Bottle opened",
+      "consumed": "Bottle drunk (empty)",
       "smokeOne": {
         "opensBox_one": "I smoked one: the box is opened ({{count}} left)",
         "opensBox_other": "I smoked one: the box is opened ({{count}} left)",
@@ -1131,10 +1154,10 @@
       "searchPlaceholder": "E.g. beef bourguignon, salmon, dark chocolate...",
       "promptTitle": "Describe your dish to discover your best pairings",
       "promptHint": "Type a dish, or pick one of the quick suggestions above.",
-      "noResults": "No asset in stock matches \"{{query}}\"",
+      "noResults": "No bottle in stock matches \"{{query}}\"",
       "noResultsHint": "Try a broader term or one of the quick suggestions.",
-      "resultsCount_one": "{{count}} matching asset",
-      "resultsCount_other": "{{count}} matching assets",
+      "resultsCount_one": "{{count}} matching bottle",
+      "resultsCount_other": "{{count}} matching bottles",
       "reason": "Pairs with: {{pairing}}",
       "consumeNow": "Consume now",
       "inventoryLoadError": "Failed to load your inventory.",
@@ -1161,10 +1184,10 @@
       "define": "Set a goal",
       "edit": "Edit goal",
       "targetType": "Goal type",
-      "targetTypeCount": "Number of assets",
+      "targetTypeCount": "Number of bottles",
       "targetTypeVolume": "Volume (in bottles)",
       "targetValue": "Target",
-      "progressLabel": "{{count}} / {{target}} assets consumed",
+      "progressLabel": "{{count}} / {{target}} bottles consumed",
       "saveError": "Could not save the goal. Please try again."
     },
     "suggestions": {
@@ -1266,9 +1289,15 @@
         "none": "Do nothing",
         "drunk_one": "Drunk",
         "drunk_other": "Drunk",
+        "drunk_cigar_one": "Smoked",
+        "drunk_cigar_other": "Smoked",
+        "drunk_box_one": "Finished",
+        "drunk_box_other": "Finished",
         "input_error": "Input error",
         "written_off_one": "Broken / given away / lost",
-        "written_off_other": "Broken / given away / lost"
+        "written_off_other": "Broken / given away / lost",
+        "written_off_cigar_one": "Broken / given away / lost",
+        "written_off_cigar_other": "Broken / given away / lost"
       },
       "addSurplus_one": "Add {{count}} bottle to the group",
       "addSurplus_other": "Add {{count}} bottles to the group",
@@ -1311,7 +1340,7 @@
       "cigarHumidor": "Cigars in humidor",
       "cigarHumidorHint": "Preserved under controlled humidity",
       "urgentDegustation": "Tasting urgency",
-      "urgentDegustationHint": "Assets at or past their peak",
+      "urgentDegustationHint": "Bottles at or past their peak",
       "cigarCount_one": "{{count}} cigar",
       "cigarCount_other": "{{count}} cigars"
     },
@@ -1332,12 +1361,12 @@
         "heatmap": "Heatmap by type"
       },
       "heatmapType": {
-        "label": "Asset type",
+        "label": "Category",
         "dominant": "Dominant category"
       },
       "filters": {
         "title": "Filters",
-        "type": "Asset type",
+        "type": "Category",
         "priceRange": "Price range (€)",
         "vintageRange": "Vintage / Year",
         "min": "Min",
@@ -1351,17 +1380,17 @@
         "regionAny": "All regions"
       },
       "list": {
-        "title": "Assets in the selected region",
-        "titleAll": "Assets matching the filters",
-        "empty": "No assets match the selected filters.",
-        "itemCount_one": "{{count}} asset",
-        "itemCount_other": "{{count}} assets"
+        "title": "Results in the selected region",
+        "titleAll": "Results matching the filters",
+        "empty": "Nothing matches the selected filters.",
+        "itemCount_one": "{{count}} result",
+        "itemCount_other": "{{count}} results"
       },
       "regionSelected": "Selected region: {{region}}"
     },
     "categories": {
       "title": "Category breakdown",
-      "active": "Active",
+      "active": "In stock",
       "wine": "Red & White Wines",
       "sparkling": "Bubbles & Champagnes",
       "spirit": "Fine Spirits",
@@ -1375,14 +1404,14 @@
     },
     "garde": {
       "title": "Garde Planning (Histogram)",
-      "subtitle": "Temporal distribution of assets by optimal peak year",
+      "subtitle": "Temporal distribution of bottles by optimal peak year",
       "noData": "No peak maturity windows set in your inventory.",
-      "bottles_one": "asset at peak",
-      "bottles_other": "assets at peak",
-      "chartSummary": "Bar chart: number of assets reaching peak maturity each year, {{years}} years from {{from}} to {{to}}.",
+      "bottles_one": "bottle at peak",
+      "bottles_other": "bottles at peak",
+      "chartSummary": "Bar chart: number of bottles reaching peak maturity each year, {{years}} years from {{from}} to {{to}}.",
       "showData": "Show data",
       "yearColumn": "Year",
-      "countColumn": "Assets at peak"
+      "countColumn": "Bottles at peak"
     },
     "caves": {
       "title": "Distribution by cellar"
@@ -1390,13 +1419,13 @@
     "maturity": {
       "title": "Optimal Consumption Planning (Peak)",
       "season": "Season {{year}}",
-      "description": "This projection shows the ideal period to consume your assets to preserve their aromatic integrity.",
+      "description": "This projection shows the ideal period to consume your bottles to preserve their aromatic integrity.",
       "preserve": "To preserve in cellar / humidor",
       "atPeak": "At peak (Drink with priority)",
       "pastPeak": "Past peak (Drink urgently)",
       "noWindow": "No maturity window tracked",
-      "countLabel_one": "{{count}} item ({{percent}}%)",
-      "countLabel_other": "{{count}} items ({{percent}}%)",
+      "countLabel_one": "{{count}} ({{percent}}%)",
+      "countLabel_other": "{{count}} ({{percent}}%)",
       "humidorTip": "Humidor Tip",
       "humidorTipText": "Cuban cigars benefit from stable humidity at 70%. Avoid thermal shocks to preserve the wrapper's suppleness."
     },
@@ -1441,7 +1470,7 @@
   },
   "qr": {
     "localhostWarning": "This address (localhost) will not be reachable from another device: the QR code will not work on a phone. Open Glou through the server address before printing it.",
-    "title": "Asset QR Code",
+    "title": "QR Code",
     "download": "Download PNG"
   },
   "gdpr": {
@@ -1719,7 +1748,7 @@
       "saved": "Integrations saved.",
       "scan": {
         "title": "Label scanning",
-        "active": "Active",
+        "active": "Enabled",
         "inactive": "Not enabled",
         "howToEnable": "The recognition service is not running, or its model is still downloading, so scanning is hidden from members. To enable it (about 9 GB of disk and 3 GB of memory), run the command below on the server, then wait for the model download to finish:"
       }
@@ -1882,7 +1911,7 @@
     },
     "cellar": {
       "title": "Create your first cellar",
-      "subtitle": "Give your cellar a name to start organizing your assets in it.",
+      "subtitle": "Give your cellar a name to start organizing your bottles in it.",
       "namePlaceholder": "E.g. Wine cellar",
       "skipStep": "Skip this step",
       "createCta": "Create cellar",
@@ -1903,7 +1932,7 @@
       "cigars_other": "{{count}} cigars in stock"
     },
     "ingestion": {
-      "title": "How would you like to add your assets?",
+      "title": "How would you like to add your bottles?",
       "subtitle": "Pick the method that suits you best. You can always use the others later.",
       "skipStep": "Skip this step",
       "scan": {
@@ -1912,26 +1941,26 @@
       },
       "import": {
         "title": "File Import",
-        "description": "Import a CSV file listing your assets."
+        "description": "Import a CSV file listing your bottles."
       },
       "manual": {
         "title": "Manual Entry",
-        "description": "Enter your bottles or assets one by one."
+        "description": "Enter your bottles and cigars one by one."
       }
     },
     "manual": {
       "title": "Manual entry",
-      "subtitle": "Add as many assets as you like, then continue.",
-      "addButton": "Add an asset",
-      "itemsAdded_one": "{{count}} asset added so far",
-      "itemsAdded_other": "{{count}} assets added so far",
+      "subtitle": "Add as many bottles as you like, then continue.",
+      "addButton": "Add a bottle",
+      "itemsAdded_one": "{{count}} bottle or cigar added so far",
+      "itemsAdded_other": "{{count}} bottles or cigars added so far",
       "doneButton": "Finish adding"
     },
     "scan": {
       "title": "Quick scan",
       "subtitle": "Photograph your labels one by one, then continue.",
-      "itemsAdded_one": "{{count}} asset added so far",
-      "itemsAdded_other": "{{count}} assets added so far",
+      "itemsAdded_one": "{{count}} bottle or cigar added so far",
+      "itemsAdded_other": "{{count}} bottles or cigars added so far",
       "doneButton": "Finish adding"
     },
     "csv": {
@@ -2006,9 +2035,9 @@
       "subtitle": "Here's a recap of your initial setup.",
       "cellarCreated": "Cellar created: {{name}}",
       "noCellar": "No cellar created yet",
-      "itemsAdded_one": "{{count}} asset added to your inventory",
-      "itemsAdded_other": "{{count}} assets added to your inventory",
-      "noItems": "No asset added yet",
+      "itemsAdded_one": "{{count}} bottle or cigar added to your inventory",
+      "itemsAdded_other": "{{count}} bottles or cigars added to your inventory",
+      "noItems": "No bottle or cigar added yet",
       "imported": "Imported: {{what}}",
       "nothingImported": "No bottle imported",
       "bottles_one": "{{count}} bottle",
@@ -2437,7 +2466,6 @@
       "showLess": "See less",
       "needsReview": "To check after the update",
       "level": "Level of this bottle",
-      "reattached": "Bottle put back with the others",
       "levelFull": "Full",
       "levelHalf": "Half",
       "levelEmpty": "Empty"
@@ -2598,6 +2626,7 @@
       "one_other": "From the opened box ({{count}} left) or open a new one?",
       "several_one": "From an opened box ({{count}} box) or open a new one?",
       "several_other": "From one of the {{count}} opened boxes or open a new one?",
+      "which": "In which one?",
       "inOpened": "From the opened box",
       "new": "Open a new one",
       "single": "A single cigar"

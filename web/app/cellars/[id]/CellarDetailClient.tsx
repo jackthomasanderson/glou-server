@@ -142,7 +142,7 @@ export function CellarDetailClient() {
         {/* Grid cards */}
         {view === 'grid' && (
           cellarItems.length === 0 ? (
-            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles')}</div>
+            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cellar?.type === 'HUMIDOR' ? { context: 'cigar' } : undefined)}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {cellarItems.map((item) => <BottleCard key={item.id} item={item} onPress={() => setViewingItem(item)} />)}
@@ -153,7 +153,7 @@ export function CellarDetailClient() {
         {/* List view */}
         {view === 'list' && (
           cellarItems.length === 0 ? (
-            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles')}</div>
+            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cellar?.type === 'HUMIDOR' ? { context: 'cigar' } : undefined)}</div>
           ) : (
             <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('nav.bottles')}
               onRowAction={(key) => {
@@ -190,7 +190,7 @@ export function CellarDetailClient() {
         {/* Map/grid plan */}
         {view === 'map' && !hasGrid && (
           cellarItems.length === 0 ? (
-            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles')}</div>
+            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cellar?.type === 'HUMIDOR' ? { context: 'cigar' } : undefined)}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {cellarItems.map((item) => <BottleCard key={item.id} item={item} onPress={() => setViewingItem(item)} />)}

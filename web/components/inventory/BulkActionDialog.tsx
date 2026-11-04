@@ -9,6 +9,7 @@ import { FilterChip } from '@/components/ui/FilterControls';
 import { Save, Trash2 } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
+import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { useBulkPresets, useCreateBulkPreset, useDeleteBulkPreset } from '@/hooks/useBulkPresets';
 
 interface BulkActionDialogProps {
@@ -57,6 +58,8 @@ export function BulkActionDialog({
   wineSelection = false,
   subtitle,
 }: BulkActionDialogProps) {
+  // FEAT-108 (§10.8): the bulk edit is written at once, never queued.
+  const offline = useOfflineBlocked();
   const { data: cellars } = useCellars();
   const { data: presets } = useBulkPresets();
   const createPresetMutation = useCreateBulkPreset();
@@ -376,14 +379,15 @@ export function BulkActionDialog({
 
             <ModalFooter className="gap-2 pt-2">
               <Button variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
-              <Button
+              <OfflineBlockedButton
+                blocked={offline}
                 color="primary"
                 onPress={handleApply}
                 isDisabled={!hasChanges || isSubmitting}
                 isLoading={isSubmitting}
               >
                 {t('bulk.apply')}
-              </Button>
+              </OfflineBlockedButton>
             </ModalFooter>
           </>
         )}

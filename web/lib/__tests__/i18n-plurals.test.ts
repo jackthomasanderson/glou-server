@@ -62,7 +62,7 @@ describe('plural forms (#220)', () => {
     expect(t('cellars.nFound', { count: 1 })).toBe('1 cave trouvée');
     expect(t('cellars.nFound', { count: 0 })).toBe('0 cave trouvée');
     expect(t('cellars.nFound', { count: 2 })).toBe('2 caves trouvées');
-    expect(t('onboarding.summary.itemsAdded', { count: 5 })).toBe('5 actifs ajoutés à votre inventaire');
+    expect(t('onboarding.summary.itemsAdded', { count: 5 })).toBe('5 bouteilles ou cigares ajoutés à votre inventaire');
   });
 
   it('count-less labels of a pair now need a count', async () => {
@@ -70,6 +70,6 @@ describe('plural forms (#220)', () => {
     expect(t('cellars.grid.occupied', { count: 1 })).toBe('occupé');
     expect(t('cellars.grid.occupied', { count: 4 })).toBe('occupés');
     expect(t('analytics.regionMap.items', { count: 1 })).toBe('élément en stock');
-    expect((await instance('en')).t('analytics.garde.bottles', { count: 2 })).toBe('assets at peak');
+    expect((await instance('en')).t('analytics.garde.bottles', { count: 2 })).toBe('bottles at peak');
   });
 });

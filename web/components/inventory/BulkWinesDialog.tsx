@@ -5,6 +5,7 @@ import { Button, Checkbox, ModalBody, ModalContent, ModalFooter, ModalHeader, Ra
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { useCellars } from '@/hooks/useCellars';
 import { useBulkWines } from '@/hooks/useProducts';
+import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { notifySuccess } from '@/lib/toast';
 import { wineName } from '@/lib/products/stock';
 import {
@@ -43,6 +44,8 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
   const { t } = useTranslation();
   const { data: cellars } = useCellars();
   const bulk = useBulkWines();
+  // FEAT-108 (§10.8): written at once, never queued: unavailable while offline.
+  const offline = useOfflineBlocked();
   const [destination, setDestination] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, DrinkAnswer>>({});
 
@@ -93,7 +96,7 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
             className="contents"
             onSubmit={(event) => {
               event.preventDefault();
-              if (!bulk.isPending) confirm();
+              if (!bulk.isPending && !offline) confirm();
             }}
           >
             <ModalHeader className="flex flex-col gap-0.5 pb-1">
@@ -121,7 +124,8 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
               <Button variant="light" onPress={onClose} isDisabled={bulk.isPending} className="flex-1">
                 {t('actions.cancel')}
               </Button>
-              <Button
+              <OfflineBlockedButton
+                blocked={offline}
                 type="submit"
                 color={action === 'trash' ? 'danger' : 'primary'}
                 isDisabled={!canConfirm}
@@ -129,7 +133,7 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
                 className="flex-1"
               >
                 {action ? t(`bulkWines.${action}.confirm`, { context: cigars ? 'cigar' : undefined }) : ''}
-              </Button>
+              </OfflineBlockedButton>
             </ModalFooter>
           </form>
         )}
