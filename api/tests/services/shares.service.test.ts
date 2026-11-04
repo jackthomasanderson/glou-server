@@ -240,8 +240,10 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
       cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: true, hideNotes: true,
     });
 
-    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> };
-    expect(call.select.notes).toBe(false);
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> & { product: { select: Record<string, unknown> } } };
+    // #471 (lot Z): the notes are the family's.
+    expect(call.select.product.select.notes).toBe(false);
+    expect(call.select).not.toHaveProperty('notes');
     expect(call.select.purchasePrice).toBe(false);
     expect(call.select.purchasePlace).toBe(false);
     expect(call.select.estimatedValue).toBe(false);
@@ -257,10 +259,23 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
       cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: false, hideNotes: false,
     });
 
-    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> };
-    expect(call.select.notes).toBe(true);
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> & { product: { select: Record<string, unknown> } } };
+    expect(call.select.product.select.notes).toBe(true);
     expect(call.select.purchasePrice).toBe(true);
     expect(call.select.purchasedAt).toBe(true);
+  });
+
+  // #471 (lot Z): a unit has no description of its own; the guest reads its family's, flat as before.
+  it('serves each line with its family\'s description, flat', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'i1', quantity: 6, purchasePrice: 20, product: { name: 'Talbot', category: 'wine', notes: 'Nice' } },
+    ] as never);
+
+    const items = await sharesService.getInventoryForShare({
+      cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: false, hideNotes: false,
+    });
+
+    expect(items).toEqual([{ id: 'i1', quantity: 6, purchasePrice: 20, name: 'Talbot', category: 'wine', notes: 'Nice' }]);
   });
 
   it('scopes to the declared cellarIds/collectionIds, not to the creating user (shared-inventory invariant)', async () => {
