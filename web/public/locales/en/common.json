@@ -943,8 +943,48 @@
     "loadPreset": "Load preset",
     "deletePreset": "Delete preset",
     "deletePresetConfirm": "This action preset will be permanently deleted.",
-    "success_one": "{{count}} item has been updated",
-    "success_other": "{{count}} items have been updated"
+    "success_one": "Change applied",
+    "success_other": "Changes applied"
+  },
+  "bulkWines": {
+    "error": "The bulk action could not be applied. Nothing was changed.",
+    "partHint": "For part of a wine only, go through its sheet.",
+    "move": {
+      "action": "Move",
+      "title": "Move to a cellar",
+      "where": "To which cellar?",
+      "confirm": "Move",
+      "done": "Moved: {{units}}"
+    },
+    "drink": {
+      "action": "Mark as drunk",
+      "action_cigar": "Mark as smoked",
+      "title": "Mark as drunk",
+      "title_cigar": "Mark as smoked",
+      "howMany": "How many bottles drunk? (of {{total}})",
+      "howManyCigars": "How many cigars smoked? (of {{total}})",
+      "onlyBottle": "Its only bottle in the cellar will be marked as drunk.",
+      "onlyCigar": "Its only cigar in the cellar will be marked as smoked.",
+      "openedFirst": "Starting with the opened one ({{level}} %)",
+      "openedFirstNoLevel": "Starting with the opened one",
+      "openedBoxFirst_one": "Starting with the opened box ({{count}} left)",
+      "openedBoxFirst_other": "Starting with the opened box ({{count}} left)",
+      "confirm": "Mark as drunk",
+      "confirm_cigar": "Mark as smoked",
+      "done": "Marked as drunk: {{units}}",
+      "done_cigar": "Marked as smoked: {{units}}"
+    },
+    "trash": {
+      "action": "Move to trash",
+      "title": "Move to trash",
+      "body": "Every bottle of these wines in the cellar goes to the trash, where you can restore it. Bottles already drunk are not affected.",
+      "body_cigar": "Every cigar of these references in the cellar goes to the trash, where you can restore it. Cigars already smoked are not affected.",
+      "confirm": "Move to trash",
+      "done": "Moved to the trash: {{units}}"
+    },
+    "edit": {
+      "action": "Edit fields…"
+    }
   },
   "traceability": {
     "title": "Traceability",
