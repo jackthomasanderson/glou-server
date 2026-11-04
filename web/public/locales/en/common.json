@@ -1007,6 +1007,19 @@
       "load": "Failed to load collections."
     }
   },
+  "tastingWine": {
+    "wine": "Wine tasted",
+    "notListed": "This wine is not in the list",
+    "pickFromList": "Pick a wine from the list",
+    "namedHint": "Tasted elsewhere: if Glou already knows this wine, the tasting goes on it; otherwise Glou adds it without any bottle.",
+    "vitola": "Vitola",
+    "onBottle": "On a bottle from your cellar?",
+    "onCigar": "On a cigar from your cellar?",
+    "yes": "Yes",
+    "elsewhere": "No, tasted elsewhere",
+    "whichBottle": "Which bottle?",
+    "whichCigars": "Which cigars?"
+  },
   "tastings": {
     "title": "Tasting journal",
     "create": "New tasting",

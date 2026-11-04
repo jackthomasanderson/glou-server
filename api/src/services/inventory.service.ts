@@ -26,6 +26,20 @@ import { isSlotTaken } from '../lib/slots';
 // item whose photoUrl is some other external address must never be touched.
 const LOCAL_PRODUCT_PHOTO_PREFIX = '/uploads/products/';
 
+/** `/uploads/products/<file>` of a photo URL, absolute or not; null when it is not a local product photo. */
+export function localPhotoPath(url: string | null): string | null {
+  if (!url) return null;
+  let pathname: string;
+  try {
+    pathname = new URL(url, 'http://local').pathname;
+  } catch {
+    return null;
+  }
+  return pathname.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX) && !pathname.slice(LOCAL_PRODUCT_PHOTO_PREFIX.length).includes('/')
+    ? pathname
+    : null;
+}
+
 export type { FieldChange };
 
 /**
@@ -364,8 +378,9 @@ export class InventoryService {
     // `alertStatus` is always derived from the drinking window (below), never
     // taken from a patch, so it is neither written, locked nor logged from it.
     // #471: `smokeOne` and `keepTastings` are instructions to the detach /
-    // reattach rule (stock-state.service.ts), not columns either.
-    const { expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, ...patch } = rawPatch;
+    // reattach rule (stock-state.service.ts), not columns either; nor is
+    // `tastingId`, the tasting that follows a detached copy (FEAT-107).
+    const { expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, tastingId, ...patch } = rawPatch;
     const row = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
       include: INVENTORY_ITEM_INCLUDE,
@@ -487,6 +502,11 @@ export class InventoryService {
           tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
           { userId, kind, include: INVENTORY_ITEM_INCLUDE },
         );
+        // FEAT-107 c3: the tasting noted on the group goes with the copy taken
+        // off it — the finished bottle is the one that was tasted.
+        if (tastingId && result.outcome === 'detached') {
+          await tx.tastingNote.updateMany({ where: { id: tastingId, itemId: id }, data: { itemId: result.data.id } });
+        }
         // A whole group made identical to another one by this edit joins it
         // (design.md rule 4): the answer is then that group (D8).
         const regroups = result.outcome === 'updated'
@@ -613,7 +633,7 @@ export class InventoryService {
       .map((row) => ({ row, view: toItemView(row) }))
       .sort((a, b) => compareFamilyIds(a.row.productId, b.row.productId) || compareFamilyIds(a.row.id, b.row.id));
     // #471: `smokeOne`/`keepTastings` are instructions to the detach rule, not columns.
-    const { smokeOne, keepTastings, expectedUpdatedAt: _sync, ...columns } = patch;
+    const { smokeOne, keepTastings, tastingId: _tasting, expectedUpdatedAt: _sync, ...columns } = patch;
     const familyPatch = pickProductFields(this.mapInputToDb(columns));
     const unitPatch = Object.fromEntries(Object.entries(this.mapInputToDb(columns)).filter(([key]) => !isProductField(key)));
 
@@ -798,7 +818,13 @@ export class InventoryService {
     return { count: result.count, photoPaths: photos.filter((url) => !stillReferenced.has(url)) };
   }
 
-  /** The local product photos referenced by a unit or a family (its photo or its other photos). */
+  /**
+   * The local product photos referenced by a unit, a family (its photo or its
+   * other photos) or a tasting (#471, FEAT-107). A tasting's photo is stored
+   * as an absolute URL: its path is what names the file. A deleted tasting
+   * (by hand, by a reattach answered "Ne pas la garder", or with its wine at
+   * the purge, QP7) thus leaves its photo to the orphan sweep.
+   */
   private async referencedProductPhotos(client: PrismaClientOrTx, among?: string[]): Promise<Set<string>> {
     if (among?.length === 0) return new Set();
     const urls = among ? { in: among } : { startsWith: LOCAL_PRODUCT_PHOTO_PREFIX };
@@ -807,8 +833,14 @@ export class InventoryService {
       where: { OR: [{ photoUrl: urls }, among ? { otherPhotoUrls: { hasSome: among } } : { otherPhotoUrls: { isEmpty: false } }] },
       select: { photoUrl: true, otherPhotoUrls: true },
     });
+    const tastings = await client.tastingNote.findMany({
+      where: { photoUrl: { contains: LOCAL_PRODUCT_PHOTO_PREFIX } },
+      select: { photoUrl: true },
+    });
+    const tastingPaths = tastings.map((tasting) => localPhotoPath(tasting.photoUrl))
+      .filter((url) => url !== null && (!among || among.includes(url)));
     return new Set(
-      [...items.map((item) => item.photoUrl), ...families.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls])]
+      [...items.map((item) => item.photoUrl), ...families.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]), ...tastingPaths]
         .filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX)),
     );
   }

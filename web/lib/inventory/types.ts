@@ -134,7 +134,11 @@ export interface InventoryItem {
  * fields, or an instruction to the detach rule (#471, K): `smokeOne` smokes
  * one cigar — the first of a closed box opens it, a single cigar is finished.
  */
-export type InventoryItemPatch = Partial<InventoryItem> & { smokeOne?: true };
+export type InventoryItemPatch = Partial<InventoryItem> & {
+  smokeOne?: true;
+  /** #471 (FEAT-107 c3): the tasting noted with this state follows the bottle detached from its group. */
+  tastingId?: string;
+};
 
 export interface InventoryFieldChange {
   field: string;

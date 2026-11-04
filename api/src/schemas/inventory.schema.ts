@@ -229,6 +229,10 @@ export const inventoryPatchObject = z.object({
   // if tastings were noted on it, the answer to "keep them?" (on the family)
   // — without it, 409 TASTINGS_ON_ITEM.
   keepTastings: z.boolean().optional(),
+  // #471 (FEAT-107 c3): the tasting this state was noted with ("Bue" after a
+  // tasting): it follows the copy carrying the state when one is detached
+  // from a group, so the finished bottle is the one holding it.
+  tastingId: z.string().guid().optional(),
   reminderDate: z.coerce.date().optional().nullable(),
   alertStatus: z.enum(ALERT_STATUSES).optional().nullable(),
   alertsPaused: z.boolean().optional(),
