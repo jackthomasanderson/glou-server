@@ -56,13 +56,14 @@ test.describe('CSV export (#471, FEAT-99)', () => {
     const api = page.request;
     const id = stamp();
     const cave = `Cave, "A" ${id}`;
+    const csvCave = cave.replace(/"/g, '""');
     const humidor = `Humidor ${id}`;
     try {
       const source = [
         'name,producer,category,vintage,quantity,price,purchase date,cellar,bottle size,cigars per box,opened,fill level,cigars left',
-        `"Talbot, ${id}",Château Talbot,wine,2015,4,20,2024-01-15,"${cave}",75cl,,,,`,
-        `"Talbot, ${id}",Château Talbot,wine,2015,2,25,2024-06-10,"${cave}",,,,,`,
-        `"Talbot, ${id}",Château Talbot,wine,2015,,20,,"${cave}",,,yes,40,`,
+        `"Talbot, ${id}",Château Talbot,wine,2015,4,20,2024-01-15,"${csvCave}",75cl,,,,`,
+        `"Talbot, ${id}",Château Talbot,wine,2015,2,25,2024-06-10,"${csvCave}",,,,,`,
+        `"Talbot, ${id}",Château Talbot,wine,2015,,20,,"${csvCave}",,,yes,40,`,
         `=Cohiba ${id},Cohiba,cigar,,3,150,2024-03-01,${humidor},,20,,,`,
         `=Cohiba ${id},Cohiba,cigar,,,150,2024-03-01,${humidor},,20,yes,,7`,
       ].join('\n');
@@ -116,7 +117,7 @@ test.describe('CSV export (#471, FEAT-99)', () => {
   });
 
   test('is for signed-in members only', async ({ baseURL }) => {
-    const anonymous = await request.newContext({ baseURL });
+    const anonymous = await request.newContext({ baseURL, storageState: { cookies: [], origins: [] } });
     try {
       expect((await anonymous.get('/api/inventory/export.csv')).status()).toBe(401);
     } finally {
