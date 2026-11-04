@@ -94,4 +94,10 @@ describe('toCsv (FEAT-99 export)', () => {
     expect(neutralizeFormula('Château')).toBe('Château');
     expect(toCsv(['a', 'b'], [['=HYPERLINK("http://x")', -5]]).slice(1)).toBe(`a,b\r\n"'=HYPERLINK(""http://x"")",-5\r\n`);
   });
+
+  it('separates with ";" on request and quotes a cell that holds it', () => {
+    const out = toCsv(['a', 'b'], [['x;y', 'z, w']], ';');
+    expect(out.slice(1)).toBe('a;b\r\n"x;y";z, w\r\n');
+    expect(parseCsv(out)).toEqual([{ a: 'x;y', b: 'z, w' }]);
+  });
 });

@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { CATEGORY_VALUES, categorySchema } from '../lib/category';
 import { MAX_COPIES } from './stock.schema';
-import { CSV_IMPORT_MAX_ROWS, CSV_SINGLE_CIGARS, groupCsvRows } from '../../../shared/import';
+import { CSV_IMPORT_MAX_ROWS, CSV_LIST_SEPARATOR, CSV_SINGLE_CIGARS, groupCsvRows } from '../../../shared/import';
+import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '../../../shared/inventory';
 
 // ─── FEAT-56: CSV Import (Onboarding Setup Wizard) ───────────────────────────
 // Minimal column set, matching the wizard's "Import Fichier" step: name,
@@ -79,11 +80,12 @@ const toBoxSize = (v: unknown): unknown => {
 const purchaseDay = z.iso.date().refine(inPurchaseYears, 'INVALID_PURCHASE_DATE');
 const boxSize = z.union([z.number().int().min(1).max(MAX_COPIES), z.literal(CSV_SINGLE_CIGARS)]);
 
+
 /** FEAT-99: "yes"/"oui"/"x"… in the opened column; blank = not opened. */
 const OPENED_TOKENS = new Set(['yes', 'y', 'oui', 'o', 'true', '1', 'x', 'opened', 'open', 'entame', 'entamee', 'ouvert', 'ouverte']);
 const CLOSED_TOKENS = new Set(['no', 'n', 'non', 'false', '0', 'closed', 'ferme', 'fermee']);
 
-const toOpened = (v: unknown): unknown => {
+export const toOpened = (v: unknown): unknown => {
   if (typeof v !== 'string') return v;
   if (v.trim() === '') return undefined;
   const token = normalizeCsvToken(v);
@@ -95,9 +97,12 @@ const toOpened = (v: unknown): unknown => {
  * what it is; neither of the two says anything for a closed one.
  */
 function checkOpenedState(
-  row: { opened?: boolean; quantity?: number; cigarsPerBox?: number | 'single'; cigarsLeft?: number },
+  row: { opened?: boolean; quantity?: number; cigarsPerBox?: number | 'single'; cigarsLeft?: number; peakMaturityFrom?: number; peakMaturityTo?: number },
   ctx: z.RefinementCtx,
 ) {
+  if (row.peakMaturityFrom !== undefined && row.peakMaturityTo !== undefined && row.peakMaturityTo < row.peakMaturityFrom) {
+    ctx.addIssue({ code: 'custom', message: 'INVALID_PEAK_WINDOW', path: ['peakMaturityTo'] });
+  }
   if (!row.opened) return;
   if (row.quantity !== undefined && row.quantity > 1) ctx.addIssue({ code: 'custom', message: 'INVALID_QUANTITY', path: ['quantity'] });
   if (typeof row.cigarsPerBox === 'number' && row.cigarsLeft !== undefined && row.cigarsLeft > row.cigarsPerBox) {
@@ -105,7 +110,95 @@ function checkOpenedState(
   }
 }
 
+// ─── Family description carried by the export (FEAT-99) ──────────────────────
+
+/** A colour as a French spreadsheet writes it; anything else unknown is left out, not refused. */
+const COLOR_ALIASES: Record<string, (typeof WINE_COLORS)[number]> = {
+  red: 'red', rouge: 'red', white: 'white', blanc: 'white', rose: 'rosé', rosé: 'rosé', orange: 'orange',
+};
+
+/** A closed-list cell: an unknown value is dropped (the description is optional), never a reason to refuse the row. */
+const leniently = <T extends string>(values: readonly T[], aliases: Record<string, T> = {}) => (v: unknown): unknown => {
+  if (typeof v !== 'string') return v;
+  const token = normalizeCsvToken(v);
+  return aliases[token] ?? values.find((value) => normalizeCsvToken(value) === token);
+};
+
+const toNum = (v: unknown): unknown => {
+  const cleaned = toNumber(v);
+  if (typeof cleaned !== 'string') return cleaned;
+  return Number.isNaN(Number(cleaned)) ? cleaned : Number(cleaned);
+};
+
+const toList = (v: unknown): unknown => {
+  if (typeof v !== 'string') return v;
+  const items = v.split(CSV_LIST_SEPARATOR).map((item) => item.trim()).filter((item) => item !== '');
+  return items.length === 0 ? undefined : items;
+};
+
+const optText = (max: number, code: string) => z.string().trim().max(max, code).optional();
+const optInt = (min: number, max: number, code: string) => z.number({ error: code }).int(code).min(min, code).max(max, code).optional();
+const optNum = (min: number, max: number, code: string) => z.number({ error: code }).min(min, code).max(max, code).optional();
+
+/** Validated shape of each description column, as /confirm receives it. */
+const familyFields = {
+  color: z.enum(WINE_COLORS).optional(),
+  appellation: optText(200, 'APPELLATION_TOO_LONG'),
+  classification: optText(200, 'CLASSIFICATION_TOO_LONG'),
+  grapeVarieties: z.array(z.string().trim().min(1).max(100, 'GRAPE_TOO_LONG')).max(10, 'TOO_MANY_GRAPES').optional(),
+  tags: z.array(z.string().trim().min(1).max(50, 'TAG_TOO_LONG')).max(20, 'TOO_MANY_TAGS').optional(),
+  notes: optText(2000, 'NOTES_TOO_LONG'),
+  collection: optText(200, 'COLLECTION_TOO_LONG'),
+  serviceTemp: optText(50, 'SERVICE_TEMP_TOO_LONG'),
+  lotNumber: optText(50, 'LOT_NUMBER_TOO_LONG'),
+  peakMaturityFrom: optInt(1800, 2200, 'INVALID_PEAK_WINDOW'),
+  peakMaturityTo: optInt(1800, 2200, 'INVALID_PEAK_WINDOW'),
+  needsAeration: z.boolean({ error: 'INVALID_NEEDS_AERATION' }).optional(),
+  sparklingType: z.enum(SPARKLING_TYPES).optional(),
+  sugarLevel: z.enum(SUGAR_LEVELS).optional(),
+  baseYear: optInt(1800, new Date().getFullYear(), 'INVALID_BASE_YEAR'),
+  batchDate: z.iso.date({ error: 'INVALID_BATCH_DATE' }).refine(inPurchaseYears, 'INVALID_BATCH_DATE').optional(),
+  disgorgingDate: z.iso.date({ error: 'INVALID_DISGORGING_DATE' }).refine(inPurchaseYears, 'INVALID_DISGORGING_DATE').optional(),
+  spiritType: optText(50, 'SPIRIT_TYPE_TOO_LONG'),
+  edition: optText(200, 'EDITION_TOO_LONG'),
+  declaredAge: optInt(0, 200, 'INVALID_DECLARED_AGE'),
+  caskType: optText(100, 'CASK_TYPE_TOO_LONG'),
+  additions: optText(500, 'ADDITIONS_TOO_LONG'),
+  aromaticProfile: optText(500, 'AROMATIC_PROFILE_TOO_LONG'),
+  isSingleCask: z.boolean({ error: 'INVALID_SINGLE_CASK' }).optional(),
+  caskNumber: optText(100, 'CASK_NUMBER_TOO_LONG'),
+  caskProof: optNum(0, 100, 'INVALID_CASK_PROOF'),
+  manufactureYear: optInt(1900, new Date().getFullYear(), 'INVALID_MANUFACTURE_YEAR'),
+  leafOrigin: optText(200, 'LEAF_ORIGIN_TOO_LONG'),
+  factoryCode: optText(50, 'FACTORY_CODE_TOO_LONG'),
+  recommendedHumidity: optNum(50, 100, 'INVALID_HUMIDITY'),
+  humidificationSystem: optText(200, 'HUMIDIFICATION_TOO_LONG'),
+};
+
+/** How a raw cell reaches {@link familyFields}: blank = absent, then the column's own reading. */
+const familyCells: Record<keyof typeof familyFields, (v: unknown) => unknown> = {
+  color: leniently(WINE_COLORS, COLOR_ALIASES),
+  appellation: emptyToUndefined, classification: emptyToUndefined,
+  grapeVarieties: toList, tags: toList,
+  notes: emptyToUndefined, collection: emptyToUndefined, serviceTemp: emptyToUndefined, lotNumber: emptyToUndefined,
+  peakMaturityFrom: toNum, peakMaturityTo: toNum,
+  needsAeration: toOpened,
+  sparklingType: leniently(SPARKLING_TYPES), sugarLevel: leniently(SUGAR_LEVELS),
+  baseYear: toNum, batchDate: toPurchaseDay, disgorgingDate: toPurchaseDay,
+  spiritType: emptyToUndefined, edition: emptyToUndefined, declaredAge: toNum,
+  caskType: emptyToUndefined, additions: emptyToUndefined, aromaticProfile: emptyToUndefined,
+  isSingleCask: toOpened, caskNumber: emptyToUndefined, caskProof: toNum,
+  manufactureYear: toNum, leafOrigin: emptyToUndefined, factoryCode: emptyToUndefined,
+  recommendedHumidity: toNum, humidificationSystem: emptyToUndefined,
+};
+
+/** {@link familyFields} reading raw cells (all strings). */
+const rawFamilyFields = Object.fromEntries(
+  Object.entries(familyFields).map(([key, schema]) => [key, z.preprocess(familyCells[key as keyof typeof familyFields], schema)]),
+) as unknown as typeof familyFields;
+
 export const csvRawRowSchema = z.object({
+  ...rawFamilyFields,
   name: z.string().trim().min(1, 'NAME_REQUIRED').max(200, 'NAME_TOO_LONG'),
   producer: z.string().trim().min(1, 'PRODUCER_REQUIRED').max(200, 'PRODUCER_TOO_LONG'),
   category: z.preprocess(
@@ -154,6 +247,14 @@ export const csvRawRowSchema = z.object({
     emptyToUndefined,
     z.coerce.number({ error: 'INVALID_CIGARS_LEFT' }).int('INVALID_CIGARS_LEFT').min(1, 'INVALID_CIGARS_LEFT').max(MAX_COPIES, 'INVALID_CIGARS_LEFT').optional(),
   ),
+  openedAt: z.preprocess(toPurchaseDay, z.iso.date({ error: 'INVALID_OPENED_DATE' }).refine(inPurchaseYears, 'INVALID_OPENED_DATE').optional()),
+  purchasePlace: z.preprocess(emptyToUndefined, z.string().trim().max(200, 'PURCHASE_PLACE_TOO_LONG').optional()),
+  location: z.preprocess(emptyToUndefined, z.string().trim().max(200, 'LOCATION_TOO_LONG').optional()),
+  estimatedValue: z.preprocess(
+    toNumber,
+    z.coerce.number({ error: 'INVALID_ESTIMATED_VALUE' }).min(0, 'INVALID_ESTIMATED_VALUE').max(10_000_000, 'INVALID_ESTIMATED_VALUE').optional(),
+  ).transform(toCents),
+  needsReview: z.preprocess(toOpened, z.boolean({ error: 'INVALID_NEEDS_REVIEW' }).optional()),
 }).superRefine(checkOpenedState);
 
 /**
@@ -177,6 +278,12 @@ export const csvImportRowSchema = z.object({
   opened: z.boolean().optional(),
   fillLevel: z.number().int().min(1).max(100).optional(),
   cigarsLeft: z.number().int().min(1).max(MAX_COPIES).optional(),
+  openedAt: purchaseDay.optional(),
+  purchasePlace: z.string().trim().max(200).optional(),
+  location: z.string().trim().max(200).optional(),
+  estimatedValue: z.number().min(0).max(10_000_000).optional(),
+  needsReview: z.boolean().optional(),
+  ...familyFields,
 }).superRefine(checkOpenedState);
 
 // #466: the row type is the contract in shared/import.ts;

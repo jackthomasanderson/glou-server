@@ -122,7 +122,7 @@ describe('POST /api/inventory/:id/rollback', () => {
 // #471 (FEAT-99): the CSV export is a member-only, read-only download.
 describe('GET /api/inventory/export.csv (FEAT-99)', () => {
   it('serves the CSV as an attachment, headers in English by default', async () => {
-    vi.mocked(inventoryExportService.exportCsv).mockResolvedValue('\ufeffName\r\n');
+    vi.mocked(inventoryExportService.exportCsv).mockResolvedValue({ csv: '\ufeffName\r\n', rows: 0 });
 
     const res = await request(app).get('/api/inventory/export.csv');
 
@@ -130,12 +130,13 @@ describe('GET /api/inventory/export.csv (FEAT-99)', () => {
     expect(res.headers['content-type']).toMatch(/^text\/csv; charset=utf-8/);
     expect(res.headers['content-disposition']).toMatch(/^attachment; filename="glou-cellar-\d{4}-\d{2}-\d{2}\.csv"$/);
     expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['x-glou-rows']).toBe('0');
     expect(inventoryExportService.exportCsv).toHaveBeenCalledWith('en');
     expect(auditLog).not.toHaveBeenCalled();
   });
 
   it('writes the French headers on ?lang=fr and falls back to English otherwise', async () => {
-    vi.mocked(inventoryExportService.exportCsv).mockResolvedValue('');
+    vi.mocked(inventoryExportService.exportCsv).mockResolvedValue({ csv: '', rows: 0 });
     await request(app).get('/api/inventory/export.csv?lang=fr');
     await request(app).get('/api/inventory/export.csv?lang=de');
     expect(vi.mocked(inventoryExportService.exportCsv).mock.calls.map(([lang]) => lang)).toEqual(['fr', 'en']);

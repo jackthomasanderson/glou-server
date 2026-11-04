@@ -1,12 +1,55 @@
 // #466: CSV import contracts (FEAT-56) shared by api/ and web/. Import only from shared/.
-import type { InventoryCategory } from './inventory';
+import type { InventoryCategory, SPARKLING_TYPES, SUGAR_LEVELS, WineColor } from './inventory';
 import { productKey, unitKind, type UnitKind } from './units';
 
 /** FEAT-99 (FEAT-95): the box-size cell of a row of single cigars ("à l'unité"). */
 export const CSV_SINGLE_CIGARS = 'single';
 
+/**
+ * FEAT-99: the description of a family the CSV carries beyond its identity
+ * (name, producer, category, vintage, vitola, region, ABV), so an export
+ * reimports without loss. Applied only when the import creates the family.
+ */
+export interface CsvFamilyFields {
+  color?: WineColor;
+  appellation?: string;
+  classification?: string;
+  /** `|`-separated in the file. */
+  grapeVarieties?: string[];
+  /** `|`-separated in the file. */
+  tags?: string[];
+  notes?: string;
+  collection?: string;
+  serviceTemp?: string;
+  lotNumber?: string;
+  peakMaturityFrom?: number;
+  peakMaturityTo?: number;
+  needsAeration?: boolean;
+  sparklingType?: (typeof SPARKLING_TYPES)[number];
+  sugarLevel?: (typeof SUGAR_LEVELS)[number];
+  baseYear?: number;
+  /** `YYYY-MM-DD`. */
+  batchDate?: string;
+  /** `YYYY-MM-DD`. */
+  disgorgingDate?: string;
+  spiritType?: string;
+  edition?: string;
+  declaredAge?: number;
+  caskType?: string;
+  additions?: string;
+  aromaticProfile?: string;
+  isSingleCask?: boolean;
+  caskNumber?: string;
+  caskProof?: number;
+  manufactureYear?: number;
+  leafOrigin?: string;
+  factoryCode?: string;
+  recommendedHumidity?: number;
+  humidificationSystem?: string;
+}
+
 /** A CSV row once validated: returned by /preview, sent back to /confirm. */
-export interface CsvImportRow {
+export interface CsvImportRow extends CsvFamilyFields {
   name: string;
   producer: string;
   category: InventoryCategory;
@@ -38,7 +81,24 @@ export interface CsvImportRow {
   opened?: boolean;
   fillLevel?: number;
   cigarsLeft?: number;
+  // What tells two groups apart beyond D5 (design.md rule 4), and the rest of a unit.
+  purchasePlace?: string;
+  location?: string;
+  /** Estimated value of ONE copy. */
+  estimatedValue?: number;
+  /** Day an opened bottle or box was opened, `YYYY-MM-DD`. */
+  openedAt?: string;
+  /** A split guessed by the families transformation, still to be confirmed ("À vérifier"). */
+  needsReview?: boolean;
 }
+
+/** The description columns of a family, in the export's order. */
+export const CSV_FAMILY_COLUMNS = [
+  'color', 'appellation', 'classification', 'grapeVarieties', 'tags', 'notes', 'collection', 'serviceTemp', 'lotNumber',
+  'peakMaturityFrom', 'peakMaturityTo', 'needsAeration', 'sparklingType', 'sugarLevel', 'baseYear', 'batchDate',
+  'disgorgingDate', 'spiritType', 'edition', 'declaredAge', 'caskType', 'additions', 'aromaticProfile', 'isSingleCask',
+  'caskNumber', 'caskProof', 'manufactureYear', 'leafOrigin', 'factoryCode', 'recommendedHumidity', 'humidificationSystem',
+] as const satisfies readonly (keyof CsvFamilyFields)[];
 
 /**
  * FEAT-99: the columns of the CSV export, in order. Each one is a column the
@@ -48,6 +108,8 @@ export interface CsvImportRow {
 export const CSV_EXPORT_COLUMNS = [
   'name', 'producer', 'category', 'vintage', 'quantity', 'purchasePrice', 'region', 'alcoholDegree',
   'cellar', 'purchasedAt', 'bottleSize', 'format', 'cigarsPerBox', 'opened', 'fillLevel', 'cigarsLeft',
+  'openedAt', 'purchasePlace', 'location', 'estimatedValue', 'needsReview',
+  ...CSV_FAMILY_COLUMNS,
 ] as const;
 
 export type CsvExportColumn = (typeof CSV_EXPORT_COLUMNS)[number];
@@ -60,14 +122,35 @@ export const CSV_EXPORT_HEADERS: Record<CsvExportLang, Record<CsvExportColumn, s
     purchasePrice: 'Purchase price', region: 'Region', alcoholDegree: 'ABV', cellar: 'Cellar',
     purchasedAt: 'Purchase date', bottleSize: 'Bottle size', format: 'Vitola', cigarsPerBox: 'Cigars per box',
     opened: 'Opened', fillLevel: 'Fill level', cigarsLeft: 'Cigars left',
+    openedAt: 'Opened on', purchasePlace: 'Purchase place', location: 'Location', estimatedValue: 'Estimated value',
+    needsReview: 'To check', color: 'Colour', appellation: 'Appellation', classification: 'Classification',
+    grapeVarieties: 'Grapes', tags: 'Tags', notes: 'Notes', collection: 'Collection', serviceTemp: 'Service temperature',
+    lotNumber: 'Lot number', peakMaturityFrom: 'Drink from', peakMaturityTo: 'Drink until', needsAeration: 'Needs aeration',
+    sparklingType: 'Sparkling type', sugarLevel: 'Sugar level', baseYear: 'Base year', batchDate: 'Batch date',
+    disgorgingDate: 'Disgorging date', spiritType: 'Spirit type', edition: 'Edition', declaredAge: 'Age statement',
+    caskType: 'Cask type', additions: 'Additions', aromaticProfile: 'Aromatic profile', isSingleCask: 'Single cask',
+    caskNumber: 'Cask number', caskProof: 'Cask strength', manufactureYear: 'Manufacture year', leafOrigin: 'Leaf origin',
+    factoryCode: 'Factory code', recommendedHumidity: 'Recommended humidity', humidificationSystem: 'Humidification system',
   },
   fr: {
     name: 'Nom', producer: 'Producteur', category: 'Catégorie', vintage: 'Millésime', quantity: 'Quantité',
     purchasePrice: "Prix d'achat", region: 'Région', alcoholDegree: 'Alcool', cellar: 'Cave',
     purchasedAt: "Date d'achat", bottleSize: 'Contenance', format: 'Vitole', cigarsPerBox: 'Cigares par boîte',
-    opened: 'Entamée', fillLevel: 'Niveau', cigarsLeft: 'Cigares restants',
+    opened: 'Entamée', fillLevel: 'Niveau de remplissage', cigarsLeft: 'Cigares restants',
+    openedAt: "Date d'ouverture", purchasePlace: "Lieu d'achat", location: 'Emplacement', estimatedValue: 'Valeur estimée',
+    needsReview: 'À vérifier', color: 'Couleur', appellation: 'Appellation', classification: 'Classification',
+    grapeVarieties: 'Cépages', tags: 'Étiquettes', notes: 'Notes', collection: 'Collection', serviceTemp: 'Température de service',
+    lotNumber: 'Numéro de lot', peakMaturityFrom: 'À boire à partir de', peakMaturityTo: "À boire jusqu'en", needsAeration: 'Aération',
+    sparklingType: 'Type de bulles', sugarLevel: 'Dosage', baseYear: 'Année de base', batchDate: 'Date de lot',
+    disgorgingDate: 'Date de dégorgement', spiritType: 'Type de spiritueux', edition: 'Édition', declaredAge: 'Âge déclaré',
+    caskType: 'Type de fût', additions: 'Ajouts', aromaticProfile: 'Profil aromatique', isSingleCask: 'Fût unique',
+    caskNumber: 'Numéro de fût', caskProof: 'Degré du fût', manufactureYear: 'Année de fabrication', leafOrigin: 'Origine du tabac',
+    factoryCode: 'Code usine', recommendedHumidity: 'Humidité conseillée', humidificationSystem: "Système d'humidification",
   },
 };
+
+/** Separator of a list cell (grapes, tags). */
+export const CSV_LIST_SEPARATOR = '|';
 
 /** The "opened" cell of an opened bottle or box, per language (the import reads both). */
 export const CSV_OPENED_VALUE: Record<CsvExportLang, string> = { en: 'yes', fr: 'oui' };
@@ -203,7 +286,12 @@ export function csvRowGroup(row: CsvImportRow): { count: number; cigarsPerBox: n
 export function csvLineKey(row: CsvImportRow): string {
   const { cigarsPerBox } = csvRowGroup(row);
   const size = row.category === 'cigar' ? cigarsPerBox : normalize(row.bottleSize);
-  return JSON.stringify([csvRowProductKey(row), normalize(row.cellar), row.purchasePrice ?? null, row.purchasedAt ?? null, size]);
+  // Beyond D5: the places and the estimated value tell two groups of the same day and price apart
+  // (design.md rule 4), and a group still to review never adds up with a settled one.
+  return JSON.stringify([
+    csvRowProductKey(row), normalize(row.cellar), row.purchasePrice ?? null, row.purchasedAt ?? null, size,
+    normalize(row.purchasePlace), normalize(row.location), row.estimatedValue ?? null, row.needsReview === true,
+  ]);
 }
 
 /** Units a line adds: an opened box holds the cigars left in it, an opened bottle is one. */

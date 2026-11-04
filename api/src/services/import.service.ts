@@ -3,11 +3,11 @@ import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { IN_STOCK_ITEM_FILTER, itemUnits, productKey } from '../lib/finished-item';
 import { parseCsv } from '../lib/csv';
 import { lockFamilies, purchaseDayToDate, todayAsPurchaseDate } from '../lib/product-fields';
-import { csvRawRowSchema, normalizeCsvToken } from '../schemas/import.schema';
+import { csvRawRowSchema, normalizeCsvToken, toOpened } from '../schemas/import.schema';
 import { MAX_COPIES } from '../schemas/stock.schema';
 import { computeAlertStatus } from './alert.service';
 import { LISTED_PRODUCT_FILTER } from './product.service';
-import { addCopies, type OpenedState } from './stock.service';
+import { addCopies, type CopiesOptions, type OpenedState } from './stock.service';
 import {
   CSV_IMPORT_TRANSACTION_MAX_WAIT_MS,
   CSV_IMPORT_TRANSACTION_TIMEOUT_MS,
@@ -15,12 +15,14 @@ import {
   csvRowProductKey,
   groupCsvRows,
   type CsvImportChoice,
+  type CsvFamilyFields,
   type CsvImportError,
   type CsvImportLine,
   type CsvImportPreview,
   type CsvImportResult,
   type CsvImportRow,
   type CsvLineDraft,
+  CSV_FAMILY_COLUMNS as FAMILY_COLUMNS,
 } from '../../../shared/import';
 
 // #510: header names accepted for each column, compared after
@@ -42,33 +44,78 @@ export const HEADER_ALIASES: Record<string, string> = {
   vitola: 'format', vitole: 'format',
   cigarsperbox: 'cigarsPerBox', boxsize: 'cigarsPerBox', box: 'cigarsPerBox', boite: 'cigarsPerBox', formatdeboite: 'cigarsPerBox',
   cigaresparboite: 'cigarsPerBox', parboite: 'cigarsPerBox',
-  // FEAT-99 export: an opened bottle or box, its level, the cigars left in it.
-  opened: 'opened', open: 'opened', entame: 'opened', entamee: 'opened', ouvert: 'opened', ouverte: 'opened',
-  filllevel: 'fillLevel', level: 'fillLevel', niveau: 'fillLevel',
-  cigarsleft: 'cigarsLeft', cigaresrestants: 'cigarsLeft', restants: 'cigarsLeft',
+  // FEAT-99 export: an opened bottle or box, its level, the cigars left in it. Explicit names only:
+  // "Niveau" or "Open" alone would swallow the column of an old file that meant something else.
+  opened: 'opened', entame: 'opened', entamee: 'opened',
+  filllevel: 'fillLevel', niveauderemplissage: 'fillLevel',
+  cigarsleft: 'cigarsLeft', cigaresrestants: 'cigarsLeft',
+  openedon: 'openedAt', openedat: 'openedAt', dateouverture: 'openedAt', datedouverture: 'openedAt',
+  purchaseplace: 'purchasePlace', placeofpurchase: 'purchasePlace', lieudachat: 'purchasePlace', lieuachat: 'purchasePlace',
+  location: 'location', emplacement: 'location',
+  estimatedvalue: 'estimatedValue', valeurestimee: 'estimatedValue',
+  needsreview: 'needsReview', tocheck: 'needsReview', averifier: 'needsReview',
+  // The family's description.
+  color: 'color', colour: 'color', couleur: 'color',
+  appellation: 'appellation', classification: 'classification',
+  grapes: 'grapeVarieties', grapevarieties: 'grapeVarieties', cepages: 'grapeVarieties', cepage: 'grapeVarieties',
+  tags: 'tags', etiquettes: 'tags', notes: 'notes', collection: 'collection',
+  servicetemperature: 'serviceTemp', servicetemp: 'serviceTemp', temperaturedeservice: 'serviceTemp',
+  lotnumber: 'lotNumber', numerodelot: 'lotNumber',
+  drinkfrom: 'peakMaturityFrom', aboireapartirde: 'peakMaturityFrom',
+  drinkuntil: 'peakMaturityTo', aboirejusquen: 'peakMaturityTo',
+  needsaeration: 'needsAeration', aeration: 'needsAeration',
+  sparklingtype: 'sparklingType', typedebulles: 'sparklingType',
+  sugarlevel: 'sugarLevel', dosage: 'sugarLevel',
+  baseyear: 'baseYear', anneedebase: 'baseYear',
+  batchdate: 'batchDate', datedelot: 'batchDate',
+  disgorgingdate: 'disgorgingDate', datededegorgement: 'disgorgingDate',
+  spirittype: 'spiritType', typedespiritueux: 'spiritType',
+  edition: 'edition',
+  agestatement: 'declaredAge', declaredage: 'declaredAge', agedeclare: 'declaredAge',
+  casktype: 'caskType', typedefut: 'caskType',
+  additions: 'additions', ajouts: 'additions',
+  aromaticprofile: 'aromaticProfile', profilaromatique: 'aromaticProfile',
+  singlecask: 'isSingleCask', futunique: 'isSingleCask',
+  casknumber: 'caskNumber', numerodefut: 'caskNumber',
+  caskstrength: 'caskProof', caskproof: 'caskProof', degredufut: 'caskProof',
+  manufactureyear: 'manufactureYear', anneedefabrication: 'manufactureYear',
+  leaforigin: 'leafOrigin', originedutabac: 'leafOrigin',
+  factorycode: 'factoryCode', codeusine: 'factoryCode',
+  recommendedhumidity: 'recommendedHumidity', humiditeconseillee: 'recommendedHumidity',
+  humidificationsystem: 'humidificationSystem', systemedhumidification: 'humidificationSystem',
   abv: 'alcoholDegree', alcohol: 'alcoholDegree', alcool: 'alcoholDegree', degre: 'alcoholDegree', alcoholdegree: 'alcoholDegree', '%vol': 'alcoholDegree', vol: 'alcoholDegree',
 };
-
-/** Columns holding free text: the export neutralises a formula in them (see {@link unneutralize}). */
-const TEXT_COLUMNS = new Set(['name', 'producer', 'region', 'cellar', 'format', 'bottleSize']);
 
 /**
  * The export writes `'` before a text cell starting with `=`, `+`, `-` or `@`
  * (a spreadsheet would run it as a formula); reading it back removes that
- * mark, so an export imports as written.
+ * mark, so an export imports as written. Numbers are never prefixed.
  */
 function unneutralize(value: string): string {
   return /^'[=+\-@]/.test(value) ? value.slice(1) : value;
 }
 
-/** Renames a parsed record's keys to the importer's column names; unknown columns are dropped. */
+/** Cells that only mean something on an opened bottle or box. */
+const OPENED_ONLY_COLUMNS = ['fillLevel', 'cigarsLeft', 'openedAt'] as const;
+
+/**
+ * Renames a parsed record's keys to the importer's column names; unknown
+ * columns are dropped. A level, cigars left or opening day on a row that is
+ * not opened is ignored, whatever it holds.
+ */
 function canonicalRecord(record: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(record)) {
     const column = HEADER_ALIASES[normalizeCsvToken(key)];
-    if (column && !(column in out)) out[column] = TEXT_COLUMNS.has(column) ? unneutralize(value) : value;
+    if (column && !(column in out)) out[column] = unneutralize(value);
   }
+  if (toOpened(out.opened) !== true) for (const column of OPENED_ONLY_COLUMNS) delete out[column];
   return out;
+}
+
+/** The family description a row carries (FEAT-99), undefined cells left out. */
+function pickFamilyFields(row: CsvImportRow): CsvFamilyFields {
+  return Object.fromEntries(FAMILY_COLUMNS.map((key) => [key, row[key]]).filter(([, value]) => value !== undefined));
 }
 
 /** Arbitrary, instance-wide key of the CSV import's advisory lock (FEAT-91). */
@@ -256,6 +303,8 @@ export class ImportService {
         const result: CsvImportResult = {
           bottles: 0, wines: 0, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, staleLines: 0, createdCellars: [],
         };
+        // Units this import wrote or completed: its other lines stay apart from them (they differ by definition).
+        const touched = new Set<string>();
         const wines = new Set<string>();
         const cigarReferences = new Set<string>();
         for (const line of lines) {
@@ -280,7 +329,7 @@ export class ImportService {
           const family = known ?? (await this.createFamily(tx, userId, line.row));
           joined.set(key, family);
           const lineCellarId = await this.cellarOf(tx, userId, line, lines, cellars, cellarId, result.createdCellars);
-          await addCopies(
+          const written = await addCopies(
             tx,
             userId,
             family,
@@ -294,8 +343,9 @@ export class ImportService {
             },
             line.count,
             this.unitSources(line),
-            line.row.opened ? this.openedState(line) : undefined,
+            { ...this.copiesOptions(line), excludeIds: touched },
           );
+          touched.add(written.unit.id);
           if (line.kind === 'cigar') {
             result.cigars += line.units;
             cigarReferences.add(family.id);
@@ -322,8 +372,23 @@ export class ImportService {
    */
   private openedState(line: CsvLineDraft): OpenedState {
     const { row } = line;
-    if (line.kind === 'bottle') return { isOpened: true, fillLevel: row.fillLevel ?? null, cigarsLeft: null };
-    return { isOpened: true, fillLevel: null, cigarsLeft: line.cigarsPerBox === null ? null : row.cigarsLeft ?? line.cigarsPerBox };
+    const openedAt = row.openedAt ? purchaseDayToDate(row.openedAt) : null;
+    if (line.kind === 'bottle') return { isOpened: true, fillLevel: row.fillLevel ?? null, cigarsLeft: null, openedAt };
+    return { isOpened: true, fillLevel: null, cigarsLeft: line.cigarsPerBox === null ? null : row.cigarsLeft ?? line.cigarsPerBox, openedAt };
+  }
+
+  /** The unit columns of a line beyond its group identity, and the state of an opened one. */
+  private copiesOptions(line: CsvLineDraft): CopiesOptions {
+    const { row } = line;
+    return {
+      ...(row.opened ? { opened: this.openedState(line) } : {}),
+      extra: {
+        purchasePlace: row.purchasePlace ?? null,
+        location: row.location ?? null,
+        estimatedValue: row.estimatedValue ?? null,
+        needsReview: row.needsReview === true,
+      },
+    };
   }
 
   /**
@@ -334,6 +399,7 @@ export class ImportService {
    */
   private async createFamily(tx: PrismaClientOrTx, userId: string, row: CsvImportRow): Promise<Product> {
     const { vintage, format } = csvRowFamily(row);
+    const { batchDate, disgorgingDate, ...described } = pickFamilyFields(row);
     const description = {
       name: row.name,
       producer: row.producer,
@@ -341,13 +407,16 @@ export class ImportService {
       ...(format !== null ? { format } : {}),
       ...(row.region !== undefined ? { region: row.region } : {}),
       ...(row.category === 'spirit' && row.alcoholDegree !== undefined ? { alcoholDegree: row.alcoholDegree } : {}),
+      ...described,
+      ...(batchDate !== undefined ? { batchDate: purchaseDayToDate(batchDate) } : {}),
+      ...(disgorgingDate !== undefined ? { disgorgingDate: purchaseDayToDate(disgorgingDate) } : {}),
     };
     return tx.product.create({
       data: {
         userId,
         category: row.category,
         ...description,
-        alertStatus: computeAlertStatus(null, null),
+        alertStatus: computeAlertStatus(row.peakMaturityFrom, row.peakMaturityTo),
         fieldSources: Object.fromEntries(Object.keys(description).map((field) => [field, 'import_csv'])),
       },
     });
@@ -393,6 +462,10 @@ export class ImportService {
     if (row.bottleSize !== undefined && line.kind === 'bottle') sources.bottleSize = 'import_csv';
     if (row.quantity !== undefined) sources[legacyBox ? 'cigarsPerBox' : 'quantity'] = 'import_csv';
     if (typeof row.cigarsPerBox === 'number') sources.cigarsPerBox = 'import_csv';
+    if (row.purchasePlace !== undefined) sources.purchasePlace = 'import_csv';
+    if (row.location !== undefined) sources.location = 'import_csv';
+    if (row.estimatedValue !== undefined) sources.estimatedValue = 'import_csv';
+    if (row.opened && row.openedAt !== undefined) sources.openedAt = 'import_csv';
     if (row.opened && row.fillLevel !== undefined) sources.fillLevel = 'import_csv';
     if (row.opened && row.cigarsLeft !== undefined) sources.cigarsLeft = 'import_csv';
     return sources;

@@ -3,9 +3,9 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
-vi.mock('@/lib/toast', () => ({ notifyError: vi.fn() }));
+vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
 
-import { notifyError } from '@/lib/toast';
+import { notifyError, notifySuccess } from '@/lib/toast';
 import { useCsvExport } from './useCsvExport';
 
 function wrapper({ children }: { children: ReactNode }) {
@@ -47,5 +47,27 @@ describe('useCsvExport (FEAT-99)', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(fetchMock).toHaveBeenCalledWith('/api/inventory/export.csv?lang=en', { credentials: 'include' });
     expect(notifyError).toHaveBeenCalledWith('gdpr.csvError');
+  });
+
+  it('warns when the file is longer than one import takes', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, headers: new Headers({ 'X-Glou-Rows': '620' }), blob: async () => new Blob(['x']) }));
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const { result } = renderHook(() => useCsvExport(), { wrapper });
+
+    result.current.mutate('en');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(notifySuccess).toHaveBeenCalledWith('gdpr.csvTooLong', { count: 620, max: 500 });
+  });
+
+  it('says nothing more for a file one import takes', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, headers: new Headers({ 'X-Glou-Rows': '500' }), blob: async () => new Blob(['x']) }));
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const { result } = renderHook(() => useCsvExport(), { wrapper });
+
+    result.current.mutate('en');
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(notifySuccess).not.toHaveBeenCalled();
   });
 });

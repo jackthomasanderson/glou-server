@@ -158,26 +158,32 @@ export const CSV_BOM = '﻿';
 
 /**
  * A text cell that a spreadsheet would run as a formula (`=`, `+`, `-`, `@`,
- * or a tab / carriage return that hides one) gets a leading `'`, which the
- * spreadsheet shows as nothing; the import removes it again.
+ * or a tab / carriage return that hides one) gets a leading `'`. Excel shows
+ * that apostrophe when it opens a CSV (unlike a cell typed by hand), but the
+ * text can no longer run; the import removes it again.
  */
 export function neutralizeFormula(text: string): string {
   return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
 }
 
-/** One cell: quoted when it holds a comma, a quote, a line break or edge spaces (RFC 4180). */
-function csvCell(value: string | number | null | undefined, isText: boolean): string {
+/** One cell: quoted when it holds the delimiter, a quote, a line break or edge spaces (RFC 4180). */
+function csvCell(value: string | number | null | undefined, isText: boolean, delimiter: string): string {
   if (value === null || value === undefined) return '';
   const text = isText ? neutralizeFormula(String(value)) : String(value);
-  return /[",\r\n]|^\s|\s$/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  return text.includes(delimiter) || /["\r\n]|^\s|\s$/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 /**
  * RFC 4180 text of `header` + `rows`, CRLF-separated, UTF-8 BOM first. Strings
  * are text (formulas neutralised); numbers are written as they are — they are
- * never user-typed text, so a negative one is not a formula.
+ * never user-typed text, so a negative one is not a formula. `delimiter` is
+ * `;` for a file meant for a French spreadsheet (the import reads both).
  */
-export function toCsv(header: readonly string[], rows: readonly (readonly (string | number | null | undefined)[])[]): string {
-  const lines = [header.map((h) => csvCell(h, false)), ...rows.map((row) => row.map((v) => csvCell(v, typeof v === 'string')))];
-  return CSV_BOM + lines.map((line) => line.join(',')).join('\r\n') + '\r\n';
+export function toCsv(
+  header: readonly string[],
+  rows: readonly (readonly (string | number | null | undefined)[])[],
+  delimiter: ',' | ';' = ',',
+): string {
+  const lines = [header.map((h) => csvCell(h, false, delimiter)), ...rows.map((row) => row.map((v) => csvCell(v, typeof v === 'string', delimiter)))];
+  return CSV_BOM + lines.map((line) => line.join(delimiter)).join('\r\n') + '\r\n';
 }

@@ -18,6 +18,8 @@ type UnitRecord = NonNullable<Awaited<ReturnType<typeof prisma.inventoryItem.fin
 export interface GroupSearch {
   /** The unit the copies come from, never its own target. */
   excludeId?: string;
+  /** Units never to join (the groups an import has just written: its lines stay apart). */
+  excludeIds?: ReadonlySet<string>;
   /** Only a group of this estimated value, strictly (empty = empty only): a move must not change the value. */
   estimatedValue?: number | null;
   /** Never a group whose number is still to review (needsReview), as the review merge (planGroupFusion). */
@@ -51,6 +53,7 @@ export async function findGroupFor(
     where: {
       productId: target.productId, deletedAt: null, writtenOffAt: null, ...OWNED_ITEM_FILTER,
       ...(search.excludeId !== undefined ? { id: { not: search.excludeId } } : {}),
+      ...(search.excludeIds !== undefined && search.excludeIds.size > 0 ? { id: { notIn: [...search.excludeIds] } } : {}),
       ...(search.settledOnly ? { needsReview: false } : {}),
     },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -94,6 +97,16 @@ export interface OpenedState {
   isOpened: true;
   fillLevel: number | null;
   cigarsLeft: number | null;
+  openedAt: Date | null;
+}
+
+/** What the CSV import adds to {@link addCopies}: a sub-record's state, and the unit columns beyond a group's identity. */
+export interface CopiesOptions {
+  opened?: OpenedState;
+  /** Where it was bought and kept, its estimated value, and whether its number is still to be reviewed. */
+  extra?: { purchasePlace: string | null; location: string | null; estimatedValue: number | null; needsReview: boolean };
+  /** Units never to complete (see {@link GroupSearch.excludeIds}). */
+  excludeIds?: ReadonlySet<string>;
 }
 
 /**
@@ -110,10 +123,18 @@ export async function addCopies(
   target: CopiesTarget,
   count: number,
   fieldSources?: Record<string, string>,
-  opened?: OpenedState,
+  options: CopiesOptions = {},
 ): Promise<{ unit: UnitRecord; from: number | null; to: number }> {
-  // An opened bottle or box is a sub-record: one unit of its own, never a group to complete.
-  const group = opened ? null : await findGroupFor(tx, target, unitKind(product.category));
+  const { opened, extra } = options;
+  // An opened bottle or box is a sub-record, and a group still to review stays as it was
+  // written: one unit of its own, never a group to complete.
+  const standalone = opened !== undefined || extra?.needsReview === true;
+  // Design.md rule 4: a group is completed only by copies of the same estimated value whose
+  // places of purchase and location agree, and never one still to review.
+  const group = standalone ? null : await findGroupFor(
+    tx, target, unitKind(product.category),
+    extra ? { settledOnly: true, estimatedValue: extra.estimatedValue, placesOf: extra, excludeIds: options.excludeIds } : {},
+  );
   if (group) {
     const from = group.quantity ?? 1;
     // One group counts at most what one write may (`quantity`'s own bound).
@@ -130,6 +151,7 @@ export async function addCopies(
       userId,
       quantity: count,
       ...(opened ?? {}),
+      ...(extra ?? {}),
       ...(fieldSources && Object.keys(fieldSources).length > 0 ? { fieldSources } : {}),
     } as Prisma.InventoryItemUncheckedCreateInput,
   });
