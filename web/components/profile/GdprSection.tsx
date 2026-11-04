@@ -4,6 +4,7 @@ import { Button, Card, CardBody, Checkbox, Input, ModalContent, ModalHeader, Mod
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useCsvExport } from '@/hooks/useCsvExport';
 import { useExportData, useRequestAccountDeletion, useCancelAccountDeletion, PublicUser, ExportCategory } from '@/hooks/useAuth';
 import { formatDate } from '@/lib/format';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES } from '@shared/auth';
@@ -20,6 +21,7 @@ export function GdprSection({ user }: GdprSectionProps) {
   const [selectedCategories, setSelectedCategories] = useState<ExportCategory[]>([...EXPORT_CATEGORIES]);
 
   const exportMutation = useExportData();
+  const csvExport = useCsvExport();
   const deleteMutation = useRequestAccountDeletion();
   const cancelMutation = useCancelAccountDeletion();
 
@@ -134,6 +136,25 @@ export function GdprSection({ user }: GdprSectionProps) {
                 </Button>
               </div>
             )}
+          </div>
+
+          {/* Cellar as a CSV the file import reads back (FEAT-99) */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">{t('gdpr.csvTitle')}</p>
+              <p className="text-xs text-foreground-500 mt-0.5">{t('gdpr.csvDescription')}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="flat"
+              color="default"
+              className="shrink-0"
+              isLoading={csvExport.isPending}
+              startContent={<Download size={14} />}
+              onPress={() => csvExport.mutate(i18n.language)}
+            >
+              {t('gdpr.csvButton')}
+            </Button>
           </div>
 
           {/* Delete account */}

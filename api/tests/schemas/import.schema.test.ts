@@ -115,3 +115,30 @@ describe('confirmCsvImportSchema (canonical, already-typed rows)', () => {
     expect(csvImportRowSchema.safeParse({ ...row, vintage: 2015 }).success).toBe(true);
   });
 });
+
+describe('purchase day year bounds (H1 review)', () => {
+  const base = { name: 'X', producer: 'Y', category: 'wine' };
+
+  it('refuses an ISO day out of 1900-2100 in a raw row, as it does a day-first one', () => {
+    for (const day of ['2200-01-01', '1899-12-31', '31/12/2101']) {
+      const res = csvRawRowSchema.safeParse({ ...base, purchasedAt: day });
+      expect(res.success, day).toBe(false);
+      if (!res.success) expect(res.error.issues[0].message).toBe('INVALID_PURCHASE_DATE');
+    }
+    expect(csvRawRowSchema.safeParse({ ...base, purchasedAt: '2100-12-31' }).success).toBe(true);
+  });
+
+  it('refuses it in a confirmed row too, which a client could send without the preview', () => {
+    expect(csvImportRowSchema.safeParse({ ...base, purchasedAt: '2200-01-01' }).success).toBe(false);
+    expect(csvImportRowSchema.safeParse({ ...base, purchasedAt: '2024-03-15' }).success).toBe(true);
+  });
+});
+
+describe('drinking window of a confirmed row', () => {
+  it('refuses a window that ends before it starts (a client could send it without the preview)', () => {
+    const base = { name: 'X', producer: 'Y', category: 'wine' };
+    expect(csvImportRowSchema.safeParse({ ...base, peakMaturityFrom: 2030, peakMaturityTo: 2020 }).success).toBe(false);
+    expect(csvImportRowSchema.safeParse({ ...base, peakMaturityFrom: 2020, peakMaturityTo: 2030 }).success).toBe(true);
+  });
+});
+
