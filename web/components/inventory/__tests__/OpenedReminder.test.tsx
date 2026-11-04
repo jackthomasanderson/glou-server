@@ -426,7 +426,7 @@ describe('a line "à vérifier" in the drawer: "C\'est bon" / "Corriger le nombr
     render(<QueryClientProvider client={queryClient}><ReviewLineActions item={guessed} ctx={ctx()} /></QueryClientProvider>);
     fireEvent.click(screen.getByRole('button', { name: "C'est bon" }));
     await waitFor(() => expect(requests).toEqual([{ url: '/api/inventory/g/review-ok', method: 'POST', body: {} }]));
-    await waitFor(() => expect(toast.notifySuccess).toHaveBeenCalledWith('familyDrawer.review.confirmed'));
+    await waitFor(() => expect(toast.notifySuccess).toHaveBeenCalledWith('review.counts.confirmed'));
   });
 
   it('"Corriger le nombre" opens the correction of that line', () => {

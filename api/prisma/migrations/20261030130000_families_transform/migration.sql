@@ -714,7 +714,11 @@ WHERE b."id" = s.grp;
 
 -- Everything attached to an absorbed group moves to the survivor.
 UPDATE "tasting_notes" t SET "itemId" = f.grp FROM fuse_of f WHERE t."itemId" = f.item_id AND f.item_id <> f.grp;
-UPDATE "audit_logs" a SET "bottleId" = f.grp FROM fuse_of f WHERE a."bottleId" = f.item_id AND f.item_id <> f.grp;
+-- History keeps the line it was recorded on (absorbedFrom, #471): its values
+-- were that line's, never restored onto every copy of the survivor.
+UPDATE "audit_logs" a SET "bottleId" = f.grp,
+  "details" = coalesce(a."details", '{}'::jsonb) || jsonb_build_object('absorbedFrom', a."bottleId")
+FROM fuse_of f WHERE a."bottleId" = f.item_id AND f.item_id <> f.grp;
 UPDATE "inventory_count_entries" e SET "itemId" = f.grp FROM fuse_of f WHERE e."itemId" = f.item_id AND f.item_id <> f.grp;
 UPDATE "wishlist_items" w SET "acquiredItemId" = f.grp FROM fuse_of f WHERE w."acquiredItemId" = f.item_id AND f.item_id <> f.grp;
 UPDATE "bottles" b SET "parentItemId" = f.grp FROM fuse_of f WHERE b."parentItemId" = f.item_id AND f.item_id <> f.grp;

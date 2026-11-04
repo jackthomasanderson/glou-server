@@ -124,3 +124,46 @@ describe('FamilyHistory — restoring a value (FEAT-05)', () => {
     expect(itemRollback.reset).toHaveBeenCalled();
   });
 });
+
+describe('FamilyHistory — review after the update (#471, FEAT-102)', () => {
+  it('says a merge and the values it chose; they stay restorable on the wine', () => {
+    renderHistory([entry({ action: 'MERGE_PRODUCTS', changes: [{ field: 'region', from: 'Bordeaux', to: 'Graves' }] })]);
+
+    expect(screen.getByTestId('family-history')).toHaveTextContent('Vins regroupés · Région : Graves');
+    expect(restoreButtons()).toHaveLength(1);
+  });
+
+  it('says « Références regroupées » for cigars', () => {
+    render(
+      <FamilyHistory
+        productId="p1"
+        productUpdatedAt="2026-10-30T10:00:00.000Z"
+        history={[entry({ action: 'MERGE_PRODUCTS', changes: [] })]}
+        itemIds={new Set()}
+        cellarName={() => undefined}
+        nounOf={() => 'cigar'}
+      />,
+    );
+
+    expect(screen.getByTestId('family-history')).toHaveTextContent('Références regroupées');
+  });
+
+  it('says "Nombre vérifié" for "C\'est bon", with nothing to restore', () => {
+    renderHistory([entry({ action: 'REVIEW_OK', itemId: 'b1', changes: [{ field: 'needsReview', from: true, to: false }] })]);
+
+    expect(screen.getByTestId('family-history')).toHaveTextContent('Nombre vérifié');
+    expect(screen.getByTestId('family-history')).not.toHaveTextContent('REVIEW_OK');
+    expect(restoreButtons()).toHaveLength(0);
+  });
+
+  it('never offers to restore a change recorded on a line since absorbed by this one (it would rewrite all its bottles)', () => {
+    renderHistory([
+      entry({ id: 1, itemId: 'b1', absorbed: true, changes: [{ field: 'purchasePlace', from: null, to: 'Foire' }] }),
+      entry({ id: 2, itemId: 'b1', changes: [{ field: 'location', from: 'Rack A', to: 'Rack B' }] }),
+    ]);
+
+    // Only the line's own change keeps its button.
+    expect(restoreButtons()).toHaveLength(1);
+    expect(restoreButtons()[0].closest('li')).toHaveTextContent('Rack B');
+  });
+});

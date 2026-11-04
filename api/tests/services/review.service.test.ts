@@ -254,6 +254,30 @@ describe('reviewService.merge (FEAT-102 c2)', () => {
     expect(outcome.overLimits).toEqual({ notes: true, tags: true });
   });
 
+  it('refuses with a conflict, writing nothing, when a family changed since the member saw the case', async () => {
+    families(older(), newer());
+
+    const error = await rejection(reviewService.merge('u2', {
+      productIds: ['p1', 'p2'],
+      expectedUpdatedAt: { p1: '2026-03-01T00:00:00.000Z', p2: '2026-08-01T00:00:00.000Z' },
+    }));
+
+    expect(error).toMatchObject({ status: 409, code: 'CONFLICT' });
+    expect(prisma.product.update).not.toHaveBeenCalled();
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
+  });
+
+  it('merges when every family is as the member saw it', async () => {
+    families(older(), newer());
+
+    const outcome = await reviewService.merge('u2', {
+      productIds: ['p1', 'p2'],
+      expectedUpdatedAt: { p1: '2026-03-01T00:00:00.000Z', p2: '2026-09-01T00:00:00.000Z' },
+    });
+
+    expect(outcome.productId).toBe('p1');
+  });
+
   it('keeps, for a field left out, the value pre-selected on the most recent family (point 40)', async () => {
     families(older(), newer());
 
@@ -286,6 +310,18 @@ describe('reviewService.merge (FEAT-102 c2)', () => {
     expect(rawLike('"foundQuantity" = coalesce')[0].values).toEqual([['b1', 'b2']]);
     expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['b2'] } } });
     expect(outcome.removedItemIds).toEqual(['b2']);
+  });
+
+  it('marks the history moved onto the surviving group with the line it was recorded on', async () => {
+    families(older(), newer());
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([unit({ id: 'b1' }), unit({ id: 'b2' })] as never);
+
+    await reviewService.merge('u2', { productIds: ['p1', 'p2'] });
+
+    // W3 report: an entry of b2, now on b1, must not offer to restore b2's values onto every copy of b1.
+    const [history] = rawLike('UPDATE "audit_logs" SET "bottleId"');
+    expect(history.sql).toContain(`jsonb_build_object('absorbedFrom', coalesce("details"->>'absorbedFrom', "bottleId"))`);
+    expect(history.values).toEqual(['b1', ['b2']]);
   });
 
   it('never fuses two groups counted in the same inventory session', async () => {
