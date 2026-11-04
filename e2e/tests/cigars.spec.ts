@@ -12,6 +12,7 @@ const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
 type Unit = {
   id: string; productId: string; quantity: number; cigarsPerBox: number | null; cigarsLeft: number | null;
   isOpened: boolean; fillLevel: number | null; purchasePrice: number | null; writtenOffAt: string | null; parentItemId: string | null;
+  purchasedAt?: string | null;
 };
 type Written = { data: Unit; changed: Unit[]; removedIds: string[] };
 
@@ -100,7 +101,12 @@ test.describe('FEAT-95 — cigars in closed boxes and single cigars', () => {
     await expect(card.getByTestId('family-card-badge')).toHaveText('79');
 
     // c3: a 4th box, then one cigar smoked: the first cigar of a closed box opens it (24 left) …
-    await okBody(await api.post(`/api/products/${boxes.productId}/items`, { data: { quantity: 1, cigarsPerBox: 25, purchasePrice: 200 } }));
+    // Bought the same day as the first boxes, given explicitly: the form sent
+    // the browser's day, the API defaults to the server's (TZ=Europe/Paris),
+    // which differ between 23:00 and 00:00 UTC.
+    await okBody(await api.post(`/api/products/${boxes.productId}/items`, {
+      data: { quantity: 1, cigarsPerBox: 25, purchasePrice: 200, purchasedAt: boxes.purchasedAt },
+    }));
     const smoked = await write(api, boxes.id, { smokeOne: true });
     expect(smoked.data).toMatchObject({ isOpened: true, cigarsLeft: 24, cigarsPerBox: 25, quantity: 1, parentItemId: boxes.id });
     expect(smoked.changed).toEqual([expect.objectContaining({ id: boxes.id, quantity: 3 })]);

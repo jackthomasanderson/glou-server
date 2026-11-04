@@ -38,7 +38,7 @@
 ### J'en ouvre une, j'en bois une, j'en fume un
 Dans le tiroir du vin, **J'en ouvre une** (bouton principal ; **J'en fume un** pour un cigare) et **J'en bois une** (bouton secondaire) agissent sur **une seule** bouteille : elle se détache de sa ligne (×4 devient ×3) et devient une bouteille à part, entamée ou bue. Une bouteille bue reste dans votre historique et vos dépenses. Pour une ligne d'une seule bouteille, c'est cette bouteille qui change d'état.
 - Si plusieurs lignes peuvent servir, Glou demande **Quelles bouteilles ?** avec un choix déjà sélectionné : la cave que vous regardiez, sinon l'achat le plus ancien ; à égalité de date (ou sans date), la moins chère puis la ligne la plus nombreuse.
-- Un message **« 1 bouteille ouverte · Annuler »** reste affiché 5 secondes : **Annuler** remet la bouteille avec les autres.
+- Un message **« 1 bouteille ouverte · Annuler »** reste affiché 8 secondes : **Annuler** remet la bouteille avec les autres.
 - Si une bouteille de ce vin est déjà entamée, Glou vous le rappelle : « Une bouteille est déjà entamée (60 %) » — **Finir l'entamée** ou **En ouvrir une nouvelle**. En marquant une bouteille comme bue : « C'est elle que vous avez finie ? » (Oui : l'entamée passe en bue ; Non : une bouteille pleine passe en bue). Le [plan de consommation](./22-Plan-De-Consommation.md) propose de finir l'entamée d'abord.
 - Cigares : fumer le premier cigare d'une boîte fermée l'entame (« boîte entamée, 24 restants »). Avec une boîte entamée et des boîtes fermées, Glou demande « Dans la boîte entamée ou en ouvrir une nouvelle ? ». Un cigare à l'unité fumé reste dans l'historique comme une bouteille bue.
 

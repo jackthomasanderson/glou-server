@@ -13,22 +13,48 @@ import { useInventory } from '@/hooks/useInventory';
 import { CellarGridPlan } from '@/components/cellars/CellarGridPlan';
 import { HumidorPanel } from '@/components/cellars/HumidorPanel';
 import { FamilyDrawer } from '@/components/inventory/FamilyDrawer';
+import { AddUnitsAction } from '@/components/inventory/AddUnitsDialog';
+import { EditWineDialog } from '@/components/inventory/EditWineDialog';
 import { InventoryItem } from '@/lib/inventory/types';
+import type { Product } from '@/lib/products/types';
+import { describeStock, keepNumbersWhole } from '@/lib/products/stock';
+import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
+import { useProducts } from '@/hooks/useProducts';
 import { useExpertMode } from '@/hooks/useExpertMode';
 
 type DetailView = 'grid' | 'list' | 'map';
 
-function BottleCard({ item, onPress }: { item: InventoryItem; onPress: () => void }) {
+/**
+ * A wine of the cellar (recette #471): its photo, its name and how many of
+ * its bottles are here ("2 ici · 9 en tout" when others are elsewhere).
+ */
+function WineCard({ product, cellarId, onPress }: { product: Product; cellarId: string; onPress: () => void }) {
   const { t } = useTranslation();
+  const stock = describeStock(product, t, { cellarIds: [cellarId] });
   return (
-    <Card isPressable shadow="sm" radius="lg" onPress={onPress}>
-      <CardBody className="pb-3">
-        <p className="text-sm font-semibold truncate">{item.name}</p>
-        <p className="text-xs text-foreground-400 truncate">{item.producer}</p>
-        <div className="flex gap-1 mt-1 flex-wrap">
-          <Chip size="sm" variant="flat" radius="sm">{t(`categories.${item.category}`)}</Chip>
-          {item.vintage && <Chip size="sm" variant="bordered" radius="sm">{item.vintage}</Chip>}
-          {item.color && <Chip size="sm" variant="bordered" radius="sm">{t(`inventory.color.${item.color}`)}</Chip>}
+    <Card isPressable shadow="sm" radius="lg" onPress={onPress} data-testid="cellar-wine-card">
+      <CardBody className="flex flex-row gap-3 pb-3">
+        <div
+          className="w-12 h-16 shrink-0 rounded-md overflow-hidden flex items-center justify-center"
+          style={product.photoUrl ? undefined : { background: getCategoryPlaceholderGradient(product.category) }}
+        >
+          {product.photoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img loading="lazy" decoding="async" src={product.photoUrl} alt="" className="max-h-full max-w-full object-contain" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold line-clamp-2 break-words">{product.name}</p>
+          <p className="text-xs text-foreground-400 line-clamp-2 break-words">{product.producer}</p>
+          {/* A line breaks after « · », never inside a number and its word. */}
+          <p className="text-xs text-foreground-600 mt-1" data-testid="cellar-wine-stock">
+            {keepNumbersWhole(stock.parts.join('\u00a0· '))}
+          </p>
+          <div className="flex gap-1 mt-1 flex-wrap">
+            <Chip size="sm" variant="flat" radius="sm">{t(`categories.${product.category}`)}</Chip>
+            {product.vintage && <Chip size="sm" variant="bordered" radius="sm">{product.vintage}</Chip>}
+            {product.color && <Chip size="sm" variant="bordered" radius="sm">{t(`inventory.color.${product.color}`)}</Chip>}
+          </div>
         </div>
       </CardBody>
     </Card>
@@ -42,10 +68,13 @@ export function CellarDetailClient() {
   const cellarId = params.id as string;
   const [view, setView] = useState<DetailView>('map');
   // #471: a bottle opens the drawer of its wine.
-  const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
+  const [viewingProductId, setViewingProductId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Product | null>(null);
+  const viewItem = (item: InventoryItem) => setViewingProductId(item.productId ?? item.id);
 
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
   const { data: allInventory } = useInventory();
+  const { data: products } = useProducts();
   const { data: gridData, isLoading: gridLoading } = useCellarGrid(cellarId);
   const isExpert = useExpertMode();
 
@@ -55,6 +84,9 @@ export function CellarDetailClient() {
   // or (data-model constat: no dedicated "cigar cellar" concept pre-existed)
   // any cellar that already holds cigar items, so pre-existing SHELF/VINTAGE
   // cellars used for cigars don't need a data migration to opt in.
+  // The wines with bottles in stock here: one card each (§10.2).
+  const cellarProducts = (products ?? []).filter((product) => describeStock(product, t, { cellarIds: [cellarId] }).units > 0
+    && product.items.some((item) => item.cellarId === cellarId));
   const isHumidorEligible = cellar?.type === 'HUMIDOR' || cellarItems.some((item) => item.category === 'cigar');
 
   if (cellarLoading) {
@@ -78,7 +110,7 @@ export function CellarDetailClient() {
   }
 
   return (
-    <MainLayout>
+    <MainLayout crumb={cellar.name}>
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-2 mb-1">
@@ -141,11 +173,13 @@ export function CellarDetailClient() {
 
         {/* Grid cards */}
         {view === 'grid' && (
-          cellarItems.length === 0 ? (
+          cellarProducts.length === 0 ? (
             <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cellar?.type === 'HUMIDOR' ? { context: 'cigar' } : undefined)}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {cellarItems.map((item) => <BottleCard key={item.id} item={item} onPress={() => setViewingItem(item)} />)}
+              {cellarProducts.map((product) => (
+                <WineCard key={product.id} product={product} cellarId={cellarId} onPress={() => setViewingProductId(product.id)} />
+              ))}
             </div>
           )
         )}
@@ -158,7 +192,7 @@ export function CellarDetailClient() {
             <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('nav.bottles')}
               onRowAction={(key) => {
                 const found = cellarItems.find((i) => i.id === String(key));
-                if (found) setViewingItem(found);
+                if (found) viewItem(found);
               }}
             >
               <TableHeader>
@@ -189,11 +223,13 @@ export function CellarDetailClient() {
 
         {/* Map/grid plan */}
         {view === 'map' && !hasGrid && (
-          cellarItems.length === 0 ? (
+          cellarProducts.length === 0 ? (
             <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cellar?.type === 'HUMIDOR' ? { context: 'cigar' } : undefined)}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {cellarItems.map((item) => <BottleCard key={item.id} item={item} onPress={() => setViewingItem(item)} />)}
+              {cellarProducts.map((product) => (
+                <WineCard key={product.id} product={product} cellarId={cellarId} onPress={() => setViewingProductId(product.id)} />
+              ))}
             </div>
           )
         )}
@@ -214,10 +250,18 @@ export function CellarDetailClient() {
       </div>
 
       <FamilyDrawer
-        productId={viewingItem ? viewingItem.productId ?? viewingItem.id : null}
-        onClose={() => setViewingItem(null)}
+        productId={viewingProductId}
+        onClose={() => setViewingProductId(null)}
         // FEAT-104 c3: from a cellar's page, its line is preselected.
         viewedCellarIds={[cellarId]}
+        // Recette #471: the same actions as from the list of wines.
+        onEdit={(product) => { setViewingProductId(null); setEditing(product); }}
+        primaryAction={(product) => <AddUnitsAction product={product} />}
+      />
+      <EditWineDialog
+        product={editing}
+        onClose={() => { if (editing) setViewingProductId(editing.id); setEditing(null); }}
+        onSaved={(product) => { setEditing(null); setViewingProductId(product.id); }}
       />
     </MainLayout>
   );

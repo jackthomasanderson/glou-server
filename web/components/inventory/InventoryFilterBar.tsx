@@ -155,7 +155,7 @@ export function InventoryFilterBar({
               ? t(`inventory.filters.${f}Cigar`)
               : t(`inventory.filters.${f}`);
             return (
-              <FilterOption key={f} selected={openedFilter === f} onPress={() => setOpenedFilter(f)}>
+              <FilterOption key={f} selected={!showGone && openedFilter === f} onPress={() => { setShowGone(false); setOpenedFilter(f); }}>
                 {label}
               </FilterOption>
             );
@@ -164,11 +164,13 @@ export function InventoryFilterBar({
       </div>
 
       {/* FEAT-101: wines with nothing left stay known but hidden by
-          default — the list is about what is in the cellar. */}
+          default — the list is about what is in the cellar. "Plus en cave"
+          shows only them (ux-ui.md §10.5): no state of the bottles applies,
+          so none stays checked with it (recette #471). */}
       <div role="group" aria-label={t('familyList.filters.gone')} className="flex flex-col gap-0.5">
         <FilterOption
           selected={showGone}
-          onPress={() => setShowGone((prev) => !prev)}
+          onPress={() => { setOpenedFilter('all'); setShowGone((prev) => !prev); }}
           mode="toggle"
         >
           {t('familyList.filters.gone')}

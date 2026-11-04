@@ -3,6 +3,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import HttpBackend from 'i18next-http-backend';
 import { safeReadStorage, safeWriteStorage } from './safe-storage';
+import { frenchTypography } from './frenchTypography';
 
 // ISSUE_383: both locale files (~160KB combined) used to be static imports,
 // so every page's JS bundle carried both languages' full translations even
@@ -48,7 +49,9 @@ function initialLanguage(): 'fr' | 'en' {
 i18n
   .use(HttpBackend)
   .use(initReactI18next)
+  .use(frenchTypography)
   .init({
+    postProcess: ['frenchTypography'],
     backend: {
       loadPath: LOCALES_LOAD_PATH,
     },

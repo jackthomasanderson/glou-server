@@ -16,6 +16,12 @@ import i18n from '@/lib/i18n';
  * components and from the mutation hooks that own the server round-trip.
  */
 
+/**
+ * Every message is read whole: HeroUI cuts a toast's title to one line
+ * (« Bouteille remise avec les a… », recette #471). Given to ToastProvider.
+ */
+export const TOAST_PROPS = { classNames: { title: 'whitespace-normal break-words' } };
+
 /** Success notifications are transient (ux-ui.md 9.4: 3 seconds). */
 const SUCCESS_TIMEOUT_MS = 3000;
 
@@ -55,8 +61,8 @@ export function notifyWarning(messageKey: string, values?: Record<string, unknow
   });
 }
 
-/** ux-ui.md §10.4: an everyday action is undone from its message for 5 seconds. */
-export const UNDO_TIMEOUT_MS = 5000;
+/** ux-ui.md §10.4: an everyday action is undone from its message for 8 seconds (decision #471 point 71). */
+export const UNDO_TIMEOUT_MS = 8000;
 
 /**
  * A success that can be taken back (#471, ux-ui.md §10.4: "1 bouteille

@@ -68,6 +68,14 @@ export const pwaOptions = {
   reloadOnOnline: false,
   extendDefaultRuntimeCaching: true,
   workboxOptions: {
+    // Review of #828: the translations of THIS version, both languages, at
+    // their fingerprinted URL (lib/i18n.ts). Installed with the rest of the
+    // app, they are there offline from the first start after an update, and
+    // for the other language too. A new version means new URLs: no revision.
+    additionalManifestEntries: ['fr', 'en'].map((lng) => ({
+      url: `/locales/${lng}/common.json?v=${encodeURIComponent(LOCALES_VERSION)}`,
+      revision: null,
+    })),
     runtimeCaching: [
       // FEAT-108 (review of #823): the connectivity probe must never be
       // answered from a cache — the plugin's default `apis` rule

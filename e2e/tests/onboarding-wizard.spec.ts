@@ -75,7 +75,7 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
     // A real refusal rather than a mocked one: the API caps a cellar name at
     // 100 characters, the wizard's field does not (a mocked route never caught
     // this request in WebKit, and the cellar got created).
-    await wizard.getByPlaceholder('Ex : Cave à vin').fill('E2E cave refusée '.padEnd(101, 'x'));
+    await wizard.getByPlaceholder(/^Ex\s:\sCave à vin$/).fill('E2E cave refusée '.padEnd(101, 'x'));
     const refused = page.waitForResponse(
       (r) => r.url().match(/\/api\/cellars\/?$/) !== null && r.request().method() === 'POST',
     );
@@ -172,7 +172,7 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
     await expect(methodTitle).toBeVisible();
     await back.click();
     // A name enables "Create cellar" (a disabled HeroUI button lets taps through).
-    await wizard.getByPlaceholder('Ex : Cave à vin').fill('E2E cave non créée');
+    await wizard.getByPlaceholder(/^Ex\s:\sCave à vin$/).fill('E2E cave non créée');
     await expectReachable(back, 'Back (cellar step, 375 px)');
     await expectReachable(skip, 'Skip this step (cellar step, 375 px)');
     await expectReachable(createCellar, 'Create cellar (375 px)');

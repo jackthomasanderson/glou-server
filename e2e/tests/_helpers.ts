@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { Page, TestInfo } from '@playwright/test';
+import { expect, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { CREDS_FILE, type E2ECreds } from '../global-setup';
 
 export function creds(): E2ECreds {
@@ -62,4 +62,14 @@ export function collectPageProblems(page: Page, testInfo: TestInfo) {
       }
     },
   };
+}
+
+/**
+ * Recette #471 (lot RD point 3): every element matched shows its text whole —
+ * not clipped nor cut by an ellipsis (its content is no wider than its box).
+ */
+export async function expectNotClipped(locator: Locator) {
+  const clipped = await locator.evaluateAll((elements) =>
+    elements.filter((element) => element.scrollWidth > element.clientWidth + 1).map((element) => element.textContent));
+  expect(clipped).toEqual([]);
 }

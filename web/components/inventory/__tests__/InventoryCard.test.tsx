@@ -56,10 +56,10 @@ describe('InventoryCard — one card per wine', () => {
     expect(screen.getByRole('button', { name: 'Cuvée X 2020 — Vin, 5 bouteilles pleines, 1 entamée à 60 %' })).toBeInTheDocument();
   });
 
-  it('a number never ends a line: it is tied to its word', () => {
+  it('a number never ends a line: it is tied to its word; a line never starts with « · » (recette #471)', () => {
     card(product({ items: [unit({ quantity: 500 }), openedBottle(60)] }));
     const parts = Array.from(screen.getByTestId('family-stock-line').querySelectorAll('[aria-hidden="true"]'), (p) => p.textContent);
-    expect(parts).toEqual(['500\u00a0pleines', '· 1\u00a0entamée (60\u00a0%)']);
+    expect(parts).toEqual(['500\u00a0pleines\u00a0·', '1\u00a0entamée (60\u00a0%)']);
   });
 
   it('several opened bottles show their number', () => {

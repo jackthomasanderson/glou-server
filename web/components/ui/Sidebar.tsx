@@ -148,8 +148,10 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
                 </span>
               )}
               {expanded && showCount && (
-                <span className={`ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                  active ? 'bg-white/25 text-white' : 'bg-default-100 text-foreground-500'
+                // The active entry is a light ("flat") button: its counter is a plain pill,
+                // readable whatever the accent colour (white on white was unreadable, recette #471).
+                <span data-testid="nav-count" className={`ml-auto text-xs font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                  active ? 'bg-content1 text-foreground' : 'bg-default-100 text-foreground-500'
                 }`}>
                   {link.count}
                 </span>

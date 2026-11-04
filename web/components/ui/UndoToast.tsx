@@ -2,8 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Progress } from '@heroui/react';
 import { Undo } from 'lucide-react';
-
-const UNDO_TIMEOUT_MS = 6000;
+import { UNDO_TIMEOUT_MS } from '@/lib/toast';
 
 interface UndoToastProps {
   message: string;

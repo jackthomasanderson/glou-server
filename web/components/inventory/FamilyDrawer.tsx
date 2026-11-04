@@ -206,6 +206,10 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
     const curveSource = p.lockedFields.includes('curveShape')
       ? t('maturity.curveSource.manual')
       : p.curveShape ? t('maturity.curveSource.reference') : t('maturity.curveSource.default');
+    const filledSheet = SHEET_FIELDS.filter((field) => p[field] != null && p[field] !== '');
+    // Recette #471: a wine described by nothing shows no empty "Description du vin".
+    const hasDescription = Boolean(drinkingWindow || p.grapeVarieties.length > 0 || p.serviceTemp
+      || (isCigar && (p.recommendedHumidity != null || p.format)) || filledSheet.length > 0 || p.notes);
 
     return (
       <div className="flex flex-col gap-6 px-5 py-5">
@@ -240,6 +244,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
         {/* 4. The wine's description, shared by all its bottles */}
         <section>
+          {hasDescription && (<>
           <SectionTitle>{t(isCigar ? 'familyDrawer.description.titleCigar' : 'familyDrawer.description.title')}</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
             {drinkingWindow && (
@@ -288,12 +293,9 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
             {isCigar && p.format && <InfoCard icon={<Leaf />} label={t('inventory.fields.format')} value={p.format} />}
           </div>
 
-          {(() => {
-            const filled = SHEET_FIELDS.filter((field) => p[field] != null && p[field] !== '');
-            if (filled.length === 0) return null;
-            return (
+          {filledSheet.length > 0 && (
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 mt-3 text-sm" data-testid="family-sheet">
-                {filled.map((field) => (
+                {filledSheet.map((field) => (
                   <React.Fragment key={field}>
                     <dt className="text-foreground-500">{historyFieldLabel(field, t)}</dt>
                     <dd className="flex items-center gap-1.5 flex-wrap font-medium">
@@ -307,8 +309,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                   </React.Fragment>
                 ))}
               </dl>
-            );
-          })()}
+          )}
 
           {/* #506: the pause can be undone here, as the bell hides paused alerts. */}
           {drinkingWindow && unitInStock && (
@@ -336,8 +337,9 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
               <p className="text-sm text-foreground-500 italic leading-relaxed whitespace-pre-wrap">{p.notes}</p>
             </div>
           )}
+          </>)}
 
-          <div className="mt-3">
+          <div className={hasDescription ? 'mt-3' : undefined}>
             <SectionTitle icon={<BookMarked size={13} className="text-foreground-500" />}>{t('collections.title')}</SectionTitle>
             <CollectionPickerInline productId={p.id} currentCollections={p.collections} />
           </div>

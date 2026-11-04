@@ -30,7 +30,7 @@ interface StockMoveFlowOptions {
  * 1. the reminder of the opened bottle (box) of the wine (FEAT-105);
  * 2. "Quelles bouteilles ?" among several full lines (FEAT-104), unless a
  *    line's menu already said which;
- * 3. the write, with "Annuler" for 5 seconds.
+ * 3. the write, with "Annuler" for 8 seconds.
  * `start(move, items, line?)`: the wine's copies, and the full line of a
  * line's menu. Render `dialogs`.
  */

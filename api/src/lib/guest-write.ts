@@ -55,7 +55,7 @@ export function checkGuestWrite(
 
 // ─── "Annuler" (decision #471 point 68) ──────────────────────────────────────
 
-/** How long after a guest's move its "Annuler" is accepted (the web offers it for 5 s). */
+/** How long after a guest's move its "Annuler" is accepted (the web offers it for 8 s, UNDO_TIMEOUT_MS). */
 export const GUEST_UNDO_WINDOW_MS = 60_000;
 
 /** The state a guest's move found on its unit: what "Annuler" puts back. */

@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext, type APIResponse, type Locator, type Page } from '@playwright/test';
+import { expectNotClipped } from './_helpers';
 
 /**
  * #471 (lot L2, ux-ui.md §10.4.2-10.4.3, §10.4.6): the reminder of the
@@ -121,11 +122,15 @@ test.describe('the opened bottle first (#471, L2)', () => {
     expect((await asked).status()).toBe(409);
     const keep = page.getByTestId('keep-tasting-dialog');
     await expect(keep).toContainText('Une dégustation a été notée sur cette bouteille.');
+    // Recette #471: its answers were cut (« rder la dégustati »).
+    await expectNotClipped(keep.getByRole('button'));
 
     const sent = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${sub.id}`) && r.request().method() === 'PATCH');
     await keep.getByRole('button', { name: 'Garder la dégustation' }).click();
     expect((await sent).status()).toBe(200);
     await expect(page.getByText(/Bouteille remise avec les autres/)).toBeVisible();
+    // The message is read whole (« Bouteille remise avec les a… », recette #471).
+    await expectNotClipped(page.getByText(/Bouteille remise avec les autres/));
     await expect(drawer.getByTestId('family-drawer-stock')).toContainText('6 bouteilles');
 
     const product = await productOf(api, group.productId);

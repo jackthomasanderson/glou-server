@@ -78,27 +78,29 @@ export function CorrectQuantityDialog({ item, ctx, isOpen, onClose, onTrashInste
         max={from}
         testId="correct-quantity-input"
       />
-      {quantity === from && (
-        <p className="text-xs text-foreground-500">{t('stockLine.correct.toAdd', { action: t('addUnits.action') })}</p>
-      )}
-      {lowered && (
-        <>
-          <RadioGroup
-            label={t('stockLine.correct.why')}
-            value={reason ?? ''}
-            onValueChange={(value) => setReason(value as CorrectionReason)}
-            isRequired
-          >
-            {CORRECTION_REASONS.map((value) => (
-              <Radio key={value} value={value} description={t(`stockLine.correct.reasons.${value}.hint`)}>
-                {t(`stockLine.correct.reasons.${value}.label`)}
-              </Radio>
-            ))}
-          </RadioGroup>
-          <p className="text-xs text-foreground-500">{t('stockLine.correct.drinkHint', { context: ctx.kind })}</p>
-          {toTrash && <p className="text-xs text-foreground-500">{t('stockLine.correct.trashHint')}</p>}
-        </>
-      )}
+      {/* Recette #471: everything below holds its place whatever the number,
+          so the dialog does not grow and move its buttons under the cursor. */}
+      <RadioGroup
+        label={t('stockLine.correct.why')}
+        value={lowered ? reason ?? '' : ''}
+        onValueChange={(value) => setReason(value as CorrectionReason)}
+        isRequired
+        isDisabled={!lowered}
+      >
+        {CORRECTION_REASONS.map((value) => (
+          <Radio key={value} value={value} description={t(`stockLine.correct.reasons.${value}.hint`)}>
+            {t(`stockLine.correct.reasons.${value}.label`)}
+          </Radio>
+        ))}
+      </RadioGroup>
+      <p className="text-xs text-foreground-500 min-h-8">
+        {lowered
+          ? t('stockLine.correct.drinkHint', { context: ctx.kind })
+          : t('stockLine.correct.toAdd', { action: t('addUnits.action') })}
+      </p>
+      <p className={`text-xs text-foreground-500${toTrash ? '' : ' invisible'}`} aria-hidden={!toTrash}>
+        {t('stockLine.correct.trashHint')}
+      </p>
     </LineDialogFrame>
   );
 }

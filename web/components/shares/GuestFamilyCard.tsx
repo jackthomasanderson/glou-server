@@ -122,7 +122,7 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
 
   /**
    * One copy of `line` opened, drunk or smoked. Its message offers
-   * « Annuler » for 5 s (decision #471 point 68: the guest's own move, just
+   * « Annuler » for 8 s (decision #471 point 68: the guest's own move, just
    * made) and, after a bottle drunk, « Noter une dégustation » on that very
    * bottle (point 70) — the one the API answers (`data`, a detached copy).
    */

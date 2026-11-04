@@ -194,6 +194,17 @@ describe('FamilyDrawer', () => {
     expect(member).not.toHaveTextContent('nvité');
   });
 
+  it('a wine described by nothing shows no empty "Description du vin" (recette #471)', () => {
+    detail = detailOf({ items: [unit({ quantity: 2 })] });
+    const { unmount } = render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(screen.queryByText('Description du vin')).toBeNull();
+    unmount();
+
+    detail = detailOf({ region: 'Bourgogne', items: [unit({ quantity: 2 })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(screen.getByText('Description du vin')).toBeInTheDocument();
+  });
+
   it('"Modifier" hands the wine over for its description', () => {
     detail = detailOf({ items: [unit({ quantity: 9 })] });
     const onEdit = vi.fn();

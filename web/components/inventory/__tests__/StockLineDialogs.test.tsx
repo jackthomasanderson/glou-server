@@ -91,7 +91,11 @@ describe('CorrectQuantityDialog (FEAT-92 c3, §10.4.5)', () => {
   it('starts from the number of the line; the same number asks nothing and cannot be sent', () => {
     open(group());
     expect(numberField('correct-quantity-input')).toHaveValue(6);
-    expect(screen.queryByRole('radio')).toBeNull();
+    // Recette #471: the reasons hold their place (disabled), so the dialog
+    // does not grow under the cursor when the number goes down.
+    const radios = screen.getAllByRole('radio');
+    expect(radios).toHaveLength(2);
+    expect(radios.every((radio) => (radio as HTMLInputElement).disabled)).toBe(true);
     expect(screen.getByText("Pour en ajouter, utilisez « Ajouter des bouteilles » avec la même date d'achat pour rejoindre cette ligne.")).toBeInTheDocument();
     expect(confirmButton('Corriger')).toBeDisabled();
   });
@@ -105,6 +109,7 @@ describe('CorrectQuantityDialog (FEAT-92 c3, §10.4.5)', () => {
       expect.stringContaining('Cassée, offerte ou perdue'),
     ]);
     expect(radios.every((radio) => !(radio as HTMLInputElement).checked)).toBe(true);
+    expect(radios.every((radio) => !(radio as HTMLInputElement).disabled)).toBe(true);
     expect(confirmButton('Corriger')).toBeDisabled();
     expect(screen.getByText('Pour une bouteille bue, utilisez plutôt « J\'en bois une ».')).toBeInTheDocument();
   });

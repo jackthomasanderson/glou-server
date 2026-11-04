@@ -38,7 +38,7 @@
 ### I'm opening one, I'm drinking one, I'm smoking one
 In the wine's drawer, **I'm opening one** (the main button; **I'm smoking one** for a cigar) and **I'm drinking one** (a secondary button) act on **one** bottle only: it detaches from its line (×4 becomes ×3) and becomes a bottle of its own, opened or drunk. A drunk bottle stays in your history and spending. For a line of a single bottle, that bottle changes state.
 - If several lines could serve, Glou asks **Which bottles?** with a choice already selected: the cellar you were looking at, otherwise the oldest purchase; on a tie (or no date), the cheapest, then the largest line.
-- A message **"1 bottle opened · Undo"** stays for 5 seconds: **Undo** puts the bottle back with the others.
+- A message **"1 bottle opened · Undo"** stays for 8 seconds: **Undo** puts the bottle back with the others.
 - If a bottle of this wine is already opened, Glou reminds you: "A bottle is already opened (60 %)": **Finish the opened one** or **Open a new one**. When marking a bottle as drunk: "Is it the one you finished?" (Yes: the opened one is marked drunk; No: a full bottle is). The [consumption plan](./22-Consumption-Plan.md) suggests finishing the opened one first.
 - Cigars: smoking the first cigar of a closed box opens it ("opened box, 24 left"). With an opened box and closed boxes, Glou asks "From the opened box or open a new one?". A smoked single cigar stays in your history like a drunk bottle.
 
